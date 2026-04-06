@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 const DEMO_ROLES = [
   { role: 'FARMER',          email: 'farmer@demo.ru',      label: 'Фермер',          icon: '🌾', color: '#16a34a', desc: 'Создаёт лоты, участвует в торгах, ведёт сделку до расчёта.',           firstPage: '/lots' },
@@ -17,7 +16,6 @@ const DEMO_ROLES = [
 ];
 
 export default function DemoPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,17 +26,18 @@ export default function DemoPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: 'demo1234' }),
+        body: JSON.stringify({ email, password: '' }),
       });
       const data = await res.json();
       if (data.ok) {
-        router.push(firstPage);
+        // Full reload ensures cookies are applied before navigation
+        window.location.href = firstPage;
       } else {
         setError(data.message || 'Ошибка входа');
+        setLoading(null);
       }
     } catch {
       setError('Нет соединения');
-    } finally {
       setLoading(null);
     }
   }
