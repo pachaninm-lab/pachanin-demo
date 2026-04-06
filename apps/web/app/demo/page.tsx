@@ -17,34 +17,26 @@ const DEMO_ROLES = [
 
 export default function DemoPage() {
   const [loading, setLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
+  // Submit a hidden form via fetch with redirectTo — server sets cookie + redirects in one response
   async function loginAs(email: string, firstPage: string) {
-    setError(null);
     setLoading(email);
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: '' }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        // Full reload ensures cookies are applied before navigation
-        window.location.href = firstPage;
-      } else {
-        setError(data.message || 'Ошибка входа');
-        setLoading(null);
-      }
-    } catch {
-      setError('Нет соединения');
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: '', redirectTo: firstPage }),
+      redirect: 'follow',
+    });
+    // If server redirected, res.url contains destination — navigate there
+    if (res.redirected || res.ok) {
+      window.location.href = res.redirected ? res.url : firstPage;
+    } else {
       setLoading(null);
     }
   }
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', color: '#f8fafc', fontFamily: 'system-ui, sans-serif' }}>
-      {/* Hero */}
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '60px 24px 40px' }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <div style={{ fontSize: 13, letterSpacing: '0.15em', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 16 }}>
@@ -59,13 +51,6 @@ export default function DemoPage() {
           </p>
         </div>
 
-        {error && (
-          <div style={{ background: '#450a0a', border: '1px solid #991b1b', borderRadius: 10, padding: '12px 16px', marginBottom: 24, color: '#fca5a5', textAlign: 'center' }}>
-            {error}
-          </div>
-        )}
-
-        {/* Role grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {DEMO_ROLES.map((r) => {
             const isLoading = loading === r.email;
@@ -77,9 +62,7 @@ export default function DemoPage() {
                 style={{
                   background: loading !== null && !isLoading ? 'rgba(30,41,59,0.5)' : 'rgba(30,41,59,0.9)',
                   border: `1px solid ${isLoading ? r.color : 'rgba(148,163,184,0.15)'}`,
-                  borderRadius: 14,
-                  padding: '18px 20px',
-                  textAlign: 'left',
+                  borderRadius: 14, padding: '18px 20px', textAlign: 'left',
                   cursor: loading !== null ? 'not-allowed' : 'pointer',
                   transition: 'all 0.15s',
                   boxShadow: isLoading ? `0 0 20px ${r.color}40` : 'none',
@@ -103,13 +86,12 @@ export default function DemoPage() {
           })}
         </div>
 
-        {/* Info */}
         <div style={{ marginTop: 40, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
           {[
-            { icon: '🔐', title: 'Demo auth', text: 'Любой пароль. Cookie устанавливается автоматически.' },
+            { icon: '🔐', title: 'Demo auth', text: 'Без пароля. Cookie + редирект в одном ответе.' },
             { icon: '💾', title: 'SEED данные', text: 'Все страницы показывают реалистичные данные.' },
             { icon: '📡', title: 'SSE Realtime', text: 'Живые события через Server-Sent Events.' },
-            { icon: '📴', title: 'Offline queue', text: 'Действия сохраняются и синхронизируются при reconnect.' },
+            { icon: '📴', title: 'Offline queue', text: 'Действия сохраняются при reconnect.' },
           ].map((item) => (
             <div key={item.title} style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.1)', borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ fontSize: 20, marginBottom: 6 }}>{item.icon}</div>
@@ -123,7 +105,6 @@ export default function DemoPage() {
           Прозрачная Цена · Demo Stend · Все данные являются тестовыми
         </div>
       </div>
-
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
