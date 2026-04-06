@@ -32,7 +32,7 @@ function setDemoSession(jar: ReturnType<typeof cookies>, role: string, email: st
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { email = '', password = '' } = body;
+  const { email = '', password = '', redirectTo = '' } = body;
 
   // Try real backend first (if configured)
   if (API_URL) {
@@ -66,6 +66,19 @@ export async function POST(request: Request) {
   const role = detectDemoRole(email);
   const jar = cookies();
   setDemoSession(jar, role, email);
+
+  // If redirectTo provided, return a redirect so cookies + navigation happen in one response
+  // This fixes iOS Safari cookie race condition
+  if (redirectTo && redirectTo.startsWith('/')) {
+    const res = NextResponse.redirect(new URL(redirectTo, request.url));
+    const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
+    const sessionValue = encodeURIComponent(JSON.stringify({ role, exp, email }));
+    res.cookies.set(SESSION_COOKIE, sessionValue, sessionMarkerCookie());
+    res.cookies.set(ACCESS_COOKIE, `demo.${Buffer.from(JSON.stringify({ role, exp })).toString('base64')}`, cookieSecurity());
+    res.cookies.set(REFRESH_COOKIE, `demo-refresh.${role}`, cookieSecurity());
+    return res;
+  }
+
   return NextResponse.json({
     ok: true,
     demo: true,
