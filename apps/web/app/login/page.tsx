@@ -1,13 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useState, Suspense } from 'react';
 import { AppShell } from '../../components/app-shell';
-import { api, ApiError, isNetworkError } from '../../lib/api-client';
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo') || '/cabinet';
 
@@ -18,20 +16,25 @@ function LoginForm() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !password) return;
+    if (!email.trim()) return;
     setError(null);
     setLoading(true);
     try {
-      await api.post('/auth/login', { email: email.trim(), password });
-      router.push(decodeURIComponent(returnTo));
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) {
-        setError('Неверный email или пароль. Проверьте данные и попробуйте снова.');
-      } else if (isNetworkError(cause)) {
-        setError('Нет соединения с сервером. Проверьте интернет.');
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        window.location.href = decodeURIComponent(returnTo);
+      } else if (res.status === 401) {
+        setError('Неверный email или пароль.');
       } else {
-        setError('Не удалось войти. Попробуйте позже.');
+        setError(data.message || 'Не удалось войти. Попробуйте позже.');
       }
+    } catch {
+      setError('Нет соединения с сервером.');
     } finally {
       setLoading(false);
     }
@@ -57,7 +60,7 @@ function LoginForm() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="name@company.ru"
+          placeholder="farmer@demo.ru"
           autoComplete="username"
           required
           disabled={loading}
@@ -69,13 +72,12 @@ function LoginForm() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
+          placeholder="любой или пустой в демо"
           autoComplete="current-password"
-          required
           disabled={loading}
         />
         <div className="row" style={{ marginTop: 16, gap: 12 }}>
-          <button className="primary-button" type="submit" disabled={loading || !email || !password}>
+          <button className="primary-button" type="submit" disabled={loading || !email}>
             {loading ? 'Вхожу…' : 'Войти'}
           </button>
           <Link href="/register" className="secondary-link">Регистрация</Link>
