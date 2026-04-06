@@ -13,6 +13,7 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 const PUBLIC_PREFIXES = [
+  '/api/auth/demo',
   '/api/auth/',
   '/api/runtime-',   // runtime demo endpoints
   '/_next/',
