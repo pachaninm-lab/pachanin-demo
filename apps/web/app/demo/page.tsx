@@ -18,21 +18,11 @@ const DEMO_ROLES = [
 export default function DemoPage() {
   const [loading, setLoading] = useState<string | null>(null);
 
-  // Submit a hidden form via fetch with redirectTo — server sets cookie + redirects in one response
-  async function loginAs(email: string, firstPage: string) {
+  // Real browser GET navigation — server sets cookies + redirects in one response
+  // This is the only reliable approach on iOS Safari
+  function loginAs(email: string, firstPage: string) {
     setLoading(email);
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: '', redirectTo: firstPage }),
-      redirect: 'follow',
-    });
-    // If server redirected, res.url contains destination — navigate there
-    if (res.redirected || res.ok) {
-      window.location.href = res.redirected ? res.url : firstPage;
-    } else {
-      setLoading(null);
-    }
+    window.location.href = `/api/auth/demo?email=${encodeURIComponent(email)}&to=${encodeURIComponent(firstPage)}`;
   }
 
   return (
