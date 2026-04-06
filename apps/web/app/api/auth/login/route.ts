@@ -59,9 +59,9 @@ export async function POST(request: Request) {
     }
   }
 
-  // Demo mode: accept any email + non-empty password
-  if (!email || !password || password.length < 3) {
-    return NextResponse.json({ ok: false, message: 'Введите email и пароль (минимум 3 символа).' }, { status: 401 });
+  // Demo mode: email required, password not required
+  if (!email) {
+    return NextResponse.json({ ok: false, message: 'Введите email.' }, { status: 401 });
   }
   const role = detectDemoRole(email);
   const jar = cookies();
