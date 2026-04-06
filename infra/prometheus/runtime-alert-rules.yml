@@ -1,0 +1,48 @@
+groups:
+  - name: runtime-operating-layer
+    rules:
+      - alert: RuntimeOutboxDeadLettersHigh
+        expr: runtime_outbox_dead_total > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: runtime
+        annotations:
+          summary: Dead letters exist in runtime outbox
+          description: Runtime outbox has dead letters that require operator retry or incident review.
+      - alert: RuntimeStaleWorkers
+        expr: runtime_stale_heartbeats_total > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: runtime
+        annotations:
+          summary: Stale worker heartbeat detected
+          description: At least one runtime worker heartbeat is stale and may block orchestration.
+      - alert: RuntimeLockPressureHigh
+        expr: runtime_active_locks_total > 25
+        for: 15m
+        labels:
+          severity: warning
+          service: runtime
+        annotations:
+          summary: Runtime lock pressure is high
+          description: Object-level locks exceed safe threshold and may cause command contention.
+      - alert: RuntimeFailedCommandsHigh
+        expr: increase(runtime_failed_commands_total[15m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+          service: runtime
+        annotations:
+          summary: Runtime commands are failing repeatedly
+          description: Failed runtime commands breached threshold in the last 15 minutes.
+      - alert: RuntimeConnectorDegraded
+        expr: runtime_degraded_connectors_total > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: integrations
+        annotations:
+          summary: Connector health is degraded
+          description: At least one critical connector is degraded and manual fallback may be required.

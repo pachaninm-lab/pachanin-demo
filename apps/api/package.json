@@ -1,0 +1,52 @@
+{
+  "name": "@pc/api",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "tsc -p tsconfig.json",
+    "test": "jest",
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "prisma": "prisma",
+    "start": "node dist/main.js",
+    "seed": "ts-node prisma/seed.ts",
+    "seed:federal-catalog": "ts-node prisma/federal-counterparties.seed.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed:service-providers": "ts-node prisma/service-providers.seed.ts"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.4.5",
+    "@nestjs/core": "^10.4.5",
+    "@nestjs/config": "^3.2.3",
+    "@nestjs/platform-express": "^10.4.5",
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "jsonwebtoken": "^9.0.2",
+    "prom-client": "^15.1.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "@nestjs/websockets": "^10.4.5",
+    "@nestjs/platform-socket.io": "^10.4.5",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^10.4.5",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.8.1",
+    "@types/supertest": "^6.0.2",
+    "jest": "^29.7.0",
+    "prisma": "^5.22.0",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3",
+    "@nestjs/cli": "^10.4.5"
+  }
+}

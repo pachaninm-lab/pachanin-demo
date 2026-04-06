@@ -1,0 +1,13 @@
+api:
+  replicas: 2
+web:
+  replicas: 2
+workers:
+  routeSimulator: 1
+  connectorRetry: 1
+  paymentCallback: 1
+postgres:
+  backups: true
+observability:
+  prometheus: true
+  alerts: true

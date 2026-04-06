@@ -1,0 +1,7 @@
+{
+  "system": "LAB",
+  "event": "quality.protocol.ready",
+  "sampleId": "SAMPLE-2026-011",
+  "status": "READY",
+  "receivedAt": "2026-03-13T10:06:45Z"
+}

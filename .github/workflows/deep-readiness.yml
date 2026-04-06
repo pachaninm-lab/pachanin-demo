@@ -1,0 +1,29 @@
+name: deep-readiness
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, hardening, integration, pilot ]
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Deep readiness suite
+        run: node ./scripts/run-deep-readiness-suite.mjs
+      - name: Upload readiness reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: deep-readiness-reports
+          path: |
+            var/deep-readiness-suite-report.json
+            var/runtime-launch-readiness-report.json
+            var/role-journey-coverage-report.json
+            var/performance-offline-readiness-report.json
+            var/security-observability-readiness-report.json
+            var/handoff-pack.json
+            var/handoff-pack.md

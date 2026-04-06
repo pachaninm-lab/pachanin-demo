@@ -1,0 +1,549 @@
+openapi: 3.0.3
+info:
+  title: Прозрачная Цена API
+  version: 1.1.0-rc.1
+servers:
+  - url: /api
+paths:
+  /health/live:
+    get:
+      summary: Liveness probe
+      responses:
+        '200':
+          description: OK
+  /health/ready:
+    get:
+      summary: Readiness probe
+      responses:
+        '200':
+          description: DB ready
+  /release-health:
+    get:
+      summary: Provider release health
+      responses:
+        '200':
+          description: Release health snapshot
+  /release-gates:
+    get:
+      summary: Release gates snapshot
+      responses:
+        '200':
+          description: Runtime/public/rate-limit/provider snapshot
+  /market-news:
+    get:
+      summary: Market news feed
+      responses:
+        '200':
+          description: News feed
+  /market-analytics/overview:
+    get:
+      summary: Market analytics overview
+      responses:
+        '200':
+          description: Analytics cards and series
+  /lots/report:
+    get:
+      summary: Enriched lot report list
+      responses:
+        '200':
+          description: Lot report rows
+  /lots/{id}/report:
+    get:
+      summary: Enriched lot report detail
+      parameters:
+        - in: path
+          name: lotId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lot report detail
+
+  /business-reputation/organizations/export:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Export business reputation registry as CSV
+      responses:
+        '200':
+          description: CSV export
+  /auth/login:
+    post:
+      summary: Login by email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: JWT tokens
+  /auth/refresh:
+    post:
+      summary: Rotate refresh token
+      responses:
+        '200':
+          description: New tokens
+
+  /auth/oidc/providers:
+    get:
+      summary: OIDC provider configuration
+      responses:
+        '200':
+          description: Provider list
+  /auth/oidc/authorization-url:
+    get:
+      summary: Build OIDC authorization URL
+      responses:
+        '200':
+          description: Authorization URL
+  /auth/me:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Current user
+      responses:
+        '200':
+          description: Authenticated user
+  /lots:
+    get:
+      summary: Search lots
+      responses:
+        '200':
+          description: Lots list
+    post:
+      security:
+        - bearerAuth: []
+      summary: Create lot
+      responses:
+        '201':
+          description: Lot created
+  /lots/{lotId}/submit:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Submit lot to moderation
+      parameters:
+        - in: path
+          name: lotId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lot updated
+  /lots/{lotId}/moderate:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Moderate lot
+      parameters:
+        - in: path
+          name: lotId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lot moderated
+  /lots/{lotId}/bids:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Place bid
+      parameters:
+        - in: path
+          name: lotId
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Bid created
+  /deals:
+    get:
+      security:
+        - bearerAuth: []
+      summary: List deals
+      responses:
+        '200':
+          description: Deals list
+    post:
+      security:
+        - bearerAuth: []
+      summary: Create deal
+      responses:
+        '201':
+          description: Deal created
+  /deals/{dealId}/transition:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Transition deal state
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deal updated
+  /logistics/shipments:
+    get:
+      security:
+        - bearerAuth: []
+      summary: List shipments
+      responses:
+        '200':
+          description: Shipment list
+    post:
+      security:
+        - bearerAuth: []
+      summary: Create shipment
+      responses:
+        '201':
+          description: Shipment created
+  /logistics/shipments/{shipmentId}/transition:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Transition shipment state
+      parameters:
+        - in: path
+          name: shipmentId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Shipment updated
+  /documents:
+    get:
+      security:
+        - bearerAuth: []
+      summary: List documents
+      responses:
+        '200':
+          description: Documents list
+  /documents/upload:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Upload evidence document
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, type]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                type:
+                  type: string
+                lotId:
+                  type: string
+                dealId:
+                  type: string
+                shipmentId:
+                  type: string
+      responses:
+        '201':
+          description: Document stored
+  /documents/{documentId}/download:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Download or get signed URL for document
+      parameters:
+        - in: path
+          name: documentId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Download payload
+  /anti-fraud/cases:
+    get:
+      security:
+        - bearerAuth: []
+      summary: List anti-fraud cases
+      responses:
+        '200':
+          description: Cases list
+  /anti-fraud/evaluate/deal/{dealId}:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Evaluate deal risk
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Evaluation result
+  /integrations/jobs:
+    get:
+      security:
+        - bearerAuth: []
+      summary: List sync jobs
+      responses:
+        '200':
+          description: Sync job list
+  /integrations/edo/deals/{dealId}/export-contract:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Export contract draft to EDO adapter
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sync job created
+  /integrations/fgis-zerno/deals/{dealId}/push:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Push deal into FGIS Zerno adapter
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sync job created
+  /integrations/bank/deals/{dealId}/reserve-prepayment:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Reserve prepayment in bank adapter
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sync job created
+  /integrations/gps/shipments/{shipmentId}/heartbeat:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Push GPS heartbeat into adapter
+      parameters:
+        - in: path
+          name: shipmentId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sync job created
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: Metrics output
+  /scenario-runtime:
+    get:
+      summary: Controlled-pilot scenarios
+      responses:
+        '200':
+          description: Scenario list
+  /scenario-runtime/{scenarioId}:
+    get:
+      summary: Scenario detail
+      parameters:
+        - in: path
+          name: scenarioId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scenario detail
+  /route-planner/weighbridge:
+    get:
+      summary: Find nearest weighbridges and recommendation
+      responses:
+        '200':
+          description: Weighbridge options
+  /route-planner/shipment/{shipmentId}:
+    get:
+      summary: Shipment route plan and required evidence
+      parameters:
+        - in: path
+          name: shipmentId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Route plan
+  /handoff-runtime/deal/{dealId}:
+    get:
+      summary: Cross-role handoff matrix for a deal
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Handoff list
+  /handoff-runtime/roles/{roleId}:
+    get:
+      summary: Before/during/after matrix by role
+      parameters:
+        - in: path
+          name: roleId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role runtime detail
+  /settlement-engine/deal/{dealId}:
+    get:
+      summary: Settlement worksheet and release candidate
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Settlement worksheet
+  /runtime/snapshot:
+    get:
+      summary: Unified runtime snapshot for demo and controlled pilot
+      responses:
+        '200':
+          description: Runtime snapshot
+  /runtime/feed:
+    get:
+      summary: Runtime alerts, notifications and recent event feed
+      responses:
+        '200':
+          description: Runtime feed
+  /runtime/history:
+    get:
+      summary: Persisted runtime event log and audit tail
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Runtime history
+  /runtime/object/{type}/{id}:
+    get:
+      summary: Linked runtime object view by type and id
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object view
+  /runtime/roles/{roleId}:
+    get:
+      summary: Role-specific runtime queue and blockers
+      parameters:
+        - in: path
+          name: roleId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role dashboard
+  /runtime/simulate:
+    post:
+      summary: Mutate runtime snapshot through controlled simulation action
+      responses:
+        '200':
+          description: Updated runtime summary
+  /runtime/reset:
+    post:
+      summary: Reset runtime snapshot to seed state
+      responses:
+        '200':
+          description: Reset snapshot
+  /runtime/stream:
+    get:
+      summary: Server-sent event stream of runtime updates
+      responses:
+        '200':
+          description: text/event-stream
+  /runtime/janitor/preview:
+    get:
+      summary: Preview stale runtime records for janitor cleanup
+      responses:
+        '200':
+          description: Janitor preview
+  /runtime/janitor/run:
+    post:
+      summary: Run janitor cleanup for locks, leases, heartbeats and stale transactions
+      responses:
+        '200':
+          description: Janitor cleanup result
+  /runtime/me/query-scope:
+    get:
+      summary: Return scoped Prisma and SQL query hints for current user
+      responses:
+        '200':
+          description: Query scope
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+
+
+  /api/runtime/alert-rules:
+    get:
+      summary: Runtime Prometheus alert rule catalog
+  /api/runtime/locks/domain/{dealId}:
+    get:
+      summary: Domain lock graph for a deal
+  /api/runtime/deals/{dealId}/concurrency:
+    get:
+      summary: Settlement / dispute concurrency guard view for a deal

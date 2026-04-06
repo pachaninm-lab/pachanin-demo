@@ -1,0 +1,9 @@
+{
+  "system": "GPS",
+  "event": "vehicle.position",
+  "shipmentId": "SHIP-2026-019",
+  "lat": 52.721,
+  "lon": 41.452,
+  "speedKmh": 57,
+  "receivedAt": "2026-03-13T10:05:00Z"
+}

@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": [],
+    "lib": ["es2022"],
+    "skipLibCheck": true
+  },
+  "include": [
+    "types/repo-verify-shims.d.ts",
+    "apps/api/src/**/*.ts",
+    "apps/api/test/**/*.ts",
+    "apps/api/prisma/**/*.ts",
+    "shared/**/*.ts",
+    "packages/domain-core/src/**/*.ts"
+  ]
+}

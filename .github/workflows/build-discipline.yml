@@ -1,0 +1,45 @@
+name: preintegration-build-discipline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, hardening, integration, pilot ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  discipline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Static green gate
+        run: node scripts/verify-preintegration-green.mjs
+      - name: Route hardening audit
+        run: node scripts/verify-commercial-route-hardening.mjs
+      - name: Client directive audit
+        run: node scripts/verify-use-client-order.mjs
+      - name: Runtime persistence audit
+        run: node scripts/verify-runtime-persistence.mjs
+      - name: Hardening backlog seed
+        run: node scripts/extract-hardening-backlog.mjs
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Build
+        run: pnpm build
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: discipline-reports
+          path: |
+            var/preintegration-green-report.json
+            var/hardening-backlog.json

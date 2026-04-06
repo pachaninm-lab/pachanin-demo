@@ -1,0 +1,7 @@
+{
+  "name": "@pc/domain-core",
+  "private": true,
+  "version": "0.2.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

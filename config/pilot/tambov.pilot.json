@@ -1,0 +1,36 @@
+{
+  "pilotId": "tambov-controlled-2026",
+  "region": "Тамбовская область",
+  "mode": "controlled",
+  "scope": {
+    "deals": 2,
+    "shipments": 4,
+    "companies": 4,
+    "labs": 1,
+    "banks": 1,
+    "edo": 1
+  },
+  "entryCriteria": [
+    "onboarding completed",
+    "operator assigned",
+    "sandbox bank rail configured",
+    "offline artifacts enabled"
+  ],
+  "stopConditions": [
+    "runtime fail-closed violation",
+    "unresolved dispute over 48h",
+    "critical connector degradation without fallback owner"
+  ],
+  "dailyControls": [
+    "deal blockers review",
+    "shipment checkpoint review",
+    "document completeness review",
+    "payment hold/release review"
+  ],
+  "successMetrics": [
+    "all pilot deals closed inside contour",
+    "no silent fallback on critical path",
+    "all money releases evidenced",
+    "all disputes have owner and SLA"
+  ]
+}

@@ -1,0 +1,6 @@
+FROM node:20-alpine
+WORKDIR /app
+COPY . .
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+RUN pnpm install --frozen-lockfile || pnpm install
+CMD ["pnpm", "exec", "ts-node", "workers/route-simulator/route-simulator.worker.ts"]

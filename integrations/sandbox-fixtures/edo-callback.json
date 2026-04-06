@@ -1,0 +1,7 @@
+{
+  "system": "EDO",
+  "event": "document.signed",
+  "externalId": "edo-sample-001",
+  "status": "SIGNED",
+  "receivedAt": "2026-03-13T10:00:30Z"
+}
