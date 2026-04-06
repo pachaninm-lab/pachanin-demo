@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 const ROLES = [
   { label: 'Фермер',     email: 'farmer@demo.ru',     icon: '🌾' },
@@ -24,7 +23,6 @@ function readRoleFromCookie(): string {
 }
 
 export function DemoBanner() {
-  const router = useRouter();
   const [role, setRole] = useState('');
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -45,12 +43,11 @@ export function DemoBanner() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: 'demo1234' }),
+        body: JSON.stringify({ email, password: '' }),
       });
       const data = await res.json();
       if (data.ok) {
-        setRole(readRoleFromCookie());
-        router.refresh();
+        window.location.reload();
       }
     } finally {
       setSwitching(false);
@@ -59,7 +56,7 @@ export function DemoBanner() {
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/demo');
+    window.location.href = '/demo';
   }
 
   const currentRole = ROLES.find((r) => {
