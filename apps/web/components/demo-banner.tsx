@@ -36,22 +36,11 @@ export function DemoBanner() {
 
   if (!role) return null; // not logged in
 
-  async function switchRole(email: string) {
+  function switchRole(email: string) {
     setSwitching(true);
     setOpen(false);
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: '' }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        window.location.reload();
-      }
-    } finally {
-      setSwitching(false);
-    }
+    // Use GET /api/auth/demo — sets cookies + redirects in ONE server response (iOS Safari safe)
+    window.location.href = `/api/auth/demo?email=${encodeURIComponent(email)}&to=${encodeURIComponent(window.location.pathname)}`;
   }
 
   async function logout() {
