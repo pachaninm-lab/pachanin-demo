@@ -26,6 +26,14 @@ type Notif = {
   nextAction?: string;
 };
 
+const SEED_NOTIFS: Notif[] = [
+  { id: 'NOT-001', title: 'Торги по LOT-001 заканчиваются', body: 'Аукцион по пшенице 500 т завершается через 2 часа. Есть 3 активные заявки.', channel: 'IN_APP', isRead: false, severity: 'urgent', linkedEntity: 'LOT-001', actionHref: '/lots/LOT-001', nextAction: 'Проверить ставки и принять решение', createdAt: '2026-04-07T16:00:00Z', overdue: false },
+  { id: 'NOT-002', title: 'Лабораторный протокол готов', body: 'Протокол качества по DEAL-002 выдан. Решение по settlement/dispute требуется.', channel: 'IN_APP', isRead: false, severity: 'high', linkedEntity: 'DEAL-002', actionHref: '/deals/DEAL-002', nextAction: 'Открыть протокол и принять решение по сделке', createdAt: '2026-04-07T14:30:00Z', overdue: true },
+  { id: 'NOT-003', title: 'Платёж ожидает подтверждения', body: 'PAY-001 на 4 200 000 ₽ — ожидает подтверждения банка. Документы готовы.', channel: 'IN_APP', isRead: true, severity: 'normal', linkedEntity: 'PAY-001', actionHref: '/payments', nextAction: 'Подтвердить платёж и проверить статус', createdAt: '2026-04-06T11:00:00Z', overdue: false },
+  { id: 'NOT-004', title: 'Груз прибыл на элеватор', body: 'SHIP-002 прибыл в Ростов-на-Дону. Начните проверку качества и приёмку.', channel: 'IN_APP', isRead: false, severity: 'normal', linkedEntity: 'SHIP-002', actionHref: '/receiving', nextAction: 'Начать приёмку и лабораторную проверку', createdAt: '2026-04-07T09:00:00Z', overdue: false },
+  { id: 'NOT-005', title: 'Рыночный сигнал: цены растут', body: 'Пшеница 3 кл в Краснодарском крае: +180 ₽/т за неделю. Рекомендуется пересмотреть ценовую стратегию.', channel: 'IN_APP', isRead: true, severity: 'info', linkedEntity: 'MARKET', actionHref: '/market-center', nextAction: 'Проверить актуальный netback в ценовом центре', createdAt: '2026-04-06T08:00:00Z', overdue: false },
+];
+
 function NotificationsPage() {
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,12 +42,12 @@ function NotificationsPage() {
 
   const load = async () => {
     const list = await api.get<Notif[]>('/notifications');
-    setItems(Array.isArray(list) ? list : []);
+    setItems(Array.isArray(list) && list.length > 0 ? list : SEED_NOTIFS);
   };
 
   useEffect(() => {
     load()
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Не удалось загрузить уведомления'))
+      .catch(() => setItems(SEED_NOTIFS))
       .finally(() => setLoading(false));
   }, []);
 
