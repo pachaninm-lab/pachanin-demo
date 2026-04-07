@@ -398,6 +398,30 @@ select.input {
 .detail-title  { font-size: 22px; font-weight: 800; color: var(--text-1); margin: 0 0 8px; }
 .detail-meta   { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); }
 
+/* ---------- Extended class aliases ---------- */
+/* text-muted-foreground — used across many notification/list components */
+.text-muted-foreground { color: var(--text-2); }
+
+/* filter-pill — filter button chips */
+.filter-pill {
+  display: inline-flex; align-items: center;
+  padding: 5px 14px; border-radius: 99px; font-size: 13px; font-weight: 500;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text-2);
+  cursor: pointer; transition: all 0.15s; -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.filter-pill:hover { color: var(--text-1); border-color: var(--border-2); }
+.filter-pill.active {
+  background: var(--primary-dim); border-color: rgba(56,189,248,0.4); color: var(--primary);
+}
+
+/* button compact variants */
+.button.secondary { background: transparent; border-color: var(--border-2); }
+.button.ghost { background: transparent; border: none; color: var(--text-3); }
+.button.compact { padding: 4px 10px; font-size: 12px; }
+.button.secondary.compact { background: transparent; border: 1px solid var(--border-2); padding: 4px 10px; font-size: 12px; }
+.button.ghost.compact { background: transparent; border: none; padding: 4px 10px; font-size: 12px; color: var(--primary); }
+
 /* ---------- Ghost & misc links ---------- */
 .ghost-link {
   display: inline-flex; align-items: center;
