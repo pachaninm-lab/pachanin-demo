@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/cabinet", "destination": "/canon/roles" },
+    { "source": "/analytics", "destination": "/canon/analytics2" },
+    { "source": "/receiving", "destination": "/canon/receiving2" },
+    { "source": "/lots", "destination": "/canon/catalog2" },
+    { "source": "/documents", "destination": "/canon/documents" },
+    { "source": "/deals", "destination": "/canon/deals" },
+    { "source": "/payments", "destination": "/canon/finance" },
+    { "source": "/dispatch", "destination": "/canon/operations" },
+    { "source": "/lab", "destination": "/canon/quality" },
+    { "source": "/operator-cockpit", "destination": "/canon/control" },
+    { "source": "/driver-mobile", "destination": "/canon/mobile2" }
+  ]
+}
