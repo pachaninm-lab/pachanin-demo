@@ -34,8 +34,11 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { email = '', password = '', redirectTo = '' } = body;
 
-  // Try real backend first (if configured)
-  if (API_URL) {
+  // Skip backend entirely for demo emails — always use demo mode
+  const isDemoEmail = email.toLowerCase().endsWith('@demo.ru') || email.toLowerCase().endsWith('@demo.test');
+
+  // Try real backend first (if configured and not a demo email)
+  if (API_URL && !isDemoEmail) {
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
