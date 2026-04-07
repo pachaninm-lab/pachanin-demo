@@ -1,3 +1,7 @@
+/* Tailwind utilities (no preflight — our custom base styles below take precedence) */
+@tailwind components;
+@tailwind utilities;
+
 /* ============================================================
    ПРОЗРАЧНАЯ ЦЕНА — Design System
    ============================================================ */
