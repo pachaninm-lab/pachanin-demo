@@ -21,11 +21,11 @@ const QUICK_LINKS = [
 ];
 
 const TONE_STYLE: Record<string, string> = {
-  red: 'background: #fef2f2; border-left: 3px solid #ef4444;',
-  amber: 'background: #fffbeb; border-left: 3px solid #f59e0b;',
-  green: 'background: #f0fdf4; border-left: 3px solid #22c55e;',
-  blue: 'background: #eff6ff; border-left: 3px solid #3b82f6;',
-  gray: 'background: var(--color-surface-2, #f3f4f6); border-left: 3px solid #e5e7eb;',
+  red:   'background: rgba(248,113,113,0.08); border-left: 3px solid #f87171;',
+  amber: 'background: rgba(251,191,36,0.08); border-left: 3px solid #fbbf24;',
+  green: 'background: rgba(52,211,153,0.08); border-left: 3px solid #34d399;',
+  blue:  'background: rgba(56,189,248,0.08); border-left: 3px solid #38bdf8;',
+  gray:  'background: rgba(255,255,255,0.03); border-left: 3px solid rgba(255,255,255,0.12);',
 };
 
 export default function ControlPage() {
