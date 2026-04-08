@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 const roles = [
   ['Фермер / Продавец','Продажа зерна, рынок, buyer offers','/canon/market'],
   ['Покупатель','Сделки, исполнение, приёмка','/canon/deals'],
@@ -22,13 +20,13 @@ export default function Page() {
         <p style={{ margin:'14px 0 24px', color:'#94a3b8', fontSize:16, lineHeight:1.5 }}>Один вход. Один канон. Каждая роль попадает сразу в свой рабочий кабинет.</p>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(250px,1fr))', gap:14 }}>
           {roles.map(([title,text,href]) => (
-            <Link key={title} href={href} style={{ textDecoration:'none', color:'inherit', background:'#0b1220', border:'1px solid rgba(255,255,255,.08)', borderRadius:24, padding:18, minHeight:156, display:'flex', flexDirection:'column', justifyContent:'space-between' }}>
+            <a key={title} href={href} style={{ textDecoration:'none', color:'inherit', background:'#0b1220', border:'1px solid rgba(255,255,255,.08)', borderRadius:24, padding:18, minHeight:156, display:'flex', flexDirection:'column', justifyContent:'space-between' }}>
               <div style={{ width:56, height:56, borderRadius:18, background:'rgba(34,197,94,.14)' }} />
               <div>
                 <div style={{ fontSize:22, fontWeight:700, lineHeight:1.1 }}>{title}</div>
                 <div style={{ color:'#8aa0b8', fontSize:15, lineHeight:1.35, marginTop:10 }}>{text}</div>
               </div>
-            </Link>
+            </a>
           ))}
         </div>
       </div>
