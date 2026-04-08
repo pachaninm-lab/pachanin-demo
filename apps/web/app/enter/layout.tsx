@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { ReactNode } from 'react';
 
-export default function EnterLayout() {
-  redirect('/canon/roles');
+export default function EnterLayout({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }
