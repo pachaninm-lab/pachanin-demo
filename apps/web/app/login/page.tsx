@@ -1,136 +1,69 @@
-'use client';
-
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { useState, Suspense } from 'react';
-import { AppShell } from '../../components/app-shell';
+import { redirect } from 'next/navigation';
 
-function LoginForm() {
-  const searchParams = useSearchParams();
-  const returnTo = searchParams.get('returnTo') || '/cabinet';
+const DEMO_ROLES = [
+  { label: 'Фермер', email: 'farmer@demo.ru', to: '/canon/market' },
+  { label: 'Покупатель', email: 'buyer@demo.ru', to: '/canon/deals' },
+  { label: 'Бухгалтерия', email: 'accounting@demo.ru', to: '/canon/finance' },
+  { label: 'Логистика', email: 'logistic@demo.ru', to: '/canon/operations' },
+  { label: 'Лаборатория', email: 'lab@demo.ru', to: '/canon/quality' },
+  { label: 'Оператор', email: 'operator@demo.ru', to: '/canon/control' },
+  { label: 'Руководитель', email: 'executive@demo.ru', to: '/canon/analytics2' },
+  { label: 'Элеватор', email: 'elevator@demo.ru', to: '/canon/receiving2' },
+  { label: 'Водитель', email: 'driver@demo.ru', to: '/canon/mobile2' },
+  { label: 'Администратор', email: 'admin@demo.ru', to: '/canon/admin' },
+] as const;
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+function normalizeReturnTo(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw || !raw.startsWith('/')) return '/';
+  return raw;
+}
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) return;
-    setError(null);
-    setLoading(true);
+function matchDemoRole(returnTo: string) {
+  return DEMO_ROLES.find((item) => returnTo === item.to || returnTo.startsWith(`${item.to}/`));
+}
 
-    // Demo emails — use GET /api/auth/demo (sets cookies + redirect in ONE response, iOS Safari safe)
-    const isDemo = trimmedEmail.toLowerCase().endsWith('@demo.ru') || trimmedEmail.toLowerCase().endsWith('@demo.test');
-    if (isDemo) {
-      window.location.href = `/api/auth/demo?email=${encodeURIComponent(trimmedEmail)}&to=${encodeURIComponent(returnTo)}`;
-      return;
-    }
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  const returnTo = normalizeReturnTo(searchParams?.returnTo);
+  const matchedRole = matchDemoRole(returnTo);
 
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, password }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        window.location.href = decodeURIComponent(returnTo);
-      } else if (res.status === 401) {
-        setError('Неверный email или пароль.');
-      } else {
-        setError(data.message || 'Не удалось войти. Попробуйте позже.');
-      }
-    } catch {
-      setError('Нет соединения с сервером.');
-    } finally {
-      setLoading(false);
-    }
+  if (matchedRole) {
+    redirect(`/api/auth/demo?email=${encodeURIComponent(matchedRole.email)}&to=${encodeURIComponent(returnTo)}`);
+  }
+
+  if (returnTo === '/canon/roles') {
+    redirect('/');
   }
 
   return (
-    <form onSubmit={handleLogin}>
-      <div className="card max-w-xl">
-        {searchParams.get('reason') === 'session_expired' && (
-          <div className="soft-box" style={{ background: 'var(--color-amber-soft, #fef3c7)', marginBottom: 16 }}>
-            Сессия истекла — войдите снова, чтобы продолжить работу.
-          </div>
-        )}
-        {error && (
-          <div className="soft-box" style={{ background: 'var(--color-red-soft, #fef2f2)', color: '#991b1b', marginBottom: 16 }}>
-            {error}
-          </div>
-        )}
-        <label className="field-label" htmlFor="email">Email</label>
-        <input
-          id="email"
-          className="input"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="farmer@demo.ru"
-          autoComplete="username"
-          required
-          disabled={loading}
-        />
-        <label className="field-label" htmlFor="password" style={{ marginTop: 12 }}>Пароль</label>
-        <input
-          id="password"
-          className="input"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="любой или пустой в демо"
-          autoComplete="current-password"
-          disabled={loading}
-        />
-        <div className="row" style={{ marginTop: 16, gap: 12 }}>
-          <button className="primary-button" type="submit" disabled={loading || !email}>
-            {loading ? 'Вхожу…' : 'Войти'}
-          </button>
-          <Link href="/register" className="secondary-link">Регистрация</Link>
+    <main style={{ minHeight: '100vh', background: '#050914', color: '#f8fafc', fontFamily: '-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif', padding: '24px 16px 48px' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto' }}>
+        <div style={{ color: '#22c55e', fontWeight: 800, fontSize: 15, marginBottom: 16 }}>Прозрачная Цена</div>
+        <h1 style={{ margin: 0, fontSize: 40, lineHeight: 1.05, fontWeight: 800 }}>Вход</h1>
+        <p style={{ margin: '14px 0 24px', color: '#94a3b8', fontSize: 16, lineHeight: 1.5 }}>
+          Демо-вход перенаправляет в нужную роль автоматически. Если автоматический переход не сработал, выбери роль ниже.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
+          {DEMO_ROLES.map((role) => (
+            <a
+              key={role.email}
+              href={`/api/auth/demo?email=${encodeURIComponent(role.email)}&to=${encodeURIComponent(role.to)}`}
+              style={{ textDecoration: 'none', color: 'inherit', background: '#0b1220', border: '1px solid rgba(255,255,255,.08)', borderRadius: 20, padding: 16 }}
+            >
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{role.label}</div>
+              <div style={{ marginTop: 8, fontSize: 13, color: '#8aa0b8' }}>{role.to}</div>
+            </a>
+          ))}
         </div>
-        <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
-            Или войдите в демо без пароля
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {[
-              { email: 'farmer@demo.ru', label: '🌾 Фермер' },
-              { email: 'buyer@demo.ru',  label: '🏢 Покупатель' },
-              { email: 'operator@demo.ru', label: '⚙️ Оператор' },
-            ].map((r) => (
-              <a
-                key={r.email}
-                href={`/api/auth/demo?email=${r.email}&to=${encodeURIComponent(returnTo)}`}
-                style={{
-                  padding: '6px 12px', borderRadius: 8,
-                  background: 'rgba(56,189,248,0.08)',
-                  border: '1px solid rgba(56,189,248,0.2)',
-                  color: '#38bdf8', textDecoration: 'none',
-                  fontSize: 13, fontWeight: 600,
-                }}
-              >
-                {r.label}
-              </a>
-            ))}
-          </div>
-          <a href="/demo" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: 'var(--text-3)', textDecoration: 'none' }}>
-            Все 10 ролей →
-          </a>
+        <div style={{ marginTop: 20 }}>
+          <Link href="/" style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: 600 }}>← Вернуться к выбору роли</Link>
         </div>
       </div>
-    </form>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <AppShell title="Вход" subtitle="Авторизация в рабочий контур">
-      <Suspense fallback={<div className="card max-w-xl">Загрузка…</div>}>
-        <LoginForm />
-      </Suspense>
-    </AppShell>
+    </main>
   );
 }
