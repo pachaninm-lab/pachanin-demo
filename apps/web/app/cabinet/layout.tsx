@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export default function CabinetLayout() {
-  redirect('/canon/roles');
+  redirect('/canon/admin');
 }
