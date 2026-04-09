@@ -21,14 +21,13 @@ function detectDemoRole(email: string): string {
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const email = searchParams.get('email') || 'farmer@demo.ru';
-  const to = searchParams.get('to') || '/cabinet';
+  const to = searchParams.get('to') || '/';
 
-  // Safety: only allow relative paths
-  const destination = to.startsWith('/') ? to : '/cabinet';
+  const destination = to.startsWith('/') ? to : '/';
 
   const role = detectDemoRole(email);
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
-  const sessionValue = encodeURIComponent(JSON.stringify({ role, exp, email }));
+  const sessionValue = JSON.stringify({ role, exp, email });
 
   const url = new URL(destination, request.url);
   const res = NextResponse.redirect(url);
@@ -37,6 +36,7 @@ export async function GET(request: NextRequest) {
   res.cookies.set(ACCESS_COOKIE, `demo.${Buffer.from(JSON.stringify({ role, exp })).toString('base64')}`, cookieSecurity());
   res.cookies.set(REFRESH_COOKIE, `demo-refresh.${role}`, cookieSecurity());
   res.cookies.set(CSRF_COOKIE, generateCsrfToken(), csrfCookieSecurity());
+  res.headers.set('Cache-Control', 'no-store');
 
   return res;
 }
