@@ -1,71 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-
-const DOCUMENTS_SEED = [
-  {
-    id: 'DOC-001',
-    dealId: 'DEAL-001',
-    type: 'contract',
-    status: 'SIGNED',
-    name: 'Договор купли-продажи №DEAL-001',
-    signedAt: '2026-03-25T12:00:00Z',
-    uploadedAt: '2026-03-24T10:00:00Z',
-    uploadedByUserId: 'user-farmer-1',
-    mimeType: 'application/pdf',
-    url: '/documents/DOC-001/content',
-  },
-  {
-    id: 'DOC-002',
-    dealId: 'DEAL-001',
-    type: 'transport_waybill',
-    status: 'SIGNED',
-    name: 'ТТН №001',
-    signedAt: '2026-03-28T08:00:00Z',
-    uploadedAt: '2026-03-28T07:30:00Z',
-    uploadedByUserId: 'user-logistician-1',
-    mimeType: 'application/pdf',
-    url: '/documents/DOC-002/content',
-  },
-  {
-    id: 'DOC-003',
-    dealId: 'DEAL-002',
-    type: 'quality_certificate',
-    status: 'GENERATED',
-    name: 'Сертификат качества DEAL-002',
-    uploadedAt: '2026-04-02T09:00:00Z',
-    uploadedByUserId: 'user-lab-1',
-    mimeType: 'application/pdf',
-    url: '/documents/DOC-003/content',
-  },
-  {
-    id: 'DOC-004',
-    dealId: 'DEAL-003',
-    type: 'contract',
-    status: 'DRAFT',
-    name: 'Договор купли-продажи №DEAL-003',
-    uploadedAt: '2026-04-01T10:30:00Z',
-    uploadedByUserId: 'user-farmer-2',
-    mimeType: 'application/pdf',
-    url: '/documents/DOC-004/content',
-  },
-];
+import { Injectable } from '@nestjs/common';
+import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
 
 @Injectable()
 export class DocumentsService {
-  private documents: any[] = DOCUMENTS_SEED.map((d) => ({ ...d }));
-  private docCounter = 10;
+  constructor(private readonly runtime: RuntimeCoreService) {}
 
   list(_user: any) {
-    return this.documents;
+    return this.runtime.listDocuments();
   }
 
   getOne(id: string, _user: any) {
-    const doc = this.documents.find((d) => d.id === id);
-    if (!doc) throw new NotFoundException(`Document ${id} not found`);
-    return doc;
+    return this.runtime.getDocument(id);
   }
 
-  getSignedAccess(id: string, user: any) {
-    const doc = this.getOne(id, user);
+  getSignedAccess(id: string, _user: any) {
+    const doc = this.runtime.getDocument(id);
     return {
       documentId: doc.id,
       accessUrl: doc.url,
@@ -74,38 +23,24 @@ export class DocumentsService {
     };
   }
 
-  async streamContent(id: string, user: any) {
-    const doc = this.getOne(id, user);
+  async streamContent(id: string, _user: any) {
+    const doc = this.runtime.getDocument(id);
     return {
       file: {
         documentId: doc.id,
         name: doc.name,
         mimeType: doc.mimeType,
-        content: `Demo content for ${doc.name}`,
+        content: `Runtime content for ${doc.name}`,
       },
     };
   }
 
-  upload(file: any | any, dto: any, user: any) {
-    const id = `DOC-${String(++this.docCounter).padStart(3, '0')}`;
-    const doc: any = {
-      id,
-      dealId: dto?.dealId ?? null,
-      type: dto?.type ?? 'other',
-      status: 'UPLOADED',
-      name: dto?.name ?? (file?.originalname ?? `Document ${id}`),
-      uploadedAt: new Date().toISOString(),
-      uploadedByUserId: user?.sub ?? user?.id ?? null,
-      mimeType: file?.mimetype ?? dto?.mimeType ?? 'application/octet-stream',
-      url: `/documents/${id}/content`,
-      size: file?.size ?? null,
-    };
-    this.documents.push(doc);
-    return doc;
+  upload(file: any, dto: any, user: any) {
+    return this.runtime.uploadDocument(file, dto, user);
   }
 
-  download(id: string, user: any) {
-    const doc = this.getOne(id, user);
+  download(id: string, _user: any) {
+    const doc = this.runtime.getDocument(id);
     return {
       documentId: doc.id,
       downloadUrl: doc.url,
@@ -116,37 +51,15 @@ export class DocumentsService {
   }
 
   signDocument(id: string, user: any) {
-    const doc = this.getOne(id, user);
-    doc.status = 'SIGNED';
-    doc.signedAt = new Date().toISOString();
-    doc.signedByUserId = user?.sub ?? user?.id ?? null;
-    return doc;
+    return this.runtime.signDocument(id, user);
   }
 
   generateDealPackage(dealId: string, user: any) {
-    const generated: any[] = [];
-    const types = ['contract', 'quality_certificate', 'transport_waybill'];
-    for (const type of types) {
-      const id = `DOC-${String(++this.docCounter).padStart(3, '0')}`;
-      const doc: any = {
-        id,
-        dealId,
-        type,
-        status: 'GENERATED',
-        name: `${type} для ${dealId}`,
-        uploadedAt: new Date().toISOString(),
-        uploadedByUserId: user?.sub ?? user?.id ?? null,
-        mimeType: 'application/pdf',
-        url: `/documents/${id}/content`,
-      };
-      this.documents.push(doc);
-      generated.push(doc);
-    }
-    return { dealId, generated };
+    return this.runtime.generateDealPackage(dealId, user);
   }
 
-  getPreview(id: string, user: any) {
-    const doc = this.getOne(id, user);
+  getPreview(id: string, _user: any) {
+    const doc = this.runtime.getDocument(id);
     return {
       documentId: doc.id,
       name: doc.name,
@@ -155,14 +68,15 @@ export class DocumentsService {
     };
   }
 
-  getCorrectionPlan(id: string, user: any) {
-    const doc = this.getOne(id, user);
+  getCorrectionPlan(id: string, _user: any) {
+    const doc = this.runtime.getDocument(id);
     return {
       documentId: doc.id,
       status: doc.status,
       correctionRequired: doc.status === 'DRAFT' || doc.status === 'REJECTED',
+      completeness: doc.completeness,
       steps: doc.status === 'DRAFT'
-        ? [{ step: 1, action: 'review', description: 'Review document content' }, { step: 2, action: 'sign', description: 'Sign the document' }]
+        ? [{ step: 1, action: 'review', description: 'Проверить содержимое документа' }, { step: 2, action: 'sign', description: 'Подписать документ' }]
         : [],
     };
   }

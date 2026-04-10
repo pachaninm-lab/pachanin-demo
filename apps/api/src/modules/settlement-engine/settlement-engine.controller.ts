@@ -7,7 +7,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SettlementEngineService } from './settlement-engine.service';
 
 @UseGuards(RolesGuard)
-@Roles('ACCOUNTING', 'SUPPORT_MANAGER')
+@Roles('ACCOUNTING', 'SUPPORT_MANAGER', 'BANK', 'ADMIN')
 @Controller('settlement-engine')
 export class SettlementEngineController {
   constructor(private readonly settlementEngine: SettlementEngineService) {}
@@ -15,6 +15,11 @@ export class SettlementEngineController {
   @Get('deal/:id')
   async worksheet(@Param('id') id: string) {
     return this.settlementEngine.worksheet(id);
+  }
+
+  @Get('deal/:id/bank-workspace')
+  async bankWorkspace(@Param('id') id: string) {
+    return this.settlementEngine.bankWorkspace(id);
   }
 
   @Get('payments')

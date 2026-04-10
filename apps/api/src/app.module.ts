@@ -18,9 +18,11 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AntiFraudModule } from './modules/anti-fraud/anti-fraud.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { BusinessReputationModule } from './modules/business-reputation/business-reputation.module';
+import { RuntimeCoreModule } from './modules/runtime-core/runtime-core.module';
 
 @Module({
   imports: [
+    RuntimeCoreModule,
     AuthModule,
     LotsModule,
     DealsModule,
