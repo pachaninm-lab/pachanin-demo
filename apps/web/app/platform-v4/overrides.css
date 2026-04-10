@@ -1,0 +1,226 @@
+[data-platform-v4-refresh="true"] {
+  --pc-bg: #f6fbf6;
+  --pc-bg-soft: #edf7ef;
+  --pc-bg-muted: #e7f4ea;
+  --pc-surface: #ffffff;
+  --pc-surface-soft: #f3faf4;
+  --pc-border: rgba(17, 84, 53, 0.1);
+  --pc-border-strong: rgba(20, 108, 67, 0.18);
+  --pc-text: #143222;
+  --pc-text-muted: #567364;
+  --pc-text-soft: #71917e;
+  --pc-primary: #146c43;
+  --pc-primary-soft: rgba(20, 108, 67, 0.08);
+  --pc-warning: #8c6520;
+  --pc-warning-soft: rgba(189, 139, 45, 0.1);
+  --pc-info: #1b6b8c;
+  --pc-info-soft: rgba(27, 107, 140, 0.08);
+  --pc-danger: #a04747;
+  --pc-danger-soft: rgba(160, 71, 71, 0.08);
+}
+
+[data-platform-v4-refresh="true"] [class*="appShell"] {
+  background: linear-gradient(180deg, var(--pc-bg) 0%, var(--pc-bg-soft) 46%, var(--pc-bg-muted) 100%) !important;
+  color: var(--pc-text) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="mobileHeader"],
+[data-platform-v4-refresh="true"] [class*="desktopHeader"] {
+  background: rgba(246, 251, 246, 0.92) !important;
+  border-bottom: 1px solid var(--pc-border) !important;
+  backdrop-filter: blur(14px);
+}
+
+[data-platform-v4-refresh="true"] [class*="desktopRail"] {
+  border-right: 1px solid var(--pc-border) !important;
+  background: linear-gradient(180deg, var(--pc-bg) 0%, var(--pc-bg-soft) 100%) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="sidebar"] {
+  background: linear-gradient(180deg, var(--pc-bg) 0%, var(--pc-bg-soft) 100%) !important;
+  border-right: 1px solid var(--pc-border) !important;
+  box-shadow: 0 22px 80px rgba(16, 57, 36, 0.16) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="appTitle"] {
+  color: var(--pc-primary) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="appSubtitle"],
+[data-platform-v4-refresh="true"] [class*="heroBody"],
+[data-platform-v4-refresh="true"] [class*="objectBody"],
+[data-platform-v4-refresh="true"] [class*="panelBody"],
+[data-platform-v4-refresh="true"] [class*="denseText"],
+[data-platform-v4-refresh="true"] [class*="metricLabel"],
+[data-platform-v4-refresh="true"] [class*="crumb"],
+[data-platform-v4-refresh="true"] [class*="menuSectionTitle"] {
+  color: var(--pc-text-muted) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="crumbCurrent"],
+[data-platform-v4-refresh="true"] [class*="heroTitle"],
+[data-platform-v4-refresh="true"] [class*="objectTitle"],
+[data-platform-v4-refresh="true"] [class*="panelTitle"],
+[data-platform-v4-refresh="true"] [class*="denseTitle"],
+[data-platform-v4-refresh="true"] [class*="metricValue"],
+[data-platform-v4-refresh="true"] [class*="metaValue"] {
+  color: var(--pc-text) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="hero"],
+[data-platform-v4-refresh="true"] [class*="panel"],
+[data-platform-v4-refresh="true"] [class*="metricCard"],
+[data-platform-v4-refresh="true"] [class*="metaCard"],
+[data-platform-v4-refresh="true"] [class*="tableWrap"],
+[data-platform-v4-refresh="true"] [class*="emptyState"] {
+  background: var(--pc-surface) !important;
+  border: 1px solid var(--pc-border) !important;
+  box-shadow: 0 16px 40px rgba(21, 84, 58, 0.06) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="hero"] {
+  background: linear-gradient(180deg, var(--pc-surface) 0%, var(--pc-surface-soft) 100%) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="metricCard"] {
+  background: linear-gradient(180deg, var(--pc-surface) 0%, #f6fbf7 100%) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="iconBox"],
+[data-platform-v4-refresh="true"] [class*="menuButton"],
+[data-platform-v4-refresh="true"] [class*="quickLink"],
+[data-platform-v4-refresh="true"] [class*="badge"],
+[data-platform-v4-refresh="true"] [class*="menuItem"] {
+  background: var(--pc-surface) !important;
+  border-color: var(--pc-border) !important;
+  color: var(--pc-text) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="menuItemActive"],
+[data-platform-v4-refresh="true"] [class*="badgeRole"] {
+  background: linear-gradient(180deg, #f1faf3 0%, #ebf7ee 100%) !important;
+  border-color: var(--pc-border-strong) !important;
+  color: var(--pc-primary) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="badgeEnv"] {
+  background: var(--pc-warning-soft) !important;
+  border-color: rgba(189, 139, 45, 0.18) !important;
+  color: var(--pc-warning) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="buttonPrimary"] {
+  background: var(--pc-primary) !important;
+  border-color: rgba(20, 108, 67, 0.34) !important;
+  color: #ffffff !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="buttonSecondary"] {
+  background: var(--pc-surface) !important;
+  border-color: var(--pc-border) !important;
+  color: var(--pc-text) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="buttonGhost"] {
+  background: var(--pc-primary-soft) !important;
+  border-color: rgba(20, 108, 67, 0.1) !important;
+  color: var(--pc-primary) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="chipSuccess"],
+[data-platform-v4-refresh="true"] [class*="toneSuccess"] {
+  color: var(--pc-primary) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="chipWarning"],
+[data-platform-v4-refresh="true"] [class*="toneWarning"] {
+  color: var(--pc-warning) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="chipInfo"],
+[data-platform-v4-refresh="true"] [class*="toneInfo"] {
+  color: var(--pc-info) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="chipDanger"],
+[data-platform-v4-refresh="true"] [class*="toneDanger"] {
+  color: var(--pc-danger) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="chipSuccess"] {
+  background: var(--pc-primary-soft) !important;
+  border-color: rgba(20, 108, 67, 0.16) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="chipWarning"] {
+  background: var(--pc-warning-soft) !important;
+  border-color: rgba(189, 139, 45, 0.18) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="chipInfo"] {
+  background: var(--pc-info-soft) !important;
+  border-color: rgba(27, 107, 140, 0.16) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="chipDanger"] {
+  background: var(--pc-danger-soft) !important;
+  border-color: rgba(160, 71, 71, 0.16) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="tableCard"],
+[data-platform-v4-refresh="true"] [class*="denseTable"] th {
+  background: var(--pc-surface) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="denseTable"] th,
+[data-platform-v4-refresh="true"] [class*="denseTable"] td,
+[data-platform-v4-refresh="true"] [class*="denseRow"],
+[data-platform-v4-refresh="true"] [class*="denseRowLink"] {
+  border-color: rgba(17, 84, 53, 0.08) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="denseRowLink"]:hover,
+[data-platform-v4-refresh="true"] [class*="quickLink"]:hover,
+[data-platform-v4-refresh="true"] [class*="menuItem"]:hover,
+[data-platform-v4-refresh="true"] [class*="buttonSecondary"]:hover {
+  background: linear-gradient(180deg, rgba(20, 108, 67, 0.03) 0%, rgba(20, 108, 67, 0.05) 100%) !important;
+}
+
+[data-platform-v4-refresh="true"] [class*="metricCard"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 20px 44px rgba(21, 84, 58, 0.08) !important;
+}
+
+@media (min-width: 1200px) {
+  [data-platform-v4-refresh="true"] [class*="shellRoot"] {
+    grid-template-columns: 96px minmax(0, 1fr) !important;
+    transition: grid-template-columns 0.18s ease;
+  }
+
+  [data-platform-v4-refresh="true"] [class*="shellRoot"]:has([class*="desktopRail"]:hover) {
+    grid-template-columns: 280px minmax(0, 1fr) !important;
+  }
+
+  [data-platform-v4-refresh="true"] [class*="desktopRailInner"] {
+    padding-inline: 12px !important;
+  }
+
+  [data-platform-v4-refresh="true"] [class*="appSubtitle"],
+  [data-platform-v4-refresh="true"] [class*="menuSectionTitle"],
+  [data-platform-v4-refresh="true"] [class*="menuItemLabel"] {
+    transition: opacity 0.18s ease, width 0.18s ease;
+  }
+
+  [data-platform-v4-refresh="true"] [class*="shellRoot"]:not(:has([class*="desktopRail"]:hover)) [class*="desktopRail"] [class*="appSubtitle"],
+  [data-platform-v4-refresh="true"] [class*="shellRoot"]:not(:has([class*="desktopRail"]:hover)) [class*="desktopRail"] [class*="menuSectionTitle"],
+  [data-platform-v4-refresh="true"] [class*="shellRoot"]:not(:has([class*="desktopRail"]:hover)) [class*="desktopRail"] [class*="menuItemLabel"] {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+  }
+
+  [data-platform-v4-refresh="true"] [class*="shellRoot"]:not(:has([class*="desktopRail"]:hover)) [class*="desktopRail"] [class*="sidebarTop"],
+  [data-platform-v4-refresh="true"] [class*="shellRoot"]:not(:has([class*="desktopRail"]:hover)) [class*="desktopRail"] [class*="menuItem"] {
+    justify-content: center;
+  }
+}
