@@ -1,0 +1,59 @@
+import Link from 'next/link';
+
+const queue = [
+  ['Рейс А-123', 'Кукуруза · 28 т', '10:30', 'На погрузке'],
+  ['Рейс К-456', 'Ячмень · 35 т', '11:15', 'В пути'],
+  ['Рейс О-789', 'Пшеница · 40 т', '12:00', 'Назначен'],
+] as const;
+
+export default function Page() {
+  return (
+    <div style={{ padding: '22px 16px 48px' }}>
+      <div style={{ maxWidth: 980, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ color: '#22c55e', fontWeight: 800, fontSize: 14, textTransform: 'uppercase', letterSpacing: '.08em' }}>Приёмка</div>
+            <h1 style={{ margin: '10px 0 0', fontSize: 'clamp(34px,6vw,54px)', lineHeight: 1.02, fontWeight: 900, letterSpacing: '-0.03em' }}>Очередь, весовая и передача в лабораторию</h1>
+            <div style={{ marginTop: 14, color: '#94a3b8', fontSize: 18, lineHeight: 1.6 }}>Здесь видно, кто идёт на разгрузку, что уже взвешено и какие партии ждут перехода в лабораторный контур.</div>
+          </div>
+          <Link href="/platform-v3/logistics" style={{ textDecoration: 'none', background: '#22c55e', color: '#04110a', padding: '15px 18px', borderRadius: 16, fontWeight: 900, fontSize: 17 }}>Открыть логистику</Link>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 16, marginTop: 18 }}>
+          {[
+            ['5', 'В очереди'],
+            ['12', 'Взвешено сегодня'],
+            ['3', 'Партий на проверке'],
+            ['72%', 'Ёмкость хранения'],
+          ].map(([v, l]) => (
+            <div key={l} style={{ background: 'linear-gradient(180deg, rgba(13,18,31,.98) 0%, rgba(10,15,27,.98) 100%)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 24, padding: 20, minHeight: 168, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 12px 40px rgba(0,0,0,.22)' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 18, background: 'rgba(34,197,94,.14)' }} />
+              <div>
+                <div style={{ fontSize: 42, fontWeight: 900, lineHeight: 1 }}>{v}</div>
+                <div style={{ marginTop: 10, color: '#95a4b8', fontSize: 18, lineHeight: 1.35 }}>{l}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <section style={{ marginTop: 18, background: 'linear-gradient(180deg, rgba(13,18,31,.98) 0%, rgba(10,15,27,.98) 100%)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 24, padding: 20, boxShadow: '0 12px 40px rgba(0,0,0,.22)' }}>
+          <div style={{ fontSize: 30, fontWeight: 900 }}>Очередь на приёмку</div>
+          <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+            {queue.map(([title, desc, time, status]) => (
+              <div key={title} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, padding: '18px 0', borderTop: '1px solid rgba(255,255,255,.06)' }}>
+                <div>
+                  <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>{title}</div>
+                  <div style={{ marginTop: 8, color: '#8ea0b7', fontSize: 18 }}>{desc}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 18, fontWeight: 800 }}>{time}</div>
+                  <div style={{ marginTop: 8, background: status === 'Назначен' ? 'rgba(59,130,246,.18)' : 'rgba(255,255,255,.08)', color: status === 'Назначен' ? '#60a5fa' : '#cbd5e1', borderRadius: 999, padding: '10px 14px', fontSize: 16, fontWeight: 800 }}>{status}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
