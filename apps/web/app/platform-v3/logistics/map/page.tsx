@@ -1,0 +1,58 @@
+import Link from 'next/link';
+
+const trips = [
+  ['Рейс А-123', 'Элеватор «Южный» → ХПП «Русагро»', 'Прибытие 19:00', '62%'],
+  ['Рейс К-456', 'ХПП «Воронежский» → ООО «ЗерноТрейд»', 'Погрузка 14:30', '28%'],
+  ['Рейс О-789', 'Элеватор «Степной» → Маслозавод', 'Назначен 16:00', '0%'],
+] as const;
+
+export default function Page() {
+  return (
+    <div style={{ padding: '22px 16px 48px' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ color: '#22c55e', fontWeight: 800, fontSize: 14, textTransform: 'uppercase', letterSpacing: '.08em' }}>Карта логистики</div>
+            <h1 style={{ margin: '10px 0 0', fontSize: 'clamp(34px,6vw,54px)', lineHeight: 1.02, fontWeight: 900, letterSpacing: '-0.03em' }}>Маршруты и положение рейсов</h1>
+            <div style={{ marginTop: 14, color: '#94a3b8', fontSize: 18, lineHeight: 1.6 }}>Карта, очередь на приёмку и активные рейсы связаны между собой. Отсюда можно открыть логистику, приёмку и центр сделки.</div>
+          </div>
+          <Link href="/platform-v3/logistics" style={{ textDecoration: 'none', background: '#22c55e', color: '#04110a', padding: '15px 18px', borderRadius: 16, fontWeight: 900, fontSize: 17 }}>Открыть логистику</Link>
+        </div>
+
+        <section style={{ marginTop: 18, background: 'linear-gradient(180deg, rgba(13,18,31,.98) 0%, rgba(10,15,27,.98) 100%)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 24, padding: 18, boxShadow: '0 12px 40px rgba(0,0,0,.22)' }}>
+          <div style={{ height: 540, borderRadius: 20, background: 'radial-gradient(circle at 30% 30%, rgba(34,197,94,.18) 0%, rgba(8,12,22,.1) 20%, rgba(6,9,20,1) 70%)', border: '1px solid rgba(255,255,255,.06)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', left: '44%', top: '12%', width: 8, height: '58%', background: 'rgba(34,197,94,.8)', borderRadius: 999 }} />
+            <div style={{ position: 'absolute', left: '45%', top: '10%', width: 110, height: 6, background: 'rgba(255,255,255,.25)', borderRadius: 999, transform: 'rotate(82deg)' }} />
+            <div style={{ position: 'absolute', left: '44%', top: '18%', width: 56, height: 56, borderRadius: 28, background: '#22c55e' }} />
+            <div style={{ position: 'absolute', left: '58%', top: '32%', width: 56, height: 56, borderRadius: 28, background: '#f59e0b' }} />
+            <div style={{ position: 'absolute', left: '39%', top: '64%', width: 56, height: 56, borderRadius: 28, background: '#3b82f6' }} />
+            <div style={{ position: 'absolute', left: '26%', top: '74%', width: 56, height: 56, borderRadius: 28, background: '#84cc16' }} />
+          </div>
+        </section>
+
+        <section style={{ marginTop: 18, background: 'linear-gradient(180deg, rgba(13,18,31,.98) 0%, rgba(10,15,27,.98) 100%)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 24, padding: 20, boxShadow: '0 12px 40px rgba(0,0,0,.22)' }}>
+          <div style={{ fontSize: 30, fontWeight: 900 }}>Активные рейсы</div>
+          <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+            {trips.map(([title, route, eta, progress]) => (
+              <div key={title} style={{ padding: '16px 0', borderTop: '1px solid rgba(255,255,255,.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 24, fontWeight: 800 }}>{title}</div>
+                    <div style={{ marginTop: 8, color: '#8ea0b7', fontSize: 18, lineHeight: 1.45 }}>{route}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 18, fontWeight: 800 }}>{eta}</div>
+                    <div style={{ marginTop: 8, color: '#22c55e', fontSize: 17, fontWeight: 800 }}>{progress}</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 12, height: 10, borderRadius: 999, background: 'rgba(255,255,255,.12)' }}>
+                  <div style={{ width: progress, height: '100%', borderRadius: 999, background: '#22c55e' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
