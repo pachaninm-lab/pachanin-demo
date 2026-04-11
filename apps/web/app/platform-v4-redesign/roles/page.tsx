@@ -1,6 +1,5 @@
 'use client';
-imporimport Link from 'next/link';
-
+import Link from 'next/link';
 const roles = [
   {
     href: '/platform-v4-redesign/seller',
