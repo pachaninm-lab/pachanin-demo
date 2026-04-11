@@ -1,0 +1,92 @@
+workflow_name: platform-improvement-orchestrator
+purpose: >
+  External n8n workflow for continuous improvement of platform code,
+  business logic, UX/UI and access control.
+
+inputs:
+  - repository_full_name
+  - branch
+  - compare_base
+  - preview_url
+  - production_url
+  - release_stage
+
+nodes:
+  - name: Manual Trigger
+    type: trigger
+    required: true
+
+  - name: Schedule Trigger
+    type: trigger
+    recommended: "every 4 hours"
+
+  - name: GitHub Trigger
+    type: trigger
+    events:
+      - push
+      - pull_request
+      - branch_update
+
+  - name: Set Context
+    type: context
+    payload:
+      scope: "code + logic + design + usability"
+      platform_formula: "digital execution rail for grain deal, not marketplace"
+      severity:
+        P0: "critical path broken"
+        P1: "trust/usability degradation"
+        P2: "secondary issue"
+
+  - name: Platform Improvement Lead
+    type: ai_agent
+    prompt_file: "ops/n8n/platform-improvement/agents/platform-improvement-lead.md"
+
+  - name: Role-to-Role E2E Tester
+    type: ai_agent
+    prompt_file: "ops/n8n/platform-improvement/agents/role-to-role-e2e-tester.md"
+
+  - name: Product Logic Auditor
+    type: ai_agent
+    prompt_file: "ops/n8n/platform-improvement/agents/product-logic-auditor.md"
+
+  - name: UX & Trust Redline Auditor
+    type: ai_agent
+    prompt_file: "ops/n8n/platform-improvement/agents/ux-trust-redline-auditor.md"
+
+  - name: Security & RBAC Auditor
+    type: ai_agent
+    prompt_file: "ops/n8n/platform-improvement/agents/security-rbac-auditor.md"
+
+  - name: Merge Results
+    type: merge
+    mode: append
+
+  - name: Final Backlog Agent
+    type: ai_agent
+    prompt_file: "ops/n8n/platform-improvement/agents/final-backlog-agent.md"
+
+  - name: Output
+    type: notifier
+    targets:
+      - telegram
+      - slack
+      - gmail
+      - notion
+
+launch_order:
+  - Manual Trigger
+  - Set Context
+  - Platform Improvement Lead
+  - Role-to-Role E2E Tester
+  - Product Logic Auditor
+  - UX & Trust Redline Auditor
+  - Security & RBAC Auditor
+  - Merge Results
+  - Final Backlog Agent
+  - Output
+
+rules:
+  - "No auto-merge on first stage"
+  - "No auto-deploy on first stage"
+  - "No auto-fix for payment, dispute, document or access-control logic without review"
+  - "Always test preview before production"
