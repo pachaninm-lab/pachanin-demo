@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+imporimport Link from 'next/link';
 
 const roles = [
   {
