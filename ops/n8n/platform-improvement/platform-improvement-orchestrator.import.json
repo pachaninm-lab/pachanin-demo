@@ -1,0 +1,719 @@
+{
+  "name": "platform-improvement-orchestrator",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1b3b9b91-a001-4a4d-b191-000000000001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1640,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 4
+            }
+          ]
+        }
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000002",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1640,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "1b3b9b91-a001-4a4d-b191-000000000003",
+      "name": "GitHub Trigger",
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1640,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "repository_full_name",
+              "value": "pachaninm-lab/ruflo"
+            },
+            {
+              "name": "compare_base",
+              "value": "main"
+            },
+            {
+              "name": "preview_url",
+              "value": "https://pachanin-demo-web.vercel.app"
+            },
+            {
+              "name": "production_url",
+              "value": "https://pachanin-demo-web.vercel.app"
+            },
+            {
+              "name": "scope",
+              "value": "code + logic + design + usability"
+            },
+            {
+              "name": "platform_formula",
+              "value": "digital execution rail for grain deal, not marketplace"
+            }
+          ]
+        }
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000004",
+      "name": "Set Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Audit the platform improvement scope using this context:\n{{$json.toJsonString()}}\n\nReturn only structured backlog lines.",
+        "options": {
+          "systemMessage": "Ты управляющий агент улучшения платформы «Прозрачная Цена». Главный объект — сделка, а не каталог. Любую проблему превращай в конкретный фикс. Формат: [priority] / [area] / [screen or module] / [problem] / [why it matters] / [fix]."
+        }
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000005",
+      "name": "Platform Improvement Lead",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000006",
+      "name": "Model - Improvement Lead",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1200,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Use this tool only to stay in structured audit mode. No external actions.",
+        "jsCode": "return [{ json: { mode: 'review-only', action: 'no-external-tooling', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000007",
+      "name": "Tool - Improvement Lead",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.2,
+      "position": [
+        -860,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Test all role-to-role flows with this context:\n{{$json.toJsonString()}}\n\nReturn only issues in format [role] / [step] / [error] / [how to reproduce] / [severity] / [fix].",
+        "options": {
+          "systemMessage": "Ты QA lead + доменный тестировщик платформы «Прозрачная Цена». Проверяй вход, карточки, действия, статусы, доступы, возврат назад и полевые роли. Ищи циклические редиректы, 401/403/404/500, кнопки без результата и несогласованность статусов между участниками."
+        }
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000008",
+      "name": "Role-to-Role E2E Tester",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000009",
+      "name": "Model - E2E Tester",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1200,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Use this tool only to keep the response structured. No external actions.",
+        "jsCode": "return [{ json: { mode: 'review-only', action: 'no-external-tooling' } }];"
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000010",
+      "name": "Tool - E2E Tester",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.2,
+      "position": [
+        -860,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Audit product logic using this context:\n{{$json.toJsonString()}}\n\nReturn only issues in format [priority] / [screen or module] / [logic gap] / [why dangerous] / [fix].",
+        "options": {
+          "systemMessage": "Ты CPO/операционный архитектор платформы «Прозрачная Цена». Проверяй логику сделки, статусы, владельцев, блокеры, next action, связь ролей и отсутствие dead-end экранов."
+        }
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000011",
+      "name": "Product Logic Auditor",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000012",
+      "name": "Model - Logic Auditor",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1200,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Use this tool only to keep the response structured. No external actions.",
+        "jsCode": "return [{ json: { mode: 'review-only', action: 'no-external-tooling' } }];"
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000013",
+      "name": "Tool - Logic Auditor",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.2,
+      "position": [
+        -860,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Audit UX, trust and usability using this context:\n{{$json.toJsonString()}}\n\nReturn only issues in format [screen] / [UX-defect] / [why it hurts trust] / [fix].",
+        "options": {
+          "systemMessage": "Ты арт-директор интерфейса и senior UX-аудитор. Проверяй визуальную иерархию, KPI, CTA, пустые состояния, таблицы, адаптив и понятность next action. Не предлагай декоративные эффекты без пользы."
+        }
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000014",
+      "name": "UX & Trust Redline Auditor",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000015",
+      "name": "Model - UX Auditor",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1200,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Use this tool only to keep the response structured. No external actions.",
+        "jsCode": "return [{ json: { mode: 'review-only', action: 'no-external-tooling' } }];"
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000016",
+      "name": "Tool - UX Auditor",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.2,
+      "position": [
+        -860,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Audit security and access control using this context:\n{{$json.toJsonString()}}\n\nReturn only issues in format [risk] / [endpoint or screen] / [what can be done] / [damage] / [fix].",
+        "options": {
+          "systemMessage": "Ты security auditor платформы сделки. Ищи IDOR, broken object-level authorization, broken function-level authorization, возможность менять статус без прав, редактировать доказательства без следа и дыры между мобильным и веб-контуром."
+        }
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000017",
+      "name": "Security & RBAC Auditor",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000018",
+      "name": "Model - Security Auditor",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1200,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Use this tool only to keep the response structured. No external actions.",
+        "jsCode": "return [{ json: { mode: 'review-only', action: 'no-external-tooling' } }];"
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000019",
+      "name": "Tool - Security Auditor",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.2,
+      "position": [
+        -860,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000020",
+      "name": "Merge A",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -700,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000021",
+      "name": "Merge B",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -520,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000022",
+      "name": "Merge C",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -340,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You will receive multiple audit outputs. Deduplicate them, group them into P0, P1, P2 and return only backlog.\n\nInput:\n{{$json.toJsonString()}}",
+        "options": {
+          "systemMessage": "Ты финальный агент-редактор backlog. Убирай дубли, объединяй похожие проблемы, поднимай приоритет тем, что бьют по сделке, деньгам, документам, спору и доступу. В конце дай TOP-10 backlog и TOP-5 immediate fixes."
+        }
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000023",
+      "name": "Final Backlog Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -120,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000024",
+      "name": "Model - Final Backlog",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -280,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Use this tool only to keep the response structured. No external actions.",
+        "jsCode": "return [{ json: { mode: 'review-only', action: 'no-external-tooling' } }];"
+      },
+      "id": "1b3b9b91-a001-4a4d-b191-000000000025",
+      "name": "Tool - Final Backlog",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.2,
+      "position": [
+        60,
+        620
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Context": {
+      "main": [
+        [
+          {
+            "node": "Platform Improvement Lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Role-to-Role E2E Tester",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Product Logic Auditor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "UX & Trust Redline Auditor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Security & RBAC Auditor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Improvement Lead": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Platform Improvement Lead",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - Improvement Lead": {
+      "ai_tool": [
+        [
+          {
+            "node": "Platform Improvement Lead",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - E2E Tester": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Role-to-Role E2E Tester",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - E2E Tester": {
+      "ai_tool": [
+        [
+          {
+            "node": "Role-to-Role E2E Tester",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Logic Auditor": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Product Logic Auditor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - Logic Auditor": {
+      "ai_tool": [
+        [
+          {
+            "node": "Product Logic Auditor",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - UX Auditor": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "UX & Trust Redline Auditor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - UX Auditor": {
+      "ai_tool": [
+        [
+          {
+            "node": "UX & Trust Redline Auditor",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Security Auditor": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Security & RBAC Auditor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - Security Auditor": {
+      "ai_tool": [
+        [
+          {
+            "node": "Security & RBAC Auditor",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Platform Improvement Lead": {
+      "main": [
+        [
+          {
+            "node": "Merge A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Role-to-Role E2E Tester": {
+      "main": [
+        [
+          {
+            "node": "Merge A",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge A": {
+      "main": [
+        [
+          {
+            "node": "Merge B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Logic Auditor": {
+      "main": [
+        [
+          {
+            "node": "Merge B",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge B": {
+      "main": [
+        [
+          {
+            "node": "Merge C",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UX & Trust Redline Auditor": {
+      "main": [
+        [
+          {
+            "node": "Merge C",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge C": {
+      "main": [
+        [
+          {
+            "node": "Final Backlog Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Security & RBAC Auditor": {
+      "main": [
+        [
+          {
+            "node": "Final Backlog Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Final Backlog": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Final Backlog Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - Final Backlog": {
+      "ai_tool": [
+        [
+          {
+            "node": "Final Backlog Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Backlog Agent": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
