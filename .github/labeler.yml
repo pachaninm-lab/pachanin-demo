@@ -1,0 +1,14 @@
+web:
+  - 'apps/web/**'
+api:
+  - 'apps/api/**'
+packages:
+  - 'packages/**'
+scripts:
+  - 'scripts/**'
+docs:
+  - 'docs/**'
+automation:
+  - 'automation/**'
+github:
+  - '.github/**'
