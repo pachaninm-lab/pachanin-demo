@@ -6,13 +6,13 @@ const R: Record<string, string> = {
   '/showroom': '/platform-v4',
   '/platform-2026': '/platform-v4',
   '/platform-v3': '/platform-v4',
-  '/canon/roles': '/platform-v4/redesign/roles',
-  '/platform-v4/roles': '/platform-v4/redesign/roles',
+  '/canon/roles': '/platform-v7/roles',
+  '/platform-v4/roles': '/platform-v7/roles',
   '/canon/market': '/platform-v4',
-  '/canon/deals': '/platform-v4/deal',
-  '/canon/deals/detail': '/platform-v4/deal',
-  '/canon/documents': '/platform-v4/documents',
-  '/canon/documents/detail': '/platform-v4/documents',
+  '/canon/deals': '/platform-v7/deal',
+  '/canon/deals/detail': '/platform-v7/deal',
+  '/canon/documents': '/platform-v7/documents',
+  '/canon/documents/detail': '/platform-v7/documents',
   '/canon/operations': '/platform-v4/logistics',
   '/canon/operations/detail': '/platform-v4/logistics',
   '/canon/quality': '/platform-v4/lab',
@@ -21,16 +21,16 @@ const R: Record<string, string> = {
   '/canon/receiving2/detail': '/platform-v4/receiving',
   '/canon/mobile2': '/platform-v4/logistics',
   '/canon/mobile2/detail': '/platform-v4/logistics',
-  '/canon/finance': '/platform-v4/finance',
-  '/canon/finance/detail': '/platform-v4/finance',
-  '/canon/control': '/platform-v4/control',
-  '/canon/control/detail': '/platform-v4/control',
-  '/canon/admin': '/platform-v4/redesign/roles',
+  '/canon/finance': '/platform-v7/bank',
+  '/canon/finance/detail': '/platform-v7/bank',
+  '/canon/control': '/platform-v7/control',
+  '/canon/control/detail': '/platform-v7/control',
+  '/canon/admin': '/platform-v7/roles',
   '/canon/analytics2': '/platform-v4/deal',
   '/canon/simulator': '/platform-v4/simulations',
 };
 const P = new Set(['/', '/login', '/register', '/vitrina', '/market-news', '/demo', '/enter', '/platform-v4']);
-const X = ['/platform-v4/', '/api/auth/demo', '/api/auth/', '/api/runtime-', '/_next/', '/favicon', '/sw.js', '/manifest'];
+const X = ['/platform-v4/', '/platform-v7/', '/api/auth/demo', '/api/auth/', '/api/runtime-', '/_next/', '/favicon', '/sw.js', '/manifest'];
 const pub = (p: string) => P.has(p) || X.some((x) => p.startsWith(x));
 const ok = (v: unknown): v is { role: string; exp: number } => !!v && typeof v === 'object' && typeof (v as any).role === 'string' && typeof (v as any).exp === 'number';
 const parse = (raw: string | undefined) => {
