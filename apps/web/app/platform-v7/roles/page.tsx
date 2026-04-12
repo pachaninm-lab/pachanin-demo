@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 const roles = [
   {
@@ -158,7 +159,7 @@ export default function RolesPage() {
         {/* ROLE CARDS */}
         <div className='roles-grid'>
           {roles.map((role) => (
-            <Link key={role.href} href={role.href} className='t7-role roles-card' style={{ '--accent': role.accentColor } as React.CSSProperties}>
+            <Link key={role.href} href={role.href} className='t7-role roles-card' style={{ '--accent': role.accentColor } as CSSProperties}>
               <div className='t7-rolehead'>
                 <span className={`t7-chip ${role.badgeClass}`}>{role.badge}</span>
                 <span className={`t7-chip ${role.statusClass}`}>{role.statusText}</span>
