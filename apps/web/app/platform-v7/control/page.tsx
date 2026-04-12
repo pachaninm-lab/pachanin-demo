@@ -16,12 +16,17 @@ const evidence = [
   { name: 'Заключение независимого эксперта', date: '—', author: 'Покупатель', status: 'Не загружен', tone: 'warn' },
 ] as const;
 
+// SLA: 6 of ~15 days used ≈ 40%
+const SLA_DAYS_LEFT = 6;
+const SLA_TOTAL = 15;
+const SLA_PCT = Math.round(((SLA_TOTAL - SLA_DAYS_LEFT) / SLA_TOTAL) * 100);
+
 export default function ControlPage() {
   return (
     <div className='t7-frame'>
       <div className='t7-stack'>
 
-        {/* HERO — war-room feel */}
+        {/* HERO — war-room */}
         <section className='t7-hero' style={{ borderLeft: '4px solid var(--control)', background: 'linear-gradient(135deg,rgba(124,58,237,.05),rgba(220,38,38,.03))' }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <span className='t7-chip t7-chip-control'>КОНТРОЛЬ · WAR-ROOM</span>
@@ -31,13 +36,12 @@ export default function ControlPage() {
           <h1 className='t7-h1'>DK-2024-89 · Несоответствие качества зерна</h1>
           <p className='t7-lead'>
             Спор, деньги под hold, доказательства, ответственные и SLA — в одном месте.
-            Ничего не теряется, все события подписаны.
           </p>
           <div className='t7-actions'>
-            <Link href='#' className='t7-btn primary' style={{ background: 'var(--control)', borderColor: 'transparent' }}>
+            <Link href='/platform-v7/deal' className='t7-btn primary' style={{ background: 'var(--control)', borderColor: 'transparent' }}>
               Добавить доказательство
             </Link>
-            <Link href='#' className='t7-btn danger'>Запросить арбитраж</Link>
+            <Link href='/platform-v7/deal' className='t7-btn danger'>Запросить арбитраж</Link>
             <Link href='/platform-v7/bank' className='t7-btn ghost'>Статус hold</Link>
           </div>
         </section>
@@ -54,15 +58,23 @@ export default function ControlPage() {
             <div className='t7-value' style={{ color: 'var(--danger)' }}>624 000 ₽</div>
             <div className='t7-label'>Заморожены до решения</div>
           </article>
+          {/* SLA with progress */}
           <article className='t7-card'>
-            <span className='t7-chip t7-chip-warn'>SLA</span>
-            <div className='t7-value'>6 дней</div>
+            <span className='t7-chip t7-chip-warn'>SLA осталось</span>
+            <div className='t7-value' style={{ color: '#b45309' }}>{SLA_DAYS_LEFT} дней</div>
             <div className='t7-label'>До 18.04.2026</div>
+            <div style={{ marginTop: 10, height: 6, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+              <div style={{ width: `${SLA_PCT}%`, height: '100%', borderRadius: 999, background: 'var(--warn)' }} />
+            </div>
+            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text3)' }}>{SLA_PCT}% времени израсходовано</div>
           </article>
           <article className='t7-card'>
             <span className='t7-chip'>Доказательства</span>
             <div className='t7-value'>4 / 5</div>
-            <div className='t7-label'>Evidence pack собран</div>
+            <div className='t7-label'>Evidence pack почти готов</div>
+            <div style={{ marginTop: 10, height: 6, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+              <div style={{ width: '80%', height: '100%', borderRadius: 999, background: 'var(--indigo)' }} />
+            </div>
           </article>
         </div>
 
@@ -81,12 +93,15 @@ export default function ControlPage() {
                 ['SLA до', '18.04.2026'],
                 ['Сумма под hold', '624 000 ₽'],
               ].map(([k, v]) => (
-                <div key={k} className='t7-row' style={{ gridTemplateColumns: '130px 1fr' }}>
+                <div key={k} className='t7-row' style={{ gridTemplateColumns: '116px 1fr' }}>
                   <div className='t7-rowtext'>{k}</div>
                   <div className='t7-rowtitle' style={{ fontSize: 14 }}>{v}</div>
                 </div>
               ))}
             </div>
+            <Link href='/platform-v7/deal' className='t7-btn ghost' style={{ marginTop: 14, width: '100%' }}>
+              Открыть сделку DL-9102
+            </Link>
           </section>
 
           <section className='t7-panel'>
@@ -105,7 +120,7 @@ export default function ControlPage() {
                 </div>
               ))}
             </div>
-            <Link href='#' className='t7-btn primary' style={{ marginTop: 16, width: '100%' }}>
+            <Link href='/platform-v7/deal' className='t7-btn primary' style={{ marginTop: 16, width: '100%', background: 'var(--control)', borderColor: 'transparent' }}>
               Загрузить заключение эксперта
             </Link>
           </section>
@@ -116,10 +131,10 @@ export default function ControlPage() {
           <div className='t7-eyebrow'>Лента событий спора</div>
           <div className='t7-list' style={{ marginTop: 14 }}>
             {timeline.map(({ date, actor, text, tone }) => (
-              <div key={date + actor} className='t7-row' style={{ gridTemplateColumns: '100px 1fr' }}>
+              <div key={date + actor} className='t7-row' style={{ gridTemplateColumns: '90px 1fr' }}>
                 <div>
                   <div className='t7-rowtext' style={{ fontSize: 11 }}>{date}</div>
-                  <div className='t7-rowtext' style={{ fontSize: 11, marginTop: 2 }}>{actor}</div>
+                  <div className='t7-rowtext' style={{ fontSize: 11, marginTop: 2, fontWeight: 600 }}>{actor}</div>
                 </div>
                 <div>
                   <div className='t7-rowtitle' style={{ fontSize: 13, fontWeight: 500 }}>{text}</div>
@@ -132,18 +147,36 @@ export default function ControlPage() {
           </div>
         </section>
 
-        {/* ACTIONS */}
+        {/* NEXT STEPS */}
         <section className='t7-panel' style={{ background: 'rgba(124,58,237,.03)', border: '1px solid rgba(124,58,237,.14)' }}>
           <div className='t7-eyebrow'>Следующие шаги</div>
-          <p className='t7-text' style={{ marginTop: 10 }}>
-            Для закрытия спора DK-2024-89 нужно: загрузить заключение независимого эксперта,
-            дождаться ручного разбора CB-442 в банке, получить решение арбитража.
-          </p>
+          <div className='t7-list' style={{ marginTop: 12 }}>
+            {[
+              { step: '1', text: 'Загрузить заключение независимого эксперта', who: 'Покупатель', urgent: true },
+              { step: '2', text: 'Ручной разбор CB-442 в банке', who: 'Банк', urgent: true },
+              { step: '3', text: 'Получить решение арбитража', who: 'Контроль', urgent: false },
+              { step: '4', text: 'Выпустить или вернуть 624 000 ₽', who: 'Банк', urgent: false },
+            ].map(({ step, text, who, urgent }) => (
+              <div key={step} className='t7-row' style={{ gridTemplateColumns: '28px 1fr' }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: '50%',
+                  background: urgent ? 'var(--danger)' : 'var(--indigo)',
+                  color: '#fff', fontSize: 11, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, marginTop: 1
+                }}>{step}</div>
+                <div>
+                  <div className='t7-rowtitle' style={{ fontSize: 14 }}>{text}</div>
+                  <div className='t7-rowtext'>{who}</div>
+                </div>
+              </div>
+            ))}
+          </div>
           <div className='t7-actions'>
-            <Link href='#' className='t7-btn primary' style={{ background: 'var(--control)', borderColor: 'transparent' }}>
+            <Link href='/platform-v7/deal' className='t7-btn primary' style={{ background: 'var(--control)', borderColor: 'transparent' }}>
               Добавить доказательство
             </Link>
-            <Link href='#' className='t7-btn'>Выслать уведомление</Link>
+            <Link href='/platform-v7/deal' className='t7-btn'>Выслать уведомление</Link>
             <Link href='/platform-v7/bank' className='t7-btn ghost'>Статус callbacks</Link>
           </div>
         </section>

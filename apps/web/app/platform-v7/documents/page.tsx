@@ -1,14 +1,14 @@
 import Link from 'next/link';
 
 const critical = [
-  { name: 'Акт приёмки (форма А)', owner: 'Продавец', impact: '3 200 000 ₽', status: 'Не загружен', tone: 'danger' },
+  { name: 'Акт приёмки (форма А)', owner: 'Продавец', impact: 'Блокирует 3 200 000 ₽', status: 'Не загружен', tone: 'danger' },
   { name: 'Форма ЗТТ', owner: 'Продавец + Покупатель', impact: 'Блокер подтверждения', status: 'На подписи', tone: 'warn' },
 ] as const;
 
 const upcoming = [
-  { name: 'Транспортная накладная', when: 'При доставке · через 2 дня', owner: 'Водитель' },
-  { name: 'Сертификат качества', when: 'При закрытии · через 5 дней', owner: 'Лаборатория' },
-  { name: 'Акт сверки расчётов', when: 'При выпуске · через 7 дней', owner: 'Банк' },
+  { name: 'Транспортная накладная', when: 'При доставке · ~2 дня', owner: 'Водитель' },
+  { name: 'Сертификат качества', when: 'При закрытии · ~5 дней', owner: 'Лаборатория' },
+  { name: 'Акт сверки расчётов', when: 'При выпуске · ~7 дней', owner: 'Банк' },
 ] as const;
 
 const uploaded = [
@@ -33,23 +33,29 @@ export default function DocumentsPage() {
           <h1 className='t7-h1'>Комплектность — gate для выпуска денег</h1>
           <p className='t7-lead'>
             Статус каждого документа напрямую влияет на движение денег.
-            Не папка с PDF — а операционный контроль пакета.
+            Не папка с PDF — операционный контроль пакета.
           </p>
           <div className='t7-actions'>
-            <Link href='#' className='t7-btn primary'>Загрузить документ</Link>
-            <Link href='#' className='t7-btn'>Запросить подписание</Link>
+            <Link href='/platform-v7/deal' className='t7-btn primary'>Загрузить документ</Link>
+            <Link href='/platform-v7/deal' className='t7-btn'>Запросить подписание</Link>
             <Link href='/platform-v7/deal' className='t7-btn ghost'>Сделка DL-9102</Link>
           </div>
         </section>
 
         {/* COMPLETENESS */}
         <section className='t7-panel'>
-          <div className='t7-eyebrow'>Полнота пакета · DL-9102</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div className='t7-eyebrow'>Полнота пакета · DL-9102</div>
+            <span className='t7-chip t7-chip-warn'>1 блокирует выпуск</span>
+          </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 14 }}>
             <div className='t7-value' style={{ color: 'var(--docs)', marginTop: 0 }}>92%</div>
             <div className='t7-label' style={{ marginTop: 0 }}>11 из 12 обязательных документов загружены</div>
           </div>
           <div className='t7-progress'><span style={{ width: '92%' }} /></div>
+          <div className='t7-text' style={{ marginTop: 10 }}>
+            Недостающий документ: <strong>Акт приёмки (форма А)</strong> — ответственный: Продавец
+          </div>
         </section>
 
         {/* METRICS */}
@@ -76,22 +82,28 @@ export default function DocumentsPage() {
           </article>
         </div>
 
-        {/* CRITICAL NOW */}
-        <section className='t7-panel' style={{ border: '1px solid rgba(220,38,38,.18)' }}>
-          <div className='t7-eyebrow' style={{ color: 'var(--danger)' }}>Критично сейчас</div>
+        {/* CRITICAL NOW — most prominent */}
+        <section className='t7-panel' style={{ border: '2px solid rgba(220,38,38,.22)', background: 'rgba(220,38,38,.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div className='t7-eyebrow' style={{ color: 'var(--danger)' }}>Критично сейчас — блокируют деньги</div>
+            <span className='t7-chip t7-chip-danger'>Деньги заморожены</span>
+          </div>
           <div className='t7-list' style={{ marginTop: 14 }}>
             {critical.map(({ name, owner, impact, status, tone }) => (
               <div key={name} className='t7-row'>
                 <div>
                   <div className='t7-rowtitle'>{name}</div>
-                  <div className='t7-rowtext'>Ответственный: {owner} · Влияние: {impact}</div>
+                  <div className='t7-rowtext'>Ответственный: {owner}</div>
+                  <div className='t7-rowtext' style={{ color: tone === 'danger' ? 'var(--danger)' : '#b45309', fontWeight: 600, marginTop: 2 }}>
+                    {impact}
+                  </div>
                 </div>
                 <span className={`t7-chip t7-chip-${tone}`}>{status}</span>
               </div>
             ))}
           </div>
-          <Link href='#' className='t7-btn primary' style={{ marginTop: 16 }}>
-            Загрузить акт приёмки
+          <Link href='/platform-v7/deal' className='t7-btn primary' style={{ marginTop: 16 }}>
+            Загрузить акт приёмки →
           </Link>
         </section>
 
@@ -119,13 +131,18 @@ export default function DocumentsPage() {
           </div>
           <div className='t7-list' style={{ marginTop: 14 }}>
             {uploaded.map(({ name, deal, date, size }) => (
-              <div key={name} className='t7-row'>
+              <Link
+                key={name}
+                href='/platform-v7/deal'
+                className='t7-row'
+                style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', borderRadius: 8, margin: '0 -8px', padding: '13px 8px' }}
+              >
                 <div>
-                  <div className='t7-rowtitle'>{name}</div>
+                  <div className='t7-rowtitle' style={{ fontSize: 13 }}>{name}</div>
                   <div className='t7-rowtext'>{deal} · {date} · {size}</div>
                 </div>
                 <span className='t7-chip t7-chip-success'>Загружен</span>
-              </div>
+              </Link>
             ))}
           </div>
         </section>
