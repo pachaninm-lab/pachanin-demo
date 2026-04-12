@@ -29,8 +29,8 @@ const R: Record<string, string> = {
   '/canon/analytics2': '/platform-v4/deal',
   '/canon/simulator': '/platform-v4/simulations',
 };
-const P = new Set(['/', '/login', '/register', '/vitrina', '/market-news', '/demo', '/enter', '/platform-v4']);
-const X = ['/platform-v4/', '/api/auth/demo', '/api/auth/', '/api/runtime-', '/_next/', '/favicon', '/sw.js', '/manifest'];
+const P = new Set(['/', '/login', '/register', '/vitrina', '/market-news', '/demo', '/enter', '/platform-v4', '/platform-v7']);
+const X = ['/platform-v4/', '/platform-v7/', '/api/auth/demo', '/api/auth/', '/api/runtime-', '/_next/', '/favicon', '/sw.js', '/manifest'];
 const pub = (p: string) => P.has(p) || X.some((x) => p.startsWith(x));
 const ok = (v: unknown): v is { role: string; exp: number } => !!v && typeof v === 'object' && typeof (v as any).role === 'string' && typeof (v as any).exp === 'number';
 const parse = (raw: string | undefined) => {
