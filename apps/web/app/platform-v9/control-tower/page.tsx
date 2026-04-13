@@ -225,16 +225,16 @@ export default function ControlTowerPage() {
 
         {!isError && (
           <div className="v9-table-wrap">
-            <table className="v9-table" aria-label="Таблица сделок">
+            <table className="v9-table v9-table-mobile-cards" aria-label="Таблица сделок">
               <thead>
                 <tr>
                   <th scope="col">ID сделки</th>
                   <th scope="col">Культура</th>
-                  <th scope="col">Продавец → Покупатель</th>
+                  <th scope="col">Стороны</th>
                   <th scope="col">Статус</th>
                   <th scope="col" style={{ textAlign: 'right' }}>Резерв</th>
-                  <th scope="col" style={{ textAlign: 'right' }}>Hold</th>
-                  <th scope="col">Риск</th>
+                  <th scope="col" style={{ textAlign: 'right' }}>Удержание</th>
+                  <th scope="col">Риск-балл</th>
                   <th scope="col">SLA</th>
                   <th scope="col"><span className="sr-only">Действия</span></th>
                 </tr>
@@ -264,46 +264,34 @@ export default function ControlTowerPage() {
                     : deals.map(deal => {
                       const riskTone = getRiskTone(deal.riskScore);
                       const hasDispute = deal.status === 'quality_disputed';
+                      const riskLabel = riskTone === 'danger' ? 'Высокий' : riskTone === 'warning' ? 'Средний' : 'Низкий';
 
                       return (
                         <tr
                           key={deal.id}
-                          onClick={() => {
-                            window.location.href = `/platform-v9/deals/${deal.id}`;
-                          }}
+                          onClick={() => { window.location.href = `/platform-v9/deals/${deal.id}`; }}
                           style={{ cursor: 'pointer' }}
                           aria-label={`Сделка ${deal.id}: ${deal.grain}`}
                         >
-                          <td>
+                          <td data-label="ID сделки">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span
-                                style={{
-                                  fontFamily: '"JetBrains Mono", monospace',
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  color: '#0F1419',
-                                }}
-                              >
+                              <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 12, fontWeight: 700, color: '#0F1419' }}>
                                 {deal.id}
                               </span>
-                              {hasDispute && (
-                                <AlertTriangle size={12} color="#DC2626" aria-label="Спор" />
-                              )}
+                              {hasDispute && <AlertTriangle size={12} color="#DC2626" aria-label="Активный спор" />}
                             </div>
                           </td>
-                          <td>
+                          <td data-label="Культура">
                             <div style={{ fontSize: 13, fontWeight: 500 }}>{deal.grain}</div>
                             <div style={{ fontSize: 11, color: '#6B778C' }}>{deal.quantity} {deal.unit}</div>
                           </td>
-                          <td>
-                            <div style={{ fontSize: 12, color: '#495057' }}>
-                              {deal.seller.name}
-                            </div>
-                            <div style={{ fontSize: 12, color: '#6B778C' }}>
-                              → {deal.buyer.name}
+                          <td data-label="Стороны">
+                            <div style={{ fontSize: 12 }}>
+                              <span style={{ color: '#495057' }}>{deal.seller.name}</span>
+                              <span style={{ color: '#6B778C' }}> → {deal.buyer.name}</span>
                             </div>
                           </td>
-                          <td>
+                          <td data-label="Статус">
                             <Badge
                               variant={
                                 deal.status === 'closed' ? 'success'
@@ -317,10 +305,10 @@ export default function ControlTowerPage() {
                               {statusLabel[deal.status] ?? deal.status}
                             </Badge>
                           </td>
-                          <td style={{ textAlign: 'right', fontFamily: '"JetBrains Mono", monospace', fontSize: 12, fontWeight: 600 }}>
+                          <td data-label="Резерв" style={{ textAlign: 'right', fontFamily: '"JetBrains Mono", monospace', fontSize: 12, fontWeight: 600 }}>
                             {deal.reservedAmount > 0 ? formatMoney(deal.reservedAmount) : '—'}
                           </td>
-                          <td style={{ textAlign: 'right' }}>
+                          <td data-label="Удержание" style={{ textAlign: 'right' }}>
                             {deal.holdAmount > 0 ? (
                               <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 12, fontWeight: 700, color: '#DC2626' }}>
                                 {formatMoney(deal.holdAmount)}
@@ -329,22 +317,19 @@ export default function ControlTowerPage() {
                               <span style={{ color: '#6B778C', fontSize: 12 }}>—</span>
                             )}
                           </td>
-                          <td>
+                          <td data-label="Риск-балл">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <div
-                                style={{
-                                  width: 8, height: 8, borderRadius: '50%',
-                                  background: riskTone === 'danger' ? '#DC2626' : riskTone === 'warning' ? '#D97706' : '#16A34A',
-                                  flexShrink: 0,
-                                }}
+                                style={{ width: 8, height: 8, borderRadius: '50%', background: riskTone === 'danger' ? '#DC2626' : riskTone === 'warning' ? '#D97706' : '#16A34A', flexShrink: 0 }}
                                 aria-hidden
                               />
                               <span style={{ fontSize: 12, fontWeight: 600, color: riskTone === 'danger' ? '#DC2626' : riskTone === 'warning' ? '#D97706' : '#16A34A' }}>
                                 {deal.riskScore}
                               </span>
+                              <span className="sr-only">{riskLabel}</span>
                             </div>
                           </td>
-                          <td>
+                          <td data-label="SLA">
                             {deal.slaDeadline ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <Clock size={11} color="#6B778C" aria-hidden />
@@ -356,14 +341,14 @@ export default function ControlTowerPage() {
                               <span style={{ fontSize: 12, color: '#6B778C' }}>—</span>
                             )}
                           </td>
-                          <td>
+                          <td className="v9-td-no-label">
                             <Link
                               href={`/platform-v9/deals/${deal.id}`}
-                              style={{ color: '#0A7A5F', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
+                              style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
                               onClick={e => e.stopPropagation()}
                               aria-label={`Открыть сделку ${deal.id}`}
                             >
-                              →
+                              Открыть →
                             </Link>
                           </td>
                         </tr>

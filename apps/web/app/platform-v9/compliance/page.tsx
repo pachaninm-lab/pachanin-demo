@@ -118,33 +118,35 @@ export default function CompliancePage() {
 
       {/* Audit log */}
       <section className="v9-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
           <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Аудит-лог</h2>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="v9-audit-toolbar">
             <div style={{ position: 'relative' }}>
               <Search size={12} color="#6B778C" style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Поиск..."
-                style={{ paddingLeft: 26, paddingRight: 8, paddingTop: 5, paddingBottom: 5, border: '1px solid #E4E6EA', borderRadius: 6, fontSize: 12, outline: 'none', width: 160 }}
+                aria-label="Поиск по аудит-логу"
+                style={{ paddingLeft: 26, paddingRight: 8, paddingTop: 5, paddingBottom: 5, border: '1px solid #E4E6EA', borderRadius: 6, fontSize: 12, outline: 'none', width: 140 }}
               />
             </div>
             <select
               value={filterResult}
               onChange={e => setFilterResult(e.target.value)}
+              aria-label="Фильтр по результату"
               style={{ padding: '4px 8px', border: '1px solid #E4E6EA', borderRadius: 6, fontSize: 12, color: '#495057' }}
             >
               <option value="all">Все</option>
               <option value="ok">OK</option>
-              <option value="warn">Warn</option>
-              <option value="blocked">Blocked</option>
+              <option value="warn">Предупр.</option>
+              <option value="blocked">Блокировано</option>
             </select>
           </div>
         </div>
 
         <div className="v9-table-wrap">
-          <table className="v9-table">
+          <table className="v9-table v9-table-mobile-cards">
             <thead>
               <tr>
                 <th>ID</th>
@@ -152,7 +154,7 @@ export default function CompliancePage() {
                 <th>Актор</th>
                 <th>Действие</th>
                 <th>Объект</th>
-                <th>Статус</th>
+                <th>Итог</th>
                 <th>IP</th>
                 <th></th>
               </tr>
@@ -166,30 +168,36 @@ export default function CompliancePage() {
                     style={{ cursor: 'pointer', background: expandedId === entry.id ? 'rgba(10,122,95,0.04)' : undefined }}
                     onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
                   >
-                    <td style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 11, color: '#6B778C' }}>{entry.id}</td>
-                    <td style={{ fontSize: 11, color: '#6B778C', whiteSpace: 'nowrap' }}>
+                    <td data-label="ID" style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 11, color: '#6B778C' }}>{entry.id}</td>
+                    <td data-label="Время" style={{ fontSize: 11, color: '#6B778C', whiteSpace: 'nowrap' }}>
                       {new Date(entry.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </td>
-                    <td>
+                    <td data-label="Актор">
                       <div style={{ fontSize: 12, fontWeight: 500 }}>{entry.actor}</div>
                       <div style={{ fontSize: 10, color: '#6B778C' }}>{entry.role}</div>
                     </td>
-                    <td>
+                    <td data-label="Действие">
                       <Badge variant={entry.result === 'ok' ? 'success' : entry.result === 'warn' ? 'warning' : 'danger'}>
                         {actionLabels[entry.action] ?? entry.action}
                       </Badge>
                     </td>
-                    <td style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 11, color: '#0A7A5F' }}>
+                    <td data-label="Объект" style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 11, color: '#0A7A5F' }}>
                       {entry.entityId}
                     </td>
-                    <td>
-                      {entry.result === 'ok' && <CheckCircle2 size={14} color="#16A34A" />}
-                      {entry.result === 'warn' && <AlertTriangle size={14} color="#D97706" />}
-                      {entry.result === 'blocked' && <XCircle size={14} color="#DC2626" />}
+                    <td data-label="Итог">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        {entry.result === 'ok' && <><CheckCircle2 size={14} color="#16A34A" aria-hidden /><span className="sr-only">Успешно</span></>}
+                        {entry.result === 'warn' && <><AlertTriangle size={14} color="#D97706" aria-hidden /><span style={{ fontSize: 11, color: '#D97706' }}>Предупр.</span></>}
+                        {entry.result === 'blocked' && <><XCircle size={14} color="#DC2626" aria-hidden /><span style={{ fontSize: 11, color: '#DC2626' }}>Блок</span></>}
+                      </div>
                     </td>
-                    <td style={{ fontSize: 11, color: '#6B778C', fontFamily: 'monospace' }}>{entry.ip}</td>
-                    <td>
-                      <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B778C', padding: '2px 4px' }}>
+                    <td data-label="IP" style={{ fontSize: 11, color: '#6B778C', fontFamily: 'monospace' }}>{entry.ip}</td>
+                    <td className="v9-td-no-label">
+                      <button
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B778C', padding: '2px 4px' }}
+                        aria-label={`Детали записи ${entry.id}`}
+                        onClick={e => { e.stopPropagation(); setExpandedId(expandedId === entry.id ? null : entry.id); }}
+                      >
                         <Eye size={12} />
                       </button>
                     </td>
@@ -232,7 +240,7 @@ export default function CompliancePage() {
                   Подан {new Date(doc.submittedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <div className="v9-card-actions">
                 <Badge variant={doc.status === 'reviewing' ? 'warning' : 'neutral'}>
                   {doc.status === 'reviewing' ? 'На проверке' : 'Ожидает'}
                 </Badge>
