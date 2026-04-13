@@ -5,9 +5,12 @@ export type FieldEventType =
   | 'arrival'
   | 'unloading_start'
   | 'unloading_done'
+  | 'unloading'
   | 'photo'
   | 'quality_check'
-  | 'departure';
+  | 'departure'
+  | 'weighing'
+  | 'lab_result';
 
 export interface FieldEvent {
   id: string;           // UUID — idempotency key

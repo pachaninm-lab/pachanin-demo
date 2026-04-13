@@ -1,11 +1,13 @@
 'use client';
 import * as React from 'react';
 import Link from 'next/link';
-import { useOfflineQueueStore } from '@/stores/useOfflineQueueStore';
+import { useOfflineQueueStore, type FieldEventType } from '@/stores/useOfflineQueueStore';
+import { useSessionStore } from '@/stores/useSessionStore';
 import { Badge } from '@/components/v9/ui/badge';
 import { Button } from '@/components/v9/ui/button';
+import type { Role } from '@/lib/v9/roles';
+import { toast } from 'sonner';
 
-// UUID v4 — inline polyfill for simplicity
 function genUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = Math.random() * 16 | 0;
@@ -13,22 +15,121 @@ function genUUID(): string {
   });
 }
 
+/* ── role configs ── */
+const roleConfig: Partial<Record<Role, {
+  accentColor: string;
+  badgeLabel: string;
+  heroTitle: string;
+  heroSub: string;
+  actionLabel: string;
+  actionDesc: string;
+  eventType: FieldEventType;
+  eventPayload: Record<string, string>;
+  tripRows: [string, string][];
+  emergencyDesc: string;
+}>> = {
+  driver: {
+    accentColor: '#D97706',
+    badgeLabel: 'ВОДИТЕЛЬ · РЕЙС ДОС-2847',
+    heroTitle: 'Один экран — один шаг',
+    heroSub: 'Полевая логика. Текущее действие, GPS и офлайн-очередь.',
+    actionLabel: '✓ Подтвердить прибытие',
+    actionDesc: 'Элеватор Черноземный · ETA 14:30',
+    eventType: 'arrival',
+    eventPayload: { location: 'Элеватор Черноземный', eta: '14:30' },
+    tripRows: [
+      ['Номер рейса', 'ДОС-2847'],
+      ['Маршрут', 'Тамбов → Черноземный'],
+      ['ETA', '14:30 (~45 мин)'],
+      ['Водитель', 'Ковалёв А.С.'],
+      ['ТС', 'В 445 АА 68'],
+      ['Груз', 'Кукуруза · 20 т'],
+      ['Сделка', 'DL-9102'],
+    ],
+    emergencyDesc: 'Проблема с грузом, ДТП, отказ в приёмке? Зафиксируй — создаст кейс в контроле.',
+  },
+  surveyor: {
+    accentColor: '#7C3AED',
+    badgeLabel: 'СЮРВЕЙЕР · ПРОВЕРКА ПАРТИИ DL-9102',
+    heroTitle: 'Контроль качества на месте',
+    heroSub: 'Взвешивание, отбор проб, протокол лаборатории.',
+    actionLabel: '✓ Подтвердить взвешивание',
+    actionDesc: 'Элеватор Черноземный · 200.3 т (отклонение 0.15%)',
+    eventType: 'weighing',
+    eventPayload: { location: 'Элеватор Черноземный', weight: '200.3', deviation: '0.15%' },
+    tripRows: [
+      ['Партия', 'BATCH-DL-9102-001'],
+      ['Объект', 'Элеватор Черноземный'],
+      ['Культура', 'Кукуруза · 20 т'],
+      ['Назначение', 'Проверка качества'],
+      ['Сделка', 'DL-9102'],
+      ['Статус', 'Взвешивание выполнено'],
+      ['Протокол', 'Передать лаборанту'],
+    ],
+    emergencyDesc: 'Расхождение по качеству или подозрение на фальсификацию? Немедленно создай спор.',
+  },
+  elevator: {
+    accentColor: '#0891B2',
+    badgeLabel: 'ЭЛЕВАТОР · ПРИЁМКА ГРУЗА',
+    heroTitle: 'Приёмка на элеваторе',
+    heroSub: 'Взвешивание, хранение, выдача накладной.',
+    actionLabel: '✓ Подтвердить разгрузку',
+    actionDesc: 'DL-9102 · Кукуруза 20 т · Ячейка E-14',
+    eventType: 'unloading',
+    eventPayload: { dealId: 'DL-9102', cell: 'E-14', weight: '20', crop: 'Кукуруза' },
+    tripRows: [
+      ['Сделка', 'DL-9102'],
+      ['Груз', 'Кукуруза · 20 т'],
+      ['Ячейка хранения', 'E-14'],
+      ['Статус хранения', 'Принято'],
+      ['Температура', '+12°C (норма)'],
+      ['Влажность', '14.2% (норма ≤14%)'],
+      ['Накладная', 'Сформирована'],
+    ],
+    emergencyDesc: 'Нарушение условий хранения или несоответствие веса? Сообщи немедленно.',
+  },
+  lab: {
+    accentColor: '#BE185D',
+    badgeLabel: 'ЛАБОРАНТ · АНАЛИЗ QC-DL-9102',
+    heroTitle: 'Протокол лабораторного анализа',
+    heroSub: 'Влажность, протеин, примеси — ввод и публикация результатов.',
+    actionLabel: '✓ Опубликовать протокол',
+    actionDesc: 'QC-DL-9102 · Кукуруза · Параметры зафиксированы',
+    eventType: 'lab_result',
+    eventPayload: { analysisId: 'QC-DL-9102', moisture: '16.2%', protein: '8.3%', impurities: '1.1%' },
+    tripRows: [
+      ['Анализ', 'QC-DL-9102'],
+      ['Культура', 'Кукуруза · 20 т'],
+      ['Влажность', '16.2% ⚠ (норма ≤14%)'],
+      ['Протеин', '8.3% (норма ≥8%)'],
+      ['Примесь сорная', '1.1% (норма ≤2%)'],
+      ['ГМО', 'Отрицательно'],
+      ['Статус', 'Расхождение — эскалируется'],
+    ],
+    emergencyDesc: 'Критическое расхождение или подозрение на фальсификацию образца? Немедленно создай спор.',
+  },
+};
+
 export default function FieldPage() {
   const { events, isOnline, enqueue, pendingCount } = useOfflineQueueStore();
+  const { role } = useSessionStore();
   const pending = pendingCount();
 
-  const confirm = () => {
+  const cfg = roleConfig[role as Role] ?? roleConfig.driver!;
+
+  const handleAction = () => {
     enqueue({
       id: genUUID(),
       dealId: 'DL-9102',
-      type: 'arrival',
+      type: cfg.eventType,
       timestamp: new Date().toISOString(),
-      payload: { location: 'Элеватор Черноземный', eta: '14:30' },
+      payload: cfg.eventPayload,
     });
+    toast.success(`[SANDBOX] Событие "${cfg.eventType}" зафиксировано`);
   };
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* Offline indicator */}
       {!isOnline && (
@@ -39,53 +140,50 @@ export default function FieldPage() {
       )}
 
       {/* Hero */}
-      <div style={{ borderLeft: '4px solid #D97706', paddingLeft: 16 }}>
+      <div style={{ borderLeft: `4px solid ${cfg.accentColor}`, paddingLeft: 16 }}>
         <div>
-          <Badge variant="warning">ВОДИТЕЛЬ · РЕЙС ДОС-2847</Badge>
+          <Badge style={{ background: `${cfg.accentColor}18`, color: cfg.accentColor, borderColor: `${cfg.accentColor}40` }}>
+            {cfg.badgeLabel}
+          </Badge>
         </div>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0F1419', margin: '8px 0 4px' }}>Один экран — один шаг</h1>
-        <p style={{ fontSize: 13, color: '#6B778C', margin: 0 }}>Полевая логика. Текущее действие, GPS и офлайн-очередь.</p>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', margin: '8px 0 4px' }}>{cfg.heroTitle}</h1>
+        <p style={{ fontSize: 13, color: '#6B778C', margin: 0 }}>{cfg.heroSub}</p>
       </div>
 
       {/* Main action */}
-      <div style={{ padding: 20, background: 'rgba(249,115,22,0.06)', borderRadius: 12 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#D97706', letterSpacing: '0.06em' }}>Следующий шаг</div>
-        <div style={{ fontSize: 22, fontWeight: 800, marginTop: 8, lineHeight: 1.2 }}>Подтвердить прибытие на площадку</div>
-        <div style={{ fontSize: 13, color: '#6B778C', marginTop: 6 }}>Элеватор Черноземный · ETA 14:30</div>
+      <div style={{ padding: 20, background: `${cfg.accentColor}10`, borderRadius: 12, border: `1px solid ${cfg.accentColor}25` }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: cfg.accentColor, letterSpacing: '0.06em' }}>Следующий шаг</div>
+        <div style={{ fontSize: 20, fontWeight: 800, marginTop: 8, lineHeight: 1.2, color: '#0F1419' }}>
+          {cfg.actionLabel.replace('✓ ', '')}
+        </div>
+        <div style={{ fontSize: 13, color: '#6B778C', marginTop: 6 }}>{cfg.actionDesc}</div>
         <button
-          onClick={confirm}
+          onClick={handleAction}
           style={{
             marginTop: 16, width: '100%', minHeight: 64,
-            background: '#D97706', color: '#fff', border: 'none',
+            background: cfg.accentColor, color: '#fff', border: 'none',
             borderRadius: 10, fontSize: 16, fontWeight: 800, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
-          aria-label="Подтвердить прибытие на площадку"
         >
-          ✓ Подтвердить прибытие
+          {cfg.actionLabel}
         </button>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
           <Badge variant="success">GPS активен</Badge>
           {pending > 0 && <Badge variant="warning">{pending} событий offline</Badge>}
-          <Badge variant="neutral">Кукуруза · 20 т</Badge>
+          <Badge variant="neutral">DL-9102 · Активна</Badge>
         </div>
       </div>
 
-      {/* Trip info */}
+      {/* Role-specific info */}
       <section className="v9-card">
-        <h2 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Рейс</h2>
-        {[
-          ['Номер рейса', 'ДОС-2847'],
-          ['Маршрут', 'Тамбов → Черноземный'],
-          ['ETA', '14:30 (~45 мин)'],
-          ['Водитель', 'Ковалёв А.С.'],
-          ['ТС', 'В 445 АА 68'],
-          ['Груз', 'Кукуруза · 20 т'],
-          ['Сделка', 'DL-9102'],
-        ].map(([k, v]) => (
+        <h2 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
+          {role === 'driver' ? 'Рейс' : role === 'surveyor' ? 'Проверка' : role === 'elevator' ? 'Приёмка' : 'Анализ'}
+        </h2>
+        {cfg.tripRows.map(([k, v]) => (
           <div key={k} style={{ display: 'flex', gap: 12, padding: '6px 0', borderBottom: '1px solid #E4E6EA', fontSize: 13 }}>
-            <div style={{ width: 110, flexShrink: 0, color: '#6B778C', fontSize: 12 }}>{k}</div>
-            <div style={{ fontWeight: 500 }}>{v}</div>
+            <div style={{ width: 130, flexShrink: 0, color: '#6B778C', fontSize: 12 }}>{k}</div>
+            <div style={{ fontWeight: 500, color: v.includes('⚠') ? '#D97706' : '#0F1419' }}>{v}</div>
           </div>
         ))}
       </section>
@@ -111,8 +209,8 @@ export default function FieldPage() {
       {/* Emergency */}
       <section className="v9-card" style={{ background: 'rgba(220,38,38,0.03)', border: '1px solid rgba(220,38,38,0.18)' }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#DC2626', letterSpacing: '0.06em', marginBottom: 8 }}>Аварийный блок</div>
-        <p style={{ fontSize: 13, color: '#495057', margin: '0 0 12px' }}>Проблема с грузом, ДТП, отказ в приёмке? Зафиксируй — создаст кейс в контроле.</p>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <p style={{ fontSize: 13, color: '#495057', margin: '0 0 12px' }}>{cfg.emergencyDesc}</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Button variant="danger" asChild>
             <Link href="/platform-v7/disputes">⚠ Сообщить о проблеме</Link>
           </Button>

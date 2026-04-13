@@ -464,7 +464,7 @@ export default function ProcurementPage() {
 
   const { data: rfqs, isLoading, isError, refetch } = useQuery<Rfq[]>({
     queryKey: ['rfq'],
-    queryFn: () => fetch('/api/rfq').then(r => r.json()),
+    queryFn: () => fetch('/api/rfq').then(r => r.json()).then(d => Array.isArray(d) ? d : (d.data ?? [])),
   });
 
   const filtered = rfqs?.filter(r => filter === 'all' || r.status === filter) ?? [];
@@ -502,7 +502,7 @@ export default function ProcurementPage() {
             {demoMode && <Badge variant="neutral">SANDBOX</Badge>}
           </div>
           <p style={{ margin: 0, fontSize: 13, color: '#6B778C' }}>
-            Запросы котировок · покупатели публикуют лоты, поставщики подают офертыs → принятая оферта становится сделкой
+            Покупатели публикуют лоты, поставщики подают оферты — принятая оферта становится сделкой
           </p>
         </div>
         {canCreate && (
@@ -513,11 +513,12 @@ export default function ProcurementPage() {
       </div>
 
       {/* KPI bar */}
-      <div className="v9-bento" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      <div className="v9-bento">
         {[
           { label: 'Открытых RFQ', value: openCount, color: '#0A7A5F' },
           { label: 'Офертов всего', value: totalOffers, color: '#D97706' },
           { label: 'Закрытых RFQ', value: closedCount, color: '#6B778C' },
+          { label: 'Всего RFQ', value: rfqs?.length ?? 0, color: '#495057' },
         ].map(({ label, value, color }) => (
           <div key={label} className="v9-card">
             <div style={{ fontSize: 11, fontWeight: 700, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>

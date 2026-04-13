@@ -22,7 +22,7 @@ export const useSessionStore = create<SessionState>()(
       role: 'operator',
       demoMode: true,
       aiDrawerOpen: false,
-      sidebarOpen: true,
+      sidebarOpen: false,
 
       setRole: (role) => set({ role }),
       setDemoMode: (demoMode) => set({ demoMode }),
