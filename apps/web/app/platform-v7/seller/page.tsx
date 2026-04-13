@@ -190,7 +190,7 @@ export default function SellerPage() {
                 <div style={{ fontSize: 12, color: '#6B778C', marginTop: 2 }}>Блокирует release {item.amount}</div>
               </div>
               <Button variant="primary" size="sm" asChild>
-                <Link href={`/platform-v7/deals/${item.id}`}>→</Link>
+                <Link href={`/platform-v9/deals/${item.id}`}>→</Link>
               </Button>
             </div>
           ))}
@@ -202,14 +202,14 @@ export default function SellerPage() {
         <h2 style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Мои сделки</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {active.map(deal => (
-            <Link key={deal.id} href={`/platform-v7/deals/${deal.id}`} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#FAFAFA', borderRadius: 6, border: '1px solid #E4E6EA' }}>
+            <Link key={deal.id} href={`/platform-v9/deals/${deal.id}`} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#FAFAFA', borderRadius: 6, border: '1px solid #E4E6EA' }}>
               <div>
                 <div style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 12, fontWeight: 700, color: '#0A7A5F' }}>{deal.id}</div>
                 <div style={{ fontSize: 12, fontWeight: 500, marginTop: 2, color: '#495057' }}>{deal.grain} · {deal.quantity} {deal.unit}</div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 {deal.blockers.length > 0 && <Badge variant="warning">Блокер</Badge>}
-                {deal.holdAmount > 0 && <Badge variant="danger">Hold</Badge>}
+                {deal.holdAmount > 0 && <Badge variant="danger">Удержание</Badge>}
                 <span style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 700 }}>→</span>
               </div>
             </Link>

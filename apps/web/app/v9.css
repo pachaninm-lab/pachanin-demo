@@ -434,3 +434,136 @@
   font-weight: 600;
   color: #D97706;
 }
+
+/* ─────────────────────────────────────────────────────
+   Responsive visibility helpers
+   ───────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .v9-mobile-only { display: none !important; }
+}
+@media (max-width: 767px) {
+  .v9-desktop-only { display: none !important; }
+}
+
+/* ─────────────────────────────────────────────────────
+   Prevent body-level horizontal scroll
+   (keeps sticky header fixed during table overflow)
+   ───────────────────────────────────────────────────── */
+.v9-root {
+  overflow-x: hidden;
+}
+
+/* ─────────────────────────────────────────────────────
+   Mobile table → card layout
+   Usage: add class "v9-table-mobile-cards" to <table>
+          add data-label="Колонка" to every <td>
+   ───────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .v9-table-wrap:has(.v9-table-mobile-cards) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    overflow-x: visible;
+    padding: 0;
+  }
+
+  .v9-table.v9-table-mobile-cards {
+    display: block;
+  }
+  .v9-table.v9-table-mobile-cards thead {
+    display: none;
+  }
+  .v9-table.v9-table-mobile-cards tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .v9-table.v9-table-mobile-cards tr {
+    display: block;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow-sm);
+    cursor: default;
+  }
+  .v9-table.v9-table-mobile-cards tr:hover td {
+    background: transparent;
+  }
+  .v9-table.v9-table-mobile-cards td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid #F4F5F7;
+    font-size: 13px;
+    vertical-align: unset;
+    color: var(--color-text-primary);
+  }
+  .v9-table.v9-table-mobile-cards td:last-child {
+    border-bottom: none;
+    justify-content: flex-end;
+    padding-top: 8px;
+  }
+  /* Label prefix from data-label attribute */
+  .v9-table.v9-table-mobile-cards td::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+    width: 88px;
+    padding-top: 1px;
+  }
+  .v9-table.v9-table-mobile-cards td:last-child::before,
+  .v9-table.v9-table-mobile-cards td.v9-td-no-label::before {
+    display: none;
+  }
+  /* Truncate long text */
+  .v9-table.v9-table-mobile-cards td > * {
+    min-width: 0;
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   Permission matrix: sticky first column on desktop
+   ───────────────────────────────────────────────────── */
+.v9-table.v9-matrix-table {
+  min-width: 640px;
+}
+.v9-table.v9-matrix-table th:first-child,
+.v9-table.v9-matrix-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  box-shadow: 2px 0 4px rgba(9,30,66,0.06);
+}
+.v9-table.v9-matrix-table th:first-child {
+  background: var(--color-bg-muted);
+}
+.v9-table.v9-matrix-table td:first-child {
+  background: var(--color-bg-surface);
+}
+
+/* ─────────────────────────────────────────────────────
+   Compliance audit toolbar: wrap on mobile
+   ───────────────────────────────────────────────────── */
+.v9-audit-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ─────────────────────────────────────────────────────
+   Mobile card-row action button strip
+   ───────────────────────────────────────────────────── */
+.v9-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
