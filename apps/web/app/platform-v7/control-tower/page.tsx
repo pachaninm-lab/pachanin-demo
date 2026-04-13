@@ -81,7 +81,25 @@ export default function ControlTowerPage() {
 
   const deals = data?.data ?? [];
 
-  // KPI aggregates
+  // Table filters (local state — KPI row continues to aggregate all deals)
+  const [search, setSearch] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState('');
+  const [riskFilter, setRiskFilter] = React.useState('');
+
+  const filteredDeals = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return deals.filter(d => {
+      if (statusFilter && d.status !== statusFilter) return false;
+      if (riskFilter === 'high' && d.riskScore < 70) return false;
+      if (riskFilter === 'medium' && (d.riskScore < 30 || d.riskScore >= 70)) return false;
+      if (riskFilter === 'low' && d.riskScore >= 30) return false;
+      if (!q) return true;
+      const hay = [d.id, d.grain, d.seller.name, d.buyer.name].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [deals, search, statusFilter, riskFilter]);
+
+  // KPI aggregates — always over the full deal set, independent of filters
   const totalReserved = deals.reduce((s, d) => s + d.reservedAmount, 0);
   const totalHold = deals.reduce((s, d) => s + d.holdAmount, 0);
   const activeDeals = deals.filter(d => d.status !== 'closed').length;
@@ -116,7 +134,7 @@ export default function ControlTowerPage() {
             size="md"
             asChild
           >
-            <Link href="/platform-v9/deals">Все сделки →</Link>
+            <Link href="/platform-v7/deals">Все сделки →</Link>
           </Button>
         </div>
       </div>
@@ -151,7 +169,7 @@ export default function ControlTowerPage() {
             )}
           </div>
           <Button variant="danger" size="sm" asChild>
-            <Link href={`/platform-v9/deals/${topRisk.id}`}>Открыть <ArrowRight size={12} /></Link>
+            <Link href={`/platform-v7/deals/${topRisk.id}`}>Открыть <ArrowRight size={12} /></Link>
           </Button>
         </div>
       )}
@@ -200,8 +218,50 @@ export default function ControlTowerPage() {
             Все сделки
           </h2>
           <span style={{ fontSize: 12, color: '#6B778C' }}>
-            {isLoading ? '—' : `${deals.length} всего`}
+            {isLoading ? '—' : (
+              filteredDeals.length === deals.length
+                ? `${deals.length} всего`
+                : `${filteredDeals.length} из ${deals.length}`
+            )}
           </span>
+        </div>
+
+        {/* Filters */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <input
+            type="search"
+            placeholder="Поиск по ID, культуре, контрагенту..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            aria-label="Поиск сделок"
+            style={{
+              flex: 1, minWidth: 200, padding: '7px 12px', borderRadius: 6,
+              border: '1px solid #E4E6EA', fontSize: 13, background: '#fff',
+            }}
+          />
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            aria-label="Фильтр по статусу"
+            style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #E4E6EA', fontSize: 13, background: '#fff' }}
+          >
+            <option value="">Все статусы</option>
+            <option value="quality_disputed">Споры</option>
+            <option value="in_transit">В пути</option>
+            <option value="release_requested">Запрос release</option>
+            <option value="closed">Закрытые</option>
+          </select>
+          <select
+            value={riskFilter}
+            onChange={e => setRiskFilter(e.target.value)}
+            aria-label="Фильтр по риску"
+            style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #E4E6EA', fontSize: 13, background: '#fff' }}
+          >
+            <option value="">Все риски</option>
+            <option value="high">Высокий (70+)</option>
+            <option value="medium">Средний (30–69)</option>
+            <option value="low">Низкий (&lt;30)</option>
+          </select>
         </div>
 
         {isError && (
@@ -248,20 +308,36 @@ export default function ControlTowerPage() {
                       ))}
                     </tr>
                   ))
-                  : deals.length === 0
+                  : filteredDeals.length === 0
                     ? (
                       <tr>
                         <td colSpan={9}>
                           <EmptyState
                             icon={<TrendingUp />}
-                            title="Сделок нет"
-                            description="Создайте первую сделку, чтобы начать работу"
-                            action={<Button variant="primary" size="sm">Создать сделку</Button>}
+                            title={deals.length === 0 ? 'Сделок нет' : 'Ничего не найдено'}
+                            description={
+                              deals.length === 0
+                                ? 'Создайте первую сделку, чтобы начать работу'
+                                : 'Попробуйте изменить фильтры или поисковый запрос'
+                            }
+                            action={
+                              deals.length === 0
+                                ? <Button variant="primary" size="sm">Создать сделку</Button>
+                                : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => { setSearch(''); setStatusFilter(''); setRiskFilter(''); }}
+                                  >
+                                    Сбросить фильтры
+                                  </Button>
+                                )
+                            }
                           />
                         </td>
                       </tr>
                     )
-                    : deals.map(deal => {
+                    : filteredDeals.map(deal => {
                       const riskTone = getRiskTone(deal.riskScore);
                       const hasDispute = deal.status === 'quality_disputed';
                       const riskLabel = riskTone === 'danger' ? 'Высокий' : riskTone === 'warning' ? 'Средний' : 'Низкий';
@@ -269,7 +345,7 @@ export default function ControlTowerPage() {
                       return (
                         <tr
                           key={deal.id}
-                          onClick={() => { window.location.href = `/platform-v9/deals/${deal.id}`; }}
+                          onClick={() => { window.location.href = `/platform-v7/deals/${deal.id}`; }}
                           style={{ cursor: 'pointer' }}
                           aria-label={`Сделка ${deal.id}: ${deal.grain}`}
                         >
@@ -343,7 +419,7 @@ export default function ControlTowerPage() {
                           </td>
                           <td className="v9-td-no-label">
                             <Link
-                              href={`/platform-v9/deals/${deal.id}`}
+                              href={`/platform-v7/deals/${deal.id}`}
                               style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
                               onClick={e => e.stopPropagation()}
                               aria-label={`Открыть сделку ${deal.id}`}
@@ -371,7 +447,7 @@ export default function ControlTowerPage() {
             {highRisk.map(deal => (
               <Link
                 key={deal.id}
-                href={`/platform-v9/deals/${deal.id}`}
+                href={`/platform-v7/deals/${deal.id}`}
                 style={{
                   textDecoration: 'none',
                   display: 'block',

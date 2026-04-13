@@ -92,10 +92,10 @@ export default function DealsPage() {
                 </tr>
               ))
               : deals.map(deal => (
-                <tr key={deal.id} onClick={() => { window.location.href = `/platform-v9/deals/${deal.id}`; }} style={{ cursor: 'pointer' }}>
+                <tr key={deal.id} onClick={() => { window.location.href = `/platform-v7/deals/${deal.id}`; }} style={{ cursor: 'pointer' }}>
                   <td data-label="ID">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Link href={`/platform-v9/deals/${deal.id}`} style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 12, fontWeight: 700, color: '#0A7A5F', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>
+                      <Link href={`/platform-v7/deals/${deal.id}`} style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 12, fontWeight: 700, color: '#0A7A5F', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>
                         {deal.id}
                       </Link>
                       {deal.dispute && <AlertTriangle size={12} color="#DC2626" aria-label="Спор" />}

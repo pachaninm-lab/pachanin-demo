@@ -6,11 +6,12 @@ import { Menu, Search, Bot } from 'lucide-react';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { RoleSwitcher } from './RoleSwitcher';
 import { SandboxBadge } from '../bank/SandboxBadge';
+import { SandboxBanner } from './SandboxBanner';
 import { cn } from '@/lib/v9/utils';
 
 function buildBreadcrumbs(pathname: string) {
   const labels: Record<string, string> = {
-    'platform-v7': 'v9',
+    'platform-v7': 'Платформа',
     'control-tower': 'Control Tower',
     'deals': 'Сделки',
     'buyer': 'Покупатель',
@@ -79,6 +80,7 @@ export function Header({ onOpenCmd, onToggleAi, aiOpen }: HeaderProps) {
       </button>
 
       <div className="flex items-center gap-2">
+        <SandboxBanner />
         <SandboxBadge className="hidden sm:inline-flex" />
         <button
           onClick={onToggleAi}

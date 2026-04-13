@@ -176,7 +176,7 @@ export default function BuyerPage() {
                     {inList ? '★ В шортлисте' : '☆ Добавить'}
                   </button>
                   <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/platform-v9/deals/${lot.id}`}>→</Link>
+                    <Link href={`/platform-v7/deals/${lot.id}`}>→</Link>
                   </Button>
                 </div>
               </div>
@@ -194,7 +194,7 @@ export default function BuyerPage() {
             <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>Лаб-результат получен · Спор DK-2024-89 · Hold 624 000 ₽</div>
           </div>
           <Button variant="primary" size="sm" asChild>
-            <Link href="/platform-v9/deals/DL-9102">Перейти →</Link>
+            <Link href="/platform-v7/deals/DL-9102">Перейти →</Link>
           </Button>
         </div>
       </section>
@@ -204,7 +204,7 @@ export default function BuyerPage() {
         <h2 style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Мои сделки</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {myDeals.map(deal => (
-            <Link key={deal.id} href={`/platform-v9/deals/${deal.id}`} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#FAFAFA', borderRadius: 6, border: '1px solid #E4E6EA' }}>
+            <Link key={deal.id} href={`/platform-v7/deals/${deal.id}`} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#FAFAFA', borderRadius: 6, border: '1px solid #E4E6EA' }}>
               <div>
                 <div style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 12, fontWeight: 700, color: '#0A7A5F' }}>{deal.id}</div>
                 <div style={{ fontSize: 12, fontWeight: 500, marginTop: 2, color: '#495057' }}>{deal.grain} · {deal.quantity} {deal.unit}</div>

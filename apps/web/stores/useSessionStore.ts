@@ -32,7 +32,7 @@ export const useSessionStore = create<SessionState>()(
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
     }),
     {
-      name: 'pc-session-v10', // bumped from v9 to evict old cached sidebarOpen:true
+      name: 'pc-session-v9', // unified version key across the app
       // Only persist user preferences, NOT transient UI state
       partialize: (state) => ({
         role: state.role,

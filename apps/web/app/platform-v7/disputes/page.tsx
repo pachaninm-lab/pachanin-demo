@@ -51,13 +51,13 @@ export default function DisputesPage() {
             ) : disputes.map(d => (
               <tr
                 key={d.id}
-                onClick={() => { window.location.href = `/platform-v9/disputes/${d.id}`; }}
+                onClick={() => { window.location.href = `/platform-v7/disputes/${d.id}`; }}
                 style={{ cursor: 'pointer' }}
               >
                 <td data-label="ID">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Link
-                      href={`/platform-v9/disputes/${d.id}`}
+                      href={`/platform-v7/disputes/${d.id}`}
                       style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 12, fontWeight: 700, color: '#DC2626', textDecoration: 'none' }}
                       onClick={e => e.stopPropagation()}
                     >
@@ -68,7 +68,7 @@ export default function DisputesPage() {
                 </td>
                 <td data-label="Сделка">
                   <Link
-                    href={`/platform-v9/deals/${d.dealId}`}
+                    href={`/platform-v7/deals/${d.dealId}`}
                     style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 12, color: '#0A7A5F', textDecoration: 'none', fontWeight: 600 }}
                     onClick={e => e.stopPropagation()}
                   >

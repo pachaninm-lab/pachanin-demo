@@ -14,7 +14,7 @@ async function startMSW() {
 }
 
 export function MSWProvider({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = React.useState(false);
+  const [isMswReady, setIsMswReady] = React.useState(false);
 
   React.useEffect(() => {
     const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
@@ -22,28 +22,39 @@ export function MSWProvider({ children }: { children: React.ReactNode }) {
       || true; // default on
 
     if (demoMode) {
-      startMSW().then(() => setReady(true));
+      startMSW().then(() => setIsMswReady(true));
     } else {
-      setReady(true);
+      setIsMswReady(true);
     }
   }, []);
 
-  if (!ready) {
-    return (
-      <div className="v9-root" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', color: '#6B778C', fontSize: 13 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            border: '3px solid #E4E6EA', borderTopColor: '#0A7A5F',
-            animation: 'spin 0.8s linear infinite',
-            margin: '0 auto 12px',
-          }} />
-          Инициализация...
+  // Render the UI immediately — MSW boots in the background.
+  // While the service worker is registering, API calls will fail and the
+  // components' own skeletons / error states will handle the transition.
+  return (
+    <>
+      {!isMswReady && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0,
+            zIndex: 100,
+            padding: '6px 12px',
+            fontSize: 11,
+            fontWeight: 700,
+            textAlign: 'center',
+            color: '#D97706',
+            background: 'rgba(217,119,6,0.08)',
+            borderBottom: '1px solid rgba(217,119,6,0.25)',
+            letterSpacing: '0.03em',
+          }}
+        >
+          ⏳ Загрузка демо-данных...
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+      )}
+      {children}
+    </>
+  );
 }

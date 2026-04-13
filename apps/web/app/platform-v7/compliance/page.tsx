@@ -61,11 +61,30 @@ export default function CompliancePage() {
   const totalBlocked = AUDIT_DATA.filter(e => e.result === 'blocked').length;
 
   const handleExport = () => {
-    if (demoMode) {
-      toast.success('[SANDBOX] Экспорт аудит-лога инициирован (CSV, 10 записей)', { description: 'В реальном режиме файл был бы загружен' });
-    } else {
-      toast.error('Экспорт недоступен вне SANDBOX');
-    }
+    // Build CSV from the filtered audit entries so the export matches what
+    // the user actually sees on screen. Escape fields with commas/quotes.
+    const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;
+    const header = 'ID,Время,Актор,Роль,Действие,Объект,Результат,IP,Описание';
+    const rows = filtered.map(e =>
+      [e.id, e.ts, e.actor, e.role, e.action, `${e.entity}:${e.entityId}`, e.result, e.ip, e.details]
+        .map(esc)
+        .join(',')
+    );
+    const csv = '\uFEFF' + [header, ...rows].join('\n'); // BOM for Excel cyrillic
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(
+      demoMode
+        ? `[SANDBOX] Аудит-лог экспортирован (${filtered.length} записей)`
+        : `Аудит-лог экспортирован (${filtered.length} записей)`
+    );
   };
 
   return (

@@ -176,7 +176,7 @@ export default function BankPage() {
                     </Button>
                   )}
                   <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/platform-v9/deals/${op.dealId}`}>→ Сделка</Link>
+                    <Link href={`/platform-v7/deals/${op.dealId}`}>→ Сделка</Link>
                   </Button>
                 </div>
               </div>
@@ -207,7 +207,7 @@ export default function BankPage() {
             {(bank?.callbacks ?? []).map(cb => (
               <Link
                 key={cb.id}
-                href={cb.status === 'mismatch' ? '/platform-v9/disputes/DK-2024-89' : `/platform-v9/deals/${cb.dealId}`}
+                href={cb.status === 'mismatch' ? '/platform-v7/disputes/DK-2024-89' : `/platform-v7/deals/${cb.dealId}`}
                 style={{
                   textDecoration: 'none', display: 'flex', justifyContent: 'space-between',
                   alignItems: 'center', flexWrap: 'wrap', gap: 8,
@@ -268,10 +268,10 @@ export default function BankPage() {
               {escalateMutation.isPending ? 'Отправка...' : 'Эскалировать в Сбер'}
             </Button>
             <Button variant="ghost" asChild>
-              <Link href="/platform-v9/disputes/DK-2024-89">Открыть спор →</Link>
+              <Link href="/platform-v7/disputes/DK-2024-89">Открыть спор →</Link>
             </Button>
             <Button variant="ghost" asChild>
-              <Link href={`/platform-v9/deals/${PRIMARY_DEAL}`}>Сделка {PRIMARY_DEAL}</Link>
+              <Link href={`/platform-v7/deals/${PRIMARY_DEAL}`}>Сделка {PRIMARY_DEAL}</Link>
             </Button>
           </div>
         </section>
