@@ -8,8 +8,8 @@ const steps = [
 ] as const;
 
 const timeline = [
-  { date: '15.03 14:30', text: 'Банк ввёл hold 624 000 ₽ — спор о качестве зерна', tone: 'danger' },
-  { date: '15.03 09:00', text: 'Callback CB-442: mismatch по качеству, требует ручной сверки', tone: 'warn' },
+  { date: '15.03 14:30', text: 'Банк ввёл удержание 624 000 ₽ — спор о качестве зерна', tone: 'danger' },
+  { date: '15.03 09:00', text: 'Уведомление CB-442: расхождение по качеству, требует ручной сверки', tone: 'warn' },
   { date: '14.03 16:00', text: 'Продавец загрузил паспорт качества ФГИС Зерно', tone: 'success' },
   { date: '13.03 11:00', text: 'Лаборатория: протокол ЛАБ-2847 — расхождение протеина 0.8%', tone: 'warn' },
   { date: '10.03 08:45', text: 'Резерв 6 384 000 ₽ подтверждён банком', tone: 'success' },
@@ -77,7 +77,7 @@ export default function DealPage() {
             <div className='t7-progress' style={{ marginTop: 12 }}><span style={{ width: '92%' }} /></div>
           </article>
           <article className='t7-card'>
-            <span className='t7-chip t7-chip-danger'>Hold</span>
+            <span className='t7-chip t7-chip-danger'>Удержание</span>
             <div className='t7-value' style={{ color: 'var(--danger)' }}>624 000 ₽</div>
             <div className='t7-label'>Под удержанием — спор о качестве</div>
           </article>
@@ -115,7 +115,7 @@ export default function DealPage() {
             <div className='t7-list' style={{ marginTop: 14 }}>
               {[
                 { label: 'Резерв подтверждён', value: '6 384 000 ₽', tone: 'success', date: '10.03' },
-                { label: 'Hold (спор о качестве)', value: '624 000 ₽', tone: 'danger', date: '15.03' },
+                { label: 'Удержание (спор о качестве)', value: '624 000 ₽', tone: 'danger', date: '15.03' },
                 { label: 'К выпуску при закрытии', value: '5 760 000 ₽', tone: 'warn', date: 'Ожидает' },
               ].map(({ label, value, tone, date }) => (
                 <div key={label} className='t7-row'>

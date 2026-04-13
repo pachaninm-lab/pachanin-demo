@@ -54,7 +54,7 @@ export default function ControlPage() {
             <div className='t7-label'>Открытый спор</div>
           </article>
           <article className='t7-card'>
-            <span className='t7-chip t7-chip-danger'>Под hold</span>
+            <span className='t7-chip t7-chip-danger'>Удержание</span>
             <div className='t7-value' style={{ color: 'var(--danger)' }}>624 000 ₽</div>
             <div className='t7-label'>Заморожены до решения</div>
           </article>
@@ -106,7 +106,7 @@ export default function ControlPage() {
 
           <section className='t7-panel'>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className='t7-eyebrow'>Evidence pack</div>
+              <div className='t7-eyebrow'>Пакет доказательств</div>
               <span className='t7-chip t7-chip-warn'>Не хватает 1</span>
             </div>
             <div className='t7-list' style={{ marginTop: 14 }}>

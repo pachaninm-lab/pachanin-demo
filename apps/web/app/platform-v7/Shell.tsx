@@ -156,7 +156,7 @@ export default function Shell({ children }: { children: ReactNode }) {
           --bank: #4338ca; --docs: #8b5e34; --control: #7c3aed;
         }
         *, *::before, *::after { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
+        html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; overflow-x: hidden; }
         a { text-decoration: none; color: inherit; }
         a:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; border-radius: 4px; }
 

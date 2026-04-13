@@ -2,13 +2,13 @@ import Link from 'next/link';
 
 const operations = [
   { type: 'Резерв', desc: 'Подтверждён в полном объёме', amount: '6 384 000 ₽', date: '10.03.2026', tone: 'success' },
-  { type: 'Hold', desc: 'Введён — спор DK-2024-89 по качеству', amount: '624 000 ₽', date: '15.03.2026', tone: 'danger' },
-  { type: 'Release', desc: 'Ожидает: нужен акт приёмки и форма ЗТТ', amount: '5 760 000 ₽', date: 'Ожидает', tone: 'warn' },
+  { type: 'Удержание', desc: 'Введено — спор DK-2024-89 по качеству', amount: '624 000 ₽', date: '15.03.2026', tone: 'danger' },
+  { type: 'Выпуск', desc: 'Ожидает: нужен акт приёмки и форма ЗТТ', amount: '5 760 000 ₽', date: 'Ожидает', tone: 'warn' },
 ] as const;
 
 const callbacks = [
-  { id: 'CB-441', type: 'Резерв', deal: 'DL-9102', status: 'OK', note: 'Подтверждено автоматически', date: '11.03 09:12', tone: 'success' },
-  { id: 'CB-442', type: 'Качество', deal: 'DL-9102', status: 'Mismatch', note: 'Расхождение 0.8% — ручная сверка', date: '11.03 14:30', tone: 'danger' },
+  { id: 'CB-441', type: 'Резерв', deal: 'DL-9102', status: 'Принято', note: 'Подтверждено автоматически', date: '11.03 09:12', tone: 'success' },
+  { id: 'CB-442', type: 'Качество', deal: 'DL-9102', status: 'Расхождение', note: 'Расхождение 0.8% — ручная сверка', date: '11.03 14:30', tone: 'danger' },
   { id: 'CB-443', type: 'Финал', deal: 'DL-9102', status: 'Ожидает', note: 'Зависит от разрешения CB-442', date: '—', tone: 'warn' },
 ] as const;
 
@@ -25,9 +25,9 @@ export default function BankPage() {
         {/* HERO */}
         <section className='t7-hero'>
           <span className='t7-chip t7-chip-bank'>БАНК</span>
-          <h1 className='t7-h1'>Reserve, hold, release — без лишнего шума</h1>
+          <h1 className='t7-h1'>Резерв, удержание, выпуск — без лишнего шума</h1>
           <p className='t7-lead'>
-            Строгий операционный кабинет: резерв, удержание, выпуск и callbacks.
+            Строгий операционный кабинет: резерв, удержание, выпуск и уведомления.
             Каждое действие — с основанием и статусом.
           </p>
           <div className='t7-actions'>
@@ -45,7 +45,7 @@ export default function BankPage() {
             <div className='t7-label'>Под контролем банка</div>
           </article>
           <article className='t7-card'>
-            <span className='t7-chip t7-chip-danger'>Hold</span>
+            <span className='t7-chip t7-chip-danger'>Удержание</span>
             <div className='t7-value' style={{ color: 'var(--danger)' }}>624 000 ₽</div>
             <div className='t7-label'>Спор о качестве DK-2024-89</div>
           </article>
@@ -55,7 +55,7 @@ export default function BankPage() {
             <div className='t7-label'>При закрытии документов</div>
           </article>
           <article className='t7-card'>
-            <span className='t7-chip t7-chip-danger'>Mismatch</span>
+            <span className='t7-chip t7-chip-danger'>Расхождение</span>
             <div className='t7-value'>1</div>
             <div className='t7-label'>CB-442 требует ручной сверки</div>
           </article>
@@ -79,7 +79,7 @@ export default function BankPage() {
 
         {/* BLOCKING DOCS */}
         <section className='t7-panel' style={{ border: '1px solid rgba(245,158,11,.2)', background: 'rgba(245,158,11,.03)' }}>
-          <div className='t7-eyebrow' style={{ color: '#b45309' }}>Что блокирует release</div>
+          <div className='t7-eyebrow' style={{ color: '#b45309' }}>Что блокирует выпуск</div>
           <div className='t7-list' style={{ marginTop: 12 }}>
             {blockingDocs.map(({ name, owner, impact }) => (
               <div key={name} className='t7-row'>
@@ -99,7 +99,7 @@ export default function BankPage() {
         {/* CALLBACKS */}
         <section className='t7-panel'>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className='t7-eyebrow'>Callbacks</div>
+            <div className='t7-eyebrow'>Уведомления банка</div>
             <span className='t7-chip t7-chip-danger'>1 требует внимания</span>
           </div>
           <div className='t7-list' style={{ marginTop: 14 }}>
@@ -128,11 +128,11 @@ export default function BankPage() {
         <section className='t7-panel' style={{ border: '1px solid rgba(220,38,38,.2)', background: 'rgba(220,38,38,.03)' }}>
           <div className='t7-eyebrow' style={{ color: 'var(--danger)' }}>Требует ручного разбора</div>
           <h2 className='t7-h2' style={{ marginTop: 10, color: 'var(--danger)', fontSize: 17 }}>
-            CB-442 · Mismatch по качеству · DL-9102
+            CB-442 · Расхождение по качеству · DL-9102
           </h2>
           <p className='t7-text' style={{ marginTop: 8 }}>
             Расхождение протеина 0.8% между паспортом ФГИС Зерно и протоколом лаборатории ЛАБ-2847.
-            Холдирование 624 000 ₽ активно до решения по спору DK-2024-89.
+            Удержание 624 000 ₽ активно до решения по спору DK-2024-89.
           </p>
           <div className='t7-actions'>
             <Link href='/platform-v7/control' className='t7-btn danger'>Перейти к спору →</Link>

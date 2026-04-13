@@ -53,7 +53,7 @@ export default function SellerPage() {
           <article className='t7-card'>
             <span className='t7-chip t7-chip-warn'>Блокеры</span>
             <div className='t7-value'>1</div>
-            <div className='t7-label'>Документ блокирует release</div>
+            <div className='t7-label'>Документ блокирует выпуск</div>
           </article>
         </div>
 

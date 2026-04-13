@@ -69,18 +69,18 @@ const roles = [
     badgeClass: 't7-chip-bank',
     accentColor: 'var(--bank)',
     name: 'Банк',
-    purpose: 'Reserve, hold, release и callbacks без лишнего шума',
+    purpose: 'Резерв, удержание, выпуск и уведомления без лишнего шума',
     focus: [
       'Статус резерва и условия удержания',
-      'Корректность callback-уведомлений',
-      'Основания и готовность для release',
+      'Корректность уведомлений банка',
+      'Основания и готовность для выпуска',
     ],
     metrics: [
       { v: '3,87 млн', l: 'Резерв' },
-      { v: '1', l: 'Mismatch' },
-      { v: '92%', l: 'Callbacks OK' },
+      { v: '1', l: 'Расхождение' },
+      { v: '92%', l: 'Увед. ОК' },
     ],
-    statusText: 'Есть mismatch',
+    statusText: 'Расхождение',
     statusClass: 't7-chip-danger',
   },
   {
@@ -117,7 +117,7 @@ const roles = [
     ],
     metrics: [
       { v: '1', l: 'Кейс' },
-      { v: '624 тыс', l: 'Под hold' },
+      { v: '624 тыс', l: 'Удержание' },
       { v: '6 дн', l: 'SLA' },
     ],
     statusText: 'Активный спор',
