@@ -29,11 +29,7 @@ export function Sidebar({ aiOpen, onToggleAi }: SidebarProps) {
 
   return (
     <aside
-      className={cn(
-        'v9-sidebar',
-        // Mobile: hidden by default, show as overlay when open
-        !sidebarOpen ? 'max-lg:hidden' : 'max-lg:fixed max-lg:left-0 max-lg:top-0 max-lg:z-50 max-lg:w-[280px] max-lg:shadow-lg'
-      )}
+      className={cn('v9-sidebar', sidebarOpen && 'open')}
       aria-label="Основная навигация"
     >
       {/* Logo */}

@@ -139,6 +139,34 @@
     z-index: 50;
     box-shadow: var(--shadow-lg);
   }
+
+  .v9-header {
+    padding: 0 12px;
+  }
+
+  .v9-main {
+    padding: 16px 12px;
+  }
+
+  .v9-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .v9-bento {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .v9-bento {
+    grid-template-columns: 1fr;
+  }
+
+  .v9-main {
+    padding: 12px 10px;
+  }
 }
 
 /* Nav items */
