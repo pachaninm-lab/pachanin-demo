@@ -209,7 +209,7 @@ export default function SellerPage() {
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 {deal.blockers.length > 0 && <Badge variant="warning">Блокер</Badge>}
-                {deal.holdAmount > 0 && <Badge variant="danger">Hold</Badge>}
+                {deal.holdAmount > 0 && <Badge variant="danger">Удержание</Badge>}
                 <span style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 700 }}>→</span>
               </div>
             </Link>

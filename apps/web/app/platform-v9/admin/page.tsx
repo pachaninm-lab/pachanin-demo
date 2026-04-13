@@ -35,7 +35,7 @@ const USERS: UserRecord[] = [
 const roleColors: Record<string, string> = {
   operator: '#0A7A5F', buyer: '#0284C7', seller: '#16A34A', driver: '#D97706',
   lab: '#7C3AED', elevator: '#0891B2', bank: '#1D4ED8',
-  arbitrator: '#DC2626', compliance: '#6B778C', admin: '#0F1419',
+  arbitrator: '#9333EA', compliance: '#6B778C', admin: '#0F1419',
 };
 
 const platformSettings = [

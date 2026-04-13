@@ -211,7 +211,7 @@ export default function BuyerPage() {
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 {deal.dispute && <Badge variant="danger" dot>Спор</Badge>}
-                {deal.holdAmount > 0 && <Badge variant="danger">{(deal.holdAmount/1000).toFixed(0)}k hold</Badge>}
+                {deal.holdAmount > 0 && <Badge variant="danger">{(deal.holdAmount/1000).toFixed(0)} тыс. удерж.</Badge>}
                 <span style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 700 }}>→</span>
               </div>
             </Link>
