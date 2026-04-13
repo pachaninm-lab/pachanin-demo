@@ -21,6 +21,7 @@ export const useSessionStore = create<SessionState>()(
     (set) => ({
       role: 'operator',
       demoMode: true,
+      // UI state — always starts closed; sidebar is shown via CSS on desktop
       aiDrawerOpen: false,
       sidebarOpen: false,
 
@@ -30,6 +31,13 @@ export const useSessionStore = create<SessionState>()(
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
     }),
-    { name: 'pc-session-v9' }
+    {
+      name: 'pc-session-v10', // bumped from v9 to evict old cached sidebarOpen:true
+      // Only persist user preferences, NOT transient UI state
+      partialize: (state) => ({
+        role: state.role,
+        demoMode: state.demoMode,
+      }),
+    }
   )
 );
