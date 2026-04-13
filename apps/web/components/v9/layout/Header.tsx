@@ -10,7 +10,7 @@ import { cn } from '@/lib/v9/utils';
 
 function buildBreadcrumbs(pathname: string) {
   const labels: Record<string, string> = {
-    'platform-v9': 'v9',
+    'platform-v7': 'v9',
     'control-tower': 'Control Tower',
     'deals': 'Сделки',
     'buyer': 'Покупатель',

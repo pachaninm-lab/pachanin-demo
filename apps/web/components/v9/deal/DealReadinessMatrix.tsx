@@ -213,7 +213,7 @@ export function DealReadinessMatrix({ dealId }: Props) {
                   )}
                   {contour.disputeId && (
                     <Button variant="ghost" size="sm" asChild style={{ fontSize: 11 }}>
-                      <Link href={`/platform-v9/disputes/${contour.disputeId}`}>
+                      <Link href={`/platform-v7/disputes/${contour.disputeId}`}>
                         War-room <ExternalLink size={10} style={{ marginLeft: 2 }} />
                       </Link>
                     </Button>

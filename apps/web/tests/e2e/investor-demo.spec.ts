@@ -8,7 +8,7 @@ test.describe('§9 Investor demo acceptance', () => {
 
   test('Criterion 1: Operator finds max-risk deal + next action in ≤5s', async ({ page }) => {
     const start = Date.now();
-    await page.goto('/platform-v9/control-tower');
+    await page.goto('/platform-v7/control-tower');
 
     // Wait for data to load
     await page.waitForSelector('[data-testid="kpi-reserved"]', { timeout: 5000 });
@@ -19,7 +19,7 @@ test.describe('§9 Investor demo acceptance', () => {
     await expect(riskAlert).toContainText('DL-9102');
 
     // Must contain next action (link to deal)
-    const dealLink = page.locator('a[href*="/platform-v9/deals/DL-9102"]').first();
+    const dealLink = page.locator('a[href*="/platform-v7/deals/DL-9102"]').first();
     await expect(dealLink).toBeVisible();
 
     const elapsed = Date.now() - start;
@@ -29,7 +29,7 @@ test.describe('§9 Investor demo acceptance', () => {
 
   test('Criterion 2: Buyer confirms partial release in ≤10s', async ({ page }) => {
     const start = Date.now();
-    await page.goto('/platform-v9/deals/DL-9102');
+    await page.goto('/platform-v7/deals/DL-9102');
     await page.waitForSelector('text=DL-9102', { timeout: 5000 });
 
     // Release button should be present (may be disabled due to dispute/hold)
@@ -49,7 +49,7 @@ test.describe('§9 Investor demo acceptance', () => {
   });
 
   test('Criterion 3: Driver field page — offline queue records event', async ({ page }) => {
-    await page.goto('/platform-v9/field');
+    await page.goto('/platform-v7/field');
     await page.waitForSelector('text=Подтвердить прибытие', { timeout: 5000 });
 
     // Confirm arrival — enqueues event
@@ -63,7 +63,7 @@ test.describe('§9 Investor demo acceptance', () => {
   });
 
   test('Criterion 4: Dispute DK-2024-89 war-room is accessible', async ({ page }) => {
-    await page.goto('/platform-v9/disputes/DK-2024-89');
+    await page.goto('/platform-v7/disputes/DK-2024-89');
     await page.waitForSelector('text=DK-2024-89', { timeout: 5000 });
 
     // PDF export button available (sandbox mode)
@@ -80,7 +80,7 @@ test.describe('§9 Investor demo acceptance', () => {
   });
 
   test('Criterion 5: Control Tower page loads successfully', async ({ page }) => {
-    await page.goto('/platform-v9/control-tower');
+    await page.goto('/platform-v7/control-tower');
 
     // AppShell renders
     await expect(page.locator('[data-testid="app-shell"]')).toBeVisible({ timeout: 5000 });
@@ -99,7 +99,7 @@ test.describe('§9 Investor demo acceptance', () => {
   });
 
   test('Navigation: role switcher changes visible nav items', async ({ page }) => {
-    await page.goto('/platform-v9/control-tower');
+    await page.goto('/platform-v7/control-tower');
     await page.waitForSelector('[data-testid="app-shell"]');
 
     // Open role switcher
@@ -113,9 +113,9 @@ test.describe('§9 Investor demo acceptance', () => {
     await driverOption.click();
 
     // Sidebar should now show field link
-    await expect(page.locator('a[href="/platform-v9/field"]')).toBeVisible();
+    await expect(page.locator('a[href="/platform-v7/field"]')).toBeVisible();
     // Bank link should not be visible for driver
-    await expect(page.locator('a[href="/platform-v9/bank"]')).not.toBeVisible();
+    await expect(page.locator('a[href="/platform-v7/bank"]')).not.toBeVisible();
   });
 
 });

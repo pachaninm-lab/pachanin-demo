@@ -16,17 +16,17 @@ interface CommandItem {
 }
 
 const staticItems: CommandItem[] = [
-  { id: 'ct', label: 'Control Tower', description: 'Обзор всех сделок', href: '/platform-v9/control-tower', icon: LayoutDashboard, category: 'Навигация', keywords: ['дашборд', 'обзор', 'оператор'] },
-  { id: 'deals', label: 'Сделки', description: 'Все активные сделки', href: '/platform-v9/deals', icon: FileText, category: 'Навигация', keywords: ['список', 'таблица'] },
-  { id: 'disputes', label: 'Споры', description: 'War-room', href: '/platform-v9/disputes', icon: Scale, category: 'Навигация', keywords: ['конфликт', 'арбитраж'] },
-  { id: 'bank', label: 'Банк', description: 'Reserve / Hold / Release', href: '/platform-v9/bank', icon: Landmark, category: 'Навигация', keywords: ['сбер', 'деньги', 'резерв'] },
-  { id: 'seller', label: 'Продавец', description: 'Воркспейс продавца', href: '/platform-v9/seller', icon: Wheat, category: 'Роли' },
-  { id: 'buyer', label: 'Покупатель', description: 'Воркспейс покупателя', href: '/platform-v9/buyer', icon: ShoppingCart, category: 'Роли' },
-  { id: 'field', label: 'Поле', description: 'Водитель / Элеватор', href: '/platform-v9/field', icon: MapPin, category: 'Роли', keywords: ['водитель', 'офлайн'] },
+  { id: 'ct', label: 'Control Tower', description: 'Обзор всех сделок', href: '/platform-v7/control-tower', icon: LayoutDashboard, category: 'Навигация', keywords: ['дашборд', 'обзор', 'оператор'] },
+  { id: 'deals', label: 'Сделки', description: 'Все активные сделки', href: '/platform-v7/deals', icon: FileText, category: 'Навигация', keywords: ['список', 'таблица'] },
+  { id: 'disputes', label: 'Споры', description: 'War-room', href: '/platform-v7/disputes', icon: Scale, category: 'Навигация', keywords: ['конфликт', 'арбитраж'] },
+  { id: 'bank', label: 'Банк', description: 'Reserve / Hold / Release', href: '/platform-v7/bank', icon: Landmark, category: 'Навигация', keywords: ['сбер', 'деньги', 'резерв'] },
+  { id: 'seller', label: 'Продавец', description: 'Воркспейс продавца', href: '/platform-v7/seller', icon: Wheat, category: 'Роли' },
+  { id: 'buyer', label: 'Покупатель', description: 'Воркспейс покупателя', href: '/platform-v7/buyer', icon: ShoppingCart, category: 'Роли' },
+  { id: 'field', label: 'Поле', description: 'Водитель / Элеватор', href: '/platform-v7/field', icon: MapPin, category: 'Роли', keywords: ['водитель', 'офлайн'] },
   // Quick deals
-  { id: 'dl9102', label: 'DL-9102', description: 'Пшеница 4 кл. · Спор DK-2024-89', href: '/platform-v9/deals/DL-9102', icon: FileText, category: 'Быстрый доступ', keywords: ['ковалёв', 'агроинвест', 'спор'] },
-  { id: 'dl9103', label: 'DL-9103', description: 'Кукуруза 3 кл. · В пути', href: '/platform-v9/deals/DL-9103', icon: FileText, category: 'Быстрый доступ' },
-  { id: 'dk8924-89', label: 'DK-2024-89', description: 'Спор · Несоответствие качества', href: '/platform-v9/disputes/DK-2024-89', icon: Scale, category: 'Быстрый доступ', keywords: ['hold', '624'] },
+  { id: 'dl9102', label: 'DL-9102', description: 'Пшеница 4 кл. · Спор DK-2024-89', href: '/platform-v7/deals/DL-9102', icon: FileText, category: 'Быстрый доступ', keywords: ['ковалёв', 'агроинвест', 'спор'] },
+  { id: 'dl9103', label: 'DL-9103', description: 'Кукуруза 3 кл. · В пути', href: '/platform-v7/deals/DL-9103', icon: FileText, category: 'Быстрый доступ' },
+  { id: 'dk8924-89', label: 'DK-2024-89', description: 'Спор · Несоответствие качества', href: '/platform-v7/disputes/DK-2024-89', icon: Scale, category: 'Быстрый доступ', keywords: ['hold', '624'] },
 ];
 
 interface CommandPaletteProps {

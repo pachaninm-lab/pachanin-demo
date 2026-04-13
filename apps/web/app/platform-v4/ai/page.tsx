@@ -1,6 +1,0 @@
-import Shell from '../Shell';
-import { DenseRows, Hero, Panel, StatusChip, ui } from '../ui';
-
-const modules=[['ИИ-коммерсант','Подбирает офферы, проект условий и обоснование выбора','/platform-v4/ai/commercial'],['ИИ-ревизор договора','Ищет отклонения от шаблона, риски и правки','/platform-v4/ai/legal'],['ИИ-риск-аналитик','Собирает сигналы по документам, качеству, логистике и деньгам','/platform-v4/ai/risk'],['ИИ-оператор','Предлагает следующий шаг, owner и SLA, но не подменяет решение человека','/platform-v4/ai/operator']] as const;
-
-export default function Page(){return <Shell><div className={ui.frame}><Hero eyebrow='Контур ИИ Сбера' title='GigaChat как помощник сделки, а не автосудья' body='ИИ нужен там, где есть текст, правила, сравнение условий, анализ рисков и подготовка материалов. Окончательное решение по спорным и негативным случаям остаётся за человеком.' /><Panel title='Модули ИИ' body='ИИ встроен как помощник в контур сделки и оператора.'><DenseRows rows={modules.map(([title,text,href])=>({title,text,href,meta:<StatusChip tone='info'>открыть модуль</StatusChip>}))} /></Panel></div></Shell>}

@@ -125,16 +125,16 @@ export type NavItem = {
 };
 
 const allNavItems: NavItem[] = [
-  { href: '/platform-v9/control-tower', label: 'Control Tower', icon: 'LayoutDashboard' },
-  { href: '/platform-v9/deals', label: 'Сделки', icon: 'FileText', requiredPermission: 'deal.view' },
-  { href: '/platform-v9/procurement', label: 'Закупки (RFQ)', icon: 'ClipboardList', requiredPermission: 'deal.view' },
-  { href: '/platform-v9/buyer', label: 'Покупатель', icon: 'ShoppingCart', requiredPermission: 'release.approve' },
-  { href: '/platform-v9/seller', label: 'Продавец', icon: 'Wheat' },
-  { href: '/platform-v9/bank', label: 'Банк', icon: 'Landmark', requiredPermission: 'release.approve' },
-  { href: '/platform-v9/disputes', label: 'Споры', icon: 'Scale', requiredPermission: 'dispute.open' },
-  { href: '/platform-v9/field', label: 'Поле', icon: 'MapPin', requiredPermission: 'field.submit' },
-  { href: '/platform-v9/compliance', label: 'Комплаенс', icon: 'Shield', requiredPermission: 'audit.view' },
-  { href: '/platform-v9/admin', label: 'Администрирование', icon: 'Settings' },
+  { href: '/platform-v7/control-tower', label: 'Control Tower', icon: 'LayoutDashboard' },
+  { href: '/platform-v7/deals', label: 'Сделки', icon: 'FileText', requiredPermission: 'deal.view' },
+  { href: '/platform-v7/procurement', label: 'Закупки (RFQ)', icon: 'ClipboardList', requiredPermission: 'deal.view' },
+  { href: '/platform-v7/buyer', label: 'Покупатель', icon: 'ShoppingCart', requiredPermission: 'release.approve' },
+  { href: '/platform-v7/seller', label: 'Продавец', icon: 'Wheat' },
+  { href: '/platform-v7/bank', label: 'Банк', icon: 'Landmark', requiredPermission: 'release.approve' },
+  { href: '/platform-v7/disputes', label: 'Споры', icon: 'Scale', requiredPermission: 'dispute.open' },
+  { href: '/platform-v7/field', label: 'Поле', icon: 'MapPin', requiredPermission: 'field.submit' },
+  { href: '/platform-v7/compliance', label: 'Комплаенс', icon: 'Shield', requiredPermission: 'audit.view' },
+  { href: '/platform-v7/admin', label: 'Администрирование', icon: 'Settings' },
 ];
 
 export function getNavItems(role: Role): NavItem[] {

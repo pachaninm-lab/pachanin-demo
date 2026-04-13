@@ -16,25 +16,25 @@ interface AiSuggestion {
 
 // Context-aware suggestions based on current page path
 function getSuggestions(pathname: string, role: string): AiSuggestion[] {
-  if (pathname.includes('control-tower') || pathname === '/platform-v9') {
+  if (pathname.includes('control-tower') || pathname === '/platform-v7') {
     return [
       {
         id: 's1', priority: 'high',
         title: 'DL-9102 требует немедленного внимания',
         reasoning: 'На основе: Risk score 92, hold 624 000 ₽, SLA осталось 6 дней, спор DK-2024-89 без эксперта.',
-        action: 'Открыть war-room DK-2024-89', actionHref: '/platform-v9/disputes/DK-2024-89',
+        action: 'Открыть war-room DK-2024-89', actionHref: '/platform-v7/disputes/DK-2024-89',
       },
       {
         id: 's2', priority: 'high',
         title: 'CB-442 Mismatch блокирует release 5.76 млн ₽',
         reasoning: 'На основе: Callback не закрыт 4 дня. Зависимые сделки: DL-9102. Требуется ручная верификация.',
-        action: 'Перейти к банку', actionHref: '/platform-v9/bank',
+        action: 'Перейти к банку', actionHref: '/platform-v7/bank',
       },
       {
         id: 's3', priority: 'medium',
         title: 'DL-9110 — второй активный спор',
         reasoning: 'Risk score 78, hold 512 000 ₽, SLA 13 дней. Расхождение влажности кукурузы 16.2% vs 14%.',
-        action: 'Открыть DK-2024-91', actionHref: '/platform-v9/disputes/DK-2024-91',
+        action: 'Открыть DK-2024-91', actionHref: '/platform-v7/disputes/DK-2024-91',
       },
     ];
   }
@@ -79,7 +79,7 @@ function getSuggestions(pathname: string, role: string): AiSuggestion[] {
         id: 'dl1', priority: 'high',
         title: 'Фаза «Приёмка» заблокирована спором',
         reasoning: 'Разблокировка через: загрузка заключения эксперта + закрытие CB-442. ETA: 3-5 рабочих дней.',
-        action: 'War-room спора', actionHref: '/platform-v9/disputes/DK-2024-89',
+        action: 'War-room спора', actionHref: '/platform-v7/disputes/DK-2024-89',
       },
       {
         id: 'dl2', priority: 'medium',
@@ -96,7 +96,7 @@ function getSuggestions(pathname: string, role: string): AiSuggestion[] {
       id: 'def1', priority: 'medium',
       title: 'Недостаточно контекста для подсказки',
       reasoning: 'Выберите конкретную сделку или раздел для получения контекстных рекомендаций.',
-      action: 'Открыть Control Tower', actionHref: '/platform-v9/control-tower',
+      action: 'Открыть Control Tower', actionHref: '/platform-v7/control-tower',
     },
   ];
 }

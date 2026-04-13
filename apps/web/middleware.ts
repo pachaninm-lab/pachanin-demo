@@ -1,82 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const S = 'pc_session_present';
-const R: Record<string, string> = {
-  '/': '/platform-v4',
-  '/showroom': '/platform-v4',
-  '/platform-2026': '/platform-v4',
-  '/platform-v3': '/platform-v4',
-  '/canon/roles': '/platform-v4/redesign/roles',
-  '/platform-v4/roles': '/platform-v4/redesign/roles',
-  '/canon/market': '/platform-v4',
-  '/canon/deals': '/platform-v4/deal',
-  '/canon/deals/detail': '/platform-v4/deal',
-  '/canon/documents': '/platform-v4/documents',
-  '/canon/documents/detail': '/platform-v4/documents',
-  '/canon/operations': '/platform-v4/logistics',
-  '/canon/operations/detail': '/platform-v4/logistics',
-  '/canon/quality': '/platform-v4/lab',
-  '/canon/quality/detail': '/platform-v4/lab',
-  '/canon/receiving2': '/platform-v4/receiving',
-  '/canon/receiving2/detail': '/platform-v4/receiving',
-  '/canon/mobile2': '/platform-v4/logistics',
-  '/canon/mobile2/detail': '/platform-v4/logistics',
-  '/canon/finance': '/platform-v4/finance',
-  '/canon/finance/detail': '/platform-v4/finance',
-  '/canon/control': '/platform-v4/control',
-  '/canon/control/detail': '/platform-v4/control',
-  '/canon/admin': '/platform-v4/redesign/roles',
-  '/canon/analytics2': '/platform-v4/deal',
-  '/canon/simulator': '/platform-v4/simulations',
-};
-const P = new Set(['/', '/login', '/register', '/vitrina', '/market-news', '/demo', '/enter', '/platform-v4', '/platform-v7', '/platform-v9']);
-const X = ['/platform-v4/', '/platform-v7/', '/platform-v9/', '/api/auth/demo', '/api/auth/', '/api/runtime-', '/_next/', '/favicon', '/sw.js', '/manifest', '/mockServiceWorker.js'];
-const pub = (p: string) => P.has(p) || X.some((x) => p.startsWith(x));
-const ok = (v: unknown): v is { role: string; exp: number } => !!v && typeof v === 'object' && typeof (v as any).role === 'string' && typeof (v as any).exp === 'number';
-const parse = (raw: string | undefined) => {
+// Public paths — no session required
+const PUBLIC_EXACT = new Set(['/', '/login', '/register']);
+const PUBLIC_PREFIX = ['/platform-v7/', '/api/auth/', '/api/runtime-', '/_next/', '/favicon', '/sw.js', '/manifest', '/mockServiceWorker.js'];
+
+function isPublic(p: string): boolean {
+  return PUBLIC_EXACT.has(p) || PUBLIC_PREFIX.some(x => p.startsWith(x));
+}
+
+const SESSION_COOKIE = 'pc_session_present';
+
+function parseSession(raw: string | undefined): { role: string; exp: number } | null {
   if (!raw) return null;
-  const c = [raw];
-  try {
-    const d = decodeURIComponent(raw);
-    if (d !== raw) c.push(d);
-  } catch {}
-  for (const k of c) {
+  const candidates = [raw];
+  try { const d = decodeURIComponent(raw); if (d !== raw) candidates.push(d); } catch {}
+  for (const s of candidates) {
     try {
-      const p = JSON.parse(k);
-      if (ok(p)) return p;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p = JSON.parse(s) as any;
+      if (p && typeof p.role === 'string' && typeof p.exp === 'number') return p;
     } catch {}
   }
   return null;
-};
+}
 
 export function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
-  const d = R[p];
-  if (d) return NextResponse.redirect(new URL(d, req.url));
-  if (pub(p)) return NextResponse.next();
 
-  const s = parse(req.cookies.get(S)?.value);
-  if (!s) {
-    if (p.startsWith('/api/')) return NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 });
-    const u = req.nextUrl.clone();
-    u.pathname = '/login';
-    u.searchParams.set('returnTo', p);
-    return NextResponse.redirect(u);
-  }
+  // All platform-v7 and static paths are public (MSW demo mode)
+  if (isPublic(p) || p.startsWith('/platform-v7')) return NextResponse.next();
 
-  const now = Math.floor(Date.now() / 1000);
-  if (s.exp < now) {
-    if (p.startsWith('/api/')) return NextResponse.json({ ok: false, message: 'session_expired' }, { status: 401 });
+  // For protected API routes, require session
+  const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
+  if (!session) {
+    if (p.startsWith('/api/')) {
+      return NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 });
+    }
     const u = req.nextUrl.clone();
-    u.pathname = '/login';
-    u.searchParams.set('returnTo', p);
-    u.searchParams.set('reason', 'session_expired');
+    u.pathname = '/platform-v7/control-tower';
     return NextResponse.redirect(u);
   }
 
   const r = NextResponse.next();
-  r.headers.set('x-pc-role', s.role);
-  r.headers.set('x-pc-authenticated', 'true');
+  r.headers.set('x-pc-role', session.role);
   return r;
 }
 

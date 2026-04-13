@@ -67,7 +67,7 @@ export function Sidebar({ aiOpen, onToggleAi }: SidebarProps) {
           const Icon = iconMap[item.icon] ?? LayoutDashboard;
           const isActive =
             pathname === item.href ||
-            (pathname.startsWith(item.href + '/') && item.href !== '/platform-v9');
+            (pathname.startsWith(item.href + '/') && item.href !== '/platform-v7');
 
           return (
             <Link
@@ -105,14 +105,6 @@ export function Sidebar({ aiOpen, onToggleAi }: SidebarProps) {
           </kbd>
         </button>
 
-        <Link
-          href="/platform-v7"
-          className="v9-nav-item"
-          style={{ color: '#6B778C', fontSize: 11, marginTop: 4 }}
-          aria-label="Вернуться к платформе v7"
-        >
-          ← Платформа v7
-        </Link>
       </div>
     </aside>
   );

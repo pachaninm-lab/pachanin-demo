@@ -1,146 +1,224 @@
+'use client';
+import * as React from 'react';
 import Link from 'next/link';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, RefreshCw, Banknote, ArrowUpRight, Clock } from 'lucide-react';
+import { Badge } from '@/components/v9/ui/badge';
+import { Button } from '@/components/v9/ui/button';
+import { KpiCard } from '@/components/v9/cards/KpiCard';
+import { Skeleton } from '@/components/v9/ui/skeleton';
+import { ReleaseDialog } from '@/components/v9/bank/ReleaseDialog';
+import { useSessionStore } from '@/stores/useSessionStore';
+import { toast } from 'sonner';
 
-const operations = [
-  { type: 'Резерв', desc: 'Подтверждён в полном объёме', amount: '6 384 000 ₽', date: '10.03.2026', tone: 'success' },
-  { type: 'Hold', desc: 'Введён — спор DK-2024-89 по качеству', amount: '624 000 ₽', date: '15.03.2026', tone: 'danger' },
-  { type: 'Release', desc: 'Ожидает: нужен акт приёмки и форма ЗТТ', amount: '5 760 000 ₽', date: 'Ожидает', tone: 'warn' },
-] as const;
-
-const callbacks = [
-  { id: 'CB-441', type: 'Резерв', deal: 'DL-9102', status: 'OK', note: 'Подтверждено автоматически', date: '11.03 09:12', tone: 'success' },
-  { id: 'CB-442', type: 'Качество', deal: 'DL-9102', status: 'Mismatch', note: 'Расхождение 0.8% — ручная сверка', date: '11.03 14:30', tone: 'danger' },
-  { id: 'CB-443', type: 'Финал', deal: 'DL-9102', status: 'Ожидает', note: 'Зависит от разрешения CB-442', date: '—', tone: 'warn' },
-] as const;
-
-const blockingDocs = [
-  { name: 'Акт приёмки (форма А)', owner: 'Продавец', impact: '3 200 000 ₽' },
-  { name: 'Форма ЗТТ', owner: 'Продавец + Покупатель', impact: 'Подтверждение сделки' },
-] as const;
+interface BankStatus {
+  status: string;
+  balance: number;
+  callbacks: Array<{ id: string; type: string; dealId: string; status: string; note: string; at: string | null }>;
+  operations: Array<{ type: string; dealId: string; amount: number; at: string | null; status: string }>;
+}
 
 export default function BankPage() {
+  const demoMode = useSessionStore(s => s.demoMode);
+  const queryClient = useQueryClient();
+  const [releaseOpen, setReleaseOpen] = React.useState(false);
+  const [selectedDealId, setSelectedDealId] = React.useState<string>('DL-9102');
+  const [selectedHold, setSelectedHold] = React.useState<number>(624_000);
+
+  const { data: bank, isLoading, isError, refetch } = useQuery<BankStatus>({
+    queryKey: ['bank-status'],
+    queryFn: () => fetch('/api/bank/status').then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); }),
+    retry: 2,
+  });
+
+  const escalateMutation = useMutation({
+    mutationFn: async () => {
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      return { ok: true };
+    },
+    onSuccess: () => {
+      toast.success(demoMode ? '[SANDBOX] Эскалация в Сбер отправлена' : 'Эскалация в Сбер отправлена');
+      queryClient.invalidateQueries({ queryKey: ['bank-status'] });
+    },
+  });
+
+  const mismatch = bank?.callbacks.filter(c => c.status === 'mismatch').length ?? 0;
+  const pending = bank?.callbacks.filter(c => c.status === 'pending').length ?? 0;
+
   return (
-    <div className='t7-frame'>
-      <div className='t7-stack'>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0F1419', margin: 0 }}>Банк — Reserve / Hold / Release</h1>
+        <p style={{ fontSize: 13, color: '#6B778C', marginTop: 4 }}>Резерв, удержание, выпуск и callbacks без лишнего шума</p>
+      </div>
 
-        {/* HERO */}
-        <section className='t7-hero'>
-          <span className='t7-chip t7-chip-bank'>БАНК</span>
-          <h1 className='t7-h1'>Reserve, hold, release — без лишнего шума</h1>
-          <p className='t7-lead'>
-            Строгий операционный кабинет: резерв, удержание, выпуск и callbacks.
-            Каждое действие — с основанием и статусом.
-          </p>
-          <div className='t7-actions'>
-            <Link href='/platform-v7/deal' className='t7-btn primary'>Подтвердить резерв</Link>
-            <Link href='/platform-v7/deal' className='t7-btn'>Выпустить средства</Link>
-            <Link href='/platform-v7/control' className='t7-btn ghost'>Спор DK-2024-89</Link>
-          </div>
-        </section>
+      {isError && (
+        <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 8 }}>
+          <AlertTriangle size={16} color="#DC2626" />
+          <span style={{ fontSize: 13, color: '#DC2626' }}>Банковский API недоступен</span>
+          <Button variant="ghost" size="sm" onClick={() => refetch()}><RefreshCw size={12} style={{ marginRight: 4 }} />Повторить</Button>
+        </div>
+      )}
 
-        {/* METRICS */}
-        <div className='t7-grid4'>
-          <article className='t7-card'>
-            <span className='t7-chip t7-chip-bank'>Резерв</span>
-            <div className='t7-value' style={{ color: 'var(--bank)' }}>6 384 000 ₽</div>
-            <div className='t7-label'>Под контролем банка</div>
-          </article>
-          <article className='t7-card'>
-            <span className='t7-chip t7-chip-danger'>Hold</span>
-            <div className='t7-value' style={{ color: 'var(--danger)' }}>624 000 ₽</div>
-            <div className='t7-label'>Спор о качестве DK-2024-89</div>
-          </article>
-          <article className='t7-card'>
-            <span className='t7-chip t7-chip-warn'>К выпуску</span>
-            <div className='t7-value'>5 760 000 ₽</div>
-            <div className='t7-label'>При закрытии документов</div>
-          </article>
-          <article className='t7-card'>
-            <span className='t7-chip t7-chip-danger'>Mismatch</span>
-            <div className='t7-value'>1</div>
-            <div className='t7-label'>CB-442 требует ручной сверки</div>
-          </article>
+      <div className="v9-bento">
+        <KpiCard
+          title="Резерв"
+          value={bank ? `${(bank.balance/1_000_000).toFixed(2)} млн ₽` : '—'}
+          loading={isLoading} tone="neutral" sub="Под контролем банка"
+        />
+        <KpiCard title="Hold DL-9102" value="624 тыс. ₽" loading={isLoading} tone="danger" sub="Спор о качестве DK-2024-89" />
+        <KpiCard title="К выпуску" value="5 760 тыс. ₽" loading={isLoading} tone="neutral" sub="При закрытии документов" />
+        <KpiCard title="Mismatch" value={isLoading ? '—' : String(mismatch)} loading={isLoading} tone={mismatch > 0 ? 'danger' : 'success'} sub="Требует ручной сверки" />
+      </div>
+
+      {/* Release operations */}
+      <section className="v9-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Операции Release</h2>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setSelectedDealId('DL-9102');
+              setSelectedHold(624_000);
+              setReleaseOpen(true);
+            }}
+          >
+            <Banknote size={13} style={{ marginRight: 4 }} />
+            Новый Release
+          </Button>
         </div>
 
-        {/* OPERATIONS */}
-        <section className='t7-panel'>
-          <div className='t7-eyebrow'>Операции по DL-9102</div>
-          <div className='t7-list' style={{ marginTop: 14 }}>
-            {operations.map(({ type, desc, amount, date, tone }) => (
-              <div key={type} className='t7-row'>
-                <div>
-                  <div className='t7-rowtitle'>{type}</div>
-                  <div className='t7-rowtext'>{desc} · {date}</div>
+        {isLoading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[0,1,2].map(i => <Skeleton key={i} className="h-12" />)}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[
+              { dealId: 'DL-9103', amount: 1_820_000, status: 'released', at: '2024-03-15T10:22:00Z', hold: 0 },
+              { dealId: 'DL-9105', amount: 2_340_000, status: 'released', at: '2024-03-18T14:05:00Z', hold: 0 },
+              { dealId: 'DL-9102', amount: 3_200_000, status: 'blocked', at: null, hold: 624_000 },
+              { dealId: 'DL-9110', amount: 1_980_000, status: 'pending', at: null, hold: 512_000 },
+            ].map((op, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: op.status === 'blocked' ? 'rgba(220,38,38,0.04)' : '#FAFAFA', border: `1px solid ${op.status === 'blocked' ? 'rgba(220,38,38,0.2)' : '#E4E6EA'}`, borderRadius: 6 }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 12, fontWeight: 700, color: '#0A7A5F' }}>{op.dealId}</span>
+                      <Badge
+                        variant={op.status === 'released' ? 'success' : op.status === 'blocked' ? 'danger' : 'warning'}
+                        dot
+                      >
+                        {op.status === 'released' ? 'Выпущен' : op.status === 'blocked' ? 'Заблокирован' : 'Ожидает'}
+                      </Badge>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#495057', marginTop: 2 }}>
+                      {(op.amount / 1_000).toFixed(0)} тыс. ₽
+                      {op.hold > 0 && <span style={{ color: '#DC2626', marginLeft: 6 }}>Hold: {(op.hold/1000).toFixed(0)} тыс.</span>}
+                      {op.at && <span style={{ color: '#6B778C', marginLeft: 6 }}>{new Date(op.at).toLocaleDateString('ru-RU')}</span>}
+                    </div>
+                  </div>
                 </div>
-                <span className={`t7-chip t7-chip-${tone}`}>{amount}</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {op.status === 'blocked' && (
+                    <Button variant="primary" size="sm" onClick={() => { setSelectedDealId(op.dealId); setSelectedHold(op.hold); setReleaseOpen(true); }}>
+                      <ArrowUpRight size={12} style={{ marginRight: 4 }} />Release
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href={`/platform-v7/deals/${op.dealId}`}>→</Link>
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
-        </section>
+        )}
+      </section>
 
-        {/* BLOCKING DOCS */}
-        <section className='t7-panel' style={{ border: '1px solid rgba(245,158,11,.2)', background: 'rgba(245,158,11,.03)' }}>
-          <div className='t7-eyebrow' style={{ color: '#b45309' }}>Что блокирует release</div>
-          <div className='t7-list' style={{ marginTop: 12 }}>
-            {blockingDocs.map(({ name, owner, impact }) => (
-              <div key={name} className='t7-row'>
-                <div>
-                  <div className='t7-rowtitle' style={{ fontSize: 14 }}>{name}</div>
-                  <div className='t7-rowtext'>Ответственный: {owner}</div>
-                </div>
-                <span className='t7-chip t7-chip-warn'>{impact}</span>
-              </div>
-            ))}
+      {/* Callbacks */}
+      <section className="v9-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Callbacks</h2>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {pending > 0 && <Badge variant="warning">{pending} ожидают</Badge>}
+            {mismatch > 0 && <Badge variant="danger" dot>{mismatch} mismatch</Badge>}
           </div>
-          <Link href='/platform-v7/documents' className='t7-btn ghost' style={{ marginTop: 14, width: '100%' }}>
-            Перейти к документам →
-          </Link>
-        </section>
+        </div>
 
-        {/* CALLBACKS */}
-        <section className='t7-panel'>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className='t7-eyebrow'>Callbacks</div>
-            <span className='t7-chip t7-chip-danger'>1 требует внимания</span>
+        {isLoading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[0,1,2].map(i => <Skeleton key={i} className="h-12" />)}
           </div>
-          <div className='t7-list' style={{ marginTop: 14 }}>
-            {callbacks.map(({ id, type, deal, status, note, date, tone }) => (
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {(bank?.callbacks ?? []).map(cb => (
               <Link
-                key={id}
-                href={tone === 'danger' ? '/platform-v7/control' : '/platform-v7/deal'}
-                className='t7-row'
-                style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', borderRadius: 8, margin: '0 -8px', padding: '13px 8px' }}
+                key={cb.id}
+                href={cb.status === 'mismatch' ? '/platform-v7/disputes/DK-2024-89' : `/platform-v7/deals/${cb.dealId}`}
+                style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: cb.status === 'mismatch' ? 'rgba(220,38,38,0.04)' : '#FAFAFA', border: `1px solid ${cb.status === 'mismatch' ? 'rgba(220,38,38,0.2)' : '#E4E6EA'}`, borderRadius: 6 }}
               >
                 <div>
-                  <div className='t7-rowtitle'>{id} · {type} · {deal}</div>
-                  <div className='t7-rowtext'>{note}</div>
-                  <div className='t7-rowtext'>{date}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0F1419', fontFamily: '"JetBrains Mono",monospace' }}>
+                    {cb.id} · {cb.type} · {cb.dealId}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6B778C', marginTop: 2 }}>{cb.note}</div>
+                  {cb.at && (
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 3 }}>
+                      <Clock size={10} color="#6B778C" />
+                      <span style={{ fontSize: 10, color: '#6B778C' }}>{new Date(cb.at).toLocaleString('ru-RU')}</span>
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-                  <span className={`t7-chip t7-chip-${tone}`}>{status}</span>
-                  {tone === 'danger' && <span className='t7-small'>→ Спор</span>}
-                </div>
+                <Badge variant={cb.status === 'ok' ? 'success' : cb.status === 'mismatch' ? 'danger' : 'warning'} dot>
+                  {cb.status === 'ok' ? 'OK' : cb.status === 'mismatch' ? 'Mismatch' : 'Ожидает'}
+                </Badge>
               </Link>
             ))}
           </div>
-        </section>
+        )}
+      </section>
 
-        {/* MISMATCH ALERT */}
-        <section className='t7-panel' style={{ border: '1px solid rgba(220,38,38,.2)', background: 'rgba(220,38,38,.03)' }}>
-          <div className='t7-eyebrow' style={{ color: 'var(--danger)' }}>Требует ручного разбора</div>
-          <h2 className='t7-h2' style={{ marginTop: 10, color: 'var(--danger)', fontSize: 17 }}>
-            CB-442 · Mismatch по качеству · DL-9102
-          </h2>
-          <p className='t7-text' style={{ marginTop: 8 }}>
+      {/* Mismatch escalation */}
+      {!isLoading && mismatch > 0 && (
+        <section className="v9-card" style={{ background: 'rgba(220,38,38,0.03)', border: '1px solid rgba(220,38,38,0.2)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#DC2626', letterSpacing: '0.06em', marginBottom: 10 }}>Требует ручного разбора</div>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#DC2626', margin: '0 0 8px' }}>CB-442 · Mismatch по качеству · DL-9102</h2>
+          <p style={{ fontSize: 13, color: '#495057', margin: '0 0 14px', lineHeight: 1.6 }}>
             Расхождение протеина 0.8% между паспортом ФГИС Зерно и протоколом лаборатории ЛАБ-2847.
             Холдирование 624 000 ₽ активно до решения по спору DK-2024-89.
+            Среднее время обработки mismatch: 1.2 дня. Текущее: <strong style={{ color: '#DC2626' }}>4 дня — нестандартная ситуация</strong>.
           </p>
-          <div className='t7-actions'>
-            <Link href='/platform-v7/control' className='t7-btn danger'>Перейти к спору →</Link>
-            <Link href='/platform-v7/deal' className='t7-btn'>Открыть сделку</Link>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button
+              variant="danger"
+              onClick={() => escalateMutation.mutate()}
+              disabled={escalateMutation.isPending}
+            >
+              {escalateMutation.isPending ? 'Отправка...' : 'Эскалировать в Сбер'}
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/platform-v7/disputes/DK-2024-89">Открыть спор →</Link>
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/platform-v7/deals/DL-9102">Сделка DL-9102</Link>
+            </Button>
           </div>
         </section>
+      )}
 
-      </div>
+      {/* Release dialog */}
+      <ReleaseDialog
+        open={releaseOpen}
+        onClose={() => setReleaseOpen(false)}
+        dealId={selectedDealId}
+        holdAmount={selectedHold}
+        totalAmount={selectedHold * 2}
+        onSuccess={() => {
+          setReleaseOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['bank-status'] });
+        }}
+      />
     </div>
   );
 }

@@ -1,6 +1,0 @@
-import Shell from '../Shell';
-import { DenseRows, Hero, Panel, StatusChip, ui } from '../ui';
-
-const scenarios=[['Неполный пакет документов','Документы задерживают выпуск денег','/platform-v4/documents'],['Отклонение по качеству','Протокол меняет расчёт сделки','/platform-v4/lab'],['Задержка рейса','Логистика сдвигает приёмку и handoff','/platform-v4/logistics'],['Спор по приёмке','Нужны доказательства и журнал действий','/platform-v4/control'],['Удержание до подтверждения','Деньги не выпускаются без условий','/platform-v4/finance'],['Переход к приёмке','Рейс меняет ответственного и следующий шаг','/platform-v4/receiving']] as const;
-
-export default function Page(){return <Shell><div className={ui.frame}><Hero eyebrow='Сценарии и имитации' title='Управляемые отклонения внутри платформы' body='Здесь можно пройти ключевые ситуации: задержка документов, отклонение качества, задержка рейса, переход к спору и блокировка выпуска денег.' /><Panel title='Сценарии' body='Имитации нужны не ради шоу, а чтобы показывать, как платформа ведёт себя в отклонениях.'><DenseRows rows={scenarios.map(([title,text,href])=>({title,text,href,meta:<StatusChip tone='warning'>имитация</StatusChip>}))} /></Panel></div></Shell>}

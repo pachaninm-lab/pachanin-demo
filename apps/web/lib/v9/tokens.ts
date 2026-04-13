@@ -1,5 +1,5 @@
 /**
- * Design tokens — source of truth for platform-v9
+ * Design tokens — source of truth for platform-v7
  * Proxied into tailwind.config.ts
  * §5 ТЗ v9.1
  */
