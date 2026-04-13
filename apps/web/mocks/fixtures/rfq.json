@@ -1,0 +1,109 @@
+[
+  {
+    "id": "RFQ-001",
+    "status": "open",
+    "createdAt": "2026-04-10T09:00:00Z",
+    "expiresAt": "2026-04-17T23:59:00Z",
+    "buyer": { "id": "u-22", "name": "ОАО «Агроинвест»" },
+    "items": [
+      {
+        "crop": "Пшеница 4 кл.",
+        "quantity": 500,
+        "unit": "т",
+        "qualityReq": { "moisture": 14.0, "protein": 11.5, "impurities": 2.0 },
+        "deliveryRegion": "Краснодарский кр.",
+        "deliveryDateFrom": "2026-04-20T00:00:00Z",
+        "deliveryDateTo": "2026-04-30T00:00:00Z",
+        "paymentTerms": "Аккредитив / Номинальный счёт Сбер"
+      }
+    ],
+    "offers": [
+      {
+        "id": "OFF-001-A",
+        "seller": { "id": "u-11", "name": "КФХ Ковалёв А.С.", "rating": 4.8 },
+        "price": 15600,
+        "quantity": 300,
+        "submittedAt": "2026-04-11T11:00:00Z",
+        "deliveryDate": "2026-04-22T00:00:00Z",
+        "notes": "Зерно с хранения, ФГИС паспорт готов",
+        "status": "submitted"
+      },
+      {
+        "id": "OFF-001-B",
+        "seller": { "id": "u-55", "name": "ООО «АгроЮг»", "rating": 4.5 },
+        "price": 15200,
+        "quantity": 500,
+        "submittedAt": "2026-04-11T14:30:00Z",
+        "deliveryDate": "2026-04-25T00:00:00Z",
+        "notes": "Отгрузка со склада Ставрополь",
+        "status": "submitted"
+      },
+      {
+        "id": "OFF-001-C",
+        "seller": { "id": "u-77", "name": "ИП Фёдоров С.В.", "rating": 4.2 },
+        "price": 14900,
+        "quantity": 200,
+        "submittedAt": "2026-04-12T08:15:00Z",
+        "deliveryDate": "2026-04-28T00:00:00Z",
+        "notes": "",
+        "status": "submitted"
+      }
+    ],
+    "description": "Крупная партия пшеницы для переработки. Требования ГОСТ Р 52554-2006. Оплата через номинальный счёт."
+  },
+  {
+    "id": "RFQ-002",
+    "status": "open",
+    "createdAt": "2026-04-11T12:00:00Z",
+    "expiresAt": "2026-04-18T23:59:00Z",
+    "buyer": { "id": "u-33", "name": "ИП Карпов С.С." },
+    "items": [
+      {
+        "crop": "Кукуруза 3 кл.",
+        "quantity": 200,
+        "unit": "т",
+        "qualityReq": { "moisture": 14.0, "protein": 8.5, "impurities": 1.5 },
+        "deliveryRegion": "Ростовская обл.",
+        "deliveryDateFrom": "2026-04-18T00:00:00Z",
+        "deliveryDateTo": "2026-04-25T00:00:00Z",
+        "paymentTerms": "Предоплата 50%"
+      }
+    ],
+    "offers": [
+      {
+        "id": "OFF-002-A",
+        "seller": { "id": "u-66", "name": "Зерновой союз", "rating": 4.7 },
+        "price": 12600,
+        "quantity": 200,
+        "submittedAt": "2026-04-12T09:00:00Z",
+        "deliveryDate": "2026-04-20T00:00:00Z",
+        "notes": "Готов к отгрузке",
+        "status": "submitted"
+      }
+    ],
+    "description": "Кукуруза для животноводческого комплекса. Приоритет — скорость доставки."
+  },
+  {
+    "id": "RFQ-003",
+    "status": "closed",
+    "createdAt": "2026-04-05T10:00:00Z",
+    "expiresAt": "2026-04-12T23:59:00Z",
+    "buyer": { "id": "u-22", "name": "ОАО «Агроинвест»" },
+    "items": [
+      {
+        "crop": "Ячмень 2 кл.",
+        "quantity": 150,
+        "unit": "т",
+        "qualityReq": { "moisture": 13.5, "protein": 10.0, "impurities": 1.5 },
+        "deliveryRegion": "Воронежская обл.",
+        "deliveryDateFrom": "2026-04-08T00:00:00Z",
+        "deliveryDateTo": "2026-04-15T00:00:00Z",
+        "paymentTerms": "Аккредитив"
+      }
+    ],
+    "offers": [],
+    "selectedOfferId": "OFF-003-A",
+    "dealId": "DL-9107",
+    "description": "Закрытый RFQ — оферта выбрана, сделка создана."
+  }
+]

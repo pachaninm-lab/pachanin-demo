@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, ShoppingCart, Wheat, Landmark,
   Scale, MapPin, Shield, Settings, Layers, Bot, ChevronRight,
+  ClipboardList,
 } from 'lucide-react';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { getNavItems, roleLabels } from '@/lib/v9/roles';
@@ -13,7 +14,7 @@ import { cn } from '@/lib/v9/utils';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const iconMap: Record<string, React.ComponentType<any>> = {
   LayoutDashboard, FileText, ShoppingCart, Wheat, Landmark,
-  Scale, MapPin, Shield, Settings, Layers,
+  Scale, MapPin, Shield, Settings, Layers, ClipboardList,
 };
 
 interface SidebarProps {

@@ -127,6 +127,7 @@ export type NavItem = {
 const allNavItems: NavItem[] = [
   { href: '/platform-v9/control-tower', label: 'Control Tower', icon: 'LayoutDashboard' },
   { href: '/platform-v9/deals', label: 'Сделки', icon: 'FileText', requiredPermission: 'deal.view' },
+  { href: '/platform-v9/procurement', label: 'Закупки (RFQ)', icon: 'ClipboardList', requiredPermission: 'deal.view' },
   { href: '/platform-v9/buyer', label: 'Покупатель', icon: 'ShoppingCart', requiredPermission: 'release.approve' },
   { href: '/platform-v9/seller', label: 'Продавец', icon: 'Wheat' },
   { href: '/platform-v9/bank', label: 'Банк', icon: 'Landmark', requiredPermission: 'release.approve' },

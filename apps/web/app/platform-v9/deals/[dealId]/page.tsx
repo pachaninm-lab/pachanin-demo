@@ -14,6 +14,8 @@ import { Skeleton } from '@/components/v9/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/v9/ui/tabs';
 import { PhaseTimeline } from '@/components/v9/timeline/PhaseTimeline';
 import { ReleaseDialog } from '@/components/v9/bank/ReleaseDialog';
+import { DealReadinessMatrix } from '@/components/v9/deal/DealReadinessMatrix';
+import { BatchPassport } from '@/components/v9/deal/BatchPassport';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { hasPermission } from '@/lib/v9/roles';
 import type { DealStatus, Phase } from '@/lib/v9/statuses';
@@ -208,12 +210,14 @@ export default function DealDetailPage() {
           ))}
         </div>
 
-        {/* Tabs: Timeline / Documents / History */}
+        {/* Tabs */}
         <Tabs defaultValue="timeline">
           <TabsList>
             <TabsTrigger value="timeline">Этапы сделки</TabsTrigger>
+            <TabsTrigger value="readiness">Готовность</TabsTrigger>
+            <TabsTrigger value="passport">Паспорт партии</TabsTrigger>
             <TabsTrigger value="documents">Документы ({docsTotal})</TabsTrigger>
-            <TabsTrigger value="history">История событий</TabsTrigger>
+            <TabsTrigger value="history">История</TabsTrigger>
             <TabsTrigger value="parties">Стороны</TabsTrigger>
           </TabsList>
 
@@ -234,6 +238,14 @@ export default function DealDetailPage() {
                 </Button>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="readiness">
+            <DealReadinessMatrix dealId={dealId} />
+          </TabsContent>
+
+          <TabsContent value="passport">
+            <BatchPassport dealId={dealId} />
           </TabsContent>
 
           <TabsContent value="documents">
