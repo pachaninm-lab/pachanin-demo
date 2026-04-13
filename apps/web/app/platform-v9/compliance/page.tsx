@@ -70,7 +70,7 @@ export default function CompliancePage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ borderLeft: '4px solid #7C3AED', paddingLeft: 16 }}>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0F1419', margin: 0 }}>Комплаенс</h1>
           <p style={{ fontSize: 13, color: '#6B778C', marginTop: 4 }}>Аудит-лог всех действий, верификация документов и регуляторная отчётность</p>

@@ -18,7 +18,7 @@ export function MSWProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
-      || localStorage.getItem('pc-session-v9')?.includes('"demoMode":true')
+      || localStorage.getItem('pc-session-v10')?.includes('"demoMode":true')
       || true; // default on
 
     if (demoMode) {

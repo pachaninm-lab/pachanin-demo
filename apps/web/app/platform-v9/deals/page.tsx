@@ -52,7 +52,7 @@ export default function DealsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0F1419', margin: 0 }}>Сделки</h1>
           <p style={{ fontSize: 13, color: '#6B778C', marginTop: 4 }}>

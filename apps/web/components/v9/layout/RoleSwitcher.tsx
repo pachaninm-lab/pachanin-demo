@@ -1,9 +1,24 @@
 'use client';
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { roleLabels, type Role } from '@/lib/v9/roles';
 import { cn } from '@/lib/v9/utils';
+
+const roleHomePage: Record<Role, string> = {
+  operator:   '/platform-v9/control-tower',
+  buyer:      '/platform-v9/buyer',
+  seller:     '/platform-v9/seller',
+  driver:     '/platform-v9/field',
+  surveyor:   '/platform-v9/field',
+  elevator:   '/platform-v9/field',
+  lab:        '/platform-v9/field',
+  bank:       '/platform-v9/bank',
+  compliance: '/platform-v9/compliance',
+  admin:      '/platform-v9/admin',
+  arbitrator: '/platform-v9/disputes',
+};
 
 const availableRoles: Role[] = [
   'operator', 'buyer', 'seller', 'driver', 'surveyor',
@@ -16,6 +31,7 @@ interface RoleSwitcherProps {
 
 export function RoleSwitcher({ className }: RoleSwitcherProps) {
   const { role, setRole, demoMode } = useSessionStore();
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -70,7 +86,7 @@ export function RoleSwitcher({ className }: RoleSwitcherProps) {
               key={r}
               role="option"
               aria-selected={r === role}
-              onClick={() => { setRole(r); setOpen(false); }}
+              onClick={() => { setRole(r); setOpen(false); router.push(roleHomePage[r]); }}
               className={cn(
                 'w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left',
                 'hover:bg-muted transition-colors',

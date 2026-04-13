@@ -28,11 +28,7 @@ export function Sidebar({ aiOpen, onToggleAi }: SidebarProps) {
 
   return (
     <aside
-      className={cn(
-        'v9-sidebar',
-        // Mobile: hidden by default, show as overlay when open
-        !sidebarOpen ? 'max-lg:hidden' : 'max-lg:fixed max-lg:left-0 max-lg:top-0 max-lg:z-50 max-lg:w-[280px] max-lg:shadow-lg'
-      )}
+      className={cn('v9-sidebar', sidebarOpen && 'open')}
       aria-label="Основная навигация"
     >
       {/* Logo */}
@@ -44,7 +40,11 @@ export function Sidebar({ aiOpen, onToggleAi }: SidebarProps) {
           <div style={{ fontWeight: 800, fontSize: 14, color: '#0F1419', lineHeight: 1.2 }}>Прозрачная Цена</div>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#6B778C', letterSpacing: '0.06em' }}>v9 · PLATFORM</div>
         </div>
-        <button className="lg:hidden text-text-muted hover:text-text-primary" onClick={() => setSidebarOpen(false)} aria-label="Закрыть меню">
+        <button
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Закрыть меню"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B778C', padding: 4, display: sidebarOpen ? 'flex' : 'none', alignItems: 'center' }}
+        >
           <ChevronRight size={16} />
         </button>
       </div>

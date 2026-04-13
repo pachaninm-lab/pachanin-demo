@@ -115,29 +115,80 @@
   min-height: 0;
 }
 
-/* Responsive */
+/* ── Desktop: sidebar always visible ── */
+@media (min-width: 1024px) {
+  .v9-sidebar {
+    display: flex !important;
+    position: sticky;
+    top: 0;
+  }
+}
+
+/* ── Mobile: collapse to single-column layout ── */
 @media (max-width: 1023px) {
   .v9-shell {
-    grid-template-columns: 1fr;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
     grid-template-rows: 56px 1fr;
     grid-template-areas:
       "header"
       "main";
+    min-height: 100dvh;
+    min-height: 100vh; /* fallback */
   }
 
+  /* Sidebar hidden by default on mobile */
   .v9-sidebar {
-    display: none;
+    display: none !important;
   }
 
+  /* Sidebar shows as overlay when hamburger is tapped */
   .v9-sidebar.open {
-    display: flex;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 280px;
-    height: 100dvh;
-    z-index: 50;
-    box-shadow: var(--shadow-lg);
+    display: flex !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 280px !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 50 !important;
+    box-shadow: var(--shadow-lg) !important;
+    overflow-y: auto;
+  }
+
+  .v9-header {
+    padding: 0 12px;
+  }
+
+  .v9-main {
+    padding: 16px 12px;
+    overflow-x: hidden;
+  }
+
+  /* Tables scroll horizontally on mobile */
+  .v9-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .v9-bento {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .v9-bento {
+    grid-template-columns: 1fr !important;
+  }
+
+  .v9-main {
+    padding: 12px 10px;
+  }
+
+  /* Stack header items tighter */
+  .v9-header {
+    gap: 8px;
   }
 }
 
@@ -209,7 +260,8 @@
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow-sm);
 }
 
