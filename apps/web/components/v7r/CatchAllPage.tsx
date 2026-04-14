@@ -2,10 +2,21 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AUDIT_LOG, CALLBACKS, DEALS, DISPUTES, RFQ_LIST, getDealById, getDisputeById } from '@/lib/v7r/data';
 import { classForTone, formatCompactMoney, formatMoney, statusLabel } from '@/lib/v7r/helpers';
 import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
+import { RiskBadge } from '@/components/v7r/RiskBadge';
+import { useToast } from '@/components/v7r/Toast';
+
+const BALL_AT_LABELS: Record<string, string> = {
+  seller: 'Продавец',
+  buyer: 'Покупатель',
+  lab: 'Лаборатория',
+  arbitrator: 'Арбитр',
+  bank: 'Банк',
+  operator: 'Оператор',
+};
 
 type Tone = 'success' | 'warning' | 'danger' | 'neutral';
 
@@ -108,11 +119,12 @@ function Stepper({ status }: { status: string }) {
 
 export function CatchAllPage() {
   const pathname = usePathname();
+  const router = useRouter();
   const segments = pathname.split('/').filter(Boolean);
   const first = segments[1] ?? '';
   const second = segments[2];
   const { role, fieldPreviewRole, setFieldPreviewRole } = usePlatformV7RStore();
-  const [message, setMessage] = React.useState<{ tone: Tone; text: string } | null>(null);
+  const toast = useToast();
   const [search, setSearch] = React.useState('');
   const [status, setStatus] = React.useState('');
   const [risk, setRisk] = React.useState('');
@@ -126,6 +138,9 @@ export function CatchAllPage() {
   const [dateTo, setDateTo] = React.useState('');
   const [rfqStep, setRfqStep] = React.useState(1);
   const [rfqForm, setRfqForm] = React.useState({ grain: 'Пшеница 4 кл.', volume: '300', region: 'Тамбовская обл.', payment: 'Банк / резерв', quality: 'ГОСТ / влажность ≤14%' });
+  const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
+  const [expandedCallback, setExpandedCallback] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
 
   const filteredDeals = DEALS.filter((deal) => {
     const q = `${deal.id} ${deal.grain} ${deal.seller.name} ${deal.buyer.name}`.toLowerCase();
@@ -148,14 +163,19 @@ export function CatchAllPage() {
     return searchOk && actorOk && fromOk && toOk;
   });
 
-  function notify(text: string, tone: Tone = 'success') {
-    setMessage({ text, tone });
+  function notify(text: string, type: 'success' | 'warning' | 'error' | 'info' = 'success') {
+    toast(text, type);
   }
 
   function pushField(label: string) {
     const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     setFieldQueue((prev) => [{ id: String(Date.now()), label, status: isOnline ? 'sent' : 'queued', time }, ...prev]);
     notify(isOnline ? 'Событие отправлено в контур.' : 'Событие осталось в офлайн-очереди.', isOnline ? 'success' : 'warning');
+  }
+
+  function handleRefresh() {
+    setLoading(true);
+    setTimeout(() => { setLoading(false); toast('Данные обновлены', 'success'); }, 800);
   }
 
   const totalReserved = DEALS.reduce((sum, item) => sum + item.reservedAmount, 0);
@@ -171,7 +191,6 @@ export function CatchAllPage() {
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      {message ? <Notice tone={message.tone} text={message.text} /> : null}
 
       {first === 'control-tower' && (
         <div style={{ display: 'grid', gap: 18 }}>
@@ -181,28 +200,39 @@ export function CatchAllPage() {
             <Card title="Документы готовы" value={`${DEALS.length - DEALS.filter((d) => d.blockers.includes('docs')).length}/${DEALS.length}`} subtitle="Сделки без документного стоп-фактора" href="/platform-v7/deals" />
             <Card title="Активные сделки" value={String(activeDeals)} subtitle="Все открытые сделки" href="/platform-v7/deals" />
           </div>
-          <Panel title="Центр управления" subtitle="Единый обзор сделок, денег, блокировок и спорности." actions={<Btn label="Обновить данные" onClick={() => notify('Данные обновлены.')} />}>
+          <Panel title="Центр управления" subtitle="Единый обзор сделок, денег, блокировок и спорности." actions={<Btn label={loading ? 'Обновляем…' : 'Обновить данные'} onClick={handleRefresh} />}>
             <div style={{ padding: '14px 16px', borderRadius: 16, background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.14)', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#B91C1C' }}>Самая рискованная сделка</div>
-                <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{topRisk.id} · {topRisk.grain} · риск {topRisk.riskScore}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#6B778C' }}>{topRisk.id} · {topRisk.grain}</span>
+                  <RiskBadge score={topRisk.riskScore} />
+                </div>
               </div>
               <Btn label="Открыть сделку" href={`/platform-v7/deals/${topRisk.id}`} tone="danger" />
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по номеру сделки, культуре или стороне..." style={{ flex: 1, minWidth: 230, padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }} />
               <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }}><option value="">Все статусы</option><option value="quality_disputed">Есть спор</option><option value="in_transit">В пути</option><option value="release_requested">Ожидает выпуск</option><option value="closed">Закрыта</option></select>
-              <select value={risk} onChange={(e) => setRisk(e.target.value)} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }}><option value="">Все риски</option><option value="high">Высокий</option><option value="medium">Средний</option><option value="low">Низкий</option></select>
+              <select value={risk} onChange={(e) => setRisk(e.target.value)} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }}><option value="">Все риски</option><option value="high">Высокий ≥70</option><option value="medium">Средний 30–69</option><option value="low">Низкий &lt;30</option></select>
             </div>
-            <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ display: 'grid', gap: 8 }}>
               {filteredDeals.map((d) => (
-                <Link key={d.id} href={`/platform-v7/deals/${d.id}`} style={{ textDecoration: 'none', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                  <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F' }}>{d.id}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{d.grain} · {d.quantity} {d.unit}</div></div>
-                  <div style={{ fontSize: 13, color: '#0F1419' }}>{d.seller.name} → {d.buyer.name}</div>
+                <div
+                  key={d.id}
+                  onClick={() => router.push(`/platform-v7/deals/${d.id}`)}
+                  onMouseEnter={() => setHoveredRow(d.id)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                  style={{ background: hoveredRow === d.id ? '#F5F7F8' : '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, cursor: 'pointer', transition: 'background 0.15s' }}>
+                  <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{d.id}</div><div style={{ fontSize: 11, color: '#6B778C', marginTop: 3 }}>{d.grain} · {d.quantity} {d.unit}</div></div>
+                  <div style={{ fontSize: 12, color: '#0F1419' }}>{d.seller.name} → {d.buyer.name}</div>
                   <div><Badge tone={d.status === 'quality_disputed' ? 'danger' : d.status === 'in_transit' ? 'warning' : 'success'}>{statusLabel(d.status)}</Badge></div>
-                  <div style={{ fontWeight: 700 }}>{formatCompactMoney(d.reservedAmount)}</div>
-                  <div><Badge tone={toneByRisk(d.riskScore)}>{d.riskScore}</Badge></div>
-                </Link>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{formatCompactMoney(d.reservedAmount)}</div>
+                  <div><RiskBadge score={d.riskScore} /></div>
+                  <div style={{ fontSize: 11, color: '#6B778C' }}>
+                    {d.status === 'quality_disputed' ? '⚠️ Закрыть спор' : d.status === 'release_requested' ? '✅ Подтвердить выпуск' : d.status === 'docs_complete' ? '📄 Запросить выпуск' : d.status === 'in_transit' ? '🚛 Ожидание доставки' : '—'}
+                  </div>
+                </div>
               ))}
             </div>
           </Panel>
@@ -211,14 +241,20 @@ export function CatchAllPage() {
 
       {first === 'deals' && !second && (
         <Panel title="Сделки" subtitle="Все сделки с быстрым переходом в карточку и денежный контур.">
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'grid', gap: 8 }}>
             {filteredDeals.map((d) => (
-              <Link key={d.id} href={`/platform-v7/deals/${d.id}`} style={{ textDecoration: 'none', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F' }}>{d.id}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{d.grain} · {d.quantity} {d.unit}</div></div>
-                <div style={{ fontSize: 13, color: '#0F1419' }}>{d.seller.name} → {d.buyer.name}</div>
+              <div
+                key={d.id}
+                onClick={() => router.push(`/platform-v7/deals/${d.id}`)}
+                onMouseEnter={() => setHoveredRow(d.id)}
+                onMouseLeave={() => setHoveredRow(null)}
+                style={{ background: hoveredRow === d.id ? '#F5F7F8' : '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, cursor: 'pointer', transition: 'background 0.15s' }}>
+                <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{d.id}</div><div style={{ fontSize: 11, color: '#6B778C', marginTop: 3 }}>{d.grain} · {d.quantity} {d.unit}</div></div>
+                <div style={{ fontSize: 12, color: '#0F1419' }}>{d.seller.name} → {d.buyer.name}</div>
                 <div><Badge tone={d.status === 'quality_disputed' ? 'danger' : d.status === 'in_transit' ? 'warning' : 'success'}>{statusLabel(d.status)}</Badge></div>
-                <div style={{ fontWeight: 700, color: '#0F1419' }}>{formatCompactMoney(d.reservedAmount)}</div>
-              </Link>
+                <div style={{ fontWeight: 700, color: '#0F1419', fontSize: 13 }}>{formatCompactMoney(d.reservedAmount)}</div>
+                <div><RiskBadge score={d.riskScore} /></div>
+              </div>
             ))}
           </div>
         </Panel>
@@ -366,13 +402,53 @@ export function CatchAllPage() {
             <Card title="Расхождения" value="1" subtitle="Есть ручная банковая проверка" />
           </div>
           <Panel title="Банковый контур" subtitle="Резерв, удержание, выпуск и ручной разбор расхождений.">
+            <div style={{ marginBottom: 14, padding: '12px 14px', borderRadius: 12, background: '#F8FAFB', border: '1px solid #E4E6EA', fontSize: 12, color: '#374151', lineHeight: 1.8 }}>
+              <div><strong>Таймлайн транзакций</strong></div>
+              <div>12.04.2026 09:15 — Резерв 6 240 000 ₽ подтверждён по DL-9102 <span style={{ color: '#16A34A' }}>✅</span></div>
+              <div>12.04.2026 10:05 — Удержание 624 000 ₽ активировано (спор DK-2024-89) <span style={{ color: '#D97706' }}>⚠️</span></div>
+              <div>12.04.2026 14:00 — Ожидание ручной проверки CB-442 (4 дня) <span style={{ color: '#DC2626' }}>❌</span></div>
+              <div>12.04.2026 15:30 — Запрос release по DL-9109 поступил на проверку <span style={{ color: '#0B6B9A' }}>ℹ️</span></div>
+            </div>
             <div style={{ display: 'grid', gap: 10 }}>
               {CALLBACKS.map((callback) => (
                 <div key={callback.id} style={{ background: callback.status === 'mismatch' ? 'rgba(220,38,38,0.04)' : '#fff', border: `1px solid ${callback.status === 'mismatch' ? 'rgba(220,38,38,0.16)' : '#E4E6EA'}`, borderRadius: 16, padding: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800 }}>{callback.id} · {callback.type} · {callback.dealId}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{callback.note}</div></div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{callback.status === 'mismatch' ? <Btn label="Эскалировать" tone="danger" onClick={() => notify('Эскалация отправлена в банковый контур.', 'warning')} /> : null}<Btn label="Открыть связанный объект" href={callback.status === 'mismatch' ? '/platform-v7/disputes/DK-2024-89' : `/platform-v7/deals/${callback.dealId}`} /></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13 }}>{callback.id} · {callback.type} · {callback.dealId}</div>
+                      <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{callback.note}</div>
+                      {callback.daysOpen ? <div style={{ fontSize: 11, color: '#DC2626', marginTop: 4 }}>Открыто {callback.daysOpen} дн.</div> : null}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Badge tone={callback.status === 'ok' ? 'success' : callback.status === 'mismatch' ? 'danger' : 'warning'}>
+                        {callback.status === 'ok' ? '✅ OK' : callback.status === 'mismatch' ? '❌ Расхождение' : '⏳ Ожидание'}
+                      </Badge>
+                    </div>
                   </div>
+                  {callback.status === 'mismatch' && (
+                    <div style={{ marginTop: 12 }}>
+                      <button onClick={() => setExpandedCallback(expandedCallback === callback.id ? null : callback.id)} style={{ fontSize: 12, fontWeight: 700, color: '#0B6B9A', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 8 }}>
+                        {expandedCallback === callback.id ? '▲ Скрыть детали' : '▼ Показать детали расхождения'}
+                      </button>
+                      {expandedCallback === callback.id && (
+                        <div style={{ padding: '10px 12px', borderRadius: 10, background: '#FEF2F2', border: '1px solid #FECACA', fontSize: 12, color: '#DC2626', marginBottom: 10 }}>
+                          <div><strong>Протеин ФГИС:</strong> 9.2%</div>
+                          <div><strong>Протеин ЛАБ-2847:</strong> 10.0%</div>
+                          <div><strong>Расхождение:</strong> 0.8% — выше порога в 0.5%</div>
+                          <div style={{ marginTop: 6 }}><strong>Требуется:</strong> ручная верификация или повторный анализ</div>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Btn label="Выпустить вручную" tone="success" onClick={() => notify('Запрос на ручной выпуск отправлен на авторизацию', 'info')} />
+                        <Btn label="Эскалировать арбитру" tone="danger" onClick={() => notify('Кейс эскалирован арбитру', 'warning')} />
+                        <Btn label="Открыть спор" href="/platform-v7/disputes/DK-2024-89" />
+                      </div>
+                    </div>
+                  )}
+                  {callback.status !== 'mismatch' && (
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                      <Btn label="Открыть сделку" href={`/platform-v7/deals/${callback.dealId}`} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -389,15 +465,29 @@ export function CatchAllPage() {
           </div>
           <Panel title="Споры" subtitle="Кто владеет следующим шагом и насколько полон пакет доказательств.">
             <div style={{ display: 'grid', gap: 10 }}>
-              {DISPUTES.map((item) => (
-                <Link key={item.id} href={`/platform-v7/disputes/${item.id}`} style={{ textDecoration: 'none', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-                  <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F' }}>{item.id}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{item.dealId}</div></div>
-                  <div><Badge tone="warning">{item.reasonCode}</Badge></div>
-                  <div style={{ fontWeight: 700, color: '#B91C1C' }}>{formatCompactMoney(item.holdAmount)}</div>
-                  <div style={{ fontSize: 13, color: '#0F1419' }}>Следующий шаг у: {item.ballAt}</div>
-                  <div style={{ fontSize: 12, color: '#6B778C' }}>Пакет: {item.evidence.uploaded}/{item.evidence.total}</div>
-                </Link>
-              ))}
+              {DISPUTES.map((item) => {
+                const pct = Math.round((item.evidence.uploaded / item.evidence.total) * 100);
+                return (
+                  <Link key={item.id} href={`/platform-v7/disputes/${item.id}`} style={{ textDecoration: 'none', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 10 }}>
+                      <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div><div style={{ fontSize: 11, color: '#6B778C', marginTop: 3 }}>{item.dealId} · {item.title}</div></div>
+                      <div><Badge tone="warning">{item.reasonCode}</Badge></div>
+                      <div style={{ fontWeight: 700, color: '#B91C1C', fontSize: 13 }}>{formatCompactMoney(item.holdAmount)}</div>
+                      <div style={{ fontSize: 12, color: '#0F1419' }}>Мяч у: <strong>{BALL_AT_LABELS[item.ballAt] ?? item.ballAt}</strong></div>
+                      <div style={{ fontSize: 12, color: '#6B778C' }}>SLA: {item.slaDaysLeft} дн.</div>
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: '#6B778C' }}>Пакет доказательств</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{item.evidence.uploaded}/{item.evidence.total}</span>
+                      </div>
+                      <div style={{ height: 5, borderRadius: 999, background: '#E4E6EA', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: pct >= 80 ? '#0A7A5F' : '#D97706', borderRadius: 999 }} />
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </Panel>
         </div>
@@ -407,7 +497,7 @@ export function CatchAllPage() {
         dispute ? (
           <div style={{ display: 'grid', gap: 18 }}>
             <Panel title={`${dispute.id} · ${dispute.title}`} subtitle={dispute.description} actions={<Btn label="Все споры" href="/platform-v7/disputes" />}>
-              <div style={{ padding: '14px 16px', borderRadius: 16, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.16)', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}><div style={{ fontSize: 13, fontWeight: 800, color: '#B45309' }}>У кого следующий шаг: {dispute.ballAt}</div><Btn label="Отправить напоминание" tone="warning" onClick={() => notify('Уведомление отправлено участнику спора.', 'warning')} /></div>
+              <div style={{ padding: '14px 16px', borderRadius: 16, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.16)', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}><div style={{ fontSize: 13, fontWeight: 800, color: '#B45309' }}>У кого следующий шаг: {BALL_AT_LABELS[dispute.ballAt] ?? dispute.ballAt}</div><Btn label="Отправить напоминание" tone="warning" onClick={() => notify('Уведомление отправлено участнику спора.', 'warning')} /></div>
             </Panel>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
               <Card title="Сделка" value={dispute.dealId} subtitle="Связанный объект" />
@@ -487,7 +577,7 @@ export function CatchAllPage() {
         </div>
       )}
 
-      {!['control-tower', 'deals', 'seller', 'buyer', 'logistics', 'field', 'bank', 'disputes', 'compliance', 'procurement', 'analytics'].includes(first) ? <Panel title="Экран не найден" subtitle="Такого маршрута пока нет в демо-контуре."><Btn label="Открыть центр управления" href="/platform-v7/control-tower" /></Panel> : null}
+      {!['control-tower', 'deals', 'seller', 'buyer', 'logistics', 'field', 'bank', 'disputes', 'compliance', 'procurement', 'analytics', 'driver', 'surveyor', 'elevator', 'lab', 'arbitrator', 'roles'].includes(first) ? <Panel title="Экран не найден" subtitle="Такого маршрута пока нет в демо-контуре."><Btn label="Открыть центр управления" href="/platform-v7/control-tower" /></Panel> : null}
     </div>
   );
 }
