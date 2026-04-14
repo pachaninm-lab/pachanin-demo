@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_EXACT = new Set(['/', '/login', '/register']);
-const PUBLIC_PREFIX = ['/platform-v7r/', '/api/auth/', '/api/runtime-', '/_next/', '/favicon', '/sw.js', '/manifest', '/mockServiceWorker.js'];
+const PUBLIC_PREFIX = [
+  '/platform-v7/',
+  '/api/auth/',
+  '/api/runtime-',
+  '/_next/',
+  '/favicon',
+  '/sw.js',
+  '/manifest',
+  '/mockServiceWorker.js',
+];
 
 function isPublic(p: string): boolean {
   return PUBLIC_EXACT.has(p) || PUBLIC_PREFIX.some((x) => p.startsWith(x));
@@ -28,13 +37,13 @@ function parseSession(raw: string | undefined): { role: string; exp: number } | 
 export function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
-  if (p === '/platform-v7' || p.startsWith('/platform-v7/')) {
+  if (p === '/platform-v7r' || p.startsWith('/platform-v7r/')) {
     const u = req.nextUrl.clone();
-    u.pathname = p.replace('/platform-v7', '/platform-v7r');
-    return NextResponse.rewrite(u);
+    u.pathname = p.replace('/platform-v7r', '/platform-v7');
+    return NextResponse.redirect(u, 308);
   }
 
-  if (isPublic(p) || p.startsWith('/platform-v7r')) return NextResponse.next();
+  if (isPublic(p) || p.startsWith('/platform-v7')) return NextResponse.next();
 
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
   if (!session) {
