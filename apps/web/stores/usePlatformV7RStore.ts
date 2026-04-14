@@ -77,6 +77,7 @@ export const usePlatformV7RStore = create<PlatformV7RState>()(
     }),
     {
       name: 'pc-session-v10',
+      skipHydration: true,
       partialize: (state) => ({
         role: state.role,
         roleSelected: state.roleSelected,

@@ -3,7 +3,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { NOTIFICATIONS } from '@/lib/v7r/data';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const roleLabels: Record<PlatformRole, string> = {
@@ -319,6 +318,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { role, demoMode, sidebarOpen, notificationsOpen, unreadNotifications, setRole, clearRoleSelection, setDemoMode, setSidebarOpen, setCommandOpen, setShortcutsOpen, setNotificationsOpen, setUnreadNotifications } = usePlatformV7RStore();
   const [readAll, setReadAll] = React.useState(false);
+
+  React.useEffect(() => {
+    usePlatformV7RStore.persist.rehydrate();
+  }, []);
 
   React.useEffect(() => {
     const state = { waitingForSecondKey: false, timer: 0 as unknown as number };
