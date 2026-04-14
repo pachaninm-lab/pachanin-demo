@@ -300,7 +300,7 @@ function ActionButton({
 }
 
 export function CatchAllPage() {
-  const params = useParams<{ slug: string[] }>();
+  const params = useParams() as { slug?: string[] };
   const slug = params.slug ?? [];
   const {
     role,
@@ -513,7 +513,7 @@ export function CatchAllPage() {
                     </td>
                     <td style={{ padding: 12, fontWeight: 700 }}>{formatCompactMoney(deal.reservedAmount)}</td>
                     <td style={{ padding: 12 }}>
-                      <Badge tone={riskTone(deal.riskScore)}>{deal.riskScore}</Badge>
+                      <Badge tone={riskTone(deal.riskScore) as NoticeTone}>{deal.riskScore}</Badge>
                     </td>
                     <td style={{ padding: 12, fontSize: 12 }}>{deal.slaDeadline ?? '—'}</td>
                     <td style={{ padding: 12 }}>
