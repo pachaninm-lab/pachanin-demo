@@ -14,36 +14,49 @@ async function startMSW() {
 }
 
 export function MSWProvider({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = React.useState(false);
+  const [bannerVisible, setBannerVisible] = React.useState(false);
 
   React.useEffect(() => {
-    const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
-      || localStorage.getItem('pc-session-v9')?.includes('"demoMode":true')
-      || true; // default on
+    const demoMode =
+      process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ||
+      localStorage.getItem('pc-session-v10')?.includes('"demoMode":true') ||
+      localStorage.getItem('pc-session-v9r')?.includes('"demoMode":true') ||
+      localStorage.getItem('pc-session-v9')?.includes('"demoMode":true') ||
+      true;
 
-    if (demoMode) {
-      startMSW().then(() => setReady(true));
-    } else {
-      setReady(true);
-    }
+    if (!demoMode) return;
+
+    setBannerVisible(true);
+    startMSW()
+      .catch(() => undefined)
+      .finally(() => {
+        window.setTimeout(() => setBannerVisible(false), 300);
+      });
   }, []);
 
-  if (!ready) {
-    return (
-      <div className="v9-root" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', color: '#6B778C', fontSize: 13 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            border: '3px solid #E4E6EA', borderTopColor: '#0A7A5F',
-            animation: 'spin 0.8s linear infinite',
-            margin: '0 auto 12px',
-          }} />
-          Инициализация...
+  return (
+    <>
+      {bannerVisible ? (
+        <div
+          className="v9-root"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 200,
+            padding: '8px 12px',
+            background: 'rgba(10,122,95,0.95)',
+            color: '#FFFFFF',
+            fontSize: 12,
+            fontWeight: 700,
+            textAlign: 'center',
+          }}
+        >
+          Подключаем демонстрационные данные…
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+      ) : null}
+      {children}
+    </>
+  );
 }

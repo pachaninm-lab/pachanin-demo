@@ -1,8 +1,22 @@
 'use client';
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type PlatformRole = 'operator' | 'buyer' | 'seller' | 'driver' | 'bank' | 'arbitrator' | 'compliance';
+export type PlatformRole =
+  | 'operator'
+  | 'buyer'
+  | 'seller'
+  | 'logistics'
+  | 'driver'
+  | 'surveyor'
+  | 'elevator'
+  | 'lab'
+  | 'bank'
+  | 'arbitrator'
+  | 'compliance'
+  | 'executive';
+
 export type FieldPreviewRole = 'driver' | 'surveyor' | 'elevator' | 'lab';
 
 interface PlatformV7RState {
@@ -16,6 +30,7 @@ interface PlatformV7RState {
   fieldPreviewRole: FieldPreviewRole;
   unreadNotifications: number;
   setRole: (role: PlatformRole) => void;
+  clearRoleSelection: () => void;
   setDemoMode: (value: boolean) => void;
   setSidebarOpen: (value: boolean) => void;
   setCommandOpen: (value: boolean) => void;
@@ -23,6 +38,14 @@ interface PlatformV7RState {
   setNotificationsOpen: (value: boolean) => void;
   setFieldPreviewRole: (value: FieldPreviewRole) => void;
   setUnreadNotifications: (value: number) => void;
+}
+
+function roleToFieldPreview(role: PlatformRole): FieldPreviewRole | null {
+  if (role === 'driver') return 'driver';
+  if (role === 'surveyor') return 'surveyor';
+  if (role === 'elevator') return 'elevator';
+  if (role === 'lab') return 'lab';
+  return null;
 }
 
 export const usePlatformV7RStore = create<PlatformV7RState>()(
@@ -37,7 +60,13 @@ export const usePlatformV7RStore = create<PlatformV7RState>()(
       notificationsOpen: false,
       fieldPreviewRole: 'driver',
       unreadNotifications: 3,
-      setRole: (role) => set({ role, roleSelected: true }),
+      setRole: (role) =>
+        set((state) => ({
+          role,
+          roleSelected: true,
+          fieldPreviewRole: roleToFieldPreview(role) ?? state.fieldPreviewRole,
+        })),
+      clearRoleSelection: () => set({ roleSelected: false }),
       setDemoMode: (demoMode) => set({ demoMode }),
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
       setCommandOpen: (commandOpen) => set({ commandOpen }),
@@ -47,7 +76,7 @@ export const usePlatformV7RStore = create<PlatformV7RState>()(
       setUnreadNotifications: (unreadNotifications) => set({ unreadNotifications }),
     }),
     {
-      name: 'pc-session-v9r',
+      name: 'pc-session-v10',
       partialize: (state) => ({
         role: state.role,
         roleSelected: state.roleSelected,
