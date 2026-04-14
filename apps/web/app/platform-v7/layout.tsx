@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { AppShell } from '@/components/v7r/AppShell';
 import '@/app/v9.css';
 
@@ -7,6 +8,6 @@ export const metadata: Metadata = {
   description: 'Цифровой контур исполнения сделки',
 };
 
-export default function PlatformV7Layout({ children }: { children: React.ReactNode }) {
+export default function PlatformV7Layout({ children }: { children: ReactNode }) {
   return <AppShell>{children}</AppShell>;
 }
