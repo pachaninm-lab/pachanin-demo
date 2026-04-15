@@ -1,5 +1,5 @@
-import { RoleEntry } from '@/components/v7r/RoleEntry';
+import { PlatformV7LandingPage } from '@/components/v7r/EsiaFgisRuntime';
 
 export default function PlatformV7RolesPage() {
-  return <RoleEntry />;
+  return <PlatformV7LandingPage />;
 }

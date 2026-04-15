@@ -1,5 +1,5 @@
-import { CatchAllPage } from '@/components/v7r/CatchAllPage';
+import { DealReadinessPage } from '@/components/v7r/EsiaFgisRuntime';
 
-export default function PlatformV7ControlTowerPage() {
-  return <CatchAllPage />;
+export default function PlatformV7DealReadinessPage({ params }: { params: { dealId: string } }) {
+  return <DealReadinessPage id={params.dealId} />;
 }
