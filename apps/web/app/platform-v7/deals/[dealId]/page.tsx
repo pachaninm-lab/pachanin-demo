@@ -1,5 +1,5 @@
-import { DealReadinessPage } from '@/components/v7r/EsiaFgisRuntime';
+import { LiveDealDetailRuntime } from '@/components/v7r/LiveDealDetailRuntime';
 
-export default function PlatformV7DealReadinessPage({ params }: { params: { dealId: string } }) {
-  return <DealReadinessPage id={params.dealId} />;
+export default function PlatformV7DealDetailPage({ params }: { params: { dealId: string } }) {
+  return <LiveDealDetailRuntime id={params.dealId} />;
 }
