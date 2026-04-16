@@ -1,5 +1,5 @@
-import { SellerLotsRuntime } from '@/components/v7r/SellerLotsRuntime';
+import { SellerLotsRuntimeV2 } from '@/components/v7r/SellerLotsRuntimeV2';
 
 export default function PlatformV7LotsPage() {
-  return <SellerLotsRuntime />;
+  return <SellerLotsRuntimeV2 />;
 }
