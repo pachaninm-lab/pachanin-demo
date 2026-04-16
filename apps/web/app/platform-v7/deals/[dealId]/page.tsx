@@ -1,5 +1,5 @@
-import { LiveDealInvestorRuntime } from '@/components/v7r/LiveDealInvestorRuntime';
+import { LiveDealDetailRuntime } from '@/components/v7r/LiveDealDetailRuntime';
 
 export default function PlatformV7DealDetailPage({ params }) {
-  return <LiveDealInvestorRuntime id={params.dealId} />;
+  return <LiveDealDetailRuntime id={params.dealId} />;
 }
