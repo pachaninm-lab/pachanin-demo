@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { AppShellV2 } from '@/components/v7r/AppShellV2';
 import { ToastProvider } from '@/components/v7r/Toast';
 import '@/app/v9.css';
+import '@/app/v9-accessibility.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',
