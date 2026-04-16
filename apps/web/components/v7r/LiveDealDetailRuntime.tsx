@@ -6,6 +6,7 @@ import { useToast } from '@/components/v7r/Toast';
 import { DEALS, getDisputeById } from '@/lib/v7r/data';
 import { formatMoney, statusLabel } from '@/lib/v7r/helpers';
 import { useLiveDealRuntimeStore } from '@/stores/useLiveDealRuntimeStore';
+import { useFieldRuntimeStore } from '@/stores/useFieldRuntimeStore';
 
 function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
@@ -47,6 +48,10 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
   const resolveDispute = useLiveDealRuntimeStore((state) => state.resolveDispute);
   const override = useLiveDealRuntimeStore((state) => state.overrides[id]);
 
+  const trip = useFieldRuntimeStore((state) => (state.trip.dealId === id ? state.trip : null));
+  const reception = useFieldRuntimeStore((state) => state.receptions.find((item) => item.dealId === id) ?? null);
+  const labCase = useFieldRuntimeStore((state) => state.labCases.find((item) => item.dealId === id) ?? null);
+
   React.useEffect(() => {
     ensureDeal(id);
   }, [ensureDeal, id]);
@@ -68,7 +73,9 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
 
   const dispute = base.dispute ? getDisputeById(base.dispute.id) : null;
   const reservedAmount = base.reservedAmount;
-  const releaseAmount = state.releaseAmount ?? base.releaseAmount ?? Math.max(reservedAmount - state.holdAmount, 0);
+  const qualityRequiresReview = Boolean(labCase && labCase.result === 'review');
+  const recommendedHold = qualityRequiresReview ? Math.max(state.holdAmount, Math.round(reservedAmount * 0.12)) : state.holdAmount;
+  const releaseAmount = state.releaseAmount ?? base.releaseAmount ?? Math.max(reservedAmount - recommendedHold, 0);
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
@@ -82,16 +89,31 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Badge tone={state.status === 'release_approved' || state.status === 'closed' ? 'success' : state.status === 'quality_disputed' || state.status === 'release_requested' ? 'danger' : 'warning'}>{statusLabel(state.status)}</Badge>
             <Badge tone={state.disputeState === 'open' ? 'danger' : state.disputeState === 'resolved' ? 'success' : 'neutral'}>{state.disputeState}</Badge>
+            {qualityRequiresReview ? <Badge tone='danger'>LAB REVIEW</Badge> : null}
           </div>
         </div>
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Резерв' value={formatMoney(reservedAmount)} note='Сумма под резервом по сделке.' />
-        <StatCard title='Удержание' value={formatMoney(state.holdAmount)} note='Сумма удержания из-за блокеров или спора.' />
+        <StatCard title='Удержание' value={formatMoney(recommendedHold)} note={qualityRequiresReview ? 'Лаборатория советует удержание до разбора качественной дельты.' : 'Сумма удержания из-за блокеров или спора.'} />
         <StatCard title='К выпуску' value={formatMoney(releaseAmount)} note='Сумма, доступная к выпуску при закрытых блокерах.' />
         <StatCard title='SLA' value={base.slaDeadline ?? '—'} note={state.nextStep} />
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Control tower сделки</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Логистика</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{trip ? `${trip.status} · ETA ${trip.eta}` : 'Нет активного рейса'}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>{trip ? `Км до точки: ${trip.kmLeft}` : '—'}</div></div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Приёмка</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{reception ? `${reception.status} · ${reception.weight || '—'} т` : 'Нет записи'}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>{reception ? `FGIS: ${reception.fgis ? 'да' : 'нет'} · СДИЗ: ${reception.sdiz || '—'}` : '—'}</div></div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Лаборатория</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{labCase ? `${labCase.status} · ${labCase.result}` : 'Нет пробы'}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>{labCase ? `Белок ${labCase.protein || '—'} · Влажность ${labCase.moisture || '—'}` : '—'}</div></div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link href='/platform-v7/driver' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Водитель</Link>
+          <Link href='/platform-v7/elevator' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Приёмка</Link>
+          <Link href='/platform-v7/lab' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Лаборатория</Link>
+        </div>
+      </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Контур сделки</div>
