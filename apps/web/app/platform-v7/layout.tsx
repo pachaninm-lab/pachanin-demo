@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { AppShell } from '@/components/v7r/AppShell';
+import { AppShellV2 } from '@/components/v7r/AppShellV2';
 import { ToastProvider } from '@/components/v7r/Toast';
 import '@/app/v9.css';
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function PlatformV7Layout({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
-      <AppShell>{children}</AppShell>
+      <AppShellV2>{children}</AppShellV2>
     </ToastProvider>
   );
 }
