@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { AppShellV2 } from '@/components/v7r/AppShellV2';
+import { AppShellV3 as AppShellV2 } from '@/components/v7r/AppShellV3';
 import { ToastProvider } from '@/components/v7r/Toast';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
