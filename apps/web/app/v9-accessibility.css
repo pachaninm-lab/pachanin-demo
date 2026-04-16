@@ -1,0 +1,34 @@
+.v9-root :focus-visible {
+  outline: 3px solid #0A7A5F;
+  outline-offset: 2px;
+}
+
+.v9-root button,
+.v9-root a,
+.v9-root input,
+.v9-root select,
+.v9-root textarea {
+  min-height: 44px;
+}
+
+.v9-root input,
+.v9-root select,
+.v9-root textarea {
+  line-height: 1.4;
+}
+
+.v9-root button,
+.v9-root a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v9-root *,
+  .v9-root *::before,
+  .v9-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
