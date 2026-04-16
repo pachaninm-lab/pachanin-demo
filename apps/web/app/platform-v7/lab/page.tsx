@@ -1,1 +1,5 @@
-export { default } from '@/app/platform-v7r/lab/page';
+import { FieldLabRuntime } from '@/components/v7r/FieldLabRuntime';
+
+export default function Page() {
+  return <FieldLabRuntime />;
+}
