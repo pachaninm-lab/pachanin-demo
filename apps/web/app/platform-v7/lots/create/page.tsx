@@ -1,5 +1,5 @@
-import { SellerLotCreateRuntime } from '@/components/v7r/SellerLotCreateRuntime';
+import { SellerLotCreateRuntimeV2 } from '@/components/v7r/SellerLotCreateRuntimeV2';
 
 export default function PlatformV7LotCreatePage() {
-  return <SellerLotCreateRuntime />;
+  return <SellerLotCreateRuntimeV2 />;
 }
