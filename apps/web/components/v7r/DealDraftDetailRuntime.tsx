@@ -30,7 +30,18 @@ function StatCard({ title, value, note }: { title: string; value: string; note: 
 
 export function DealDraftDetailRuntime({ id }: { id: string }) {
   const toast = useToast();
-  const { draftDeals, removeDraftDeal } = useBuyerRuntimeStore();
+  const {
+    draftDeals,
+    removeDraftDeal,
+    markDraftDocsCollecting,
+    markDraftDocsComplete,
+    submitDraftReserve,
+    approveDraftReserve,
+    openDraftDispute,
+    resolveDraftDispute,
+    requestDraftRelease,
+    releaseDraftFunds,
+  } = useBuyerRuntimeStore();
   const item = draftDeals.find((entry) => entry.id === id) ?? null;
 
   if (!item) {
@@ -59,17 +70,29 @@ export function DealDraftDetailRuntime({ id }: { id: string }) {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Badge tone='neutral'>{sourceLabel}</Badge>
-            <Badge tone='warning'>{item.status}</Badge>
+            <Badge tone={item.status === 'released' ? 'success' : item.status === 'dispute_open' ? 'danger' : 'warning'}>{item.status}</Badge>
           </div>
         </div>
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Цена' value={formatMoney(item.price)} note='Цена из выбранного источника.' />
-        <StatCard title='Документы' value={item.docsState} note='Пакет документов ещё не собран.' />
-        <StatCard title='Резерв' value={item.reserveState} note='Банковый слой ещё не запущен.' />
-        <StatCard title='Следующий шаг' value='1' note={item.nextStep} />
+        <StatCard title='Документы' value={item.docsState} note='Состояние документного пакета.' />
+        <StatCard title='Резерв' value={item.reserveState} note='Состояние банкового резерва.' />
+        <StatCard title='Выпуск' value={item.paymentState} note={item.nextStep} />
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Blocker matrix</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {item.blockers.length ? item.blockers.map((blocker) => <Badge key={blocker} tone={blocker === 'dispute' ? 'danger' : 'warning'}>{blocker}</Badge>) : <Badge tone='success'>blockers cleared</Badge>}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий владелец</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.nextOwner}</div></div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.nextStep}</div></div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Risk flags</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.riskFlags.length ? item.riskFlags.join(', ') : 'Нет'}</div></div>
+        </div>
+      </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Что уже известно</div>
@@ -78,15 +101,38 @@ export function DealDraftDetailRuntime({ id }: { id: string }) {
           <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Оплата</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.payment}</div></div>
           <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Источник</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.sourceId}</div></div>
         </div>
-        {marketSource ? <div style={{ padding: 14, borderRadius: 14, background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.14)', fontSize: 13, color: '#0F1419', lineHeight: 1.7 }}>Источник найден в рыночном наборе: {marketSource.grain} · {marketSource.volume} т · {marketSource.region}. Draft-сделка создана из него и ждёт перевода в договорный/банковый слой.</div> : null}
+        {marketSource ? <div style={{ padding: 14, borderRadius: 14, background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.14)', fontSize: 13, color: '#0F1419', lineHeight: 1.7 }}>Источник найден в рыночном наборе: {marketSource.grain} · {marketSource.volume} т · {marketSource.region}. Draft-сделка создана из него и теперь проходит документный, банковый и спорный слой внутри runtime-контура.</div> : null}
       </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Действия</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => toast('Следующий шаг для draft-сделки зафиксирован: собрать пакет документов и перевести объект в денежный контур.', 'success')} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Зафиксировать следующий шаг</button>
-          <Link href='/platform-v7/procurement' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Вернуться в закупку</Link>
+          {item.docsState === 'missing' ? <button onClick={() => { markDraftDocsCollecting(item.id); toast('Сбор документов запущен.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Начать сбор документов</button> : null}
+          {item.docsState !== 'complete' ? <button onClick={() => { markDraftDocsComplete(item.id); toast('Документный пакет отмечен как полный.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Документы собраны</button> : null}
+          {item.docsState === 'complete' && item.reserveState === 'not_started' ? <button onClick={() => { submitDraftReserve(item.id); toast('Запрос на резерв отправлен в банк.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Отправить на резерв</button> : null}
+          {item.reserveState === 'pending' ? <button onClick={() => { approveDraftReserve(item.id); toast('Резерв подтверждён.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Подтвердить резерв</button> : null}
+          {item.reserveState === 'approved' && item.docsState === 'complete' && item.disputeState !== 'open' && item.paymentState !== 'ready_for_release' && item.paymentState !== 'released' ? <button onClick={() => { requestDraftRelease(item.id); toast('Запрос на выпуск денег создан.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Запросить выпуск денег</button> : null}
+          {item.paymentState === 'ready_for_release' ? <button onClick={() => { releaseDraftFunds(item.id); toast('Деньги выпущены.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Выпустить деньги</button> : null}
+          {item.disputeState !== 'open' && item.paymentState !== 'released' ? <button onClick={() => { openDraftDispute(item.id); toast('Спор открыт.', 'warning'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Открыть спор</button> : null}
+          {item.disputeState === 'open' ? <button onClick={() => { resolveDraftDispute(item.id); toast('Спор закрыт.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Закрыть спор</button> : null}
+          <Link href='/platform-v7/bank' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Банк</Link>
+          <Link href='/platform-v7/disputes' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Споры</Link>
           <button onClick={() => { removeDraftDeal(item.id); toast(`Draft-сделка ${item.id} удалена.`, 'warning'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Удалить draft</button>
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Журнал событий</div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {item.events.map((event, index) => (
+            <div key={`${event.ts}-${index}`} style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{event.actor}</div>
+                <div style={{ fontSize: 12, color: '#6B778C' }}>{event.ts}</div>
+              </div>
+              <div style={{ fontSize: 12, color: '#475569', marginTop: 8 }}>{event.action}</div>
+            </div>
+          ))}
         </div>
       </section>
     </div>

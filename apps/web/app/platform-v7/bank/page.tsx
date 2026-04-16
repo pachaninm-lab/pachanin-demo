@@ -1,5 +1,5 @@
-import { CatchAllPage } from '@/components/v7r/CatchAllPage';
+import { BankRuntime } from '@/components/v7r/BankRuntime';
 
-export default function PlatformV7ControlTowerPage() {
-  return <CatchAllPage />;
+export default function PlatformV7BankPage() {
+  return <BankRuntime />;
 }

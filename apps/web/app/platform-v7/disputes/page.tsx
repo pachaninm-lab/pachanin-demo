@@ -1,5 +1,5 @@
-import { CatchAllPage } from '@/components/v7r/CatchAllPage';
+import { DisputesRuntime } from '@/components/v7r/DisputesRuntime';
 
-export default function PlatformV7ControlTowerPage() {
-  return <CatchAllPage />;
+export default function PlatformV7DisputesPage() {
+  return <DisputesRuntime />;
 }

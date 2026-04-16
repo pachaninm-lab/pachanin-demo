@@ -4,6 +4,20 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { RFQ_LIST, type RfqItem } from '@/lib/v7r/data';
 
+export type DraftDealStatus =
+  | 'draft'
+  | 'docs_in_progress'
+  | 'reserve_pending'
+  | 'reserve_approved'
+  | 'dispute_open'
+  | 'release_ready'
+  | 'released';
+
+export type DraftDocsState = 'missing' | 'collecting' | 'complete';
+export type DraftReserveState = 'not_started' | 'pending' | 'approved';
+export type DraftPaymentState = 'blocked' | 'ready_for_release' | 'released';
+export type DraftDisputeState = 'none' | 'open' | 'resolved';
+
 export interface LocalRfqRequest {
   id: string;
   grain: string;
@@ -14,6 +28,12 @@ export interface LocalRfqRequest {
   payment: string;
   createdAt: string;
   source: 'LOCAL_RFQ';
+}
+
+export interface DraftDealEvent {
+  ts: string;
+  actor: string;
+  action: string;
 }
 
 export interface DraftDeal {
@@ -28,11 +48,18 @@ export interface DraftDeal {
   payment: string;
   sellerName: string;
   buyerName: string;
-  status: 'draft' | 'approval_needed';
-  docsState: 'missing' | 'collecting';
-  reserveState: 'not_started' | 'pending';
+  status: DraftDealStatus;
+  docsState: DraftDocsState;
+  reserveState: DraftReserveState;
+  paymentState: DraftPaymentState;
+  disputeState: DraftDisputeState;
+  blockers: string[];
   nextStep: string;
+  nextOwner: string;
+  riskFlags: string[];
+  evidenceUploaded: number;
   createdAt: string;
+  events: DraftDealEvent[];
 }
 
 interface BuyerRuntimeState {
@@ -43,6 +70,14 @@ interface BuyerRuntimeState {
   toggleShortlist: (sourceId: string) => void;
   createDraftDealFromMarket: (rfq: RfqItem) => DraftDeal;
   createDraftDealFromLocalRfq: (rfq: LocalRfqRequest) => DraftDeal;
+  markDraftDocsCollecting: (id: string) => void;
+  markDraftDocsComplete: (id: string) => void;
+  submitDraftReserve: (id: string) => void;
+  approveDraftReserve: (id: string) => void;
+  openDraftDispute: (id: string) => void;
+  resolveDraftDispute: (id: string) => void;
+  requestDraftRelease: (id: string) => void;
+  releaseDraftFunds: (id: string) => void;
   removeDraftDeal: (id: string) => void;
 }
 
@@ -52,6 +87,74 @@ function nextNumericId(items: Array<{ id: string }>, prefix: string, seed: numbe
     return Number.isFinite(numeric) ? Math.max(maxItem, numeric) : maxItem;
   }, seed);
   return `${prefix}${maxValue + 1}`;
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function recalcDraft(draft: DraftDeal): DraftDeal {
+  const blockers: string[] = [];
+  const riskFlags = [...draft.riskFlags];
+
+  if (draft.docsState !== 'complete') blockers.push('docs');
+  if (draft.reserveState !== 'approved') blockers.push('reserve');
+  if (draft.disputeState === 'open') blockers.push('dispute');
+  if (draft.sourceType === 'LOCAL_RFQ' && !riskFlags.includes('counterparty_unselected')) {
+    riskFlags.push('counterparty_unselected');
+  }
+
+  let status: DraftDealStatus = 'draft';
+  let nextStep = 'Начать сбор документов по сделке.';
+  let nextOwner = 'Покупатель';
+  let paymentState = draft.paymentState;
+
+  if (draft.paymentState === 'released') {
+    status = 'released';
+    nextStep = 'Деньги выпущены. Можно архивировать draft или переводить его в боевой контур.';
+    nextOwner = 'Оператор';
+  } else if (draft.disputeState === 'open') {
+    status = 'dispute_open';
+    nextStep = 'Закрыть спор и заново пройти денежный шаг.';
+    nextOwner = 'Арбитр';
+    paymentState = 'blocked';
+  } else if (draft.reserveState === 'approved' && draft.docsState === 'complete' && draft.paymentState === 'ready_for_release') {
+    status = 'release_ready';
+    nextStep = 'Банк может выпускать деньги по сделке.';
+    nextOwner = 'Банк';
+  } else if (draft.reserveState === 'approved') {
+    status = 'reserve_approved';
+    nextStep = draft.docsState === 'complete' ? 'Запросить выпуск денег.' : 'Закрыть документные блокеры до выпуска денег.';
+    nextOwner = draft.docsState === 'complete' ? 'Покупатель' : 'Продавец';
+    paymentState = draft.docsState === 'complete' ? draft.paymentState : 'blocked';
+  } else if (draft.reserveState === 'pending') {
+    status = 'reserve_pending';
+    nextStep = 'Банк должен проверить и подтвердить резерв.';
+    nextOwner = 'Банк';
+    paymentState = 'blocked';
+  } else if (draft.docsState === 'collecting' || draft.docsState === 'complete') {
+    status = 'docs_in_progress';
+    nextStep = draft.docsState === 'complete' ? 'Запустить банковый резерв.' : 'Собрать обязательный пакет документов.';
+    nextOwner = draft.docsState === 'complete' ? 'Покупатель' : 'Продавец';
+    paymentState = 'blocked';
+  }
+
+  return {
+    ...draft,
+    status,
+    paymentState,
+    blockers,
+    nextStep,
+    nextOwner,
+    riskFlags,
+  };
+}
+
+function addEvent(draft: DraftDeal, actor: string, action: string) {
+  return {
+    ...draft,
+    events: [{ ts: nowIso(), actor, action }, ...draft.events],
+  };
 }
 
 function createDraftDealBase(input: {
@@ -65,7 +168,7 @@ function createDraftDealBase(input: {
   payment: string;
   sellerName: string;
 }): Omit<DraftDeal, 'id' | 'createdAt'> {
-  return {
+  return recalcDraft({
     sourceId: input.sourceId,
     sourceType: input.sourceType,
     grain: input.grain,
@@ -79,8 +182,23 @@ function createDraftDealBase(input: {
     status: 'draft',
     docsState: 'missing',
     reserveState: 'not_started',
-    nextStep: 'Открыть draft-сделку, проверить контрагента и запустить резерв.',
-  };
+    paymentState: 'blocked',
+    disputeState: 'none',
+    blockers: ['docs', 'reserve'],
+    nextStep: 'Начать сбор документов по сделке.',
+    nextOwner: 'Покупатель',
+    riskFlags: input.sourceType === 'LOCAL_RFQ' ? ['counterparty_unselected'] : [],
+    evidenceUploaded: 0,
+    events: [{ ts: nowIso(), actor: 'Система', action: 'Draft-сделка создана' }],
+  });
+}
+
+function evolveDraft(
+  items: DraftDeal[],
+  id: string,
+  mutate: (draft: DraftDeal) => DraftDeal
+) {
+  return items.map((item) => (item.id === id ? recalcDraft(mutate(item)) : item));
 }
 
 export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
@@ -98,7 +216,7 @@ export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
           targetPrice: input.targetPrice,
           quality: input.quality,
           payment: input.payment,
-          createdAt: new Date().toISOString(),
+          createdAt: nowIso(),
           source: 'LOCAL_RFQ',
         };
         set((state) => ({ localRfqs: [created, ...state.localRfqs] }));
@@ -114,7 +232,7 @@ export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
       createDraftDealFromMarket: (rfq) => {
         const created: DraftDeal = {
           id: nextNumericId(get().draftDeals, 'DRAFT-', 3000),
-          createdAt: new Date().toISOString(),
+          createdAt: nowIso(),
           ...createDraftDealBase({
             sourceId: rfq.id,
             sourceType: 'RFQ_MARKET',
@@ -133,7 +251,7 @@ export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
       createDraftDealFromLocalRfq: (rfq) => {
         const created: DraftDeal = {
           id: nextNumericId(get().draftDeals, 'DRAFT-', 3000),
-          createdAt: new Date().toISOString(),
+          createdAt: nowIso(),
           ...createDraftDealBase({
             sourceId: rfq.id,
             sourceType: 'LOCAL_RFQ',
@@ -149,10 +267,34 @@ export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
         set((state) => ({ draftDeals: [created, ...state.draftDeals] }));
         return created;
       },
+      markDraftDocsCollecting: (id) => set((state) => ({
+        draftDeals: evolveDraft(state.draftDeals, id, (draft) => addEvent({ ...draft, docsState: 'collecting' }, 'Покупатель', 'Запущен сбор документов')),
+      })),
+      markDraftDocsComplete: (id) => set((state) => ({
+        draftDeals: evolveDraft(state.draftDeals, id, (draft) => addEvent({ ...draft, docsState: 'complete', evidenceUploaded: Math.max(draft.evidenceUploaded, 3) }, 'Продавец', 'Пакет документов собран')),
+      })),
+      submitDraftReserve: (id) => set((state) => ({
+        draftDeals: evolveDraft(state.draftDeals, id, (draft) => addEvent({ ...draft, reserveState: 'pending' }, 'Покупатель', 'Запрос на резерв отправлен в банк')),
+      })),
+      approveDraftReserve: (id) => set((state) => ({
+        draftDeals: evolveDraft(state.draftDeals, id, (draft) => addEvent({ ...draft, reserveState: 'approved' }, 'Банк', 'Резерв подтверждён')),
+      })),
+      openDraftDispute: (id) => set((state) => ({
+        draftDeals: evolveDraft(state.draftDeals, id, (draft) => addEvent({ ...draft, disputeState: 'open', paymentState: 'blocked' }, 'Покупатель', 'Открыт спор по draft-сделке')),
+      })),
+      resolveDraftDispute: (id) => set((state) => ({
+        draftDeals: evolveDraft(state.draftDeals, id, (draft) => addEvent({ ...draft, disputeState: 'resolved' }, 'Арбитр', 'Спор закрыт')),
+      })),
+      requestDraftRelease: (id) => set((state) => ({
+        draftDeals: evolveDraft(state.draftDeals, id, (draft) => addEvent({ ...draft, paymentState: 'ready_for_release' }, 'Покупатель', 'Запрошен выпуск денег')),
+      })),
+      releaseDraftFunds: (id) => set((state) => ({
+        draftDeals: evolveDraft(state.draftDeals, id, (draft) => addEvent({ ...draft, paymentState: 'released' }, 'Банк', 'Деньги выпущены')),
+      })),
       removeDraftDeal: (id) => set((state) => ({ draftDeals: state.draftDeals.filter((item) => item.id !== id) })),
     }),
     {
-      name: 'pc-buyer-runtime-v1',
+      name: 'pc-buyer-runtime-v2',
       partialize: (state) => ({
         localRfqs: state.localRfqs,
         shortlistedSourceIds: state.shortlistedSourceIds,
