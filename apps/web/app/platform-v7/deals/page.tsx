@@ -1,5 +1,5 @@
-import { CatchAllPage } from '@/components/v7r/CatchAllPage';
+import { DealsOverviewRuntime } from '@/components/v7r/DealsOverviewRuntime';
 
-export default function PlatformV7ControlTowerPage() {
-  return <CatchAllPage />;
+export default function PlatformV7DealsPage() {
+  return <DealsOverviewRuntime />;
 }

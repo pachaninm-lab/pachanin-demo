@@ -1,5 +1,5 @@
-import { CatchAllPage } from '@/components/v7r/CatchAllPage';
+import { BuyerProcurementRuntime } from '@/components/v7r/BuyerProcurementRuntime';
 
-export default function PlatformV7ControlTowerPage() {
-  return <CatchAllPage />;
+export default function PlatformV7ProcurementPage() {
+  return <BuyerProcurementRuntime />;
 }
