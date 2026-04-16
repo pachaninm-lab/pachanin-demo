@@ -1,5 +1,5 @@
-import { DealDraftDetailRuntime } from '@/components/v7r/DealDraftDetailRuntime';
+import { DealDraftDetailRuntimeV2 } from '@/components/v7r/DealDraftDetailRuntimeV2';
 
 export default function PlatformV7DealDraftDetailPage({ params }: { params: { draftId: string } }) {
-  return <DealDraftDetailRuntime id={params.draftId} />;
+  return <DealDraftDetailRuntimeV2 id={params.draftId} />;
 }
