@@ -150,6 +150,8 @@ const CRUMB_LABELS: Record<string, string> = {
   'operator-cockpit': 'Оператор',
   queues: 'Очереди',
   auctions: 'Торги',
+  investor: 'Investor',
+  demo: 'Demo',
 };
 
 function breadcrumbs(pathname: string) {
@@ -210,6 +212,10 @@ export function AppShellV2({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid #E4E6EA', display: 'grid', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <Link href="/platform-v7/investor" onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>Investor</Link>
+            <Link href="/platform-v7/demo" onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>Demo</Link>
+          </div>
           <Link href="/platform-v7/roles" onClick={() => { clearRoleSelection(); setSidebarOpen(false); }} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Все роли</Link>
           <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(217,119,6,0.18)', background: 'rgba(217,119,6,0.08)', color: '#B45309', fontSize: 12, lineHeight: 1.6 }}>
             Платформа честно показывает режим роли: controlled pilot, sandbox или role simulation. Ложный «живой режим» убран из shell.
@@ -232,7 +238,9 @@ export function AppShellV2({ children }: { children: React.ReactNode }) {
               </nav>
               <div style={{ fontSize: 11, color: '#6B778C', marginTop: 3 }}>{ROLE_LABELS[role]} · {stage.label}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <Link href="/platform-v7/investor" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>Investor</Link>
+              <Link href="/platform-v7/demo" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>Demo</Link>
               <Link href="/platform-v7/roles" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>Роли</Link>
             </div>
           </div>
