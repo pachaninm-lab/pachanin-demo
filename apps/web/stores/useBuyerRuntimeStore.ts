@@ -168,7 +168,7 @@ function createDraftDealBase(input: {
   payment: string;
   sellerName: string;
 }): Omit<DraftDeal, 'id' | 'createdAt'> {
-  return recalcDraft({
+  return {
     sourceId: input.sourceId,
     sourceType: input.sourceType,
     grain: input.grain,
@@ -190,7 +190,7 @@ function createDraftDealBase(input: {
     riskFlags: input.sourceType === 'LOCAL_RFQ' ? ['counterparty_unselected'] : [],
     evidenceUploaded: 0,
     events: [{ ts: nowIso(), actor: 'Система', action: 'Draft-сделка создана' }],
-  });
+  };
 }
 
 function evolveDraft(
@@ -230,7 +230,7 @@ export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
         }));
       },
       createDraftDealFromMarket: (rfq) => {
-        const created: DraftDeal = {
+        const created = recalcDraft({
           id: nextNumericId(get().draftDeals, 'DRAFT-', 3000),
           createdAt: nowIso(),
           ...createDraftDealBase({
@@ -244,12 +244,12 @@ export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
             payment: rfq.payment,
             sellerName: 'Контрагент из shortlist',
           }),
-        };
+        });
         set((state) => ({ draftDeals: [created, ...state.draftDeals] }));
         return created;
       },
       createDraftDealFromLocalRfq: (rfq) => {
-        const created: DraftDeal = {
+        const created = recalcDraft({
           id: nextNumericId(get().draftDeals, 'DRAFT-', 3000),
           createdAt: nowIso(),
           ...createDraftDealBase({
@@ -263,7 +263,7 @@ export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
             payment: rfq.payment,
             sellerName: 'Контрагент не выбран',
           }),
-        };
+        });
         set((state) => ({ draftDeals: [created, ...state.draftDeals] }));
         return created;
       },
