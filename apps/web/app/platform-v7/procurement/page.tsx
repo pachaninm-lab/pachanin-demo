@@ -1,5 +1,5 @@
-import { BuyerProcurementRuntime } from '@/components/v7r/BuyerProcurementRuntime';
+import { BuyerProcurementRuntimeV2 } from '@/components/v7r/BuyerProcurementRuntimeV2';
 
 export default function PlatformV7ProcurementPage() {
-  return <BuyerProcurementRuntime />;
+  return <BuyerProcurementRuntimeV2 />;
 }
