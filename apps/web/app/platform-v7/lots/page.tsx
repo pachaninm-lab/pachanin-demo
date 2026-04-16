@@ -1,5 +1,5 @@
-import { LotsPage } from '@/components/v7r/EsiaFgisRuntime';
+import { SellerLotsRuntime } from '@/components/v7r/SellerLotsRuntime';
 
 export default function PlatformV7LotsPage() {
-  return <LotsPage />;
+  return <SellerLotsRuntime />;
 }

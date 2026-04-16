@@ -1,5 +1,5 @@
-import { LotCreatePage } from '@/components/v7r/EsiaFgisRuntime';
+import { SellerLotCreateRuntime } from '@/components/v7r/SellerLotCreateRuntime';
 
 export default function PlatformV7LotCreatePage() {
-  return <LotCreatePage />;
+  return <SellerLotCreateRuntime />;
 }
