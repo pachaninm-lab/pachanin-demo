@@ -1,1 +1,5 @@
-export { default } from '@/app/platform-v7r/driver/page';
+import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
+
+export default function DriverPage() {
+  return <FieldDriverRuntime />;
+}
