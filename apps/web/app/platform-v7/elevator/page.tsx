@@ -1,1 +1,5 @@
-export { default } from '@/app/platform-v7r/elevator/page';
+import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
+
+export default function Page() {
+  return <FieldElevatorRuntime />;
+}
