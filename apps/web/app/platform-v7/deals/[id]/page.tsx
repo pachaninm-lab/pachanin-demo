@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { DEALS, CALLBACKS, DISPUTES, getDealById, type DealStatus } from '@/lib/v7r/data';
+import { CALLBACKS, DISPUTES, getDealById, type DealStatus } from '@/lib/v7r/data';
 import { formatCompactMoney, formatMoney, statusLabel } from '@/lib/v7r/helpers';
 import { RiskBadge } from '@/components/v7r/RiskBadge';
 import { DocumentsDropzone } from '@/components/v7r/DocumentsDropzone';
@@ -82,7 +82,6 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
               <span style={{ display: 'inline-flex', borderRadius: 999, padding: '6px 10px', background: '#F8FAFB', border: '1px solid #E4E6EA', fontSize: 12, fontWeight: 800 }}>{statusLabel(deal.status)}</span>
               <RiskBadge score={deal.riskScore} />
-              {deal.lotId ? <span style={{ display: 'inline-flex', borderRadius: 999, padding: '6px 10px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.14)', fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>{deal.lotId}</span> : null}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
