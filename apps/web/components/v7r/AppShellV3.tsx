@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Bell, Search, X } from 'lucide-react';
+import { Menu, Bell, Search, X, Moon, Sun } from 'lucide-react';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { NOTIFICATIONS, NOTIFICATION_GROUPS, type NotificationGroup } from '@/lib/v7r/data';
 import { CommandPalette } from '@/components/v7r/CommandPalette';
@@ -65,6 +65,27 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
+
+  React.useEffect(() => {
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('pc-theme') : null;
+    if (stored === 'dark') {
+      setTheme('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
+
+  const toggleTheme = React.useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('pc-theme', next);
+        if (next === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        else document.documentElement.removeAttribute('data-theme');
+      }
+      return next;
+    });
+  }, []);
   const items = NAV_BY_ROLE[role];
   const stage = ROLE_STAGE[role];
   const stageTone = stageColors(stage.tone);
@@ -175,6 +196,14 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
                 ) : null}
               </div>
 
+              <button
+                onClick={toggleTheme}
+                aria-label={theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на тёмную тему (beta)'}
+                title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема (beta)'}
+                style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}
+              >
+                {theme === 'dark' ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
+              </button>
               <select value={role} onChange={(event) => { const nextRole = event.target.value as PlatformRole; setRole(nextRole); router.push(ROLE_ROUTES[nextRole]); }} style={{ minWidth: 150, border: '1px solid #E4E6EA', borderRadius: 10, padding: '8px 12px', fontSize: 13, background: '#FFFFFF', fontWeight: 600 }}>
                 {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>

@@ -37,8 +37,15 @@ function ClickableStatCard({ title, value, note, active, onClick }: { title: str
 
 export function SellerLotsRuntimeV2() {
   const router = useRouter();
-  const { manualLots, clearManualLots } = useCommercialRuntimeStore();
+  const { manualLots, clearManualLots, favouriteLotIds, toggleFavouriteLot, compareLotIds, toggleCompareLot, clearCompareLots } = useCommercialRuntimeStore();
   const devMode = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+  const [compareToast, setCompareToast] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!compareToast) return;
+    const t = setTimeout(() => setCompareToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [compareToast]);
   const [sourceFilter, setSourceFilter] = React.useState<'ALL' | 'FGIS' | 'MANUAL'>('ALL');
   const [stateFilter, setStateFilter] = React.useState<'ALL' | 'PASS' | 'REVIEW' | 'FAIL'>('ALL');
   const [search, setSearch] = React.useState('');
@@ -117,10 +124,58 @@ export function SellerLotsRuntimeV2() {
         </div>
       </section>
 
+      {compareLotIds.length ? (
+        <section aria-label='Сравнение лотов' style={{ background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.18)', borderRadius: 18, padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#2563EB' }}>Сравнение · {compareLotIds.length} из 3</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={clearCompareLots} style={{ borderRadius: 10, padding: '6px 10px', background: '#fff', border: '1px solid #E4E6EA', color: '#6B778C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Очистить</button>
+            </div>
+          </div>
+          <div style={{ marginTop: 12, overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', background: '#fff' }}>
+                  <th style={{ padding: '10px 12px', fontSize: 11, color: '#6B778C', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Параметр</th>
+                  {compareLotIds.map((id) => {
+                    const l = mergedLots.find((item) => item.id === id);
+                    return <th key={id} style={{ padding: '10px 12px', fontSize: 12, fontWeight: 800, color: '#0F1419' }}>{l?.id ?? id}</th>;
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Название', (l: typeof mergedLots[number]) => l.title],
+                  ['Культура', (l: typeof mergedLots[number]) => l.grain],
+                  ['Объём, т', (l: typeof mergedLots[number]) => String(l.volumeTons)],
+                  ['Источник', (l: typeof mergedLots[number]) => l.sourceType],
+                  ['Состояние', (l: typeof mergedLots[number]) => l.readiness.state],
+                  ['Следующий шаг', (l: typeof mergedLots[number]) => l.readiness.nextStep ?? '—'],
+                ].map(([label, getter]) => (
+                  <tr key={label as string} style={{ borderTop: '1px solid #E4E6EA' }}>
+                    <td style={{ padding: '10px 12px', fontSize: 12, color: '#6B778C', fontWeight: 700 }}>{label as string}</td>
+                    {compareLotIds.map((id) => {
+                      const l = mergedLots.find((item) => item.id === id);
+                      return <td key={`${label}-${id}`} style={{ padding: '10px 12px', fontSize: 13, color: '#0F1419', fontWeight: 700 }}>{l ? (getter as (lot: typeof mergedLots[number]) => string)(l) : '—'}</td>;
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {compareToast ? (
+        <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', borderRadius: 12, color: '#B91C1C', fontSize: 12, fontWeight: 700 }}>{compareToast}</div>
+      ) : null}
+
       <div style={{ display: 'grid', gap: 12 }}>
         {filteredLots.map((item) => {
           const tone = toneByState(item.readiness.state);
           const linkedDeal = LIVE_DEALS.find((deal) => deal.lotId === item.id);
+          const isFavourite = favouriteLotIds.includes(item.id);
+          const isCompared = compareLotIds.includes(item.id);
           return (
             <div key={item.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -148,6 +203,25 @@ export function SellerLotsRuntimeV2() {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={() => router.push(`/platform-v7/lots/${item.id}`)} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Открыть карточку лота</button>
                 {linkedDeal ? <Link href={`/platform-v7/deals/${linkedDeal.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Открыть сделку</Link> : <Link href='/platform-v7/procurement' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Создать сделку</Link>}
+                <button
+                  onClick={() => toggleFavouriteLot(item.id)}
+                  aria-pressed={isFavourite}
+                  aria-label={isFavourite ? `Убрать лот ${item.id} из избранного` : `Добавить лот ${item.id} в избранное`}
+                  style={{ borderRadius: 12, padding: '10px 12px', background: isFavourite ? 'rgba(217,119,6,0.08)' : '#fff', border: isFavourite ? '1px solid rgba(217,119,6,0.3)' : '1px solid #E4E6EA', color: isFavourite ? '#B45309' : '#6B778C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {isFavourite ? '★ В избранном' : '☆ В избранное'}
+                </button>
+                <button
+                  onClick={() => {
+                    const result = toggleCompareLot(item.id);
+                    if (!result.ok && result.reason === 'limit') setCompareToast('Сравнить можно максимум 3 лота. Уберите один перед добавлением нового.');
+                  }}
+                  aria-pressed={isCompared}
+                  aria-label={isCompared ? `Убрать лот ${item.id} из сравнения` : `Добавить лот ${item.id} в сравнение`}
+                  style={{ borderRadius: 12, padding: '10px 12px', background: isCompared ? 'rgba(37,99,235,0.08)' : '#fff', border: isCompared ? '1px solid rgba(37,99,235,0.3)' : '1px solid #E4E6EA', color: isCompared ? '#2563EB' : '#6B778C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {isCompared ? '− Из сравнения' : '+ Сравнить'}
+                </button>
               </div>
             </div>
           );

@@ -15,6 +15,11 @@ interface CommercialRuntimeState {
   manualLots: LotItem[];
   addManualLot: (draft: ManualLotDraft) => LotItem;
   clearManualLots: () => void;
+  favouriteLotIds: string[];
+  toggleFavouriteLot: (lotId: string) => void;
+  compareLotIds: string[];
+  toggleCompareLot: (lotId: string) => { ok: boolean; reason?: 'limit' };
+  clearCompareLots: () => void;
 }
 
 function createReadiness(draft: ManualLotDraft): LotItem['readiness'] {
@@ -64,10 +69,27 @@ export const useCommercialRuntimeStore = create<CommercialRuntimeState>()(
         return created;
       },
       clearManualLots: () => set({ manualLots: [] }),
+      favouriteLotIds: [],
+      toggleFavouriteLot: (lotId) => set((state) => {
+        const exists = state.favouriteLotIds.includes(lotId);
+        return { favouriteLotIds: exists ? state.favouriteLotIds.filter((id) => id !== lotId) : [...state.favouriteLotIds, lotId] };
+      }),
+      compareLotIds: [],
+      toggleCompareLot: (lotId) => {
+        const current = get().compareLotIds;
+        if (current.includes(lotId)) {
+          set({ compareLotIds: current.filter((id) => id !== lotId) });
+          return { ok: true };
+        }
+        if (current.length >= 3) return { ok: false, reason: 'limit' as const };
+        set({ compareLotIds: [...current, lotId] });
+        return { ok: true };
+      },
+      clearCompareLots: () => set({ compareLotIds: [] }),
     }),
     {
       name: 'pc-commercial-runtime-v1',
-      partialize: (state) => ({ manualLots: state.manualLots }),
+      partialize: (state) => ({ manualLots: state.manualLots, favouriteLotIds: state.favouriteLotIds, compareLotIds: state.compareLotIds }),
     }
   )
 );

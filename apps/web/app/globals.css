@@ -38,3 +38,24 @@ h1, h2, h3, h4, h5, h6 {
 p { margin: 0; }
 
 select, input, textarea, button { font-family: inherit; }
+
+/* ============================================================
+   Dark mode (beta) — применяется через html[data-theme="dark"]
+   Используется pragmatic filter-подход, чтобы не переписывать
+   все inline-стили. Медиа-элементы инвертируются обратно.
+   ============================================================ */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  background: #0B0F14;
+}
+
+html[data-theme="dark"] body {
+  background: #0B0F14;
+  filter: invert(0.92) hue-rotate(180deg);
+}
+
+html[data-theme="dark"] body img,
+html[data-theme="dark"] body video,
+html[data-theme="dark"] body svg {
+  filter: invert(1) hue-rotate(180deg);
+}

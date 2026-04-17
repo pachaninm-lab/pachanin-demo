@@ -41,10 +41,10 @@
 - [done] Иконки Lucide вместо эмодзи в шапке и меню (Menu, Bell, Search, X) — 2026-04-17
 - [todo] Типографика — Inter/Manrope + JetBrains Mono, шкала H1/H2/H3/body/caption
 - [todo] Цветовая система статусов (единые токены)
+- [done] Dark mode toggle — кнопка в шапке (Moon/Sun из lucide-react), html[data-theme="dark"], localStorage «pc-theme», filter-approach (beta) — 2026-04-17
 - [todo] Hover/скелетоны/toasty/empty states/Radix tooltips
 - [todo] Onboarding-тур
 - [todo] WCAG AA полный + focus-rings везде
-- [todo] Dark mode toggle
 
 ### Блок 4 [P0] — Логика сделок и лотов (ядро)
 - [done] 16 лотов в `lib/v7r/esia-fgis-data.ts` (LOT-2401…LOT-2416, разные культуры/регионы/состояния PASS/REVIEW/FAIL) — 2026-04-17
@@ -55,7 +55,7 @@
 - [done] Bulk-действия в таблице сделок: выбрать N → «Запросить выпуск / Открыть спор / Закрыть» + toolbar + toast-подтверждение — 2026-04-17
 - [done] Dropzone документов в карточке сделки (drag-and-drop + click, размер/тип, удаление, `data-demo="true"`) — 2026-04-17
 - [done] Dev-кнопка «Очистить manual-лоты» — видна только при `NEXT_PUBLIC_DEV_MODE=true`, confirm-dialog — 2026-04-17
-- [todo] Избранное + side-by-side сравнение до 3 лотов
+- [done] Избранное (★) + side-by-side сравнение до 3 лотов (таблица параметров, toast при превышении лимита) — 2026-04-17
 - [todo] История изменений по сделке
 
 ### Блок 5 [P1] — Логистика и маршруты
@@ -164,6 +164,15 @@
 - [x] Bulk-toolbar: выбор нескольких строк показывает «N выбрано» + 3 кнопки действий + «Сбросить выбор»; toast 3.5с
 - [x] Dropzone: drag-and-drop + click-to-select, список файлов с размером/временем, кнопка «Удалить» на каждый
 - [x] DEV-кнопка очистки manual-лотов скрыта, когда `NEXT_PUBLIC_DEV_MODE !== 'true'` или manualLots пусты
+
+### Блоки 3/4 smoke (Phase 5 — compare / favourites / dark-mode)
+- [x] `pnpm --filter @pc/web typecheck` — clean
+- [x] `pnpm --filter @pc/web build` — clean
+- [x] `pnpm --filter @pc/web test` — 28/28 passed
+- [x] Кнопка «☆ В избранное» / «★ В избранном» переключает состояние, хранится в persist-store
+- [x] Кнопка «+ Сравнить» добавляет лот в сравнение до 3 штук, при попытке 4-го показывается красный toast
+- [x] Панель «Сравнение · N из 3» рендерит таблицу параметров по выбранным лотам; «Очистить» сбрасывает
+- [x] Dark mode toggle (Moon/Sun) переключает `html[data-theme="dark"]`, сохраняется в localStorage «pc-theme» и восстанавливается после перезагрузки
 
 ## Отложено / требует согласования
 
