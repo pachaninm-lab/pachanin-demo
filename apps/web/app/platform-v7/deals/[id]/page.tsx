@@ -28,27 +28,48 @@ interface PipelineStage {
   statuses: DealStatus[];
 }
 
+type PipelineVisualState = 'done' | 'current' | 'blocked' | 'problem';
+
 const PIPELINE_STAGES: PipelineStage[] = [
   { key: 'contract', label: 'Контракт', statuses: ['draft', 'contract_signed'] },
   { key: 'payment', label: 'Резерв', statuses: ['payment_reserved'] },
   { key: 'logistics', label: 'Логистика', statuses: ['loading_scheduled', 'loading_started', 'loading_done', 'in_transit', 'arrived'] },
   { key: 'acceptance', label: 'Приёмка', statuses: ['unloading_started', 'unloading_done'] },
   { key: 'quality', label: 'Качество', statuses: ['quality_check', 'quality_approved', 'quality_disputed'] },
-  { key: 'release', label: 'Выпуск', statuses: ['docs_complete', 'release_requested', 'release_approved', 'closed'] },
+  { key: 'release', label: 'Выплата', statuses: ['docs_complete', 'release_requested', 'release_approved', 'closed'] },
 ];
 
-function resolveStageState(stage: PipelineStage, currentIndex: number, stageIndex: number, status: DealStatus) {
-  if (status === 'quality_disputed' && stage.key === 'quality') return 'problem';
+function resolveStageState(stage: PipelineStage, currentIndex: number, stageIndex: number, status: DealStatus): PipelineVisualState {
+  if (status === 'quality_disputed') {
+    if (stage.key === 'quality') return 'problem';
+    if (stageIndex < currentIndex) return 'done';
+    return 'blocked';
+  }
+
   if (stage.statuses.includes(status)) return 'current';
   if (stageIndex < currentIndex) return 'done';
-  return 'upcoming';
+  return 'blocked';
 }
 
-function stagePalette(state: 'done' | 'current' | 'upcoming' | 'problem') {
-  if (state === 'done') return { bg: '#0A7A5F', border: '#0A7A5F', text: '#0A7A5F', dot: '#fff' };
-  if (state === 'current') return { bg: '#2563EB', border: '#2563EB', text: '#2563EB', dot: '#fff' };
-  if (state === 'problem') return { bg: '#DC2626', border: '#DC2626', text: '#B91C1C', dot: '#fff' };
-  return { bg: '#F5F7F8', border: '#E4E6EA', text: '#6B778C', dot: '#9AA4B2' };
+function stagePalette(state: PipelineVisualState) {
+  if (state === 'done') return { bg: '#0A7A5F', border: '#0A7A5F', text: '#0A7A5F', dot: '#fff', line: '#0A7A5F' };
+  if (state === 'current') return { bg: '#2563EB', border: '#2563EB', text: '#2563EB', dot: '#fff', line: '#2563EB' };
+  if (state === 'problem') return { bg: '#DC2626', border: '#DC2626', text: '#B91C1C', dot: '#fff', line: '#DC2626' };
+  return { bg: '#F5F7F8', border: '#D5DAE1', text: '#8B95A7', dot: '#8B95A7', line: '#E4E6EA' };
+}
+
+function stageCaption(state: PipelineVisualState) {
+  if (state === 'done') return 'Пройден';
+  if (state === 'current') return 'В работе';
+  if (state === 'problem') return 'Проблема';
+  return 'Заблокирован';
+}
+
+function stageMarker(state: PipelineVisualState) {
+  if (state === 'done') return '✓';
+  if (state === 'problem') return '!';
+  if (state === 'blocked') return '⛔';
+  return '●';
 }
 
 export default function PlatformV7DealDetailPage({ params }: { params: { id: string } }) {
@@ -96,23 +117,27 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
           <div style={{ fontSize: 12, color: '#6B778C', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Этапы сделки</div>
           <div style={{ fontSize: 12, color: '#6B778C' }}>Текущий: {statusLabel(deal.status)}</div>
         </div>
-        <ol style={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(0, 1fr)', gap: 6, listStyle: 'none', padding: 0, margin: '14px 0 0', overflowX: 'auto' }}>
+        <ol style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(120px, 1fr))', gap: 12, listStyle: 'none', padding: 0, margin: '16px 0 0', overflowX: 'auto' }}>
           {PIPELINE_STAGES.map((stage, stageIndex) => {
             const state = resolveStageState(stage, currentStageIndex, stageIndex, deal.status);
             const palette = stagePalette(state);
             const isLast = stageIndex === PIPELINE_STAGES.length - 1;
+            const connectorState = state === 'done' ? 'done' : state === 'problem' ? 'problem' : state === 'current' ? 'current' : 'blocked';
+            const connectorColor = connectorState === 'done' ? '#0A7A5F' : connectorState === 'problem' ? '#DC2626' : connectorState === 'current' ? '#2563EB' : '#E4E6EA';
             return (
-              <li key={stage.key} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', gap: 8, minWidth: 120 }}>
-                <div style={{ display: 'grid', placeItems: 'center', width: 28, height: 28, borderRadius: 999, background: palette.bg, border: `1px solid ${palette.border}`, color: palette.dot, fontSize: 12, fontWeight: 800 }}>
-                  {state === 'done' ? '✓' : state === 'problem' ? '!' : stageIndex + 1}
-                </div>
-                <div style={{ display: 'grid', gap: 2, alignItems: 'center' }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: palette.text }}>{stage.label}</div>
-                  <div style={{ fontSize: 10, color: '#9AA4B2', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {state === 'done' ? 'Пройден' : state === 'current' ? 'В работе' : state === 'problem' ? 'Проблема' : 'Впереди'}
+              <li key={stage.key} style={{ minWidth: 120 }}>
+                <div style={{ display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
+                  <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 999, background: palette.bg, border: `1px solid ${palette.border}`, color: palette.dot, fontSize: state === 'blocked' ? 14 : 18, fontWeight: 900, lineHeight: 1 }}>
+                    {stageMarker(state)}
+                  </div>
+                  <div style={{ minHeight: 38, display: 'grid', alignContent: 'start', gap: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: palette.text, lineHeight: 1.25, wordBreak: 'break-word' }}>{stage.label}</div>
+                    <div style={{ fontSize: 10, color: state === 'problem' ? '#B91C1C' : '#9AA4B2', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>
+                      {stageCaption(state)}
+                    </div>
                   </div>
                 </div>
-                {!isLast ? <span aria-hidden style={{ gridColumn: '1 / -1', height: 2, background: stageIndex < currentStageIndex ? '#0A7A5F' : '#E4E6EA', borderRadius: 2, marginTop: 6 }} /> : null}
+                {!isLast ? <span aria-hidden style={{ display: 'block', height: 4, background: connectorColor, borderRadius: 999, marginTop: 12 }} /> : <span aria-hidden style={{ display: 'block', height: 4, background: 'transparent', borderRadius: 999, marginTop: 12 }} />}
               </li>
             );
           })}
