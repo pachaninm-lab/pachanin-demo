@@ -18,11 +18,11 @@
 ### Блок 1 [P0] — Сквозные 404 и разрывы
 - [done] ТМБ-14 привязан к одной сделке (DL-9102, статус «Прибыл, расхождение по качеству») — 2026-04-17
 - [done] Связанные сущности как навигационный блок в карточке сделки (`/platform-v7/deals/[id]`) — 2026-04-17
-- [todo] Новые страницы `/operator`, `/integrations`, `/trading`, `/marketplace`, `/lot/create` — алиасы на существующие или новые модули
+- [done] Алиасы страниц `/operator`, `/integrations`, `/trading`, `/marketplace`, `/lot/create` — 2026-04-17
+- [done] Горизонтальный stepper «Этапы сделки» в карточке сделки (6 укрупнённых стадий, подсветка current/done/problem) — 2026-04-17
+- [done] 404-страница с быстрой навигацией и подсказкой по поиску сделки — 2026-04-17
 - [todo] Prisma schema: `sourceLotId` в `Deal`, `dealId` в `Route`/`AcceptanceRecord`/`BankOperation`/`Dispute`, `acceptanceId` в `LabAnalysis`
-- [todo] Граф связей (горизонтальный stepper) в шапке сделки
 - [todo] Синхронизация счётчиков Control Tower vs `/deals` (9 vs 10), банк показывает операции по DL-9109
-- [todo] 404 страница с поиском и навигацией
 - [todo] Убрать `/platform-v7/` из URL (корневой путь или поддомен)
 
 ### Блок 2 [P0] — Навигация и ИА
@@ -126,9 +126,11 @@
 
 ### Блок 1 smoke (текущий срез)
 - [x] `pnpm --filter @pc/web typecheck` — clean
-- [x] `pnpm --filter @pc/web build` — clean
+- [x] `pnpm --filter @pc/web build` — clean, все 5 алиасов (`/operator`, `/integrations`, `/marketplace`, `/trading`, `/lot/create`) зарегистрированы в роут-карте
 - [x] `pnpm --filter @pc/web test` — 28/28 passed
-- [ ] Сквозной клик `LOT-2401 → DL-9102 → ТМБ-14 → ELV-TMB-03 → LAB-* → PAY-*` — проверить вручную после добавления недостающих страниц (следующий заход)
+- [x] Stepper «Этапы сделки» отображается в карточке DL-9102 с состоянием `problem` на этапе «Качество»
+- [x] 404-страница (`/platform-v7/not-found.tsx`) раздаёт 9 быстрых ссылок и подсказку по формату ID сделок
+- [ ] Сквозной клик `LOT-2401 → DL-9102 → ТМБ-14 → ELV-TMB-03 → LAB-* → PAY-*` — ручная проверка в браузере (требуется деплой без Vercel-gate)
 
 ### Блок 3 smoke (текущий срез)
 - [x] Английские CAPS-плашки (`CONTROLLED PILOT`, `SANDBOX`, `ROLE SIMULATION`, `CANONICAL ENTRY`, `DEMO DATA`, `FIELD VIEW`) заменены в хабе ролей и AppShellV3

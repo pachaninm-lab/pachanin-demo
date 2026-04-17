@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { DEALS, CALLBACKS, DISPUTES, getDealById } from '@/lib/v7r/data';
+import { DEALS, CALLBACKS, DISPUTES, getDealById, type DealStatus } from '@/lib/v7r/data';
 import { formatCompactMoney, formatMoney, statusLabel } from '@/lib/v7r/helpers';
 import { RiskBadge } from '@/components/v7r/RiskBadge';
 
@@ -21,6 +21,35 @@ const CHIP_TONES: Record<RelatedChip['tone'], { bg: string; border: string; colo
   dispute: { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' },
 };
 
+interface PipelineStage {
+  key: string;
+  label: string;
+  statuses: DealStatus[];
+}
+
+const PIPELINE_STAGES: PipelineStage[] = [
+  { key: 'contract', label: 'Контракт', statuses: ['draft', 'contract_signed'] },
+  { key: 'payment', label: 'Резерв', statuses: ['payment_reserved'] },
+  { key: 'logistics', label: 'Логистика', statuses: ['loading_scheduled', 'loading_started', 'loading_done', 'in_transit', 'arrived'] },
+  { key: 'acceptance', label: 'Приёмка', statuses: ['unloading_started', 'unloading_done'] },
+  { key: 'quality', label: 'Качество', statuses: ['quality_check', 'quality_approved', 'quality_disputed'] },
+  { key: 'release', label: 'Выпуск', statuses: ['docs_complete', 'release_requested', 'release_approved', 'closed'] },
+];
+
+function resolveStageState(stage: PipelineStage, currentIndex: number, stageIndex: number, status: DealStatus) {
+  if (status === 'quality_disputed' && stage.key === 'quality') return 'problem';
+  if (stage.statuses.includes(status)) return 'current';
+  if (stageIndex < currentIndex) return 'done';
+  return 'upcoming';
+}
+
+function stagePalette(state: 'done' | 'current' | 'upcoming' | 'problem') {
+  if (state === 'done') return { bg: '#0A7A5F', border: '#0A7A5F', text: '#0A7A5F', dot: '#fff' };
+  if (state === 'current') return { bg: '#2563EB', border: '#2563EB', text: '#2563EB', dot: '#fff' };
+  if (state === 'problem') return { bg: '#DC2626', border: '#DC2626', text: '#B91C1C', dot: '#fff' };
+  return { bg: '#F5F7F8', border: '#E4E6EA', text: '#6B778C', dot: '#9AA4B2' };
+}
+
 export default function PlatformV7DealDetailPage({ params }: { params: { id: string } }) {
   const deal = getDealById(params.id);
   if (!deal) return notFound();
@@ -35,6 +64,11 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
   related.push({ label: 'Лаборатория', value: 'Пробы', href: '/platform-v7/lab', tone: 'lab' });
   related.push({ label: 'Банк', value: bankCallback ? bankCallback.id : 'Контур', href: '/platform-v7/bank', tone: 'bank' });
   if (dispute) related.push({ label: 'Спор', value: dispute.id, href: `/platform-v7/disputes/${dispute.id}`, tone: 'dispute' });
+
+  const currentStageIndex = Math.max(
+    PIPELINE_STAGES.findIndex((stage) => stage.statuses.includes(deal.status)),
+    0,
+  );
 
   return (
     <div style={{ display: 'grid', gap: 18 }}>
@@ -55,6 +89,34 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
             <Link href="/platform-v7/bank" style={{ textDecoration: 'none', borderRadius: 12, padding: '10px 12px', border: '1px solid rgba(10,122,95,0.14)', background: 'rgba(10,122,95,0.08)', color: '#0A7A5F', fontWeight: 700 }}>Открыть банк</Link>
           </div>
         </div>
+      </section>
+
+      <section aria-label="Этапы сделки" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+          <div style={{ fontSize: 12, color: '#6B778C', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Этапы сделки</div>
+          <div style={{ fontSize: 12, color: '#6B778C' }}>Текущий: {statusLabel(deal.status)}</div>
+        </div>
+        <ol style={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(0, 1fr)', gap: 6, listStyle: 'none', padding: 0, margin: '14px 0 0', overflowX: 'auto' }}>
+          {PIPELINE_STAGES.map((stage, stageIndex) => {
+            const state = resolveStageState(stage, currentStageIndex, stageIndex, deal.status);
+            const palette = stagePalette(state);
+            const isLast = stageIndex === PIPELINE_STAGES.length - 1;
+            return (
+              <li key={stage.key} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', gap: 8, minWidth: 120 }}>
+                <div style={{ display: 'grid', placeItems: 'center', width: 28, height: 28, borderRadius: 999, background: palette.bg, border: `1px solid ${palette.border}`, color: palette.dot, fontSize: 12, fontWeight: 800 }}>
+                  {state === 'done' ? '✓' : state === 'problem' ? '!' : stageIndex + 1}
+                </div>
+                <div style={{ display: 'grid', gap: 2, alignItems: 'center' }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: palette.text }}>{stage.label}</div>
+                  <div style={{ fontSize: 10, color: '#9AA4B2', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {state === 'done' ? 'Пройден' : state === 'current' ? 'В работе' : state === 'problem' ? 'Проблема' : 'Впереди'}
+                  </div>
+                </div>
+                {!isLast ? <span aria-hidden style={{ gridColumn: '1 / -1', height: 2, background: stageIndex < currentStageIndex ? '#0A7A5F' : '#E4E6EA', borderRadius: 2, marginTop: 6 }} /> : null}
+              </li>
+            );
+          })}
+        </ol>
       </section>
 
       <section aria-label="Связанные сущности" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
