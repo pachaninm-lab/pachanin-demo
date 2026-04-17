@@ -60,7 +60,7 @@ export default function PlatformV7ControlTowerPage() {
                     <Badge tone={deal.riskScore >= 70 ? 'red' : deal.riskScore >= 30 ? 'amber' : 'green'}>Риск {deal.riskScore}</Badge>
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{deal.grain} · {deal.quantity} {deal.unit} · {formatCompactMoney(deal.reservedAmount)}</div>
-                  <div style={{ fontSize: 12, color: '#6B778C' }}>Лот: {deal.lotId ?? '—'} · Маршрут: {deal.routeId ?? '—'} · SLA: {deal.slaDeadline ?? '—'}</div>
+                  <div style={{ fontSize: 12, color: '#6B778C' }}>SLA: {deal.slaDeadline ?? '—'} · Блокеры: {deal.blockers.length ? deal.blockers.join(', ') : 'нет'}</div>
                   <div style={{ fontSize: 13, color: '#334155' }}>
                     {deal.status === 'quality_disputed' ? 'Следующий шаг: закрыть спор и снять hold.' : deal.status === 'release_requested' ? 'Следующий шаг: подтвердить выпуск денег.' : deal.status === 'docs_complete' ? 'Следующий шаг: запросить выпуск денег.' : 'Следующий шаг: довести сделку до следующего этапа.'}
                   </div>
@@ -101,7 +101,7 @@ export default function PlatformV7ControlTowerPage() {
             <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
               <Signal title="Банк" detail={`${CALLBACKS.length} callback-события уже в контуре.`} href="/platform-v7/bank" />
               <Signal title="Споры" detail={`${DISPUTES.length} активных кейса под удержанием.`} href="/platform-v7/disputes" />
-              <Signal title="Логистика" detail={`${activeDeals.filter((d) => d.routeId).length} маршрутов связаны со сделками.`} href="/platform-v7/logistics" />
+              <Signal title="Логистика" detail={`${activeDeals.filter((d) => Array.isArray(d.route) && d.route.length > 0).length} маршрутов связаны со сделками.`} href="/platform-v7/logistics" />
             </div>
           </section>
         </div>
