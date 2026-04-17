@@ -50,6 +50,10 @@ export interface Deal {
   releaseAmount?: number;
   route?: RouteEvent[];
   events?: DealEvent[];
+  lotId?: string;
+  routeId?: string;
+  routeState?: string;
+  routeEta?: string;
 }
 
 export interface Dispute {
@@ -81,6 +85,7 @@ export interface CallbackItem {
   status: 'ok' | 'pending' | 'mismatch';
   note: string;
   daysOpen?: number;
+  amountRub?: number;
 }
 
 export interface RfqItem {

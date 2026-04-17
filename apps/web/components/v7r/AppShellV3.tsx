@@ -68,6 +68,10 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
   const crumbs = breadcrumbs(pathname);
   const statuses = systemStatus(pathname);
 
+  React.useEffect(() => {
+    usePlatformV7RStore.persist.rehydrate();
+  }, []);
+
   React.useEffect(() => { setSidebarOpen(false); setAlertsOpen(false); }, [pathname]);
 
   return (
