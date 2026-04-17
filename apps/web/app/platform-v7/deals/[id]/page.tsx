@@ -1,0 +1,104 @@
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { DEALS, CALLBACKS, DISPUTES, getDealById } from '@/lib/v7r/data';
+import { formatCompactMoney, formatMoney, statusLabel } from '@/lib/v7r/helpers';
+import { RiskBadge } from '@/components/v7r/RiskBadge';
+
+export default function PlatformV7DealDetailPage({ params }: { params: { id: string } }) {
+  const deal = getDealById(params.id);
+  if (!deal) return notFound();
+  const dispute = deal.dispute ? DISPUTES.find((d) => d.id === deal.dispute?.id) : null;
+  const callbacks = CALLBACKS.filter((c) => c.dealId === deal.id);
+
+  return (
+    <div style={{ display: 'grid', gap: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: 12, color: '#6B778C', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Сделка</div>
+            <div style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 900, color: '#0F1419', marginTop: 8 }}>{deal.id}</div>
+            <div style={{ fontSize: 14, color: '#6B778C', marginTop: 8 }}>{deal.grain} · {deal.quantity} {deal.unit} · {deal.seller.name} → {deal.buyer.name}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              <span style={{ display: 'inline-flex', borderRadius: 999, padding: '6px 10px', background: '#F8FAFB', border: '1px solid #E4E6EA', fontSize: 12, fontWeight: 800 }}>{statusLabel(deal.status)}</span>
+              <RiskBadge score={deal.riskScore} />
+              {deal.lotId ? <span style={{ display: 'inline-flex', borderRadius: 999, padding: '6px 10px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.14)', fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>{deal.lotId}</span> : null}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Link href="/platform-v7/deals" style={{ textDecoration: 'none', borderRadius: 12, padding: '10px 12px', border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontWeight: 700 }}>Все сделки</Link>
+            <Link href="/platform-v7/bank" style={{ textDecoration: 'none', borderRadius: 12, padding: '10px 12px', border: '1px solid rgba(10,122,95,0.14)', background: 'rgba(10,122,95,0.08)', color: '#0A7A5F', fontWeight: 700 }}>Открыть банк</Link>
+          </div>
+        </div>
+      </section>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+        <Metric title="Резерв" value={formatCompactMoney(deal.reservedAmount)} subtitle="Подтверждено в контуре" />
+        <Metric title="Удержание" value={formatCompactMoney(deal.holdAmount)} subtitle={deal.holdAmount ? 'Есть замороженная сумма' : 'Удержаний нет'} />
+        <Metric title="К выпуску" value={formatCompactMoney(deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0))} subtitle="После закрытия блокеров" />
+        <Metric title="Блокеры" value={String(deal.blockers.length)} subtitle={deal.blockers.length ? deal.blockers.join(' · ') : 'Критичных стоп-факторов нет'} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(320px,0.8fr)', gap: 16 }}>
+        <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Timeline сделки</div>
+          <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
+            {(deal.events ?? []).map((event, index) => (
+              <div key={`${event.ts}-${index}`} style={{ display: 'grid', gridTemplateColumns: '12px 1fr', gap: 12, alignItems: 'start' }}>
+                <div style={{ width: 12, height: 12, borderRadius: 999, background: event.type === 'danger' ? '#DC2626' : event.type === 'success' ? '#0A7A5F' : '#2563EB', marginTop: 5 }} />
+                <div style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ fontWeight: 800, color: '#0F1419' }}>{event.action}</div>
+                    <div style={{ fontSize: 12, color: '#6B778C' }}>{new Date(event.ts).toLocaleString('ru-RU')}</div>
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 13, color: '#6B778C' }}>{event.actor}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={{ display: 'grid', gap: 16 }}>
+          <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Следующий шаг</div>
+            <div style={{ marginTop: 12, fontSize: 16, fontWeight: 800, color: '#0F1419' }}>
+              {deal.status === 'quality_disputed' ? 'Закрыть спор и снять hold' : deal.status === 'release_requested' ? 'Подтвердить выпуск в банке' : deal.status === 'docs_complete' ? 'Запросить выпуск денег' : 'Довести сделку до следующего этапа'}
+            </div>
+            <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C' }}>{deal.blockers.length ? `Блокеры: ${deal.blockers.join(' · ')}` : 'Критичных блокеров нет.'}</div>
+          </div>
+
+          <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Банк и callbacks</div>
+            <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+              {callbacks.length ? callbacks.map((cb) => (
+                <div key={cb.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 12 }}>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13 }}>{cb.id} · {cb.type}</div>
+                  <div style={{ marginTop: 6, fontSize: 13, color: '#0F1419' }}>{cb.note}</div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{cb.amountRub ? formatMoney(cb.amountRub) : '—'}</div>
+                </div>
+              )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Банковый хвост по сделке пока не зафиксирован.</div>}
+            </div>
+          </div>
+
+          {dispute ? (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 18, padding: 18 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#991B1B' }}>Открыт спор</div>
+              <div style={{ marginTop: 8, fontSize: 14, color: '#991B1B' }}>{dispute.id} · {dispute.title}</div>
+              <div style={{ marginTop: 6, fontSize: 13, color: '#7F1D1D' }}>{dispute.description}</div>
+              <div style={{ marginTop: 10 }}><Link href={`/platform-v7/disputes/${dispute.id}`} style={{ textDecoration: 'none', fontWeight: 700, color: '#991B1B' }}>Открыть спор →</Link></div>
+            </div>
+          ) : null}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ title, value, subtitle }: { title: string; value: string; subtitle: string }) {
+  return (
+    <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+      <div style={{ fontSize: 11, color: '#6B778C', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</div>
+      <div style={{ marginTop: 8, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: '#0F1419' }}>{value}</div>
+      <div style={{ marginTop: 8, fontSize: 12, color: '#6B778C' }}>{subtitle}</div>
+    </div>
+  );
+}
