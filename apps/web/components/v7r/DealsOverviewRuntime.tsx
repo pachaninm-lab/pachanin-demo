@@ -49,6 +49,30 @@ export function DealsOverviewRuntime() {
   const [statusFilter, setStatusFilter] = React.useState('');
   const [riskFilter, setRiskFilter] = React.useState('');
   const [search, setSearch] = React.useState('');
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [bulkToast, setBulkToast] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!bulkToast) return;
+    const t = setTimeout(() => setBulkToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [bulkToast]);
+
+  const toggleRow = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const runBulkAction = (action: 'release' | 'dispute' | 'close') => {
+    if (!selected.size) return;
+    const ids = Array.from(selected).sort().join(', ');
+    const label = action === 'release' ? `Запрошен выпуск денег по ${selected.size} сделкам` : action === 'dispute' ? `Открыты споры по ${selected.size} сделкам` : `Закрыты ${selected.size} сделок`;
+    setBulkToast(`${label}: ${ids}`);
+    setSelected(new Set());
+  };
 
   const filteredDeals = DEALS.filter((item) => {
     const statusOk = !statusFilter || item.status === statusFilter;
@@ -107,6 +131,18 @@ export function DealsOverviewRuntime() {
       ) : null}
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, overflow: 'hidden' }}>
+        {selected.size ? (
+          <div role='toolbar' aria-label='Массовые действия по сделкам' style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #E4E6EA', background: 'rgba(10,122,95,0.06)', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>{selected.size} выбрано</span>
+            <button onClick={() => runBulkAction('release')} style={{ padding: '8px 12px', borderRadius: 10, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Запросить выпуск</button>
+            <button onClick={() => runBulkAction('dispute')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(220,38,38,0.3)', color: '#B91C1C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Открыть спор</button>
+            <button onClick={() => runBulkAction('close')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Закрыть сделки</button>
+            <button onClick={() => setSelected(new Set())} style={{ padding: '8px 12px', borderRadius: 10, background: 'transparent', border: '1px solid #E4E6EA', color: '#6B778C', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginLeft: 'auto' }}>Сбросить выбор</button>
+          </div>
+        ) : null}
+        {bulkToast ? (
+          <div role='status' aria-live='polite' style={{ padding: '10px 16px', background: 'rgba(10,122,95,0.08)', borderBottom: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>{bulkToast}</div>
+        ) : null}
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 16, borderBottom: '1px solid #E4E6EA', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Операционная таблица сделок</div>
@@ -138,6 +174,17 @@ export function DealsOverviewRuntime() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1180 }}>
             <thead>
               <tr style={{ background: '#F8FAFB', textAlign: 'left' }}>
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid #E4E6EA', width: 44 }}>
+                  <input
+                    type='checkbox'
+                    aria-label='Выбрать все сделки на странице'
+                    checked={filteredDeals.length > 0 && filteredDeals.every((item) => selected.has(item.id))}
+                    onChange={(event) => {
+                      if (event.target.checked) setSelected(new Set(filteredDeals.map((item) => item.id)));
+                      else setSelected(new Set());
+                    }}
+                  />
+                </th>
                 {['Сделка', 'Лот', 'Маршрут', 'Стороны', 'Сумма', 'Риск', 'Статус', 'Следующий шаг', 'Действие'].map((head) => (
                   <th key={head} style={{ padding: '12px 16px', borderBottom: '1px solid #E4E6EA', fontSize: 12, color: '#6B778C', fontWeight: 800 }}>{head}</th>
                 ))}
@@ -148,7 +195,15 @@ export function DealsOverviewRuntime() {
                 .slice()
                 .sort((a, b) => b.riskScore - a.riskScore || b.reservedAmount - a.reservedAmount)
                 .map((item) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #E4E6EA' }}>
+                  <tr key={item.id} style={{ borderBottom: '1px solid #E4E6EA', background: selected.has(item.id) ? 'rgba(10,122,95,0.04)' : undefined }}>
+                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                      <input
+                        type='checkbox'
+                        aria-label={`Выбрать сделку ${item.id}`}
+                        checked={selected.has(item.id)}
+                        onChange={() => toggleRow(item.id)}
+                      />
+                    </td>
                     <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
                       <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
                       <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.grain} · {item.quantity} {item.unit}</div>

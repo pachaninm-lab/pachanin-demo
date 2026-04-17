@@ -37,7 +37,8 @@ function ClickableStatCard({ title, value, note, active, onClick }: { title: str
 
 export function SellerLotsRuntimeV2() {
   const router = useRouter();
-  const { manualLots } = useCommercialRuntimeStore();
+  const { manualLots, clearManualLots } = useCommercialRuntimeStore();
+  const devMode = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
   const [sourceFilter, setSourceFilter] = React.useState<'ALL' | 'FGIS' | 'MANUAL'>('ALL');
   const [stateFilter, setStateFilter] = React.useState<'ALL' | 'PASS' | 'REVIEW' | 'FAIL'>('ALL');
   const [search, setSearch] = React.useState('');
@@ -67,6 +68,17 @@ export function SellerLotsRuntimeV2() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/lots/create' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Создать лот</Link>
+            {devMode && manualLots.length ? (
+              <button
+                onClick={() => {
+                  if (window.confirm(`Удалить ${manualLots.length} manual-лотов из витрины?`)) clearManualLots();
+                }}
+                aria-label='Очистить manual-лоты (dev-режим)'
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px dashed rgba(220,38,38,0.4)', color: '#B91C1C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >
+                DEV · Очистить manual-лоты ({manualLots.length})
+              </button>
+            ) : null}
           </div>
         </div>
       </section>

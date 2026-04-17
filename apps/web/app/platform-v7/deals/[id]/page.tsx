@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { DEALS, CALLBACKS, DISPUTES, getDealById, type DealStatus } from '@/lib/v7r/data';
 import { formatCompactMoney, formatMoney, statusLabel } from '@/lib/v7r/helpers';
 import { RiskBadge } from '@/components/v7r/RiskBadge';
+import { DocumentsDropzone } from '@/components/v7r/DocumentsDropzone';
 
 interface RelatedChip {
   label: string;
@@ -151,6 +152,8 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
         <Metric title="К выпуску" value={formatCompactMoney(deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0))} subtitle="После закрытия блокеров" />
         <Metric title="Блокеры" value={String(deal.blockers.length)} subtitle={deal.blockers.length ? deal.blockers.join(' · ') : 'Критичных стоп-факторов нет'} />
       </div>
+
+      <DocumentsDropzone dealId={deal.id} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(320px,0.8fr)', gap: 16 }}>
         <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
