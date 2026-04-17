@@ -170,7 +170,7 @@ function Signal({ title, detail, href }: { title: string; detail: string; href: 
   );
 }
 
-function btn(kind: 'default' | 'primary' | 'danger' = 'default'): React.CSSProperties {
+function btn(kind: 'default' | 'primary' | 'danger' = 'default') {
   if (kind === 'primary') return { textDecoration: 'none', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontWeight: 700, fontSize: 12 };
   if (kind === 'danger') return { textDecoration: 'none', borderRadius: 10, padding: '8px 12px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontWeight: 700, fontSize: 12 };
   return { textDecoration: 'none', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontWeight: 700, fontSize: 12 };
