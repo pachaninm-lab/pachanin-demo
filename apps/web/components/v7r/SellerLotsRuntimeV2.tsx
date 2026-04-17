@@ -4,8 +4,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { lots as baseLots, type LotItem } from '@/lib/v7r/esia-fgis-data';
+import { DEALS as LIVE_DEALS } from '@/lib/v7r/data';
 import { useCommercialRuntimeStore } from '@/stores/useCommercialRuntimeStore';
-import { useToast } from '@/components/v7r/Toast';
 
 function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
@@ -37,8 +37,7 @@ function ClickableStatCard({ title, value, note, active, onClick }: { title: str
 
 export function SellerLotsRuntimeV2() {
   const router = useRouter();
-  const toast = useToast();
-  const { manualLots, clearManualLots } = useCommercialRuntimeStore();
+  const { manualLots } = useCommercialRuntimeStore();
   const [sourceFilter, setSourceFilter] = React.useState<'ALL' | 'FGIS' | 'MANUAL'>('ALL');
   const [stateFilter, setStateFilter] = React.useState<'ALL' | 'PASS' | 'REVIEW' | 'FAIL'>('ALL');
 
@@ -60,12 +59,11 @@ export function SellerLotsRuntimeV2() {
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Лоты продавца</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>
-              KPI и карточки теперь кликабельны. Можно фильтровать по состояниям и проваливаться в отдельную карточку лота с действиями и полной симуляцией readiness-контра.
+              Лот больше не висит отдельно. Если по нему уже создана сделка, это видно прямо в списке и в карточке лота.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/lots/create' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Создать лот</Link>
-            <button onClick={() => { clearManualLots(); toast('Manual-лоты очищены.', 'warning'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Очистить мои manual-лоты</button>
           </div>
         </div>
       </section>
@@ -100,8 +98,9 @@ export function SellerLotsRuntimeV2() {
       <div style={{ display: 'grid', gap: 12 }}>
         {filteredLots.map((item) => {
           const tone = toneByState(item.readiness.state);
+          const linkedDeal = LIVE_DEALS.find((deal) => deal.lotId === item.id);
           return (
-            <button key={item.id} onClick={() => router.push(`/platform-v7/lots/${item.id}`)} style={{ textAlign: 'left', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12, cursor: 'pointer' }}>
+            <div key={item.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
@@ -111,6 +110,7 @@ export function SellerLotsRuntimeV2() {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Badge tone={item.sourceType === 'FGIS' ? 'warning' : 'neutral'}>{item.sourceType}</Badge>
                   <Badge tone={tone}>{item.readiness.state}</Badge>
+                  {linkedDeal ? <Badge tone='success'>{linkedDeal.id}</Badge> : <Badge tone='neutral'>Без сделки</Badge>}
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
@@ -119,14 +119,15 @@ export function SellerLotsRuntimeV2() {
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.readiness.nextStep ?? '—'}</div>
                 </div>
                 <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-                  <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Владелец</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.readiness.nextOwner ?? '—'}</div>
+                  <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Владелец / связка</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.readiness.nextOwner ?? '—'}{linkedDeal ? ` · ${linkedDeal.routeId ?? 'маршрут не задан'}` : ''}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Открыть карточку лота</span>
+                <button onClick={() => router.push(`/platform-v7/lots/${item.id}`)} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Открыть карточку лота</button>
+                {linkedDeal ? <Link href={`/platform-v7/deals/${linkedDeal.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Открыть сделку</Link> : <Link href='/platform-v7/procurement' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Создать сделку</Link>}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
