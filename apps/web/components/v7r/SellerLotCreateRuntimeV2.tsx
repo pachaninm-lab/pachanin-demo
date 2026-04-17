@@ -54,7 +54,7 @@ export function SellerLotCreateRuntimeV2() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/lots' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Все лоты</Link>
-            <Badge tone='neutral'>MOBILE SAFE</Badge>
+            <Badge tone='neutral'>Мобильная версия</Badge>
           </div>
         </div>
       </section>

@@ -11,7 +11,7 @@ const ROLE_LABELS: Record<PlatformRole, string> = {
 };
 
 const ROLE_STAGE: Record<PlatformRole, { label: string; tone: 'pilot' | 'demo' | 'field' }> = {
-  operator: { label: 'DEMO DATA', tone: 'pilot' }, buyer: { label: 'DEMO DATA', tone: 'pilot' }, seller: { label: 'DEMO DATA', tone: 'pilot' }, logistics: { label: 'DEMO DATA', tone: 'pilot' }, bank: { label: 'DEMO DATA', tone: 'demo' }, compliance: { label: 'DEMO DATA', tone: 'demo' }, driver: { label: 'FIELD VIEW', tone: 'field' }, surveyor: { label: 'FIELD VIEW', tone: 'field' }, elevator: { label: 'FIELD VIEW', tone: 'field' }, lab: { label: 'FIELD VIEW', tone: 'field' }, arbitrator: { label: 'DEMO DATA', tone: 'demo' }, executive: { label: 'DEMO DATA', tone: 'demo' },
+  operator: { label: 'Демо-данные', tone: 'pilot' }, buyer: { label: 'Демо-данные', tone: 'pilot' }, seller: { label: 'Демо-данные', tone: 'pilot' }, logistics: { label: 'Демо-данные', tone: 'pilot' }, bank: { label: 'Демо-данные', tone: 'demo' }, compliance: { label: 'Демо-данные', tone: 'demo' }, driver: { label: 'Полевой режим', tone: 'field' }, surveyor: { label: 'Полевой режим', tone: 'field' }, elevator: { label: 'Полевой режим', tone: 'field' }, lab: { label: 'Полевой режим', tone: 'field' }, arbitrator: { label: 'Демо-данные', tone: 'demo' }, executive: { label: 'Демо-данные', tone: 'demo' },
 };
 
 const ROLE_ROUTES: Record<PlatformRole, string> = {

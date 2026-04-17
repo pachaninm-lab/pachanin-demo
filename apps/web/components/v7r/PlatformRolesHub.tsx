@@ -111,9 +111,9 @@ const ROLE_CARDS: Array<{
 ];
 
 function stageBadge(stage: 'sandbox' | 'pilot' | 'role-sim') {
-  if (stage === 'pilot') return { label: 'CONTROLLED PILOT', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  if (stage === 'sandbox') return { label: 'SANDBOX', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
-  return { label: 'ROLE SIMULATION', bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' };
+  if (stage === 'pilot') return { label: 'Пилотный режим', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
+  if (stage === 'sandbox') return { label: 'Тестовая среда', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
+  return { label: 'Демо-данные', bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' };
 }
 
 export function PlatformRolesHub() {
@@ -121,17 +121,17 @@ export function PlatformRolesHub() {
   const { setRole } = usePlatformV7RStore();
 
   return (
-    <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+    <div data-demo="true" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Выбор роли и рабочего контура</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 900 }}>
-              Это канонический вход в платформу. Здесь нет ложного «живого режима»: каждый кабинет помечен честно — controlled pilot, sandbox или role simulation. Следующий шаг по каждой роли показан сразу.
+              Это канонический вход в платформу. Каждый кабинет помечен честно: «Пилотный режим», «Тестовая среда» или «Демо-данные». Следующий шаг по каждой роли показан сразу.
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#B45309', fontSize: 12, fontWeight: 800 }}>
-            CANONICAL ENTRY
+            Канонический вход
           </div>
         </div>
       </section>
