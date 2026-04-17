@@ -292,7 +292,7 @@ export function PlatformV7LandingPage() {
     <PageFrame
       title='ESIA / ФГИС readiness-вход'
       subtitle='Это не simulation-note и не markdown. Это реальный экран входа, где сразу видно: какой контур готов, где блокер и куда идти дальше.'
-      aside={<Badge tone='warning'>SANDBOX / PRE-INTEGRATION</Badge>}
+      aside={<Badge tone='warning'>Песочница · до интеграции</Badge>}
     >
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='ESIA degraded' value='3' note='3 элемента требуют ручной проверки или повторной авторизации.' />
@@ -386,7 +386,7 @@ export function LotCreatePage() {
     <PageFrame
       title='Создание лота'
       subtitle='Здесь появился реальный переключатель MANUAL / IMPORT FROM FGIS. При FGIS система честно показывает gate, blocker reasons и отключает действие, если контур не готов.'
-      aside={<Badge tone='warning'>SANDBOX</Badge>}
+      aside={<Badge tone='warning'>Песочница</Badge>}
     >
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Button label='MANUAL' onClick={() => setMode('MANUAL')} tone={mode === 'MANUAL' ? 'success' : 'neutral'} />
@@ -444,7 +444,7 @@ export function DealReadinessPage({ id }: { id: string }) {
     <PageFrame
       title={item.title}
       subtitle='В карточке сделки добавлен отдельный ESIA / ФГИС readiness-блок: connection status, sync status, source reference, queue state, blocker list и next rail.'
-      aside={<Badge tone='warning'>SANDBOX / PRE-INTEGRATION</Badge>}
+      aside={<Badge tone='warning'>Песочница · до интеграции</Badge>}
     >
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Источник' value={item.sourceType} note={item.sourceReference ?? 'Ручной ввод'} />
@@ -487,7 +487,7 @@ export function OperatorQueuesPage() {
     <PageFrame
       title='Очередь ESIA / ФГИС'
       subtitle='Новая операторская очередь: pending / failed / processing / done, reason codes, retry action и фильтр по источнику.'
-      aside={<Badge tone='warning'>SANDBOX</Badge>}
+      aside={<Badge tone='warning'>Песочница</Badge>}
     >
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Pending' value={String(pending)} note='Элементы ждут запуска.' />

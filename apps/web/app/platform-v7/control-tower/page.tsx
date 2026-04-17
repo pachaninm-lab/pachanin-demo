@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CALLBACKS, DEALS, DISPUTES } from '@/lib/v7r/data';
+import { lots as PLATFORM_LOTS } from '@/lib/v7r/esia-fgis-data';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 
 export default function PlatformV7ControlTowerPage() {
@@ -60,7 +61,7 @@ export default function PlatformV7ControlTowerPage() {
                     <Badge tone={deal.riskScore >= 70 ? 'red' : deal.riskScore >= 30 ? 'amber' : 'green'}>Риск {deal.riskScore}</Badge>
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{deal.grain} · {deal.quantity} {deal.unit} · {formatCompactMoney(deal.reservedAmount)}</div>
-                  <div style={{ fontSize: 12, color: '#6B778C' }}>SLA: {deal.slaDeadline ?? '—'} · Блокеры: {deal.blockers.length ? deal.blockers.join(', ') : 'нет'}</div>
+                  <div style={{ fontSize: 12, color: '#6B778C' }}>Лот: {deal.lotId ?? '—'} · Маршрут: {deal.routeId ?? '—'} · SLA: {deal.slaDeadline ?? '—'}</div>
                   <div style={{ fontSize: 13, color: '#334155' }}>
                     {deal.status === 'quality_disputed' ? 'Следующий шаг: закрыть спор и снять hold.' : deal.status === 'release_requested' ? 'Следующий шаг: подтвердить выпуск денег.' : deal.status === 'docs_complete' ? 'Следующий шаг: запросить выпуск денег.' : 'Следующий шаг: довести сделку до следующего этапа.'}
                   </div>
@@ -89,9 +90,9 @@ export default function PlatformV7ControlTowerPage() {
           <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Воронка</div>
             <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
-              <FunnelRow label="Лоты" value="12" note="Каталог пилотного контура" />
-              <FunnelRow label="Сделки" value={String(DEALS.length)} note="Все доменные кейсы" />
-              <FunnelRow label="Активные" value={String(activeDeals.length)} note="Не закрытые сделки" />
+              <FunnelRow label="Лоты" value={String(PLATFORM_LOTS.length)} note="Каталог витрины и FGIS-импорта" />
+              <FunnelRow label="Сделки" value={String(DEALS.length)} note="Все доменные кейсы реестра" />
+              <FunnelRow label="Активные" value={String(activeDeals.length)} note={`Из ${DEALS.length} в реестре, без закрытых`} />
               <FunnelRow label="Release requested" value={String(releaseRequested)} note="Готовы к движению денег" />
             </div>
           </section>
@@ -101,7 +102,7 @@ export default function PlatformV7ControlTowerPage() {
             <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
               <Signal title="Банк" detail={`${CALLBACKS.length} callback-события уже в контуре.`} href="/platform-v7/bank" />
               <Signal title="Споры" detail={`${DISPUTES.length} активных кейса под удержанием.`} href="/platform-v7/disputes" />
-              <Signal title="Логистика" detail={`${activeDeals.filter((d) => Array.isArray(d.route) && d.route.length > 0).length} маршрутов связаны со сделками.`} href="/platform-v7/logistics" />
+              <Signal title="Логистика" detail={`${activeDeals.filter((d) => d.routeId).length} маршрутов связаны со сделками.`} href="/platform-v7/logistics" />
             </div>
           </section>
         </div>
