@@ -52,7 +52,7 @@ interface FieldRuntimeState {
 
 const initialTrip: TripRuntime = {
   id: 'ТМБ-14',
-  dealId: 'DL-9103',
+  dealId: 'DL-9102',
   status: 'in_transit',
   eta: '14:30',
   kmLeft: 87,

@@ -1,14 +1,40 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DEALS, CALLBACKS, DISPUTES, getDealById } from '@/lib/v7r/data';
 import { formatCompactMoney, formatMoney, statusLabel } from '@/lib/v7r/helpers';
 import { RiskBadge } from '@/components/v7r/RiskBadge';
 
+interface RelatedChip {
+  label: string;
+  value: string;
+  href: string;
+  tone: 'lot' | 'route' | 'reception' | 'lab' | 'bank' | 'dispute';
+}
+
+const CHIP_TONES: Record<RelatedChip['tone'], { bg: string; border: string; color: string }> = {
+  lot: { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
+  route: { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB' },
+  reception: { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
+  lab: { bg: 'rgba(147,51,234,0.08)', border: 'rgba(147,51,234,0.18)', color: '#7E22CE' },
+  bank: { bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.18)', color: '#15803D' },
+  dispute: { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' },
+};
+
 export default function PlatformV7DealDetailPage({ params }: { params: { id: string } }) {
   const deal = getDealById(params.id);
   if (!deal) return notFound();
   const dispute = deal.dispute ? DISPUTES.find((d) => d.id === deal.dispute?.id) : null;
   const callbacks = CALLBACKS.filter((c) => c.dealId === deal.id);
+  const bankCallback = callbacks[0] ?? null;
+
+  const related: RelatedChip[] = [];
+  if (deal.lotId) related.push({ label: 'Лот', value: deal.lotId, href: `/platform-v7/lot/${deal.lotId}`, tone: 'lot' });
+  if (deal.routeId) related.push({ label: 'Маршрут', value: deal.routeId, href: '/platform-v7/logistics', tone: 'route' });
+  related.push({ label: 'Приёмка', value: 'Элеватор', href: '/platform-v7/elevator', tone: 'reception' });
+  related.push({ label: 'Лаборатория', value: 'Пробы', href: '/platform-v7/lab', tone: 'lab' });
+  related.push({ label: 'Банк', value: bankCallback ? bankCallback.id : 'Контур', href: '/platform-v7/bank', tone: 'bank' });
+  if (dispute) related.push({ label: 'Спор', value: dispute.id, href: `/platform-v7/disputes/${dispute.id}`, tone: 'dispute' });
 
   return (
     <div style={{ display: 'grid', gap: 18 }}>
@@ -29,6 +55,32 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
             <Link href="/platform-v7/bank" style={{ textDecoration: 'none', borderRadius: 12, padding: '10px 12px', border: '1px solid rgba(10,122,95,0.14)', background: 'rgba(10,122,95,0.08)', color: '#0A7A5F', fontWeight: 700 }}>Открыть банк</Link>
           </div>
         </div>
+      </section>
+
+      <section aria-label="Связанные сущности" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+        <div style={{ fontSize: 12, color: '#6B778C', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Связанные сущности</div>
+        <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {related.map((chip, index) => {
+            const tone = CHIP_TONES[chip.tone];
+            return (
+              <Fragment key={`${chip.label}-${chip.value}`}>
+                {index > 0 ? <span aria-hidden style={{ color: '#9AA4B2', fontSize: 12 }}>→</span> : null}
+                <Link
+                  href={chip.href}
+                  style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 12, fontWeight: 700 }}
+                >
+                  <span style={{ opacity: 0.72, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 10 }}>{chip.label}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800 }}>{chip.value}</span>
+                </Link>
+              </Fragment>
+            );
+          })}
+        </div>
+        {deal.routeState ? (
+          <div style={{ marginTop: 10, fontSize: 12, color: '#6B778C' }}>
+            Маршрут: {deal.routeState}{deal.routeEta ? ` · ETA ${deal.routeEta}` : ''}
+          </div>
+        ) : null}
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>

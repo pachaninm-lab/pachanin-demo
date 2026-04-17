@@ -360,7 +360,7 @@ export function CatchAllPage() {
           </div>
           <Panel title="Логистика" subtitle="Диспетчерская по рейсам, очередям, ETA и проблемным точкам.">
             <div style={{ display: 'grid', gap: 10 }}>
-              {[{ route: 'Маршрут ТМБ-14', status: 'В пути', eta: '14:30', note: 'Маршрут без отклонений', href: '/platform-v7/deals/DL-9102' }, { route: 'Маршрут ВРЖ-08', status: 'Ожидание погрузки', eta: '16:10', note: 'Требуется подтверждение склада', href: '/platform-v7/deals/DL-9106' }, { route: 'Маршрут КРС-03', status: 'На приёмке', eta: 'сейчас', note: 'Идёт разгрузка на элеваторе', href: '/platform-v7/deals/DL-9103' }].map((row) => (
+              {[{ route: 'Маршрут ТМБ-14', status: 'Прибыл · расхождение по качеству', eta: '14:28', note: 'Требуется разбор лабораторной пробы, машина на элеваторе', href: '/platform-v7/deals/DL-9102' }, { route: 'Маршрут ВРЖ-08', status: 'Ожидание погрузки', eta: '16:10', note: 'Требуется подтверждение склада', href: '/platform-v7/deals/DL-9106' }, { route: 'Маршрут КРС-03', status: 'На приёмке', eta: 'сейчас', note: 'Идёт разгрузка на элеваторе', href: '/platform-v7/deals/DL-9103' }].map((row) => (
                 <div key={row.route} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, alignItems: 'center' }}>
                   <div><div style={{ fontSize: 15, fontWeight: 800 }}>{row.route}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{row.note}</div></div>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{row.status}</div>

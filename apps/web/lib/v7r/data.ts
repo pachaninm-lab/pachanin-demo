@@ -99,7 +99,7 @@ export interface RfqItem {
 }
 
 export const DEALS: Deal[] = [
-  { id: 'DL-9102', grain: 'Пшеница 4 кл.', quantity: 200.3, unit: 'т', seller: { name: 'Агро-Юг ООО' }, buyer: { name: 'Агрохолдинг СК' }, status: 'quality_disputed', reservedAmount: 6240000, holdAmount: 624000, riskScore: 92, slaDeadline: '2026-04-19', blockers: ['dispute', 'docs'], dispute: { id: 'DK-2024-89' }, pricePerTon: 14800, totalAmount: 2964440, releaseAmount: 4368000,
+  { id: 'DL-9102', grain: 'Пшеница 4 кл.', quantity: 200.3, unit: 'т', seller: { name: 'Агро-Юг ООО' }, buyer: { name: 'Агрохолдинг СК' }, status: 'quality_disputed', reservedAmount: 6240000, holdAmount: 624000, riskScore: 92, slaDeadline: '2026-04-19', blockers: ['dispute', 'docs'], dispute: { id: 'DK-2024-89' }, pricePerTon: 14800, totalAmount: 2964440, releaseAmount: 4368000, lotId: 'LOT-2401', routeId: 'ТМБ-14', routeState: 'Прибыл · расхождение по качеству', routeEta: '14:28',
     route: [
       { time: '08:42', event: 'Выезд с хозяйства', gps: '52.7213, 41.4525', driver: 'Ковалёв А.С.' },
       { time: '11:17', event: 'Въезд на элеватор Черноземный', gps: '51.2934, 37.2185' },
@@ -113,10 +113,10 @@ export const DEALS: Deal[] = [
       { ts: '2026-04-03T16:05:00Z', actor: 'Лаб. ЦентрГрейн', action: 'Влажность 16.2% — расхождение, спор открыт', type: 'danger' }
     ]
   },
-  { id: 'DL-9103', grain: 'Кукуруза 3 кл.', quantity: 150, unit: 'т', seller: { name: 'КФХ Петров' }, buyer: { name: 'ЗАО МелькомбинатЮг' }, status: 'in_transit', reservedAmount: 3150000, holdAmount: 0, riskScore: 22, slaDeadline: '2026-04-25', blockers: [] },
+  { id: 'DL-9103', grain: 'Кукуруза 3 кл.', quantity: 150, unit: 'т', seller: { name: 'КФХ Петров' }, buyer: { name: 'ЗАО МелькомбинатЮг' }, status: 'in_transit', reservedAmount: 3150000, holdAmount: 0, riskScore: 22, slaDeadline: '2026-04-25', blockers: [], lotId: 'LOT-2402', routeId: 'КРС-03', routeState: 'На приёмке', routeEta: 'сейчас' },
   { id: 'DL-9104', grain: 'Ячмень 2 кл.', quantity: 80, unit: 'т', seller: { name: 'ИП Сидоров' }, buyer: { name: 'Пивзавод Тамбов' }, status: 'docs_complete', reservedAmount: 1520000, holdAmount: 0, riskScore: 15, slaDeadline: '2026-04-22', blockers: ['bank_confirm'] },
   { id: 'DL-9105', grain: 'Подсолнечник', quantity: 120, unit: 'т', seller: { name: 'АО СолнцеАгро' }, buyer: { name: 'МаслоПресс ООО' }, status: 'loading_started', reservedAmount: 4320000, holdAmount: 0, riskScore: 35, slaDeadline: '2026-04-24', blockers: [] },
-  { id: 'DL-9106', grain: 'Пшеница 3 кл.', quantity: 500, unit: 'т', seller: { name: 'ГК АгроСтарт' }, buyer: { name: 'Экспортёр Юг' }, status: 'payment_reserved', reservedAmount: 14500000, holdAmount: 0, riskScore: 18, slaDeadline: '2026-04-30', blockers: [] },
+  { id: 'DL-9106', grain: 'Пшеница 3 кл.', quantity: 500, unit: 'т', seller: { name: 'ГК АгроСтарт' }, buyer: { name: 'Экспортёр Юг' }, status: 'payment_reserved', reservedAmount: 14500000, holdAmount: 0, riskScore: 18, slaDeadline: '2026-04-30', blockers: [], lotId: 'LOT-2403', routeId: 'ВРЖ-08', routeState: 'Ожидание погрузки', routeEta: '16:10' },
   { id: 'DL-9107', grain: 'Кукуруза 1 кл.', quantity: 200, unit: 'т', seller: { name: 'ФХ Воронцов' }, buyer: { name: 'КомбикормЦентр' }, status: 'closed', reservedAmount: 0, holdAmount: 0, riskScore: 0, slaDeadline: null, blockers: [] },
   { id: 'DL-9108', grain: 'Ячмень 3 кл.', quantity: 60, unit: 'т', seller: { name: 'ИП Краснов' }, buyer: { name: 'Агрохолдинг СК' }, status: 'quality_check', reservedAmount: 1020000, holdAmount: 0, riskScore: 48, slaDeadline: '2026-04-21', blockers: ['lab_result'] },
   { id: 'DL-9109', grain: 'Пшеница 4 кл.', quantity: 350, unit: 'т', seller: { name: 'КФХ Мирный' }, buyer: { name: 'ЗерноТрейд ООО' }, status: 'release_requested', reservedAmount: 10500000, holdAmount: 0, riskScore: 12, slaDeadline: '2026-04-20', blockers: [] },
