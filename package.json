@@ -4,7 +4,7 @@
   "packageManager": "pnpm@9.12.0",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r build",
+    "build": "pnpm --filter @pc/web build",
     "test": "pnpm --filter @pc/api test",
     "test:e2e": "pnpm --filter @pc/api test:e2e",
     "test:playwright": "playwright test",
