@@ -91,7 +91,7 @@ function Insight({ title, detail, href, tone }: { title: string; detail: string;
   );
 }
 
-function btn(kind: 'default' | 'primary' = 'default'): React.CSSProperties {
+function btn(kind: 'default' | 'primary' = 'default') {
   return kind === 'primary'
     ? { textDecoration: 'none', borderRadius: 12, padding: '10px 12px', border: '1px solid #0A7A5F', background: '#0A7A5F', color: '#fff', fontWeight: 700 }
     : { textDecoration: 'none', borderRadius: 12, padding: '10px 12px', border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontWeight: 700 };
