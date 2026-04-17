@@ -121,12 +121,22 @@ export const DEALS: Deal[] = [
   { id: 'DL-9108', grain: 'Ячмень 3 кл.', quantity: 60, unit: 'т', seller: { name: 'ИП Краснов' }, buyer: { name: 'Агрохолдинг СК' }, status: 'quality_check', reservedAmount: 1020000, holdAmount: 0, riskScore: 48, slaDeadline: '2026-04-21', blockers: ['lab_result'] },
   { id: 'DL-9109', grain: 'Пшеница 4 кл.', quantity: 350, unit: 'т', seller: { name: 'КФХ Мирный' }, buyer: { name: 'ЗерноТрейд ООО' }, status: 'release_requested', reservedAmount: 10500000, holdAmount: 0, riskScore: 12, slaDeadline: '2026-04-20', blockers: [] },
   { id: 'DL-9110', grain: 'Кукуруза 3 кл.', quantity: 180, unit: 'т', seller: { name: 'ООО НивА' }, buyer: { name: 'Агрохолдинг СК' }, status: 'quality_disputed', reservedAmount: 3240000, holdAmount: 512000, riskScore: 78, slaDeadline: '2026-04-26', blockers: ['dispute'], dispute: { id: 'DK-2024-91' }, pricePerTon: 18000, totalAmount: 3240000, releaseAmount: 2268000 },
-  { id: 'DL-9111', grain: 'Ячмень 2 кл.', quantity: 120, unit: 'т', seller: { name: 'ООО Поле Юг' }, buyer: { name: 'Пивзавод Центр' }, status: 'contract_signed', reservedAmount: 2100000, holdAmount: 0, riskScore: 16, slaDeadline: '2026-04-28', blockers: ['reserve'] }
+  { id: 'DL-9111', grain: 'Ячмень 2 кл.', quantity: 120, unit: 'т', seller: { name: 'ООО Поле Юг' }, buyer: { name: 'Пивзавод Центр' }, status: 'contract_signed', reservedAmount: 2100000, holdAmount: 0, riskScore: 16, slaDeadline: '2026-04-28', blockers: ['reserve'] },
+  { id: 'DL-9112', grain: 'Подсолнечник', quantity: 420, unit: 'т', seller: { name: 'АО ВоронежАгро' }, buyer: { name: 'МаслоПресс ООО' }, status: 'in_transit', reservedAmount: 13860000, holdAmount: 0, riskScore: 28, slaDeadline: '2026-04-23', blockers: [], lotId: 'LOT-2404', routeId: 'ВРЖ-12', routeState: 'В пути · 64 км до элеватора', routeEta: '17:40' },
+  { id: 'DL-9113', grain: 'Пшеница 3 кл.', quantity: 560, unit: 'т', seller: { name: 'ГК КурскЗерно' }, buyer: { name: 'Экспортёр Юг' }, status: 'loading_done', reservedAmount: 16240000, holdAmount: 0, riskScore: 22, slaDeadline: '2026-04-29', blockers: [], lotId: 'LOT-2405', routeId: 'КРС-09', routeState: 'Готов к выезду', routeEta: 'завтра 08:00' },
+  { id: 'DL-9114', grain: 'Кукуруза 3 кл.', quantity: 220, unit: 'т', seller: { name: 'ИП Липецк-Агро' }, buyer: { name: 'КомбикормЦентр' }, status: 'quality_check', reservedAmount: 4180000, holdAmount: 0, riskScore: 41, slaDeadline: '2026-04-21', blockers: ['lab_result'], lotId: 'LOT-2406' },
+  { id: 'DL-9115', grain: 'Ячмень 2 кл.', quantity: 130, unit: 'т', seller: { name: 'КФХ Орловщина' }, buyer: { name: 'Пивзавод Центр' }, status: 'docs_complete', reservedAmount: 2470000, holdAmount: 0, riskScore: 19, slaDeadline: '2026-04-26', blockers: ['bank_confirm'], lotId: 'LOT-2407' },
+  { id: 'DL-9116', grain: 'Пшеница 4 кл.', quantity: 700, unit: 'т', seller: { name: 'ГК БелгородАгро' }, buyer: { name: 'Экспортёр Юг' }, status: 'release_requested', reservedAmount: 21000000, holdAmount: 0, riskScore: 14, slaDeadline: '2026-04-19', blockers: [], lotId: 'LOT-2408', routeId: 'БЛГ-15', routeState: 'Закрыт, ожидает release', routeEta: '—' },
+  { id: 'DL-9117', grain: 'Рапс', quantity: 90, unit: 'т', seller: { name: 'ИП Тамбов-Поле' }, buyer: { name: 'МаслоПресс ООО' }, status: 'payment_reserved', reservedAmount: 2160000, holdAmount: 0, riskScore: 24, slaDeadline: '2026-05-01', blockers: [], lotId: 'LOT-2409' },
+  { id: 'DL-9118', grain: 'Соя', quantity: 260, unit: 'т', seller: { name: 'АО РостовАгро' }, buyer: { name: 'КомбикормЦентр' }, status: 'quality_disputed', reservedAmount: 7800000, holdAmount: 1170000, riskScore: 71, slaDeadline: '2026-04-22', blockers: ['dispute'], dispute: { id: 'DK-2024-93' }, pricePerTon: 30000, totalAmount: 7800000, releaseAmount: 6630000, lotId: 'LOT-2410' },
+  { id: 'DL-9119', grain: 'Овёс', quantity: 110, unit: 'т', seller: { name: 'ИП Брянск-Зерно' }, buyer: { name: 'Пекарня СевернаяВыпечка' }, status: 'contract_signed', reservedAmount: 1430000, holdAmount: 0, riskScore: 11, slaDeadline: '2026-05-03', blockers: ['reserve'], lotId: 'LOT-2411' },
+  { id: 'DL-9120', grain: 'Кукуруза 1 кл.', quantity: 480, unit: 'т', seller: { name: 'АО СтавропольАгро' }, buyer: { name: 'Экспортёр Юг' }, status: 'loading_started', reservedAmount: 14880000, holdAmount: 0, riskScore: 33, slaDeadline: '2026-04-27', blockers: [], lotId: 'LOT-2414', routeId: 'СТВ-21', routeState: 'Идёт погрузка', routeEta: '13:20' }
 ];
 
 export const DISPUTES: Dispute[] = [
   { id: 'DK-2024-89', dealId: 'DL-9102', type: 'quality_mismatch', title: 'Расхождение по влажности', reasonCode: 'MOISTURE_DEVIATION', holdAmount: 624000, slaDaysLeft: 6, ballAt: 'seller', status: 'open', evidence: { total: 5, uploaded: 4 }, description: 'Нужно загрузить заключение эксперта и закрыть спор по качеству.' },
-  { id: 'DK-2024-91', dealId: 'DL-9110', type: 'weight_mismatch', title: 'Расхождение по весу', reasonCode: 'WEIGHT_DEVIATION', holdAmount: 512000, slaDaysLeft: 13, ballAt: 'lab', status: 'open', evidence: { total: 4, uploaded: 2 }, description: 'Нужно сверить лабораторный протокол и данные элеватора.' }
+  { id: 'DK-2024-91', dealId: 'DL-9110', type: 'weight_mismatch', title: 'Расхождение по весу', reasonCode: 'WEIGHT_DEVIATION', holdAmount: 512000, slaDaysLeft: 13, ballAt: 'lab', status: 'open', evidence: { total: 4, uploaded: 2 }, description: 'Нужно сверить лабораторный протокол и данные элеватора.' },
+  { id: 'DK-2024-93', dealId: 'DL-9118', type: 'quality_mismatch', title: 'Расхождение по протеину сои', reasonCode: 'PROTEIN_DEVIATION', holdAmount: 1170000, slaDaysLeft: 5, ballAt: 'seller', status: 'open', evidence: { total: 6, uploaded: 3 }, description: 'Покупатель оспаривает протеин 34.2% против заявленных 36.0% — требуется арбитражный анализ лаборатории.' }
 ];
 
 export const CALLBACKS: CallbackItem[] = [
@@ -149,10 +159,30 @@ export const RFQ_LIST: RfqItem[] = [
   { id: 'RFQ-1003', grain: 'Ячмень 2 кл.', volume: 120, region: 'Курская обл.', price: 12400, quality: 'Сорная примесь ≤2%', payment: 'Сбер / выпуск по этапам' }
 ];
 
-export const NOTIFICATIONS = [
-  { id: 'N-1', text: 'DL-9102: расхождение по влажности — спор открыт', href: '/platform-v7/disputes/DK-2024-89' },
-  { id: 'N-2', text: 'CB-442: требует ручной проверки банка', href: '/platform-v7/bank' },
-  { id: 'N-3', text: 'DL-9108: лабораторный анализ завершён', href: '/platform-v7/deals/DL-9108' }
+export type NotificationGroup = 'dispute' | 'bank' | 'lab' | 'logistics' | 'system';
+
+export interface NotificationItem {
+  id: string;
+  text: string;
+  href: string;
+  group: NotificationGroup;
+  ts: string;
+}
+
+export const NOTIFICATION_GROUPS: Record<NotificationGroup, string> = {
+  dispute: 'Споры',
+  bank: 'Банк',
+  lab: 'Лаборатория',
+  logistics: 'Логистика',
+  system: 'Система',
+};
+
+export const NOTIFICATIONS: NotificationItem[] = [
+  { id: 'N-1', group: 'dispute', text: 'DL-9102: расхождение по влажности — спор открыт', href: '/platform-v7/disputes/DK-2024-89', ts: '2026-04-17T08:42:00Z' },
+  { id: 'N-2', group: 'bank', text: 'CB-442: требует ручной проверки банка', href: '/platform-v7/bank', ts: '2026-04-17T09:10:00Z' },
+  { id: 'N-3', group: 'lab', text: 'DL-9108: лабораторный анализ завершён', href: '/platform-v7/deals/DL-9108', ts: '2026-04-17T07:55:00Z' },
+  { id: 'N-4', group: 'logistics', text: 'ТМБ-14: GPS-отклонение 1.2 км от маршрута', href: '/platform-v7/logistics', ts: '2026-04-17T09:32:00Z' },
+  { id: 'N-5', group: 'bank', text: 'CB-443: ожидает release 10.5 млн ₽ по DL-9109', href: '/platform-v7/bank', ts: '2026-04-17T09:48:00Z' },
 ];
 
 export function getDealById(id: string) {

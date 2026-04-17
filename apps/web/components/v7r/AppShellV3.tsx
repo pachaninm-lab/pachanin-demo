@@ -3,8 +3,9 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { Menu, Bell, Search, X } from 'lucide-react';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
-import { NOTIFICATIONS } from '@/lib/v7r/data';
+import { NOTIFICATIONS, NOTIFICATION_GROUPS, type NotificationGroup } from '@/lib/v7r/data';
 import { CommandPalette } from '@/components/v7r/CommandPalette';
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
@@ -99,7 +100,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
               <div style={{ fontSize: 19, fontWeight: 800, color: '#0F1419' }}>Прозрачная Цена</div>
               <div style={{ fontSize: 11, color: '#6B778C', marginTop: 4 }}>Цифровой контур исполнения сделки</div>
             </div>
-            <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer' }}>×</button>
+            <button onClick={() => setSidebarOpen(false)} aria-label="Закрыть меню" style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', color: '#6B778C', padding: 4 }}><X size={18} aria-hidden /></button>
           </div>
           <div style={{ marginTop: 14, padding: 12, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
             <div style={{ fontSize: 11, color: '#6B778C' }}>Текущий кабинет</div>
@@ -128,7 +129,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
         <header style={{ position: 'sticky', top: 0, zIndex: 60, background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #E6E8EB' }}>
           <div className="pc-shell-header" style={{ maxWidth: 1360, margin: '0 auto', padding: '10px 16px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 1 auto' }}>
-              <button onClick={() => setSidebarOpen(true)} aria-label="Открыть меню" style={{ background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', lineHeight: 1 }}>≡</button>
+              <button onClick={() => setSidebarOpen(true)} aria-label="Открыть меню" style={{ background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', lineHeight: 0, display: 'inline-flex', alignItems: 'center' }}><Menu size={18} aria-hidden /></button>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#0F1419' }}>Прозрачная Цена</div>
                 <nav aria-label="Хлебные крошки" style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', minWidth: 0 }}>
@@ -138,7 +139,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
             </div>
 
             <button onClick={() => setPaletteOpen(true)} aria-label="Открыть быстрый поиск (Cmd+K)" style={{ flex: '1 1 280px', minWidth: 240, maxWidth: 520, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer' }}>
-              <span style={{ color: '#94A3B8' }}>⌘K</span>
+              <Search size={14} aria-hidden style={{ color: '#94A3B8', flexShrink: 0 }} />
               <span style={{ color: '#6B7280', fontSize: 13, textAlign: 'left', flex: 1 }}>Поиск по сделкам, лотам, спорам…</span>
               <span className="v9-desktop-only" style={{ color: '#94A3B8', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>⌘ K</span>
             </button>
@@ -149,18 +150,27 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
               ))}
 
               <div style={{ position: 'relative' }}>
-                <button onClick={() => setAlertsOpen((v) => !v)} style={{ position: 'relative', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 10, padding: '8px 10px', cursor: 'pointer' }}>
-                  🔔
+                <button onClick={() => setAlertsOpen((v) => !v)} aria-label={`Уведомления: ${NOTIFICATIONS.length}`} aria-expanded={alertsOpen} style={{ position: 'relative', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}>
+                  <Bell size={18} aria-hidden />
                   <span style={{ position: 'absolute', top: -6, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: '#DC2626', color: '#fff', fontSize: 10, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{NOTIFICATIONS.length}</span>
                 </button>
                 {alertsOpen ? (
-                  <div style={{ position: 'absolute', right: 0, top: 42, width: 320, background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, boxShadow: '0 16px 40px rgba(9,30,66,0.14)', padding: 10, zIndex: 71 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0F1419', padding: '4px 6px 10px' }}>Уведомления</div>
-                    <div style={{ display: 'grid', gap: 6 }}>
-                      {NOTIFICATIONS.map((item) => (
-                        <Link key={item.id} href={item.href} onClick={() => setAlertsOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, lineHeight: 1.5 }}>{item.text}</Link>
-                      ))}
+                  <div role="dialog" aria-label="Уведомления" style={{ position: 'absolute', right: 0, top: 42, width: 340, maxWidth: 'calc(100vw - 32px)', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, boxShadow: '0 16px 40px rgba(9,30,66,0.14)', padding: 10, zIndex: 71, maxHeight: '70vh', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px 10px' }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: '#0F1419' }}>Уведомления</span>
+                      <span style={{ fontSize: 11, color: '#6B778C' }}>{NOTIFICATIONS.length} активных</span>
                     </div>
+                    {Object.entries(NOTIFICATIONS.reduce<Record<NotificationGroup, typeof NOTIFICATIONS>>((acc, item) => {
+                      (acc[item.group] ||= []).push(item);
+                      return acc;
+                    }, {} as Record<NotificationGroup, typeof NOTIFICATIONS>)).map(([group, items]) => (
+                      <div key={group} style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
+                        <div style={{ padding: '4px 6px', fontSize: 10, fontWeight: 800, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{NOTIFICATION_GROUPS[group as NotificationGroup]} · {items.length}</div>
+                        {items.map((item) => (
+                          <Link key={item.id} href={item.href} onClick={() => setAlertsOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, lineHeight: 1.5 }}>{item.text}</Link>
+                        ))}
+                      </div>
+                    ))}
                   </div>
                 ) : null}
               </div>
@@ -171,7 +181,16 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <main style={{ padding: 16, maxWidth: 1360, margin: '0 auto' }}>{children}</main>
+        <main style={{ padding: 16, maxWidth: 1360, margin: '0 auto' }}>
+          {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
+            <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 12, background: '#FFFFFF', border: '1px solid #E4E6EA', marginBottom: 12, fontSize: 12, color: '#475569', flexWrap: 'wrap' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: stageTone.bg, border: `1px solid ${stageTone.border}`, color: stageTone.color, fontSize: 10, fontWeight: 800 }}>{stage.label}</span>
+              <span>Вы на роли <strong style={{ color: '#0F1419' }}>{ROLE_LABELS[role]}</strong>. Переключитесь в шапке справа, если ожидали другой контекст.</span>
+              <Link href={ROLE_ROUTES[role]} style={{ marginLeft: 'auto', textDecoration: 'none', color: '#0A7A5F', fontWeight: 700, fontSize: 12 }}>Главная роли →</Link>
+            </div>
+          ) : null}
+          {children}
+        </main>
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
