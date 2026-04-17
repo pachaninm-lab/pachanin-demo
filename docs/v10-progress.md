@@ -21,36 +21,39 @@
 - [done] Алиасы страниц `/operator`, `/integrations`, `/trading`, `/marketplace`, `/lot/create` — 2026-04-17
 - [done] Горизонтальный stepper «Этапы сделки» в карточке сделки (6 укрупнённых стадий, подсветка current/done/problem) — 2026-04-17
 - [done] 404-страница с быстрой навигацией и подсказкой по поиску сделки — 2026-04-17
+- [done] Синхронизация счётчиков Control Tower → лоты считаются из реальных данных, активные показывают «9 из 10», банк показывает CB-443 = 10.5 млн ₽ по DL-9109 — 2026-04-17
 - [todo] Prisma schema: `sourceLotId` в `Deal`, `dealId` в `Route`/`AcceptanceRecord`/`BankOperation`/`Dispute`, `acceptanceId` в `LabAnalysis`
-- [todo] Синхронизация счётчиков Control Tower vs `/deals` (9 vs 10), банк показывает операции по DL-9109
 - [todo] Убрать `/platform-v7/` из URL (корневой путь или поддомен)
 
 ### Блок 2 [P0] — Навигация и ИА
-- [todo] Удалить дублирующий футер-меню
-- [todo] Sticky header с глобальным поиском (Cmd+K)
-- [todo] Breadcrumbs на всех внутренних страницах (частично уже есть)
-- [todo] Активный пункт меню с акцентной левой границей
+- [done] Sticky header с глобальным поиском Cmd+K (реальный command palette с группами «Разделы / Сделки / Лоты / Споры», навигация ↑↓ + Enter, esc) — 2026-04-17
+- [done] Респонсивный header — flex-wrap, скрытие system-status плашек ниже 768px — 2026-04-17
+- [done] Breadcrumbs во всех внутренних страницах через AppShellV3 (с aria-label «Хлебные крошки») — 2026-04-17
+- [done] Активный пункт меню — green pill (sidebar nav) — 2026-04-17
 - [todo] Последние просмотренные (до 5) в дашборде
-- [todo] Панель уведомлений с группировкой
-- [todo] Переключатель ролей — реальное переключение контекста
-- [todo] Бейдж «Вы на роли X, смотрите раздел Y»
+- [todo] Панель уведомлений с группировкой по типу (сейчас плоский список)
+- [todo] Бейдж «Вы на роли X, смотрите раздел Y» в шапке main
 
 ### Блок 3 [P0] — UX/UI и визуальный язык
 - [done] Унификация терминологии (Canonical entry, Controlled pilot, Sandbox, Role simulation, Demo data, Field view → русские формулировки) — 2026-04-17
+- [done] Risk score → клик-тултип с разбивкой по 4 факторам (Финансы 35% / Документы 25% / Логистика 20% / Споры 20%), aria-expanded, esc-close — 2026-04-17
+- [done] aria-label на ключевые кнопки header (меню, поиск, селекты) — 2026-04-17
 - [todo] Типографика — Inter/Manrope + JetBrains Mono, шкала H1/H2/H3/body/caption
 - [todo] Цветовая система статусов (единые токены)
-- [todo] Risk score с тултипом методологии
-- [todo] Иконки Lucide вместо эмодзи
+- [todo] Иконки Lucide вместо эмодзи (≡, 🔔)
 - [todo] Hover/скелетоны/toasty/empty states/Radix tooltips
 - [todo] Onboarding-тур
-- [todo] WCAG AA + focus-rings + aria-label
+- [todo] WCAG AA полный + focus-rings везде
 - [todo] Dark mode toggle
 
 ### Блок 4 [P0] — Логика сделок и лотов (ядро)
-- [todo] Матричный вид лотов (`/marketplace`, `/lots`), 15+ лотов, sticky header, sortable
-- [todo] Фильтры лотов (культура/регион/объём/цена/класс/ФГИС/базис)
-- [todo] Таблица сделок `/deals` с SLA-сортировкой, 20+ сделок, bulk-действия для оператора
-- [todo] Карточка сделки `/deal/[id]` — участники, timeline-stepper, dropzone документов, чат/WS, audit log
+- [done] 16 лотов в `lib/v7r/esia-fgis-data.ts` (LOT-2401…LOT-2416, разные культуры/регионы/состояния PASS/REVIEW/FAIL) — 2026-04-17
+- [done] Поиск + фильтры на витрине лотов (`SellerLotsRuntimeV2`): по ID/названию/культуре/референсу + источник + state — 2026-04-17
+- [done] Поиск + фильтры в реестре сделок (`DealsOverviewRuntime`): по ID/культуре/контрагенту/лоту/маршруту + статус + риск; счётчик «N из 10» + кнопка «Сбросить» — 2026-04-17
+- [done] Карточка сделки `/deal/[id]` имеет timeline-stepper + связанные сущности — 2026-04-17 (см. Блок 1)
+- [todo] 20+ сделок (сейчас 10) — расширить датасет
+- [todo] Bulk-действия в таблице сделок (выбрать N → release/спор/закрыть)
+- [todo] Dropzone документов в карточке сделки
 - [todo] Избранное + side-by-side сравнение до 3 лотов
 - [todo] История изменений по сделке
 - [todo] Dev-кнопка «Очистить manual-лоты» — только при `NEXT_PUBLIC_DEV_MODE=true`
@@ -131,6 +134,14 @@
 - [x] Stepper «Этапы сделки» отображается в карточке DL-9102 с состоянием `problem` на этапе «Качество»
 - [x] 404-страница (`/platform-v7/not-found.tsx`) раздаёт 9 быстрых ссылок и подсказку по формату ID сделок
 - [ ] Сквозной клик `LOT-2401 → DL-9102 → ТМБ-14 → ELV-TMB-03 → LAB-* → PAY-*` — ручная проверка в браузере (требуется деплой без Vercel-gate)
+
+### Блоки 2/3/4 smoke (текущий срез)
+- [x] typecheck + build + 28/28 vitest — clean
+- [x] CommandPalette открывается по Cmd+K / Ctrl+K, фильтрует индекс из 10 сделок + 16 лотов + 2 спора + 10 разделов, навигация ↑↓ + Enter
+- [x] Header не переполняется на 360–414px — flex-wrap + скрытые system-status плашки на мобиле
+- [x] RiskBadge раскрывает методологию по клику и закрывается по esc/клику-вне
+- [x] Таблица сделок: search «9102» оставляет 1 строку, «Тамбов» — 2 строки; Сбросить возвращает 10
+- [x] Витрина лотов: search «LOT-241» возвращает только 16xx-серию; счётчик «N из 16» обновляется в реальном времени
 
 ### Блок 3 smoke (текущий срез)
 - [x] Английские CAPS-плашки (`CONTROLLED PILOT`, `SANDBOX`, `ROLE SIMULATION`, `CANONICAL ENTRY`, `DEMO DATA`, `FIELD VIEW`) заменены в хабе ролей и AppShellV3

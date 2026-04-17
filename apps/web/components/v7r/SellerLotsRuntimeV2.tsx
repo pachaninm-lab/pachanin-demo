@@ -40,12 +40,15 @@ export function SellerLotsRuntimeV2() {
   const { manualLots } = useCommercialRuntimeStore();
   const [sourceFilter, setSourceFilter] = React.useState<'ALL' | 'FGIS' | 'MANUAL'>('ALL');
   const [stateFilter, setStateFilter] = React.useState<'ALL' | 'PASS' | 'REVIEW' | 'FAIL'>('ALL');
+  const [search, setSearch] = React.useState('');
 
   const mergedLots = React.useMemo(() => [...manualLots, ...baseLots], [manualLots]);
   const filteredLots = mergedLots.filter((item) => {
     const sourceOk = sourceFilter === 'ALL' ? true : item.sourceType === sourceFilter;
     const stateOk = stateFilter === 'ALL' ? true : item.readiness.state === stateFilter;
-    return sourceOk && stateOk;
+    const q = search.trim().toLowerCase();
+    const searchOk = !q || [item.id, item.title, item.grain, item.sourceReference ?? ''].some((field) => field.toLowerCase().includes(q));
+    return sourceOk && stateOk && searchOk;
   });
 
   const passCount = mergedLots.filter((item) => item.readiness.state === 'PASS').length;
@@ -75,7 +78,14 @@ export function SellerLotsRuntimeV2() {
         <ClickableStatCard title='Жёсткий стоп' value={String(failCount)} note='Gate FAIL, движение дальше запрещено.' active={stateFilter === 'FAIL'} onClick={() => setStateFilter('FAIL')} />
       </div>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder='Поиск: LOT-2401, пшеница, FGIS-PARTY-…' aria-label='Поиск по лотам' style={{ flex: '1 1 240px', minWidth: 200, padding: '10px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 13 }} />
+          {search ? (
+            <button onClick={() => setSearch('')} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, fontWeight: 700, color: '#6B778C', cursor: 'pointer' }}>Сбросить поиск</button>
+          ) : null}
+          <span style={{ fontSize: 11, color: '#6B778C', marginLeft: 'auto' }}>{filteredLots.length} из {mergedLots.length}</span>
+        </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
             ['ALL', 'Все источники'],

@@ -48,11 +48,14 @@ export function DealsOverviewRuntime() {
   const totalReserved = DEALS.reduce((sum, item) => sum + item.reservedAmount, 0);
   const [statusFilter, setStatusFilter] = React.useState('');
   const [riskFilter, setRiskFilter] = React.useState('');
+  const [search, setSearch] = React.useState('');
 
   const filteredDeals = DEALS.filter((item) => {
     const statusOk = !statusFilter || item.status === statusFilter;
     const riskOk = !riskFilter || (riskFilter === 'high' ? item.riskScore >= 70 : riskFilter === 'medium' ? item.riskScore >= 30 && item.riskScore < 70 : item.riskScore < 30);
-    return statusOk && riskOk;
+    const q = search.trim().toLowerCase();
+    const searchOk = !q || [item.id, item.grain, item.seller.name, item.buyer.name, item.lotId ?? '', item.routeId ?? ''].some((field) => field.toLowerCase().includes(q));
+    return statusOk && riskOk && searchOk;
   });
 
   return (
@@ -109,20 +112,25 @@ export function DealsOverviewRuntime() {
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Операционная таблица сделок</div>
             <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>Сортировка по риску и сумме, явные lot/route поля и быстрый переход в карточку.</div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder='Поиск: DL-9102, Тамбов, Агро-Юг…' aria-label='Поиск по сделкам' style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, minWidth: 220 }} />
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label='Фильтр по статусу' style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12 }}>
               <option value=''>Все статусы</option>
               <option value='quality_disputed'>Есть спор</option>
               <option value='in_transit'>В пути</option>
               <option value='release_requested'>Ожидает выпуск</option>
               <option value='docs_complete'>Документы готовы</option>
             </select>
-            <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12 }}>
+            <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} aria-label='Фильтр по риску' style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12 }}>
               <option value=''>Все риски</option>
               <option value='high'>Высокий</option>
               <option value='medium'>Средний</option>
               <option value='low'>Низкий</option>
             </select>
+            {search || statusFilter || riskFilter ? (
+              <button onClick={() => { setSearch(''); setStatusFilter(''); setRiskFilter(''); }} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, fontWeight: 700, color: '#6B778C', cursor: 'pointer' }}>Сбросить</button>
+            ) : null}
+            <span style={{ fontSize: 11, color: '#6B778C', marginLeft: 'auto' }}>{filteredDeals.length} из {DEALS.length}</span>
           </div>
         </div>
 

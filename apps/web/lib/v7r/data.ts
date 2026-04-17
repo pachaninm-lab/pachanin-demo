@@ -130,9 +130,9 @@ export const DISPUTES: Dispute[] = [
 ];
 
 export const CALLBACKS: CallbackItem[] = [
-  { id: 'CB-441', type: 'Reserve', dealId: 'DL-9103', status: 'ok', note: 'Резерв подтверждён' },
-  { id: 'CB-442', type: 'Mismatch', dealId: 'DL-9102', status: 'mismatch', note: 'Расхождение протеина 0.8% между ФГИС и ЛАБ-2847', daysOpen: 4 },
-  { id: 'CB-443', type: 'Release', dealId: 'DL-9109', status: 'pending', note: 'Ожидает ручной проверки банка', daysOpen: 1 }
+  { id: 'CB-441', type: 'Reserve', dealId: 'DL-9103', status: 'ok', note: 'Резерв подтверждён', amountRub: 3150000 },
+  { id: 'CB-442', type: 'Mismatch', dealId: 'DL-9102', status: 'mismatch', note: 'Расхождение протеина 0.8% между ФГИС и ЛАБ-2847', daysOpen: 4, amountRub: 624000 },
+  { id: 'CB-443', type: 'Release', dealId: 'DL-9109', status: 'pending', note: 'Ожидает ручной проверки банка', daysOpen: 1, amountRub: 10500000 }
 ];
 
 export const AUDIT_LOG: AuditEntry[] = [

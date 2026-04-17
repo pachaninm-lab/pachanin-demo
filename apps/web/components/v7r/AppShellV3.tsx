@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { NOTIFICATIONS } from '@/lib/v7r/data';
+import { CommandPalette } from '@/components/v7r/CommandPalette';
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
   operator: 'Оператор', buyer: 'Покупатель', seller: 'Продавец', logistics: 'Логистика', driver: 'Водитель', surveyor: 'Сюрвейер', elevator: 'Элеватор', lab: 'Лаборатория', bank: 'Банк', arbitrator: 'Арбитр', compliance: 'Комплаенс', executive: 'Руководитель',
@@ -62,6 +63,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
   const { role, setRole, clearRoleSelection } = usePlatformV7RStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
   const items = NAV_BY_ROLE[role];
   const stage = ROLE_STAGE[role];
   const stageTone = stageColors(stage.tone);
@@ -72,7 +74,18 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
     usePlatformV7RStore.persist.rehydrate();
   }, []);
 
-  React.useEffect(() => { setSidebarOpen(false); setAlertsOpen(false); }, [pathname]);
+  React.useEffect(() => { setSidebarOpen(false); setAlertsOpen(false); setPaletteOpen(false); }, [pathname]);
+
+  React.useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div style={{ minHeight: '100dvh', background: 'linear-gradient(180deg, #F7FAFB 0%, #F1F5F7 100%)' }}>
@@ -113,25 +126,26 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
 
       <div>
         <header style={{ position: 'sticky', top: 0, zIndex: 60, background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #E6E8EB' }}>
-          <div style={{ maxWidth: 1360, height: 56, margin: '0 auto', padding: '0 16px', display: 'grid', gridTemplateColumns: 'auto minmax(280px, 520px) auto', gap: 16, alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-              <button onClick={() => setSidebarOpen(true)} style={{ background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', lineHeight: 1 }}>≡</button>
+          <div className="pc-shell-header" style={{ maxWidth: 1360, margin: '0 auto', padding: '10px 16px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 1 auto' }}>
+              <button onClick={() => setSidebarOpen(true)} aria-label="Открыть меню" style={{ background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', lineHeight: 1 }}>≡</button>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#0F1419' }}>Прозрачная Цена</div>
-                <nav style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', minWidth: 0 }}>
+                <nav aria-label="Хлебные крошки" style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', minWidth: 0 }}>
                   {crumbs.map((crumb, index) => <React.Fragment key={crumb.href}>{index > 0 ? <span style={{ color: '#9AA4B2', fontSize: 12 }}>/</span> : null}{crumb.isLast ? <span style={{ fontSize: 12, fontWeight: 700, color: '#0F1419' }}>{crumb.label}</span> : <Link href={crumb.href} style={{ textDecoration: 'none', color: '#6B778C', fontSize: 12, fontWeight: 500 }}>{crumb.label}</Link>}</React.Fragment>)}
                 </nav>
               </div>
             </div>
 
-            <button onClick={() => router.push('/platform-v7/deals')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer' }}>
+            <button onClick={() => setPaletteOpen(true)} aria-label="Открыть быстрый поиск (Cmd+K)" style={{ flex: '1 1 280px', minWidth: 240, maxWidth: 520, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer' }}>
               <span style={{ color: '#94A3B8' }}>⌘K</span>
-              <span style={{ color: '#6B7280', fontSize: 13 }}>Поиск по сделкам, ТТН, контрагентам…</span>
+              <span style={{ color: '#6B7280', fontSize: 13, textAlign: 'left', flex: 1 }}>Поиск по сделкам, лотам, спорам…</span>
+              <span className="v9-desktop-only" style={{ color: '#94A3B8', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>⌘ K</span>
             </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flex: '0 1 auto' }}>
               {statuses.map((item) => (
-                <span key={item.label} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: item.bg, border: `1px solid ${item.border}`, color: item.color, fontSize: 11, fontWeight: 800 }}>{item.label}</span>
+                <span key={item.label} className="v9-desktop-only" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: item.bg, border: `1px solid ${item.border}`, color: item.color, fontSize: 11, fontWeight: 800 }}>{item.label}</span>
               ))}
 
               <div style={{ position: 'relative' }}>
@@ -159,6 +173,8 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
         </header>
         <main style={{ padding: 16, maxWidth: 1360, margin: '0 auto' }}>{children}</main>
       </div>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

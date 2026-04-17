@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CALLBACKS, DEALS, DISPUTES } from '@/lib/v7r/data';
+import { lots as PLATFORM_LOTS } from '@/lib/v7r/esia-fgis-data';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 
 export default function PlatformV7ControlTowerPage() {
@@ -89,9 +90,9 @@ export default function PlatformV7ControlTowerPage() {
           <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Воронка</div>
             <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
-              <FunnelRow label="Лоты" value="12" note="Каталог пилотного контура" />
-              <FunnelRow label="Сделки" value={String(DEALS.length)} note="Все доменные кейсы" />
-              <FunnelRow label="Активные" value={String(activeDeals.length)} note="Не закрытые сделки" />
+              <FunnelRow label="Лоты" value={String(PLATFORM_LOTS.length)} note="Каталог витрины и FGIS-импорта" />
+              <FunnelRow label="Сделки" value={String(DEALS.length)} note="Все доменные кейсы реестра" />
+              <FunnelRow label="Активные" value={String(activeDeals.length)} note={`Из ${DEALS.length} в реестре, без закрытых`} />
               <FunnelRow label="Release requested" value={String(releaseRequested)} note="Готовы к движению денег" />
             </div>
           </section>
