@@ -5,9 +5,16 @@ import { CALLBACKS, DEALS } from '@/lib/v7r/data';
 import { formatCompactMoney, formatMoney } from '@/lib/v7r/helpers';
 
 function badge(status: 'ok' | 'pending' | 'mismatch') {
-  if (status === 'ok') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'OK' };
+  if (status === 'ok') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ОК' };
   if (status === 'pending') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Ожидание' };
   return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C', label: 'Расхождение' };
+}
+
+function callbackTypeLabel(type: string) {
+  if (type === 'Reserve') return 'Резерв';
+  if (type === 'Mismatch') return 'Расхождение';
+  if (type === 'Release') return 'Выпуск';
+  return type;
 }
 
 function SberDemoLogo() {
@@ -25,7 +32,7 @@ function SberDemoLogo() {
       </svg>
       <div style={{ display: 'grid', gap: 2 }}>
         <div style={{ fontSize: 18, lineHeight: 1, fontWeight: 800, color: '#1F2937' }}>Сбер</div>
-        <div style={{ fontSize: 11, color: '#6B778C' }}>demo-режим банкового контура</div>
+        <div style={{ fontSize: 11, color: '#6B778C' }}>Демо-режим банкового контура</div>
       </div>
     </div>
   );
@@ -33,52 +40,23 @@ function SberDemoLogo() {
 
 function brandPill(kind: 'sberApi' | 'sberBusinessId') {
   const token = kind === 'sberApi'
-    ? { label: 'Sber API', note: 'Платёжный контур', accent: '#21A038', text: '#166534' }
+    ? { label: 'Сбер API', note: 'Платёжный контур', accent: '#21A038', text: '#166534' }
     : { label: 'СберБизнес ID', note: 'Вход и верификация юрлица', accent: '#21A038', text: '#166534' };
 
   return (
-    <span
-      title={token.note}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '6px 10px',
-        borderRadius: 999,
-        background: 'rgba(33,160,56,0.10)',
-        border: '1px solid rgba(33,160,56,0.18)',
-        color: token.text,
-        fontSize: 11,
-        fontWeight: 800,
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          display: 'inline-grid',
-          placeItems: 'center',
-          width: 18,
-          height: 18,
-          borderRadius: 999,
-          background: token.accent,
-          color: '#fff',
-          fontSize: 10,
-          fontWeight: 900,
-        }}
-      >
-        S
-      </span>
+    <span title={token.note} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 999, background: 'rgba(33,160,56,0.10)', border: '1px solid rgba(33,160,56,0.18)', color: token.text, fontSize: 11, fontWeight: 800 }}>
+      <span aria-hidden style={{ display: 'inline-grid', placeItems: 'center', width: 18, height: 18, borderRadius: 999, background: token.accent, color: '#fff', fontSize: 10, fontWeight: 900 }}>S</span>
       {token.label}
     </span>
   );
 }
 
-function Card({ title, value, note }: { title: string; value: string; note: string }) {
+function Card({ title, value, note, danger = false }: { title: string; value: string; note: string; danger?: boolean }) {
   return (
-    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-      <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
-      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 8 }}>{note}</div>
+    <section style={{ background: '#fff', border: `1px solid ${danger ? '#FECACA' : '#E4E6EA'}`, borderRadius: 18, padding: 18 }}>
+      <div style={{ fontSize: 11, color: danger ? '#991B1B' : '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
+      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: danger ? '#991B1B' : '#0F1419', marginTop: 8, wordBreak: 'break-word' }}>{value}</div>
+      <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 8, wordBreak: 'break-word' }}>{note}</div>
     </section>
   );
 }
@@ -87,18 +65,20 @@ export function BankRuntime() {
   const totalReserved = DEALS.reduce((sum, item) => sum + item.reservedAmount, 0);
   const totalHold = DEALS.reduce((sum, item) => sum + item.holdAmount, 0);
   const totalRelease = DEALS.reduce((sum, item) => sum + (item.releaseAmount ?? Math.max(item.reservedAmount - item.holdAmount, 0)), 0);
+  const mismatchCount = CALLBACKS.filter((item) => item.status === 'mismatch').length;
+  const pendingCount = CALLBACKS.filter((item) => item.status === 'pending').length;
   const releaseDeal = DEALS.find((item) => item.id === 'DL-9109');
 
   return (
-    <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+    <div style={{ display: 'grid', gap: 18, padding: '8px 0', maxWidth: '100%', overflowX: 'hidden' }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Банковый контур</div>
+              <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419', wordBreak: 'break-word' }}>Банковый контур</div>
               <SberDemoLogo />
             </div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Здесь живут reserve, hold, release и ручные банковые проверки. Продукты Сбера показаны как demo-слой над операционным контуром сделки.</div>
+            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920, wordBreak: 'break-word' }}>Здесь живут резерв, удержание, выпуск денег и ручные проверки банка. Банковый слой не должен теряться между сделкой, спором и документами.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {brandPill('sberBusinessId')}
@@ -110,9 +90,9 @@ export function BankRuntime() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <Card title='В резерве' value={formatCompactMoney(totalReserved)} note='Деньги подтверждены и заведены в контур.' />
-        <Card title='Под удержанием' value={formatCompactMoney(totalHold)} note='Связано со спорами и ручной верификацией.' />
+        <Card title='Под удержанием' value={formatCompactMoney(totalHold)} note='Связано со спорами и ручной верификацией.' danger={totalHold > 0} />
         <Card title='К выпуску' value={formatCompactMoney(totalRelease)} note='Сумма, которая может уйти после закрытия блокеров.' />
-        <Card title='Callbacks' value={String(CALLBACKS.length)} note='Банковые события по сделкам.' />
+        <Card title='Требуют внимания' value={String(mismatchCount + pendingCount)} note='События банка, которые ещё не доведены до конца.' danger={mismatchCount + pendingCount > 0} />
       </div>
 
       {releaseDeal ? (
@@ -121,8 +101,8 @@ export function BankRuntime() {
             <div style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>Горячая точка</div>
             {brandPill('sberApi')}
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', marginTop: 6 }}>DL-9109 → запрос release на 10.5 млн ₽</div>
-          <div style={{ fontSize: 13, color: '#334155', marginTop: 8 }}>Эта выплата должна быть видна инвестору прямо в банковом контуре, а не пропадать между модулями.</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', marginTop: 6, wordBreak: 'break-word' }}>DL-9109 → запрос выпуска на 10.5 млн ₽</div>
+          <div style={{ fontSize: 13, color: '#334155', marginTop: 8, wordBreak: 'break-word' }}>Этот выпуск должен быть виден банку и оператору как приоритетный кейс, а не теряться внутри списка модулей.</div>
           <div style={{ marginTop: 12 }}>
             <Link href='/platform-v7/deals/DL-9109' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 700 }}>Открыть DL-9109</Link>
           </div>
@@ -131,24 +111,29 @@ export function BankRuntime() {
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Реестр callback-событий</div>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Реестр банковых событий</div>
+            <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>Каждое событие должно вести к сделке, сумме и понятному действию.</div>
+          </div>
           {brandPill('sberApi')}
         </div>
         <div style={{ display: 'grid', gap: 10 }}>
           {CALLBACKS.map((item) => {
             const p = badge(item.status);
             return (
-              <div key={item.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13 }}>{item.id} · {item.type}</div>
-                    <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{item.note}</div>
+              <Link key={item.id} href={`/platform-v7/deals/${item.dealId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, alignItems: 'center' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13, wordBreak: 'break-word' }}>{item.id} · {callbackTypeLabel(item.type)}</div>
+                      <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4, wordBreak: 'break-word' }}>{item.note}</div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{item.amountRub ? formatMoney(item.amountRub) : '—'}</div>
+                    <div><span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: p.bg, border: `1px solid ${p.border}`, color: p.color, fontSize: 11, fontWeight: 800 }}>{p.label}</span></div>
+                    <div style={{ color: '#0A7A5F', fontWeight: 700, wordBreak: 'break-word' }}>{item.dealId}</div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{item.amountRub ? formatMoney(item.amountRub) : '—'}</div>
-                  <div><span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: p.bg, border: `1px solid ${p.border}`, color: p.color, fontSize: 11, fontWeight: 800 }}>{p.label}</span></div>
-                  <div><Link href={`/platform-v7/deals/${item.dealId}`} style={{ textDecoration: 'none', color: '#0A7A5F', fontWeight: 700 }}>{item.dealId}</Link></div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
