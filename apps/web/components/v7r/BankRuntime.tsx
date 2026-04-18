@@ -10,6 +10,27 @@ function badge(status: 'ok' | 'pending' | 'mismatch') {
   return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C', label: 'Расхождение' };
 }
 
+function SberDemoLogo() {
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, background: '#fff', border: '1px solid rgba(33,160,56,0.18)' }}>
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-label="Сбер" role="img">
+        <defs>
+          <linearGradient id="sberDemoGradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#21A038" />
+            <stop offset="100%" stopColor="#00B8F0" />
+          </linearGradient>
+        </defs>
+        <circle cx="17" cy="17" r="14" fill="none" stroke="url(#sberDemoGradient)" strokeWidth="3" />
+        <path d="M12 17.5l3 3 7-8" fill="none" stroke="#21A038" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div style={{ display: 'grid', gap: 2 }}>
+        <div style={{ fontSize: 18, lineHeight: 1, fontWeight: 800, color: '#1F2937' }}>Сбер</div>
+        <div style={{ fontSize: 11, color: '#6B778C' }}>demo-режим банкового контура</div>
+      </div>
+    </div>
+  );
+}
+
 function brandPill(kind: 'sberApi' | 'sberBusinessId') {
   const token = kind === 'sberApi'
     ? { label: 'Sber API', note: 'Платёжный контур', accent: '#21A038', text: '#166534' }
@@ -73,8 +94,11 @@ export function BankRuntime() {
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Банковый контур</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Здесь живут reserve, hold, release и ручные банковые проверки. Брендовые поверхности Сбера показаны в деловом формате без декоративных подмен и без ложной production-готовности.</div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Банковый контур</div>
+              <SberDemoLogo />
+            </div>
+            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Здесь живут reserve, hold, release и ручные банковые проверки. Продукты Сбера показаны как demo-слой над операционным контуром сделки.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {brandPill('sberBusinessId')}
