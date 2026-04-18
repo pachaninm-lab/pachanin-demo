@@ -31,6 +31,21 @@ export interface RouteEvent {
   driver?: string;
 }
 
+export type IntegrationGateState = 'PASS' | 'FAIL' | 'REVIEW';
+export type IntegrationConnectorState = 'connected' | 'degraded' | 'sandbox' | 'manual';
+
+export interface DealIntegrationState {
+  sourceType: 'MANUAL' | 'FGIS';
+  sourceReference: string | null;
+  esiaState: IntegrationConnectorState;
+  fgisState: IntegrationConnectorState;
+  gateState: IntegrationGateState;
+  reasonCodes: string[];
+  nextStep: string | null;
+  nextOwner: string | null;
+  summary: string;
+}
+
 export interface Deal {
   id: string;
   grain: string;
@@ -184,6 +199,126 @@ export const NOTIFICATIONS: NotificationItem[] = [
   { id: 'N-4', group: 'logistics', text: 'ТМБ-14: GPS-отклонение 1.2 км от маршрута', href: '/platform-v7/logistics', ts: '2026-04-17T09:32:00Z' },
   { id: 'N-5', group: 'bank', text: 'CB-443: ожидает release 10.5 млн ₽ по DL-9109', href: '/platform-v7/bank', ts: '2026-04-17T09:48:00Z' },
 ];
+
+const DEAL_INTEGRATION_STATES: Record<string, DealIntegrationState> = {
+  'DL-9102': {
+    sourceType: 'FGIS',
+    sourceReference: 'FGIS-PARTY-88421',
+    esiaState: 'degraded',
+    fgisState: 'sandbox',
+    gateState: 'FAIL',
+    reasonCodes: ['FGIS_GATE_FAIL', 'ESIA_LINK_MISSING', 'DOCS_MISSING'],
+    nextStep: 'Закрыть спор, повторно связать ESIA и перепроверить партию в ФГИС.',
+    nextOwner: 'Оператор',
+    summary: 'Сделка пришла из ФГИС, но выпуск денег блокируется интеграционным gate.',
+  },
+  'DL-9103': {
+    sourceType: 'MANUAL',
+    sourceReference: null,
+    esiaState: 'connected',
+    fgisState: 'manual',
+    gateState: 'PASS',
+    reasonCodes: [],
+    nextStep: 'Довести рейс до приёмки и подтвердить callback reserve.',
+    nextOwner: 'Логистика',
+    summary: 'Контур ручной, интеграционный gate не мешает движению сделки.',
+  },
+  'DL-9109': {
+    sourceType: 'MANUAL',
+    sourceReference: null,
+    esiaState: 'connected',
+    fgisState: 'manual',
+    gateState: 'REVIEW',
+    reasonCodes: ['BANK_REVIEW_PENDING'],
+    nextStep: 'Подтвердить release в банке и зафиксировать callback.',
+    nextOwner: 'Банк',
+    summary: 'Сделка дошла до выпуска и ждёт ручной банковой проверки.',
+  },
+  'DL-9110': {
+    sourceType: 'MANUAL',
+    sourceReference: null,
+    esiaState: 'connected',
+    fgisState: 'manual',
+    gateState: 'REVIEW',
+    reasonCodes: ['DISPUTE_OPEN'],
+    nextStep: 'Сверить лабораторный протокол и закрыть спор.',
+    nextOwner: 'Лаборатория',
+    summary: 'Интеграционный gate не красный, но открытый спор не даёт двигать деньги дальше.',
+  },
+  'DL-9112': {
+    sourceType: 'FGIS',
+    sourceReference: 'FGIS-PARTY-88245',
+    esiaState: 'connected',
+    fgisState: 'sandbox',
+    gateState: 'PASS',
+    reasonCodes: [],
+    nextStep: 'Завершить рейс и перейти к приёмке.',
+    nextOwner: 'Логистика',
+    summary: 'Партия идёт по ФГИС-контуру без текущих блокеров.',
+  },
+  'DL-9116': {
+    sourceType: 'FGIS',
+    sourceReference: 'FGIS-PARTY-88501',
+    esiaState: 'connected',
+    fgisState: 'sandbox',
+    gateState: 'REVIEW',
+    reasonCodes: ['SYNC_CONFIRM_REQUIRED'],
+    nextStep: 'Подтвердить финальный sync перед выпуском.',
+    nextOwner: 'Оператор',
+    summary: 'Release готов, но оператор должен подтвердить финальный sync партии.',
+  },
+  'DL-9118': {
+    sourceType: 'FGIS',
+    sourceReference: 'FGIS-PARTY-88629',
+    esiaState: 'degraded',
+    fgisState: 'sandbox',
+    gateState: 'FAIL',
+    reasonCodes: ['FGIS_GATE_FAIL', 'QUALITY_DISPUTE'],
+    nextStep: 'Провести арбитражный анализ и перепроверить источник партии.',
+    nextOwner: 'Арбитр',
+    summary: 'FGIS и quality идут в конфликте, поэтому сделка не может перейти к выпуску.',
+  },
+  'DL-9120': {
+    sourceType: 'FGIS',
+    sourceReference: 'FGIS-PARTY-88905',
+    esiaState: 'degraded',
+    fgisState: 'sandbox',
+    gateState: 'REVIEW',
+    reasonCodes: ['ESIA_REAUTH_REQUIRED'],
+    nextStep: 'Повторно привязать ESIA продавца до завершения погрузки.',
+    nextOwner: 'Комплаенс',
+    summary: 'Рейс живой, но перед следующим шагом нужна повторная ESIA-проверка.',
+  },
+};
+
+export function getDealIntegrationState(dealId: string, lotId?: string): DealIntegrationState {
+  const explicit = DEAL_INTEGRATION_STATES[dealId];
+  if (explicit) return explicit;
+  if (lotId?.startsWith('LOT-24')) {
+    return {
+      sourceType: 'FGIS',
+      sourceReference: `FGIS-PARTY-${lotId.slice(4)}`,
+      esiaState: 'connected',
+      fgisState: 'sandbox',
+      gateState: 'PASS',
+      reasonCodes: [],
+      nextStep: 'Интеграционный контур чист, можно двигать сделку дальше.',
+      nextOwner: 'Оператор',
+      summary: 'Сделка привязана к партии и не имеет активных интеграционных блокеров.',
+    };
+  }
+  return {
+    sourceType: 'MANUAL',
+    sourceReference: null,
+    esiaState: 'connected',
+    fgisState: 'manual',
+    gateState: 'PASS',
+    reasonCodes: [],
+    nextStep: 'Интеграционный gate не ограничивает следующий шаг.',
+    nextOwner: 'Оператор',
+    summary: 'Сделка идёт по ручному контуру без обязательной связки с ФГИС.',
+  };
+}
 
 export function getDealById(id: string) {
   return DEALS.find((deal) => deal.id === id);
