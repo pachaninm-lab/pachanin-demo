@@ -7,7 +7,7 @@ import '@/app/v9-accessibility.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',
-  description: 'Цифровой контур исполнения сделки',
+  description: 'Цифровой контур исполнения сделки и операционного контроля',
 };
 
 export default function PlatformV7Layout({ children }: { children: ReactNode }) {
