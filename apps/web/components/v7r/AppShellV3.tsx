@@ -50,12 +50,35 @@ function breadcrumbs(pathname: string) {
   return parts.map((part, index) => ({ href: '/' + parts.slice(0, index + 1).join('/'), label: CRUMB_LABELS[part] ?? part, isLast: index === parts.length - 1 }));
 }
 
+function inferRoleFromPath(pathname: string, currentRole: PlatformRole): PlatformRole {
+  if (pathname.startsWith('/platform-v7/control-tower')) return 'operator';
+  if (pathname.startsWith('/platform-v7/buyer') || pathname.startsWith('/platform-v7/procurement')) return 'buyer';
+  if (pathname.startsWith('/platform-v7/seller') || pathname.startsWith('/platform-v7/lots')) return 'seller';
+  if (pathname.startsWith('/platform-v7/logistics')) return 'logistics';
+  if (pathname.startsWith('/platform-v7/driver')) return 'driver';
+  if (pathname.startsWith('/platform-v7/surveyor')) return 'surveyor';
+  if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
+  if (pathname.startsWith('/platform-v7/lab')) return 'lab';
+  if (pathname.startsWith('/platform-v7/bank')) return 'bank';
+  if (pathname.startsWith('/platform-v7/arbitrator')) return 'arbitrator';
+  if (pathname.startsWith('/platform-v7/compliance')) return 'compliance';
+  if (pathname.startsWith('/platform-v7/analytics')) return 'executive';
+  return currentRole;
+}
+
 function systemStatus(pathname: string) {
-  const bankTone = pathname.startsWith('/platform-v7/bank') ? { label: 'Банк · WAIT', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' } : { label: 'Банк · OK', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
+  const bankTone = pathname.startsWith('/platform-v7/bank') ? { label: 'Банк · проверка', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' } : { label: 'Банк · ок', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
   return [
-    { label: 'ФГИС · OK', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
+    { label: 'ФГИС · ок', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
     bankTone,
   ];
+}
+
+function groupNotifications() {
+  return NOTIFICATIONS.reduce<Record<NotificationGroup, typeof NOTIFICATIONS>>((acc, item) => {
+    (acc[item.group] ||= []).push(item);
+    return acc;
+  }, {} as Record<NotificationGroup, typeof NOTIFICATIONS>);
 }
 
 export function AppShellV3({ children }: { children: React.ReactNode }) {
@@ -75,6 +98,15 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  React.useEffect(() => {
+    usePlatformV7RStore.persist.rehydrate();
+  }, []);
+
+  React.useEffect(() => {
+    const inferred = inferRoleFromPath(pathname, role);
+    if (inferred !== role) setRole(inferred);
+  }, [pathname, role, setRole]);
+
   const toggleTheme = React.useCallback(() => {
     setTheme((prev) => {
       const next = prev === 'light' ? 'dark' : 'light';
@@ -92,10 +124,8 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
   const stageTone = stageColors(stage.tone);
   const crumbs = breadcrumbs(pathname);
   const statuses = systemStatus(pathname);
-
-  React.useEffect(() => {
-    usePlatformV7RStore.persist.rehydrate();
-  }, []);
+  const groupedNotifications = React.useMemo(() => groupNotifications(), []);
+  const showBanner = pathname !== '/platform-v7' && pathname !== '/platform-v7/roles';
 
   React.useEffect(() => { setSidebarOpen(false); setAlertsOpen(false); setPaletteOpen(false); }, [pathname]);
 
@@ -111,22 +141,32 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'linear-gradient(180deg, #F7FAFB 0%, #F1F5F7 100%)' }}>
+    <div style={{ minHeight: '100dvh', background: 'linear-gradient(180deg, #F7FAFB 0%, #F1F5F7 100%)', overflowX: 'hidden' }}>
       <style>{`
+        html,body{overflow-x:hidden;max-width:100%}
+        *,*::before,*::after{box-sizing:border-box}
         .pc-shell-header{max-width:1360px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-        .pc-alert-panel{position:absolute;right:0;top:42px;width:340px;max-width:calc(100vw - 32px);background:#fff;border:1px solid #E4E6EA;border-radius:14px;box-shadow:0 16px 40px rgba(9,30,66,0.14);padding:10px;z-index:71;max-height:70vh;overflow-y:auto}
+        .pc-shell-header > *{min-width:0}
+        .pc-alert-panel{position:absolute;right:0;top:42px;width:340px;max-width:calc(100vw - 32px);background:#fff;border:1px solid #E4E6EA;border-radius:14px;box-shadow:0 16px 40px rgba(9,30,66,0.14);padding:10px;z-index:71;max-height:70vh;overflow-y:auto;overflow-x:hidden}
         .pc-role-banner{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;background:#FFFFFF;border:1px solid #E4E6EA;margin-bottom:12px;font-size:12px;color:#475569;flex-wrap:wrap}
-        .pc-giga{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;background:linear-gradient(180deg,rgba(10,122,95,0.08),rgba(10,122,95,0.03));border:1px solid rgba(10,122,95,0.18);margin-bottom:12px}
+        .pc-giga{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;background:linear-gradient(180deg,rgba(10,122,95,0.08),rgba(10,122,95,0.03));border:1px solid rgba(10,122,95,0.18);margin-top:12px}
         .pc-giga-title{font-size:13px;font-weight:900;color:#0F1419}
         .pc-giga-text{font-size:12px;color:#475569;line-height:1.5;margin-top:4px}
         .pc-giga-chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
         .pc-giga-chip{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#fff;border:1px solid rgba(10,122,95,0.14);color:#0A7A5F;font-size:11px;font-weight:800}
+        .pc-mobile-role{display:none}
         @media (max-width: 768px){
-          .pc-shell-header{padding:10px 12px;gap:10px}
-          .pc-alert-panel{position:fixed;left:12px;right:12px;top:124px;width:auto;max-width:none;max-height:min(70vh,calc(100dvh - 148px))}
+          .pc-shell-header{padding:10px 12px;gap:8px;display:grid;grid-template-columns:1fr}
+          .pc-alert-panel{position:fixed;left:12px;right:12px;top:72px;width:auto;max-width:none;max-height:min(70vh,calc(100dvh - 96px))}
+          .pc-header-search{max-width:none !important;min-width:0 !important;width:100%}
+          .pc-header-controls{display:flex;align-items:center;gap:8px;justify-content:space-between;width:100%}
+          .pc-header-controls .v9-desktop-only{display:none !important}
+          .pc-header-controls select{display:none !important}
+          .pc-mobile-role{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid #E4E6EA;background:#fff;font-size:13px;font-weight:700;color:#0F1419;cursor:pointer}
         }
         @media (max-width: 560px){
           .pc-role-banner{align-items:flex-start}
+          .pc-role-banner a{margin-left:0 !important}
           .pc-giga{grid-template-columns:1fr}
         }
       `}</style>
@@ -179,13 +219,13 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            <button onClick={() => setPaletteOpen(true)} aria-label='Открыть быстрый поиск (Cmd+K)' style={{ flex: '1 1 280px', minWidth: 240, maxWidth: 520, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer' }}>
+            <button className='pc-header-search' onClick={() => setPaletteOpen(true)} aria-label='Открыть быстрый поиск (Cmd+K)' style={{ flex: '1 1 280px', minWidth: 240, maxWidth: 520, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer' }}>
               <Search size={14} aria-hidden style={{ color: '#94A3B8', flexShrink: 0 }} />
-              <span style={{ color: '#6B7280', fontSize: 13, textAlign: 'left', flex: 1 }}>Поиск по сделкам, лотам, спорам…</span>
+              <span style={{ color: '#6B7280', fontSize: 13, textAlign: 'left', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Поиск по сделкам, лотам, спорам…</span>
               <span className='v9-desktop-only' style={{ color: '#94A3B8', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>⌘ K</span>
             </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flex: '0 1 auto' }}>
+            <div className='pc-header-controls' style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flex: '0 1 auto' }}>
               {statuses.map((item) => (
                 <span key={item.label} className='v9-desktop-only' style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: item.bg, border: `1px solid ${item.border}`, color: item.color, fontSize: 11, fontWeight: 800 }}>{item.label}</span>
               ))}
@@ -201,10 +241,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
                       <span style={{ fontSize: 13, fontWeight: 800, color: '#0F1419' }}>Уведомления</span>
                       <span style={{ fontSize: 11, color: '#6B778C', whiteSpace: 'nowrap' }}>{NOTIFICATIONS.length} активных</span>
                     </div>
-                    {Object.entries(NOTIFICATIONS.reduce<Record<NotificationGroup, typeof NOTIFICATIONS>>((acc, item) => {
-                      (acc[item.group] ||= []).push(item);
-                      return acc;
-                    }, {} as Record<NotificationGroup, typeof NOTIFICATIONS>)).map(([group, items]) => (
+                    {Object.entries(groupedNotifications).map(([group, items]) => (
                       <div key={group} style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
                         <div style={{ padding: '4px 6px', fontSize: 10, fontWeight: 800, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{NOTIFICATION_GROUPS[group as NotificationGroup]} · {items.length}</div>
                         {items.map((item) => (
@@ -216,8 +253,11 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
                 ) : null}
               </div>
 
-              <button onClick={toggleTheme} aria-label={theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на тёмную тему (beta)'} title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема (beta)'} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}>
+              <button onClick={toggleTheme} aria-label={theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'} title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}>
                 {theme === 'dark' ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
+              </button>
+              <button className='pc-mobile-role' type='button' onClick={() => setSidebarOpen(true)} aria-label={`Текущая роль: ${ROLE_LABELS[role]}. Открыть меню роли`}>
+                {ROLE_LABELS[role]}
               </button>
               <select value={role} onChange={(event) => { const nextRole = event.target.value as PlatformRole; setRole(nextRole); router.push(ROLE_ROUTES[nextRole]); }} style={{ minWidth: 150, border: '1px solid #E4E6EA', borderRadius: 10, padding: '8px 12px', fontSize: 13, background: '#FFFFFF', fontWeight: 600 }}>
                 {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -225,30 +265,30 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <main style={{ padding: 16, maxWidth: 1360, margin: '0 auto' }}>
-          {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
-            <>
-              <div role='status' aria-live='polite' className='pc-role-banner'>
-                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: stageTone.bg, border: `1px solid ${stageTone.border}`, color: stageTone.color, fontSize: 10, fontWeight: 800 }}>{stage.label}</span>
-                <span>Вы на роли <strong style={{ color: '#0F1419' }}>{ROLE_LABELS[role]}</strong>. Переключитесь в шапке справа, если ожидали другой контекст.</span>
-                <Link href={ROLE_ROUTES[role]} style={{ marginLeft: 'auto', textDecoration: 'none', color: '#0A7A5F', fontWeight: 700, fontSize: 12 }}>Главная роли →</Link>
-              </div>
-              <section className='pc-giga'>
-                <div>
-                  <div className='pc-giga-title'>GigaChat · быстрые вопросы по сделке</div>
-                  <div className='pc-giga-text'>Решает: где спор, кто следующий владелец, почему деньги стоят, каких документов не хватает, куда перейти дальше.</div>
-                  <div className='pc-giga-chiprow'>
-                    <span className='pc-giga-chip'>Почему выпуск заблокирован</span>
-                    <span className='pc-giga-chip'>Кто держит следующий шаг</span>
-                    <span className='pc-giga-chip'>Каких документов нет</span>
-                    <span className='pc-giga-chip'>Куда идти дальше</span>
-                  </div>
-                </div>
-                <button onClick={() => setPaletteOpen(true)} style={{ borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Спросить</button>
-              </section>
-            </>
+        <main style={{ padding: 16, maxWidth: 1360, margin: '0 auto', overflowX: 'hidden' }}>
+          {showBanner ? (
+            <div role='status' aria-live='polite' className='pc-role-banner'>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: stageTone.bg, border: `1px solid ${stageTone.border}`, color: stageTone.color, fontSize: 10, fontWeight: 800 }}>{stage.label}</span>
+              <span style={{ minWidth: 0, wordBreak: 'break-word' }}>Вы на роли <strong style={{ color: '#0F1419' }}>{ROLE_LABELS[role]}</strong>. Переключитесь в меню, если нужен другой рабочий контекст.</span>
+              <Link href={ROLE_ROUTES[role]} style={{ marginLeft: 'auto', textDecoration: 'none', color: '#0A7A5F', fontWeight: 700, fontSize: 12 }}>Главная роли →</Link>
+            </div>
           ) : null}
           {children}
+          {showBanner ? (
+            <section className='pc-giga'>
+              <div>
+                <div className='pc-giga-title'>GigaChat · быстрые вопросы по сделке</div>
+                <div className='pc-giga-text'>Решает: где спор, кто следующий владелец, почему деньги стоят, каких документов не хватает и куда идти дальше.</div>
+                <div className='pc-giga-chiprow'>
+                  <span className='pc-giga-chip'>Почему выпуск заблокирован</span>
+                  <span className='pc-giga-chip'>Кто держит следующий шаг</span>
+                  <span className='pc-giga-chip'>Каких документов нет</span>
+                  <span className='pc-giga-chip'>Куда идти дальше</span>
+                </div>
+              </div>
+              <button onClick={() => setPaletteOpen(true)} style={{ borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Спросить</button>
+            </section>
+          ) : null}
         </main>
       </div>
 
