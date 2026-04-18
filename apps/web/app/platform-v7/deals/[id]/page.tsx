@@ -45,7 +45,6 @@ function resolveStageState(stage: PipelineStage, currentIndex: number, stageInde
     if (stageIndex < currentIndex) return 'done';
     return 'blocked';
   }
-
   if (stage.statuses.includes(status)) return 'current';
   if (stageIndex < currentIndex) return 'done';
   return 'blocked';
@@ -73,18 +72,46 @@ function stageMarker(state: PipelineVisualState) {
 }
 
 function gateBadge(state: IntegrationGateState) {
-  if (state === 'PASS') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'FGIS / ESIA: PASS' };
-  if (state === 'REVIEW') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'FGIS / ESIA: REVIEW' };
-  return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C', label: 'FGIS / ESIA: FAIL' };
+  if (state === 'PASS') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ФГИС / ЕСИА: ок' };
+  if (state === 'REVIEW') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'ФГИС / ЕСИА: проверка' };
+  return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C', label: 'ФГИС / ЕСИА: стоп' };
+}
+
+function describeBlocker(code: string) {
+  switch (code) {
+    case 'dispute':
+      return 'Открыт спор по качеству или весу';
+    case 'docs':
+    case 'DOCS_MISSING':
+      return 'Не хватает документов для выпуска денег';
+    case 'bank_confirm':
+      return 'Банк ещё не подтвердил выпуск';
+    case 'lab_result':
+      return 'Нет финального лабораторного результата';
+    case 'reserve':
+      return 'Резерв средств ещё не подтверждён';
+    case 'FGIS_GATE_FAIL':
+      return 'ФГИС не подтвердил партию';
+    case 'ESIA_LINK_MISSING':
+      return 'Нет связи с ЕСИА';
+    case 'BANK_REVIEW_PENDING':
+      return 'Банк отправил сделку на ручную проверку';
+    case 'DISPUTE_OPEN':
+      return 'Спор не закрыт';
+    case 'SYNC_CONFIRM_REQUIRED':
+      return 'Нужна финальная сверка данных';
+    case 'QUALITY_DISPUTE':
+      return 'Есть спор по качеству';
+    case 'ESIA_REAUTH_REQUIRED':
+      return 'Нужно повторно подтвердить ЕСИА';
+    default:
+      return code;
+  }
 }
 
 function primaryActionForDeal(status: DealStatus, dealId: string, disputeId?: string | null) {
-  if (status === 'quality_disputed' && disputeId) {
-    return { label: 'Решить спор', href: `/platform-v7/disputes/${disputeId}` };
-  }
-  if (status === 'release_requested' || status === 'docs_complete') {
-    return { label: 'Открыть банк', href: '/platform-v7/bank' };
-  }
+  if (status === 'quality_disputed' && disputeId) return { label: 'Решить спор', href: `/platform-v7/disputes/${disputeId}` };
+  if (status === 'release_requested' || status === 'docs_complete') return { label: 'Открыть банк', href: '/platform-v7/bank' };
   return { label: 'Открыть действие', href: `/platform-v7/deals/${dealId}#next-action` };
 }
 
@@ -99,7 +126,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
   const gate = gateBadge(integration.gateState);
   const releasableAmount = integration.gateState === 'FAIL' ? 0 : (deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0));
   const currentStageIndex = Math.max(PIPELINE_STAGES.findIndex((stage) => stage.statuses.includes(deal.status)), 0);
-  const criticalBlockers = [...deal.blockers, ...integration.reasonCodes];
+  const blockerTexts = [...new Set([...deal.blockers, ...integration.reasonCodes].map(describeBlocker))];
   const primaryAction = primaryActionForDeal(deal.status, deal.id, dispute?.id);
   const nextStepTitle = integration.nextStep ?? (deal.status === 'quality_disputed'
     ? 'Закрыть спор и снять удержание'
@@ -110,9 +137,9 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
         : 'Довести сделку до следующего этапа');
   const problemSummary = [
     dispute ? dispute.title : null,
-    integration.gateState === 'FAIL' ? 'Интеграционный gate блокирует выпуск' : null,
-    integration.reasonCodes.includes('ESIA_LINK_MISSING') ? 'ESIA не связана' : null,
-    integration.reasonCodes.includes('FGIS_GATE_FAIL') ? 'ФГИС не подтверждён' : null,
+    integration.gateState === 'FAIL' ? 'Интеграционный контур блокирует выпуск денег' : null,
+    integration.reasonCodes.includes('ESIA_LINK_MISSING') ? 'Нет связи с ЕСИА' : null,
+    integration.reasonCodes.includes('FGIS_GATE_FAIL') ? 'ФГИС не подтвердил партию' : null,
     integration.reasonCodes.includes('DOCS_MISSING') ? 'Не хватает документов' : null,
   ].filter(Boolean) as string[];
 
@@ -127,30 +154,30 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
   return (
     <>
       <style>{`
-        .deal-page{display:grid;gap:16px;padding-bottom:104px}
-        .surface{background:#fff;border:1px solid #E4E6EA;border-radius:18px;padding:18px}
+        .deal-page{display:grid;gap:16px;padding-bottom:104px;max-width:100%;overflow-x:hidden}
+        .surface{background:#fff;border:1px solid #E4E6EA;border-radius:18px;padding:18px;max-width:100%;overflow:hidden}
         .eyebrow{font-size:12px;color:#6B778C;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
         .hero{display:grid;gap:16px}
         .hero-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
-        .hero-title{font-size:34px;line-height:1;font-weight:900;color:#0F1419;margin-top:8px}
-        .hero-meta{font-size:14px;color:#6B778C;margin-top:8px}
+        .hero-title{font-size:34px;line-height:1;font-weight:900;color:#0F1419;margin-top:8px;word-break:break-word}
+        .hero-meta{font-size:14px;color:#6B778C;margin-top:8px;word-break:break-word}
         .badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-        .pill{display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;border:1px solid #E4E6EA;background:#F8FAFB;color:#0F1419}
+        .pill{display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;border:1px solid #E4E6EA;background:#F8FAFB;color:#0F1419;max-width:100%;word-break:break-word}
         .hero-actions{display:flex;gap:8px;flex-wrap:wrap}
-        .btn{display:inline-flex;justify-content:center;align-items:center;text-decoration:none;border-radius:14px;padding:12px 14px;font-weight:800;font-size:14px;min-height:48px}
+        .btn{display:inline-flex;justify-content:center;align-items:center;text-decoration:none;border-radius:14px;padding:12px 14px;font-weight:800;font-size:14px;min-height:48px;max-width:100%;text-align:center}
         .btn-secondary{border:1px solid #E4E6EA;background:#fff;color:#0F1419}
         .btn-primary{border:1px solid rgba(10,122,95,0.14);background:#0A7A5F;color:#fff}
         .decision-grid{display:grid;gap:14px;grid-template-columns:repeat(12,minmax(0,1fr))}
         .decision-main{grid-column:span 7;display:grid;gap:14px}
         .decision-side{grid-column:span 5;display:grid;gap:14px}
         .action-card{background:linear-gradient(180deg,rgba(10,122,95,0.06),rgba(10,122,95,0.02));border:1px solid rgba(10,122,95,0.18);border-radius:18px;padding:18px;display:grid;gap:14px}
-        .action-title{font-size:24px;line-height:1.15;font-weight:900;color:#0F1419}
+        .action-title{font-size:24px;line-height:1.15;font-weight:900;color:#0F1419;word-break:break-word}
         .action-meta{display:grid;gap:8px;color:#475569;font-size:14px}
-        .money-grid{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
-        .money-card{border:1px solid #E4E6EA;border-radius:16px;padding:14px;background:#fff}
-        .money-title{font-size:11px;color:#6B778C;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
-        .money-value{font-size:30px;line-height:1.05;font-weight:900;color:#0F1419;margin-top:8px}
-        .money-note{font-size:12px;color:#6B778C;margin-top:6px;line-height:1.4}
+        .summary-grid{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr))}
+        .summary-card{border:1px solid #E4E6EA;border-radius:16px;padding:14px;background:#fff}
+        .summary-title{font-size:11px;color:#6B778C;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+        .summary-value{font-size:28px;line-height:1.05;font-weight:900;color:#0F1419;margin-top:8px;word-break:break-word}
+        .summary-note{font-size:12px;color:#6B778C;margin-top:6px;line-height:1.4;word-break:break-word}
         .problem-card{background:#FEF2F2;border:1px solid #FECACA;border-radius:18px;padding:16px;display:grid;gap:10px}
         .problem-title{font-size:16px;font-weight:900;color:#991B1B}
         .problem-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
@@ -174,47 +201,21 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
         .desktop-stage-grid{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:12px;list-style:none;padding:0;margin:16px 0 0;overflow-x:auto}
         .desktop-stage-grid li{min-width:120px}
         .chip-flow{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-        .chip-link{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;text-decoration:none;font-size:12px;font-weight:700}
+        .chip-link{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;text-decoration:none;font-size:12px;font-weight:700;max-width:100%;word-break:break-word}
         .desktop-only{display:block}
         .mobile-only{display:none}
         .timeline-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:16px}
         .timeline-list{display:grid;gap:12px;margin-top:14px}
         .timeline-item{display:grid;grid-template-columns:12px 1fr;gap:12px;align-items:start}
         .timeline-dot{width:12px;height:12px;border-radius:999px;margin-top:5px}
-        .timeline-card{border:1px solid #E4E6EA;border-radius:14px;padding:12px}
+        .timeline-card{border:1px solid #E4E6EA;border-radius:14px;padding:12px;max-width:100%;overflow:hidden}
         .sticky-action{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-top:1px solid #E4E6EA}
         .sticky-inner{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
         .sticky-label{font-size:12px;color:#6B778C;font-weight:700;line-height:1.3}
         .sticky-title{font-size:14px;font-weight:900;color:#0F1419;line-height:1.25;margin-top:2px}
-        @media (max-width: 1100px){
-          .decision-main,.decision-side{grid-column:span 12}
-          .timeline-layout{grid-template-columns:1fr}
-        }
-        @media (max-width: 768px){
-          .surface{padding:16px;border-radius:16px}
-          .hero-title{font-size:28px}
-          .hero-actions{width:100%}
-          .hero-actions .btn{flex:1 1 calc(50% - 4px)}
-          .money-grid{grid-template-columns:1fr}
-          .mini-grid{grid-template-columns:1fr 1fr}
-          .desktop-only{display:none}
-          .mobile-only{display:block}
-          .timeline-layout{gap:12px}
-          .sticky-inner{grid-template-columns:1fr}
-          .sticky-inner .btn{width:100%}
-        }
-        @media (max-width: 560px){
-          .deal-page{gap:12px;padding-bottom:112px}
-          .hero-top{display:grid}
-          .hero-actions .btn{flex:1 1 100%}
-          .action-card{padding:16px;gap:12px}
-          .action-title{font-size:20px}
-          .mini-grid{grid-template-columns:1fr}
-          .owner-value{font-size:22px}
-          .money-value{font-size:28px}
-          .chip-flow{overflow:auto hidden;flex-wrap:nowrap;padding-bottom:2px;margin-right:-4px}
-          .chip-link{white-space:nowrap}
-        }
+        @media (max-width: 1100px){.decision-main,.decision-side{grid-column:span 12}.timeline-layout{grid-template-columns:1fr}}
+        @media (max-width: 768px){.surface{padding:16px;border-radius:16px}.hero-title{font-size:28px}.hero-actions{width:100%}.hero-actions .btn{flex:1 1 calc(50% - 4px)}.summary-grid{grid-template-columns:1fr 1fr}.mini-grid{grid-template-columns:1fr 1fr}.desktop-only{display:none}.mobile-only{display:block}.timeline-layout{gap:12px}.sticky-inner{grid-template-columns:1fr}.sticky-inner .btn{width:100%}}
+        @media (max-width: 560px){.deal-page{gap:12px;padding-bottom:112px}.hero-top{display:grid}.hero-actions .btn{flex:1 1 100%}.action-card{padding:16px;gap:12px}.action-title{font-size:20px}.mini-grid{grid-template-columns:1fr}.owner-value{font-size:22px}.summary-value{font-size:26px}.chip-flow{overflow:auto hidden;flex-wrap:nowrap;padding-bottom:2px;margin-right:-4px}.chip-link{white-space:nowrap}}
       `}</style>
 
       <div className="deal-page">
@@ -237,6 +238,16 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
           </div>
         </section>
 
+        <section className="surface">
+          <div className="eyebrow">Деньги и статус</div>
+          <div className="summary-grid" style={{ marginTop: 12 }}>
+            <SummaryCard title="Удержано" value={formatCompactMoney(deal.holdAmount)} note={deal.holdAmount ? 'Деньги заморожены до закрытия причины.' : 'Замороженной суммы нет.'} />
+            <SummaryCard title="К выпуску" value={formatCompactMoney(releasableAmount)} note={integration.gateState === 'FAIL' ? 'Пока выпуск заблокирован.' : integration.gateState === 'REVIEW' ? 'Нужна ручная проверка.' : 'Можно выпускать после закрытия блокеров.'} />
+            <SummaryCard title="Резерв" value={formatCompactMoney(deal.reservedAmount)} note="Деньги подтверждены в банковом контуре." />
+            <SummaryCard title="Следующий владелец" value={integration.nextOwner ?? '—'} note={integration.nextStep ?? 'Следующее действие не определено.'} />
+          </div>
+        </section>
+
         <section className="decision-grid">
           <div className="decision-main">
             <section id="next-action" className="action-card">
@@ -245,22 +256,11 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
                 <div className="action-title">{nextStepTitle}</div>
               </div>
               <div className="action-meta">
-                <div><strong>Сумма под риском:</strong> {formatMoney(deal.holdAmount)}</div>
-                <div><strong>Следующий владелец:</strong> {integration.nextOwner ?? '—'}</div>
-                <div><strong>Что блокирует выпуск:</strong> {criticalBlockers.join(' · ') || 'Критичных блокеров нет'}</div>
+                <div><strong>Что мешает сейчас:</strong> {blockerTexts.join(' · ') || 'Критичных блокеров нет'}</div>
+                <div><strong>После выполнения:</strong> будет доступно к выпуску {formatMoney(releasableAmount)}</div>
               </div>
               <div className="hero-actions" style={{ marginTop: 0 }}>
                 <Link href={primaryAction.href} className="btn btn-primary">{primaryAction.label}</Link>
-                <Link href="/platform-v7/bank" className="btn btn-secondary">Открыть банк</Link>
-              </div>
-            </section>
-
-            <section className="surface">
-              <div className="eyebrow">Деньги</div>
-              <div className="money-grid" style={{ marginTop: 12 }}>
-                <MoneyCard title="Удержано" value={formatCompactMoney(deal.holdAmount)} note={deal.holdAmount ? 'Деньги заморожены до закрытия проблемы.' : 'Замороженной суммы нет.'} />
-                <MoneyCard title="К выпуску" value={formatCompactMoney(releasableAmount)} note={integration.gateState === 'FAIL' ? 'Выпуск заблокирован спором и интеграционным gate.' : integration.gateState === 'REVIEW' ? 'Нужна ручная проверка перед выпуском.' : 'Можно выпускать после закрытия блокеров.'} />
-                <MoneyCard title="Резерв" value={formatCompactMoney(deal.reservedAmount)} note="Подтверждено в банковом контуре сделки." />
               </div>
             </section>
 
@@ -281,13 +281,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
                           </div>
                         </div>
                         <div className="stage-line">
-                          {state === 'problem'
-                            ? 'Требуется ручное действие, спор или подтверждение.'
-                            : state === 'current'
-                              ? 'Это текущий активный этап сделки.'
-                              : state === 'done'
-                                ? 'Этап подтверждён и пройден.'
-                                : 'Этап не может начаться, пока не закрыты блокеры выше.'}
+                          {state === 'problem' ? 'Требуется ручное действие, спор или подтверждение.' : state === 'current' ? 'Это текущий активный этап сделки.' : state === 'done' ? 'Этап подтверждён и пройден.' : 'Этап не может начаться, пока не закрыты блокеры выше.'}
                         </div>
                       </div>
                     </div>
@@ -310,9 +304,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
                   return (
                     <li key={stage.key}>
                       <div style={{ display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
-                        <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 999, background: palette.bg, border: `1px solid ${palette.border}`, color: palette.dot, fontSize: state === 'blocked' ? 14 : 18, fontWeight: 900, lineHeight: 1 }}>
-                          {stageMarker(state)}
-                        </div>
+                        <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 999, background: palette.bg, border: `1px solid ${palette.border}`, color: palette.dot, fontSize: state === 'blocked' ? 14 : 18, fontWeight: 900, lineHeight: 1 }}>{stageMarker(state)}</div>
                         <div style={{ minHeight: 38, display: 'grid', alignContent: 'start', gap: 4 }}>
                           <div style={{ fontSize: 12, fontWeight: 800, color: palette.text, lineHeight: 1.25, wordBreak: 'break-word' }}>{stage.label}</div>
                           <div style={{ fontSize: 10, color: state === 'problem' ? '#B91C1C' : '#9AA4B2', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>{stageCaption(state)}</div>
@@ -331,10 +323,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
               <div className="problem-title">Почему выпуск заблокирован</div>
               <ul className="problem-list">
                 {(problemSummary.length ? problemSummary : ['Критичных причин нет.']).map((item) => (
-                  <li key={item} className="problem-item">
-                    <span className="problem-dot">!</span>
-                    <span>{item}</span>
-                  </li>
+                  <li key={item} className="problem-item"><span className="problem-dot">!</span><span>{item}</span></li>
                 ))}
               </ul>
             </section>
@@ -346,15 +335,13 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
                 <div className="owner-note">{integration.nextStep ?? 'Действие не определено.'}</div>
               </div>
               <div className="mini-grid">
-                <MiniCell label="Источник" value={integration.sourceType} note={integration.sourceReference ?? 'Ручной контур'} />
-                <MiniCell label="ФГИС" value={integration.fgisState} note="Регуляторный контур сделки" />
-                <MiniCell label="ESIA" value={integration.esiaState} note="Связка учётной записи" />
-                <MiniCell label="Код риска" value={String(deal.riskScore)} note="Суммарный риск сделки" />
+                <MiniCell label="Источник" value={integration.sourceType === 'FGIS' ? 'ФГИС' : 'Ручной контур'} note={integration.sourceReference ?? 'Без номера партии'} />
+                <MiniCell label="ФГИС" value={integration.fgisState} note="Статус регуляторного контура" />
+                <MiniCell label="ЕСИА" value={integration.esiaState} note="Статус связки учётной записи" />
+                <MiniCell label="Риск" value={String(deal.riskScore)} note="Суммарный риск сделки" />
               </div>
               <div className="badge-row" style={{ marginTop: 0 }}>
-                {integration.reasonCodes.length ? integration.reasonCodes.map((code) => (
-                  <span key={code} className="pill" style={{ color: '#475569' }}>{code}</span>
-                )) : <span style={{ fontSize: 12, color: '#6B778C' }}>Критичных интеграционных причин нет.</span>}
+                {blockerTexts.length ? blockerTexts.map((text) => <span key={text} className="pill" style={{ color: '#475569' }}>{text}</span>) : <span style={{ fontSize: 12, color: '#6B778C' }}>Критичных причин нет.</span>}
               </div>
             </section>
           </div>
@@ -376,24 +363,24 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
               );
             })}
           </div>
-          {deal.routeState ? <div style={{ marginTop: 10, fontSize: 12, color: '#6B778C' }}>Маршрут: {deal.routeState}{deal.routeEta ? ` · ETA ${deal.routeEta}` : ''}</div> : null}
+          {deal.routeState ? <div style={{ marginTop: 10, fontSize: 12, color: '#6B778C', wordBreak: 'break-word' }}>Маршрут: {deal.routeState}{deal.routeEta ? ` · ETA ${deal.routeEta}` : ''}</div> : null}
         </section>
 
         <DocumentsDropzone dealId={deal.id} />
 
         <div className="timeline-layout">
           <section className="surface">
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Timeline сделки</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Ход сделки</div>
             <div className="timeline-list">
               {(deal.events ?? []).map((event, index) => (
                 <div key={`${event.ts}-${index}`} className="timeline-item">
                   <div className="timeline-dot" style={{ background: event.type === 'danger' ? '#DC2626' : event.type === 'success' ? '#0A7A5F' : '#2563EB' }} />
                   <div className="timeline-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                      <div style={{ fontWeight: 800, color: '#0F1419' }}>{event.action}</div>
+                      <div style={{ fontWeight: 800, color: '#0F1419', wordBreak: 'break-word' }}>{event.action}</div>
                       <div style={{ fontSize: 12, color: '#6B778C' }}>{new Date(event.ts).toLocaleString('ru-RU')}</div>
                     </div>
-                    <div style={{ marginTop: 6, fontSize: 13, color: '#6B778C' }}>{event.actor}</div>
+                    <div style={{ marginTop: 6, fontSize: 13, color: '#6B778C', wordBreak: 'break-word' }}>{event.actor}</div>
                   </div>
                 </div>
               ))}
@@ -402,24 +389,24 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
 
           <section style={{ display: 'grid', gap: 16 }}>
             <div className="surface">
-              <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Банк и callbacks</div>
-              <div style={{ fontSize: 12, color: '#6B778C', marginTop: 6 }}>{integration.gateState === 'FAIL' ? 'Bank release заблокирован до снятия ESIA / ФГИС причин.' : integration.gateState === 'REVIEW' ? 'Bank release требует ручной проверки перед выпуском.' : 'Интеграционный gate не блокирует банк.'}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Банк и события</div>
+              <div style={{ fontSize: 12, color: '#6B778C', marginTop: 6, wordBreak: 'break-word' }}>{integration.gateState === 'FAIL' ? 'Выпуск денег заблокирован до снятия причин в ФГИС / ЕСИА.' : integration.gateState === 'REVIEW' ? 'Банк требует ручной проверки перед выпуском.' : 'Интеграционный контур не блокирует банк.'}</div>
               <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
                 {callbacks.length ? callbacks.map((cb) => (
-                  <div key={cb.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 12 }}>
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13 }}>{cb.id} · {cb.type}</div>
-                    <div style={{ marginTop: 6, fontSize: 13, color: '#0F1419' }}>{cb.note}</div>
+                  <div key={cb.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 12, maxWidth: '100%', overflow: 'hidden' }}>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13, wordBreak: 'break-word' }}>{cb.id} · {cb.type === 'Reserve' ? 'Резерв' : cb.type === 'Mismatch' ? 'Расхождение' : cb.type === 'Release' ? 'Выпуск' : cb.type}</div>
+                    <div style={{ marginTop: 6, fontSize: 13, color: '#0F1419', wordBreak: 'break-word' }}>{cb.note}</div>
                     <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{cb.amountRub ? formatMoney(cb.amountRub) : '—'}</div>
                   </div>
-                )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Банковый хвост по сделке пока не зафиксирован.</div>}
+                )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Банковый контур по сделке пока не зафиксировал событий.</div>}
               </div>
             </div>
 
             {dispute ? (
               <div className="problem-card">
                 <div className="problem-title">Открыт спор</div>
-                <div style={{ fontSize: 14, color: '#991B1B', fontWeight: 800 }}>{dispute.id} · {dispute.title}</div>
-                <div style={{ fontSize: 13, color: '#7F1D1D', lineHeight: 1.45 }}>{dispute.description}</div>
+                <div style={{ fontSize: 14, color: '#991B1B', fontWeight: 800, wordBreak: 'break-word' }}>{dispute.id} · {dispute.title}</div>
+                <div style={{ fontSize: 13, color: '#7F1D1D', lineHeight: 1.45, wordBreak: 'break-word' }}>{dispute.description}</div>
                 <div>
                   <Link href={`/platform-v7/disputes/${dispute.id}`} className="btn btn-secondary" style={{ borderColor: '#FECACA', color: '#991B1B', width: '100%' }}>Открыть спор</Link>
                 </div>
@@ -442,12 +429,12 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
   );
 }
 
-function MoneyCard({ title, value, note }: { title: string; value: string; note: string }) {
+function SummaryCard({ title, value, note }: { title: string; value: string; note: string }) {
   return (
-    <div className="money-card">
-      <div className="money-title">{title}</div>
-      <div className="money-value">{value}</div>
-      <div className="money-note">{note}</div>
+    <div className="summary-card">
+      <div className="summary-title">{title}</div>
+      <div className="summary-value">{value}</div>
+      <div className="summary-note">{note}</div>
     </div>
   );
 }
