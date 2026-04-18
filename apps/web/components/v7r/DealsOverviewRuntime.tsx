@@ -40,6 +40,66 @@ function riskTone(score: number) {
   return 'success' as const;
 }
 
+function nextStepLabel(item: Deal) {
+  if (item.status === 'quality_disputed') return 'Закрыть спор и снять hold';
+  if (item.status === 'release_requested') return 'Подтвердить выпуск денег';
+  if (item.status === 'docs_complete') return 'Запросить выпуск денег';
+  return 'Довести до следующего шага';
+}
+
+function MobileDealCard({ item, selected, onToggle }: { item: Deal; selected: boolean; onToggle: () => void }) {
+  return (
+    <article style={{ background: '#fff', border: selected ? '1px solid rgba(10,122,95,0.24)' : '1px solid #E4E6EA', borderRadius: 18, padding: 16, display: 'grid', gap: 12, boxShadow: selected ? '0 0 0 2px rgba(10,122,95,0.06) inset' : 'none' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+          <input type='checkbox' aria-label={`Выбрать сделку ${item.id}`} checked={selected} onChange={onToggle} />
+          <div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 14 }}>{item.id}</div>
+            <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>{item.grain} · {item.quantity} {item.unit}</div>
+          </div>
+        </label>
+        <Badge tone={toneByDealStatus(item)}>{statusLabel(item.status)}</Badge>
+      </div>
+
+      <Link href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'grid', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>
+          <InfoCell label='Лот' value={item.lotId ?? '—'} />
+          <InfoCell label='Маршрут' value={item.routeId ?? '—'} />
+          <InfoCell label='Сумма' value={formatCompactMoney(item.reservedAmount)} />
+          <InfoCell label='Риск' value={String(item.riskScore)} tone={riskTone(item.riskScore)} />
+        </div>
+
+        <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+          <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Стороны</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{item.buyer.name}</div>
+          <div style={{ fontSize: 12, color: '#6B778C' }}>{item.seller.name}</div>
+        </div>
+
+        <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 14, background: 'rgba(10,122,95,0.04)', border: '1px solid rgba(10,122,95,0.12)' }}>
+          <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#0F1419' }}>{nextStepLabel(item)}</div>
+          <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.5 }}>{item.blockers.length ? item.blockers.join(' · ') : item.routeState ?? 'Критичных блокеров нет'}</div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'}{item.routeEta ? ` · ETA ${item.routeEta}` : ''}</div>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', color: '#fff', fontSize: 12, fontWeight: 800 }}>Открыть сделку</span>
+        </div>
+      </Link>
+    </article>
+  );
+}
+
+function InfoCell({ label, value, tone }: { label: string; value: string; tone?: 'success' | 'warning' | 'danger' | 'neutral' }) {
+  const p = tone ? palette(tone) : null;
+  return (
+    <div style={{ padding: 12, borderRadius: 14, background: '#fff', border: '1px solid #E4E6EA' }}>
+      <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
+      <div style={{ marginTop: 6, fontSize: 13, fontWeight: 800, color: p ? p.color : '#0F1419' }}>{value}</div>
+    </div>
+  );
+}
+
 export function DealsOverviewRuntime() {
   const { draftDeals, removeDraftDeal } = useBuyerRuntimeStore();
   const highRisk = DEALS.filter((item) => item.riskScore >= 70).length;
@@ -82,13 +142,26 @@ export function DealsOverviewRuntime() {
     return statusOk && riskOk && searchOk;
   });
 
+  const orderedDeals = filteredDeals
+    .slice()
+    .sort((a, b) => b.riskScore - a.riskScore || b.reservedAmount - a.reservedAmount);
+
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+      <style>{`
+        .deals-desktop-table{display:block}
+        .deals-mobile-cards{display:none}
+        @media (max-width: 860px){
+          .deals-desktop-table{display:none}
+          .deals-mobile-cards{display:grid;gap:12px;padding:12px}
+        }
+      `}</style>
+
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Сделки</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Табличный операционный обзор. Здесь уже видно lot → deal → route и денежный контур без разрывов между экранами.</div>
+            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Операционный обзор сделок. На телефоне — карточки с полным контекстом, на широком экране — таблица для массовой работы.</div>
           </div>
           <Link href='/platform-v7/procurement' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Открыть закупку</Link>
         </div>
@@ -98,7 +171,7 @@ export function DealsOverviewRuntime() {
         <StatCard title='Сделки в реестре' value={String(DEALS.length)} note='Все доменные сделки текущего контура.' />
         <StatCard title='Активные' value={String(activeDeals)} note='Без закрытых архивных кейсов.' />
         <StatCard title='Высокий риск' value={String(highRisk)} note='Сделки с risk ≥ 70.' />
-        <StatCard title='В резерве' value={formatCompactMoney(totalReserved)} note='Деньги по активным сделкам.' />
+        <StatCard title='Ожидают выпуск' value={String(releaseRequested)} note='Сделки, где деньги уже у выпуска.' />
       </div>
 
       {draftDeals.length ? (
@@ -145,8 +218,8 @@ export function DealsOverviewRuntime() {
         ) : null}
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 16, borderBottom: '1px solid #E4E6EA', flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Операционная таблица сделок</div>
-            <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>Сортировка по риску и сумме, явные lot/route поля и быстрый переход в карточку.</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Операционный обзор сделок</div>
+            <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>Каждая сделка полностью кликабельна. На мобиле внутри карточки уже есть деньги, маршрут, риск, следующий шаг и переход внутрь.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder='Поиск: DL-9102, Тамбов, Агро-Юг…' aria-label='Поиск по сделкам' style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, minWidth: 220 }} />
@@ -166,11 +239,17 @@ export function DealsOverviewRuntime() {
             {search || statusFilter || riskFilter ? (
               <button onClick={() => { setSearch(''); setStatusFilter(''); setRiskFilter(''); }} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, fontWeight: 700, color: '#6B778C', cursor: 'pointer' }}>Сбросить</button>
             ) : null}
-            <span style={{ fontSize: 11, color: '#6B778C', marginLeft: 'auto' }}>{filteredDeals.length} из {DEALS.length}</span>
+            <span style={{ fontSize: 11, color: '#6B778C', marginLeft: 'auto' }}>{orderedDeals.length} из {DEALS.length}</span>
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className='deals-mobile-cards'>
+          {orderedDeals.map((item) => (
+            <MobileDealCard key={item.id} item={item} selected={selected.has(item.id)} onToggle={() => toggleRow(item.id)} />
+          ))}
+        </div>
+
+        <div className='deals-desktop-table' style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1180 }}>
             <thead>
               <tr style={{ background: '#F8FAFB', textAlign: 'left' }}>
@@ -178,9 +257,9 @@ export function DealsOverviewRuntime() {
                   <input
                     type='checkbox'
                     aria-label='Выбрать все сделки на странице'
-                    checked={filteredDeals.length > 0 && filteredDeals.every((item) => selected.has(item.id))}
+                    checked={orderedDeals.length > 0 && orderedDeals.every((item) => selected.has(item.id))}
                     onChange={(event) => {
-                      if (event.target.checked) setSelected(new Set(filteredDeals.map((item) => item.id)));
+                      if (event.target.checked) setSelected(new Set(orderedDeals.map((item) => item.id)));
                       else setSelected(new Set());
                     }}
                   />
@@ -191,48 +270,38 @@ export function DealsOverviewRuntime() {
               </tr>
             </thead>
             <tbody>
-              {filteredDeals
-                .slice()
-                .sort((a, b) => b.riskScore - a.riskScore || b.reservedAmount - a.reservedAmount)
-                .map((item) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #E4E6EA', background: selected.has(item.id) ? 'rgba(10,122,95,0.04)' : undefined }}>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
-                      <input
-                        type='checkbox'
-                        aria-label={`Выбрать сделку ${item.id}`}
-                        checked={selected.has(item.id)}
-                        onChange={() => toggleRow(item.id)}
-                      />
-                    </td>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
-                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.grain} · {item.quantity} {item.unit}</div>
-                    </td>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
-                      <div style={{ fontWeight: 700, color: '#0F1419' }}>{item.lotId ?? '—'}</div>
-                    </td>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
-                      <div style={{ fontWeight: 700, color: '#0F1419' }}>{item.routeId ?? '—'}</div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'} {item.routeEta ? `· ETA ${item.routeEta}` : ''}</div>
-                    </td>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
-                      <div style={{ fontSize: 13, color: '#0F1419', fontWeight: 700 }}>{item.buyer.name}</div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.seller.name}</div>
-                    </td>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top', fontWeight: 800, color: '#0F1419' }}>{formatMoney(item.reservedAmount)}</td>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}><Badge tone={riskTone(item.riskScore)}>{item.riskScore}</Badge></td>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}><Badge tone={toneByDealStatus(item)}>{statusLabel(item.status)}</Badge></td>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>
-                        {item.status === 'quality_disputed' ? 'Закрыть спор и снять hold' : item.status === 'release_requested' ? 'Подтвердить выпуск денег' : item.status === 'docs_complete' ? 'Запросить выпуск денег' : 'Довести до следующего шага'}
-                      </div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.blockers.length ? item.blockers.join(' · ') : 'Блокеров нет'}</div>
-                    </td>
-                    <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
-                      <Link href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700 }}>Открыть</Link>
-                    </td>
-                  </tr>
-                ))}
+              {orderedDeals.map((item) => (
+                <tr key={item.id} style={{ borderBottom: '1px solid #E4E6EA', background: selected.has(item.id) ? 'rgba(10,122,95,0.04)' : undefined }}>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                    <input type='checkbox' aria-label={`Выбрать сделку ${item.id}`} checked={selected.has(item.id)} onChange={() => toggleRow(item.id)} />
+                  </td>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.grain} · {item.quantity} {item.unit}</div>
+                  </td>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                    <div style={{ fontWeight: 700, color: '#0F1419' }}>{item.lotId ?? '—'}</div>
+                  </td>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                    <div style={{ fontWeight: 700, color: '#0F1419' }}>{item.routeId ?? '—'}</div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'} {item.routeEta ? `· ETA ${item.routeEta}` : ''}</div>
+                  </td>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                    <div style={{ fontSize: 13, color: '#0F1419', fontWeight: 700 }}>{item.buyer.name}</div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.seller.name}</div>
+                  </td>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top', fontWeight: 800, color: '#0F1419' }}>{formatMoney(item.reservedAmount)}</td>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}><Badge tone={riskTone(item.riskScore)}>{item.riskScore}</Badge></td>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}><Badge tone={toneByDealStatus(item)}>{statusLabel(item.status)}</Badge></td>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{nextStepLabel(item)}</div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.blockers.length ? item.blockers.join(' · ') : 'Блокеров нет'}</div>
+                  </td>
+                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                    <Link href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700 }}>Открыть</Link>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
