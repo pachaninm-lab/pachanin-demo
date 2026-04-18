@@ -10,6 +10,48 @@ function badge(status: 'ok' | 'pending' | 'mismatch') {
   return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C', label: 'Расхождение' };
 }
 
+function brandPill(kind: 'sberApi' | 'sberBusinessId') {
+  const token = kind === 'sberApi'
+    ? { label: 'Sber API', note: 'Платёжный контур', accent: '#21A038', text: '#166534' }
+    : { label: 'СберБизнес ID', note: 'Вход и верификация юрлица', accent: '#21A038', text: '#166534' };
+
+  return (
+    <span
+      title={token.note}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '6px 10px',
+        borderRadius: 999,
+        background: 'rgba(33,160,56,0.10)',
+        border: '1px solid rgba(33,160,56,0.18)',
+        color: token.text,
+        fontSize: 11,
+        fontWeight: 800,
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          display: 'inline-grid',
+          placeItems: 'center',
+          width: 18,
+          height: 18,
+          borderRadius: 999,
+          background: token.accent,
+          color: '#fff',
+          fontSize: 10,
+          fontWeight: 900,
+        }}
+      >
+        S
+      </span>
+      {token.label}
+    </span>
+  );
+}
+
 function Card({ title, value, note }: { title: string; value: string; note: string }) {
   return (
     <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
@@ -32,9 +74,13 @@ export function BankRuntime() {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Банковый контур</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Здесь должны жить реальные деньги сделки: reserve, hold, release и ручные банковые проверки.</div>
+            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Здесь живут reserve, hold, release и ручные банковые проверки. Брендовые поверхности Сбера показаны в деловом формате без декоративных подмен и без ложной production-готовности.</div>
           </div>
-          <div data-demo="true" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>Демо-данные</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {brandPill('sberBusinessId')}
+            {brandPill('sberApi')}
+            <div data-demo="true" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>Демо-данные</div>
+          </div>
         </div>
       </section>
 
@@ -47,7 +93,10 @@ export function BankRuntime() {
 
       {releaseDeal ? (
         <section style={{ background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 18, padding: 18 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>Горячая точка</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>Горячая точка</div>
+            {brandPill('sberApi')}
+          </div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', marginTop: 6 }}>DL-9109 → запрос release на 10.5 млн ₽</div>
           <div style={{ fontSize: 13, color: '#334155', marginTop: 8 }}>Эта выплата должна быть видна инвестору прямо в банковом контуре, а не пропадать между модулями.</div>
           <div style={{ marginTop: 12 }}>
@@ -57,7 +106,10 @@ export function BankRuntime() {
       ) : null}
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Реестр callback-событий</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Реестр callback-событий</div>
+          {brandPill('sberApi')}
+        </div>
         <div style={{ display: 'grid', gap: 10 }}>
           {CALLBACKS.map((item) => {
             const p = badge(item.status);
