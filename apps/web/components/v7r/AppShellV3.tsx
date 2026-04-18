@@ -86,6 +86,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
+
   const items = NAV_BY_ROLE[role];
   const stage = ROLE_STAGE[role];
   const stageTone = stageColors(stage.tone);
@@ -111,6 +112,25 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'linear-gradient(180deg, #F7FAFB 0%, #F1F5F7 100%)' }}>
+      <style>{`
+        .pc-shell-header{max-width:1360px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+        .pc-alert-panel{position:absolute;right:0;top:42px;width:340px;max-width:calc(100vw - 32px);background:#fff;border:1px solid #E4E6EA;border-radius:14px;box-shadow:0 16px 40px rgba(9,30,66,0.14);padding:10px;z-index:71;max-height:70vh;overflow-y:auto}
+        .pc-role-banner{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;background:#FFFFFF;border:1px solid #E4E6EA;margin-bottom:12px;font-size:12px;color:#475569;flex-wrap:wrap}
+        .pc-giga{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;background:linear-gradient(180deg,rgba(10,122,95,0.08),rgba(10,122,95,0.03));border:1px solid rgba(10,122,95,0.18);margin-bottom:12px}
+        .pc-giga-title{font-size:13px;font-weight:900;color:#0F1419}
+        .pc-giga-text{font-size:12px;color:#475569;line-height:1.5;margin-top:4px}
+        .pc-giga-chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+        .pc-giga-chip{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#fff;border:1px solid rgba(10,122,95,0.14);color:#0A7A5F;font-size:11px;font-weight:800}
+        @media (max-width: 768px){
+          .pc-shell-header{padding:10px 12px;gap:10px}
+          .pc-alert-panel{position:fixed;left:12px;right:12px;top:124px;width:auto;max-width:none;max-height:min(70vh,calc(100dvh - 148px))}
+        }
+        @media (max-width: 560px){
+          .pc-role-banner{align-items:flex-start}
+          .pc-giga{grid-template-columns:1fr}
+        }
+      `}</style>
+
       {sidebarOpen ? <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,20,25,0.36)', zIndex: 79 }} aria-hidden /> : null}
       {alertsOpen ? <div onClick={() => setAlertsOpen(false)} style={{ position: 'fixed', inset: 0, background: 'transparent', zIndex: 69 }} aria-hidden /> : null}
 
@@ -121,7 +141,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
               <div style={{ fontSize: 19, fontWeight: 800, color: '#0F1419' }}>Прозрачная Цена</div>
               <div style={{ fontSize: 11, color: '#6B778C', marginTop: 4 }}>Цифровой контур исполнения сделки</div>
             </div>
-            <button onClick={() => setSidebarOpen(false)} aria-label="Закрыть меню" style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', color: '#6B778C', padding: 4 }}><X size={18} aria-hidden /></button>
+            <button onClick={() => setSidebarOpen(false)} aria-label='Закрыть меню' style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', color: '#6B778C', padding: 4 }}><X size={18} aria-hidden /></button>
           </div>
           <div style={{ marginTop: 14, padding: 12, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
             <div style={{ fontSize: 11, color: '#6B778C' }}>Текущий кабинет</div>
@@ -148,26 +168,26 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
 
       <div>
         <header style={{ position: 'sticky', top: 0, zIndex: 60, background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #E6E8EB' }}>
-          <div className="pc-shell-header" style={{ maxWidth: 1360, margin: '0 auto', padding: '10px 16px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+          <div className='pc-shell-header'>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 1 auto' }}>
-              <button onClick={() => setSidebarOpen(true)} aria-label="Открыть меню" style={{ background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', lineHeight: 0, display: 'inline-flex', alignItems: 'center' }}><Menu size={18} aria-hidden /></button>
+              <button onClick={() => setSidebarOpen(true)} aria-label='Открыть меню' style={{ background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', lineHeight: 0, display: 'inline-flex', alignItems: 'center' }}><Menu size={18} aria-hidden /></button>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#0F1419' }}>Прозрачная Цена</div>
-                <nav aria-label="Хлебные крошки" style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', minWidth: 0 }}>
+                <nav aria-label='Хлебные крошки' style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', minWidth: 0 }}>
                   {crumbs.map((crumb, index) => <React.Fragment key={crumb.href}>{index > 0 ? <span style={{ color: '#9AA4B2', fontSize: 12 }}>/</span> : null}{crumb.isLast ? <span style={{ fontSize: 12, fontWeight: 700, color: '#0F1419' }}>{crumb.label}</span> : <Link href={crumb.href} style={{ textDecoration: 'none', color: '#6B778C', fontSize: 12, fontWeight: 500 }}>{crumb.label}</Link>}</React.Fragment>)}
                 </nav>
               </div>
             </div>
 
-            <button onClick={() => setPaletteOpen(true)} aria-label="Открыть быстрый поиск (Cmd+K)" style={{ flex: '1 1 280px', minWidth: 240, maxWidth: 520, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer' }}>
+            <button onClick={() => setPaletteOpen(true)} aria-label='Открыть быстрый поиск (Cmd+K)' style={{ flex: '1 1 280px', minWidth: 240, maxWidth: 520, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer' }}>
               <Search size={14} aria-hidden style={{ color: '#94A3B8', flexShrink: 0 }} />
               <span style={{ color: '#6B7280', fontSize: 13, textAlign: 'left', flex: 1 }}>Поиск по сделкам, лотам, спорам…</span>
-              <span className="v9-desktop-only" style={{ color: '#94A3B8', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>⌘ K</span>
+              <span className='v9-desktop-only' style={{ color: '#94A3B8', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>⌘ K</span>
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flex: '0 1 auto' }}>
               {statuses.map((item) => (
-                <span key={item.label} className="v9-desktop-only" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: item.bg, border: `1px solid ${item.border}`, color: item.color, fontSize: 11, fontWeight: 800 }}>{item.label}</span>
+                <span key={item.label} className='v9-desktop-only' style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: item.bg, border: `1px solid ${item.border}`, color: item.color, fontSize: 11, fontWeight: 800 }}>{item.label}</span>
               ))}
 
               <div style={{ position: 'relative' }}>
@@ -176,10 +196,10 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
                   <span style={{ position: 'absolute', top: -6, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: '#DC2626', color: '#fff', fontSize: 10, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{NOTIFICATIONS.length}</span>
                 </button>
                 {alertsOpen ? (
-                  <div role="dialog" aria-label="Уведомления" style={{ position: 'absolute', right: 0, top: 42, width: 340, maxWidth: 'calc(100vw - 32px)', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, boxShadow: '0 16px 40px rgba(9,30,66,0.14)', padding: 10, zIndex: 71, maxHeight: '70vh', overflowY: 'auto' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px 10px' }}>
+                  <div role='dialog' aria-label='Уведомления' className='pc-alert-panel'>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px 10px', gap: 10 }}>
                       <span style={{ fontSize: 13, fontWeight: 800, color: '#0F1419' }}>Уведомления</span>
-                      <span style={{ fontSize: 11, color: '#6B778C' }}>{NOTIFICATIONS.length} активных</span>
+                      <span style={{ fontSize: 11, color: '#6B778C', whiteSpace: 'nowrap' }}>{NOTIFICATIONS.length} активных</span>
                     </div>
                     {Object.entries(NOTIFICATIONS.reduce<Record<NotificationGroup, typeof NOTIFICATIONS>>((acc, item) => {
                       (acc[item.group] ||= []).push(item);
@@ -188,7 +208,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
                       <div key={group} style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
                         <div style={{ padding: '4px 6px', fontSize: 10, fontWeight: 800, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{NOTIFICATION_GROUPS[group as NotificationGroup]} · {items.length}</div>
                         {items.map((item) => (
-                          <Link key={item.id} href={item.href} onClick={() => setAlertsOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, lineHeight: 1.5 }}>{item.text}</Link>
+                          <Link key={item.id} href={item.href} onClick={() => setAlertsOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, lineHeight: 1.5, wordBreak: 'break-word' }}>{item.text}</Link>
                         ))}
                       </div>
                     ))}
@@ -196,12 +216,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
                 ) : null}
               </div>
 
-              <button
-                onClick={toggleTheme}
-                aria-label={theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на тёмную тему (beta)'}
-                title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема (beta)'}
-                style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}
-              >
+              <button onClick={toggleTheme} aria-label={theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на тёмную тему (beta)'} title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема (beta)'} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}>
                 {theme === 'dark' ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
               </button>
               <select value={role} onChange={(event) => { const nextRole = event.target.value as PlatformRole; setRole(nextRole); router.push(ROLE_ROUTES[nextRole]); }} style={{ minWidth: 150, border: '1px solid #E4E6EA', borderRadius: 10, padding: '8px 12px', fontSize: 13, background: '#FFFFFF', fontWeight: 600 }}>
@@ -212,11 +227,26 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
         </header>
         <main style={{ padding: 16, maxWidth: 1360, margin: '0 auto' }}>
           {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
-            <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 12, background: '#FFFFFF', border: '1px solid #E4E6EA', marginBottom: 12, fontSize: 12, color: '#475569', flexWrap: 'wrap' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: stageTone.bg, border: `1px solid ${stageTone.border}`, color: stageTone.color, fontSize: 10, fontWeight: 800 }}>{stage.label}</span>
-              <span>Вы на роли <strong style={{ color: '#0F1419' }}>{ROLE_LABELS[role]}</strong>. Переключитесь в шапке справа, если ожидали другой контекст.</span>
-              <Link href={ROLE_ROUTES[role]} style={{ marginLeft: 'auto', textDecoration: 'none', color: '#0A7A5F', fontWeight: 700, fontSize: 12 }}>Главная роли →</Link>
-            </div>
+            <>
+              <div role='status' aria-live='polite' className='pc-role-banner'>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: stageTone.bg, border: `1px solid ${stageTone.border}`, color: stageTone.color, fontSize: 10, fontWeight: 800 }}>{stage.label}</span>
+                <span>Вы на роли <strong style={{ color: '#0F1419' }}>{ROLE_LABELS[role]}</strong>. Переключитесь в шапке справа, если ожидали другой контекст.</span>
+                <Link href={ROLE_ROUTES[role]} style={{ marginLeft: 'auto', textDecoration: 'none', color: '#0A7A5F', fontWeight: 700, fontSize: 12 }}>Главная роли →</Link>
+              </div>
+              <section className='pc-giga'>
+                <div>
+                  <div className='pc-giga-title'>GigaChat · быстрые вопросы по сделке</div>
+                  <div className='pc-giga-text'>Решает: где спор, кто следующий владелец, почему деньги стоят, каких документов не хватает, куда перейти дальше.</div>
+                  <div className='pc-giga-chiprow'>
+                    <span className='pc-giga-chip'>Почему выпуск заблокирован</span>
+                    <span className='pc-giga-chip'>Кто держит следующий шаг</span>
+                    <span className='pc-giga-chip'>Каких документов нет</span>
+                    <span className='pc-giga-chip'>Куда идти дальше</span>
+                  </div>
+                </div>
+                <button onClick={() => setPaletteOpen(true)} style={{ borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Спросить</button>
+              </section>
+            </>
           ) : null}
           {children}
         </main>
