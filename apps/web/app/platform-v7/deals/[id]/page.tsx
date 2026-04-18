@@ -177,7 +177,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
         .chip-link{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;text-decoration:none;font-size:12px;font-weight:700}
         .desktop-only{display:block}
         .mobile-only{display:none}
-        .timeline-layout{display:grid;grid-templateColumns:minmax(0,1.1fr) minmax(320px,.9fr);gap:16px}
+        .timeline-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:16px}
         .timeline-list{display:grid;gap:12px;margin-top:14px}
         .timeline-item{display:grid;grid-template-columns:12px 1fr;gap:12px;align-items:start}
         .timeline-dot{width:12px;height:12px;border-radius:999px;margin-top:5px}
@@ -199,11 +199,12 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
           .mini-grid{grid-template-columns:1fr 1fr}
           .desktop-only{display:none}
           .mobile-only{display:block}
+          .timeline-layout{gap:12px}
           .sticky-inner{grid-template-columns:1fr}
           .sticky-inner .btn{width:100%}
         }
         @media (max-width: 560px){
-          .deal-page{gap:12px}
+          .deal-page{gap:12px;padding-bottom:112px}
           .hero-top{display:grid}
           .hero-actions .btn{flex:1 1 100%}
           .action-card{padding:16px;gap:12px}
@@ -211,6 +212,8 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
           .mini-grid{grid-template-columns:1fr}
           .owner-value{font-size:22px}
           .money-value{font-size:28px}
+          .chip-flow{overflow:auto hidden;flex-wrap:nowrap;padding-bottom:2px;margin-right:-4px}
+          .chip-link{white-space:nowrap}
         }
       `}</style>
 
