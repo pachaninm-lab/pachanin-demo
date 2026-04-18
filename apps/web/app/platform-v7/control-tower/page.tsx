@@ -1,17 +1,21 @@
 import Link from 'next/link';
-import { CALLBACKS, DEALS, DISPUTES } from '@/lib/v7r/data';
+import { CALLBACKS, DEALS, DISPUTES, getDealIntegrationState } from '@/lib/v7r/data';
 import { lots as PLATFORM_LOTS } from '@/lib/v7r/esia-fgis-data';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 
 export default function PlatformV7ControlTowerPage() {
   const activeDeals = DEALS.filter((d) => d.status !== 'closed');
+  const integratedDeals = activeDeals.map((deal) => ({ deal, integration: getDealIntegrationState(deal.id, deal.lotId) }));
   const totalReserved = activeDeals.reduce((sum, d) => sum + d.reservedAmount, 0);
   const totalHold = activeDeals.reduce((sum, d) => sum + d.holdAmount, 0);
-  const totalRelease = activeDeals.reduce((sum, d) => sum + (d.releaseAmount ?? Math.max(d.reservedAmount - d.holdAmount, 0)), 0);
-  const criticalDeals = activeDeals
-    .slice()
-    .sort((a, b) => b.riskScore - a.riskScore || b.holdAmount - a.holdAmount)
-    .slice(0, 4);
+  const totalRelease = integratedDeals.reduce((sum, item) => sum + (item.integration.gateState === 'FAIL' ? 0 : (item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0))), 0);
+  const blockedByIntegration = integratedDeals.filter((item) => item.integration.gateState === 'FAIL');
+  const reviewByIntegration = integratedDeals.filter((item) => item.integration.gateState === 'REVIEW');
+  const integrationBlockedAmount = blockedByIntegration.reduce((sum, item) => sum + (item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0)), 0);
+  const criticalDeals = integratedDeals.slice().sort((a, b) => {
+    const rank = (state: 'PASS' | 'REVIEW' | 'FAIL') => (state === 'FAIL' ? 2 : state === 'REVIEW' ? 1 : 0);
+    return rank(b.integration.gateState) - rank(a.integration.gateState) || b.deal.riskScore - a.deal.riskScore || b.deal.holdAmount - a.deal.holdAmount;
+  }).slice(0, 4);
   const overdue = activeDeals.filter((d) => d.slaDeadline && new Date(d.slaDeadline) < new Date('2026-04-17')).length;
   const releaseRequested = activeDeals.filter((d) => d.status === 'release_requested').length;
 
@@ -22,11 +26,12 @@ export default function PlatformV7ControlTowerPage() {
           <div>
             <div style={{ fontSize: 12, color: '#6B778C', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Control Tower</div>
             <div style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 900, color: '#0F1419', marginTop: 8 }}>Центр управления исполнением сделки</div>
-            <div style={{ marginTop: 8, fontSize: 14, color: '#6B778C', maxWidth: 860 }}>Здесь должно быть видно, что горит, где деньги, где hold и что именно оператору делать следующим шагом.</div>
+            <div style={{ marginTop: 8, fontSize: 14, color: '#6B778C', maxWidth: 860 }}>Теперь на первом экране видно не только деньги и споры, но и сколько сделок и денег реально заблокировано ESIA / ФГИС gate.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href="/platform-v7/deals" style={btn()}>Сделки</Link>
             <Link href="/platform-v7/bank" style={btn('primary')}>Банк</Link>
+            <Link href="/platform-v7/demo" style={btn()}>Demo flow</Link>
           </div>
         </div>
       </section>
@@ -35,7 +40,9 @@ export default function PlatformV7ControlTowerPage() {
         <Metric title="Активные сделки" value={String(activeDeals.length)} subtitle="Все кейсы без архива" href="/platform-v7/deals" />
         <Metric title="В резерве" value={formatCompactMoney(totalReserved)} subtitle="Сумма денег в контуре" href="/platform-v7/bank" />
         <Metric title="Под hold" value={formatCompactMoney(totalHold)} subtitle="Заморожено из-за споров и проверок" href="/platform-v7/disputes" tone="red" />
-        <Metric title="К выпуску" value={formatCompactMoney(totalRelease)} subtitle="Деньги, которые можно двигать дальше" href="/platform-v7/bank" tone="green" />
+        <Metric title="К выпуску" value={formatCompactMoney(totalRelease)} subtitle="С учётом ESIA / ФГИС gate" href="/platform-v7/bank" tone="green" />
+        <Metric title="FGIS / ESIA FAIL" value={String(blockedByIntegration.length)} subtitle="Сделки, которые нельзя двигать дальше" href="/platform-v7/connectors" tone="red" />
+        <Metric title="Деньги под gate" value={formatCompactMoney(integrationBlockedAmount)} subtitle="Потенциальный release, остановленный интеграцией" href="/platform-v7/bank" tone="red" />
       </div>
 
       <section style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 16 }}>
@@ -43,33 +50,33 @@ export default function PlatformV7ControlTowerPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Приоритеты оператора</div>
-              <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>Сначала споры и hold, потом release, потом всё остальное.</div>
+              <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>Сначала интеграционные стопы и hold, потом release, потом всё остальное.</div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Badge tone="red">Просрочка SLA: {overdue}</Badge>
               <Badge tone="amber">Release requested: {releaseRequested}</Badge>
+              <Badge tone="blue">Gate review: {reviewByIntegration.length}</Badge>
             </div>
           </div>
 
           <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
-            {criticalDeals.map((deal) => (
+            {criticalDeals.map(({ deal, integration }) => (
               <div key={deal.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 12, alignItems: 'center' }}>
                 <div style={{ display: 'grid', gap: 6 }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{deal.id}</span>
-                    <Badge tone={deal.riskScore >= 70 ? 'red' : deal.status === 'release_requested' ? 'amber' : 'blue'}>{statusLabel(deal.status)}</Badge>
+                    <Badge tone={integration.gateState === 'FAIL' ? 'red' : integration.gateState === 'REVIEW' ? 'amber' : deal.status === 'release_requested' ? 'amber' : 'blue'}>{statusLabel(deal.status)}</Badge>
+                    <Badge tone={integration.gateState === 'FAIL' ? 'red' : integration.gateState === 'REVIEW' ? 'amber' : 'green'}>Gate {integration.gateState}</Badge>
                     <Badge tone={deal.riskScore >= 70 ? 'red' : deal.riskScore >= 30 ? 'amber' : 'green'}>Риск {deal.riskScore}</Badge>
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{deal.grain} · {deal.quantity} {deal.unit} · {formatCompactMoney(deal.reservedAmount)}</div>
-                  <div style={{ fontSize: 12, color: '#6B778C' }}>Лот: {deal.lotId ?? '—'} · Маршрут: {deal.routeId ?? '—'} · SLA: {deal.slaDeadline ?? '—'}</div>
-                  <div style={{ fontSize: 13, color: '#334155' }}>
-                    {deal.status === 'quality_disputed' ? 'Следующий шаг: закрыть спор и снять hold.' : deal.status === 'release_requested' ? 'Следующий шаг: подтвердить выпуск денег.' : deal.status === 'docs_complete' ? 'Следующий шаг: запросить выпуск денег.' : 'Следующий шаг: довести сделку до следующего этапа.'}
-                  </div>
+                  <div style={{ fontSize: 12, color: '#6B778C' }}>Лот: {deal.lotId ?? '—'} · Источник: {integration.sourceType} · SLA: {deal.slaDeadline ?? '—'}</div>
+                  <div style={{ fontSize: 13, color: '#334155' }}>{integration.nextStep ?? 'Довести сделку до следующего этапа.'}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <Link href={`/platform-v7/deals/${deal.id}`} style={btn()}>Открыть</Link>
                   {deal.status === 'release_requested' ? <Link href="/platform-v7/bank" style={btn('primary')}>Release</Link> : null}
-                  {deal.status === 'quality_disputed' ? <Link href="/platform-v7/disputes" style={btn('danger')}>Спор</Link> : null}
+                  {integration.gateState !== 'PASS' ? <Link href="/platform-v7/connectors" style={btn('danger')}>Gate</Link> : null}
                 </div>
               </div>
             ))}
@@ -80,11 +87,12 @@ export default function PlatformV7ControlTowerPage() {
           <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Деньги по этапам</div>
             <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
-              <MoneyBar label="Резерв" value={totalReserved} max={totalReserved + totalHold + totalRelease} tone="blue" />
-              <MoneyBar label="Hold" value={totalHold} max={totalReserved + totalHold + totalRelease} tone="red" />
-              <MoneyBar label="К выпуску" value={totalRelease} max={totalReserved + totalHold + totalRelease} tone="green" />
+              <MoneyBar label="Резерв" value={totalReserved} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone="blue" />
+              <MoneyBar label="Hold" value={totalHold} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone="red" />
+              <MoneyBar label="К выпуску" value={totalRelease} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone="green" />
+              <MoneyBar label="Заблокировано gate" value={integrationBlockedAmount} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone="red" />
             </div>
-            <div style={{ marginTop: 12, fontSize: 12, color: '#6B778C' }}>График простой, но уже показывает, где деньги застряли и где их можно двигать.</div>
+            <div style={{ marginTop: 12, fontSize: 12, color: '#6B778C' }}>Деньги теперь считаются с учётом ESIA / ФГИС: FAIL вынимается из release и уходит в отдельный blocked bucket.</div>
           </section>
 
           <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
@@ -92,8 +100,8 @@ export default function PlatformV7ControlTowerPage() {
             <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
               <FunnelRow label="Лоты" value={String(PLATFORM_LOTS.length)} note="Каталог витрины и FGIS-импорта" />
               <FunnelRow label="Сделки" value={String(DEALS.length)} note="Все доменные кейсы реестра" />
-              <FunnelRow label="Активные" value={String(activeDeals.length)} note={`Из ${DEALS.length} в реестре, без закрытых`} />
-              <FunnelRow label="Release requested" value={String(releaseRequested)} note="Готовы к движению денег" />
+              <FunnelRow label="Gate FAIL" value={String(blockedByIntegration.length)} note="Требуют ручного снятия причин" />
+              <FunnelRow label="Gate REVIEW" value={String(reviewByIntegration.length)} note="Нужна ручная проверка" />
             </div>
           </section>
 
@@ -102,7 +110,7 @@ export default function PlatformV7ControlTowerPage() {
             <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
               <Signal title="Банк" detail={`${CALLBACKS.length} callback-события уже в контуре.`} href="/platform-v7/bank" />
               <Signal title="Споры" detail={`${DISPUTES.length} активных кейса под удержанием.`} href="/platform-v7/disputes" />
-              <Signal title="Логистика" detail={`${activeDeals.filter((d) => d.routeId).length} маршрутов связаны со сделками.`} href="/platform-v7/logistics" />
+              <Signal title="Интеграция" detail={`${blockedByIntegration.length} FAIL и ${reviewByIntegration.length} REVIEW на верхнем уровне.`} href="/platform-v7/connectors" />
             </div>
           </section>
         </div>
@@ -124,13 +132,7 @@ function Metric({ title, value, subtitle, href, tone = 'default' }: { title: str
 }
 
 function Badge({ tone, children }: { tone: 'green' | 'amber' | 'red' | 'blue'; children: React.ReactNode }) {
-  const palette = tone === 'green'
-    ? { bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.18)', color: '#15803D' }
-    : tone === 'amber'
-    ? { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' }
-    : tone === 'blue'
-    ? { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#1D4ED8' }
-    : { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
+  const palette = tone === 'green' ? { bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.18)', color: '#15803D' } : tone === 'amber' ? { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' } : tone === 'blue' ? { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#1D4ED8' } : { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: palette.bg, border: `1px solid ${palette.border}`, color: palette.color, fontSize: 11, fontWeight: 800 }}>{children}</span>;
 }
 
