@@ -35,7 +35,21 @@ export default function PlatformV7ControlTowerPage() {
     }));
 
   return (
-    <div style={{ display: 'grid', gap: 18 }}>
+    <>
+      <style>{`
+        .ct-page{display:grid;gap:18px}
+        .ct-grid-main{display:grid;grid-template-columns:1.15fr 0.85fr;gap:16px}
+        .ct-priority-card{border:1px solid #E4E6EA;border-radius:14px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}
+        .ct-priority-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+        .ct-decision-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+        .ct-decision-cell{padding:14px;border-radius:16px;border:1px solid #E4E6EA;background:#fff}
+        .ct-decision-label{font-size:11px;color:#6B778C;text-transform:uppercase;letter-spacing:.06em;font-weight:800}
+        .ct-decision-value{font-size:20px;line-height:1.15;font-weight:900;color:#0F1419;margin-top:8px}
+        .ct-decision-note{font-size:12px;color:#6B778C;line-height:1.5;margin-top:6px}
+        @media (max-width:1100px){.ct-grid-main{grid-template-columns:1fr}}
+        @media (max-width:768px){.ct-decision-strip{grid-template-columns:1fr}.ct-priority-card{grid-template-columns:1fr}.ct-priority-actions{justify-content:flex-start}}
+      `}</style>
+      <div className='ct-page'>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
@@ -47,6 +61,23 @@ export default function PlatformV7ControlTowerPage() {
             <Link href="/platform-v7/deals" style={btn()}>Сделки</Link>
             <Link href="/platform-v7/bank" style={btn('primary')}>Банк</Link>
             <Link href="/platform-v7/demo" style={btn()}>Demo flow</Link>
+          </div>
+        </div>
+        <div className='ct-decision-strip'>
+          <div className='ct-decision-cell'>
+            <div className='ct-decision-label'>Главный денежный риск</div>
+            <div className='ct-decision-value'>{formatCompactMoney(totalHold)}</div>
+            <div className='ct-decision-note'>Сумма уже стоит под удержанием и не может выйти без закрытия причины.</div>
+          </div>
+          <div className='ct-decision-cell'>
+            <div className='ct-decision-label'>Интеграционный стоп</div>
+            <div className='ct-decision-value'>{blockedByIntegration.length} FAIL</div>
+            <div className='ct-decision-note'>{formatCompactMoney(integrationBlockedAmount)} потенциального выпуска заморожено ESIA / ФГИС gate.</div>
+          </div>
+          <div className='ct-decision-cell'>
+            <div className='ct-decision-label'>Следующий ручной шаг</div>
+            <div className='ct-decision-value'>{operatorItems[0]?.nextOwner ?? '—'}</div>
+            <div className='ct-decision-note'>{operatorItems[0]?.nextStep ?? 'Критичных ручных шагов сейчас нет.'}</div>
           </div>
         </div>
       </section>
@@ -62,7 +93,7 @@ export default function PlatformV7ControlTowerPage() {
 
       <ControlTowerOperatorPanel deals={operatorItems} />
 
-      <section style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 16 }}>
+      <section className='ct-grid-main'>
         <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <div>
@@ -78,7 +109,7 @@ export default function PlatformV7ControlTowerPage() {
 
           <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
             {criticalDeals.map(({ deal, integration }) => (
-              <div key={deal.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 12, alignItems: 'center' }}>
+              <div key={deal.id} className='ct-priority-card'>
                 <div style={{ display: 'grid', gap: 6 }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{deal.id}</span>
@@ -90,7 +121,7 @@ export default function PlatformV7ControlTowerPage() {
                   <div style={{ fontSize: 12, color: '#6B778C' }}>Лот: {deal.lotId ?? '—'} · Источник: {integration.sourceType} · SLA: {deal.slaDeadline ?? '—'}</div>
                   <div style={{ fontSize: 13, color: '#334155' }}>{integration.nextStep ?? 'Довести сделку до следующего этапа.'}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <div className='ct-priority-actions'>
                   <Link href={`/platform-v7/deals/${deal.id}`} style={btn()}>Открыть</Link>
                   {deal.status === 'release_requested' ? <Link href="/platform-v7/bank" style={btn('primary')}>Release</Link> : null}
                   {integration.gateState !== 'PASS' ? <Link href="/platform-v7/connectors" style={btn('danger')}>Gate</Link> : null}
@@ -132,7 +163,8 @@ export default function PlatformV7ControlTowerPage() {
           </section>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }
 
