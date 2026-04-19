@@ -14,6 +14,15 @@ interface CommandItem {
   keywords: string;
 }
 
+interface RecentItem {
+  id: string;
+  title: string;
+  href: string;
+  subtitle: string;
+}
+
+const HISTORY_KEY = 'pc-command-history';
+
 const SECTION_ITEMS: CommandItem[] = [
   { id: 'sec-control', group: 'Разделы', title: 'Control Tower', subtitle: 'Дашборд оператора · KPI и приоритеты', href: '/platform-v7/control-tower', keywords: 'control tower оператор kpi' },
   { id: 'sec-deals', group: 'Разделы', title: 'Все сделки', subtitle: 'Реестр сделок с фильтрами по статусу и риску', href: '/platform-v7/deals', keywords: 'сделки deals реестр' },
@@ -55,10 +64,30 @@ function buildIndex(): CommandItem[] {
   return [...SECTION_ITEMS, ...dealItems, ...lotItems, ...disputeItems];
 }
 
+function readRecentItems(): RecentItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as RecentItem[];
+    return Array.isArray(parsed) ? parsed.slice(0, 6) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentItem(item: CommandItem) {
+  if (typeof window === 'undefined') return;
+  const current = readRecentItems().filter((entry) => entry.href !== item.href);
+  const next: RecentItem[] = [{ id: item.id, href: item.href, title: item.title, subtitle: item.subtitle }, ...current].slice(0, 6);
+  window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+}
+
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const [query, setQuery] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState(0);
+  const [recentItems, setRecentItems] = React.useState<RecentItem[]>([]);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const index = React.useMemo(() => buildIndex(), []);
@@ -70,10 +99,23 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       .slice(0, 24);
   }, [index, query]);
 
+  const groups = React.useMemo(() => filtered.reduce<Record<string, CommandItem[]>>((acc, item) => {
+    (acc[item.group] ||= []).push(item);
+    return acc;
+  }, {}), [filtered]);
+
+  const selectItem = React.useCallback((item: CommandItem) => {
+    writeRecentItem(item);
+    setRecentItems(readRecentItems());
+    router.push(item.href);
+    onClose();
+  }, [onClose, router]);
+
   React.useEffect(() => {
     if (open) {
       setQuery('');
       setActiveIndex(0);
+      setRecentItems(readRecentItems());
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
@@ -101,22 +143,14 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       if (event.key === 'Enter') {
         event.preventDefault();
         const target = filtered[activeIndex];
-        if (target) {
-          router.push(target.href);
-          onClose();
-        }
+        if (target) selectItem(target);
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, filtered, activeIndex, onClose, router]);
+  }, [open, filtered, activeIndex, onClose, selectItem]);
 
   if (!open) return null;
-
-  const groups = filtered.reduce<Record<string, CommandItem[]>>((acc, item) => {
-    (acc[item.group] ||= []).push(item);
-    return acc;
-  }, {});
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Поиск по платформе" style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,20,25,0.42)', display: 'grid', placeItems: 'start center', padding: '12vh 16px 16px' }}>
@@ -135,6 +169,18 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         </div>
 
         <div style={{ overflowY: 'auto', padding: 8 }}>
+          {!query.trim() && recentItems.length > 0 ? (
+            <div style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
+              <div style={{ padding: '6px 10px', fontSize: 11, fontWeight: 800, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Недавние переходы</div>
+              {recentItems.map((item) => (
+                <button key={item.id} onClick={() => { router.push(item.href); onClose(); }} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA', cursor: 'pointer', display: 'grid', gap: 2 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{item.title}</div>
+                  <div style={{ fontSize: 11, color: '#6B778C' }}>{item.subtitle}</div>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           {filtered.length === 0 ? (
             <div style={{ padding: 28, textAlign: 'center', color: '#6B778C', fontSize: 13 }}>
               Ничего не найдено. Попробуйте ID сделки (DL-9102), номер лота (LOT-2403) или название раздела.
@@ -150,7 +196,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     <button
                       key={item.id}
                       onMouseEnter={() => setActiveIndex(flatIndex)}
-                      onClick={() => { router.push(item.href); onClose(); }}
+                      onClick={() => selectItem(item)}
                       style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, background: isActive ? 'rgba(10,122,95,0.08)' : 'transparent', border: isActive ? '1px solid rgba(10,122,95,0.16)' : '1px solid transparent', cursor: 'pointer', display: 'grid', gap: 2 }}
                     >
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{item.title}</div>
