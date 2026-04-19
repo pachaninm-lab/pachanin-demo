@@ -17,6 +17,23 @@ function describeReason(code: string) {
   }
 }
 
+function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?: string | null; reasonCodes: string[]; blockers: string[] }) {
+  const reasons = [...args.reasonCodes, ...args.blockers];
+  if ((args.status === 'quality_disputed' || reasons.includes('DISPUTE_OPEN') || reasons.includes('QUALITY_DISPUTE') || reasons.includes('dispute')) && args.disputeId) {
+    return { href: `/platform-v7/disputes/${args.disputeId}`, label: 'Открыть спор' };
+  }
+  if (reasons.includes('DOCS_MISSING') || reasons.includes('docs')) {
+    return { href: `/platform-v7/deals/${args.dealId}/documents`, label: 'Открыть документы' };
+  }
+  if (reasons.includes('FGIS_GATE_FAIL') || reasons.includes('ESIA_LINK_MISSING') || reasons.includes('ESIA_REAUTH_REQUIRED') || reasons.includes('SYNC_CONFIRM_REQUIRED')) {
+    return { href: '/platform-v7/connectors', label: 'Открыть интеграции' };
+  }
+  if (args.status === 'release_requested' || reasons.includes('BANK_REVIEW_PENDING') || reasons.includes('bank_confirm')) {
+    return { href: '/platform-v7/bank', label: 'Открыть банк' };
+  }
+  return { href: `/platform-v7/deals/${args.dealId}`, label: 'Открыть сделку' };
+}
+
 export default function PlatformV7ControlTowerPage() {
   const today = new Date('2026-04-19T12:00:00Z');
   const activeDeals = DEALS.filter((d) => d.status !== 'closed');
@@ -42,11 +59,16 @@ export default function PlatformV7ControlTowerPage() {
             ? describeReason(deal.blockers[0])
             : 'Нужно довести сделку до следующего шага';
       const owner = integration.nextOwner ?? (isDispute ? 'Оператор' : '—');
-      const actionHref = isDispute && deal.dispute ? `/platform-v7/disputes/${deal.dispute.id}` : deal.status === 'release_requested' ? '/platform-v7/bank' : `/platform-v7/deals/${deal.id}`;
-      const actionLabel = isDispute ? 'Решить' : deal.status === 'release_requested' ? 'Открыть банк' : 'Открыть';
+      const primaryAction = resolvePrimaryAction({
+        dealId: deal.id,
+        status: deal.status,
+        disputeId: deal.dispute?.id,
+        reasonCodes: integration.reasonCodes,
+        blockers: deal.blockers,
+      });
       const severity = integration.gateState === 'FAIL' || deal.holdAmount > 0 ? 3 : integration.gateState === 'REVIEW' || deal.status === 'release_requested' ? 2 : 1;
       const slaState = deal.slaDeadline ? (new Date(deal.slaDeadline) < today ? 'Просрочено' : (new Date(deal.slaDeadline).getTime() - today.getTime() <= 24 * 60 * 60 * 1000 ? 'Менее 24 часов' : deal.slaDeadline)) : '—';
-      return { deal, integration, amountAtRisk, reason, owner, actionHref, actionLabel, severity, slaState };
+      return { deal, integration, amountAtRisk, reason, owner, primaryAction, severity, slaState };
     })
     .sort((a, b) => b.severity - a.severity || b.amountAtRisk - a.amountAtRisk || b.deal.riskScore - a.deal.riskScore)
     .slice(0, 8);
@@ -126,7 +148,7 @@ export default function PlatformV7ControlTowerPage() {
               </div>
               <div className='ct-queue-actions'>
                 <Link href={`/platform-v7/deals/${item.deal.id}`} style={btn()}>Открыть сделку</Link>
-                <Link href={item.actionHref} style={btn(item.severity === 3 ? 'danger' : 'primary')}>{item.actionLabel}</Link>
+                <Link href={item.primaryAction.href} style={btn(item.severity === 3 ? 'danger' : 'primary')}>{item.primaryAction.label}</Link>
               </div>
             </div>
           ))}
