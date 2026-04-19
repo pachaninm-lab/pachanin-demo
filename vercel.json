@@ -1,5 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "github": {
+    "autoAlias": false
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "*": false
+    }
+  },
   "rewrites": [
     { "source": "/cabinet", "destination": "/canon/roles" },
     { "source": "/analytics", "destination": "/canon/analytics2" },
