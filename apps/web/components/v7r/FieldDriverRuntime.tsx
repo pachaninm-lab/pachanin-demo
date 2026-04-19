@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/v7r/Toast';
 import { useFieldRuntimeStore } from '@/stores/useFieldRuntimeStore';
+import { trackEvent } from '@/lib/analytics/track';
 
 export function FieldDriverRuntime() {
   const toast = useToast();
@@ -49,7 +50,11 @@ export function FieldDriverRuntime() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             disabled={arrived}
-            onClick={() => { confirmArrival(); toast('Прибытие по рейсу подтверждено.', 'success'); }}
+            onClick={() => {
+              confirmArrival();
+              trackEvent('driver_arrived', { tripId: trip.id, dealId: trip.dealId });
+              toast('Прибытие по рейсу подтверждено.', 'success');
+            }}
             style={{ padding: '12px 16px', borderRadius: 12, border: 'none', background: arrived ? '#E4E6EA' : '#0A7A5F', color: arrived ? '#9CA3AF' : '#fff', fontSize: 14, fontWeight: 800, cursor: arrived ? 'default' : 'pointer' }}
           >
             {arrived ? 'Прибытие подтверждено' : 'Подтвердить прибытие'}
