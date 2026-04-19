@@ -11,3 +11,4 @@ test-results/
 var/runtime/
 var/tmp/
 .DS_Store
+package-lock.json
