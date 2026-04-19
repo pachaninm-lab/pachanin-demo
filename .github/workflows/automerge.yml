@@ -1,11 +1,16 @@
-name: Auto-merge labeled PRs
+name: Repo automations
+
 on:
   pull_request:
     types: [labeled, unlabeled, synchronize, opened, reopened]
+  push:
+    branches:
+      - main
+
 jobs:
   automerge:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.state == 'open'
+    if: github.event_name == 'pull_request' && github.event.pull_request.state == 'open'
     steps:
       - uses: actions/checkout@v4
       - uses: pascalgn/automerge-action@v0.16.4
@@ -14,3 +19,47 @@ jobs:
           MERGE_METHOD: squash
           REQUIRE_BRANCH_UP_TO_DATE: 'true'
           LABELS: automerge
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Check Vercel token
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "VERCEL_TOKEN secret is missing"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull production settings
+        working-directory: apps/web
+        env:
+          VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
+          VERCEL_PROJECT_ID: prj_B6IuQnfGGqWejQYgcJypeAzDhM9k
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build production bundle
+        working-directory: apps/web
+        env:
+          VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
+          VERCEL_PROJECT_ID: prj_B6IuQnfGGqWejQYgcJypeAzDhM9k
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to production
+        working-directory: apps/web
+        env:
+          VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
+          VERCEL_PROJECT_ID: prj_B6IuQnfGGqWejQYgcJypeAzDhM9k
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
