@@ -11,7 +11,7 @@ interface RelatedChip {
   label: string;
   value: string;
   href: string;
-  tone: 'lot' | 'route' | 'reception' | 'lab' | 'bank' | 'dispute';
+  tone: 'lot' | 'route' | 'reception' | 'lab' | 'bank' | 'dispute' | 'docs';
 }
 
 const CHIP_TONES: Record<RelatedChip['tone'], { bg: string; border: string; color: string }> = {
@@ -21,6 +21,7 @@ const CHIP_TONES: Record<RelatedChip['tone'], { bg: string; border: string; colo
   lab: { bg: 'rgba(147,51,234,0.08)', border: 'rgba(147,51,234,0.18)', color: '#7E22CE' },
   bank: { bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.18)', color: '#15803D' },
   dispute: { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' },
+  docs: { bg: 'rgba(71,85,105,0.08)', border: 'rgba(71,85,105,0.18)', color: '#334155' },
 };
 
 interface PipelineStage {
@@ -149,6 +150,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
   if (deal.routeId) related.push({ label: 'Маршрут', value: deal.routeId, href: '/platform-v7/logistics', tone: 'route' });
   related.push({ label: 'Приёмка', value: 'Элеватор', href: '/platform-v7/elevator', tone: 'reception' });
   related.push({ label: 'Лаборатория', value: 'Пробы', href: '/platform-v7/lab', tone: 'lab' });
+  related.push({ label: 'Документы', value: 'Досье', href: `/platform-v7/deals/${deal.id}/documents`, tone: 'docs' });
   related.push({ label: 'Банк', value: bankCallback ? bankCallback.id : 'Контур', href: '/platform-v7/bank', tone: 'bank' });
   if (dispute) related.push({ label: 'Спор', value: dispute.id, href: `/platform-v7/disputes/${dispute.id}`, tone: 'dispute' });
 
@@ -234,6 +236,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
             </div>
             <div className="hero-actions">
               <Link href="/platform-v7/deals" className="btn btn-secondary">Все сделки</Link>
+              <Link href={`/platform-v7/deals/${deal.id}/documents`} className="btn btn-secondary">Документы</Link>
               <Link href={primaryAction.href} className="btn btn-primary">{primaryAction.label}</Link>
             </div>
           </div>
