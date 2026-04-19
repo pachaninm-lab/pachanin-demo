@@ -1,5 +1,5 @@
-import { CatchAllPage } from '@/components/v7r/CatchAllPage';
+import { ComplianceRuntime } from '@/components/v7r/ComplianceRuntime';
 
-export default function PlatformV7ControlTowerPage() {
-  return <CatchAllPage />;
+export default function CompliancePage() {
+  return <ComplianceRuntime />;
 }
