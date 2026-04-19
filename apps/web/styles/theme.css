@@ -1,0 +1,57 @@
+/* ─── Light theme (default) ─────────────────────────────────────── */
+:root,
+:root[data-theme="light"] {
+  --pc-bg:           #F7FAFB;
+  --pc-bg-card:      #FFFFFF;
+  --pc-bg-subtle:    #F8FAFB;
+  --pc-bg-header:    rgba(255,255,255,0.94);
+  --pc-text-primary: #0F1419;
+  --pc-text-secondary: #475569;
+  --pc-text-muted:   #6B778C;
+  --pc-border:       #E4E6EA;
+  --pc-border-light: #F1F3F5;
+  --pc-accent:       #0A7A5F;
+  --pc-accent-bg:    rgba(10,122,95,0.08);
+  --pc-accent-border: rgba(10,122,95,0.18);
+  --pc-danger:       #B91C1C;
+  --pc-danger-bg:    rgba(220,38,38,0.08);
+  --pc-warning:      #B45309;
+  --pc-warning-bg:   rgba(217,119,6,0.08);
+  --pc-info:         #2563EB;
+  --pc-info-bg:      rgba(37,99,235,0.08);
+  --pc-shadow:       0 16px 40px rgba(9,30,66,0.14);
+}
+
+/* ─── Dark theme ─────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --pc-bg:           #0B1118;
+  --pc-bg-card:      #151C25;
+  --pc-bg-subtle:    #1A2230;
+  --pc-bg-header:    rgba(21,28,37,0.96);
+  --pc-text-primary: #E5E9EF;
+  --pc-text-secondary: #94A3B8;
+  --pc-text-muted:   #64748B;
+  --pc-border:       #1F2937;
+  --pc-border-light: #1A2433;
+  --pc-accent:       #14B38D;
+  --pc-accent-bg:    rgba(20,179,141,0.12);
+  --pc-accent-border: rgba(20,179,141,0.24);
+  --pc-danger:       #F87171;
+  --pc-danger-bg:    rgba(248,113,113,0.12);
+  --pc-warning:      #FBBF24;
+  --pc-warning-bg:   rgba(251,191,36,0.12);
+  --pc-info:         #60A5FA;
+  --pc-info-bg:      rgba(96,165,250,0.12);
+  --pc-shadow:       0 16px 40px rgba(0,0,0,0.5);
+}
+
+/* ─── Base resets with theme tokens ─────────────────────────────── */
+body {
+  background: var(--pc-bg);
+  color: var(--pc-text-primary);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* ─── Scrollbar (dark mode) ──────────────────────────────────────── */
+:root[data-theme="dark"] ::-webkit-scrollbar-track { background: var(--pc-bg-card); }
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--pc-border); border-radius: 4px; }
