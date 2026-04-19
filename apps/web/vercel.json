@@ -1,7 +1,17 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "npm install --legacy-peer-deps",
+  "github": {
+    "autoAlias": false
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "*": false
+    }
+  },
   "env": {
     "NEXT_PUBLIC_RUN_MODE": "demo"
   },
