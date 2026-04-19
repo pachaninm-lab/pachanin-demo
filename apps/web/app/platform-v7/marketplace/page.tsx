@@ -1,5 +1,5 @@
-import { SellerLotsRuntimeV2 } from '@/components/v7r/SellerLotsRuntimeV2';
+import { redirect } from 'next/navigation';
 
 export default function PlatformV7MarketplaceAliasPage() {
-  return <SellerLotsRuntimeV2 />;
+  redirect('/platform-v7/lots');
 }
