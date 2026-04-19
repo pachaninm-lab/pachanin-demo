@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -104,7 +105,7 @@ const ROLE_CARDS: Array<{
     role: 'executive',
     title: 'Руководитель / наблюдатель',
     subtitle: 'Сводка по обороту, спорности, SLA и зрелости контуров.',
-    href: '/platform-v7/analytics',
+    href: '/platform-v7/executive',
     nextStep: 'Открыть сводную панель.',
     stage: 'role-sim',
   },
@@ -140,13 +141,16 @@ export function PlatformRolesHub() {
         {ROLE_CARDS.map((item) => {
           const badge = stageBadge(item.stage);
           return (
-            <button
+            <Link
               key={item.role}
-              onClick={() => {
+              href={item.href}
+              onClick={(e) => {
+                e.preventDefault();
                 setRole(item.role);
                 router.push(item.href);
               }}
               style={{
+                textDecoration: 'none',
                 textAlign: 'left',
                 background: '#fff',
                 border: '1px solid #E4E6EA',
@@ -168,7 +172,7 @@ export function PlatformRolesHub() {
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 6 }}>{item.nextStep}</div>
                 <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(10,122,95,0.16)', background: 'rgba(10,122,95,0.08)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Открыть кабинет</div>
               </div>
-            </button>
+            </Link>
           );
         })}
       </section>

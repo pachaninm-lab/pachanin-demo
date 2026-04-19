@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { translateReason, translateRole } from '@/lib/i18n/reason-codes';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import {
   connectors,
@@ -155,7 +156,7 @@ export function GateResultPanel({
         <div style={{ fontSize: 12, color: '#6B778C' }}>Следующий шаг</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{nextStep ?? '—'}</div>
         <div style={{ fontSize: 12, color: '#6B778C' }}>Следующий владелец</div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{nextOwner ?? '—'}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{nextOwner ? translateRole(nextOwner) : '—'}</div>
       </div>
     </section>
   );
@@ -205,11 +206,11 @@ export function SyncQueueTable({ items }: { items: QueueEntry[] }) {
           </div>
           <div>
             <div style={{ fontSize: 11, color: '#6B778C' }}>Причины</div>
-            <div style={{ fontSize: 12, color: '#475569' }}>{item.reasonCodes.join(', ')}</div>
+            <div style={{ fontSize: 12, color: '#475569' }}>{item.reasonCodes.map(translateReason).join(', ') || '—'}</div>
           </div>
           <div>
             <div style={{ fontSize: 11, color: '#6B778C' }}>Владелец</div>
-            <div style={{ fontSize: 13, fontWeight: 700 }}>{item.owner}</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{translateRole(item.owner)}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Button label='Повторить' tone='warning' />

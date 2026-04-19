@@ -17,7 +17,7 @@ const ROLE_STAGE: Record<PlatformRole, { label: string; tone: 'pilot' | 'demo' |
 };
 
 const ROLE_ROUTES: Record<PlatformRole, string> = {
-  operator: '/platform-v7/control-tower', buyer: '/platform-v7/buyer', seller: '/platform-v7/seller', logistics: '/platform-v7/logistics', driver: '/platform-v7/driver', surveyor: '/platform-v7/surveyor', elevator: '/platform-v7/elevator', lab: '/platform-v7/lab', bank: '/platform-v7/bank', arbitrator: '/platform-v7/arbitrator', compliance: '/platform-v7/compliance', executive: '/platform-v7/analytics',
+  operator: '/platform-v7/control-tower', buyer: '/platform-v7/buyer', seller: '/platform-v7/seller', logistics: '/platform-v7/logistics', driver: '/platform-v7/driver', surveyor: '/platform-v7/surveyor', elevator: '/platform-v7/elevator', lab: '/platform-v7/lab', bank: '/platform-v7/bank', arbitrator: '/platform-v7/arbitrator', compliance: '/platform-v7/compliance', executive: '/platform-v7/executive',
 };
 
 const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string }>> = {
@@ -32,11 +32,11 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string }>> 
   bank: [{ href: '/platform-v7/bank', label: 'Банковый контур' }, { href: '/platform-v7/deals', label: 'Сделки' }, { href: '/platform-v7/disputes', label: 'Удержания' }],
   arbitrator: [{ href: '/platform-v7/arbitrator', label: 'Разбор' }, { href: '/platform-v7/disputes', label: 'Споры' }],
   compliance: [{ href: '/platform-v7/compliance', label: 'Допуск' }, { href: '/platform-v7/connectors', label: 'Интеграции' }, { href: '/platform-v7/deals', label: 'Сделки' }],
-  executive: [{ href: '/platform-v7/analytics', label: 'Сводка' }, { href: '/platform-v7/control-tower', label: 'Control Tower' }, { href: '/platform-v7/bank', label: 'Деньги' }],
+  executive: [{ href: '/platform-v7/executive', label: 'Сводка' }, { href: '/platform-v7/control-tower', label: 'Control Tower' }, { href: '/platform-v7/bank', label: 'Деньги' }],
 };
 
 const CRUMB_LABELS: Record<string, string> = {
-  'platform-v7': 'Прозрачная Цена', 'control-tower': 'Control Tower', deals: 'Сделки', lots: 'Лоты', create: 'Создание', buyer: 'Покупатель', seller: 'Продавец', logistics: 'Логистика', field: 'Поле и приёмка', bank: 'Банк', disputes: 'Споры', compliance: 'Комплаенс', analytics: 'Сводка', procurement: 'Закупки', driver: 'Водитель', surveyor: 'Сюрвейер', elevator: 'Элеватор', lab: 'Лаборатория', arbitrator: 'Арбитр', connectors: 'Интеграции', investor: 'Инвестор', demo: 'Демо'
+  'platform-v7': 'Прозрачная Цена', 'control-tower': 'Control Tower', deals: 'Сделки', lots: 'Лоты', create: 'Создание', buyer: 'Покупатель', seller: 'Продавец', logistics: 'Логистика', field: 'Поле и приёмка', bank: 'Банк', disputes: 'Споры', compliance: 'Комплаенс', analytics: 'Сводка', executive: 'Сводка', procurement: 'Закупки', driver: 'Водитель', surveyor: 'Сюрвейер', elevator: 'Элеватор', lab: 'Лаборатория', arbitrator: 'Арбитр', connectors: 'Интеграции', investor: 'Инвестор', demo: 'Демо'
 };
 
 function stageColors(tone: 'pilot' | 'demo' | 'field') {
@@ -62,7 +62,7 @@ function inferRoleFromPath(pathname: string, currentRole: PlatformRole): Platfor
   if (pathname.startsWith('/platform-v7/bank')) return 'bank';
   if (pathname.startsWith('/platform-v7/arbitrator')) return 'arbitrator';
   if (pathname.startsWith('/platform-v7/compliance')) return 'compliance';
-  if (pathname.startsWith('/platform-v7/analytics')) return 'executive';
+  if (pathname.startsWith('/platform-v7/analytics') || pathname.startsWith('/platform-v7/executive')) return 'executive';
   return currentRole;
 }
 
@@ -85,10 +85,16 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { role, setRole, clearRoleSelection } = usePlatformV7RStore();
+  const [mounted, setMounted] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
+
+  React.useEffect(() => {
+    usePlatformV7RStore.persist.rehydrate();
+    setMounted(true);
+  }, []);
 
   React.useEffect(() => {
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem('pc-theme') : null;
@@ -99,13 +105,10 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
   }, []);
 
   React.useEffect(() => {
-    usePlatformV7RStore.persist.rehydrate();
-  }, []);
-
-  React.useEffect(() => {
+    if (!mounted) return;
     const inferred = inferRoleFromPath(pathname, role);
     if (inferred !== role) setRole(inferred);
-  }, [pathname, role, setRole]);
+  }, [pathname, role, setRole, mounted]);
 
   const toggleTheme = React.useCallback(() => {
     setTheme((prev) => {
@@ -119,8 +122,10 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const items = NAV_BY_ROLE[role];
-  const stage = ROLE_STAGE[role];
+  // Use 'operator' (default) until client-side store is rehydrated to avoid hydration mismatch
+  const displayRole: PlatformRole = mounted ? role : 'operator';
+  const items = NAV_BY_ROLE[displayRole];
+  const stage = ROLE_STAGE[displayRole];
   const stageTone = stageColors(stage.tone);
   const crumbs = breadcrumbs(pathname);
   const statuses = systemStatus(pathname);
@@ -186,7 +191,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
           <div style={{ marginTop: 14, padding: 12, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
             <div style={{ fontSize: 11, color: '#6B778C' }}>Текущий кабинет</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 6, alignItems: 'center' }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#0F1419' }}>{ROLE_LABELS[role]}</div>
+              <div suppressHydrationWarning style={{ fontSize: 15, fontWeight: 800, color: '#0F1419' }}>{ROLE_LABELS[displayRole]}</div>
               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: stageTone.bg, border: `1px solid ${stageTone.border}`, color: stageTone.color, fontSize: 10, fontWeight: 800 }}>{stage.label}</span>
             </div>
           </div>
@@ -256,10 +261,10 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
               <button onClick={toggleTheme} aria-label={theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'} title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 10, padding: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}>
                 {theme === 'dark' ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
               </button>
-              <button className='pc-mobile-role' type='button' onClick={() => setSidebarOpen(true)} aria-label={`Текущая роль: ${ROLE_LABELS[role]}. Открыть меню роли`}>
-                {ROLE_LABELS[role]}
+              <button suppressHydrationWarning className='pc-mobile-role' type='button' onClick={() => setSidebarOpen(true)} aria-label={`Текущая роль: ${ROLE_LABELS[displayRole]}. Открыть меню роли`}>
+                {ROLE_LABELS[displayRole]}
               </button>
-              <select value={role} onChange={(event) => { const nextRole = event.target.value as PlatformRole; setRole(nextRole); router.push(ROLE_ROUTES[nextRole]); }} style={{ minWidth: 150, border: '1px solid #E4E6EA', borderRadius: 10, padding: '8px 12px', fontSize: 13, background: '#FFFFFF', fontWeight: 600 }}>
+              <select suppressHydrationWarning value={displayRole} onChange={(event) => { const nextRole = event.target.value as PlatformRole; setRole(nextRole); router.push(ROLE_ROUTES[nextRole]); }} style={{ minWidth: 150, border: '1px solid #E4E6EA', borderRadius: 10, padding: '8px 12px', fontSize: 13, background: '#FFFFFF', fontWeight: 600 }}>
                 {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </div>
@@ -268,9 +273,9 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
         <main style={{ padding: 16, maxWidth: 1360, margin: '0 auto', overflowX: 'hidden' }}>
           {showBanner ? (
             <div role='status' aria-live='polite' className='pc-role-banner'>
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: stageTone.bg, border: `1px solid ${stageTone.border}`, color: stageTone.color, fontSize: 10, fontWeight: 800 }}>{stage.label}</span>
-              <span style={{ minWidth: 0, wordBreak: 'break-word' }}>Вы на роли <strong style={{ color: '#0F1419' }}>{ROLE_LABELS[role]}</strong>. Переключитесь в меню, если нужен другой рабочий контекст.</span>
-              <Link href={ROLE_ROUTES[role]} style={{ marginLeft: 'auto', textDecoration: 'none', color: '#0A7A5F', fontWeight: 700, fontSize: 12 }}>Главная роли →</Link>
+              <span suppressHydrationWarning style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: stageTone.bg, border: `1px solid ${stageTone.border}`, color: stageTone.color, fontSize: 10, fontWeight: 800 }}>{stage.label}</span>
+              <span suppressHydrationWarning style={{ minWidth: 0, wordBreak: 'break-word' }}>Вы на роли <strong style={{ color: '#0F1419' }}>{ROLE_LABELS[displayRole]}</strong>. Переключитесь в меню, если нужен другой рабочий контекст.</span>
+              <Link suppressHydrationWarning href={ROLE_ROUTES[displayRole]} style={{ marginLeft: 'auto', textDecoration: 'none', color: '#0A7A5F', fontWeight: 700, fontSize: 12 }}>Главная роли →</Link>
             </div>
           ) : null}
           {children}

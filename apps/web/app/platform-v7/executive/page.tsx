@@ -1,1 +1,1 @@
-export { default } from '@/app/platform-v7/analytics/page';
+export { default } from '@/app/platform-v7r/analytics/page';

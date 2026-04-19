@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { DISPUTES } from '@/lib/v7r/data';
 import { formatMoney } from '@/lib/v7r/helpers';
+import { translateRole } from '@/lib/i18n/reason-codes';
 import { useToast } from '@/components/v7r/Toast';
 import { useBuyerRuntimeStore } from '@/stores/useBuyerRuntimeStore';
 
@@ -82,7 +83,7 @@ function DisputeCard({
       <div style={{ padding: 14, borderRadius: 14, background: 'rgba(10,122,95,0.05)', border: '1px solid rgba(10,122,95,0.14)', display: 'grid', gap: 6 }}>
         <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
         <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{nextStep}</div>
-        <div style={{ fontSize: 12, color: '#6B778C' }}>Следующий владелец: {nextOwner}</div>
+        <div style={{ fontSize: 12, color: '#6B778C' }}>Следующий владелец: {translateRole(nextOwner)}</div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

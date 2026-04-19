@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CALLBACKS, DISPUTES, getDealById, getDealIntegrationState, type DealStatus, type IntegrationGateState } from '@/lib/v7r/data';
 import { formatCompactMoney, formatMoney, statusLabel } from '@/lib/v7r/helpers';
+import { translateRole, translateStatus } from '@/lib/i18n/reason-codes';
 import { RiskBadge } from '@/components/v7r/RiskBadge';
 import { DocumentsDropzone } from '@/components/v7r/DocumentsDropzone';
 
@@ -244,7 +245,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
             <SummaryCard title="Удержано" value={formatCompactMoney(deal.holdAmount)} note={deal.holdAmount ? 'Деньги заморожены до закрытия причины.' : 'Замороженной суммы нет.'} />
             <SummaryCard title="К выпуску" value={formatCompactMoney(releasableAmount)} note={integration.gateState === 'FAIL' ? 'Пока выпуск заблокирован.' : integration.gateState === 'REVIEW' ? 'Нужна ручная проверка.' : 'Можно выпускать после закрытия блокеров.'} />
             <SummaryCard title="Резерв" value={formatCompactMoney(deal.reservedAmount)} note="Деньги подтверждены в банковом контуре." />
-            <SummaryCard title="Следующий владелец" value={integration.nextOwner ?? '—'} note={integration.nextStep ?? 'Следующее действие не определено.'} />
+            <SummaryCard title="Следующий владелец" value={integration.nextOwner ? translateRole(integration.nextOwner) : '—'} note={integration.nextStep ?? 'Следующее действие не определено.'} />
           </div>
         </section>
 
@@ -258,9 +259,6 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
               <div className="action-meta">
                 <div><strong>Что мешает сейчас:</strong> {blockerTexts.join(' · ') || 'Критичных блокеров нет'}</div>
                 <div><strong>После выполнения:</strong> будет доступно к выпуску {formatMoney(releasableAmount)}</div>
-              </div>
-              <div className="hero-actions" style={{ marginTop: 0 }}>
-                <Link href={primaryAction.href} className="btn btn-primary">{primaryAction.label}</Link>
               </div>
             </section>
 
@@ -331,13 +329,13 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
             <section className="surface owner-card">
               <div>
                 <div className="eyebrow">Следующий владелец</div>
-                <div className="owner-value">{integration.nextOwner ?? '—'}</div>
+                <div className="owner-value">{integration.nextOwner ? translateRole(integration.nextOwner) : '—'}</div>
                 <div className="owner-note">{integration.nextStep ?? 'Действие не определено.'}</div>
               </div>
               <div className="mini-grid">
                 <MiniCell label="Источник" value={integration.sourceType === 'FGIS' ? 'ФГИС' : 'Ручной контур'} note={integration.sourceReference ?? 'Без номера партии'} />
-                <MiniCell label="ФГИС" value={integration.fgisState} note="Статус регуляторного контура" />
-                <MiniCell label="ЕСИА" value={integration.esiaState} note="Статус связки учётной записи" />
+                <MiniCell label="ФГИС" value={translateStatus(integration.fgisState)} note="Статус регуляторного контура" />
+                <MiniCell label="ЕСИА" value={translateStatus(integration.esiaState)} note="Статус связки учётной записи" />
                 <MiniCell label="Риск" value={String(deal.riskScore)} note="Суммарный риск сделки" />
               </div>
               <div className="badge-row" style={{ marginTop: 0 }}>
@@ -378,7 +376,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
                   <div className="timeline-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                       <div style={{ fontWeight: 800, color: '#0F1419', wordBreak: 'break-word' }}>{event.action}</div>
-                      <div style={{ fontSize: 12, color: '#6B778C' }}>{new Date(event.ts).toLocaleString('ru-RU')}</div>
+                      <div suppressHydrationWarning style={{ fontSize: 12, color: '#6B778C' }}>{new Date(event.ts).toLocaleString('ru-RU')}</div>
                     </div>
                     <div style={{ marginTop: 6, fontSize: 13, color: '#6B778C', wordBreak: 'break-word' }}>{event.actor}</div>
                   </div>
@@ -408,7 +406,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
                 <div style={{ fontSize: 14, color: '#991B1B', fontWeight: 800, wordBreak: 'break-word' }}>{dispute.id} · {dispute.title}</div>
                 <div style={{ fontSize: 13, color: '#7F1D1D', lineHeight: 1.45, wordBreak: 'break-word' }}>{dispute.description}</div>
                 <div>
-                  <Link href={`/platform-v7/disputes/${dispute.id}`} className="btn btn-secondary" style={{ borderColor: '#FECACA', color: '#991B1B', width: '100%' }}>Открыть спор</Link>
+                  <Link href={`/platform-v7/disputes/${dispute.id}`} style={{ color: '#991B1B', fontWeight: 700, fontSize: 13, textDecoration: 'underline' }}>Подробнее →</Link>
                 </div>
               </div>
             ) : null}

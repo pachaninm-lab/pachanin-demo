@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { formatCompactMoney, formatMoney } from '@/lib/v7r/helpers';
+import { translateReason, translateRole } from '@/lib/i18n/reason-codes';
 
 type GateState = 'PASS' | 'REVIEW' | 'FAIL';
 
@@ -106,9 +107,9 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                <InfoCell label='Причины' value={item.reasonCodes.length ? item.reasonCodes.join(' · ') : '—'} />
+                <InfoCell label='Причины' value={item.reasonCodes.length ? item.reasonCodes.map(translateReason).join(' · ') : '—'} />
                 <InfoCell label='Следующий шаг' value={item.nextStep ?? '—'} />
-                <InfoCell label='Следующий владелец' value={item.nextOwner ?? '—'} />
+                <InfoCell label='Следующий владелец' value={item.nextOwner ? translateRole(item.nextOwner) : '—'} />
                 <InfoCell label='Потенциальный release' value={formatCompactMoney(item.releasableAmount)} />
               </div>
 
