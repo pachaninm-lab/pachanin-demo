@@ -4,6 +4,7 @@ import { AppShellV3 as AppShellV2 } from '@/components/v7r/AppShellV3';
 import { ToastProvider } from '@/components/v7r/Toast';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
+import '@/styles/theme.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',

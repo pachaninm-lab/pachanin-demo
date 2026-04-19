@@ -61,7 +61,7 @@ function MobileDealCard({ item, selected, onToggle }: { item: Deal; selected: bo
         <Badge tone={toneByDealStatus(item)}>{statusLabel(item.status)}</Badge>
       </div>
 
-      <Link href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'grid', gap: 12 }}>
+      <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'grid', gap: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>
           <InfoCell label='Лот' value={item.lotId ?? '—'} />
           <InfoCell label='Маршрут' value={item.routeId ?? '—'} />
@@ -298,7 +298,7 @@ export function DealsOverviewRuntime() {
                     <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.blockers.length ? item.blockers.join(' · ') : 'Блокеров нет'}</div>
                   </td>
                   <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
-                    <Link href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700 }}>Открыть</Link>
+                    <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700 }}>Открыть</Link>
                   </td>
                 </tr>
               ))}

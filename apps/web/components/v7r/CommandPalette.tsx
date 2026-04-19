@@ -17,11 +17,11 @@ interface CommandItem {
 const SECTION_ITEMS: CommandItem[] = [
   { id: 'sec-control', group: 'Разделы', title: 'Control Tower', subtitle: 'Дашборд оператора · KPI и приоритеты', href: '/platform-v7/control-tower', keywords: 'control tower оператор kpi' },
   { id: 'sec-deals', group: 'Разделы', title: 'Все сделки', subtitle: 'Реестр сделок с фильтрами по статусу и риску', href: '/platform-v7/deals', keywords: 'сделки deals реестр' },
-  { id: 'sec-marketplace', group: 'Разделы', title: 'Витрина лотов', subtitle: '15+ лотов по культуре и региону', href: '/platform-v7/marketplace', keywords: 'витрина лоты marketplace маркетплейс' },
+  { id: 'sec-marketplace', group: 'Разделы', title: 'Витрина лотов', subtitle: '15+ лотов по культуре и региону', href: '/platform-v7/lots', keywords: 'витрина лоты marketplace маркетплейс' },
   { id: 'sec-bank', group: 'Разделы', title: 'Банковый контур', subtitle: 'Резервы, hold, callbacks, release', href: '/platform-v7/bank', keywords: 'банк bank деньги резерв release' },
   { id: 'sec-disputes', group: 'Разделы', title: 'Споры', subtitle: 'Открытые споры и удержания', href: '/platform-v7/disputes', keywords: 'споры disputes удержания hold' },
   { id: 'sec-logistics', group: 'Разделы', title: 'Логистика', subtitle: 'Маршруты, ETA, отклонения', href: '/platform-v7/logistics', keywords: 'логистика маршруты gps eta' },
-  { id: 'sec-integrations', group: 'Разделы', title: 'Интеграции', subtitle: 'ФГИС, СберБизнес, СПАРК, лаборатории', href: '/platform-v7/integrations', keywords: 'интеграции connectors fgis sber spark' },
+  { id: 'sec-integrations', group: 'Разделы', title: 'Интеграции', subtitle: 'ФГИС, СберБизнес, СПАРК, лаборатории', href: '/platform-v7/connectors', keywords: 'интеграции connectors fgis sber spark' },
   { id: 'sec-operator', group: 'Разделы', title: 'Кабинет оператора', subtitle: 'Очереди, callbacks, ручные действия', href: '/platform-v7/operator', keywords: 'оператор operator queues очереди' },
   { id: 'sec-investor', group: 'Разделы', title: 'Инвестор', subtitle: 'Презентационный режим, портфель сделок', href: '/platform-v7/investor', keywords: 'инвестор investor портфель' },
   { id: 'sec-roles', group: 'Разделы', title: 'Все роли', subtitle: 'Сменить активную роль', href: '/platform-v7/roles', keywords: 'роли roles смена кабинет' },
@@ -41,7 +41,7 @@ function buildIndex(): CommandItem[] {
     group: 'Лоты' as const,
     title: `${lot.id} · ${lot.title}`,
     subtitle: `${lot.grain} · ${lot.volumeTons} т · ${lot.sourceType}`,
-    href: `/platform-v7/lot/${lot.id}`,
+    href: `/platform-v7/lots/${lot.id}`,
     keywords: `${lot.id} ${lot.title} ${lot.grain} ${lot.sourceType}`.toLowerCase(),
   }));
   const disputeItems: CommandItem[] = DISPUTES.map((d) => ({
