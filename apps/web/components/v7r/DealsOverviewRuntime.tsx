@@ -111,12 +111,34 @@ export function DealsOverviewRuntime() {
   const [search, setSearch] = React.useState('');
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [bulkToast, setBulkToast] = React.useState<string | null>(null);
+  const [viewPreset, setViewPreset] = React.useState<'all' | 'disputes' | 'risk' | 'transit'>('all');
+  const [density, setDensity] = React.useState<'compact' | 'comfortable'>('comfortable');
 
   React.useEffect(() => {
     if (!bulkToast) return;
     const t = setTimeout(() => setBulkToast(null), 3500);
     return () => clearTimeout(t);
   }, [bulkToast]);
+
+  React.useEffect(() => {
+    if (viewPreset === 'disputes') {
+      setStatusFilter('quality_disputed');
+      setRiskFilter('');
+      return;
+    }
+    if (viewPreset === 'risk') {
+      setStatusFilter('');
+      setRiskFilter('high');
+      return;
+    }
+    if (viewPreset === 'transit') {
+      setStatusFilter('in_transit');
+      setRiskFilter('');
+      return;
+    }
+    setStatusFilter('');
+    setRiskFilter('');
+  }, [viewPreset]);
 
   const toggleRow = (id: string) => {
     setSelected((prev) => {
@@ -142,9 +164,8 @@ export function DealsOverviewRuntime() {
     return statusOk && riskOk && searchOk;
   });
 
-  const orderedDeals = filteredDeals
-    .slice()
-    .sort((a, b) => b.riskScore - a.riskScore || b.reservedAmount - a.reservedAmount);
+  const orderedDeals = filteredDeals.slice().sort((a, b) => b.riskScore - a.riskScore || b.reservedAmount - a.reservedAmount);
+  const rowPadding = density === 'compact' ? '10px 12px' : '14px 16px';
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
@@ -222,22 +243,21 @@ export function DealsOverviewRuntime() {
             <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>Каждая сделка полностью кликабельна. На мобиле внутри карточки уже есть деньги, маршрут, риск, следующий шаг и переход внутрь.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {[
+              { id: 'all', label: 'Все сделки' },
+              { id: 'disputes', label: 'Есть спор' },
+              { id: 'risk', label: 'Высокий риск' },
+              { id: 'transit', label: 'В пути' },
+            ].map((preset) => (
+              <button key={preset.id} onClick={() => setViewPreset(preset.id as typeof viewPreset)} style={{ padding: '8px 12px', borderRadius: 999, border: `1px solid ${viewPreset === preset.id ? 'rgba(10,122,95,0.18)' : '#E4E6EA'}`, background: viewPreset === preset.id ? 'rgba(10,122,95,0.08)' : '#fff', color: viewPreset === preset.id ? '#0A7A5F' : '#475569', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>{preset.label}</button>
+            ))}
+            <div style={{ display: 'inline-flex', gap: 4, padding: 4, borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <button onClick={() => setDensity('comfortable')} style={{ padding: '6px 10px', borderRadius: 999, border: 'none', background: density === 'comfortable' ? '#fff' : 'transparent', color: density === 'comfortable' ? '#0F1419' : '#6B778C', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Подробно</button>
+              <button onClick={() => setDensity('compact')} style={{ padding: '6px 10px', borderRadius: 999, border: 'none', background: density === 'compact' ? '#fff' : 'transparent', color: density === 'compact' ? '#0F1419' : '#6B778C', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Плотно</button>
+            </div>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder='Поиск: DL-9102, Тамбов, Агро-Юг…' aria-label='Поиск по сделкам' style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, minWidth: 220 }} />
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label='Фильтр по статусу' style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12 }}>
-              <option value=''>Все статусы</option>
-              <option value='quality_disputed'>Есть спор</option>
-              <option value='in_transit'>В пути</option>
-              <option value='release_requested'>Ожидает выпуск</option>
-              <option value='docs_complete'>Документы готовы</option>
-            </select>
-            <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} aria-label='Фильтр по риску' style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12 }}>
-              <option value=''>Все риски</option>
-              <option value='high'>Высокий</option>
-              <option value='medium'>Средний</option>
-              <option value='low'>Низкий</option>
-            </select>
-            {search || statusFilter || riskFilter ? (
-              <button onClick={() => { setSearch(''); setStatusFilter(''); setRiskFilter(''); }} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, fontWeight: 700, color: '#6B778C', cursor: 'pointer' }}>Сбросить</button>
+            {search ? (
+              <button onClick={() => setSearch('')} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, fontWeight: 700, color: '#6B778C', cursor: 'pointer' }}>Сбросить</button>
             ) : null}
             <span style={{ fontSize: 11, color: '#6B778C', marginLeft: 'auto' }}>{orderedDeals.length} из {DEALS.length}</span>
           </div>
@@ -250,10 +270,10 @@ export function DealsOverviewRuntime() {
         </div>
 
         <div className='deals-desktop-table' style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1180 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: density === 'compact' ? 1040 : 1180 }}>
             <thead>
               <tr style={{ background: '#F8FAFB', textAlign: 'left' }}>
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid #E4E6EA', width: 44 }}>
+                <th style={{ padding: rowPadding, borderBottom: '1px solid #E4E6EA', width: 44 }}>
                   <input
                     type='checkbox'
                     aria-label='Выбрать все сделки на странице'
@@ -265,39 +285,39 @@ export function DealsOverviewRuntime() {
                   />
                 </th>
                 {['Сделка', 'Лот', 'Маршрут', 'Стороны', 'Сумма', 'Риск', 'Статус', 'Следующий шаг', 'Действие'].map((head) => (
-                  <th key={head} style={{ padding: '12px 16px', borderBottom: '1px solid #E4E6EA', fontSize: 12, color: '#6B778C', fontWeight: 800 }}>{head}</th>
+                  <th key={head} style={{ padding: rowPadding, borderBottom: '1px solid #E4E6EA', fontSize: 12, color: '#6B778C', fontWeight: 800 }}>{head}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {orderedDeals.map((item) => (
                 <tr key={item.id} style={{ borderBottom: '1px solid #E4E6EA', background: selected.has(item.id) ? 'rgba(10,122,95,0.04)' : undefined }}>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <input type='checkbox' aria-label={`Выбрать сделку ${item.id}`} checked={selected.has(item.id)} onChange={() => toggleRow(item.id)} />
                   </td>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
                     <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.grain} · {item.quantity} {item.unit}</div>
                   </td>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ fontWeight: 700, color: '#0F1419' }}>{item.lotId ?? '—'}</div>
                   </td>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ fontWeight: 700, color: '#0F1419' }}>{item.routeId ?? '—'}</div>
                     <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'} {item.routeEta ? `· ETA ${item.routeEta}` : ''}</div>
                   </td>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ fontSize: 13, color: '#0F1419', fontWeight: 700 }}>{item.buyer.name}</div>
                     <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.seller.name}</div>
                   </td>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top', fontWeight: 800, color: '#0F1419' }}>{formatMoney(item.reservedAmount)}</td>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}><Badge tone={riskTone(item.riskScore)}>{item.riskScore}</Badge></td>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}><Badge tone={toneByDealStatus(item)}>{statusLabel(item.status)}</Badge></td>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top', fontWeight: 800, color: '#0F1419' }}>{formatMoney(item.reservedAmount)}</td>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}><Badge tone={riskTone(item.riskScore)}>{item.riskScore}</Badge></td>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}><Badge tone={toneByDealStatus(item)}>{statusLabel(item.status)}</Badge></td>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{nextStepLabel(item)}</div>
                     <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.blockers.length ? item.blockers.join(' · ') : 'Блокеров нет'}</div>
                   </td>
-                  <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700 }}>Открыть</Link>
                   </td>
                 </tr>
