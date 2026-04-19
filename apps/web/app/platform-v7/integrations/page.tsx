@@ -1,5 +1,5 @@
-import { ConnectorsPage } from '@/components/v7r/EsiaFgisRuntime';
+import { redirect } from 'next/navigation';
 
 export default function PlatformV7IntegrationsAliasPage() {
-  return <ConnectorsPage />;
+  redirect('/platform-v7/connectors');
 }
