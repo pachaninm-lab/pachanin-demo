@@ -121,7 +121,7 @@ export function BankRuntime() {
           {CALLBACKS.map((item) => {
             const p = badge(item.status);
             return (
-              <Link key={item.id} href={`/platform-v7/deals/${item.dealId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <Link key={item.id} href={`/platform-v7/bank/events/${item.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, alignItems: 'center' }}>
                     <div style={{ minWidth: 0 }}>

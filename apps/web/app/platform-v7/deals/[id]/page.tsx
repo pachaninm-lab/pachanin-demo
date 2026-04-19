@@ -146,7 +146,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
 
   const related: RelatedChip[] = [];
   if (deal.lotId) related.push({ label: 'Лот', value: deal.lotId, href: `/platform-v7/lot/${deal.lotId}`, tone: 'lot' });
-  if (deal.routeId) related.push({ label: 'Маршрут', value: deal.routeId, href: '/platform-v7/logistics', tone: 'route' });
+  if (deal.routeId) related.push({ label: 'Маршрут', value: deal.routeId, href: `/platform-v7/logistics/${deal.routeId}`, tone: 'route' });
   related.push({ label: 'Приёмка', value: 'Элеватор', href: '/platform-v7/elevator', tone: 'reception' });
   related.push({ label: 'Лаборатория', value: 'Пробы', href: '/platform-v7/lab', tone: 'lab' });
   related.push({ label: 'Банк', value: bankCallback ? bankCallback.id : 'Контур', href: '/platform-v7/bank', tone: 'bank' });

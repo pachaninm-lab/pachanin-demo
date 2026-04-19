@@ -7,6 +7,7 @@ import { formatMoney } from '@/lib/v7r/helpers';
 import { translateRole } from '@/lib/i18n/reason-codes';
 import { useToast } from '@/components/v7r/Toast';
 import { useBuyerRuntimeStore } from '@/stores/useBuyerRuntimeStore';
+import { trackEvent } from '@/lib/analytics/track';
 
 function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
@@ -175,6 +176,14 @@ export function DisputesRuntime() {
             nextOwner={item.ballAt}
             nextStep='Загрузить заключение эксперта и закрыть спор по качеству.'
             actionLabel='Открыть спор'
+            secondaryAction={item.status === 'open' ? (
+              <button
+                onClick={() => { trackEvent('dispute_reminder_sent', { disputeId: item.id }); toast(`Напоминание отправлено контрагенту по ${item.id}`, 'success'); }}
+                style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#2563EB', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+              >
+                Отправить напоминание
+              </button>
+            ) : undefined}
           />
         ))}
       </section>

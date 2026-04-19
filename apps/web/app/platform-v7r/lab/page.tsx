@@ -200,7 +200,7 @@ export default function LabPage() {
               <div style={{ marginTop: 12, padding: 14, borderRadius: 12, background: '#F8FAFB', border: '1px solid #E4E6EA', fontFamily: 'monospace', fontSize: 11, color: '#374151', lineHeight: 1.8 }}>
                 <div style={{ fontWeight: 800, marginBottom: 8 }}>ПРОТОКОЛ ЛАБОРАТОРНОГО АНАЛИЗА — {sample.id}</div>
                 <div>Образец: {sample.cargo} · Сделка: {sample.deal}</div>
-                <div>Получен: {sample.received} | Подписан: {new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div suppressHydrationWarning>Получен: {sample.received} | Подписан: {typeof window !== 'undefined' ? new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
                 {indicators.map(ind => (
                   <div key={ind.field}>{ind.label}: {getProtocol(sample.id)[ind.field] || 'н/д'}% (допуск {ind.threshold})</div>
                 ))}

@@ -22,7 +22,7 @@ const ROLE_ROUTES: Record<PlatformRole, string> = {
 };
 
 const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string }>> = {
-  operator: [{ href: '/platform-v7/control-tower', label: 'Control Tower' }, { href: '/platform-v7/deals', label: 'Сделки' }, { href: '/platform-v7/lots', label: 'Лоты' }, { href: '/platform-v7/logistics', label: 'Логистика' }, { href: '/platform-v7/connectors', label: 'Интеграции' }, { href: '/platform-v7/bank', label: 'Банк' }, { href: '/platform-v7/disputes', label: 'Споры' }],
+  operator: [{ href: '/platform-v7/control-tower', label: 'Control Tower' }, { href: '/platform-v7/deals', label: 'Сделки' }, { href: '/platform-v7/lots', label: 'Лоты' }, { href: '/platform-v7/logistics', label: 'Логистика' }, { href: '/platform-v7/connectors', label: 'Интеграции' }, { href: '/platform-v7/bank', label: 'Банк' }, { href: '/platform-v7/disputes', label: 'Споры' }, { href: '/platform-v7/executive', label: 'Аналитика' }],
   buyer: [{ href: '/platform-v7/buyer', label: 'Кабинет' }, { href: '/platform-v7/procurement', label: 'Закупки' }, { href: '/platform-v7/deals', label: 'Сделки' }, { href: '/platform-v7/bank', label: 'Деньги' }],
   seller: [{ href: '/platform-v7/seller', label: 'Кабинет' }, { href: '/platform-v7/lots', label: 'Лоты' }, { href: '/platform-v7/lots/create', label: 'Создать лот' }, { href: '/platform-v7/deals', label: 'Сделки' }],
   logistics: [{ href: '/platform-v7/logistics', label: 'Диспетчерская' }, { href: '/platform-v7/driver', label: 'Водитель' }, { href: '/platform-v7/elevator', label: 'Приёмка' }, { href: '/platform-v7/lab', label: 'Лаборатория' }],
@@ -306,7 +306,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <main style={{ padding: 16, maxWidth: 1360, margin: '0 auto', overflowX: 'hidden' }}>
+        <main style={{ padding: 16, paddingBottom: 96, maxWidth: 1360, margin: '0 auto', overflowX: 'hidden' }}>
           {showBanner ? (
             <div role='status' aria-live='polite' className='pc-role-banner'>
               <span suppressHydrationWarning style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: stageTone.bg, border: `1px solid ${stageTone.border}`, color: stageTone.color, fontSize: 10, fontWeight: 800 }}>{stage.label}</span>
