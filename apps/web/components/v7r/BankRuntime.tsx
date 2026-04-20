@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
 import { CALLBACKS, DEALS } from '@/lib/v7r/data';
 import { formatCompactMoney, formatMoney } from '@/lib/v7r/helpers';
+import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist, getTransportPackByDealId, getTransportSimulationScenario, moneyImpactLabel, transportPackStatusLabel, transportReleaseStateLabel } from '@/lib/v7r/transport-docs';
 
 function badge(status: 'ok' | 'pending' | 'mismatch') {
   if (status === 'ok') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ОК' };
@@ -68,6 +70,13 @@ export function BankRuntime() {
   const mismatchCount = CALLBACKS.filter((item) => item.status === 'mismatch').length;
   const pendingCount = CALLBACKS.filter((item) => item.status === 'pending').length;
   const releaseDeal = DEALS.find((item) => item.id === 'DL-9109');
+  const transportBlocked = countTransportBlockedPacks();
+  const transportAwaiting = countTransportAwaitingSignatures();
+  const transportCompleted = countTransportCompleted();
+  const transportHotlist = getTransportHotlist().slice(0, 3);
+  const transportReleaseDealPack = getTransportPackByDealId('DL-9109');
+  const transportReleaseScenario = getTransportSimulationScenario('DL-9109');
+  const transportCurrentStep = transportReleaseScenario?.steps[transportReleaseScenario.currentStepIndex];
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0', maxWidth: '100%', overflowX: 'hidden' }}>
@@ -90,10 +99,62 @@ export function BankRuntime() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <Card title='В резерве' value={formatCompactMoney(totalReserved)} note='Деньги подтверждены и заведены в контур.' />
-        <Card title='Под удержанием' value={formatCompactMoney(totalHold)} note='Связано со спорами и ручной верификацией.' danger={totalHold > 0} />
+        <Card title='Под удержанием' value={formatCompactMoney(totalHold)} note='Споры, документы и ручные проверки.' danger={totalHold > 0} />
         <Card title='К выпуску' value={formatCompactMoney(totalRelease)} note='Сумма, которая может уйти после закрытия блокеров.' />
         <Card title='Требуют внимания' value={String(mismatchCount + pendingCount)} note='События банка, которые ещё не доведены до конца.' danger={mismatchCount + pendingCount > 0} />
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div style={{ display: 'grid', gap: 6 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Transport gate через СберКорус</div>
+            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>Банк видит транспортный документный контур как отдельный стоп-фактор. Пока пакет не закрыт у СберКорус, финальный выпуск нельзя считать безопасным.</div>
+          </div>
+          <SberKorusBadge subtitle='Транспортные документы и подписи' compact />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <Card title='Красный stop' value={String(transportBlocked)} note='Пакеты, которые прямо блокируют финальный выпуск.' danger={transportBlocked > 0} />
+          <Card title='Ждём подписи' value={String(transportAwaiting)} note='Рейсы, где контур СберКорус ещё не закрыт.' danger={transportAwaiting > 0} />
+          <Card title='Зелёный контур' value={String(transportCompleted)} note='Пакеты, которые больше не спорят с выпуском денег.' />
+        </div>
+
+        {transportReleaseDealPack && transportCurrentStep ? (
+          <section style={{ background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 16, padding: 16, display: 'grid', gap: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>{transportReleaseDealPack.providerPackId}</div>
+                <div style={{ marginTop: 6, fontSize: 20, fontWeight: 800, color: '#0F1419' }}>DL-9109 · зелёный сценарий выпуска</div>
+              </div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: '#fff', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>{transportPackStatusLabel(transportReleaseDealPack.status)} · {moneyImpactLabel(transportReleaseDealPack.moneyImpactStatus)}</span>
+            </div>
+            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.65 }}><strong style={{ color: '#0F1419' }}>{transportCurrentStep.label}.</strong> {transportCurrentStep.detail}</div>
+            <div style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 800 }}>{transportReleaseStateLabel(transportCurrentStep.releaseState)} · {transportCurrentStep.releaseReason}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Link href='/platform-v7/deals/DL-9109/transport-documents' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 700 }}>Открыть пакет СберКорус</Link>
+              <Link href='/platform-v7/deals/DL-9109/transport-documents/simulation' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Открыть симуляцию</Link>
+            </div>
+          </section>
+        ) : null}
+
+        <div style={{ display: 'grid', gap: 10 }}>
+          {transportHotlist.map((item) => (
+            <div key={item.id} style={{ background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.providerLabel}</div>
+                </div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: item.moneyImpactStatus === 'blocks_release' ? 'rgba(220,38,38,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${item.moneyImpactStatus === 'blocks_release' ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)'}`, color: item.moneyImpactStatus === 'blocks_release' ? '#B91C1C' : '#B45309', fontSize: 11, fontWeight: 800 }}>{moneyImpactLabel(item.moneyImpactStatus)}</span>
+              </div>
+              <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.6 }}>{item.note}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Link href={item.primaryHref} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700 }}>Пакет</Link>
+                <Link href={item.simulationHref} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700 }}>Симуляция</Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {releaseDeal ? (
         <section style={{ background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 18, padding: 18 }}>

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { CALLBACKS, DEALS, DISPUTES, getDealIntegrationState } from '@/lib/v7r/data';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import { ControlTowerOperatorPanel } from '@/components/v7r/ControlTowerOperatorPanel';
+import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
+import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
 
 function describeReason(code: string) {
   switch (code) {
@@ -46,6 +48,10 @@ export default function PlatformV7ControlTowerPage() {
   const integrationBlockedAmount = blockedByIntegration.reduce((sum, item) => sum + (item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0)), 0);
   const overdueDeals = activeDeals.filter((d) => d.slaDeadline && new Date(d.slaDeadline) < today);
   const urgentDeals = activeDeals.filter((d) => d.slaDeadline && new Date(d.slaDeadline).getTime() - today.getTime() <= 24 * 60 * 60 * 1000 && new Date(d.slaDeadline) >= today);
+  const transportBlocked = countTransportBlockedPacks();
+  const transportAwaiting = countTransportAwaitingSignatures();
+  const transportCompleted = countTransportCompleted();
+  const transportHotlist = getTransportHotlist().slice(0, 3);
 
   const queue = integratedDeals
     .map(({ deal, integration }) => {
@@ -113,6 +119,7 @@ export default function PlatformV7ControlTowerPage() {
           <Metric title='Под удержанием' value={formatCompactMoney(totalHold)} note='Споры, документы и ручные проверки.' href='/platform-v7/disputes' tone='red' />
           <Metric title='К выпуску' value={formatCompactMoney(totalRelease)} note='Сумма, которая может уйти после закрытия ближайших блокеров.' href='/platform-v7/bank' tone='green' />
           <Metric title='Интеграционные стопы' value={String(blockedByIntegration.length)} note='Сделки, которые остановлены из-за ФГИС / ЕСИА.' href='/platform-v7/connectors' tone='red' />
+          <Metric title='Transport stop' value={String(transportBlocked)} note='Пакеты СберКорус, которые блокируют выпуск денег.' href='/platform-v7/control-tower/hotlist' tone='red' />
           <Metric title='SLA срочно' value={String(overdueDeals.length + urgentDeals.length)} note='Просроченные и подходящие к дедлайну сделки.' href='/platform-v7/deals' tone='red' />
           <Metric title='В резерве' value={formatCompactMoney(totalReserved)} note='Деньги, уже находящиеся в контуре исполнения.' href='/platform-v7/bank' />
         </section>
@@ -154,6 +161,39 @@ export default function PlatformV7ControlTowerPage() {
           ))}
         </section>
 
+        <section className='ct-queue'>
+          <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', alignItems:'flex-start' }}>
+            <div>
+              <div className='ct-title'>Транспортный контур СберКорус</div>
+              <div className='ct-sub'>Отдельная очередь по юридически значимым перевозочным документам. Пока этот контур не закрыт, банк не должен считать выпуск денег чистым.</div>
+            </div>
+            <SberKorusBadge subtitle='Transport gate для денег' compact />
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12 }}>
+            <Metric title='Красный stop' value={String(transportBlocked)} note='Пакеты, которые прямо держат деньги.' href='/platform-v7/control-tower/hotlist' tone='red' />
+            <Metric title='Ждём подписи' value={String(transportAwaiting)} note='Сделки, где не собрана полная цепочка подписей.' href='/platform-v7/control-tower/hotlist' tone='default' />
+            <Metric title='Зелёный контур' value={String(transportCompleted)} note='Пакеты, которые больше не спорят с банковым release.' href='/platform-v7/bank' tone='green' />
+          </div>
+          <div style={{ display:'grid', gap:10 }}>
+            {transportHotlist.map((item) => (
+              <div key={item.id} style={{ border:'1px solid #E4E6EA', borderRadius:16, padding:14, background:'#F8FAFB', display:'grid', gap:8 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', alignItems:'center' }}>
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:800, color:'#0F1419' }}>{item.title}</div>
+                    <div style={{ marginTop:4, fontSize:12, color:'#6B778C' }}>{item.providerLabel}</div>
+                  </div>
+                  <Badge tone={item.moneyImpactStatus === 'blocks_release' ? 'red' : 'amber'}>{item.moneyImpactStatus === 'blocks_release' ? 'Блокирует выпуск' : 'Частично блокирует'}</Badge>
+                </div>
+                <div style={{ fontSize:12, color:'#334155', lineHeight:1.6 }}>{item.note}</div>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  <Link href={item.primaryHref} style={btn()}>Открыть пакет</Link>
+                  <Link href={item.simulationHref} style={btn('primary')}>Симуляция</Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <ControlTowerOperatorPanel deals={operatorItems} />
 
         <section className='ct-two'>
@@ -173,6 +213,7 @@ export default function PlatformV7ControlTowerPage() {
               <Signal title='Банк' detail={`${CALLBACKS.length} события уже в контуре.`} href='/platform-v7/bank' />
               <Signal title='Споры' detail={`${DISPUTES.length} активных кейса под удержанием.`} href='/platform-v7/disputes' />
               <Signal title='Проверка' detail={`${reviewByIntegration.length} сделки ждут ручной проверки.`} href='/platform-v7/connectors' />
+              <Signal title='СберКорус' detail={`${transportBlocked + transportAwaiting} транспортных кейсов требуют действий.`} href='/platform-v7/control-tower/hotlist' />
             </div>
           </section>
         </section>
