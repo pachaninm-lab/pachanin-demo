@@ -63,3 +63,47 @@ jobs:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
           VERCEL_PROJECT_ID: prj_B6IuQnfGGqWejQYgcJypeAzDhM9k
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  deploy-api-production:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Check Vercel token
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "VERCEL_TOKEN secret is missing"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull production settings
+        working-directory: apps/api
+        env:
+          VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
+          VERCEL_PROJECT_ID: prj_F8IOEInvI4N3Bu700Lvsleojl1CJ
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build production bundle
+        working-directory: apps/api
+        env:
+          VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
+          VERCEL_PROJECT_ID: prj_F8IOEInvI4N3Bu700Lvsleojl1CJ
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to production
+        working-directory: apps/api
+        env:
+          VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
+          VERCEL_PROJECT_ID: prj_F8IOEInvI4N3Bu700Lvsleojl1CJ
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
