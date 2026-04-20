@@ -592,7 +592,7 @@ export class RuntimeCoreService {
 
   createSample(dto: any, user: any) {
     const id = `SAMPLE-${String(++this.sampleCounter).padStart(3, '0')}`;
-    const sample = {
+    const sample: any = {
       id,
       dealId: dto.dealId,
       shipmentId: dto.shipmentId ?? null,
@@ -1007,7 +1007,7 @@ export class RuntimeCoreService {
       LOADING: ['IN_TRANSIT', 'DISPUTE_OPEN'],
       IN_TRANSIT: ['ARRIVED', 'DISPUTE_OPEN'],
       ARRIVED: ['QUALITY_CHECK', 'DISPUTE_OPEN'],
-      QUALITY_CHECK: ['ACCEPTED', 'DISPUTE_OPEN', 'EXPERTISE'],
+      QUALITY_CHECK: ['ACCEPTED', 'DISPUTЕ_OPEN', 'EXPERTISE'],
       ACCEPTED: ['FINAL_PAYMENT', 'PARTIAL_SETTLEMENT', 'DISPUTE_OPEN'],
       PARTIAL_SETTLEMENT: ['FINAL_PAYMENT', 'DISPUTE_OPEN'],
       FINAL_PAYMENT: ['SETTLED', 'DISPUTE_OPEN'],
