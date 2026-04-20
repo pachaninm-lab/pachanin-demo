@@ -6,6 +6,7 @@ import { formatCompactMoney, formatMoney, statusLabel } from '@/lib/v7r/helpers'
 import { translateRole, translateStatus } from '@/lib/i18n/reason-codes';
 import { RiskBadge } from '@/components/v7r/RiskBadge';
 import { DocumentsDropzone } from '@/components/v7r/DocumentsDropzone';
+import { DealStickyAction } from '@/components/v7r/DealStickyAction';
 
 interface RelatedChip {
   label: string;
@@ -146,8 +147,8 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
   ].filter(Boolean) as string[];
 
   const related: RelatedChip[] = [];
-  if (deal.lotId) related.push({ label: 'Лот', value: deal.lotId, href: `/platform-v7/lot/${deal.lotId}`, tone: 'lot' });
-  if (deal.routeId) related.push({ label: 'Маршрут', value: deal.routeId, href: '/platform-v7/logistics', tone: 'route' });
+  if (deal.lotId) related.push({ label: 'Лот', value: deal.lotId, href: `/platform-v7/lots/${deal.lotId}`, tone: 'lot' });
+  if (deal.routeId) related.push({ label: 'Маршрут', value: deal.routeId, href: `/platform-v7/logistics/${encodeURIComponent(deal.routeId)}`, tone: 'route' });
   related.push({ label: 'Приёмка', value: 'Элеватор', href: '/platform-v7/elevator', tone: 'reception' });
   related.push({ label: 'Лаборатория', value: 'Пробы', href: '/platform-v7/lab', tone: 'lab' });
   related.push({ label: 'Документы', value: 'Досье', href: `/platform-v7/deals/${deal.id}/documents`, tone: 'docs' });
@@ -237,7 +238,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
             <div className="hero-actions">
               <Link href="/platform-v7/deals" className="btn btn-secondary">Все сделки</Link>
               <Link href={`/platform-v7/deals/${deal.id}/documents`} className="btn btn-secondary">Документы</Link>
-              <Link href={primaryAction.href} className="btn btn-primary">{primaryAction.label}</Link>
+              <Link id="deal-primary-action" href={primaryAction.href} className="btn btn-primary">{primaryAction.label}</Link>
             </div>
           </div>
         </section>
@@ -417,15 +418,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
         </div>
       </div>
 
-      <div className="sticky-action">
-        <div className="sticky-inner">
-          <div>
-            <div className="sticky-label">Следующее действие</div>
-            <div className="sticky-title">{nextStepTitle}</div>
-          </div>
-          <Link href={primaryAction.href} className="btn btn-primary">{primaryAction.label}</Link>
-        </div>
-      </div>
+      <DealStickyAction title={nextStepTitle} href={primaryAction.href} label={primaryAction.label} />
     </>
   );
 }
