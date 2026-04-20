@@ -48,6 +48,15 @@ function roleToFieldPreview(role: PlatformRole): FieldPreviewRole | null {
   return null;
 }
 
+function syncRoleCookie(role: PlatformRole | null) {
+  if (typeof document === 'undefined') return;
+  if (!role) {
+    document.cookie = 'pc-role=; Max-Age=0; Path=/; SameSite=Lax';
+    return;
+  }
+  document.cookie = `pc-role=${role}; Max-Age=${60 * 60 * 24 * 30}; Path=/; SameSite=Lax`;
+}
+
 export const usePlatformV7RStore = create<PlatformV7RState>()(
   persist(
     (set) => ({
@@ -60,13 +69,18 @@ export const usePlatformV7RStore = create<PlatformV7RState>()(
       notificationsOpen: false,
       fieldPreviewRole: 'driver',
       unreadNotifications: 3,
-      setRole: (role) =>
+      setRole: (role) => {
+        syncRoleCookie(role);
         set((state) => ({
           role,
           roleSelected: true,
           fieldPreviewRole: roleToFieldPreview(role) ?? state.fieldPreviewRole,
-        })),
-      clearRoleSelection: () => set({ roleSelected: false }),
+        }));
+      },
+      clearRoleSelection: () => {
+        syncRoleCookie(null);
+        set({ roleSelected: false });
+      },
       setDemoMode: (demoMode) => set({ demoMode }),
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
       setCommandOpen: (commandOpen) => set({ commandOpen }),
