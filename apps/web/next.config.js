@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
   async redirects() {
     return [
       {
@@ -16,6 +19,16 @@ const nextConfig = {
       {
         source: '/platform-v7/analytics',
         destination: '/platform-v7/executive',
+        permanent: true,
+      },
+      {
+        source: '/platform-v7/lots/new',
+        destination: '/platform-v7/lots/create',
+        permanent: true,
+      },
+      {
+        source: '/lots/new',
+        destination: '/platform-v7/lots/create',
         permanent: true,
       },
     ];
