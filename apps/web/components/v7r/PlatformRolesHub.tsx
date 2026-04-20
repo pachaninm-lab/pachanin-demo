@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const ROLE_CARDS: Array<{
@@ -118,7 +117,6 @@ function stageBadge(stage: 'sandbox' | 'pilot' | 'role-sim') {
 }
 
 export function PlatformRolesHub() {
-  const router = useRouter();
   const { setRole } = usePlatformV7RStore();
 
   return (
@@ -140,15 +138,12 @@ export function PlatformRolesHub() {
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
         {ROLE_CARDS.map((item) => {
           const badge = stageBadge(item.stage);
+          const href = `${item.href}?as=${item.role}`;
           return (
             <Link
               key={item.role}
-              href={item.href}
-              onClick={(e) => {
-                e.preventDefault();
-                setRole(item.role);
-                router.push(item.href);
-              }}
+              href={href}
+              onClick={() => setRole(item.role)}
               style={{
                 textDecoration: 'none',
                 textAlign: 'left',
