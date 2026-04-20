@@ -17,6 +17,16 @@ const quickLinks = [
     description: 'Кейсы, где транспортный контур тормозит деньги и требует действий.',
     href: '/platform-v7/control-tower/hotlist',
   },
+  {
+    title: 'Факторинг',
+    description: 'Лимиты покупателя, ставка, заявки на финансирование и выплаченные авансы.',
+    href: '/platform-v7/bank/factoring',
+  },
+  {
+    title: 'Эскроу',
+    description: 'Резервирование денег до наступления подтверждённых условий раскрытия.',
+    href: '/platform-v7/bank/escrow',
+  },
 ];
 
 export default function PlatformV7BankPage() {
