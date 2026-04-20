@@ -12,6 +12,21 @@ const PUBLIC_PREFIX = [
   '/mockServiceWorker.js',
 ];
 
+const VALID_ROLES = new Set([
+  'operator',
+  'buyer',
+  'seller',
+  'logistics',
+  'driver',
+  'surveyor',
+  'elevator',
+  'lab',
+  'bank',
+  'arbitrator',
+  'compliance',
+  'executive',
+]);
+
 function isPublic(p: string): boolean {
   return PUBLIC_EXACT.has(p) || PUBLIC_PREFIX.some((x) => p.startsWith(x));
 }
@@ -34,6 +49,23 @@ function parseSession(raw: string | undefined): { role: string; exp: number } | 
   return null;
 }
 
+function resolveRole(req: NextRequest, sessionRole?: string | null) {
+  const queryRole = req.nextUrl.searchParams.get('as');
+  if (queryRole && VALID_ROLES.has(queryRole)) return queryRole;
+  const cookieRole = req.cookies.get('pc-role')?.value;
+  if (cookieRole && VALID_ROLES.has(cookieRole)) return cookieRole;
+  if (sessionRole && VALID_ROLES.has(sessionRole)) return sessionRole;
+  return 'operator';
+}
+
+function withRoleHeaders(req: NextRequest, role: string) {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-pc-role', role);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set('x-pc-role', role);
+  return response;
+}
+
 export function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
@@ -43,9 +75,21 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(u, 308);
   }
 
-  if (isPublic(p) || p.startsWith('/platform-v7')) return NextResponse.next();
-
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
+  const resolvedRole = resolveRole(req, session?.role ?? null);
+
+  if (isPublic(p) || p.startsWith('/platform-v7')) {
+    const response = withRoleHeaders(req, resolvedRole);
+    if (req.cookies.get('pc-role')?.value !== resolvedRole) {
+      response.cookies.set('pc-role', resolvedRole, {
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30,
+        sameSite: 'lax',
+      });
+    }
+    return response;
+  }
+
   if (!session) {
     if (p.startsWith('/api/')) {
       return NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 });
@@ -55,8 +99,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(u);
   }
 
-  const r = NextResponse.next();
-  r.headers.set('x-pc-role', session.role);
+  const r = withRoleHeaders(req, resolvedRole);
   return r;
 }
 
