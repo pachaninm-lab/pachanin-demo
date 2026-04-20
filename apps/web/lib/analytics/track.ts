@@ -29,6 +29,18 @@ export function trackDisputeResolveClicked(dealId: string): void {
   trackEvent('dispute_resolve_clicked', { dealId });
 }
 
+export function trackReleaseConfirmed(dealId: string): void {
+  trackEvent('release_confirmed', { dealId });
+}
+
+export function trackDriverArrived(routeId: string): void {
+  trackEvent('driver_arrived', { routeId });
+}
+
+export function trackBlockerRemoved(blockerId: string, dealId?: string): void {
+  trackEvent('blocker_removed', { blockerId, dealId });
+}
+
 export function trackGigaChatAsked(context?: string): void {
-  trackEvent('gigachat_asked', { context });
+  trackEvent('giga_chat_asked', { context });
 }
