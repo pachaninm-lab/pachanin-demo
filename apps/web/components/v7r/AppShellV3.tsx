@@ -83,7 +83,7 @@ function groupNotifications() {
   return NOTIFICATIONS.reduce<Record<NotificationGroup, typeof NOTIFICATIONS>>((acc, item) => { (acc[item.group] ||= []).push(item); return acc; }, {} as Record<NotificationGroup, typeof NOTIFICATIONS>);
 }
 
-export function AppShellV3({ children }: { children: React.ReactNode }) {
+export function AppShellV3({ children, initialRole = 'operator' }: { children: React.ReactNode; initialRole?: PlatformRole }) {
   const pathname = usePathname();
   const router = useRouter();
   const { role, setRole, clearRoleSelection } = usePlatformV7RStore();
@@ -99,7 +99,11 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem('pc-theme') : null;
     if (stored === 'dark') { setTheme('dark'); document.documentElement.setAttribute('data-theme', 'dark'); }
   }, []);
-  React.useEffect(() => { if (!mounted) return; const inferred = inferRoleFromPath(pathname, role); if (inferred !== role) setRole(inferred); }, [pathname, role, setRole, mounted]);
+  React.useEffect(() => {
+    if (!mounted) return;
+    const inferred = inferRoleFromPath(pathname, role || initialRole);
+    if (inferred !== role) setRole(inferred);
+  }, [pathname, role, setRole, mounted, initialRole]);
   const toggleTheme = React.useCallback(() => {
     setTheme((prev) => {
       const next = prev === 'light' ? 'dark' : 'light';
@@ -111,7 +115,7 @@ export function AppShellV3({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const displayRole: PlatformRole = mounted ? role : 'operator';
+  const displayRole: PlatformRole = mounted ? role : initialRole;
   const items = NAV_BY_ROLE[displayRole];
   const stage = ROLE_STAGE[displayRole];
   const stageTone = stageColors(stage.tone);
