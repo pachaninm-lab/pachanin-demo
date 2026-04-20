@@ -1,4 +1,3 @@
-
 import { Injectable } from '@nestjs/common';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { TransitionShipmentDto } from './dto/transition-shipment.dto';
@@ -14,7 +13,9 @@ export class LogisticsService {
       total: shipments.length,
       inTransit: shipments.filter((s: any) => s.status === 'IN_TRANSIT').length,
       atUnloading: shipments.filter((s: any) => s.status === 'AT_UNLOADING').length,
-      completed: shipments.filter((s: any) => s.status === 'DELIVERED' || shipments.filter((s: any) => s.status === 'COMPLETED').length,
+      completed: shipments.filter(
+        (s: any) => s.status === 'DELIVERED' || s.status === 'COMPLETED',
+      ).length,
     };
   }
 

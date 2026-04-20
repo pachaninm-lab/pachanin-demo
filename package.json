@@ -1,7 +1,7 @@
 {
   "name": "prozrachnaya-cena-runtime",
   "private": true,
-  "packageManager": "pnpm@9.12.0",
+  "packageManager": "pnpm@10.2.1",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm --filter @pc/web build",
