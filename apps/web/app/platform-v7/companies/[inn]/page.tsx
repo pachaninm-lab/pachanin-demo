@@ -10,6 +10,8 @@ const COMPANIES: Record<string, {
   avgCycle: string;
   note: string;
   certificates: string[];
+  signals: string[];
+  relatedDeals: Array<{ id: string; note: string; status: string }>;
 }> = {
   '6829123456': {
     name: 'Агрохолдинг СК',
@@ -21,6 +23,12 @@ const COMPANIES: Record<string, {
     avgCycle: '4.3 дня',
     note: 'Якорный контрагент в пилотном контуре. По компании виден стабильный документный слой и предсказуемое исполнение.',
     certificates: ['Проверено ФГИС', 'Верификация контрагента пройдена', 'Низкий риск'],
+    signals: ['Низкая спорность', 'Документы без просрочки', 'Стабильный банковый контур'],
+    relatedDeals: [
+      { id: 'DL-9102', note: 'Спор по качеству, деньги на hold', status: 'Спор' },
+      { id: 'DL-9108', note: 'Контур готов к выпуску денег', status: 'Release ready' },
+      { id: 'DL-9110', note: 'На ручной банковой проверке', status: 'Проверка' },
+    ],
   },
   '3664098765': {
     name: 'МаслоПресс ООО',
@@ -32,6 +40,11 @@ const COMPANIES: Record<string, {
     avgCycle: '5.1 дня',
     note: 'Рабочий контрагент по масличному направлению. Хорошо проходит документный и банковый контур.',
     certificates: ['Проверено ФГИС', 'Документы в контуре', 'Средний риск'],
+    signals: ['Стабильная приёмка', 'Нормальный цикл сделки', 'Редкие ручные проверки'],
+    relatedDeals: [
+      { id: 'DL-9108', note: 'Готово к выпуску', status: 'Ок' },
+      { id: 'DL-9114', note: 'Факторинг по покупателю', status: 'Факторинг' },
+    ],
   },
   '7701234567': {
     name: 'ПромАгро АО',
@@ -43,6 +56,11 @@ const COMPANIES: Record<string, {
     avgCycle: '5.7 дня',
     note: 'Крупный контрагент с высоким объёмом. Нуждается в дисциплине ролей и аккуратном SLA-контуре.',
     certificates: ['Верификация контрагента пройдена', 'Высокий объём', 'Ручные проверки банка'],
+    signals: ['Высокий объём', 'Требует SLA-контроля', 'Есть ручной банковый слой'],
+    relatedDeals: [
+      { id: 'DL-9111', note: 'Ожидание закрытия спора', status: 'Спор' },
+      { id: 'DL-9116', note: 'Пакет документов на проверке', status: 'Документы' },
+    ],
   },
 };
 
@@ -57,6 +75,8 @@ export default function CompanyPage({ params }: { params: { inn: string } }) {
     avgCycle: '—',
     note: 'Карточка контрагента пока не заполнена. Это безопасная заглушка для дальнейшего расширения профилей.',
     certificates: ['Карточка в разработке'],
+    signals: ['Нет достаточно данных'],
+    relatedDeals: [],
   };
 
   return (
@@ -92,6 +112,30 @@ export default function CompanyPage({ params }: { params: { inn: string } }) {
         <Metric label='Средний цикл' value={company.avgCycle} note='От сделки до выпуска денег' />
         <Metric label='Проверка' value='Пройдена' note='Компания видна в комплаенс-контуре' />
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Сигналы исполнения</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {company.signals.map((item) => (
+            <span key={item} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 700 }}>
+              {item}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Связанные сделки</div>
+        {company.relatedDeals.length ? company.relatedDeals.map((deal) => (
+          <Link key={deal.id} href={`/platform-v7/deals/${deal.id}`} style={{ textDecoration: 'none', border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gap: 6, background: '#F8FAFB' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0F1419' }}>{deal.id}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 800 }}>{deal.status}</span>
+            </div>
+            <span style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{deal.note}</span>
+          </Link>
+        )) : <div style={{ fontSize: 13, color: '#6B778C' }}>По контрагенту ещё нет связанных сделок.</div>}
+      </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Что важно по контрагенту</div>
