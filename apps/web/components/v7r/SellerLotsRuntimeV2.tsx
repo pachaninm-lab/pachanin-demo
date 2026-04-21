@@ -35,20 +35,52 @@ function ClickableStatCard({ title, value, note, active, onClick }: { title: str
   );
 }
 
+type ViewPreset = 'all' | 'ready' | 'review' | 'fgis';
+
 export function SellerLotsRuntimeV2() {
   const router = useRouter();
   const { manualLots, clearManualLots, favouriteLotIds, toggleFavouriteLot, compareLotIds, toggleCompareLot, clearCompareLots } = useCommercialRuntimeStore();
   const devMode = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
   const [compareToast, setCompareToast] = React.useState<string | null>(null);
+  const [bulkToast, setBulkToast] = React.useState<string | null>(null);
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [viewPreset, setViewPreset] = React.useState<ViewPreset>('all');
 
   React.useEffect(() => {
     if (!compareToast) return;
     const t = setTimeout(() => setCompareToast(null), 3000);
     return () => clearTimeout(t);
   }, [compareToast]);
+
+  React.useEffect(() => {
+    if (!bulkToast) return;
+    const t = setTimeout(() => setBulkToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [bulkToast]);
+
   const [sourceFilter, setSourceFilter] = React.useState<'ALL' | 'FGIS' | 'MANUAL'>('ALL');
   const [stateFilter, setStateFilter] = React.useState<'ALL' | 'PASS' | 'REVIEW' | 'FAIL'>('ALL');
   const [search, setSearch] = React.useState('');
+
+  React.useEffect(() => {
+    if (viewPreset === 'ready') {
+      setSourceFilter('ALL');
+      setStateFilter('PASS');
+      return;
+    }
+    if (viewPreset === 'review') {
+      setSourceFilter('ALL');
+      setStateFilter('REVIEW');
+      return;
+    }
+    if (viewPreset === 'fgis') {
+      setSourceFilter('FGIS');
+      setStateFilter('ALL');
+      return;
+    }
+    setSourceFilter('ALL');
+    setStateFilter('ALL');
+  }, [viewPreset]);
 
   const mergedLots = React.useMemo(() => [...manualLots, ...baseLots], [manualLots]);
   const filteredLots = mergedLots.filter((item) => {
@@ -62,6 +94,39 @@ export function SellerLotsRuntimeV2() {
   const passCount = mergedLots.filter((item) => item.readiness.state === 'PASS').length;
   const reviewCount = mergedLots.filter((item) => item.readiness.state === 'REVIEW').length;
   const failCount = mergedLots.filter((item) => item.readiness.state === 'FAIL').length;
+
+  const toggleRow = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const runBulkAction = (action: 'favorite' | 'compare' | 'hide') => {
+    if (!selected.size) return;
+    const ids = Array.from(selected).sort();
+    if (action === 'favorite') {
+      ids.forEach((id) => {
+        if (!favouriteLotIds.includes(id)) toggleFavouriteLot(id);
+      });
+      setBulkToast(`Добавлено в избранное: ${ids.join(', ')}`);
+    }
+    if (action === 'compare') {
+      ids.slice(0, 3).forEach((id) => {
+        if (!compareLotIds.includes(id)) {
+          const result = toggleCompareLot(id);
+          if (!result.ok && result.reason === 'limit') setCompareToast('Сравнить можно максимум 3 лота. Уберите один перед добавлением нового.');
+        }
+      });
+      setBulkToast(`Отправлено в сравнение: ${ids.slice(0, 3).join(', ')}`);
+    }
+    if (action === 'hide') {
+      setBulkToast(`Скрытие подготовлено: ${ids.join(', ')}`);
+    }
+    setSelected(new Set());
+  };
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
@@ -105,6 +170,18 @@ export function SellerLotsRuntimeV2() {
           ) : null}
           <span style={{ fontSize: 11, color: '#6B778C', marginLeft: 'auto' }}>{filteredLots.length} из {mergedLots.length}</span>
         </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {[
+            { id: 'all', label: 'Все лоты' },
+            { id: 'ready', label: 'Готовы к движению' },
+            { id: 'review', label: 'Нужна проверка' },
+            { id: 'fgis', label: 'Только FGIS' },
+          ].map((preset) => (
+            <button key={preset.id} onClick={() => setViewPreset(preset.id as ViewPreset)} style={{ padding: '8px 12px', borderRadius: 999, border: `1px solid ${viewPreset === preset.id ? 'rgba(10,122,95,0.18)' : '#E4E6EA'}`, background: viewPreset === preset.id ? 'rgba(10,122,95,0.08)' : '#fff', color: viewPreset === preset.id ? '#0A7A5F' : '#475569', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>{preset.label}</button>
+          ))}
+        </div>
+
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
             ['ALL', 'Все источники'],
@@ -123,6 +200,16 @@ export function SellerLotsRuntimeV2() {
           ))}
         </div>
       </section>
+
+      {selected.size ? (
+        <section style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '12px 16px', borderRadius: 18, background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.18)', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>{selected.size} выбрано</span>
+          <button onClick={() => runBulkAction('favorite')} style={{ padding: '8px 12px', borderRadius: 10, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>В избранное</button>
+          <button onClick={() => runBulkAction('compare')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(37,99,235,0.3)', color: '#2563EB', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
+          <button onClick={() => runBulkAction('hide')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid #E4E6EA', color: '#6B778C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Скрыть</button>
+          <button onClick={() => setSelected(new Set())} style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: 10, background: 'transparent', border: '1px solid #E4E6EA', color: '#6B778C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сбросить выбор</button>
+        </section>
+      ) : null}
 
       {compareLotIds.length ? (
         <section aria-label='Сравнение лотов' style={{ background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.18)', borderRadius: 18, padding: 16 }}>
@@ -170,19 +257,27 @@ export function SellerLotsRuntimeV2() {
         <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', borderRadius: 12, color: '#B91C1C', fontSize: 12, fontWeight: 700 }}>{compareToast}</div>
       ) : null}
 
+      {bulkToast ? (
+        <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 12, color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>{bulkToast}</div>
+      ) : null}
+
       <div style={{ display: 'grid', gap: 12 }}>
         {filteredLots.map((item) => {
           const tone = toneByState(item.readiness.state);
           const linkedDeal = LIVE_DEALS.find((deal) => deal.lotId === item.id);
           const isFavourite = favouriteLotIds.includes(item.id);
           const isCompared = compareLotIds.includes(item.id);
+          const isSelected = selected.has(item.id);
           return (
-            <div key={item.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+            <div key={item.id} style={{ background: '#fff', border: isSelected ? '1px solid rgba(10,122,95,0.24)' : '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12, boxShadow: isSelected ? '0 0 0 2px rgba(10,122,95,0.06) inset' : 'none' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419', marginTop: 4 }}>{item.title}</div>
-                  <div style={{ fontSize: 12, color: '#6B778C', marginTop: 6 }}>{item.grain} · {item.volumeTons} т · {item.sourceReference ?? 'Ручной контур без внешнего reference'}</div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <input type='checkbox' aria-label={`Выбрать лот ${item.id}`} checked={isSelected} onChange={() => toggleRow(item.id)} style={{ marginTop: 4 }} />
+                  <div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419', marginTop: 4 }}>{item.title}</div>
+                    <div style={{ fontSize: 12, color: '#6B778C', marginTop: 6 }}>{item.grain} · {item.volumeTons} т · {item.sourceReference ?? 'Ручной контур без внешнего reference'}</div>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Badge tone={item.sourceType === 'FGIS' ? 'warning' : 'neutral'}>{item.sourceType}</Badge>
