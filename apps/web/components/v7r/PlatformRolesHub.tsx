@@ -133,6 +133,36 @@ const AUTH_LINKS = [
   },
 ];
 
+const NEW_SURFACES = [
+  {
+    title: 'Банковые модули',
+    description: 'Факторинг, эскроу и обновлённый денежный контур внутри платформы.',
+    links: [
+      { label: 'Факторинг', href: '/platform-v7/bank/factoring' },
+      { label: 'Эскроу', href: '/platform-v7/bank/escrow' },
+      { label: 'Банк', href: '/platform-v7/bank' },
+    ],
+  },
+  {
+    title: 'Подключение компании',
+    description: 'Вход, регистрация, auth hub и пошаговый онбординг в одном контуре.',
+    links: [
+      { label: 'Вход', href: '/platform-v7/login' },
+      { label: 'Регистрация', href: '/platform-v7/register' },
+      { label: 'Онбординг', href: '/platform-v7/onboarding' },
+    ],
+  },
+  {
+    title: 'Доверие после сделки',
+    description: 'Углублённые карточки контрагентов, команда компании и отзывы по сделкам.',
+    links: [
+      { label: 'Контрагент', href: '/platform-v7/companies/6829123456' },
+      { label: 'Команда', href: '/platform-v7/profile/team' },
+      { label: 'Отзыв', href: '/platform-v7/deals/DL-9107/review' },
+    ],
+  },
+];
+
 function stageBadge(stage: 'sandbox' | 'pilot' | 'role-sim') {
   if (stage === 'pilot') return { label: 'Пилотный режим', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
   if (stage === 'sandbox') return { label: 'Тестовая среда', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
@@ -221,6 +251,30 @@ export function PlatformRolesHub() {
               <span style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.description}</span>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</span>
             </Link>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Новые поверхности платформы</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
+            Всё новое вынесено прямо на главный вход: банковые модули, подключение компании и доверительный слой после сделки.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+          {NEW_SURFACES.map((item) => (
+            <section key={item.title} style={{ display: 'grid', gap: 10, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ fontSize: 16, lineHeight: 1.25, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.description}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {item.links.map((link) => (
+                  <Link key={link.href} href={link.href} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', padding: '8px 10px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#0A7A5F', fontSize: 12, fontWeight: 800 }}>
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </section>
