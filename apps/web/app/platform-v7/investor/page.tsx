@@ -1,19 +1,21 @@
 'use client';
 
+import Link from 'next/link';
+
 const METRICS = [
-  { label: 'GMV (апрель)',       value: '118 млн ₽',  sub: '+30% к марту' },
-  { label: 'Take-rate',          value: '1,8%',        sub: 'Комиссия платформы' },
-  { label: 'Активных сделок',    value: '31',          sub: 'Пик по текущему ряду' },
-  { label: 'Средний цикл',       value: '8,3 дн.',     sub: 'От контракта до расчёта' },
+  { label: 'GMV (апрель)', value: '118 млн ₽', sub: '+30% к марту' },
+  { label: 'Take-rate', value: '1,8%', sub: 'Комиссия платформы' },
+  { label: 'Активных сделок', value: '31', sub: 'Пик по текущему ряду' },
+  { label: 'Средний цикл', value: '8,3 дн.', sub: 'От контракта до расчёта' },
 ];
 
 const REGIONS = [
-  { name: 'Тамбовская',    deals: 8,  gmv: 38.4,  color: '#0A7A5F' },
-  { name: 'Воронежская',   deals: 7,  gmv: 32.1,  color: '#0B6B9A' },
-  { name: 'Курская',       deals: 5,  gmv: 22.1,  color: '#2563EB' },
-  { name: 'Белгородская',  deals: 4,  gmv: 17.2,  color: '#7C3AED' },
-  { name: 'Ставропольский',deals: 4,  gmv: 43.5,  color: '#D97706' },
-  { name: 'Ростовская',    deals: 3,  gmv: 12.6,  color: '#DC2626' },
+  { name: 'Тамбовская', deals: 8, gmv: 38.4, color: '#0A7A5F' },
+  { name: 'Воронежская', deals: 7, gmv: 32.1, color: '#0B6B9A' },
+  { name: 'Курская', deals: 5, gmv: 22.1, color: '#2563EB' },
+  { name: 'Белгородская', deals: 4, gmv: 17.2, color: '#7C3AED' },
+  { name: 'Ставропольский', deals: 4, gmv: 43.5, color: '#D97706' },
+  { name: 'Ростовская', deals: 3, gmv: 12.6, color: '#DC2626' },
 ];
 
 const ROADMAP = [
@@ -26,13 +28,40 @@ const ROADMAP = [
 
 const TRUST = [
   { label: 'Просрочка по сделкам', value: '0%', good: true },
-  { label: 'Спорность',            value: '8%', good: true },
-  { label: 'ФГИС-покрытие',        value: '100%', good: true },
-  { label: 'Активных сделок',       value: '31', good: true },
+  { label: 'Спорность', value: '8%', good: true },
+  { label: 'ФГИС-покрытие', value: '100%', good: true },
+  { label: 'Активных сделок', value: '31', good: true },
+];
+
+const SHIPPED = [
+  {
+    title: 'Auth и онбординг',
+    state: 'Встроено',
+    note: 'Вход, регистрация, auth hub и подключение компании уже внутри платформы.',
+    href: '/platform-v7/auth',
+  },
+  {
+    title: 'Факторинг и эскроу',
+    state: 'Встроено',
+    note: 'Новые банковые поверхности уже оформлены и связаны с денежным контуром.',
+    href: '/platform-v7/bank',
+  },
+  {
+    title: 'Trust-слой',
+    state: 'Встроено',
+    note: 'Профиль компании, команда, карточки контрагентов и отзывы по сделкам уже доступны.',
+    href: '/platform-v7/profile',
+  },
+  {
+    title: 'Status-ready контур',
+    state: 'Встроено',
+    note: 'Есть отдельный слой готовности сервисов и новых модулей.',
+    href: '/platform-v7/status',
+  },
 ];
 
 export default function InvestorPage() {
-  const maxGmv = Math.max(...REGIONS.map(r => r.gmv));
+  const maxGmv = Math.max(...REGIONS.map((r) => r.gmv));
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
@@ -55,11 +84,32 @@ export default function InvestorPage() {
         ))}
       </div>
 
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Что уже встроено в продукт</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+            Это уже не только roadmap. Ключевые P1-слои реально встроены в платформу и доступны пользователю.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {SHIPPED.map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 800 }}>{item.state}</span>
+              </div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.note}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 16 }}>Распределение по регионам</div>
           <div style={{ display: 'grid', gap: 10 }}>
-            {REGIONS.map(r => (
+            {REGIONS.map((r) => (
               <div key={r.name}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{r.name}</span>
