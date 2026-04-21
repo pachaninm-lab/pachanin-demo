@@ -19,9 +19,32 @@ const BLOCKS = [
   },
 ];
 
+const DATA_MODULES = [
+  {
+    title: 'Auth и вход компании',
+    note: 'Login, register, auth hub и онбординг задают точку входа в контур данных и ролей.',
+    href: '/platform-v7/auth',
+  },
+  {
+    title: 'Профиль и команда',
+    note: 'Данные о компании, доступах и участниках уже вынесены в отдельные поверхности.',
+    href: '/platform-v7/profile',
+  },
+  {
+    title: 'Security',
+    note: 'Отдельная страница объясняет, как платформа контролирует роли, деньги и события.',
+    href: '/platform-v7/security',
+  },
+  {
+    title: 'Status',
+    note: 'Статусный слой показывает, какие внешние контуры уже активны, а какие ещё pilot-ready.',
+    href: '/platform-v7/status',
+  },
+];
+
 export default function PrivacyPage() {
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1020, margin: '0 auto' }}>
+    <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Политика конфиденциальности</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
@@ -37,6 +60,24 @@ export default function PrivacyPage() {
           </section>
         ))}
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Модули контроля данных</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+            Внутри платформы уже есть отдельные поверхности, через которые виден доступ, профиль компании, статус контуров и логика работы с данными.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {DATA_MODULES.map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.note}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Ключевой принцип</div>
