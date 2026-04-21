@@ -28,9 +28,32 @@ const CHECKS = [
   'Полевые события: маршрут, приёмка, акт',
 ];
 
+const CONTROL_MODULES = [
+  {
+    title: 'Банковый контур',
+    note: 'Release, factor/escrow и transport gate вынесены в отдельный контролируемый модуль.',
+    href: '/platform-v7/bank',
+  },
+  {
+    title: 'Status и ready-state',
+    note: 'Есть отдельная поверхность, где видно честное состояние внешних контуров и новых модулей.',
+    href: '/platform-v7/status',
+  },
+  {
+    title: 'Онбординг и auth',
+    note: 'Подключение компании, вход и роли выведены в отдельные поверхности, а не размазаны по системе.',
+    href: '/platform-v7/onboarding',
+  },
+  {
+    title: 'Доверительный слой',
+    note: 'Карточки контрагентов, команда компании и отзывы по сделкам усиливают управляемость и разборность.',
+    href: '/platform-v7/profile',
+  },
+];
+
 export default function SecurityPage() {
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1020, margin: '0 auto' }}>
+    <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Безопасность</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
@@ -55,6 +78,24 @@ export default function SecurityPage() {
               <span style={{ fontWeight: 900 }}>•</span>
               <span>{item}</span>
             </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Модули контроля и защиты</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+            Здесь видны уже встроенные поверхности, через которые в продукте реализуются доступы, контроль денег, статус контуров и слой доверия.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {CONTROL_MODULES.map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.note}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+            </Link>
           ))}
         </div>
       </section>
