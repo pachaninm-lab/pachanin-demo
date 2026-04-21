@@ -110,6 +110,29 @@ const ROLE_CARDS: Array<{
   },
 ];
 
+const AUTH_LINKS = [
+  {
+    title: 'Вход',
+    description: 'ЕСИА, СберБизнес ID и email-контур.',
+    href: '/platform-v7/login',
+  },
+  {
+    title: 'Регистрация',
+    description: 'Создание учётной записи компании и подключение документов.',
+    href: '/platform-v7/register',
+  },
+  {
+    title: 'Auth hub',
+    description: 'Все способы входа и связки в одной точке.',
+    href: '/platform-v7/auth',
+  },
+  {
+    title: 'Онбординг',
+    description: '6 шагов от компании до первого лота.',
+    href: '/platform-v7/onboarding',
+  },
+];
+
 function stageBadge(stage: 'sandbox' | 'pilot' | 'role-sim') {
   if (stage === 'pilot') return { label: 'Пилотный режим', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
   if (stage === 'sandbox') return { label: 'Тестовая среда', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
@@ -170,6 +193,36 @@ export function PlatformRolesHub() {
             </Link>
           );
         })}
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Вход и подключение компании</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
+            Отдельные поверхности для входа, регистрации, выбора контура авторизации и пошагового онбординга компании.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {AUTH_LINKS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              style={{
+                textDecoration: 'none',
+                display: 'grid',
+                gap: 8,
+                padding: 16,
+                borderRadius: 14,
+                background: '#F8FAFB',
+                border: '1px solid #E4E6EA',
+              }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1.25, fontWeight: 800, color: '#0F1419' }}>{item.title}</span>
+              <span style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.description}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</span>
+            </Link>
+          ))}
+        </div>
       </section>
     </div>
   );
