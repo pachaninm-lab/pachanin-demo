@@ -27,10 +27,10 @@ function Badge({ tone, children }: { tone: 'success' | 'warning' | 'danger' | 'n
 
 function ClickableStatCard({ title, value, note, active, onClick }: { title: string; value: string; note: string; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{ textAlign: 'left', background: active ? 'rgba(10,122,95,0.06)' : '#fff', border: active ? '1px solid rgba(10,122,95,0.18)' : '1px solid #E4E6EA', borderRadius: 18, padding: 18, cursor: 'pointer' }}>
+    <button onClick={onClick} style={{ textAlign: 'left', background: active ? 'rgba(10,122,95,0.06)' : '#fff', border: active ? '1px solid rgba(10,122,95,0.18)' : '1px solid #E4E6EA', borderRadius: 18, padding: 18, cursor: 'pointer', minWidth: 0 }}>
       <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
-      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 8 }}>{note}</div>
+      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419', marginTop: 8, wordBreak: 'break-word' }}>{value}</div>
+      <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 8, wordBreak: 'break-word' }}>{note}</div>
     </button>
   );
 }
@@ -129,49 +129,74 @@ export function SellerLotsRuntimeV2() {
   };
 
   return (
-    <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Лоты продавца</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>
-              Лот больше не висит отдельно. Если по нему уже создана сделка, это видно прямо в списке и в карточке лота.
-            </div>
+    <div className='seller-lots-shell'>
+      <style>{`
+        .seller-lots-shell{display:grid;gap:18px;padding:8px 0;max-width:100%;overflow-x:hidden}
+        .seller-lots-surface{background:#fff;border:1px solid #E4E6EA;border-radius:18px;padding:18px;min-width:0;overflow:hidden}
+        .seller-lots-top{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start}
+        .seller-lots-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+        .seller-lots-toolbar{display:grid;gap:12px}
+        .seller-lots-searchrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+        .seller-lots-pillrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+        .seller-lots-bulk{display:flex;gap:10px;align-items:center;padding:12px 16px;border-radius:18px;background:rgba(10,122,95,0.06);border:1px solid rgba(10,122,95,0.18);flex-wrap:wrap}
+        .seller-lots-compare{background:rgba(37,99,235,0.04);border:1px solid rgba(37,99,235,0.18);border-radius:18px;padding:16px;overflow:hidden}
+        .seller-lots-grid{display:grid;gap:12px}
+        .seller-lot-card{background:#fff;border:1px solid #E4E6EA;border-radius:18px;padding:18px;display:grid;gap:12px;min-width:0;overflow:hidden}
+        .seller-lot-card.is-selected{border-color:rgba(10,122,95,0.24);box-shadow:0 0 0 2px rgba(10,122,95,0.06) inset}
+        .seller-lot-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+        .seller-lot-head-main{display:flex;gap:10px;align-items:flex-start;min-width:0;flex:1 1 auto}
+        .seller-lot-badges{display:flex;gap:8px;flex-wrap:wrap}
+        .seller-lot-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+        .seller-lot-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+        .seller-lot-actions > *{min-width:0;min-height:48px;text-align:center;white-space:normal;word-break:break-word}
+        @media (max-width: 900px){
+          .seller-lot-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+        }
+        @media (max-width: 680px){
+          .seller-lots-surface{padding:16px;border-radius:16px}
+          .seller-lots-top,.seller-lots-searchrow,.seller-lots-pillrow{display:grid}
+          .seller-lots-searchrow > *, .seller-lots-pillrow > *{min-width:0}
+          .seller-lots-searchrow span{margin-left:0 !important}
+          .seller-lots-metrics{grid-template-columns:1fr}
+          .seller-lots-bulk{display:grid}
+          .seller-lots-bulk button,.seller-lots-bulk span{width:100%;margin-left:0 !important}
+          .seller-lot-head{display:grid}
+          .seller-lot-head-main{display:grid;grid-template-columns:24px 1fr;gap:10px}
+          .seller-lot-stats{grid-template-columns:1fr}
+          .seller-lot-actions{grid-template-columns:1fr}
+        }
+      `}</style>
+
+      <section className='seller-lots-surface'>
+        <div className='seller-lots-top'>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419', wordBreak: 'break-word' }}>Лоты продавца</div>
+            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Лот больше не висит отдельно. Если по нему уже создана сделка, это видно прямо в списке и в карточке лота.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/lots/create' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Создать лот</Link>
             {devMode && manualLots.length ? (
-              <button
-                onClick={() => {
-                  if (window.confirm(`Удалить ${manualLots.length} manual-лотов из витрины?`)) clearManualLots();
-                }}
-                aria-label='Очистить manual-лоты (dev-режим)'
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px dashed rgba(220,38,38,0.4)', color: '#B91C1C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-              >
-                DEV · Очистить manual-лоты ({manualLots.length})
-              </button>
+              <button onClick={() => { if (window.confirm(`Удалить ${manualLots.length} manual-лотов из витрины?`)) clearManualLots(); }} aria-label='Очистить manual-лоты (dev-режим)' style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px dashed rgba(220,38,38,0.4)', color: '#B91C1C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>DEV · Очистить manual-лоты ({manualLots.length})</button>
             ) : null}
           </div>
         </div>
       </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+      <div className='seller-lots-metrics'>
         <ClickableStatCard title='Всего лотов' value={String(mergedLots.length)} note='Все видимые лоты текущего контура.' active={stateFilter === 'ALL'} onClick={() => setStateFilter('ALL')} />
         <ClickableStatCard title='Готовы к движению' value={String(passCount)} note='Можно идти в переговоры без ручного gate.' active={stateFilter === 'PASS'} onClick={() => setStateFilter('PASS')} />
         <ClickableStatCard title='Нужна проверка' value={String(reviewCount)} note='Есть manual- или документные блокеры.' active={stateFilter === 'REVIEW'} onClick={() => setStateFilter('REVIEW')} />
         <ClickableStatCard title='Жёсткий стоп' value={String(failCount)} note='Gate FAIL, движение дальше запрещено.' active={stateFilter === 'FAIL'} onClick={() => setStateFilter('FAIL')} />
       </div>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder='Поиск: LOT-2401, пшеница, FGIS-PARTY-…' aria-label='Поиск по лотам' style={{ flex: '1 1 240px', minWidth: 200, padding: '10px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 13 }} />
-          {search ? (
-            <button onClick={() => setSearch('')} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, fontWeight: 700, color: '#6B778C', cursor: 'pointer' }}>Сбросить поиск</button>
-          ) : null}
+      <section className='seller-lots-surface seller-lots-toolbar'>
+        <div className='seller-lots-searchrow'>
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder='Поиск: LOT-2401, пшеница, FGIS-PARTY-…' aria-label='Поиск по лотам' style={{ flex: '1 1 240px', minWidth: 0, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 13 }} />
+          {search ? <button onClick={() => setSearch('')} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 12, fontWeight: 700, color: '#6B778C', cursor: 'pointer' }}>Сбросить поиск</button> : null}
           <span style={{ fontSize: 11, color: '#6B778C', marginLeft: 'auto' }}>{filteredLots.length} из {mergedLots.length}</span>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className='seller-lots-pillrow'>
           {[
             { id: 'all', label: 'Все лоты' },
             { id: 'ready', label: 'Готовы к движению' },
@@ -182,7 +207,7 @@ export function SellerLotsRuntimeV2() {
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className='seller-lots-pillrow'>
           {[
             ['ALL', 'Все источники'],
             ['FGIS', 'FGIS'],
@@ -202,7 +227,7 @@ export function SellerLotsRuntimeV2() {
       </section>
 
       {selected.size ? (
-        <section style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '12px 16px', borderRadius: 18, background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.18)', flexWrap: 'wrap' }}>
+        <section className='seller-lots-bulk'>
           <span style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>{selected.size} выбрано</span>
           <button onClick={() => runBulkAction('favorite')} style={{ padding: '8px 12px', borderRadius: 10, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>В избранное</button>
           <button onClick={() => runBulkAction('compare')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(37,99,235,0.3)', color: '#2563EB', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
@@ -212,7 +237,7 @@ export function SellerLotsRuntimeV2() {
       ) : null}
 
       {compareLotIds.length ? (
-        <section aria-label='Сравнение лотов' style={{ background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.18)', borderRadius: 18, padding: 16 }}>
+        <section aria-label='Сравнение лотов' className='seller-lots-compare'>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: '#2563EB' }}>Сравнение · {compareLotIds.length} из 3</div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -253,15 +278,10 @@ export function SellerLotsRuntimeV2() {
         </section>
       ) : null}
 
-      {compareToast ? (
-        <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', borderRadius: 12, color: '#B91C1C', fontSize: 12, fontWeight: 700 }}>{compareToast}</div>
-      ) : null}
+      {compareToast ? <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', borderRadius: 12, color: '#B91C1C', fontSize: 12, fontWeight: 700 }}>{compareToast}</div> : null}
+      {bulkToast ? <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 12, color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>{bulkToast}</div> : null}
 
-      {bulkToast ? (
-        <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 12, color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>{bulkToast}</div>
-      ) : null}
-
-      <div style={{ display: 'grid', gap: 12 }}>
+      <div className='seller-lots-grid'>
         {filteredLots.map((item) => {
           const tone = toneByState(item.readiness.state);
           const linkedDeal = LIVE_DEALS.find((deal) => deal.lotId === item.id);
@@ -269,54 +289,37 @@ export function SellerLotsRuntimeV2() {
           const isCompared = compareLotIds.includes(item.id);
           const isSelected = selected.has(item.id);
           return (
-            <div key={item.id} style={{ background: '#fff', border: isSelected ? '1px solid rgba(10,122,95,0.24)' : '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12, boxShadow: isSelected ? '0 0 0 2px rgba(10,122,95,0.06) inset' : 'none' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <input type='checkbox' aria-label={`Выбрать лот ${item.id}`} checked={isSelected} onChange={() => toggleRow(item.id)} style={{ marginTop: 4 }} />
-                  <div>
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419', marginTop: 4 }}>{item.title}</div>
-                    <div style={{ fontSize: 12, color: '#6B778C', marginTop: 6 }}>{item.grain} · {item.volumeTons} т · {item.sourceReference ?? 'Ручной контур без внешнего reference'}</div>
+            <div key={item.id} className={`seller-lot-card${isSelected ? ' is-selected' : ''}`}>
+              <div className='seller-lot-head'>
+                <div className='seller-lot-head-main'>
+                  <input type='checkbox' aria-label={`Выбрать лот ${item.id}`} checked={isSelected} onChange={() => toggleRow(item.id)} style={{ marginTop: 4, width: 20, height: 20, flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13, wordBreak: 'break-word' }}>{item.id}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419', marginTop: 4, lineHeight: 1.3, wordBreak: 'break-word' }}>{item.title}</div>
+                    <div style={{ fontSize: 12, color: '#6B778C', marginTop: 6, lineHeight: 1.5, wordBreak: 'break-word' }}>{item.grain} · {item.volumeTons} т · {item.sourceReference ?? 'Ручной контур без внешнего reference'}</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className='seller-lot-badges'>
                   <Badge tone={item.sourceType === 'FGIS' ? 'warning' : 'neutral'}>{item.sourceType}</Badge>
                   <Badge tone={tone}>{item.readiness.state}</Badge>
                   {linkedDeal ? <Badge tone='success'>{linkedDeal.id}</Badge> : <Badge tone='neutral'>Без сделки</Badge>}
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div className='seller-lot-stats'>
+                <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA', minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.readiness.nextStep ?? '—'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8, lineHeight: 1.5, wordBreak: 'break-word' }}>{item.readiness.nextStep ?? '—'}</div>
                 </div>
-                <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+                <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA', minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Владелец / связка</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{item.readiness.nextOwner ?? '—'}{linkedDeal ? ` · ${linkedDeal.routeId ?? 'маршрут не задан'}` : ''}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8, lineHeight: 1.5, wordBreak: 'break-word' }}>{item.readiness.nextOwner ?? '—'}{linkedDeal ? ` · ${linkedDeal.routeId ?? 'маршрут не задан'}` : ''}</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div className='seller-lot-actions'>
                 <button onClick={() => router.push(`/platform-v7/lots/${item.id}`)} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Открыть карточку лота</button>
                 {linkedDeal ? <Link href={`/platform-v7/deals/${linkedDeal.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Открыть сделку</Link> : <Link href='/platform-v7/procurement' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Создать сделку</Link>}
-                <button
-                  onClick={() => toggleFavouriteLot(item.id)}
-                  aria-pressed={isFavourite}
-                  aria-label={isFavourite ? `Убрать лот ${item.id} из избранного` : `Добавить лот ${item.id} в избранное`}
-                  style={{ borderRadius: 12, padding: '10px 12px', background: isFavourite ? 'rgba(217,119,6,0.08)' : '#fff', border: isFavourite ? '1px solid rgba(217,119,6,0.3)' : '1px solid #E4E6EA', color: isFavourite ? '#B45309' : '#6B778C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  {isFavourite ? '★ В избранном' : '☆ В избранное'}
-                </button>
-                <button
-                  onClick={() => {
-                    const result = toggleCompareLot(item.id);
-                    if (!result.ok && result.reason === 'limit') setCompareToast('Сравнить можно максимум 3 лота. Уберите один перед добавлением нового.');
-                  }}
-                  aria-pressed={isCompared}
-                  aria-label={isCompared ? `Убрать лот ${item.id} из сравнения` : `Добавить лот ${item.id} в сравнение`}
-                  style={{ borderRadius: 12, padding: '10px 12px', background: isCompared ? 'rgba(37,99,235,0.08)' : '#fff', border: isCompared ? '1px solid rgba(37,99,235,0.3)' : '1px solid #E4E6EA', color: isCompared ? '#2563EB' : '#6B778C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  {isCompared ? '− Из сравнения' : '+ Сравнить'}
-                </button>
+                <button onClick={() => toggleFavouriteLot(item.id)} aria-pressed={isFavourite} aria-label={isFavourite ? `Убрать лот ${item.id} из избранного` : `Добавить лот ${item.id} в избранное`} style={{ borderRadius: 12, padding: '10px 12px', background: isFavourite ? 'rgba(217,119,6,0.08)' : '#fff', border: isFavourite ? '1px solid rgba(217,119,6,0.3)' : '1px solid #E4E6EA', color: isFavourite ? '#B45309' : '#6B778C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{isFavourite ? '★ В избранном' : '☆ В избранное'}</button>
+                <button onClick={() => { const result = toggleCompareLot(item.id); if (!result.ok && result.reason === 'limit') setCompareToast('Сравнить можно максимум 3 лота. Уберите один перед добавлением нового.'); }} aria-pressed={isCompared} aria-label={isCompared ? `Убрать лот ${item.id} из сравнения` : `Добавить лот ${item.id} в сравнение`} style={{ borderRadius: 12, padding: '10px 12px', background: isCompared ? 'rgba(37,99,235,0.08)' : '#fff', border: isCompared ? '1px solid rgba(37,99,235,0.3)' : '1px solid #E4E6EA', color: isCompared ? '#2563EB' : '#6B778C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{isCompared ? '− Из сравнения' : '+ Сравнить'}</button>
               </div>
             </div>
           );
