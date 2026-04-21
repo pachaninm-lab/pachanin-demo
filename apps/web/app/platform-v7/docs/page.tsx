@@ -22,6 +22,29 @@ const SECTIONS = [
   },
 ];
 
+const MODULE_REFERENCES = [
+  {
+    title: 'Auth и подключение компании',
+    note: 'Login, register, auth hub и onboarding уже вынесены в отдельные поверхности.',
+    href: '/platform-v7/auth',
+  },
+  {
+    title: 'Банковые модули',
+    note: 'Факторинг, эскроу и release-контур уже встроены в банковую поверхность.',
+    href: '/platform-v7/bank',
+  },
+  {
+    title: 'Status и ready-state',
+    note: 'Есть отдельный слой, где видно честное состояние сервисов и новых модулей.',
+    href: '/platform-v7/status',
+  },
+  {
+    title: 'Trust-слой',
+    note: 'Карточки контрагентов, профиль компании, команда и отзывы по сделкам.',
+    href: '/platform-v7/profile',
+  },
+];
+
 export default function DocsPage() {
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
@@ -40,6 +63,24 @@ export default function DocsPage() {
           </section>
         ))}
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Новые модули в документационном контуре</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+            Помимо API и entry points здесь видны встроенные продуктовые поверхности, которые уже доступны пользователю и требуют документационного сопровождения.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {MODULE_REFERENCES.map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.note}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Ключевые точки входа</div>
