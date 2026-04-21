@@ -463,6 +463,29 @@ export function DealReadinessPage({ id }: { id: string }) {
 }
 
 export function ConnectorsPage() {
+  const moduleLinks = [
+    {
+      title: 'Auth и онбординг',
+      note: 'ESIA-коннектор уже связан с входом компании, auth hub и онбордингом.',
+      href: '/platform-v7/auth',
+    },
+    {
+      title: 'Банковый контур',
+      note: 'FGIS и ESIA влияют на дальнейший money-rail, bank runtime и документный слой.',
+      href: '/platform-v7/bank',
+    },
+    {
+      title: 'Status-ready контур',
+      note: 'Есть отдельный слой, где видно честное состояние сервисов и новых модулей.',
+      href: '/platform-v7/status',
+    },
+    {
+      title: 'Trust-слой',
+      note: 'Профиль компании, контрагенты и отзывы помогают понимать доверие к объектам после синка.',
+      href: '/platform-v7/profile',
+    },
+  ];
+
   return (
     <PageFrame
       title='Коннекторы'
@@ -472,6 +495,23 @@ export function ConnectorsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
         {connectors.map((item) => <ConnectorStatusCard key={item.type} item={item} />)}
       </div>
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Связанные модули платформы</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+            Коннекторы больше не висят отдельно. Они уже связаны с входом компании, банком, статусным слоем и trust-контуром.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {moduleLinks.map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.note}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
     </PageFrame>
   );
 }
