@@ -13,6 +13,29 @@ const TRENDS = [
   { title: '365 дней', note: 'Широкий контекст для переговоров и стратегии закупки.', values: ['11.8', '12.4', '13.1', '13.9', '14.5'] },
 ];
 
+const MARKET_MODULES = [
+  {
+    title: 'Лоты',
+    note: 'Рынок превращается в действие через выставление и сравнение лотов.',
+    href: '/platform-v7/lots',
+  },
+  {
+    title: 'Сделки',
+    note: 'Ценовой слой должен вести в переговоры, сделку и дальнейшее исполнение.',
+    href: '/platform-v7/deals',
+  },
+  {
+    title: 'Профиль и доверие',
+    note: 'Цена без доверия к контрагенту слабая. Профиль и карточки компаний уже внутри платформы.',
+    href: '/platform-v7/profile',
+  },
+  {
+    title: 'Онбординг компании',
+    note: 'Новый участник рынка может зайти в платформу через onboarding и сразу перейти к работе с лотами.',
+    href: '/platform-v7/onboarding',
+  },
+];
+
 function deltaTone(delta: string) {
   return delta.startsWith('-')
     ? { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' }
@@ -26,6 +49,24 @@ export default function MarketPage() {
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Витрина рынка</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
           Рабочий ценовой слой для переговоров и принятия решений. Не просто график ради графика, а контекст: культура, регион, базис, направление и динамика.
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Связанные модули платформы</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+            Ценовой экран уже связан с рабочим контуром сделки, лотов, доверия к контрагенту и входом новых компаний в платформу.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {MARKET_MODULES.map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.note}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+            </Link>
+          ))}
         </div>
       </section>
 
