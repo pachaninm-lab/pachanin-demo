@@ -27,7 +27,7 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string }>> 
   surveyor: [{ href: '/platform-v7/surveyor', label: 'Назначения' }, { href: '/platform-v7/disputes', label: 'Споры' }],
   elevator: [{ href: '/platform-v7/elevator', label: 'Приёмка' }, { href: '/platform-v7/deals', label: 'Сделки' }],
   lab: [{ href: '/platform-v7/lab', label: 'Пробы' }, { href: '/platform-v7/deals', label: 'Сделки' }],
-  bank: [{ href: '/platform-v7/bank', label: 'Банковый контур' }, { href: '/platform-v7/deals', label: 'Сделки' }, { href: '/platform-v7/disputes', label: 'Удержания' }],
+  bank: [{ href: '/platform-v7/bank', label: 'Банковый контур' }, { href: '/platform-v7/bank/factoring', label: 'Факторинг' }, { href: '/platform-v7/bank/escrow', label: 'Эскроу' }, { href: '/platform-v7/deals', label: 'Сделки' }, { href: '/platform-v7/disputes', label: 'Удержания' }],
   arbitrator: [{ href: '/platform-v7/arbitrator', label: 'Разбор' }, { href: '/platform-v7/disputes', label: 'Споры' }],
   compliance: [{ href: '/platform-v7/compliance', label: 'Допуск' }, { href: '/platform-v7/connectors', label: 'Интеграции' }, { href: '/platform-v7/deals', label: 'Сделки' }],
   executive: [{ href: '/platform-v7/executive', label: 'Сводка' }, { href: '/platform-v7/control-tower', label: 'Control Tower' }, { href: '/platform-v7/bank', label: 'Деньги' }],
