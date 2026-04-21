@@ -35,6 +35,33 @@ const SERVICES = [
   },
 ];
 
+const MODULES = [
+  {
+    title: 'Auth / вход компании',
+    readiness: 'Встроено в платформу',
+    note: 'Есть login, register, auth hub и связка с каноническим входом.',
+    href: '/platform-v7/auth',
+  },
+  {
+    title: 'Онбординг компании',
+    readiness: 'Pilot-ready UI',
+    note: 'Есть 6-шаговый вход от компании до первого лота.',
+    href: '/platform-v7/onboarding',
+  },
+  {
+    title: 'Факторинг и эскроу',
+    readiness: 'Встроено в банк',
+    note: 'Новые банковые поверхности доступны из bank и меню роли банка.',
+    href: '/platform-v7/bank',
+  },
+  {
+    title: 'Доверительный слой',
+    readiness: 'Расширен',
+    note: 'Карточки контрагентов, команда компании и отзывы по сделкам уже внутри платформы.',
+    href: '/platform-v7/profile',
+  },
+];
+
 function serviceTone(status: string) {
   if (status === 'ok') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ОК' };
   if (status === 'degraded') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Нестабильно' };
@@ -43,7 +70,7 @@ function serviceTone(status: string) {
 
 export default function StatusPage() {
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1020, margin: '0 auto' }}>
+    <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Статус сервисов</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
@@ -57,6 +84,27 @@ export default function StatusPage() {
         <Metric title='Песочница' value='1' note='Лабораторный контур ещё не полностью боевой.' />
         <Metric title='Режим' value='Pilot' note='Честная стадия: pilot-ready с сопровождением.' />
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Новые модули и готовность</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+            Помимо core-интеграций здесь виден статус новых поверхностей, которые уже встроены в платформу и доступны пользователю.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {MODULES.map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 16, lineHeight: 1.25, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 800 }}>{item.readiness}</span>
+              </div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.note}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <section style={{ display: 'grid', gap: 12 }}>
         {SERVICES.map((service) => {
