@@ -13,6 +13,29 @@ const METRICS = [
   { label: 'Рейтинг', value: '4.7 / 5', note: 'На основе исполнения и SLA' },
 ];
 
+const PROFILE_MODULES = [
+  {
+    title: 'Команда компании',
+    description: 'Роли, права доступа, разделение денег, исполнения и управления внутри одной организации.',
+    href: '/platform-v7/profile/team',
+  },
+  {
+    title: 'Карточка контрагента',
+    description: 'Сигналы исполнения, связанные сделки, рейтинг и доверительный слой по компании.',
+    href: '/platform-v7/companies/6829123456',
+  },
+  {
+    title: 'Онбординг компании',
+    description: 'Шесть шагов от регистрации до первого лота и банкового контура.',
+    href: '/platform-v7/onboarding',
+  },
+  {
+    title: 'Отзыв по сделке',
+    description: 'Фиксация SLA, качества, коммуникации и готовности работать повторно.',
+    href: '/platform-v7/deals/DL-9107/review',
+  },
+];
+
 export default function ProfilePage() {
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
@@ -53,6 +76,36 @@ export default function ProfilePage() {
           </section>
         ))}
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Модули доверия и доступа</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
+            Всё, что усиливает доверительный профиль компании: команда, карточка контрагента, онбординг и отзывы по сделкам.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {PROFILE_MODULES.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              style={{
+                textDecoration: 'none',
+                display: 'grid',
+                gap: 8,
+                padding: 16,
+                borderRadius: 14,
+                background: '#F8FAFB',
+                border: '1px solid #E4E6EA',
+              }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1.25, fontWeight: 800, color: '#0F1419' }}>{item.title}</span>
+              <span style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.description}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Что видно по компании</div>
