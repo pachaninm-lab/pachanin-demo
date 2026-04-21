@@ -45,6 +45,29 @@ const PLANS = [
   },
 ];
 
+const MONETIZATION_MODULES = [
+  {
+    title: 'Факторинг',
+    note: 'Дополнительный денежный слой на стороне покупателя и оборотного финансирования.',
+    href: '/platform-v7/bank/factoring',
+  },
+  {
+    title: 'Эскроу',
+    note: 'Контур безопасной сделки с раскрытием денег по подтверждённым условиям.',
+    href: '/platform-v7/bank/escrow',
+  },
+  {
+    title: 'Онбординг компании',
+    note: 'Точка входа в коммерческий контур: подключение компании, документов и банка.',
+    href: '/platform-v7/onboarding',
+  },
+  {
+    title: 'Профиль и доверие',
+    note: 'Карточки контрагентов, отзывы и доверительный слой после сделки.',
+    href: '/platform-v7/profile',
+  },
+];
+
 export default function PricingPage() {
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1060, margin: '0 auto' }}>
@@ -84,6 +107,24 @@ export default function PricingPage() {
           <Cell title='Сделка 4.2 млн ₽' value='29 400 ₽' note='Ориентир по одной средней сделке' />
           <Cell title='Сделка 10 млн ₽' value='70 000 ₽' note='Ориентир для крупного покупателя' />
           <Cell title='100 млн ₽ GMV' value='700 000 ₽' note='Ориентир месячной выручки при масштабе' />
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Монетизация внутри платформы</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+            Не только тарифы, но и точки, через которые пользователю уже виден денежный и доверительный слой платформы.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {MONETIZATION_MODULES.map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.note}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+            </Link>
+          ))}
         </div>
       </section>
 
