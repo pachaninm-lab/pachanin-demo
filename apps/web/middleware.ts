@@ -12,6 +12,20 @@ const PUBLIC_PREFIX = [
   '/mockServiceWorker.js',
 ];
 
+const CANON_REDIRECTS: Record<string, string> = {
+  '/canon/roles': '/platform-v7/roles',
+  '/platform-v4/roles': '/platform-v7/roles',
+  '/canon/deals': '/platform-v7/deals',
+  '/canon/deals/detail': '/platform-v7/deals',
+  '/canon/documents': '/platform-v7/docs',
+  '/canon/documents/detail': '/platform-v7/docs',
+  '/canon/finance': '/platform-v7/bank',
+  '/canon/finance/detail': '/platform-v7/bank',
+  '/canon/control': '/platform-v7/control-tower',
+  '/canon/control/detail': '/platform-v7/control-tower',
+  '/canon/admin': '/platform-v7/roles',
+};
+
 const VALID_ROLES = new Set([
   'operator',
   'buyer',
@@ -68,6 +82,13 @@ function withRoleHeaders(req: NextRequest, role: string) {
 
 export function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
+
+  const canonRedirect = CANON_REDIRECTS[p];
+  if (canonRedirect) {
+    const u = req.nextUrl.clone();
+    u.pathname = canonRedirect;
+    return NextResponse.redirect(u, 308);
+  }
 
   if (p === '/platform-v7r' || p.startsWith('/platform-v7r/')) {
     const u = req.nextUrl.clone();
