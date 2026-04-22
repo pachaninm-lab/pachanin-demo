@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { BrandMarkSvg } from '@/components/v7r/BrandMark';
 
 export const size = {
   width: 512,
@@ -17,14 +18,10 @@ export default function Icon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #0A7A5F 0%, #21A038 100%)',
-          color: '#ffffff',
-          fontSize: 180,
-          fontWeight: 800,
-          borderRadius: 96,
+          background: '#0B1513',
         }}
       >
-        ПЦ
+        <BrandMarkSvg size={420} background='#0F5B4F' frame='#D9E5E0' accent='#7EF2C4' />
       </div>
     ),
     size,
