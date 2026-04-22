@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Цифровой контур исполнения зерновой сделки.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#F4F7F5',
-    theme_color: '#0A7A5F',
+    background_color: '#0B1513',
+    theme_color: '#0F5B4F',
     lang: 'ru',
     icons: [
       {
