@@ -74,6 +74,13 @@ function stageMarker(state: PipelineVisualState) {
   return '●';
 }
 
+function callbackTypeLabel(type: string) {
+  if (type === 'Reserve') return 'Резерв';
+  if (type === 'Mismatch') return 'Расхождение';
+  if (type === 'Release') return 'Выпуск';
+  return type;
+}
+
 function gateBadge(state: IntegrationGateState) {
   if (state === 'PASS') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ФГИС / ЕСИА: ок' };
   if (state === 'REVIEW') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'ФГИС / ЕСИА: проверка' };
