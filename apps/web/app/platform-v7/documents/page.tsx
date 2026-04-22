@@ -1,4 +1,10 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Документы',
+  description: 'Древовидный документный слой сделки: год, месяц, сделка и статус документов.',
+};
 
 const DOCUMENT_TREE = [
   {
