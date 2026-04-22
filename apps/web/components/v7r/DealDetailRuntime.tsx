@@ -105,6 +105,31 @@ function primaryActionForDeal(status: DealStatus, dealId: string, disputeId?: st
   return { label: 'Открыть действие', href: `/platform-v7/deals/${dealId}#next-action` };
 }
 
+function moneyMode(dealStatus: DealStatus, holdAmount: number, blockers: string[]) {
+  if (holdAmount > 0 || dealStatus === 'quality_disputed' || blockers.includes('dispute') || blockers.includes('DISPUTE_OPEN') || blockers.includes('QUALITY_DISPUTE')) {
+    return {
+      title: 'Эскроу / удержание',
+      href: '/platform-v7/bank/escrow',
+      tone: { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' },
+      note: 'Деньги нельзя двигать без снятия спорного или качественного блокера.'
+    };
+  }
+  if (dealStatus === 'contract_signed' || dealStatus === 'payment_reserved' || blockers.includes('reserve')) {
+    return {
+      title: 'Факторинг / подготовка денег',
+      href: '/platform-v7/bank/factoring',
+      tone: { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB' },
+      note: 'Сделка ещё в режиме подготовки денег, лимита или финального резерва.'
+    };
+  }
+  return {
+    title: 'Банк / выпуск',
+    href: '/platform-v7/bank',
+    tone: { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
+    note: 'Контур денег уже дошёл до выпуска, ручной проверки или финального callback.'
+  };
+}
+
 export function DealDetailRuntime({ id }: { id: string }) {
   const deal = getDealById(id);
   if (!deal) return notFound();
@@ -126,6 +151,8 @@ export function DealDetailRuntime({ id }: { id: string }) {
     integration.reasonCodes.includes('FGIS_GATE_FAIL') ? 'ФГИС не подтвердил партию' : null,
     integration.reasonCodes.includes('DOCS_MISSING') ? 'Не хватает документов' : null,
   ].filter(Boolean) as string[];
+  const moneyRoute = moneyMode(deal.status, deal.holdAmount, [...deal.blockers, ...integration.reasonCodes]);
+  const bankFocus = callbacks.length ? callbackTypeLabel(callbacks[0].type) : deal.status === 'docs_complete' ? 'Ожидает release' : deal.status === 'payment_reserved' ? 'Резерв' : 'Банковый контур';
 
   const related: RelatedChip[] = [];
   if (deal.lotId) related.push({ label: 'Лот', value: deal.lotId, href: `/platform-v7/lots/${deal.lotId}`, tone: 'lot' });
@@ -196,13 +223,19 @@ export function DealDetailRuntime({ id }: { id: string }) {
         .timeline-item{display:grid;grid-template-columns:12px 1fr;gap:12px;align-items:start}
         .timeline-dot{width:12px;height:12px;border-radius:999px;margin-top:5px}
         .timeline-card{border:1px solid #E4E6EA;border-radius:14px;padding:12px;max-width:100%;overflow:hidden}
+        .bank-route-grid{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr))}
+        .bank-route-card{border:1px solid #E4E6EA;border-radius:16px;padding:14px;background:#fff;display:grid;gap:8px;min-width:0}
+        .bank-route-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap}
+        .bank-route-title{font-size:14px;font-weight:800;color:#0F1419;line-height:1.25}
+        .bank-route-note{font-size:12px;color:#6B778C;line-height:1.5}
+        .money-action-row{display:flex;gap:8px;flex-wrap:wrap}
         .sticky-action{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-top:1px solid #E4E6EA}
         .sticky-inner{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
         .sticky-label{font-size:12px;color:#6B778C;font-weight:700;line-height:1.3}
         .sticky-title{font-size:14px;font-weight:900;color:#0F1419;line-height:1.25;margin-top:2px}
-        @media (max-width: 1100px){.decision-main,.decision-side{grid-column:span 12}.timeline-layout{grid-template-columns:1fr}}
+        @media (max-width: 1100px){.decision-main,.decision-side{grid-column:span 12}.timeline-layout{grid-template-columns:1fr}.bank-route-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
         @media (max-width: 960px){.hero-actions{grid-template-columns:1fr}}
-        @media (max-width: 768px){.surface{padding:16px;border-radius:16px}.hero-title{font-size:28px}.hero-top{display:grid}.summary-grid{grid-template-columns:1fr 1fr}.mini-grid{grid-template-columns:1fr 1fr}.desktop-only{display:none}.mobile-only{display:block}.timeline-layout{gap:12px}.sticky-inner{grid-template-columns:1fr}.sticky-inner .btn{width:100%}}
+        @media (max-width: 768px){.surface{padding:16px;border-radius:16px}.hero-title{font-size:28px}.hero-top{display:grid}.summary-grid{grid-template-columns:1fr 1fr}.mini-grid{grid-template-columns:1fr 1fr}.desktop-only{display:none}.mobile-only{display:block}.timeline-layout{gap:12px}.sticky-inner{grid-template-columns:1fr}.sticky-inner .btn{width:100%}.bank-route-grid{grid-template-columns:1fr}}
         @media (max-width: 560px){.deal-page{gap:12px;padding-bottom:112px}.action-card{padding:16px;gap:12px}.action-title{font-size:20px}.mini-grid{grid-template-columns:1fr}.owner-value{font-size:22px}.summary-grid{grid-template-columns:1fr}.summary-value{font-size:26px}.chip-flow{overflow:auto hidden;flex-wrap:nowrap;padding-bottom:2px;margin-right:-4px}.chip-link{white-space:nowrap}}
       `}</style>
 
@@ -234,6 +267,61 @@ export function DealDetailRuntime({ id }: { id: string }) {
             <SummaryCard title='К выпуску' value={formatCompactMoney(releasableAmount)} note={integration.gateState === 'FAIL' ? 'Пока выпуск заблокирован.' : integration.gateState === 'REVIEW' ? 'Нужна ручная проверка.' : 'Можно выпускать после закрытия блокеров.'} />
             <SummaryCard title='Резерв' value={formatCompactMoney(deal.reservedAmount)} note='Деньги подтверждены в банковом контуре.' />
             <SummaryCard title='Следующий владелец' value={integration.nextOwner ? translateRole(integration.nextOwner) : '—'} note={integration.nextStep ?? 'Следующее действие не определено.'} />
+          </div>
+        </section>
+
+        <section className='surface'>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div>
+              <div className='eyebrow'>Денежный маршрут сделки</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{moneyRoute.title}</div>
+              <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6, marginTop: 6, maxWidth: 860 }}>{moneyRoute.note}</div>
+            </div>
+            <span className='pill' style={{ background: moneyRoute.tone.bg, borderColor: moneyRoute.tone.border, color: moneyRoute.tone.color }}>{bankFocus}</span>
+          </div>
+
+          <div className='bank-route-grid' style={{ marginTop: 14 }}>
+            <div className='bank-route-card'>
+              <div className='bank-route-top'>
+                <div className='bank-route-title'>Банк</div>
+                <span className='pill' style={{ marginTop: 0 }}>{bankFocus}</span>
+              </div>
+              <div className='bank-route-note'>Общий банковый runtime-хаб со всеми денежными очередями, callback и release-кейсами.</div>
+              <Link href='/platform-v7/bank' className='btn btn-secondary'>Открыть банк</Link>
+            </div>
+
+            <div className='bank-route-card'>
+              <div className='bank-route-top'>
+                <div className='bank-route-title'>Эскроу</div>
+                <span className='pill' style={{ marginTop: 0, background: deal.holdAmount > 0 ? 'rgba(220,38,38,0.08)' : '#F8FAFB', borderColor: deal.holdAmount > 0 ? 'rgba(220,38,38,0.18)' : '#E4E6EA', color: deal.holdAmount > 0 ? '#B91C1C' : '#475569' }}>{deal.holdAmount > 0 ? 'Hold активен' : 'Без hold'}</span>
+              </div>
+              <div className='bank-route-note'>Режим удержания, частичного раскрытия и возврата денег при споре или неполном пакете.</div>
+              <Link href='/platform-v7/bank/escrow' className='btn btn-secondary'>Открыть эскроу</Link>
+            </div>
+
+            <div className='bank-route-card'>
+              <div className='bank-route-top'>
+                <div className='bank-route-title'>Факторинг</div>
+                <span className='pill' style={{ marginTop: 0, background: deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'rgba(37,99,235,0.08)' : '#F8FAFB', borderColor: deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'rgba(37,99,235,0.18)' : '#E4E6EA', color: deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? '#2563EB' : '#475569' }}>{deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'Актуально' : 'Опционально'}</span>
+              </div>
+              <div className='bank-route-note'>Buyer-side контур лимита и предфинансирования, когда деньги ещё только собираются к сделке.</div>
+              <Link href='/platform-v7/bank/factoring' className='btn btn-secondary'>Открыть факторинг</Link>
+            </div>
+
+            <div className='bank-route-card'>
+              <div className='bank-route-top'>
+                <div className='bank-route-title'>Control Tower</div>
+                <span className='pill' style={{ marginTop: 0, background: blockerTexts.length ? 'rgba(217,119,6,0.08)' : '#F8FAFB', borderColor: blockerTexts.length ? 'rgba(217,119,6,0.18)' : '#E4E6EA', color: blockerTexts.length ? '#B45309' : '#475569' }}>{blockerTexts.length ? 'Есть блокеры' : 'Чисто'}</span>
+              </div>
+              <div className='bank-route-note'>Операторская добивка кросс-модульных проблем, когда блокер уже не решается на одном экране.</div>
+              <Link href='/platform-v7/control-tower/hotlist' className='btn btn-secondary'>Открыть hotlist</Link>
+            </div>
+          </div>
+
+          <div className='money-action-row' style={{ marginTop: 12 }}>
+            <Link href={moneyRoute.href} className='btn btn-primary'>Открыть рабочий денежный контур</Link>
+            <Link href={`/platform-v7/deals/${deal.id}/documents`} className='btn btn-secondary'>Проверить документы</Link>
+            <Link href='/platform-v7/control-tower/hotlist' className='btn btn-secondary'>Передать в hotlist</Link>
           </div>
         </section>
 
@@ -385,6 +473,10 @@ export function DealDetailRuntime({ id }: { id: string }) {
                     <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{cb.amountRub ? formatMoney(cb.amountRub) : '—'}</div>
                   </div>
                 )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Банковый контур по сделке пока не зафиксировал событий.</div>}
+              </div>
+              <div className='money-action-row' style={{ marginTop: 12 }}>
+                <Link href='/platform-v7/bank' className='btn btn-secondary'>Открыть банк</Link>
+                <Link href={moneyRoute.href} className='btn btn-secondary'>Открыть профильный денежный контур</Link>
               </div>
             </div>
 
