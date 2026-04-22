@@ -60,7 +60,7 @@ export default function CompaniesPage() {
             </div>
 
             <div>
-              <Link href={`/platform-v7/companies/${company.inn}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
+              <Link href={`/platform-v7/counterparty/${company.inn}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
                 Открыть карточку
               </Link>
             </div>

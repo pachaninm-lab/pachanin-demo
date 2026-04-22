@@ -28,6 +28,8 @@ const VALID_ROLES = new Set<PlatformRole>([
   'executive',
 ]);
 
+const TARGET_SYSTEMS = ['ФГИС «Зерно»', 'ЕСИА', 'Сбер', 'СберКорус', 'ЭДО', 'Лаборатории'];
+
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const headerStore = await headers();
   const rawRole = headerStore.get('x-pc-role');
@@ -35,7 +37,42 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
 
   return (
     <ToastProvider>
-      <AppShellV3 initialRole={initialRole}>{children}</AppShellV3>
+      <AppShellV3 initialRole={initialRole}>
+        <>
+          {children}
+
+          <footer style={{ marginTop: 16, background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 12, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Контур и системы</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Целевые системы сделки</div>
+              <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6, maxWidth: 920 }}>
+                В футере показываем не обещания о закрытых боевых интеграциях, а рабочий контур и целевые системы, вокруг которых собирается сделка. Это честный демонстрационный слой, а не заявление, что все подключения уже live.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {TARGET_SYSTEMS.map((item) => (
+                <span
+                  key={item}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    borderRadius: 999,
+                    background: '#F8FAFB',
+                    border: '1px solid #E4E6EA',
+                    color: '#0F1419',
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </footer>
+        </>
+      </AppShellV3>
     </ToastProvider>
   );
 }

@@ -22,6 +22,16 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/platform-v7/counterparty',
+        destination: '/platform-v7/companies',
+        permanent: true,
+      },
+      {
+        source: '/platform-v7/counterparty/:path*',
+        destination: '/platform-v7/companies/:path*',
+        permanent: true,
+      },
+      {
         source: '/platform-v7/lots/new',
         destination: '/platform-v7/lots/create',
         permanent: true,
