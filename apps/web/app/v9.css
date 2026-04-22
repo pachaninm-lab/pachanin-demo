@@ -1,6 +1,6 @@
 /**
  * v9 platform — CSS variables (shadcn/ui compatible) + base reset
- * Scoped via .v9-root to avoid conflicting with platform-v7
+ * Rebuilt on Elite Style v2 tokens.
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -8,55 +8,55 @@
 
 .v9-root {
   /* shadcn/ui CSS variable contract */
-  --background: 250 250 250;
-  --foreground: 15 20 25;
-  --card: 255 255 255;
-  --card-foreground: 15 20 25;
+  --background: 245 246 244;
+  --foreground: 31 35 40;
+  --card: 245 246 244;
+  --card-foreground: 31 35 40;
   --popover: 255 255 255;
-  --popover-foreground: 15 20 25;
-  --primary: 10 122 95;
+  --popover-foreground: 31 35 40;
+  --primary: 15 91 79;
   --primary-foreground: 255 255 255;
-  --secondary: 244 245 247;
-  --secondary-foreground: 73 80 87;
-  --muted: 244 245 247;
-  --muted-foreground: 107 119 140;
-  --accent: 20 184 166;
-  --accent-foreground: 255 255 255;
-  --destructive: 220 38 38;
+  --secondary: 238 241 237;
+  --secondary-foreground: 82 96 91;
+  --muted: 238 241 237;
+  --muted-foreground: 94 107 103;
+  --accent: 126 242 196;
+  --accent-foreground: 11 46 40;
+  --destructive: 214 69 74;
   --destructive-foreground: 255 255 255;
-  --border: 228 230 234;
-  --input: 228 230 234;
-  --ring: 10 122 95;
-  --radius: 0.375rem;
+  --border: 199 204 211;
+  --input: 199 204 211;
+  --ring: 15 91 79;
+  --radius: 0.75rem;
 
-  /* Design tokens */
-  --color-brand: #0A7A5F;
-  --color-brand-hover: #086850;
-  --color-accent: #14B8A6;
-  --color-success: #16A34A;
-  --color-warning: #D97706;
-  --color-danger: #DC2626;
-  --color-info: #0284C7;
+  /* Product tokens */
+  --color-brand: var(--pc-accent, #0F5B4F);
+  --color-brand-hover: var(--pc-accent-strong, #0B2E28);
+  --color-accent: var(--pc-accent-glow, #7EF2C4);
+  --color-success: var(--pc-success, #16A56B);
+  --color-warning: var(--pc-warning, #9B6E07);
+  --color-danger: var(--pc-danger, #D6454A);
+  --color-info: var(--pc-info, #0F5B4F);
 
-  --color-bg-canvas: #FAFAFA;
-  --color-bg-surface: #FFFFFF;
-  --color-bg-muted: #F4F5F7;
+  --color-bg-canvas: var(--pc-bg, #F5F6F4);
+  --color-bg-surface: var(--pc-bg-card, #F5F6F4);
+  --color-bg-muted: var(--pc-bg-subtle, #EEF1ED);
+  --color-bg-elevated: var(--pc-bg-elevated, #FFFFFF);
 
-  --color-text-primary: #0F1419;
-  --color-text-secondary: #495057;
-  --color-text-muted: #6B778C;
+  --color-text-primary: var(--pc-text-primary, #1F2328);
+  --color-text-secondary: var(--pc-text-secondary, #52605B);
+  --color-text-muted: var(--pc-text-muted, #5E6B67);
 
-  --color-border: #E4E6EA;
-  --color-border-strong: #C1C7D0;
+  --color-border: var(--pc-border, #C7CCD3);
+  --color-border-strong: var(--pc-border-strong, #97A59E);
 
-  --shadow-sm: 0 1px 2px rgba(9,30,66,0.06);
-  --shadow-md: 0 2px 6px rgba(9,30,66,0.08);
-  --shadow-lg: 0 8px 24px rgba(9,30,66,0.12);
+  --shadow-sm: var(--pc-shadow-sm, 0 1px 2px rgba(11, 46, 40, 0.05));
+  --shadow-md: var(--pc-shadow-md, 0 10px 26px rgba(11, 46, 40, 0.08));
+  --shadow-lg: var(--pc-shadow-lg, 0 18px 44px rgba(11, 46, 40, 0.12));
 
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Base reset scoped to v9 */
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
@@ -74,8 +74,8 @@
 /* App shell layout */
 .v9-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  grid-template-rows: 56px 1fr;
+  grid-template-columns: 248px 1fr;
+  grid-template-rows: 64px 1fr;
   grid-template-areas:
     "sidebar header"
     "sidebar main";
@@ -92,13 +92,14 @@
   top: 0;
   height: 100dvh;
   overflow-y: auto;
+  box-shadow: var(--shadow-sm);
 }
 
 .v9-header {
   grid-area: header;
-  background: var(--color-bg-surface);
+  background: color-mix(in srgb, var(--color-bg-surface) 88%, white 12%);
   border-bottom: 1px solid var(--color-border);
-  height: 56px;
+  height: 64px;
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -106,12 +107,13 @@
   position: sticky;
   top: 0;
   z-index: 40;
+  backdrop-filter: blur(12px);
 }
 
 .v9-main {
   grid-area: main;
   padding: 24px;
-  background: var(--color-bg-canvas);
+  background: transparent;
   min-height: 0;
 }
 
@@ -129,35 +131,35 @@
   .v9-shell {
     display: grid !important;
     grid-template-columns: 1fr !important;
-    grid-template-rows: 56px 1fr;
+    grid-template-rows: 60px 1fr;
     grid-template-areas:
       "header"
       "main";
     min-height: 100dvh;
-    min-height: 100vh; /* fallback */
+    min-height: 100vh;
   }
 
-  /* Sidebar hidden by default on mobile */
   .v9-sidebar {
     display: none !important;
   }
 
-  /* Sidebar shows as overlay when hamburger is tapped */
   .v9-sidebar.open {
     display: flex !important;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    width: 280px !important;
+    width: 292px !important;
     height: 100vh !important;
     height: 100dvh !important;
     z-index: 50 !important;
     box-shadow: var(--shadow-lg) !important;
     overflow-y: auto;
+    background: var(--color-bg-elevated);
   }
 
   .v9-header {
     padding: 0 12px;
+    height: 60px;
   }
 
   .v9-main {
@@ -165,7 +167,6 @@
     overflow-x: hidden;
   }
 
-  /* Tables scroll horizontally */
   .v9-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -186,7 +187,6 @@
     padding: 12px 10px;
   }
 
-  /* Stack header items tighter */
   .v9-header {
     gap: 8px;
   }
@@ -197,26 +197,29 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-secondary);
   text-decoration: none;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
   cursor: pointer;
+  border: 1px solid transparent;
 }
 
 .v9-nav-item:hover {
   background: var(--color-bg-muted);
   color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-border) 75%, transparent 25%);
 }
 
 .v9-nav-item[aria-current="page"],
 .v9-nav-item.active {
-  background: rgba(10, 122, 95, 0.08);
+  background: var(--pc-accent-bg);
   color: var(--color-brand);
-  font-weight: 600;
+  font-weight: 700;
+  border-color: var(--pc-accent-border);
 }
 
 .v9-nav-item[aria-current="page"] .v9-nav-icon,
@@ -250,7 +253,7 @@
 .v9-card {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 16px;
   padding: 20px;
   box-shadow: var(--shadow-sm);
 }
@@ -259,7 +262,7 @@
 .v9-table-wrap {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 16px;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
@@ -272,9 +275,9 @@
 
 .v9-table th {
   text-align: left;
-  padding: 10px 16px;
+  padding: 12px 16px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-text-muted);
@@ -283,7 +286,7 @@
 }
 
 .v9-table td {
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-primary);
   vertical-align: middle;
@@ -294,7 +297,7 @@
 }
 
 .v9-table tr:hover td {
-  background: rgba(244,245,247,0.6);
+  background: color-mix(in srgb, var(--color-bg-muted) 72%, white 28%);
   cursor: pointer;
 }
 
@@ -303,17 +306,17 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: 99px;
+  padding: 4px 9px;
+  border-radius: 999px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
 }
 
-.v9-badge-success { background: rgba(22,163,74,0.1); color: #16A34A; }
-.v9-badge-warning { background: rgba(217,119,6,0.1); color: #D97706; }
-.v9-badge-danger  { background: rgba(220,38,38,0.1); color: #DC2626; }
-.v9-badge-info    { background: rgba(2,132,199,0.1); color: #0284C7; }
+.v9-badge-success { background: var(--pc-success-bg); color: var(--pc-success); }
+.v9-badge-warning { background: var(--pc-warning-bg); color: var(--pc-warning); }
+.v9-badge-danger  { background: var(--pc-danger-bg); color: var(--pc-danger); }
+.v9-badge-info    { background: var(--pc-info-bg); color: var(--pc-info); }
 .v9-badge-neutral { background: var(--color-bg-muted); color: var(--color-text-muted); }
 
 /* Buttons */
@@ -322,13 +325,14 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 10px 16px;
+  min-height: 44px;
+  border-radius: 12px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--font-sans);
   cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s, border-color 0.15s;
   border: none;
   text-decoration: none;
   white-space: nowrap;
@@ -337,23 +341,24 @@
 .v9-btn:active { transform: translateY(1px); }
 
 .v9-btn-primary {
-  background: var(--color-brand);
+  background: var(--color-brand-hover);
   color: #fff;
+  box-shadow: var(--shadow-sm);
 }
-.v9-btn-primary:hover { background: var(--color-brand-hover); }
+.v9-btn-primary:hover { background: var(--color-brand); }
 
 .v9-btn-secondary {
-  background: var(--color-bg-muted);
+  background: var(--color-bg-elevated);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
 }
-.v9-btn-secondary:hover { background: #eaecef; }
+.v9-btn-secondary:hover { background: var(--color-bg-muted); }
 
 .v9-btn-danger {
   background: var(--color-danger);
   color: #fff;
 }
-.v9-btn-danger:hover { background: #b91c1c; }
+.v9-btn-danger:hover { background: color-mix(in srgb, var(--color-danger) 84%, black 16%); }
 
 .v9-btn-ghost {
   background: transparent;
@@ -369,10 +374,10 @@
 }
 
 .v9-skeleton {
-  background: linear-gradient(90deg, #e4e6ea 25%, #f4f5f7 50%, #e4e6ea 75%);
+  background: linear-gradient(90deg, var(--color-border) 25%, color-mix(in srgb, var(--color-bg-muted) 75%, white 25%) 50%, var(--color-border) 75%);
   background-size: 200% 100%;
   animation: v9-shimmer 1.5s infinite;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 /* Mono numbers */
@@ -412,7 +417,7 @@
 
 .v9-empty-title {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text-secondary);
 }
 
@@ -427,17 +432,14 @@
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  background: rgba(217,119,6,0.08);
-  border: 1px solid rgba(217,119,6,0.24);
-  border-radius: 6px;
+  background: var(--pc-warning-bg);
+  border: 1px solid color-mix(in srgb, var(--pc-warning) 28%, transparent 72%);
+  border-radius: 12px;
   font-size: 12px;
-  font-weight: 600;
-  color: #D97706;
+  font-weight: 700;
+  color: var(--pc-warning);
 }
 
-/* ─────────────────────────────────────────────────────
-   Responsive visibility helpers
-   ───────────────────────────────────────────────────── */
 @media (min-width: 768px) {
   .v9-mobile-only { display: none !important; }
 }
@@ -445,19 +447,10 @@
   .v9-desktop-only { display: none !important; }
 }
 
-/* ─────────────────────────────────────────────────────
-   Prevent body-level horizontal scroll
-   (keeps sticky header fixed during table overflow)
-   ───────────────────────────────────────────────────── */
 .v9-root {
   overflow-x: hidden;
 }
 
-/* ─────────────────────────────────────────────────────
-   Mobile table → card layout
-   Usage: add class "v9-table-mobile-cards" to <table>
-          add data-label="Колонка" to every <td>
-   ───────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .v9-table-wrap:has(.v9-table-mobile-cards) {
     background: transparent;
@@ -483,7 +476,7 @@
     display: block;
     background: var(--color-bg-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: 16px;
     padding: 10px 12px;
     box-shadow: var(--shadow-sm);
     cursor: default;
@@ -497,7 +490,7 @@
     justify-content: space-between;
     gap: 8px;
     padding: 5px 0;
-    border-bottom: 1px solid #F4F5F7;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 38%, transparent 62%);
     font-size: 13px;
     vertical-align: unset;
     color: var(--color-text-primary);
@@ -507,7 +500,6 @@
     justify-content: flex-end;
     padding-top: 8px;
   }
-  /* Label prefix from data-label attribute */
   .v9-table.v9-table-mobile-cards td::before {
     content: attr(data-label);
     font-size: 10px;
@@ -523,15 +515,11 @@
   .v9-table.v9-table-mobile-cards td.v9-td-no-label::before {
     display: none;
   }
-  /* Truncate long text */
   .v9-table.v9-table-mobile-cards td > * {
     min-width: 0;
   }
 }
 
-/* ─────────────────────────────────────────────────────
-   Permission matrix: sticky first column on desktop
-   ───────────────────────────────────────────────────── */
 .v9-table.v9-matrix-table {
   min-width: 640px;
 }
@@ -540,7 +528,7 @@
   position: sticky;
   left: 0;
   z-index: 2;
-  box-shadow: 2px 0 4px rgba(9,30,66,0.06);
+  box-shadow: 2px 0 4px rgba(11,46,40,0.06);
 }
 .v9-table.v9-matrix-table th:first-child {
   background: var(--color-bg-muted);
@@ -549,18 +537,12 @@
   background: var(--color-bg-surface);
 }
 
-/* ─────────────────────────────────────────────────────
-   Compliance audit toolbar: wrap on mobile
-   ───────────────────────────────────────────────────── */
 .v9-audit-toolbar {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-/* ─────────────────────────────────────────────────────
-   Mobile card-row action button strip
-   ───────────────────────────────────────────────────── */
 .v9-card-actions {
   display: flex;
   gap: 6px;
