@@ -1,6 +1,63 @@
-/* ─── Enterprise token layer · light theme (default) ────────────── */
+/* ─── Enterprise token layer · dark emerald theme (default) ─────── */
 :root,
-:root[data-theme="light"] {
+:root[data-theme='dark'] {
+  --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
+
+  --pc-bg: #0B1513;
+  --pc-bg-card: #111C19;
+  --pc-bg-subtle: #14211D;
+  --pc-bg-elevated: #172520;
+  --pc-bg-header: rgba(11, 21, 19, 0.84);
+
+  --pc-text-primary: #EAF1EE;
+  --pc-text-secondary: #C7D2CD;
+  --pc-text-muted: #93A29C;
+
+  --pc-border: #263530;
+  --pc-border-light: #32413B;
+  --pc-border-strong: #44544D;
+
+  --pc-accent: #7EF2C4;
+  --pc-accent-strong: #DDF7EE;
+  --pc-accent-soft: rgba(126, 242, 196, 0.14);
+  --pc-accent-bg: rgba(126, 242, 196, 0.12);
+  --pc-accent-border: rgba(126, 242, 196, 0.22);
+  --pc-accent-glow: rgba(126, 242, 196, 0.24);
+
+  --pc-success: #7EF2C4;
+  --pc-success-bg: rgba(29, 186, 122, 0.16);
+  --pc-warning: #F5B41E;
+  --pc-warning-bg: rgba(245, 180, 30, 0.16);
+  --pc-danger: #FF8B90;
+  --pc-danger-bg: rgba(229, 72, 77, 0.16);
+  --pc-info: #7EF2C4;
+  --pc-info-bg: rgba(15, 91, 79, 0.20);
+
+  --pc-radius-sm: 8px;
+  --pc-radius-md: 12px;
+  --pc-radius-lg: 16px;
+  --pc-radius-xl: 20px;
+  --pc-radius-hero: 24px;
+
+  --pc-space-1: 4px;
+  --pc-space-2: 8px;
+  --pc-space-3: 12px;
+  --pc-space-4: 16px;
+  --pc-space-5: 20px;
+  --pc-space-6: 24px;
+  --pc-space-7: 32px;
+  --pc-space-8: 40px;
+
+  --pc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --pc-shadow-md: 0 12px 30px rgba(0, 0, 0, 0.28);
+  --pc-shadow-lg: 0 22px 56px rgba(0, 0, 0, 0.36);
+  --pc-shadow: var(--pc-shadow-md);
+
+  --pc-focus-ring: 0 0 0 2px rgba(126, 242, 196, 0.18), 0 0 0 4px rgba(126, 242, 196, 0.10);
+}
+
+/* ─── Light theme (optional) ─────────────────────────────────────── */
+:root[data-theme='light'] {
   --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
 
   --pc-bg: #EEF1ED;
@@ -33,21 +90,6 @@
   --pc-info: #0F5B4F;
   --pc-info-bg: #E8F2F1;
 
-  --pc-radius-sm: 8px;
-  --pc-radius-md: 12px;
-  --pc-radius-lg: 16px;
-  --pc-radius-xl: 20px;
-  --pc-radius-hero: 24px;
-
-  --pc-space-1: 4px;
-  --pc-space-2: 8px;
-  --pc-space-3: 12px;
-  --pc-space-4: 16px;
-  --pc-space-5: 20px;
-  --pc-space-6: 24px;
-  --pc-space-7: 32px;
-  --pc-space-8: 40px;
-
   --pc-shadow-sm: 0 1px 2px rgba(11, 46, 40, 0.05);
   --pc-shadow-md: 0 10px 26px rgba(11, 46, 40, 0.08);
   --pc-shadow-lg: 0 18px 44px rgba(11, 46, 40, 0.12);
@@ -56,50 +98,8 @@
   --pc-focus-ring: 0 0 0 2px rgba(15, 91, 79, 0.18), 0 0 0 4px rgba(126, 242, 196, 0.16);
 }
 
-/* ─── Enterprise token layer · dark theme ───────────────────────── */
-:root[data-theme="dark"] {
-  --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
-
-  --pc-bg: #0B1513;
-  --pc-bg-card: #111C19;
-  --pc-bg-subtle: #14211D;
-  --pc-bg-elevated: #172520;
-  --pc-bg-header: rgba(17, 28, 25, 0.92);
-
-  --pc-text-primary: #EAF1EE;
-  --pc-text-secondary: #C7D2CD;
-  --pc-text-muted: #93A29C;
-
-  --pc-border: #263530;
-  --pc-border-light: #32413B;
-  --pc-border-strong: #44544D;
-
-  --pc-accent: #7EF2C4;
-  --pc-accent-strong: #DDF7EE;
-  --pc-accent-soft: rgba(126, 242, 196, 0.14);
-  --pc-accent-bg: rgba(126, 242, 196, 0.12);
-  --pc-accent-border: rgba(126, 242, 196, 0.22);
-  --pc-accent-glow: rgba(126, 242, 196, 0.24);
-
-  --pc-success: #7EF2C4;
-  --pc-success-bg: rgba(29, 186, 122, 0.16);
-  --pc-warning: #F5B41E;
-  --pc-warning-bg: rgba(245, 180, 30, 0.16);
-  --pc-danger: #FF8B90;
-  --pc-danger-bg: rgba(229, 72, 77, 0.16);
-  --pc-info: #7EF2C4;
-  --pc-info-bg: rgba(15, 91, 79, 0.20);
-
-  --pc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
-  --pc-shadow-md: 0 12px 30px rgba(0, 0, 0, 0.28);
-  --pc-shadow-lg: 0 22px 56px rgba(0, 0, 0, 0.36);
-  --pc-shadow: var(--pc-shadow-md);
-
-  --pc-focus-ring: 0 0 0 2px rgba(126, 242, 196, 0.18), 0 0 0 4px rgba(126, 242, 196, 0.10);
-}
-
 /* ─── High-contrast mode ─────────────────────────────────────────── */
-:root[data-theme="high-contrast"] {
+:root[data-theme='high-contrast'] {
   --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
   --pc-bg: #FFFFFF;
   --pc-bg-card: #FFFFFF;
@@ -134,8 +134,9 @@
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(126, 242, 196, 0.10), transparent 26%),
-    linear-gradient(180deg, var(--pc-bg) 0%, var(--pc-bg-subtle) 100%);
+    radial-gradient(circle at top left, rgba(126, 242, 196, 0.10), transparent 24%),
+    radial-gradient(circle at top right, rgba(15, 91, 79, 0.18), transparent 26%),
+    linear-gradient(180deg, var(--pc-bg) 0%, #08100E 100%);
   color: var(--pc-text-primary);
   transition: background 0.2s ease, color 0.2s ease;
 }
@@ -154,7 +155,12 @@ button,
 input,
 select,
 textarea {
-  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
 }
 
 button:focus-visible,
@@ -166,7 +172,6 @@ a:focus-visible {
   box-shadow: var(--pc-focus-ring);
 }
 
-/* ─── Scrollbar ──────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -182,7 +187,6 @@ a:focus-visible {
   border: 2px solid var(--pc-bg-subtle);
 }
 
-/* ─── Legacy helper classes kept for compatibility ──────────────── */
 .tp-button-primary {
   min-height: 44px;
   border-radius: var(--pc-radius-md);
