@@ -7,6 +7,7 @@ import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
 import '@/styles/theme.css';
+import '@/styles/enterprise-ui.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',
