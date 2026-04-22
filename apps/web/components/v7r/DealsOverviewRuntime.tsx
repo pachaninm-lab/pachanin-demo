@@ -2,9 +2,11 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { DEALS, type Deal } from '@/lib/v7r/data';
 import { formatCompactMoney, formatMoney, statusLabel } from '@/lib/v7r/helpers';
 import { useBuyerRuntimeStore } from '@/stores/useBuyerRuntimeStore';
+import { RiskBadge } from '@/components/v7r/RiskBadge';
 
 function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
@@ -34,12 +36,6 @@ function toneByDealStatus(item: Deal) {
   return 'success' as const;
 }
 
-function riskTone(score: number) {
-  if (score >= 70) return 'danger' as const;
-  if (score >= 30) return 'warning' as const;
-  return 'success' as const;
-}
-
 function nextStepLabel(item: Deal) {
   if (item.status === 'quality_disputed') return 'Закрыть спор и снять hold';
   if (item.status === 'release_requested') return 'Подтвердить выпуск денег';
@@ -47,7 +43,7 @@ function nextStepLabel(item: Deal) {
   return 'Довести до следующего шага';
 }
 
-function MobileDealCard({ item, selected, onToggle }: { item: Deal; selected: boolean; onToggle: () => void }) {
+function MobileDealCard({ item, selected, onToggle, onCompare }: { item: Deal; selected: boolean; onToggle: () => void; onCompare: () => void }) {
   return (
     <article style={{ background: '#fff', border: selected ? '1px solid rgba(10,122,95,0.24)' : '1px solid #E4E6EA', borderRadius: 18, padding: 16, display: 'grid', gap: 12, boxShadow: selected ? '0 0 0 2px rgba(10,122,95,0.06) inset' : 'none' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
@@ -66,7 +62,10 @@ function MobileDealCard({ item, selected, onToggle }: { item: Deal; selected: bo
           <InfoCell label='Лот' value={item.lotId ?? '—'} />
           <InfoCell label='Маршрут' value={item.routeId ?? '—'} />
           <InfoCell label='Сумма' value={formatCompactMoney(item.reservedAmount)} />
-          <InfoCell label='Риск' value={String(item.riskScore)} tone={riskTone(item.riskScore)} />
+          <div style={{ padding: 12, borderRadius: 14, background: '#fff', border: '1px solid #E4E6EA' }}>
+            <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Риск</div>
+            <div style={{ marginTop: 6 }}><RiskBadge score={item.riskScore} /></div>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
@@ -80,32 +79,38 @@ function MobileDealCard({ item, selected, onToggle }: { item: Deal; selected: bo
           <div style={{ fontSize: 13, fontWeight: 800, color: '#0F1419' }}>{nextStepLabel(item)}</div>
           <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.5 }}>{item.blockers.length ? item.blockers.join(' · ') : item.routeState ?? 'Критичных блокеров нет'}</div>
         </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'}{item.routeEta ? ` · ETA ${item.routeEta}` : ''}</div>
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', color: '#fff', fontSize: 12, fontWeight: 800 }}>Открыть сделку</span>
-        </div>
       </Link>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'}{item.routeEta ? ` · ETA ${item.routeEta}` : ''}</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={onCompare} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
+          <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', color: '#fff', fontSize: 12, fontWeight: 800 }}>Открыть сделку</Link>
+        </div>
+      </div>
     </article>
   );
 }
 
-function InfoCell({ label, value, tone }: { label: string; value: string; tone?: 'success' | 'warning' | 'danger' | 'neutral' }) {
-  const p = tone ? palette(tone) : null;
+function InfoCell({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ padding: 12, borderRadius: 14, background: '#fff', border: '1px solid #E4E6EA' }}>
       <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 13, fontWeight: 800, color: p ? p.color : '#0F1419' }}>{value}</div>
+      <div style={{ marginTop: 6, fontSize: 13, fontWeight: 800, color: '#0F1419' }}>{value}</div>
     </div>
   );
 }
 
+function compareIds(ids: string[]) {
+  return `/platform-v7/deals/compare?ids=${encodeURIComponent(ids.join(','))}`;
+}
+
 export function DealsOverviewRuntime() {
+  const router = useRouter();
   const { draftDeals, removeDraftDeal } = useBuyerRuntimeStore();
   const highRisk = DEALS.filter((item) => item.riskScore >= 70).length;
   const releaseRequested = DEALS.filter((item) => item.status === 'release_requested').length;
   const activeDeals = DEALS.filter((item) => item.status !== 'closed').length;
-  const totalReserved = DEALS.reduce((sum, item) => sum + item.reservedAmount, 0);
   const [statusFilter, setStatusFilter] = React.useState('');
   const [riskFilter, setRiskFilter] = React.useState('');
   const [search, setSearch] = React.useState('');
@@ -148,9 +153,23 @@ export function DealsOverviewRuntime() {
     });
   };
 
-  const runBulkAction = (action: 'release' | 'dispute' | 'close') => {
+  const openCompare = (ids: string[]) => {
+    const compact = Array.from(new Set(ids)).slice(0, 3);
+    if (compact.length < 2) {
+      setBulkToast('Для сравнения нужно минимум 2 сделки.');
+      return;
+    }
+    router.push(compareIds(compact));
+  };
+
+  const runBulkAction = (action: 'release' | 'dispute' | 'close' | 'compare') => {
     if (!selected.size) return;
-    const ids = Array.from(selected).sort().join(', ');
+    const idsArray = Array.from(selected).sort();
+    const ids = idsArray.join(', ');
+    if (action === 'compare') {
+      openCompare(idsArray);
+      return;
+    }
     const label = action === 'release' ? `Запрошен выпуск денег по ${selected.size} сделкам` : action === 'dispute' ? `Открыты споры по ${selected.size} сделкам` : `Закрыты ${selected.size} сделок`;
     setBulkToast(`${label}: ${ids}`);
     setSelected(new Set());
@@ -184,7 +203,10 @@ export function DealsOverviewRuntime() {
             <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Сделки</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Операционный обзор сделок. На телефоне — карточки с полным контекстом, на широком экране — таблица для массовой работы.</div>
           </div>
-          <Link href='/platform-v7/procurement' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Открыть закупку</Link>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Link href='/platform-v7/procurement' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Открыть закупку</Link>
+            <button onClick={() => openCompare(orderedDeals.slice(0, 2).map((item) => item.id))} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Сравнить сделки</button>
+          </div>
         </div>
       </section>
 
@@ -230,6 +252,7 @@ export function DealsOverviewRuntime() {
             <span style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>{selected.size} выбрано</span>
             <button onClick={() => runBulkAction('release')} style={{ padding: '8px 12px', borderRadius: 10, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Запросить выпуск</button>
             <button onClick={() => runBulkAction('dispute')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(220,38,38,0.3)', color: '#B91C1C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Открыть спор</button>
+            <button onClick={() => runBulkAction('compare')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(37,99,235,0.3)', color: '#2563EB', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
             <button onClick={() => runBulkAction('close')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Закрыть сделки</button>
             <button onClick={() => setSelected(new Set())} style={{ padding: '8px 12px', borderRadius: 10, background: 'transparent', border: '1px solid #E4E6EA', color: '#6B778C', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginLeft: 'auto' }}>Сбросить выбор</button>
           </div>
@@ -265,12 +288,12 @@ export function DealsOverviewRuntime() {
 
         <div className='deals-mobile-cards'>
           {orderedDeals.map((item) => (
-            <MobileDealCard key={item.id} item={item} selected={selected.has(item.id)} onToggle={() => toggleRow(item.id)} />
+            <MobileDealCard key={item.id} item={item} selected={selected.has(item.id)} onToggle={() => toggleRow(item.id)} onCompare={() => openCompare([item.id, ...orderedDeals.filter((deal) => deal.id !== item.id).slice(0, 1).map((deal) => deal.id)])} />
           ))}
         </div>
 
         <div className='deals-desktop-table' style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: density === 'compact' ? 1040 : 1180 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: density === 'compact' ? 1100 : 1240 }}>
             <thead>
               <tr style={{ background: '#F8FAFB', textAlign: 'left' }}>
                 <th style={{ padding: rowPadding, borderBottom: '1px solid #E4E6EA', width: 44 }}>
@@ -311,14 +334,17 @@ export function DealsOverviewRuntime() {
                     <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.seller.name}</div>
                   </td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top', fontWeight: 800, color: '#0F1419' }}>{formatMoney(item.reservedAmount)}</td>
-                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}><Badge tone={riskTone(item.riskScore)}>{item.riskScore}</Badge></td>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}><RiskBadge score={item.riskScore} /></td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}><Badge tone={toneByDealStatus(item)}>{statusLabel(item.status)}</Badge></td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{nextStepLabel(item)}</div>
                     <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.blockers.length ? item.blockers.join(' · ') : 'Блокеров нет'}</div>
                   </td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
-                    <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700 }}>Открыть</Link>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button onClick={() => openCompare([item.id, ...orderedDeals.filter((deal) => deal.id !== item.id).slice(0, 1).map((deal) => deal.id)])} style={{ borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
+                      <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700 }}>Открыть</Link>
+                    </div>
                   </td>
                 </tr>
               ))}
