@@ -1,17 +1,42 @@
 import './globals.css';
-import type { Viewport } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import Script from 'next/script';
 
-export const metadata = {
-  title: 'Прозрачная Цена',
-  description: 'Цифровой контур исполнения зерновой сделки',
+const SITE_URL = 'https://pachanin-web.vercel.app';
+
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Прозрачная Цена',
+    template: '%s · Прозрачная Цена',
+  },
+  description: 'Цифровой контур исполнения зерновой сделки: цена, сделка, логистика, приёмка, документы, деньги и спор в одной системе.',
+  applicationName: 'Прозрачная Цена',
+  keywords: ['зерновая сделка', 'агротрейд', 'логистика зерна', 'безопасная сделка', 'эскроу', 'фгис зерно'],
+  openGraph: {
+    type: 'website',
+    locale: 'ru_RU',
+    siteName: 'Прозрачная Цена',
+    title: 'Прозрачная Цена',
+    description: 'Цифровой контур исполнения зерновой сделки: цена, сделка, логистика, приёмка, документы, деньги и спор в одной системе.',
+    url: SITE_URL,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Прозрачная Цена',
+    description: 'Цифровой контур исполнения зерновой сделки: цена, сделка, логистика, приёмка, документы, деньги и спор в одной системе.',
+  },
+  alternates: {
+    canonical: SITE_URL,
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  themeColor: '#0A7A5F',
 };
 
 const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
