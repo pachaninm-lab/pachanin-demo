@@ -78,6 +78,9 @@ export default function SupportPage() {
         <Link href='/platform-v7/documents' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
           Документы
         </Link>
+        <Link href='/platform-v7/runtime-status' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
+          Статус системы
+        </Link>
       </div>
     </div>
   );
