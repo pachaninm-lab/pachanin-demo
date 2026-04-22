@@ -2,11 +2,34 @@
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { AlertTriangle, ShieldAlert, ShieldCheck, X } from 'lucide-react';
 
 function getRiskStyle(score: number) {
-  if (score >= 61) return { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA', label: 'Высокий' };
-  if (score >= 31) return { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A', label: 'Средний' };
-  return { bg: '#F0FDF4', color: '#16A34A', border: '#BBF7D0', label: 'Низкий' };
+  if (score >= 61) {
+    return {
+      bg: 'var(--pc-danger-bg)',
+      color: 'var(--pc-danger)',
+      border: 'rgba(255,139,144,0.22)',
+      label: 'Высокий',
+      Icon: ShieldAlert,
+    };
+  }
+  if (score >= 31) {
+    return {
+      bg: 'var(--pc-warning-bg)',
+      color: 'var(--pc-warning)',
+      border: 'rgba(245,180,30,0.22)',
+      label: 'Средний',
+      Icon: AlertTriangle,
+    };
+  }
+  return {
+    bg: 'var(--pc-success-bg)',
+    color: 'var(--pc-success)',
+    border: 'rgba(126,242,196,0.22)',
+    label: 'Низкий',
+    Icon: ShieldCheck,
+  };
 }
 
 const FACTORS: Array<{ title: string; weight: string; detail: string }> = [
@@ -20,22 +43,55 @@ function RiskDialogContent({ score, label, onClose }: { score: number; label: st
   return (
     <>
       <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 800 }}>Risk score · {score} · {label}</span>
-        <button type='button' onClick={onClose} aria-label='Закрыть методологию risk score' style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 32, minHeight: 32, borderRadius: 999, border: '1px solid #E4E6EA', background: '#fff', color: '#6B778C', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>×</button>
+        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--pc-text-primary)' }}>Risk score · {score} · {label}</span>
+        <button
+          type='button'
+          onClick={onClose}
+          aria-label='Закрыть методологию risk score'
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: 34,
+            minHeight: 34,
+            borderRadius: 999,
+            border: '1px solid var(--pc-border)',
+            background: 'var(--pc-bg-elevated)',
+            color: 'var(--pc-text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          <X size={15} strokeWidth={2.1} />
+        </button>
       </span>
-      <span style={{ display: 'block', marginTop: 8, color: '#6B778C', fontSize: 11 }}>Считается как взвешенная сумма факторов. Чем выше — тем выше риск срыва сделки.</span>
+      <span style={{ display: 'block', marginTop: 8, color: 'var(--pc-text-muted)', fontSize: 11 }}>
+        Считается как взвешенная сумма факторов. Чем выше — тем выше риск срыва сделки.
+      </span>
       <span style={{ display: 'grid', gap: 8, marginTop: 10 }}>
         {FACTORS.map((factor) => (
-          <span key={factor.title} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, padding: 8, background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 10 }}>
-            <span style={{ fontSize: 12, color: '#0F1419', minWidth: 0 }}>
+          <span
+            key={factor.title}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto',
+              gap: 8,
+              padding: 10,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid var(--pc-border)',
+              borderRadius: 12,
+            }}
+          >
+            <span style={{ fontSize: 12, color: 'var(--pc-text-primary)', minWidth: 0 }}>
               <span style={{ display: 'block', fontWeight: 700, wordBreak: 'break-word' }}>{factor.title}</span>
-              <span style={{ display: 'block', color: '#6B778C', fontSize: 11, marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{factor.detail}</span>
+              <span style={{ display: 'block', color: 'var(--pc-text-muted)', fontSize: 11, marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{factor.detail}</span>
             </span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 12, whiteSpace: 'nowrap' }}>{factor.weight}</span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: 'var(--pc-accent)', fontSize: 12, whiteSpace: 'nowrap' }}>{factor.weight}</span>
           </span>
         ))}
       </span>
-      <span style={{ display: 'block', marginTop: 10, fontSize: 11, color: '#6B778C' }}>Пороги: ≥70 — высокий (красный), 30–69 — средний (жёлтый), 0–29 — низкий (зелёный).</span>
+      <span style={{ display: 'block', marginTop: 10, fontSize: 11, color: 'var(--pc-text-muted)' }}>
+        Пороги: ≥70 — высокий, 30–69 — средний, 0–29 — низкий.
+      </span>
     </>
   );
 }
@@ -46,6 +102,7 @@ export function RiskBadge({ score }: { score: number }) {
   const [mounted, setMounted] = React.useState(false);
   const [mobile, setMobile] = React.useState(false);
   const ref = React.useRef<HTMLSpanElement>(null);
+  const Icon = s.Icon;
 
   React.useEffect(() => {
     setMounted(true);
@@ -72,15 +129,36 @@ export function RiskBadge({ score }: { score: number }) {
   }, [open]);
 
   const desktopDialog = open ? (
-    <span role='dialog' aria-label='Методология risk score' data-risk-dialog style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 320, maxWidth: 'min(320px, calc(100vw - 24px))', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, boxShadow: '0 16px 40px rgba(9,30,66,0.16)', padding: 14, zIndex: 120, fontSize: 12, color: '#0F1419', lineHeight: 1.55 }}>
+    <span
+      role='dialog'
+      aria-label='Методология risk score'
+      data-risk-dialog
+      style={{
+        position: 'absolute',
+        top: '100%',
+        right: 0,
+        marginTop: 8,
+        width: 340,
+        maxWidth: 'min(340px, calc(100vw - 24px))',
+        background: 'linear-gradient(180deg, rgba(17,28,25,0.98) 0%, rgba(10,18,16,0.99) 100%)',
+        border: '1px solid var(--pc-border)',
+        borderRadius: 16,
+        boxShadow: 'var(--pc-shadow-lg)',
+        padding: 14,
+        zIndex: 120,
+        fontSize: 12,
+        color: 'var(--pc-text-primary)',
+        lineHeight: 1.55,
+      }}
+    >
       <RiskDialogContent score={score} label={s.label} onClose={() => setOpen(false)} />
     </span>
   ) : null;
 
   const mobileDialog = mounted && open && mobile
     ? createPortal(
-        <div data-risk-dialog style={{ position: 'fixed', inset: 0, zIndex: 160, background: 'rgba(15,20,25,0.36)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '12px 12px calc(12px + env(safe-area-inset-bottom))' }}>
-          <div role='dialog' aria-label='Методология risk score' style={{ width: '100%', maxWidth: 480, maxHeight: '75dvh', overflowY: 'auto', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, boxShadow: '0 16px 40px rgba(9,30,66,0.16)', padding: 16, fontSize: 12, color: '#0F1419', lineHeight: 1.55 }}>
+        <div data-risk-dialog style={{ position: 'fixed', inset: 0, zIndex: 160, background: 'rgba(15,20,25,0.52)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '12px 12px calc(12px + env(safe-area-inset-bottom))' }}>
+          <div role='dialog' aria-label='Методология risk score' style={{ width: '100%', maxWidth: 480, maxHeight: '75dvh', overflowY: 'auto', background: 'linear-gradient(180deg, rgba(17,28,25,0.98) 0%, rgba(10,18,16,0.99) 100%)', border: '1px solid var(--pc-border)', borderRadius: 18, boxShadow: 'var(--pc-shadow-lg)', padding: 16, fontSize: 12, color: 'var(--pc-text-primary)', lineHeight: 1.55 }}>
             <RiskDialogContent score={score} label={s.label} onClose={() => setOpen(false)} />
           </div>
         </div>,
@@ -99,19 +177,20 @@ export function RiskBadge({ score }: { score: number }) {
           background: s.bg,
           color: s.color,
           border: `1px solid ${s.border}`,
-          padding: '2px 8px',
+          padding: '4px 9px',
           borderRadius: 999,
           fontSize: 11,
           fontWeight: 800,
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 4,
+          gap: 5,
           cursor: 'pointer',
           maxWidth: '100%',
+          boxShadow: 'var(--pc-shadow-sm)',
         }}
       >
+        <Icon size={12} strokeWidth={2.1} />
         {score}
-        <span aria-hidden style={{ fontSize: 10, opacity: 0.72 }}>ⓘ</span>
       </button>
       {!mobile ? desktopDialog : null}
       {mobileDialog}
