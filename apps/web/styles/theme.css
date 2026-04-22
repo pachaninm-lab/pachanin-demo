@@ -1,57 +1,211 @@
-/* ─── Light theme (default) ─────────────────────────────────────── */
+/* ─── Enterprise token layer · light theme (default) ────────────── */
 :root,
 :root[data-theme="light"] {
-  --pc-bg:           #F7FAFB;
-  --pc-bg-card:      #FFFFFF;
-  --pc-bg-subtle:    #F8FAFB;
-  --pc-bg-header:    rgba(255,255,255,0.94);
-  --pc-text-primary: #0F1419;
-  --pc-text-secondary: #475569;
-  --pc-text-muted:   #6B778C;
-  --pc-border:       #E4E6EA;
-  --pc-border-light: #F1F3F5;
-  --pc-accent:       #0A7A5F;
-  --pc-accent-bg:    rgba(10,122,95,0.08);
-  --pc-accent-border: rgba(10,122,95,0.18);
-  --pc-danger:       #B91C1C;
-  --pc-danger-bg:    rgba(220,38,38,0.08);
-  --pc-warning:      #B45309;
-  --pc-warning-bg:   rgba(217,119,6,0.08);
-  --pc-info:         #2563EB;
-  --pc-info-bg:      rgba(37,99,235,0.08);
-  --pc-shadow:       0 16px 40px rgba(9,30,66,0.14);
+  --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
+
+  --pc-bg: #EEF1ED;
+  --pc-bg-card: #F5F6F4;
+  --pc-bg-subtle: #EEF1ED;
+  --pc-bg-elevated: #FFFFFF;
+  --pc-bg-header: rgba(245, 246, 244, 0.92);
+
+  --pc-text-primary: #0B2E28;
+  --pc-text-secondary: #1F2328;
+  --pc-text-muted: #5E6B67;
+
+  --pc-border: #C7CCD3;
+  --pc-border-light: #D9DFDA;
+  --pc-border-strong: #AEB7C0;
+
+  --pc-accent: #0F5B4F;
+  --pc-accent-strong: #0B2E28;
+  --pc-accent-soft: #E8F2F1;
+  --pc-accent-bg: rgba(15, 91, 79, 0.10);
+  --pc-accent-border: rgba(15, 91, 79, 0.18);
+  --pc-accent-glow: rgba(126, 242, 196, 0.28);
+
+  --pc-success: #158759;
+  --pc-success-bg: #EAF8F2;
+  --pc-warning: #9B6E07;
+  --pc-warning-bg: #FFF4DC;
+  --pc-danger: #E12F35;
+  --pc-danger-bg: #FDEBEC;
+  --pc-info: #0F5B4F;
+  --pc-info-bg: #E8F2F1;
+
+  --pc-radius-sm: 8px;
+  --pc-radius-md: 12px;
+  --pc-radius-lg: 16px;
+  --pc-radius-xl: 20px;
+  --pc-radius-hero: 24px;
+
+  --pc-space-1: 4px;
+  --pc-space-2: 8px;
+  --pc-space-3: 12px;
+  --pc-space-4: 16px;
+  --pc-space-5: 20px;
+  --pc-space-6: 24px;
+  --pc-space-7: 32px;
+  --pc-space-8: 40px;
+
+  --pc-shadow-sm: 0 1px 2px rgba(11, 46, 40, 0.05);
+  --pc-shadow-md: 0 10px 26px rgba(11, 46, 40, 0.08);
+  --pc-shadow-lg: 0 18px 44px rgba(11, 46, 40, 0.12);
+  --pc-shadow: var(--pc-shadow-md);
+
+  --pc-focus-ring: 0 0 0 2px rgba(15, 91, 79, 0.18), 0 0 0 4px rgba(126, 242, 196, 0.16);
 }
 
-/* ─── Dark theme ─────────────────────────────────────────────────── */
+/* ─── Enterprise token layer · dark theme ───────────────────────── */
 :root[data-theme="dark"] {
-  --pc-bg:           #0B1118;
-  --pc-bg-card:      #151C25;
-  --pc-bg-subtle:    #1A2230;
-  --pc-bg-header:    rgba(21,28,37,0.96);
-  --pc-text-primary: #E5E9EF;
-  --pc-text-secondary: #94A3B8;
-  --pc-text-muted:   #64748B;
-  --pc-border:       #1F2937;
-  --pc-border-light: #1A2433;
-  --pc-accent:       #14B38D;
-  --pc-accent-bg:    rgba(20,179,141,0.12);
-  --pc-accent-border: rgba(20,179,141,0.24);
-  --pc-danger:       #F87171;
-  --pc-danger-bg:    rgba(248,113,113,0.12);
-  --pc-warning:      #FBBF24;
-  --pc-warning-bg:   rgba(251,191,36,0.12);
-  --pc-info:         #60A5FA;
-  --pc-info-bg:      rgba(96,165,250,0.12);
-  --pc-shadow:       0 16px 40px rgba(0,0,0,0.5);
+  --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
+
+  --pc-bg: #0B1513;
+  --pc-bg-card: #111C19;
+  --pc-bg-subtle: #14211D;
+  --pc-bg-elevated: #172520;
+  --pc-bg-header: rgba(17, 28, 25, 0.92);
+
+  --pc-text-primary: #EAF1EE;
+  --pc-text-secondary: #C7D2CD;
+  --pc-text-muted: #93A29C;
+
+  --pc-border: #263530;
+  --pc-border-light: #32413B;
+  --pc-border-strong: #44544D;
+
+  --pc-accent: #7EF2C4;
+  --pc-accent-strong: #DDF7EE;
+  --pc-accent-soft: rgba(126, 242, 196, 0.14);
+  --pc-accent-bg: rgba(126, 242, 196, 0.12);
+  --pc-accent-border: rgba(126, 242, 196, 0.22);
+  --pc-accent-glow: rgba(126, 242, 196, 0.24);
+
+  --pc-success: #7EF2C4;
+  --pc-success-bg: rgba(29, 186, 122, 0.16);
+  --pc-warning: #F5B41E;
+  --pc-warning-bg: rgba(245, 180, 30, 0.16);
+  --pc-danger: #FF8B90;
+  --pc-danger-bg: rgba(229, 72, 77, 0.16);
+  --pc-info: #7EF2C4;
+  --pc-info-bg: rgba(15, 91, 79, 0.20);
+
+  --pc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --pc-shadow-md: 0 12px 30px rgba(0, 0, 0, 0.28);
+  --pc-shadow-lg: 0 22px 56px rgba(0, 0, 0, 0.36);
+  --pc-shadow: var(--pc-shadow-md);
+
+  --pc-focus-ring: 0 0 0 2px rgba(126, 242, 196, 0.18), 0 0 0 4px rgba(126, 242, 196, 0.10);
 }
 
-/* ─── Base resets with theme tokens ─────────────────────────────── */
+/* ─── High-contrast mode ─────────────────────────────────────────── */
+:root[data-theme="high-contrast"] {
+  --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
+  --pc-bg: #FFFFFF;
+  --pc-bg-card: #FFFFFF;
+  --pc-bg-subtle: #F3F4F6;
+  --pc-bg-elevated: #FFFFFF;
+  --pc-bg-header: rgba(255, 255, 255, 0.96);
+  --pc-text-primary: #000000;
+  --pc-text-secondary: #111827;
+  --pc-text-muted: #374151;
+  --pc-border: #111827;
+  --pc-border-light: #374151;
+  --pc-border-strong: #000000;
+  --pc-accent: #0B2E28;
+  --pc-accent-strong: #000000;
+  --pc-accent-soft: #E8F2F1;
+  --pc-accent-bg: #E8F2F1;
+  --pc-accent-border: #0B2E28;
+  --pc-success: #0B2E28;
+  --pc-success-bg: #EAF8F2;
+  --pc-warning: #7C5800;
+  --pc-warning-bg: #FFF4DC;
+  --pc-danger: #A11218;
+  --pc-danger-bg: #FDEBEC;
+  --pc-info: #0B2E28;
+  --pc-info-bg: #E8F2F1;
+  --pc-shadow-sm: none;
+  --pc-shadow-md: none;
+  --pc-shadow-lg: none;
+  --pc-shadow: none;
+  --pc-focus-ring: 0 0 0 2px #000000;
+}
+
 body {
-  background: var(--pc-bg);
+  background:
+    radial-gradient(circle at top left, rgba(126, 242, 196, 0.10), transparent 26%),
+    linear-gradient(180deg, var(--pc-bg) 0%, var(--pc-bg-subtle) 100%);
   color: var(--pc-text-primary);
   transition: background 0.2s ease, color 0.2s ease;
 }
 
-/* ─── Scrollbar (dark mode) ──────────────────────────────────────── */
-:root[data-theme="dark"] ::-webkit-scrollbar-track { background: var(--pc-bg-card); }
-:root[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--pc-border); border-radius: 4px; }
+::selection {
+  background: var(--pc-accent-bg);
+  color: var(--pc-accent-strong);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--pc-focus-ring);
+}
+
+button,
+input,
+select,
+textarea {
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--pc-focus-ring);
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--pc-bg-subtle);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pc-border-strong);
+  border-radius: 999px;
+  border: 2px solid var(--pc-bg-subtle);
+}
+
+/* ─── Legacy helper classes kept for compatibility ──────────────── */
+.tp-button-primary {
+  min-height: 44px;
+  border-radius: var(--pc-radius-md);
+  background: var(--pc-accent-strong);
+  color: #fff;
+}
+
+.tp-button-secondary {
+  min-height: 44px;
+  border-radius: var(--pc-radius-md);
+  background: var(--pc-bg-card);
+  color: var(--pc-text-secondary);
+  border: 1px solid var(--pc-border);
+}
+
+.tp-input {
+  min-height: 44px;
+  border-radius: var(--pc-radius-md);
+  border: 1px solid var(--pc-border);
+  background: var(--pc-bg-elevated);
+  color: var(--pc-text-secondary);
+}
+
+.tp-status-success { background: var(--pc-success-bg); color: var(--pc-success); }
+.tp-status-warning { background: var(--pc-warning-bg); color: var(--pc-warning); }
+.tp-status-error { background: var(--pc-danger-bg); color: var(--pc-danger); }
