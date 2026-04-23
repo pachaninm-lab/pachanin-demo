@@ -1,14 +1,21 @@
 web:
-  - 'apps/web/**'
+  - changed-files:
+      - any-glob-to-any-file: 'apps/web/**'
 api:
-  - 'apps/api/**'
+  - changed-files:
+      - any-glob-to-any-file: 'apps/api/**'
 packages:
-  - 'packages/**'
+  - changed-files:
+      - any-glob-to-any-file: 'packages/**'
 scripts:
-  - 'scripts/**'
+  - changed-files:
+      - any-glob-to-any-file: 'scripts/**'
 docs:
-  - 'docs/**'
+  - changed-files:
+      - any-glob-to-any-file: 'docs/**'
 automation:
-  - 'automation/**'
+  - changed-files:
+      - any-glob-to-any-file: 'automation/**'
 github:
-  - '.github/**'
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
