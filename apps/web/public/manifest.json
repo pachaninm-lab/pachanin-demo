@@ -2,21 +2,21 @@
   "name": "Прозрачная Цена",
   "short_name": "ПЦ",
   "description": "Цифровой контур исполнения зерновой сделки: цена, логистика, приёмка, документы и деньги.",
-  "start_url": "/platform-v7/driver",
+  "start_url": "/platform-v7",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#0A5C36",
-  "background_color": "#FFFFFF",
+  "theme_color": "#0E6E60",
+  "background_color": "#F5F2EB",
   "lang": "ru",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/icon",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icon-192.png",
+      "src": "/icon",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
