@@ -1,0 +1,130 @@
+.pc-shell-root > aside {
+  background: var(--pc-shell-surface-strong, var(--pc-bg-card)) !important;
+  border-right: 1px solid var(--pc-border) !important;
+}
+
+.pc-shell-root > aside .pc-role-tile {
+  background: var(--pc-shell-surface, var(--pc-bg-card)) !important;
+  border: 1px solid var(--pc-border-strong) !important;
+  box-shadow: var(--pc-shadow-sm) !important;
+}
+
+.pc-shell-root > aside .pc-nav-item {
+  color: var(--pc-text-secondary) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+.pc-shell-root > aside .pc-nav-item:hover {
+  color: var(--pc-text-primary) !important;
+  background: var(--pc-shell-surface-soft, rgba(255,255,255,0.03)) !important;
+  border-color: var(--pc-border-light) !important;
+}
+
+.pc-shell-root > aside .pc-nav-item[data-active='true'] {
+  color: var(--pc-accent-strong) !important;
+  background: linear-gradient(180deg, var(--pc-accent-bg) 0%, color-mix(in srgb, var(--pc-accent-bg) 72%, transparent 28%) 100%) !important;
+  border-color: var(--pc-accent-border) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc-accent) 22%, transparent 78%), var(--pc-shadow-sm) !important;
+}
+
+.pc-shell-root > aside .pc-nav-item[data-active='true'] svg,
+.pc-shell-root > aside .pc-nav-item[data-active='true'] span {
+  color: inherit !important;
+}
+
+.pc-shell-root > aside .pc-shell-iconbtn {
+  background: var(--pc-bg-elevated) !important;
+  color: var(--pc-text-secondary) !important;
+  border-color: var(--pc-border) !important;
+  box-shadow: var(--pc-shadow-sm) !important;
+}
+
+.pc-shell-root > aside .pc-shell-iconbtn:hover {
+  color: var(--pc-text-primary) !important;
+  border-color: var(--pc-border-light) !important;
+}
+
+.pc-main footer {
+  background: var(--pc-shell-surface-strong, var(--pc-bg-card)) !important;
+  border-color: var(--pc-border) !important;
+}
+
+.pc-main footer [style*='background: rgba(255,255,255,0.03)'],
+.pc-main footer [style*='background:rgba(255,255,255,0.03)'] {
+  background: var(--pc-shell-surface, var(--pc-bg-card)) !important;
+  border-color: var(--pc-border) !important;
+}
+
+.pc-main footer [style*='color: var(--pc-text-muted)'],
+.pc-main footer [style*='color:var(--pc-text-muted)'],
+.pc-main footer [style*='color: var(--pc-text-secondary)'],
+.pc-main footer [style*='color:var(--pc-text-secondary)'] {
+  color: var(--pc-text-secondary) !important;
+}
+
+.pc-main footer span[style*='background: rgba(255,255,255,0.03)'],
+.pc-main footer span[style*='background:rgba(255,255,255,0.03)'] {
+  background: var(--pc-shell-surface-soft, rgba(255,255,255,0.03)) !important;
+  color: var(--pc-text-primary) !important;
+}
+
+.pc-header-search {
+  min-height: 42px !important;
+}
+
+@media (max-width: 768px) {
+  .pc-shell-header {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    gap: 8px !important;
+  }
+
+  .pc-brand-title {
+    font-size: 14px !important;
+    line-height: 1.08 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    max-width: 108px !important;
+  }
+
+  .pc-brand-copy {
+    gap: 0 !important;
+  }
+
+  .pc-header-search {
+    min-height: 40px !important;
+    padding: 8px 10px !important;
+  }
+
+  .pc-header-search > div > span:first-child {
+    font-size: 12px !important;
+  }
+
+  .pc-header-search > div > span:last-child {
+    display: none !important;
+  }
+
+  .pc-shell-iconbtn,
+  .pc-mobile-role {
+    min-height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 13px !important;
+  }
+
+  .pc-mobile-role {
+    max-width: 106px !important;
+    padding-inline: 10px !important;
+  }
+
+  .pc-shell-root > aside {
+    width: min(320px, 88vw) !important;
+  }
+
+  .pc-shell-root > aside .pc-shell-iconbtn {
+    min-height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 14px !important;
+  }
+}
