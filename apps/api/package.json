@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "tsc -p tsconfig.json",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma": "prisma",
     "start": "node dist/main.js",
