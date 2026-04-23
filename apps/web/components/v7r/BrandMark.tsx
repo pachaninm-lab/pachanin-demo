@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { BRAND_MARK_BG as BRAND_MARK_BG_VALUE, BRAND_MARK_DATA_URI } from './brand-mark-data';
 
 export const BRAND_MARK_BG = BRAND_MARK_BG_VALUE;
+const BRAND_MARK_ASSET_PATH = '/brand/transparent-price-mark.svg';
 
 interface BrandMarkSvgProps {
   size?: number | string;
@@ -52,10 +53,12 @@ export function BrandMark({ size = 40, rounded = 14, shadow = true, style }: Bra
         height: size,
         flexShrink: 0,
         background: BRAND_MARK_BG,
+        backgroundImage: `url(${BRAND_MARK_ASSET_PATH})`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        backgroundSize: 'contain',
         ...style,
       }}
-    >
-      <BrandMarkSvg size='100%' />
-    </span>
+    />
   );
 }
