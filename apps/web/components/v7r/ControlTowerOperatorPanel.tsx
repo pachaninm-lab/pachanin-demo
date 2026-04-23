@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { formatCompactMoney, formatMoney } from '@/lib/v7r/helpers';
 import { translateReason, translateRole } from '@/lib/i18n/reason-codes';
+import { buildGatePassResult } from '@/lib/platform-v7/operator-actions';
+import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
 
 type GateState = 'PASS' | 'REVIEW' | 'FAIL';
 
@@ -31,6 +33,16 @@ function gateTone(state: GateState) {
   return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
 }
 
+function actionLogToAuditRow(entry: PlatformActionLogEntry): AuditRow {
+  return {
+    id: entry.id,
+    ts: entry.at,
+    actor: entry.actor,
+    action: entry.action,
+    detail: entry.message,
+  };
+}
+
 export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[] }) {
   const [items, setItems] = useState(deals);
   const [audit, setAudit] = useState<AuditRow[]>([]);
@@ -53,12 +65,24 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
     setAudit((prev) => [row, ...prev].slice(0, 8));
   }
 
+  function pushActionLog(entries: PlatformActionLogEntry[]) {
+    setAudit((prev) => [...entries.map(actionLogToAuditRow), ...prev].slice(0, 8));
+  }
+
   async function unblock(item: OperatorDealItem) {
     if (busyId) return;
     setBusyId(item.id);
 
-    setItems((prev) => prev.map((row) => row.id === item.id ? { ...row, gateState: 'PASS', nextStep: 'Gate снят. Можно двигать контур дальше.', nextOwner: 'Банк', reasonCodes: [] } : row));
-    pushAudit('Снят blocker', `${item.id}: оператор снял интеграционный blocker и перевёл gate в PASS.`);
+    const actionResult = buildGatePassResult({ dealId: item.id, amount: item.releasableAmount });
+
+    setItems((prev) => prev.map((row) => row.id === item.id ? {
+      ...row,
+      gateState: actionResult.gateState,
+      nextStep: actionResult.nextStep,
+      nextOwner: actionResult.nextOwner,
+      reasonCodes: [],
+    } : row));
+    pushActionLog(actionResult.log);
 
     if (item.releaseEligible && item.releasableAmount > 0) {
       try {
@@ -69,9 +93,9 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
         });
         const data = await res.json();
         setCallbacks((prev) => ({ ...prev, [item.id]: { id: data.id, amountRub: data.amountRub, ts: data.ts } }));
-        pushAudit('Деньги пошли', `${item.id}: fake-live callback ${data.id} подтвердил выпуск ${formatMoney(data.amountRub)}.`);
+        pushAudit('bank-callback', `${item.id}: callback ${data.id} подтвердил ${formatMoney(data.amountRub)}.`);
       } catch {
-        pushAudit('Ошибка callback', `${item.id}: не удалось получить fake-live callback.`);
+        pushAudit('callback-error', `${item.id}: callback не получен.`);
       }
     }
 
