@@ -22,7 +22,14 @@ export default function AppleIcon() {
           borderRadius: 40,
         }}
       >
-        <BrandMarkSvg size={148} background='#0F5B4F' frame='#D9E5E0' accent='#7EF2C4' />
+        <BrandMarkSvg
+          size={148}
+          emerald='#0F5B4F'
+          panel='#0B1917'
+          metalLight='#F3F5F4'
+          metalDark='#98A09B'
+          accent='#7EF2C4'
+        />
       </div>
     ),
     size,
