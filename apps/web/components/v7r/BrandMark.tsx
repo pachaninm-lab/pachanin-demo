@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-export const BRAND_MARK_ASSET_SRC = '/brand/transparent-price-mark.svg';
+export const BRAND_MARK_ASSET_SRC = '/apple-icon';
 export const BRAND_MARK_BG = '#F5F2EB';
 
 interface BrandMarkSvgProps {
@@ -52,6 +52,8 @@ export function BrandMarkSvg({
         src={BRAND_MARK_ASSET_SRC}
         alt=''
         draggable={false}
+        loading='eager'
+        decoding='async'
         style={{
           display: 'block',
           width: '100%',
