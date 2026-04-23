@@ -17,8 +17,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MERGE_METHOD: squash
-          REQUIRE_BRANCH_UP_TO_DATE: 'true'
-          LABELS: automerge
+          MERGE_LABELS: automerge
+          UPDATE_LABELS: automerge
+          MERGE_REMOVE_LABELS: automerge
 
   deploy-production:
     runs-on: ubuntu-latest
