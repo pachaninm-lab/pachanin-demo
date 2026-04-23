@@ -9,13 +9,13 @@ type QuickLink = {
 const QUICK_LINKS: QuickLink[] = [
   { href: '/platform-v7', title: 'Главная / выбор роли', note: 'Точка входа в платформу с переключением между ролями.' },
   { href: '/platform-v7/marketplace', title: 'Витрина лотов', note: 'Все лоты: культура, регион, объём, цена, класс.' },
-  { href: '/platform-v7/deals', title: 'Все сделки', note: '20+ сделок с SLA-сортировкой и полями статуса.' },
-  { href: '/platform-v7/control-tower', title: 'Control Tower', note: 'KPI-дашборд оператора: reseved, hold, disputed.' },
-  { href: '/platform-v7/logistics', title: 'Логистика', note: 'Маршруты, GPS-события, ETA, отклонения.' },
-  { href: '/platform-v7/disputes', title: 'Споры', note: 'Открытые споры, holds, SLA, responsible ballAt.' },
-  { href: '/platform-v7/bank', title: 'Банк', note: 'Резервы, выпуски, callbacks, ручные проверки.' },
-  { href: '/platform-v7/integrations', title: 'Интеграции', note: 'ФГИС «Зерно», СберБизнес, СПАРК, лаборатории.' },
-  { href: '/platform-v7/operator', title: 'Кабинет оператора', note: 'Очереди задач, callbacks, ручные действия.' },
+  { href: '/platform-v7/deals', title: 'Все сделки', note: '20+ сделок со SLA-сортировкой и полями статуса.' },
+  { href: '/platform-v7/control-tower', title: 'Центр управления', note: 'KPI-дашборд оператора: резерв, удержания, споры и деньги к выпуску.' },
+  { href: '/platform-v7/logistics', title: 'Логистика', note: 'Маршруты, GPS-события, ETA и отклонения.' },
+  { href: '/platform-v7/disputes', title: 'Споры', note: 'Открытые споры, удержания, SLA и ответственный владелец.' },
+  { href: '/platform-v7/bank', title: 'Банк', note: 'Резервы, выпуск денег, входящие события и ручные проверки.' },
+  { href: '/platform-v7/integrations', title: 'Интеграции', note: 'ФГИС «Зерно», СберБизнес, СПАРК и лаборатории.' },
+  { href: '/platform-v7/operator', title: 'Кабинет оператора', note: 'Очереди задач, входящие события и ручные действия.' },
 ];
 
 export default function PlatformV7NotFound() {
