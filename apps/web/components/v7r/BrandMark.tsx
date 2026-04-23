@@ -24,20 +24,42 @@ export function BrandMarkSvg({ size = '100%' }: BrandMarkSvgProps) {
     <span
       aria-hidden
       style={{
-        display: 'block',
+        display: 'inline-flex',
         width: dimension,
         height: dimension,
         flexShrink: 0,
         overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
         borderRadius: '27%',
-        backgroundColor: 'transparent',
-        backgroundImage: `url(${BRAND_MARK_DATA_URI})`,
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: '50% 46%',
-        backgroundSize: '155% 155%',
+        background: 'transparent',
+        padding: 0,
+        margin: 0,
         lineHeight: 0,
       }}
-    />
+    >
+      <img
+        src={BRAND_MARK_DATA_URI}
+        alt=''
+        draggable={false}
+        loading='eager'
+        decoding='async'
+        style={{
+          display: 'block',
+          width: '155%',
+          height: '155%',
+          maxWidth: 'none',
+          maxHeight: 'none',
+          flex: '0 0 auto',
+          objectFit: 'cover',
+          objectPosition: '50% 46%',
+          background: 'transparent',
+          border: 0,
+          padding: 0,
+          margin: 0,
+        }}
+      />
+    </span>
   );
 }
 
@@ -54,11 +76,14 @@ export function BrandMark({ size = 40, rounded = 14, shadow = true, style }: Bra
         height: size,
         flexShrink: 0,
         overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
         borderRadius: '27%',
         background: 'transparent',
         padding: 0,
         margin: 0,
         boxShadow: 'none',
+        lineHeight: 0,
         ...style,
       }}
     >
