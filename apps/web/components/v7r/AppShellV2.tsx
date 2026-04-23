@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { PLATFORM_V7_LEXICON } from '@/lib/platform-v7/lexicon';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
@@ -10,29 +11,29 @@ const ROLE_LABELS: Record<PlatformRole, string> = {
   buyer: 'Покупатель',
   seller: 'Продавец',
   logistics: 'Логистика',
-  driver: 'Водитель',
+  driver: PLATFORM_V7_LEXICON.nav.driver,
   surveyor: 'Сюрвейер',
-  elevator: 'Элеватор',
-  lab: 'Лаборатория',
-  bank: 'Банк',
+  elevator: PLATFORM_V7_LEXICON.nav.elevator,
+  lab: PLATFORM_V7_LEXICON.nav.lab,
+  bank: PLATFORM_V7_LEXICON.nav.bank,
   arbitrator: 'Арбитр',
-  compliance: 'Комплаенс',
+  compliance: PLATFORM_V7_LEXICON.nav.compliance,
   executive: 'Руководитель',
 };
 
 const ROLE_STAGE: Record<PlatformRole, { label: string; bg: string; border: string; color: string }> = {
-  operator: { label: 'CONTROLLED PILOT', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  buyer: { label: 'CONTROLLED PILOT', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  seller: { label: 'CONTROLLED PILOT', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  logistics: { label: 'CONTROLLED PILOT', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  bank: { label: 'SANDBOX', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
-  compliance: { label: 'SANDBOX', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
-  driver: { label: 'ROLE SIMULATION', bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
-  surveyor: { label: 'ROLE SIMULATION', bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
-  elevator: { label: 'ROLE SIMULATION', bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
-  lab: { label: 'ROLE SIMULATION', bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
-  arbitrator: { label: 'ROLE SIMULATION', bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
-  executive: { label: 'ROLE SIMULATION', bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
+  operator: { label: PLATFORM_V7_LEXICON.env.pilot, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
+  buyer: { label: PLATFORM_V7_LEXICON.env.pilot, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
+  seller: { label: PLATFORM_V7_LEXICON.env.pilot, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
+  logistics: { label: PLATFORM_V7_LEXICON.env.pilot, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
+  bank: { label: PLATFORM_V7_LEXICON.env.sandbox, bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
+  compliance: { label: PLATFORM_V7_LEXICON.env.sandbox, bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
+  driver: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
+  surveyor: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
+  elevator: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
+  lab: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
+  arbitrator: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
+  executive: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' },
 };
 
 const ROLE_ROUTES: Record<PlatformRole, string> = {
@@ -52,33 +53,33 @@ const ROLE_ROUTES: Record<PlatformRole, string> = {
 
 const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string }>> = {
   operator: [
-    { href: '/platform-v7/control-tower', label: 'Центр управления' },
-    { href: '/platform-v7/deals', label: 'Сделки' },
-    { href: '/platform-v7/lots', label: 'Лоты' },
+    { href: '/platform-v7/control-tower', label: PLATFORM_V7_LEXICON.nav.controlTower },
+    { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals },
+    { href: '/platform-v7/lots', label: PLATFORM_V7_LEXICON.nav.lots },
     { href: '/platform-v7/operator-cockpit/queues', label: 'Очереди' },
-    { href: '/platform-v7/logistics', label: 'Логистика' },
-    { href: '/platform-v7/bank', label: 'Банк' },
-    { href: '/platform-v7/disputes', label: 'Споры' },
-    { href: '/platform-v7/compliance', label: 'Комплаенс' },
+    { href: '/platform-v7/logistics', label: PLATFORM_V7_LEXICON.nav.logistics },
+    { href: '/platform-v7/bank', label: PLATFORM_V7_LEXICON.nav.bank },
+    { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes },
+    { href: '/platform-v7/compliance', label: PLATFORM_V7_LEXICON.nav.compliance },
   ],
   buyer: [
     { href: '/platform-v7/buyer', label: 'Кабинет' },
-    { href: '/platform-v7/procurement', label: 'Закупки' },
-    { href: '/platform-v7/deals', label: 'Сделки' },
-    { href: '/platform-v7/disputes', label: 'Споры' },
+    { href: '/platform-v7/procurement', label: PLATFORM_V7_LEXICON.nav.procurement },
+    { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals },
+    { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes },
     { href: '/platform-v7/bank', label: 'Деньги' },
   ],
   seller: [
     { href: '/platform-v7/seller', label: 'Кабинет' },
-    { href: '/platform-v7/lots', label: 'Лоты' },
+    { href: '/platform-v7/lots', label: PLATFORM_V7_LEXICON.nav.lots },
     { href: '/platform-v7/lots/create', label: 'Создать лот' },
-    { href: '/platform-v7/deals', label: 'Сделки' },
-    { href: '/platform-v7/disputes', label: 'Споры' },
+    { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals },
+    { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes },
   ],
   logistics: [
     { href: '/platform-v7/logistics', label: 'Диспетчерская' },
     { href: '/platform-v7/field', label: 'Поле и приёмка' },
-    { href: '/platform-v7/deals', label: 'Сделки' },
+    { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals },
     { href: '/platform-v7/disputes', label: 'Инциденты' },
   ],
   driver: [
@@ -89,36 +90,36 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string }>> 
   surveyor: [
     { href: '/platform-v7/surveyor', label: 'Назначения' },
     { href: '/platform-v7/deals/DL-9102', label: 'Сделка' },
-    { href: '/platform-v7/disputes', label: 'Споры' },
+    { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes },
   ],
   elevator: [
     { href: '/platform-v7/elevator', label: 'Приёмка' },
     { href: '/platform-v7/logistics', label: 'Рейсы' },
-    { href: '/platform-v7/deals', label: 'Сделки' },
+    { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals },
   ],
   lab: [
     { href: '/platform-v7/lab', label: 'Пробы' },
-    { href: '/platform-v7/deals', label: 'Сделки' },
-    { href: '/platform-v7/disputes', label: 'Споры' },
+    { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals },
+    { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes },
   ],
   bank: [
     { href: '/platform-v7/bank', label: 'Банковый контур' },
-    { href: '/platform-v7/deals', label: 'Сделки' },
+    { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals },
     { href: '/platform-v7/disputes', label: 'Удержания и споры' },
   ],
   arbitrator: [
     { href: '/platform-v7/arbitrator', label: 'Разбор' },
-    { href: '/platform-v7/disputes', label: 'Споры' },
-    { href: '/platform-v7/deals', label: 'Сделки' },
+    { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes },
+    { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals },
   ],
   compliance: [
     { href: '/platform-v7/compliance', label: 'Допуск и аудит' },
-    { href: '/platform-v7/deals', label: 'Сделки' },
-    { href: '/platform-v7/disputes', label: 'Споры' },
+    { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals },
+    { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes },
   ],
   executive: [
     { href: '/platform-v7/analytics', label: 'Сводка' },
-    { href: '/platform-v7/control-tower', label: 'Центр управления' },
+    { href: '/platform-v7/control-tower', label: PLATFORM_V7_LEXICON.nav.controlTower },
     { href: '/platform-v7/bank', label: 'Деньги' },
     { href: '/platform-v7/disputes', label: 'Риски' },
   ],
@@ -126,32 +127,32 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string }>> 
 
 const CRUMB_LABELS: Record<string, string> = {
   'platform-v7': 'Прозрачная Цена',
-  roles: 'Роли',
-  'role-hub': 'Роли',
-  'control-tower': 'Центр управления',
-  deals: 'Сделки',
-  lots: 'Лоты',
+  roles: PLATFORM_V7_LEXICON.nav.roles,
+  'role-hub': PLATFORM_V7_LEXICON.nav.roles,
+  'control-tower': PLATFORM_V7_LEXICON.nav.controlTower,
+  deals: PLATFORM_V7_LEXICON.nav.deals,
+  lots: PLATFORM_V7_LEXICON.nav.lots,
   create: 'Создание',
   buyer: 'Покупатель',
   seller: 'Продавец',
-  logistics: 'Логистика',
+  logistics: PLATFORM_V7_LEXICON.nav.logistics,
   field: 'Поле и приёмка',
-  bank: 'Банк',
-  disputes: 'Споры',
-  compliance: 'Комплаенс',
+  bank: PLATFORM_V7_LEXICON.nav.bank,
+  disputes: PLATFORM_V7_LEXICON.nav.disputes,
+  compliance: PLATFORM_V7_LEXICON.nav.compliance,
   analytics: 'Сводка',
-  procurement: 'Закупки',
-  driver: 'Водитель',
+  procurement: PLATFORM_V7_LEXICON.nav.procurement,
+  driver: PLATFORM_V7_LEXICON.nav.driver,
   surveyor: 'Сюрвейер',
-  elevator: 'Элеватор',
-  lab: 'Лаборатория',
+  elevator: PLATFORM_V7_LEXICON.nav.elevator,
+  lab: PLATFORM_V7_LEXICON.nav.lab,
   arbitrator: 'Арбитр',
-  connectors: 'Коннекторы',
+  connectors: PLATFORM_V7_LEXICON.nav.connectors,
   'operator-cockpit': 'Оператор',
   queues: 'Очереди',
   auctions: 'Торги',
-  investor: 'Investor',
-  demo: 'Demo',
+  investor: PLATFORM_V7_LEXICON.nav.investor,
+  demo: PLATFORM_V7_LEXICON.nav.demo,
 };
 
 function breadcrumbs(pathname: string) {
@@ -187,7 +188,7 @@ export function AppShellV2({ children }: { children: React.ReactNode }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Прозрачная Цена</div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6B778C', marginTop: 3 }}>Canonical v7 shell</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6B778C', marginTop: 3 }}>Единый контур сделки</div>
             </div>
             <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, fontSize: 18 }} aria-label="Закрыть меню">×</button>
           </div>
@@ -213,12 +214,12 @@ export function AppShellV2({ children }: { children: React.ReactNode }) {
 
         <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid #E4E6EA', display: 'grid', gap: 8 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <Link href="/platform-v7/investor" onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>Investor</Link>
-            <Link href="/platform-v7/demo" onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>Demo</Link>
+            <Link href="/platform-v7/investor" onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>{PLATFORM_V7_LEXICON.nav.investor}</Link>
+            <Link href="/platform-v7/demo" onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>{PLATFORM_V7_LEXICON.nav.demo}</Link>
           </div>
-          <Link href="/platform-v7/roles" onClick={() => { clearRoleSelection(); setSidebarOpen(false); }} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Все роли</Link>
+          <Link href="/platform-v7/roles" onClick={() => { clearRoleSelection(); setSidebarOpen(false); }} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>{PLATFORM_V7_LEXICON.nav.roles}</Link>
           <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(217,119,6,0.18)', background: 'rgba(217,119,6,0.08)', color: '#B45309', fontSize: 12, lineHeight: 1.6 }}>
-            Платформа честно показывает режим роли: controlled pilot, sandbox или role simulation. Ложный «живой режим» убран из shell.
+            Платформа честно показывает режим роли: пилотный режим, тестовая среда или демо-данные. Боевой контур не заявляется без подтверждённых подключений.
           </div>
         </div>
       </aside>
@@ -239,9 +240,9 @@ export function AppShellV2({ children }: { children: React.ReactNode }) {
               <div style={{ fontSize: 11, color: '#6B778C', marginTop: 3 }}>{ROLE_LABELS[role]} · {stage.label}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <Link href="/platform-v7/investor" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>Investor</Link>
-              <Link href="/platform-v7/demo" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>Demo</Link>
-              <Link href="/platform-v7/roles" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>Роли</Link>
+              <Link href="/platform-v7/investor" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{PLATFORM_V7_LEXICON.nav.investor}</Link>
+              <Link href="/platform-v7/demo" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{PLATFORM_V7_LEXICON.nav.demo}</Link>
+              <Link href="/platform-v7/roles" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{PLATFORM_V7_LEXICON.nav.roles}</Link>
             </div>
           </div>
 
