@@ -43,21 +43,6 @@ async function clearLegacyOfflineState() {
   } catch {}
 }
 
-function normalizeBrandMarks() {
-  if (typeof document === 'undefined') return;
-
-  const logoImgs = Array.from(document.querySelectorAll<HTMLImageElement>("img[src*='transparent-price-mark.svg']"));
-  for (const img of logoImgs) {
-    img.src = '/apple-icon';
-    img.alt = '';
-    img.draggable = false;
-    img.style.opacity = '1';
-    img.style.visibility = 'visible';
-    img.style.objectFit = 'contain';
-    img.style.display = 'block';
-  }
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark');
 
@@ -66,14 +51,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setTheme(initial);
     applyTheme(initial);
     void clearLegacyOfflineState();
-    normalizeBrandMarks();
-
-    const observer = new MutationObserver(() => {
-      normalizeBrandMarks();
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -81,11 +58,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
-  const value = useMemo<ThemeContextValue>(() => ({
-    theme,
-    setTheme,
-    toggleTheme: () => setTheme((current) => current === 'dark' ? 'light' : 'dark')
-  }), [theme]);
+  const value = useMemo<ThemeContextValue>(
+    () => ({
+      theme,
+      setTheme,
+      toggleTheme: () => setTheme((current) => (current === 'dark' ? 'light' : 'dark')),
+    }),
+    [theme],
+  );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
