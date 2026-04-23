@@ -52,6 +52,13 @@
   color: var(--pc-text-secondary) !important;
 }
 
+.pc-giga,
+.sticky-action,
+#pc-ai-dock,
+[data-pc-ai-panel='legacy'] {
+  display: none !important;
+}
+
 .pc-giga-title,
 .pc-role-banner [style*='font-weight: 900'],
 .pc-role-banner [style*='fontWeight: 900'] {
