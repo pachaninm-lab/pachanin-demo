@@ -45,13 +45,42 @@
   border-color: var(--pc-border-light) !important;
 }
 
+.pc-role-banner,
+.pc-giga {
+  background: var(--pc-shell-surface, var(--pc-bg-card)) !important;
+  border-color: var(--pc-border) !important;
+  color: var(--pc-text-secondary) !important;
+}
+
+.pc-giga-title,
+.pc-role-banner [style*='font-weight: 900'],
+.pc-role-banner [style*='fontWeight: 900'] {
+  color: var(--pc-text-primary) !important;
+}
+
+.pc-giga-text,
+.pc-role-banner [style*='color: var(--pc-text-secondary)'] {
+  color: var(--pc-text-secondary) !important;
+}
+
+.pc-giga .pc-nav-item,
+.pc-giga-chip {
+  background: var(--pc-bg-elevated) !important;
+  border-color: var(--pc-border) !important;
+}
+
+.pc-giga-chip {
+  color: var(--pc-accent) !important;
+}
+
 .pc-main footer {
   background: var(--pc-shell-surface-strong, var(--pc-bg-card)) !important;
   border-color: var(--pc-border) !important;
 }
 
 .pc-main footer [style*='background: rgba(255,255,255,0.03)'],
-.pc-main footer [style*='background:rgba(255,255,255,0.03)'] {
+.pc-main footer [style*='background:rgba(255,255,255,0.03)'],
+.pc-main footer [style*='background: var(--pc-shell-surface)'] {
   background: var(--pc-shell-surface, var(--pc-bg-card)) !important;
   border-color: var(--pc-border) !important;
 }
@@ -64,8 +93,19 @@
 }
 
 .pc-main footer span[style*='background: rgba(255,255,255,0.03)'],
-.pc-main footer span[style*='background:rgba(255,255,255,0.03)'] {
+.pc-main footer span[style*='background:rgba(255,255,255,0.03)'],
+.pc-main footer span[style*='background: var(--pc-shell-surface-soft)'] {
   background: var(--pc-shell-surface-soft, rgba(255,255,255,0.03)) !important;
+  color: var(--pc-text-primary) !important;
+}
+
+.pc-main footer,
+.pc-main footer * {
+  color: inherit;
+}
+
+.pc-main footer > div > div [style*='font-size: 18px'],
+.pc-main footer > div > div [style*='fontWeight: 900'] {
   color: var(--pc-text-primary) !important;
 }
 
@@ -86,7 +126,7 @@
     white-space: normal !important;
     overflow: visible !important;
     text-overflow: clip !important;
-    max-width: 108px !important;
+    max-width: 132px !important;
   }
 
   .pc-brand-copy {
@@ -114,7 +154,7 @@
   }
 
   .pc-mobile-role {
-    max-width: 106px !important;
+    max-width: 110px !important;
     padding-inline: 10px !important;
   }
 
