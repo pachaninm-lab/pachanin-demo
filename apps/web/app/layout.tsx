@@ -36,7 +36,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#0A7A5F',
+  themeColor: '#0E6E60',
 };
 
 const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
