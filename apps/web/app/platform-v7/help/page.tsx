@@ -7,8 +7,8 @@ const FAQ = [
     bucket: 'Деньги',
   },
   {
-    title: 'Как снять blocker?',
-    body: 'Открой Control Tower и найди сделку в очереди проблем. Если blocker интеграционный, оператор может снять gate и отправить сделку дальше в банк. Если blocker документный — загрузи недостающие файлы в документы сделки.',
+    title: 'Как снять блокировку?',
+    body: 'Открой Центр управления и найди сделку в очереди проблем. Если блокировка связана с интеграцией, оператор может перевести проверку в статус «пройдено» и отправить сделку дальше в банк. Если причина в документах — загрузи недостающие файлы в документы сделки.',
     bucket: 'Оператор',
   },
   {
@@ -63,9 +63,9 @@ export default function HelpPage() {
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          <QuickLink href='/platform-v7/control-tower' title='Control Tower' note='Очередь проблем, SLA, блокеры, действия.' />
+          <QuickLink href='/platform-v7/control-tower' title='Центр управления' note='Очередь проблем, SLA, блокировки и действия оператора.' />
           <QuickLink href='/platform-v7/deals' title='Сделки' note='Реестр сделок с фильтрами, риском и контекстом.' />
-          <QuickLink href='/platform-v7/bank' title='Банк' note='Резерв, release, callbacks, факторинг, эскроу.' />
+          <QuickLink href='/platform-v7/bank' title='Банк' note='Резерв, выпуск денег, входящие события, факторинг и эскроу.' />
           <QuickLink href='/platform-v7/disputes' title='Споры' note='Открытые кейсы, доказательства, сроки и действия.' />
           <QuickLink href='/platform-v7/onboarding' title='Онбординг' note='6 шагов от подключения компании до первого лота.' />
           <QuickLink href='/platform-v7/profile' title='Профиль компании' note='Команда, доверие, доступы и связанный контур.' />
