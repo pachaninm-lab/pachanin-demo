@@ -46,6 +46,47 @@ function screenLabel(pathname: string) {
   return 'Текущий экран';
 }
 
+function findOpenDrawer() {
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>('aside, nav, section, div')).filter((node) => {
+    if (node.id === 'pc-context-drawer-section') return false;
+    const style = window.getComputedStyle(node);
+    if (style.position !== 'fixed') return false;
+    const rect = node.getBoundingClientRect();
+    if (rect.height < 240) return false;
+    if (rect.width < 220) return false;
+    if (rect.left > 32) return false;
+    const navLinks = node.querySelectorAll('a[href^="/platform-v7/"]').length;
+    return navLinks >= 2;
+  });
+
+  candidates.sort((a, b) => {
+    const aLinks = a.querySelectorAll('a[href^="/platform-v7/"]').length;
+    const bLinks = b.querySelectorAll('a[href^="/platform-v7/"]').length;
+    return bLinks - aLinks;
+  });
+
+  return candidates[0] ?? null;
+}
+
+function applyCardStyles(node: HTMLElement | HTMLAnchorElement) {
+  node.style.display = 'grid';
+  node.style.gap = '8px';
+  node.style.padding = '12px';
+  node.style.borderRadius = '14px';
+  node.style.border = '1px solid var(--pc-border)';
+  node.style.background = 'linear-gradient(180deg, rgba(21,28,25,0.96) 0%, rgba(11,21,19,0.98) 100%)';
+  node.style.textDecoration = 'none';
+}
+
+function textStyles() {
+  return {
+    label: 'font-size:11px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:var(--pc-text-muted);',
+    title: 'font-size:14px;font-weight:900;line-height:1.35;color:var(--pc-text-primary);',
+    body: 'font-size:12px;line-height:1.55;color:var(--pc-text-secondary);',
+    cta: 'display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 12px;border-radius:12px;border:1px solid var(--pc-accent-border);background:var(--pc-accent-bg);font-size:12px;font-weight:800;color:var(--pc-accent-strong);text-decoration:none;',
+  };
+}
+
 export function AiShellEnhancer() {
   const pathname = usePathname();
   const router = useRouter();
@@ -53,39 +94,74 @@ export function AiShellEnhancer() {
   const isAiPage = pathname.startsWith('/platform-v7/ai');
 
   React.useEffect(() => {
-    const existing = document.getElementById('pc-ai-dock');
+    const ensureDrawerSection = () => {
+      if (isAiPage) return;
+      const drawer = findOpenDrawer();
+      if (!drawer) return;
 
-    if (isAiPage) {
-      existing?.remove();
-      return;
-    }
+      const copy = textStyles();
+      let section = drawer.querySelector<HTMLElement>('#pc-context-drawer-section');
+      if (!section) {
+        section = document.createElement('div');
+        section.id = 'pc-context-drawer-section';
+        section.style.display = 'grid';
+        section.style.gap = '10px';
+        section.style.padding = '12px 16px 16px';
+        section.style.borderTop = '1px solid var(--pc-border)';
+        section.style.marginTop = '8px';
+        drawer.appendChild(section);
+      }
 
-    const dock = existing ?? document.createElement('button');
-    dock.id = 'pc-ai-dock';
-    dock.setAttribute('type', 'button');
-    dock.setAttribute('aria-label', 'Открыть AI по текущему экрану');
-    dock.innerHTML = `
-      <span class="pc-ai-dock__inner">
-        <span class="pc-ai-dock__icon">✦</span>
-        <span class="pc-ai-dock__copy">
-          <span class="pc-ai-dock__title">AI по экрану · ${ROLE_LABELS[role]}</span>
-          <span class="pc-ai-dock__text">${screenLabel(pathname)} · блокер · документы · деньги · следующий шаг</span>
-        </span>
-      </span>
-    `;
+      section.innerHTML = '';
 
-    dock.onclick = (event) => {
-      event.preventDefault();
-      trackGigaChatAsked(`${role}:${pathname}:dock_open`);
-      router.push(buildAiHref(pathname, role));
+      const aiCard = document.createElement('a');
+      aiCard.href = buildAiHref(pathname, role);
+      applyCardStyles(aiCard);
+      aiCard.innerHTML = `
+        <span style="${copy.label}">AI по экрану</span>
+        <span style="${copy.title}">${ROLE_LABELS[role]} · ${screenLabel(pathname)}</span>
+        <span style="${copy.body}">Блокер · документы · деньги · следующий шаг</span>
+      `;
+      aiCard.onclick = (event) => {
+        event.preventDefault();
+        trackGigaChatAsked(`${role}:${pathname}:drawer_open`);
+        router.push(buildAiHref(pathname, role));
+      };
+      section.appendChild(aiCard);
+
+      const sticky = document.querySelector<HTMLElement>('.sticky-action');
+      const stickyTitle = sticky?.querySelector<HTMLElement>('.sticky-title')?.textContent?.trim();
+      const stickyHref = sticky?.querySelector<HTMLAnchorElement>('a[href]')?.getAttribute('href');
+      const stickyLabel = sticky?.querySelector<HTMLAnchorElement>('a[href]')?.textContent?.trim() || 'Открыть';
+
+      if (sticky && stickyTitle && stickyHref) {
+        const nextCard = document.createElement('div');
+        applyCardStyles(nextCard);
+        nextCard.innerHTML = `
+          <span style="${copy.label}">Следующее действие</span>
+          <span style="${copy.title}">${stickyTitle}</span>
+          <span style="${copy.body}">Вынесено в боковую плашку, чтобы не перекрывать рабочий экран.</span>
+        `;
+
+        const cta = document.createElement('a');
+        cta.href = stickyHref;
+        cta.textContent = stickyLabel;
+        cta.setAttribute('style', copy.cta);
+        nextCard.appendChild(cta);
+        section.appendChild(nextCard);
+      }
     };
 
-    if (!existing) {
-      document.body.appendChild(dock);
-    }
+    const observer = new MutationObserver(() => {
+      ensureDrawerSection();
+    });
+
+    ensureDrawerSection();
+    observer.observe(document.body, { childList: true, subtree: true });
 
     return () => {
-      if (dock) dock.onclick = null;
+      observer.disconnect();
+      document.getElementById('pc-context-drawer-section')?.remove();
     };
   }, [isAiPage, pathname, role, router]);
 
@@ -94,77 +170,10 @@ export function AiShellEnhancer() {
   return (
     <style>{`
       .pc-giga,
-      [data-pc-ai-panel='legacy'] {
+      [data-pc-ai-panel='legacy'],
+      #pc-ai-dock,
+      .sticky-action {
         display: none !important;
-      }
-      .pc-shell-root {
-        padding-bottom: calc(env(safe-area-inset-bottom) + 92px) !important;
-      }
-      #pc-ai-dock {
-        position: fixed;
-        left: max(12px, env(safe-area-inset-left));
-        right: max(12px, env(safe-area-inset-right));
-        bottom: calc(env(safe-area-inset-bottom) + 12px);
-        z-index: 120;
-        border: 1px solid var(--pc-accent-border);
-        background: linear-gradient(180deg, rgba(9,25,21,0.98) 0%, rgba(7,18,15,0.98) 100%);
-        color: var(--pc-text-primary);
-        border-radius: 18px;
-        box-shadow: 0 18px 40px rgba(0,0,0,0.24);
-        padding: 0;
-        cursor: pointer;
-        backdrop-filter: blur(18px);
-      }
-      .pc-ai-dock__inner {
-        display: grid;
-        grid-template-columns: auto minmax(0, 1fr);
-        gap: 12px;
-        align-items: center;
-        width: 100%;
-        padding: 13px 14px;
-      }
-      .pc-ai-dock__icon {
-        width: 34px;
-        height: 34px;
-        border-radius: 999px;
-        display: grid;
-        place-items: center;
-        background: var(--pc-accent-bg);
-        border: 1px solid var(--pc-accent-border);
-        color: var(--pc-accent);
-        font-size: 16px;
-        font-weight: 900;
-      }
-      .pc-ai-dock__copy {
-        display: grid;
-        gap: 2px;
-        min-width: 0;
-        text-align: left;
-      }
-      .pc-ai-dock__title {
-        font-size: 13px;
-        line-height: 1.25;
-        font-weight: 900;
-        color: var(--pc-text-primary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .pc-ai-dock__text {
-        font-size: 11px;
-        line-height: 1.45;
-        color: var(--pc-text-secondary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      @media (min-width: 961px) {
-        #pc-ai-dock {
-          left: 50%;
-          right: auto;
-          transform: translateX(-50%);
-          width: min(720px, calc(100vw - 32px));
-        }
       }
     `}</style>
   );
