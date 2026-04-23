@@ -13,9 +13,9 @@
   --pc-text-secondary: #C7D2CD;
   --pc-text-muted: #93A29C;
 
-  --pc-border: #263530;
-  --pc-border-light: #32413B;
-  --pc-border-strong: #44544D;
+  --pc-border: rgba(214, 226, 221, 0.14);
+  --pc-border-light: rgba(214, 226, 221, 0.18);
+  --pc-border-strong: rgba(214, 226, 221, 0.28);
 
   --pc-accent: #7EF2C4;
   --pc-accent-strong: #DDF7EE;
@@ -32,6 +32,10 @@
   --pc-danger-bg: rgba(229, 72, 77, 0.16);
   --pc-info: #7EF2C4;
   --pc-info-bg: rgba(15, 91, 79, 0.20);
+
+  --pc-shell-surface: linear-gradient(180deg, rgba(17, 28, 25, 0.96) 0%, rgba(10, 18, 16, 0.99) 100%);
+  --pc-shell-surface-strong: linear-gradient(180deg, rgba(20, 33, 29, 0.96) 0%, rgba(10, 18, 16, 0.99) 100%);
+  --pc-shell-surface-soft: rgba(255,255,255,0.03);
 
   --pc-radius-sm: 8px;
   --pc-radius-md: 12px;
@@ -67,12 +71,12 @@
   --pc-bg-header: rgba(245, 246, 244, 0.92);
 
   --pc-text-primary: #0B2E28;
-  --pc-text-secondary: #1F2328;
+  --pc-text-secondary: #42514D;
   --pc-text-muted: #5E6B67;
 
-  --pc-border: #C7CCD3;
-  --pc-border-light: #D9DFDA;
-  --pc-border-strong: #AEB7C0;
+  --pc-border: rgba(11, 46, 40, 0.12);
+  --pc-border-light: rgba(11, 46, 40, 0.16);
+  --pc-border-strong: rgba(11, 46, 40, 0.24);
 
   --pc-accent: #0F5B4F;
   --pc-accent-strong: #0B2E28;
@@ -89,6 +93,10 @@
   --pc-danger-bg: #FDEBEC;
   --pc-info: #0F5B4F;
   --pc-info-bg: #E8F2F1;
+
+  --pc-shell-surface: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(245,246,244,0.98) 100%);
+  --pc-shell-surface-strong: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(238,241,237,1) 100%);
+  --pc-shell-surface-soft: rgba(15,91,79,0.04);
 
   --pc-shadow-sm: 0 1px 2px rgba(11, 46, 40, 0.05);
   --pc-shadow-md: 0 10px 26px rgba(11, 46, 40, 0.08);
@@ -125,6 +133,9 @@
   --pc-danger-bg: #FDEBEC;
   --pc-info: #0B2E28;
   --pc-info-bg: #E8F2F1;
+  --pc-shell-surface: #FFFFFF;
+  --pc-shell-surface-strong: #FFFFFF;
+  --pc-shell-surface-soft: #F3F4F6;
   --pc-shadow-sm: none;
   --pc-shadow-md: none;
   --pc-shadow-lg: none;
@@ -136,7 +147,7 @@ body {
   background:
     radial-gradient(circle at top left, rgba(126, 242, 196, 0.10), transparent 24%),
     radial-gradient(circle at top right, rgba(15, 91, 79, 0.18), transparent 26%),
-    linear-gradient(180deg, var(--pc-bg) 0%, #08100E 100%);
+    linear-gradient(180deg, var(--pc-bg) 0%, color-mix(in srgb, var(--pc-bg) 82%, #08100E 18%) 100%);
   color: var(--pc-text-primary);
   transition: background 0.2s ease, color 0.2s ease;
 }
