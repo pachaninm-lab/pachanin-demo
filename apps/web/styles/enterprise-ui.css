@@ -155,6 +155,83 @@
   box-shadow: var(--pc-shadow-sm);
 }
 
+/* Legacy catch-all pages: inputs, selects, cards, buttons */
+.pc-main input,
+.pc-main select,
+.pc-main textarea {
+  background: var(--pc-bg-elevated) !important;
+  border: 1px solid var(--pc-border) !important;
+  color: var(--pc-text-primary) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--pc-shadow-sm) !important;
+}
+
+.pc-main input::placeholder,
+.pc-main textarea::placeholder {
+  color: var(--pc-text-muted) !important;
+}
+
+.pc-main button[style*='background: #fff'],
+.pc-main button[style*='background:#fff'],
+.pc-main a[style*='background: #fff'],
+.pc-main a[style*='background:#fff'] {
+  background: var(--pc-bg-elevated) !important;
+  color: var(--pc-text-primary) !important;
+  border-color: var(--pc-border) !important;
+}
+
+.pc-main button[style*='background: #0A7A5F'],
+.pc-main button[style*='background:#0A7A5F'],
+.pc-main a[style*='background: #0A7A5F'],
+.pc-main a[style*='background:#0A7A5F'] {
+  background: linear-gradient(180deg, var(--pc-accent) 0%, #58d8aa 100%) !important;
+  color: #06211c !important;
+  border-color: rgba(126, 242, 196, 0.30) !important;
+}
+
+.pc-main button[style*='rgba(217,119,6,0.08)'],
+.pc-main a[style*='rgba(217,119,6,0.08)'] {
+  background: var(--pc-warning-bg) !important;
+  color: var(--pc-warning) !important;
+  border-color: rgba(245,180,30,0.22) !important;
+}
+
+.pc-main button[style*='rgba(220,38,38,0.08)'],
+.pc-main a[style*='rgba(220,38,38,0.08)'] {
+  background: var(--pc-danger-bg) !important;
+  color: var(--pc-danger) !important;
+  border-color: rgba(255,139,144,0.22) !important;
+}
+
+.pc-main > div > section,
+.pc-main > div > article,
+.pc-main > div > div[style*='border-radius: 16px'],
+.pc-main > div > div[style*='border-radius: 18px'] {
+  overflow: hidden;
+}
+
+.pc-main div[style*='textTransform:uppercase'],
+.pc-main div[style*='textTransform: uppercase'] {
+  letter-spacing: 0.08em !important;
+}
+
+@media (max-width: 768px) {
+  .pc-main input,
+  .pc-main select,
+  .pc-main textarea,
+  .pc-main button,
+  .pc-main a[style] {
+    min-height: 44px !important;
+  }
+
+  .pc-main [style*='grid-template-columns: repeat(auto-fit, minmax(320px, 1fr))'],
+  .pc-main [style*='grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))'],
+  .pc-main [style*='grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))'],
+  .pc-main [style*='grid-template-columns: repeat(auto-fit, minmax(160px, 1fr))'] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 @media (min-width: 769px) {
   .pc-main section,
   .pc-main article,
