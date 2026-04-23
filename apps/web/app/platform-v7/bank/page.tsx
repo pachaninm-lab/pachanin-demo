@@ -4,12 +4,12 @@ import { BankRuntime } from '@/components/v7r/BankRuntime';
 const quickLinks = [
   {
     title: 'Пакет перевозочных документов',
-    description: 'DL-9102 · юрзначимый пакет СберКорус по рейсу, подписи и влияние на выпуск денег.',
+    description: 'DL-9102 · юридически значимый пакет СберКорус по рейсу, подписям и влиянию на выпуск денег.',
     href: '/platform-v7/deals/DL-9102/transport-documents',
   },
   {
     title: 'Полная симуляция сценария',
-    description: 'Пошаговая имитация: пакет → подписи → webhooks → release gate.',
+    description: 'Пошаговая имитация: пакет → подписи → входящие события → контроль выпуска денег.',
     href: '/platform-v7/deals/DL-9102/transport-documents/simulation',
   },
   {
@@ -33,7 +33,7 @@ const partners = [
   {
     name: 'Сбер',
     status: 'Активный контур',
-    note: 'Основной банковый слой платформы: безопасная сделка, транспортный gate, факторинг и эскроу.',
+    note: 'Основной банковый слой платформы: безопасная сделка, транспортный контроль, факторинг и эскроу.',
     tone: 'rgba(10,122,95,0.08)',
     border: 'rgba(10,122,95,0.18)',
     color: '#0A7A5F',
@@ -49,7 +49,7 @@ const partners = [
   {
     name: 'Альфа',
     status: 'Следующий слой',
-    note: 'Потенциальный партнёр для расширения buyer-side сценариев и платёжных инструментов.',
+    note: 'Потенциальный партнёр для расширения сценариев покупателя и платёжных инструментов.',
     tone: '#F8FAFB',
     border: '#E4E6EA',
     color: '#475569',
@@ -57,7 +57,7 @@ const partners = [
   {
     name: 'Россельхозбанк',
     status: 'Профильный банк',
-    note: 'Логичный кандидат для отраслевого масштаба после доказанного controlled pilot.',
+    note: 'Логичный кандидат для отраслевого масштаба после доказанного пилотного контура.',
     tone: '#F8FAFB',
     border: '#E4E6EA',
     color: '#475569',
@@ -84,15 +84,15 @@ export default function PlatformV7BankPage() {
               <span style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>СберКорус</span>
             </div>
             <h1 style={{ margin: '10px 0 0', fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
-              Банковый контур с транспортным gate
+              Банковый контур с транспортным контролем
             </h1>
             <p style={{ margin: '8px 0 0', fontSize: 13, color: '#425466', maxWidth: 760 }}>
-              Выпуск денег теперь связан не только с приёмкой и спором, но и с внешним юридически значимым транспортным контуром. В демо это слой СберКорус: пакет документов, подписи, webhooks и итоговый transport gate для release.
+              Выпуск денег связан не только с приёмкой и спором, но и с внешним юридически значимым транспортным контуром. В демо это слой СберКорус: пакет документов, подписи, входящие события и итоговый контроль выпуска денег.
             </p>
           </div>
           <div style={{ display: 'grid', gap: 8, minWidth: 240 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px solid rgba(10,122,95,0.14)' }}>
-              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Transport gate</span>
+              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Транспортный контроль</span>
               <span style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 900 }}>Под контролем</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px solid rgba(217,119,6,0.14)' }}>
@@ -130,7 +130,7 @@ export default function PlatformV7BankPage() {
         <div>
           <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Банки-партнёры</div>
           <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-            Сейчас активный контур построен вокруг Сбера. Остальные банки показаны как следующий слой масштаба, а не как уже подтверждённые live-интеграции.
+            Сейчас активный контур построен вокруг Сбера. Остальные банки показаны как следующий слой масштаба, а не как уже подтверждённые боевые интеграции.
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
