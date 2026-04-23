@@ -1,3 +1,21 @@
+.pc-header-brand > span:first-child,
+.app-header-brand > span:first-child,
+.pc-brand-mark-fallback {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-image: url('/icon') !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: contain !important;
+}
+
+.pc-header-brand > span:first-child img,
+.app-header-brand > span:first-child img {
+  opacity: 0 !important;
+}
+
 .pc-shell-root > aside {
   background: var(--pc-shell-surface-strong, var(--pc-bg-card)) !important;
   border-right: 1px solid var(--pc-border) !important;
@@ -55,7 +73,10 @@
 .pc-giga,
 .sticky-action,
 #pc-ai-dock,
-[data-pc-ai-panel='legacy'] {
+[data-pc-ai-panel='legacy'],
+.pc-main .pc-giga,
+.pc-main [class*='giga'],
+.pc-main [class*='sticky-action'] {
   display: none !important;
 }
 
