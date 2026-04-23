@@ -53,12 +53,24 @@ export function BrandMark({ size = 40, rounded = 14, shadow = true, style }: Bra
         height: size,
         flexShrink: 0,
         background: BRAND_MARK_BG,
-        backgroundImage: `url(${BRAND_MARK_ASSET_PATH})`,
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        backgroundSize: 'contain',
         ...style,
       }}
-    />
+    >
+      <img
+        aria-hidden
+        src={BRAND_MARK_ASSET_PATH}
+        alt=''
+        draggable={false}
+        loading='eager'
+        decoding='async'
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          flexShrink: 0,
+        }}
+      />
+    </span>
   );
 }
