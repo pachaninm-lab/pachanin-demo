@@ -1,7 +1,6 @@
 'use client';
 
 import { ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { registerServiceWorker } from '../lib/offline';
 
 type Theme = 'dark' | 'light';
 
@@ -26,6 +25,24 @@ function applyTheme(theme: Theme) {
   document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark';
 }
 
+async function clearLegacyOfflineState() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+  } catch {}
+
+  try {
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map((name) => caches.delete(name)));
+    }
+  } catch {}
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark');
 
@@ -33,7 +50,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const initial = resolveInitialTheme();
     setTheme(initial);
     applyTheme(initial);
-    registerServiceWorker();
+    void clearLegacyOfflineState();
   }, []);
 
   useEffect(() => {
