@@ -46,11 +46,6 @@ function screenLabel(pathname: string) {
   return 'Текущий экран';
 }
 
-function looksLikeLegacyAiPanel(node: HTMLElement) {
-  const text = (node.textContent ?? '').trim();
-  return text.includes('Вопросы к AI') || text.includes('Открыть AI') || text.includes('AI по роли');
-}
-
 export function AiShellEnhancer() {
   const pathname = usePathname();
   const router = useRouter();
@@ -59,24 +54,11 @@ export function AiShellEnhancer() {
 
   React.useEffect(() => {
     const existing = document.getElementById('pc-ai-dock');
-    const hiddenNodes: HTMLElement[] = [];
 
     if (isAiPage) {
       existing?.remove();
       return;
     }
-
-    const legacyPanels = Array.from(document.querySelectorAll<HTMLElement>('.pc-giga, section, article, div'));
-    legacyPanels.forEach((node) => {
-      if (!looksLikeLegacyAiPanel(node)) return;
-      const panel = node.matches('.pc-giga')
-        ? node.closest('section, article, div') as HTMLElement | null
-        : node;
-      if (!panel || panel.dataset.aiPanelHidden === '1') return;
-      panel.dataset.aiPanelHidden = '1';
-      panel.style.display = 'none';
-      hiddenNodes.push(panel);
-    });
 
     const dock = existing ?? document.createElement('button');
     dock.id = 'pc-ai-dock';
@@ -104,12 +86,6 @@ export function AiShellEnhancer() {
 
     return () => {
       if (dock) dock.onclick = null;
-      hiddenNodes.forEach((node) => {
-        if (node.dataset.aiPanelHidden === '1') {
-          node.style.display = '';
-          delete node.dataset.aiPanelHidden;
-        }
-      });
     };
   }, [isAiPage, pathname, role, router]);
 
@@ -117,8 +93,13 @@ export function AiShellEnhancer() {
 
   return (
     <style>{`
-      .pc-giga { display: none !important; }
-      .pc-shell-root { padding-bottom: calc(env(safe-area-inset-bottom) + 92px) !important; }
+      .pc-giga,
+      [data-pc-ai-panel='legacy'] {
+        display: none !important;
+      }
+      .pc-shell-root {
+        padding-bottom: calc(env(safe-area-inset-bottom) + 92px) !important;
+      }
       #pc-ai-dock {
         position: fixed;
         left: max(12px, env(safe-area-inset-left));
