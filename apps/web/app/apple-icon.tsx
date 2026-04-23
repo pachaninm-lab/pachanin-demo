@@ -1,5 +1,4 @@
 import { ImageResponse } from 'next/og';
-import { BrandMarkSvg, BRAND_MARK_BG } from '@/components/v7r/BrandMark';
 
 export const size = {
   width: 180,
@@ -18,10 +17,14 @@ export default async function AppleIcon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: BRAND_MARK_BG,
+          background: '#F5F2EB',
+          color: '#0A7A5F',
+          fontSize: 54,
+          fontWeight: 900,
+          letterSpacing: -4,
         }}
       >
-        <BrandMarkSvg size='100%' />
+        ПЦ
       </div>
     ),
     size,
