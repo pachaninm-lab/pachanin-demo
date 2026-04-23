@@ -1,7 +1,6 @@
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { ImageResponse } from 'next/og';
-import { BRAND_MARK_BG } from '@/components/v7r/BrandMark';
 
 export const size = {
   width: 180,
@@ -38,7 +37,7 @@ export default async function AppleIcon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: BRAND_MARK_BG,
+          background: '#F5F2EB',
         }}
       >
         <img
