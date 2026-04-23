@@ -9,6 +9,7 @@ import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
 import '@/styles/theme.css';
 import '@/styles/enterprise-ui.css';
+import '@/styles/design-fixes.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',
@@ -54,7 +55,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <footer
             style={{
               marginTop: 18,
-              background: 'linear-gradient(180deg, rgba(17,28,25,0.96) 0%, rgba(10,18,16,0.99) 100%)',
+              background: 'var(--pc-shell-surface-strong)',
               border: '1px solid var(--pc-border)',
               borderRadius: 22,
               padding: 18,
@@ -79,7 +80,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
                 </div>
               </div>
 
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, background: 'rgba(126,242,196,0.08)', border: '1px solid rgba(126,242,196,0.18)', color: '#7EF2C4', fontSize: 12, fontWeight: 800 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, background: 'var(--pc-accent-bg)', border: '1px solid var(--pc-accent-border)', color: 'var(--pc-accent-strong)', fontSize: 12, fontWeight: 800 }}>
                 Pilot-ready с сопровождением
               </div>
             </div>
@@ -94,7 +95,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
                     alignItems: 'center',
                     padding: '12px 14px',
                     borderRadius: 16,
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'var(--pc-shell-surface)',
                     border: '1px solid var(--pc-border)',
                   }}
                 >
@@ -116,7 +117,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
                   </div>
                   <div style={{ display: 'grid', gap: 2 }}>
                     <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--pc-text-primary)' }}>{item.label}</div>
-                    <div style={{ fontSize: 12, color: 'var(--pc-text-muted)' }}>{item.note}</div>
+                    <div style={{ fontSize: 12, color: 'var(--pc-text-secondary)' }}>{item.note}</div>
                   </div>
                 </div>
               ))}
@@ -131,9 +132,9 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
                     alignItems: 'center',
                     padding: '8px 12px',
                     borderRadius: 999,
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'var(--pc-shell-surface-soft)',
                     border: '1px solid var(--pc-border)',
-                    color: 'var(--pc-text-secondary)',
+                    color: 'var(--pc-text-primary)',
                     fontSize: 12,
                     fontWeight: 800,
                   }}
