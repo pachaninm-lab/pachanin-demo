@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getDisputeById } from '@/lib/v7r/data';
+import { selectDisputeById } from '@/lib/domain/selectors';
 import { formatMoney } from '@/lib/v7r/helpers';
 
 export function generateMetadata({ params }: { params: { id: string } }): Metadata {
@@ -21,7 +21,7 @@ function CalcCard({ label, value, note, accent = false }: { label: string; value
 }
 
 export default function DisputeHoldPage({ params }: { params: { id: string } }) {
-  const dispute = getDisputeById(params.id);
+  const dispute = selectDisputeById(params.id);
 
   if (!dispute) {
     return (
