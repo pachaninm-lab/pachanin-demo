@@ -15,8 +15,23 @@ function describeReason(code: string) {
     case 'SYNC_CONFIRM_REQUIRED': return 'Нужна финальная сверка данных';
     case 'QUALITY_DISPUTE': return 'Есть спор по качеству';
     case 'ESIA_REAUTH_REQUIRED': return 'Нужно повторно подтвердить ЕСИА';
+    case 'lab_result': return 'Нет финального лабораторного результата';
+    case 'bank_confirm': return 'Банк ещё не подтвердил выпуск';
+    case 'reserve': return 'Резерв средств ещё не подтверждён';
+    case 'docs': return 'Не хватает документов';
+    case 'dispute': return 'Открыт спор по сделке';
     default: return code;
   }
+}
+
+function cleanStep(value: string | null) {
+  if (!value) return null;
+  return value
+    .replace(/\brelease\b/g, 'выпуск денег')
+    .replace(/\bcallback\b/g, 'событие банка')
+    .replace(/\bsync\b/g, 'сверку')
+    .replace(/\bGate\b/g, 'Проверка')
+    .replace(/\bgate\b/g, 'проверка');
 }
 
 function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?: string | null; reasonCodes: string[]; blockers: string[] }) {
@@ -86,7 +101,7 @@ export default function PlatformV7ControlTowerPage() {
       id: x.deal.id,
       title: `${x.deal.grain} · ${x.deal.quantity} ${x.deal.unit}`,
       gateState: x.integration.gateState,
-      nextStep: x.integration.nextStep,
+      nextStep: cleanStep(x.integration.nextStep),
       nextOwner: x.integration.nextOwner,
       releasableAmount: x.deal.releaseAmount ?? Math.max(x.deal.reservedAmount - x.deal.holdAmount, 0),
       releaseEligible: x.deal.status === 'release_requested',
