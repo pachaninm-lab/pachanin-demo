@@ -62,8 +62,6 @@ export default function PlatformV7ControlTowerPage() {
   const blockedByIntegration = integratedDeals.filter((item) => item.integration.gateState === 'FAIL');
   const reviewByIntegration = integratedDeals.filter((item) => item.integration.gateState === 'REVIEW');
   const integrationBlockedAmount = blockedByIntegration.reduce((sum, item) => sum + (item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0)), 0);
-  const overdueDeals = activeDeals.filter((d) => d.slaDeadline && new Date(d.slaDeadline) < today);
-  const urgentDeals = activeDeals.filter((d) => d.slaDeadline && new Date(d.slaDeadline).getTime() - today.getTime() <= 24 * 60 * 60 * 1000 && new Date(d.slaDeadline) >= today);
   const transportBlocked = countTransportBlockedPacks();
   const transportAwaiting = countTransportAwaitingSignatures();
   const transportCompleted = countTransportCompleted();
@@ -131,15 +129,6 @@ export default function PlatformV7ControlTowerPage() {
       `}</style>
       <div className='ct-page'>
         <DomainControlTowerSummary />
-        <section className='ct-summary-grid'>
-          <Metric title='Деньги под риском' value={formatCompactMoney(totalHold + integrationBlockedAmount)} note='Удержания и интеграционные стопы, которые не дают двигать деньги.' href='/platform-v7/disputes' tone='red' />
-          <Metric title='Под удержанием' value={formatCompactMoney(totalHold)} note='Споры, документы и ручные проверки.' href='/platform-v7/disputes' tone='red' />
-          <Metric title='К выпуску' value={formatCompactMoney(totalRelease)} note='Сумма, которая может уйти после закрытия ближайших препятствий.' href='/platform-v7/bank' tone='green' />
-          <Metric title='Интеграционные стопы' value={String(blockedByIntegration.length)} note='Сделки, которые остановлены из-за ФГИС / ЕСИА.' href='/platform-v7/connectors' tone='red' />
-          <Metric title='Транспортные стопы' value={String(transportBlocked)} note='Пакеты СберКорус, которые блокируют выпуск денег.' href='/platform-v7/control-tower/hotlist' tone='red' />
-          <Metric title='SLA срочно' value={String(overdueDeals.length + urgentDeals.length)} note='Просроченные и подходящие к дедлайну сделки.' href='/platform-v7/deals' tone='red' />
-          <Metric title='В резерве' value={formatCompactMoney(totalReserved)} note='Деньги, уже находящиеся в контуре исполнения.' href='/platform-v7/bank' />
-        </section>
 
         <section className='ct-queue'>
           <div style={{ display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'center' }}>
