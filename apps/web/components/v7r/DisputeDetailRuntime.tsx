@@ -15,6 +15,16 @@ const DOCS_CHECKLIST = [
   'Ответная позиция контрагента',
 ];
 
+function downloadTextFile(filename: string, content: string) {
+  const blob = new Blob(['\ufeff' + content], { type: 'text/plain;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
   const toast = useToast();
   const dispute = getDisputeById(disputeId);
@@ -36,9 +46,34 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
     toast('Напоминание отправлено контрагенту', 'success');
   }
 
-  function handlePackageSubmit() {
-    trackEvent('dispute_package_submitted', { disputeId, docs: checked.size });
-    toast(`Пакет ${checked.size}/${DOCS_CHECKLIST.length} документов сформирован`, { type: 'success', duration: 6000 });
+  function handlePackageDownload() {
+    if (!dispute) return;
+    const selectedDocs = DOCS_CHECKLIST.filter((_, i) => checked.has(i));
+    const missingDocs = DOCS_CHECKLIST.filter((_, i) => !checked.has(i));
+    const content = [
+      `Пакет доказательств по спору ${dispute.id}`,
+      `Сделка: ${dispute.dealId}`,
+      `Причина: ${dispute.reasonCode}`,
+      `Статус: ${dispute.status === 'open' ? 'Открыт' : 'Закрыт'}`,
+      `Удержано: ${formatMoney(dispute.holdAmount)}`,
+      `SLA осталось: ${dispute.slaDaysLeft} дн.`,
+      `Мяч у: ${dispute.ballAt}`,
+      '',
+      'Описание:',
+      dispute.description,
+      '',
+      `Загружено документов: ${checked.size}/${DOCS_CHECKLIST.length}`,
+      ...selectedDocs.map((doc) => `✓ ${doc}`),
+      '',
+      'Недостающие документы:',
+      ...(missingDocs.length ? missingDocs.map((doc) => `— ${doc}`) : ['— нет']),
+      '',
+      `Сформировано: ${new Date().toISOString()}`,
+    ].join('\n');
+
+    downloadTextFile(`evidence-pack-${dispute.id}.txt`, content);
+    trackEvent('dispute_package_downloaded', { disputeId, docs: checked.size });
+    toast(`Пакет доказательств ${checked.size}/${DOCS_CHECKLIST.length} скачан`, 'success');
     setShowPackage(false);
   }
 
@@ -95,17 +130,17 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
           </button>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            <div style={{ fontSize: 13, color: 'var(--pc-text-muted)' }}>Отметьте загруженные документы:</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-muted)' }}>Отметьте документы, которые войдут в скачиваемый пакет:</div>
             {DOCS_CHECKLIST.map((doc, i) => (
               <label key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 10, background: checked.has(i) ? 'rgba(10,122,95,0.06)' : 'var(--pc-bg-subtle)', border: `1px solid ${checked.has(i) ? 'rgba(10,122,95,0.18)' : 'var(--pc-border)'}`, cursor: 'pointer' }}>
                 <input type='checkbox' checked={checked.has(i)} onChange={() => toggleDoc(i)} style={{ width: 16, height: 16 }} />
                 <span style={{ fontSize: 13, fontWeight: checked.has(i) ? 700 : 400, color: 'var(--pc-text-primary)' }}>{doc}</span>
-                {checked.has(i) && <span style={{ marginLeft: 'auto', fontSize: 12, color: '#0A7A5F', fontWeight: 700 }}>✓ загружен</span>}
+                {checked.has(i) && <span style={{ marginLeft: 'auto', fontSize: 12, color: '#0A7A5F', fontWeight: 700 }}>✓ в пакете</span>}
               </label>
             ))}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handlePackageSubmit} style={{ padding: '10px 16px', borderRadius: 12, border: 'none', background: 'var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                Подтвердить пакет ({checked.size}/{DOCS_CHECKLIST.length})
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={handlePackageDownload} style={{ padding: '10px 16px', borderRadius: 12, border: 'none', background: 'var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                Скачать пакет ({checked.size}/{DOCS_CHECKLIST.length})
               </button>
               <button onClick={() => setShowPackage(false)} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-card)', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Отмена</button>
             </div>

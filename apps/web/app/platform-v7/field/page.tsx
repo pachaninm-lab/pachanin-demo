@@ -15,8 +15,16 @@ function genUUID(): string {
   });
 }
 
-/* ── role configs ── */
-const roleConfig: Partial<Record<Role, {
+type FieldRole = 'driver' | 'surveyor' | 'elevator' | 'lab';
+
+const FIELD_ROLES: { value: FieldRole; label: string }[] = [
+  { value: 'driver', label: 'Водитель' },
+  { value: 'surveyor', label: 'Сюрвейер' },
+  { value: 'elevator', label: 'Элеватор' },
+  { value: 'lab', label: 'Лаборант' },
+];
+
+const roleConfig: Record<FieldRole, {
   accentColor: string;
   badgeLabel: string;
   heroTitle: string;
@@ -27,7 +35,7 @@ const roleConfig: Partial<Record<Role, {
   eventPayload: Record<string, string>;
   tripRows: [string, string][];
   emergencyDesc: string;
-}>> = {
+}> = {
   driver: {
     accentColor: '#D97706',
     badgeLabel: 'ВОДИТЕЛЬ · РЕЙС ДОС-2847',
@@ -110,12 +118,46 @@ const roleConfig: Partial<Record<Role, {
   },
 };
 
+function toFieldRole(role: Role): FieldRole {
+  if (role === 'surveyor' || role === 'elevator' || role === 'lab' || role === 'driver') return role;
+  return 'driver';
+}
+
+function RouteProgress({ color }: { color: string }) {
+  const steps = [
+    ['Выезд', '08:42 · хозяйство'],
+    ['В пути', 'GPS активен'],
+    ['Прибытие', 'ETA 14:30'],
+    ['Приёмка', 'ожидает подтверждения'],
+  ];
+  return (
+    <section className="v9-card">
+      <h2 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Маршрут</h2>
+      <div style={{ display: 'grid', gap: 10 }}>
+        {steps.map(([title, note], index) => (
+          <div key={title} style={{ display: 'grid', gridTemplateColumns: '28px 1fr', gap: 10, alignItems: 'start' }}>
+            <div style={{ width: 28, height: 28, borderRadius: 999, display: 'grid', placeItems: 'center', background: index < 2 ? color : `${color}18`, color: index < 2 ? '#fff' : color, fontSize: 12, fontWeight: 800 }}>
+              {index < 2 ? '✓' : index + 1}
+            </div>
+            <div style={{ paddingBottom: 8, borderBottom: index === steps.length - 1 ? 'none' : '1px solid #E4E6EA' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#0F1419' }}>{title}</div>
+              <div style={{ fontSize: 12, color: '#6B778C', marginTop: 2 }}>{note}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function FieldPage() {
   const { events, isOnline, enqueue, pendingCount } = useOfflineQueueStore();
   const { role } = useSessionStore();
+  const [previewRole, setPreviewRole] = React.useState<FieldRole>(() => toFieldRole(role as Role));
+  const canPreview = role === 'operator' || role === 'admin';
+  const activeRole = canPreview ? previewRole : toFieldRole(role as Role);
   const pending = pendingCount();
-
-  const cfg = roleConfig[role as Role] ?? roleConfig.driver!;
+  const cfg = roleConfig[activeRole];
 
   const handleAction = () => {
     enqueue({
@@ -130,8 +172,19 @@ export default function FieldPage() {
 
   return (
     <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {canPreview && (
+        <section className="v9-card" style={{ display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#6B778C', letterSpacing: '0.06em' }}>Предпросмотр роли</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {FIELD_ROLES.map((item) => (
+              <button key={item.value} onClick={() => setPreviewRole(item.value)} style={{ padding: '8px 12px', borderRadius: 999, border: `1px solid ${previewRole === item.value ? cfg.accentColor : '#E4E6EA'}`, background: previewRole === item.value ? `${cfg.accentColor}12` : '#fff', color: previewRole === item.value ? cfg.accentColor : '#495057', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* Offline indicator */}
       {!isOnline && (
         <div role="status" aria-live="assertive" style={{ padding: '10px 16px', background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#D97706' }}>OFFLINE</span>
@@ -139,7 +192,6 @@ export default function FieldPage() {
         </div>
       )}
 
-      {/* Hero */}
       <div style={{ borderLeft: `4px solid ${cfg.accentColor}`, paddingLeft: 16 }}>
         <div>
           <Badge style={{ background: `${cfg.accentColor}18`, color: cfg.accentColor, borderColor: `${cfg.accentColor}40` }}>
@@ -150,7 +202,6 @@ export default function FieldPage() {
         <p style={{ fontSize: 13, color: '#6B778C', margin: 0 }}>{cfg.heroSub}</p>
       </div>
 
-      {/* Main action */}
       <div style={{ padding: 20, background: `${cfg.accentColor}10`, borderRadius: 12, border: `1px solid ${cfg.accentColor}25` }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: cfg.accentColor, letterSpacing: '0.06em' }}>Следующий шаг</div>
         <div style={{ fontSize: 20, fontWeight: 800, marginTop: 8, lineHeight: 1.2, color: '#0F1419' }}>
@@ -175,10 +226,11 @@ export default function FieldPage() {
         </div>
       </div>
 
-      {/* Role-specific info */}
+      {activeRole === 'driver' && <RouteProgress color={cfg.accentColor} />}
+
       <section className="v9-card">
         <h2 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
-          {role === 'driver' ? 'Рейс' : role === 'surveyor' ? 'Проверка' : role === 'elevator' ? 'Приёмка' : 'Анализ'}
+          {activeRole === 'driver' ? 'Рейс' : activeRole === 'surveyor' ? 'Проверка' : activeRole === 'elevator' ? 'Приёмка' : 'Анализ'}
         </h2>
         {cfg.tripRows.map(([k, v]) => (
           <div key={k} style={{ display: 'flex', gap: 12, padding: '6px 0', borderBottom: '1px solid #E4E6EA', fontSize: 13 }}>
@@ -188,25 +240,23 @@ export default function FieldPage() {
         ))}
       </section>
 
-      {/* Offline queue */}
-      {events.length > 0 && (
-        <section className="v9-card">
-          <h2 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Офлайн-очередь</h2>
-          {events.map(e => (
-            <div key={e.id} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid #E4E6EA' }}>
-              <div style={{ fontSize: 11, color: '#6B778C', minWidth: 50 }}>
-                {new Date(e.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 500 }}>{e.type}</div>
-                <Badge variant={e.synced ? 'success' : 'warning'}>{e.synced ? 'Отправлено' : 'Ожидает связи'}</Badge>
-              </div>
+      <section className="v9-card">
+        <h2 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Офлайн-очередь</h2>
+        {events.length === 0 ? (
+          <div style={{ padding: '10px 0', fontSize: 12, color: '#6B778C' }}>Очередь пуста. Новые события будут сохранены здесь при слабой связи.</div>
+        ) : events.map(e => (
+          <div key={e.id} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid #E4E6EA' }}>
+            <div style={{ fontSize: 11, color: '#6B778C', minWidth: 50 }}>
+              {new Date(e.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
             </div>
-          ))}
-        </section>
-      )}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 500 }}>{e.type}</div>
+              <Badge variant={e.synced ? 'success' : 'warning'}>{e.synced ? 'Отправлено' : 'Ожидает связи'}</Badge>
+            </div>
+          </div>
+        ))}
+      </section>
 
-      {/* Emergency */}
       <section className="v9-card" style={{ background: 'rgba(220,38,38,0.03)', border: '1px solid rgba(220,38,38,0.18)' }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#DC2626', letterSpacing: '0.06em', marginBottom: 8 }}>Аварийный блок</div>
         <p style={{ fontSize: 13, color: '#495057', margin: '0 0 12px' }}>{cfg.emergencyDesc}</p>
