@@ -25,15 +25,37 @@ const paths = (process.env.SMOKE_WEB_PATHS || '')
 
 const checks = paths.length ? paths : DEFAULT_PATHS;
 const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 12000);
+const maxAttempts = Number(process.env.SMOKE_ATTEMPTS || 3);
+const retryDelayMs = Number(process.env.SMOKE_RETRY_DELAY_MS || 5000);
 
 function normalizeBaseUrl(value) {
   return String(value || '').replace(/\/+$/, '');
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function withTimeout(promise, ms, label) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error(`${label} timed out after ${ms}ms`)), ms);
   return Promise.resolve(promise(controller.signal)).finally(() => clearTimeout(timer));
+}
+
+async function withRetry(label, action) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await action();
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt === maxAttempts) break;
+      console.warn(`[smoke:web] retry ${attempt}/${maxAttempts} for ${label}: ${message}`);
+      await sleep(retryDelayMs);
+    }
+  }
+  throw lastError;
 }
 
 async function checkPath(path) {
@@ -58,9 +80,10 @@ async function checkPath(path) {
 
 async function main() {
   console.log(`[smoke:web] base=${baseUrl}`);
+  console.log(`[smoke:web] attempts=${maxAttempts} timeout=${timeoutMs}ms retryDelay=${retryDelayMs}ms`);
   const results = [];
   for (const path of checks) {
-    const result = await checkPath(path);
+    const result = await withRetry(path, () => checkPath(path));
     results.push(result);
     console.log(`[smoke:web] ok ${result.status} ${result.elapsed}ms ${result.path}`);
   }
@@ -68,6 +91,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`[smoke:web] failed: ${error.message}`);
+  console.error(`[smoke:web] failed: ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
 });
