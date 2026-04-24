@@ -33,14 +33,32 @@ function gateTone(state: GateState) {
   return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
 }
 
+function gateLabel(state: GateState) {
+  if (state === 'PASS') return 'Проверено';
+  if (state === 'REVIEW') return 'Проверка вручную';
+  return 'Стоп проверки';
+}
+
 function actionLogToAuditRow(entry: PlatformActionLogEntry): AuditRow {
   return {
     id: entry.id,
     ts: entry.at,
     actor: entry.actor,
-    action: entry.action,
-    detail: entry.message,
+    action: cleanCopy(entry.action),
+    detail: cleanCopy(entry.message),
   };
+}
+
+function cleanCopy(value: string) {
+  return value
+    .replace(/\bGate\b/g, 'Проверка')
+    .replace(/\bgate\b/g, 'проверка')
+    .replace(/\bblocker\b/g, 'препятствие')
+    .replace(/\bcallback\b/g, 'событие банка')
+    .replace(/\brelease\b/g, 'выпуск денег')
+    .replace(/\bsync\b/g, 'сверка')
+    .replace(/\bfake-live\b/g, 'демо-событие')
+    .replace(/\baudit\b/g, 'журнал');
 }
 
 export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[] }) {
@@ -59,8 +77,8 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
       id: `AUD-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
       ts: new Date().toISOString(),
       actor: 'Оператор платформы',
-      action,
-      detail,
+      action: cleanCopy(action),
+      detail: cleanCopy(detail),
     };
     setAudit((prev) => [row, ...prev].slice(0, 8));
   }
@@ -93,9 +111,9 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
         });
         const data = await res.json();
         setCallbacks((prev) => ({ ...prev, [item.id]: { id: data.id, amountRub: data.amountRub, ts: data.ts } }));
-        pushAudit('bank-callback', `${item.id}: callback ${data.id} подтвердил ${formatMoney(data.amountRub)}.`);
+        pushAudit('Событие банка', `${item.id}: банк подтвердил ${formatMoney(data.amountRub)}.`);
       } catch {
-        pushAudit('callback-error', `${item.id}: callback не получен.`);
+        pushAudit('Ошибка банкового события', `${item.id}: подтверждение банка не получено.`);
       }
     }
 
@@ -107,10 +125,10 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Операторские действия</div>
-          <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>Прямо из Control Tower: снять blocker, увидеть audit и получить fake-live callback по release.</div>
+          <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>Прямо из центра управления: снять препятствие, увидеть журнал и получить демо-событие банка по выпуску денег.</div>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 800 }}>
-          Под gate: {formatCompactMoney(blockedAmount)}
+          Под проверкой: {formatCompactMoney(blockedAmount)}
         </div>
       </div>
 
@@ -126,15 +144,15 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
                   <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 9px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
-                  Gate {item.gateState}
+                  {gateLabel(item.gateState)}
                 </span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
                 <InfoCell label='Причины' value={item.reasonCodes.length ? item.reasonCodes.map(translateReason).join(' · ') : '—'} />
-                <InfoCell label='Следующий шаг' value={item.nextStep ?? '—'} />
+                <InfoCell label='Следующий шаг' value={cleanCopy(item.nextStep ?? '—')} />
                 <InfoCell label='Следующий владелец' value={item.nextOwner ? translateRole(item.nextOwner) : '—'} />
-                <InfoCell label='Потенциальный release' value={formatCompactMoney(item.releasableAmount)} />
+                <InfoCell label='К выпуску денег' value={formatCompactMoney(item.releasableAmount)} />
               </div>
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -144,11 +162,11 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
                     disabled={busyId === item.id}
                     style={{ borderRadius: 10, padding: '10px 12px', border: '1px solid #0A7A5F', background: '#0A7A5F', color: '#fff', fontWeight: 700, cursor: busyId === item.id ? 'wait' : 'pointer' }}
                   >
-                    {busyId === item.id ? 'Снимаю blocker…' : 'Снять blocker'}
+                    {busyId === item.id ? 'Снимаю препятствие…' : 'Снять препятствие'}
                   </button>
                 ) : (
                   <span style={{ display: 'inline-flex', alignItems: 'center', padding: '10px 12px', borderRadius: 10, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontWeight: 700 }}>
-                    Gate уже PASS
+                    Проверка пройдена
                   </span>
                 )}
                 {callback ? (
@@ -173,7 +191,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
             <div style={{ marginTop: 4, fontSize: 12, color: '#475569' }}>{row.actor}</div>
             <div style={{ marginTop: 6, fontSize: 13, color: '#334155' }}>{row.detail}</div>
           </div>
-        )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Действий пока нет. Сними blocker по одному из кейсов выше.</div>}
+        )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Действий пока нет. Сними препятствие по одному из кейсов выше.</div>}
       </div>
     </section>
   );
