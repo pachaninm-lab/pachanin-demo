@@ -1,5 +1,6 @@
 import { DEALS, DISPUTES } from '@/lib/v7r/data';
 import { toDomainDeals, toDomainDisputes } from './adapters';
+import { computeControlTowerKpis, type ControlTowerKpis } from './kpi/controlTower';
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
 
 export const domainDeals: DomainDeal[] = toDomainDeals(DEALS);
@@ -46,6 +47,10 @@ export function selectDomainTotals(deals: DomainDeal[] = domainDeals): DomainTot
     heldTotal: selectHeldTotal(deals),
     readyToReleaseTotal: selectReadyToReleaseTotal(deals),
   };
+}
+
+export function selectControlTowerKpis(deals: DomainDeal[] = domainDeals, now: Date = new Date('2026-04-19T12:00:00Z')): ControlTowerKpis {
+  return computeControlTowerKpis(selectActiveDeals(deals), now);
 }
 
 export function selectDealCount(deals: DomainDeal[] = domainDeals): number {
