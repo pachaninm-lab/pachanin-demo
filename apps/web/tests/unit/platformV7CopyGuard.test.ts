@@ -7,6 +7,8 @@ const checkedFiles = [
   'app/platform-v7/help/page.tsx',
   'app/platform-v7/bank/page.tsx',
   'app/platform-v7/status/page.tsx',
+  'components/v7r/AppShellV2.tsx',
+  'components/system-mode-banner.tsx',
 ];
 
 const forbiddenUserCopy = [
