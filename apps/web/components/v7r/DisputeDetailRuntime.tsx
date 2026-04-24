@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { getDisputeById } from '@/lib/v7r/data';
+import { selectDisputeById } from '@/lib/domain/selectors';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { useToast } from '@/components/v7r/Toast';
 import { trackEvent } from '@/lib/analytics/track';
@@ -27,7 +27,7 @@ function downloadTextFile(filename: string, content: string) {
 
 export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
   const toast = useToast();
-  const dispute = getDisputeById(disputeId);
+  const dispute = selectDisputeById(disputeId);
   const [showPackage, setShowPackage] = React.useState(false);
   const [checked, setChecked] = React.useState<Set<number>>(new Set([0, 1, 2]));
   const [reminderSent, setReminderSent] = React.useState(false);
