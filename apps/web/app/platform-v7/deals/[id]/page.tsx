@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { DealDetailRuntime } from '@/components/v7r/DealDetailRuntime';
-import { getDealIntegrationState } from '@/lib/v7r/data';
-import { selectDealById } from '@/lib/domain/selectors';
+import { selectDealById, selectDealIntegrationState } from '@/lib/domain/selectors';
 
 interface CounterpartyProfile {
   inn: string | null;
@@ -63,7 +62,7 @@ function tonePalette(tone: 'good' | 'warn' | 'danger') {
 
 export default function PlatformV7DealDetailPage({ params }: { params: { id: string } }) {
   const deal = selectDealById(params.id);
-  const integration = deal ? getDealIntegrationState(deal.id, deal.lotId) : null;
+  const integration = deal ? selectDealIntegrationState(deal) : null;
   const seller = deal ? counterpartyByName(deal.seller.name) : FALLBACK_PROFILE;
   const buyer = deal ? counterpartyByName(deal.buyer.name) : FALLBACK_PROFILE;
 
