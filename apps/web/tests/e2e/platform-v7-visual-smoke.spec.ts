@@ -10,6 +10,13 @@ const routes = [
   '/platform-v7/disputes/DK-2024-89',
 ];
 
+const forbiddenVisibleCopy = [
+  'Controlled pilot',
+  'Control Tower',
+  'callbacks',
+  'evidence-first',
+];
+
 test.describe('platform-v7 visual smoke', () => {
   for (const route of routes) {
     test(`${route} has visible brand/header and no broken visible images`, async ({ page }) => {
@@ -18,6 +25,10 @@ test.describe('platform-v7 visual smoke', () => {
 
       await expect(page.getByText('Прозрачная Цена').first()).toBeVisible();
       await expect(page.locator('header').first()).toBeVisible();
+
+      for (const copy of forbiddenVisibleCopy) {
+        await expect(page.getByText(copy, { exact: false }), `${route} should not show ${copy}`).toHaveCount(0);
+      }
 
       const brokenImages = await page.locator('img:visible').evaluateAll((images) =>
         images
