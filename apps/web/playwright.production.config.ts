@@ -20,5 +20,13 @@ export default defineConfig({
         viewport: { width: 375, height: 812 },
       },
     },
+    {
+      name: 'visual-desktop',
+      testMatch: /platform-v7-visual-smoke\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 1000 },
+      },
+    },
   ],
 });
