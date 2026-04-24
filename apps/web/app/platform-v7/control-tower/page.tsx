@@ -117,9 +117,9 @@ export default function PlatformV7ControlTowerPage() {
         <section className='ct-summary-grid'>
           <Metric title='Деньги под риском' value={formatCompactMoney(totalHold + integrationBlockedAmount)} note='Удержания и интеграционные стопы, которые не дают двигать деньги.' href='/platform-v7/disputes' tone='red' />
           <Metric title='Под удержанием' value={formatCompactMoney(totalHold)} note='Споры, документы и ручные проверки.' href='/platform-v7/disputes' tone='red' />
-          <Metric title='К выпуску' value={formatCompactMoney(totalRelease)} note='Сумма, которая может уйти после закрытия ближайших блокеров.' href='/platform-v7/bank' tone='green' />
+          <Metric title='К выпуску' value={formatCompactMoney(totalRelease)} note='Сумма, которая может уйти после закрытия ближайших препятствий.' href='/platform-v7/bank' tone='green' />
           <Metric title='Интеграционные стопы' value={String(blockedByIntegration.length)} note='Сделки, которые остановлены из-за ФГИС / ЕСИА.' href='/platform-v7/connectors' tone='red' />
-          <Metric title='Transport stop' value={String(transportBlocked)} note='Пакеты СберКорус, которые блокируют выпуск денег.' href='/platform-v7/control-tower/hotlist' tone='red' />
+          <Metric title='Транспортные стопы' value={String(transportBlocked)} note='Пакеты СберКорус, которые блокируют выпуск денег.' href='/platform-v7/control-tower/hotlist' tone='red' />
           <Metric title='SLA срочно' value={String(overdueDeals.length + urgentDeals.length)} note='Просроченные и подходящие к дедлайну сделки.' href='/platform-v7/deals' tone='red' />
           <Metric title='В резерве' value={formatCompactMoney(totalReserved)} note='Деньги, уже находящиеся в контуре исполнения.' href='/platform-v7/bank' />
         </section>
@@ -143,7 +143,7 @@ export default function PlatformV7ControlTowerPage() {
                 <div className='ct-row'>
                   <span style={{ fontFamily:'JetBrains Mono, monospace', fontWeight:800, fontSize:13, color:'#0A7A5F' }}>{item.deal.id}</span>
                   <Badge tone={item.severity === 3 ? 'red' : item.severity === 2 ? 'amber' : 'blue'}>{statusLabel(item.deal.status)}</Badge>
-                  <Badge tone={item.integration.gateState === 'FAIL' ? 'red' : item.integration.gateState === 'REVIEW' ? 'amber' : 'green'}>{item.integration.gateState === 'FAIL' ? 'Gate стоп' : item.integration.gateState === 'REVIEW' ? 'Gate проверка' : 'Gate ок'}</Badge>
+                  <Badge tone={item.integration.gateState === 'FAIL' ? 'red' : item.integration.gateState === 'REVIEW' ? 'amber' : 'green'}>{item.integration.gateState === 'FAIL' ? 'Проверка: стоп' : item.integration.gateState === 'REVIEW' ? 'Проверка вручную' : 'Проверено'}</Badge>
                   <Badge tone={String(item.slaState).includes('Просрочено') ? 'red' : String(item.slaState).includes('24') ? 'amber' : 'blue'}>{item.slaState}</Badge>
                 </div>
                 <div style={{ fontSize:15, fontWeight:800, color:'#0F1419' }}>{item.deal.grain} · {item.deal.quantity} {item.deal.unit}</div>
@@ -167,12 +167,12 @@ export default function PlatformV7ControlTowerPage() {
               <div className='ct-title'>Транспортный контур СберКорус</div>
               <div className='ct-sub'>Отдельная очередь по юридически значимым перевозочным документам. Пока этот контур не закрыт, банк не должен считать выпуск денег чистым.</div>
             </div>
-            <SberKorusBadge subtitle='Transport gate для денег' compact />
+            <SberKorusBadge subtitle='Контроль перевозочных документов' compact />
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12 }}>
-            <Metric title='Красный stop' value={String(transportBlocked)} note='Пакеты, которые прямо держат деньги.' href='/platform-v7/control-tower/hotlist' tone='red' />
+            <Metric title='Красный стоп' value={String(transportBlocked)} note='Пакеты, которые прямо держат деньги.' href='/platform-v7/control-tower/hotlist' tone='red' />
             <Metric title='Ждём подписи' value={String(transportAwaiting)} note='Сделки, где не собрана полная цепочка подписей.' href='/platform-v7/control-tower/hotlist' tone='default' />
-            <Metric title='Зелёный контур' value={String(transportCompleted)} note='Пакеты, которые больше не спорят с банковым release.' href='/platform-v7/bank' tone='green' />
+            <Metric title='Зелёный контур' value={String(transportCompleted)} note='Пакеты, которые больше не спорят с банковым выпуском.' href='/platform-v7/bank' tone='green' />
           </div>
           <div style={{ display:'grid', gap:10 }}>
             {transportHotlist.map((item) => (
