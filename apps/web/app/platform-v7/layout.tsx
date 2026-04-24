@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { AppShellV3 } from '@/components/v7r/AppShellV3';
 import { ToastProvider } from '@/components/v7r/Toast';
 import { AiShellEnhancer } from '@/components/v7r/AiShellEnhancer';
+import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -39,6 +40,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
 
   return (
     <ToastProvider>
+      <ShellCopyNormalizer />
       <AppShellV3 initialRole={initialRole}>
         <>
           <AiShellEnhancer />
