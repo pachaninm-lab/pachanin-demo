@@ -1,13 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { getDisputeById } from '@/lib/v7r/data';
+import { selectDisputeById } from '@/lib/domain/selectors';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { useToast } from '@/components/v7r/Toast';
 import { trackEvent } from '@/lib/analytics/track';
 
 export function DisputeHoldCalculator({ disputeId }: { disputeId: string }) {
-  const dispute = getDisputeById(disputeId);
+  const dispute = selectDisputeById(disputeId);
   const toast = useToast();
   const [qualityDeltaPct, setQualityDeltaPct] = React.useState(6);
   const [transportLossRub, setTransportLossRub] = React.useState(180000);
