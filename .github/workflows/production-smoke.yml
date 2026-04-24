@@ -15,11 +15,17 @@ on:
         description: 'Optional comma-separated web paths'
         required: false
         default: ''
+  schedule:
+    - cron: '15 6,18 * * *'
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      WEB_URL: ${{ inputs.web_url || 'https://pachanin-web.vercel.app' }}
+      API_URL: ${{ inputs.api_url || '' }}
+      WEB_PATHS: ${{ inputs.web_paths || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,12 +46,12 @@ jobs:
 
       - name: Smoke web
         env:
-          SMOKE_WEB_BASE_URL: ${{ inputs.web_url }}
-          SMOKE_WEB_PATHS: ${{ inputs.web_paths }}
+          SMOKE_WEB_BASE_URL: ${{ env.WEB_URL }}
+          SMOKE_WEB_PATHS: ${{ env.WEB_PATHS }}
         run: pnpm smoke:web
 
       - name: Smoke API
-        if: ${{ inputs.api_url != '' }}
+        if: ${{ env.API_URL != '' }}
         env:
-          SMOKE_API_BASE_URL: ${{ inputs.api_url }}
+          SMOKE_API_BASE_URL: ${{ env.API_URL }}
         run: pnpm smoke:api
