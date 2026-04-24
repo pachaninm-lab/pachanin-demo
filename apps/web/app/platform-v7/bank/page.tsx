@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BankRuntime } from '@/components/v7r/BankRuntime';
+import { DomainMoneySummary } from '@/components/v7r/DomainMoneySummary';
 
 const quickLinks = [
   {
@@ -67,6 +68,8 @@ const partners = [
 export default function PlatformV7BankPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
+      <DomainMoneySummary />
+
       <section
         style={{
           background: 'linear-gradient(135deg, rgba(10,122,95,0.08) 0%, rgba(14,165,233,0.08) 100%)',
