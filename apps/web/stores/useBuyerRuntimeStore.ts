@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { RFQ_LIST, type RfqItem } from '@/lib/v7r/data';
+import { selectRuntimeRfqById, type RuntimeRfqItem as RfqItem } from '@/lib/domain/selectors';
 
 export type DraftDealStatus =
   | 'draft'
@@ -305,5 +305,5 @@ export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
 );
 
 export function getMarketRfqById(id: string) {
-  return RFQ_LIST.find((item) => item.id === id) ?? null;
+  return selectRuntimeRfqById(id) ?? null;
 }
