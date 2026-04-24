@@ -14,6 +14,7 @@ import { toDomainDeals, toDomainDisputes } from './adapters';
 import { computeControlTowerKpis, type ControlTowerKpis } from './kpi/controlTower';
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
 
+export type RuntimeDealStatus = RuntimeDeal['status'];
 export type { RuntimeRfqItem };
 
 export const domainDeals: DomainDeal[] = toDomainDeals(DEALS);

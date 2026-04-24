@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { DEALS } from '@/lib/v7r/data';
+import { selectRuntimeDeals } from '@/lib/domain/selectors';
 import { useToast } from '@/components/v7r/Toast';
 import { trackEvent } from '@/lib/analytics/track';
 
@@ -58,6 +58,7 @@ function Badge({ bg, border, color, label }: { bg: string; border: string; color
 
 export function ComplianceRuntime() {
   const toast = useToast();
+  const dealsCount = selectRuntimeDeals().length;
   const [filter, setFilter] = React.useState<'all' | 'review' | 'blocked'>('all');
   const [actor, setActor] = React.useState('Все ответственные');
   const [dateFrom, setDateFrom] = React.useState('');
@@ -97,7 +98,7 @@ export function ComplianceRuntime() {
           { title: 'Верифицированы', value: verified, color: '#0A7A5F' },
           { title: 'На проверке', value: review, color: '#B45309' },
           { title: 'Заблокированы', value: blocked, color: '#B91C1C' },
-          { title: 'Всего сделок', value: DEALS.length, color: 'var(--pc-text-primary)' },
+          { title: 'Всего сделок', value: dealsCount, color: 'var(--pc-text-primary)' },
         ].map(({ title, value, color }) => (
           <section key={title} style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 18 }}>
             <div style={{ fontSize: 11, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
