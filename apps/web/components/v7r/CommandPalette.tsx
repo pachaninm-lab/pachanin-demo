@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, ArrowUpDown, CornerDownLeft, X } from 'lucide-react';
-import { DEALS, DISPUTES } from '@/lib/v7r/data';
+import { selectRuntimeDeals, selectRuntimeDisputes } from '@/lib/domain/selectors';
 import { lots as PLATFORM_LOTS } from '@/lib/v7r/esia-fgis-data';
 
 interface CommandItem {
@@ -38,7 +38,7 @@ const SECTION_ITEMS: CommandItem[] = [
 ];
 
 function buildIndex(): CommandItem[] {
-  const dealItems: CommandItem[] = DEALS.map((deal) => ({
+  const dealItems: CommandItem[] = selectRuntimeDeals().map((deal) => ({
     id: `deal-${deal.id}`,
     group: 'Сделки' as const,
     title: `${deal.id} · ${deal.grain}`,
@@ -56,7 +56,7 @@ function buildIndex(): CommandItem[] {
     keywords: `${lot.id} ${lot.title} ${lot.grain} ${lot.sourceType}`.toLowerCase(),
   }));
 
-  const disputeItems: CommandItem[] = DISPUTES.map((dispute) => ({
+  const disputeItems: CommandItem[] = selectRuntimeDisputes().map((dispute) => ({
     id: `dispute-${dispute.id}`,
     group: 'Споры' as const,
     title: `${dispute.id} · ${dispute.title}`,
