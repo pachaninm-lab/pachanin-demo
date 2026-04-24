@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { CALLBACKS, DEALS, DISPUTES, getDealIntegrationState } from '@/lib/v7r/data';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import { ControlTowerOperatorPanel } from '@/components/v7r/ControlTowerOperatorPanel';
+import { DomainControlTowerSummary } from '@/components/v7r/DomainControlTowerSummary';
 import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
 import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
 
@@ -129,6 +130,7 @@ export default function PlatformV7ControlTowerPage() {
         @media (max-width:768px){.ct-queue-item{grid-template-columns:1fr}.ct-queue-actions{justify-content:flex-start}}
       `}</style>
       <div className='ct-page'>
+        <DomainControlTowerSummary />
         <section className='ct-summary-grid'>
           <Metric title='Деньги под риском' value={formatCompactMoney(totalHold + integrationBlockedAmount)} note='Удержания и интеграционные стопы, которые не дают двигать деньги.' href='/platform-v7/disputes' tone='red' />
           <Metric title='Под удержанием' value={formatCompactMoney(totalHold)} note='Споры, документы и ручные проверки.' href='/platform-v7/disputes' tone='red' />
