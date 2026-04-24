@@ -12,9 +12,6 @@ jobs:
   mobile-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: apps/web
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,12 +30,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        working-directory: ../..
 
       - name: Install Playwright Chromium
+        working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run mobile smoke
+        working-directory: apps/web
         env:
           PLAYWRIGHT_BASE_URL: ${{ inputs.web_url }}
         run: pnpm exec playwright test --config=playwright.production.config.ts
