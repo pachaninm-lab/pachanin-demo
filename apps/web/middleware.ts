@@ -47,7 +47,7 @@ const OWNER_COOKIE = 'pc_owner_access';
 const PRIVATE_REALM = 'Prozrachnaya Cena Private';
 
 function isPrivateMode(): boolean {
-  return process.env.PC_PRIVATE_MODE !== 'off';
+  return process.env.PC_PRIVATE_MODE === 'on';
 }
 
 function isPublicAsset(p: string): boolean {
@@ -195,7 +195,8 @@ export function middleware(req: NextRequest) {
   }
 
   const protectedPath = isProtectedPath(p);
-  if (isPrivateMode() && protectedPath) {
+  const privateModeEnabled = isPrivateMode();
+  if (privateModeEnabled && protectedPath) {
     if (!hasPrivateCredentials()) {
       return privateLockedResponse();
     }
@@ -208,7 +209,7 @@ export function middleware(req: NextRequest) {
   const resolvedRole = resolveRole(req, session?.role ?? null);
 
   if (isPublic(p) || p.startsWith('/platform-v7') || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
-    const response = withRoleHeaders(req, resolvedRole, protectedPath);
+    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
     if (req.cookies.get('pc-role')?.value !== resolvedRole) {
       response.cookies.set('pc-role', resolvedRole, {
         path: '/',
@@ -222,14 +223,14 @@ export function middleware(req: NextRequest) {
 
   if (!session) {
     if (p.startsWith('/api/')) {
-      return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), true);
+      return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), privateModeEnabled);
     }
     const u = req.nextUrl.clone();
     u.pathname = '/platform-v7';
-    return applySecurityHeaders(NextResponse.redirect(u), true);
+    return applySecurityHeaders(NextResponse.redirect(u), privateModeEnabled);
   }
 
-  return withRoleHeaders(req, resolvedRole, protectedPath);
+  return withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
 }
 
 export const config = { matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'] };
