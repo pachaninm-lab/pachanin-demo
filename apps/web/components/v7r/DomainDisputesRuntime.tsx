@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useDisputes } from '@/lib/domain/hooks';
 import { formatMoney } from '@/lib/v7r/helpers';
@@ -12,7 +13,7 @@ function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   return { bg: '#F8FAFB', border: '#E4E6EA', color: '#475569' };
 }
 
-function Badge({ tone, children }: { tone: 'success' | 'warning' | 'danger' | 'neutral'; children: React.ReactNode }) {
+function Badge({ tone, children }: { tone: 'success' | 'warning' | 'danger' | 'neutral'; children: ReactNode }) {
   const p = palette(tone);
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: p.bg, border: `1px solid ${p.border}`, color: p.color, fontSize: 11, fontWeight: 800 }}>{children}</span>;
 }
