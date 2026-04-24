@@ -1,0 +1,51 @@
+name: Production Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_url:
+        description: 'Web base URL to check'
+        required: true
+        default: 'https://pachanin-web.vercel.app'
+      api_url:
+        description: 'API base URL to check. Leave empty to skip API smoke.'
+        required: false
+        default: ''
+      web_paths:
+        description: 'Optional comma-separated web paths'
+        required: false
+        default: ''
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Smoke web
+        env:
+          SMOKE_WEB_BASE_URL: ${{ inputs.web_url }}
+          SMOKE_WEB_PATHS: ${{ inputs.web_paths }}
+        run: pnpm smoke:web
+
+      - name: Smoke API
+        if: ${{ inputs.api_url != '' }}
+        env:
+          SMOKE_API_BASE_URL: ${{ inputs.api_url }}
+        run: pnpm smoke:api
