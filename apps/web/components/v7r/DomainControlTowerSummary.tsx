@@ -1,0 +1,47 @@
+'use client';
+
+import { useMemo } from 'react';
+import { useDeals } from '@/lib/domain/hooks';
+import { computeControlTowerKpis, formatKpiFormula, type ControlTowerKpis } from '@/lib/domain/kpi/controlTower';
+import { formatCompactMoney } from '@/lib/v7r/helpers';
+
+type MetricKey = keyof ControlTowerKpis;
+
+function StatCard({ title, value, note, formula }: { title: string; value: string; note: string; formula: string }) {
+  return (
+    <section title={formula} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+      <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
+      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{value}</div>
+      <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 8 }}>{note}</div>
+    </section>
+  );
+}
+
+function money(value: number) {
+  return formatCompactMoney(value);
+}
+
+function count(value: number) {
+  return String(value);
+}
+
+export function DomainControlTowerSummary() {
+  const deals = useDeals();
+  const kpis = useMemo(() => computeControlTowerKpis(deals.filter((deal) => deal.status !== 'closed'), new Date('2026-04-19T12:00:00Z')), [deals]);
+
+  const formula = (key: MetricKey) => formatKpiFormula(key, kpis[key]);
+
+  return (
+    <section style={{ display: 'grid', gap: 14 }} aria-label='Доменная сводка центра управления'>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+        <StatCard title='Деньги под риском' value={money(kpis.moneyAtRisk.value)} note='Единый расчёт риска из доменного слоя.' formula={formula('moneyAtRisk')} />
+        <StatCard title='Под удержанием' value={money(kpis.heldAmount.value)} note='Сумма удержаний по активным сделкам.' formula={formula('heldAmount')} />
+        <StatCard title='К выпуску' value={money(kpis.readyToRelease.value)} note='Сумма по сделкам в статусе выпуска.' formula={formula('readyToRelease')} />
+        <StatCard title='Интеграционные стопы' value={count(kpis.integrationStops.value)} note='Доменные признаки остановки интеграций.' formula={formula('integrationStops')} />
+        <StatCard title='Транспортные стопы' value={count(kpis.transportStops.value)} note='Доменные признаки транспортной остановки.' formula={formula('transportStops')} />
+        <StatCard title='SLA срочно' value={count(kpis.slaCritical.value)} note='Сделки с критичным дедлайном.' formula={formula('slaCritical')} />
+        <StatCard title='В резерве' value={money(kpis.reserveTotal.value)} note='Общий резерв по активным сделкам.' formula={formula('reserveTotal')} />
+      </div>
+    </section>
+  );
+}
