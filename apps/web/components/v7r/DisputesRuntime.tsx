@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { DISPUTES } from '@/lib/v7r/data';
+import { useDisputes } from '@/lib/domain/hooks';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { translateRole } from '@/lib/i18n/reason-codes';
 import { useToast } from '@/components/v7r/Toast';
@@ -105,6 +105,7 @@ function InfoCell({ label, value }: { label: string; value: string }) {
 
 export function DisputesRuntime() {
   const toast = useToast();
+  const disputes = useDisputes();
   const { draftDeals, resolveDraftDispute } = useBuyerRuntimeStore();
   const draftDisputes = draftDeals.filter((item) => item.disputeState === 'open' || item.disputeState === 'resolved');
 
@@ -121,7 +122,7 @@ export function DisputesRuntime() {
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-        <StatCard title='Доменные споры' value={String(DISPUTES.length)} note='Базовый статический спорный контур.' />
+        <StatCard title='Доменные споры' value={String(disputes.length)} note='Базовый статический спорный контур.' />
         <StatCard title='Draft-споры' value={String(draftDisputes.filter((item) => item.disputeState === 'open').length)} note='Открыты внутри persistent runtime.' />
         <StatCard title='Закрытые draft-споры' value={String(draftDisputes.filter((item) => item.disputeState === 'resolved').length)} note='Спор закрыт, но карточка остаётся в истории.' />
         <StatCard title='Удержано в draft' value={formatMoney(draftDisputes.length * 250000)} note='Модельная сумма денег под draft-спорами.' />
@@ -160,7 +161,7 @@ export function DisputesRuntime() {
 
       <section style={{ display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Доменные споры</div>
-        {DISPUTES.map((item) => (
+        {disputes.map((item) => (
           <DisputeCard
             key={item.id}
             title={`${item.id} · ${item.title}`}
