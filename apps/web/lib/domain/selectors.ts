@@ -33,8 +33,16 @@ export function selectRuntimeRfqs(rfqs: RuntimeRfqItem[] = RFQ_LIST): RuntimeRfq
   return rfqs;
 }
 
+export function selectRuntimeCallbacks(callbacks: CallbackItem[] = CALLBACKS): CallbackItem[] {
+  return callbacks;
+}
+
 export function selectRuntimeDealById(id: string, deals: RuntimeDeal[] = DEALS): RuntimeDeal | undefined {
   return deals.find((deal) => deal.id === id);
+}
+
+export function selectRuntimeDealByLotId(lotId: string, deals: RuntimeDeal[] = DEALS): RuntimeDeal | undefined {
+  return deals.find((deal) => deal.lotId === lotId);
 }
 
 export function selectRuntimeDisputeById(id: string, disputes: RuntimeDispute[] = DISPUTES): RuntimeDispute | undefined {
