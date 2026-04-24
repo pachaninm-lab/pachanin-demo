@@ -5,11 +5,13 @@ import {
   domainDeals,
   domainDisputes,
   selectActiveDeals,
+  selectControlTowerKpis,
   selectDealById,
   selectDisputeById,
   selectDisputesByDealId,
   selectDomainTotals,
 } from './selectors';
+import type { ControlTowerKpis } from './kpi/controlTower';
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
 
 export function useDeals(): DomainDeal[] {
@@ -38,4 +40,8 @@ export function useDisputesByDeal(dealId: string): DomainDispute[] {
 
 export function useDomainTotals(): DomainTotals {
   return React.useMemo(() => selectDomainTotals(domainDeals), []);
+}
+
+export function useControlTowerKpis(): ControlTowerKpis {
+  return React.useMemo(() => selectControlTowerKpis(domainDeals), []);
 }
