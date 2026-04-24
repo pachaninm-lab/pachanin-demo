@@ -2,15 +2,19 @@ import {
   CALLBACKS,
   DEALS,
   DISPUTES,
+  RFQ_LIST,
   getDealIntegrationState,
   type CallbackItem,
   type Deal as RuntimeDeal,
   type DealIntegrationState,
   type Dispute as RuntimeDispute,
+  type RfqItem as RuntimeRfqItem,
 } from '@/lib/v7r/data';
 import { toDomainDeals, toDomainDisputes } from './adapters';
 import { computeControlTowerKpis, type ControlTowerKpis } from './kpi/controlTower';
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
+
+export type { RuntimeRfqItem };
 
 export const domainDeals: DomainDeal[] = toDomainDeals(DEALS);
 export const domainDisputes: DomainDispute[] = toDomainDisputes(DISPUTES);
@@ -24,12 +28,20 @@ export function selectRuntimeDisputes(disputes: RuntimeDispute[] = DISPUTES): Ru
   return disputes;
 }
 
+export function selectRuntimeRfqs(rfqs: RuntimeRfqItem[] = RFQ_LIST): RuntimeRfqItem[] {
+  return rfqs;
+}
+
 export function selectRuntimeDealById(id: string, deals: RuntimeDeal[] = DEALS): RuntimeDeal | undefined {
   return deals.find((deal) => deal.id === id);
 }
 
 export function selectRuntimeDisputeById(id: string, disputes: RuntimeDispute[] = DISPUTES): RuntimeDispute | undefined {
   return disputes.find((dispute) => dispute.id === id);
+}
+
+export function selectRuntimeRfqById(id: string, rfqs: RuntimeRfqItem[] = RFQ_LIST): RuntimeRfqItem | undefined {
+  return rfqs.find((rfq) => rfq.id === id);
 }
 
 export function selectAllDeals(deals: DomainDeal[] = domainDeals): DomainDeal[] {
