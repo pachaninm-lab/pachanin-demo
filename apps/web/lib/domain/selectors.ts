@@ -1,4 +1,13 @@
-import { CALLBACKS, DEALS, DISPUTES, getDealIntegrationState, type CallbackItem, type DealIntegrationState } from '@/lib/v7r/data';
+import {
+  CALLBACKS,
+  DEALS,
+  DISPUTES,
+  getDealIntegrationState,
+  type CallbackItem,
+  type Deal as RuntimeDeal,
+  type DealIntegrationState,
+  type Dispute as RuntimeDispute,
+} from '@/lib/v7r/data';
 import { toDomainDeals, toDomainDisputes } from './adapters';
 import { computeControlTowerKpis, type ControlTowerKpis } from './kpi/controlTower';
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
@@ -6,6 +15,22 @@ import type { DomainDeal, DomainDispute, DomainTotals } from './types';
 export const domainDeals: DomainDeal[] = toDomainDeals(DEALS);
 export const domainDisputes: DomainDispute[] = toDomainDisputes(DISPUTES);
 export const domainCallbacks: CallbackItem[] = CALLBACKS;
+
+export function selectRuntimeDeals(deals: RuntimeDeal[] = DEALS): RuntimeDeal[] {
+  return deals;
+}
+
+export function selectRuntimeDisputes(disputes: RuntimeDispute[] = DISPUTES): RuntimeDispute[] {
+  return disputes;
+}
+
+export function selectRuntimeDealById(id: string, deals: RuntimeDeal[] = DEALS): RuntimeDeal | undefined {
+  return deals.find((deal) => deal.id === id);
+}
+
+export function selectRuntimeDisputeById(id: string, disputes: RuntimeDispute[] = DISPUTES): RuntimeDispute | undefined {
+  return disputes.find((dispute) => dispute.id === id);
+}
 
 export function selectAllDeals(deals: DomainDeal[] = domainDeals): DomainDeal[] {
   return deals;
