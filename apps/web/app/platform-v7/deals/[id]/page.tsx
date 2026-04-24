@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { DealDetailRuntime } from '@/components/v7r/DealDetailRuntime';
-import { getDealById, getDealIntegrationState } from '@/lib/v7r/data';
+import { getDealIntegrationState } from '@/lib/v7r/data';
+import { selectDealById } from '@/lib/domain/selectors';
 
 interface CounterpartyProfile {
   inn: string | null;
@@ -61,7 +62,7 @@ function tonePalette(tone: 'good' | 'warn' | 'danger') {
 }
 
 export default function PlatformV7DealDetailPage({ params }: { params: { id: string } }) {
-  const deal = getDealById(params.id);
+  const deal = selectDealById(params.id);
   const integration = deal ? getDealIntegrationState(deal.id, deal.lotId) : null;
   const seller = deal ? counterpartyByName(deal.seller.name) : FALLBACK_PROFILE;
   const buyer = deal ? counterpartyByName(deal.buyer.name) : FALLBACK_PROFILE;
@@ -82,13 +83,13 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
         },
         {
           title: 'ФГИС / ЕСИА',
-          value: integration.gateState === 'PASS' ? 'Контур чист' : integration.gateState === 'REVIEW' ? 'Нужна проверка' : 'Gate блокирует выпуск',
+          value: integration.gateState === 'PASS' ? 'Контур чист' : integration.gateState === 'REVIEW' ? 'Нужна проверка' : 'Проверка блокирует выпуск',
           note: integration.summary,
           tone: integration.gateState === 'PASS' ? 'good' as const : integration.gateState === 'REVIEW' ? 'warn' as const : 'danger' as const,
         },
         {
           title: 'Спор и удержание',
-          value: deal.holdAmount > 0 ? 'Есть hold' : 'Hold не активен',
+          value: deal.holdAmount > 0 ? 'Есть удержание' : 'Удержание не активно',
           note: deal.holdAmount > 0 ? `${formatMoney(deal.holdAmount)} удержано до закрытия причины.` : 'По деньгам нет активного удержания.',
           tone: deal.holdAmount > 0 ? 'danger' as const : 'good' as const,
         },
@@ -105,7 +106,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
             <div style={{ fontSize: 12, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Доверие и прозрачность</div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#0F1419' }}>Гарантии сделки</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6, maxWidth: 920 }}>
-              Здесь нет маркетинговых обещаний. Только проверяемые условия: резерв денег, документный слой, интеграционный gate и наличие либо отсутствие удержания.
+              Здесь нет маркетинговых обещаний. Только проверяемые условия: резерв денег, документный слой, интеграционная проверка и наличие либо отсутствие удержания.
             </div>
           </div>
 
@@ -133,7 +134,7 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
 
           <div style={{ display: 'grid', gap: 8 }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Что реально даёт платформа</div>
-            <Bullet text='Не даёт обещать выпуск денег, если пакет документов, качество или интеграционный gate красные.' />
+            <Bullet text='Не даёт обещать выпуск денег, если пакет документов, качество или интеграционная проверка красные.' />
             <Bullet text='Показывает, кто именно следующий владелец действия, вместо размытых статусов.' />
             <Bullet text='Сводит доверие к проверяемым сигналам: рейтинг контрагента, история сделок, спорность и резерв.' />
           </div>
