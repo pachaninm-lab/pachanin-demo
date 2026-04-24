@@ -16,7 +16,7 @@ on:
         required: false
         default: ''
   schedule:
-    - cron: '15 6,18 * * *'
+    - cron: '15 6,10,14,18 * * *'
 
 jobs:
   smoke:
