@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { DEALS } from '@/lib/v7r/data';
+import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 
 const SURFACE = 'var(--pc-bg-card)';
@@ -15,7 +15,7 @@ const DANGER_BORDER = 'rgba(255,139,144,0.18)';
 const DANGER_TEXT = '#FF8B90';
 
 export default function PlatformV7SellerPage() {
-  const sellerDeals = DEALS.filter((deal) => deal.seller.name === 'Агро-Юг ООО' || deal.seller.name === 'КФХ Мирный' || deal.seller.name === 'КФХ Петров' || deal.seller.name === 'АО СолнцеАгро');
+  const sellerDeals = selectAllDeals().filter((deal) => deal.seller.name === 'Агро-Юг ООО' || deal.seller.name === 'КФХ Мирный' || deal.seller.name === 'КФХ Петров' || deal.seller.name === 'АО СолнцеАгро');
   const totalExpected = sellerDeals.reduce((sum, deal) => sum + (deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0)), 0);
   const totalHold = sellerDeals.reduce((sum, deal) => sum + deal.holdAmount, 0);
   const nextPayout = sellerDeals.filter((deal) => deal.status === 'release_requested' || deal.status === 'docs_complete').reduce((sum, deal) => sum + (deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0)), 0);
