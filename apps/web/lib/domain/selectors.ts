@@ -1,10 +1,11 @@
-import { DEALS, DISPUTES } from '@/lib/v7r/data';
+import { CALLBACKS, DEALS, DISPUTES, type CallbackItem } from '@/lib/v7r/data';
 import { toDomainDeals, toDomainDisputes } from './adapters';
 import { computeControlTowerKpis, type ControlTowerKpis } from './kpi/controlTower';
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
 
 export const domainDeals: DomainDeal[] = toDomainDeals(DEALS);
 export const domainDisputes: DomainDispute[] = toDomainDisputes(DISPUTES);
+export const domainCallbacks: CallbackItem[] = CALLBACKS;
 
 export function selectAllDeals(deals: DomainDeal[] = domainDeals): DomainDeal[] {
   return deals;
@@ -24,6 +25,10 @@ export function selectDisputeById(id: string, disputes: DomainDispute[] = domain
 
 export function selectDisputesByDealId(dealId: string, disputes: DomainDispute[] = domainDisputes): DomainDispute[] {
   return disputes.filter((dispute) => dispute.dealId === dealId);
+}
+
+export function selectBankCallbackById(id: string, callbacks: CallbackItem[] = domainCallbacks): CallbackItem | undefined {
+  return callbacks.find((callback) => callback.id === id);
 }
 
 export function selectReserveTotal(deals: DomainDeal[] = domainDeals): number {
