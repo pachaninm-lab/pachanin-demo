@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
 export const size = {
   width: 512,
@@ -18,13 +19,17 @@ export default async function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           background: '#F5F2EB',
-          color: '#0A7A5F',
-          fontSize: 156,
-          fontWeight: 900,
-          letterSpacing: -12,
         }}
       >
-        ПЦ
+        <img
+          src={BRAND_LOGO_DATA_URI}
+          alt=''
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+          }}
+        />
       </div>
     ),
     size,
