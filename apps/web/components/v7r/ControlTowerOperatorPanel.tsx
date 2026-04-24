@@ -56,6 +56,7 @@ function cleanCopy(value: string) {
     .replace(/\bblocker\b/g, 'препятствие')
     .replace(/\bcallback\b/g, 'событие банка')
     .replace(/\brelease\b/g, 'выпуск денег')
+    .replace(/\bsync\b/g, 'сверка')
     .replace(/\bfake-live\b/g, 'демо-событие')
     .replace(/\baudit\b/g, 'журнал');
 }
