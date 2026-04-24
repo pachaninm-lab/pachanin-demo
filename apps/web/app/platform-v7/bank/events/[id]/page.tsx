@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CALLBACKS } from '@/lib/v7r/data';
+import { selectBankCallbackById } from '@/lib/domain/selectors';
 import { formatMoney } from '@/lib/v7r/helpers';
 
 function statusPalette(status: 'ok' | 'pending' | 'mismatch') {
@@ -17,7 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function BankEventPage({ params }: { params: { id: string } }) {
-  const event = CALLBACKS.find(c => c.id === params.id);
+  const event = selectBankCallbackById(params.id);
 
   if (!event) {
     return (
