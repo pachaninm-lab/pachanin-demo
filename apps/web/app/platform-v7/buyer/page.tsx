@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { DEALS } from '@/lib/v7r/data';
+import { useDeals } from '@/lib/domain/hooks';
+import type { DomainDeal } from '@/lib/domain/types';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 
 const SURFACE = 'var(--pc-bg-card)';
@@ -36,7 +37,7 @@ const SORTS: { value: SortMode; label: string }[] = [
   { value: 'region', label: 'По региону' },
 ];
 
-function dealPrice(deal: typeof DEALS[number]) {
+function dealPrice(deal: DomainDeal) {
   return deal.pricePerTon ?? (deal.quantity ? Math.round(deal.reservedAmount / deal.quantity) : deal.reservedAmount);
 }
 
@@ -50,8 +51,9 @@ function cropMatches(grain: string, filter: CropFilter) {
 export default function PlatformV7BuyerPage() {
   const [sortMode, setSortMode] = React.useState<SortMode>('price_low');
   const [cropFilter, setCropFilter] = React.useState<CropFilter>('all');
+  const deals = useDeals();
 
-  const buyerDeals = DEALS.filter((deal) => BUYER_NAMES.includes(deal.buyer.name));
+  const buyerDeals = deals.filter((deal) => BUYER_NAMES.includes(deal.buyer.name));
   const totalReserved = buyerDeals.reduce((sum, deal) => sum + deal.reservedAmount, 0);
   const totalHold = buyerDeals.reduce((sum, deal) => sum + deal.holdAmount, 0);
   const releaseReady = buyerDeals.filter((deal) => deal.status === 'release_requested' || deal.status === 'docs_complete').reduce((sum, deal) => sum + (deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0)), 0);
