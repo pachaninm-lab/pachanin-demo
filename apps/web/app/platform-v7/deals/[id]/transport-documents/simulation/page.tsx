@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
-import { getDealById } from '@/lib/v7r/data';
+import { selectDealById } from '@/lib/domain/selectors';
 import {
   getTransportPackByDealId,
   getTransportSimulationScenario,
@@ -17,7 +17,7 @@ function tone(kind: string) {
 }
 
 export default function TransportSimulationPage({ params }: { params: { id: string } }) {
-  const deal = getDealById(params.id);
+  const deal = selectDealById(params.id);
   if (!deal) return notFound();
 
   const pack = getTransportPackByDealId(deal.id);
