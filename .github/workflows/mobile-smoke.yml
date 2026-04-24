@@ -1,0 +1,44 @@
+name: Mobile Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_url:
+        description: 'Web base URL to check'
+        required: true
+        default: 'https://pachanin-web.vercel.app'
+
+jobs:
+  mobile-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ../..
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run mobile smoke
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ inputs.web_url }}
+        run: pnpm exec playwright test --config=playwright.production.config.ts
