@@ -1,9 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { useDeals } from '@/lib/domain/hooks';
-import { computeControlTowerKpis, formatKpiFormula, type ControlTowerKpis } from '@/lib/domain/kpi/controlTower';
+import { formatKpiFormula, type ControlTowerKpis } from '@/lib/domain/kpi/controlTower';
+import { useControlTowerKpis } from '@/lib/domain/hooks';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
 
 type MetricKey = keyof ControlTowerKpis;
@@ -44,8 +43,7 @@ function StatCard({
 }
 
 export function DomainControlTowerSummary() {
-  const deals = useDeals();
-  const kpis = useMemo(() => computeControlTowerKpis(deals.filter((deal) => deal.status !== 'closed'), new Date('2026-04-19T12:00:00Z')), [deals]);
+  const kpis = useControlTowerKpis();
   const formula = (key: MetricKey) => formatKpiFormula(key, kpis[key]);
 
   return (
