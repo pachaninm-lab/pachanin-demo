@@ -101,7 +101,7 @@ export function platformV7OnboardingKycStatus(
   reviewReasons: string[] = platformV7OnboardingKycReviewReasons(input),
 ): PlatformV7OnboardingKycStatus {
   if (input.manualRestriction || hasFailedCriticalCheck(input)) return 'rejected';
-  if (blockers.length > 0) return blockers.length === requiredMissingCount(input) ? 'not_started' : 'incomplete';
+  if (blockers.length > 0) return isOnboardingNotStarted(input) ? 'not_started' : 'incomplete';
   if (reviewReasons.some((reason) => reason.endsWith('-failed'))) return 'restricted';
   if (reviewReasons.length > 0) return 'manual_review';
   return 'approved';
@@ -149,14 +149,11 @@ function hasFailedCriticalCheck(input: PlatformV7OnboardingKycInput): boolean {
   return input.sanctionsScreening === 'failed' || input.amlScreening === 'failed';
 }
 
-function requiredMissingCount(input: PlatformV7OnboardingKycInput): number {
-  const requiredStatuses = [
-    input.inn,
-    input.ogrn,
-    input.legalAddress,
-    input.signerAuthority,
-    input.bankAccount,
-  ];
-  const missing = requiredStatuses.filter((status) => status === 'missing').length;
-  return missing + (input.roleDocumentsReady ? 0 : 1);
+function isOnboardingNotStarted(input: PlatformV7OnboardingKycInput): boolean {
+  return input.inn === 'missing'
+    && input.ogrn === 'missing'
+    && input.legalAddress === 'missing'
+    && input.signerAuthority === 'missing'
+    && input.bankAccount === 'missing'
+    && !input.roleDocumentsReady;
 }
