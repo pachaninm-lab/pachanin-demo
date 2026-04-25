@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, ArrowUpDown, CornerDownLeft, X } from 'lucide-react';
 import { selectRuntimeDeals, selectRuntimeDisputes } from '@/lib/domain/selectors';
+import { platformV7CommandSectionItems } from '@/lib/platform-v7/command';
 import { lots as PLATFORM_LOTS } from '@/lib/v7r/esia-fgis-data';
 
 interface CommandItem {
@@ -23,19 +24,6 @@ interface RecentItem {
 }
 
 const HISTORY_KEY = 'pc-command-history';
-
-const SECTION_ITEMS: CommandItem[] = [
-  { id: 'sec-control', group: 'Разделы', title: 'Control Tower', subtitle: 'Дашборд оператора · KPI и приоритеты', href: '/platform-v7/control-tower', keywords: 'control tower оператор kpi' },
-  { id: 'sec-deals', group: 'Разделы', title: 'Все сделки', subtitle: 'Реестр сделок с фильтрами по статусу и риску', href: '/platform-v7/deals', keywords: 'сделки deals реестр' },
-  { id: 'sec-marketplace', group: 'Разделы', title: 'Витрина лотов', subtitle: '15+ лотов по культуре и региону', href: '/platform-v7/lots', keywords: 'витрина лоты marketplace маркетплейс' },
-  { id: 'sec-bank', group: 'Разделы', title: 'Банковый контур', subtitle: 'Резервы, hold, callbacks, release', href: '/platform-v7/bank', keywords: 'банк bank деньги резерв release' },
-  { id: 'sec-disputes', group: 'Разделы', title: 'Споры', subtitle: 'Открытые споры и удержания', href: '/platform-v7/disputes', keywords: 'споры disputes удержания hold' },
-  { id: 'sec-logistics', group: 'Разделы', title: 'Логистика', subtitle: 'Маршруты, ETA, отклонения', href: '/platform-v7/logistics', keywords: 'логистика маршруты gps eta' },
-  { id: 'sec-integrations', group: 'Разделы', title: 'Интеграции', subtitle: 'ФГИС, СберБизнес, СПАРК, лаборатории', href: '/platform-v7/connectors', keywords: 'интеграции connectors fgis sber spark' },
-  { id: 'sec-operator', group: 'Разделы', title: 'Кабинет оператора', subtitle: 'Очереди, callbacks, ручные действия', href: '/platform-v7/operator', keywords: 'оператор operator queues очереди' },
-  { id: 'sec-investor', group: 'Разделы', title: 'Инвестор', subtitle: 'Презентационный режим, портфель сделок', href: '/platform-v7/investor', keywords: 'инвестор investor портфель' },
-  { id: 'sec-roles', group: 'Разделы', title: 'Все роли', subtitle: 'Сменить активную роль', href: '/platform-v7/roles', keywords: 'роли roles смена кабинет' },
-];
 
 function buildIndex(): CommandItem[] {
   const dealItems: CommandItem[] = selectRuntimeDeals().map((deal) => ({
@@ -65,7 +53,7 @@ function buildIndex(): CommandItem[] {
     keywords: `${dispute.id} ${dispute.title} ${dispute.dealId} ${dispute.reasonCode}`.toLowerCase(),
   }));
 
-  return [...SECTION_ITEMS, ...dealItems, ...lotItems, ...disputeItems];
+  return [...platformV7CommandSectionItems(), ...dealItems, ...lotItems, ...disputeItems];
 }
 
 function readRecentItems(): RecentItem[] {
