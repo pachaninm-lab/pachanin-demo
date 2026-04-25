@@ -5,10 +5,10 @@ import type { PlatformV7OnboardingKycModel } from '@/lib/platform-v7/onboarding-
 import type { PlatformV7OnboardingRiskSignals } from '@/lib/platform-v7/onboarding-risk-score';
 import {
   platformV7OnboardingRiskLevel,
-  platformV7OnboardingRiskModel,
   platformV7OnboardingRiskNextAction,
   platformV7OnboardingRiskReasons,
   platformV7OnboardingRiskScore,
+  platformV7OnboardingRiskScoreModel,
   platformV7OnboardingRiskTone,
 } from '@/lib/platform-v7/onboarding-risk-score';
 
@@ -71,7 +71,7 @@ const allowedAccess: PlatformV7OnboardingAccessGateModel = {
 
 describe('platform-v7 onboarding risk score', () => {
   it('keeps clean verified company low risk', () => {
-    const model = platformV7OnboardingRiskModel({
+    const model = platformV7OnboardingRiskScoreModel({
       companyId: 'CMP-1',
       role: 'seller',
       kyc: approvedKyc,
@@ -88,7 +88,7 @@ describe('platform-v7 onboarding risk score', () => {
   });
 
   it('forces critical risk for sanctions hit', () => {
-    const model = platformV7OnboardingRiskModel({
+    const model = platformV7OnboardingRiskScoreModel({
       companyId: 'CMP-2',
       role: 'buyer',
       kyc: approvedKyc,
@@ -104,7 +104,7 @@ describe('platform-v7 onboarding risk score', () => {
   });
 
   it('raises review risk for document and bank mismatches', () => {
-    const model = platformV7OnboardingRiskModel({
+    const model = platformV7OnboardingRiskScoreModel({
       companyId: 'CMP-3',
       role: 'carrier',
       kyc: { ...approvedKyc, readinessPercent: 80 },
