@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DEALS, type DealStatus } from '@/lib/v7r/data';
+import { selectRuntimeDealById, type RuntimeDealStatus } from '@/lib/domain/selectors';
 
 export type LiveDocsState = 'missing' | 'collecting' | 'complete';
 export type LiveReserveState = 'reserved' | 'pending_release' | 'released';
@@ -25,7 +25,7 @@ export interface LiveDealOverride {
   nextOwner: string;
   releaseAmount: number | null;
   holdAmount: number;
-  status: DealStatus;
+  status: RuntimeDealStatus;
   events: LiveDealEvent[];
 }
 
@@ -45,7 +45,7 @@ function nowIso() {
 }
 
 function baseOverride(dealId: string): LiveDealOverride | null {
-  const deal = DEALS.find((item) => item.id === dealId);
+  const deal = selectRuntimeDealById(dealId);
   if (!deal) return null;
 
   const docsState: LiveDocsState = deal.blockers.includes('docs') ? 'missing' : deal.status === 'docs_complete' || deal.status === 'release_requested' || deal.status === 'release_approved' || deal.status === 'closed' ? 'complete' : 'collecting';
@@ -82,7 +82,7 @@ function recalc(item: LiveDealOverride): LiveDealOverride {
   if (item.disputeState === 'open') blockers.add('dispute');
   if (item.reserveState === 'pending_release') blockers.add('bank_confirm');
 
-  let status: DealStatus = item.status;
+  let status: RuntimeDealStatus = item.status;
   let nextStep = 'Проверить контур сделки.';
   let nextOwner = 'Оператор';
 
