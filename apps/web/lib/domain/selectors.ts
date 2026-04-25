@@ -2,12 +2,15 @@ import {
   CALLBACKS,
   DEALS,
   DISPUTES,
+  NOTIFICATIONS,
+  NOTIFICATION_GROUPS,
   RFQ_LIST,
   getDealIntegrationState,
   type CallbackItem,
   type Deal as RuntimeDeal,
   type DealIntegrationState,
   type Dispute as RuntimeDispute,
+  type NotificationGroup,
   type RfqItem as RuntimeRfqItem,
 } from '@/lib/v7r/data';
 import { toDomainDeals, toDomainDisputes } from './adapters';
@@ -15,7 +18,7 @@ import { computeControlTowerKpis, type ControlTowerKpis } from './kpi/controlTow
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
 
 export type RuntimeDealStatus = RuntimeDeal['status'];
-export type { RuntimeRfqItem };
+export type { RuntimeRfqItem, NotificationGroup };
 
 export const domainDeals: DomainDeal[] = toDomainDeals(DEALS);
 export const domainDisputes: DomainDispute[] = toDomainDisputes(DISPUTES);
@@ -35,6 +38,14 @@ export function selectRuntimeRfqs(rfqs: RuntimeRfqItem[] = RFQ_LIST): RuntimeRfq
 
 export function selectRuntimeCallbacks(callbacks: CallbackItem[] = CALLBACKS): CallbackItem[] {
   return callbacks;
+}
+
+export function selectRuntimeNotifications(notifications = NOTIFICATIONS) {
+  return notifications;
+}
+
+export function selectRuntimeNotificationGroups(groups = NOTIFICATION_GROUPS) {
+  return groups;
 }
 
 export function selectRuntimeDealById(id: string, deals: RuntimeDeal[] = DEALS): RuntimeDeal | undefined {
