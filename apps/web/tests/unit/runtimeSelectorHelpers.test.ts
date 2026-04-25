@@ -3,6 +3,8 @@ import {
   selectRuntimeCallbacks,
   selectRuntimeDealByLotId,
   selectRuntimeDeals,
+  selectRuntimeNotificationGroups,
+  selectRuntimeNotifications,
   selectRuntimeRfqs,
 } from '@/lib/domain/selectors';
 
@@ -21,5 +23,10 @@ describe('runtime selector helpers', () => {
 
   it('exposes bank callbacks through selector facade', () => {
     expect(selectRuntimeCallbacks().length).toBeGreaterThan(0);
+  });
+
+  it('exposes notification data through selector facade', () => {
+    expect(selectRuntimeNotifications().length).toBeGreaterThan(0);
+    expect(Object.keys(selectRuntimeNotificationGroups()).length).toBeGreaterThan(0);
   });
 });
