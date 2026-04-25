@@ -93,7 +93,7 @@ describe('platform-v7 evidence retention', () => {
   it('allows purge only after expiry without dispute or hold', () => {
     const model = platformV7EvidenceRetentionModel({
       entityId: 'DL-1',
-      purpose: 'operator_archive',
+      purpose: 'standard_archive',
       evidenceEntries: [evidence],
       auditEvents: [audit],
       retainedUntil: '2026-04-01T10:00:00.000Z',
