@@ -120,3 +120,7 @@ export function platformV7LogisticsReleaseNextAction(
   if (status === 'blocked') return blockers[0] ? `Не передавать в банк: ${blockers[0]}.` : 'Не передавать в банк до снятия логистических блокеров.';
   return reviewReasons[0] ? `Передать с частичным/ручным контролем: ${reviewReasons[0]}.` : 'Передать на ручной контроль перед банком.';
 }
+
+export function platformV7LogisticsReleaseStableKey(input: PlatformV7LogisticsReleaseReadinessInput): string {
+  return `${input.dealId}:${input.shipmentId}:${input.opsQueue.summary.total}:${input.opsQueue.summary.moneyBlocked}`;
+}
