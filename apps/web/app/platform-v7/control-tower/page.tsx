@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CALLBACKS, DEALS, DISPUTES, getDealIntegrationState } from '@/lib/v7r/data';
+import { selectRuntimeCallbacks, selectRuntimeDeals, selectRuntimeDisputes, selectDealIntegrationState } from '@/lib/domain/selectors';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import { ControlTowerOperatorPanel } from '@/components/v7r/ControlTowerOperatorPanel';
 import { DomainControlTowerSummary } from '@/components/v7r/DomainControlTowerSummary';
@@ -54,8 +54,11 @@ function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?
 
 export default function PlatformV7ControlTowerPage() {
   const today = new Date('2026-04-19T12:00:00Z');
-  const activeDeals = DEALS.filter((d) => d.status !== 'closed');
-  const integratedDeals = activeDeals.map((deal) => ({ deal, integration: getDealIntegrationState(deal.id, deal.lotId) }));
+  const deals = selectRuntimeDeals();
+  const callbacks = selectRuntimeCallbacks();
+  const disputes = selectRuntimeDisputes();
+  const activeDeals = deals.filter((d) => d.status !== 'closed');
+  const integratedDeals = activeDeals.map((deal) => ({ deal, integration: selectDealIntegrationState(deal) }));
   const totalReserved = activeDeals.reduce((sum, d) => sum + d.reservedAmount, 0);
   const totalHold = activeDeals.reduce((sum, d) => sum + d.holdAmount, 0);
   const totalRelease = integratedDeals.reduce((sum, item) => sum + (item.integration.gateState === 'FAIL' ? 0 : (item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0))), 0);
@@ -216,8 +219,8 @@ export default function PlatformV7ControlTowerPage() {
           <section className='ct-queue'>
             <div className='ct-title'>Сигналы системы</div>
             <div style={{ display:'grid', gap:10 }}>
-              <Signal title='Банк' detail={`${CALLBACKS.length} события уже в контуре.`} href='/platform-v7/bank' />
-              <Signal title='Споры' detail={`${DISPUTES.length} активных кейса под удержанием.`} href='/platform-v7/disputes' />
+              <Signal title='Банк' detail={`${callbacks.length} события уже в контуре.`} href='/platform-v7/bank' />
+              <Signal title='Споры' detail={`${disputes.length} активных кейса под удержанием.`} href='/platform-v7/disputes' />
               <Signal title='Проверка' detail={`${reviewByIntegration.length} сделки ждут ручной проверки.`} href='/platform-v7/connectors' />
               <Signal title='СберКорус' detail={`${transportBlocked + transportAwaiting} транспортных кейсов требуют действий.`} href='/platform-v7/control-tower/hotlist' />
             </div>
