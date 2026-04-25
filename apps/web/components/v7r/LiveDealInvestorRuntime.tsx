@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/v7r/Toast';
-import { DEALS, getDisputeById } from '@/lib/v7r/data';
+import { selectRuntimeDealById, selectRuntimeDisputeById } from '@/lib/domain/selectors';
 import { formatMoney, statusLabel } from '@/lib/v7r/helpers';
 import { useLiveDealRuntimeStore } from '@/stores/useLiveDealRuntimeStore';
 import { useFieldRuntimeStore } from '@/stores/useFieldRuntimeStore';
@@ -44,7 +44,7 @@ function formatTs(value: string) {
 
 export function LiveDealInvestorRuntime({ id }: { id: string }) {
   const toast = useToast();
-  const base = DEALS.find((item) => item.id === id) ?? null;
+  const base = selectRuntimeDealById(id) ?? null;
   const ensureDeal = useLiveDealRuntimeStore((state) => state.ensureDeal);
   const startDocs = useLiveDealRuntimeStore((state) => state.startDocs);
   const completeDocs = useLiveDealRuntimeStore((state) => state.completeDocs);
@@ -69,7 +69,7 @@ export function LiveDealInvestorRuntime({ id }: { id: string }) {
   const state = override ?? ensureDeal(id);
   if (!state) return null;
 
-  const dispute = base.dispute ? getDisputeById(base.dispute.id) : null;
+  const dispute = base.dispute ? selectRuntimeDisputeById(base.dispute.id) : null;
   const reservedAmount = base.reservedAmount;
   const moistureValue = Number(labCase?.moisture || 0);
   const proteinValue = Number(labCase?.protein || 0);

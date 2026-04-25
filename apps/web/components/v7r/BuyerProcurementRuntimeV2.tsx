@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { RFQ_LIST } from '@/lib/v7r/data';
+import { selectRuntimeRfqs } from '@/lib/domain/selectors';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { useToast } from '@/components/v7r/Toast';
 import { useBuyerRuntimeStore } from '@/stores/useBuyerRuntimeStore';
@@ -43,6 +43,7 @@ function draftStatusLabel(status: string) {
 export function BuyerProcurementRuntimeV2() {
   const router = useRouter();
   const toast = useToast();
+  const marketRfqs = selectRuntimeRfqs();
   const { localRfqs, shortlistedSourceIds, draftDeals, addLocalRfq, toggleShortlist, createDraftDealFromMarket, createDraftDealFromLocalRfq } = useBuyerRuntimeStore();
   const [grain, setGrain] = React.useState('Пшеница 4 кл.');
   const [volume, setVolume] = React.useState('300');
@@ -52,7 +53,7 @@ export function BuyerProcurementRuntimeV2() {
   const [payment, setPayment] = React.useState('Сбер / резервирование');
   const [sourceFilter, setSourceFilter] = React.useState<'ALL'|'MARKET'|'LOCAL'>('ALL');
 
-  const visibleMarket = sourceFilter === 'LOCAL' ? [] : RFQ_LIST;
+  const visibleMarket = sourceFilter === 'LOCAL' ? [] : marketRfqs;
   const visibleLocal = sourceFilter === 'MARKET' ? [] : localRfqs;
 
   function createRequest() {
@@ -86,7 +87,7 @@ export function BuyerProcurementRuntimeV2() {
       </section>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:14 }}>
-        <Card title={statLabel('Рынок')} value={String(RFQ_LIST.length)} note='Базовые рыночные предложения.' />
+        <Card title={statLabel('Рынок')} value={String(marketRfqs.length)} note='Базовые рыночные предложения.' />
         <Card title={statLabel('Мои запросы')} value={String(localRfqs.length)} note='Созданные внутри платформы запросы.' />
         <Card title={statLabel('Отобрано')} value={String(shortlistedSourceIds.length)} note='Варианты, отложенные для сравнения.' />
         <Card title={statLabel('Черновики сделок')} value={String(draftDeals.length)} note='Созданные внутри контура черновики.' />

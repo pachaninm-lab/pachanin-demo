@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { RFQ_LIST } from '@/lib/v7r/data';
+import { selectRuntimeRfqs } from '@/lib/domain/selectors';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { useToast } from '@/components/v7r/Toast';
 import { useBuyerRuntimeStore } from '@/stores/useBuyerRuntimeStore';
@@ -41,6 +41,7 @@ function ToneBadge({ text, tone }: { text: string; tone: 'neutral' | 'success' }
 export function BuyerProcurementRuntime() {
   const router = useRouter();
   const toast = useToast();
+  const marketRfqs = selectRuntimeRfqs();
   const { localRfqs, shortlistedSourceIds, draftDeals, addLocalRfq, toggleShortlist, createDraftDealFromMarket, createDraftDealFromLocalRfq } = useBuyerRuntimeStore();
   const [grain, setGrain] = React.useState('Пшеница 4 кл.');
   const [volume, setVolume] = React.useState('300');
@@ -50,7 +51,7 @@ export function BuyerProcurementRuntime() {
   const [payment, setPayment] = React.useState('Сбер / резерв');
   const [sourceFilter, setSourceFilter] = React.useState<'ALL' | 'MARKET' | 'LOCAL'>('ALL');
 
-  const visibleMarket = sourceFilter === 'LOCAL' ? [] : RFQ_LIST;
+  const visibleMarket = sourceFilter === 'LOCAL' ? [] : marketRfqs;
   const visibleLocal = sourceFilter === 'MARKET' ? [] : localRfqs;
 
   function createRequest() {
@@ -85,7 +86,7 @@ export function BuyerProcurementRuntime() {
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-        <StatCard title='Рынок' value={String(RFQ_LIST.length)} note='Базовые рыночные предложения.' />
+        <StatCard title='Рынок' value={String(marketRfqs.length)} note='Базовые рыночные предложения.' />
         <StatCard title='Мои RFQ' value={String(localRfqs.length)} note='Локально созданные запросы.' />
         <StatCard title='Shortlist' value={String(shortlistedSourceIds.length)} note='Отобранные предложения и RFQ.' />
         <StatCard title='Draft-сделки' value={String(draftDeals.length)} note='Реально созданные черновики сделок.' />
