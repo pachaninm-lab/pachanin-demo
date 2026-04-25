@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { lots as baseLots, type LotItem } from '@/lib/v7r/esia-fgis-data';
-import { DEALS as LIVE_DEALS } from '@/lib/v7r/data';
+import { selectRuntimeDealByLotId } from '@/lib/domain/selectors';
 import { useCommercialRuntimeStore } from '@/stores/useCommercialRuntimeStore';
 
 const SURFACE = 'var(--pc-bg-card)';
@@ -21,7 +21,6 @@ const WARNING_TEXT = '#F5B41E';
 const DANGER_BG = 'rgba(255,139,144,0.10)';
 const DANGER_BORDER = 'rgba(255,139,144,0.20)';
 const DANGER_TEXT = '#FF8B90';
-const NEUTRAL_BG = 'var(--pc-shell-surface-soft, rgba(255,255,255,0.03))';
 
 function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   if (tone === 'success') return { bg: ACCENT_BG, border: ACCENT_BORDER, color: ACCENT };
@@ -336,7 +335,7 @@ export function SellerLotsRuntimeV2() {
       <div className='seller-lots-grid'>
         {filteredLots.map((item) => {
           const tone = toneByState(item.readiness.state);
-          const linkedDeal = LIVE_DEALS.find((deal) => deal.lotId === item.id);
+          const linkedDeal = selectRuntimeDealByLotId(item.id);
           const isFavourite = favouriteLotIds.includes(item.id);
           const isCompared = compareLotIds.includes(item.id);
           const isSelected = selected.has(item.id);
