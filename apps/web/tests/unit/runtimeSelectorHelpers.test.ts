@@ -27,6 +27,6 @@ describe('runtime selector helpers', () => {
 
   it('exposes notification data through selector facade', () => {
     expect(selectRuntimeNotifications().length).toBeGreaterThan(0);
-    expect(selectRuntimeNotificationGroups().length).toBeGreaterThan(0);
+    expect(Object.keys(selectRuntimeNotificationGroups()).length).toBeGreaterThan(0);
   });
 });
