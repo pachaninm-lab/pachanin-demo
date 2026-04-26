@@ -21,15 +21,15 @@ import {
   type ControlTowerKpi as CanonicalControlTowerKpi,
   type InvestorKpi as CanonicalInvestorKpi,
 } from '@/lib/platform-v7/domain';
-import { toDomainDeals, toDomainDisputes } from './adapters';
+import { runtimeFixtureSource } from './fixtureSource';
 import { computeControlTowerKpis, type ControlTowerKpis } from './kpi/controlTower';
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
 
 export type RuntimeDealStatus = RuntimeDeal['status'];
 export type { RuntimeRfqItem, NotificationGroup };
 
-export const domainDeals: DomainDeal[] = toDomainDeals(DEALS);
-export const domainDisputes: DomainDispute[] = toDomainDisputes(DISPUTES);
+export const domainDeals: DomainDeal[] = [...runtimeFixtureSource.deals];
+export const domainDisputes: DomainDispute[] = [...runtimeFixtureSource.disputes];
 export const domainCallbacks: CallbackItem[] = CALLBACKS;
 export const canonicalDomainDeals: CanonicalDeal[] = normalizeDomainDeals(domainDeals);
 
