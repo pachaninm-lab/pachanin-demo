@@ -5,17 +5,25 @@ import {
   domainDeals,
   domainDisputes,
   selectActiveDeals,
+  selectCanonicalControlTowerKpis,
+  selectCanonicalDeals,
+  selectCanonicalInvestorKpis,
   selectControlTowerKpis,
   selectDealById,
   selectDisputeById,
   selectDisputesByDealId,
   selectDomainTotals,
 } from './selectors';
+import type { CanonicalDeal, ControlTowerKpi as CanonicalControlTowerKpi, InvestorKpi as CanonicalInvestorKpi } from '@/lib/platform-v7/domain';
 import type { ControlTowerKpis } from './kpi/controlTower';
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
 
 export function useDeals(): DomainDeal[] {
   return React.useMemo(() => domainDeals, []);
+}
+
+export function useCanonicalDeals(): CanonicalDeal[] {
+  return React.useMemo(() => selectCanonicalDeals(domainDeals), []);
 }
 
 export function useActiveDeals(): DomainDeal[] {
@@ -44,4 +52,12 @@ export function useDomainTotals(): DomainTotals {
 
 export function useControlTowerKpis(): ControlTowerKpis {
   return React.useMemo(() => selectControlTowerKpis(domainDeals), []);
+}
+
+export function useCanonicalControlTowerKpis(): CanonicalControlTowerKpi {
+  return React.useMemo(() => selectCanonicalControlTowerKpis(domainDeals), []);
+}
+
+export function useCanonicalInvestorKpis(): CanonicalInvestorKpi {
+  return React.useMemo(() => selectCanonicalInvestorKpis(domainDeals), []);
 }
