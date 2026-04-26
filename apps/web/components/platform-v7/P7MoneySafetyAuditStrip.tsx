@@ -1,19 +1,21 @@
 import { buildMoneySafetyAuditRow, type P7MoneySafetyAuditRow } from '@/lib/platform-v7/money-safety-audit';
 import { appendMoneyEventOnce, type P7MoneyEvent } from '@/lib/platform-v7/money-safety';
 
-const reserveEvent: P7MoneyEvent = {
-  dealId: 'DL-9109',
-  eventId: 'bank-event-001',
-  type: 'reserve_confirmed',
-  amount: 3_873_600,
-  provider: 'sber_safe_deals',
-  providerOperationId: 'sber-op-001',
-  occurredAt: '2026-04-26T12:00:00Z',
-  payloadHash: 'payload-a',
-};
+function createReserveEvent(dealId: string, providerOperationId: string, payloadHash = 'payload-a'): P7MoneyEvent {
+  return {
+    dealId,
+    eventId: `${dealId}-reserve-confirmed`,
+    type: 'reserve_confirmed',
+    amount: 3_873_600,
+    provider: 'sber_safe_deals',
+    providerOperationId,
+    occurredAt: '2026-04-26T12:00:00Z',
+    payloadHash,
+  };
+}
 
-function createDemoLedger() {
-  const result = appendMoneyEventOnce([], reserveEvent, {
+function createDemoLedger(event: P7MoneyEvent) {
+  const result = appendMoneyEventOnce([], event, {
     at: () => '2026-04-26T12:02:00Z',
   });
 
@@ -21,7 +23,8 @@ function createDemoLedger() {
 }
 
 function createAuditRows(): P7MoneySafetyAuditRow[] {
-  const ledger = createDemoLedger();
+  const safeEvent = createReserveEvent('DL-9109', 'sber-op-001');
+  const reviewEvent = createReserveEvent('DL-9115', 'sber-op-003');
 
   return [
     buildMoneySafetyAuditRow({
@@ -35,8 +38,8 @@ function createAuditRows(): P7MoneySafetyAuditRow[] {
       transportGateClear: true,
       fgisGateClear: true,
       releaseRequestId: 'release-001',
-      ledger,
-      latestBankEvent: reserveEvent,
+      ledger: createDemoLedger(safeEvent),
+      latestBankEvent: safeEvent,
     }),
     buildMoneySafetyAuditRow({
       dealId: 'DL-9112',
@@ -61,10 +64,10 @@ function createAuditRows(): P7MoneySafetyAuditRow[] {
       transportGateClear: true,
       fgisGateClear: true,
       releaseRequestId: 'release-003',
-      ledger,
+      ledger: createDemoLedger(reviewEvent),
       latestBankEvent: {
-        ...reserveEvent,
-        eventId: 'bank-event-002',
+        ...reviewEvent,
+        eventId: 'DL-9115-reserve-retry',
         amount: 3_870_000,
         occurredAt: '2026-04-26T12:05:00Z',
       },
