@@ -3,6 +3,7 @@ import {
   appendMoneyEventOnce,
   buildMoneyEventIdempotencyKey,
   decideMoneyRelease,
+  reconcileMoneyEventWithLedger,
   type P7LedgerEntry,
   type P7MoneyEvent,
 } from '@/lib/platform-v7/money-safety';
@@ -75,6 +76,76 @@ describe('platform-v7 money safety', () => {
     expect(result.reasonCode).toBe('INVALID_AMOUNT');
     expect(result.ledger).toEqual([]);
     expect(existing).toEqual([]);
+  });
+
+  it('matches bank callback against ledger when provider operation and payload are equal', () => {
+    const accepted = appendMoneyEventOnce([], { ...reserveEvent, payloadHash: 'payload-a' }, {
+      at: () => '2026-04-26T12:02:00Z',
+    });
+
+    if (accepted.status !== 'accepted') throw new Error('Expected accepted money event');
+
+    const decision = reconcileMoneyEventWithLedger(accepted.ledger, {
+      ...reserveEvent,
+      eventId: 'bank-event-retry-001',
+      occurredAt: '2026-04-26T12:03:00Z',
+      payloadHash: 'payload-a',
+    });
+
+    if (decision.state !== 'matched') throw new Error('Expected matched reconciliation');
+
+    expect(decision.reasonCode).toBe('MATCHED');
+    expect(decision.action).toBe('allow_continue');
+    expect(decision.entry).toEqual(accepted.entry);
+  });
+
+  it('sends missing bank callback to manual reconciliation', () => {
+    const decision = reconcileMoneyEventWithLedger([], reserveEvent);
+
+    if (decision.state !== 'manual_review') throw new Error('Expected manual reconciliation');
+
+    expect(decision.reasonCode).toBe('MISSING_LEDGER_ENTRY');
+    expect(decision.action).toBe('block_release_and_reconcile');
+  });
+
+  it('sends amount mismatch to manual reconciliation even with the same provider operation', () => {
+    const accepted = appendMoneyEventOnce([], reserveEvent, {
+      at: () => '2026-04-26T12:02:00Z',
+    });
+
+    if (accepted.status !== 'accepted') throw new Error('Expected accepted money event');
+
+    const decision = reconcileMoneyEventWithLedger(accepted.ledger, {
+      ...reserveEvent,
+      amount: 3_870_000,
+      occurredAt: '2026-04-26T12:03:00Z',
+    });
+
+    if (decision.state !== 'manual_review') throw new Error('Expected manual reconciliation');
+
+    expect(decision.reasonCode).toBe('AMOUNT_MISMATCH');
+    expect(decision.action).toBe('block_release_and_reconcile');
+    expect(decision.entry).toEqual(accepted.entry);
+  });
+
+  it('sends payload hash mismatch to manual reconciliation', () => {
+    const accepted = appendMoneyEventOnce([], { ...reserveEvent, payloadHash: 'payload-a' }, {
+      at: () => '2026-04-26T12:02:00Z',
+    });
+
+    if (accepted.status !== 'accepted') throw new Error('Expected accepted money event');
+
+    const decision = reconcileMoneyEventWithLedger(accepted.ledger, {
+      ...reserveEvent,
+      payloadHash: 'payload-b',
+      occurredAt: '2026-04-26T12:03:00Z',
+    });
+
+    if (decision.state !== 'manual_review') throw new Error('Expected manual reconciliation');
+
+    expect(decision.reasonCode).toBe('PAYLOAD_HASH_MISMATCH');
+    expect(decision.action).toBe('block_release_and_reconcile');
+    expect(decision.entry).toEqual(accepted.entry);
   });
 
   it('blocks release when bank, documents, hold, dispute and gates are not clean', () => {
