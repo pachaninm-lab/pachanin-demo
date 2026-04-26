@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { formatKpiFormula, type ControlTowerKpis } from '@/lib/domain/kpi/controlTower';
-import { useControlTowerKpis } from '@/lib/domain/hooks';
+import { useCanonicalControlTowerKpis, useControlTowerKpis } from '@/lib/domain/hooks';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
 
 type MetricKey = keyof ControlTowerKpis;
@@ -44,7 +44,9 @@ function StatCard({
 
 export function DomainControlTowerSummary() {
   const kpis = useControlTowerKpis();
+  const canonicalKpis = useCanonicalControlTowerKpis();
   const formula = (key: MetricKey) => formatKpiFormula(key, kpis[key]);
+  const canonicalReserveFormula = `canonical.totalReserved: ${canonicalKpis.totalReserved}`;
 
   return (
     <section style={{ display: 'grid', gap: 14 }} aria-label='Доменная сводка центра управления'>
@@ -67,7 +69,7 @@ export function DomainControlTowerSummary() {
         <StatCard testId='kpi-integrationStops' title='Интеграционные стопы' value={String(kpis.integrationStops.value)} note='Доменные признаки остановки интеграций.' formula={formula('integrationStops')} href='/platform-v7/connectors' tone='red' />
         <StatCard testId='kpi-transportStops' title='Транспортные стопы' value={String(kpis.transportStops.value)} note='Доменные признаки транспортной остановки.' formula={formula('transportStops')} href='/platform-v7/control-tower/hotlist' tone='red' />
         <StatCard testId='kpi-slaCritical' title='SLA срочно' value={String(kpis.slaCritical.value)} note='Сделки с критичным дедлайном.' formula={formula('slaCritical')} href='/platform-v7/deals' tone='red' />
-        <StatCard testId='kpi-reserveTotal' title='В резерве' value={formatCompactMoney(kpis.reserveTotal.value)} note='Общий резерв по активным сделкам.' formula={formula('reserveTotal')} href='/platform-v7/bank' />
+        <StatCard testId='kpi-reserveTotal' title='В резерве' value={formatCompactMoney(canonicalKpis.totalReserved)} note='Резерв из canonical domain layer; остальные KPI пока на текущей формуле.' formula={canonicalReserveFormula} href='/platform-v7/bank' />
       </div>
     </section>
   );
