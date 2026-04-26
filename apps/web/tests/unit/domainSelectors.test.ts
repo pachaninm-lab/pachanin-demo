@@ -3,6 +3,9 @@ import {
   domainDeals,
   selectActiveDealCount,
   selectActiveDeals,
+  selectCanonicalControlTowerKpis,
+  selectCanonicalDeals,
+  selectCanonicalInvestorKpis,
   selectDealById,
   selectDealCount,
   selectDisputeById,
@@ -70,6 +73,19 @@ describe('domain selectors', () => {
       heldTotal: selectHeldTotal(),
       readyToReleaseTotal: selectReadyToReleaseTotal(),
     });
+  });
+
+  it('exposes canonical read-only selectors without changing the old domain totals', () => {
+    const canonicalDeals = selectCanonicalDeals();
+    const canonicalControlTower = selectCanonicalControlTowerKpis();
+    const canonicalInvestor = selectCanonicalInvestorKpis();
+
+    expect(canonicalDeals).toHaveLength(domainDeals.length);
+    expect(canonicalDeals.find((deal) => deal.id === 'DL-9102')?.status).toBe('DISPUTED');
+    expect(canonicalControlTower.totalReserved).toBeGreaterThanOrEqual(selectReserveTotal());
+    expect(canonicalControlTower.moneyAtRisk).toBeGreaterThanOrEqual(selectHeldTotal());
+    expect(canonicalInvestor.gmv).toBeGreaterThan(0);
+    expect(canonicalInvestor.activeDeals).toBe(selectActiveDealCount());
   });
 
   it('selects disputes by id and deal id', () => {
