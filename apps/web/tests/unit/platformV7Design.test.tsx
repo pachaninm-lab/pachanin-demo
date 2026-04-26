@@ -4,6 +4,9 @@ import { render, screen } from '@testing-library/react';
 import { P7Badge } from '@/components/platform-v7/P7Badge';
 import { P7Card } from '@/components/platform-v7/P7Card';
 import { P7MetricCard } from '@/components/platform-v7/P7MetricCard';
+import { P7Page } from '@/components/platform-v7/P7Page';
+import { P7Section } from '@/components/platform-v7/P7Section';
+import { P7Toolbar } from '@/components/platform-v7/P7Toolbar';
 import { contrastRatio, meetsWcagAaLargeTextOrUi, meetsWcagAaText } from '@/lib/platform-v7/design/contrast';
 import { getPlatformV7ToneTokens, PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
 
@@ -96,5 +99,59 @@ describe('P7MetricCard', () => {
   it('uses semantic tone surfaces', () => {
     render(<P7MetricCard title='Evidence' value='5/5' tone='evidence' testId='evidence-metric' />);
     expect(screen.getByTestId('evidence-metric')).toHaveStyle({ background: '#F4F3FF' });
+  });
+});
+
+describe('P7Page', () => {
+  it('renders page title, subtitle, actions and content', () => {
+    render(
+      <P7Page title='Центр управления' subtitle='Единый контур сделки' actions={<button type='button'>Фильтр</button>} testId='p7-page'>
+        Рабочая область
+      </P7Page>,
+    );
+
+    expect(screen.getByTestId('p7-page')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Центр управления' })).toBeInTheDocument();
+    expect(screen.getByText('Единый контур сделки')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Фильтр' })).toBeInTheDocument();
+    expect(screen.getByText('Рабочая область')).toBeInTheDocument();
+  });
+
+  it('renders content without an optional header', () => {
+    render(<P7Page testId='p7-page-no-header'>Только контент</P7Page>);
+    expect(screen.getByTestId('p7-page-no-header')).toBeInTheDocument();
+    expect(screen.getByText('Только контент')).toBeInTheDocument();
+  });
+});
+
+describe('P7Section', () => {
+  it('renders section title, subtitle, actions and content', () => {
+    render(
+      <P7Section title='Очередь проблем' subtitle='Сортировка по SLA' actions={<button type='button'>Экспорт</button>} testId='p7-section'>
+        Карточки очереди
+      </P7Section>,
+    );
+
+    expect(screen.getByTestId('p7-section')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Очередь проблем' })).toBeInTheDocument();
+    expect(screen.getByText('Сортировка по SLA')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Экспорт' })).toBeInTheDocument();
+    expect(screen.getByText('Карточки очереди')).toBeInTheDocument();
+  });
+});
+
+describe('P7Toolbar', () => {
+  it('renders toolbar content inside the standard surface', () => {
+    render(
+      <P7Toolbar testId='p7-toolbar'>
+        <button type='button'>Фильтры</button>
+        <button type='button'>Сохранить вид</button>
+      </P7Toolbar>,
+    );
+
+    expect(screen.getByTestId('p7-toolbar')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Фильтры' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Сохранить вид' })).toBeInTheDocument();
+    expect(screen.getByTestId('p7-toolbar')).toHaveStyle({ background: '#FFFFFF' });
   });
 });
