@@ -16,6 +16,7 @@ export type P7MoneyRejectCode =
 
 export type P7ReleaseBlockerCode =
   | 'NO_CONFIRMED_RESERVE'
+  | 'INVALID_RELEASE_AMOUNT'
   | 'REQUEST_EXCEEDS_RESERVE'
   | 'HOLD_ACTIVE'
   | 'DISPUTE_OPEN'
@@ -108,6 +109,7 @@ export type P7ReleaseDecision =
 
 export const P7_RELEASE_BLOCKER_LABELS: Record<P7ReleaseBlockerCode, string> = {
   NO_CONFIRMED_RESERVE: 'Нет подтверждённого резерва',
+  INVALID_RELEASE_AMOUNT: 'Некорректная сумма выпуска',
   REQUEST_EXCEEDS_RESERVE: 'Запрошенная сумма превышает резерв',
   HOLD_ACTIVE: 'Есть активное удержание',
   DISPUTE_OPEN: 'Открыт спор',
@@ -219,6 +221,7 @@ export function decideMoneyRelease(input: P7ReleaseGuardInput): P7ReleaseDecisio
   const blockers: P7ReleaseBlockerCode[] = [];
 
   if (input.reservedAmount <= 0) blockers.push('NO_CONFIRMED_RESERVE');
+  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) blockers.push('INVALID_RELEASE_AMOUNT');
   if (requestedAmount > input.reservedAmount) blockers.push('REQUEST_EXCEEDS_RESERVE');
   if (input.holdAmount > 0) blockers.push('HOLD_ACTIVE');
   if (input.disputeOpen) blockers.push('DISPUTE_OPEN');
