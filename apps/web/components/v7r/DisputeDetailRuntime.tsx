@@ -6,14 +6,7 @@ import { selectDisputeById } from '@/lib/domain/selectors';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { useToast } from '@/components/v7r/Toast';
 import { trackEvent } from '@/lib/analytics/track';
-
-const DOCS_CHECKLIST = [
-  'Контракт купли-продажи',
-  'Лабораторный протокол (ФГИС)',
-  'Акт сюрвейера',
-  'Банковская выписка резерва',
-  'Ответная позиция контрагента',
-];
+import { buildEvidencePackReadinessUiModel, type P7EvidenceUiTone } from '@/lib/v7r/evidence-pack-ui';
 
 function downloadTextFile(filename: string, content: string) {
   const blob = new Blob(['\ufeff' + content], { type: 'text/plain;charset=utf-8;' });
@@ -25,20 +18,36 @@ function downloadTextFile(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+function tonePalette(tone: P7EvidenceUiTone) {
+  if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
+  if (tone === 'warning') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
+  if (tone === 'danger') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
+  return { bg: 'var(--pc-bg-subtle)', border: 'var(--pc-border)', color: 'var(--pc-text-secondary)' };
+}
+
+function EvidenceReadinessBadge({ tone, children }: { tone: P7EvidenceUiTone; children: React.ReactNode }) {
+  const p = tonePalette(tone);
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', borderRadius: 999, background: p.bg, border: `1px solid ${p.border}`, color: p.color, fontSize: 12, fontWeight: 800 }}>
+      {children}
+    </span>
+  );
+}
+
+function EvidenceMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ padding: 12, borderRadius: 14, background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border)' }}>
+      <div style={{ fontSize: 11, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
+      <div style={{ marginTop: 6, fontSize: 15, fontWeight: 900, color: 'var(--pc-text-primary)' }}>{value}</div>
+    </div>
+  );
+}
+
 export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
   const toast = useToast();
   const dispute = selectDisputeById(disputeId);
-  const [showPackage, setShowPackage] = React.useState(false);
-  const [checked, setChecked] = React.useState<Set<number>>(new Set([0, 1, 2]));
   const [reminderSent, setReminderSent] = React.useState(false);
-
-  function toggleDoc(i: number) {
-    setChecked(prev => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-  }
+  const evidenceUi = React.useMemo(() => buildEvidencePackReadinessUiModel(disputeId), [disputeId]);
 
   function handleReminder() {
     setReminderSent(true);
@@ -48,33 +57,40 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
 
   function handlePackageDownload() {
     if (!dispute) return;
-    const selectedDocs = DOCS_CHECKLIST.filter((_, i) => checked.has(i));
-    const missingDocs = DOCS_CHECKLIST.filter((_, i) => !checked.has(i));
     const content = [
       `Пакет доказательств по спору ${dispute.id}`,
       `Сделка: ${dispute.dealId}`,
       `Причина: ${dispute.reasonCode}`,
-      `Статус: ${dispute.status === 'open' ? 'Открыт' : 'Закрыт'}`,
+      `Статус readiness: ${evidenceUi.statusLabel}`,
+      `Readiness score: ${evidenceUi.scoreLabel}`,
+      `Required: ${evidenceUi.requiredLabel}`,
       `Удержано: ${formatMoney(dispute.holdAmount)}`,
       `SLA осталось: ${dispute.slaDaysLeft} дн.`,
       `Мяч у: ${dispute.ballAt}`,
       '',
-      'Описание:',
-      dispute.description,
+      'Ограничение зрелости:',
+      ...evidenceUi.limitations.map((item) => `— ${item}`),
       '',
-      `Загружено документов: ${checked.size}/${DOCS_CHECKLIST.length}`,
-      ...selectedDocs.map((doc) => `✓ ${doc}`),
+      'Blockers:',
+      ...(evidenceUi.blockers.length ? evidenceUi.blockers.map((item) => `— ${item}`) : ['— нет']),
       '',
-      'Недостающие документы:',
-      ...(missingDocs.length ? missingDocs.map((doc) => `— ${doc}`) : ['— нет']),
+      'Evidence objects:',
+      ...(evidenceUi.items.length
+        ? evidenceUi.items.map((item) => [
+          `— ${item.id}: ${item.title}`,
+          `  type=${item.typeLabel}; source=${item.sourceLabel}; trust=${item.trustLabel}`,
+          `  hash=${item.hashLabel}; actor=${item.actorLabel}; version=${item.versionLabel}; ${item.immutableLabel}`,
+          `  captured=${item.capturedAtLabel}; uploaded=${item.uploadedAtLabel}; geo=${item.geoLabel}; chain=${item.chainLabel}`,
+          item.issueLabels.length ? `  issues=${item.issueLabels.join('; ')}` : '  issues=нет',
+        ].join('\n'))
+        : ['— нет объектов evidence для этого disputeId']),
       '',
       `Сформировано: ${new Date().toISOString()}`,
     ].join('\n');
 
-    downloadTextFile(`evidence-pack-${dispute.id}.txt`, content);
-    trackEvent('dispute_package_downloaded', { disputeId, docs: checked.size });
-    toast(`Пакет доказательств ${checked.size}/${DOCS_CHECKLIST.length} скачан`, 'success');
-    setShowPackage(false);
+    downloadTextFile(`evidence-readiness-${dispute.id}.txt`, content);
+    trackEvent('dispute_package_downloaded', { disputeId, evidenceObjects: evidenceUi.items.length, readiness: evidenceUi.scoreLabel });
+    toast(`Evidence readiness ${evidenceUi.scoreLabel} скачан`, 'success');
   }
 
   if (!dispute) {
@@ -90,7 +106,7 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
   }
 
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 800, margin: '0 auto' }}>
+    <div style={{ display: 'grid', gap: 16, maxWidth: 920, margin: '0 auto' }}>
       <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
@@ -108,7 +124,7 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
         {[
           { label: 'Удержано', value: formatMoney(dispute.holdAmount) },
           { label: 'SLA осталось', value: `${dispute.slaDaysLeft} дн.` },
-          { label: 'Доказательства', value: `${dispute.evidence.uploaded}/${dispute.evidence.total}` },
+          { label: 'Evidence readiness', value: evidenceUi.scoreLabel },
           { label: 'Мяч у', value: dispute.ballAt },
         ].map(({ label, value }) => (
           <section key={label} style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 14, padding: 16 }}>
@@ -122,30 +138,62 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
         <div style={{ fontSize: 13, color: 'var(--pc-text-secondary)', lineHeight: 1.7 }}>{dispute.description}</div>
       </section>
 
-      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary)' }}>Пакет доказательств ({dispute.evidence.uploaded}/{dispute.evidence.total})</div>
-        {!showPackage ? (
-          <button onClick={() => setShowPackage(true)} style={{ alignSelf: 'start', padding: '10px 16px', borderRadius: 12, border: 'none', background: 'var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-            Сформировать пакет доказательств
-          </button>
-        ) : (
-          <div style={{ display: 'grid', gap: 10 }}>
-            <div style={{ fontSize: 13, color: 'var(--pc-text-muted)' }}>Отметьте документы, которые войдут в скачиваемый пакет:</div>
-            {DOCS_CHECKLIST.map((doc, i) => (
-              <label key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 10, background: checked.has(i) ? 'rgba(10,122,95,0.06)' : 'var(--pc-bg-subtle)', border: `1px solid ${checked.has(i) ? 'rgba(10,122,95,0.18)' : 'var(--pc-border)'}`, cursor: 'pointer' }}>
-                <input type='checkbox' checked={checked.has(i)} onChange={() => toggleDoc(i)} style={{ width: 16, height: 16 }} />
-                <span style={{ fontSize: 13, fontWeight: checked.has(i) ? 700 : 400, color: 'var(--pc-text-primary)' }}>{doc}</span>
-                {checked.has(i) && <span style={{ marginLeft: 'auto', fontSize: 12, color: '#0A7A5F', fontWeight: 700 }}>✓ в пакете</span>}
-              </label>
-            ))}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button onClick={handlePackageDownload} style={{ padding: '10px 16px', borderRadius: 12, border: 'none', background: 'var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                Скачать пакет ({checked.size}/{DOCS_CHECKLIST.length})
-              </button>
-              <button onClick={() => setShowPackage(false)} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-card)', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Отмена</button>
-            </div>
+      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Evidence readiness</div>
+            <div style={{ marginTop: 5, fontSize: 12, color: 'var(--pc-text-muted)', lineHeight: 1.5 }}>Объектный пакет доказательств для controlled pilot. Это не live storage, не файловая загрузка и не квалифицированная электронная подпись.</div>
+          </div>
+          <EvidenceReadinessBadge tone={evidenceUi.statusTone}>{evidenceUi.statusLabel}</EvidenceReadinessBadge>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
+          <EvidenceMetric label='Score' value={evidenceUi.scoreLabel} />
+          <EvidenceMetric label='Required' value={evidenceUi.requiredLabel} />
+          <EvidenceMetric label='Total' value={evidenceUi.totalLabel} />
+        </div>
+
+        {evidenceUi.blockers.length > 0 && (
+          <div style={{ padding: 14, borderRadius: 14, background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.16)', display: 'grid', gap: 6 }}>
+            <div style={{ fontSize: 11, color: '#B91C1C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 900 }}>Blockers</div>
+            {evidenceUi.blockers.map((item) => <div key={item} style={{ fontSize: 12, color: '#7F1D1D', lineHeight: 1.5 }}>— {item}</div>)}
           </div>
         )}
+
+        <div style={{ display: 'grid', gap: 10 }}>
+          {evidenceUi.items.length === 0 ? (
+            <div style={{ padding: 14, borderRadius: 14, background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border)', fontSize: 13, color: 'var(--pc-text-muted)' }}>Для этого disputeId нет stable evidence objects.</div>
+          ) : evidenceUi.items.map((item) => (
+            <article key={item.id} style={{ padding: 14, borderRadius: 14, background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border)', display: 'grid', gap: 9 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--pc-text-primary)' }}>{item.title}</div>
+                  <div style={{ marginTop: 4, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--pc-text-muted)' }}>{item.id}</div>
+                </div>
+                <EvidenceReadinessBadge tone={item.issueLabels.length ? 'danger' : 'success'}>{item.issueLabels.length ? 'issue' : 'valid'}</EvidenceReadinessBadge>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+                <EvidenceMetric label='Type' value={item.typeLabel} />
+                <EvidenceMetric label='Source' value={item.sourceLabel} />
+                <EvidenceMetric label='Trust' value={item.trustLabel} />
+                <EvidenceMetric label='Actor' value={item.actorLabel} />
+                <EvidenceMetric label='Geo' value={item.geoLabel} />
+                <EvidenceMetric label='Chain' value={item.chainLabel} />
+              </div>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--pc-text-muted)', overflowWrap: 'anywhere' }}>{item.hashLabel} · {item.versionLabel} · {item.immutableLabel}</div>
+              <div style={{ fontSize: 11, color: 'var(--pc-text-muted)' }}>captured: {item.capturedAtLabel} · uploaded: {item.uploadedAtLabel} · signature: {item.signatureLabel}</div>
+            </article>
+          ))}
+        </div>
+
+        <div style={{ padding: 14, borderRadius: 14, background: 'rgba(217,119,6,0.06)', border: '1px solid rgba(217,119,6,0.16)', display: 'grid', gap: 6 }}>
+          <div style={{ fontSize: 11, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 900 }}>Граница зрелости</div>
+          {evidenceUi.limitations.map((item) => <div key={item} style={{ fontSize: 12, color: '#92400E', lineHeight: 1.5 }}>— {item}</div>)}
+        </div>
+
+        <button onClick={handlePackageDownload} style={{ justifySelf: 'start', padding: '10px 16px', borderRadius: 12, border: 'none', background: 'var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+          Скачать readiness snapshot
+        </button>
       </section>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
