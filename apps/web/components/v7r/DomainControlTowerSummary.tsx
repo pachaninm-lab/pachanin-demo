@@ -48,6 +48,18 @@ export function DomainControlTowerSummary() {
 
   return (
     <section style={{ display: 'grid', gap: 14 }} aria-label='Доменная сводка центра управления'>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ fontSize: 12, color: '#6B778C', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          KPI центра управления
+        </div>
+        <Link
+          href='/platform-v7/control-tower/canonical-reconciliation'
+          style={{ border: '1px solid #CBD5E1', borderRadius: 999, padding: '7px 11px', color: '#334155', background: '#F8FAFC', textDecoration: 'none', fontSize: 12, fontWeight: 800 }}
+        >
+          Сверка canonical KPI
+        </Link>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard testId='kpi-moneyAtRisk' title='Деньги под риском' value={formatCompactMoney(kpis.moneyAtRisk.value)} note='Единый расчёт риска из доменного слоя.' formula={formula('moneyAtRisk')} href='/platform-v7/disputes' tone='red' />
         <StatCard testId='kpi-heldAmount' title='Под удержанием' value={formatCompactMoney(kpis.heldAmount.value)} note='Сумма удержаний по активным сделкам.' formula={formula('heldAmount')} href='/platform-v7/disputes' tone='red' />
