@@ -7,6 +7,7 @@ export interface ControlTowerKpi {
   readonly blockedDeals: number;
   readonly totalGmv: MoneyAmount;
   readonly totalReserved: MoneyAmount;
+  readonly totalHold: MoneyAmount;
   readonly moneyAtRisk: MoneyAmount;
   readonly readyToRelease: MoneyAmount;
   readonly averageRiskScore: number;
@@ -39,6 +40,7 @@ export function calculateControlTowerKpi(deals: readonly CanonicalDeal[]): Contr
     blockedDeals,
     totalGmv: money.totalGmv,
     totalReserved: money.totalReserved,
+    totalHold: money.totalHold,
     moneyAtRisk: money.moneyAtRisk,
     readyToRelease,
     averageRiskScore: riskScores.length ? Math.round(riskSum / riskScores.length) : 0,
