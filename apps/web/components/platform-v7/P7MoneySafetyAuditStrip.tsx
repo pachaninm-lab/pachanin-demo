@@ -1,4 +1,4 @@
-import { buildV7rMoneySafetyAuditRows } from '@/lib/v7r/money-ledger';
+import { buildStableV7rMoneySafetyAuditRows } from '@/lib/v7r/money-audit-rows';
 import type { P7MoneySafetyAuditRow } from '@/lib/platform-v7/money-safety-audit';
 
 function toneToken(tone: P7MoneySafetyAuditRow['tone']) {
@@ -29,7 +29,7 @@ function toneToken(tone: P7MoneySafetyAuditRow['tone']) {
 }
 
 export function P7MoneySafetyAuditStrip() {
-  const rows = buildV7rMoneySafetyAuditRows();
+  const rows = buildStableV7rMoneySafetyAuditRows();
 
   return (
     <section
@@ -47,7 +47,7 @@ export function P7MoneySafetyAuditStrip() {
         <div>
           <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Money safety audit</div>
           <div style={{ marginTop: 8, maxWidth: 820, fontSize: 13, lineHeight: 1.65, color: '#5B6576' }}>
-            E7 guard layer: выпуск денег решается через reserve, документы, bank callback, transport/FGIS gates, ledger и reconciliation. Источник строк — единый v7r data layer: DEALS + CALLBACKS.
+            E7 guard layer: выпуск денег решается через reserve, документы, bank callback, transport/FGIS gates, ledger и reconciliation. Источник строк — v7r money audit adapter.
           </div>
         </div>
         <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 900 }}>
