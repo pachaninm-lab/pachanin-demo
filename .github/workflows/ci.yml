@@ -28,5 +28,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Test web action feedback
+        run: pnpm --filter @pc/web exec vitest run tests/unit/platformV7ActionRunner.test.ts tests/unit/p7ActionButton.test.tsx tests/unit/p7ActionLog.test.tsx
+
       - name: Build web
         run: pnpm build
