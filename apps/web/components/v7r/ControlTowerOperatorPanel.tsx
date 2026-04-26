@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { P7Badge } from '@/components/platform-v7/P7Badge';
 import { P7Card } from '@/components/platform-v7/P7Card';
+import { runPlatformAction } from '@/lib/platform-v7/action-runner';
 import { PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
 import { formatCompactMoney, formatMoney } from '@/lib/v7r/helpers';
 import { translateReason, translateRole } from '@/lib/i18n/reason-codes';
@@ -94,7 +95,25 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
     if (busyId) return;
     setBusyId(item.id);
 
-    const actionResult = buildGatePassResult({ dealId: item.id, amount: item.releasableAmount });
+    const runnerResult = await runPlatformAction({
+      scope: 'deal',
+      objectId: item.id,
+      action: 'remove-blocker',
+      actor: 'Оператор платформы',
+      loadingMessage: `${item.id}: начато снятие препятствия.`,
+      successMessage: () => `${item.id}: препятствие снято, проверка пройдена.`,
+      errorMessage: (error) => `${item.id}: не удалось снять препятствие${error instanceof Error ? `: ${error.message}` : ''}.`,
+      run: async () => buildGatePassResult({ dealId: item.id, amount: item.releasableAmount }),
+    });
+
+    pushActionLog(runnerResult.log);
+
+    if (runnerResult.phase !== 'success' || !runnerResult.result) {
+      setBusyId(null);
+      return;
+    }
+
+    const actionResult = runnerResult.result;
 
     setItems((prev) => prev.map((row) => row.id === item.id ? {
       ...row,
@@ -106,17 +125,30 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
     pushActionLog(actionResult.log);
 
     if (item.releaseEligible && item.releasableAmount > 0) {
-      try {
-        const res = await fetch('/api/sim/bank-callback', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dealId: item.id, amount: item.releasableAmount }),
-        });
-        const data = await res.json();
+      const bankResult = await runPlatformAction({
+        scope: 'bank',
+        objectId: item.id,
+        action: 'bank-callback',
+        actor: 'Оператор платформы',
+        loadingMessage: `${item.id}: запрошено банковское демо-событие.`,
+        successMessage: (data: { id: string; amountRub: number; ts: string }) => `${item.id}: банк подтвердил ${formatMoney(data.amountRub)}.`,
+        errorMessage: () => `${item.id}: подтверждение банка не получено.`,
+        run: async () => {
+          const res = await fetch('/api/sim/bank-callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dealId: item.id, amount: item.releasableAmount }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json() as { id: string; amountRub: number; ts: string };
+        },
+      });
+
+      pushActionLog(bankResult.log);
+
+      if (bankResult.phase === 'success' && bankResult.result) {
+        const data = bankResult.result;
         setCallbacks((prev) => ({ ...prev, [item.id]: { id: data.id, amountRub: data.amountRub, ts: data.ts } }));
-        pushAudit('Событие банка', `${item.id}: банк подтвердил ${formatMoney(data.amountRub)}.`);
-      } catch {
-        pushAudit('Ошибка банкового события', `${item.id}: подтверждение банка не получено.`);
       }
     }
 
