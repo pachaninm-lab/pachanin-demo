@@ -1,0 +1,28 @@
+import type { ReactNode } from 'react';
+import { getPlatformV7ToneTokens, PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
+
+export function P7Badge({ children, tone = 'neutral' }: { readonly children: ReactNode; readonly tone?: PlatformV7Tone }) {
+  const colors = getPlatformV7ToneTokens(tone);
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        minHeight: 28,
+        borderRadius: PLATFORM_V7_TOKENS.radius.pill,
+        border: `1px solid ${colors.border}`,
+        background: colors.bg,
+        color: colors.fg,
+        padding: '5px 10px',
+        fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
+        fontSize: PLATFORM_V7_TOKENS.typography.caption.size,
+        lineHeight: PLATFORM_V7_TOKENS.typography.caption.lineHeight,
+        fontWeight: PLATFORM_V7_TOKENS.typography.caption.weight,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </span>
+  );
+}
