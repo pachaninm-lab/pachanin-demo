@@ -37,6 +37,21 @@ function latestEvidenceTimestamp(items: ReturnType<typeof buildStableDisputeEvid
   return new Date(Math.max(...dates)).toISOString();
 }
 
+function normalizeTimelineType(value: string): P7EvidenceTimelineEvent['type'] {
+  if (value === 'danger') return 'danger';
+  if (value === 'warning') return 'warning';
+  return 'success';
+}
+
+function buildDealEvidenceTimeline(dealId: string): P7EvidenceTimelineEvent[] {
+  return buildDealPersistenceTimeline(dealId).map((event) => ({
+    ts: event.ts,
+    actor: event.actor,
+    action: event.action,
+    type: normalizeTimelineType(event.type),
+  }));
+}
+
 function buildEvidenceTimelineEvent(input: {
   disputeId: string;
   score: string;
@@ -48,7 +63,7 @@ function buildEvidenceTimelineEvent(input: {
     ts: input.at,
     actor: 'Evidence runtime',
     action: input.blockers.length
-      ? `Evidence readiness ${input.score}: требуется ручной разбор ${input.disputeId}`
+      ? `Evidence readiness ${input.score}: requires review ${input.disputeId}`
       : `Evidence readiness ${input.score}: ${input.status} ${input.disputeId}`,
     type: input.blockers.length ? 'danger' : 'success',
   };
@@ -71,7 +86,7 @@ function buildEvidenceActionLog(input: {
     actor: 'operator-runtime',
     at: input.at,
     message: input.blockers.length
-      ? `Evidence readiness ${input.score}: blocked by ${input.blockers.length} issue(s).`
+      ? `Evidence readiness ${input.score}: ${input.blockers.length} issue(s).`
       : `Evidence readiness ${input.score}: pack can move to review in controlled pilot layer.`,
     error: input.blockers.length ? input.blockers.join('; ') : undefined,
   })];
@@ -80,7 +95,7 @@ function buildEvidenceActionLog(input: {
 export function buildDisputeEvidenceOperationalProjection(disputeId: string): P7DisputeEvidenceOperationalProjection {
   const pack = buildStableDisputeEvidencePack(disputeId);
   const ui = buildEvidencePackReadinessUiModel(disputeId);
-  const dealTimeline = pack.dealId ? buildDealPersistenceTimeline(pack.dealId) : [];
+  const dealTimeline = pack.dealId ? buildDealEvidenceTimeline(pack.dealId) : [];
   const at = latestEvidenceTimestamp(pack.items);
   const evidenceEvent = buildEvidenceTimelineEvent({
     disputeId,
