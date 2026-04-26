@@ -21,6 +21,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     keywords: 'центр управления оператор kpi control tower',
   },
   {
+    id: 'sec-canonical-kpi-reconciliation',
+    group: 'Разделы',
+    title: 'Сверка canonical KPI',
+    subtitle: 'Сравнение текущей и canonical формулы KPI',
+    href: '/platform-v7/control-tower/canonical-reconciliation',
+    keywords: 'canonical kpi сверка reconciliation domain',
+  },
+  {
     id: 'sec-deals',
     group: 'Разделы',
     title: `Все ${PLATFORM_V7_LEXICON.nav.deals.toLowerCase()}`,
