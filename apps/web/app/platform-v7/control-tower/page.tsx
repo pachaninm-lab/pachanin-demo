@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { P7Page } from '@/components/platform-v7/P7Page';
+import { P7Section } from '@/components/platform-v7/P7Section';
+import { P7Toolbar } from '@/components/platform-v7/P7Toolbar';
 import { selectRuntimeCallbacks, selectRuntimeDeals, selectRuntimeDisputes, selectDealIntegrationState } from '@/lib/domain/selectors';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import { ControlTowerOperatorPanel } from '@/components/v7r/ControlTowerOperatorPanel';
@@ -113,7 +116,6 @@ export default function PlatformV7ControlTowerPage() {
   return (
     <>
       <style>{`
-        .ct-page{display:grid;gap:18px;max-width:100%;overflow-x:hidden}
         .ct-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
         .ct-metric{background:#fff;border:1px solid #E4E6EA;border-radius:18px;padding:18px;display:block;text-decoration:none;color:inherit}
         .ct-metric-title{font-size:11px;color:#6B778C;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
@@ -130,103 +132,109 @@ export default function PlatformV7ControlTowerPage() {
         @media (max-width:1100px){.ct-two{grid-template-columns:1fr}}
         @media (max-width:768px){.ct-queue-item{grid-template-columns:1fr}.ct-queue-actions{justify-content:flex-start}}
       `}</style>
-      <div className='ct-page'>
-        <DomainControlTowerSummary />
+      <P7Page
+        title='Центр управления'
+        subtitle='Операторский экран: деньги, стопы, транспортные документы, следующий владелец и одно правильное действие по каждой сделке.'
+        actions={(
+          <P7Toolbar testId='control-tower-toolbar'>
+            <Badge tone='red'>Проблемы</Badge>
+            <Badge tone='amber'>К выпуску</Badge>
+            <Badge tone='blue'>Проверка</Badge>
+          </P7Toolbar>
+        )}
+        testId='platform-v7-control-tower-page'
+      >
+        <P7Section title='Деньги и риски' subtitle='KPI берутся из единого runtime-контура и ведут в соответствующие рабочие зоны.'>
+          <DomainControlTowerSummary />
+        </P7Section>
 
-        <section className='ct-queue'>
-          <div style={{ display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'center' }}>
-            <div>
-              <div className='ct-title'>Очередь проблем и действий</div>
-              <div className='ct-sub'>Каждая строка — это деньги, причина, владелец и одно правильное действие.</div>
-            </div>
-            <div className='ct-row'>
-              <Badge tone='red'>Проблемы</Badge>
-              <Badge tone='amber'>К выпуску</Badge>
-              <Badge tone='blue'>Проверка</Badge>
-            </div>
-          </div>
-
-          {queue.map((item) => (
-            <div key={item.deal.id} className='ct-queue-item'>
-              <div style={{ display:'grid',gap:8 }}>
-                <div className='ct-row'>
-                  <span style={{ fontFamily:'JetBrains Mono, monospace', fontWeight:800, fontSize:13, color:'#0A7A5F' }}>{item.deal.id}</span>
-                  <Badge tone={item.severity === 3 ? 'red' : item.severity === 2 ? 'amber' : 'blue'}>{statusLabel(item.deal.status)}</Badge>
-                  <Badge tone={item.integration.gateState === 'FAIL' ? 'red' : item.integration.gateState === 'REVIEW' ? 'amber' : 'green'}>{item.integration.gateState === 'FAIL' ? 'Проверка: стоп' : item.integration.gateState === 'REVIEW' ? 'Проверка вручную' : 'Проверено'}</Badge>
-                  <Badge tone={String(item.slaState).includes('Просрочено') ? 'red' : String(item.slaState).includes('24') ? 'amber' : 'blue'}>{item.slaState}</Badge>
-                </div>
-                <div style={{ fontSize:15, fontWeight:800, color:'#0F1419' }}>{item.deal.grain} · {item.deal.quantity} {item.deal.unit}</div>
-                <div style={{ fontSize:13, color:'#334155' }}>{item.reason}</div>
-                <div className='ct-row'>
-                  <span style={{ fontSize:12, color:'#6B778C' }}>Под риском: <strong style={{ color:'#0F1419' }}>{formatCompactMoney(item.amountAtRisk)}</strong></span>
-                  <span style={{ fontSize:12, color:'#6B778C' }}>Владелец: <strong style={{ color:'#0F1419' }}>{item.owner}</strong></span>
-                </div>
-              </div>
-              <div className='ct-queue-actions'>
-                <Link href={`/platform-v7/deals/${item.deal.id}`} style={btn()}>Открыть сделку</Link>
-                <Link href={item.primaryAction.href} style={btn(item.severity === 3 ? 'danger' : 'primary')}>{item.primaryAction.label}</Link>
-              </div>
-            </div>
-          ))}
-        </section>
-
-        <section className='ct-queue'>
-          <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', alignItems:'flex-start' }}>
-            <div>
-              <div className='ct-title'>Транспортный контур СберКорус</div>
-              <div className='ct-sub'>Отдельная очередь по юридически значимым перевозочным документам. Пока этот контур не закрыт, банк не должен считать выпуск денег чистым.</div>
-            </div>
-            <SberKorusBadge subtitle='Контроль перевозочных документов' compact />
-          </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12 }}>
-            <Metric title='Красный стоп' value={String(transportBlocked)} note='Пакеты, которые прямо держат деньги.' href='/platform-v7/control-tower/hotlist' tone='red' />
-            <Metric title='Ждём подписи' value={String(transportAwaiting)} note='Сделки, где не собрана полная цепочка подписей.' href='/platform-v7/control-tower/hotlist' tone='default' />
-            <Metric title='Зелёный контур' value={String(transportCompleted)} note='Пакеты, которые больше не спорят с банковым выпуском.' href='/platform-v7/bank' tone='green' />
-          </div>
-          <div style={{ display:'grid', gap:10 }}>
-            {transportHotlist.map((item) => (
-              <div key={item.id} style={{ border:'1px solid #E4E6EA', borderRadius:16, padding:14, background:'#F8FAFB', display:'grid', gap:8 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', alignItems:'center' }}>
-                  <div>
-                    <div style={{ fontSize:14, fontWeight:800, color:'#0F1419' }}>{item.title}</div>
-                    <div style={{ marginTop:4, fontSize:12, color:'#6B778C' }}>{item.providerLabel}</div>
+        <P7Section title='Очередь проблем и действий' subtitle='Каждая строка — это деньги, причина, владелец и одно правильное действие.'>
+          <section className='ct-queue'>
+            {queue.map((item) => (
+              <div key={item.deal.id} className='ct-queue-item'>
+                <div style={{ display:'grid',gap:8 }}>
+                  <div className='ct-row'>
+                    <span style={{ fontFamily:'JetBrains Mono, monospace', fontWeight:800, fontSize:13, color:'#0A7A5F' }}>{item.deal.id}</span>
+                    <Badge tone={item.severity === 3 ? 'red' : item.severity === 2 ? 'amber' : 'blue'}>{statusLabel(item.deal.status)}</Badge>
+                    <Badge tone={item.integration.gateState === 'FAIL' ? 'red' : item.integration.gateState === 'REVIEW' ? 'amber' : 'green'}>{item.integration.gateState === 'FAIL' ? 'Проверка: стоп' : item.integration.gateState === 'REVIEW' ? 'Проверка вручную' : 'Проверено'}</Badge>
+                    <Badge tone={String(item.slaState).includes('Просрочено') ? 'red' : String(item.slaState).includes('24') ? 'amber' : 'blue'}>{item.slaState}</Badge>
                   </div>
-                  <Badge tone={item.moneyImpactStatus === 'blocks_release' ? 'red' : 'amber'}>{item.moneyImpactStatus === 'blocks_release' ? 'Блокирует выпуск' : 'Частично блокирует'}</Badge>
+                  <div style={{ fontSize:15, fontWeight:800, color:'#0F1419' }}>{item.deal.grain} · {item.deal.quantity} {item.deal.unit}</div>
+                  <div style={{ fontSize:13, color:'#334155' }}>{item.reason}</div>
+                  <div className='ct-row'>
+                    <span style={{ fontSize:12, color:'#6B778C' }}>Под риском: <strong style={{ color:'#0F1419' }}>{formatCompactMoney(item.amountAtRisk)}</strong></span>
+                    <span style={{ fontSize:12, color:'#6B778C' }}>Владелец: <strong style={{ color:'#0F1419' }}>{item.owner}</strong></span>
+                  </div>
                 </div>
-                <div style={{ fontSize:12, color:'#334155', lineHeight:1.6 }}>{item.note}</div>
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                  <Link href={item.primaryHref} style={btn()}>Открыть пакет</Link>
-                  <Link href={item.simulationHref} style={btn('primary')}>Симуляция</Link>
+                <div className='ct-queue-actions'>
+                  <Link href={`/platform-v7/deals/${item.deal.id}`} style={btn()}>Открыть сделку</Link>
+                  <Link href={item.primaryAction.href} style={btn(item.severity === 3 ? 'danger' : 'primary')}>{item.primaryAction.label}</Link>
                 </div>
               </div>
             ))}
-          </div>
-        </section>
-
-        <ControlTowerOperatorPanel deals={operatorItems} />
-
-        <section className='ct-two'>
-          <section className='ct-queue'>
-            <div className='ct-title'>Деньги по стадиям</div>
-            <div style={{ display:'grid', gap:12 }}>
-              <MoneyBar label='Резерв' value={totalReserved} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='blue' />
-              <MoneyBar label='Удержание' value={totalHold} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='red' />
-              <MoneyBar label='К выпуску' value={totalRelease} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='green' />
-              <MoneyBar label='Заблокировано интеграцией' value={integrationBlockedAmount} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='red' />
-            </div>
           </section>
+        </P7Section>
 
+        <P7Section
+          title='Транспортный контур СберКорус'
+          subtitle='Пока этот контур не закрыт, банк не должен считать выпуск денег чистым.'
+          actions={<SberKorusBadge subtitle='Контроль перевозочных документов' compact />}
+        >
           <section className='ct-queue'>
-            <div className='ct-title'>Сигналы системы</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12 }}>
+              <Metric title='Красный стоп' value={String(transportBlocked)} note='Пакеты, которые прямо держат деньги.' href='/platform-v7/control-tower/hotlist' tone='red' />
+              <Metric title='Ждём подписи' value={String(transportAwaiting)} note='Сделки, где не собрана полная цепочка подписей.' href='/platform-v7/control-tower/hotlist' tone='default' />
+              <Metric title='Зелёный контур' value={String(transportCompleted)} note='Пакеты, которые больше не спорят с банковым выпуском.' href='/platform-v7/bank' tone='green' />
+            </div>
             <div style={{ display:'grid', gap:10 }}>
-              <Signal title='Банк' detail={`${callbacks.length} события уже в контуре.`} href='/platform-v7/bank' />
-              <Signal title='Споры' detail={`${disputes.length} активных кейса под удержанием.`} href='/platform-v7/disputes' />
-              <Signal title='Проверка' detail={`${reviewByIntegration.length} сделки ждут ручной проверки.`} href='/platform-v7/connectors' />
-              <Signal title='СберКорус' detail={`${transportBlocked + transportAwaiting} транспортных кейсов требуют действий.`} href='/platform-v7/control-tower/hotlist' />
+              {transportHotlist.map((item) => (
+                <div key={item.id} style={{ border:'1px solid #E4E6EA', borderRadius:16, padding:14, background:'#F8FAFB', display:'grid', gap:8 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', alignItems:'center' }}>
+                    <div>
+                      <div style={{ fontSize:14, fontWeight:800, color:'#0F1419' }}>{item.title}</div>
+                      <div style={{ marginTop:4, fontSize:12, color:'#6B778C' }}>{item.providerLabel}</div>
+                    </div>
+                    <Badge tone={item.moneyImpactStatus === 'blocks_release' ? 'red' : 'amber'}>{item.moneyImpactStatus === 'blocks_release' ? 'Блокирует выпуск' : 'Частично блокирует'}</Badge>
+                  </div>
+                  <div style={{ fontSize:12, color:'#334155', lineHeight:1.6 }}>{item.note}</div>
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                    <Link href={item.primaryHref} style={btn()}>Открыть пакет</Link>
+                    <Link href={item.simulationHref} style={btn('primary')}>Симуляция</Link>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
-        </section>
-      </div>
+        </P7Section>
+
+        <P7Section title='Операторские действия' subtitle='Снятие препятствий, журнал действий и банковские демо-события без изменения бизнес-логики.'>
+          <ControlTowerOperatorPanel deals={operatorItems} />
+        </P7Section>
+
+        <P7Section title='Финансовый контур и системные сигналы' subtitle='Резерв, удержание, выпуск денег и связанные рабочие зоны.'>
+          <section className='ct-two'>
+            <section className='ct-queue'>
+              <div className='ct-title'>Деньги по стадиям</div>
+              <div style={{ display:'grid', gap:12 }}>
+                <MoneyBar label='Резерв' value={totalReserved} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='blue' />
+                <MoneyBar label='Удержание' value={totalHold} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='red' />
+                <MoneyBar label='К выпуску' value={totalRelease} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='green' />
+                <MoneyBar label='Заблокировано интеграцией' value={integrationBlockedAmount} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='red' />
+              </div>
+            </section>
+
+            <section className='ct-queue'>
+              <div className='ct-title'>Сигналы системы</div>
+              <div style={{ display:'grid', gap:10 }}>
+                <Signal title='Банк' detail={`${callbacks.length} события уже в контуре.`} href='/platform-v7/bank' />
+                <Signal title='Споры' detail={`${disputes.length} активных кейса под удержанием.`} href='/platform-v7/disputes' />
+                <Signal title='Проверка' detail={`${reviewByIntegration.length} сделки ждут ручной проверки.`} href='/platform-v7/connectors' />
+                <Signal title='СберКорус' detail={`${transportBlocked + transportAwaiting} транспортных кейсов требуют действий.`} href='/platform-v7/control-tower/hotlist' />
+              </div>
+            </section>
+          </section>
+        </P7Section>
+      </P7Page>
     </>
   );
 }
