@@ -23,6 +23,12 @@ export interface InvestorKpi {
   readonly blockedMoney: MoneyAmount;
 }
 
+export function calculateControlTowerMoneyAtRisk(deals: readonly CanonicalDeal[]): MoneyAmount {
+  return deals
+    .filter((deal) => deal.money.holdAmount > 0 || deal.status === 'DISPUTED' || Boolean(deal.dispute))
+    .reduce((sum, deal) => sum + deal.money.holdAmount + Math.round(deal.money.reservedAmount * 0.1), 0);
+}
+
 export function calculateControlTowerKpi(deals: readonly CanonicalDeal[]): ControlTowerKpi {
   const money = calculateMoneyKpi(deals);
   const activeDeals = deals.filter((deal) => !['CLOSED', 'CANCELED'].includes(deal.status)).length;
@@ -41,7 +47,7 @@ export function calculateControlTowerKpi(deals: readonly CanonicalDeal[]): Contr
     totalGmv: money.totalGmv,
     totalReserved: money.totalReserved,
     totalHold: money.totalHold,
-    moneyAtRisk: money.moneyAtRisk,
+    moneyAtRisk: calculateControlTowerMoneyAtRisk(deals),
     readyToRelease,
     averageRiskScore: riskScores.length ? Math.round(riskSum / riskScores.length) : 0,
     maxRiskScore: riskScores.length ? Math.max(...riskScores) : 0,
