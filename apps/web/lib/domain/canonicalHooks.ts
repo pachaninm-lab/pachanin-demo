@@ -12,6 +12,6 @@ export function useCanonicalRegistryControlTowerKpis(): CanonicalControlTowerKpi
   return React.useMemo(() => canonicalFixtureRegistry.kpis.controlTower, []);
 }
 
-export function useCanonicalRegistryInvestorKpis(): InvestorKpi {
+export function useCanonicalRegistryInvestorKpis(): CanonicalInvestorKpi {
   return React.useMemo(() => canonicalFixtureRegistry.kpis.investor, []);
 }
