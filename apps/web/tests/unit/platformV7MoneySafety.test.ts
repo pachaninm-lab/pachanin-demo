@@ -35,7 +35,8 @@ describe('platform-v7 money safety', () => {
       at: () => '2026-04-26T12:02:00Z',
     });
 
-    expect(result.status).toBe('accepted');
+    if (result.status !== 'accepted') throw new Error('Expected accepted money event');
+
     expect(result.ledger).toHaveLength(1);
     expect(result.entry.amount).toBe(3_873_600);
     expect(result.entry.currency).toBe('RUB');
@@ -48,7 +49,7 @@ describe('platform-v7 money safety', () => {
       at: () => '2026-04-26T12:02:00Z',
     });
 
-    expect(first.status).toBe('accepted');
+    if (first.status !== 'accepted') throw new Error('Expected accepted money event');
 
     const second = appendMoneyEventOnce(first.ledger, {
       ...reserveEvent,
@@ -56,7 +57,8 @@ describe('platform-v7 money safety', () => {
       occurredAt: '2026-04-26T12:03:00Z',
     });
 
-    expect(second.status).toBe('duplicate');
+    if (second.status !== 'duplicate') throw new Error('Expected duplicate money event');
+
     expect(second.ledger).toHaveLength(1);
     expect(second.entry).toEqual(first.entry);
   });
@@ -68,7 +70,8 @@ describe('platform-v7 money safety', () => {
       amount: 0,
     });
 
-    expect(result.status).toBe('rejected');
+    if (result.status !== 'rejected') throw new Error('Expected rejected money event');
+
     expect(result.reasonCode).toBe('INVALID_AMOUNT');
     expect(result.ledger).toEqual([]);
     expect(existing).toEqual([]);
@@ -116,6 +119,23 @@ describe('platform-v7 money safety', () => {
     expect(decision.reasonCode).toBe('REQUEST_EXCEEDS_RESERVE');
   });
 
+  it('blocks zero release even when all gates are clean', () => {
+    const decision = decideMoneyRelease({
+      dealId: 'DL-9109',
+      reservedAmount: 1_000_000,
+      holdAmount: 0,
+      requestedAmount: 0,
+      docsComplete: true,
+      bankCallbackConfirmed: true,
+      disputeOpen: false,
+      transportGateClear: true,
+      fgisGateClear: true,
+    });
+
+    expect(decision.state).toBe('blocked');
+    expect(decision.reasonCode).toBe('INVALID_RELEASE_AMOUNT');
+  });
+
   it('blocks repeated release command when release already exists in ledger', () => {
     const decision = decideMoneyRelease({
       dealId: 'DL-9109',
@@ -149,7 +169,8 @@ describe('platform-v7 money safety', () => {
       releaseRequestId: 'release-001',
     });
 
-    expect(decision.state).toBe('releasable');
+    if (decision.state !== 'releasable') throw new Error('Expected releasable money decision');
+
     expect(decision.reasonCode).toBe('READY_FOR_RELEASE');
     expect(decision.releasableAmount).toBe(3_873_600);
     expect(decision.idempotencyKey).toBe('release:dl-9109:release-001:387360000:387360000');
