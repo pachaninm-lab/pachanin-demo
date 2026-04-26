@@ -3,21 +3,14 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { P7ActionButton, type P7ActionButtonState } from '@/components/platform-v7/P7ActionButton';
+import { P7ActionLog } from '@/components/platform-v7/P7ActionLog';
 import { useDisputes } from '@/lib/domain/hooks';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { translateRole } from '@/lib/i18n/reason-codes';
 import { useToast } from '@/components/v7r/Toast';
 import { runPlatformAction } from '@/lib/platform-v7/action-runner';
-import type { PlatformActionLogEntry, PlatformActionStatus } from '@/lib/platform-v7/action-log';
+import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
 import { useBuyerRuntimeStore, type DraftDeal } from '@/stores/useBuyerRuntimeStore';
-
-type ActionRow = {
-  id: string;
-  at: string;
-  status: PlatformActionStatus;
-  action: string;
-  message: string;
-};
 
 function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
@@ -114,32 +107,16 @@ function InfoCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function toActionRow(entry: PlatformActionLogEntry): ActionRow {
-  return {
-    id: entry.id,
-    at: entry.at,
-    status: entry.status,
-    action: entry.action,
-    message: entry.message,
-  };
-}
-
-function actionStatusTone(status: PlatformActionStatus) {
-  if (status === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'Успешно' };
-  if (status === 'error') return { bg: 'rgba(180,35,24,0.08)', border: 'rgba(180,35,24,0.18)', color: '#B42318', label: 'Ошибка' };
-  return { bg: 'rgba(180,83,9,0.10)', border: 'rgba(180,83,9,0.18)', color: '#B45309', label: 'Выполняется' };
-}
-
 export function DisputesRuntime() {
   const toast = useToast();
   const disputes = useDisputes();
   const { draftDeals, resolveDraftDispute } = useBuyerRuntimeStore();
   const draftDisputes = draftDeals.filter((item) => item.disputeState === 'open' || item.disputeState === 'resolved');
   const [actionStates, setActionStates] = React.useState<Record<string, P7ActionButtonState>>({});
-  const [actionLog, setActionLog] = React.useState<ActionRow[]>([]);
+  const [actionLog, setActionLog] = React.useState<PlatformActionLogEntry[]>([]);
 
   const pushActionLog = (entries: PlatformActionLogEntry[]) => {
-    setActionLog((current) => [...entries.map(toActionRow), ...current].slice(0, 8));
+    setActionLog((current) => [...entries, ...current].slice(0, 8));
   };
 
   const closeDraftDispute = async (item: DraftDeal) => {
@@ -246,24 +223,7 @@ export function DisputesRuntime() {
         ))}
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Журнал действий по спорам</div>
-        {actionLog.length ? actionLog.map((row) => {
-          const tone = actionStatusTone(row.status);
-          return (
-            <div key={row.id} style={{ border: `1px solid ${tone.border}`, background: tone.bg, borderRadius: 14, padding: 12, display: 'grid', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{ display: 'inline-flex', borderRadius: 999, padding: '4px 8px', background: '#fff', color: tone.color, fontSize: 11, fontWeight: 800 }}>{tone.label}</span>
-                  <span style={{ color: '#0F1419', fontSize: 13, fontWeight: 800 }}>{row.action}</span>
-                </div>
-                <span style={{ color: '#667085', fontSize: 11 }}>{new Date(row.at).toLocaleString('ru-RU')}</span>
-              </div>
-              <div style={{ color: row.status === 'error' ? '#B42318' : '#475569', fontSize: 13, lineHeight: 1.5 }}>{row.message}</div>
-            </div>
-          );
-        }) : <div style={{ color: '#6B778C', fontSize: 13 }}>Действий пока нет.</div>}
-      </section>
+      <P7ActionLog title='Журнал действий по спорам' entries={actionLog} />
     </div>
   );
 }
