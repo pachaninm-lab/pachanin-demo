@@ -1,6 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { P7Badge } from '@/components/platform-v7/P7Badge';
+import { P7Card } from '@/components/platform-v7/P7Card';
+import { PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
 import { formatCompactMoney, formatMoney } from '@/lib/v7r/helpers';
 import { translateReason, translateRole } from '@/lib/i18n/reason-codes';
 import { buildGatePassResult } from '@/lib/platform-v7/operator-actions';
@@ -27,10 +30,10 @@ interface AuditRow {
   detail: string;
 }
 
-function gateTone(state: GateState) {
-  if (state === 'PASS') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  if (state === 'REVIEW') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
-  return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
+function gateTone(state: GateState): PlatformV7Tone {
+  if (state === 'PASS') return 'success';
+  if (state === 'REVIEW') return 'warning';
+  return 'danger';
 }
 
 function gateLabel(state: GateState) {
@@ -121,87 +124,165 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
   }
 
   return (
-    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Операторские действия</div>
-          <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C' }}>Прямо из центра управления: снять препятствие, увидеть журнал и получить демо-событие банка по выпуску денег.</div>
+    <P7Card
+      title='Операторские действия'
+      subtitle='Прямо из центра управления: снять препятствие, увидеть журнал и получить демо-событие банка по выпуску денег.'
+      testId='control-tower-operator-panel'
+      footer={<OperatorAudit audit={audit} />}
+    >
+      <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <P7Badge tone='danger'>Под проверкой: {formatCompactMoney(blockedAmount)}</P7Badge>
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 800 }}>
-          Под проверкой: {formatCompactMoney(blockedAmount)}
-        </div>
-      </div>
 
-      <div style={{ display: 'grid', gap: 10 }}>
-        {items.map((item) => {
-          const tone = gateTone(item.gateState);
-          const callback = callbacks[item.id];
-          return (
-            <div key={item.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>{item.id}</div>
-                  <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
+        <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
+          {items.map((item) => {
+            const callback = callbacks[item.id];
+            return (
+              <div
+                key={item.id}
+                style={{
+                  border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
+                  borderRadius: PLATFORM_V7_TOKENS.radius.lg,
+                  padding: PLATFORM_V7_TOKENS.spacing.md,
+                  display: 'grid',
+                  gap: PLATFORM_V7_TOKENS.spacing.sm,
+                  background: PLATFORM_V7_TOKENS.color.surface,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: PLATFORM_V7_TOKENS.typography.fontMono,
+                        fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1,
+                        fontWeight: 800,
+                        color: PLATFORM_V7_TOKENS.color.brand,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {item.id}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: PLATFORM_V7_TOKENS.spacing.xxs,
+                        fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
+                        fontSize: PLATFORM_V7_TOKENS.typography.body.size,
+                        fontWeight: 800,
+                        color: PLATFORM_V7_TOKENS.color.text,
+                      }}
+                    >
+                      {item.title}
+                    </div>
+                  </div>
+                  <P7Badge tone={gateTone(item.gateState)}>{gateLabel(item.gateState)}</P7Badge>
                 </div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 9px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
-                  {gateLabel(item.gateState)}
-                </span>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                <InfoCell label='Причины' value={item.reasonCodes.length ? item.reasonCodes.map(translateReason).join(' · ') : '—'} />
-                <InfoCell label='Следующий шаг' value={cleanCopy(item.nextStep ?? '—')} />
-                <InfoCell label='Следующий владелец' value={item.nextOwner ? translateRole(item.nextOwner) : '—'} />
-                <InfoCell label='К выпуску денег' value={formatCompactMoney(item.releasableAmount)} />
-              </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
+                  <InfoCell label='Причины' value={item.reasonCodes.length ? item.reasonCodes.map(translateReason).join(' · ') : '—'} />
+                  <InfoCell label='Следующий шаг' value={cleanCopy(item.nextStep ?? '—')} />
+                  <InfoCell label='Следующий владелец' value={item.nextOwner ? translateRole(item.nextOwner) : '—'} />
+                  <InfoCell label='К выпуску денег' value={formatCompactMoney(item.releasableAmount)} />
+                </div>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {item.gateState !== 'PASS' ? (
-                  <button
-                    onClick={() => unblock(item)}
-                    disabled={busyId === item.id}
-                    style={{ borderRadius: 10, padding: '10px 12px', border: '1px solid #0A7A5F', background: '#0A7A5F', color: '#fff', fontWeight: 700, cursor: busyId === item.id ? 'wait' : 'pointer' }}
-                  >
-                    {busyId === item.id ? 'Снимаю препятствие…' : 'Снять препятствие'}
-                  </button>
-                ) : (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '10px 12px', borderRadius: 10, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontWeight: 700 }}>
-                    Проверка пройдена
-                  </span>
-                )}
-                {callback ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '10px 12px', borderRadius: 10, background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#1D4ED8', fontWeight: 700 }}>
-                    {callback.id} · {formatMoney(callback.amountRub)}
-                  </span>
-                ) : null}
+                <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap' }}>
+                  {item.gateState !== 'PASS' ? (
+                    <button
+                      onClick={() => unblock(item)}
+                      disabled={busyId === item.id}
+                      style={{
+                        borderRadius: PLATFORM_V7_TOKENS.radius.md,
+                        padding: '10px 12px',
+                        border: `1px solid ${PLATFORM_V7_TOKENS.color.brand}`,
+                        background: PLATFORM_V7_TOKENS.color.brand,
+                        color: PLATFORM_V7_TOKENS.color.surface,
+                        fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
+                        fontWeight: 800,
+                        cursor: busyId === item.id ? 'wait' : 'pointer',
+                      }}
+                    >
+                      {busyId === item.id ? 'Снимаю препятствие…' : 'Снять препятствие'}
+                    </button>
+                  ) : (
+                    <P7Badge tone='success'>Проверка пройдена</P7Badge>
+                  )}
+                  {callback ? <P7Badge tone='money'>{callback.id} · {formatMoney(callback.amountRub)}</P7Badge> : null}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
+    </P7Card>
+  );
+}
 
-      <div style={{ display: 'grid', gap: 10 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Журнал действий оператора</div>
-        {audit.length ? audit.map((row) => (
-          <div key={row.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 12, background: '#F8FAFB' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#0F1419' }}>{row.action}</div>
-              <div style={{ fontSize: 11, color: '#6B778C' }}>{new Date(row.ts).toLocaleString('ru-RU')}</div>
-            </div>
-            <div style={{ marginTop: 4, fontSize: 12, color: '#475569' }}>{row.actor}</div>
-            <div style={{ marginTop: 6, fontSize: 13, color: '#334155' }}>{row.detail}</div>
+function OperatorAudit({ audit }: { audit: AuditRow[] }) {
+  return (
+    <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
+      <div
+        style={{
+          fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
+          fontSize: PLATFORM_V7_TOKENS.typography.h3.size,
+          fontWeight: PLATFORM_V7_TOKENS.typography.h3.weight,
+          color: PLATFORM_V7_TOKENS.color.text,
+        }}
+      >
+        Журнал действий оператора
+      </div>
+      {audit.length ? audit.map((row) => (
+        <div
+          key={row.id}
+          style={{
+            border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
+            borderRadius: PLATFORM_V7_TOKENS.radius.lg,
+            padding: PLATFORM_V7_TOKENS.spacing.sm,
+            background: PLATFORM_V7_TOKENS.color.surfaceMuted,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, fontWeight: 800, color: PLATFORM_V7_TOKENS.color.text }}>{row.action}</div>
+            <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size - 1, color: PLATFORM_V7_TOKENS.color.textSubtle }}>{new Date(row.ts).toLocaleString('ru-RU')}</div>
           </div>
-        )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Действий пока нет. Сними препятствие по одному из кейсов выше.</div>}
-      </div>
-    </section>
+          <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xxs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size, color: PLATFORM_V7_TOKENS.color.textMuted }}>{row.actor}</div>
+          <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: PLATFORM_V7_TOKENS.color.textMuted }}>{row.detail}</div>
+        </div>
+      )) : <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: PLATFORM_V7_TOKENS.color.textMuted }}>Действий пока нет. Сними препятствие по одному из кейсов выше.</div>}
+    </div>
   );
 }
 
 function InfoCell({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12, background: '#fff' }}>
-      <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 13, color: '#0F1419', lineHeight: 1.5 }}>{value}</div>
+    <div
+      style={{
+        border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
+        borderRadius: PLATFORM_V7_TOKENS.radius.md,
+        padding: PLATFORM_V7_TOKENS.spacing.sm,
+        background: PLATFORM_V7_TOKENS.color.surface,
+      }}
+    >
+      <div
+        style={{
+          fontSize: PLATFORM_V7_TOKENS.typography.caption.size - 1,
+          color: PLATFORM_V7_TOKENS.color.textSubtle,
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          fontWeight: 800,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          marginTop: PLATFORM_V7_TOKENS.spacing.xs,
+          fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1,
+          color: PLATFORM_V7_TOKENS.color.text,
+          lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight,
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
