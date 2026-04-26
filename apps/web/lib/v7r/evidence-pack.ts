@@ -15,7 +15,7 @@ export const STABLE_DK_2024_89_EVIDENCE: P7EvidenceItem[] = [
     capturedAt: '2026-04-03T11:20:00Z',
     uploadedAt: '2026-04-03T11:24:00Z',
     actor: 'lab.supervisor',
-    signedBy: 'УКЭП:lab.supervisor',
+    signedBy: 'pilot-signature:lab.supervisor',
     version: 1,
     immutable: true,
   },
