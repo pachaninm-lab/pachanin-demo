@@ -2,6 +2,8 @@ import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { P7Badge } from '@/components/platform-v7/P7Badge';
+import { P7Card } from '@/components/platform-v7/P7Card';
+import { P7MetricCard } from '@/components/platform-v7/P7MetricCard';
 import { contrastRatio, meetsWcagAaLargeTextOrUi, meetsWcagAaText } from '@/lib/platform-v7/design/contrast';
 import { getPlatformV7ToneTokens, PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
 
@@ -59,5 +61,40 @@ describe('P7Badge', () => {
   it('uses semantic tone colors', () => {
     render(<P7Badge tone='danger'>FAIL</P7Badge>);
     expect(screen.getByText('FAIL')).toHaveStyle({ color: '#B42318' });
+  });
+});
+
+describe('P7Card', () => {
+  it('renders title, subtitle, content and footer', () => {
+    render(
+      <P7Card title='Сделка' subtitle='Документы и деньги' footer={<span>Открыть</span>} testId='p7-card'>
+        Тело карточки
+      </P7Card>,
+    );
+
+    expect(screen.getByTestId('p7-card')).toBeInTheDocument();
+    expect(screen.getByText('Сделка')).toBeInTheDocument();
+    expect(screen.getByText('Документы и деньги')).toBeInTheDocument();
+    expect(screen.getByText('Тело карточки')).toBeInTheDocument();
+    expect(screen.getByText('Открыть')).toBeInTheDocument();
+  });
+});
+
+describe('P7MetricCard', () => {
+  it('renders metric title, value, note and footer', () => {
+    render(
+      <P7MetricCard title='В резерве' value='12,4 млн ₽' note='canonical registry' footer={<span>Перейти</span>} tone='money' testId='metric-card' />,
+    );
+
+    expect(screen.getByTestId('metric-card')).toBeInTheDocument();
+    expect(screen.getByText('В резерве')).toBeInTheDocument();
+    expect(screen.getByText('12,4 млн ₽')).toBeInTheDocument();
+    expect(screen.getByText('canonical registry')).toBeInTheDocument();
+    expect(screen.getByText('Перейти')).toBeInTheDocument();
+  });
+
+  it('uses semantic tone surfaces', () => {
+    render(<P7MetricCard title='Evidence' value='5/5' tone='evidence' testId='evidence-metric' />);
+    expect(screen.getByTestId('evidence-metric')).toHaveStyle({ background: '#F4F3FF' });
   });
 });
