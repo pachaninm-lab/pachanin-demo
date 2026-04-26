@@ -118,8 +118,41 @@ function buildReconciliationQueueItem(input: {
   };
 }
 
+function isLedgerMismatch(decision: P7MoneyReconciliationDecision): boolean {
+  return decision.state === 'manual_review' && Boolean(decision.entry);
+}
+
 export function persistMoneyEvent(state: P7PersistenceState, input: P7PersistMoneyEventInput): P7PersistMoneyEventResult {
   const createdAt = nowOrInput(input.now);
+  const actor = input.actor ?? 'system';
+  const preflight = reconcileMoneyEventWithLedger(state.ledger, input.event);
+
+  if (isLedgerMismatch(preflight)) {
+    const queueItem = buildMoneyQueueItem({
+      event: input.event,
+      status: 'manual_review',
+      idempotencyKey: preflight.idempotencyKey,
+      createdAt,
+      processedAt: createdAt,
+      reason: preflight.reasonCode,
+    });
+    const reconciliationItem = buildReconciliationQueueItem({
+      dealId: input.event.dealId,
+      decision: preflight,
+      createdAt,
+      processedAt: createdAt,
+    });
+    const queueWithMoney = appendQueueItem(state.queue, queueItem);
+    const queueWithReconciliation = appendQueueItem(queueWithMoney, reconciliationItem);
+    const nextState = {
+      ledger: [...state.ledger],
+      queue: queueWithReconciliation,
+      actionLog: appendBankActionLog(state, reconciliationItem, actor, `Manual reconciliation required: ${preflight.reasonCode}`),
+    };
+
+    return { state: nextState, queueItem, reconciliation: preflight };
+  }
+
   const appendResult = appendMoneyEventOnce(state.ledger, input.event, { at: () => createdAt });
 
   if (appendResult.status === 'rejected') {
@@ -135,7 +168,7 @@ export function persistMoneyEvent(state: P7PersistenceState, input: P7PersistMon
     const nextState = {
       ledger: appendResult.ledger,
       queue: appendQueueItem(state.queue, queueItem),
-      actionLog: appendBankActionLog(state, queueItem, input.actor ?? 'system', `Money event rejected: ${appendResult.reasonCode}`),
+      actionLog: appendBankActionLog(state, queueItem, actor, `Money event rejected: ${appendResult.reasonCode}`),
     };
 
     return { state: nextState, queueItem };
@@ -150,7 +183,9 @@ export function persistMoneyEvent(state: P7PersistenceState, input: P7PersistMon
     reason: appendResult.status === 'duplicate' ? 'DUPLICATE_EVENT' : undefined,
   });
 
-  const reconciliation = reconcileMoneyEventWithLedger(appendResult.ledger, input.event);
+  const reconciliation = appendResult.status === 'duplicate'
+    ? preflight
+    : reconcileMoneyEventWithLedger(appendResult.ledger, input.event);
   const reconciliationItem = buildReconciliationQueueItem({
     dealId: input.event.dealId,
     decision: reconciliation,
@@ -163,7 +198,7 @@ export function persistMoneyEvent(state: P7PersistenceState, input: P7PersistMon
   const nextState = {
     ledger: appendResult.ledger,
     queue: queueWithReconciliation,
-    actionLog: appendBankActionLog(state, reconciliationItem, input.actor ?? 'system', reconciliation.state === 'manual_review'
+    actionLog: appendBankActionLog(state, reconciliationItem, actor, reconciliation.state === 'manual_review'
       ? `Manual reconciliation required: ${reconciliation.reasonCode}`
       : `Money event persisted and reconciled: ${input.event.dealId}`),
   };
