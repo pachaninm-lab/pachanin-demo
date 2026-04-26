@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { P7ActionButton, type P7ActionButtonState } from '@/components/platform-v7/P7ActionButton';
 import { P7Badge } from '@/components/platform-v7/P7Badge';
 import { P7Card } from '@/components/platform-v7/P7Card';
 import { runPlatformAction } from '@/lib/platform-v7/action-runner';
@@ -83,24 +84,13 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
   const [items, setItems] = useState(deals);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [lastActionState, setLastActionState] = useState<Record<string, P7ActionButtonState>>({});
   const [callbacks, setCallbacks] = useState<Record<string, { id: string; amountRub: number; ts: string }>>({});
 
   const blockedAmount = useMemo(
     () => items.filter((item) => item.gateState !== 'PASS').reduce((sum, item) => sum + item.releasableAmount, 0),
     [items],
   );
-
-  function pushAudit(action: string, detail: string, status: PlatformActionStatus = 'success') {
-    const row: AuditRow = {
-      id: `AUD-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-      ts: new Date().toISOString(),
-      actor: 'Оператор платформы',
-      action: cleanCopy(action),
-      detail: cleanCopy(detail),
-      status,
-    };
-    setAudit((prev) => [row, ...prev].slice(0, 8));
-  }
 
   function pushActionLog(entries: PlatformActionLogEntry[]) {
     setAudit((prev) => [...entries.map(actionLogToAuditRow), ...prev].slice(0, 8));
@@ -109,6 +99,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
   async function unblock(item: OperatorDealItem) {
     if (busyId) return;
     setBusyId(item.id);
+    setLastActionState((prev) => ({ ...prev, [item.id]: 'loading' }));
 
     const runnerResult = await runPlatformAction({
       scope: 'deal',
@@ -124,6 +115,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
     pushActionLog(runnerResult.log);
 
     if (runnerResult.phase !== 'success' || !runnerResult.result) {
+      setLastActionState((prev) => ({ ...prev, [item.id]: 'error' }));
       setBusyId(null);
       return;
     }
@@ -138,6 +130,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
       reasonCodes: [],
     } : row));
     pushActionLog(actionResult.log);
+    setLastActionState((prev) => ({ ...prev, [item.id]: 'success' }));
 
     if (item.releaseEligible && item.releasableAmount > 0) {
       const bankResult = await runPlatformAction({
@@ -185,6 +178,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
         <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
           {items.map((item) => {
             const callback = callbacks[item.id];
+            const actionState = lastActionState[item.id] ?? 'idle';
             return (
               <div
                 key={item.id}
@@ -234,22 +228,15 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
 
                 <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap' }}>
                   {item.gateState !== 'PASS' ? (
-                    <button
+                    <P7ActionButton
                       onClick={() => unblock(item)}
-                      disabled={busyId === item.id}
-                      style={{
-                        borderRadius: PLATFORM_V7_TOKENS.radius.md,
-                        padding: '10px 12px',
-                        border: `1px solid ${PLATFORM_V7_TOKENS.color.brand}`,
-                        background: PLATFORM_V7_TOKENS.color.brand,
-                        color: PLATFORM_V7_TOKENS.color.surface,
-                        fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
-                        fontWeight: 800,
-                        cursor: busyId === item.id ? 'wait' : 'pointer',
-                      }}
+                      state={busyId === item.id ? 'loading' : actionState}
+                      loadingLabel='Снимаю препятствие…'
+                      successLabel='Препятствие снято'
+                      errorLabel='Ошибка действия'
                     >
-                      {busyId === item.id ? 'Снимаю препятствие…' : 'Снять препятствие'}
-                    </button>
+                      Снять препятствие
+                    </P7ActionButton>
                   ) : (
                     <P7Badge tone='success'>Проверка пройдена</P7Badge>
                   )}
