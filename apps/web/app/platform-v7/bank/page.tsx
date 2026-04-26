@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7MoneySafetyAuditStrip } from '@/components/platform-v7/P7MoneySafetyAuditStrip';
 import { BankRuntime } from '@/components/v7r/BankRuntime';
 import { DomainMoneySummary } from '@/components/v7r/DomainMoneySummary';
 
@@ -69,6 +70,7 @@ export default function PlatformV7BankPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       <DomainMoneySummary />
+      <P7MoneySafetyAuditStrip />
 
       <section
         style={{
