@@ -6,14 +6,13 @@ import {
   type ControlTowerKpi,
   type InvestorKpi,
 } from '@/lib/platform-v7/domain';
-import { domainDeals } from './selectors';
-import type { DomainDeal } from './types';
+import { runtimeFixtureSource, type RuntimeFixtureSource } from './fixtureSource';
 
-export type CanonicalRegistrySource = 'runtime-domain-selectors';
+export type CanonicalRegistrySource = 'runtime-fixture-source';
 
 export interface CanonicalFixtureRegistry {
   readonly source: CanonicalRegistrySource;
-  readonly generatedFrom: 'DomainDeal';
+  readonly generatedFrom: RuntimeFixtureSource['generatedFrom'];
   readonly deals: readonly CanonicalDeal[];
   readonly kpis: {
     readonly controlTower: ControlTowerKpi;
@@ -21,12 +20,12 @@ export interface CanonicalFixtureRegistry {
   };
 }
 
-export function buildCanonicalFixtureRegistry(deals: readonly DomainDeal[] = domainDeals): CanonicalFixtureRegistry {
-  const canonicalDeals = normalizeDomainDeals(deals);
+export function buildCanonicalFixtureRegistry(source: RuntimeFixtureSource = runtimeFixtureSource): CanonicalFixtureRegistry {
+  const canonicalDeals = normalizeDomainDeals(source.deals);
 
   return {
-    source: 'runtime-domain-selectors',
-    generatedFrom: 'DomainDeal',
+    source: 'runtime-fixture-source',
+    generatedFrom: source.generatedFrom,
     deals: canonicalDeals,
     kpis: {
       controlTower: calculateControlTowerKpi(canonicalDeals),
