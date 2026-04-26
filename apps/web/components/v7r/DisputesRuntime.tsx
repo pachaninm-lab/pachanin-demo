@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { P7ActionButton, type P7ActionButtonState } from '@/components/platform-v7/P7ActionButton';
 import { P7ActionLog } from '@/components/platform-v7/P7ActionLog';
+import { P7EvidenceReadinessAuditStrip } from '@/components/platform-v7/P7EvidenceReadinessAuditStrip';
 import { useDisputes } from '@/lib/domain/hooks';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { translateRole } from '@/lib/i18n/reason-codes';
@@ -159,6 +160,8 @@ export function DisputesRuntime() {
           <Badge tone='warning'>DISPUTE RUNTIME</Badge>
         </div>
       </section>
+
+      <P7EvidenceReadinessAuditStrip />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Доменные споры' value={String(disputes.length)} note='Базовый статический спорный контур.' />
