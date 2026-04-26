@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { P7ActionLog } from '@/components/platform-v7/P7ActionLog';
 import { P7EvidenceProjectionPanel } from '@/components/platform-v7/P7EvidenceProjectionPanel';
+import { createActionLogEntry, type PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
 import { selectDisputeById } from '@/lib/domain/selectors';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { useToast } from '@/components/v7r/Toast';
@@ -48,6 +50,7 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
   const toast = useToast();
   const dispute = selectDisputeById(disputeId);
   const [reminderSent, setReminderSent] = React.useState(false);
+  const [snapshotLog, setSnapshotLog] = React.useState<PlatformActionLogEntry[]>([]);
   const evidenceUi = React.useMemo(() => buildEvidencePackReadinessUiModel(disputeId), [disputeId]);
 
   function handleReminder() {
@@ -90,6 +93,15 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
     ].join('\n');
 
     downloadTextFile(`evidence-readiness-${dispute.id}.txt`, content);
+    const logEntry = createActionLogEntry({
+      scope: 'dispute',
+      status: 'success',
+      objectId: dispute.id,
+      action: 'evidence-readiness-snapshot-download',
+      actor: 'operator-runtime',
+      message: `Readiness snapshot downloaded: ${evidenceUi.scoreLabel}, ${evidenceUi.totalLabel}.`,
+    });
+    setSnapshotLog((current) => [logEntry, ...current].slice(0, 4));
     trackEvent('dispute_package_downloaded', { disputeId, evidenceObjects: evidenceUi.items.length, readiness: evidenceUi.scoreLabel });
     toast(`Evidence readiness ${evidenceUi.scoreLabel} скачан`, 'success');
   }
@@ -195,6 +207,8 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
         <button onClick={handlePackageDownload} style={{ justifySelf: 'start', padding: '10px 16px', borderRadius: 12, border: 'none', background: 'var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
           Скачать readiness snapshot
         </button>
+
+        <P7ActionLog title='Журнал readiness snapshot' entries={snapshotLog} emptyLabel='Snapshot ещё не скачивали.' maxEntries={4} />
       </section>
 
       <P7EvidenceProjectionPanel disputeId={disputeId} />
