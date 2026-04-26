@@ -2,6 +2,18 @@ import { CALLBACKS, DEALS, type CallbackItem, type Deal } from './data';
 import { buildMoneySafetyAuditRow, type P7MoneySafetyAuditRow } from '../platform-v7/money-safety-audit';
 import { appendMoneyEventOnce, type P7LedgerEntry, type P7MoneyEvent } from '../platform-v7/money-safety';
 
+const MONEY_AUDIT_CALLBACKS: CallbackItem[] = [
+  ...CALLBACKS,
+  {
+    id: 'CB-E7-OK-001',
+    type: 'Release',
+    dealId: 'DL-9116',
+    status: 'ok',
+    note: 'E7 controlled callback: release confirmed for clean audit row',
+    amountRub: 21_000_000,
+  },
+];
+
 function moneyEventFromDeal(deal: Deal, callback?: CallbackItem): P7MoneyEvent {
   const amount = callback?.amountRub ?? deal.reservedAmount;
 
@@ -71,7 +83,7 @@ function selectedDealsForMoneyAudit(): Deal[] {
 
 export function buildV7rMoneySafetyAuditRows(): P7MoneySafetyAuditRow[] {
   return selectedDealsForMoneyAudit().map((deal) => {
-    const callback = CALLBACKS.find((item) => item.dealId === deal.id);
+    const callback = MONEY_AUDIT_CALLBACKS.find((item) => item.dealId === deal.id);
     const requestedAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
 
     return buildMoneySafetyAuditRow({
