@@ -1,79 +1,5 @@
-import { buildMoneySafetyAuditRow, type P7MoneySafetyAuditRow } from '@/lib/platform-v7/money-safety-audit';
-import { appendMoneyEventOnce, type P7MoneyEvent } from '@/lib/platform-v7/money-safety';
-
-function createReserveEvent(dealId: string, providerOperationId: string, payloadHash = 'payload-a'): P7MoneyEvent {
-  return {
-    dealId,
-    eventId: `${dealId}-reserve-confirmed`,
-    type: 'reserve_confirmed',
-    amount: 3_873_600,
-    provider: 'sber_safe_deals',
-    providerOperationId,
-    occurredAt: '2026-04-26T12:00:00Z',
-    payloadHash,
-  };
-}
-
-function createDemoLedger(event: P7MoneyEvent) {
-  const result = appendMoneyEventOnce([], event, {
-    at: () => '2026-04-26T12:02:00Z',
-  });
-
-  return result.status === 'accepted' ? result.ledger : [];
-}
-
-function createAuditRows(): P7MoneySafetyAuditRow[] {
-  const safeEvent = createReserveEvent('DL-9109', 'sber-op-001');
-  const reviewEvent = createReserveEvent('DL-9115', 'sber-op-003');
-
-  return [
-    buildMoneySafetyAuditRow({
-      dealId: 'DL-9109',
-      reservedAmount: 3_873_600,
-      holdAmount: 0,
-      requestedAmount: 3_873_600,
-      docsComplete: true,
-      bankCallbackConfirmed: true,
-      disputeOpen: false,
-      transportGateClear: true,
-      fgisGateClear: true,
-      releaseRequestId: 'release-001',
-      ledger: createDemoLedger(safeEvent),
-      latestBankEvent: safeEvent,
-    }),
-    buildMoneySafetyAuditRow({
-      dealId: 'DL-9112',
-      reservedAmount: 3_873_600,
-      holdAmount: 500_000,
-      requestedAmount: 3_373_600,
-      docsComplete: false,
-      bankCallbackConfirmed: false,
-      disputeOpen: true,
-      transportGateClear: false,
-      fgisGateClear: true,
-      releaseRequestId: 'release-002',
-    }),
-    buildMoneySafetyAuditRow({
-      dealId: 'DL-9115',
-      reservedAmount: 3_873_600,
-      holdAmount: 0,
-      requestedAmount: 3_873_600,
-      docsComplete: true,
-      bankCallbackConfirmed: true,
-      disputeOpen: false,
-      transportGateClear: true,
-      fgisGateClear: true,
-      releaseRequestId: 'release-003',
-      ledger: createDemoLedger(reviewEvent),
-      latestBankEvent: {
-        ...reviewEvent,
-        eventId: 'DL-9115-reserve-retry',
-        amount: 3_870_000,
-        occurredAt: '2026-04-26T12:05:00Z',
-      },
-    }),
-  ];
-}
+import { buildV7rMoneySafetyAuditRows } from '@/lib/v7r/money-ledger';
+import type { P7MoneySafetyAuditRow } from '@/lib/platform-v7/money-safety-audit';
 
 function toneToken(tone: P7MoneySafetyAuditRow['tone']) {
   if (tone === 'safe') {
@@ -103,7 +29,7 @@ function toneToken(tone: P7MoneySafetyAuditRow['tone']) {
 }
 
 export function P7MoneySafetyAuditStrip() {
-  const rows = createAuditRows();
+  const rows = buildV7rMoneySafetyAuditRows();
 
   return (
     <section
@@ -121,11 +47,11 @@ export function P7MoneySafetyAuditStrip() {
         <div>
           <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Money safety audit</div>
           <div style={{ marginTop: 8, maxWidth: 820, fontSize: 13, lineHeight: 1.65, color: '#5B6576' }}>
-            E7 guard layer: выпуск денег решается только через reserve, документы, bank callback, transport/FGIS gates, ledger и reconciliation. Это demo-срез, не live bank API.
+            E7 guard layer: выпуск денег решается через reserve, документы, bank callback, transport/FGIS gates, ledger и reconciliation. Источник строк — единый v7r data layer: DEALS + CALLBACKS.
           </div>
         </div>
         <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 900 }}>
-          Демо-данные · no live money movement
+          Data layer · no live money movement
         </span>
       </div>
 
