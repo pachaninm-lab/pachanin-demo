@@ -8,7 +8,7 @@ import { PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/desig
 import { formatCompactMoney, formatMoney } from '@/lib/v7r/helpers';
 import { translateReason, translateRole } from '@/lib/i18n/reason-codes';
 import { buildGatePassResult } from '@/lib/platform-v7/operator-actions';
-import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
+import type { PlatformActionLogEntry, PlatformActionStatus } from '@/lib/platform-v7/action-log';
 
 type GateState = 'PASS' | 'REVIEW' | 'FAIL';
 
@@ -29,6 +29,7 @@ interface AuditRow {
   actor: string;
   action: string;
   detail: string;
+  status: PlatformActionStatus;
 }
 
 function gateTone(state: GateState): PlatformV7Tone {
@@ -43,6 +44,18 @@ function gateLabel(state: GateState) {
   return 'Стоп проверки';
 }
 
+function auditTone(status: PlatformActionStatus): PlatformV7Tone {
+  if (status === 'success') return 'success';
+  if (status === 'error') return 'danger';
+  return 'warning';
+}
+
+function auditLabel(status: PlatformActionStatus): string {
+  if (status === 'success') return 'Успешно';
+  if (status === 'error') return 'Ошибка';
+  return 'Выполняется';
+}
+
 function actionLogToAuditRow(entry: PlatformActionLogEntry): AuditRow {
   return {
     id: entry.id,
@@ -50,6 +63,7 @@ function actionLogToAuditRow(entry: PlatformActionLogEntry): AuditRow {
     actor: entry.actor,
     action: cleanCopy(entry.action),
     detail: cleanCopy(entry.message),
+    status: entry.status,
   };
 }
 
@@ -76,13 +90,14 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
     [items],
   );
 
-  function pushAudit(action: string, detail: string) {
+  function pushAudit(action: string, detail: string, status: PlatformActionStatus = 'success') {
     const row: AuditRow = {
       id: `AUD-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
       ts: new Date().toISOString(),
       actor: 'Оператор платформы',
       action: cleanCopy(action),
       detail: cleanCopy(detail),
+      status,
     };
     setAudit((prev) => [row, ...prev].slice(0, 8));
   }
@@ -269,15 +284,18 @@ function OperatorAudit({ audit }: { audit: AuditRow[] }) {
             border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
             borderRadius: PLATFORM_V7_TOKENS.radius.lg,
             padding: PLATFORM_V7_TOKENS.spacing.sm,
-            background: PLATFORM_V7_TOKENS.color.surfaceMuted,
+            background: row.status === 'error' ? PLATFORM_V7_TOKENS.color.dangerSoft : row.status === 'started' ? PLATFORM_V7_TOKENS.color.warningSoft : PLATFORM_V7_TOKENS.color.surfaceMuted,
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, fontWeight: 800, color: PLATFORM_V7_TOKENS.color.text }}>{row.action}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, alignItems: 'center', flexWrap: 'wrap' }}>
+              <P7Badge tone={auditTone(row.status)}>{auditLabel(row.status)}</P7Badge>
+              <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, fontWeight: 800, color: PLATFORM_V7_TOKENS.color.text }}>{row.action}</div>
+            </div>
             <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size - 1, color: PLATFORM_V7_TOKENS.color.textSubtle }}>{new Date(row.ts).toLocaleString('ru-RU')}</div>
           </div>
           <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xxs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size, color: PLATFORM_V7_TOKENS.color.textMuted }}>{row.actor}</div>
-          <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: PLATFORM_V7_TOKENS.color.textMuted }}>{row.detail}</div>
+          <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: row.status === 'error' ? PLATFORM_V7_TOKENS.color.danger : PLATFORM_V7_TOKENS.color.textMuted }}>{row.detail}</div>
         </div>
       )) : <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: PLATFORM_V7_TOKENS.color.textMuted }}>Действий пока нет. Сними препятствие по одному из кейсов выше.</div>}
     </div>
