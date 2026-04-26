@@ -47,6 +47,7 @@ export function DomainControlTowerSummary() {
   const canonicalKpis = useCanonicalControlTowerKpis();
   const formula = (key: MetricKey) => formatKpiFormula(key, kpis[key]);
   const canonicalReserveFormula = `canonical.totalReserved: ${canonicalKpis.totalReserved}`;
+  const canonicalHoldFormula = `canonical.totalHold: ${canonicalKpis.totalHold}`;
 
   return (
     <section style={{ display: 'grid', gap: 14 }} aria-label='Доменная сводка центра управления'>
@@ -64,7 +65,7 @@ export function DomainControlTowerSummary() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard testId='kpi-moneyAtRisk' title='Деньги под риском' value={formatCompactMoney(kpis.moneyAtRisk.value)} note='Единый расчёт риска из доменного слоя.' formula={formula('moneyAtRisk')} href='/platform-v7/disputes' tone='red' />
-        <StatCard testId='kpi-heldAmount' title='Под удержанием' value={formatCompactMoney(kpis.heldAmount.value)} note='Сумма удержаний по активным сделкам.' formula={formula('heldAmount')} href='/platform-v7/disputes' tone='red' />
+        <StatCard testId='kpi-heldAmount' title='Под удержанием' value={formatCompactMoney(canonicalKpis.totalHold)} note='Удержание из canonical domain layer; формула риска пока не менялась.' formula={canonicalHoldFormula} href='/platform-v7/disputes' tone='red' />
         <StatCard testId='kpi-readyToRelease' title='К выпуску' value={formatCompactMoney(kpis.readyToRelease.value)} note='Сумма по сделкам в статусе выпуска.' formula={formula('readyToRelease')} href='/platform-v7/bank' tone='green' />
         <StatCard testId='kpi-integrationStops' title='Интеграционные стопы' value={String(kpis.integrationStops.value)} note='Доменные признаки остановки интеграций.' formula={formula('integrationStops')} href='/platform-v7/connectors' tone='red' />
         <StatCard testId='kpi-transportStops' title='Транспортные стопы' value={String(kpis.transportStops.value)} note='Доменные признаки транспортной остановки.' formula={formula('transportStops')} href='/platform-v7/control-tower/hotlist' tone='red' />
