@@ -13,6 +13,14 @@ import {
   type NotificationGroup,
   type RfqItem as RuntimeRfqItem,
 } from '@/lib/v7r/data';
+import {
+  calculateControlTowerKpi as calculateCanonicalControlTowerKpi,
+  calculateInvestorKpi as calculateCanonicalInvestorKpi,
+  normalizeDomainDeals,
+  type CanonicalDeal,
+  type ControlTowerKpi as CanonicalControlTowerKpi,
+  type InvestorKpi as CanonicalInvestorKpi,
+} from '@/lib/platform-v7/domain';
 import { toDomainDeals, toDomainDisputes } from './adapters';
 import { computeControlTowerKpis, type ControlTowerKpis } from './kpi/controlTower';
 import type { DomainDeal, DomainDispute, DomainTotals } from './types';
@@ -23,6 +31,7 @@ export type { RuntimeRfqItem, NotificationGroup };
 export const domainDeals: DomainDeal[] = toDomainDeals(DEALS);
 export const domainDisputes: DomainDispute[] = toDomainDisputes(DISPUTES);
 export const domainCallbacks: CallbackItem[] = CALLBACKS;
+export const canonicalDomainDeals: CanonicalDeal[] = normalizeDomainDeals(domainDeals);
 
 export function selectRuntimeDeals(deals: RuntimeDeal[] = DEALS): RuntimeDeal[] {
   return deals;
@@ -90,6 +99,18 @@ export function selectDisputesByDealId(dealId: string, disputes: DomainDispute[]
 
 export function selectBankCallbackById(id: string, callbacks: CallbackItem[] = domainCallbacks): CallbackItem | undefined {
   return callbacks.find((callback) => callback.id === id);
+}
+
+export function selectCanonicalDeals(deals: DomainDeal[] = domainDeals): CanonicalDeal[] {
+  return normalizeDomainDeals(deals);
+}
+
+export function selectCanonicalControlTowerKpis(deals: DomainDeal[] = domainDeals): CanonicalControlTowerKpi {
+  return calculateCanonicalControlTowerKpi(selectCanonicalDeals(deals));
+}
+
+export function selectCanonicalInvestorKpis(deals: DomainDeal[] = domainDeals): CanonicalInvestorKpi {
+  return calculateCanonicalInvestorKpi(selectCanonicalDeals(deals));
 }
 
 export function selectReserveTotal(deals: DomainDeal[] = domainDeals): number {
