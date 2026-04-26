@@ -26,6 +26,15 @@ export type P7ReleaseBlockerCode =
   | 'FGIS_GATE_BLOCKED'
   | 'RELEASE_ALREADY_RECORDED';
 
+export type P7MoneyReconciliationCode =
+  | 'MATCHED'
+  | 'MISSING_LEDGER_ENTRY'
+  | 'PROVIDER_MISMATCH'
+  | 'TYPE_MISMATCH'
+  | 'AMOUNT_MISMATCH'
+  | 'CURRENCY_MISMATCH'
+  | 'PAYLOAD_HASH_MISMATCH';
+
 export interface P7MoneyEvent {
   readonly dealId: string;
   readonly eventId: string;
@@ -107,6 +116,22 @@ export type P7ReleaseDecision =
       readonly idempotencyKey: string;
     };
 
+export type P7MoneyReconciliationDecision =
+  | {
+      readonly state: 'matched';
+      readonly reasonCode: 'MATCHED';
+      readonly action: 'allow_continue';
+      readonly idempotencyKey: string;
+      readonly entry: P7LedgerEntry;
+    }
+  | {
+      readonly state: 'manual_review';
+      readonly reasonCode: Exclude<P7MoneyReconciliationCode, 'MATCHED'>;
+      readonly action: 'block_release_and_reconcile';
+      readonly idempotencyKey: string;
+      readonly entry?: P7LedgerEntry;
+    };
+
 export const P7_RELEASE_BLOCKER_LABELS: Record<P7ReleaseBlockerCode, string> = {
   NO_CONFIRMED_RESERVE: 'Нет подтверждённого резерва',
   INVALID_RELEASE_AMOUNT: 'Некорректная сумма выпуска',
@@ -118,6 +143,16 @@ export const P7_RELEASE_BLOCKER_LABELS: Record<P7ReleaseBlockerCode, string> = {
   TRANSPORT_GATE_BLOCKED: 'Транспортный gate блокирует выпуск',
   FGIS_GATE_BLOCKED: 'ФГИС gate блокирует выпуск',
   RELEASE_ALREADY_RECORDED: 'Выпуск уже зафиксирован в ledger',
+};
+
+export const P7_RECONCILIATION_LABELS: Record<P7MoneyReconciliationCode, string> = {
+  MATCHED: 'Callback банка совпадает с ledger',
+  MISSING_LEDGER_ENTRY: 'В ledger нет события банка',
+  PROVIDER_MISMATCH: 'Провайдер события не совпадает',
+  TYPE_MISMATCH: 'Тип события банка не совпадает',
+  AMOUNT_MISMATCH: 'Сумма события банка не совпадает',
+  CURRENCY_MISMATCH: 'Валюта события банка не совпадает',
+  PAYLOAD_HASH_MISMATCH: 'Hash payload события банка не совпадает',
 };
 
 function sanitizeKeyPart(value: string | number | undefined | null): string {
@@ -169,6 +204,17 @@ function validateMoneyEvent(event: P7MoneyEvent): P7MoneyRejectCode | null {
   return null;
 }
 
+function findLedgerEntryForEvent(existingEntries: readonly P7LedgerEntry[], event: P7MoneyEvent, idempotencyKey: string): P7LedgerEntry | undefined {
+  const exactEntry = existingEntries.find((entry) => entry.idempotencyKey === idempotencyKey);
+  if (exactEntry) return exactEntry;
+
+  if (event.providerOperationId?.trim()) {
+    return existingEntries.find((entry) => entry.dealId === event.dealId && entry.providerOperationId === event.providerOperationId);
+  }
+
+  return existingEntries.find((entry) => entry.dealId === event.dealId && entry.eventId === event.eventId);
+}
+
 export function appendMoneyEventOnce(existingEntries: readonly P7LedgerEntry[], event: P7MoneyEvent, options: P7MoneyAppendOptions = {}): P7MoneyAppendResult {
   const idempotencyKey = buildMoneyEventIdempotencyKey(event);
   const duplicate = existingEntries.find((entry) => entry.idempotencyKey === idempotencyKey);
@@ -213,6 +259,78 @@ export function appendMoneyEventOnce(existingEntries: readonly P7LedgerEntry[], 
     idempotencyKey,
     entry,
     ledger: [...existingEntries, entry],
+  };
+}
+
+export function reconcileMoneyEventWithLedger(existingEntries: readonly P7LedgerEntry[], event: P7MoneyEvent): P7MoneyReconciliationDecision {
+  const idempotencyKey = buildMoneyEventIdempotencyKey(event);
+  const entry = findLedgerEntryForEvent(existingEntries, event, idempotencyKey);
+
+  if (!entry) {
+    return {
+      state: 'manual_review',
+      reasonCode: 'MISSING_LEDGER_ENTRY',
+      action: 'block_release_and_reconcile',
+      idempotencyKey,
+    };
+  }
+
+  if (entry.provider !== event.provider) {
+    return {
+      state: 'manual_review',
+      reasonCode: 'PROVIDER_MISMATCH',
+      action: 'block_release_and_reconcile',
+      idempotencyKey,
+      entry,
+    };
+  }
+
+  if (entry.type !== event.type) {
+    return {
+      state: 'manual_review',
+      reasonCode: 'TYPE_MISMATCH',
+      action: 'block_release_and_reconcile',
+      idempotencyKey,
+      entry,
+    };
+  }
+
+  if (entry.amount !== normalizeAmount(event.amount)) {
+    return {
+      state: 'manual_review',
+      reasonCode: 'AMOUNT_MISMATCH',
+      action: 'block_release_and_reconcile',
+      idempotencyKey,
+      entry,
+    };
+  }
+
+  if (entry.currency !== (event.currency ?? 'RUB')) {
+    return {
+      state: 'manual_review',
+      reasonCode: 'CURRENCY_MISMATCH',
+      action: 'block_release_and_reconcile',
+      idempotencyKey,
+      entry,
+    };
+  }
+
+  if (entry.payloadHash && event.payloadHash && entry.payloadHash !== event.payloadHash) {
+    return {
+      state: 'manual_review',
+      reasonCode: 'PAYLOAD_HASH_MISMATCH',
+      action: 'block_release_and_reconcile',
+      idempotencyKey,
+      entry,
+    };
+  }
+
+  return {
+    state: 'matched',
+    reasonCode: 'MATCHED',
+    action: 'allow_continue',
+    idempotencyKey,
+    entry,
   };
 }
 
