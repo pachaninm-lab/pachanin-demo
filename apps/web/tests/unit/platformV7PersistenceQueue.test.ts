@@ -67,22 +67,30 @@ describe('platform-v7 persistence queue', () => {
     expect(getQueueByDeal(duplicate.state, 'DL-9109')).toHaveLength(2);
   });
 
-  it('routes missing ledger callback to manual reconciliation queue when payload cannot be matched', () => {
-    const mismatchEvent: P7MoneyEvent = {
-      ...reserveEvent,
-      providerOperationId: 'sber-op-002',
-      eventId: 'bank-event-002',
-      payloadHash: 'payload-b',
-    };
-
-    const result = persistMoneyEvent(EMPTY_P7_PERSISTENCE_STATE, {
-      event: mismatchEvent,
+  it('keeps mismatched callbacks out of ledger and routes them to manual reconciliation', () => {
+    const first = persistMoneyEvent(EMPTY_P7_PERSISTENCE_STATE, {
+      event: reserveEvent,
       actor: 'bank-runtime',
       now,
     });
 
-    expect(result.reconciliation?.state).toBe('matched');
-    expect(getManualReconciliationQueue(result.state)).toHaveLength(0);
+    const mismatch = persistMoneyEvent(first.state, {
+      event: {
+        ...reserveEvent,
+        eventId: 'bank-event-mismatch-001',
+        amount: 3_870_000,
+        occurredAt: '2026-04-26T12:01:00Z',
+      },
+      actor: 'bank-runtime',
+      now,
+    });
+
+    expect(mismatch.queueItem.status).toBe('manual_review');
+    expect(mismatch.queueItem.reason).toBe('AMOUNT_MISMATCH');
+    expect(mismatch.reconciliation?.state).toBe('manual_review');
+    expect(mismatch.state.ledger).toHaveLength(1);
+    expect(mismatch.state.ledger[0].amount).toBe(3_873_600);
+    expect(getManualReconciliationQueue(mismatch.state)).toHaveLength(1);
   });
 
   it('routes rejected event to rejected queue item and does not mutate ledger', () => {
