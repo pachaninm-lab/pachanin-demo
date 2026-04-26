@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeControlTowerKpis } from '@/lib/domain/kpi/controlTower';
-import { calculateMoneyKpi, type CanonicalDeal } from '@/lib/platform-v7/domain';
+import { calculateControlTowerMoneyAtRisk, calculateMoneyKpi, type CanonicalDeal } from '@/lib/platform-v7/domain';
 
 const legacyRiskDeal = {
   id: 'DL-RISK-1',
@@ -44,12 +44,14 @@ const canonicalRiskDeal: CanonicalDeal = {
 };
 
 describe('risk KPI migration safety', () => {
-  it('documents that legacy risk formula is intentionally higher than current canonical hold-only formula', () => {
+  it('keeps Control Tower risk conservative while ledger risk remains event-based', () => {
     const legacyRisk = computeControlTowerKpis([legacyRiskDeal]).moneyAtRisk.value;
-    const canonicalRisk = calculateMoneyKpi([canonicalRiskDeal]).moneyAtRisk;
+    const canonicalLedgerRisk = calculateMoneyKpi([canonicalRiskDeal]).moneyAtRisk;
+    const canonicalControlTowerRisk = calculateControlTowerMoneyAtRisk([canonicalRiskDeal]);
 
     expect(legacyRisk).toBe(200_000);
-    expect(canonicalRisk).toBe(100_000);
-    expect(legacyRisk).toBeGreaterThan(canonicalRisk);
+    expect(canonicalLedgerRisk).toBe(100_000);
+    expect(canonicalControlTowerRisk).toBe(200_000);
+    expect(canonicalControlTowerRisk).toBeGreaterThanOrEqual(legacyRisk);
   });
 });
