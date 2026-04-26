@@ -2,7 +2,8 @@ import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { P7Badge } from '@/components/platform-v7/P7Badge';
-import { getPlatformV7ToneTokens, PLATFORM_V7_TOKENS } from '@/lib/platform-v7/design/tokens';
+import { contrastRatio, meetsWcagAaLargeTextOrUi, meetsWcagAaText } from '@/lib/platform-v7/design/contrast';
+import { getPlatformV7ToneTokens, PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
 
 describe('platform-v7 design tokens', () => {
   it('keeps core brand and semantic colors stable', () => {
@@ -26,6 +27,26 @@ describe('platform-v7 design tokens', () => {
     expect(PLATFORM_V7_TOKENS.spacing.md).toBe(16);
     expect(PLATFORM_V7_TOKENS.radius.lg).toBe(16);
     expect(PLATFORM_V7_TOKENS.typography.metric.size).toBe(30);
+  });
+});
+
+describe('platform-v7 contrast helpers', () => {
+  it('calculates the standard black-white contrast ratio', () => {
+    expect(contrastRatio('#000000', '#FFFFFF')).toBe(21);
+  });
+
+  it('keeps base text colors AA-compliant on the main surface', () => {
+    expect(meetsWcagAaText(PLATFORM_V7_TOKENS.color.text, PLATFORM_V7_TOKENS.color.surface)).toBe(true);
+    expect(meetsWcagAaText(PLATFORM_V7_TOKENS.color.textMuted, PLATFORM_V7_TOKENS.color.surface)).toBe(true);
+  });
+
+  it('keeps semantic tone pairs UI-AA compliant', () => {
+    const tones: readonly PlatformV7Tone[] = ['neutral', 'success', 'warning', 'danger', 'info', 'money', 'evidence', 'integration'];
+
+    for (const tone of tones) {
+      const colors = getPlatformV7ToneTokens(tone);
+      expect(meetsWcagAaLargeTextOrUi(colors.fg, colors.bg)).toBe(true);
+    }
   });
 });
 
