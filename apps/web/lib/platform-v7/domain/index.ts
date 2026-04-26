@@ -5,3 +5,5 @@ export * from './legacy-deal-adapter';
 export * from './money';
 export * from './kpi';
 export * from './selectors';
+export * from './audit';
+export * from './rbac';
