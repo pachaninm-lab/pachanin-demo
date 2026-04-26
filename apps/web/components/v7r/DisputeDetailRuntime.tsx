@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { P7EvidenceProjectionPanel } from '@/components/platform-v7/P7EvidenceProjectionPanel';
 import { selectDisputeById } from '@/lib/domain/selectors';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { useToast } from '@/components/v7r/Toast';
@@ -195,6 +196,8 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
           Скачать readiness snapshot
         </button>
       </section>
+
+      <P7EvidenceProjectionPanel disputeId={disputeId} />
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button onClick={handleReminder} disabled={reminderSent} style={{ padding: '10px 16px', borderRadius: 12, border: '1px solid rgba(37,99,235,0.2)', background: 'rgba(37,99,235,0.08)', color: reminderSent ? '#9CA3AF' : '#2563EB', fontSize: 13, fontWeight: 800, cursor: reminderSent ? 'default' : 'pointer' }}>
