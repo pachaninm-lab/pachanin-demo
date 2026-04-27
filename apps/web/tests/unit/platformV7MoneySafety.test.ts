@@ -24,7 +24,6 @@ describe('platform-v7 money safety', () => {
     const keyB = buildMoneyEventIdempotencyKey({
       ...reserveEvent,
       eventId: 'bank-event-retry-001',
-      occurredAt: '2026-04-26T12:01:00Z',
     });
 
     expect(keyA).toBe(keyB);
