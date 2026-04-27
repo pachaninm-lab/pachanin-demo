@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { PLATFORM_V7_ACTION_TARGETS, platformV7ActionTargetById, platformV7ActionTargets } from '@/lib/platform-v7/action-targets';
+import {
+  PLATFORM_V7_ACTION_TARGETS,
+  platformV7ActionTargetById,
+  platformV7ActionTargets,
+  platformV7ActionTargetsWithWorkspaceBridge,
+} from '@/lib/platform-v7/action-targets';
 
 describe('platform-v7 action targets', () => {
   it('covers at least twenty action buttons for E03', () => {
@@ -25,5 +30,26 @@ describe('platform-v7 action targets', () => {
       scope: 'bank',
     });
     expect(platformV7ActionTargetById('unknown')).toBeNull();
+  });
+
+  it('bridges release targets to workspace ids', () => {
+    expect(platformV7ActionTargetById('deal-release-funds')).toMatchObject({
+      actionId: 'releaseFunds',
+      workspaceActionId: 'release-funds',
+      scope: 'bank',
+    });
+    expect(platformV7ActionTargetById('deal-request-release')).toMatchObject({
+      actionId: 'requestRelease',
+      workspaceActionId: 'request-release',
+      scope: 'deal',
+    });
+  });
+
+  it('lists bridged targets for guarded integration', () => {
+    const bridged = platformV7ActionTargetsWithWorkspaceBridge();
+
+    expect(bridged).toHaveLength(17);
+    expect(bridged.map((target) => target.workspaceActionId)).toContain('release-funds');
+    expect(bridged.every((target) => target.workspaceActionId)).toBe(true);
   });
 });
