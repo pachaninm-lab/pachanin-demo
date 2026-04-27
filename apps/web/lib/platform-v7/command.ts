@@ -45,6 +45,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     keywords: 'витрина лоты marketplace маркетплейс',
   },
   {
+    id: 'sec-market-rfq',
+    group: 'Разделы',
+    title: 'Market / RFQ',
+    subtitle: 'Предсделочный sandbox-контур: лоты, заявки и оферты',
+    href: '/platform-v7/market-rfq',
+    keywords: 'market rfq рынок заявки оферты спрос предложение предсделочный контур',
+  },
+  {
     id: 'sec-bank',
     group: 'Разделы',
     title: 'Банковый контур',
