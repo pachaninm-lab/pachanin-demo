@@ -61,6 +61,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     keywords: 'банк bank деньги резерв удержание выпуск release callbacks',
   },
   {
+    id: 'sec-bank-release-safety',
+    group: 'Разделы',
+    title: 'Проверка выпуска денег',
+    subtitle: 'Read-only audit: блокеры, удержания и кандидаты к выпуску',
+    href: '/platform-v7/bank/release-safety',
+    keywords: 'release safety audit банк деньги выпуск удержания блокеры gate',
+  },
+  {
     id: 'sec-disputes',
     group: 'Разделы',
     title: PLATFORM_V7_LEXICON.nav.disputes,
