@@ -33,4 +33,27 @@ describe('P7ActionButton', () => {
     render(<P7ActionButton disabled>Run action</P7ActionButton>);
     expect(screen.getByRole('button', { name: 'Run action' })).toBeDisabled();
   });
+
+  it('surfaces disabled reason through title and cursor', () => {
+    render(
+      <P7ActionButton disabled disabledReason='Gate check required'>
+        Run action
+      </P7ActionButton>,
+    );
+
+    const button = screen.getByRole('button', { name: 'Run action' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('title', 'Gate check required');
+    expect(button).toHaveStyle({ cursor: 'not-allowed' });
+  });
+
+  it('keeps explicit title before disabled reason', () => {
+    render(
+      <P7ActionButton disabled title='Manual title' disabledReason='Gate check required'>
+        Run action
+      </P7ActionButton>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Run action' })).toHaveAttribute('title', 'Manual title');
+  });
 });
