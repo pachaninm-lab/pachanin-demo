@@ -92,6 +92,7 @@ export default function PlatformV7BuyerPage() {
             <Link href='/platform-v7/buyer/financing' style={btn('primary')}>Финансирование</Link>
             <Link href='/platform-v7/deals' style={btn()}>Сделки</Link>
             <Link href='/platform-v7/bank' style={btn()}>Банк</Link>
+            <Link href='/platform-v7/market-rfq' style={btn()}>Market/RFQ</Link>
           </div>
         </div>
       </section>
