@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import { P7MoneySafetyAuditStrip } from '@/components/platform-v7/P7MoneySafetyAuditStrip';
+import { BankBeneficiariesPanel } from '@/components/platform-v7/BankBeneficiariesPanel';
+import { BankManualReviewPanel } from '@/components/platform-v7/BankManualReviewPanel';
+import { BankSmartContractsPanel } from '@/components/platform-v7/BankSmartContractsPanel';
 import { BankRuntime } from '@/components/v7r/BankRuntime';
 import { DomainMoneySummary } from '@/components/v7r/DomainMoneySummary';
 
 const quickLinks = [
   {
     title: 'Пакет перевозочных документов',
-    description: 'DL-9102 · юридически значимый пакет СберКорус по рейсу, подписям и влиянию на выпуск денег.',
+    description: 'DL-9102 · юридически значимый пакет по рейсу, подписям и влиянию на выпуск денег.',
     href: '/platform-v7/deals/DL-9102/transport-documents',
   },
   {
@@ -86,23 +89,23 @@ export default function PlatformV7BankPage() {
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 999, background: '#fff', border: '1px solid rgba(10,122,95,0.18)' }}>
               <span style={{ width: 10, height: 10, borderRadius: 999, background: '#0A7A5F', boxShadow: '0 0 0 3px rgba(10,122,95,0.12)' }} />
-              <span style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>СберКорус</span>
+              <span style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>Банк · sandbox</span>
             </div>
             <h1 style={{ margin: '10px 0 0', fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
-              Банковый контур с транспортным контролем
+              Банковый контур с guard-контролем
             </h1>
             <p style={{ margin: '8px 0 0', fontSize: 13, color: '#425466', maxWidth: 760 }}>
-              Выпуск денег связан не только с приёмкой и спором, но и с внешним юридически значимым транспортным контуром. В демо это слой СберКорус: пакет документов, подписи, входящие события и итоговый контроль выпуска денег.
+              Выпуск денег связан с приёмкой, документами, транспортным gate, комплаенсом и спором. Новые панели ниже работают в sandbox и не заявляют боевую банковую интеграцию.
             </p>
           </div>
           <div style={{ display: 'grid', gap: 8, minWidth: 240 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px solid rgba(10,122,95,0.14)' }}>
-              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Транспортный контроль</span>
-              <span style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 900 }}>Под контролем</span>
+              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Guard-контур</span>
+              <span style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 900 }}>Включён</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px solid rgba(217,119,6,0.14)' }}>
-              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Кейс на разбор</span>
-              <span style={{ fontSize: 12, color: '#B45309', fontWeight: 900 }}>DL-9102</span>
+              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Интеграции</span>
+              <span style={{ fontSize: 12, color: '#B45309', fontWeight: 900 }}>sandbox</span>
             </div>
           </div>
         </div>
@@ -151,6 +154,9 @@ export default function PlatformV7BankPage() {
         </div>
       </section>
 
+      <BankBeneficiariesPanel />
+      <BankSmartContractsPanel />
+      <BankManualReviewPanel />
       <BankRuntime />
     </div>
   );
