@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
+import { PLATFORM_V7_ROUTES } from '@/lib/platform-v7/routes';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -54,9 +55,9 @@ export default function BankReleaseSafetyPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <Link href='/platform-v7/bank' style={btn()}>← Банк</Link>
-            <Link href='/platform-v7/operator' style={btn()}>Оператор</Link>
-            <Link href='/platform-v7/control-tower' style={btn()}>Центр управления</Link>
+            <Link href={PLATFORM_V7_ROUTES.bank} style={btn()}>← Банк</Link>
+            <Link href={PLATFORM_V7_ROUTES.operator} style={btn()}>Оператор</Link>
+            <Link href={PLATFORM_V7_ROUTES.controlTower} style={btn()}>Центр управления</Link>
           </div>
         </div>
       </section>
