@@ -13,6 +13,7 @@ export interface P7ActionButtonProps extends Omit<ButtonHTMLAttributes<HTMLButto
   readonly loadingLabel?: ReactNode;
   readonly successLabel?: ReactNode;
   readonly errorLabel?: ReactNode;
+  readonly disabledReason?: string;
 }
 
 function stateTone(state: P7ActionButtonState): PlatformV7Tone | null {
@@ -87,19 +88,25 @@ export function P7ActionButton(props: P7ActionButtonProps) {
     successLabel,
     errorLabel,
     disabled,
+    disabledReason,
     style,
+    title,
     type = 'button',
     ...buttonProps
   } = props;
-  const colors = resolveStyle(variant, state, disabled || state === 'loading');
-  const label = resolveLabel({ children, variant, state, loadingLabel, successLabel, errorLabel });
+  const isLoading = state === 'loading';
+  const isDisabled = Boolean(disabled) || isLoading;
+  const colors = resolveStyle(variant, state, isDisabled);
+  const label = resolveLabel({ children, variant, state, loadingLabel, successLabel, errorLabel, disabledReason });
+  const resolvedTitle = title ?? (isDisabled && !isLoading ? disabledReason : undefined);
 
   return (
     <button
       {...buttonProps}
       type={type}
-      disabled={disabled || state === 'loading'}
-      aria-busy={state === 'loading'}
+      disabled={isDisabled}
+      aria-busy={isLoading}
+      title={resolvedTitle}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -114,13 +121,13 @@ export function P7ActionButton(props: P7ActionButtonProps) {
         fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
         fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1,
         fontWeight: 800,
-        cursor: disabled || state === 'loading' ? 'wait' : 'pointer',
-        opacity: disabled && state !== 'loading' ? 0.7 : 1,
+        cursor: isLoading ? 'wait' : isDisabled ? 'not-allowed' : 'pointer',
+        opacity: disabled && !isLoading ? 0.7 : 1,
         transition: 'background 120ms ease, border-color 120ms ease, color 120ms ease',
         ...style,
       }}
     >
-      {state === 'loading' ? <span aria-hidden='true'>…</span> : null}
+      {isLoading ? <span aria-hidden='true'>…</span> : null}
       {label}
     </button>
   );
