@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { DomainDeal } from '@/lib/domain/types';
 import { SANDBOX_LOGISTICS_ORDERS, SANDBOX_INCIDENTS } from '@/lib/platform-v7/logistics-chain';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
+import { P7ActionButton, type P7ActionButtonState } from '@/components/platform-v7/P7ActionButton';
 
 // ─── palette ────────────────────────────────────────────────────────────────
 const S = 'var(--pc-bg-card)';
@@ -161,9 +162,16 @@ function OverviewTab({ deal }: { deal: DomainDeal }) {
 }
 
 function MoneyTab({ deal }: { deal: DomainDeal }) {
+  const [releaseState, setReleaseState] = React.useState<P7ActionButtonState>('idle');
   const fmt = (n: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
   const releaseReady = deal.status === 'release_requested' || deal.status === 'docs_complete';
   const releaseBlocked = deal.blockers.length > 0 || deal.holdAmount > 0;
+
+  function handleRequestRelease() {
+    setReleaseState('loading');
+    setTimeout(() => setReleaseState('success'), 1400);
+    setTimeout(() => setReleaseState('idle'), 3400);
+  }
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
@@ -188,6 +196,22 @@ function MoneyTab({ deal }: { deal: DomainDeal }) {
               ? 'Сделка готова к выпуску.'
               : 'Сделка в процессе исполнения. Выпуск будет доступен после всех этапов.'}
         </div>
+        {!releaseBlocked && (
+          <div style={{ marginTop: 12 }}>
+            <P7ActionButton
+              variant='primary'
+              state={releaseState}
+              loadingLabel='Отправляем запрос…'
+              successLabel='Запрос отправлен ✓'
+              errorLabel='Ошибка — повторите'
+              disabled={releaseBlocked}
+              disabledReason='Снимите блокеры перед запросом выпуска'
+              onClick={handleRequestRelease}
+            >
+              Запросить выпуск денег
+            </P7ActionButton>
+          </div>
+        )}
       </div>
 
       <div style={{ fontSize: 12, color: M }}>
@@ -203,6 +227,14 @@ function LogisticsTab({ deal, logisticsOrder, incidents }: {
   logisticsOrder: (typeof SANDBOX_LOGISTICS_ORDERS)[0] | null;
   incidents: typeof SANDBOX_INCIDENTS;
 }) {
+  const [incidentState, setIncidentState] = React.useState<P7ActionButtonState>('idle');
+
+  function handleReportIncident() {
+    setIncidentState('loading');
+    setTimeout(() => setIncidentState('success'), 1300);
+    setTimeout(() => setIncidentState('idle'), 3300);
+  }
+
   if (!logisticsOrder) {
     return (
       <div style={{ display: 'grid', gap: 10 }}>
@@ -233,15 +265,35 @@ function LogisticsTab({ deal, logisticsOrder, incidents }: {
           ))}
         </div>
       )}
-      <Link href='/platform-v7/logistics' style={{ fontSize: 13, color: BRAND, fontWeight: 700, textDecoration: 'none' }}>
-        Открыть диспетчерскую →
-      </Link>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <P7ActionButton
+          variant='secondary'
+          state={incidentState}
+          loadingLabel='Фиксируем инцидент…'
+          successLabel='Инцидент зафиксирован ✓'
+          errorLabel='Ошибка'
+          onClick={handleReportIncident}
+        >
+          Зафиксировать инцидент
+        </P7ActionButton>
+        <Link href='/platform-v7/logistics' style={{ fontSize: 13, color: BRAND, fontWeight: 700, textDecoration: 'none' }}>
+          Открыть диспетчерскую →
+        </Link>
+      </div>
     </div>
   );
 }
 
 function DocumentsTab({ deal }: { deal: DomainDeal }) {
+  const [uploadState, setUploadState] = React.useState<P7ActionButtonState>('idle');
   const hasDocBlocker = deal.blockers.includes('docs');
+
+  function handleUpload() {
+    setUploadState('loading');
+    setTimeout(() => setUploadState('success'), 1500);
+    setTimeout(() => setUploadState('idle'), 3500);
+  }
+
   const docs = [
     { name: 'Договор купли-продажи', required: true, status: 'signed' },
     { name: 'СДИЗ (из ФГИС)', required: true, status: deal.blockers.includes('fgis') ? 'missing' : 'uploaded' },
@@ -285,15 +337,37 @@ function DocumentsTab({ deal }: { deal: DomainDeal }) {
           </div>
         ))}
       </div>
-      <Link href={`/platform-v7/deals/${deal.id}/documents`} style={{ fontSize: 13, color: BRAND, fontWeight: 700, textDecoration: 'none' }}>
-        Открыть документы сделки →
-      </Link>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {hasDocBlocker && (
+          <P7ActionButton
+            variant='primary'
+            state={uploadState}
+            loadingLabel='Загружаем…'
+            successLabel='Документ загружен ✓'
+            errorLabel='Ошибка загрузки'
+            onClick={handleUpload}
+          >
+            Загрузить недостающий документ
+          </P7ActionButton>
+        )}
+        <Link href={`/platform-v7/deals/${deal.id}/documents`} style={{ fontSize: 13, color: BRAND, fontWeight: 700, textDecoration: 'none' }}>
+          Открыть документы сделки →
+        </Link>
+      </div>
     </div>
   );
 }
 
 function FgisTab({ deal }: { deal: DomainDeal }) {
+  const [syncState, setSyncState] = React.useState<P7ActionButtonState>('idle');
   const hasFgisBlocker = deal.blockers.includes('fgis');
+
+  function handleSync() {
+    setSyncState('loading');
+    setTimeout(() => setSyncState(hasFgisBlocker ? 'error' : 'success'), 1800);
+    setTimeout(() => setSyncState('idle'), 3800);
+  }
+
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -321,6 +395,16 @@ function FgisTab({ deal }: { deal: DomainDeal }) {
           </div>
         ))}
       </div>
+      <P7ActionButton
+        variant='secondary'
+        state={syncState}
+        loadingLabel='Проверяем ФГИС…'
+        successLabel='Синхронизация OK ✓'
+        errorLabel='Ошибка синхронизации'
+        onClick={handleSync}
+      >
+        Проверить синхронизацию ФГИС
+      </P7ActionButton>
     </div>
   );
 }
@@ -367,7 +451,21 @@ function EvidenceTab({ deal }: { deal: DomainDeal }) {
 }
 
 function DisputeTab({ deal }: { deal: DomainDeal }) {
+  const [openDisputeState, setOpenDisputeState] = React.useState<P7ActionButtonState>('idle');
+  const [escalateState, setEscalateState] = React.useState<P7ActionButtonState>('idle');
   const hasDispute = deal.holdAmount > 0;
+
+  function handleOpenDispute() {
+    setOpenDisputeState('loading');
+    setTimeout(() => setOpenDisputeState('success'), 1600);
+    setTimeout(() => setOpenDisputeState('idle'), 3600);
+  }
+
+  function handleEscalate() {
+    setEscalateState('loading');
+    setTimeout(() => setEscalateState('success'), 1200);
+    setTimeout(() => setEscalateState('idle'), 3200);
+  }
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
@@ -382,13 +480,37 @@ function DisputeTab({ deal }: { deal: DomainDeal }) {
               Выпуск денег заблокирован до закрытия спора или снятия удержания.
             </div>
           </div>
-          <Link href={`/platform-v7/disputes`} style={{ fontSize: 13, color: ERR, fontWeight: 700, textDecoration: 'none' }}>
-            Открыть арбитражный кабинет →
-          </Link>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <P7ActionButton
+              variant='danger'
+              state={escalateState}
+              loadingLabel='Передаём арбитру…'
+              successLabel='Передано ✓'
+              errorLabel='Ошибка'
+              onClick={handleEscalate}
+            >
+              Эскалировать арбитру
+            </P7ActionButton>
+            <Link href='/platform-v7/disputes' style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13, color: ERR, fontWeight: 700, textDecoration: 'none', padding: '10px 14px', background: ERR_BG, border: `1px solid ${ERR_BORDER}`, borderRadius: 12 }}>
+              Открыть арбитражный кабинет →
+            </Link>
+          </div>
         </>
       ) : (
-        <div style={{ fontSize: 13, color: M }}>
-          По данной сделке нет активных споров или удержаний.
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ fontSize: 13, color: M }}>
+            По данной сделке нет активных споров или удержаний.
+          </div>
+          <P7ActionButton
+            variant='secondary'
+            state={openDisputeState}
+            loadingLabel='Создаём спор…'
+            successLabel='Спор открыт ✓'
+            errorLabel='Ошибка создания'
+            onClick={handleOpenDispute}
+          >
+            Открыть спор
+          </P7ActionButton>
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { P7ActionButton, type P7ActionButtonState } from '@/components/platform-v7/P7ActionButton';
 
 // Integration maturity: controlled-pilot — manual review queue runs in real time for operators
 const MATURITY = 'controlled-pilot';
@@ -103,12 +104,20 @@ function reasonLabel(r: ReviewReason): string {
 }
 
 export function BankManualReviewPanel() {
-  const [approving, setApproving] = React.useState<string | null>(null);
+  const [approveStates, setApproveStates] = React.useState<Record<string, P7ActionButtonState>>({});
+  const [rejectStates, setRejectStates] = React.useState<Record<string, P7ActionButtonState>>({});
   const pending = SANDBOX_REVIEW_QUEUE.filter((r) => r.status === 'pending' || r.status === 'in_review').length;
 
   function handleApprove(id: string) {
-    setApproving(id);
-    setTimeout(() => setApproving(null), 1500);
+    setApproveStates((s) => ({ ...s, [id]: 'loading' }));
+    setTimeout(() => setApproveStates((s) => ({ ...s, [id]: 'success' })), 1500);
+    setTimeout(() => setApproveStates((s) => ({ ...s, [id]: 'idle' })), 3500);
+  }
+
+  function handleReject(id: string) {
+    setRejectStates((s) => ({ ...s, [id]: 'loading' }));
+    setTimeout(() => setRejectStates((s) => ({ ...s, [id]: 'success' })), 1200);
+    setTimeout(() => setRejectStates((s) => ({ ...s, [id]: 'idle' })), 3200);
   }
 
   return (
@@ -130,7 +139,8 @@ export function BankManualReviewPanel() {
       <div style={{ display: 'grid', gap: 12 }}>
         {SANDBOX_REVIEW_QUEUE.map((item) => {
           const tone = statusTone(item.status);
-          const isApproving = approving === item.id;
+          const approveState: P7ActionButtonState = approveStates[item.id] ?? 'idle';
+          const rejectState: P7ActionButtonState = rejectStates[item.id] ?? 'idle';
           const canApprove = item.status === 'pending' || item.status === 'in_review';
           const hasBlockers = item.blockers.length > 0;
 
@@ -171,37 +181,28 @@ export function BankManualReviewPanel() {
 
               {canApprove && (
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button
+                  <P7ActionButton
+                    variant='primary'
+                    state={approveState}
+                    disabled={hasBlockers}
+                    disabledReason='Снимите все блокеры перед одобрением'
+                    loadingLabel='Одобряется…'
+                    successLabel='Одобрено ✓'
+                    errorLabel='Ошибка'
                     onClick={() => handleApprove(item.id)}
-                    disabled={isApproving || hasBlockers}
-                    style={{
-                      borderRadius: 10,
-                      padding: '8px 14px',
-                      background: hasBlockers ? SS : BRAND_BG,
-                      border: `1px solid ${hasBlockers ? B : BRAND_BORDER}`,
-                      color: hasBlockers ? M : BRAND,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: hasBlockers ? 'not-allowed' : 'pointer',
-                      opacity: isApproving ? 0.6 : 1,
-                    }}
                   >
-                    {isApproving ? 'Одобряется…' : hasBlockers ? 'Блокеры не сняты' : 'Одобрить (sandbox)'}
-                  </button>
-                  <button
-                    style={{
-                      borderRadius: 10,
-                      padding: '8px 14px',
-                      background: ERR_BG,
-                      border: `1px solid ${ERR_BORDER}`,
-                      color: ERR,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
+                    {hasBlockers ? 'Блокеры не сняты' : 'Одобрить (sandbox)'}
+                  </P7ActionButton>
+                  <P7ActionButton
+                    variant='danger'
+                    state={rejectState}
+                    loadingLabel='Отклоняется…'
+                    successLabel='Отклонено ✓'
+                    errorLabel='Ошибка'
+                    onClick={() => handleReject(item.id)}
                   >
                     Отклонить
-                  </button>
+                  </P7ActionButton>
                 </div>
               )}
             </div>
