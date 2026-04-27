@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePlatformV7ActionButtonState, platformV7ActionButtonTestId } from '@/lib/platform-v7/action-button-state';
+import {
+  platformV7ActionButtonTestId,
+  platformV7ActionButtonUiProps,
+  resolvePlatformV7ActionButtonState,
+} from '@/lib/platform-v7/action-button-state';
 import { platformV7ActionTargetById } from '@/lib/platform-v7/action-targets';
 
 describe('platform-v7 action button state', () => {
@@ -36,6 +40,11 @@ describe('platform-v7 action button state', () => {
       blocked: false,
       blockerLabels: [],
     });
+    expect(platformV7ActionButtonUiProps(state)).toMatchObject({
+      state: 'loading',
+      loadingLabel: 'Выполняется…',
+      'data-guard-state': 'busy',
+    });
   });
 
   it('keeps dangerous dispute action tone by default', () => {
@@ -65,5 +74,24 @@ describe('platform-v7 action button state', () => {
       blockerLabels: ['FGISGate', 'EvidenceGate'],
       blockedReason: 'Не все gates закрыты.',
     });
+    expect(platformV7ActionButtonUiProps(state)).toMatchObject({
+      disabled: true,
+      variant: 'danger',
+      state: 'idle',
+      disabledReason: 'Не все gates закрыты.',
+      'data-guard-state': 'blocked',
+    });
+  });
+
+  it('builds fallback reason from blocker labels', () => {
+    const target = platformV7ActionTargetById('deal-release-funds');
+    const state = resolvePlatformV7ActionButtonState({
+      target: target!,
+      activeActionId: null,
+      blocked: true,
+      blockerLabels: ['MoneyGate', 'DocumentGate'],
+    });
+
+    expect(platformV7ActionButtonUiProps(state).disabledReason).toBe('Не закрыты: MoneyGate, DocumentGate');
   });
 });
