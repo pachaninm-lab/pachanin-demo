@@ -53,7 +53,11 @@ export default function BankReleaseSafetyPage() {
               Страница показывает, почему выпуск денег не должен обходить блокеры, удержания и ручную проверку. Это audit-view, а не платёжный механизм.
             </div>
           </div>
-          <Link href='/platform-v7/bank' style={btn()}>← Банк</Link>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <Link href='/platform-v7/bank' style={btn()}>← Банк</Link>
+            <Link href='/platform-v7/operator' style={btn()}>Оператор</Link>
+            <Link href='/platform-v7/control-tower' style={btn()}>Центр управления</Link>
+          </div>
         </div>
       </section>
 
