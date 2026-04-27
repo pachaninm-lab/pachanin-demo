@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
+import { SANDBOX_FGIS_PARTIES, canCreateLotPassport } from '@/lib/platform-v7/fgis-lot-passport';
 
 const SURFACE = 'var(--pc-bg-card)';
 const SURFACE_SOFT = 'var(--pc-bg-elevated)';
@@ -13,6 +14,7 @@ const ACCENT_BORDER = 'var(--pc-accent-border)';
 const DANGER_BG = 'rgba(255,139,144,0.08)';
 const DANGER_BORDER = 'rgba(255,139,144,0.18)';
 const DANGER_TEXT = '#FF8B90';
+const WARNING_TEXT = '#B45309';
 
 export default function PlatformV7SellerPage() {
   const sellerDeals = selectAllDeals().filter((deal) => deal.seller.name === 'Агро-Юг ООО' || deal.seller.name === 'КФХ Мирный' || deal.seller.name === 'КФХ Петров' || deal.seller.name === 'АО СолнцеАгро');
@@ -32,11 +34,14 @@ export default function PlatformV7SellerPage() {
             <div style={{ marginTop: 8, fontSize: 14, color: MUTED, maxWidth: 860 }}>Первый экран продавца должен отвечать на три вопроса: сколько денег получите, что сейчас заблокировано и что нужно сделать прямо сейчас.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/lots/create' style={btn('primary')}>Создать лот</Link>
+            <Link href='/platform-v7/seller/fgis-parties' style={btn('primary')}>Мои партии ФГИС</Link>
+            <Link href='/platform-v7/lots/create' style={btn()}>Создать лот</Link>
             <Link href='/platform-v7/deals' style={btn()}>Все сделки</Link>
           </div>
         </div>
       </section>
+
+      <FgisQuickStatus />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 }}>
         <Metric title='Получите' value={formatCompactMoney(totalExpected)} note='Общая сумма, которая должна прийти продавцу.' />
@@ -78,6 +83,33 @@ export default function PlatformV7SellerPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function FgisQuickStatus() {
+  const parties = SANDBOX_FGIS_PARTIES;
+  const verified = parties.filter((party) => party.status === 'verified').length;
+  const errors = parties.filter((party) => party.status === 'sync_error').length;
+  const canCreate = parties.filter((party) => canCreateLotPassport(party)).length;
+  const totalTons = parties.reduce((sum, party) => sum + party.batches.reduce((batchSum, batch) => batchSum + batch.volumeTons, 0), 0);
+
+  return (
+    <section style={{ background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 16, padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <div>
+          <span style={{ fontSize: 12, fontWeight: 800, color: ACCENT, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            ФГИС ЗЕРНО · <span style={{ color: WARNING_TEXT }}>sandbox</span>
+          </span>
+          <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>
+            {verified} орг. подтверждено · {canCreate} готовы к созданию лота · {totalTons} т в sandbox
+            {errors > 0 && <span style={{ marginLeft: 8, color: DANGER_TEXT, fontWeight: 700 }}>· {errors} ошибка синхронизации</span>}
+          </div>
+        </div>
+        <Link href='/platform-v7/seller/fgis-parties' style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: ACCENT, padding: '8px 12px', background: ACCENT_BG, border: `1px solid ${ACCENT_BORDER}`, borderRadius: 10 }}>
+          Открыть партии →
+        </Link>
+      </div>
+    </section>
   );
 }
 
