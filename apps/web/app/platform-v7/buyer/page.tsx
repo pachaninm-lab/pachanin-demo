@@ -17,6 +17,10 @@ const ACCENT_BORDER = 'var(--pc-accent-border)';
 const DANGER_BG = 'rgba(255,139,144,0.08)';
 const DANGER_BORDER = 'rgba(255,139,144,0.18)';
 const DANGER_TEXT = '#FF8B90';
+const CREDIT = '#155EEF';
+const CREDIT_BG = 'rgba(21,94,239,0.06)';
+const CREDIT_BORDER = 'rgba(21,94,239,0.18)';
+const WARNING_TEXT = '#B45309';
 
 type SortMode = 'price_low' | 'price_high' | 'quality' | 'region';
 type CropFilter = 'all' | 'Пшеница 3 кл.' | 'Пшеница 4 кл.' | 'Кукуруза' | 'Ячмень';
@@ -36,6 +40,12 @@ const SORTS: { value: SortMode; label: string }[] = [
   { value: 'quality', label: 'По качеству' },
   { value: 'region', label: 'По региону' },
 ];
+
+const SANDBOX_CREDIT_LIMITS = {
+  total: 20_000_000,
+  used: 7_656_000,
+  available: 12_344_000,
+};
 
 function dealPrice(deal: DomainDeal) {
   return deal.pricePerTon ?? (deal.quantity ? Math.round(deal.reservedAmount / deal.quantity) : deal.reservedAmount);
@@ -79,8 +89,9 @@ export default function PlatformV7BuyerPage() {
             <div style={{ marginTop: 8, fontSize: 14, color: MUTED, maxWidth: 860 }}>Первый экран покупателя должен отвечать на три вопроса: сколько денег стоит в резерве, что сейчас блокирует выпуск и какую сделку нужно открыть первой.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/deals' style={btn('primary')}>Открыть сделки</Link>
-            <Link href='/platform-v7/bank' style={btn()}>Открыть банк</Link>
+            <Link href='/platform-v7/buyer/financing' style={btn('primary')}>Финансирование</Link>
+            <Link href='/platform-v7/deals' style={btn()}>Сделки</Link>
+            <Link href='/platform-v7/bank' style={btn()}>Банк</Link>
           </div>
         </div>
       </section>
@@ -91,6 +102,20 @@ export default function PlatformV7BuyerPage() {
         <Metric title='Под удержанием' value={formatCompactMoney(totalHold)} note='Сумма под спором, проверкой или документами.' tone='red' />
         <Metric title='Проблемные сделки' value={String(problemDeals.length)} note='Требуют вашего решения прямо сейчас.' tone='red' />
       </div>
+
+      <section style={{ background: CREDIT_BG, border: `1px solid ${CREDIT_BORDER}`, borderRadius: 16, padding: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+        <div>
+          <span style={{ fontSize: 12, fontWeight: 800, color: CREDIT, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Финансирование закупки · <span style={{ color: WARNING_TEXT }}>sandbox</span>
+          </span>
+          <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>
+            Лимит: {formatCompactMoney(SANDBOX_CREDIT_LIMITS.total)} · Использовано: {formatCompactMoney(SANDBOX_CREDIT_LIMITS.used)} · Доступно: {formatCompactMoney(SANDBOX_CREDIT_LIMITS.available)}
+          </div>
+        </div>
+        <Link href='/platform-v7/buyer/financing' style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: CREDIT, padding: '8px 12px', background: 'rgba(21,94,239,0.08)', border: `1px solid ${CREDIT_BORDER}`, borderRadius: 10 }}>
+          Открыть финансирование →
+        </Link>
+      </section>
 
       {nextActionDeal ? (
         <section style={{ background: DANGER_BG, border: `1px solid ${DANGER_BORDER}`, borderRadius: 18, padding: 18 }}>
