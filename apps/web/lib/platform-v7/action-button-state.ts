@@ -13,6 +13,16 @@ export interface PlatformV7ActionButtonState {
   blockedReason: string | null;
 }
 
+export interface PlatformV7ActionButtonUiProps {
+  disabled: boolean;
+  variant: PlatformV7ActionButtonTone;
+  state: 'idle' | 'loading';
+  loadingLabel?: string;
+  disabledReason?: string;
+  'aria-busy': boolean;
+  'data-guard-state': 'ready' | 'busy' | 'blocked';
+}
+
 export interface ResolvePlatformV7ActionButtonStateInput {
   target: PlatformV7ActionTarget;
   activeActionId: string | null;
@@ -39,6 +49,18 @@ export function resolvePlatformV7ActionButtonState(
     blocked,
     blockerLabels: blocked ? input.blockerLabels ?? [] : [],
     blockedReason: blocked ? input.blockedReason ?? null : null,
+  };
+}
+
+export function platformV7ActionButtonUiProps(state: PlatformV7ActionButtonState): PlatformV7ActionButtonUiProps {
+  return {
+    disabled: state.disabled,
+    variant: state.tone,
+    state: state.ariaBusy ? 'loading' : 'idle',
+    loadingLabel: state.ariaBusy ? state.label : undefined,
+    disabledReason: state.blockedReason ?? (state.blockerLabels.length > 0 ? `Не закрыты: ${state.blockerLabels.join(', ')}` : undefined),
+    'aria-busy': state.ariaBusy,
+    'data-guard-state': state.ariaBusy ? 'busy' : state.blocked ? 'blocked' : 'ready',
   };
 }
 
