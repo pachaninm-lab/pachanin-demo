@@ -13,18 +13,28 @@ describe('platform-v7 action button state', () => {
       disabled: false,
       ariaBusy: false,
       tone: 'secondary',
+      blocked: false,
+      blockerLabels: [],
+      blockedReason: null,
     });
     expect(platformV7ActionButtonTestId(target!)).toBe('action-deal-release-funds');
   });
 
-  it('returns loading state for active action', () => {
+  it('returns loading state for active action and ignores blocked state while busy', () => {
     const target = platformV7ActionTargetById('deal-release-funds');
-    const state = resolvePlatformV7ActionButtonState({ target: target!, activeActionId: 'releaseFunds' });
+    const state = resolvePlatformV7ActionButtonState({
+      target: target!,
+      activeActionId: 'releaseFunds',
+      blocked: true,
+      blockerLabels: ['MoneyGate'],
+    });
 
     expect(state).toMatchObject({
       label: 'Выполняется…',
       disabled: true,
       ariaBusy: true,
+      blocked: false,
+      blockerLabels: [],
     });
   });
 
@@ -33,5 +43,27 @@ describe('platform-v7 action button state', () => {
     const state = resolvePlatformV7ActionButtonState({ target: target!, activeActionId: null });
 
     expect(state.tone).toBe('danger');
+  });
+
+  it('returns blocked state when release gates are not passed', () => {
+    const target = platformV7ActionTargetById('deal-release-funds');
+    const state = resolvePlatformV7ActionButtonState({
+      target: target!,
+      activeActionId: null,
+      blocked: true,
+      blockedLabel: 'Выпуск заблокирован',
+      blockerLabels: ['FGISGate', 'EvidenceGate'],
+      blockedReason: 'Не все gates закрыты.',
+    });
+
+    expect(state).toEqual({
+      label: 'Выпуск заблокирован',
+      disabled: true,
+      ariaBusy: false,
+      tone: 'danger',
+      blocked: true,
+      blockerLabels: ['FGISGate', 'EvidenceGate'],
+      blockedReason: 'Не все gates закрыты.',
+    });
   });
 });
