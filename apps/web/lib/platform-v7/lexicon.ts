@@ -31,6 +31,7 @@ export const PLATFORM_V7_LEXICON = {
     escrow: 'Эскроу',
     fgisParties: 'Партии ФГИС',
     financing: 'Финансирование',
+    market: 'Рынок',
   },
   env: {
     pilot: 'Пилотный режим',

@@ -102,6 +102,7 @@ export type MarketLotStatus =
   | 'under_moderation'
   | 'active'
   | 'offer_received'
+  | 'reserved'
   | 'sold'
   | 'expired'
   | 'cancelled';
@@ -110,7 +111,7 @@ export type PriceBasis = 'EXW' | 'FCA' | 'CPT' | 'DAP' | 'DAT' | 'CIF';
 
 export interface MarketLot {
   readonly id: EntityId;
-  readonly lotPassportId: EntityId;
+  readonly lotPassportId?: EntityId;
   readonly seller: CounterpartyRef;
   readonly grain: string;
   readonly volumeTons: number;
@@ -133,6 +134,7 @@ export interface MarketLot {
 
 export type RFQStatus =
   | 'draft'
+  | 'open'
   | 'published'
   | 'offers_received'
   | 'offer_accepted'
@@ -140,8 +142,10 @@ export type RFQStatus =
   | 'cancelled';
 
 export interface RFQQualityRequirement {
+  readonly moisture?: number;       // alias for moistureMax (≤ this value)
   readonly moistureMax?: number;
   readonly natweightMin?: number;
+  readonly protein?: number;        // alias for proteinMin (≥ this value)
   readonly proteinMin?: number;
   readonly weedMax?: number;
   readonly gostClass?: string;
@@ -317,6 +321,9 @@ export const SANDBOX_FGIS_PARTIES: readonly FGISParty[] = [
   },
 ];
 
+const TWO_DAYS_AGO = new Date(Date.now() - 2 * 86400000).toISOString();
+const NEXT_WEEK = new Date(Date.now() + 7 * 86400000).toISOString();
+
 export const SANDBOX_LOT_PASSPORTS: readonly LotPassport[] = [
   {
     id: 'lp-001',
@@ -342,6 +349,27 @@ export const SANDBOX_LOT_PASSPORTS: readonly LotPassport[] = [
     createdAt: YESTERDAY,
     updatedAt: NOW,
   },
+  {
+    id: 'lp-002',
+    fgisPartyId: 'fgis-party-001',
+    fgisBatchId: 'batch-001-2',
+    source: 'fgis',
+    status: 'quality_attached',
+    grain: 'Ячмень 2 кл.',
+    volumeTons: 180,
+    region: 'Тамбовская',
+    harvestYear: 2025,
+    sdizNumber: 'СДИЗ-68-2025-0002',
+    quality: {
+      moisture: 13.0,
+      natweight: 640,
+      protein: 11.5,
+      gostClass: '2',
+    },
+    maturity: 'sandbox',
+    createdAt: TWO_DAYS_AGO,
+    updatedAt: YESTERDAY,
+  },
 ];
 
 export const SANDBOX_MARKET_LOTS: readonly MarketLot[] = [
@@ -365,5 +393,171 @@ export const SANDBOX_MARKET_LOTS: readonly MarketLot[] = [
     maturity: 'sandbox',
     publishedAt: YESTERDAY,
     createdAt: YESTERDAY,
+  },
+  {
+    id: 'ml-002',
+    seller: { id: 'seller-kfh-002', name: 'КФХ Петров', role: 'seller', inn: '6101234509' },
+    grain: 'Пшеница 3 кл.',
+    volumeTons: 300,
+    pricePerTon: 13800,
+    priceBasis: 'CPT',
+    currency: 'RUB',
+    region: 'Ростовская',
+    status: 'active',
+    quality: {
+      moisture: 12.0,
+      natweight: 770,
+      protein: 12.5,
+      fallingNumber: 320,
+      gostClass: '3',
+    },
+    maturity: 'sandbox',
+    publishedAt: YESTERDAY,
+    createdAt: YESTERDAY,
+  },
+  {
+    id: 'ml-003',
+    seller: { id: 'seller-solnce-003', name: 'АО СолнцеАгро', role: 'seller', inn: '7701234567' },
+    grain: 'Кукуруза 1 кл.',
+    volumeTons: 600,
+    pricePerTon: 11200,
+    priceBasis: 'EXW',
+    currency: 'RUB',
+    region: 'Ставропольский',
+    status: 'active',
+    quality: {
+      moisture: 14.0,
+      natweight: 720,
+      gostClass: '1',
+    },
+    maturity: 'sandbox',
+    publishedAt: TWO_DAYS_AGO,
+    createdAt: TWO_DAYS_AGO,
+  },
+  {
+    id: 'ml-004',
+    seller: { id: 'seller-agro-004', name: 'Агрохолдинг СК', role: 'seller', inn: '2301234567' },
+    grain: 'Пшеница 4 кл.',
+    volumeTons: 800,
+    pricePerTon: 12100,
+    priceBasis: 'EXW',
+    currency: 'RUB',
+    region: 'Краснодарский',
+    status: 'active',
+    quality: {
+      moisture: 13.5,
+      natweight: 750,
+      protein: 10.2,
+      gostClass: '4',
+    },
+    maturity: 'sandbox',
+    publishedAt: TWO_DAYS_AGO,
+    createdAt: TWO_DAYS_AGO,
+  },
+  {
+    id: 'ml-005',
+    seller: { id: 'seller-mirny-005', name: 'КФХ Мирный', role: 'seller', inn: '3664098765' },
+    grain: 'Ячмень 2 кл.',
+    volumeTons: 240,
+    pricePerTon: 9800,
+    priceBasis: 'EXW',
+    currency: 'RUB',
+    region: 'Воронежская',
+    status: 'reserved',
+    quality: {
+      moisture: 12.8,
+      natweight: 630,
+      protein: 10.9,
+      gostClass: '2',
+    },
+    maturity: 'sandbox',
+    publishedAt: TWO_DAYS_AGO,
+    createdAt: TWO_DAYS_AGO,
+  },
+];
+
+export const SANDBOX_RFQS: readonly RFQ[] = [
+  {
+    id: 'rfq-001',
+    buyer: { id: 'buyer-agroholding', name: 'Агрохолдинг СК', role: 'buyer', inn: '2301234567' },
+    grain: 'Пшеница 3 кл.',
+    volumeTons: 250,
+    targetPricePerTon: 14000,
+    deliveryRegion: 'Ростовская',
+    deliveryDateFrom: NOW,
+    deliveryDateTo: NEXT_WEEK,
+    qualityRequirements: { moisture: 13.0, protein: 12.0, gostClass: '3' },
+    status: 'open',
+    offerIds: ['offer-001', 'offer-002'],
+    maturity: 'sandbox',
+    createdAt: YESTERDAY,
+    expiresAt: NEXT_WEEK,
+  },
+  {
+    id: 'rfq-002',
+    buyer: { id: 'buyer-zernotrade', name: 'ЗерноТрейд ООО', role: 'buyer', inn: '7712345678' },
+    grain: 'Кукуруза 1 кл.',
+    volumeTons: 500,
+    targetPricePerTon: 11500,
+    deliveryRegion: 'Ставропольский',
+    status: 'open',
+    offerIds: ['offer-003'],
+    maturity: 'sandbox',
+    createdAt: TWO_DAYS_AGO,
+    expiresAt: NEXT_WEEK,
+  },
+];
+
+export const SANDBOX_OFFERS: readonly Offer[] = [
+  {
+    id: 'offer-001',
+    type: 'rfq_response',
+    rfqId: 'rfq-001',
+    marketLotId: 'ml-002',
+    seller: { id: 'seller-kfh-002', name: 'КФХ Петров', role: 'seller', inn: '6101234509' },
+    buyer: { id: 'buyer-agroholding', name: 'Агрохолдинг СК', role: 'buyer' },
+    grain: 'Пшеница 3 кл.',
+    volumeTons: 300,
+    pricePerTon: 13800,
+    priceBasis: 'CPT',
+    currency: 'RUB',
+    quality: { moisture: 12.0, natweight: 770, protein: 12.5, gostClass: '3' },
+    status: 'submitted',
+    maturity: 'sandbox',
+    createdAt: YESTERDAY,
+    expiresAt: NEXT_WEEK,
+  },
+  {
+    id: 'offer-002',
+    type: 'rfq_response',
+    rfqId: 'rfq-001',
+    seller: { id: 'seller-agro-004', name: 'Агрохолдинг СК', role: 'seller', inn: '2301234567' },
+    buyer: { id: 'buyer-agroholding', name: 'Агрохолдинг СК', role: 'buyer' },
+    grain: 'Пшеница 3 кл.',
+    volumeTons: 250,
+    pricePerTon: 13500,
+    priceBasis: 'CPT',
+    currency: 'RUB',
+    quality: { moisture: 12.8, natweight: 760, protein: 11.8, gostClass: '3' },
+    status: 'under_review',
+    maturity: 'sandbox',
+    createdAt: YESTERDAY,
+    expiresAt: NEXT_WEEK,
+  },
+  {
+    id: 'offer-003',
+    type: 'buy_now',
+    marketLotId: 'ml-003',
+    seller: { id: 'seller-solnce-003', name: 'АО СолнцеАгро', role: 'seller', inn: '7701234567' },
+    grain: 'Кукуруза 1 кл.',
+    volumeTons: 500,
+    pricePerTon: 11200,
+    priceBasis: 'EXW',
+    currency: 'RUB',
+    quality: { moisture: 14.0, gostClass: '1' },
+    status: 'submitted',
+    maturity: 'sandbox',
+    createdAt: TWO_DAYS_AGO,
+    expiresAt: NEXT_WEEK,
   },
 ];

@@ -34,6 +34,7 @@ const LABEL_BY_SEGMENT: Record<string, string> = {
   notifications: PLATFORM_V7_LEXICON.breadcrumbs.notifications,
   'fgis-parties': PLATFORM_V7_LEXICON.breadcrumbs.fgisParties,
   financing: PLATFORM_V7_LEXICON.breadcrumbs.financing,
+  rfq: 'RFQ',
 };
 
 export function platformV7BreadcrumbSegmentLabel(segment: string): string {

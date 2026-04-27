@@ -284,9 +284,9 @@ describe('FGIS LotPassport domain', () => {
       });
     });
 
-    it('SANDBOX_MARKET_LOTS each link to a lot passport that exists', () => {
+    it('SANDBOX_MARKET_LOTS with lotPassportId each link to a passport that exists', () => {
       const lpIds = new Set(SANDBOX_LOT_PASSPORTS.map((lp) => lp.id));
-      SANDBOX_MARKET_LOTS.forEach((ml) => {
+      SANDBOX_MARKET_LOTS.filter((ml) => ml.lotPassportId != null).forEach((ml) => {
         expect(lpIds.has(ml.lotPassportId)).toBe(true);
       });
     });
