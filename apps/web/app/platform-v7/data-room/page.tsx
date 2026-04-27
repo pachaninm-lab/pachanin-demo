@@ -18,7 +18,7 @@ const ERR = '#B91C1C';
 const links = [
   { title: 'Банк', href: PLATFORM_V7_BANK_ROUTE },
   { title: 'Проверка выпуска денег', href: PLATFORM_V7_RELEASE_SAFETY_ROUTE },
-  { title: 'Market / RFQ', href: PLATFORM_V7_MARKET_RFQ_ROUTE },
+  { title: 'Рынок и заявки', href: PLATFORM_V7_MARKET_RFQ_ROUTE },
   { title: 'Центр управления', href: PLATFORM_V7_CONTROL_TOWER_ROUTE },
   { title: 'Инвестор', href: '/platform-v7/investor' },
 ];
@@ -27,42 +27,42 @@ const groups = [
   {
     title: 'Что уже собрано',
     items: [
-      ['Market/RFQ route', 'ready'],
-      ['release-safety audit', 'ready'],
-      ['Bank Hub sandbox panels', 'partial'],
-      ['Deal Workspace tabs', 'partial'],
-      ['seller FGIS sandbox', 'partial'],
-      ['buyer financing sandbox', 'partial'],
-      ['logistics sandbox projection', 'partial'],
+      ['Рынок и заявки', 'ready'],
+      ['Проверка выпуска денег', 'ready'],
+      ['Банковый контур в песочнице', 'partial'],
+      ['Рабочее место сделки', 'partial'],
+      ['Партии ФГИС в песочнице', 'partial'],
+      ['Финансирование покупателя в песочнице', 'partial'],
+      ['Логистика в песочнице', 'partial'],
     ],
   },
   {
-    title: 'Что нельзя заявлять как live',
+    title: 'Что нельзя заявлять как боевое',
     items: [
-      ['live bank integration', 'missing'],
-      ['live FGIS integration', 'missing'],
-      ['live GPS/telematics', 'missing'],
-      ['live EDO/ETRN signing', 'missing'],
-      ['confirmed GMV', 'missing'],
+      ['Боевая банковая интеграция', 'missing'],
+      ['Боевая интеграция с ФГИС', 'missing'],
+      ['Боевая телематика и GPS', 'missing'],
+      ['Боевое подписание ЭДО/ЭТрН', 'missing'],
+      ['Подтверждённый оборот сделок', 'missing'],
     ],
   },
   {
     title: 'Риски для банка и инвестора',
     items: [
-      ['live integrations not confirmed', 'missing'],
-      ['real deals not proven', 'missing'],
-      ['anti-bypass not validated', 'missing'],
-      ['unit economics not verified', 'missing'],
-      ['legal docs need review', 'partial'],
-      ['bank pilot required', 'partial'],
+      ['Боевые интеграции не подтверждены', 'missing'],
+      ['Реальные сделки ещё не доказаны', 'missing'],
+      ['Защита от обхода платформы не проверена', 'missing'],
+      ['Экономика сделки не подтверждена', 'missing'],
+      ['Юридические документы требуют проверки', 'partial'],
+      ['Банковский контур требует управляемого пилота', 'partial'],
     ],
   },
 ];
 
 function statusTone(status: string) {
-  if (status === 'ready') return { label: 'ready', color: BRAND, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)' };
-  if (status === 'partial') return { label: 'partial', color: WARN, bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)' };
-  return { label: 'missing', color: ERR, bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)' };
+  if (status === 'ready') return { label: 'готово', color: BRAND, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)' };
+  if (status === 'partial') return { label: 'частично', color: WARN, bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)' };
+  return { label: 'не готово', color: ERR, bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)' };
 }
 
 export default function PlatformV7DataRoomPage() {
@@ -71,10 +71,10 @@ export default function PlatformV7DataRoomPage() {
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Data Room · controlled pilot</div>
+            <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Пакет проверки · управляемый пилот</div>
             <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Проверочный пакет для банка и инвестора</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 880 }}>
-              Честная карта состояния platform-v7: что уже собрано в sandbox, что требует controlled pilot и что нельзя заявлять как production-ready.
+              Честная карта состояния platform-v7: что уже собрано в песочнице, что требует управляемого пилота и что нельзя заявлять как полностью готовое.
             </div>
           </div>
           <Link href='/platform-v7/investor' style={btn()}>Инвестор</Link>
@@ -82,9 +82,9 @@ export default function PlatformV7DataRoomPage() {
       </section>
 
       <section style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 14, padding: 14 }}>
-        <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Honesty rule</div>
+        <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Правило честности</div>
         <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
-          Статус проекта: sandbox / controlled pilot / pilot-ready with accompaniment. Live bank, live FGIS, live GPS, live EDO и production-ready здесь не заявляются.
+          Статус проекта: песочница / управляемый пилот / готовность к пилоту с сопровождением. Боевая банковая интеграция, ФГИС, GPS, ЭДО и полная готовность здесь не заявляются.
         </div>
       </section>
 
