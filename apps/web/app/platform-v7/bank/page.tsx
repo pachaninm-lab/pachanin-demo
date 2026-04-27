@@ -8,6 +8,11 @@ import { DomainMoneySummary } from '@/components/v7r/DomainMoneySummary';
 
 const quickLinks = [
   {
+    title: 'Проверка выпуска денег',
+    description: 'Read-only audit: блокеры, удержания и кандидаты к выпуску.',
+    href: '/platform-v7/bank/release-safety',
+  },
+  {
     title: 'Пакет перевозочных документов',
     description: 'DL-9102 · юридически значимый пакет по рейсу, подписям и влиянию на выпуск денег.',
     href: '/platform-v7/deals/DL-9102/transport-documents',
