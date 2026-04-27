@@ -3,8 +3,8 @@
 import Link from 'next/link';
 
 const METRICS = [
-  { label: 'GMV (апрель)', value: '118 млн ₽', sub: '+30% к марту' },
-  { label: 'Take-rate', value: '1,8%', sub: 'Комиссия платформы' },
+  { label: 'Оборот в демо-срезе', value: '118 млн ₽', sub: '+30% к марту' },
+  { label: 'Комиссия платформы', value: '1,8%', sub: 'Модель дохода платформы' },
   { label: 'Активных сделок', value: '31', sub: 'Пик по текущему ряду' },
   { label: 'Средний цикл', value: '8,3 дн.', sub: 'От контракта до расчёта' },
 ];
@@ -18,42 +18,48 @@ const REGIONS = [
   { name: 'Ростовская', deals: 3, gmv: 12.6, color: '#DC2626' },
 ];
 
-const ROADMAP = [
-  'ФГИС-интеграция в prod-контур (Q2 2026)',
-  'Пилот с 3 агрохолдингами ЮФО (Q2 2026)',
-  'Мобильное приложение для водителей и элеваторов (Q3 2026)',
-  'API-доступ для банков-партнёров (Q3 2026)',
-  'Расширение на 15 регионов (Q4 2026)',
+const PLAN = [
+  'Подключение ФГИС в боевой контур после управляемого пилота',
+  'Пилот с тремя агрохолдингами ЮФО',
+  'Мобильный кабинет для водителей и элеваторов',
+  'Доступ для банков-партнёров после подтверждения пилотного контура',
+  'Расширение на 15 регионов после проверки экономики сделки',
 ];
 
 const TRUST = [
   { label: 'Просрочка по сделкам', value: '0%', good: true },
   { label: 'Спорность', value: '8%', good: true },
-  { label: 'ФГИС-покрытие', value: '100%', good: true },
+  { label: 'Покрытие ФГИС в песочнице', value: '100%', good: true },
   { label: 'Активных сделок', value: '31', good: true },
 ];
 
 const SHIPPED = [
   {
-    title: 'Auth и онбординг',
+    title: 'Пакет проверки',
     state: 'Встроено',
-    note: 'Вход, регистрация, auth hub и подключение компании уже внутри платформы.',
+    note: 'Честная карта для банка и инвестора: что собрано, что в песочнице и что требует пилота.',
+    href: '/platform-v7/data-room',
+  },
+  {
+    title: 'Вход и подключение компании',
+    state: 'Встроено',
+    note: 'Вход, регистрация и подключение компании уже внутри платформы.',
     href: '/platform-v7/auth',
   },
   {
     title: 'Факторинг и эскроу',
     state: 'Встроено',
-    note: 'Новые банковые поверхности уже оформлены и связаны с денежным контуром.',
+    note: 'Банковские поверхности оформлены и связаны с денежным контуром в песочнице.',
     href: '/platform-v7/bank',
   },
   {
-    title: 'Trust-слой',
+    title: 'Слой доверия',
     state: 'Встроено',
     note: 'Профиль компании, команда, карточки контрагентов и отзывы по сделкам уже доступны.',
     href: '/platform-v7/profile',
   },
   {
-    title: 'Status-ready контур',
+    title: 'Контур готовности',
     state: 'Встроено',
     note: 'Есть отдельный слой готовности сервисов и новых модулей.',
     href: '/platform-v7/status',
@@ -67,11 +73,15 @@ export default function InvestorPage() {
     <div style={{ display: 'grid', gap: 24 }}>
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', margin: 0, borderLeft: '4px solid #0A7A5F', paddingLeft: 12 }}>
-          Инвестор / Раунд
+          Инвестор и раунд
         </h1>
         <p style={{ fontSize: 13, color: '#6B778C', marginTop: 4, paddingLeft: 16 }}>
-          Trust metrics · Операционные показатели · Roadmap
+          Показатели доверия · Операционные показатели · План развития
         </p>
+      </div>
+
+      <div style={{ padding: '14px 16px', borderRadius: 16, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#0F1419', fontSize: 13, lineHeight: 1.6 }}>
+        Страница показывает демонстрационный инвестиционный срез. Боевые интеграции, подтверждённый оборот и полная готовность не заявляются без управляемого пилота.
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
@@ -88,7 +98,7 @@ export default function InvestorPage() {
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Что уже встроено в продукт</div>
           <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
-            Это уже не только roadmap. Ключевые P1-слои реально встроены в платформу и доступны пользователю.
+            Ключевые P1-слои встроены в платформу и доступны пользователю. Статус интеграций остаётся честно ограниченным: песочница или управляемый пилот.
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
@@ -125,7 +135,7 @@ export default function InvestorPage() {
 
         <div style={{ display: 'grid', gap: 16 }}>
           <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14 }}>Trust metrics</div>
+            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14 }}>Показатели доверия</div>
             <div style={{ display: 'grid', gap: 10 }}>
               {TRUST.map(({ label, value, good }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 10, background: good ? 'rgba(10,122,95,0.06)' : 'rgba(220,38,38,0.06)', border: `1px solid ${good ? 'rgba(10,122,95,0.14)' : 'rgba(220,38,38,0.14)'}` }}>
@@ -137,9 +147,9 @@ export default function InvestorPage() {
           </div>
 
           <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12 }}>Roadmap · 90 дней</div>
+            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12 }}>План на 90 дней</div>
             <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
-              {ROADMAP.map((item, i) => (
+              {PLAN.map((item, i) => (
                 <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12, color: '#374151', lineHeight: 1.5 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 999, background: '#0A7A5F', color: '#fff', fontSize: 10, fontWeight: 800, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
                   {item}
@@ -152,8 +162,8 @@ export default function InvestorPage() {
 
       <div style={{ padding: '16px 20px', borderRadius: 16, background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>Запросить питч-дек</div>
-          <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>Детальные финансовые модели и стратегия роста</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>Запросить материалы по раунду</div>
+          <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>Финансовая модель, план роста и проверочный пакет</div>
         </div>
         <a href="mailto:invest@pachanin.ru" style={{ display: 'inline-flex', alignItems: 'center', padding: '10px 18px', borderRadius: 12, background: '#0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, textDecoration: 'none' }}>
           Написать →
