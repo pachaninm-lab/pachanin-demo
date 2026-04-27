@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7DealWorkspaceTabs } from '@/components/platform-v7/P7DealWorkspaceTabs';
 import { DealDetailRuntime } from '@/components/v7r/DealDetailRuntime';
 import { selectDealById, selectDealIntegrationState } from '@/lib/domain/selectors';
 
@@ -98,6 +99,8 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <DealDetailRuntime id={params.id} />
+
+      {deal ? <P7DealWorkspaceTabs deal={deal} /> : null}
 
       {deal && integration ? (
         <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 16 }}>
