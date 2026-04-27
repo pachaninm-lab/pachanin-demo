@@ -70,6 +70,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     keywords: 'release safety audit банк деньги выпуск удержания блокеры gate',
   },
   {
+    id: 'sec-data-room',
+    group: 'Разделы',
+    title: 'Data Room',
+    subtitle: 'Проверочный пакет для банка и инвестора',
+    href: '/platform-v7/data-room',
+    keywords: 'data room due diligence банк инвестор проверка документы',
+  },
+  {
     id: 'sec-disputes',
     group: 'Разделы',
     title: PLATFORM_V7_LEXICON.nav.disputes,
