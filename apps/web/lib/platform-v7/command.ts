@@ -1,4 +1,5 @@
 import { PLATFORM_V7_LEXICON } from './lexicon';
+import { PLATFORM_V7_MARKET_RFQ_ROUTE, PLATFORM_V7_RELEASE_SAFETY_ROUTE } from './routes';
 
 export type PlatformV7CommandGroup = 'Сделки' | 'Лоты' | 'Споры' | 'Разделы';
 
@@ -49,7 +50,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Market / RFQ',
     subtitle: 'Предсделочный sandbox-контур: лоты, заявки и оферты',
-    href: '/platform-v7/market-rfq',
+    href: PLATFORM_V7_MARKET_RFQ_ROUTE,
     keywords: 'market rfq рынок заявки оферты спрос предложение предсделочный контур',
   },
   {
@@ -65,7 +66,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Проверка выпуска денег',
     subtitle: 'Read-only audit: блокеры, удержания и кандидаты к выпуску',
-    href: '/platform-v7/bank/release-safety',
+    href: PLATFORM_V7_RELEASE_SAFETY_ROUTE,
     keywords: 'release safety audit банк деньги выпуск удержания блокеры gate',
   },
   {
