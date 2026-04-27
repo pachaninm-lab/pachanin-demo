@@ -29,6 +29,9 @@ export const PLATFORM_V7_LEXICON = {
     holds: 'Удержания',
     factoring: 'Факторинг',
     escrow: 'Эскроу',
+    fgisParties: 'Партии ФГИС',
+    financing: 'Финансирование',
+    market: 'Рынок',
   },
   env: {
     pilot: 'Пилотный режим',
@@ -86,6 +89,8 @@ export const PLATFORM_V7_LEXICON = {
     demo: 'Демо',
     market: 'Рынок',
     notifications: 'Уведомления',
+    fgisParties: 'Партии ФГИС',
+    financing: 'Финансирование',
   },
   statuses: {
     pass: 'Пройдено',

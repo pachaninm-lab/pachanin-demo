@@ -84,12 +84,15 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
   ],
   buyer: [
     { href: '/platform-v7/buyer', label: PLATFORM_V7_LEXICON.nav.cabinet, icon: 'cabinet' },
+    { href: '/platform-v7/buyer/financing', label: PLATFORM_V7_LEXICON.nav.financing, icon: 'bank' },
+    { href: '/platform-v7/market', label: PLATFORM_V7_LEXICON.nav.market, icon: 'procurement' },
     { href: '/platform-v7/procurement', label: PLATFORM_V7_LEXICON.nav.procurement, icon: 'procurement' },
     { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals, icon: 'deals' },
     { href: '/platform-v7/bank', label: PLATFORM_V7_LEXICON.nav.money, icon: 'bank' },
   ],
   seller: [
     { href: '/platform-v7/seller', label: PLATFORM_V7_LEXICON.nav.cabinet, icon: 'cabinet' },
+    { href: '/platform-v7/seller/fgis-parties', label: PLATFORM_V7_LEXICON.nav.fgisParties, icon: 'lots' },
     { href: '/platform-v7/lots', label: PLATFORM_V7_LEXICON.nav.lots, icon: 'lots' },
     { href: '/platform-v7/lots/create', label: PLATFORM_V7_LEXICON.nav.createLot, icon: 'create' },
     { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals, icon: 'deals' },
