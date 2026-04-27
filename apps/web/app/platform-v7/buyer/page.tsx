@@ -79,8 +79,9 @@ export default function PlatformV7BuyerPage() {
             <div style={{ marginTop: 8, fontSize: 14, color: MUTED, maxWidth: 860 }}>Первый экран покупателя должен отвечать на три вопроса: сколько денег стоит в резерве, что сейчас блокирует выпуск и какую сделку нужно открыть первой.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/deals' style={btn('primary')}>Открыть сделки</Link>
-            <Link href='/platform-v7/bank' style={btn()}>Открыть банк</Link>
+            <Link href='/platform-v7/buyer/financing' style={btn('primary')}>Финансирование</Link>
+            <Link href='/platform-v7/deals' style={btn()}>Сделки</Link>
+            <Link href='/platform-v7/bank' style={btn()}>Банк</Link>
           </div>
         </div>
       </section>
@@ -91,6 +92,17 @@ export default function PlatformV7BuyerPage() {
         <Metric title='Под удержанием' value={formatCompactMoney(totalHold)} note='Сумма под спором, проверкой или документами.' tone='red' />
         <Metric title='Проблемные сделки' value={String(problemDeals.length)} note='Требуют вашего решения прямо сейчас.' tone='red' />
       </div>
+
+      {/* Financing quick link — buyer only */}
+      <section style={{ background: 'rgba(21,94,239,0.06)', border: '1px solid rgba(21,94,239,0.18)', borderRadius: 16, padding: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+        <div>
+          <span style={{ fontSize: 12, fontWeight: 800, color: '#155EEF', textTransform: 'uppercase', letterSpacing: '0.06em' }}>B2B-кредитование · <span style={{ color: '#B45309' }}>sandbox</span></span>
+          <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>Лимит: 20 000 000 ₽ · Использовано: 7 656 000 ₽ · Доступно: 12 344 000 ₽</div>
+        </div>
+        <Link href='/platform-v7/buyer/financing' style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#155EEF', padding: '8px 12px', background: 'rgba(21,94,239,0.08)', border: '1px solid rgba(21,94,239,0.18)', borderRadius: 10 }}>
+          Открыть финансирование →
+        </Link>
+      </section>
 
       {nextActionDeal ? (
         <section style={{ background: DANGER_BG, border: `1px solid ${DANGER_BORDER}`, borderRadius: 18, padding: 18 }}>

@@ -2,6 +2,9 @@ import Link from 'next/link';
 import { P7MoneySafetyAuditStrip } from '@/components/platform-v7/P7MoneySafetyAuditStrip';
 import { BankRuntime } from '@/components/v7r/BankRuntime';
 import { DomainMoneySummary } from '@/components/v7r/DomainMoneySummary';
+import { BankBeneficiariesPanel } from '@/components/platform-v7/BankBeneficiariesPanel';
+import { BankSmartContractsPanel } from '@/components/platform-v7/BankSmartContractsPanel';
+import { BankManualReviewPanel } from '@/components/platform-v7/BankManualReviewPanel';
 
 const quickLinks = [
   {
@@ -151,6 +154,9 @@ export default function PlatformV7BankPage() {
         </div>
       </section>
 
+      <BankBeneficiariesPanel />
+      <BankSmartContractsPanel />
+      <BankManualReviewPanel />
       <BankRuntime />
     </div>
   );
