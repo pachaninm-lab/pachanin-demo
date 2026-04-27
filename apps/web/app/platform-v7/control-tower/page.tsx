@@ -227,6 +227,7 @@ export default function PlatformV7ControlTowerPage() {
               <div className='ct-title'>Сигналы системы</div>
               <div style={{ display:'grid', gap:10 }}>
                 <Signal title='Банк' detail={`${callbacks.length} события уже в контуре.`} href='/platform-v7/bank' />
+                <Signal title='Проверка выпуска денег' detail='Блокеры, удержания и кандидаты к выпуску.' href='/platform-v7/bank/release-safety' />
                 <Signal title='Споры' detail={`${disputes.length} активных кейса под удержанием.`} href='/platform-v7/disputes' />
                 <Signal title='Проверка' detail={`${reviewByIntegration.length} сделки ждут ручной проверки.`} href='/platform-v7/connectors' />
                 <Signal title='СберКорус' detail={`${transportBlocked + transportAwaiting} транспортных кейсов требуют действий.`} href='/platform-v7/control-tower/hotlist' />
