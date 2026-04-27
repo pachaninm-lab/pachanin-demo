@@ -1,6 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { P7ActionButton, type P7ActionButtonState } from '@/components/platform-v7/P7ActionButton';
+import { P7ActionLog } from '@/components/platform-v7/P7ActionLog';
+import { runPlatformAction } from '@/lib/platform-v7/action-runner';
+import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
 
 type FactoringStatus = 'Проверка' | 'Документы' | 'Одобрено' | 'Аванс выплачен';
 
@@ -22,7 +26,7 @@ const initialApplications: FactoringApplication[] = [
     amount: 8.6,
     status: 'Одобрено',
     next: 'Подтвердить выпуск аванса',
-    note: 'Финальный лимит подтверждён, осталось дать команду на выплату аванса.'
+    note: 'Финальный лимит подтверждён, осталось дать команду на выплату аванса.',
   },
   {
     id: 'FAC-202',
@@ -31,7 +35,7 @@ const initialApplications: FactoringApplication[] = [
     amount: 12.1,
     status: 'Проверка',
     next: 'Дождаться финального скоринга',
-    note: 'Банк дочитывает финансовый профиль и проверяет структуру сделки.'
+    note: 'Банк дочитывает финансовый профиль и проверяет структуру сделки.',
   },
   {
     id: 'FAC-203',
@@ -40,8 +44,8 @@ const initialApplications: FactoringApplication[] = [
     amount: 5.4,
     status: 'Документы',
     next: 'Загрузить пакет уступки требований',
-    note: 'Не хватает уступки, акта сверки и финального реестра поставки.'
-  }
+    note: 'Не хватает уступки, акта сверки и финального реестра поставки.',
+  },
 ];
 
 const formatMillions = (value: number) => `${value.toFixed(1).replace('.', ',')} млн ₽`;
@@ -59,10 +63,39 @@ const badgeStyle = (status: FactoringStatus) => {
   return { background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#475569' };
 };
 
+function getNextApplication(item: FactoringApplication): FactoringApplication {
+  if (item.status === 'Проверка') {
+    return { ...item, status: 'Документы', next: 'Собрать уступку и акт сверки', note: 'Скоринг пройден, остался документный пакет для уступки.' };
+  }
+  if (item.status === 'Документы') {
+    return { ...item, status: 'Одобрено', next: 'Подтвердить выпуск аванса', note: 'Документы закрыты, заявка готова к авансированию.' };
+  }
+  if (item.status === 'Одобрено') {
+    return { ...item, status: 'Аванс выплачен', next: 'Контролировать возврат через закрытие поставки', note: 'Аванс ушёл покупателю, дальнейший контроль через исполнение сделки.' };
+  }
+  return item;
+}
+
+function getActionLabel(status: FactoringStatus): string {
+  if (status === 'Проверка') return 'Завершить скоринг';
+  if (status === 'Документы') return 'Принять пакет';
+  if (status === 'Одобрено') return 'Выплатить аванс';
+  return 'Проверить историю';
+}
+
+function getSuccessMessage(item: FactoringApplication): string {
+  if (item.status === 'Проверка') return `Заявка ${item.id}: скоринг завершён, можно переходить к документам.`;
+  if (item.status === 'Документы') return `Заявка ${item.id}: пакет документов принят, лимит одобрен.`;
+  if (item.status === 'Одобрено') return `Заявка ${item.id}: аванс выплачен и привязан к сделке ${item.deal}.`;
+  return `Заявка ${item.id}: дополнительное движение не требуется.`;
+}
+
 export default function BankFactoringPage() {
   const [applications, setApplications] = useState<FactoringApplication[]>(initialApplications);
   const [filter, setFilter] = useState<'Все' | FactoringStatus>('Все');
   const [message, setMessage] = useState('');
+  const [actionStates, setActionStates] = useState<Record<string, P7ActionButtonState>>({});
+  const [actionLog, setActionLog] = useState<PlatformActionLogEntry[]>([]);
 
   const filteredApplications = useMemo(() => {
     return filter === 'Все' ? applications : applications.filter((item) => item.status === filter);
@@ -80,30 +113,43 @@ export default function BankFactoringPage() {
       { title: 'Доступный лимит', value: '48 млн ₽', note: 'Сводный лимит по одобренным покупателям' },
       { title: 'Ставка', value: 'КС + 4.2%', note: 'Базовая модель для пилотного контура' },
       { title: 'Активные заявки', value: String(total), note: `${pending} требуют движения, ${approved} готовы к авансу` },
-      { title: 'Выплаченные авансы', value: formatMillions(paidAdvance || 0), note: 'Факт профинансированных сделок по текущей выборке' }
+      { title: 'Выплаченные авансы', value: formatMillions(paidAdvance || 0), note: 'Факт профинансированных сделок по текущей выборке' },
     ];
   }, [applications]);
 
-  const advanceApplication = (id: string) => {
-    setApplications((current) =>
-      current.map((item) => {
-        if (item.id !== id) return item;
-        if (item.status === 'Проверка') {
-          setMessage(`Заявка ${item.id}: скоринг завершён, можно переходить к документам.`);
-          return { ...item, status: 'Документы', next: 'Собрать уступку и акт сверки', note: 'Скоринг пройден, остался документный пакет для уступки.' };
-        }
-        if (item.status === 'Документы') {
-          setMessage(`Заявка ${item.id}: пакет документов принят, лимит одобрен.`);
-          return { ...item, status: 'Одобрено', next: 'Подтвердить выпуск аванса', note: 'Документы закрыты, заявка готова к авансированию.' };
-        }
-        if (item.status === 'Одобрено') {
-          setMessage(`Заявка ${item.id}: аванс выплачен и привязан к сделке ${item.deal}.`);
-          return { ...item, status: 'Аванс выплачен', next: 'Контролировать возврат через закрытие поставки', note: 'Аванс ушёл покупателю, дальнейший контроль через исполнение сделки.' };
-        }
-        setMessage(`Заявка ${item.id}: дополнительное движение не требуется.`);
-        return item;
-      })
-    );
+  const pushActionLog = (entries: PlatformActionLogEntry[]) => {
+    setActionLog((current) => [...entries, ...current].slice(0, 8));
+  };
+
+  const advanceApplication = async (id: string) => {
+    const item = applications.find((application) => application.id === id);
+    if (!item) return;
+
+    setActionStates((current) => ({ ...current, [id]: 'loading' }));
+
+    const result = await runPlatformAction({
+      scope: 'bank',
+      objectId: item.id,
+      action: 'factoring-advance',
+      actor: 'Банк-офицер',
+      loadingMessage: `Факторинг ${item.id}: начато действие "${getActionLabel(item.status)}".`,
+      successMessage: () => getSuccessMessage(item),
+      errorMessage: (error) => `Факторинг ${item.id}: действие не выполнено${error instanceof Error ? `: ${error.message}` : ''}.`,
+      run: async () => getNextApplication(item),
+    });
+
+    pushActionLog(result.log);
+
+    if (result.phase === 'success' && result.result) {
+      const nextApplication = result.result;
+      setApplications((current) => current.map((application) => application.id === id ? nextApplication : application));
+      setMessage(getSuccessMessage(item));
+      setActionStates((current) => ({ ...current, [id]: 'success' }));
+      return;
+    }
+
+    setMessage(`Заявка ${item.id}: действие не выполнено.`);
+    setActionStates((current) => ({ ...current, [id]: 'error' }));
   };
 
   return (
@@ -151,7 +197,7 @@ export default function BankFactoringPage() {
                     padding: '8px 12px',
                     fontSize: 12,
                     fontWeight: 800,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
                   }}
                 >
                   {item}
@@ -168,36 +214,48 @@ export default function BankFactoringPage() {
         ) : null}
 
         <div style={{ display: 'grid', gap: 12 }}>
-          {filteredApplications.map((item) => (
-            <div key={item.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0F1419' }}>{item.id}</div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800, ...badgeStyle(item.status) }}>{item.status}</div>
-              </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#0F1419' }}>{item.buyer} · {item.deal}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
-                  <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Сумма заявки</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{formatMillions(item.amount)}</div>
+          {filteredApplications.map((item) => {
+            const actionState = actionStates[item.id] ?? 'idle';
+            return (
+              <div key={item.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0F1419' }}>{item.id}</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800, ...badgeStyle(item.status) }}>{item.status}</div>
                 </div>
-                <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
-                  <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0F1419', marginTop: 8, lineHeight: 1.45 }}>{item.next}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#0F1419' }}>{item.buyer} · {item.deal}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
+                    <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Сумма заявки</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{formatMillions(item.amount)}</div>
+                  </div>
+                  <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
+                    <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0F1419', marginTop: 8, lineHeight: 1.45 }}>{item.next}</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{item.note}</div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <a href={`/platform-v7/deals/${item.deal}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '10px 14px', borderRadius: 12, border: '1px solid #D4D9E2', color: '#0F1419', textDecoration: 'none', fontWeight: 800, background: '#fff' }}>
+                    Открыть сделку
+                  </a>
+                  <P7ActionButton
+                    variant='secondary'
+                    state={actionState}
+                    onClick={() => advanceApplication(item.id)}
+                    loadingLabel='Выполняю…'
+                    successLabel='Готово'
+                    errorLabel='Ошибка'
+                  >
+                    {getActionLabel(item.status)}
+                  </P7ActionButton>
                 </div>
               </div>
-              <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{item.note}</div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <a href={`/platform-v7/deals/${item.deal}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '10px 14px', borderRadius: 12, border: '1px solid #D4D9E2', color: '#0F1419', textDecoration: 'none', fontWeight: 800, background: '#fff' }}>
-                  Открыть сделку
-                </a>
-                <button onClick={() => advanceApplication(item.id)} style={{ appearance: 'none', border: '1px solid rgba(37,99,235,0.18)', background: 'rgba(37,99,235,0.08)', color: '#2563EB', minHeight: 44, padding: '10px 14px', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
-                  {item.status === 'Проверка' ? 'Завершить скоринг' : item.status === 'Документы' ? 'Принять пакет' : item.status === 'Одобрено' ? 'Выплатить аванс' : 'Проверить историю'}
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
+
+      <P7ActionLog title='Журнал действий факторинга' entries={actionLog} />
     </div>
   );
 }
