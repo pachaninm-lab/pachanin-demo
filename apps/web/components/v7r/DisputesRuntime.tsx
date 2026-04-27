@@ -2,11 +2,15 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { P7ActionButton, type P7ActionButtonState } from '@/components/platform-v7/P7ActionButton';
+import { P7ActionLog } from '@/components/platform-v7/P7ActionLog';
 import { useDisputes } from '@/lib/domain/hooks';
 import { formatMoney } from '@/lib/v7r/helpers';
 import { translateRole } from '@/lib/i18n/reason-codes';
 import { useToast } from '@/components/v7r/Toast';
-import { useBuyerRuntimeStore } from '@/stores/useBuyerRuntimeStore';
+import { runPlatformAction } from '@/lib/platform-v7/action-runner';
+import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
+import { useBuyerRuntimeStore, type DraftDeal } from '@/stores/useBuyerRuntimeStore';
 
 function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
@@ -108,6 +112,41 @@ export function DisputesRuntime() {
   const disputes = useDisputes();
   const { draftDeals, resolveDraftDispute } = useBuyerRuntimeStore();
   const draftDisputes = draftDeals.filter((item) => item.disputeState === 'open' || item.disputeState === 'resolved');
+  const [actionStates, setActionStates] = React.useState<Record<string, P7ActionButtonState>>({});
+  const [actionLog, setActionLog] = React.useState<PlatformActionLogEntry[]>([]);
+
+  const pushActionLog = (entries: PlatformActionLogEntry[]) => {
+    setActionLog((current) => [...entries, ...current].slice(0, 8));
+  };
+
+  const closeDraftDispute = async (item: DraftDeal) => {
+    setActionStates((current) => ({ ...current, [item.id]: 'loading' }));
+
+    const result = await runPlatformAction({
+      scope: 'dispute',
+      objectId: item.id,
+      action: 'draft-dispute-resolve',
+      actor: 'Арбитр',
+      loadingMessage: `Спор по ${item.id}: начата проверка доказательств и закрытие удержания.`,
+      successMessage: () => `Спор по ${item.id}: закрыт, доказательства зафиксированы, деньги можно вернуть в следующий шаг.`,
+      errorMessage: (error) => `Спор по ${item.id}: закрытие не выполнено${error instanceof Error ? `: ${error.message}` : ''}.`,
+      run: async () => {
+        resolveDraftDispute(item.id);
+        return item.id;
+      },
+    });
+
+    pushActionLog(result.log);
+
+    if (result.phase === 'success') {
+      toast(`Спор по ${item.id} закрыт.`, 'success');
+      setActionStates((current) => ({ ...current, [item.id]: 'success' }));
+      return;
+    }
+
+    toast(`Спор по ${item.id} не закрыт.`, 'error');
+    setActionStates((current) => ({ ...current, [item.id]: 'error' }));
+  };
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
@@ -148,12 +187,16 @@ export function DisputesRuntime() {
             nextStep={item.nextStep}
             actionLabel='Открыть draft'
             secondaryAction={item.disputeState === 'open' ? (
-              <button
-                onClick={() => { resolveDraftDispute(item.id); toast(`Спор по ${item.id} закрыт.`, 'success'); }}
-                style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+              <P7ActionButton
+                variant='secondary'
+                state={actionStates[item.id] ?? 'idle'}
+                onClick={() => closeDraftDispute(item)}
+                loadingLabel='Закрываю…'
+                successLabel='Спор закрыт'
+                errorLabel='Ошибка'
               >
                 Закрыть спор
-              </button>
+              </P7ActionButton>
             ) : undefined}
           />
         ))}
@@ -179,6 +222,8 @@ export function DisputesRuntime() {
           />
         ))}
       </section>
+
+      <P7ActionLog title='Журнал действий по спорам' entries={actionLog} />
     </div>
   );
 }
