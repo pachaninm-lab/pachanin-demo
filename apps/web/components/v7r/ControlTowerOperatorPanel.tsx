@@ -1,13 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { P7ActionButton, type P7ActionButtonState } from '@/components/platform-v7/P7ActionButton';
 import { P7Badge } from '@/components/platform-v7/P7Badge';
 import { P7Card } from '@/components/platform-v7/P7Card';
+import { runPlatformAction } from '@/lib/platform-v7/action-runner';
 import { PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
 import { formatCompactMoney, formatMoney } from '@/lib/v7r/helpers';
 import { translateReason, translateRole } from '@/lib/i18n/reason-codes';
 import { buildGatePassResult } from '@/lib/platform-v7/operator-actions';
-import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
+import type { PlatformActionLogEntry, PlatformActionStatus } from '@/lib/platform-v7/action-log';
 
 type GateState = 'PASS' | 'REVIEW' | 'FAIL';
 
@@ -28,6 +30,7 @@ interface AuditRow {
   actor: string;
   action: string;
   detail: string;
+  status: PlatformActionStatus;
 }
 
 function gateTone(state: GateState): PlatformV7Tone {
@@ -42,6 +45,18 @@ function gateLabel(state: GateState) {
   return 'Стоп проверки';
 }
 
+function auditTone(status: PlatformActionStatus): PlatformV7Tone {
+  if (status === 'success') return 'success';
+  if (status === 'error') return 'danger';
+  return 'warning';
+}
+
+function auditLabel(status: PlatformActionStatus): string {
+  if (status === 'success') return 'Успешно';
+  if (status === 'error') return 'Ошибка';
+  return 'Выполняется';
+}
+
 function actionLogToAuditRow(entry: PlatformActionLogEntry): AuditRow {
   return {
     id: entry.id,
@@ -49,6 +64,7 @@ function actionLogToAuditRow(entry: PlatformActionLogEntry): AuditRow {
     actor: entry.actor,
     action: cleanCopy(entry.action),
     detail: cleanCopy(entry.message),
+    status: entry.status,
   };
 }
 
@@ -68,23 +84,13 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
   const [items, setItems] = useState(deals);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [lastActionState, setLastActionState] = useState<Record<string, P7ActionButtonState>>({});
   const [callbacks, setCallbacks] = useState<Record<string, { id: string; amountRub: number; ts: string }>>({});
 
   const blockedAmount = useMemo(
     () => items.filter((item) => item.gateState !== 'PASS').reduce((sum, item) => sum + item.releasableAmount, 0),
     [items],
   );
-
-  function pushAudit(action: string, detail: string) {
-    const row: AuditRow = {
-      id: `AUD-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-      ts: new Date().toISOString(),
-      actor: 'Оператор платформы',
-      action: cleanCopy(action),
-      detail: cleanCopy(detail),
-    };
-    setAudit((prev) => [row, ...prev].slice(0, 8));
-  }
 
   function pushActionLog(entries: PlatformActionLogEntry[]) {
     setAudit((prev) => [...entries.map(actionLogToAuditRow), ...prev].slice(0, 8));
@@ -93,8 +99,28 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
   async function unblock(item: OperatorDealItem) {
     if (busyId) return;
     setBusyId(item.id);
+    setLastActionState((prev) => ({ ...prev, [item.id]: 'loading' }));
 
-    const actionResult = buildGatePassResult({ dealId: item.id, amount: item.releasableAmount });
+    const runnerResult = await runPlatformAction({
+      scope: 'deal',
+      objectId: item.id,
+      action: 'remove-blocker',
+      actor: 'Оператор платформы',
+      loadingMessage: `${item.id}: начато снятие препятствия.`,
+      successMessage: () => `${item.id}: препятствие снято, проверка пройдена.`,
+      errorMessage: (error) => `${item.id}: не удалось снять препятствие${error instanceof Error ? `: ${error.message}` : ''}.`,
+      run: async () => buildGatePassResult({ dealId: item.id, amount: item.releasableAmount }),
+    });
+
+    pushActionLog(runnerResult.log);
+
+    if (runnerResult.phase !== 'success' || !runnerResult.result) {
+      setLastActionState((prev) => ({ ...prev, [item.id]: 'error' }));
+      setBusyId(null);
+      return;
+    }
+
+    const actionResult = runnerResult.result;
 
     setItems((prev) => prev.map((row) => row.id === item.id ? {
       ...row,
@@ -104,19 +130,33 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
       reasonCodes: [],
     } : row));
     pushActionLog(actionResult.log);
+    setLastActionState((prev) => ({ ...prev, [item.id]: 'success' }));
 
     if (item.releaseEligible && item.releasableAmount > 0) {
-      try {
-        const res = await fetch('/api/sim/bank-callback', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dealId: item.id, amount: item.releasableAmount }),
-        });
-        const data = await res.json();
+      const bankResult = await runPlatformAction({
+        scope: 'bank',
+        objectId: item.id,
+        action: 'bank-callback',
+        actor: 'Оператор платформы',
+        loadingMessage: `${item.id}: запрошено банковское демо-событие.`,
+        successMessage: (data: { id: string; amountRub: number; ts: string }) => `${item.id}: банк подтвердил ${formatMoney(data.amountRub)}.`,
+        errorMessage: () => `${item.id}: подтверждение банка не получено.`,
+        run: async () => {
+          const res = await fetch('/api/sim/bank-callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dealId: item.id, amount: item.releasableAmount }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json() as { id: string; amountRub: number; ts: string };
+        },
+      });
+
+      pushActionLog(bankResult.log);
+
+      if (bankResult.phase === 'success' && bankResult.result) {
+        const data = bankResult.result;
         setCallbacks((prev) => ({ ...prev, [item.id]: { id: data.id, amountRub: data.amountRub, ts: data.ts } }));
-        pushAudit('Событие банка', `${item.id}: банк подтвердил ${formatMoney(data.amountRub)}.`);
-      } catch {
-        pushAudit('Ошибка банкового события', `${item.id}: подтверждение банка не получено.`);
       }
     }
 
@@ -138,6 +178,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
         <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
           {items.map((item) => {
             const callback = callbacks[item.id];
+            const actionState = lastActionState[item.id] ?? 'idle';
             return (
               <div
                 key={item.id}
@@ -187,22 +228,15 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
 
                 <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap' }}>
                   {item.gateState !== 'PASS' ? (
-                    <button
+                    <P7ActionButton
                       onClick={() => unblock(item)}
-                      disabled={busyId === item.id}
-                      style={{
-                        borderRadius: PLATFORM_V7_TOKENS.radius.md,
-                        padding: '10px 12px',
-                        border: `1px solid ${PLATFORM_V7_TOKENS.color.brand}`,
-                        background: PLATFORM_V7_TOKENS.color.brand,
-                        color: PLATFORM_V7_TOKENS.color.surface,
-                        fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
-                        fontWeight: 800,
-                        cursor: busyId === item.id ? 'wait' : 'pointer',
-                      }}
+                      state={busyId === item.id ? 'loading' : actionState}
+                      loadingLabel='Снимаю препятствие…'
+                      successLabel='Препятствие снято'
+                      errorLabel='Ошибка действия'
                     >
-                      {busyId === item.id ? 'Снимаю препятствие…' : 'Снять препятствие'}
-                    </button>
+                      Снять препятствие
+                    </P7ActionButton>
                   ) : (
                     <P7Badge tone='success'>Проверка пройдена</P7Badge>
                   )}
@@ -237,15 +271,18 @@ function OperatorAudit({ audit }: { audit: AuditRow[] }) {
             border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
             borderRadius: PLATFORM_V7_TOKENS.radius.lg,
             padding: PLATFORM_V7_TOKENS.spacing.sm,
-            background: PLATFORM_V7_TOKENS.color.surfaceMuted,
+            background: row.status === 'error' ? PLATFORM_V7_TOKENS.color.dangerSoft : row.status === 'started' ? PLATFORM_V7_TOKENS.color.warningSoft : PLATFORM_V7_TOKENS.color.surfaceMuted,
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, fontWeight: 800, color: PLATFORM_V7_TOKENS.color.text }}>{row.action}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, alignItems: 'center', flexWrap: 'wrap' }}>
+              <P7Badge tone={auditTone(row.status)}>{auditLabel(row.status)}</P7Badge>
+              <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, fontWeight: 800, color: PLATFORM_V7_TOKENS.color.text }}>{row.action}</div>
+            </div>
             <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size - 1, color: PLATFORM_V7_TOKENS.color.textSubtle }}>{new Date(row.ts).toLocaleString('ru-RU')}</div>
           </div>
           <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xxs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size, color: PLATFORM_V7_TOKENS.color.textMuted }}>{row.actor}</div>
-          <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: PLATFORM_V7_TOKENS.color.textMuted }}>{row.detail}</div>
+          <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: row.status === 'error' ? PLATFORM_V7_TOKENS.color.danger : PLATFORM_V7_TOKENS.color.textMuted }}>{row.detail}</div>
         </div>
       )) : <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: PLATFORM_V7_TOKENS.color.textMuted }}>Действий пока нет. Сними препятствие по одному из кейсов выше.</div>}
     </div>
