@@ -246,7 +246,7 @@ function DocumentsTab({ deal }: { deal: DomainDeal }) {
     { name: 'Договор купли-продажи', required: true, status: 'signed' },
     { name: 'СДИЗ (из ФГИС)', required: true, status: deal.blockers.includes('fgis') ? 'missing' : 'uploaded' },
     { name: 'Транспортная накладная (ЭТрН)', required: true, status: deal.blockers.includes('transport') ? 'missing' : 'signed' },
-    { name: 'Акт приёмки', required: true, status: deal.status === 'accepted' || deal.status === 'docs_complete' ? 'signed' : 'pending' },
+    { name: 'Акт приёмки', required: true, status: deal.status === 'quality_approved' || deal.status === 'docs_complete' ? 'signed' : 'pending' },
     { name: 'Протокол качества', required: false, status: 'uploaded' },
   ];
 
