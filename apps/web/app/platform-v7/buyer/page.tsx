@@ -90,6 +90,7 @@ export default function PlatformV7BuyerPage() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/buyer/financing' style={btn('primary')}>Финансирование</Link>
+            <Link href='/platform-v7/market-rfq' style={btn()}>Market/RFQ</Link>
             <Link href='/platform-v7/deals' style={btn()}>Сделки</Link>
             <Link href='/platform-v7/bank' style={btn()}>Банк</Link>
           </div>
