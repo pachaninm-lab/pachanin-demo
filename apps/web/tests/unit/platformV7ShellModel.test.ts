@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { platformV7ShellModel } from '@/lib/platform-v7/shell';
 import { platformV7RoleLabel, platformV7RoleLabelEntries } from '@/lib/platform-v7/shellLabels';
-import { platformV7CriticalShellNotifications, platformV7UnreadShellNotifications } from '@/lib/platform-v7/shellNotifications';
+import {
+  platformV7CriticalShellNotifications,
+  platformV7ShellNotifications,
+  platformV7UnreadShellNotifications,
+} from '@/lib/platform-v7/shellNotifications';
 
 const BANNED_ROLE_LABEL_CLAIMS = [
   'production ready',
@@ -22,6 +26,20 @@ describe('platform-v7 shell model', () => {
     expect(model.criticalNotifications).toEqual(platformV7CriticalShellNotifications());
     expect(model.unreadNotifications.every((notification) => notification.read === false)).toBe(true);
     expect(model.criticalNotifications.every((notification) => notification.severity === 'critical')).toBe(true);
+  });
+
+  it('keeps shell notifications unique and scoped to platform v7 routes', () => {
+    const ids = new Set<string>();
+
+    for (const notification of platformV7ShellNotifications()) {
+      expect(ids.has(notification.id)).toBe(false);
+      ids.add(notification.id);
+      expect(notification.title.trim()).not.toBe('');
+      expect(notification.description.trim()).not.toBe('');
+      expect(notification.href.startsWith('/platform-v7')).toBe(true);
+      expect(notification.href.includes('/platform-v4')).toBe(false);
+      expect(notification.href.includes('/platform-v9')).toBe(false);
+    }
   });
 
   it('maps inferred role labels through the shell labels registry', () => {
