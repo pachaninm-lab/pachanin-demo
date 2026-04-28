@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
@@ -11,6 +12,63 @@ const WARN = '#B45309';
 const ERR = '#B91C1C';
 
 const { lot, acceptedOffer } = PLATFORM_V7_TRADING_SOURCE;
+
+const dealBridgeActionItems = [
+  {
+    title: 'Создать черновик сделки',
+    description: 'Переносит принятую ставку в Deal Workspace как controlled-pilot черновик без выпуска денег.',
+    targetId: 'e4-create-draft-deal',
+    actionId: 'createDraftDealFromOffer',
+    actorRole: 'operator',
+    entityId: 'DL-DRAFT-2403',
+    mode: 'controlled-pilot',
+  },
+  {
+    title: 'Запросить резерв денег',
+    description: 'Создаёт только намерение резерва. Это не выпуск денег и не live bank adapter.',
+    targetId: 'e4-request-money-reserve',
+    actionId: 'requestMoneyReserve',
+    actorRole: 'buyer',
+    entityId: 'RESERVE-DL-DRAFT-2403',
+    mode: 'controlled-pilot',
+  },
+  {
+    title: 'Назначить логистику',
+    description: 'Связывает сделку с логистическим заказом в ручном controlled-pilot режиме без Driver PWA и live tracking.',
+    targetId: 'e4-assign-logistics',
+    actionId: 'assignLogistics',
+    actorRole: 'operator',
+    entityId: 'LOG-TMB-2403',
+    mode: 'manual',
+  },
+  {
+    title: 'Приложить документ',
+    description: 'Фиксирует внутренний документ как gate/evidence. Это не ЭДО, не УКЭП и не СберКорус.',
+    targetId: 'e4-attach-document',
+    actionId: 'attachDocument',
+    actorRole: 'operator',
+    entityId: 'DOC-INTERNAL-2403',
+    mode: 'manual',
+  },
+  {
+    title: 'Зафиксировать полевое событие',
+    description: 'Добавляет ручное полевое событие как evidence. Это не GPS/photo live capture.',
+    targetId: 'e4-record-field-event',
+    actionId: 'recordFieldEvent',
+    actorRole: 'operator',
+    entityId: 'FIELD-EVENT-2403-1',
+    mode: 'manual',
+  },
+  {
+    title: 'Открыть спор',
+    description: 'Создаёт спор по сделке с money effect pending и rollback. Полной dispute room здесь ещё нет.',
+    targetId: 'e4-open-dispute',
+    actionId: 'openDispute',
+    actorRole: 'operator',
+    entityId: 'DISPUTE-DL-DRAFT-2403',
+    mode: 'controlled-pilot',
+  },
+] satisfies readonly PlatformV7ExecutionActionUiItem[];
 
 const transfer = [
   ['Лот', lot.id, 'из торгов'],
@@ -72,6 +130,12 @@ export default function PlatformV7OfferToDealPage() {
         <Metric label='Объём' value={tons(acceptedOffer.volumeTons)} tone='good' />
         <Metric label='Блокеры' value={String(blockers)} tone='bad' />
       </div>
+
+      <P7ExecutionActionsPanel
+        title='Сквозные действия сделки'
+        subtitle='Здесь закрыт первый bridge: draft deal, money reserve intent, logistics, internal document, field event и dispute. Все действия имеют guard, toast, action log и rollback.'
+        items={dealBridgeActionItems}
+      />
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Что переносится из ставки</div>
