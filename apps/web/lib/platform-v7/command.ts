@@ -189,6 +189,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     href: '/platform-v7/roles',
     keywords: 'роли смена кабинет',
   },
+  {
+    id: 'sec-data-room',
+    group: 'Разделы',
+    title: 'Data Room',
+    subtitle: 'Проверочный пакет для банка и инвестора',
+    href: '/platform-v7/data-room',
+    keywords: 'data room due diligence банк инвестор проверка документы',
+  },
 ];
 
 export function platformV7CommandSectionItems(): PlatformV7CommandSectionItem[] {
