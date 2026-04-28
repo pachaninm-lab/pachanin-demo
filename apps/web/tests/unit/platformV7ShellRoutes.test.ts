@@ -45,7 +45,7 @@ describe('platform-v7 shell route registry', () => {
   });
 
   it('keeps shell navigation hrefs inside the approved route surface', () => {
-    const shellRoutes = new Set(platformV7ShellRouteSurface());
+    const shellRoutes = new Set<string>(platformV7ShellRouteSurface());
 
     expect(shellRoutes.size).toBe(platformV7ShellRouteSurface().length);
 
