@@ -192,7 +192,7 @@ export function guardPlatformV7ExecutionAction(
   const mode = request.mode ?? spec?.mode ?? 'controlled-pilot';
 
   if (!spec) {
-    return blocked(request, 'system', mode, 'Действие не входит в первый E4 action wiring slice.');
+    return blocked(request, 'deal', mode, 'Действие не входит в первый E4 action wiring slice.');
   }
 
   if (!spec.allowedRoles.includes(request.actorRole)) {
@@ -268,7 +268,7 @@ export function applyPlatformV7ExecutionAction(
   const guard = guardPlatformV7ExecutionAction(state, request);
 
   if (guard) return guard;
-  if (!spec) return blocked(request, 'system', mode, 'Действие не найдено.');
+  if (!spec) return blocked(request, 'deal', mode, 'Действие не найдено.');
 
   const timestamp = now();
   const nextStateRef = mutateState(state, request, timestamp);
