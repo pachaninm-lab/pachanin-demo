@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
+import { P7Notice } from '@/components/platform-v7/P7UiPrimitives';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -67,12 +68,9 @@ export default function BankReleaseSafetyPage() {
         <Metric label='Удержано' value={formatCompactMoney(blockedMoney)} tone={blockedMoney > 0 ? 'bad' : 'good'} />
       </div>
 
-      <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
-        <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Правило</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
-          Деньги нельзя выпускать напрямую из карточки сделки. Выпуск допустим только после закрытия gate-проверок и отсутствия активных удержаний.
-        </div>
-      </section>
+      <P7Notice title='Правило' tone='amber'>
+        Деньги нельзя выпускать напрямую из карточки сделки. Выпуск допустим только после закрытия gate-проверок и отсутствия активных удержаний.
+      </P7Notice>
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и release gate</div>
