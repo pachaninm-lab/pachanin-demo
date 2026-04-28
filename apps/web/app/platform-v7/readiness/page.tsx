@@ -1,6 +1,15 @@
 import Link from 'next/link';
+import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
+import {
+  PLATFORM_V7_EXECUTION_SOURCE,
+  canRequestMoneyRelease,
+  executionBlockers,
+  executionReadinessScore,
+  formatRub,
+  formatTons,
+} from '@/lib/platform-v7/deal-execution-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -64,11 +73,15 @@ export default function PlatformV7ReadinessPage() {
         </div>
       </section>
 
+      <P7ExecutionMachineReadOnlyStrip />
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
         <Metric label='Готовы полностью' value={String(readyToRelease)} tone='good' />
         <Metric label='С блокерами' value={String(blocked)} tone={blocked > 0 ? 'bad' : 'good'} />
         <Metric label='Под удержанием' value={formatCompactMoney(hold)} tone={hold > 0 ? 'bad' : 'good'} />
       </div>
+
+      <DL9102ReadinessCard />
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Сделки по готовности</div>
@@ -99,6 +112,49 @@ export default function PlatformV7ReadinessPage() {
         ))}
       </section>
     </div>
+  );
+}
+
+function DL9102ReadinessCard() {
+  const { deal, readiness, money } = PLATFORM_V7_EXECUTION_SOURCE;
+  const score = executionReadinessScore();
+  const blockers = executionBlockers();
+  const canRelease = canRequestMoneyRelease();
+
+  const gateLabels: Record<string, string> = {
+    fgis: 'ФГИС', quality: 'Качество', logistics: 'Логистика',
+    documents: 'Документы', bank: 'Банк', dispute: 'Спор', antiBypass: 'Антиобход',
+  };
+  const gates = Object.entries(readiness) as [string, typeof readiness.fgis][];
+
+  return (
+    <section style={{ background: S, border: `1px solid ${BRAND}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Демо-сделка · {deal.maturity}</div>
+          <div style={{ marginTop: 4, fontSize: 20, fontWeight: 900, color: T }}>{deal.id} · {deal.lotId} · {deal.crop}</div>
+          <div style={{ marginTop: 4, fontSize: 13, color: M }}>{deal.fgisPartyId} · {formatTons(deal.volumeTons)} · {deal.basis}</div>
+        </div>
+        <span style={{ padding: '6px 12px', borderRadius: 999, background: score === 100 ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${score === 100 ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, color: score === 100 ? BRAND : WARN, fontSize: 14, fontWeight: 900 }}>{score}% готово</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8 }}>
+        {gates.map(([key, gate]) => (
+          <div key={key} style={{ border: `1px solid ${gate.status === 'готово' ? 'rgba(10,122,95,0.18)' : gate.status === 'стоп' ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)'}`, background: gate.status === 'готово' ? 'rgba(10,122,95,0.06)' : gate.status === 'стоп' ? 'rgba(220,38,38,0.06)' : 'rgba(217,119,6,0.06)', borderRadius: 12, padding: 10 }}>
+            <div style={{ fontSize: 11, color: gate.status === 'готово' ? BRAND : gate.status === 'стоп' ? ERR : WARN, fontWeight: 900 }}>{gate.status}</div>
+            <div style={{ marginTop: 3, fontSize: 13, color: T, fontWeight: 900 }}>{gateLabels[key] ?? key}</div>
+            <div style={{ marginTop: 3, fontSize: 11, color: M, lineHeight: 1.4 }}>{gate.note}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: M }}>
+        <span>Резерв: <b style={{ color: T }}>{formatRub(money.reservedRub)}</b></span>
+        <span>Удержано: <b style={{ color: money.holdRub > 0 ? ERR : T }}>{formatRub(money.holdRub)}</b></span>
+        <span>Выпуск: <b style={{ color: canRelease ? BRAND : ERR }}>{canRelease ? 'возможен' : 'заблокирован'}</b></span>
+        {blockers.length > 0 && <span>Блокеры: <b style={{ color: WARN }}>{blockers.join(' · ')}</b></span>}
+      </div>
+    </section>
   );
 }
 

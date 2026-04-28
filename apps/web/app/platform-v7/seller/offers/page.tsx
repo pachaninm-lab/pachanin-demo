@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
@@ -11,6 +12,18 @@ const WARN = '#B45309';
 const ERR = '#B91C1C';
 
 const { lot, offers: sourceOffers } = PLATFORM_V7_TRADING_SOURCE;
+
+const sellerActionItems = [
+  {
+    title: 'Отправить ставку продавца',
+    description: 'Фиксирует намерение продавца по лоту, пишет action log и даёт rollback без раскрытия контактов покупателя.',
+    targetId: 'e4-submit-seller-offer',
+    actionId: 'submitSellerOffer',
+    actorRole: 'seller',
+    entityId: 'OFFER-SELLER-2403',
+    mode: 'controlled-pilot',
+  },
+] satisfies readonly PlatformV7ExecutionActionUiItem[];
 
 const lotOffers = sourceOffers.map((o) => ({
   lot: lot.id,
@@ -74,6 +87,12 @@ export default function PlatformV7SellerOffersPage() {
         </div>
       </section>
 
+      <P7ExecutionActionsPanel
+        title='Действие продавца по ставке'
+        subtitle='Первый seller action wiring: состояние, блокировка повторной отправки, toast, action log и rollback без live-интеграций.'
+        items={sellerActionItems}
+      />
+
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Ставки по лотам продавца</div>
         {offers.map((offer) => {
@@ -99,10 +118,8 @@ export default function PlatformV7SellerOffersPage() {
                 <PillCell label='Риск' value={offer.risk} tone={riskTone} />
               </div>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button type='button' style={button('primary')}>Принять ставку</button>
-                <button type='button' style={button()}>Встречное предложение</button>
-                <button type='button' style={button()}>Отклонить</button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ color: M, fontSize: 12, lineHeight: 1.45 }}>Операционные кнопки перенесены в E4-панель выше: там есть состояние, журнал и откат.</span>
                 <Link href='/platform-v7/readiness' style={btn()}>Проверить готовность</Link>
               </div>
             </div>
@@ -142,8 +159,4 @@ function PillCell({ label, value, tone }: { label: string; value: string; tone: 
 
 function btn(kind: 'default' | 'primary' = 'default') {
   return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: kind === 'primary' ? 'rgba(10,122,95,0.08)' : SS, border: `1px solid ${kind === 'primary' ? 'rgba(10,122,95,0.18)' : B}`, color: kind === 'primary' ? BRAND : T, fontSize: 13, fontWeight: 800 };
-}
-
-function button(kind: 'default' | 'primary' = 'default') {
-  return { borderRadius: 12, padding: '10px 14px', background: kind === 'primary' ? 'rgba(10,122,95,0.08)' : '#fff', border: `1px solid ${kind === 'primary' ? 'rgba(10,122,95,0.18)' : B}`, color: kind === 'primary' ? BRAND : T, fontSize: 13, fontWeight: 800, cursor: 'pointer' };
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import {
   SANDBOX_INCIDENTS,
   SANDBOX_LOGISTICS_ORDERS,
@@ -8,6 +9,7 @@ import {
   buildLogisticsProjection,
   type LogisticsOrderStatus,
 } from '@/lib/platform-v7/logistics-chain';
+import { PLATFORM_V7_EXECUTION_SOURCE } from '@/lib/platform-v7/deal-execution-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -77,6 +79,8 @@ export default function LogisticsPage() {
         </div>
       </section>
 
+      <P7ExecutionMachineReadOnlyStrip compact />
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 14 }}>
         {[
           { label: 'В пути', value: String(inTransit), color: INFO },
@@ -106,6 +110,8 @@ export default function LogisticsPage() {
             ))}
         </section>
       ) : null}
+
+      <DL9102LogisticsCard />
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: T, marginBottom: 14 }}>Логистические заказы</div>
@@ -166,6 +172,47 @@ export default function LogisticsPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function DL9102LogisticsCard() {
+  const { deal, logistics } = PLATFORM_V7_EXECUTION_SOURCE;
+  const gateColor = logistics.gateStatus === 'готово' ? BRAND : logistics.gateStatus === 'стоп' ? ERR : WARN;
+  const gateBg = logistics.gateStatus === 'готово' ? BRAND_BG : logistics.gateStatus === 'стоп' ? ERR_BG : WARN_BG;
+  const gateBorder = logistics.gateStatus === 'готово' ? BRAND_BORDER : logistics.gateStatus === 'стоп' ? ERR_BORDER : WARN_BORDER;
+
+  return (
+    <section style={{ background: S, border: `1px solid ${BRAND_BORDER}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <div>
+        <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Демо-сделка · проверочный контур · {deal.maturity}</div>
+        <div style={{ marginTop: 4, fontSize: 18, fontWeight: 900, color: T }}>{deal.id} · {logistics.orderId}</div>
+        <div style={{ marginTop: 4, fontSize: 13, color: M }}>{deal.lotId} · {deal.crop} · {deal.basis}</div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
+        {[
+          { label: 'Перевозчик', value: logistics.carrier },
+          { label: 'Водитель', value: logistics.driverAlias },
+          { label: 'Транспорт', value: logistics.vehicleMasked },
+          { label: 'Погрузка', value: logistics.pickupPoint },
+          { label: 'Доставка', value: logistics.deliveryPoint },
+          { label: 'Расчётный срок', value: logistics.eta },
+          { label: 'Текущий этап', value: logistics.currentLeg },
+          { label: 'Инциденты', value: logistics.incidentStatus },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 10 }}>
+            <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+            <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, color: T }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: gateBg, border: `1px solid ${gateBorder}`, borderRadius: 12, padding: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
+        <span style={{ fontSize: 12, fontWeight: 900, color: gateColor }}>Транспортный gate:</span>
+        <span style={{ fontSize: 12, color: gateColor, fontWeight: 800 }}>{logistics.gateStatus}</span>
+        <span style={{ fontSize: 11, color: M }}>· Live GPS, ЭДО и боевой перевозчик здесь не заявляются (имитация проверочного контура)</span>
+      </div>
+    </section>
   );
 }
 
