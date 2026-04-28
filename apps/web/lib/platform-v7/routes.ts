@@ -25,6 +25,15 @@ export const PLATFORM_V7_OPERATOR_ROUTE = '/platform-v7/operator';
 export const PLATFORM_V7_PROCUREMENT_ROUTE = '/platform-v7/procurement';
 export const PLATFORM_V7_INVESTOR_ROUTE = '/platform-v7/investor';
 export const PLATFORM_V7_ROLES_ROUTE = '/platform-v7/roles';
+export const PLATFORM_V7_COMPLIANCE_ROUTE = '/platform-v7/compliance';
+
+export const PLATFORM_V7R_ROLES_ROUTE = '/platform-v7r/roles';
+export const PLATFORM_V7R_DRIVER_ROUTE = '/platform-v7r/driver';
+export const PLATFORM_V7R_SURVEYOR_ROUTE = '/platform-v7r/surveyor';
+export const PLATFORM_V7R_ELEVATOR_ROUTE = '/platform-v7r/elevator';
+export const PLATFORM_V7R_LAB_ROUTE = '/platform-v7r/lab';
+export const PLATFORM_V7R_ARBITRATOR_ROUTE = '/platform-v7r/arbitrator';
+export const PLATFORM_V7R_ANALYTICS_ROUTE = '/platform-v7r/analytics';
 
 export const PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES = [
   PLATFORM_V7_READINESS_ROUTE,
@@ -61,5 +70,26 @@ export const PLATFORM_V7_COMMAND_ROUTE_SURFACE = [
   PLATFORM_V7_ROLES_ROUTE,
 ] as const;
 
+export const PLATFORM_V7_SHELL_ROUTE_SURFACE = [
+  PLATFORM_V7_CONTROL_TOWER_ROUTE,
+  PLATFORM_V7_DEALS_ROUTE,
+  PLATFORM_V7_PROCUREMENT_ROUTE,
+  PLATFORM_V7_LOGISTICS_ROUTE,
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_DISPUTES_ROUTE,
+  PLATFORM_V7_COMPLIANCE_ROUTE,
+  PLATFORM_V7_BUYER_ROUTE,
+  PLATFORM_V7_SELLER_ROUTE,
+  PLATFORM_V7_FIELD_ROUTE,
+  PLATFORM_V7R_ROLES_ROUTE,
+  PLATFORM_V7R_DRIVER_ROUTE,
+  PLATFORM_V7R_SURVEYOR_ROUTE,
+  PLATFORM_V7R_ELEVATOR_ROUTE,
+  PLATFORM_V7R_LAB_ROUTE,
+  PLATFORM_V7R_ARBITRATOR_ROUTE,
+  PLATFORM_V7R_ANALYTICS_ROUTE,
+] as const;
+
 export type PlatformV7ExecutionMachineStripRoute = typeof PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES[number];
 export type PlatformV7CommandRouteSurface = typeof PLATFORM_V7_COMMAND_ROUTE_SURFACE[number];
+export type PlatformV7ShellRouteSurface = typeof PLATFORM_V7_SHELL_ROUTE_SURFACE[number];
