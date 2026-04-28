@@ -3,27 +3,19 @@ import { PLATFORM_V7_ACTION_MESSAGES, platformV7ActionMessages, type PlatformV7A
 import { PLATFORM_V7_ACTION_TARGETS } from '@/lib/platform-v7/action-targets';
 import { PLATFORM_V7_EXECUTION_ACTION_SPECS, platformV7ExecutionActionSpec } from '@/lib/platform-v7/execution-action-core';
 
-const E4_EXECUTION_ACTION_IDS = [
-  'submitSellerOffer',
-  'acceptOffer',
-  'rejectOffer',
-  'sendCounterOffer',
-  'createDraftDealFromOffer',
-  'requestMoneyReserve',
-  'assignLogistics',
-  'attachDocument',
-  'recordFieldEvent',
-  'openDispute',
-] as const satisfies readonly PlatformV7ActionMessageId[];
+const E4_EXECUTION_ACTION_IDS = Object.keys(PLATFORM_V7_EXECUTION_ACTION_SPECS).sort() as PlatformV7ActionMessageId[];
+const LEGACY_ACTION_IDS = (Object.keys(PLATFORM_V7_ACTION_MESSAGES) as PlatformV7ActionMessageId[])
+  .filter((actionId) => !E4_EXECUTION_ACTION_IDS.includes(actionId))
+  .sort();
 
-const LEGACY_ACTION_IDS = [
-  'startDocs',
+const EXPECTED_LEGACY_ACTION_IDS = [
   'completeDocs',
-  'requestRelease',
-  'releaseFunds',
-  'resolveDispute',
   'manualReview',
+  'releaseFunds',
+  'requestRelease',
+  'resolveDispute',
   'retryWebhook',
+  'startDocs',
 ] as const satisfies readonly PlatformV7ActionMessageId[];
 
 const E4_TARGETS = PLATFORM_V7_ACTION_TARGETS.filter((target) => target.id.startsWith('e4-'));
@@ -37,6 +29,11 @@ describe('platform-v7 action registry contracts', () => {
         error: expect.any(String),
       }));
     }
+  });
+
+  it('derives the E4 action contract from the execution spec registry', () => {
+    expect(E4_EXECUTION_ACTION_IDS).toEqual(Object.keys(PLATFORM_V7_EXECUTION_ACTION_SPECS).sort());
+    expect(E4_EXECUTION_ACTION_IDS.length).toBeGreaterThan(0);
   });
 
   it('keeps every E4 execution action backed by target, message and execution spec', () => {
@@ -73,6 +70,8 @@ describe('platform-v7 action registry contracts', () => {
   });
 
   it('keeps legacy actions explicit instead of silently mixing them into the E4 execution slice', () => {
+    expect(LEGACY_ACTION_IDS).toEqual([...EXPECTED_LEGACY_ACTION_IDS].sort());
+
     for (const actionId of LEGACY_ACTION_IDS) {
       expect(PLATFORM_V7_ACTION_MESSAGES[actionId], `${actionId} must remain in message registry`).toBeDefined();
       expect(platformV7ExecutionActionSpec(actionId), `${actionId} must not be implicitly treated as E4 execution action`).toBeNull();
