@@ -1,3 +1,4 @@
+import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import { DomainDisputesSummary } from '@/components/v7r/DomainDisputesSummary';
 import { DisputesRuntime } from '@/components/v7r/DisputesRuntime';
 import {
@@ -65,6 +66,7 @@ function DL9102DisputeCard() {
 export default function PlatformV7DisputesPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
+      <P7ExecutionMachineReadOnlyStrip compact />
       <DL9102DisputeCard />
       <DomainDisputesSummary />
       <DisputesRuntime />
