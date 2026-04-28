@@ -35,7 +35,8 @@ export default function PlatformV7SellerPage() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/seller/fgis-parties' style={btn('primary')}>Мои партии ФГИС</Link>
-            <Link href='/platform-v7/market-rfq' style={btn()}>Market/RFQ</Link>
+            <Link href='/platform-v7/seller/offers' style={btn('primary')}>Ставки по лотам</Link>
+            <Link href='/platform-v7/market-rfq' style={btn()}>Рынок и заявки</Link>
             <Link href='/platform-v7/lots/create' style={btn()}>Создать лот</Link>
             <Link href='/platform-v7/deals' style={btn()}>Все сделки</Link>
           </div>
