@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import {
   SANDBOX_INCIDENTS,
   SANDBOX_LOGISTICS_ORDERS,
@@ -77,6 +78,8 @@ export default function LogisticsPage() {
           <Link href='/platform-v7/control-tower' style={btn()}>Башня управления</Link>
         </div>
       </section>
+
+      <P7ExecutionMachineReadOnlyStrip compact />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 14 }}>
         {[
