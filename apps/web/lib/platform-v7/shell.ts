@@ -2,6 +2,11 @@ import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { getPlatformV7Environment, type PlatformEnvironmentInfo } from './environment';
 import { platformV7Breadcrumbs, shouldShowPlatformV7Breadcrumbs, type PlatformV7BreadcrumbItem } from './breadcrumbs';
 import { platformV7NavItems, platformV7RoleLabel, platformV7RoleStage, type PlatformV7NavItem } from './navigation';
+import {
+  platformV7CriticalShellNotifications,
+  platformV7UnreadShellNotifications,
+  type PlatformV7ShellNotification,
+} from './shellNotifications';
 
 export interface PlatformV7ShellModel {
   role: PlatformRole;
@@ -11,6 +16,8 @@ export interface PlatformV7ShellModel {
   navItems: PlatformV7NavItem[];
   breadcrumbs: PlatformV7BreadcrumbItem[];
   showBreadcrumbs: boolean;
+  unreadNotifications: PlatformV7ShellNotification[];
+  criticalNotifications: PlatformV7ShellNotification[];
 }
 
 export function inferPlatformV7RoleFromPath(pathname: string, currentRole: PlatformRole): PlatformRole {
@@ -39,5 +46,7 @@ export function platformV7ShellModel(pathname: string, currentRole: PlatformRole
     navItems: platformV7NavItems(role),
     breadcrumbs: platformV7Breadcrumbs(pathname),
     showBreadcrumbs: shouldShowPlatformV7Breadcrumbs(pathname),
+    unreadNotifications: platformV7UnreadShellNotifications(),
+    criticalNotifications: platformV7CriticalShellNotifications(),
   };
 }
