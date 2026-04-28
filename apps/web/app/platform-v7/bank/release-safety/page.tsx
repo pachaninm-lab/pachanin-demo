@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
+import {
+  PLATFORM_V7_EXECUTION_SOURCE,
+  canRequestMoneyRelease,
+  executionBlockers,
+  formatRub,
+} from '@/lib/platform-v7/deal-execution-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -74,8 +80,10 @@ export default function BankReleaseSafetyPage() {
         </div>
       </section>
 
+      <DL9102MoneyCard />
+
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и release gate</div>
+        <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и gate проверки</div>
         <div style={{ display: 'grid', gap: 10 }}>
           {rows.map((row) => {
             const tone = gateState(row.blocked);
@@ -100,6 +108,54 @@ export default function BankReleaseSafetyPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function DL9102MoneyCard() {
+  const { deal, money, readiness } = PLATFORM_V7_EXECUTION_SOURCE;
+  const canRelease = canRequestMoneyRelease();
+  const blockers = executionBlockers();
+
+  return (
+    <section style={{ background: S, border: `1px solid ${BRAND_BORDER}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <div>
+        <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Демо-сделка · {deal.maturity}</div>
+        <div style={{ marginTop: 4, fontSize: 18, fontWeight: 900, color: T }}>{deal.id} · {deal.lotId}</div>
+        <div style={{ marginTop: 4, fontSize: 13, color: M }}>{deal.buyerAlias} · {deal.seller} · {deal.basis}</div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
+        <div style={{ background: BRAND_BG, border: `1px solid ${BRAND_BORDER}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase' }}>Резерв</div>
+          <div style={{ marginTop: 5, fontSize: 16, fontWeight: 900, color: T }}>{formatRub(money.reservedRub)}</div>
+        </div>
+        <div style={{ background: money.holdRub > 0 ? ERR_BG : BRAND_BG, border: `1px solid ${money.holdRub > 0 ? ERR_BORDER : BRAND_BORDER}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase' }}>Удержано</div>
+          <div style={{ marginTop: 5, fontSize: 16, fontWeight: 900, color: money.holdRub > 0 ? ERR : T }}>{formatRub(money.holdRub)}</div>
+        </div>
+        <div style={{ background: canRelease ? BRAND_BG : WARN_BG, border: `1px solid ${canRelease ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase' }}>Кандидат к выпуску</div>
+          <div style={{ marginTop: 5, fontSize: 16, fontWeight: 900, color: canRelease ? BRAND : WARN }}>{formatRub(money.releaseCandidateRub)}</div>
+        </div>
+        <div style={{ background: canRelease ? BRAND_BG : ERR_BG, border: `1px solid ${canRelease ? BRAND_BORDER : ERR_BORDER}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase' }}>Решение банка</div>
+          <div style={{ marginTop: 5, fontSize: 14, fontWeight: 900, color: canRelease ? BRAND : ERR }}>{canRelease ? 'можно выпускать' : 'нельзя выпускать'}</div>
+        </div>
+      </div>
+
+      <div style={{ background: canRelease ? BRAND_BG : WARN_BG, border: `1px solid ${canRelease ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 12, padding: 12 }}>
+        <div style={{ fontSize: 12, color: canRelease ? BRAND : WARN, fontWeight: 900 }}>
+          {canRelease ? 'Все gate-проверки пройдены, удержаний нет' : `Причины блокировки: ${blockers.join(' · ')}`}
+        </div>
+        <div style={{ marginTop: 6, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(100px,1fr))', gap: 6 }}>
+          {(['bank', 'documents', 'logistics', 'dispute'] as const).map((key) => (
+            <span key={key} style={{ fontSize: 11, fontWeight: 900, padding: '3px 8px', borderRadius: 999, background: readiness[key].status === 'готово' ? 'rgba(10,122,95,0.1)' : 'rgba(217,119,6,0.1)', color: readiness[key].status === 'готово' ? BRAND : WARN }}>
+              {key === 'bank' ? 'Банк' : key === 'documents' ? 'Документы' : key === 'logistics' ? 'Логистика' : 'Спор'}: {readiness[key].status}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
