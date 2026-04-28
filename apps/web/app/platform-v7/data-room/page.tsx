@@ -5,6 +5,12 @@ import {
   PLATFORM_V7_MARKET_RFQ_ROUTE,
   PLATFORM_V7_RELEASE_SAFETY_ROUTE,
 } from '@/lib/platform-v7/routes';
+import {
+  PLATFORM_V7_EXECUTION_SOURCE,
+  canRequestMoneyRelease,
+  executionBlockers,
+  executionReadinessScore,
+} from '@/lib/platform-v7/deal-execution-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -96,6 +102,8 @@ export default function PlatformV7DataRoomPage() {
         ))}
       </div>
 
+      <DL9102ExecutionConsistencyCard />
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 14 }}>
         {groups.map((group) => (
           <section key={group.title} style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
@@ -115,6 +123,45 @@ export default function PlatformV7DataRoomPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+function DL9102ExecutionConsistencyCard() {
+  const { deal } = PLATFORM_V7_EXECUTION_SOURCE;
+  const score = executionReadinessScore();
+  const blockers = executionBlockers();
+  const canRelease = canRequestMoneyRelease();
+
+  return (
+    <section style={{ background: S, border: `1px solid ${BRAND}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <div>
+        <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Согласованность исполнения сделки · {deal.maturity}</div>
+        <div style={{ marginTop: 4, fontSize: 18, fontWeight: 900, color: T }}>{deal.id} · {deal.lotId}</div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
+        <div style={{ background: score === 100 ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${score === 100 ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase' }}>Готовность</div>
+          <div style={{ marginTop: 5, fontSize: 22, fontWeight: 900, color: score === 100 ? BRAND : WARN }}>{score}%</div>
+        </div>
+        <div style={{ background: blockers.length > 0 ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.08)', border: `1px solid ${blockers.length > 0 ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase' }}>Блокеров</div>
+          <div style={{ marginTop: 5, fontSize: 22, fontWeight: 900, color: blockers.length > 0 ? ERR : BRAND }}>{blockers.length}</div>
+        </div>
+        <div style={{ background: canRelease ? 'rgba(10,122,95,0.08)' : 'rgba(220,38,38,0.08)', border: `1px solid ${canRelease ? 'rgba(10,122,95,0.18)' : 'rgba(220,38,38,0.18)'}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase' }}>Выпуск денег</div>
+          <div style={{ marginTop: 5, fontSize: 14, fontWeight: 900, color: canRelease ? BRAND : ERR }}>{canRelease ? 'возможен' : 'заблокирован'}</div>
+        </div>
+        <div style={{ background: 'var(--pc-bg-elevated)', border: `1px solid ${B}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase' }}>Статус</div>
+          <div style={{ marginTop: 5, fontSize: 14, fontWeight: 900, color: WARN }}>{deal.maturity}</div>
+        </div>
+      </div>
+
+      {blockers.length > 0 && (
+        <div style={{ fontSize: 12, color: WARN }}>Блокеры: {blockers.join(' · ')}</div>
+      )}
+    </section>
   );
 }
 
