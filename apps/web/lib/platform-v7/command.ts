@@ -1,15 +1,28 @@
 import { PLATFORM_V7_LEXICON } from './lexicon';
 import {
+  PLATFORM_V7_ANTI_BYPASS_ROUTE,
   PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_BUYER_LOT_ROUTE,
+  PLATFORM_V7_CANONICAL_RECONCILIATION_ROUTE,
+  PLATFORM_V7_CONNECTORS_ROUTE,
   PLATFORM_V7_CONTROL_TOWER_ROUTE,
   PLATFORM_V7_DATA_ROOM_ROUTE,
+  PLATFORM_V7_DEALS_ROUTE,
   PLATFORM_V7_DISPUTES_ROUTE,
   PLATFORM_V7_EXECUTION_MAP_ROUTE,
+  PLATFORM_V7_FGIS_TO_LOT_ROUTE,
+  PLATFORM_V7_INVESTOR_ROUTE,
   PLATFORM_V7_LOGISTICS_ROUTE,
+  PLATFORM_V7_LOTS_ROUTE,
   PLATFORM_V7_MARKET_RFQ_ROUTE,
+  PLATFORM_V7_OFFER_LOG_ROUTE,
+  PLATFORM_V7_OFFER_TO_DEAL_ROUTE,
   PLATFORM_V7_OPERATOR_ROUTE,
   PLATFORM_V7_READINESS_ROUTE,
   PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+  PLATFORM_V7_ROLES_ROUTE,
+  PLATFORM_V7_SELLER_OFFERS_ROUTE,
+  PLATFORM_V7_TRADING_ROUTE,
 } from './routes';
 
 export type PlatformV7CommandGroup = 'Сделки' | 'Лоты' | 'Споры' | 'Разделы';
@@ -37,7 +50,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Сверка показателей',
     subtitle: 'Сравнение текущей и эталонной формулы показателей',
-    href: '/platform-v7/control-tower/canonical-reconciliation',
+    href: PLATFORM_V7_CANONICAL_RECONCILIATION_ROUTE,
     keywords: 'сверка показатели формула эталон canonical kpi',
   },
   {
@@ -45,7 +58,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: `Все ${PLATFORM_V7_LEXICON.nav.deals.toLowerCase()}`,
     subtitle: 'Реестр сделок с фильтрами по статусу и риску',
-    href: '/platform-v7/deals',
+    href: PLATFORM_V7_DEALS_ROUTE,
     keywords: 'сделки реестр',
   },
   {
@@ -53,7 +66,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Витрина лотов',
     subtitle: 'Лоты по культуре и региону',
-    href: '/platform-v7/lots',
+    href: PLATFORM_V7_LOTS_ROUTE,
     keywords: 'витрина лоты рынок',
   },
   {
@@ -77,7 +90,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Торги и ставки',
     subtitle: 'Лоты, заявки, ставки, блокеры и допуск к сделке',
-    href: '/platform-v7/trading',
+    href: PLATFORM_V7_TRADING_ROUTE,
     keywords: 'торги ставки лоты заявки предложения цена допуск сделка',
   },
   {
@@ -85,7 +98,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Ставки продавца',
     subtitle: 'Входящие предложения по лотам, деньги, риск и действия',
-    href: '/platform-v7/seller/offers',
+    href: PLATFORM_V7_SELLER_OFFERS_ROUTE,
     keywords: 'продавец ставки предложения лоты покупатели деньги риск встречное предложение',
   },
   {
@@ -93,7 +106,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Лот глазами покупателя',
     subtitle: 'Проверка товара, условия ставки и переход к сделке',
-    href: '/platform-v7/buyer-lot',
+    href: PLATFORM_V7_BUYER_LOT_ROUTE,
     keywords: 'покупатель лот ставка предложение товар качество фгис сделка',
   },
   {
@@ -101,7 +114,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Антиобход',
     subtitle: 'Правила раскрытия сторон, контактов и удержания сделки',
-    href: '/platform-v7/anti-bypass',
+    href: PLATFORM_V7_ANTI_BYPASS_ROUTE,
     keywords: 'антиобход контакты раскрытие сторон удержание сделки риск обхода',
   },
   {
@@ -109,7 +122,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Журнал торгов',
     subtitle: 'История ставок, изменений, проверок и выбора предложения',
-    href: '/platform-v7/offer-log',
+    href: PLATFORM_V7_OFFER_LOG_ROUTE,
     keywords: 'журнал торгов ставки история изменения проверка предложение доказательства',
   },
   {
@@ -117,7 +130,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Ставка → черновик сделки',
     subtitle: 'Перенос условий, раскрытие сторон и проверки перед сделкой',
-    href: '/platform-v7/offer-to-deal',
+    href: PLATFORM_V7_OFFER_TO_DEAL_ROUTE,
     keywords: 'ставка черновик сделки условия раскрытие сторон проверки',
   },
   {
@@ -125,7 +138,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'ФГИС → лот',
     subtitle: 'Партия, паспорт товара, блокеры и черновик лота',
-    href: '/platform-v7/fgis-to-lot',
+    href: PLATFORM_V7_FGIS_TO_LOT_ROUTE,
     keywords: 'фгис лот партия паспорт товара остаток качество сдиз',
   },
   {
@@ -181,7 +194,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: PLATFORM_V7_LEXICON.nav.connectors,
     subtitle: 'ФГИС, СберБизнес, СПАРК, лаборатории',
-    href: '/platform-v7/connectors',
+    href: PLATFORM_V7_CONNECTORS_ROUTE,
     keywords: 'интеграции фгис сбер спарк лаборатории',
   },
   {
@@ -197,7 +210,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Инвестор',
     subtitle: 'Презентационный режим, портфель сделок',
-    href: '/platform-v7/investor',
+    href: PLATFORM_V7_INVESTOR_ROUTE,
     keywords: 'инвестор портфель презентация',
   },
   {
@@ -205,7 +218,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: PLATFORM_V7_LEXICON.nav.roles,
     subtitle: 'Сменить активную роль',
-    href: '/platform-v7/roles',
+    href: PLATFORM_V7_ROLES_ROUTE,
     keywords: 'роли смена кабинет',
   },
 ];
