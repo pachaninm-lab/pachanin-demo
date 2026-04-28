@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import {
@@ -71,6 +72,8 @@ export default function PlatformV7ReadinessPage() {
           </div>
         </div>
       </section>
+
+      <P7ExecutionMachineReadOnlyStrip />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
         <Metric label='Готовы полностью' value={String(readyToRelease)} tone='good' />
