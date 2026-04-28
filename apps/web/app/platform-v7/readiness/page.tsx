@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { selectAllDeals } from '@/lib/domain/selectors';
+import { P7ExecutionActionsPanel } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import {
   PLATFORM_V7_EXECUTION_SOURCE,
@@ -79,6 +80,8 @@ export default function PlatformV7ReadinessPage() {
       </div>
 
       <DL9102ReadinessCard />
+
+      <P7ExecutionActionsPanel />
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Сделки по готовности</div>

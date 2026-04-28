@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
+import { P7ExecutionActionsPanel } from '@/components/platform-v7/P7ExecutionActionsPanel';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -101,6 +102,8 @@ export default function PlatformV7OfferToDealPage() {
           );
         })}
       </section>
+
+      <P7ExecutionActionsPanel />
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Следующие действия</div>
