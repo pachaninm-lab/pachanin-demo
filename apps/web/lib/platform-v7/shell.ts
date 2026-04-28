@@ -1,7 +1,8 @@
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { getPlatformV7Environment, type PlatformEnvironmentInfo } from './environment';
 import { platformV7Breadcrumbs, shouldShowPlatformV7Breadcrumbs, type PlatformV7BreadcrumbItem } from './breadcrumbs';
-import { platformV7NavItems, platformV7RoleLabel, platformV7RoleStage, type PlatformV7NavItem } from './navigation';
+import { platformV7NavItems, platformV7RoleStage, type PlatformV7NavItem } from './navigation';
+import { platformV7RoleLabel, PLATFORM_V7_ROLE_LABELS } from './shellLabels';
 import {
   platformV7UnreadShellNotifications,
   platformV7CriticalShellNotifications,
