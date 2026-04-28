@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { platformV7NavItems, platformV7RoleStage } from '@/lib/platform-v7/navigation';
+import {
+  PLATFORM_V7_COMMAND_ROUTE_SURFACE,
+  PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES,
+  PLATFORM_V7_SHELL_ROUTE_SURFACE,
+} from '@/lib/platform-v7/routes';
 import { inferPlatformV7RoleFromPath, platformV7ShellModel } from '@/lib/platform-v7/shell';
 
 const rolePaths: Array<{ role: PlatformRole; path: string }> = [
@@ -32,6 +37,18 @@ const inferredRolePaths: Array<{ role: PlatformRole; paths: string[] }> = [
   { role: 'compliance', paths: ['/platform-v7/compliance'] },
   { role: 'executive', paths: ['/platform-v7/analytics', '/platform-v7/executive'] },
 ];
+
+const isCanonicalPlatformV7Route = (route: string) => route === '/platform-v7' || route.startsWith('/platform-v7/');
+const isPlatformV7ShellFamilyRoute = (route: string) =>
+  isCanonicalPlatformV7Route(route) || route === '/platform-v7r' || route.startsWith('/platform-v7r/');
+
+const forbiddenRouteFamilies = ['/platform-v4', '/platform-v9'];
+
+function expectNoForbiddenRouteFamilies(route: string) {
+  for (const family of forbiddenRouteFamilies) {
+    expect(route.includes(family)).toBe(false);
+  }
+}
 
 describe('platform-v7 shell model navigation', () => {
   it('uses navigation registry helpers for nav items and role stage', () => {
@@ -67,6 +84,37 @@ describe('platform-v7 shell model navigation', () => {
         expect(item.href.includes('/platform-v4')).toBe(false);
         expect(item.href.includes('/platform-v9')).toBe(false);
       }
+    }
+  });
+
+  it('keeps command route surface canonical to platform v7', () => {
+    const uniqueRoutes = new Set(PLATFORM_V7_COMMAND_ROUTE_SURFACE);
+
+    expect(uniqueRoutes.size).toBe(PLATFORM_V7_COMMAND_ROUTE_SURFACE.length);
+    for (const route of PLATFORM_V7_COMMAND_ROUTE_SURFACE) {
+      expect(isCanonicalPlatformV7Route(route)).toBe(true);
+      expect(route.startsWith('/platform-v7r')).toBe(false);
+      expectNoForbiddenRouteFamilies(route);
+    }
+  });
+
+  it('keeps shell route surface limited to platform v7 and v7r role families', () => {
+    const uniqueRoutes = new Set(PLATFORM_V7_SHELL_ROUTE_SURFACE);
+
+    expect(uniqueRoutes.size).toBe(PLATFORM_V7_SHELL_ROUTE_SURFACE.length);
+    expect(PLATFORM_V7_SHELL_ROUTE_SURFACE.some((route) => route.startsWith('/platform-v7r'))).toBe(true);
+
+    for (const route of PLATFORM_V7_SHELL_ROUTE_SURFACE) {
+      expect(isPlatformV7ShellFamilyRoute(route)).toBe(true);
+      expectNoForbiddenRouteFamilies(route);
+    }
+  });
+
+  it('keeps execution machine strip routes inside command route surface', () => {
+    const commandRoutes = new Set<string>(PLATFORM_V7_COMMAND_ROUTE_SURFACE);
+
+    for (const route of PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES) {
+      expect(commandRoutes.has(route)).toBe(true);
     }
   });
 
