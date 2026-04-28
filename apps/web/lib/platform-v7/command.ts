@@ -54,6 +54,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     keywords: 'рынок заявки предложения спрос предложение предсделочный контур',
   },
   {
+    id: 'sec-execution-map',
+    group: 'Разделы',
+    title: 'Карта исполнения сделки',
+    subtitle: 'Один маршрут: товар, торги, готовность, логистика, деньги и спор',
+    href: '/platform-v7/execution-map',
+    keywords: 'карта исполнения сделки маршрут товар торги готовность логистика деньги спор доказательства',
+  },
+  {
     id: 'sec-trading',
     group: 'Разделы',
     title: 'Торги и ставки',
