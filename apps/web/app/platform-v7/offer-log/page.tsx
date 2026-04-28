@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -9,13 +10,15 @@ const BRAND = '#0A7A5F';
 const WARN = '#B45309';
 const ERR = '#B91C1C';
 
+const { lot, offers, acceptedOffer } = PLATFORM_V7_TRADING_SOURCE;
+
 const events = [
-  ['09:12', 'Лот опубликован', 'Продавец', 'Лот ТМБ-2403 создан из партии ФГИС-68-2403-001', 'зафиксировано'],
-  ['09:18', 'Покупатель сделал ставку', 'Покупатель 3', '15 850 ₽/т · 500 т · самовывоз', 'зафиксировано'],
-  ['09:24', 'Покупатель сделал ставку', 'Покупатель 2', '15 970 ₽/т · 1 000 т · доставка продавца', 'зафиксировано'],
-  ['09:37', 'Покупатель изменил ставку', 'Покупатель 1', '16 080 ₽/т · 600 т · самовывоз', 'зафиксировано'],
-  ['09:40', 'Проверка денег', 'Банк', 'Покупатель 1 готов к резерву, покупатель 2 требует проверки', 'проверить'],
-  ['09:48', 'Продавец выбрал ставку', 'Продавец', 'Выбрана ставка Покупателя 1, контакты раскрываются только в черновике сделки', 'зафиксировано'],
+  ['09:12', 'Лот опубликован', 'Продавец', `${lot.id} создан из партии ${lot.fgisPartyId}`, 'зафиксировано'],
+  ['09:18', 'Покупатель сделал ставку', offers[2].buyerAlias, `${rubPerTon(offers[2].priceRubPerTon)} · ${tons(offers[2].volumeTons)} · ${offers[2].basis}`, 'зафиксировано'],
+  ['09:24', 'Покупатель сделал ставку', offers[1].buyerAlias, `${rubPerTon(offers[1].priceRubPerTon)} · ${tons(offers[1].volumeTons)} · ${offers[1].basis}`, 'зафиксировано'],
+  ['09:37', 'Покупатель изменил ставку', acceptedOffer.buyerAlias, `${rubPerTon(acceptedOffer.priceRubPerTon)} · ${tons(acceptedOffer.volumeTons)} · ${acceptedOffer.basis}`, 'зафиксировано'],
+  ['09:40', 'Проверка денег', 'Банк', `${acceptedOffer.buyerAlias} готов к резерву, ${offers[1].buyerAlias} требует проверки`, 'проверить'],
+  ['09:48', 'Продавец выбрал ставку', 'Продавец', `Выбрана ставка ${acceptedOffer.buyerAlias}, контакты раскрываются только в черновике сделки`, 'зафиксировано'],
   ['09:50', 'Создан черновик сделки', 'Платформа', 'Условия перенесены из ставки, запуск сделки требует проверок', 'зафиксировано'],
 ];
 
@@ -27,6 +30,10 @@ const controls = [
   ['Банк', 'проверка денег фиксируется до запуска сделки'],
   ['ФГИС', 'лот связан с исходной партией и паспортом товара'],
 ];
+
+const bidEvents = events.filter(([, action]) => action === 'Покупатель сделал ставку').length;
+const changeEvents = events.filter(([, action]) => action === 'Покупатель изменил ставку').length;
+const blockerEvents = events.filter(([, , , , status]) => status === 'проверить').length;
 
 function tone(status: string) {
   if (status === 'зафиксировано') return { color: BRAND, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)' };
@@ -55,9 +62,9 @@ export default function PlatformV7OfferLogPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>
         <Metric label='Событий' value={String(events.length)} tone='good' />
-        <Metric label='Ставок' value='3' tone='good' />
-        <Metric label='Изменений' value='1' tone='warn' />
-        <Metric label='Блокеров' value='1' tone='warn' />
+        <Metric label='Ставок' value={String(bidEvents)} tone='good' />
+        <Metric label='Изменений' value={String(changeEvents)} tone='warn' />
+        <Metric label='Блокеров' value={String(blockerEvents)} tone='warn' />
       </div>
 
       <section style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 14, padding: 14 }}>

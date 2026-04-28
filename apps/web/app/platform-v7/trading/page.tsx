@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PLATFORM_V7_MARKET_RFQ_ROUTE } from '@/lib/platform-v7/routes';
+import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -10,12 +11,29 @@ const BRAND = '#0A7A5F';
 const WARN = '#B45309';
 const ERR = '#B91C1C';
 
-const rows = [
-  { lot: 'Лот ТМБ-2403', crop: 'Пшеница 4 кл.', volume: '1 200 т', basis: 'Тамбов · элеватор', target: '15 900 ₽/т', best: '16 080 ₽/т', bids: 7, status: 'Можно в сделку', risk: 'Низкий', blocker: '—' },
+const { lot, offers: sourceOffers } = PLATFORM_V7_TRADING_SOURCE;
+const bestPrice = Math.max(...sourceOffers.map((o) => o.priceRubPerTon));
+
+const sourceRow = {
+  lot: lot.id,
+  crop: lot.crop,
+  volume: tons(lot.availableVolumeTons),
+  basis: lot.basis,
+  target: rubPerTon(lot.sellerPriceRubPerTon),
+  best: rubPerTon(bestPrice),
+  bids: sourceOffers.length,
+  status: 'Можно в сделку',
+  risk: 'Низкий',
+  blocker: '—',
+};
+
+const demoRows = [
   { lot: 'Лот ВРЖ-1811', crop: 'Кукуруза', volume: '800 т', basis: 'Воронеж · склад продавца', target: '13 450 ₽/т', best: '13 300 ₽/т', bids: 4, status: 'Нужна проверка', risk: 'Средний', blocker: 'нет СДИЗ' },
   { lot: 'Заявка КРС-077', crop: 'Ячмень', volume: '500 т', basis: 'Курск · самовывоз', target: '12 200 ₽/т', best: '12 260 ₽/т', bids: 3, status: 'Можно в сделку', risk: 'Низкий', blocker: '—' },
   { lot: 'Лот РСТ-6002', crop: 'Пшеница 3 кл.', volume: '2 000 т', basis: 'Ростов · портовая логистика', target: '17 100 ₽/т', best: '17 480 ₽/т', bids: 9, status: 'Остановить', risk: 'Высокий', blocker: 'расхождение качества' },
 ];
+
+const rows = [sourceRow, ...demoRows];
 
 function tone(status: string) {
   if (status === 'Можно в сделку') return { color: BRAND, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)' };

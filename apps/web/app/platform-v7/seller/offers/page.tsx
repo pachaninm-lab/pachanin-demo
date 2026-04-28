@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -9,12 +10,26 @@ const BRAND = '#0A7A5F';
 const WARN = '#B45309';
 const ERR = '#B91C1C';
 
-const offers = [
-  { lot: 'Лот ТМБ-2403', buyer: 'Покупатель 1', rating: 'A-', price: '16 080 ₽/т', volume: '600 т', basis: 'Самовывоз', pay: 'готов к резерву', term: '10 дней', status: 'Лучшая ставка', risk: 'низкий' },
-  { lot: 'Лот ТМБ-2403', buyer: 'Покупатель 2', rating: 'B+', price: '15 970 ₽/т', volume: '1 000 т', basis: 'Доставка продавца', pay: 'нужна проверка', term: '14 дней', status: 'Активна', risk: 'средний' },
-  { lot: 'Лот ТМБ-2403', buyer: 'Покупатель 3', rating: 'A', price: '15 850 ₽/т', volume: '500 т', basis: 'Самовывоз', pay: 'готов к резерву', term: '7 дней', status: 'Активна', risk: 'низкий' },
+const { lot, offers: sourceOffers } = PLATFORM_V7_TRADING_SOURCE;
+
+const lotOffers = sourceOffers.map((o) => ({
+  lot: lot.id,
+  buyer: o.buyerAlias,
+  rating: o.buyerRating,
+  price: rubPerTon(o.priceRubPerTon),
+  volume: tons(o.volumeTons),
+  basis: o.basis,
+  pay: o.paymentReadiness,
+  term: o.removalTerm,
+  status: o.status,
+  risk: o.risk,
+}));
+
+const demoOffers = [
   { lot: 'Лот ВРЖ-1811', buyer: 'Покупатель 4', rating: 'C+', price: '13 300 ₽/т', volume: '800 т', basis: 'Самовывоз', pay: 'нет допуска', term: '5 дней', status: 'Остановить', risk: 'высокий' },
 ];
+
+const offers = [...lotOffers, ...demoOffers];
 
 function tone(value: string) {
   if (['Лучшая ставка', 'готов к резерву', 'низкий'].includes(value)) return { color: BRAND, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)' };
