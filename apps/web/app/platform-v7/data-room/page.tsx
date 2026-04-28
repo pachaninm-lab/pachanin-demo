@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import {
   PLATFORM_V7_BANK_ROUTE,
   PLATFORM_V7_CONTROL_TOWER_ROUTE,
@@ -93,6 +94,8 @@ export default function PlatformV7DataRoomPage() {
           Статус проекта: песочница / управляемый пилот / готовность к пилоту с сопровождением. Боевая банковая интеграция, ФГИС, GPS, ЭДО и полная готовность здесь не заявляются.
         </div>
       </section>
+
+      <P7ExecutionMachineReadOnlyStrip compact />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
         {links.map((link) => (

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
 import {
@@ -79,6 +80,8 @@ export default function BankReleaseSafetyPage() {
           Деньги нельзя выпускать напрямую из карточки сделки. Выпуск допустим только после закрытия gate-проверок и отсутствия активных удержаний.
         </div>
       </section>
+
+      <P7ExecutionMachineReadOnlyStrip compact />
 
       <DL9102MoneyCard />
 
