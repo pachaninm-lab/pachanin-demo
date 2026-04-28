@@ -1,0 +1,88 @@
+import { describe, expect, it } from 'vitest';
+import {
+  PLATFORM_V7_SHELL_NOTIFICATIONS,
+  platformV7CriticalShellNotifications,
+  platformV7ShellNotifications,
+  platformV7ShellNotificationsByDeal,
+  platformV7UnreadShellNotifications,
+} from '@/lib/platform-v7/shellNotifications';
+import {
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_DEALS_ROUTE,
+  PLATFORM_V7_DISPUTES_ROUTE,
+  PLATFORM_V7_LOGISTICS_ROUTE,
+  PLATFORM_V7_SHELL_ROUTE_SURFACE,
+} from '@/lib/platform-v7/routes';
+
+const forbiddenClaims = [
+  'production ready',
+  'fully live',
+  'live integration completed',
+  'guaranteed payment',
+  'no risk',
+  'all integrations completed',
+];
+
+function isAllowedNotificationHref(href: string) {
+  const shellRoutes = new Set<string>(PLATFORM_V7_SHELL_ROUTE_SURFACE);
+
+  return (
+    shellRoutes.has(href) ||
+    href.startsWith(`${PLATFORM_V7_DEALS_ROUTE}/`) ||
+    href.startsWith(`${PLATFORM_V7_DISPUTES_ROUTE}/`) ||
+    href.startsWith(`${PLATFORM_V7_BANK_ROUTE}/`) ||
+    href.startsWith(`${PLATFORM_V7_LOGISTICS_ROUTE}/`)
+  );
+}
+
+describe('platform-v7 shell notifications', () => {
+  it('keeps shell notifications centralized', () => {
+    expect(platformV7ShellNotifications()).toBe(PLATFORM_V7_SHELL_NOTIFICATIONS);
+    expect(platformV7ShellNotifications().length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('keeps notification ids unique', () => {
+    const ids = PLATFORM_V7_SHELL_NOTIFICATIONS.map((notification) => notification.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('keeps notification hrefs inside approved route classes', () => {
+    for (const notification of PLATFORM_V7_SHELL_NOTIFICATIONS) {
+      expect(isAllowedNotificationHref(notification.href), `${notification.href} must stay approved`).toBe(true);
+    }
+  });
+
+  it('returns only unread notifications', () => {
+    expect(platformV7UnreadShellNotifications().length).toBeGreaterThan(0);
+    expect(platformV7UnreadShellNotifications().every((notification) => notification.read === false)).toBe(true);
+  });
+
+  it('returns only critical notifications', () => {
+    expect(platformV7CriticalShellNotifications().length).toBeGreaterThan(0);
+    expect(platformV7CriticalShellNotifications().every((notification) => notification.severity === 'critical')).toBe(true);
+  });
+
+  it('filters notifications by deal id', () => {
+    const dl9102 = platformV7ShellNotificationsByDeal('DL-9102');
+    expect(dl9102.length).toBeGreaterThan(0);
+    expect(dl9102.every((notification) => notification.dealId === 'DL-9102')).toBe(true);
+  });
+
+  it('does not introduce forbidden live or production claims', () => {
+    for (const notification of PLATFORM_V7_SHELL_NOTIFICATIONS) {
+      const haystack = `${notification.title} ${notification.description}`.toLowerCase();
+      for (const claim of forbiddenClaims) {
+        expect(haystack.includes(claim)).toBe(false);
+      }
+    }
+  });
+
+  it('keeps notification copy in Russian-oriented shell language', () => {
+    const latinWordPattern = /\b(production|ready|fully|live|integration|completed|guaranteed|payment|risk)\b/i;
+
+    for (const notification of PLATFORM_V7_SHELL_NOTIFICATIONS) {
+      expect(notification.title).not.toMatch(latinWordPattern);
+      expect(notification.description).not.toMatch(latinWordPattern);
+    }
+  });
+});
