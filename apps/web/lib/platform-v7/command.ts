@@ -70,6 +70,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     keywords: 'покупатель лот ставка предложение товар качество фгис сделка',
   },
   {
+    id: 'sec-offer-to-deal',
+    group: 'Разделы',
+    title: 'Ставка → черновик сделки',
+    subtitle: 'Перенос условий, раскрытие сторон и проверки перед сделкой',
+    href: '/platform-v7/offer-to-deal',
+    keywords: 'ставка черновик сделки условия раскрытие сторон проверки',
+  },
+  {
     id: 'sec-fgis-to-lot',
     group: 'Разделы',
     title: 'ФГИС → лот',
