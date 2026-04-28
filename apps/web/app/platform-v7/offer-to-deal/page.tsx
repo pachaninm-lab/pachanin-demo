@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
+import { PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, type PlatformV7ExecutionActionState } from '@/lib/platform-v7/execution-action-core';
 import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
@@ -12,6 +13,11 @@ const WARN = '#B45309';
 const ERR = '#B91C1C';
 
 const { lot, acceptedOffer } = PLATFORM_V7_TRADING_SOURCE;
+
+const dealBridgeInitialState = {
+  ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
+  acceptedOfferId: 'OFFER-2403-A',
+} satisfies PlatformV7ExecutionActionState;
 
 const dealBridgeActionItems = [
   {
@@ -135,6 +141,7 @@ export default function PlatformV7OfferToDealPage() {
         title='Сквозные действия сделки'
         subtitle='Здесь закрыт первый bridge: draft deal, money reserve intent, logistics, internal document, field event и dispute. Все действия имеют guard, toast, action log и rollback.'
         items={dealBridgeActionItems}
+        initialState={dealBridgeInitialState}
       />
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
