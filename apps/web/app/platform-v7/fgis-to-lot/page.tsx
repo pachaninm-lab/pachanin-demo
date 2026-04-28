@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PLATFORM_V7_MARKET_RFQ_ROUTE } from '@/lib/platform-v7/routes';
+import { PLATFORM_V7_TRADING_SOURCE, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -34,8 +35,18 @@ const fgisFields = [
   ['Хранитель', 'Repository', 'Где фактически лежит партия, если есть хранение'],
 ];
 
+const { lot: sourceLot } = PLATFORM_V7_TRADING_SOURCE;
+
 const sample = {
-  lot: 'ФГИС-68-2403-001', crop: 'Пшеница 4 класса', amount: '1 200 т', available: '1 050 т', year: '2025', storage: 'Тамбовская область · элеватор', owner: 'КФХ «Северное поле»', status: 'Подписана', quality: ['влажность 12,8%', 'сорная примесь 1,7%', 'клейковина 23%', 'протеин 12,1%'],
+  lot: sourceLot.fgisPartyId,
+  crop: sourceLot.crop,
+  amount: tons(sourceLot.totalVolumeTons),
+  available: tons(sourceLot.availableVolumeTons),
+  year: sourceLot.harvestYear,
+  storage: sourceLot.basis,
+  owner: sourceLot.seller,
+  status: 'Подписана',
+  quality: ['влажность 12,8%', 'сорная примесь 1,7%', 'клейковина 23%', 'протеин 12,1%'],
 };
 
 export default function PlatformV7FgisToLotPage() {

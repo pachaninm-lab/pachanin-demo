@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PLATFORM_V7_MARKET_RFQ_ROUTE } from '@/lib/platform-v7/routes';
+import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -10,19 +11,16 @@ const BRAND = '#0A7A5F';
 const WARN = '#B45309';
 const ERR = '#B91C1C';
 
+const { lot, offers, acceptedOffer } = PLATFORM_V7_TRADING_SOURCE;
+const bestPrice = Math.max(...offers.map((o) => o.priceRubPerTon));
+
 const checks = [
   ['Источник товара', 'Партия подтянута из ФГИС', 'готово'],
-  ['Остаток', 'К лоту доступно 1 050 т из 1 200 т', 'готово'],
+  ['Остаток', `К лоту доступно ${tons(lot.availableVolumeTons)} из ${tons(lot.totalVolumeTons)}`, 'готово'],
   ['Качество', 'Класс, влажность, сорность и клейковина заполнены', 'готово'],
   ['СДИЗ', 'Для сделки потребуется оформление СДИЗ', 'проверить'],
-  ['Логистика', 'Базис: элеватор, самовывоз возможен', 'готово'],
+  ['Логистика', `Базис: ${lot.basis}, самовывоз возможен`, 'готово'],
   ['Деньги', 'Ставка уйдёт в сделку только после допуска банка', 'проверить'],
-];
-
-const offers = [
-  ['Вы', '16 080 ₽/т', '600 т', 'Самовывоз', 'Лучшая ставка'],
-  ['Покупатель 2', '15 970 ₽/т', '1 000 т', 'Доставка продавца', 'Активна'],
-  ['Покупатель 3', '15 850 ₽/т', '500 т', 'Самовывоз', 'Активна'],
 ];
 
 function tone(status: string) {
@@ -53,19 +51,19 @@ export default function PlatformV7BuyerLotPage() {
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: T }}>Лот ТМБ-2403 · Пшеница 4 класса</div>
-            <div style={{ marginTop: 6, fontSize: 13, color: M }}>ФГИС-68-2403-001 · Тамбовская область · элеватор · урожай 2025</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: T }}>{lot.id} · {lot.crop}</div>
+            <div style={{ marginTop: 6, fontSize: 13, color: M }}>{lot.fgisPartyId} · {lot.basis} · урожай {lot.harvestYear}</div>
           </div>
-          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: BRAND, fontSize: 12, fontWeight: 900 }}>Допущен к ставкам</span>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: BRAND, fontSize: 12, fontWeight: 900 }}>{lot.status}</span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 8 }}>
-          <Cell label='Доступный объём' value='1 050 т' />
-          <Cell label='Цена продавца' value='15 900 ₽/т' />
-          <Cell label='Лучшая ставка' value='16 080 ₽/т' />
-          <Cell label='Минимальная партия' value='300 т' />
-          <Cell label='Срок отгрузки' value='7–14 дней' />
-          <Cell label='Оплата' value='резерв денег' />
+          <Cell label='Доступный объём' value={tons(lot.availableVolumeTons)} />
+          <Cell label='Цена продавца' value={rubPerTon(lot.sellerPriceRubPerTon)} />
+          <Cell label='Лучшая ставка' value={rubPerTon(bestPrice)} />
+          <Cell label='Минимальная партия' value={tons(lot.minVolumeTons)} />
+          <Cell label='Срок отгрузки' value={lot.shipmentWindow} />
+          <Cell label='Оплата' value={lot.paymentCondition} />
         </div>
       </section>
 
@@ -89,11 +87,11 @@ export default function PlatformV7BuyerLotPage() {
         <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
           <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Черновик ставки</div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <Field label='Цена' value='16 080 ₽/т' />
-            <Field label='Объём' value='600 т' />
-            <Field label='Базис' value='самовывоз с элеватора' />
-            <Field label='Срок вывоза' value='10 дней после допуска' />
-            <Field label='Условие денег' value='резерв до приёмки' />
+            <Field label='Цена' value={rubPerTon(acceptedOffer.priceRubPerTon)} />
+            <Field label='Объём' value={tons(acceptedOffer.volumeTons)} />
+            <Field label='Базис' value={acceptedOffer.basis} />
+            <Field label='Срок вывоза' value={`${acceptedOffer.removalTerm} после допуска`} />
+            <Field label='Условие денег' value={acceptedOffer.paymentReadiness} />
           </div>
           <div style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 12, padding: 12, color: T, fontSize: 12, lineHeight: 1.55 }}>
             Ставка фиксируется как намерение. В сделку она переходит только после подтверждения продавца, проверки партии, логистики, документов и банкового допуска.
@@ -104,15 +102,17 @@ export default function PlatformV7BuyerLotPage() {
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Текущие ставки</div>
-        {offers.map(([buyer, price, volume, basis, status]) => {
-          const t = tone(status);
+        {offers.map((offer) => {
+          const isAccepted = offer.buyerAlias === acceptedOffer.buyerAlias && offer.priceRubPerTon === acceptedOffer.priceRubPerTon;
+          const buyer = isAccepted ? 'Вы' : offer.buyerAlias;
+          const t = tone(offer.status);
           return (
-            <div key={`${buyer}-${price}`} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 12, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+            <div key={`${offer.buyerAlias}-${offer.priceRubPerTon}`} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 12, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'center' }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: T }}>{buyer}</div>
-              <div style={{ fontSize: 13, color: T }}>{price}</div>
-              <div style={{ fontSize: 13, color: T }}>{volume}</div>
-              <div style={{ fontSize: 13, color: M }}>{basis}</div>
-              <span style={{ padding: '4px 8px', borderRadius: 999, background: t.bg, border: `1px solid ${t.border}`, color: t.color, fontSize: 11, fontWeight: 900 }}>{status}</span>
+              <div style={{ fontSize: 13, color: T }}>{rubPerTon(offer.priceRubPerTon)}</div>
+              <div style={{ fontSize: 13, color: T }}>{tons(offer.volumeTons)}</div>
+              <div style={{ fontSize: 13, color: M }}>{offer.basis}</div>
+              <span style={{ padding: '4px 8px', borderRadius: 999, background: t.bg, border: `1px solid ${t.border}`, color: t.color, fontSize: 11, fontWeight: 900 }}>{offer.status}</span>
             </div>
           );
         })}

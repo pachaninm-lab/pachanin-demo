@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -9,15 +10,17 @@ const BRAND = '#0A7A5F';
 const WARN = '#B45309';
 const ERR = '#B91C1C';
 
+const { lot, acceptedOffer } = PLATFORM_V7_TRADING_SOURCE;
+
 const transfer = [
-  ['Лот', 'Лот ТМБ-2403', 'из торгов'],
-  ['Партия ФГИС', 'ФГИС-68-2403-001', 'не менять'],
+  ['Лот', lot.id, 'из торгов'],
+  ['Партия ФГИС', lot.fgisPartyId, 'не менять'],
   ['Покупатель', 'раскрыт после выбора ставки', 'только внутри сделки'],
-  ['Продавец', 'КФХ «Северное поле»', 'из паспорта партии'],
-  ['Цена', '16 080 ₽/т', 'из принятой ставки'],
-  ['Объём', '600 т', 'из принятой ставки'],
-  ['Базис', 'самовывоз с элеватора', 'из принятой ставки'],
-  ['Оплата', 'резерв денег до приёмки', 'требует банка'],
+  ['Продавец', lot.seller, 'из паспорта партии'],
+  ['Цена', rubPerTon(acceptedOffer.priceRubPerTon), 'из принятой ставки'],
+  ['Объём', tons(acceptedOffer.volumeTons), 'из принятой ставки'],
+  ['Базис', acceptedOffer.basis, 'из принятой ставки'],
+  ['Оплата', lot.paymentCondition, 'требует банка'],
 ];
 
 const gates = [
@@ -28,6 +31,8 @@ const gates = [
   ['Банк', 'нужно зарезервировать деньги покупателя', 'проверить'],
   ['Обход платформы', 'контакты сторон не раскрыты вне черновика', 'готово'],
 ];
+
+const blockers = gates.filter(([, , s]) => s !== 'готово').length;
 
 function tone(status: string) {
   if (status === 'готово') return { color: BRAND, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)' };
@@ -63,9 +68,9 @@ export default function PlatformV7OfferToDealPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
         <Metric label='Статус' value='черновик' tone='warn' />
-        <Metric label='Цена' value='16 080 ₽/т' tone='good' />
-        <Metric label='Объём' value='600 т' tone='good' />
-        <Metric label='Блокеры' value='4' tone='bad' />
+        <Metric label='Цена' value={rubPerTon(acceptedOffer.priceRubPerTon)} tone='good' />
+        <Metric label='Объём' value={tons(acceptedOffer.volumeTons)} tone='good' />
+        <Metric label='Блокеры' value={String(blockers)} tone='bad' />
       </div>
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>

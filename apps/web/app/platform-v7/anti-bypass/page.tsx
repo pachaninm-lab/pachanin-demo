@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PLATFORM_V7_TRADING_SOURCE } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -90,6 +91,16 @@ export default function PlatformV7AntiBypassPage() {
               <div style={{ fontSize: 12, color: BRAND, fontWeight: 900 }}>{level}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
+        <div style={{ fontSize: 12, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Текущий пример</div>
+        <div style={{ marginTop: 8, fontSize: 13, color: T, lineHeight: 1.65 }}>
+          Лот: <strong>{PLATFORM_V7_TRADING_SOURCE.lot.id}</strong> · ставок: <strong>{PLATFORM_V7_TRADING_SOURCE.offers.length}</strong> · выбранная ставка: <strong>{PLATFORM_V7_TRADING_SOURCE.acceptedOffer.buyerAlias}</strong>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 12, color: M }}>
+          Покупатель до сделки обезличен. Реальные контактные данные платформа не показывает.
         </div>
       </section>
     </div>
