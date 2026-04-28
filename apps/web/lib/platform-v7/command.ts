@@ -1,5 +1,5 @@
 import { PLATFORM_V7_LEXICON } from './lexicon';
-import { PLATFORM_V7_MARKET_RFQ_ROUTE, PLATFORM_V7_RELEASE_SAFETY_ROUTE } from './routes';
+import { PLATFORM_V7_EXECUTION_MAP_ROUTE, PLATFORM_V7_MARKET_RFQ_ROUTE, PLATFORM_V7_RELEASE_SAFETY_ROUTE } from './routes';
 
 export type PlatformV7CommandGroup = 'Сделки' | 'Лоты' | 'Споры' | 'Разделы';
 
@@ -58,7 +58,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Карта исполнения сделки',
     subtitle: 'Один маршрут: товар, торги, готовность, логистика, деньги и спор',
-    href: '/platform-v7/execution-map',
+    href: PLATFORM_V7_EXECUTION_MAP_ROUTE,
     keywords: 'карта исполнения сделки маршрут товар торги готовность логистика деньги спор доказательства',
   },
   {
