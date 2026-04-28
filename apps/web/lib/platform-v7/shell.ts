@@ -7,7 +7,13 @@ import {
   platformV7CriticalShellNotifications,
   type PlatformV7ShellNotification,
 } from './shellNotifications';
-// TODO(platform-v7): wire nav, labels, shortcuts from shellRoutes / shellLabels / shellShortcuts / shellQuickJump / shellBreadcrumbs registries
+import {
+  platformV7ShellRegistryEntries,
+  platformV7ShellRegistryShortcutEntries,
+  type PlatformV7ShellRegistryEntry,
+} from './shellRegistry';
+import { platformV7QuickJumpItems, type PlatformV7QuickJumpItem } from './shellQuickJump';
+import { platformV7ShortcutHelpItems, type PlatformV7ShortcutHelpItem } from './shellShortcuts';
 
 export interface PlatformV7ShellModel {
   role: PlatformRole;
@@ -19,6 +25,10 @@ export interface PlatformV7ShellModel {
   showBreadcrumbs: boolean;
   unreadNotifications: readonly PlatformV7ShellNotification[];
   criticalNotifications: readonly PlatformV7ShellNotification[];
+  shortcuts: readonly PlatformV7ShortcutHelpItem[];
+  quickJumpEntries: readonly PlatformV7QuickJumpItem[];
+  registryEntries: readonly PlatformV7ShellRegistryEntry[];
+  registryShortcutEntries: readonly PlatformV7ShellRegistryEntry[];
 }
 
 export function inferPlatformV7RoleFromPath(pathname: string, currentRole: PlatformRole): PlatformRole {
@@ -49,5 +59,9 @@ export function platformV7ShellModel(pathname: string, currentRole: PlatformRole
     showBreadcrumbs: shouldShowPlatformV7Breadcrumbs(pathname),
     unreadNotifications: platformV7UnreadShellNotifications(),
     criticalNotifications: platformV7CriticalShellNotifications(),
+    shortcuts: platformV7ShortcutHelpItems(),
+    quickJumpEntries: platformV7QuickJumpItems(),
+    registryEntries: platformV7ShellRegistryEntries(),
+    registryShortcutEntries: platformV7ShellRegistryShortcutEntries(),
   };
 }
