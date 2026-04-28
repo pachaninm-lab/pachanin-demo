@@ -70,6 +70,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     keywords: 'покупатель лот ставка предложение товар качество фгис сделка',
   },
   {
+    id: 'sec-anti-bypass',
+    group: 'Разделы',
+    title: 'Антиобход',
+    subtitle: 'Правила раскрытия сторон, контактов и удержания сделки',
+    href: '/platform-v7/anti-bypass',
+    keywords: 'антиобход контакты раскрытие сторон удержание сделки риск обхода',
+  },
+  {
     id: 'sec-offer-log',
     group: 'Разделы',
     title: 'Журнал торгов',
