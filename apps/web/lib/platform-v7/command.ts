@@ -62,6 +62,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     keywords: 'торги ставки лоты заявки предложения цена допуск сделка',
   },
   {
+    id: 'sec-seller-offers',
+    group: 'Разделы',
+    title: 'Ставки продавца',
+    subtitle: 'Входящие предложения по лотам, деньги, риск и действия',
+    href: '/platform-v7/seller/offers',
+    keywords: 'продавец ставки предложения лоты покупатели деньги риск встречное предложение',
+  },
+  {
     id: 'sec-buyer-lot',
     group: 'Разделы',
     title: 'Лот глазами покупателя',
