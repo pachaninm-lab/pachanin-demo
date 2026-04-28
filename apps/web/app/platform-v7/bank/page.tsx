@@ -9,23 +9,28 @@ import { DomainMoneySummary } from '@/components/v7r/DomainMoneySummary';
 const quickLinks = [
   {
     title: 'Проверка выпуска денег',
-    description: 'Read-only audit: блокеры, удержания и кандидаты к выпуску.',
+    description: 'Блокеры, удержания и кандидаты к выпуску.',
     href: '/platform-v7/bank/release-safety',
+  },
+  {
+    title: 'Готовность сделки',
+    description: 'ФГИС, документы, логистика, банк, спор и удержания.',
+    href: '/platform-v7/readiness',
+  },
+  {
+    title: 'Журнал торгов',
+    description: 'История ставок, изменений, проверки денег и выбора предложения.',
+    href: '/platform-v7/offer-log',
+  },
+  {
+    title: 'Антиобход',
+    description: 'Правила раскрытия сторон, контактов и удержания сделки внутри платформы.',
+    href: '/platform-v7/anti-bypass',
   },
   {
     title: 'Пакет перевозочных документов',
     description: 'DL-9102 · юридически значимый пакет по рейсу, подписям и влиянию на выпуск денег.',
     href: '/platform-v7/deals/DL-9102/transport-documents',
-  },
-  {
-    title: 'Полная симуляция сценария',
-    description: 'Пошаговая имитация: пакет → подписи → входящие события → контроль выпуска денег.',
-    href: '/platform-v7/deals/DL-9102/transport-documents/simulation',
-  },
-  {
-    title: 'Горячий список оператора',
-    description: 'Кейсы, где транспортный контур тормозит деньги и требует действий.',
-    href: '/platform-v7/control-tower/hotlist',
   },
   {
     title: 'Факторинг',
