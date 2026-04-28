@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 
 const stages = [
   {
@@ -112,6 +113,8 @@ export default function PlatformV7ExecutionMapPage() {
             он показывает, где находится каждый рабочий контур.
           </p>
         </section>
+
+        <P7ExecutionMachineReadOnlyStrip compact />
 
         <section style={grid}>
           {stages.map((stage) => (
