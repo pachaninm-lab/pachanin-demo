@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { PLATFORM_V7_COMMAND_SECTION_ITEMS, platformV7CommandSectionItems } from '@/lib/platform-v7/command';
 import {
   PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_CANONICAL_RECONCILIATION_ROUTE,
+  PLATFORM_V7_COMMAND_ROUTE_SURFACE,
   PLATFORM_V7_CONTROL_TOWER_ROUTE,
   PLATFORM_V7_DATA_ROOM_ROUTE,
   PLATFORM_V7_DISPUTES_ROUTE,
@@ -9,6 +11,7 @@ import {
   PLATFORM_V7_LOGISTICS_ROUTE,
   PLATFORM_V7_OPERATOR_ROUTE,
   PLATFORM_V7_READINESS_ROUTE,
+  PLATFORM_V7_ROLES_ROUTE,
 } from '@/lib/platform-v7/routes';
 
 describe('platform-v7 command foundation', () => {
@@ -23,8 +26,8 @@ describe('platform-v7 command foundation', () => {
   it('keeps command section items centralized', () => {
     const items = platformV7CommandSectionItems();
     expect(items.length).toBeGreaterThanOrEqual(11);
-    expect(items.map((item) => item.href)).toContain('/platform-v7/roles');
-    expect(items.map((item) => item.href)).toContain('/platform-v7/control-tower/canonical-reconciliation');
+    expect(items.map((item) => item.href)).toContain(PLATFORM_V7_ROLES_ROUTE);
+    expect(items.map((item) => item.href)).toContain(PLATFORM_V7_CANONICAL_RECONCILIATION_ROUTE);
     expect(items.every((item) => item.group === 'Разделы')).toBe(true);
   });
 
@@ -38,7 +41,7 @@ describe('platform-v7 command foundation', () => {
     const reconciliation = platformV7CommandSectionItems().find((item) => item.id === 'sec-canonical-kpi-reconciliation');
     expect(reconciliation).toMatchObject({
       title: 'Сверка показателей',
-      href: '/platform-v7/control-tower/canonical-reconciliation',
+      href: PLATFORM_V7_CANONICAL_RECONCILIATION_ROUTE,
     });
     expect(reconciliation?.keywords).toContain('canonical');
     expect(reconciliation?.keywords).toContain('kpi');
@@ -57,5 +60,15 @@ describe('platform-v7 command foundation', () => {
     expect(commandHrefs).toContain(PLATFORM_V7_DATA_ROOM_ROUTE);
     expect(commandHrefs).toContain(PLATFORM_V7_LOGISTICS_ROUTE);
     expect(commandHrefs).toContain(PLATFORM_V7_DISPUTES_ROUTE);
+  });
+
+  it('keeps the command route surface discoverable by the command registry', () => {
+    const commandHrefs = new Set(platformV7CommandSectionItems().map((item) => item.href));
+
+    expect(new Set(PLATFORM_V7_COMMAND_ROUTE_SURFACE).size).toBe(PLATFORM_V7_COMMAND_ROUTE_SURFACE.length);
+
+    for (const route of PLATFORM_V7_COMMAND_ROUTE_SURFACE) {
+      expect(commandHrefs, `${route} must stay discoverable through command navigation`).toContain(route);
+    }
   });
 });
