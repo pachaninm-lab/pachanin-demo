@@ -6,7 +6,16 @@ export type PlatformV7ActionMessageId =
   | 'openDispute'
   | 'resolveDispute'
   | 'manualReview'
-  | 'retryWebhook';
+  | 'retryWebhook'
+  | 'submitSellerOffer'
+  | 'acceptOffer'
+  | 'rejectOffer'
+  | 'sendCounterOffer'
+  | 'createDraftDealFromOffer'
+  | 'requestMoneyReserve'
+  | 'assignLogistics'
+  | 'attachDocument'
+  | 'recordFieldEvent';
 
 export interface PlatformV7ActionMessages {
   loading: string;
@@ -54,6 +63,51 @@ export const PLATFORM_V7_ACTION_MESSAGES: Record<PlatformV7ActionMessageId, Plat
     loading: 'Повторяем событие банка.',
     success: 'Событие банка повторно отправлено.',
     error: 'Не удалось повторить событие банка.',
+  },
+  submitSellerOffer: {
+    loading: 'Отправляем ставку продавца.',
+    success: 'Ставка продавца зафиксирована.',
+    error: 'Не удалось отправить ставку продавца.',
+  },
+  acceptOffer: {
+    loading: 'Принимаем ставку.',
+    success: 'Ставка принята.',
+    error: 'Не удалось принять ставку.',
+  },
+  rejectOffer: {
+    loading: 'Отклоняем ставку.',
+    success: 'Ставка отклонена.',
+    error: 'Не удалось отклонить ставку.',
+  },
+  sendCounterOffer: {
+    loading: 'Отправляем встречное предложение.',
+    success: 'Встречное предложение зафиксировано.',
+    error: 'Не удалось отправить встречное предложение.',
+  },
+  createDraftDealFromOffer: {
+    loading: 'Создаём черновик сделки из принятой ставки.',
+    success: 'Черновик сделки создан из принятой ставки.',
+    error: 'Не удалось создать черновик сделки.',
+  },
+  requestMoneyReserve: {
+    loading: 'Создаём намерение резерва денег.',
+    success: 'Намерение резерва денег создано.',
+    error: 'Не удалось создать намерение резерва денег.',
+  },
+  assignLogistics: {
+    loading: 'Назначаем логистику.',
+    success: 'Логистика назначена.',
+    error: 'Не удалось назначить логистику.',
+  },
+  attachDocument: {
+    loading: 'Прикладываем внутренний документ.',
+    success: 'Документ приложен к сделке.',
+    error: 'Не удалось приложить документ.',
+  },
+  recordFieldEvent: {
+    loading: 'Фиксируем полевое событие.',
+    success: 'Полевое событие зафиксировано.',
+    error: 'Не удалось зафиксировать полевое событие.',
   },
 };
 
