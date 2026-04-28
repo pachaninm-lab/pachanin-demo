@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { PLATFORM_V7_MARKET_RFQ_ROUTE } from '@/lib/platform-v7/routes';
 import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
@@ -13,6 +14,36 @@ const ERR = '#B91C1C';
 
 const { lot, offers, acceptedOffer } = PLATFORM_V7_TRADING_SOURCE;
 const bestPrice = Math.max(...offers.map((o) => o.priceRubPerTon));
+
+const buyerActionItems = [
+  {
+    title: 'Принять ставку',
+    description: 'Фиксирует выбранную ставку как принятую, блокирует повторное принятие и создаёт журнал действия.',
+    targetId: 'e4-accept-offer',
+    actionId: 'acceptOffer',
+    actorRole: 'buyer',
+    entityId: 'OFFER-2403-A',
+    mode: 'controlled-pilot',
+  },
+  {
+    title: 'Отклонить ставку',
+    description: 'Переводит ставку в отклонённые с возможностью rollback в предыдущее состояние.',
+    targetId: 'e4-reject-offer',
+    actionId: 'rejectOffer',
+    actorRole: 'buyer',
+    entityId: 'OFFER-2403-B',
+    mode: 'controlled-pilot',
+  },
+  {
+    title: 'Встречное предложение',
+    description: 'Создаёт встречное предложение по цене/объёму без раскрытия прямых контактов сторон.',
+    targetId: 'e4-counter-offer',
+    actionId: 'sendCounterOffer',
+    actorRole: 'buyer',
+    entityId: 'COUNTER-OFFER-2403-1',
+    mode: 'controlled-pilot',
+  },
+] satisfies readonly PlatformV7ExecutionActionUiItem[];
 
 const checks = [
   ['Источник товара', 'Партия подтянута из ФГИС', 'готово'],
@@ -66,6 +97,12 @@ export default function PlatformV7BuyerLotPage() {
           <Cell label='Оплата' value={lot.paymentCondition} />
         </div>
       </section>
+
+      <P7ExecutionActionsPanel
+        title='Действия покупателя по ставке'
+        subtitle='Accept/reject/counter-offer теперь проходят через единый E4-контур: guard, loading, toast, action log и rollback.'
+        items={buyerActionItems}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(280px, 1fr)', gap: 14 }}>
         <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
