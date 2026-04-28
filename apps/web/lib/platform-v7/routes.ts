@@ -1,13 +1,30 @@
-export const PLATFORM_V7_MARKET_RFQ_ROUTE = '/platform-v7/market-rfq';
-export const PLATFORM_V7_RELEASE_SAFETY_ROUTE = '/platform-v7/bank/release-safety';
-export const PLATFORM_V7_EXECUTION_MAP_ROUTE = '/platform-v7/execution-map';
-export const PLATFORM_V7_READINESS_ROUTE = '/platform-v7/readiness';
-export const PLATFORM_V7_DATA_ROOM_ROUTE = '/platform-v7/data-room';
-export const PLATFORM_V7_LOGISTICS_ROUTE = '/platform-v7/logistics';
-export const PLATFORM_V7_DISPUTES_ROUTE = '/platform-v7/disputes';
-export const PLATFORM_V7_BANK_ROUTE = '/platform-v7/bank';
-export const PLATFORM_V7_OPERATOR_ROUTE = '/platform-v7/operator';
 export const PLATFORM_V7_CONTROL_TOWER_ROUTE = '/platform-v7/control-tower';
+export const PLATFORM_V7_CANONICAL_RECONCILIATION_ROUTE = '/platform-v7/control-tower/canonical-reconciliation';
+export const PLATFORM_V7_DEALS_ROUTE = '/platform-v7/deals';
+export const PLATFORM_V7_LOTS_ROUTE = '/platform-v7/lots';
+export const PLATFORM_V7_MARKET_RFQ_ROUTE = '/platform-v7/market-rfq';
+export const PLATFORM_V7_EXECUTION_MAP_ROUTE = '/platform-v7/execution-map';
+export const PLATFORM_V7_TRADING_ROUTE = '/platform-v7/trading';
+export const PLATFORM_V7_SELLER_ROUTE = '/platform-v7/seller';
+export const PLATFORM_V7_SELLER_OFFERS_ROUTE = '/platform-v7/seller/offers';
+export const PLATFORM_V7_BUYER_ROUTE = '/platform-v7/buyer';
+export const PLATFORM_V7_BUYER_LOT_ROUTE = '/platform-v7/buyer-lot';
+export const PLATFORM_V7_ANTI_BYPASS_ROUTE = '/platform-v7/anti-bypass';
+export const PLATFORM_V7_OFFER_LOG_ROUTE = '/platform-v7/offer-log';
+export const PLATFORM_V7_OFFER_TO_DEAL_ROUTE = '/platform-v7/offer-to-deal';
+export const PLATFORM_V7_FGIS_TO_LOT_ROUTE = '/platform-v7/fgis-to-lot';
+export const PLATFORM_V7_READINESS_ROUTE = '/platform-v7/readiness';
+export const PLATFORM_V7_BANK_ROUTE = '/platform-v7/bank';
+export const PLATFORM_V7_RELEASE_SAFETY_ROUTE = '/platform-v7/bank/release-safety';
+export const PLATFORM_V7_DATA_ROOM_ROUTE = '/platform-v7/data-room';
+export const PLATFORM_V7_DISPUTES_ROUTE = '/platform-v7/disputes';
+export const PLATFORM_V7_LOGISTICS_ROUTE = '/platform-v7/logistics';
+export const PLATFORM_V7_FIELD_ROUTE = '/platform-v7/field';
+export const PLATFORM_V7_CONNECTORS_ROUTE = '/platform-v7/connectors';
+export const PLATFORM_V7_OPERATOR_ROUTE = '/platform-v7/operator';
+export const PLATFORM_V7_PROCUREMENT_ROUTE = '/platform-v7/procurement';
+export const PLATFORM_V7_INVESTOR_ROUTE = '/platform-v7/investor';
+export const PLATFORM_V7_ROLES_ROUTE = '/platform-v7/roles';
 
 export const PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES = [
   PLATFORM_V7_READINESS_ROUTE,
@@ -18,4 +35,31 @@ export const PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES = [
   PLATFORM_V7_DISPUTES_ROUTE,
 ] as const;
 
+export const PLATFORM_V7_COMMAND_ROUTE_SURFACE = [
+  PLATFORM_V7_CONTROL_TOWER_ROUTE,
+  PLATFORM_V7_CANONICAL_RECONCILIATION_ROUTE,
+  PLATFORM_V7_DEALS_ROUTE,
+  PLATFORM_V7_LOTS_ROUTE,
+  PLATFORM_V7_MARKET_RFQ_ROUTE,
+  PLATFORM_V7_EXECUTION_MAP_ROUTE,
+  PLATFORM_V7_TRADING_ROUTE,
+  PLATFORM_V7_SELLER_OFFERS_ROUTE,
+  PLATFORM_V7_BUYER_LOT_ROUTE,
+  PLATFORM_V7_ANTI_BYPASS_ROUTE,
+  PLATFORM_V7_OFFER_LOG_ROUTE,
+  PLATFORM_V7_OFFER_TO_DEAL_ROUTE,
+  PLATFORM_V7_FGIS_TO_LOT_ROUTE,
+  PLATFORM_V7_READINESS_ROUTE,
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+  PLATFORM_V7_DATA_ROOM_ROUTE,
+  PLATFORM_V7_DISPUTES_ROUTE,
+  PLATFORM_V7_LOGISTICS_ROUTE,
+  PLATFORM_V7_CONNECTORS_ROUTE,
+  PLATFORM_V7_OPERATOR_ROUTE,
+  PLATFORM_V7_INVESTOR_ROUTE,
+  PLATFORM_V7_ROLES_ROUTE,
+] as const;
+
 export type PlatformV7ExecutionMachineStripRoute = typeof PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES[number];
+export type PlatformV7CommandRouteSurface = typeof PLATFORM_V7_COMMAND_ROUTE_SURFACE[number];
