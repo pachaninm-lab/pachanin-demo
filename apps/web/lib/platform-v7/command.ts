@@ -1,5 +1,16 @@
 import { PLATFORM_V7_LEXICON } from './lexicon';
-import { PLATFORM_V7_EXECUTION_MAP_ROUTE, PLATFORM_V7_MARKET_RFQ_ROUTE, PLATFORM_V7_RELEASE_SAFETY_ROUTE } from './routes';
+import {
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_CONTROL_TOWER_ROUTE,
+  PLATFORM_V7_DATA_ROOM_ROUTE,
+  PLATFORM_V7_DISPUTES_ROUTE,
+  PLATFORM_V7_EXECUTION_MAP_ROUTE,
+  PLATFORM_V7_LOGISTICS_ROUTE,
+  PLATFORM_V7_MARKET_RFQ_ROUTE,
+  PLATFORM_V7_OPERATOR_ROUTE,
+  PLATFORM_V7_READINESS_ROUTE,
+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+} from './routes';
 
 export type PlatformV7CommandGroup = 'Сделки' | 'Лоты' | 'Споры' | 'Разделы';
 
@@ -18,8 +29,8 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: PLATFORM_V7_LEXICON.nav.controlTower,
     subtitle: 'Панель оператора · показатели и приоритеты',
-    href: '/platform-v7/control-tower',
-    keywords: 'центр управления оператор показатели приоритеты',
+    href: PLATFORM_V7_CONTROL_TOWER_ROUTE,
+    keywords: 'центр управления control tower оператор показатели приоритеты',
   },
   {
     id: 'sec-canonical-kpi-reconciliation',
@@ -27,7 +38,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     title: 'Сверка показателей',
     subtitle: 'Сравнение текущей и эталонной формулы показателей',
     href: '/platform-v7/control-tower/canonical-reconciliation',
-    keywords: 'сверка показатели формула эталон',
+    keywords: 'сверка показатели формула эталон canonical kpi',
   },
   {
     id: 'sec-deals',
@@ -122,7 +133,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Готовность сделки',
     subtitle: 'ФГИС, документы, логистика, банк, спор и удержания',
-    href: '/platform-v7/readiness',
+    href: PLATFORM_V7_READINESS_ROUTE,
     keywords: 'готовность сделки фгис документы логистика банк спор удержания',
   },
   {
@@ -130,7 +141,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Банковый контур',
     subtitle: 'Резервы, удержания, события банка, выпуск денег',
-    href: '/platform-v7/bank',
+    href: PLATFORM_V7_BANK_ROUTE,
     keywords: 'банк деньги резерв удержание выпуск события',
   },
   {
@@ -146,7 +157,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Пакет проверки',
     subtitle: 'Проверочный пакет для банка и инвестора',
-    href: '/platform-v7/data-room',
+    href: PLATFORM_V7_DATA_ROOM_ROUTE,
     keywords: 'пакет проверки банк инвестор документы проверка',
   },
   {
@@ -154,7 +165,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: PLATFORM_V7_LEXICON.nav.disputes,
     subtitle: 'Открытые споры и удержания',
-    href: '/platform-v7/disputes',
+    href: PLATFORM_V7_DISPUTES_ROUTE,
     keywords: 'споры удержания',
   },
   {
@@ -162,7 +173,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: PLATFORM_V7_LEXICON.nav.logistics,
     subtitle: 'Маршруты, сроки прибытия, отклонения',
-    href: '/platform-v7/logistics',
+    href: PLATFORM_V7_LOGISTICS_ROUTE,
     keywords: 'логистика маршруты сроки прибытия отклонения',
   },
   {
@@ -178,7 +189,7 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     group: 'Разделы',
     title: 'Кабинет оператора',
     subtitle: 'Очереди, события банка, ручные действия',
-    href: '/platform-v7/operator',
+    href: PLATFORM_V7_OPERATOR_ROUTE,
     keywords: 'оператор очереди ручные действия',
   },
   {
