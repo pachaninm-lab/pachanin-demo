@@ -70,6 +70,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     keywords: 'покупатель лот ставка предложение товар качество фгис сделка',
   },
   {
+    id: 'sec-offer-log',
+    group: 'Разделы',
+    title: 'Журнал торгов',
+    subtitle: 'История ставок, изменений, проверок и выбора предложения',
+    href: '/platform-v7/offer-log',
+    keywords: 'журнал торгов ставки история изменения проверка предложение доказательства',
+  },
+  {
     id: 'sec-offer-to-deal',
     group: 'Разделы',
     title: 'Ставка → черновик сделки',
