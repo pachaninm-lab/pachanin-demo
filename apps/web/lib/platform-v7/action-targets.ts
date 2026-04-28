@@ -11,7 +11,11 @@ export type PlatformV7ActionSurface =
   | 'disputes'
   | 'lab'
   | 'elevator'
-  | 'lots';
+  | 'lots'
+  | 'seller-offers'
+  | 'buyer-lot'
+  | 'offer-to-deal'
+  | 'execution-map';
 
 export interface PlatformV7ActionTarget {
   id: string;
@@ -44,6 +48,16 @@ export const PLATFORM_V7_ACTION_TARGETS: PlatformV7ActionTarget[] = [
   { id: 'lab-open-dispute', surface: 'lab', actionId: 'openDispute', workspaceActionId: 'open-dispute', scope: 'lab', label: 'Открыть спор по качеству', requiresFeedback: true },
   { id: 'elevator-complete-docs', surface: 'elevator', actionId: 'completeDocs', workspaceActionId: 'complete-documents', scope: 'elevator', label: 'Подтвердить приёмку', requiresFeedback: true },
   { id: 'lots-start-docs', surface: 'lots', actionId: 'startDocs', workspaceActionId: 'start-documents', scope: 'lot', label: 'Запустить документы по лоту', requiresFeedback: true },
+  { id: 'e4-submit-seller-offer', surface: 'seller-offers', actionId: 'submitSellerOffer', scope: 'lot', label: 'Отправить ставку продавца', requiresFeedback: true },
+  { id: 'e4-accept-offer', surface: 'buyer-lot', actionId: 'acceptOffer', scope: 'lot', label: 'Принять ставку', requiresFeedback: true },
+  { id: 'e4-reject-offer', surface: 'buyer-lot', actionId: 'rejectOffer', scope: 'lot', label: 'Отклонить ставку', requiresFeedback: true },
+  { id: 'e4-counter-offer', surface: 'buyer-lot', actionId: 'sendCounterOffer', scope: 'lot', label: 'Встречное предложение', requiresFeedback: true },
+  { id: 'e4-create-draft-deal', surface: 'offer-to-deal', actionId: 'createDraftDealFromOffer', scope: 'deal', label: 'Создать черновик сделки', requiresFeedback: true },
+  { id: 'e4-request-money-reserve', surface: 'offer-to-deal', actionId: 'requestMoneyReserve', scope: 'bank', label: 'Запросить резерв денег', requiresFeedback: true },
+  { id: 'e4-assign-logistics', surface: 'offer-to-deal', actionId: 'assignLogistics', scope: 'logistics', label: 'Назначить логистику', requiresFeedback: true },
+  { id: 'e4-attach-document', surface: 'offer-to-deal', actionId: 'attachDocument', scope: 'deal', label: 'Приложить документ', requiresFeedback: true },
+  { id: 'e4-record-field-event', surface: 'execution-map', actionId: 'recordFieldEvent', scope: 'logistics', label: 'Зафиксировать полевое событие', requiresFeedback: true },
+  { id: 'e4-open-dispute', surface: 'offer-to-deal', actionId: 'openDispute', scope: 'dispute', label: 'Открыть спор', requiresFeedback: true },
 ];
 
 export function platformV7ActionTargets(surface?: PlatformV7ActionSurface): PlatformV7ActionTarget[] {
