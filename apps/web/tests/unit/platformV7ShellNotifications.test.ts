@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PLATFORM_V7_SHELL_NOTIFICATIONS,
   platformV7CriticalShellNotifications,
+  platformV7ShellNotificationSummary,
   platformV7ShellNotifications,
   platformV7ShellNotificationsByDeal,
   platformV7UnreadShellNotifications,
@@ -60,6 +61,18 @@ describe('platform-v7 shell notifications', () => {
   it('returns only critical notifications', () => {
     expect(platformV7CriticalShellNotifications().length).toBeGreaterThan(0);
     expect(platformV7CriticalShellNotifications().every((notification) => notification.severity === 'critical')).toBe(true);
+  });
+
+  it('returns a machine-readable notification summary', () => {
+    expect(platformV7ShellNotificationSummary()).toEqual({
+      total: PLATFORM_V7_SHELL_NOTIFICATIONS.length,
+      unread: platformV7UnreadShellNotifications().length,
+      critical: platformV7CriticalShellNotifications().length,
+      blockedMoney: PLATFORM_V7_SHELL_NOTIFICATIONS.filter(
+        (notification) => notification.kind === 'money' && notification.severity === 'critical' && !notification.read,
+      ).length,
+      system: PLATFORM_V7_SHELL_NOTIFICATIONS.filter((notification) => notification.kind === 'system').length,
+    });
   });
 
   it('filters notifications by deal id', () => {
