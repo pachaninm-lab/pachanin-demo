@@ -130,4 +130,20 @@ describe('platform-v7 shell notifications', () => {
       expect(notification.description.length, `${notification.id} description`).toBeGreaterThan(12);
     }
   });
+
+  it('keeps blocked money notifications explicit and routed to release safety', () => {
+    const blockedMoneyNotifications = PLATFORM_V7_SHELL_NOTIFICATIONS.filter(
+      (notification) => notification.kind === 'money' && notification.severity === 'critical',
+    );
+
+    expect(blockedMoneyNotifications.length).toBeGreaterThan(0);
+
+    for (const notification of blockedMoneyNotifications) {
+      const copy = `${notification.title} ${notification.description}`.toLowerCase();
+
+      expect(notification.read, `${notification.id} blocked money notification must stay active`).toBe(false);
+      expect(notification.href, `${notification.id} blocked money route`).toBe(`${PLATFORM_V7_BANK_ROUTE}/release-safety`);
+      expect(copy, `${notification.id} blocked money copy`).toMatch(/заблокирован|нельзя|удержание|спор|документ/);
+    }
+  });
 });
