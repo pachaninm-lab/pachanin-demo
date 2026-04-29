@@ -121,4 +121,13 @@ describe('platform-v7 shell notifications', () => {
       }
     }
   });
+
+  it('keeps notification copy complete', () => {
+    for (const notification of PLATFORM_V7_SHELL_NOTIFICATIONS) {
+      expect(notification.title.trim()).toBe(notification.title);
+      expect(notification.description.trim()).toBe(notification.description);
+      expect(notification.title.length, `${notification.id} title`).toBeGreaterThan(4);
+      expect(notification.description.length, `${notification.id} description`).toBeGreaterThan(12);
+    }
+  });
 });
