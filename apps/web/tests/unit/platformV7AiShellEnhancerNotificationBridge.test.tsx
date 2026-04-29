@@ -9,6 +9,15 @@ vi.mock('next/link', () => ({
     React.createElement('a', { href, onClick, ...rest }, children),
 }));
 
+const forbiddenClaims = [
+  'production ready',
+  'fully live',
+  'live integration completed',
+  'guaranteed payment',
+  'no risk',
+  'all integrations completed',
+];
+
 describe('AiShellEnhancer notification center bridge', () => {
   it('renders the platform v7 notification center bridge', () => {
     render(<AiShellEnhancer />);
@@ -62,13 +71,14 @@ describe('AiShellEnhancer notification center bridge', () => {
     }
   });
 
-  it('does not render forbidden maturity claims', () => {
+  it('does not render forbidden maturity claims in the opened notification panel', () => {
     render(<AiShellEnhancer />);
 
-    const copy = document.body.textContent?.toLowerCase() ?? '';
-    expect(copy.includes('production ready')).toBe(false);
-    expect(copy.includes('fully live')).toBe(false);
-    expect(copy.includes('guaranteed payment')).toBe(false);
-    expect(copy.includes('all integrations completed')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: /Уведомления/i }));
+
+    const copy = screen.getByRole('dialog', { name: 'Центр уведомлений' }).textContent?.toLowerCase() ?? '';
+    for (const claim of forbiddenClaims) {
+      expect(copy.includes(claim)).toBe(false);
+    }
   });
 });
