@@ -37,6 +37,18 @@ describe('AiShellEnhancer notification center bridge', () => {
     expect(screen.getByText('Главный блокер')).toBeInTheDocument();
   });
 
+  it('closes the bridged notification center on Escape', () => {
+    render(<AiShellEnhancer />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Уведомления/i }));
+    expect(screen.getByRole('dialog', { name: 'Центр уведомлений' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog', { name: 'Центр уведомлений' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Уведомления/i })).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('keeps every bridged notification action inside platform v7', () => {
     render(<AiShellEnhancer />);
 
