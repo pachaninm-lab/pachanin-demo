@@ -7,7 +7,7 @@ describe('platform v7 navigation registry', () => {
   it('wires every role to nav and stage copy', () => {
     for (const role of roles) {
       expect(platformV7NavItems(role).length).toBeGreaterThan(0);
-      expect(platformV7RoleStage(role).trim()).not.toBe('');
+      expect(platformV7RoleStage(role).label.trim()).not.toBe('');
     }
   });
 });
