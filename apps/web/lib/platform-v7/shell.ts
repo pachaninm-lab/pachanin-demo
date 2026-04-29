@@ -7,8 +7,10 @@ import { platformV7QuickJumpItems, type PlatformV7QuickJumpItem } from './shellQ
 import { platformV7ShortcutHelpItems, type PlatformV7ShortcutHelpItem } from './shellShortcuts';
 import {
   platformV7CriticalShellNotifications,
+  platformV7ShellNotificationSummary,
   platformV7UnreadShellNotifications,
   type PlatformV7ShellNotification,
+  type PlatformV7ShellNotificationSummary,
 } from './shellNotifications';
 
 export interface PlatformV7ShellModel {
@@ -21,6 +23,7 @@ export interface PlatformV7ShellModel {
   showBreadcrumbs: boolean;
   unreadNotifications: PlatformV7ShellNotification[];
   criticalNotifications: PlatformV7ShellNotification[];
+  notificationSummary: PlatformV7ShellNotificationSummary;
   shortcuts: PlatformV7ShortcutHelpItem[];
   quickJumpEntries: PlatformV7QuickJumpItem[];
 }
@@ -53,6 +56,7 @@ export function platformV7ShellModel(pathname: string, currentRole: PlatformRole
     showBreadcrumbs: shouldShowPlatformV7Breadcrumbs(pathname),
     unreadNotifications: platformV7UnreadShellNotifications(),
     criticalNotifications: platformV7CriticalShellNotifications(),
+    notificationSummary: platformV7ShellNotificationSummary(),
     shortcuts: platformV7ShortcutHelpItems(),
     quickJumpEntries: platformV7QuickJumpItems(),
   };
