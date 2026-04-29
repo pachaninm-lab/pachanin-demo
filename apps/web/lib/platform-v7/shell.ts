@@ -3,12 +3,11 @@ import { getPlatformV7Environment, type PlatformEnvironmentInfo } from './enviro
 import { platformV7Breadcrumbs, shouldShowPlatformV7Breadcrumbs, type PlatformV7BreadcrumbItem } from './breadcrumbs';
 import { platformV7NavItems, platformV7RoleStage, type PlatformV7NavItem } from './navigation';
 import { platformV7RoleLabel } from './shellLabels';
+import { platformV7ShellNotificationCenterModel, type PlatformV7ShellNotificationCenterModel } from './shellNotificationCenter';
 import { platformV7QuickJumpItems, type PlatformV7QuickJumpItem } from './shellQuickJump';
 import { platformV7ShortcutHelpItems, type PlatformV7ShortcutHelpItem } from './shellShortcuts';
 import {
   platformV7CriticalShellNotifications,
-  platformV7PrimaryShellNotification,
-  platformV7ShellNotificationSummary,
   platformV7UnreadShellNotifications,
   type PlatformV7ShellNotification,
   type PlatformV7ShellNotificationSummary,
@@ -26,6 +25,7 @@ export interface PlatformV7ShellModel {
   criticalNotifications: PlatformV7ShellNotification[];
   primaryNotification?: PlatformV7ShellNotification;
   notificationSummary: PlatformV7ShellNotificationSummary;
+  notificationCenter: PlatformV7ShellNotificationCenterModel;
   shortcuts: PlatformV7ShortcutHelpItem[];
   quickJumpEntries: PlatformV7QuickJumpItem[];
 }
@@ -48,6 +48,8 @@ export function inferPlatformV7RoleFromPath(pathname: string, currentRole: Platf
 
 export function platformV7ShellModel(pathname: string, currentRole: PlatformRole): PlatformV7ShellModel {
   const role = inferPlatformV7RoleFromPath(pathname, currentRole);
+  const notificationCenter = platformV7ShellNotificationCenterModel();
+
   return {
     role,
     roleLabel: platformV7RoleLabel(role),
@@ -58,8 +60,9 @@ export function platformV7ShellModel(pathname: string, currentRole: PlatformRole
     showBreadcrumbs: shouldShowPlatformV7Breadcrumbs(pathname),
     unreadNotifications: platformV7UnreadShellNotifications(),
     criticalNotifications: platformV7CriticalShellNotifications(),
-    primaryNotification: platformV7PrimaryShellNotification(),
-    notificationSummary: platformV7ShellNotificationSummary(),
+    primaryNotification: notificationCenter.primary,
+    notificationSummary: notificationCenter.summary,
+    notificationCenter,
     shortcuts: platformV7ShortcutHelpItems(),
     quickJumpEntries: platformV7QuickJumpItems(),
   };
