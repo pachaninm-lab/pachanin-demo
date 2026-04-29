@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AiShellEnhancer } from '@/components/v7r/AiShellEnhancer';
 
@@ -14,6 +14,28 @@ describe('AiShellEnhancer notification center bridge', () => {
 
     expect(screen.getByLabelText('Центр уведомлений platform-v7 shell')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Уведомления/i })).toBeInTheDocument();
+  });
+
+  it('opens the bridged notification center and keeps primary blocker visible', () => {
+    render(<AiShellEnhancer />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Уведомления/i }));
+
+    expect(screen.getByRole('dialog', { name: 'Центр уведомлений' })).toBeInTheDocument();
+    expect(screen.getByText('Главный блокер')).toBeInTheDocument();
+  });
+
+  it('keeps every bridged notification action inside platform v7', () => {
+    render(<AiShellEnhancer />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Уведомления/i }));
+
+    for (const link of screen.getAllByRole('link')) {
+      const href = link.getAttribute('href') ?? '';
+      expect(href.startsWith('/platform-v7')).toBe(true);
+      expect(href.includes('/platform-v4')).toBe(false);
+      expect(href.includes('/platform-v9')).toBe(false);
+    }
   });
 
   it('does not render forbidden maturity claims', () => {
