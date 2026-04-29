@@ -39,6 +39,17 @@ describe('platform-v7 shell model shortcuts', () => {
     }
   });
 
+  it('keeps quick jump role actions explicit and routed', () => {
+    const actionEntries = platformV7QuickJumpItems().filter((entry) => entry.action);
+
+    expect(actionEntries.map((entry) => entry.action).sort()).toEqual(['role:arbitrator', 'role:buyer', 'role:driver']);
+    for (const entry of actionEntries) {
+      expect(entry.group).toBe('Роли');
+      expect(entry.href.startsWith('/platform-v7')).toBe(true);
+      expect(entry.label.trim()).not.toBe('');
+    }
+  });
+
   it('keeps shortcut help entries unique and non-empty', () => {
     const keys = new Set<string>();
 
