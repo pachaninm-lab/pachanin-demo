@@ -39,6 +39,16 @@ describe('platform-v7 shell model shortcuts', () => {
     }
   });
 
+  it('keeps quick jump entries unique', () => {
+    const seen = new Set<string>();
+
+    for (const entry of platformV7QuickJumpItems()) {
+      const key = [entry.group, entry.label, entry.href].join('|');
+      expect(seen.has(key)).toBe(false);
+      seen.add(key);
+    }
+  });
+
   it('keeps quick jump role actions explicit and routed', () => {
     const actionEntries = platformV7QuickJumpItems().filter((entry) => entry.action);
 
