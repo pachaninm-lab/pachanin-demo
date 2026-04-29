@@ -98,4 +98,15 @@ describe('platform-v7 shell notifications', () => {
       expect(notification.createdAtIso.endsWith('Z')).toBe(true);
     }
   });
+
+  it('keeps deal-scoped notifications traceable', () => {
+    for (const notification of PLATFORM_V7_SHELL_NOTIFICATIONS) {
+      if (notification.kind === 'system') {
+        expect(notification.dealId).toBeUndefined();
+        continue;
+      }
+
+      expect(notification.dealId, `${notification.id} dealId`).toMatch(/^DL-\d+$/);
+    }
+  });
 });
