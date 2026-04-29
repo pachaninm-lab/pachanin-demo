@@ -7,6 +7,7 @@ import {
 } from '@/lib/platform-v7/shellQuickJump';
 import {
   PLATFORM_V7_GO_SHORTCUT_ROUTES,
+  PLATFORM_V7_SHELL_SHORTCUT_HELP,
   platformV7GoShortcutRoute,
   platformV7ShortcutHelpItems,
 } from '@/lib/platform-v7/shellShortcuts';
@@ -35,6 +36,17 @@ describe('platform-v7 shell model shortcuts', () => {
       expect(entry.href.startsWith('/platform-v7')).toBe(true);
       expect(entry.label.trim()).not.toBe('');
       expect(entry.group.trim()).not.toBe('');
+    }
+  });
+
+  it('keeps shortcut help entries unique and non-empty', () => {
+    const keys = new Set<string>();
+
+    expect(platformV7ShortcutHelpItems()).toEqual(PLATFORM_V7_SHELL_SHORTCUT_HELP);
+    for (const item of platformV7ShortcutHelpItems()) {
+      expect(keys.has(item.keys)).toBe(false);
+      keys.add(item.keys);
+      expect(item.label.trim()).not.toBe('');
     }
   });
 
