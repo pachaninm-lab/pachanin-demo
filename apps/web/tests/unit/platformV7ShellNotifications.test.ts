@@ -146,4 +146,14 @@ describe('platform-v7 shell notifications', () => {
       expect(copy, `${notification.id} blocked money copy`).toMatch(/заблокирован|нельзя|удержание|спор|документ/);
     }
   });
+
+  it('keeps notification chronology deterministic', () => {
+    const timestamps = PLATFORM_V7_SHELL_NOTIFICATIONS.map((notification) => Date.parse(notification.createdAtIso));
+
+    expect(new Set(timestamps).size).toBe(timestamps.length);
+
+    for (let index = 1; index < timestamps.length; index += 1) {
+      expect(timestamps[index], `notification ${index} must not move backwards`).toBeGreaterThan(timestamps[index - 1]);
+    }
+  });
 });
