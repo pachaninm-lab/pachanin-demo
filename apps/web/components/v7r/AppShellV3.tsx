@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BarChart3,
-  Bell,
   Briefcase,
   Building2,
   ChevronRight,
@@ -31,8 +30,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
-import { NOTIFICATIONS, NOTIFICATION_GROUPS, type NotificationGroup } from '@/lib/v7r/data';
 import { CommandPalette } from '@/components/v7r/CommandPalette';
+import { PlatformV7NotificationCenter } from '@/components/v7r/PlatformV7NotificationCenter';
 import { BrandMark } from '@/components/v7r/BrandMark';
 import { trackRoleSwitch, trackGigaChatAsked } from '@/lib/analytics/track';
 
@@ -342,13 +341,6 @@ function systemStatus(pathname: string) {
   ];
 }
 
-function groupNotifications() {
-  return NOTIFICATIONS.reduce<Record<NotificationGroup, typeof NOTIFICATIONS>>((acc, item) => {
-    (acc[item.group] ||= []).push(item);
-    return acc;
-  }, {} as Record<NotificationGroup, typeof NOTIFICATIONS>);
-}
-
 function iconTone(active: boolean) {
   return active ? 'var(--pc-accent)' : 'var(--pc-text-muted)';
 }
@@ -359,7 +351,6 @@ export function AppShellV3({ children, initialRole = 'operator' }: { children: R
   const { role, setRole, clearRoleSelection } = usePlatformV7RStore();
   const [mounted, setMounted] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  const [alertsOpen, setAlertsOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [theme, setTheme] = React.useState<'light' | 'dark'>('dark');
   const gSequenceRef = React.useRef(false);
@@ -405,13 +396,11 @@ export function AppShellV3({ children, initialRole = 'operator' }: { children: R
   const showCrumbs = pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' && crumbs.length > 1;
   const statuses = systemStatus(pathname);
   const chips = gigaChatChips(pathname);
-  const groupedNotifications = React.useMemo(() => groupNotifications(), []);
   const showBanner = pathname !== '/platform-v7' && pathname !== '/platform-v7/roles';
   const RoleIcon = ROLE_ICONS[displayRole];
 
   React.useEffect(() => {
     setSidebarOpen(false);
-    setAlertsOpen(false);
     setPaletteOpen(false);
   }, [pathname]);
 
@@ -544,14 +533,6 @@ export function AppShellV3({ children, initialRole = 'operator' }: { children: R
           aria-hidden
         />
       ) : null}
-      {alertsOpen ? (
-        <div
-          onClick={() => setAlertsOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'transparent', zIndex: 69 }}
-          aria-hidden
-        />
-      ) : null}
-
       <aside
         style={{
           position: 'fixed',
@@ -763,96 +744,7 @@ export function AppShellV3({ children, initialRole = 'operator' }: { children: R
                   );
                 })}
 
-                <div style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => setAlertsOpen((value) => !value)}
-                    aria-label={`Уведомления: ${NOTIFICATIONS.length}`}
-                    aria-expanded={alertsOpen}
-                    className='pc-shell-iconbtn'
-                  >
-                    <Bell size={18} aria-hidden />
-                    <span
-                      style={{
-                        position: 'absolute',
-                        top: -5,
-                        right: -3,
-                        minWidth: 18,
-                        height: 18,
-                        borderRadius: 999,
-                        background: '#E5484D',
-                        color: '#fff',
-                        fontSize: 10,
-                        fontWeight: 800,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '0 4px',
-                      }}
-                    >
-                      {NOTIFICATIONS.length}
-                    </span>
-                  </button>
-
-                  {alertsOpen ? (
-                    <div role='dialog' aria-label='Уведомления' className='pc-alert-panel'>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '4px 6px 10px',
-                          gap: 10,
-                        }}
-                      >
-                        <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary)' }}>
-                          Уведомления
-                        </span>
-                        <span style={{ fontSize: 11, color: 'var(--pc-text-muted)', whiteSpace: 'nowrap' }}>
-                          {NOTIFICATIONS.length} активных
-                        </span>
-                      </div>
-
-                      {Object.entries(groupedNotifications).map(([group, notifications]) => (
-                        <div key={group} style={{ display: 'grid', gap: 6, marginBottom: 10 }}>
-                          <div
-                            style={{
-                              padding: '4px 6px',
-                              fontSize: 10,
-                              fontWeight: 800,
-                              color: 'var(--pc-text-muted)',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.06em',
-                            }}
-                          >
-                            {NOTIFICATION_GROUPS[group as NotificationGroup]} · {notifications.length}
-                          </div>
-
-                          {notifications.map((item) => (
-                            <Link
-                              key={item.id}
-                              href={item.href}
-                              onClick={() => setAlertsOpen(false)}
-                              style={{
-                                textDecoration: 'none',
-                                padding: '11px 12px',
-                                borderRadius: 12,
-                                background: 'var(--pc-bg-subtle)',
-                                border: '1px solid var(--pc-border)',
-                                color: 'var(--pc-text-primary)',
-                                fontSize: 12,
-                                lineHeight: 1.5,
-                                wordBreak: 'break-word',
-                                boxShadow: 'var(--pc-shadow-sm)',
-                              }}
-                            >
-                              {item.text}
-                            </Link>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                <PlatformV7NotificationCenter />
 
                 <button
                   onClick={toggleTheme}
