@@ -109,4 +109,16 @@ describe('platform-v7 shell notifications', () => {
       expect(notification.dealId, `${notification.id} dealId`).toMatch(/^DL-\d+$/);
     }
   });
+
+  it('keeps urgent shell notifications active', () => {
+    for (const notification of PLATFORM_V7_SHELL_NOTIFICATIONS) {
+      if (notification.severity === 'critical') {
+        expect(notification.read, `${notification.id} critical notification must remain active`).toBe(false);
+      }
+
+      if (notification.kind === 'system') {
+        expect(notification.severity, `${notification.id} system notification severity`).toBe('info');
+      }
+    }
+  });
 });
