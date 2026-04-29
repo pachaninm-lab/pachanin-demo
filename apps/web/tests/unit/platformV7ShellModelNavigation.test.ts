@@ -109,6 +109,15 @@ describe('platform-v7 shell model navigation', () => {
     }
   });
 
+  it('keeps shell nav hrefs unique inside every role menu', () => {
+    for (const { path } of rolePaths) {
+      const model = platformV7ShellModel(path, 'buyer');
+      const hrefs = model.navItems.map((item) => item.href);
+
+      expect(new Set(hrefs).size).toBe(hrefs.length);
+    }
+  });
+
   it('keeps command route surface canonical to platform v7', () => {
     const uniqueRoutes = new Set(PLATFORM_V7_COMMAND_ROUTE_SURFACE);
 
