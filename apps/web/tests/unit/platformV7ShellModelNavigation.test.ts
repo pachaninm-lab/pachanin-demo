@@ -8,6 +8,21 @@ import {
 } from '@/lib/platform-v7/routes';
 import { inferPlatformV7RoleFromPath, platformV7ShellModel } from '@/lib/platform-v7/shell';
 
+const platformRoles: PlatformRole[] = [
+  'operator',
+  'buyer',
+  'seller',
+  'logistics',
+  'driver',
+  'surveyor',
+  'elevator',
+  'lab',
+  'bank',
+  'arbitrator',
+  'compliance',
+  'executive',
+];
+
 const rolePaths: Array<{ role: PlatformRole; path: string }> = [
   { role: 'operator', path: '/platform-v7/control-tower' },
   { role: 'buyer', path: '/platform-v7/buyer' },
@@ -51,6 +66,13 @@ function expectNoForbiddenRouteFamilies(route: string) {
 }
 
 describe('platform-v7 shell model navigation', () => {
+  it('covers every platform role exactly once in role path fixtures', () => {
+    const roles = rolePaths.map(({ role }) => role);
+
+    expect(new Set(roles).size).toBe(roles.length);
+    expect(roles.sort()).toEqual([...platformRoles].sort());
+  });
+
   it('uses navigation registry helpers for nav items and role stage', () => {
     for (const { role, path } of rolePaths) {
       const model = platformV7ShellModel(path, 'buyer');
