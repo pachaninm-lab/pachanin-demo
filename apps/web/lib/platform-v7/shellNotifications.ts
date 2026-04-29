@@ -35,6 +35,13 @@ export interface PlatformV7ShellNotificationSummary {
   system: number;
 }
 
+const PLATFORM_V7_NOTIFICATION_SEVERITY_RANK: Record<PlatformV7NotificationSeverity, number> = {
+  critical: 4,
+  warning: 3,
+  info: 2,
+  success: 1,
+};
+
 export const PLATFORM_V7_SHELL_NOTIFICATIONS: PlatformV7ShellNotification[] = [
   {
     id: 'ntf-money-dl-9109-release-review',
@@ -139,6 +146,16 @@ export function platformV7CriticalShellNotifications(): PlatformV7ShellNotificat
 
 export function platformV7ShellNotificationsByDeal(dealId: string): PlatformV7ShellNotification[] {
   return PLATFORM_V7_SHELL_NOTIFICATIONS.filter((notification) => notification.dealId === dealId);
+}
+
+export function platformV7PrimaryShellNotification(): PlatformV7ShellNotification | undefined {
+  return [...platformV7UnreadShellNotifications()].sort((left, right) => {
+    const severityDelta = PLATFORM_V7_NOTIFICATION_SEVERITY_RANK[right.severity] - PLATFORM_V7_NOTIFICATION_SEVERITY_RANK[left.severity];
+
+    if (severityDelta !== 0) return severityDelta;
+
+    return Date.parse(right.createdAtIso) - Date.parse(left.createdAtIso);
+  })[0];
 }
 
 export function platformV7ShellNotificationSummary(): PlatformV7ShellNotificationSummary {
