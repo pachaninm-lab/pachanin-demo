@@ -4,6 +4,7 @@ import { platformV7ShellModel } from '@/lib/platform-v7/shell';
 import { platformV7RoleLabel, platformV7RoleLabelEntries } from '@/lib/platform-v7/shellLabels';
 import {
   platformV7CriticalShellNotifications,
+  platformV7ShellNotificationSummary,
   platformV7ShellNotifications,
   platformV7ShellNotificationsByDeal,
   platformV7UnreadShellNotifications,
@@ -40,6 +41,9 @@ describe('platform-v7 shell model', () => {
     expect(model.role).toBe('operator');
     expect(model.unreadNotifications).toEqual(platformV7UnreadShellNotifications());
     expect(model.criticalNotifications).toEqual(platformV7CriticalShellNotifications());
+    expect(model.notificationSummary).toEqual(platformV7ShellNotificationSummary());
+    expect(model.notificationSummary.unread).toBe(model.unreadNotifications.length);
+    expect(model.notificationSummary.critical).toBe(model.criticalNotifications.length);
     expect(model.unreadNotifications.every((notification) => notification.read === false)).toBe(true);
     expect(model.criticalNotifications.every((notification) => notification.severity === 'critical')).toBe(true);
   });
