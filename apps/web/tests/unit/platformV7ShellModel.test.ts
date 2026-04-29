@@ -5,6 +5,7 @@ import { platformV7RoleLabel, platformV7RoleLabelEntries } from '@/lib/platform-
 import {
   platformV7CriticalShellNotifications,
   platformV7ShellNotifications,
+  platformV7ShellNotificationsByDeal,
   platformV7UnreadShellNotifications,
 } from '@/lib/platform-v7/shellNotifications';
 
@@ -40,6 +41,36 @@ describe('platform-v7 shell model', () => {
       expect(notification.href.includes('/platform-v4')).toBe(false);
       expect(notification.href.includes('/platform-v9')).toBe(false);
     }
+  });
+
+  it('filters shell notifications by deal id through the typed registry', () => {
+    const dealId = 'DL-9102';
+
+    expect(platformV7ShellNotificationsByDeal(dealId)).toEqual(
+      platformV7ShellNotifications().filter((notification) => notification.dealId === dealId),
+    );
+    expect(platformV7ShellNotificationsByDeal('UNKNOWN')).toEqual([]);
+  });
+
+  it('keeps shell notification copy free of forbidden maturity claims', () => {
+    for (const notification of platformV7ShellNotifications()) {
+      const normalized = `${notification.title} ${notification.description}`.toLowerCase();
+
+      for (const claim of BANNED_ROLE_LABEL_CLAIMS) {
+        expect(normalized).not.toContain(claim);
+      }
+    }
+  });
+
+  it('keeps shell system marker explicitly pre-live', () => {
+    const marker = platformV7ShellNotifications().find((notification) => notification.id === 'ntf-system-sandbox-marker');
+
+    expect(marker).toBeDefined();
+    if (!marker) return;
+
+    const normalized = `${marker.title} ${marker.description}`.toLowerCase();
+    expect(normalized).toContain('пилот');
+    expect(normalized).toContain('песоч');
   });
 
   it('maps inferred role labels through the shell labels registry', () => {
