@@ -68,6 +68,10 @@ describe('platform-v7 shell notifications', () => {
     expect(dl9102.every((notification) => notification.dealId === 'DL-9102')).toBe(true);
   });
 
+  it('returns no notifications for unknown deal ids', () => {
+    expect(platformV7ShellNotificationsByDeal('DL-0000')).toEqual([]);
+  });
+
   it('does not introduce forbidden live or production claims', () => {
     for (const notification of PLATFORM_V7_SHELL_NOTIFICATIONS) {
       const haystack = `${notification.title} ${notification.description}`.toLowerCase();
