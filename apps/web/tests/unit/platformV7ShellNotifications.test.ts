@@ -85,4 +85,17 @@ describe('platform-v7 shell notifications', () => {
       expect(notification.description).not.toMatch(latinWordPattern);
     }
   });
+
+  it('keeps notification metadata machine-readable', () => {
+    const allowedKinds = new Set(['money', 'document', 'logistics', 'dispute', 'risk', 'system']);
+    const allowedSeverities = new Set(['info', 'warning', 'critical', 'success']);
+
+    for (const notification of PLATFORM_V7_SHELL_NOTIFICATIONS) {
+      expect(allowedKinds.has(notification.kind), `${notification.id} kind`).toBe(true);
+      expect(allowedSeverities.has(notification.severity), `${notification.id} severity`).toBe(true);
+      expect(notification.href.trim()).toBe(notification.href);
+      expect(Number.isNaN(Date.parse(notification.createdAtIso)), `${notification.id} createdAtIso`).toBe(false);
+      expect(notification.createdAtIso.endsWith('Z')).toBe(true);
+    }
+  });
 });
