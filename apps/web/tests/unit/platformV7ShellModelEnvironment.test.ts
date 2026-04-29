@@ -39,6 +39,20 @@ describe('platform-v7 shell model environment', () => {
     }
   });
 
+  it('keeps shell model in pilot mode for unsafe live-like env aliases', () => {
+    const unsafeAliases = ['live', 'prod', 'real', 'production-ready', 'PRODUCTION'];
+
+    for (const alias of unsafeAliases) {
+      vi.stubEnv('NEXT_PUBLIC_PLATFORM_V7_ENVIRONMENT', alias);
+      const model = platformV7ShellModel('/platform-v7/control-tower', 'buyer');
+
+      expect(model.environment.environment).toBe('pilot');
+      expect(model.environment.canShowAsLive).toBe(false);
+    }
+
+    vi.unstubAllEnvs();
+  });
+
   it('keeps every environment label, description, and tone explicit', () => {
     for (const environment of environments) {
       const info = platformV7EnvironmentInfo(environment);
