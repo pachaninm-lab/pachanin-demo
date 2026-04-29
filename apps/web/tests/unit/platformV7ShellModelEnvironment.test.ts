@@ -31,6 +31,14 @@ describe('platform-v7 shell model environment', () => {
     expect(normalizePlatformV7Environment('live')).toBe('pilot');
   });
 
+  it('does not normalize unsafe live-like aliases to production', () => {
+    const unsafeAliases = ['live', 'prod', 'real', 'battle', 'боевой', 'production-ready', 'PRODUCTION'];
+
+    for (const alias of unsafeAliases) {
+      expect(normalizePlatformV7Environment(alias)).toBe('pilot');
+    }
+  });
+
   it('keeps every environment label, description, and tone explicit', () => {
     for (const environment of environments) {
       const info = platformV7EnvironmentInfo(environment);
