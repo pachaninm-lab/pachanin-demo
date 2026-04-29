@@ -18,6 +18,21 @@ const BANNED_ROLE_LABEL_CLAIMS = [
   'no risk',
 ];
 
+const PLATFORM_ROLES: PlatformRole[] = [
+  'operator',
+  'buyer',
+  'seller',
+  'logistics',
+  'driver',
+  'surveyor',
+  'elevator',
+  'lab',
+  'bank',
+  'arbitrator',
+  'compliance',
+  'executive',
+];
+
 describe('platform-v7 shell model', () => {
   it('exposes unread and critical notification summaries from the typed registry', () => {
     const model = platformV7ShellModel('/platform-v7/control-tower', 'buyer');
@@ -85,6 +100,17 @@ describe('platform-v7 shell model', () => {
 
       expect(model.role).toBe(expectedRole);
       expect(model.roleLabel).toBe(platformV7RoleLabel(expectedRole));
+    }
+  });
+
+  it('keeps the shell label registry complete for every platform role', () => {
+    const entries = platformV7RoleLabelEntries();
+    const labelsByRole = Object.fromEntries(entries) as Record<PlatformRole, string>;
+
+    expect(entries.map(([role]) => role).sort()).toEqual([...PLATFORM_ROLES].sort());
+    for (const role of PLATFORM_ROLES) {
+      expect(platformV7RoleLabel(role)).toBe(labelsByRole[role]);
+      expect(platformV7RoleLabel(role).trim()).not.toBe('');
     }
   });
 
