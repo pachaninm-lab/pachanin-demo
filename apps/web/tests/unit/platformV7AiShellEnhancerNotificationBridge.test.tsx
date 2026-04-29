@@ -2,6 +2,7 @@ import * as React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AiShellEnhancer } from '@/components/v7r/AiShellEnhancer';
+import { platformV7ShellNotificationCenterModel } from '@/lib/platform-v7/shellNotificationCenter';
 
 vi.mock('next/link', () => ({
   default: ({ href, children, onClick, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) =>
@@ -14,6 +15,17 @@ describe('AiShellEnhancer notification center bridge', () => {
 
     expect(screen.getByLabelText('Центр уведомлений platform-v7 shell')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Уведомления/i })).toBeInTheDocument();
+  });
+
+  it('renders unread and critical signal through the bridged trigger', () => {
+    const model = platformV7ShellNotificationCenterModel();
+    render(<AiShellEnhancer />);
+
+    const trigger = screen.getByRole('button', { name: /Уведомления/i });
+
+    expect(trigger.getAttribute('aria-label')).toContain(String(model.summary.unread));
+    expect(trigger.getAttribute('aria-label')).toContain(String(model.summary.critical));
+    expect(screen.getByText(model.badgeLabel)).toBeInTheDocument();
   });
 
   it('opens the bridged notification center and keeps primary blocker visible', () => {
