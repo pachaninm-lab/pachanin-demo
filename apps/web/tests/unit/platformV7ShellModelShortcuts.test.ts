@@ -5,7 +5,13 @@ import {
   platformV7QuickJumpGroups,
   platformV7QuickJumpItems,
 } from '@/lib/platform-v7/shellQuickJump';
-import { platformV7ShortcutHelpItems } from '@/lib/platform-v7/shellShortcuts';
+import {
+  PLATFORM_V7_GO_SHORTCUT_ROUTES,
+  platformV7GoShortcutRoute,
+  platformV7ShortcutHelpItems,
+} from '@/lib/platform-v7/shellShortcuts';
+
+const goShortcutKeys = ['c', 'd', 'l', 'b', 's'] as const;
 
 describe('platform-v7 shell model shortcuts', () => {
   it('exposes shortcut and quick jump registry entries', () => {
@@ -30,5 +36,21 @@ describe('platform-v7 shell model shortcuts', () => {
       expect(entry.label.trim()).not.toBe('');
       expect(entry.group.trim()).not.toBe('');
     }
+  });
+
+  it('maps go shortcuts through the route registry', () => {
+    for (const key of goShortcutKeys) {
+      const route = platformV7GoShortcutRoute(key);
+
+      expect(route).toBe(PLATFORM_V7_GO_SHORTCUT_ROUTES[key]);
+      expect(route).not.toBeNull();
+      if (!route) continue;
+      expect(route.startsWith('/platform-v7')).toBe(true);
+      expect(route.includes('/platform-v4')).toBe(false);
+      expect(route.includes('/platform-v9')).toBe(false);
+      expect(platformV7GoShortcutRoute(key.toUpperCase())).toBe(route);
+    }
+
+    expect(platformV7GoShortcutRoute('x')).toBeNull();
   });
 });
