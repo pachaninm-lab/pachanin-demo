@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import './brand-logo.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — контур исполнения зерновой сделки',
