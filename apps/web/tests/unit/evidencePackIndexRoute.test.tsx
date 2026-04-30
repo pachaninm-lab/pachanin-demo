@@ -25,6 +25,12 @@ describe('EvidencePackIndexPage', () => {
     expect(screen.getByTestId('active-missing-filter')).toHaveTextContent('Missing filter: evidence');
   });
 
+  it('falls back to all for invalid missing search params', () => {
+    render(<EvidencePackIndexPage searchParams={{ decision: 'Review', missing: 'wrong' }} />);
+    expect(screen.queryByTestId('active-missing-filter')).not.toBeInTheDocument();
+    expect(screen.getByTestId('evidence-queue-visible-count')).toHaveTextContent(/Показано:/);
+  });
+
   it('keeps sandbox boundary visible', () => {
     render(<EvidencePackIndexPage />);
     expect(screen.getByText(/sandbox-навигация/)).toBeInTheDocument();
