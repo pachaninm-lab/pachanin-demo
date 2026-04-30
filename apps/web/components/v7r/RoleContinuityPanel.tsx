@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleActionDispatchBridge } from '@/components/v7r/RoleActionDispatchBridge';
 import {
   calculateDealAmountRub,
   createExecutionSimulationState,
@@ -189,6 +190,7 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
       </div>
 
       <ActionHandoffBlock handoff={handoff} />
+      <RoleActionDispatchBridge role={role} dealId={deal.id} actionType={handoff.actionType} canRun={handoff.canRun} disabledReason={handoff.disabledReason} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
         <ListBlock title='Evidence' empty='Нет evidence по выбранной сделке.' rows={evidence.map((item) => ({ id: item.id, kicker: item.type, text: item.title }))} />
