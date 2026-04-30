@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 function clean(value: unknown) {
-  return String(value || '').trim().slice(0, 1000);
+  return String(value || '').trim().slice(0, 1200);
+}
+
+function compact(value: unknown) {
+  return clean(value).replace(/\s+/g, ' ');
 }
 
 export async function POST(request: Request) {
@@ -13,10 +17,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ sent: false, error: 'invalid_payload' }, { status: 400 });
   }
 
-  const name = clean(payload.name);
-  const company = clean(payload.company);
-  const phone = clean(payload.phone);
+  if (clean(payload.website)) {
+    return NextResponse.json({ sent: true, ignored: true });
+  }
+
+  const name = compact(payload.name);
+  const company = compact(payload.company);
+  const phone = compact(payload.phone);
   const deal = clean(payload.deal);
+  const email = compact(payload.email);
+  const role = compact(payload.role);
+  const region = compact(payload.region);
+  const cropVolume = compact(payload.cropVolume);
+  const risk = compact(payload.risk);
+  const intent = compact(payload.intent) || 'Получить карту потерь сделки';
+  const source = compact(payload.source) || 'landing';
 
   if (!name || !company || !phone || !deal) {
     return NextResponse.json({ sent: false, error: 'missing_required_fields' }, { status: 400 });
@@ -31,14 +46,19 @@ export async function POST(request: Request) {
   }
 
   const text = [
-    'Новая заявка на controlled pilot Прозрачная Цена',
+    'Новая заявка с лендинга Прозрачная Цена',
+    '',
+    `Цель: ${intent}`,
+    `Источник: ${source}`,
     '',
     `Имя: ${name}`,
     `Компания: ${company}`,
-    `Роль: ${clean(payload.role)}`,
+    `Роль: ${role || '—'}`,
     `Телефон: ${phone}`,
-    `Email: ${clean(payload.email)}`,
-    `Регион: ${clean(payload.region)}`,
+    `Email: ${email || '—'}`,
+    `Регион: ${region || '—'}`,
+    `Культура и объём: ${cropVolume || '—'}`,
+    `Ключевой риск: ${risk || '—'}`,
     '',
     'Что нужно разобрать:',
     deal,
@@ -53,7 +73,7 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       from: leadFrom,
       to: [leadTo],
-      subject: `Заявка на пилот Прозрачная Цена — ${company}`,
+      subject: `Карта потерь сделки — ${company}`,
       text,
     }),
   });
