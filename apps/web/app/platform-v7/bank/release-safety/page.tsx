@@ -3,6 +3,11 @@ import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7Exec
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
 import {
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_CONTROL_TOWER_ROUTE,
+  PLATFORM_V7_OPERATOR_ROUTE,
+} from '@/lib/platform-v7/routes';
+import {
   PLATFORM_V7_EXECUTION_SOURCE,
   canRequestMoneyRelease,
   executionBlockers,
@@ -61,9 +66,9 @@ export default function BankReleaseSafetyPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <Link href='/platform-v7/bank' style={btn()}>← Банк</Link>
-            <Link href='/platform-v7/operator' style={btn()}>Оператор</Link>
-            <Link href='/platform-v7/control-tower' style={btn()}>Центр управления</Link>
+            <Link href={PLATFORM_V7_BANK_ROUTE} style={btn()}>← Банк</Link>
+            <Link href={PLATFORM_V7_OPERATOR_ROUTE} style={btn()}>Оператор</Link>
+            <Link href={PLATFORM_V7_CONTROL_TOWER_ROUTE} style={btn()}>Центр управления</Link>
           </div>
         </div>
       </section>
