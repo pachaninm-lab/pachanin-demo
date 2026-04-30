@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { PLATFORM_V7_DEALS_ROUTE } from '@/lib/platform-v7/routes';
 
 type EscrowState = 'Удержание' | 'Готово к раскрытию' | 'Ожидание решения' | 'Частично раскрыто' | 'Раскрыто';
 
@@ -24,7 +26,7 @@ const initialRows: EscrowRow[] = [
     trigger: 'Финальный протокол качества',
     state: 'Удержание',
     owner: 'Оператор / банк',
-    note: 'Деньги стоят до закрытия качества и полного пакета документов.'
+    note: 'Деньги стоят в sandbox hold до закрытия качества и полного пакета документов. Боевой эскроу-счёт не открыт.'
   },
   {
     id: 'ESC-302',
@@ -34,7 +36,7 @@ const initialRows: EscrowRow[] = [
     trigger: 'Приёмка + bank callback',
     state: 'Готово к раскрытию',
     owner: 'Банк',
-    note: 'Все обязательные события уже подтверждены, можно двигать деньги.'
+    note: 'Все обязательные события подтверждены в controlled-pilot логике; можно имитировать движение денег без live-платежа.'
   },
   {
     id: 'ESC-303',
@@ -44,7 +46,7 @@ const initialRows: EscrowRow[] = [
     trigger: 'Закрытие спора',
     state: 'Ожидание решения',
     owner: 'Арбитр / оператор',
-    note: 'Денежный режим зависит от решения по спорной качественной дельте.'
+    note: 'Денежный режим зависит от решения по спорной качественной дельте; выпуск денег заблокирован до доказательств.'
   }
 ];
 
@@ -80,10 +82,10 @@ export default function BankEscrowPage() {
     const released = rows.reduce((sum, row) => sum + row.released, 0);
     const triggers = new Set(rows.map((row) => row.trigger)).size;
     return [
-      { title: 'Открыто эскроу', value: String(rows.length), note: 'Активные денежные кейсы по сделкам в контуре' },
-      { title: 'На удержании', value: formatMillions(held || 0), note: 'Сумма, которая ещё не может быть раскрыта' },
+      { title: 'Sandbox escrow', value: String(rows.length), note: 'Денежные кейсы по сделкам в controlled-pilot контуре' },
+      { title: 'На удержании', value: formatMillions(held || 0), note: 'Сумма, которая ещё не может быть раскрыта в симуляции' },
       { title: 'Условия раскрытия', value: String(triggers), note: 'Приёмка, качество, документы, callback и спорный режим' },
-      { title: 'Уже раскрыто', value: formatMillions(released || 0), note: 'Факт выпущенных средств по текущей выборке' }
+      { title: 'Sandbox release', value: formatMillions(released || 0), note: 'Имитация выпущенных средств; боевой платёж не выполнялся' }
     ];
   }, [rows]);
 
@@ -92,23 +94,23 @@ export default function BankEscrowPage() {
       if (row.id !== id) return row;
       if (row.state === 'Готово к раскрытию') {
         const partial = Number((row.amount * 0.5).toFixed(1));
-        setMessage(`Эскроу ${row.id}: частично раскрыто ${formatMillions(partial)} по сделке ${row.deal}.`);
+        setMessage(`Эскроу ${row.id}: sandbox-раскрытие ${formatMillions(partial)} по сделке ${row.deal}; live-платёж не выполнялся.`);
         return {
           ...row,
           released: partial,
           state: 'Частично раскрыто',
           owner: 'Банк / оператор',
-          note: 'Первая часть выпущена. Остаток ждёт финального подтверждения закрытия кейса.'
+          note: 'Первая часть выпущена в sandbox. Остаток ждёт финального подтверждения закрытия кейса.'
         };
       }
       if (row.state === 'Частично раскрыто') {
-        setMessage(`Эскроу ${row.id}: полностью раскрыто и закрыто по сделке ${row.deal}.`);
+        setMessage(`Эскроу ${row.id}: полностью раскрыто в sandbox и закрыто по сделке ${row.deal}.`);
         return {
           ...row,
           released: row.amount,
           state: 'Раскрыто',
           owner: 'Банк',
-          note: 'Все условия выполнены, денежный кейс закрыт.'
+          note: 'Все условия выполнены в controlled-pilot логике; денежный кейс закрыт без live-платежа.'
         };
       }
       setMessage(`Эскроу ${row.id}: сначала нужно снять удержание или дождаться готовности к раскрытию.`);
@@ -120,13 +122,13 @@ export default function BankEscrowPage() {
     setRows((current) => current.map((row) => {
       if (row.id !== id) return row;
       if (row.state === 'Удержание' || row.state === 'Ожидание решения') {
-        setMessage(`Эскроу ${row.id}: блокер снят, кейс готов к раскрытию.`);
+        setMessage(`Эскроу ${row.id}: блокер снят, кейс готов к sandbox-раскрытию.`);
         return {
           ...row,
           state: 'Готово к раскрытию',
           owner: 'Банк',
           trigger: 'Финальная сверка + callback банка',
-          note: 'Критический блокер снят, можно переходить к денежному выпуску.'
+          note: 'Критический блокер снят, можно переходить к имитации денежного выпуска.'
         };
       }
       setMessage(`Эскроу ${row.id}: дополнительного перевода в ready не требуется.`);
@@ -143,7 +145,7 @@ export default function BankEscrowPage() {
           ...row,
           state: 'Удержание',
           owner: 'Оператор / банк',
-          note: 'Часть денег уже выпущена, остаток снова удержан до дополнительной проверки.'
+          note: 'Часть денег уже выпущена в sandbox, остаток снова удержан до дополнительной проверки.'
         };
       }
       setMessage(`Эскроу ${row.id}: возврат в hold возможен после частичного раскрытия.`);
@@ -158,11 +160,11 @@ export default function BankEscrowPage() {
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419' }}>Эскроу</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-              Контур удержания и раскрытия денег по подтверждённым событиям: приёмка, лаборатория, документы, спор и callback банка.
+              Sandbox-контур удержания и раскрытия денег по подтверждённым событиям: приёмка, лаборатория, документы, спор и callback банка. Это не live escrow и не боевое банковское списание.
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 800 }}>
-            Контур безопасной сделки
+            Controlled-pilot · sandbox
           </div>
         </div>
       </section>
@@ -179,7 +181,7 @@ export default function BankEscrowPage() {
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Активные эскроу-счета</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Активные escrow-кейсы</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {(['Все', 'Удержание', 'Ожидание решения', 'Готово к раскрытию', 'Частично раскрыто', 'Раскрыто'] as const).map((state) => {
               const active = filter === state;
@@ -236,14 +238,14 @@ export default function BankEscrowPage() {
               </div>
               <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{item.note}</div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <a href={`/platform-v7/deals/${item.deal}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '10px 14px', borderRadius: 12, border: '1px solid #D4D9E2', color: '#0F1419', textDecoration: 'none', fontWeight: 800, background: '#fff' }}>
+                <Link href={`${PLATFORM_V7_DEALS_ROUTE}/${item.deal}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '10px 14px', borderRadius: 12, border: '1px solid #D4D9E2', color: '#0F1419', textDecoration: 'none', fontWeight: 800, background: '#fff' }}>
                   Открыть сделку
-                </a>
+                </Link>
                 <button onClick={() => moveToReady(item.id)} style={{ appearance: 'none', border: '1px solid rgba(37,99,235,0.18)', background: 'rgba(37,99,235,0.08)', color: '#2563EB', minHeight: 44, padding: '10px 14px', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
                   Снять блокер
                 </button>
                 <button onClick={() => releasePartial(item.id)} style={{ appearance: 'none', border: '1px solid rgba(10,122,95,0.18)', background: 'rgba(10,122,95,0.08)', color: '#0A7A5F', minHeight: 44, padding: '10px 14px', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
-                  {item.state === 'Готово к раскрытию' ? 'Частично раскрыть' : item.state === 'Частично раскрыто' ? 'Финально раскрыть' : 'Проверить release'}
+                  {item.state === 'Готово к раскрытию' ? 'Sandbox release' : item.state === 'Частично раскрыто' ? 'Финально раскрыть' : 'Проверить release'}
                 </button>
                 <button onClick={() => returnToHold(item.id)} style={{ appearance: 'none', border: '1px solid rgba(180,83,9,0.18)', background: 'rgba(180,83,9,0.08)', color: '#B45309', minHeight: 44, padding: '10px 14px', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
                   Вернуть в hold
