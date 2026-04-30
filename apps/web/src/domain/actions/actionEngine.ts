@@ -56,34 +56,25 @@ const ACTION_LABELS: Record<PlatformActionId, string> = {
   open_dispute: 'Открыт спор и удержание',
 };
 
+function buildTransitionContext(input: PlatformActionInput) {
+  return {
+    actor: input.actor,
+    hasIdempotencyKey: Boolean(input.idempotencyKey),
+    reserveConfirmed: input.deal.reserveConfirmed,
+    hasRequiredDocuments: input.deal.documentsComplete,
+    weightConfirmed: input.deal.weightConfirmed,
+    labConfirmed: Boolean(input.deal.labProtocolId),
+    openDispute: Boolean(input.deal.openDisputeId),
+    degradationMode: input.deal.degradationMode,
+  };
+}
+
 export function runPlatformAction(input: PlatformActionInput): PlatformActionOutput {
   const createdAt = input.now ?? new Date().toISOString();
   const transition = ACTION_TO_TRANSITION[input.actionId];
-  const after = transition
-    ? transitionDeal(input.deal, transition, {
-        actor: input.actor,
-        hasIdempotencyKey: Boolean(input.idempotencyKey),
-        reserveConfirmed: input.deal.reserveConfirmed,
-        hasRequiredDocuments: input.deal.documentsComplete,
-        weightConfirmed: input.deal.weightConfirmed,
-        labConfirmed: Boolean(input.deal.labProtocolId),
-        openDispute: Boolean(input.deal.openDisputeId),
-        degradationMode: input.deal.degradationMode,
-      })
-    : { ...input.deal };
 
   if (transition) {
-    const check = canTransitionDeal(input.deal, transition, {
-      actor: input.actor,
-      hasIdempotencyKey: Boolean(input.idempotencyKey),
-      reserveConfirmed: input.deal.reserveConfirmed,
-      hasRequiredDocuments: input.deal.documentsComplete,
-      weightConfirmed: input.deal.weightConfirmed,
-      labConfirmed: Boolean(input.deal.labProtocolId),
-      openDispute: Boolean(input.deal.openDisputeId),
-      degradationMode: input.deal.degradationMode,
-    });
-
+    const check = canTransitionDeal(input.deal, transition, buildTransitionContext(input));
     if (!check.ok) {
       return {
         ok: false,
@@ -93,6 +84,10 @@ export function runPlatformAction(input: PlatformActionInput): PlatformActionOut
       };
     }
   }
+
+  const after = transition
+    ? transitionDeal(input.deal, transition, buildTransitionContext(input))
+    : { ...input.deal };
 
   const stampedAfter = { ...after, updatedAt: createdAt };
   return {
