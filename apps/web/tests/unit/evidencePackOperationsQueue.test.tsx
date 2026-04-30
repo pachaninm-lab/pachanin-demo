@@ -6,7 +6,6 @@ import { EvidencePackOperationsQueue } from '@/components/v7r/EvidencePackOperat
 describe('EvidencePackOperationsQueue', () => {
   it('renders evidence operations metrics and queue cards', () => {
     render(<EvidencePackOperationsQueue />);
-
     expect(screen.getByTestId('evidence-pack-operations-queue')).toBeInTheDocument();
     expect(screen.getByText('Очередь доказательных пакетов')).toBeInTheDocument();
     expect(screen.getByText('Средняя готовность')).toBeInTheDocument();
@@ -17,7 +16,6 @@ describe('EvidencePackOperationsQueue', () => {
 
   it('renders decision controls and visible count', () => {
     render(<EvidencePackOperationsQueue decision='Hold' />);
-
     expect(screen.getByTestId('evidence-queue-controls')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-queue-visible-count')).toHaveTextContent(/Показано:/);
     expect(screen.getByRole('link', { name: 'Все' })).toHaveAttribute('href', '/platform-v7/evidence-pack');
@@ -26,9 +24,13 @@ describe('EvidencePackOperationsQueue', () => {
     expect(screen.getByRole('link', { name: 'Can release' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Can%20release');
   });
 
+  it('renders row-level missing hints', () => {
+    render(<EvidencePackOperationsQueue />);
+    expect(screen.getAllByText(/Needs evidence|Needs audit|Needs timeline|Needs documents|No missing data/).length).toBeGreaterThan(0);
+  });
+
   it('links queue rows to deal evidence preview routes', () => {
     render(<EvidencePackOperationsQueue />);
-
     const previewLinks = screen.getAllByRole('link', { name: 'Preview' });
     expect(previewLinks.length).toBeGreaterThan(0);
     expect(previewLinks[0]).toHaveAttribute('href', expect.stringContaining('/platform-v7/deals/'));
