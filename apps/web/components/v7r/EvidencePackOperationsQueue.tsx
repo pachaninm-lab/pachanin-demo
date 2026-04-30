@@ -50,7 +50,7 @@ export function EvidencePackOperationsQueue({ decision = 'all' }: { decision?: D
     <section data-testid='evidence-pack-operations-queue' style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
         <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Evidence queue · row missing hints · sandbox
+          Evidence queue · missing type links · sandbox
         </div>
         <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.15, fontWeight: 900, color: T }}>
           Очередь доказательных пакетов
@@ -144,7 +144,7 @@ function MissingHints({ row }: { row: QueueRow }) {
       {hints.map((hint) => {
         const ok = hint === 'none';
         return (
-          <Link key={hint} href={ok ? `/platform-v7/deals/${row.deal.id}/evidence-pack` : `/platform-v7/evidence-pack?decision=Review`} style={{ textDecoration: 'none', borderRadius: 999, padding: '6px 9px', background: ok ? BRAND_BG : WARN_BG, border: `1px solid ${ok ? BRAND_BORDER : WARN_BORDER}`, color: ok ? BRAND : WARN, fontSize: 11, fontWeight: 900 }}>
+          <Link key={hint} href={ok ? `/platform-v7/deals/${row.deal.id}/evidence-pack` : `/platform-v7/evidence-pack?decision=Review&missing=${hint}`} style={{ textDecoration: 'none', borderRadius: 999, padding: '6px 9px', background: ok ? BRAND_BG : WARN_BG, border: `1px solid ${ok ? BRAND_BORDER : WARN_BORDER}`, color: ok ? BRAND : WARN, fontSize: 11, fontWeight: 900 }}>
             {ok ? 'No missing data' : `Needs ${hint}`}
           </Link>
         );
