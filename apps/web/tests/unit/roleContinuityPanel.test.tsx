@@ -26,6 +26,8 @@ describe('RoleContinuityPanel', () => {
     expect(within(panel).getByText('P0-04 · continuity · Лаборатория')).toBeInTheDocument();
     expect(within(panel).getByText('Связка качества: проба → протокол → приёмка → спор/выпуск')).toBeInTheDocument();
     expect(within(panel).getByText('Довести лабораторный результат до статуса, который открывает приёмку или спор.')).toBeInTheDocument();
+    expect(within(panel).getByText('Создать лабораторный протокол')).toBeInTheDocument();
+    expect(within(panel).getByText('createLabProtocol')).toBeInTheDocument();
     expect(within(panel).getByRole('link', { name: 'Открыть контур' })).toHaveAttribute('href', '/platform-v7/lab');
   });
 
@@ -36,6 +38,8 @@ describe('RoleContinuityPanel', () => {
     expect(within(panel).getByText('P0-04 · continuity · Банк')).toBeInTheDocument();
     expect(within(panel).getByText('Связка денег: reserve → hold → release → audit')).toBeInTheDocument();
     expect(within(panel).getByText('Деньги')).toBeInTheDocument();
+    expect(within(panel).getByText('Подтвердить резерв / выпуск')).toBeInTheDocument();
+    expect(within(panel).getByText('confirmReserve')).toBeInTheDocument();
     expect(within(panel).getByRole('link', { name: 'Открыть контур' })).toHaveAttribute('href', '/platform-v7/bank');
   });
 
