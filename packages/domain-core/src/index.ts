@@ -25,3 +25,4 @@ export * from './document-correction-workflow';
 export * from './browser-access-policy';
 export * from './integration-hardening';
 export * from './unified-deal-passport';
+export * from './execution-simulation';
