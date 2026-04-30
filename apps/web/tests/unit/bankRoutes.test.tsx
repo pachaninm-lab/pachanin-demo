@@ -20,6 +20,7 @@ describe('PlatformV7 bank routes', () => {
     expect(screen.getByText('Банк · sandbox')).toBeInTheDocument();
     expect(screen.getByText(/не заявляют боевую банковую интеграцию/)).toBeInTheDocument();
     expect(screen.getByText(/sandbox\/controlled-pilot/)).toBeInTheDocument();
+    expect(screen.getByText(/Боевые подключения требуют договоров/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Факторинг/ })).toHaveAttribute('href', PLATFORM_V7_BANK_FACTORING_ROUTE);
     expect(screen.getByRole('link', { name: /Эскроу/ })).toHaveAttribute('href', PLATFORM_V7_BANK_ESCROW_ROUTE);
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
@@ -34,16 +35,17 @@ describe('PlatformV7 bank routes', () => {
     expect(PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES).toContain(PLATFORM_V7_BANK_ESCROW_ROUTE);
   });
 
-  it('renders factoring as a separate pilot banking module with application workflow', () => {
+  it('renders factoring as a separate sandbox banking module with application workflow', () => {
     render(<BankFactoringPage />);
 
     expect(screen.getByText('Факторинг')).toBeInTheDocument();
-    expect(screen.getByText('Пилотный банковый модуль')).toBeInTheDocument();
+    expect(screen.getByText('Пилотный банковый модуль · sandbox')).toBeInTheDocument();
+    expect(screen.getByText(/не buyer financing и не боевой банковский платёж/)).toBeInTheDocument();
     expect(screen.getByText('Заявки на факторинг')).toBeInTheDocument();
     expect(screen.getByText('FAC-201')).toBeInTheDocument();
-    expect(screen.getByText('Доступный лимит')).toBeInTheDocument();
-    expect(screen.getByText('Выплаченные авансы')).toBeInTheDocument();
-    expect(screen.queryByText(/buyer-only/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Sandbox-лимит')).toBeInTheDocument();
+    expect(screen.getByText('Sandbox-авансы')).toBeInTheDocument();
+    expect(screen.getByText(/не кредитное решение банка/)).toBeInTheDocument();
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
   });
 
@@ -51,21 +53,23 @@ describe('PlatformV7 bank routes', () => {
     render(<BankEscrowPage />);
 
     expect(screen.getByText('Эскроу')).toBeInTheDocument();
-    expect(screen.getByText('Контур безопасной сделки')).toBeInTheDocument();
-    expect(screen.getByText('Активные эскроу-счета')).toBeInTheDocument();
+    expect(screen.getByText('Controlled-pilot · sandbox')).toBeInTheDocument();
+    expect(screen.getByText(/не live escrow и не боевое банковское списание/)).toBeInTheDocument();
+    expect(screen.getByText('Активные escrow-кейсы')).toBeInTheDocument();
     expect(screen.getByText('На удержании')).toBeInTheDocument();
     expect(screen.getByText('Условия раскрытия')).toBeInTheDocument();
+    expect(screen.getByText('Sandbox release')).toBeInTheDocument();
     expect(screen.getByText('ESC-301')).toBeInTheDocument();
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
   });
 
-  it('moves escrow from hold to ready and partial release states', () => {
+  it('moves escrow from hold to ready and sandbox release states', () => {
     render(<BankEscrowPage />);
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Снять блокер' })[0]);
     expect(screen.getByText(/ESC-301: блокер снят/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Частично раскрыть' })[0]);
-    expect(screen.getByText(/частично раскрыто/)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sandbox release' })[0]);
+    expect(screen.getByText(/sandbox-раскрытие/)).toBeInTheDocument();
   });
 });
