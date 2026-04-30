@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createExecutionSimulationState } from '../../../../packages/domain-core/src/execution-simulation';
 
 const S = 'var(--pc-bg-card)';
@@ -11,6 +12,14 @@ const BRAND_BORDER = 'var(--pc-accent-border)';
 const WARN = '#B45309';
 const WARN_BG = 'rgba(217,119,6,0.08)';
 const WARN_BORDER = 'rgba(217,119,6,0.18)';
+
+type ReadinessState = {
+  label: string;
+  value: string;
+  ok: boolean;
+  href: string;
+  action: string;
+};
 
 export function EvidenceExportReadinessSummary() {
   const state = createExecutionSimulationState();
@@ -26,11 +35,11 @@ export function EvidenceExportReadinessSummary() {
     ? Math.round(((dealsWithEvidence + dealsWithTimeline + dealsWithAudit) / (totalDeals * 3)) * 100)
     : 0;
   const isReady = readiness >= 80;
-  const states = [
-    { label: 'Ready for preview', value: String(Math.min(dealsWithEvidence, dealsWithAudit, dealsWithTimeline)), ok: isReady },
-    { label: 'Needs evidence', value: String(missingEvidence), ok: missingEvidence === 0 },
-    { label: 'Needs audit', value: String(missingAudit), ok: missingAudit === 0 },
-    { label: 'Needs timeline', value: String(missingTimeline), ok: missingTimeline === 0 },
+  const states: ReadinessState[] = [
+    { label: 'Ready for preview', value: String(Math.min(dealsWithEvidence, dealsWithAudit, dealsWithTimeline)), ok: isReady, href: '/platform-v7/evidence-pack?decision=Can%20release', action: 'Открыть готовые' },
+    { label: 'Needs evidence', value: String(missingEvidence), ok: missingEvidence === 0, href: '/platform-v7/evidence-pack?decision=Review', action: 'Открыть review' },
+    { label: 'Needs audit', value: String(missingAudit), ok: missingAudit === 0, href: '/platform-v7/evidence-pack?decision=Review', action: 'Открыть review' },
+    { label: 'Needs timeline', value: String(missingTimeline), ok: missingTimeline === 0, href: '/platform-v7/evidence-pack?decision=Review', action: 'Открыть review' },
   ];
 
   return (
@@ -65,10 +74,11 @@ export function EvidenceExportReadinessSummary() {
 
       <div data-testid='export-readiness-states' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>
         {states.map((item) => (
-          <div key={item.label} style={{ background: item.ok ? BRAND_BG : WARN_BG, border: `1px solid ${item.ok ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 12, padding: 12 }}>
+          <div key={item.label} style={{ background: item.ok ? BRAND_BG : WARN_BG, border: `1px solid ${item.ok ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 12, padding: 12, display: 'grid', gap: 6 }}>
             <div style={{ fontSize: 10, color: item.ok ? BRAND : WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.ok ? 'OK' : 'Need'}</div>
-            <div style={{ marginTop: 5, fontSize: 13, fontWeight: 900, color: T }}>{item.label}</div>
-            <div style={{ marginTop: 3, fontSize: 18, fontWeight: 900, color: item.ok ? BRAND : WARN }}>{item.value}</div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: T }}>{item.label}</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: item.ok ? BRAND : WARN }}>{item.value}</div>
+            <Link href={item.href} style={{ textDecoration: 'none', color: item.ok ? BRAND : WARN, fontSize: 12, fontWeight: 900 }}>{item.action} →</Link>
           </div>
         ))}
       </div>
