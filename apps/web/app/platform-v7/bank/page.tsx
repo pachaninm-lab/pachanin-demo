@@ -6,50 +6,59 @@ import { BankSmartContractsPanel } from '@/components/platform-v7/BankSmartContr
 import { BankRuntime } from '@/components/v7r/BankRuntime';
 import { DomainMoneySummary } from '@/components/v7r/DomainMoneySummary';
 import { EvidenceDisputeContinuityPanel } from '@/components/v7r/EvidenceDisputeContinuityPanel';
+import {
+  PLATFORM_V7_ANTI_BYPASS_ROUTE,
+  PLATFORM_V7_BANK_ESCROW_ROUTE,
+  PLATFORM_V7_BANK_FACTORING_ROUTE,
+  PLATFORM_V7_DEALS_ROUTE,
+  PLATFORM_V7_OFFER_LOG_ROUTE,
+  PLATFORM_V7_READINESS_ROUTE,
+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+} from '@/lib/platform-v7/routes';
 
 const quickLinks = [
   {
     title: 'Проверка выпуска денег',
     description: 'Блокеры, удержания и кандидаты к выпуску.',
-    href: '/platform-v7/bank/release-safety',
+    href: PLATFORM_V7_RELEASE_SAFETY_ROUTE,
   },
   {
     title: 'Готовность сделки',
     description: 'ФГИС, документы, логистика, банк, спор и удержания.',
-    href: '/platform-v7/readiness',
+    href: PLATFORM_V7_READINESS_ROUTE,
   },
   {
     title: 'Журнал торгов',
     description: 'История ставок, изменений, проверки денег и выбора предложения.',
-    href: '/platform-v7/offer-log',
+    href: PLATFORM_V7_OFFER_LOG_ROUTE,
   },
   {
     title: 'Антиобход',
     description: 'Правила раскрытия сторон, контактов и удержания сделки внутри платформы.',
-    href: '/platform-v7/anti-bypass',
+    href: PLATFORM_V7_ANTI_BYPASS_ROUTE,
   },
   {
     title: 'Пакет перевозочных документов',
     description: 'DL-9102 · юридически значимый пакет по рейсу, подписям и влиянию на выпуск денег.',
-    href: '/platform-v7/deals/DL-9102/transport-documents',
+    href: `${PLATFORM_V7_DEALS_ROUTE}/DL-9102/transport-documents`,
   },
   {
     title: 'Факторинг',
     description: 'Лимиты покупателя, ставка, заявки на финансирование и выплаченные авансы.',
-    href: '/platform-v7/bank/factoring',
+    href: PLATFORM_V7_BANK_FACTORING_ROUTE,
   },
   {
     title: 'Эскроу',
     description: 'Резервирование денег до наступления подтверждённых условий раскрытия.',
-    href: '/platform-v7/bank/escrow',
+    href: PLATFORM_V7_BANK_ESCROW_ROUTE,
   },
 ];
 
 const partners = [
   {
     name: 'Сбер',
-    status: 'Активный контур',
-    note: 'Основной банковый слой платформы: безопасная сделка, транспортный контроль, факторинг и эскроу.',
+    status: 'Активный sandbox-контур',
+    note: 'Основной банковый слой controlled-pilot: безопасная сделка, транспортный контроль, факторинг и эскроу. Боевые подключения требуют договоров, доступов и подтверждения на реальных сделках.',
     tone: 'rgba(10,122,95,0.08)',
     border: 'rgba(10,122,95,0.18)',
     color: '#0A7A5F',
@@ -57,7 +66,7 @@ const partners = [
   {
     name: 'ВТБ',
     status: 'Следующий слой',
-    note: 'Кандидат на второй банковый контур после закрепления повторяемого пилота.',
+    note: 'Кандидат на второй банковый контур после закрепления повторяемого controlled-pilot.',
     tone: '#F8FAFB',
     border: '#E4E6EA',
     color: '#475569',
@@ -65,7 +74,7 @@ const partners = [
   {
     name: 'Альфа',
     status: 'Следующий слой',
-    note: 'Потенциальный партнёр для расширения сценариев покупателя и платёжных инструментов.',
+    note: 'Потенциальный партнёр для расширения сценариев покупателя и платёжных инструментов после верификации экономики.',
     tone: '#F8FAFB',
     border: '#E4E6EA',
     color: '#475569',
@@ -150,7 +159,7 @@ export default function PlatformV7BankPage() {
         <div>
           <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Банки-партнёры</div>
           <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-            Сейчас активный контур построен вокруг Сбера. Остальные банки показаны как следующий слой масштаба, а не как уже подтверждённые боевые интеграции.
+            Сейчас активный контур построен вокруг Сбера в sandbox/controlled-pilot логике. Остальные банки показаны как следующий слой масштаба, а не как уже подтверждённые боевые интеграции.
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
