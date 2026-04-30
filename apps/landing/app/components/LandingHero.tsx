@@ -1,6 +1,37 @@
-const trustBadges = ['Сбер-контур', 'AI-анализ риска', 'цифровизация АПК', 'controlled pilot'];
-
 const dealFlow = ['лот', 'перевозка', 'элеватор', 'лаборатория', 'документы', 'спор', 'деньги'];
+
+const executionRails = [
+  [
+    '01',
+    'Деньги',
+    'Сбер · Безопасные сделки',
+    'номинальный счёт · резерв · release · возврат',
+    'API-логика удержаний и выпусков средств подключается к статусам сделки. Боевой контур — после договора, доступов и тестового стенда.',
+  ],
+  [
+    '02',
+    'Логистика',
+    'СберКорус · Сфера Перевозки',
+    'ЭТрН · заявка · экспедитор · API',
+    'ЭПД и перевозочные документы встраиваются в маршрут рейса: погрузка, перевозчик, элеватор, приёмка.',
+  ],
+  [
+    '03',
+    'Финансирование',
+    'B2B-кредит для покупателя',
+    'виджет · лимит от 100 тыс. ₽ · СберБизнес',
+    'Кредитный сценарий помогает покупателю закрыть закупку, если он проходит банковские условия и подключённый путь.',
+  ],
+  [
+    '04',
+    'AI-контур',
+    'GigaChat Enterprise / агентный ИИ',
+    'риски · документы · сравнение · спор',
+    'ИИ ускоряет анализ сделки, документов и расхождений, но не заменяет банк, лабораторию, ЭДО или правовое решение.',
+  ],
+];
+
+const executionStrip = ['цена', 'резерв', 'рейс / ЭТрН', 'приёмка / лаборатория', 'документы', 'release денег', 'спор / доказательства'];
 
 const eventRows = [
   ['Рейс', 'подтверждён', 'водитель · маршрут · ETA'],
@@ -61,11 +92,49 @@ export default function LandingHero() {
             </div>
           </div>
 
-          <div className="reveal reveal-delay-1 mb-6 flex flex-wrap gap-2">
-            {trustBadges.map((badge) => (
-              <span key={badge} className="rounded-full border border-[rgba(126,242,196,0.18)] bg-[rgba(126,242,196,0.055)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-mint">{badge}</span>
-            ))}
+          <div className="reveal reveal-delay-1 mb-8 max-w-4xl">
+            <div className="relative overflow-hidden rounded-[28px] border border-[rgba(126,242,196,0.12)] bg-[#07110E]/78 p-4 shadow-[0_24px_90px_rgba(0,0,0,0.28)] md:p-5">
+              <div className="pointer-events-none absolute -left-16 -top-20 h-44 w-44 rounded-full bg-[rgba(126,242,196,0.10)] blur-3xl" />
+              <div className="pointer-events-none absolute bottom-0 right-0 h-32 w-64 bg-[radial-gradient(circle_at_80%_100%,rgba(245,180,30,0.12),transparent_64%)]" />
+
+              <div className="relative mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.24em] text-mint">банковый · документный · AI-контур</div>
+                  <div className="mt-2 text-xl font-black tracking-[-0.03em] text-white md:text-2xl">Встроено в сделку, а не вынесено рядом</div>
+                </div>
+                <div className="max-w-md text-sm leading-relaxed text-[#8BA89E]">
+                  Сбер, СберКорус и AI показаны как совместимые рельсы controlled pilot: деньги, ЭДО, кредит и анализ риска привязаны к событиям сделки.
+                </div>
+              </div>
+
+              <div className="relative grid gap-3 md:grid-cols-2">
+                {executionRails.map(([number, label, title, meta, text]) => (
+                  <div key={title} className="group rounded-2xl border border-[rgba(126,242,196,0.11)] bg-[linear-gradient(135deg,rgba(126,242,196,0.06),rgba(255,255,255,0.025))] p-4 transition hover:-translate-y-0.5 hover:border-[rgba(126,242,196,0.25)]">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="font-mono text-xs font-black text-mint">{number}</span>
+                      <span className="rounded-full bg-[rgba(126,242,196,0.08)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#A7BBB4]">{label}</span>
+                    </div>
+                    <div className="text-base font-black text-white md:text-lg">{title}</div>
+                    <div className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-mint/85">{meta}</div>
+                    <p className="mt-3 text-sm leading-relaxed text-[#8BA89E]">{text}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="relative mt-4 rounded-2xl border border-[rgba(126,242,196,0.09)] bg-black/20 p-3">
+                <div className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#6F8C82]">сквозной маршрут</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {executionStrip.map((step, index) => (
+                    <span key={step} className="inline-flex items-center gap-2">
+                      <span className="rounded-lg bg-[rgba(255,255,255,0.045)] px-2.5 py-1 text-xs font-semibold text-[#DDE8E3]">{step}</span>
+                      {index < executionStrip.length - 1 ? <span className="text-[#35584C]">→</span> : null}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
+
           <div className="reveal reveal-delay-1 mb-6 max-w-4xl text-3xl font-black leading-[1.08] tracking-tight text-white md:text-5xl">
             Цена согласована.<br />
             <span className="gradient-text">Теперь сделку нужно довести до денег.</span>
