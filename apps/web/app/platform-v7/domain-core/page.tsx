@@ -48,12 +48,15 @@ export default function PlatformV7DomainCorePage() {
   const deals = usePlatformDomainStore(state => state.deals);
   const disputes = usePlatformDomainStore(state => state.disputes);
   const auditEvents = usePlatformDomainStore(state => state.auditEvents);
+  const dealTimeline = usePlatformDomainStore(state => state.dealTimeline);
+  const idempotencyKeys = usePlatformDomainStore(state => state.idempotencyKeys);
   const resetDomainFixtures = usePlatformDomainStore(state => state.resetDomainFixtures);
   const lastAction = usePlatformDomainStore(state => state.lastAction);
   const [selectedDealId, setSelectedDealId] = React.useState('DL-9102');
 
   const selected = deals.find(deal => deal.id === selectedDealId) ?? deals[0];
   const gmv = dealGmvCents(deals);
+  const timeline = dealTimeline.filter(event => event.dealId === selected?.id).slice(0, 10);
 
   return (
     <div style={{ display: 'grid', gap: 16, padding: '8px 0' }}>
@@ -65,7 +68,7 @@ export default function PlatformV7DomainCorePage() {
             </div>
             <h1 style={{ margin: '10px 0 0', fontSize: 28, lineHeight: 1.15, color: '#0F1419' }}>Движок сделки и actions</h1>
             <p style={{ margin: '8px 0 0', fontSize: 13, color: '#6B778C', lineHeight: 1.7, maxWidth: 920 }}>
-              Проверочная панель P0-02/P0-03: state-machine, guards, domain fixtures, action feedback, audit trail. Это честная симуляция, не live bank/FGIS/EDO контур.
+              Проверочная панель P0-02/P0-03: state-machine, guards, domain fixtures, action feedback, audit trail, timeline и idempotency. Это честная симуляция, не live bank/FGIS/EDO контур.
             </p>
           </div>
           <button onClick={resetDomainFixtures} style={{ borderRadius: 12, padding: '10px 14px', border: '1px solid #E4E6EA', background: '#F8FAFB', cursor: 'pointer', fontSize: 13, fontWeight: 800 }}>
@@ -80,6 +83,7 @@ export default function PlatformV7DomainCorePage() {
           ['Сделок', String(deals.length)],
           ['К выпуску', String(releaseReadyCount(deals))],
           ['С блокерами', String(blockedDealsCount(deals))],
+          ['Idempotency keys', String(idempotencyKeys.length)],
           ['Спорность', `${disputeRatePct(deals, disputes)}%`],
         ].map(([label, value]) => (
           <section key={label} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16 }}>
@@ -91,7 +95,7 @@ export default function PlatformV7DomainCorePage() {
 
       {lastAction ? (
         <section style={{ background: lastAction.ok ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${lastAction.ok ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, borderRadius: 18, padding: 14, color: lastAction.ok ? '#0A7A5F' : '#B45309', fontSize: 13, fontWeight: 800 }}>
-          Последнее действие: {lastAction.actionId} · {lastAction.dealId} · {lastAction.message}
+          Последнее действие: {lastAction.actionId} · {lastAction.dealId} · {lastAction.message}{lastAction.idempotentReplay ? ' · replay без изменения состояния' : ''}
         </section>
       ) : null}
 
@@ -133,6 +137,21 @@ export default function PlatformV7DomainCorePage() {
             </div>
           </div>
         ) : null}
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 22, padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Timeline сделки</div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {timeline.length ? timeline.map(event => (
+            <div key={event.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 12, padding: 14, borderRadius: 16, border: '1px solid #E4E6EA', background: '#F8FAFB' }}>
+              <div>
+                <div style={{ fontSize: 13, color: '#0F1419', fontWeight: 900 }}>{event.message}</div>
+                <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{event.statusBefore} → {event.statusAfter} · actor {event.actorUserId} · {event.mode}</div>
+              </div>
+              <div style={{ fontSize: 11, color: '#6B778C', fontFamily: 'JetBrains Mono, monospace' }}>{event.createdAt.slice(11, 19)}</div>
+            </div>
+          )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Для выбранной сделки timeline пока пуст.</div>}
+        </div>
       </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 22, padding: 18, display: 'grid', gap: 14 }}>
