@@ -26,6 +26,21 @@ describe('EvidenceDisputeContinuityPanel', () => {
     expect(within(panel).getByText(/не вызывает боевые банковские, ФГИС или ЭДО-интеграции/)).toBeInTheDocument();
   });
 
+  it('renders dispute pack readiness score, checklist and sandbox export boundary', () => {
+    render(<EvidenceDisputeContinuityPanel />);
+
+    const readiness = screen.getByTestId('dispute-pack-readiness');
+    expect(within(readiness).getByText('Dispute pack readiness')).toBeInTheDocument();
+    expect(within(readiness).getByText(/\d+% ·/)).toBeInTheDocument();
+    expect(within(readiness).getByText('Evidence attached')).toBeInTheDocument();
+    expect(within(readiness).getByText('Dispute context')).toBeInTheDocument();
+    expect(within(readiness).getByText('Audit trail')).toBeInTheDocument();
+    expect(within(readiness).getByText('Timeline linked')).toBeInTheDocument();
+    expect(within(readiness).getByText('Money decision explained')).toBeInTheDocument();
+    expect(within(readiness).getByText(/Export-ready summary: sandbox preview only/)).toBeInTheDocument();
+    expect(within(readiness).getByText(/PDF\/ЭДО\/КЭП экспорт не заявлен как live/)).toBeInTheDocument();
+  });
+
   it('links to deal, disputes and bank routes', () => {
     render(<EvidenceDisputeContinuityPanel />);
 
