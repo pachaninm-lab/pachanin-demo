@@ -14,6 +14,13 @@ describe('EvidencePackIndexPage', () => {
     expect(screen.getByRole('link', { name: /DL-9113/ })).toHaveAttribute('href', '/platform-v7/deals/DL-9113/evidence-pack');
   });
 
+  it('accepts decision search params', () => {
+    render(<EvidencePackIndexPage searchParams={{ decision: 'Hold' }} />);
+
+    expect(screen.getByTestId('evidence-queue-controls')).toBeInTheDocument();
+    expect(screen.getByTestId('evidence-queue-visible-count')).toHaveTextContent(/Показано:/);
+  });
+
   it('keeps sandbox boundary visible', () => {
     render(<EvidencePackIndexPage />);
 

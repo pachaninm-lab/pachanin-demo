@@ -22,6 +22,8 @@ const DANGER = '#B91C1C';
 const DANGER_BG = 'rgba(220,38,38,0.08)';
 const DANGER_BORDER = 'rgba(220,38,38,0.18)';
 
+type DecisionFilter = 'all' | 'Hold' | 'Review' | 'Can release';
+
 type QueueRow = {
   deal: Deal;
   dispute?: Dispute;
@@ -33,9 +35,10 @@ type QueueRow = {
   blocker: string;
 };
 
-export function EvidencePackOperationsQueue() {
+export function EvidencePackOperationsQueue({ decision = 'all' }: { decision?: DecisionFilter }) {
   const state = createExecutionSimulationState();
   const rows = buildRows(state);
+  const visibleRows = decision === 'all' ? rows : rows.filter((row) => row.decision === decision);
   const holdCount = rows.filter((row) => row.decision === 'Hold').length;
   const reviewCount = rows.filter((row) => row.decision === 'Review').length;
   const readyCount = rows.filter((row) => row.decision === 'Can release').length;
@@ -45,7 +48,7 @@ export function EvidencePackOperationsQueue() {
     <section data-testid='evidence-pack-operations-queue' style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
         <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          P0-07 · evidence operations queue · sandbox
+          P0-08 · evidence queue controls · sandbox
         </div>
         <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.15, fontWeight: 900, color: T }}>
           Очередь доказательных пакетов
@@ -62,12 +65,41 @@ export function EvidencePackOperationsQueue() {
         <Metric label='Can release' value={String(readyCount)} tone='accent' />
       </div>
 
+      <DecisionControls active={decision} />
+
+      <div data-testid='evidence-queue-visible-count' style={{ fontSize: 12, color: M, fontWeight: 800 }}>
+        Показано: {visibleRows.length} из {rows.length}
+      </div>
+
       <div style={{ display: 'grid', gap: 10 }}>
-        {rows.map((row) => (
+        {visibleRows.map((row) => (
           <QueueCard key={row.deal.id} row={row} />
         ))}
+        {!visibleRows.length ? <div style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14, fontSize: 13, color: M }}>Нет сделок под выбранный фильтр.</div> : null}
       </div>
     </section>
+  );
+}
+
+function DecisionControls({ active }: { active: DecisionFilter }) {
+  const items: Array<{ label: string; value: DecisionFilter; href: string }> = [
+    { label: 'Все', value: 'all', href: '/platform-v7/evidence-pack' },
+    { label: 'Hold', value: 'Hold', href: '/platform-v7/evidence-pack?decision=Hold' },
+    { label: 'Review', value: 'Review', href: '/platform-v7/evidence-pack?decision=Review' },
+    { label: 'Can release', value: 'Can release', href: '/platform-v7/evidence-pack?decision=Can%20release' },
+  ];
+
+  return (
+    <div data-testid='evidence-queue-controls' style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {items.map((item) => {
+        const selected = item.value === active;
+        return (
+          <Link key={item.value} href={item.href} style={{ textDecoration: 'none', borderRadius: 999, padding: '8px 12px', background: selected ? BRAND_BG : SS, border: `1px solid ${selected ? BRAND_BORDER : B}`, color: selected ? BRAND : T, fontSize: 12, fontWeight: 900 }}>
+            {item.label}
+          </Link>
+        );
+      })}
+    </div>
   );
 }
 
