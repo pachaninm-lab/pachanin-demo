@@ -15,4 +15,14 @@ describe('EvidenceExportReadinessSummary', () => {
     expect(screen.getByText('Timeline linked')).toBeInTheDocument();
     expect(screen.getByText(/sandbox preview only/)).toBeInTheDocument();
   });
+
+  it('renders export readiness state breakdown', () => {
+    render(<EvidenceExportReadinessSummary />);
+
+    expect(screen.getByTestId('export-readiness-states')).toBeInTheDocument();
+    expect(screen.getByText('Ready for preview')).toBeInTheDocument();
+    expect(screen.getByText('Needs evidence')).toBeInTheDocument();
+    expect(screen.getByText('Needs audit')).toBeInTheDocument();
+    expect(screen.getByText('Needs timeline')).toBeInTheDocument();
+  });
 });
