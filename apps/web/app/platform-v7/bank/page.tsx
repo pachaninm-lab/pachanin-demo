@@ -5,6 +5,7 @@ import { BankManualReviewPanel } from '@/components/platform-v7/BankManualReview
 import { BankSmartContractsPanel } from '@/components/platform-v7/BankSmartContractsPanel';
 import { BankRuntime } from '@/components/v7r/BankRuntime';
 import { DomainMoneySummary } from '@/components/v7r/DomainMoneySummary';
+import { EvidenceDisputeContinuityPanel } from '@/components/v7r/EvidenceDisputeContinuityPanel';
 
 const quickLinks = [
   {
@@ -84,6 +85,7 @@ export default function PlatformV7BankPage() {
     <div style={{ display: 'grid', gap: 18 }}>
       <DomainMoneySummary />
       <P7MoneySafetyAuditStrip />
+      <EvidenceDisputeContinuityPanel />
 
       <section
         style={{

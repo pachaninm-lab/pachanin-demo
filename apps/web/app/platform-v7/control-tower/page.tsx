@@ -4,8 +4,8 @@ import { P7Section } from '@/components/platform-v7/P7Section';
 import { P7Toolbar } from '@/components/platform-v7/P7Toolbar';
 import { selectRuntimeCallbacks, selectRuntimeDeals, selectRuntimeDisputes, selectDealIntegrationState } from '@/lib/domain/selectors';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
-import { ControlTowerOperatorPanel } from '@/components/v7r/ControlTowerOperatorPanel';
 import { DomainControlTowerSummary } from '@/components/v7r/DomainControlTowerSummary';
+import { ExecutionSimulationActionPanel } from '@/components/v7r/ExecutionSimulationActionPanel';
 import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
 import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
 
@@ -26,16 +26,6 @@ function describeReason(code: string) {
     case 'dispute': return 'Открыт спор по сделке';
     default: return code;
   }
-}
-
-function cleanStep(value: string | null) {
-  if (!value) return null;
-  return value
-    .replace(/\brelease\b/g, 'выпуск денег')
-    .replace(/\bcallback\b/g, 'событие банка')
-    .replace(/\bsync\b/g, 'сверку')
-    .replace(/\bGate\b/g, 'Проверка')
-    .replace(/\bgate\b/g, 'проверка');
 }
 
 function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?: string | null; reasonCodes: string[]; blockers: string[] }) {
@@ -99,20 +89,6 @@ export default function PlatformV7ControlTowerPage() {
     .sort((a, b) => b.severity - a.severity || b.amountAtRisk - a.amountAtRisk || b.deal.riskScore - a.deal.riskScore)
     .slice(0, 8);
 
-  const operatorItems = integratedDeals
-    .filter((x) => x.integration.gateState !== 'PASS')
-    .slice(0, 4)
-    .map((x) => ({
-      id: x.deal.id,
-      title: `${x.deal.grain} · ${x.deal.quantity} ${x.deal.unit}`,
-      gateState: x.integration.gateState,
-      nextStep: cleanStep(x.integration.nextStep),
-      nextOwner: x.integration.nextOwner,
-      releasableAmount: x.deal.releaseAmount ?? Math.max(x.deal.reservedAmount - x.deal.holdAmount, 0),
-      releaseEligible: x.deal.status === 'release_requested',
-      reasonCodes: x.integration.reasonCodes,
-    }));
-
   return (
     <>
       <style>{`
@@ -146,6 +122,10 @@ export default function PlatformV7ControlTowerPage() {
       >
         <P7Section title='Деньги и риски' subtitle='KPI берутся из единого runtime-контура и ведут в соответствующие рабочие зоны.'>
           <DomainControlTowerSummary />
+        </P7Section>
+
+        <P7Section title='Simulation-grade контур исполнения' subtitle='Единый action-контур: состояние сделки, guard-правила, audit, timeline и UI-feedback без параллельной legacy-логики.'>
+          <ExecutionSimulationActionPanel />
         </P7Section>
 
         <P7Section title='Очередь проблем и действий' subtitle='Каждая строка — это деньги, причина, владелец и одно правильное действие.'>
@@ -205,10 +185,6 @@ export default function PlatformV7ControlTowerPage() {
               ))}
             </div>
           </section>
-        </P7Section>
-
-        <P7Section title='Операторские действия' subtitle='Снятие препятствий, журнал действий и банковские демо-события без изменения бизнес-логики.'>
-          <ControlTowerOperatorPanel deals={operatorItems} />
         </P7Section>
 
         <P7Section title='Финансовый контур и системные сигналы' subtitle='Резерв, удержание, выпуск денег и связанные рабочие зоны.'>
