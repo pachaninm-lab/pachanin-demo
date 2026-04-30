@@ -256,6 +256,10 @@ export function ExecutionSimulationActionPanel() {
   const latestAudit = state.auditEvents.slice(-5).reverse();
   const latestTimeline = state.dealTimeline.filter((event) => event.dealId === flowDealId).slice(-5).reverse();
 
+  function pushUiLog(entry: UiActionLog) {
+    setUiLog((prev) => [entry, ...prev].slice(0, 6));
+  }
+
   function runCard(card: ActionCard) {
     const disabledReason = commandDisabledReason(state, card.command, card.disabledReason);
     if (disabledReason || !card.command) {
@@ -266,7 +270,7 @@ export function ExecutionSimulationActionPanel() {
         toast: { type: 'disabled', message: disabledReason || 'Действие недоступно' }
       };
       setLastResults((prev) => ({ ...prev, [card.id]: synthetic }));
-      setUiLog((prev) => [{ id: `${card.id}-${Date.now()}`, label: card.title, state: 'error', message: synthetic.toast.message }, ...prev].slice(0, 6));
+      pushUiLog({ id: `${card.id}-${Date.now()}`, label: card.title, state: 'error', message: synthetic.toast.message });
       return;
     }
 
@@ -274,7 +278,7 @@ export function ExecutionSimulationActionPanel() {
     const result = store.dispatch(card.command);
     setState(result.state);
     setLastResults((prev) => ({ ...prev, [card.id]: result }));
-    setUiLog((prev) => [{ id: `${card.id}-${Date.now()}`, label: card.title, state: actionStateFromResult(result), message: result.toast.message }, ...prev].slice(0, 6));
+    pushUiLog({ id: `${card.id}-${Date.now()}`, label: card.title, state: actionStateFromResult(result), message: result.toast.message });
     setBusyAction(null);
   }
 
