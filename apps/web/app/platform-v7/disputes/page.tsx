@@ -1,6 +1,7 @@
 import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import { DomainDisputesSummary } from '@/components/v7r/DomainDisputesSummary';
 import { DisputesRuntime } from '@/components/v7r/DisputesRuntime';
+import { EvidenceDisputeContinuityPanel } from '@/components/v7r/EvidenceDisputeContinuityPanel';
 import {
   PLATFORM_V7_EXECUTION_SOURCE,
   canRequestMoneyRelease,
@@ -67,6 +68,7 @@ export default function PlatformV7DisputesPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       <P7ExecutionMachineReadOnlyStrip compact />
+      <EvidenceDisputeContinuityPanel />
       <DL9102DisputeCard />
       <DomainDisputesSummary />
       <DisputesRuntime />
