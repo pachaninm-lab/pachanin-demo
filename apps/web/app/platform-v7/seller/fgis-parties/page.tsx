@@ -10,6 +10,7 @@ import {
   type FGISPartyBatch,
   type FGISPartyStatus,
 } from '@/lib/platform-v7/fgis-lot-passport';
+import { PLATFORM_V7_LOT_CREATE_ROUTE, PLATFORM_V7_SELLER_ROUTE } from '@/lib/platform-v7/routes';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -58,8 +59,8 @@ export default function SellerFgisPartiesPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/lots/create' style={btn()}>Создать лот вручную</Link>
-            <Link href='/platform-v7/seller' style={btn()}>← Назад</Link>
+            <Link href={PLATFORM_V7_LOT_CREATE_ROUTE} style={btn()}>Создать лот вручную</Link>
+            <Link href={PLATFORM_V7_SELLER_ROUTE} style={btn()}>← Назад</Link>
           </div>
         </div>
 
@@ -143,7 +144,7 @@ function PartyCard({ party, isExpanded, onToggle }: { party: FGISParty; isExpand
 
           {canCreate ? (
             <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Link href='/platform-v7/lots/create' style={btn('primary')}>Создать лот из партии</Link>
+              <Link href={PLATFORM_V7_LOT_CREATE_ROUTE} style={btn('primary')}>Создать лот из партии</Link>
               <span style={{ alignSelf: 'center', fontSize: 12, color: M }}>В pilot-ready версии действие должно создавать паспорт лота из подтверждённой партии.</span>
             </div>
           ) : (
