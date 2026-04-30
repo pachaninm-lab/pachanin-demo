@@ -23,6 +23,16 @@ const DANGER = '#B91C1C';
 const DANGER_BG = 'rgba(220,38,38,0.08)';
 const DANGER_BORDER = 'rgba(220,38,38,0.18)';
 
+type JournalEntry = {
+  id: string;
+  actionType: PlatformActionType;
+  ok: boolean;
+  message: string;
+  statusAfter?: string;
+  audit?: string;
+  timeline?: string;
+};
+
 export function RoleActionDispatchBridge({
   role,
   dealId,
@@ -39,6 +49,11 @@ export function RoleActionDispatchBridge({
   const store = useMemo(() => createExecutionDomainStore(createExecutionSimulationState()), []);
   const [result, setResult] = useState<PlatformActionResult | null>(null);
   const [lastStatus, setLastStatus] = useState<string | null>(null);
+  const [journal, setJournal] = useState<JournalEntry[]>([]);
+
+  function pushJournal(entry: JournalEntry) {
+    setJournal((prev) => [entry, ...prev].slice(0, 5));
+  }
 
   function runSandboxDispatch() {
     const state = store.getState();
@@ -46,19 +61,32 @@ export function RoleActionDispatchBridge({
     const actor = state.users.find((item) => item.role === actorRoleForAction(role, actionType));
 
     if (!deal || !actor) {
-      setResult({
+      const message = !deal ? `Сделка не найдена: ${dealId}` : `Нет sandbox-актора для роли ${role}`;
+      const failedResult: PlatformActionResult = {
         ok: false,
         state,
-        toast: { type: 'error', message: !deal ? `Сделка не найдена: ${dealId}` : `Нет sandbox-актора для роли ${role}` },
-        error: !deal ? `Сделка не найдена: ${dealId}` : `Нет sandbox-актора для роли ${role}`,
-      });
+        toast: { type: 'error', message },
+        error: message,
+      };
+      setResult(failedResult);
+      pushJournal({ id: `${actionType}-${Date.now()}`, actionType, ok: false, message });
       return;
     }
 
     const command = buildCommand(actionType, actor, deal);
     const next = store.dispatch(command);
+    const statusAfter = next.state.deals.find((item) => item.id === dealId)?.status ?? deal.status;
     setResult(next);
-    setLastStatus(next.state.deals.find((item) => item.id === dealId)?.status ?? deal.status);
+    setLastStatus(statusAfter);
+    pushJournal({
+      id: `${actionType}-${Date.now()}`,
+      actionType,
+      ok: next.ok,
+      message: next.toast.message,
+      statusAfter,
+      audit: next.auditEvent ? `${next.auditEvent.actionType} · ${next.auditEvent.entityId}` : undefined,
+      timeline: next.timelineEvent?.title,
+    });
   }
 
   const tone = result?.ok ? 'success' : result ? 'danger' : canRun ? 'ready' : 'disabled';
@@ -93,6 +121,24 @@ export function RoleActionDispatchBridge({
       {lastStatus ? <div style={{ fontSize: 12, color: T, fontWeight: 900 }}>Текущий статус после dispatch: {lastStatus}</div> : null}
       {result?.auditEvent ? <div style={{ fontSize: 12, color: M }}>Audit: {result.auditEvent.actionType} · {result.auditEvent.entityId}</div> : null}
       {result?.timelineEvent ? <div style={{ fontSize: 12, color: M }}>Timeline: {result.timelineEvent.title}</div> : null}
+      <RoleActionJournal rows={journal} />
+    </div>
+  );
+}
+
+function RoleActionJournal({ rows }: { rows: JournalEntry[] }) {
+  return (
+    <div data-testid='role-action-journal' style={{ borderTop: `1px solid ${B}`, paddingTop: 10, display: 'grid', gap: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 900, color: T, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Role action journal</div>
+      {rows.length ? rows.map((row) => (
+        <div key={row.id} style={{ display: 'grid', gap: 3, background: row.ok ? BRAND_BG : DANGER_BG, border: `1px solid ${row.ok ? BRAND_BORDER : DANGER_BORDER}`, borderRadius: 10, padding: 10 }}>
+          <div style={{ fontSize: 12, color: row.ok ? BRAND : DANGER, fontWeight: 900 }}>{row.actionType} · {row.ok ? 'success' : 'error'}</div>
+          <div style={{ fontSize: 12, color: M }}>{row.message}</div>
+          {row.statusAfter ? <div style={{ fontSize: 11, color: M }}>status: {row.statusAfter}</div> : null}
+          {row.audit ? <div style={{ fontSize: 11, color: M }}>audit: {row.audit}</div> : null}
+          {row.timeline ? <div style={{ fontSize: 11, color: M }}>timeline: {row.timeline}</div> : null}
+        </div>
+      )) : <div style={{ fontSize: 12, color: M }}>Журнал появится после sandbox-действия.</div>}
     </div>
   );
 }
