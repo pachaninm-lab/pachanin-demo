@@ -2,6 +2,15 @@ import Link from 'next/link';
 import { P7DealWorkspaceTabs } from '@/components/platform-v7/P7DealWorkspaceTabs';
 import { DealDetailRuntime } from '@/components/v7r/DealDetailRuntime';
 import { selectDealById, selectDealIntegrationState } from '@/lib/domain/selectors';
+import {
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_DEALS_ROUTE,
+  PLATFORM_V7_DISPUTES_ROUTE,
+  PLATFORM_V7_DOMAIN_CORE_ROUTE,
+  PLATFORM_V7_LOGISTICS_ROUTE,
+  PLATFORM_V7_READINESS_ROUTE,
+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+} from '@/lib/platform-v7/routes';
 
 interface CounterpartyProfile {
   inn: string | null;
@@ -103,44 +112,65 @@ export default function PlatformV7DealDetailPage({ params }: { params: { id: str
       {deal ? <P7DealWorkspaceTabs deal={deal} /> : null}
 
       {deal && integration ? (
-        <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 16 }}>
-          <div style={{ display: 'grid', gap: 6 }}>
-            <div style={{ fontSize: 12, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Доверие и прозрачность</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#0F1419' }}>Гарантии сделки</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6, maxWidth: 920 }}>
-              Здесь нет маркетинговых обещаний. Только проверяемые условия: резерв денег, документный слой, интеграционная проверка и наличие либо отсутствие удержания.
+        <>
+          <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 16 }}>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 12, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Доверие и прозрачность</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#0F1419' }}>Гарантии сделки</div>
+              <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6, maxWidth: 920 }}>
+                Здесь нет маркетинговых обещаний. Только проверяемые условия: резерв денег, документный слой, интеграционная проверка и наличие либо отсутствие удержания.
+              </div>
             </div>
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-            <CounterpartyCard role='Продавец' name={deal.seller.name} profile={seller} />
-            <CounterpartyCard role='Покупатель' name={deal.buyer.name} profile={buyer} />
-          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+              <CounterpartyCard role='Продавец' name={deal.seller.name} profile={seller} />
+              <CounterpartyCard role='Покупатель' name={deal.buyer.name} profile={buyer} />
+            </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-            {guarantees.map((item) => {
-              const tone = tonePalette(item.tone);
-              return (
-                <article key={item.title} style={{ border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, background: '#F8FAFB', display: 'grid', gap: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                    <div style={{ fontSize: 12, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{item.title}</div>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
-                      {item.value}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{item.note}</div>
-                </article>
-              );
-            })}
-          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+              {guarantees.map((item) => {
+                const tone = tonePalette(item.tone);
+                return (
+                  <article key={item.title} style={{ border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, background: '#F8FAFB', display: 'grid', gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 12, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{item.title}</div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
+                        {item.value}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{item.note}</div>
+                  </article>
+                );
+              })}
+            </div>
 
-          <div style={{ display: 'grid', gap: 8 }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Что реально даёт платформа</div>
-            <Bullet text='Не даёт обещать выпуск денег, если пакет документов, качество или интеграционная проверка красные.' />
-            <Bullet text='Показывает, кто именно следующий владелец действия, вместо размытых статусов.' />
-            <Bullet text='Сводит доверие к проверяемым сигналам: рейтинг контрагента, история сделок, спорность и резерв.' />
-          </div>
-        </section>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Что реально даёт платформа</div>
+              <Bullet text='Не даёт обещать выпуск денег, если пакет документов, качество или интеграционная проверка красные.' />
+              <Bullet text='Показывает, кто именно следующий владелец действия, вместо размытых статусов.' />
+              <Bullet text='Сводит доверие к проверяемым сигналам: рейтинг контрагента, история сделок, спорность и резерв.' />
+            </div>
+          </section>
+
+          <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 12, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Сквозная проверка</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: '#0F1419' }}>Связанные контуры сделки</div>
+              <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6, maxWidth: 920 }}>
+                Быстрые переходы нужны для сверки одной сделки через готовность, деньги, логистику, спор, audit trail и банковую безопасность. Все ссылки идут через platform-v7 route constants.
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+              <DealConsistencyLink title='Готовность' href={PLATFORM_V7_READINESS_ROUTE} note='ФГИС, СДИЗ, ЭДО, приёмка, лаборатория, банк и спор.' />
+              <DealConsistencyLink title='Проверка денег' href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} note='Reserve / hold / release без обещаний боевого платежа.' />
+              <DealConsistencyLink title='Банк' href={PLATFORM_V7_BANK_ROUTE} note='Банковый контур и статусы выпуска денег.' />
+              <DealConsistencyLink title='Логистика' href={deal.routeId ? `${PLATFORM_V7_LOGISTICS_ROUTE}/${deal.routeId}` : PLATFORM_V7_LOGISTICS_ROUTE} note='Маршрут, рейс, ETA и связь с приёмкой.' />
+              <DealConsistencyLink title='Спор / evidence pack' href={deal.dispute?.id ? `${PLATFORM_V7_DISPUTES_ROUTE}/${deal.dispute.id}` : PLATFORM_V7_DISPUTES_ROUTE} note='Основание спора, удержание и пакет доказательств.' />
+              <DealConsistencyLink title='Движок сделки' href={PLATFORM_V7_DOMAIN_CORE_ROUTE} note='State-machine, guards, timeline и idempotency sandbox.' />
+            </div>
+          </section>
+        </>
       ) : null}
     </div>
   );
@@ -178,6 +208,17 @@ function CounterpartyCard({ role, name, profile }: { role: string; name: string;
         </Link>
       ) : null}
     </article>
+  );
+}
+
+function DealConsistencyLink({ title, href, note }: { title: string; href: string; note: string }) {
+  return (
+    <Link href={href} style={{ textDecoration: 'none' }}>
+      <article style={{ height: '100%', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, background: '#F8FAFB', display: 'grid', gap: 8 }}>
+        <div style={{ fontSize: 14, color: '#0F1419', fontWeight: 900 }}>{title}</div>
+        <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.55 }}>{note}</div>
+      </article>
+    </Link>
   );
 }
 
