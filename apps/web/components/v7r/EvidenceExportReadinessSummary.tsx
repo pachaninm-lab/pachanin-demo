@@ -19,10 +19,19 @@ export function EvidenceExportReadinessSummary() {
   const dealsWithTimeline = state.deals.filter((deal) => state.dealTimeline.some((item) => item.dealId === deal.id)).length;
   const dealsWithAudit = state.deals.filter((deal) => state.auditEvents.some((item) => item.entityId === deal.id)).length;
   const disputedDeals = state.deals.filter((deal) => deal.status === 'DISPUTE_OPEN' || Boolean(deal.openDisputeId)).length;
+  const missingEvidence = Math.max(totalDeals - dealsWithEvidence, 0);
+  const missingAudit = Math.max(totalDeals - dealsWithAudit, 0);
+  const missingTimeline = Math.max(totalDeals - dealsWithTimeline, 0);
   const readiness = totalDeals
     ? Math.round(((dealsWithEvidence + dealsWithTimeline + dealsWithAudit) / (totalDeals * 3)) * 100)
     : 0;
   const isReady = readiness >= 80;
+  const states = [
+    { label: 'Ready for preview', value: String(Math.min(dealsWithEvidence, dealsWithAudit, dealsWithTimeline)), ok: isReady },
+    { label: 'Needs evidence', value: String(missingEvidence), ok: missingEvidence === 0 },
+    { label: 'Needs audit', value: String(missingAudit), ok: missingAudit === 0 },
+    { label: 'Needs timeline', value: String(missingTimeline), ok: missingTimeline === 0 },
+  ];
 
   return (
     <section data-testid='evidence-export-readiness-summary' style={{ background: S, border: `1px solid ${isReady ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
@@ -52,6 +61,16 @@ export function EvidenceExportReadinessSummary() {
         <Metric label='Audit linked' value={String(dealsWithAudit)} />
         <Metric label='Timeline linked' value={String(dealsWithTimeline)} />
         <Metric label='Dispute markers' value={String(disputedDeals)} />
+      </div>
+
+      <div data-testid='export-readiness-states' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>
+        {states.map((item) => (
+          <div key={item.label} style={{ background: item.ok ? BRAND_BG : WARN_BG, border: `1px solid ${item.ok ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 12, padding: 12 }}>
+            <div style={{ fontSize: 10, color: item.ok ? BRAND : WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.ok ? 'OK' : 'Need'}</div>
+            <div style={{ marginTop: 5, fontSize: 13, fontWeight: 900, color: T }}>{item.label}</div>
+            <div style={{ marginTop: 3, fontSize: 18, fontWeight: 900, color: item.ok ? BRAND : WARN }}>{item.value}</div>
+          </div>
+        ))}
       </div>
 
       <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>
