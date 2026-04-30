@@ -1,6 +1,14 @@
 import Link from 'next/link';
 import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, type PlatformV7ExecutionActionState } from '@/lib/platform-v7/execution-action-core';
+import {
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_DEALS_ROUTE,
+  PLATFORM_V7_LOGISTICS_ROUTE,
+  PLATFORM_V7_READINESS_ROUTE,
+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+  PLATFORM_V7_SELLER_OFFERS_ROUTE,
+} from '@/lib/platform-v7/routes';
 import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
@@ -117,8 +125,8 @@ export default function PlatformV7OfferToDealPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/seller/offers' style={btn()}>Ставки продавца</Link>
-            <Link href='/platform-v7/readiness' style={btn('primary')}>Готовность сделки</Link>
+            <Link href={PLATFORM_V7_SELLER_OFFERS_ROUTE} style={btn()}>Ставки продавца</Link>
+            <Link href={PLATFORM_V7_READINESS_ROUTE} style={btn('primary')}>Готовность сделки</Link>
           </div>
         </div>
       </section>
@@ -176,10 +184,10 @@ export default function PlatformV7OfferToDealPage() {
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Следующие действия</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-          <Link href='/platform-v7/readiness' style={btn('primary')}>Проверить готовность</Link>
-          <Link href='/platform-v7/logistics' style={btn()}>Назначить логистику</Link>
-          <Link href='/platform-v7/bank/release-safety' style={btn()}>Проверить деньги</Link>
-          <Link href='/platform-v7/deals' style={btn()}>Реестр сделок</Link>
+          <Link href={PLATFORM_V7_READINESS_ROUTE} style={btn('primary')}>Проверить готовность</Link>
+          <Link href={PLATFORM_V7_LOGISTICS_ROUTE} style={btn()}>Назначить логистику</Link>
+          <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверить деньги</Link>
+          <Link href={PLATFORM_V7_DEALS_ROUTE} style={btn()}>Реестр сделок</Link>
         </div>
       </section>
     </div>
