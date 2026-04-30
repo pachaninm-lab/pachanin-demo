@@ -49,6 +49,16 @@ describe('PlatformV7 bank routes', () => {
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
   });
 
+  it('keeps factoring separate from buyer financing and live payment release', () => {
+    render(<BankFactoringPage />);
+
+    expect(screen.getByText(/Это не buyer financing и не боевой банковский платёж/)).toBeInTheDocument();
+    expect(screen.getByText(/Банк дочитывает финансовый профиль/)).toBeInTheDocument();
+    expect(screen.getByText(/Без этого деньги не должны выпускаться/)).toBeInTheDocument();
+    expect(screen.queryByText(/автоматически выпущен/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/боевой платёж выполнен/i)).not.toBeInTheDocument();
+  });
+
   it('renders escrow money hold and release workflow without live integration claims', () => {
     render(<BankEscrowPage />);
 
@@ -61,6 +71,15 @@ describe('PlatformV7 bank routes', () => {
     expect(screen.getByText('Sandbox release')).toBeInTheDocument();
     expect(screen.getByText('ESC-301')).toBeInTheDocument();
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps escrow release gated and non-automatic', () => {
+    render(<BankEscrowPage />);
+
+    expect(screen.getByText(/Деньги стоят в sandbox hold до закрытия качества и полного пакета документов/)).toBeInTheDocument();
+    expect(screen.getByText(/выпуск денег заблокирован до доказательств/)).toBeInTheDocument();
+    expect(screen.queryByText(/автоматическое раскрытие/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/live escrow account/i)).not.toBeInTheDocument();
   });
 
   it('moves escrow from hold to ready and sandbox release states', () => {
