@@ -5,7 +5,9 @@ import InvestorPage from '@/app/platform-v7/investor/page';
 import AnalyticsRedirectPage from '@/app/platform-v7/analytics/page';
 import {
   PLATFORM_V7_COMMAND_ROUTE_SURFACE,
+  PLATFORM_V7_EXECUTIVE_ROUTE,
   PLATFORM_V7_INVESTOR_ROUTE,
+  PLATFORM_V7_SHELL_ROUTE_SURFACE,
 } from '@/lib/platform-v7/routes';
 
 const redirectMock = vi.hoisted(() => vi.fn());
@@ -30,14 +32,18 @@ describe('PlatformV7 investor and executive routes', () => {
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
   });
 
-  it('keeps investor route in command surface', () => {
+  it('keeps investor and executive routes in command and shell surfaces', () => {
     expect(PLATFORM_V7_INVESTOR_ROUTE).toBe('/platform-v7/investor');
+    expect(PLATFORM_V7_EXECUTIVE_ROUTE).toBe('/platform-v7/executive');
     expect(PLATFORM_V7_COMMAND_ROUTE_SURFACE).toContain(PLATFORM_V7_INVESTOR_ROUTE);
+    expect(PLATFORM_V7_COMMAND_ROUTE_SURFACE).toContain(PLATFORM_V7_EXECUTIVE_ROUTE);
+    expect(PLATFORM_V7_SHELL_ROUTE_SURFACE).toContain(PLATFORM_V7_INVESTOR_ROUTE);
+    expect(PLATFORM_V7_SHELL_ROUTE_SURFACE).toContain(PLATFORM_V7_EXECUTIVE_ROUTE);
   });
 
   it('routes analytics surface to executive catch-all dashboard', () => {
     AnalyticsRedirectPage();
 
-    expect(redirectMock).toHaveBeenCalledWith('/platform-v7/executive');
+    expect(redirectMock).toHaveBeenCalledWith(PLATFORM_V7_EXECUTIVE_ROUTE);
   });
 });
