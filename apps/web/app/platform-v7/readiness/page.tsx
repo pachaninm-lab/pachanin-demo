@@ -3,6 +3,12 @@ import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7Exec
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import {
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_CONTROL_TOWER_ROUTE,
+  PLATFORM_V7_DEALS_ROUTE,
+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+} from '@/lib/platform-v7/routes';
+import {
   PLATFORM_V7_EXECUTION_SOURCE,
   canRequestMoneyRelease,
   executionBlockers,
@@ -67,8 +73,8 @@ export default function PlatformV7ReadinessPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/control-tower' style={btn()}>Центр управления</Link>
-            <Link href='/platform-v7/bank/release-safety' style={btn()}>Проверка денег</Link>
+            <Link href={PLATFORM_V7_CONTROL_TOWER_ROUTE} style={btn()}>Центр управления</Link>
+            <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверка денег</Link>
           </div>
         </div>
       </section>
@@ -89,7 +95,7 @@ export default function PlatformV7ReadinessPage() {
           <div key={deal.id} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14, display: 'grid', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <div>
-                <Link href={`/platform-v7/deals/${deal.id}`} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND, textDecoration: 'none' }}>{deal.id}</Link>
+                <Link href={`${PLATFORM_V7_DEALS_ROUTE}/${deal.id}`} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND, textDecoration: 'none' }}>{deal.id}</Link>
                 <span style={{ marginLeft: 8, fontSize: 13, color: M }}>{deal.grain} · {statusLabel(deal.status)}</span>
               </div>
               <span style={{ padding: '5px 10px', borderRadius: 999, background: isBlocked ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.08)', border: `1px solid ${isBlocked ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, color: isBlocked ? ERR : BRAND, fontSize: 12, fontWeight: 900 }}>
