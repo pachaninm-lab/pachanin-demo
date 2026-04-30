@@ -13,6 +13,9 @@ describe('RoleContinuityPanel', () => {
     expect(within(panel).getByText('Evidence')).toBeInTheDocument();
     expect(within(panel).getByText('Audit')).toBeInTheDocument();
     expect(within(panel).getByText('Timeline')).toBeInTheDocument();
+    expect(within(panel).getByText('Action handoff')).toBeInTheDocument();
+    expect(within(panel).getByText('Подтвердить прибытие / событие рейса')).toBeInTheDocument();
+    expect(within(panel).getByText('confirmArrival')).toBeInTheDocument();
     expect(within(panel).getByRole('link', { name: 'Открыть сделку' })).toHaveAttribute('href', expect.stringContaining('/platform-v7/deals/'));
   });
 
