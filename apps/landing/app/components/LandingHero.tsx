@@ -1,5 +1,7 @@
 const trustBadges = ['Сбер-контур', 'AI-анализ риска', 'цифровизация АПК', 'controlled pilot'];
 
+const dealFlow = ['лот', 'перевозка', 'элеватор', 'лаборатория', 'документы', 'спор', 'деньги'];
+
 const eventRows = [
   ['Рейс', 'подтверждён', 'водитель · маршрут · ETA'],
   ['Вес', 'принят', '240 т · сверка с отгрузкой'],
@@ -21,15 +23,33 @@ export default function LandingHero() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_72%_52%_at_50%_0%,rgba(10,122,95,0.26),transparent_72%)]" />
       <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-6 pb-24 pt-16 lg:grid-cols-[0.92fr_1.08fr]">
         <div>
-          <div className="reveal mb-6 flex flex-wrap gap-2">
+          <div className="reveal mb-8 max-w-4xl">
+            <div className="mb-4 inline-flex rounded-full border border-[rgba(126,242,196,0.22)] bg-[rgba(126,242,196,0.06)] px-4 py-1.5 text-xs font-black uppercase tracking-[0.24em] text-mint shadow-[0_0_42px_rgba(126,242,196,0.08)]">
+              не маркетплейс · не доска объявлений
+            </div>
+            <h1 className="text-6xl font-black leading-[0.96] tracking-[-0.06em] text-white md:text-8xl">
+              Прозрачная <span className="gradient-text">Цена</span>
+            </h1>
+            <div className="mt-6 flex max-w-3xl flex-wrap items-center gap-x-2 gap-y-2 text-base font-semibold leading-relaxed text-[#C9D8D2] md:text-xl">
+              <span className="mr-1 text-[#8BA89E]">Контур сделки:</span>
+              {dealFlow.map((step, index) => (
+                <span key={step} className="inline-flex items-center gap-2">
+                  <span className="rounded-full border border-[rgba(126,242,196,0.14)] bg-[rgba(255,255,255,0.035)] px-3 py-1 text-[#EAF1EE]">{step}</span>
+                  {index < dealFlow.length - 1 ? <span className="text-[#4A6B5E]">→</span> : null}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="reveal reveal-delay-1 mb-6 flex flex-wrap gap-2">
             {trustBadges.map((badge) => (
               <span key={badge} className="rounded-full border border-[rgba(126,242,196,0.18)] bg-[rgba(126,242,196,0.055)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-mint">{badge}</span>
             ))}
           </div>
-          <h1 className="reveal reveal-delay-1 mb-6 max-w-4xl text-5xl font-black leading-[1.01] tracking-tight md:text-7xl">
-            Цена есть.<br />
-            <span className="gradient-text">Деньги ещё нужно довести.</span>
-          </h1>
+          <div className="reveal reveal-delay-1 mb-6 max-w-4xl text-3xl font-black leading-[1.08] tracking-tight text-white md:text-5xl">
+            Цена согласована.<br />
+            <span className="gradient-text">Теперь сделку нужно довести до денег.</span>
+          </div>
           <p className="reveal reveal-delay-2 mb-8 max-w-2xl text-lg leading-relaxed text-[#A7BBB4] md:text-xl">
             «Прозрачная Цена» показывает, где в зерновой сделке зависают деньги после цены: рейс, вес, качество, СДИЗ, ЭДО, удержания, оплата и спор.
           </p>
