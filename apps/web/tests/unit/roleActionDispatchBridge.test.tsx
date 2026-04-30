@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { RoleActionDispatchBridge } from '@/components/v7r/RoleActionDispatchBridge';
 
 describe('RoleActionDispatchBridge', () => {
@@ -19,6 +19,7 @@ describe('RoleActionDispatchBridge', () => {
     expect(button).toBeDisabled();
     expect(screen.getByText('Банк ждёт reserve request.')).toBeInTheDocument();
     expect(screen.getByText(/Боевые интеграции не вызываются/)).toBeInTheDocument();
+    expect(screen.getByTestId('role-action-journal')).toHaveTextContent('Журнал появится после sandbox-действия.');
   });
 
   it('runs an allowed sandbox dispatch and shows audit feedback', () => {
@@ -38,5 +39,27 @@ describe('RoleActionDispatchBridge', () => {
     expect(screen.getByText(/Текущий статус после dispatch:/)).toBeInTheDocument();
     expect(screen.getByText(/Audit: requestReserve · DL-9113/)).toBeInTheDocument();
     expect(screen.getByText(/Timeline: Запрошен резерв средств в sandbox-контуре/)).toBeInTheDocument();
+  });
+
+  it('writes the sandbox result to the role action journal', () => {
+    render(
+      <RoleActionDispatchBridge
+        role='buyer'
+        dealId='DL-9113'
+        actionType='requestReserve'
+        canRun
+        disabledReason={null}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Выполнить sandbox' }));
+
+    const journal = screen.getByTestId('role-action-journal');
+    expect(within(journal).getByText('Role action journal')).toBeInTheDocument();
+    expect(within(journal).getByText('requestReserve · success')).toBeInTheDocument();
+    expect(within(journal).getByText('Запрошен резерв средств в sandbox-контуре')).toBeInTheDocument();
+    expect(within(journal).getByText(/status: RESERVE_REQUESTED/)).toBeInTheDocument();
+    expect(within(journal).getByText(/audit: requestReserve · DL-9113/)).toBeInTheDocument();
+    expect(within(journal).getByText(/timeline: Запрошен резерв средств в sandbox-контуре/)).toBeInTheDocument();
   });
 });
