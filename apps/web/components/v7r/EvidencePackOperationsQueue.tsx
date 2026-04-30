@@ -23,6 +23,7 @@ const DANGER_BG = 'rgba(220,38,38,0.08)';
 const DANGER_BORDER = 'rgba(220,38,38,0.18)';
 
 type DecisionFilter = 'all' | 'Hold' | 'Review' | 'Can release';
+type MissingHint = 'evidence' | 'audit' | 'timeline' | 'documents' | 'none';
 
 type QueueRow = {
   deal: Deal;
@@ -33,6 +34,7 @@ type QueueRow = {
   score: number;
   decision: 'Hold' | 'Review' | 'Can release';
   blocker: string;
+  missingHints: MissingHint[];
 };
 
 export function EvidencePackOperationsQueue({ decision = 'all' }: { decision?: DecisionFilter }) {
@@ -48,7 +50,7 @@ export function EvidencePackOperationsQueue({ decision = 'all' }: { decision?: D
     <section data-testid='evidence-pack-operations-queue' style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
         <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          P0-08 · evidence queue controls · sandbox
+          Evidence queue · row missing hints · sandbox
         </div>
         <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.15, fontWeight: 900, color: T }}>
           Очередь доказательных пакетов
@@ -122,6 +124,8 @@ function QueueCard({ row }: { row: QueueRow }) {
         </div>
       </div>
 
+      <MissingHints row={row} />
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8 }}>
         <Metric label='Readiness' value={`${row.score}%`} tone={row.score >= 80 ? 'accent' : 'default'} compact />
         <Metric label='Decision' value={row.decision} tone={decisionTone} compact />
@@ -133,6 +137,22 @@ function QueueCard({ row }: { row: QueueRow }) {
   );
 }
 
+function MissingHints({ row }: { row: QueueRow }) {
+  const hints = row.missingHints.length ? row.missingHints : ['none' as const];
+  return (
+    <div data-testid={`missing-hints-${row.deal.id}`} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {hints.map((hint) => {
+        const ok = hint === 'none';
+        return (
+          <Link key={hint} href={ok ? `/platform-v7/deals/${row.deal.id}/evidence-pack` : `/platform-v7/evidence-pack?decision=Review`} style={{ textDecoration: 'none', borderRadius: 999, padding: '6px 9px', background: ok ? BRAND_BG : WARN_BG, border: `1px solid ${ok ? BRAND_BORDER : WARN_BORDER}`, color: ok ? BRAND : WARN, fontSize: 11, fontWeight: 900 }}>
+            {ok ? 'No missing data' : `Needs ${hint}`}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 function buildRows(state: DomainExecutionState): QueueRow[] {
   return state.deals.slice(0, 8).map((deal) => {
     const dispute = state.disputes.find((item) => item.dealId === deal.id);
@@ -140,6 +160,12 @@ function buildRows(state: DomainExecutionState): QueueRow[] {
     const auditCount = state.auditEvents.filter((item) => item.entityId === deal.id || item.entityId === dispute?.id).length;
     const timelineCount = state.dealTimeline.filter((item) => item.dealId === deal.id).length;
     const hasDispute = Boolean(dispute && !['resolved', 'closed'].includes(dispute.status)) || deal.status === 'DISPUTE_OPEN' || Boolean(deal.openDisputeId);
+    const missingHints: MissingHint[] = [
+      evidenceCount > 0 ? null : 'evidence',
+      auditCount > 0 ? null : 'audit',
+      timelineCount > 0 ? null : 'timeline',
+      deal.requiredDocumentsReady ? null : 'documents',
+    ].filter(Boolean) as MissingHint[];
     const checks = [evidenceCount > 0, Boolean(dispute) || Boolean(deal.openDisputeId) || deal.status === 'DISPUTE_OPEN', auditCount > 0, timelineCount > 0, Boolean(deal.requiredDocumentsReady)];
     const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
     const decision: QueueRow['decision'] = hasDispute ? 'Hold' : score >= 80 ? 'Can release' : 'Review';
@@ -149,7 +175,7 @@ function buildRows(state: DomainExecutionState): QueueRow[] {
         ? 'Пакет готов к sandbox-preview: evidence, audit, timeline и документы связаны.'
         : 'Пакет требует данных: не хватает evidence, audit, timeline или документной готовности.';
 
-    return { deal, dispute, evidenceCount, auditCount, timelineCount, score, decision, blocker };
+    return { deal, dispute, evidenceCount, auditCount, timelineCount, score, decision, blocker, missingHints };
   });
 }
 
