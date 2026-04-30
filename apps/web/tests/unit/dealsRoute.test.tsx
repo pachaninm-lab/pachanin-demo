@@ -30,6 +30,18 @@ describe('PlatformV7 deals routes', () => {
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
   });
 
+  it('renders consistency links between deal detail, readiness, money, logistics, dispute and domain core', () => {
+    render(<PlatformV7DealDetailPage params={{ id: 'DL-9102' }} />);
+
+    expect(screen.getByText('Связанные контуры сделки')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Готовность/ })).toHaveAttribute('href', '/platform-v7/readiness');
+    expect(screen.getByRole('link', { name: /Проверка денег/ })).toHaveAttribute('href', '/platform-v7/bank/release-safety');
+    expect(screen.getByRole('link', { name: /Банк/ })).toHaveAttribute('href', '/platform-v7/bank');
+    expect(screen.getByRole('link', { name: /Логистика/ }).getAttribute('href')).toMatch(/^\/platform-v7\/logistics/);
+    expect(screen.getByRole('link', { name: /Спор \/ evidence pack/ }).getAttribute('href')).toMatch(/^\/platform-v7\/disputes/);
+    expect(screen.getByRole('link', { name: /Движок сделки/ })).toHaveAttribute('href', '/platform-v7/domain-core');
+  });
+
   it('renders not-found deal state with safe return link', () => {
     render(<PlatformV7DealDetailPage params={{ id: 'DL-NOT-FOUND' }} />);
 
