@@ -15,9 +15,6 @@ const M = 'var(--pc-text-secondary)';
 const BRAND = 'var(--pc-accent-strong)';
 const BRAND_BG = 'var(--pc-accent-bg)';
 const BRAND_BORDER = 'var(--pc-accent-border)';
-const WARN_BG = 'rgba(217,119,6,0.08)';
-const WARN_BORDER = 'rgba(217,119,6,0.18)';
-const WARN = '#B45309';
 const DANGER_BG = 'rgba(220,38,38,0.08)';
 const DANGER_BORDER = 'rgba(220,38,38,0.18)';
 const DANGER = '#B91C1C';
@@ -84,7 +81,7 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
   const timeline = state.dealTimeline.filter((item) => item.dealId === deal.id).slice(-3).reverse();
   const openDispute = state.disputes.find((item) => item.dealId === deal.id && !['resolved', 'closed'].includes(item.status));
   const amount = calculateDealAmountRub(deal);
-  const moneyBlocked = openDispute || deal.openDisputeId || deal.holdAmount || deal.blocker;
+  const moneyBlocked = Boolean(openDispute || deal.openDisputeId || deal.blocker || deal.status === 'DISPUTE_OPEN');
 
   return (
     <section data-testid={`role-continuity-${role}`} style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: compact ? 14 : 18, display: 'grid', gap: 14 }}>
