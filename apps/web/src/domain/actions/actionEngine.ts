@@ -1,4 +1,4 @@
-import type { AuditEvent, Deal, User } from '../types';
+import type { AuditEvent, Deal, DealTimelineEvent, User } from '../types';
 import { canTransitionDeal, transitionDeal, type DealTransitionAction } from '../state-machine/dealStateMachine';
 
 export type PlatformActionId =
@@ -18,6 +18,7 @@ export interface PlatformActionInput {
   deal: Deal;
   actor: User;
   idempotencyKey?: string;
+  usedIdempotencyKeys?: string[];
   now?: string;
 }
 
@@ -26,8 +27,11 @@ export interface PlatformActionOutput {
   before: Deal;
   after?: Deal;
   auditEvent?: AuditEvent;
-  toast: { type: 'success' | 'warning'; message: string };
+  timelineEvent?: DealTimelineEvent;
+  toast: { type: 'success' | 'warning' | 'info'; message: string };
   disabledReason?: string;
+  idempotentReplay?: boolean;
+  rollback?: Deal;
 }
 
 const ACTION_TO_TRANSITION: Record<PlatformActionId, DealTransitionAction | null> = {
@@ -69,9 +73,24 @@ function buildTransitionContext(input: PlatformActionInput) {
   };
 }
 
+function isReplay(input: PlatformActionInput) {
+  return Boolean(input.idempotencyKey && input.usedIdempotencyKeys?.includes(input.idempotencyKey));
+}
+
 export function runPlatformAction(input: PlatformActionInput): PlatformActionOutput {
   const createdAt = input.now ?? new Date().toISOString();
   const transition = ACTION_TO_TRANSITION[input.actionId];
+
+  if (isReplay(input)) {
+    return {
+      ok: true,
+      before: input.deal,
+      after: input.deal,
+      toast: { type: 'info', message: 'Идемпотентный повтор: состояние не изменено.' },
+      idempotentReplay: true,
+      rollback: input.deal,
+    };
+  }
 
   if (transition) {
     const check = canTransitionDeal(input.deal, transition, buildTransitionContext(input));
@@ -81,6 +100,7 @@ export function runPlatformAction(input: PlatformActionInput): PlatformActionOut
         before: input.deal,
         toast: { type: 'warning', message: check.reason ?? 'Действие сейчас недоступно' },
         disabledReason: check.reason,
+        rollback: input.deal,
       };
     }
   }
@@ -90,6 +110,8 @@ export function runPlatformAction(input: PlatformActionInput): PlatformActionOut
     : { ...input.deal };
 
   const stampedAfter = { ...after, updatedAt: createdAt };
+  const message = ACTION_LABELS[input.actionId];
+
   return {
     ok: true,
     before: input.deal,
@@ -105,6 +127,19 @@ export function runPlatformAction(input: PlatformActionInput): PlatformActionOut
       idempotencyKey: input.idempotencyKey,
       createdAt,
     },
-    toast: { type: 'success', message: ACTION_LABELS[input.actionId] },
+    timelineEvent: {
+      id: `TL-${input.actionId}-${input.deal.id}-${createdAt}`,
+      actorUserId: input.actor.id,
+      dealId: input.deal.id,
+      action: input.actionId,
+      statusBefore: input.deal.status,
+      statusAfter: stampedAfter.status,
+      message,
+      mode: 'sandbox',
+      idempotencyKey: input.idempotencyKey,
+      createdAt,
+    },
+    toast: { type: 'success', message },
+    rollback: input.deal,
   };
 }
