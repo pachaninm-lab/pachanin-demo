@@ -57,10 +57,14 @@ describe('RoleContinuityPanel', () => {
     expect(within(buyer).getByText('P0-04 · continuity · Покупатель')).toBeInTheDocument();
     expect(within(buyer).getByText('Связка закупки: сделка → приёмка → документы → деньги')).toBeInTheDocument();
     expect(within(buyer).getByText(/Качество, вес, лаборатория/)).toBeInTheDocument();
+    expect(within(buyer).getByText('Запросить резерв или открыть спор')).toBeInTheDocument();
+    expect(within(buyer).getByText('requestReserve')).toBeInTheDocument();
 
     expect(within(seller).getByText('P0-04 · continuity · Продавец')).toBeInTheDocument();
     expect(within(seller).getByText('Связка выплаты: лот → сделка → документы → снятие удержания')).toBeInTheDocument();
     expect(within(seller).getByText(/ФГИС\/партия/)).toBeInTheDocument();
+    expect(within(seller).getByText('Закрыть выплатный blocker')).toBeInTheDocument();
+    expect(within(seller).getByText('publishLot')).toBeInTheDocument();
   });
 
   it('renders logistics continuity with logistics route link and transport semantics', () => {
@@ -70,6 +74,8 @@ describe('RoleContinuityPanel', () => {
     expect(within(panel).getByText('P0-04 · continuity · Логистика')).toBeInTheDocument();
     expect(within(panel).getByText('Связка рейса: назначение → погрузка → прибытие → транспортный gate')).toBeInTheDocument();
     expect(within(panel).getByText(/Маршрут, водитель, прибытие/)).toBeInTheDocument();
+    expect(within(panel).getByText('Назначить водителя / закрыть рейс')).toBeInTheDocument();
+    expect(within(panel).getByText('assignDriver')).toBeInTheDocument();
     expect(within(panel).getByRole('link', { name: 'Открыть контур' })).toHaveAttribute('href', '/platform-v7/logistics');
   });
 });
