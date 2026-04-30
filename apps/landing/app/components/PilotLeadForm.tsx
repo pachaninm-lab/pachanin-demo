@@ -22,12 +22,16 @@ export default function PilotLeadForm() {
       const response = await fetch('/api/pilot-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          source: 'landing_loss_map',
+          intent: 'Получить карту потерь сделки',
+        }),
       });
       const result = await response.json().catch(() => ({}));
       if (response.ok && result?.sent === true) {
         setState('success');
-        setMessage('Заявка отправлена на pachaninm@gmail.com. Следующий шаг — разбор сделки и сценария пилота.');
+        setMessage('Заявка отправлена на pachaninm@gmail.com. Следующий шаг — карта потерь и сценарий pilot-разбора одной сделки.');
         form.reset();
         return;
       }
@@ -44,13 +48,14 @@ export default function PilotLeadForm() {
       <div className={styles.inner}>
         <div className={styles.head}>
           <div>
-            <span className={styles.badge}>заявка на пилот</span>
-            <h3 className={styles.title}>Разберём одну реальную сделку и покажем, где теряются деньги.</h3>
+            <span className={styles.badge}>карта потерь сделки</span>
+            <h3 className={styles.title}>Опишите одну сделку — покажем, где могут зависнуть деньги.</h3>
           </div>
-          <div className={styles.note}>Фокус: сделка, документы, деньги, спорность.</div>
+          <div className={styles.note}>Фокус: рейс, вес, качество, документы, оплата, спор.</div>
         </div>
 
         <form onSubmit={onSubmit} className={styles.form}>
+          <input type="text" name="website" hidden tabIndex={-1} autoComplete="off" />
           <div className={styles.grid}>
             <label className={styles.label}>Имя<input className={styles.field} name="name" required placeholder="Как к вам обращаться" /></label>
             <label className={styles.label}>Компания / хозяйство<input className={styles.field} name="company" required placeholder="КФХ, элеватор, покупатель" /></label>
@@ -60,11 +65,15 @@ export default function PilotLeadForm() {
             <label className={styles.label}>Регион<input className={styles.field} name="region" placeholder="Например: Тамбовская область" /></label>
           </div>
           <div className={styles.grid}>
-            <label className={styles.label}>Телефон<input className={styles.field} name="phone" required inputMode="tel" placeholder="+7..." /></label>
-            <label className={styles.label}>Email<input className={styles.field} name="email" type="email" placeholder="Для материалов по пилоту" /></label>
+            <label className={styles.label}>Телефон<input className={styles.field} name="phone" required inputMode="tel" autoComplete="tel" placeholder="+7..." /></label>
+            <label className={styles.label}>Email<input className={styles.field} name="email" type="email" autoComplete="email" placeholder="Для материалов по разбору" /></label>
           </div>
-          <label className={styles.label}>Что нужно разобрать<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={5} placeholder="Культура, объём, маршрут, приёмка, документы, спор по весу/качеству, оплата или удержание" /></label>
-          <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем заявку...' : state === 'success' ? 'Заявка отправлена' : 'Оставить заявку на пилот'}</button>
+          <div className={styles.grid}>
+            <label className={styles.label}>Культура и объём<input className={styles.field} name="cropVolume" placeholder="Пшеница, 240 т" /></label>
+            <label className={styles.label}>Где риск<select className={styles.field} name="risk" defaultValue=""><option value="">Выберите ключевую боль</option><option>Рейс / водитель / маршрут</option><option>Вес / недовес</option><option>Качество / лаборатория</option><option>СДИЗ / ФГИС Зерно</option><option>ЭДО / документы</option><option>Оплата / удержание</option><option>Спор / доказательства</option></select></label>
+          </div>
+          <label className={styles.label}>Что нужно разобрать<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={5} placeholder="Маршрут, точка приёмки, документы, спор по весу/качеству, оплата, удержание или задержка" /></label>
+          <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем...' : state === 'success' ? 'Заявка отправлена' : 'Получить карту потерь сделки'}</button>
           {message ? <p className={`${styles.message} ${state === 'success' ? styles.ok : styles.warn}`}>{message}</p> : null}
         </form>
         <div className={styles.contacts}>
