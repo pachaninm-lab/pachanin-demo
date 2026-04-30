@@ -24,7 +24,7 @@ export default function PilotLeadForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...payload,
-          source: 'landing_loss_map',
+          source: 'landing_sber_ai_mcx',
           intent: 'Получить карту потерь сделки',
         }),
       });
@@ -51,7 +51,7 @@ export default function PilotLeadForm() {
             <span className={styles.badge}>карта потерь сделки</span>
             <h3 className={styles.title}>Опишите одну сделку — покажем, где могут зависнуть деньги.</h3>
           </div>
-          <div className={styles.note}>Фокус: рейс, вес, качество, документы, оплата, спор.</div>
+          <div className={styles.note}>Фокус: рейс, вес, качество, Сбер-контур, документы, AI-риски, оплата, спор.</div>
         </div>
 
         <form onSubmit={onSubmit} className={styles.form}>
@@ -70,9 +70,13 @@ export default function PilotLeadForm() {
           </div>
           <div className={styles.grid}>
             <label className={styles.label}>Культура и объём<input className={styles.field} name="cropVolume" placeholder="Пшеница, 240 т" /></label>
-            <label className={styles.label}>Где риск<select className={styles.field} name="risk" defaultValue=""><option value="">Выберите ключевую боль</option><option>Рейс / водитель / маршрут</option><option>Вес / недовес</option><option>Качество / лаборатория</option><option>СДИЗ / ФГИС Зерно</option><option>ЭДО / документы</option><option>Оплата / удержание</option><option>Спор / доказательства</option></select></label>
+            <label className={styles.label}>Где риск<select className={styles.field} name="risk" defaultValue=""><option value="">Выберите ключевую боль</option><option>Рейс / водитель / маршрут</option><option>Вес / недовес</option><option>Качество / лаборатория</option><option>СДИЗ / ФГИС Зерно</option><option>ЭДО / ЭПД / МЧД</option><option>СберБизнес ID / банковый контур</option><option>Безопасные сделки / номинальный счёт</option><option>AI-анализ рисков</option><option>Оплата / удержание</option><option>Спор / доказательства</option></select></label>
           </div>
-          <label className={styles.label}>Что нужно разобрать<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={5} placeholder="Маршрут, точка приёмки, документы, спор по весу/качеству, оплата, удержание или задержка" /></label>
+          <div className={styles.grid}>
+            <label className={styles.label}>Какой контур нужен<select className={styles.field} name="scenario" defaultValue=""><option value="">Выберите сценарий</option><option>Карта потерь одной сделки</option><option>Controlled pilot</option><option>Банковый сценарий со Сбером</option><option>Документы / СберКорус</option><option>AI-анализ сделки</option><option>Региональный пилот / Минсельхоз</option></select></label>
+            <label className={styles.label}>Срок запуска<select className={styles.field} name="timeline" defaultValue=""><option value="">Выберите срок</option><option>Срочно / сейчас есть риск</option><option>1–2 недели</option><option>1 месяц</option><option>Готовим пилот</option></select></label>
+          </div>
+          <label className={styles.label}>Что нужно разобрать<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={5} placeholder="Маршрут, точка приёмки, документы, спор по весу/качеству, оплата, удержание, Сбер-контур, AI-анализ или региональный пилот" /></label>
           <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем...' : state === 'success' ? 'Заявка отправлена' : 'Получить карту потерь сделки'}</button>
           {message ? <p className={`${styles.message} ${state === 'success' ? styles.ok : styles.warn}`}>{message}</p> : null}
         </form>
