@@ -24,14 +24,14 @@ export default function PilotLeadForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...payload,
-          source: 'landing_sber_ai_mcx',
-          intent: 'Получить карту потерь сделки',
+          source: 'landing_10_quick_lead',
+          intent: 'Получить карту потерь сделки за 48 часов',
         }),
       });
       const result = await response.json().catch(() => ({}));
       if (response.ok && result?.sent === true) {
         setState('success');
-        setMessage('Заявка отправлена на pachaninm@gmail.com. Следующий шаг — карта потерь и сценарий pilot-разбора одной сделки.');
+        setMessage('Заявка отправлена. Следующий шаг — карта потерь, сумма под риском, блокеры оплаты и pilot-сценарий.');
         form.reset();
         return;
       }
@@ -48,36 +48,28 @@ export default function PilotLeadForm() {
       <div className={styles.inner}>
         <div className={styles.head}>
           <div>
-            <span className={styles.badge}>карта потерь сделки</span>
-            <h3 className={styles.title}>Опишите одну сделку — покажем, где могут зависнуть деньги.</h3>
+            <span className={styles.badge}>быстрый вход в разбор</span>
+            <h3 className={styles.title}>4 поля — и мы покажем, где в сделке зависают деньги.</h3>
           </div>
-          <div className={styles.note}>Фокус: рейс, вес, качество, Сбер-контур, документы, AI-риски, оплата, спор.</div>
+          <div className={styles.note}>Подробности добираем после заявки. Форма не должна тормозить пилот.</div>
         </div>
 
         <form onSubmit={onSubmit} className={styles.form}>
           <input type="text" name="website" hidden tabIndex={-1} autoComplete="off" />
           <div className={styles.grid}>
             <label className={styles.label}>Имя<input className={styles.field} name="name" required placeholder="Как к вам обращаться" /></label>
-            <label className={styles.label}>Компания / хозяйство<input className={styles.field} name="company" required placeholder="КФХ, элеватор, покупатель" /></label>
-          </div>
-          <div className={styles.grid}>
-            <label className={styles.label}>Роль в сделке<select className={styles.field} name="role" required defaultValue=""><option value="" disabled>Выберите роль</option><option>Продавец / КФХ</option><option>Покупатель зерна</option><option>Элеватор / приёмка</option><option>Логистика / перевозчик</option><option>Банк / финансирование</option><option>Регион / институт развития</option><option>Другое</option></select></label>
-            <label className={styles.label}>Регион<input className={styles.field} name="region" placeholder="Например: Тамбовская область" /></label>
-          </div>
-          <div className={styles.grid}>
             <label className={styles.label}>Телефон<input className={styles.field} name="phone" required inputMode="tel" autoComplete="tel" placeholder="+7..." /></label>
-            <label className={styles.label}>Email<input className={styles.field} name="email" type="email" autoComplete="email" placeholder="Для материалов по разбору" /></label>
           </div>
           <div className={styles.grid}>
-            <label className={styles.label}>Культура и объём<input className={styles.field} name="cropVolume" placeholder="Пшеница, 240 т" /></label>
-            <label className={styles.label}>Где риск<select className={styles.field} name="risk" defaultValue=""><option value="">Выберите ключевую боль</option><option>Рейс / водитель / маршрут</option><option>Вес / недовес</option><option>Качество / лаборатория</option><option>СДИЗ / ФГИС Зерно</option><option>ЭДО / ЭПД / МЧД</option><option>СберБизнес ID / банковый контур</option><option>Безопасные сделки / номинальный счёт</option><option>AI-анализ рисков</option><option>Оплата / удержание</option><option>Спор / доказательства</option></select></label>
+            <label className={styles.label}>Роль<select className={styles.field} name="role" required defaultValue=""><option value="" disabled>Кто вы в сделке</option><option>Продавец / КФХ</option><option>Покупатель зерна</option><option>Элеватор / приёмка</option><option>Логистика / перевозчик</option><option>Банк / финансирование</option><option>Регион / институт развития</option><option>Другое</option></select></label>
+            <label className={styles.label}>Главная боль<select className={styles.field} name="risk" required defaultValue=""><option value="" disabled>Что болит</option><option>Оплата / удержание</option><option>Качество / лаборатория</option><option>Вес / недовес</option><option>ЭДО / ЭПД / МЧД</option><option>СДИЗ / ФГИС Зерно</option><option>Рейс / водитель / маршрут</option><option>Сбер-контур / банк</option><option>Спор / доказательства</option></select></label>
           </div>
-          <div className={styles.grid}>
-            <label className={styles.label}>Какой контур нужен<select className={styles.field} name="scenario" defaultValue=""><option value="">Выберите сценарий</option><option>Карта потерь одной сделки</option><option>Controlled pilot</option><option>Банковый сценарий со Сбером</option><option>Документы / СберКорус</option><option>AI-анализ сделки</option><option>Региональный пилот / Минсельхоз</option></select></label>
-            <label className={styles.label}>Срок запуска<select className={styles.field} name="timeline" defaultValue=""><option value="">Выберите срок</option><option>Срочно / сейчас есть риск</option><option>1–2 недели</option><option>1 месяц</option><option>Готовим пилот</option></select></label>
-          </div>
-          <label className={styles.label}>Что нужно разобрать<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={5} placeholder="Маршрут, точка приёмки, документы, спор по весу/качеству, оплата, удержание, Сбер-контур, AI-анализ или региональный пилот" /></label>
-          <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем...' : state === 'success' ? 'Заявка отправлена' : 'Получить карту потерь сделки'}</button>
+          <label className={styles.label}>Коротко о сделке<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={4} placeholder="Культура, объём, регион, где зависли деньги: рейс, вес, качество, документы, оплата или спор" /></label>
+          <input type="hidden" name="company" value="Не указано на первом шаге" />
+          <input type="hidden" name="email" value="" />
+          <input type="hidden" name="scenario" value="Карта потерь за 48 часов" />
+          <input type="hidden" name="timeline" value="быстрый разбор" />
+          <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем...' : state === 'success' ? 'Заявка отправлена' : 'Получить карту потерь за 48 часов'}</button>
           {message ? <p className={`${styles.message} ${state === 'success' ? styles.ok : styles.warn}`}>{message}</p> : null}
         </form>
         <div className={styles.contacts}>

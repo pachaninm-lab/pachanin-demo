@@ -1,3 +1,5 @@
+import AgroScenarios from './components/AgroScenarios';
+import FortyEightHourResult from './components/FortyEightHourResult';
 import LandingHero from './components/LandingHero';
 import LandingTrustBlocks from './components/LandingTrustBlocks';
 import LossMap from './components/LossMap';
@@ -63,7 +65,9 @@ export default function Home() {
         </div>
       </section>
 
+      <FortyEightHourResult />
       <LossMap />
+      <AgroScenarios />
       <RoleEntry />
       <PremiumMockups />
       <LandingTrustBlocks />
