@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { PLATFORM_V7_MARKET_RFQ_ROUTE } from '@/lib/platform-v7/routes';
+import { PLATFORM_V7_MARKET_RFQ_ROUTE, PLATFORM_V7_READINESS_ROUTE } from '@/lib/platform-v7/routes';
 import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
@@ -98,7 +98,7 @@ export default function PlatformV7TradingPage() {
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Link href={PLATFORM_V7_MARKET_RFQ_ROUTE} style={btn('primary')}>Открыть карточку торгов</Link>
-                <Link href='/platform-v7/readiness' style={btn()}>Проверить готовность</Link>
+                <Link href={PLATFORM_V7_READINESS_ROUTE} style={btn()}>Проверить готовность</Link>
               </div>
             </div>
           );
