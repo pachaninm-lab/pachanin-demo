@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from 'react';
+import styles from './PilotLeadForm.module.css';
 
 type SubmitState = 'idle' | 'loading' | 'success' | 'fallback' | 'error';
 
@@ -26,45 +27,50 @@ export default function PilotLeadForm() {
       const result = await response.json().catch(() => ({}));
       if (response.ok && result?.sent === true) {
         setState('success');
-        setMessage('Заявка отправлена. Мы свяжемся для разбора сделки и пилотного сценария.');
+        setMessage('Заявка отправлена на pachaninm@gmail.com. Следующий шаг — разбор сделки и сценария пилота.');
         form.reset();
         return;
       }
       setState('fallback');
-      setMessage('Заявка собрана. Для гарантированной доставки используйте прямой контакт ниже.');
+      setMessage('Заявка собрана, но почтовый провайдер ещё не настроен в Vercel. Напишите напрямую на почту или позвоните по номеру ниже.');
     } catch {
       setState('fallback');
-      setMessage('Связь с формой не прошла. Используйте прямой контакт ниже.');
+      setMessage('Связь с формой не прошла. Напишите напрямую на почту или позвоните по номеру ниже.');
     }
   }
 
   return (
-    <div className="lead-shell" id="lead-form">
-      <div className="lead-head">
-        <span>заявка на пилот</span>
-        <strong>Разберём одну реальную сделку и покажем, где теряются деньги.</strong>
-      </div>
+    <div className={styles.shell} id="lead-form">
+      <div className={styles.inner}>
+        <div className={styles.head}>
+          <div>
+            <span className={styles.badge}>заявка на пилот</span>
+            <h3 className={styles.title}>Разберём одну реальную сделку и покажем, где теряются деньги.</h3>
+          </div>
+          <div className={styles.note}>Фокус: сделка, документы, деньги, спорность.</div>
+        </div>
 
-      <form onSubmit={onSubmit} className="lead-form">
-        <div className="form-grid two">
-          <label>Имя<input name="name" required placeholder="Как к вам обращаться" /></label>
-          <label>Компания / хозяйство<input name="company" required placeholder="КФХ, элеватор, покупатель, логистика" /></label>
+        <form onSubmit={onSubmit} className={styles.form}>
+          <div className={styles.grid}>
+            <label className={styles.label}>Имя<input className={styles.field} name="name" required placeholder="Как к вам обращаться" /></label>
+            <label className={styles.label}>Компания / хозяйство<input className={styles.field} name="company" required placeholder="КФХ, элеватор, покупатель" /></label>
+          </div>
+          <div className={styles.grid}>
+            <label className={styles.label}>Роль в сделке<select className={styles.field} name="role" required defaultValue=""><option value="" disabled>Выберите роль</option><option>Продавец / КФХ</option><option>Покупатель зерна</option><option>Элеватор / приёмка</option><option>Логистика / перевозчик</option><option>Банк / финансирование</option><option>Регион / институт развития</option><option>Другое</option></select></label>
+            <label className={styles.label}>Регион<input className={styles.field} name="region" placeholder="Например: Тамбовская область" /></label>
+          </div>
+          <div className={styles.grid}>
+            <label className={styles.label}>Телефон<input className={styles.field} name="phone" required inputMode="tel" placeholder="+7..." /></label>
+            <label className={styles.label}>Email<input className={styles.field} name="email" type="email" placeholder="Для материалов по пилоту" /></label>
+          </div>
+          <label className={styles.label}>Что нужно разобрать<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={5} placeholder="Культура, объём, маршрут, приёмка, документы, спор по весу/качеству, оплата или удержание" /></label>
+          <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем заявку...' : state === 'success' ? 'Заявка отправлена' : 'Оставить заявку на пилот'}</button>
+          {message ? <p className={`${styles.message} ${state === 'success' ? styles.ok : styles.warn}`}>{message}</p> : null}
+        </form>
+        <div className={styles.contacts}>
+          <a href="mailto:pachaninm@gmail.com">pachaninm@gmail.com</a>
+          <a href="tel:+79162778989">+7 916 277-89-89</a>
         </div>
-        <div className="form-grid two">
-          <label>Роль в сделке<select name="role" required defaultValue=""><option value="" disabled>Выберите роль</option><option>Продавец / КФХ</option><option>Покупатель зерна</option><option>Элеватор / приёмка</option><option>Логистика / перевозчик</option><option>Банк / финансирование</option><option>Регион / институт развития</option><option>Другое</option></select></label>
-          <label>Регион<input name="region" placeholder="Например: Тамбовская область" /></label>
-        </div>
-        <div className="form-grid two">
-          <label>Телефон<input name="phone" required inputMode="tel" placeholder="+7..." /></label>
-          <label>Email<input name="email" type="email" placeholder="Для материалов по пилоту" /></label>
-        </div>
-        <label>Что нужно разобрать<textarea name="deal" required rows={5} placeholder="Культура, объём, маршрут, приёмка, документы, спор по весу/качеству, оплата или удержание" /></label>
-        <button type="submit" disabled={state === 'loading' || state === 'success'} className="primary-submit">{state === 'loading' ? 'Отправляем заявку...' : state === 'success' ? 'Заявка отправлена' : 'Оставить заявку на пилот'}</button>
-        {message ? <p className={`form-message ${state}`}>{message}</p> : null}
-      </form>
-      <div className="contact-strip">
-        <a href="mailto:pachaninm@gmail.com">pachaninm@gmail.com</a>
-        <a href="tel:+79162778989">+7 916 277-89-89</a>
       </div>
     </div>
   );
