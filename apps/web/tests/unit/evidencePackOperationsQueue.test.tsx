@@ -29,6 +29,11 @@ describe('EvidencePackOperationsQueue', () => {
     expect(screen.getAllByText(/Needs evidence|Needs audit|Needs timeline|Needs documents|No missing data/).length).toBeGreaterThan(0);
   });
 
+  it('renders active missing filter', () => {
+    render(<EvidencePackOperationsQueue decision='Review' missing='evidence' />);
+    expect(screen.getByTestId('active-missing-filter')).toHaveTextContent('Missing filter: evidence');
+  });
+
   it('links missing hints to typed Review filters', () => {
     render(<EvidencePackOperationsQueue />);
     const links = screen.getAllByRole('link').filter((link) => link.getAttribute('href')?.includes('missing='));
