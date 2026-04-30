@@ -61,8 +61,7 @@
     "verify:deep-readiness": "node ./scripts/run-deep-readiness-suite.mjs"
   },
   "workspaces": [
-    "apps/api",
-    "apps/web",
+    "apps/*",
     "packages/*"
   ],
   "devDependencies": {
