@@ -1,10 +1,12 @@
 import LandingHero from './components/LandingHero';
+import LandingTrustBlocks from './components/LandingTrustBlocks';
 import LossMap from './components/LossMap';
 import NotAnotherTool from './components/NotAnotherTool';
 import PilotLeadForm from './components/PilotLeadForm';
 import PilotSingleDeal from './components/PilotSingleDeal';
 import PremiumMockups from './components/PremiumMockups';
 import RoleEntry from './components/RoleEntry';
+import SampleLossCard from './components/SampleLossCard';
 import StickyCTA from './components/StickyCTA';
 
 const pains = [
@@ -24,12 +26,12 @@ export default function Home() {
           </a>
           <nav className="hidden items-center gap-7 md:flex">
             <a href="#loss-map" className="text-sm text-[#8BA89E] hover:text-white">Где потери</a>
-            <a href="#roles" className="text-sm text-[#8BA89E] hover:text-white">Для кого</a>
-            <a href="#mockup" className="text-sm text-[#8BA89E] hover:text-white">Мокапы</a>
-            <a href="#pilot" className="text-sm text-[#8BA89E] hover:text-white">Пилот</a>
-            <a href="#contact" className="lux-button rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-hover">Разобрать сделку</a>
+            <a href="#money" className="text-sm text-[#8BA89E] hover:text-white">Деньги</a>
+            <a href="#trust" className="text-sm text-[#8BA89E] hover:text-white">Сбер / AI / АПК</a>
+            <a href="#sample" className="text-sm text-[#8BA89E] hover:text-white">Пример</a>
+            <a href="#contact" className="lux-button rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-hover">Получить карту</a>
           </nav>
-          <a href="#contact" className="lux-button rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white md:hidden">Заявка</a>
+          <a href="#contact" className="lux-button rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white md:hidden">Карта</a>
         </div>
       </header>
 
@@ -37,7 +39,7 @@ export default function Home() {
 
       <section className="lux-line relative z-10 border-y border-[rgba(126,242,196,0.08)] py-9">
         <div className="mx-auto grid max-w-7xl gap-3 px-6 md:grid-cols-4">
-          {['Не marketplace', 'Не WhatsApp вместо сделки', 'Деньги связаны с фактами', 'Заявка за 60 секунд'].map((item) => (
+          {['Не marketplace', 'Сбер-контур', 'AI-анализ рисков', 'В повестке цифровизации АПК'].map((item) => (
             <div key={item} className="premium-card rounded-2xl p-4 text-center text-sm font-semibold text-[#C9D8D2]">{item}</div>
           ))}
         </div>
@@ -64,8 +66,10 @@ export default function Home() {
       <LossMap />
       <RoleEntry />
       <PremiumMockups />
+      <LandingTrustBlocks />
       <NotAnotherTool />
       <PilotSingleDeal />
+      <SampleLossCard />
 
       <section id="contact" className="relative z-10 overflow-hidden py-24">
         <div className="mx-auto max-w-5xl px-6 text-center">
@@ -73,8 +77,8 @@ export default function Home() {
             <span className="h-1.5 w-1.5 rounded-full bg-mint" />
             <span className="text-xs font-semibold uppercase tracking-wide text-mint">следующий шаг</span>
           </div>
-          <h2 className="mb-6 text-4xl font-black tracking-tight md:text-6xl">Покажите сделку, где сейчас есть риск.</h2>
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Оставьте заявку — разберём вашу сделку и покажем 3 точки риска: рейс, качество, документы, оплата или спор.</p>
+          <h2 className="mb-6 text-4xl font-black tracking-tight md:text-6xl">Получите карту потерь по вашей сделке.</h2>
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Опишите одну сделку: культура, объём, маршрут, приёмка, документы, оплата или спор. Ответим с фокусом на деньги, факты, Сбер-контур, AI-риски и пилот.</p>
           <PilotLeadForm />
         </div>
       </section>
@@ -85,7 +89,7 @@ export default function Home() {
             <div className="font-bold text-white">Прозрачная <span className="text-mint">Цена</span></div>
             <div className="mt-1 text-sm text-[#4A6B5E]">контур исполнения внебиржевой зерновой сделки</div>
           </div>
-          <div className="max-w-xl text-xs leading-relaxed text-[#4A6B5E] md:text-right">Предпилотная версия. Сайт не является публичной офертой, банковской гарантией или подтверждением завершённых боевых интеграций.</div>
+          <div className="max-w-xl text-xs leading-relaxed text-[#4A6B5E] md:text-right">Предпилотная версия. Сайт не является публичной офертой, банковской гарантией, официальным заявлением Сбера или Минсельхоза, либо подтверждением завершённых боевых интеграций.</div>
         </div>
       </footer>
 
