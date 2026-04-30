@@ -171,3 +171,16 @@ export interface AuditEvent {
   idempotencyKey?: string;
   createdAt: ISODateTime;
 }
+
+export interface DealTimelineEvent {
+  id: EntityId;
+  dealId: EntityId;
+  actorUserId: EntityId;
+  action: string;
+  statusBefore: DealStatus;
+  statusAfter: DealStatus;
+  message: string;
+  mode: Exclude<PlatformMode, 'live'>;
+  idempotencyKey?: string;
+  createdAt: ISODateTime;
+}
