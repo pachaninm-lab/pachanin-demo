@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import './brand-logo.css';
+import './worldclass-polish.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — карта потерь зерновой сделки',
