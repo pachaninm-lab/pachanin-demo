@@ -32,6 +32,7 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
   const isOpen = Boolean(dispute && !['resolved', 'closed'].includes(dispute.status));
   const moneyHoldReason = resolveMoneyHoldReason(deal, dispute, evidence.length);
   const bankDecision = resolveBankDecision(deal, dispute, evidence.length);
+  const readiness = resolveDisputePackReadiness(deal, dispute, evidence.length, audit.length, timeline.length);
 
   return (
     <section data-testid='evidence-dispute-continuity-panel' style={{ background: S, border: `1px solid ${isOpen ? DANGER_BORDER : BRAND_BORDER}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
@@ -60,12 +61,28 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
         <Cell label='Спор' value={dispute ? human(dispute.status) : 'Нет'} tone={isOpen ? 'danger' : 'accent'} />
         <Cell label='Evidence' value={String(evidence.length)} />
         <Cell label='Bank decision' value={bankDecision.label} tone={bankDecision.tone} />
+        <Cell label='Pack readiness' value={`${readiness.score}%`} tone={readiness.tone} />
       </div>
 
       <div style={{ background: isOpen ? DANGER_BG : WARN_BG, border: `1px solid ${isOpen ? DANGER_BORDER : WARN_BORDER}`, borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 900, color: isOpen ? DANGER : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Money hold / release explanation</div>
         <div style={{ fontSize: 14, color: T, fontWeight: 900, lineHeight: 1.5 }}>{moneyHoldReason.title}</div>
         <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>{moneyHoldReason.detail}</div>
+      </div>
+
+      <div data-testid='dispute-pack-readiness' style={{ background: readiness.score >= 80 ? BRAND_BG : WARN_BG, border: `1px solid ${readiness.score >= 80 ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 900, color: readiness.score >= 80 ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Dispute pack readiness</div>
+        <div style={{ fontSize: 18, color: T, fontWeight: 900 }}>{readiness.score}% · {readiness.label}</div>
+        <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>{readiness.detail}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 8 }}>
+          {readiness.checks.map((check) => (
+            <div key={check.label} style={{ background: SS, border: `1px solid ${check.ok ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 12, padding: 10 }}>
+              <div style={{ fontSize: 11, color: check.ok ? BRAND : WARN, fontWeight: 900 }}>{check.ok ? 'OK' : 'Нужно'}</div>
+              <div style={{ marginTop: 4, fontSize: 12, color: T, fontWeight: 800 }}>{check.label}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>Export-ready summary: sandbox preview only. PDF/ЭДО/КЭП экспорт не заявлен как live.</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
@@ -118,6 +135,26 @@ function resolveBankDecision(deal: Deal, dispute: Dispute | undefined, evidenceC
   if (deal.status === 'DISPUTE_OPEN' || deal.openDisputeId) return { label: 'Review', tone: 'danger' };
   if (!deal.requiredDocumentsReady || evidenceCount === 0) return { label: 'Review', tone: 'default' };
   return { label: 'Can release', tone: 'accent' };
+}
+
+function resolveDisputePackReadiness(deal: Deal, dispute: Dispute | undefined, evidenceCount: number, auditCount: number, timelineCount: number) {
+  const checks = [
+    { label: 'Evidence attached', ok: evidenceCount > 0 },
+    { label: 'Dispute context', ok: Boolean(dispute) || Boolean(deal.openDisputeId) || deal.status === 'DISPUTE_OPEN' },
+    { label: 'Audit trail', ok: auditCount > 0 },
+    { label: 'Timeline linked', ok: timelineCount > 0 },
+    { label: 'Money decision explained', ok: true },
+  ];
+  const score = Math.round((checks.filter((check) => check.ok).length / checks.length) * 100);
+  return {
+    score,
+    checks,
+    label: score >= 80 ? 'готов к sandbox-preview' : 'требует данных',
+    tone: score >= 80 ? 'accent' as const : 'default' as const,
+    detail: score >= 80
+      ? 'Пакет можно показывать банку/арбитру как sandbox-preview: есть evidence, спорный контекст, audit/timeline и объяснение денежного решения.'
+      : 'Пакет нельзя подавать как полный: не хватает evidence, dispute context, audit или timeline связки.',
+  };
 }
 
 function ListBlock({ title, empty, rows }: { title: string; empty: string; rows: Array<{ id: string; kicker: string; text: string }> }) {
