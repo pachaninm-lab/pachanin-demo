@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useCommercialRuntimeStore } from '@/stores/useCommercialRuntimeStore';
 import { useToast } from '@/components/v7r/Toast';
 import { trackLotCreated } from '@/lib/analytics/track';
+import { PLATFORM_V7_LOTS_ROUTE } from '@/lib/platform-v7/routes';
 
 const CROPS = [
   'Пшеница 1 кл.', 'Пшеница 2 кл.', 'Пшеница 3 кл.', 'Пшеница 4 кл.', 'Пшеница 5 кл.',
@@ -106,11 +107,11 @@ export function SellerLotCreateRuntimeV2() {
       type: 'success',
       duration: 6000,
       actions: [
-        { label: 'Открыть', onClick: () => router.push(`/platform-v7/lots/${created.id}`) },
+        { label: 'Открыть', onClick: () => router.push(`${PLATFORM_V7_LOTS_ROUTE}/${created.id}`) },
         { label: 'Создать ещё', onClick: resetForm },
       ],
     });
-    router.push('/platform-v7/lots');
+    router.push(PLATFORM_V7_LOTS_ROUTE);
   }
 
   return (
@@ -146,7 +147,7 @@ export function SellerLotCreateRuntimeV2() {
             <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: 'var(--pc-text-primary)' }}>Создать лот</div>
             <div style={{ fontSize: 13, color: 'var(--pc-text-muted)', lineHeight: 1.7, marginTop: 8 }}>Заполните параметры. На мобильном экран автоматически собирается в одну колонку без бокового переполнения.</div>
           </div>
-          <Link href='/platform-v7/lots' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 700 }}>Все лоты</Link>
+          <Link href={PLATFORM_V7_LOTS_ROUTE} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 700 }}>Все лоты</Link>
         </div>
       </section>
 
@@ -223,7 +224,7 @@ export function SellerLotCreateRuntimeV2() {
             <button onClick={handleSubmit} disabled={saving} style={{ borderRadius: 12, padding: '12px 20px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 14, fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
               {saving ? 'Сохраняем…' : 'Сохранить лот'}
             </button>
-            <Link href='/platform-v7/lots' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '12px 16px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', fontSize: 14, fontWeight: 700 }}>Отмена</Link>
+            <Link href={PLATFORM_V7_LOTS_ROUTE} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '12px 16px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', fontSize: 14, fontWeight: 700 }}>Отмена</Link>
           </div>
         </section>
 
