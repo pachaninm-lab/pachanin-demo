@@ -24,6 +24,7 @@ const DANGER_BORDER = 'rgba(220,38,38,0.18)';
 
 type DecisionFilter = 'all' | 'Hold' | 'Review' | 'Can release';
 type MissingHint = 'evidence' | 'audit' | 'timeline' | 'documents' | 'none';
+type MissingFilter = Exclude<MissingHint, 'none'> | 'all';
 
 type QueueRow = {
   deal: Deal;
@@ -37,10 +38,14 @@ type QueueRow = {
   missingHints: MissingHint[];
 };
 
-export function EvidencePackOperationsQueue({ decision = 'all' }: { decision?: DecisionFilter }) {
+export function EvidencePackOperationsQueue({ decision = 'all', missing = 'all' }: { decision?: DecisionFilter; missing?: MissingFilter }) {
   const state = createExecutionSimulationState();
   const rows = buildRows(state);
-  const visibleRows = decision === 'all' ? rows : rows.filter((row) => row.decision === decision);
+  const visibleRows = rows.filter((row) => {
+    const decisionMatch = decision === 'all' || row.decision === decision;
+    const missingMatch = missing === 'all' || row.missingHints.includes(missing);
+    return decisionMatch && missingMatch;
+  });
   const holdCount = rows.filter((row) => row.decision === 'Hold').length;
   const reviewCount = rows.filter((row) => row.decision === 'Review').length;
   const readyCount = rows.filter((row) => row.decision === 'Can release').length;
@@ -50,7 +55,7 @@ export function EvidencePackOperationsQueue({ decision = 'all' }: { decision?: D
     <section data-testid='evidence-pack-operations-queue' style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
         <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Evidence queue · missing type links · sandbox
+          Evidence queue · missing filter parsing · sandbox
         </div>
         <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.15, fontWeight: 900, color: T }}>
           Очередь доказательных пакетов
@@ -68,6 +73,12 @@ export function EvidencePackOperationsQueue({ decision = 'all' }: { decision?: D
       </div>
 
       <DecisionControls active={decision} />
+
+      {missing !== 'all' ? (
+        <div data-testid='active-missing-filter' style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 12, padding: 10, fontSize: 12, color: WARN, fontWeight: 900 }}>
+          Missing filter: {missing}
+        </div>
+      ) : null}
 
       <div data-testid='evidence-queue-visible-count' style={{ fontSize: 12, color: M, fontWeight: 800 }}>
         Показано: {visibleRows.length} из {rows.length}
