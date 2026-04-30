@@ -2,13 +2,18 @@ import Link from 'next/link';
 import { EvidencePackOperationsQueue } from '@/components/v7r/EvidencePackOperationsQueue';
 
 const SAMPLE_DEALS = ['DL-9113', 'DL-9114', 'DL-9116', 'DL-9118', 'DL-9120'];
+const DECISIONS = ['Hold', 'Review', 'Can release'] as const;
 
-export default function EvidencePackIndexPage() {
+type Decision = typeof DECISIONS[number];
+
+export default function EvidencePackIndexPage({ searchParams }: { searchParams?: { decision?: string } }) {
+  const decision = parseDecision(searchParams?.decision);
+
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 11, color: '#0A7A5F', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          P0-07 · evidence pack operations · sandbox
+          P0-08 · evidence queue controls · sandbox
         </div>
         <h1 style={{ margin: 0, fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
           Evidence pack operations
@@ -23,7 +28,7 @@ export default function EvidencePackIndexPage() {
         </div>
       </section>
 
-      <EvidencePackOperationsQueue />
+      <EvidencePackOperationsQueue decision={decision} />
 
       <section data-testid='evidence-pack-index' style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Доступные preview-пакеты</div>
@@ -43,6 +48,11 @@ export default function EvidencePackIndexPage() {
       </section>
     </div>
   );
+}
+
+function parseDecision(value?: string): 'all' | Decision {
+  if (value && DECISIONS.includes(value as Decision)) return value as Decision;
+  return 'all';
 }
 
 function btn(kind: 'default' | 'primary' = 'default') {
