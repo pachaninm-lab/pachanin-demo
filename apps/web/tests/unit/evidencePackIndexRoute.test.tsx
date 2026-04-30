@@ -7,6 +7,7 @@ describe('EvidencePackIndexPage', () => {
   it('renders evidence pack operations and sample deal links', () => {
     render(<EvidencePackIndexPage />);
 
+    expect(screen.getByTestId('evidence-export-readiness-summary')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-pack-operations-queue')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-pack-index')).toBeInTheDocument();
     expect(screen.getByText('Evidence pack operations')).toBeInTheDocument();
