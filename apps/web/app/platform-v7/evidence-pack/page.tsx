@@ -4,11 +4,14 @@ import { EvidencePackOperationsQueue } from '@/components/v7r/EvidencePackOperat
 
 const SAMPLE_DEALS = ['DL-9113', 'DL-9114', 'DL-9116', 'DL-9118', 'DL-9120'];
 const DECISIONS = ['Hold', 'Review', 'Can release'] as const;
+const MISSING = ['evidence', 'audit', 'timeline', 'documents'] as const;
 
 type Decision = typeof DECISIONS[number];
+type Missing = typeof MISSING[number];
 
-export default function EvidencePackIndexPage({ searchParams }: { searchParams?: { decision?: string } }) {
+export default function EvidencePackIndexPage({ searchParams }: { searchParams?: { decision?: string; missing?: string } }) {
   const decision = parseDecision(searchParams?.decision);
+  const missing = parseMissing(searchParams?.missing);
 
   return (
     <div style={{ display: 'grid', gap: 18 }}>
@@ -30,7 +33,7 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
       </section>
 
       <EvidenceExportReadinessSummary />
-      <EvidencePackOperationsQueue decision={decision} />
+      <EvidencePackOperationsQueue decision={decision} missing={missing} />
 
       <section data-testid='evidence-pack-index' style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Доступные preview-пакеты</div>
@@ -54,6 +57,11 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
 
 function parseDecision(value?: string): 'all' | Decision {
   if (value && DECISIONS.includes(value as Decision)) return value as Decision;
+  return 'all';
+}
+
+function parseMissing(value?: string): 'all' | Missing {
+  if (value && MISSING.includes(value as Missing)) return value as Missing;
   return 'all';
 }
 
