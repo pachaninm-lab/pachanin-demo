@@ -1,9 +1,9 @@
 const route = ['цена', 'рейс', 'вес', 'качество', 'СДИЗ', 'ЭДО', 'деньги'];
 
 const money = [
-  ['сумма сделки', '3,8 млн ₽'],
-  ['удержание', '180 тыс. ₽'],
-  ['к выпуску', '70%'],
+  ['сделка', '3,87 млн ₽'],
+  ['под риском', 'рейс · качество'],
+  ['первый результат', 'карта потерь'],
 ];
 
 export default function LandingHero() {
@@ -19,18 +19,18 @@ export default function LandingHero() {
             <span className="text-xs font-semibold uppercase tracking-wide text-mint">не marketplace · контур исполнения сделки</span>
           </div>
           <h1 className="reveal reveal-delay-1 mb-6 max-w-4xl text-5xl font-black leading-[1.02] tracking-tight md:text-7xl">
-            Цена договорена.<br />
-            <span className="gradient-text">Деньги ещё можно потерять.</span>
+            Цена согласована.<br />
+            <span className="gradient-text">Деньги ещё не защищены.</span>
           </h1>
           <p className="reveal reveal-delay-2 mb-8 max-w-2xl text-lg leading-relaxed text-[#A7BBB4] md:text-xl">
-            Вес, качество, рейс, СДИЗ, ЭДО, удержания и спор — вот где зерновая сделка реально теряет прибыль после согласования цены.
+            Показываем, где после цены могут зависнуть деньги: рейс, вес, качество, СДИЗ, ЭДО, удержания, оплата и спор.
           </p>
           <p className="reveal reveal-delay-2 mb-10 max-w-2xl text-sm leading-relaxed text-[#6F8C82]">
-            «Прозрачная Цена» собирает сделку в проверяемый контур: кто отвечает, что подтверждено, где риск, почему деньги можно выпустить или нужно удержать.
+            Первый вход — карта потерь по одной реальной сделке. Без обещаний live-интеграций без договоров, доступов и проверки.
           </p>
           <div className="reveal reveal-delay-3 flex flex-col gap-4 sm:flex-row">
-            <a href="#contact" className="lux-button rounded-xl bg-brand px-8 py-4 text-center font-semibold text-white glow transition hover:scale-[1.02] hover:bg-brand-hover">Разобрать мою сделку</a>
-            <a href="#loss-map" className="rounded-xl border border-[rgba(126,242,196,0.2)] bg-[rgba(255,255,255,0.02)] px-8 py-4 text-center font-medium text-[#EAF1EE] transition hover:border-[rgba(126,242,196,0.4)]">Где теряются деньги</a>
+            <a href="#contact" className="lux-button rounded-xl bg-brand px-8 py-4 text-center font-semibold text-white glow transition hover:scale-[1.02] hover:bg-brand-hover">Получить карту потерь сделки</a>
+            <a href="#pilot" className="rounded-xl border border-[rgba(126,242,196,0.2)] bg-[rgba(255,255,255,0.02)] px-8 py-4 text-center font-medium text-[#EAF1EE] transition hover:border-[rgba(126,242,196,0.4)]">Как проходит пилот</a>
           </div>
         </div>
 
@@ -38,10 +38,10 @@ export default function LandingHero() {
           <div className="rounded-[28px] border border-[rgba(126,242,196,0.08)] bg-[#07110E]/95 p-5">
             <div className="mb-5 flex items-start justify-between gap-4 border-b border-[rgba(126,242,196,0.08)] pb-5">
               <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-[#4A6B5E]">мокап сделки</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-[#4A6B5E]">карта исполнения сделки</div>
                 <div className="mt-2 text-xl font-black text-white">DL-9102 · пшеница 4 класса</div>
               </div>
-              <span className="rounded-full border border-[rgba(245,180,30,0.22)] bg-[rgba(245,180,30,0.07)] px-3 py-1 text-xs font-semibold text-[#F5B41E]">риск удержания</span>
+              <span className="rounded-full border border-[rgba(245,180,30,0.22)] bg-[rgba(245,180,30,0.07)] px-3 py-1 text-xs font-semibold text-[#F5B41E]">нужна сверка</span>
             </div>
             <div className="space-y-2.5">
               {route.map((item, index) => (
@@ -55,7 +55,7 @@ export default function LandingHero() {
               {money.map(([label, value]) => (
                 <div key={label} className="rounded-2xl border border-[rgba(126,242,196,0.1)] bg-[rgba(126,242,196,0.035)] p-4">
                   <div className="text-xs uppercase tracking-[0.14em] text-[#6F8C82]">{label}</div>
-                  <div className="mt-1 font-mono text-xl font-bold text-white">{value}</div>
+                  <div className="mt-1 font-mono text-base font-bold text-white">{value}</div>
                 </div>
               ))}
             </div>
