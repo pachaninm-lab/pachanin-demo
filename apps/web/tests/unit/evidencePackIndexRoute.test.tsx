@@ -6,7 +6,6 @@ import EvidencePackIndexPage from '@/app/platform-v7/evidence-pack/page';
 describe('EvidencePackIndexPage', () => {
   it('renders evidence pack operations and sample deal links', () => {
     render(<EvidencePackIndexPage />);
-
     expect(screen.getByTestId('evidence-export-readiness-summary')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-pack-operations-queue')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-pack-index')).toBeInTheDocument();
@@ -17,14 +16,17 @@ describe('EvidencePackIndexPage', () => {
 
   it('accepts decision search params', () => {
     render(<EvidencePackIndexPage searchParams={{ decision: 'Hold' }} />);
-
     expect(screen.getByTestId('evidence-queue-controls')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-queue-visible-count')).toHaveTextContent(/Показано:/);
   });
 
+  it('accepts missing search params', () => {
+    render(<EvidencePackIndexPage searchParams={{ decision: 'Review', missing: 'evidence' }} />);
+    expect(screen.getByTestId('active-missing-filter')).toHaveTextContent('Missing filter: evidence');
+  });
+
   it('keeps sandbox boundary visible', () => {
     render(<EvidencePackIndexPage />);
-
     expect(screen.getByText(/sandbox-навигация/)).toBeInTheDocument();
     expect(screen.getByText(/не запускает live PDF, ЭДО, КЭП, банк, ФГИС или СберКорус/)).toBeInTheDocument();
   });
