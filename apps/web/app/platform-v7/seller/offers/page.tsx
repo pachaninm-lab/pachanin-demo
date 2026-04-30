@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
+import { PLATFORM_V7_READINESS_ROUTE, PLATFORM_V7_TRADING_ROUTE } from '@/lib/platform-v7/routes';
 import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
 
 const S = 'var(--pc-bg-card)';
@@ -67,8 +68,8 @@ export default function PlatformV7SellerOffersPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/trading' style={btn()}>Торги и ставки</Link>
-            <Link href='/platform-v7/readiness' style={btn('primary')}>Готовность сделки</Link>
+            <Link href={PLATFORM_V7_TRADING_ROUTE} style={btn()}>Торги и ставки</Link>
+            <Link href={PLATFORM_V7_READINESS_ROUTE} style={btn('primary')}>Готовность сделки</Link>
           </div>
         </div>
       </section>
@@ -120,7 +121,7 @@ export default function PlatformV7SellerOffersPage() {
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ color: M, fontSize: 12, lineHeight: 1.45 }}>Операционные кнопки перенесены в E4-панель выше: там есть состояние, журнал и откат.</span>
-                <Link href='/platform-v7/readiness' style={btn()}>Проверить готовность</Link>
+                <Link href={PLATFORM_V7_READINESS_ROUTE} style={btn()}>Проверить готовность</Link>
               </div>
             </div>
           );
