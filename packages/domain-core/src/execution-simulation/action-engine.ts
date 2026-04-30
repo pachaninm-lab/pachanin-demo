@@ -11,9 +11,39 @@ import type {
   MoneyEvent,
   PlatformActionCommand,
   PlatformActionResult,
+  PlatformActionType,
   TransportPack
 } from './types';
 import { transitionDeal } from './state-machine';
+
+type ActionOutcome = { entityId: string; dealId?: string; before?: unknown; after?: unknown };
+type ActionHandler = (state: DomainExecutionState, command: PlatformActionCommand) => ActionOutcome;
+
+const simulationActionMessages: Record<PlatformActionType, string> = {
+  createLot: 'Лот создан в sandbox-контуре',
+  publishLot: 'Лот опубликован в sandbox-контуре',
+  acceptOffer: 'Оффер акцептован в sandbox-контуре',
+  createDeal: 'Сделка создана в sandbox-контуре',
+  requestReserve: 'Запрошен резерв средств в sandbox-контуре',
+  confirmReserve: 'Резерв средств подтверждён в sandbox-контуре',
+  assignDriver: 'Водитель назначен в sandbox-контуре',
+  confirmArrival: 'Прибытие подтверждено в sandbox-контуре',
+  createLabProtocol: 'Лабораторный протокол создан в sandbox-контуре',
+  openDispute: 'Спор открыт в sandbox-контуре'
+};
+
+const allowedRolesByAction: Record<PlatformActionType, string[]> = {
+  createLot: ['seller', 'operator', 'admin'],
+  publishLot: ['seller', 'operator', 'admin'],
+  acceptOffer: ['buyer', 'operator', 'admin'],
+  createDeal: ['seller', 'buyer', 'operator', 'admin'],
+  requestReserve: ['buyer', 'bank', 'operator', 'admin'],
+  confirmReserve: ['bank', 'operator', 'admin'],
+  assignDriver: ['logistics', 'operator', 'admin'],
+  confirmArrival: ['driver', 'elevator', 'operator', 'admin'],
+  createLabProtocol: ['lab', 'operator', 'admin'],
+  openDispute: ['seller', 'buyer', 'operator', 'arbitrator', 'admin']
+};
 
 function cloneState(state: DomainExecutionState): DomainExecutionState {
   return JSON.parse(JSON.stringify(state)) as DomainExecutionState;
@@ -25,17 +55,13 @@ function createId(prefix: string, now: string, suffix?: string) {
 
 function requireString(payload: Record<string, unknown>, key: string): string {
   const value = payload[key];
-  if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`Missing required payload field: ${key}`);
-  }
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`Missing required payload field: ${key}`);
   return value;
 }
 
 function requireNumber(payload: Record<string, unknown>, key: string): number {
   const value = payload[key];
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    throw new Error(`Missing required numeric payload field: ${key}`);
-  }
+  if (typeof value !== 'number' || Number.isNaN(value)) throw new Error(`Missing required numeric payload field: ${key}`);
   return value;
 }
 
@@ -79,7 +105,7 @@ function appendAuditAndTimeline(
     ? {
         id: createId('TL', now, String(state.dealTimeline.length + 1).padStart(3, '0')),
         dealId,
-        title: simulationActionMessages[command.type] || 'Simulation action completed',
+        title: simulationActionMessages[command.type],
         actionType: command.type,
         actorId: command.actor.id,
         actorRole: command.actor.role,
@@ -92,44 +118,19 @@ function appendAuditAndTimeline(
   return { auditEvent, timelineEvent };
 }
 
-const simulationActionMessages: Record<string, string> = {
-  createLot: 'Лот создан в sandbox-контуре',
-  publishLot: 'Лот опубликован в sandbox-контуре',
-  acceptOffer: 'Оффер акцептован в sandbox-контуре',
-  createDeal: 'Сделка создана в sandbox-контуре',
-  requestReserve: 'Запрошен резерв средств в sandbox-контуре',
-  confirmReserve: 'Резерв средств подтверждён в sandbox-контуре',
-  assignDriver: 'Водитель назначен в sandbox-контуре',
-  confirmArrival: 'Прибытие подтверждено в sandbox-контуре',
-  createLabProtocol: 'Лабораторный протокол создан в sandbox-контуре',
-  openDispute: 'Спор открыт в sandbox-контуре'
-};
-
 export function getPlatformActionDisabledReason(state: DomainExecutionState, command: PlatformActionCommand): string | null {
-  const role = command.actor.role;
-  const allowed: Record<string, string[]> = {
-    createLot: ['seller', 'operator', 'admin'],
-    publishLot: ['seller', 'operator', 'admin'],
-    acceptOffer: ['buyer', 'operator', 'admin'],
-    createDeal: ['seller', 'buyer', 'operator', 'admin'],
-    requestReserve: ['buyer', 'bank', 'operator', 'admin'],
-    confirmReserve: ['bank', 'operator', 'admin'],
-    assignDriver: ['logistics', 'operator', 'admin'],
-    confirmArrival: ['driver', 'elevator', 'operator', 'admin'],
-    createLabProtocol: ['lab', 'operator', 'admin'],
-    openDispute: ['seller', 'buyer', 'operator', 'arbitrator', 'admin']
-  };
-
-  if (!allowed[command.type]?.includes(role)) return `Роль ${role} не может выполнить ${command.type}`;
+  if (!allowedRolesByAction[command.type].includes(command.actor.role)) return `Роль ${command.actor.role} не может выполнить ${command.type}`;
   if ((command.type === 'requestReserve' || command.type === 'confirmReserve') && !command.idempotencyKey) return 'Банковое действие требует idempotencyKey';
+
   if (command.type !== 'createLot' && command.type !== 'publishLot' && command.type !== 'acceptOffer') {
     const dealId = String(command.payload.dealId || '');
     if (dealId && !state.deals.some((deal) => deal.id === dealId)) return `Сделка не найдена: ${dealId}`;
   }
+
   return null;
 }
 
-function createLot(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; dealId?: string; before?: unknown; after?: unknown } {
+function createLot(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
   const now = command.now || new Date().toISOString();
   const payload = command.payload as Record<string, unknown>;
   const lot: Lot = {
@@ -148,7 +149,7 @@ function createLot(state: DomainExecutionState, command: PlatformActionCommand):
   return { entityId: lot.id, after: lot };
 }
 
-function publishLot(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; before?: unknown; after?: unknown } {
+function publishLot(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
   const lotId = requireString(command.payload, 'lotId');
   const lot = state.lots.find((item) => item.id === lotId);
   if (!lot) throw new Error(`Lot not found: ${lotId}`);
@@ -157,7 +158,7 @@ function publishLot(state: DomainExecutionState, command: PlatformActionCommand)
   return { entityId: lot.id, before, after: lot };
 }
 
-function acceptOffer(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; before?: unknown; after?: unknown } {
+function acceptOffer(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
   const lotId = requireString(command.payload, 'lotId');
   const lot = state.lots.find((item) => item.id === lotId);
   if (!lot) throw new Error(`Lot not found: ${lotId}`);
@@ -166,7 +167,7 @@ function acceptOffer(state: DomainExecutionState, command: PlatformActionCommand
   return { entityId: lot.id, before, after: lot };
 }
 
-function createDeal(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; dealId: string; before?: unknown; after?: unknown } {
+function createDeal(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
   const now = command.now || new Date().toISOString();
   const payload = command.payload as Record<string, unknown>;
   const lotId = requireString(payload, 'lotId');
@@ -195,14 +196,15 @@ function createDeal(state: DomainExecutionState, command: PlatformActionCommand)
   return { entityId: deal.id, dealId: deal.id, after: deal };
 }
 
-function requestReserve(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; dealId: string; before?: unknown; after?: unknown } {
+function requestReserve(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
   const now = command.now || new Date().toISOString();
   const deal = findDeal(state, requireString(command.payload, 'dealId'));
   const before = { ...deal };
-  const transition = transitionDeal(state, deal, deal.status === 'SIGNED' ? 'RESERVE_REQUESTED' : 'PAYMENT_RELEASE_REQUESTED', command);
+  const to = deal.status === 'SIGNED' ? 'RESERVE_REQUESTED' : 'PAYMENT_RELEASE_REQUESTED';
+  const transition = transitionDeal(state, deal, to, command);
   if (!transition.ok || !transition.deal) throw new Error(transition.error?.message || 'Reserve request blocked');
   replaceDeal(state, transition.deal);
-  const event: MoneyEvent = {
+  state.moneyEvents.push({
     id: createId('ME', now, String(state.moneyEvents.length + 1)),
     dealId: deal.id,
     type: 'reserve_requested',
@@ -211,17 +213,17 @@ function requestReserve(state: DomainExecutionState, command: PlatformActionComm
     idempotencyKey: command.idempotencyKey,
     createdAt: now,
     runtimeLabel: command.runtimeLabel || 'sandbox'
-  };
-  state.moneyEvents.push(event);
+  } satisfies MoneyEvent);
   return { entityId: deal.id, dealId: deal.id, before, after: transition.deal };
 }
 
-function confirmReserve(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; dealId: string; before?: unknown; after?: unknown } {
+function confirmReserve(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
   const now = command.now || new Date().toISOString();
   const deal = findDeal(state, requireString(command.payload, 'dealId'));
   const before = { ...deal };
   const to = deal.status === 'RESERVE_REQUESTED' ? 'RESERVE_CONFIRMED' : deal.status === 'PAYMENT_RELEASE_REQUESTED' ? 'FINAL_RELEASED' : deal.status === 'FINAL_RELEASED' ? 'CLOSED' : 'RESERVE_CONFIRMED';
-  const transition = transitionDeal(state, { ...deal, reserveConfirmed: to === 'RESERVE_CONFIRMED' ? true : deal.reserveConfirmed }, to, command);
+  const transitionInput = to === 'RESERVE_CONFIRMED' ? { ...deal, reserveConfirmed: true } : deal;
+  const transition = transitionDeal(state, transitionInput, to, command);
   if (!transition.ok || !transition.deal) throw new Error(transition.error?.message || 'Reserve confirmation blocked');
   const updated: Deal = { ...transition.deal, reserveConfirmed: true, ownerRole: to === 'RESERVE_CONFIRMED' ? 'logistics' : transition.deal.ownerRole };
   replaceDeal(state, updated);
@@ -235,11 +237,11 @@ function confirmReserve(state: DomainExecutionState, command: PlatformActionComm
     bankEventId: `SBER-SANDBOX-${command.idempotencyKey}`,
     createdAt: now,
     runtimeLabel: command.runtimeLabel || 'sandbox'
-  });
+  } satisfies MoneyEvent);
   return { entityId: deal.id, dealId: deal.id, before, after: updated };
 }
 
-function assignDriver(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; dealId: string; before?: unknown; after?: unknown } {
+function assignDriver(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
   const now = command.now || new Date().toISOString();
   const deal = findDeal(state, requireString(command.payload, 'dealId'));
   const before = { ...deal };
@@ -247,7 +249,7 @@ function assignDriver(state: DomainExecutionState, command: PlatformActionComman
   if (!transition.ok || !transition.deal) throw new Error(transition.error?.message || 'Driver assignment blocked');
   const updated = { ...transition.deal, driverId: String(command.payload.driverId || 'U-DRIVER-1'), ownerRole: 'driver' as const };
   replaceDeal(state, updated);
-  const pack: TransportPack = {
+  state.transportPacks.push({
     id: createId('TP', now, deal.id),
     dealId: deal.id,
     carrierId: String(command.payload.carrierId || 'CP-C-001'),
@@ -257,12 +259,12 @@ function assignDriver(state: DomainExecutionState, command: PlatformActionComman
     status: 'assigned',
     etaAt: command.payload.etaAt ? String(command.payload.etaAt) : undefined,
     runtimeLabel: command.runtimeLabel || 'sandbox'
-  };
-  state.transportPacks.push(pack);
+  } satisfies TransportPack);
   return { entityId: deal.id, dealId: deal.id, before, after: updated };
 }
 
-function confirmArrival(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; dealId: string; before?: unknown; after?: unknown } {
+function confirmArrival(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
+  const now = command.now || new Date().toISOString();
   const deal = findDeal(state, requireString(command.payload, 'dealId'));
   const before = { ...deal };
   const target = deal.status === 'DRIVER_ASSIGNED' ? 'LOADING_CONFIRMED' : deal.status === 'LOADING_CONFIRMED' ? 'LOADED' : deal.status === 'LOADED' ? 'IN_TRANSIT' : deal.status === 'IN_TRANSIT' ? 'ARRIVED' : 'WEIGHING_CONFIRMED';
@@ -270,21 +272,20 @@ function confirmArrival(state: DomainExecutionState, command: PlatformActionComm
   if (!transition.ok || !transition.deal) throw new Error(transition.error?.message || 'Arrival confirmation blocked');
   const updated = { ...transition.deal, weightConfirmed: ['ARRIVED', 'WEIGHING_CONFIRMED'].includes(target) || transition.deal.weightConfirmed, ownerRole: target === 'WEIGHING_CONFIRMED' ? 'lab' as const : transition.deal.ownerRole };
   replaceDeal(state, updated);
-  const evidence: Evidence = {
-    id: createId('EV', command.now || new Date().toISOString(), String(state.evidence.length + 1)),
+  state.evidence.push({
+    id: createId('EV', now, String(state.evidence.length + 1)),
     dealId: deal.id,
     type: target === 'ARRIVED' ? 'arrival' : 'gps',
     title: `Sandbox ${target.toLowerCase()} evidence`,
     hash: `sha256-${deal.id}-${target}-${state.evidence.length + 1}`,
-    capturedAt: command.now || new Date().toISOString(),
+    capturedAt: now,
     actorId: command.actor.id,
     runtimeLabel: command.runtimeLabel || 'sandbox'
-  };
-  state.evidence.push(evidence);
+  } satisfies Evidence);
   return { entityId: deal.id, dealId: deal.id, before, after: updated };
 }
 
-function createLabProtocol(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; dealId: string; before?: unknown; after?: unknown } {
+function createLabProtocol(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
   const now = command.now || new Date().toISOString();
   const deal = findDeal(state, requireString(command.payload, 'dealId'));
   const before = { ...deal };
@@ -295,7 +296,7 @@ function createLabProtocol(state: DomainExecutionState, command: PlatformActionC
   if (!transition.ok || !transition.deal) throw new Error(transition.error?.message || 'Lab protocol action blocked');
 
   if (!state.labProtocols.some((protocol) => protocol.id === protocolId)) {
-    const protocol: LabProtocol = {
+    state.labProtocols.push({
       id: protocolId,
       dealId: deal.id,
       labId: String(command.actor.counterpartyId || 'CP-L-001'),
@@ -306,14 +307,13 @@ function createLabProtocol(state: DomainExecutionState, command: PlatformActionC
       status: 'issued',
       createdAt: now,
       runtimeLabel: command.runtimeLabel || 'sandbox'
-    };
-    state.labProtocols.push(protocol);
+    } satisfies LabProtocol);
   }
 
   const updated = { ...transition.deal, labProtocolId: protocolId, requiredDocumentsReady: target === 'DOCUMENTS_READY' || transition.deal.requiredDocumentsReady, ownerRole: target === 'DOCUMENTS_READY' ? 'bank' as const : transition.deal.ownerRole };
   replaceDeal(state, updated);
   if (target === 'DOCUMENTS_READY') {
-    const doc: Document = {
+    state.documents.push({
       id: createId('DOC', now, deal.id),
       dealId: deal.id,
       type: 'lab_protocol',
@@ -323,13 +323,12 @@ function createLabProtocol(state: DomainExecutionState, command: PlatformActionC
       signerIds: [command.actor.id],
       createdAt: now,
       runtimeLabel: command.runtimeLabel || 'sandbox'
-    };
-    state.documents.push(doc);
+    } satisfies Document);
   }
   return { entityId: deal.id, dealId: deal.id, before, after: updated };
 }
 
-function openDispute(state: DomainExecutionState, command: PlatformActionCommand): { entityId: string; dealId: string; before?: unknown; after?: unknown } {
+function openDispute(state: DomainExecutionState, command: PlatformActionCommand): ActionOutcome {
   const now = command.now || new Date().toISOString();
   const deal = findDeal(state, requireString(command.payload, 'dealId'));
   const before = { ...deal };
@@ -352,7 +351,7 @@ function openDispute(state: DomainExecutionState, command: PlatformActionCommand
   return { entityId: dispute.id, dealId: deal.id, before, after: dispute };
 }
 
-const actionHandlers = {
+const actionHandlers: Record<PlatformActionType, ActionHandler> = {
   createLot,
   publishLot,
   acceptOffer,
@@ -365,24 +364,35 @@ const actionHandlers = {
   openDispute
 };
 
+function entityTypeForAction(type: PlatformActionType): AuditEvent['entityType'] {
+  if (type === 'createLot' || type === 'publishLot' || type === 'acceptOffer') return 'lot';
+  if (type === 'openDispute') return 'dispute';
+  if (type === 'createLabProtocol') return 'lab';
+  if (type === 'assignDriver' || type === 'confirmArrival') return 'transport';
+  return 'deal';
+}
+
 export function runPlatformAction(state: DomainExecutionState, command: PlatformActionCommand): PlatformActionResult {
   const disabledReason = getPlatformActionDisabledReason(state, command);
   if (disabledReason) {
-    return {
-      ok: false,
-      state,
-      disabledReason,
-      toast: { type: 'disabled', message: disabledReason }
-    };
+    return { ok: false, state, disabledReason, toast: { type: 'disabled', message: disabledReason } };
   }
 
   const beforeState = cloneState(state);
   const nextState = cloneState(state);
 
   try {
-    const handler = actionHandlers[command.type];
-    const outcome = handler(nextState, command);
-    const { auditEvent, timelineEvent } = appendAuditAndTimeline(nextState, command, command.type === 'createLot' || command.type === 'publishLot' || command.type === 'acceptOffer' ? 'lot' : command.type === 'openDispute' ? 'dispute' : command.type === 'createLabProtocol' ? 'lab' : command.type === 'assignDriver' || command.type === 'confirmArrival' ? 'transport' : 'deal', outcome.entityId, outcome.before, outcome.after, outcome.dealId);
+    const outcome = actionHandlers[command.type](nextState, command);
+    const { auditEvent, timelineEvent } = appendAuditAndTimeline(
+      nextState,
+      command,
+      entityTypeForAction(command.type),
+      outcome.entityId,
+      outcome.before,
+      outcome.after,
+      outcome.dealId
+    );
+
     return {
       ok: true,
       state: nextState,
