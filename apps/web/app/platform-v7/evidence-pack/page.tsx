@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EvidencePackOperationsQueue } from '@/components/v7r/EvidencePackOperationsQueue';
 
 const SAMPLE_DEALS = ['DL-9113', 'DL-9114', 'DL-9116', 'DL-9118', 'DL-9120'];
 
@@ -7,13 +8,13 @@ export default function EvidencePackIndexPage() {
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 11, color: '#0A7A5F', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          P0-06 · evidence pack preview index · sandbox
+          P0-07 · evidence pack operations · sandbox
         </div>
         <h1 style={{ margin: 0, fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
-          Evidence pack previews
+          Evidence pack operations
         </h1>
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#6B778C', maxWidth: 860 }}>
-          Безопасный индекс preview-маршрутов доказательных пакетов. Это sandbox-навигация: она не запускает live PDF, ЭДО, КЭП, банк, ФГИС или СберКорус.
+          Операционный индекс доказательных пакетов. Это sandbox-навигация: она не запускает live PDF, ЭДО, КЭП, банк, ФГИС или СберКорус.
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/deals' style={btn('primary')}>Сделки</Link>
@@ -21,6 +22,8 @@ export default function EvidencePackIndexPage() {
           <Link href='/platform-v7/bank' style={btn()}>Банк</Link>
         </div>
       </section>
+
+      <EvidencePackOperationsQueue />
 
       <section data-testid='evidence-pack-index' style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Доступные preview-пакеты</div>
