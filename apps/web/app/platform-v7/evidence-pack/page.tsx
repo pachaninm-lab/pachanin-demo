@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EvidenceExportReadinessSummary } from '@/components/v7r/EvidenceExportReadinessSummary';
 import { EvidencePackOperationsQueue } from '@/components/v7r/EvidencePackOperationsQueue';
 
 const SAMPLE_DEALS = ['DL-9113', 'DL-9114', 'DL-9116', 'DL-9118', 'DL-9120'];
@@ -13,7 +14,7 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 11, color: '#0A7A5F', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          P0-08 · evidence queue controls · sandbox
+          Evidence export readiness · sandbox
         </div>
         <h1 style={{ margin: 0, fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
           Evidence pack operations
@@ -28,6 +29,7 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
         </div>
       </section>
 
+      <EvidenceExportReadinessSummary />
       <EvidencePackOperationsQueue decision={decision} />
 
       <section data-testid='evidence-pack-index' style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
