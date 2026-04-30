@@ -30,19 +30,11 @@ const pains = [
 export default function Home() {
   return (
     <main className="premium-surface relative overflow-hidden bg-[#030D0A] pb-24 text-[#EAF1EE] md:pb-0">
-      <header className="premium-nav fixed inset-x-0 top-0 z-50 border-b border-[rgba(126,242,196,0.10)] bg-[#030D0A]/82 backdrop-blur-2xl">
-        <div className="border-b border-[rgba(126,242,196,0.08)] bg-[linear-gradient(90deg,rgba(126,242,196,0.10),rgba(255,255,255,0.025),rgba(10,122,95,0.10))]">
-          <a href="#top" className="mx-auto flex min-h-9 max-w-7xl items-center justify-center px-6 py-2 text-center text-[11px] font-black uppercase tracking-[0.16em] text-[#C9D8D2] md:justify-between md:text-xs">
-            <span className="hidden text-mint md:inline">Прозрачная Цена</span>
-            <span>не маркетплейс · не доска объявлений · контур сделки: лот → перевозка → элеватор → лаборатория → спор → деньги</span>
-            <span className="hidden text-[#6F8C82] md:inline">controlled pilot</span>
-          </a>
-        </div>
-
-        <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-6">
+      <header className="premium-nav fixed inset-x-0 top-0 z-50 border-b border-[rgba(126,242,196,0.10)] bg-[#030D0A]/92 shadow-[0_20px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+        <div className="mx-auto flex h-[78px] max-w-7xl items-center justify-between px-5 md:px-6">
           <a href="#top" className="flex min-w-0 items-center gap-3" aria-label="Прозрачная Цена">
             <span className="brand-logo-mark glow-sm flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-xs font-black text-mint">ПЦ</span>
-            <span className="min-w-0 text-base font-black tracking-tight text-white md:text-lg">
+            <span className="min-w-0 text-lg font-black tracking-tight text-white md:text-xl">
               Прозрачная <span className="text-mint">Цена</span>
               <span className="mt-0.5 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6F8C82] lg:block">контур исполнения сделки</span>
             </span>
@@ -52,25 +44,28 @@ export default function Home() {
             {navLinks.slice(1, -1).map(([label, href]) => (
               <a key={href} href={href} className="text-sm font-medium text-[#8BA89E] transition hover:text-white">{label}</a>
             ))}
-            <a href="#contact" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover">Получить карту</a>
+            <a href="#contact" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover">Хочу протестировать</a>
           </nav>
 
-          <details className="group relative md:hidden [&>summary::-webkit-details-marker]:hidden">
-            <summary className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-[rgba(126,242,196,0.18)] bg-[rgba(255,255,255,0.035)] text-mint transition hover:border-[rgba(126,242,196,0.34)]" aria-label="Открыть меню">
+          <details className="group md:hidden [&>summary::-webkit-details-marker]:hidden">
+            <summary className="flex h-12 w-12 cursor-pointer list-none items-center justify-center rounded-2xl border border-[rgba(126,242,196,0.20)] bg-[rgba(126,242,196,0.055)] text-mint shadow-[0_0_30px_rgba(126,242,196,0.08)] transition hover:border-[rgba(126,242,196,0.38)]" aria-label="Открыть меню">
               <span className="relative h-4 w-5">
                 <span className="absolute left-0 top-0 h-0.5 w-5 rounded-full bg-current transition group-open:top-2 group-open:rotate-45" />
                 <span className="absolute left-0 top-2 h-0.5 w-5 rounded-full bg-current transition group-open:opacity-0" />
                 <span className="absolute bottom-0 left-0 h-0.5 w-5 rounded-full bg-current transition group-open:bottom-1.5 group-open:-rotate-45" />
               </span>
             </summary>
-            <div className="absolute right-0 top-14 w-[min(82vw,320px)] overflow-hidden rounded-3xl border border-[rgba(126,242,196,0.16)] bg-[#06110E]/98 p-3 shadow-[0_30px_90px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-              <div className="border-b border-[rgba(126,242,196,0.08)] px-3 pb-3 pt-2 text-[10px] font-black uppercase tracking-[0.18em] text-mint">Навигация по лендингу</div>
+            <div className="fixed left-4 right-4 top-[92px] z-50 max-h-[calc(100vh-120px)] overflow-y-auto rounded-[28px] border border-[rgba(126,242,196,0.18)] bg-[#04100D]/[0.99] p-3 shadow-[0_34px_110px_rgba(0,0,0,0.72)] backdrop-blur-2xl">
+              <div className="border-b border-[rgba(126,242,196,0.08)] px-3 pb-3 pt-2 text-[10px] font-black uppercase tracking-[0.20em] text-mint">Навигация по лендингу</div>
               <div className="grid gap-1 py-2">
                 {navLinks.map(([label, href]) => (
-                  <a key={href} href={href} className="rounded-2xl px-3 py-3 text-sm font-bold text-[#DDE8E3] transition hover:bg-[rgba(126,242,196,0.08)] hover:text-white">{label}</a>
+                  <a key={href} href={href} className="flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-bold text-[#DDE8E3] transition hover:bg-[rgba(126,242,196,0.08)] hover:text-white">
+                    <span>{label}</span>
+                    <span className="text-[#35584C]">→</span>
+                  </a>
                 ))}
               </div>
-              <a href="#contact" className="lux-button mt-1 block rounded-2xl bg-brand px-4 py-3 text-center text-sm font-black text-white">Оставить заявку</a>
+              <a href="#contact" className="lux-button mt-1 block rounded-2xl bg-brand px-4 py-3 text-center text-sm font-black text-white">Хочу протестировать</a>
             </div>
           </details>
         </div>
@@ -78,7 +73,7 @@ export default function Home() {
 
       <LandingHero />
 
-      <section id="problem" className="relative z-10 py-24">
+      <section id="problem" className="relative z-10 scroll-mt-28 py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-14 max-w-3xl">
             <div className="mb-5 inline-flex rounded-full border border-[rgba(255,139,144,0.24)] bg-[rgba(255,139,144,0.05)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#FF8B90]">где рынок теряет деньги</div>
@@ -106,7 +101,7 @@ export default function Home() {
       <PilotSingleDeal />
       <SampleLossCard />
 
-      <section id="contact" className="relative z-10 overflow-hidden py-24">
+      <section id="contact" className="relative z-10 scroll-mt-28 overflow-hidden py-24">
         <div className="mx-auto max-w-5xl px-6 text-center">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[rgba(126,242,196,0.2)] bg-[rgba(126,242,196,0.05)] px-4 py-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-mint" />
