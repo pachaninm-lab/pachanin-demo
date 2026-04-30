@@ -2,6 +2,13 @@ import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import PlatformV7ConnectorsPage from '@/app/platform-v7/connectors/page';
+import {
+  PLATFORM_V7_AUTH_ROUTE,
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_OPERATOR_QUEUES_ROUTE,
+  PLATFORM_V7_PROFILE_ROUTE,
+  PLATFORM_V7_STATUS_ROUTE,
+} from '@/lib/platform-v7/routes';
 
 describe('PlatformV7ConnectorsPage', () => {
   it('renders ESIA/FGIS connectors with sandbox boundary and no production claims', () => {
@@ -19,9 +26,10 @@ describe('PlatformV7ConnectorsPage', () => {
     render(<PlatformV7ConnectorsPage />);
 
     expect(screen.getByText('Связанные модули платформы')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Банковый контур/ })).toHaveAttribute('href', '/platform-v7/bank');
-    expect(screen.getByRole('link', { name: /Status-ready контур/ })).toHaveAttribute('href', '/platform-v7/status');
-    expect(screen.getByRole('link', { name: /Trust-слой/ })).toHaveAttribute('href', '/platform-v7/profile');
-    expect(screen.getByRole('link', { name: 'Открыть очередь' })).toHaveAttribute('href', '/platform-v7/operator-cockpit/queues');
+    expect(screen.getByRole('link', { name: /Auth и онбординг/ })).toHaveAttribute('href', PLATFORM_V7_AUTH_ROUTE);
+    expect(screen.getByRole('link', { name: /Банковый контур/ })).toHaveAttribute('href', PLATFORM_V7_BANK_ROUTE);
+    expect(screen.getByRole('link', { name: /Status-ready контур/ })).toHaveAttribute('href', PLATFORM_V7_STATUS_ROUTE);
+    expect(screen.getByRole('link', { name: /Trust-слой/ })).toHaveAttribute('href', PLATFORM_V7_PROFILE_ROUTE);
+    expect(screen.getByRole('link', { name: 'Открыть очередь' })).toHaveAttribute('href', PLATFORM_V7_OPERATOR_QUEUES_ROUTE);
   });
 });
