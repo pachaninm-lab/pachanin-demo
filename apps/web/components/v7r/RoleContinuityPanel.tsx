@@ -4,6 +4,7 @@ import {
   createExecutionSimulationState,
   type Deal,
   type DomainExecutionState,
+  type PlatformActionType,
   type PlatformRole,
 } from '../../../../packages/domain-core/src/execution-simulation';
 
@@ -18,6 +19,19 @@ const BRAND_BORDER = 'var(--pc-accent-border)';
 const DANGER_BG = 'rgba(220,38,38,0.08)';
 const DANGER_BORDER = 'rgba(220,38,38,0.18)';
 const DANGER = '#B91C1C';
+const WARN_BG = 'rgba(217,119,6,0.08)';
+const WARN_BORDER = 'rgba(217,119,6,0.18)';
+const WARN = '#B45309';
+
+type RoleActionHandoff = {
+  label: string;
+  actionType: PlatformActionType;
+  ownerRole: PlatformRole;
+  route: string;
+  availableWhen: Deal['status'][];
+  readyLabel: string;
+  blockedLabel: string;
+};
 
 const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string; nextAction: string; evidenceFocus: string }>> = {
   buyer: {
@@ -58,6 +72,63 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
   },
 };
 
+const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
+  buyer: {
+    label: 'Запросить резерв или открыть спор',
+    actionType: 'requestReserve',
+    ownerRole: 'buyer',
+    route: '/platform-v7/bank',
+    availableWhen: ['SIGNED', 'DOCUMENTS_READY', 'ACCEPTED'],
+    readyLabel: 'Покупатель может двигать деньги или спор через подтверждённый контур.',
+    blockedLabel: 'Покупатель ждёт подписания, документов, приёмки или лабораторного результата.',
+  },
+  seller: {
+    label: 'Закрыть выплатный blocker',
+    actionType: 'publishLot',
+    ownerRole: 'seller',
+    route: '/platform-v7/lots/create',
+    availableWhen: ['DEAL_CREATED', 'SIGNED', 'DISPUTE_OPEN', 'DOCUMENTS_PENDING'],
+    readyLabel: 'Продавец должен закрыть лот, документы или спорный пакет для выплаты.',
+    blockedLabel: 'Продавец не является владельцем следующего подтверждаемого шага.',
+  },
+  bank: {
+    label: 'Подтвердить резерв / выпуск',
+    actionType: 'confirmReserve',
+    ownerRole: 'bank',
+    route: '/platform-v7/bank',
+    availableWhen: ['RESERVE_REQUESTED', 'PAYMENT_RELEASE_REQUESTED', 'DOCUMENTS_READY'],
+    readyLabel: 'Банк может подтвердить допустимое денежное событие только после guard-проверок.',
+    blockedLabel: 'Банк ждёт reserve request, документы, отсутствие спора или готовность к release.',
+  },
+  logistics: {
+    label: 'Назначить водителя / закрыть рейс',
+    actionType: 'assignDriver',
+    ownerRole: 'logistics',
+    route: '/platform-v7/logistics',
+    availableWhen: ['RESERVE_CONFIRMED', 'DRIVER_ASSIGNED', 'LOADING_CONFIRMED', 'LOADED', 'IN_TRANSIT', 'ARRIVED'],
+    readyLabel: 'Логистика должна перевести сделку через транспортный gate до приёмки.',
+    blockedLabel: 'Логистика ждёт подтверждения резерва или передачи owner на транспортный шаг.',
+  },
+  driver: {
+    label: 'Подтвердить прибытие / событие рейса',
+    actionType: 'confirmArrival',
+    ownerRole: 'driver',
+    route: '/platform-v7/driver',
+    availableWhen: ['DRIVER_ASSIGNED', 'LOADING_CONFIRMED', 'LOADED', 'IN_TRANSIT', 'ARRIVED'],
+    readyLabel: 'Водитель фиксирует следующее полевое событие: погрузка, рейс, прибытие или вес.',
+    blockedLabel: 'Водитель ждёт назначения на рейс или передачи следующего транспортного шага.',
+  },
+  lab: {
+    label: 'Создать лабораторный протокол',
+    actionType: 'createLabProtocol',
+    ownerRole: 'lab',
+    route: '/platform-v7/lab',
+    availableWhen: ['WEIGHING_CONFIRMED', 'LAB_SAMPLING', 'LAB_PROTOCOL_CREATED', 'ACCEPTED', 'DOCUMENTS_PENDING'],
+    readyLabel: 'Лаборатория должна довести качество до протокола, приёмки или документной готовности.',
+    blockedLabel: 'Лаборатория ждёт подтверждения веса или передачи owner на лабораторный шаг.',
+  },
+};
+
 const ROLE_PRIORITY: Partial<Record<PlatformRole, Deal['status'][]>> = {
   buyer: ['DOCUMENTS_READY', 'ACCEPTED', 'DISPUTE_OPEN', 'RESERVE_CONFIRMED'],
   seller: ['DISPUTE_OPEN', 'DOCUMENTS_READY', 'ACCEPTED', 'RESERVE_CONFIRMED'],
@@ -76,6 +147,7 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
     evidenceFocus: 'Сделка, доказательства, audit, timeline.',
   };
   const deal = selectRoleDeal(state, role);
+  const handoff = buildRoleActionHandoff(role, deal);
   const evidence = state.evidence.filter((item) => item.dealId === deal.id).slice(0, 3);
   const audit = state.auditEvents.filter((item) => item.entityId === deal.id).slice(-3).reverse();
   const timeline = state.dealTimeline.filter((item) => item.dealId === deal.id).slice(-3).reverse();
@@ -116,12 +188,53 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
         {deal.blocker ? <div style={{ fontSize: 12, color: DANGER, fontWeight: 800 }}>Blocker: {deal.blocker}</div> : null}
       </div>
 
+      <ActionHandoffBlock handoff={handoff} />
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
         <ListBlock title='Evidence' empty='Нет evidence по выбранной сделке.' rows={evidence.map((item) => ({ id: item.id, kicker: item.type, text: item.title }))} />
         <ListBlock title='Audit' empty='Нет audit events по выбранной сделке.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${item.actionType} · ${item.entityId}` }))} />
         <ListBlock title='Timeline' empty='Нет timeline events по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
       </div>
     </section>
+  );
+}
+
+function buildRoleActionHandoff(role: PlatformRole, deal: Deal) {
+  const handoff = ROLE_HANDOFFS[role] || ROLE_HANDOFFS.buyer!;
+  const isOwner = deal.ownerRole === handoff.ownerRole || role === handoff.ownerRole;
+  const isStatusReady = handoff.availableWhen.includes(deal.status);
+  const isBlockedByDispute = deal.status === 'DISPUTE_OPEN' && handoff.actionType !== 'openDispute';
+  const canRun = isOwner && isStatusReady && !isBlockedByDispute;
+  const disabledReason = canRun
+    ? null
+    : isBlockedByDispute
+      ? 'Открыт спор: действие заблокировано до решения или арбитражного маршрута.'
+      : !isOwner
+        ? `Следующий owner: ${roleLabel(deal.ownerRole)}. Роль ${roleLabel(role)} не должна выполнять этот шаг.`
+        : handoff.blockedLabel;
+
+  return { ...handoff, canRun, disabledReason };
+}
+
+function ActionHandoffBlock({ handoff }: { handoff: RoleActionHandoff & { canRun: boolean; disabledReason: string | null } }) {
+  return (
+    <div data-testid='role-action-handoff' style={{ background: handoff.canRun ? BRAND_BG : WARN_BG, border: `1px solid ${handoff.canRun ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ display: 'grid', gap: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: handoff.canRun ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Action handoff</div>
+          <div style={{ fontSize: 15, lineHeight: 1.35, color: T, fontWeight: 900 }}>{handoff.label}</div>
+        </div>
+        <Link href={handoff.route} style={btn(handoff.canRun ? 'primary' : 'default')}>Открыть действие</Link>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
+        <Cell label='Action type' value={handoff.actionType} mono />
+        <Cell label='Owner действия' value={roleLabel(handoff.ownerRole)} tone='accent' />
+        <Cell label='Статус' value={handoff.canRun ? 'Доступно' : 'Заблокировано'} tone={handoff.canRun ? 'accent' : 'danger'} />
+      </div>
+      <div style={{ fontSize: 12, lineHeight: 1.6, color: handoff.canRun ? BRAND : WARN, fontWeight: 800 }}>
+        {handoff.canRun ? handoff.readyLabel : handoff.disabledReason}
+      </div>
+    </div>
   );
 }
 
