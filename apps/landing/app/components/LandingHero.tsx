@@ -23,21 +23,41 @@ export default function LandingHero() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_72%_52%_at_50%_0%,rgba(10,122,95,0.26),transparent_72%)]" />
       <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-6 pb-24 pt-16 lg:grid-cols-[0.92fr_1.08fr]">
         <div>
-          <div className="reveal mb-8 max-w-4xl">
-            <div className="mb-4 inline-flex rounded-full border border-[rgba(126,242,196,0.22)] bg-[rgba(126,242,196,0.06)] px-4 py-1.5 text-xs font-black uppercase tracking-[0.24em] text-mint shadow-[0_0_42px_rgba(126,242,196,0.08)]">
-              не маркетплейс · не доска объявлений
-            </div>
-            <h1 className="text-6xl font-black leading-[0.96] tracking-[-0.06em] text-white md:text-8xl">
-              Прозрачная <span className="gradient-text">Цена</span>
-            </h1>
-            <div className="mt-6 flex max-w-3xl flex-wrap items-center gap-x-2 gap-y-2 text-base font-semibold leading-relaxed text-[#C9D8D2] md:text-xl">
-              <span className="mr-1 text-[#8BA89E]">Контур сделки:</span>
-              {dealFlow.map((step, index) => (
-                <span key={step} className="inline-flex items-center gap-2">
-                  <span className="rounded-full border border-[rgba(126,242,196,0.14)] bg-[rgba(255,255,255,0.035)] px-3 py-1 text-[#EAF1EE]">{step}</span>
-                  {index < dealFlow.length - 1 ? <span className="text-[#4A6B5E]">→</span> : null}
-                </span>
-              ))}
+          <div className="reveal mb-10 max-w-4xl">
+            <div className="relative overflow-hidden rounded-[34px] border border-[rgba(126,242,196,0.16)] bg-[linear-gradient(135deg,rgba(126,242,196,0.11),rgba(255,255,255,0.025)_46%,rgba(10,122,95,0.09))] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.34)] md:p-8">
+              <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[rgba(126,242,196,0.13)] blur-3xl" />
+              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(126,242,196,0.45)] to-transparent" />
+              <div className="relative">
+                <div className="mb-5 flex justify-center">
+                  <div className="inline-flex rounded-full border border-[rgba(126,242,196,0.22)] bg-[#07110E]/80 px-4 py-1.5 text-center text-[10px] font-black uppercase tracking-[0.24em] text-mint shadow-[0_0_42px_rgba(126,242,196,0.08)] md:text-xs">
+                    не маркетплейс · не доска объявлений
+                  </div>
+                </div>
+
+                <h1 className="text-center text-6xl font-black leading-[0.94] tracking-[-0.065em] text-white md:text-8xl">
+                  Прозрачная <span className="gradient-text">Цена</span>
+                </h1>
+
+                <p className="mx-auto mt-5 max-w-2xl text-center text-lg font-semibold leading-relaxed text-[#C9D8D2] md:text-2xl">
+                  Контур исполнения зерновой сделки
+                </p>
+
+                <div className="mx-auto mt-7 max-w-3xl rounded-2xl border border-[rgba(126,242,196,0.1)] bg-[#07110E]/70 p-3 md:p-4">
+                  <div className="mb-3 text-center text-[10px] font-black uppercase tracking-[0.24em] text-[#6F8C82]">
+                    лот → исполнение → доказательства → деньги
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {dealFlow.map((step, index) => (
+                      <span key={step} className="inline-flex items-center gap-2">
+                        <span className="rounded-full border border-[rgba(126,242,196,0.14)] bg-[rgba(126,242,196,0.055)] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[#EAF1EE]">
+                          {step}
+                        </span>
+                        {index < dealFlow.length - 1 ? <span className="hidden text-[#4A6B5E] sm:inline">→</span> : null}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
