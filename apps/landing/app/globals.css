@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #030D0A;
+  color: #EAF1EE;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #7EF2C4 0%, #14B8A6 50%, #0A7A5F 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-white {
+  background: linear-gradient(135deg, #ffffff 0%, #b2f5e0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glow {
+  box-shadow: 0 0 40px rgba(126, 242, 196, 0.15), 0 0 80px rgba(10, 122, 95, 0.1);
+}
+
+.glow-sm {
+  box-shadow: 0 0 20px rgba(126, 242, 196, 0.1);
+}
+
+.card-glass {
+  background: rgba(17, 28, 25, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(126, 242, 196, 0.12);
+}
+
+.card-glass:hover {
+  border-color: rgba(126, 242, 196, 0.25);
+  background: rgba(22, 35, 32, 0.9);
+}
+
+.grid-bg {
+  background-image: linear-gradient(rgba(126,242,196,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(126,242,196,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
