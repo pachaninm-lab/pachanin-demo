@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
+import { P7Grid, P7LinkButton, P7MetricCard, P7Notice, P7PanelShell } from '@/components/platform-v7/P7UiPrimitives';
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
 import {
@@ -56,7 +57,7 @@ export default function BankReleaseSafetyPage() {
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
+      <P7PanelShell>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Release safety · sandbox audit</div>
@@ -66,31 +67,28 @@ export default function BankReleaseSafetyPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <Link href={PLATFORM_V7_BANK_ROUTE} style={btn()}>← Банк</Link>
-            <Link href={PLATFORM_V7_OPERATOR_ROUTE} style={btn()}>Оператор</Link>
-            <Link href={PLATFORM_V7_CONTROL_TOWER_ROUTE} style={btn()}>Центр управления</Link>
+            <P7LinkButton href={PLATFORM_V7_BANK_ROUTE}>← Банк</P7LinkButton>
+            <P7LinkButton href={PLATFORM_V7_OPERATOR_ROUTE}>Оператор</P7LinkButton>
+            <P7LinkButton href={PLATFORM_V7_CONTROL_TOWER_ROUTE}>Центр управления</P7LinkButton>
           </div>
         </div>
-      </section>
+      </P7PanelShell>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
-        <Metric label='Кандидат к выпуску' value={formatCompactMoney(releaseCandidate)} tone='good' />
-        <Metric label='Под блоком' value={String(blockedRows.length)} tone={blockedRows.length > 0 ? 'bad' : 'good'} />
-        <Metric label='Удержано' value={formatCompactMoney(blockedMoney)} tone={blockedMoney > 0 ? 'bad' : 'good'} />
-      </div>
+      <P7Grid min={200} gap={14}>
+        <P7MetricCard title='Кандидат к выпуску' value={formatCompactMoney(releaseCandidate)} tone='green' />
+        <P7MetricCard title='Под блоком' value={String(blockedRows.length)} tone={blockedRows.length > 0 ? 'red' : 'green'} />
+        <P7MetricCard title='Удержано' value={formatCompactMoney(blockedMoney)} tone={blockedMoney > 0 ? 'red' : 'green'} />
+      </P7Grid>
 
-      <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
-        <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Правило</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
-          Деньги нельзя выпускать напрямую из карточки сделки. Выпуск допустим только после закрытия gate-проверок и отсутствия активных удержаний.
-        </div>
-      </section>
+      <P7Notice title='Правило' tone='amber'>
+        Деньги нельзя выпускать напрямую из карточки сделки. Выпуск допустим только после закрытия gate-проверок и отсутствия активных удержаний.
+      </P7Notice>
 
       <P7ExecutionMachineReadOnlyStrip compact />
 
       <DL9102MoneyCard />
 
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
+      <P7PanelShell>
         <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и gate проверки</div>
         <div style={{ display: 'grid', gap: 10 }}>
           {rows.map((row) => {
@@ -114,7 +112,7 @@ export default function BankReleaseSafetyPage() {
             );
           })}
         </div>
-      </section>
+      </P7PanelShell>
     </div>
   );
 }
@@ -167,15 +165,6 @@ function DL9102MoneyCard() {
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: string; tone: 'good' | 'bad' }) {
-  return (
-    <div style={{ background: tone === 'good' ? BRAND_BG : ERR_BG, border: `1px solid ${tone === 'good' ? BRAND_BORDER : ERR_BORDER}`, borderRadius: 16, padding: 16 }}>
-      <div style={{ fontSize: 11, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      <div style={{ marginTop: 8, fontSize: 26, fontWeight: 900, color: tone === 'good' ? BRAND : ERR, lineHeight: 1.1 }}>{value}</div>
-    </div>
-  );
-}
-
 function Cell({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
   return (
     <div>
@@ -183,8 +172,4 @@ function Cell({ label, value, danger = false }: { label: string; value: string; 
       <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, color: danger ? ERR : T, wordBreak: 'break-word' }}>{value}</div>
     </div>
   );
-}
-
-function btn() {
-  return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: SS, border: `1px solid ${B}`, color: T, fontSize: 13, fontWeight: 800 };
 }
