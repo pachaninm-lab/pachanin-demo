@@ -6,6 +6,7 @@ import { selectRuntimeCallbacks, selectRuntimeDeals, selectRuntimeDisputes, sele
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import { ControlTowerOperatorPanel } from '@/components/v7r/ControlTowerOperatorPanel';
 import { DomainControlTowerSummary } from '@/components/v7r/DomainControlTowerSummary';
+import { ExecutionSimulationActionPanel } from '@/components/v7r/ExecutionSimulationActionPanel';
 import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
 import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
 
@@ -146,6 +147,10 @@ export default function PlatformV7ControlTowerPage() {
       >
         <P7Section title='Деньги и риски' subtitle='KPI берутся из единого runtime-контура и ведут в соответствующие рабочие зоны.'>
           <DomainControlTowerSummary />
+        </P7Section>
+
+        <P7Section title='Simulation-grade контур исполнения' subtitle='Первые реальные действия нового domain-core: состояние сделки, guard-правила, audit, timeline и UI-feedback.'>
+          <ExecutionSimulationActionPanel />
         </P7Section>
 
         <P7Section title='Очередь проблем и действий' subtitle='Каждая строка — это деньги, причина, владелец и одно правильное действие.'>
