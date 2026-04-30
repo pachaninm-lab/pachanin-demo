@@ -35,4 +35,34 @@ describe('RoleContinuityPanel', () => {
     expect(within(panel).getByText('Деньги')).toBeInTheDocument();
     expect(within(panel).getByRole('link', { name: 'Открыть контур' })).toHaveAttribute('href', '/platform-v7/bank');
   });
+
+  it('renders buyer and seller continuity with commercial execution semantics', () => {
+    render(
+      <>
+        <RoleContinuityPanel role='buyer' compact />
+        <RoleContinuityPanel role='seller' compact />
+      </>,
+    );
+
+    const buyer = screen.getByTestId('role-continuity-buyer');
+    const seller = screen.getByTestId('role-continuity-seller');
+
+    expect(within(buyer).getByText('P0-04 · continuity · Покупатель')).toBeInTheDocument();
+    expect(within(buyer).getByText('Связка закупки: сделка → приёмка → документы → деньги')).toBeInTheDocument();
+    expect(within(buyer).getByText(/Качество, вес, лаборатория/)).toBeInTheDocument();
+
+    expect(within(seller).getByText('P0-04 · continuity · Продавец')).toBeInTheDocument();
+    expect(within(seller).getByText('Связка выплаты: лот → сделка → документы → снятие удержания')).toBeInTheDocument();
+    expect(within(seller).getByText(/ФГИС\/партия/)).toBeInTheDocument();
+  });
+
+  it('renders logistics continuity with logistics route link and transport semantics', () => {
+    render(<RoleContinuityPanel role='logistics' compact />);
+
+    const panel = screen.getByTestId('role-continuity-logistics');
+    expect(within(panel).getByText('P0-04 · continuity · Логистика')).toBeInTheDocument();
+    expect(within(panel).getByText('Связка рейса: назначение → погрузка → прибытие → транспортный gate')).toBeInTheDocument();
+    expect(within(panel).getByText(/Маршрут, водитель, прибытие/)).toBeInTheDocument();
+    expect(within(panel).getByRole('link', { name: 'Открыть контур' })).toHaveAttribute('href', '/platform-v7/logistics');
+  });
 });
