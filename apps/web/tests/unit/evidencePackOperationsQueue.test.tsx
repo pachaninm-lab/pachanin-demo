@@ -29,6 +29,13 @@ describe('EvidencePackOperationsQueue', () => {
     expect(screen.getAllByText(/Needs evidence|Needs audit|Needs timeline|Needs documents|No missing data/).length).toBeGreaterThan(0);
   });
 
+  it('links missing hints to typed Review filters', () => {
+    render(<EvidencePackOperationsQueue />);
+    const links = screen.getAllByRole('link').filter((link) => link.getAttribute('href')?.includes('missing='));
+    expect(links.length).toBeGreaterThan(0);
+    expect(links[0]).toHaveAttribute('href', expect.stringContaining('/platform-v7/evidence-pack?decision=Review&missing='));
+  });
+
   it('links queue rows to deal evidence preview routes', () => {
     render(<EvidencePackOperationsQueue />);
     const previewLinks = screen.getAllByRole('link', { name: 'Preview' });
