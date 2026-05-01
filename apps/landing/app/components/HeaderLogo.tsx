@@ -1,31 +1,9 @@
+const logoSrc = 'data:image/webp;base64,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';
+
 export default function HeaderLogo() {
   return (
     <span className="brand-logo-mark shrink-0" aria-hidden="true">
-      <svg viewBox="0 0 64 64" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="pcLogoGold" x1="18" y1="12" x2="48" y2="54" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#F9E6A5" />
-            <stop offset="0.42" stopColor="#D5A94A" />
-            <stop offset="1" stopColor="#8F6320" />
-          </linearGradient>
-          <linearGradient id="pcLogoGreen" x1="13" y1="14" x2="51" y2="54" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#87F7CC" />
-            <stop offset="0.48" stopColor="#15B887" />
-            <stop offset="1" stopColor="#07513F" />
-          </linearGradient>
-          <filter id="pcLogoShadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="3" stdDeviation="2.6" floodColor="#000000" floodOpacity="0.36" />
-          </filter>
-        </defs>
-        <rect x="3" y="3" width="58" height="58" rx="16" fill="#061611" />
-        <path d="M13 45.5C20.5 33.5 28 22.5 37.8 12.5C42.3 15.3 47.6 18 53.4 19.6C45.8 31.4 38.8 42 28.9 52.1C24.2 49.3 18.7 47 13 45.5Z" fill="url(#pcLogoGreen)" filter="url(#pcLogoShadow)" />
-        <path d="M21.5 45.6C26.8 37.1 32.4 28.8 39.6 21.2C42.2 22.7 45.4 24.1 48.7 25.1C43.1 33.8 37.9 41.8 30.7 49.2C27.7 47.6 24.7 46.4 21.5 45.6Z" fill="#04100D" opacity="0.74" />
-        <path d="M17.6 19.4L24.1 13.3L32.8 32.1L26.2 38.1L17.6 19.4Z" fill="url(#pcLogoGold)" filter="url(#pcLogoShadow)" />
-        <path d="M39.9 13.5L46.8 18.8L28.4 51.2L21.5 45.9L39.9 13.5Z" fill="url(#pcLogoGold)" filter="url(#pcLogoShadow)" />
-        <path d="M22.5 13.8L39.8 13.8L34.4 21.4H25.8L22.5 13.8Z" fill="#F5D988" opacity="0.95" />
-        <path d="M29.1 51.1L46.1 51.1L49.7 43.6H34.1L29.1 51.1Z" fill="#A87524" opacity="0.92" />
-        <path d="M14 45.1C22.8 42.8 35.2 43.3 49.7 45.6" stroke="#7EF2C4" strokeWidth="2.6" strokeLinecap="round" opacity="0.9" />
-      </svg>
+      <img className="header-logo-image" src={logoSrc} alt="" width="48" height="48" loading="eager" decoding="sync" />
     </span>
   );
 }
