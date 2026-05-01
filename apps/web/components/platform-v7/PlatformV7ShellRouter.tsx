@@ -1,10 +1,14 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { AppShellV3 } from '@/components/v7r/AppShellV3';
-import { AiShellEnhancer } from '@/components/v7r/AiShellEnhancer';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+
+const PlatformV7ChromeShell = dynamic(
+  () => import('@/components/platform-v7/PlatformV7ChromeShell').then((module) => module.PlatformV7ChromeShell),
+  { ssr: false },
+);
 
 export function PlatformV7ShellRouter({
   children,
@@ -20,12 +24,5 @@ export function PlatformV7ShellRouter({
     return <>{children}</>;
   }
 
-  return (
-    <AppShellV3 initialRole={initialRole}>
-      <>
-        <AiShellEnhancer />
-        {children}
-      </>
-    </AppShellV3>
-  );
+  return <PlatformV7ChromeShell initialRole={initialRole}>{children}</PlatformV7ChromeShell>;
 }
