@@ -1,5 +1,5 @@
-import { BuyerLotSearchScreen } from '@/components/platform-v7/BuyerLotSearchScreen';
+import { PlatformV7BuyerLotsPage } from '@/components/platform-v7/ExecutionContourScreens';
 
 export default function Page() {
-  return <BuyerLotSearchScreen />;
+  return <PlatformV7BuyerLotsPage />;
 }
