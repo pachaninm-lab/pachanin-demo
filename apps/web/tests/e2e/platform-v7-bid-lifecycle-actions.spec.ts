@@ -36,7 +36,7 @@ test.describe('platform-v7 bid lifecycle actions', () => {
     await page.getByRole('button', { name: 'Повысить на 100 ₽/т' }).click();
 
     await expect(page.getByText('Ставка изменена')).toBeVisible();
-    await expect(page.getByText(/Новая цена: 15 800 ₽\/т/)).toBeVisible();
+    await expect(page.getByText(/Новая цена:\s*15\s*800\s*₽\/т/)).toBeVisible();
     await expect(page.getByText(/Сумма пересчитана автоматически/)).toBeVisible();
   });
 
