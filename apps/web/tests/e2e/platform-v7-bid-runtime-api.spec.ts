@@ -80,4 +80,70 @@ test.describe('platform-v7 bid runtime API', () => {
     expect(secondPayload.idempotent).toBe(true);
     expect(secondPayload.deals).toHaveLength(1);
   });
+
+  test('command route blocks buyer actions on another buyer bid', async ({ page }) => {
+    const scopeId = `api-foreign-${Date.now()}`;
+    await page.goto(`/api/platform-v7/bids/runtime?scopeId=${scopeId}&lotId=LOT-2403&role=buyer&viewerCounterpartyId=cp-buyer-2`, { waitUntil: 'networkidle' });
+    const csrf = await getCookieValue(page, 'pc_csrf_token');
+
+    const response = await page.request.post('/api/platform-v7/bids/runtime/command', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+      data: {
+        scopeId,
+        action: 'improve_bid',
+        actorRole: 'buyer',
+        lotId: 'LOT-2403',
+        bidId: 'BID-7001',
+        viewerCounterpartyId: 'cp-buyer-2',
+        idempotencyKey: `${scopeId}:foreign:BID-7001`,
+      },
+    });
+
+    expect(response.status()).toBe(400);
+    const payload = await response.json();
+    expect(payload.ok).toBe(false);
+    expect(payload.command.status).toBe('FAILED');
+    expect(payload.event.title).toBe('Действие остановлено');
+    expect(payload.event.details).toContain('Покупатель может управлять только своей ставкой');
+    expect(payload.bids).toHaveLength(1);
+    expect(payload.bids[0].buyerId).toBe('cp-buyer-2');
+  });
+
+  test('command route blocks changing a bid after another bid was accepted', async ({ page }) => {
+    const scopeId = `api-closed-${Date.now()}`;
+    await page.goto(`/api/platform-v7/bids/runtime?scopeId=${scopeId}&lotId=LOT-2403&role=seller`, { waitUntil: 'networkidle' });
+    const csrf = await getCookieValue(page, 'pc_csrf_token');
+
+    const accept = await page.request.post('/api/platform-v7/bids/runtime/command', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+      data: {
+        scopeId,
+        action: 'accept_bid',
+        actorRole: 'seller',
+        lotId: 'LOT-2403',
+        bidId: 'BID-7002',
+        idempotencyKey: `${scopeId}:accept:BID-7002`,
+      },
+    });
+    expect(accept.ok()).toBeTruthy();
+
+    const rejectClosed = await page.request.post('/api/platform-v7/bids/runtime/command', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+      data: {
+        scopeId,
+        action: 'reject_bid',
+        actorRole: 'seller',
+        lotId: 'LOT-2403',
+        bidId: 'BID-7002',
+        idempotencyKey: `${scopeId}:reject-closed:BID-7002`,
+      },
+    });
+
+    expect(rejectClosed.status()).toBe(400);
+    const payload = await rejectClosed.json();
+    expect(payload.ok).toBe(false);
+    expect(payload.command.status).toBe('FAILED');
+    expect(payload.event.details).toContain('Отклонить ставку можно выполнить только по активной ставке');
+    expect(payload.deals).toHaveLength(1);
+  });
 });
