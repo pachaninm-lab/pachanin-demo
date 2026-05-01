@@ -41,7 +41,14 @@ jobs:
         run: pnpm --dir apps/web typecheck
 
       - name: Unit tests for platform-v7 runtime contracts
-        run: pnpm --dir apps/web test -- tests/platformV7ExecutionContour.test.ts tests/platformV7RuntimeRepository.test.ts
+        timeout-minutes: 3
+        run: >-
+          pnpm --dir apps/web exec vitest run
+          tests/platformV7ExecutionContour.test.ts
+          tests/platformV7RuntimeRepository.test.ts
+          --pool=forks
+          --testTimeout=20000
+          --hookTimeout=20000
 
       - name: Install Playwright Chromium
         run: pnpm --dir apps/web exec playwright install --with-deps chromium
