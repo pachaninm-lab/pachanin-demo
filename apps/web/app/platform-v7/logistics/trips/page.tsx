@@ -1,5 +1,5 @@
-import { PlatformV7TripLifecyclePage } from '@/components/platform-v7/LogisticsLifecycleScreens';
+import { PlatformV7TripPage } from '@/components/platform-v7/ExecutionContourScreens';
 
 export default function Page() {
-  return <PlatformV7TripLifecyclePage />;
+  return <PlatformV7TripPage />;
 }
