@@ -161,7 +161,17 @@ function parseSession(raw: string | undefined): { role: string; exp: number } | 
   return null;
 }
 
+function resolvePathRole(pathname: string): string | null {
+  if (pathname.startsWith('/platform-v7/driver')) return 'driver';
+  if (pathname.startsWith('/platform-v7/surveyor')) return 'surveyor';
+  if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
+  if (pathname.startsWith('/platform-v7/lab')) return 'lab';
+  return null;
+}
+
 function resolveRole(req: NextRequest, sessionRole?: string | null) {
+  const pathRole = resolvePathRole(req.nextUrl.pathname);
+  if (pathRole) return pathRole;
   const queryRole = req.nextUrl.searchParams.get('as');
   if (queryRole && VALID_ROLES.has(queryRole)) return queryRole;
   const cookieRole = req.cookies.get('pc-role')?.value;
@@ -208,7 +218,7 @@ export function middleware(req: NextRequest) {
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
   const resolvedRole = resolveRole(req, session?.role ?? null);
 
-  if (isPublic(p) || p.startsWith('/platform-v7') || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
+  if (isPublic(p) || p.startsWith('/platform-v7') || p.startsWith('/api/platform-v7/') || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
     const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
     if (req.cookies.get('pc-role')?.value !== resolvedRole) {
       response.cookies.set('pc-role', resolvedRole, {

@@ -1,5 +1,5 @@
-import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
+import { PlatformV7ElevatorPage } from '@/components/platform-v7/ExecutionContourScreens';
 
 export default function Page() {
-  return <FieldElevatorRuntime />;
+  return <PlatformV7ElevatorPage />;
 }

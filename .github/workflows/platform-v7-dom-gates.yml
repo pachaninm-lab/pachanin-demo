@@ -1,0 +1,48 @@
+name: Platform V7 DOM Gates
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/platform-v7-dom-gates.yml'
+  workflow_dispatch:
+
+jobs:
+  dom-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        timeout-minutes: 5
+        run: pnpm --dir apps/web exec playwright install chromium
+      - name: DOM and runtime e2e gates
+        timeout-minutes: 8
+        run: >-
+          pnpm --dir apps/web exec playwright test
+          tests/e2e/platform-v7-cross-screen-contour.spec.ts
+          tests/e2e/platform-v7-internal-assistant-dom-gate.spec.ts
+          tests/e2e/platform-v7-expanded-forbidden-terms-gate.spec.ts
+          tests/e2e/platform-v7-trip-detail-rewrite.spec.ts
+          tests/e2e/platform-v7-runtime-supplemental.spec.ts
+          --project=chromium
+          --workers=1
+          --retries=0
+          --timeout=30000
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-dom-playwright-report
+          path: apps/web/playwright-report
+          if-no-files-found: ignore

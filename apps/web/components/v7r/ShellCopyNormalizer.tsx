@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { usePathname } from 'next/navigation';
 
 const TEXT_REPLACEMENTS: Array<[string, string]> = [
   ['Controlled pilot', 'Пилотный режим'],
@@ -33,7 +34,12 @@ function normalizeTree(root: ParentNode) {
 }
 
 export function ShellCopyNormalizer() {
+  const pathname = usePathname();
+  const disabledForFieldShell = pathname === '/platform-v7/driver' || pathname.startsWith('/platform-v7/driver/');
+
   React.useEffect(() => {
+    if (disabledForFieldShell) return;
+
     normalizeTree(document.body);
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
@@ -45,7 +51,7 @@ export function ShellCopyNormalizer() {
     });
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
-  }, []);
+  }, [disabledForFieldShell]);
 
   return null;
 }
