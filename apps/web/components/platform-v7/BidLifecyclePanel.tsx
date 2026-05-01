@@ -1,17 +1,10 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
-import {
-  acceptBid,
-  rejectBid,
-  submitBid,
-  updateBid,
-  withdrawBid,
-  type Bid,
-  type Lot,
-  type RejectionReason,
-} from '@/lib/platform-v7/execution-contour';
+import { useEffect, useMemo, useState } from 'react';
+import { applyCsrfHeader } from '@/lib/csrf';
+import type { Bid, Lot } from '@/lib/platform-v7/execution-contour';
+import type { BidRuntimeAction, BidRuntimeEvent } from '@/lib/platform-v7/bid-runtime-store';
 
 type Mode = 'seller' | 'buyer';
 
@@ -21,39 +14,23 @@ type JournalEntry = {
   readonly details: string;
 };
 
+type RuntimeView = {
+  readonly ok?: boolean;
+  readonly revision?: number;
+  readonly lot?: Lot;
+  readonly bids?: Bid[];
+  readonly events?: BidRuntimeEvent[];
+  readonly command?: { readonly status?: string; readonly error?: string };
+  readonly event?: BidRuntimeEvent | null;
+  readonly error?: string;
+};
+
 const mutedStyle = { color: '#667085', fontSize: 13, lineHeight: 1.55 } as const;
 const numberStyle = { fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace', fontVariantNumeric: 'tabular-nums' } as const;
-const cardStyle = {
-  border: '1px solid #E4E6EA',
-  borderRadius: 20,
-  background: '#FFFFFF',
-  padding: 18,
-  display: 'grid',
-  gap: 12,
-  minWidth: 0,
-} as const;
-const gridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
-  gap: 12,
-} as const;
-const buttonStyle = {
-  minHeight: 44,
-  border: 0,
-  borderRadius: 14,
-  background: '#0A7A5F',
-  color: '#FFFFFF',
-  padding: '0 14px',
-  fontSize: 14,
-  fontWeight: 800,
-  cursor: 'pointer',
-} as const;
-const secondaryButtonStyle = {
-  ...buttonStyle,
-  background: '#FFFFFF',
-  color: '#344054',
-  border: '1px solid #D0D5DD',
-} as const;
+const cardStyle = { border: '1px solid #E4E6EA', borderRadius: 20, background: '#FFFFFF', padding: 18, display: 'grid', gap: 12, minWidth: 0 } as const;
+const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12 } as const;
+const buttonStyle = { minHeight: 44, border: 0, borderRadius: 14, background: '#0A7A5F', color: '#FFFFFF', padding: '0 14px', fontSize: 14, fontWeight: 800, cursor: 'pointer' } as const;
+const secondaryButtonStyle = { ...buttonStyle, background: '#FFFFFF', color: '#344054', border: '1px solid #D0D5DD' } as const;
 
 function money(value: number): string {
   return new Intl.NumberFormat('ru-RU').format(value) + ' ₽';
@@ -92,11 +69,7 @@ function Metric({ label, value }: { readonly label: string; readonly value: stri
 }
 
 function Pill({ children }: { readonly children: ReactNode }) {
-  return (
-    <span style={{ display: 'inline-flex', minHeight: 28, alignItems: 'center', borderRadius: 999, border: '1px solid #D0D5DD', padding: '0 10px', color: '#344054', fontSize: 12, fontWeight: 700 }}>
-      {children}
-    </span>
-  );
+  return <span style={{ display: 'inline-flex', minHeight: 28, alignItems: 'center', borderRadius: 999, border: '1px solid #D0D5DD', padding: '0 10px', color: '#344054', fontSize: 12, fontWeight: 700 }}>{children}</span>;
 }
 
 function sortBids(bids: readonly Bid[]): Bid[] {
@@ -106,87 +79,73 @@ function sortBids(bids: readonly Bid[]): Bid[] {
   });
 }
 
+function eventsToJournal(events: readonly BidRuntimeEvent[] | undefined, fallback: JournalEntry[]): JournalEntry[] {
+  if (!events?.length) return fallback;
+  return events.map((event) => ({ id: event.eventId, title: event.title, details: event.details })).slice(0, 8);
+}
+
 export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lot; readonly initialBids: readonly Bid[]; readonly mode: Mode }) {
+  const [scopeId] = useState(() => `platform-v7-${mode}-${lot.lotId}-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
   const [bids, setBids] = useState<Bid[]>(() => [...initialBids]);
-  const [notice, setNotice] = useState<string>('Действия не отправляются наружу: это управляемый пилотный сценарий интерфейса.');
+  const [revision, setRevision] = useState<number>(1);
+  const [isPending, setIsPending] = useState(false);
+  const [notice, setNotice] = useState<string>('Действия записываются в серверный журнал пилотного сценария.');
   const [journal, setJournal] = useState<JournalEntry[]>([
     { id: 'journal-start', title: 'Открыта карточка ставок', details: mode === 'seller' ? 'Продавец видит сравнение ставок по своему лоту.' : 'Покупатель видит только свою ставку и свои действия.' },
   ]);
 
+  const role = mode === 'buyer' ? 'buyer' : 'seller';
+  const viewerCounterpartyId = mode === 'buyer' ? 'cp-buyer-2' : undefined;
   const acceptedBid = bids.find((bid) => bid.status === 'accepted');
   const sortedBids = useMemo(() => sortBids(bids), [bids]);
   const buyerCanSubmit = mode === 'buyer' && !bids.some((bid) => ['submitted', 'leading', 'accepted'].includes(bid.status));
 
-  function pushJournal(title: string, details: string) {
-    const entry: JournalEntry = { id: `journal-${Date.now()}-${Math.random()}`, title, details };
-    setJournal((current) => [entry, ...current].slice(0, 8));
-    setNotice(details);
+  function applyRuntimeView(payload: RuntimeView) {
+    if (payload.bids) setBids(payload.bids);
+    if (typeof payload.revision === 'number') setRevision(payload.revision);
+    setJournal((current) => eventsToJournal(payload.events, current));
+    if (payload.event?.details) setNotice(payload.event.details);
+    if (payload.error) setNotice(payload.error);
   }
 
-  function replaceBid(nextBid: Bid) {
-    setBids((current) => current.map((bid) => bid.bidId === nextBid.bidId ? nextBid : bid));
-  }
-
-  function handleAccept(bidId: string) {
-    try {
-      const result = acceptBid({ lot, bids, bidId, actorRole: 'seller' });
-      setBids(result.bids);
-      pushJournal('Ставка принята', `Создана сделка ${result.deal.dealId}. Условия ставки заморожены.`);
-    } catch (error) {
-      pushJournal('Действие остановлено', error instanceof Error ? error.message : 'Не удалось принять ставку.');
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRuntimeView() {
+      const params = new URLSearchParams({ scopeId, lotId: lot.lotId, role });
+      if (viewerCounterpartyId) params.set('viewerCounterpartyId', viewerCounterpartyId);
+      const response = await fetch(`/api/platform-v7/bids/runtime?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => null) as RuntimeView | null;
+      if (!cancelled && payload) applyRuntimeView(payload);
     }
-  }
+    void loadRuntimeView();
+    return () => { cancelled = true; };
+  }, [lot.lotId, role, scopeId, viewerCounterpartyId]);
 
-  function handleReject(bid: Bid) {
-    const reason: RejectionReason = 'Цена ниже ожидания';
+  async function runCommand(action: BidRuntimeAction, bid?: Bid, extra?: Record<string, unknown>) {
+    setIsPending(true);
     try {
-      const nextBid = rejectBid(bid, reason);
-      replaceBid(nextBid);
-      pushJournal('Ставка отклонена', `${bid.buyerAlias ?? 'Покупатель'}: ${reason}.`);
-    } catch (error) {
-      pushJournal('Действие остановлено', error instanceof Error ? error.message : 'Не удалось отклонить ставку.');
+      const response = await fetch('/api/platform-v7/bids/runtime/command', {
+        method: 'POST',
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          scopeId,
+          action,
+          actorRole: role,
+          lotId: lot.lotId,
+          bidId: bid?.bidId,
+          viewerCounterpartyId,
+          idempotencyKey: `${scopeId}:${action}:${bid?.bidId || 'new'}:${revision}`,
+          ...extra,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as RuntimeView | null;
+      if (payload) applyRuntimeView(payload);
+      if (!response.ok && !payload?.error) setNotice('Действие не выполнено.');
+    } catch {
+      setNotice('Действие не выполнено: нет связи с серверным журналом.');
+    } finally {
+      setIsPending(false);
     }
-  }
-
-  function handleClarify(bid: Bid) {
-    pushJournal('Запрошено уточнение', `${bid.buyerAlias ?? 'Покупатель'} должен подтвердить окно вывоза, документы и условия оплаты.`);
-  }
-
-  function handleImprove(bid: Bid) {
-    try {
-      const nextBid = updateBid(bid, { pricePerTon: bid.pricePerTon + 100, comment: 'Цена повышена покупателем в пилотном интерфейсе.' });
-      replaceBid(nextBid);
-      pushJournal('Ставка изменена', `Новая цена: ${money(nextBid.pricePerTon)}/т. Сумма пересчитана автоматически.`);
-    } catch (error) {
-      pushJournal('Действие остановлено', error instanceof Error ? error.message : 'Не удалось изменить ставку.');
-    }
-  }
-
-  function handleWithdraw(bid: Bid) {
-    try {
-      const nextBid = withdrawBid(bid);
-      replaceBid(nextBid);
-      pushJournal('Ставка отозвана', 'Покупатель убрал ставку из активного сравнения.');
-    } catch (error) {
-      pushJournal('Действие остановлено', error instanceof Error ? error.message : 'Не удалось отозвать ставку.');
-    }
-  }
-
-  function handleSubmit() {
-    const nextBid = submitBid({
-      lotId: lot.lotId,
-      buyerId: 'cp-buyer-2',
-      buyerAlias: mode === 'seller' ? 'Покупатель B' : undefined,
-      pricePerTon: lot.targetPricePerTon,
-      volumeTons: lot.volumeTons,
-      paymentTerms: 'bank_reserve',
-      logisticsOption: 'platform_logistics_required',
-      pickupWindow: '02.05.2026 08:00–14:00',
-      documentsRequired: ['СДИЗ', 'УПД', 'ЭТрН', 'путевой лист'],
-      comment: 'Новая ставка из пилотного интерфейса.',
-    }, '2026-05-01T09:15:00.000Z');
-    setBids((current) => [nextBid, ...current]);
-    pushJournal('Ставка отправлена', `Создана новая ставка на ${money(nextBid.totalAmount)}.`);
   }
 
   return (
@@ -197,15 +156,16 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
             <strong>{mode === 'seller' ? 'Действия продавца по ставкам' : 'Действия покупателя по своей ставке'}</strong>
             <div style={mutedStyle}>{notice}</div>
           </div>
-          <Pill>{acceptedBid ? `принята ${acceptedBid.bidId}` : 'выбор не сделан'}</Pill>
+          <Pill>{acceptedBid ? `принята ${acceptedBid.bidId}` : `журнал ${revision}`}</Pill>
         </div>
-        {buyerCanSubmit ? <button type="button" style={buttonStyle} onClick={handleSubmit}>Отправить новую ставку</button> : null}
+        {buyerCanSubmit ? <button type="button" style={buttonStyle} disabled={isPending} onClick={() => void runCommand('submit_bid')}>Отправить новую ставку</button> : null}
       </article>
 
       <div style={gridStyle}>
         {sortedBids.map((bid) => {
           const closed = ['accepted', 'rejected', 'withdrawn', 'expired'].includes(bid.status);
           const name = mode === 'seller' ? (bid.buyerAlias ?? bid.buyerId) : 'Ваша ставка';
+          const disabled = isPending || closed || Boolean(acceptedBid && mode === 'seller');
           return (
             <article key={bid.bidId} style={cardStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -221,14 +181,14 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
               <div style={mutedStyle}>Логистика: {bid.logisticsOption === 'platform_logistics_required' ? 'нужна логистика платформы' : 'самовывоз'} · окно: {bid.pickupWindow}</div>
               {mode === 'seller' ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" style={buttonStyle} disabled={closed || Boolean(acceptedBid)} onClick={() => handleAccept(bid.bidId)}>Принять</button>
-                  <button type="button" style={secondaryButtonStyle} disabled={closed || Boolean(acceptedBid)} onClick={() => handleClarify(bid)}>Запросить уточнение</button>
-                  <button type="button" style={secondaryButtonStyle} disabled={closed || Boolean(acceptedBid)} onClick={() => handleReject(bid)}>Отклонить с причиной</button>
+                  <button type="button" style={buttonStyle} disabled={disabled} onClick={() => void runCommand('accept_bid', bid)}>Принять</button>
+                  <button type="button" style={secondaryButtonStyle} disabled={disabled} onClick={() => void runCommand('clarify_bid', bid)}>Запросить уточнение</button>
+                  <button type="button" style={secondaryButtonStyle} disabled={disabled} onClick={() => void runCommand('reject_bid', bid, { reason: 'Цена ниже ожидания' })}>Отклонить с причиной</button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" style={buttonStyle} disabled={closed} onClick={() => handleImprove(bid)}>Повысить на 100 ₽/т</button>
-                  <button type="button" style={secondaryButtonStyle} disabled={closed} onClick={() => handleWithdraw(bid)}>Отозвать ставку</button>
+                  <button type="button" style={buttonStyle} disabled={isPending || closed} onClick={() => void runCommand('improve_bid', bid, { priceDelta: 100 })}>Повысить на 100 ₽/т</button>
+                  <button type="button" style={secondaryButtonStyle} disabled={isPending || closed} onClick={() => void runCommand('withdraw_bid', bid)}>Отозвать ставку</button>
                 </div>
               )}
               {mode === 'seller' ? <div style={mutedStyle}>Минимум продавца: {lot.minAcceptablePricePerTon ? `${money(lot.minAcceptablePricePerTon)}/т` : '—'} · отклонение без причины запрещено.</div> : null}
