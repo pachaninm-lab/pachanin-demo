@@ -33,7 +33,7 @@ export default function Home() {
       <header className="premium-nav fixed inset-x-0 top-0 z-50 border-b border-[rgba(126,242,196,0.10)] bg-[#030D0A]/92 shadow-[0_20px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
         <div className="mx-auto flex h-[78px] max-w-7xl items-center justify-between px-5 md:px-6">
           <a href="#top" className="flex min-w-0 items-center gap-3" aria-label="Прозрачная Цена">
-            <span className="brand-logo-mark glow-sm flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-xs font-black text-mint">ПЦ</span>
+            <span className="brand-logo-mark shrink-0" aria-hidden="true" />
             <span className="min-w-0 text-lg font-black tracking-tight text-white md:text-xl">
               Прозрачная <span className="text-mint">Цена</span>
               <span className="mt-0.5 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6F8C82] lg:block">контур исполнения сделки</span>
