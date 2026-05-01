@@ -10,6 +10,23 @@ const PlatformV7ChromeShell = dynamic(
   { ssr: false },
 );
 
+const executionContourPrefixes = [
+  '/platform-v7/lots',
+  '/platform-v7/buyer',
+  '/platform-v7/seller',
+  '/platform-v7/logistics/requests',
+  '/platform-v7/logistics/trips',
+  '/platform-v7/driver',
+  '/platform-v7/elevator',
+  '/platform-v7/lab',
+  '/platform-v7/bank/release-safety',
+  '/platform-v7/deals',
+] as const;
+
+function isExecutionContourRoute(pathname: string): boolean {
+  return executionContourPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export function PlatformV7ShellRouter({
   children,
   initialRole,
@@ -18,9 +35,8 @@ export function PlatformV7ShellRouter({
   readonly initialRole: PlatformRole;
 }) {
   const pathname = usePathname();
-  const isDriverFieldShell = pathname === '/platform-v7/driver' || pathname.startsWith('/platform-v7/driver/');
 
-  if (isDriverFieldShell) {
+  if (isExecutionContourRoute(pathname)) {
     return <>{children}</>;
   }
 
