@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import {
   acceptBid,
@@ -90,7 +91,7 @@ function Metric({ label, value }: { readonly label: string; readonly value: stri
   );
 }
 
-function Pill({ children }: { readonly children: React.ReactNode }) {
+function Pill({ children }: { readonly children: ReactNode }) {
   return (
     <span style={{ display: 'inline-flex', minHeight: 28, alignItems: 'center', borderRadius: 999, border: '1px solid #D0D5DD', padding: '0 10px', color: '#344054', fontSize: 12, fontWeight: 700 }}>
       {children}
