@@ -72,7 +72,7 @@ test.describe('platform-v7 logistics runtime API', () => {
     expect(secondPayload.trip.tripId).toBe('TR-2041');
   });
 
-  test('command route blocks second trip creation with a new key', async ({ page }) => {
+  test('command route blocks second trip creation and preserves the last server projection', async ({ page }) => {
     const scopeId = `log-block-${Date.now()}`;
     await page.goto(`/api/platform-v7/logistics/runtime?scopeId=${scopeId}&actorRole=logistics`, { waitUntil: 'networkidle' });
     const token = await csrf(page);
@@ -86,5 +86,8 @@ test.describe('platform-v7 logistics runtime API', () => {
     expect(payload.command.status).toBe('FAILED');
     expect(payload.event.title).toBe('Действие остановлено');
     expect(payload.event.details).toContain('Рейс уже создан');
+    expect(payload.request.status).toBe('assigned');
+    expect(payload.quotes[0].status).toBe('accepted');
+    expect(payload.trip.tripId).toBe('TR-2041');
   });
 });
