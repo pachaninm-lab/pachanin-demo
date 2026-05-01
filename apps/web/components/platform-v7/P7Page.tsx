@@ -22,6 +22,26 @@ export function P7Page({ children, title, subtitle, actions, testId }: P7PagePro
         fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
       }}
     >
+      <a
+        href="#platform-v7-page-content"
+        style={{
+          display: 'inline-flex',
+          minHeight: 44,
+          width: 'fit-content',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: PLATFORM_V7_TOKENS.radius.md,
+          border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
+          background: PLATFORM_V7_TOKENS.color.surface,
+          color: PLATFORM_V7_TOKENS.color.text,
+          padding: '0 12px',
+          fontSize: PLATFORM_V7_TOKENS.typography.caption.size,
+          fontWeight: 700,
+          textDecoration: 'none',
+        }}
+      >
+        К содержанию
+      </a>
       {(title || subtitle || actions) && (
         <header
           style={{
@@ -64,7 +84,9 @@ export function P7Page({ children, title, subtitle, actions, testId }: P7PagePro
           {actions && <div>{actions}</div>}
         </header>
       )}
-      {children}
+      <div id="platform-v7-page-content" style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xl }}>
+        {children}
+      </div>
     </main>
   );
 }
