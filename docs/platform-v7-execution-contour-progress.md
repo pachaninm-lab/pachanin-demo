@@ -7,11 +7,11 @@
 
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
-| P0 backlog | 73% | 27% | доменный P0-костяк + route/UI + expanded role visibility + full P0 route coverage |
-| P1 backlog | 28% | 72% | начат базовый UX/RBAC/mobile/a11y/finance visibility слой |
+| P0 backlog | 74% | 26% | доменный P0-костяк + route/UI + expanded role visibility + full P0 route coverage |
+| P1 backlog | 29% | 71% | начат базовый UX/RBAC/mobile/a11y/finance visibility/visual capture слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 71% | 29% | unit-gates + mobile/visual/DOM role/finance/full route/runtime smoke gates |
-| Полное ТЗ | 47% | 53% | сильный P0-костяк, не финальный продукт |
+| Release-gates | 74% | 26% | unit-gates + mobile/visual/DOM role/finance/full route/runtime/screenshot-capture gates |
+| Полное ТЗ | 49% | 51% | сильный P0-костяк, не финальный продукт |
 
 ## P0 backlog
 
@@ -27,12 +27,12 @@
 | P0-08 | Очистить внешний UI от technical terms | 68% | 32% | scanner + visible-copy e2e gate есть; bank route очищен от старого technical copy |
 | P0-09 | Убрать AI из внешнего DOM | 10% | 90% | не закрыто; старый AI route остаётся |
 | P0-10 | Закрыть водительский RBAC | 92% | 8% | driver/buyer/logistics/elevator/lab + bank/investor visibility smoke |
-| P0-11 | Mobile release-gates | 70% | 30% | 18 viewports + overflow + all 11 P0 routes; screenshot baseline ещё нет |
+| P0-11 | Mobile release-gates | 76% | 24% | 18 viewports + overflow + all 11 P0 routes + screenshot-capture smoke; pixel baseline ещё нет |
 | P0-12 | Убрать hardcoded KPI | 32% | 68% | buyer-safe экран и bank-safe экран частично убрали старый слой; старые KPI ещё есть |
 | P0-13 | Связать документы с деньгами | 80% | 20% | release safety route подключён к чистому execution-contour screen и покрыт visual/mobile/runtime smoke |
 | P0-14 | Data consistency tests | 75% | 25% | unit consistency test есть; all P0 routes связаны с demo graph; нужен полный cross-screen e2e |
 
-Средний P0 прогресс: 73%.
+Средний P0 прогресс: 74%.
 
 ## P1 backlog
 
@@ -48,8 +48,9 @@
 | P1-08 | Metric passport investor | 10% | 90% |
 | P1-09 | Единый lexicon file | 10% | 90% |
 | P1-10 | Mobile table-to-card system | 45% | 55% |
+| P1-11 | Screenshot capture smoke | 45% | 55% |
 
-Средний P1 прогресс: 28%.
+Средний P1 прогресс: 29%.
 
 ## Release-gates
 
@@ -61,18 +62,18 @@
 | Deal creation tests | 80% | 20% | unit covered + deal dynamic route visual/runtime smoke |
 | Logistics lifecycle tests | 67% | 33% | unit covered + logistics routes in e2e |
 | Money release safety tests | 84% | 16% | unit covered + bank release safety route cleanup + visual/mobile/runtime/finance visibility smoke |
-| Mobile screenshot tests | 30% | 70% | 18 viewports + all P0 routes; screenshots не сохраняются как baseline |
-| Dark/light screenshot tests | 35% | 65% | light/dark readability smoke есть; screenshot baseline нет |
+| Mobile screenshot tests | 45% | 55% | screenshot-capture smoke есть для ключевых mobile routes; сохранённых baseline-снимков нет |
+| Dark/light screenshot tests | 50% | 50% | screenshot-capture smoke есть для light/dark на ключевых routes; pixel diff baseline нет |
 | No horizontal scroll test | 80% | 20% | все 18 viewports по всем 11 P0 routes |
 | Console clean test | 65% | 35% | old runtime smoke + supplemental runtime gate для dynamic/bank routes |
 | Data consistency test | 75% | 25% | unit covered; all P0 routes связаны с demo graph |
-| Visual regression test | 35% | 65% | visual smoke покрывает all P0 routes; diff baseline нет |
+| Visual regression test | 45% | 55% | visual smoke + screenshot-capture smoke есть; diff baseline нет |
 | Keyboard navigation test | 60% | 40% | базовый Tab/focus smoke + supplemental keyboard-entry для dynamic/bank routes |
 | Focus visible test | 45% | 55% | есть фокусируемая точка входа; полноценный focus-visible стиль ещё не доказан |
 | Touch target size test | 48% | 52% | driver primary actions + P7Page keyboard-entry покрыты min 44px |
 | Role visibility matrix test | 92% | 8% | unit matrix + DOM gates for buyer/driver/logistics/elevator/lab/bank/investor |
 
-Средний release-gates прогресс: 71%.
+Средний release-gates прогресс: 74%.
 
 ## Подключённые route-блоки
 
@@ -96,22 +97,30 @@ Route coverage по текущему P0-набору: 11 из 11 = 100%.
 
 Каждый commit в этой ветке запускает Vercel preview deployments.
 
-Последний проверенный SHA: `dda985b2c6fac92c919a556bbae71ca69b136fad`.
+Последний проверенный code SHA: `15547982bd9fc3cac07646aa0a1b35de4445129f`.
 
-Статус Vercel по SHA `dda985b2c6fac92c919a556bbae71ca69b136fad` на момент первой проверки: pending по всем контурам.
+Статус Vercel по SHA `15547982bd9fc3cac07646aa0a1b35de4445129f`:
 
-Production merge/deploy запрещён до зелёного `pachanin-canonical-web` и закрытия draft PR.
+| Контур | Статус |
+|---|---|
+| `pachanin-demo-api` | success |
+| `pachanin-demo-api-ovdc` | success |
+| `pachanin-demo-landing` | success |
+| `pachanin-canonical-web` | failure |
+
+Production merge/deploy запрещён: `pachanin-canonical-web` упал, PR остаётся draft, локальная проверка не выполнена.
 
 ## Заблокированные точки текущего прохода
 
-1. Обновление `platform-v7-a11y-runtime-smoke.spec.ts` было заблокировано инструментом записи, поэтому добавлен отдельный `platform-v7-runtime-supplemental.spec.ts`.
-2. Первая попытка создать подробный finance visibility smoke была заблокирована инструментом записи, поэтому добавлен сокращённый `platform-v7-finance-visibility.spec.ts`.
-3. Локальный запуск `typecheck/test/build` из этого интерфейса не выполнялся.
-4. PR отстаёт от актуального `main`; перед merge нужен rebase/update branch.
-5. `pachanin-canonical-web` остаётся pending на момент проверки.
+1. `pachanin-canonical-web` failed на последнем code SHA.
+2. Обновление `platform-v7-a11y-runtime-smoke.spec.ts` было заблокировано инструментом записи, поэтому добавлен отдельный `platform-v7-runtime-supplemental.spec.ts`.
+3. Первая попытка создать подробный finance visibility smoke была заблокирована инструментом записи, поэтому добавлен сокращённый `platform-v7-finance-visibility.spec.ts`.
+4. Локальный запуск `typecheck/test/build` из этого интерфейса не выполнялся.
+5. PR отстаёт от актуального `main`; перед merge нужен rebase/update branch.
+6. Screenshot gate пока capture-only, без сохранённого pixel-diff baseline.
 
 ## Следующий проход
 
-1. Добавить screenshot baselines для mobile/dark-light.
-2. Начать UI lifecycle actions для submit/update/withdraw/accept bid.
-3. Прогнать CI и только после зелёного CI переводить PR из draft в ready.
+1. Разобрать failure `pachanin-canonical-web` и убрать причину падения.
+2. Только после зелёного canonical-web продолжать UI lifecycle actions для submit/update/withdraw/accept bid.
+3. После фикса — прогнать CI и не переводить PR из draft до зелёных проверок.
