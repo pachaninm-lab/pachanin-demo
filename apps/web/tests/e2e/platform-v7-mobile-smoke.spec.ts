@@ -4,6 +4,8 @@ const viewports = [320, 360, 375, 390, 393, 402, 414, 430, 480, 540, 768, 820, 8
 
 const routes = [
   '/platform-v7/lots',
+  '/platform-v7/lots/LOT-2403/bids',
+  '/platform-v7/deals/DL-9116',
   '/platform-v7/buyer',
   '/platform-v7/seller',
   '/platform-v7/logistics/requests',
