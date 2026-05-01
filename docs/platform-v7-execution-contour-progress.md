@@ -7,11 +7,11 @@
 
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
-| P0 backlog | 60% | 40% | доменный P0-костяк + route/UI + buyer/driver RBAC gates |
-| P1 backlog | 23% | 77% | начат базовый UX/RBAC/mobile/a11y слой |
+| P0 backlog | 62% | 38% | доменный P0-костяк + route/UI + расширенная role visibility matrix |
+| P1 backlog | 24% | 76% | начат базовый UX/RBAC/mobile/a11y слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 51% | 49% | unit-gates + mobile/forbidden/runtime/a11y/buyer-RBAC smoke gates |
-| Полное ТЗ | 36% | 64% | сильный P0-костяк, не финальный продукт |
+| Release-gates | 56% | 44% | unit-gates + mobile/forbidden/runtime/a11y/buyer-RBAC + role matrix tests |
+| Полное ТЗ | 38% | 62% | сильный P0-костяк, не финальный продукт |
 
 ## P0 backlog
 
@@ -26,13 +26,13 @@
 | P0-07 | Trip из LogisticsQuote | 70% | 30% | доменная функция и экран рейса есть |
 | P0-08 | Очистить внешний UI от technical terms | 50% | 50% | scanner + visible-copy e2e gate есть для P0-страниц; старые страницы ещё надо чистить |
 | P0-09 | Убрать AI из внешнего DOM | 10% | 90% | не закрыто; старый AI route остаётся |
-| P0-10 | Закрыть водительский RBAC | 82% | 18% | `/driver` field shell + DOM e2e gate; нужен полный role matrix |
+| P0-10 | Закрыть водительский RBAC | 88% | 12% | driver DOM + buyer sealed mode + role matrix для driver/logistics/buyer/bank/investor |
 | P0-11 | Mobile release-gates | 52% | 48% | 18 viewports + overflow + runtime smoke + keyboard entry; screenshot baseline ещё нет |
 | P0-12 | Убрать hardcoded KPI | 28% | 72% | buyer-safe экран больше не раскрывает чужие ставки/минимум продавца; старые KPI ещё есть |
 | P0-13 | Связать документы с деньгами | 60% | 40% | release safety учитывает документы; нужен UI/route bank integration |
 | P0-14 | Data consistency tests | 70% | 30% | unit consistency test есть; нужен полный cross-screen e2e |
 
-Средний P0 прогресс: 60%.
+Средний P0 прогресс: 62%.
 
 ## P1 backlog
 
@@ -49,14 +49,14 @@
 | P1-09 | Единый lexicon file | 10% | 90% |
 | P1-10 | Mobile table-to-card system | 45% | 55% |
 
-Средний P1 прогресс: 23%.
+Средний P1 прогресс: 24%.
 
 ## Release-gates
 
 | Gate | Готово | Осталось | Комментарий |
 |---|---:|---:|---|
 | Forbidden DOM terms scanner | 55% | 45% | функция, unit-test и visible-copy e2e gate есть для P0-страниц |
-| RBAC DOM tests | 55% | 45% | driver DOM + buyer sealed-mode e2e; нужна полная role matrix |
+| RBAC DOM tests | 60% | 40% | driver DOM + buyer sealed-mode e2e; нужна полная DOM role matrix |
 | Bid lifecycle tests | 70% | 30% | unit covered; нужен UI lifecycle |
 | Deal creation tests | 70% | 30% | unit covered; нужен route-level test |
 | Logistics lifecycle tests | 65% | 35% | unit covered + logistics routes in e2e |
@@ -70,9 +70,9 @@
 | Keyboard navigation test | 50% | 50% | базовый Tab/focus smoke + общая keyboard-entry точка P7Page |
 | Focus visible test | 40% | 60% | есть фокусируемая точка входа; полноценный focus-visible стиль ещё не доказан |
 | Touch target size test | 40% | 60% | driver primary actions + P7Page keyboard-entry покрыты min 44px |
-| Role visibility matrix test | 55% | 45% | driver + bid visibility + buyer sealed-mode started |
+| Role visibility matrix test | 75% | 25% | driver/logistics/buyer/bank/investor covered by unit matrix; нужен DOM matrix |
 
-Средний release-gates прогресс: 51%.
+Средний release-gates прогресс: 56%.
 
 ## Подключённые route-блоки
 
@@ -96,9 +96,9 @@ Route coverage по текущему P0-набору: 8 из 11 = 73%.
 
 Каждый commit в этой ветке запускает Vercel preview deployments.
 
-Последний проверенный SHA: `f9aaf9a6a75c4b99cd164b54be6bfe4d604ff0e1`.
+Последний проверенный SHA: `1a6857722e7a2b3eef78959a681460f5a6773150`.
 
-Статус Vercel по SHA `f9aaf9a6a75c4b99cd164b54be6bfe4d604ff0e1`:
+Статус Vercel по SHA `1a6857722e7a2b3eef78959a681460f5a6773150`:
 
 | Контур | Статус |
 |---|---|
@@ -121,7 +121,7 @@ Production merge/deploy запрещён до зелёного `pachanin-canonic
 ## Следующий проход
 
 1. Проверить Vercel status нового progress SHA.
-2. Добавить полноценную role visibility matrix для seller/logistics/bank/investor.
+2. Добавить DOM role visibility matrix для seller/logistics/bank/investor.
 3. Подключить dynamic routes через допустимый путь записи или вручную.
 4. Почистить старый bank route от technical terms.
 5. Добавить screenshot baselines для mobile/dark-light.
