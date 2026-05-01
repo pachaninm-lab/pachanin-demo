@@ -31,7 +31,7 @@ export default function PilotLeadForm() {
       const result = await response.json().catch(() => ({}));
       if (response.ok && result?.sent === true) {
         setState('success');
-        setMessage('Заявка отправлена. Следующий шаг — карта потерь, сумма под риском, блокеры оплаты и pilot-сценарий.');
+        setMessage('Заявка отправлена. Следующий шаг — показать, где в сделке деньги, блокеры и риск.');
         form.reset();
         return;
       }
@@ -48,10 +48,10 @@ export default function PilotLeadForm() {
       <div className={styles.inner}>
         <div className={styles.head}>
           <div>
-            <span className={styles.badge}>быстрый вход в разбор</span>
-            <h3 className={styles.title}>4 поля — и мы покажем, где в сделке зависают деньги.</h3>
+            <span className={styles.badge}>быстрая заявка</span>
+            <h3 className={styles.title}>Заполните 4 поля. Остальное уточним сами.</h3>
           </div>
-          <div className={styles.note}>Подробности добираем после заявки. Форма не должна тормозить пилот.</div>
+          <div className={styles.note}>Нужна одна реальная сделка: где груз, документы, оплата или спор.</div>
         </div>
 
         <form onSubmit={onSubmit} className={styles.form}>
@@ -61,15 +61,15 @@ export default function PilotLeadForm() {
             <label className={styles.label}>Телефон<input className={styles.field} name="phone" required inputMode="tel" autoComplete="tel" placeholder="+7..." /></label>
           </div>
           <div className={styles.grid}>
-            <label className={styles.label}>Роль<select className={styles.field} name="role" required defaultValue=""><option value="" disabled>Кто вы в сделке</option><option>Продавец / КФХ</option><option>Покупатель зерна</option><option>Элеватор / приёмка</option><option>Логистика / перевозчик</option><option>Банк / финансирование</option><option>Регион / институт развития</option><option>Другое</option></select></label>
-            <label className={styles.label}>Главная боль<select className={styles.field} name="risk" required defaultValue=""><option value="" disabled>Что болит</option><option>Оплата / удержание</option><option>Качество / лаборатория</option><option>Вес / недовес</option><option>ЭДО / ЭПД / МЧД</option><option>СДИЗ / ФГИС Зерно</option><option>Рейс / водитель / маршрут</option><option>Сбер-контур / банк</option><option>Спор / доказательства</option></select></label>
+            <label className={styles.label}>Кто вы в сделке<select className={styles.field} name="role" required defaultValue=""><option value="" disabled>Выберите роль</option><option>Продавец / КФХ</option><option>Покупатель зерна</option><option>Элеватор / приёмка</option><option>Логистика / перевозчик</option><option>Банк / финансирование</option><option>Регион / институт развития</option><option>Другое</option></select></label>
+            <label className={styles.label}>Что болит<select className={styles.field} name="risk" required defaultValue=""><option value="" disabled>Выберите проблему</option><option>Оплата / удержание</option><option>Качество / лаборатория</option><option>Вес / недовес</option><option>ЭДО / ЭПД / МЧД</option><option>СДИЗ / ФГИС Зерно</option><option>Рейс / водитель / маршрут</option><option>Сбер-контур / банк</option><option>Спор / доказательства</option></select></label>
           </div>
-          <label className={styles.label}>Коротко о сделке<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={4} placeholder="Культура, объём, регион, где зависли деньги: рейс, вес, качество, документы, оплата или спор" /></label>
+          <label className={styles.label}>Коротко о сделке<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={4} placeholder="Например: пшеница, 240 т, Тамбов — покупатель удержал оплату из-за качества и документов" /></label>
           <input type="hidden" name="company" value="Не указано на первом шаге" />
           <input type="hidden" name="email" value="" />
           <input type="hidden" name="scenario" value="Карта потерь за 48 часов" />
           <input type="hidden" name="timeline" value="быстрый разбор" />
-          <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем...' : state === 'success' ? 'Заявка отправлена' : 'Получить карту потерь за 48 часов'}</button>
+          <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем...' : state === 'success' ? 'Заявка отправлена' : 'Показать, где зависают деньги'}</button>
           {message ? <p className={`${styles.message} ${state === 'success' ? styles.ok : styles.warn}`}>{message}</p> : null}
         </form>
         <div className={styles.contacts}>
