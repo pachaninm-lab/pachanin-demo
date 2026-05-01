@@ -11,6 +11,11 @@ const nextConfig = {
       { source: '/', destination: '/platform-v7/control-tower', permanent: false },
     ];
   },
+  async rewrites() {
+    return [
+      { source: '/platform-v7/logistics/trips/:tripId', destination: '/platform-v7/logistics/trips' },
+    ];
+  },
 };
 
 export default nextConfig;
