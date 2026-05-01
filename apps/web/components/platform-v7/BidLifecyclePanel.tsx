@@ -60,12 +60,7 @@ function paymentLabel(paymentTerms: Bid['paymentTerms']): string {
 }
 
 function Metric({ label, value }: { readonly label: string; readonly value: string }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={mutedStyle}>{label}</div>
-      <div style={{ ...numberStyle, fontSize: 17, fontWeight: 800, color: '#101828' }}>{value}</div>
-    </div>
-  );
+  return <div style={{ minWidth: 0 }}><div style={mutedStyle}>{label}</div><div style={{ ...numberStyle, fontSize: 17, fontWeight: 800, color: '#101828' }}>{value}</div></div>;
 }
 
 function Pill({ children }: { readonly children: ReactNode }) {
@@ -90,6 +85,7 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
   const [revision, setRevision] = useState<number>(1);
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string>('Подключаем серверный журнал пилотного сценария.');
   const [journal, setJournal] = useState<JournalEntry[]>([
     { id: 'journal-start', title: 'Открыта карточка ставок', details: mode === 'seller' ? 'Продавец видит сравнение ставок по своему лоту.' : 'Покупатель видит только свою ставку и свои действия.' },
@@ -105,6 +101,13 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
     if (payload.bids) setBids(payload.bids);
     if (typeof payload.revision === 'number') setRevision(payload.revision);
     setJournal((current) => eventsToJournal(payload.events, current));
+    if (payload.command?.status === 'FAILED') {
+      const message = payload.command.error || payload.event?.details || payload.error || 'Действие не выполнено. Состояние оставлено по последней серверной версии.';
+      setLastError(message);
+      setNotice(message);
+      return;
+    }
+    if (payload.ok !== false) setLastError(null);
     if (payload.event?.details) setNotice(payload.event.details);
     if (payload.error) setNotice(payload.error);
   }
@@ -129,26 +132,22 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
   async function runCommand(action: BidRuntimeAction, bid?: Bid, extra?: Record<string, unknown>) {
     if (!runtimeReady) return;
     setIsPending(true);
+    setLastError(null);
     try {
       const response = await fetch('/api/platform-v7/bids/runtime/command', {
         method: 'POST',
         headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          scopeId,
-          action,
-          actorRole: role,
-          lotId: lot.lotId,
-          bidId: bid?.bidId,
-          viewerCounterpartyId,
-          idempotencyKey: `${scopeId}:${action}:${bid?.bidId || 'new'}:${revision}`,
-          ...extra,
-        }),
+        body: JSON.stringify({ scopeId, action, actorRole: role, lotId: lot.lotId, bidId: bid?.bidId, viewerCounterpartyId, idempotencyKey: `${scopeId}:${action}:${bid?.bidId || 'new'}:${revision}`, ...extra }),
       });
       const payload = await response.json().catch(() => null) as RuntimeView | null;
       if (payload) applyRuntimeView(payload);
-      if (!response.ok && !payload?.error) setNotice('Действие не выполнено.');
+      if (!response.ok && !payload?.error && !payload?.command?.error) {
+        setLastError('Действие не выполнено. Состояние не изменено без подтверждения сервера.');
+        setNotice('Действие не выполнено. Состояние не изменено без подтверждения сервера.');
+      }
     } catch {
-      setNotice('Действие не выполнено: нет связи с серверным журналом.');
+      setLastError('Нет связи с серверным журналом. Состояние не изменено без подтверждения сервера.');
+      setNotice('Нет связи с серверным журналом. Состояние не изменено без подтверждения сервера.');
     } finally {
       setIsPending(false);
     }
@@ -164,6 +163,7 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
           </div>
           <Pill>{acceptedBid ? `принята ${acceptedBid.bidId}` : runtimeReady ? `журнал ${revision}` : 'подключение'}</Pill>
         </div>
+        {lastError ? <div data-testid={`platform-v7-bid-command-error-${mode}`} style={{ border: '1px solid #FDA29B', background: '#FFFBFA', color: '#B42318', borderRadius: 14, padding: 12, fontSize: 13, fontWeight: 800 }}>Команда остановлена: {lastError}</div> : null}
         {buyerCanSubmit ? <button type="button" style={buttonStyle} disabled={isPending || !runtimeReady} onClick={() => void runCommand('submit_bid')}>Отправить новую ставку</button> : null}
       </article>
 
@@ -174,28 +174,13 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
           const disabled = !runtimeReady || isPending || closed || Boolean(acceptedBid && mode === 'seller');
           return (
             <article key={bid.bidId} style={cardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <strong>{name}</strong>
-                <Pill>{statusLabel(bid.status)}</Pill>
-              </div>
-              <div style={gridStyle}>
-                <Metric label="Цена" value={`${money(bid.pricePerTon)}/т`} />
-                <Metric label="Объём" value={`${bid.volumeTons} т`} />
-                <Metric label="Сумма" value={money(bid.totalAmount)} />
-                <Metric label="Оплата" value={paymentLabel(bid.paymentTerms)} />
-              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><strong>{name}</strong><Pill>{statusLabel(bid.status)}</Pill></div>
+              <div style={gridStyle}><Metric label="Цена" value={`${money(bid.pricePerTon)}/т`} /><Metric label="Объём" value={`${bid.volumeTons} т`} /><Metric label="Сумма" value={money(bid.totalAmount)} /><Metric label="Оплата" value={paymentLabel(bid.paymentTerms)} /></div>
               <div style={mutedStyle}>Логистика: {bid.logisticsOption === 'platform_logistics_required' ? 'нужна логистика платформы' : 'самовывоз'} · окно: {bid.pickupWindow}</div>
               {mode === 'seller' ? (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" style={buttonStyle} disabled={disabled} onClick={() => void runCommand('accept_bid', bid)}>Принять</button>
-                  <button type="button" style={secondaryButtonStyle} disabled={disabled} onClick={() => void runCommand('clarify_bid', bid)}>Запросить уточнение</button>
-                  <button type="button" style={secondaryButtonStyle} disabled={disabled} onClick={() => void runCommand('reject_bid', bid, { reason: 'Цена ниже ожидания' })}>Отклонить с причиной</button>
-                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button type="button" style={buttonStyle} disabled={disabled} onClick={() => void runCommand('accept_bid', bid)}>Принять</button><button type="button" style={secondaryButtonStyle} disabled={disabled} onClick={() => void runCommand('clarify_bid', bid)}>Запросить уточнение</button><button type="button" style={secondaryButtonStyle} disabled={disabled} onClick={() => void runCommand('reject_bid', bid, { reason: 'Цена ниже ожидания' })}>Отклонить с причиной</button></div>
               ) : (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" style={buttonStyle} disabled={!runtimeReady || isPending || closed} onClick={() => void runCommand('improve_bid', bid, { priceDelta: 100 })}>Повысить на 100 ₽/т</button>
-                  <button type="button" style={secondaryButtonStyle} disabled={!runtimeReady || isPending || closed} onClick={() => void runCommand('withdraw_bid', bid)}>Отозвать ставку</button>
-                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button type="button" style={buttonStyle} disabled={!runtimeReady || isPending || closed} onClick={() => void runCommand('improve_bid', bid, { priceDelta: 100 })}>Повысить на 100 ₽/т</button><button type="button" style={secondaryButtonStyle} disabled={!runtimeReady || isPending || closed} onClick={() => void runCommand('withdraw_bid', bid)}>Отозвать ставку</button></div>
               )}
               {mode === 'seller' ? <div style={mutedStyle}>Минимум продавца: {lot.minAcceptablePricePerTon ? `${money(lot.minAcceptablePricePerTon)}/т` : '—'} · отклонение без причины запрещено.</div> : null}
             </article>
@@ -205,14 +190,7 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
 
       <article style={cardStyle} data-testid={`platform-v7-bid-journal-${mode}`}>
         <h3 style={{ margin: 0, fontSize: 18 }}>Журнал действий</h3>
-        <div style={{ display: 'grid', gap: 10 }}>
-          {journal.map((entry) => (
-            <div key={entry.id} style={{ borderTop: '1px solid #E4E6EA', paddingTop: 10 }}>
-              <strong>{entry.title}</strong>
-              <div style={mutedStyle}>{entry.details}</div>
-            </div>
-          ))}
-        </div>
+        <div style={{ display: 'grid', gap: 10 }}>{journal.map((entry) => <div key={entry.id} style={{ borderTop: '1px solid #E4E6EA', paddingTop: 10 }}><strong>{entry.title}</strong><div style={mutedStyle}>{entry.details}</div></div>)}</div>
       </article>
     </section>
   );
