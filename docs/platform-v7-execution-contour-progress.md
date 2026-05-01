@@ -7,11 +7,11 @@
 
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
-| P0 backlog | 52% | 48% | частично внесено в код |
-| P1 backlog | 18% | 82% | начат только базовый UX/RBAC слой |
+| P0 backlog | 57% | 43% | доменный P0-костяк + часть route/UI + unit/e2e gates |
+| P1 backlog | 20% | 80% | начат базовый UX/RBAC слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 20% | 80% | есть unit-gates, нет полного Playwright пакета |
-| Полное ТЗ | 28% | 72% | сильный первый P0-костяк |
+| Release-gates | 34% | 66% | unit-gates + mobile/forbidden visible-copy e2e gates |
+| Полное ТЗ | 31% | 69% | сильный первый P0-костяк, не финальный продукт |
 
 ## P0 backlog
 
@@ -24,15 +24,15 @@
 | P0-05 | LogisticsRequest из Deal | 70% | 30% | доменная функция и экран заявок есть |
 | P0-06 | LogisticsQuote | 65% | 35% | доменная функция и экран предложения есть |
 | P0-07 | Trip из LogisticsQuote | 70% | 30% | доменная функция и экран рейса есть |
-| P0-08 | Очистить внешний UI от technical terms | 35% | 65% | scanner есть; старые страницы ещё надо чистить |
+| P0-08 | Очистить внешний UI от technical terms | 50% | 50% | scanner + visible-copy e2e gate есть для P0-страниц; старые страницы ещё надо чистить |
 | P0-09 | Убрать AI из внешнего DOM | 10% | 90% | не закрыто; старый AI route остаётся |
-| P0-10 | Закрыть водительский RBAC | 70% | 30% | `/driver` заменён на field shell; нужен DOM e2e gate |
-| P0-11 | Mobile release-gates | 20% | 80% | mobile-friendly screens есть; Playwright gates ещё не добавлены полностью |
+| P0-10 | Закрыть водительский RBAC | 80% | 20% | `/driver` field shell + DOM e2e gate; нужен полный role matrix |
+| P0-11 | Mobile release-gates | 45% | 55% | все 18 viewports добавлены в Playwright по P0-страницам; screenshot/dark gates ещё нет |
 | P0-12 | Убрать hardcoded KPI | 25% | 75% | новый контур считает суммы из bid; старые KPI ещё есть |
 | P0-13 | Связать документы с деньгами | 60% | 40% | release safety учитывает документы; нужен UI/route bank integration |
 | P0-14 | Data consistency tests | 70% | 30% | unit consistency test есть; нужен полный cross-screen e2e |
 
-Средний P0 прогресс: 52%.
+Средний P0 прогресс: 57%.
 
 ## P1 backlog
 
@@ -47,32 +47,50 @@
 | P1-07 | Offline queue field roles | 20% | 80% |
 | P1-08 | Metric passport investor | 0% | 100% |
 | P1-09 | Единый lexicon file | 10% | 90% |
-| P1-10 | Mobile table-to-card system | 20% | 80% |
+| P1-10 | Mobile table-to-card system | 40% | 60% |
 
-Средний P1 прогресс: 18%.
+Средний P1 прогресс: 20%.
 
 ## Release-gates
 
 | Gate | Готово | Осталось | Комментарий |
 |---|---:|---:|---|
-| Forbidden DOM terms scanner | 35% | 65% | функция и unit-test есть; нужен DOM scan после render/build |
-| RBAC DOM tests | 25% | 75% | driver view unit covered; нужен Playwright |
+| Forbidden DOM terms scanner | 55% | 45% | функция, unit-test и visible-copy e2e gate есть для P0-страниц |
+| RBAC DOM tests | 45% | 55% | driver DOM covered; нужна полная role matrix |
 | Bid lifecycle tests | 70% | 30% | unit covered; нужен UI lifecycle |
 | Deal creation tests | 70% | 30% | unit covered; нужен route-level test |
-| Logistics lifecycle tests | 60% | 40% | unit covered; нужен UI flow |
+| Logistics lifecycle tests | 65% | 35% | unit covered + logistics routes in e2e |
 | Money release safety tests | 60% | 40% | unit covered; нужен bank route cleanup |
-| Mobile screenshot tests | 0% | 100% | не добавлены |
+| Mobile screenshot tests | 15% | 85% | viewports covered; screenshots не сохраняются как baseline |
 | Dark/light screenshot tests | 0% | 100% | не добавлены |
-| No horizontal scroll test | 0% | 100% | не добавлен |
+| No horizontal scroll test | 60% | 40% | все 18 viewports по P0-страницам добавлены |
 | Console clean test | 0% | 100% | не добавлен |
 | Data consistency test | 70% | 30% | unit covered |
-| Visual regression test | 0% | 100% | не добавлен |
+| Visual regression test | 10% | 90% | visible smoke есть; diff baseline нет |
 | Keyboard navigation test | 0% | 100% | не добавлен |
 | Focus visible test | 0% | 100% | не добавлен |
-| Touch target size test | 0% | 100% | не добавлен |
-| Role visibility matrix test | 35% | 65% | unit started |
+| Touch target size test | 35% | 65% | driver primary actions covered |
+| Role visibility matrix test | 45% | 55% | driver + bid visibility started |
 
-Средний release-gates прогресс: 20%.
+Средний release-gates прогресс: 34%.
+
+## Подключённые route-блоки
+
+| Route | Статус |
+|---|---|
+| `/platform-v7/lots` | подключено |
+| `/platform-v7/buyer` | подключено |
+| `/platform-v7/seller` | подключено |
+| `/platform-v7/logistics/requests` | подключено |
+| `/platform-v7/logistics/trips` | подключено |
+| `/platform-v7/driver` | подключено |
+| `/platform-v7/elevator` | подключено |
+| `/platform-v7/lab` | подключено |
+| `/platform-v7/lots/[lotId]/bids` | не подключено |
+| `/platform-v7/deals/[id]` | не подключено к новому timeline screen |
+| `/platform-v7/bank/release-safety` | не очищено |
+
+Route coverage по текущему P0-набору: 8 из 11 = 73%.
 
 ## Заблокированные точки текущего прохода
 
@@ -86,6 +104,6 @@
 
 1. Подключить dynamic routes через допустимый путь записи или вручную.
 2. Почистить старый bank route от technical terms.
-3. Добавить Playwright mobile/RBAC/forbidden DOM gates.
+3. Добавить console-clean, keyboard, focus-visible и dark/light gates.
 4. Прогнать CI.
 5. Только после зелёного CI переводить PR из draft в ready.
