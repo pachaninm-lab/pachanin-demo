@@ -7,22 +7,25 @@
 
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
-| P0 backlog | 87% | 13% | bid/logistics runtime layer + bid/logistics rollback state + green Vercel preview |
-| P1 backlog | 40% | 60% | начат UX/RBAC/mobile/a11y/finance/visual/runtime/error-state слой |
+| P0 backlog | 88% | 12% | bid/logistics runtime layer + rollback state + persistence passport + green Vercel preview |
+| P1 backlog | 41% | 59% | начат UX/RBAC/mobile/a11y/finance/visual/runtime/error-state/persistence-passport слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 87% | 13% | unit/mobile/visual/DOM role/finance/runtime/API/cross-screen/logistics gates |
-| Полное ТЗ | 64% | 36% | сильный P0-костяк, не финальный продукт |
+| Release-gates | 88% | 12% | unit/mobile/visual/DOM role/finance/runtime/API/cross-screen/logistics/persistence gates |
+| Полное ТЗ | 65% | 35% | сильный P0-костяк, не финальный продукт |
 
 ## Что закрыто в последнем проходе
 
-1. `b84998117b4752b2040fcaa1bfa389c473448588` стал green по всем 4 Vercel preview.
-2. В `platform-v7-logistics-runtime-api.spec.ts` добавлена проверка failed-команды.
-3. Failed logistics command теперь тестом обязан сохранять последнюю серверную projection.
-4. В `LogisticsLifecycleScreens.tsx` добавлен rollback/error state.
-5. Command FAILED показывает отдельный блок ошибки.
-6. Network error показывает отдельный блок ошибки.
-7. UI не делает optimistic-перезапись без server projection.
-8. Состояние логистики остаётся по последней серверной версии.
+1. `ce4c66add345d6da42274d93642b646a8acfffd9` стал green по всем 4 Vercel preview.
+2. Добавлен `runtime-persistence-passport.ts`.
+3. Bid runtime API отдаёт persistence passport.
+4. Logistics runtime API отдаёт persistence passport.
+5. Добавлен `platform-v7-runtime-persistence-passport.spec.ts`.
+6. E2E-gate фиксирует честный статус runtime layer:
+   - `server_memory`;
+   - `durable: false`;
+   - `productionReady: false`;
+   - reset risk: restart/deploy;
+   - controlled pilot memory store.
 
 ## Ограничения
 
@@ -34,6 +37,6 @@
 
 ## Следующий проход
 
-1. Подключить durable persistence или адаптер к существующему runtime command API.
-2. Закрыть AI route/external DOM question.
-3. Повторить детальную страницу рейса через другой безопасный механизм, если инструмент позволит.
+1. Закрыть AI route/external DOM question.
+2. Повторить детальную страницу рейса через другой безопасный механизм, если инструмент позволит.
+3. Добавить production persistence adapter только после выбора реального хранилища.
