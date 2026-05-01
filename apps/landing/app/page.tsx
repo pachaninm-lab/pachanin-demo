@@ -14,18 +14,18 @@ import StickyCTA from './components/StickyCTA';
 
 const navLinks = [
   ['Суть', '#top'],
+  ['Проблема', '#problem'],
+  ['Как работает', '#how'],
   ['Потери', '#loss-map'],
-  ['Роли', '#roles'],
-  ['Деньги', '#money'],
-  ['Сбер / AI', '#trust'],
-  ['Пилот', '#pilot-chain'],
+  ['Для кого', '#roles'],
+  ['Пилот', '#pilot'],
   ['Заявка', '#contact'],
 ];
 
 const pains = [
-  ['Цена уже согласована', 'Но деньги ещё можно потерять на рейсе, весе, качестве, документах и удержаниях.'],
-  ['Факты разбросаны', 'Звонки, фото, лаборатория, ЭДО, СДИЗ и расчёт живут отдельно друг от друга.'],
-  ['Спор начинается поздно', 'Когда нет единого следа сделки, стороны спорят не по фактам, а по перепискам.'],
+  ['Цена согласована', 'Но деньги ещё можно потерять на весе, качестве, рейсе, документах и удержаниях.'],
+  ['Нет одной картины', 'Звонки, фото, лаборатория, СДИЗ, ЭДО и оплата живут отдельно.'],
+  ['Неясно, кто тормозит', 'Когда нет общего следа сделки, спорят по перепискам, а не по фактам.'],
 ];
 
 export default function Home() {
@@ -37,15 +37,15 @@ export default function Home() {
             <HeaderLogo />
             <span className="min-w-0 text-lg font-black tracking-tight text-white md:text-xl">
               Прозрачная <span className="text-mint">Цена</span>
-              <span className="mt-0.5 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6F8C82] lg:block">контур исполнения сделки</span>
+              <span className="mt-0.5 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6F8C82] lg:block">контроль сделки от цены до денег</span>
             </span>
           </a>
 
-          <nav className="hidden items-center gap-6 md:flex">
+          <nav className="hidden items-center gap-5 md:flex">
             {navLinks.slice(1, -1).map(([label, href]) => (
-              <a key={href} href={href} className="text-sm font-medium text-[#8BA89E] transition hover:text-white">{label}</a>
+              <a key={href} href={href} className="text-sm font-semibold text-[#8BA89E] transition hover:text-white">{label}</a>
             ))}
-            <a href="#contact" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover">Хочу протестировать</a>
+            <a href="#contact" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-hover">Разобрать сделку</a>
           </nav>
 
           <details className="group md:hidden [&>summary::-webkit-details-marker]:hidden">
@@ -57,7 +57,7 @@ export default function Home() {
               </span>
             </summary>
             <div className="fixed left-4 right-4 top-[92px] z-50 max-h-[calc(100vh-120px)] overflow-y-auto rounded-[28px] border border-[rgba(126,242,196,0.18)] bg-[#04100D]/[0.99] p-3 shadow-[0_34px_110px_rgba(0,0,0,0.72)] backdrop-blur-2xl">
-              <div className="border-b border-[rgba(126,242,196,0.08)] px-3 pb-3 pt-2 text-[10px] font-black uppercase tracking-[0.20em] text-mint">Навигация по лендингу</div>
+              <div className="border-b border-[rgba(126,242,196,0.08)] px-3 pb-3 pt-2 text-[10px] font-black uppercase tracking-[0.20em] text-mint">Куда перейти</div>
               <div className="grid gap-1 py-2">
                 {navLinks.map(([label, href]) => (
                   <a key={href} href={href} className="flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-bold text-[#DDE8E3] transition hover:bg-[rgba(126,242,196,0.08)] hover:text-white">
@@ -66,7 +66,7 @@ export default function Home() {
                   </a>
                 ))}
               </div>
-              <a href="#contact" className="lux-button mt-1 block rounded-2xl bg-brand px-4 py-3 text-center text-sm font-black text-white">Хочу протестировать</a>
+              <a href="#contact" className="lux-button mt-1 block rounded-2xl bg-brand px-4 py-3 text-center text-sm font-black text-white">Разобрать сделку</a>
             </div>
           </details>
         </div>
@@ -74,17 +74,18 @@ export default function Home() {
 
       <LandingHero />
 
-      <section id="problem" className="relative z-10 scroll-mt-28 py-24">
+      <section id="problem" className="relative z-10 scroll-mt-28 py-20 md:py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="mb-14 max-w-3xl">
-            <div className="mb-5 inline-flex rounded-full border border-[rgba(255,139,144,0.24)] bg-[rgba(255,139,144,0.05)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#FF8B90]">где рынок теряет деньги</div>
-            <h2 className="mb-5 text-3xl font-black tracking-tight md:text-5xl">На бумаге сделка закрыта. В жизни она только началась.</h2>
-            <p className="text-lg leading-relaxed text-[#8BA89E]">Когда партия не совпала по весу, качество упало, водитель опоздал или пакет документов неполный, переписка перестаёт быть управлением.</p>
+          <div className="mb-12 max-w-3xl">
+            <div className="mb-5 inline-flex rounded-full border border-[rgba(255,139,144,0.24)] bg-[rgba(255,139,144,0.05)] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#FF8B90]">простая проблема</div>
+            <h2 className="mb-5 text-3xl font-black tracking-tight md:text-5xl">После цены начинается самая дорогая часть сделки.</h2>
+            <p className="text-lg leading-relaxed text-[#8BA89E]">Платформа нужна не для красивой витрины. Она показывает, что происходит со сделкой прямо сейчас: где груз, где документы, где деньги и что мешает оплате.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            {pains.map(([title, text]) => (
+            {pains.map(([title, text], index) => (
               <div key={title} className="premium-card rounded-2xl p-6 transition hover:-translate-y-1">
-                <h3 className="mb-3 text-lg font-bold text-white">{title}</h3>
+                <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(255,139,144,0.18)] bg-[rgba(255,139,144,0.055)] font-mono text-sm font-black text-[#FF8B90]">{index + 1}</div>
+                <h3 className="mb-3 text-lg font-black text-white">{title}</h3>
                 <p className="text-sm leading-relaxed text-[#8BA89E]">{text}</p>
               </div>
             ))}
@@ -102,14 +103,14 @@ export default function Home() {
       <PilotSingleDeal />
       <SampleLossCard />
 
-      <section id="contact" className="relative z-10 scroll-mt-28 overflow-hidden py-24">
+      <section id="contact" className="relative z-10 scroll-mt-28 overflow-hidden py-20 md:py-24">
         <div className="mx-auto max-w-5xl px-6 text-center">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[rgba(126,242,196,0.2)] bg-[rgba(126,242,196,0.05)] px-4 py-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-mint" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-mint">следующий шаг</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-mint">следующий шаг</span>
           </div>
-          <h2 className="mb-6 text-4xl font-black tracking-tight md:text-6xl">Получите карту потерь по вашей сделке.</h2>
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Опишите одну сделку: культура, объём, маршрут, приёмка, документы, оплата или спор. Ответим с фокусом на деньги, факты, Сбер-контур, AI-риски и пилот.</p>
+          <h2 className="mb-6 text-4xl font-black tracking-tight md:text-6xl">Покажем, где в вашей сделке зависают деньги.</h2>
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Опишите одну сделку: культура, объём, маршрут, приёмка, документы, оплата или спор. В ответ соберём понятную карту потерь и следующий пилотный шаг.</p>
           <PilotLeadForm />
         </div>
       </section>
