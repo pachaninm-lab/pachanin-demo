@@ -1,5 +1,5 @@
-import { SellerLotsRuntimeV2 } from '@/components/v7r/SellerLotsRuntimeV2';
+import { PlatformV7LotsPage } from '@/components/platform-v7/ExecutionContourScreens';
 
-export default function PlatformV7LotsPage() {
-  return <SellerLotsRuntimeV2 />;
+export default function Page() {
+  return <PlatformV7LotsPage />;
 }
