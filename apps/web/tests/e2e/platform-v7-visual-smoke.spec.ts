@@ -4,6 +4,7 @@ const routes = [
   '/platform-v7/lots',
   '/platform-v7/lots/LOT-2403/bids',
   '/platform-v7/deals/DL-9116',
+  '/platform-v7/bank/release-safety',
   '/platform-v7/buyer',
   '/platform-v7/seller',
   '/platform-v7/logistics/requests',
@@ -87,6 +88,21 @@ test.describe('platform-v7 execution visual gates', () => {
     expect(text).toContain('Сделка создана');
     expect(text).toContain('Заявка в логистику создана');
     expect(text).toContain('К выпуску денег');
+  });
+
+  test('/platform-v7/bank/release-safety exposes money release gates without technical copy', async ({ page }) => {
+    const response = await page.goto('/platform-v7/bank/release-safety', { waitUntil: 'networkidle' });
+    expect(response?.ok()).toBeTruthy();
+
+    const text = await bodyText(page);
+    await expect(page.getByText('Проверка выпуска денег')).toBeVisible();
+    expect(text).toContain('Выпуск денег заблокирован');
+    expect(text).toContain('Выпуск денег разрешён');
+    expect(text).toContain('транспортный пакет');
+
+    for (const forbidden of ['Release safety', 'sandbox audit', 'active-hold', 'audit-view', 'legacy']) {
+      expect(text, `bank route must not show ${forbidden}`).not.toContain(forbidden);
+    }
   });
 
   test('/platform-v7/buyer hides competing bids and seller floor in sealed mode', async ({ page }) => {
