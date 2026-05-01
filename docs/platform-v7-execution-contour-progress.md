@@ -7,35 +7,33 @@
 
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
-| P0 backlog | 86% | 14% | bid/logistics runtime layer + bid rollback state + green Vercel preview |
-| P1 backlog | 39% | 61% | начат UX/RBAC/mobile/a11y/finance/visual/runtime/error-state слой |
+| P0 backlog | 87% | 13% | bid/logistics runtime layer + bid/logistics rollback state + green Vercel preview |
+| P1 backlog | 40% | 60% | начат UX/RBAC/mobile/a11y/finance/visual/runtime/error-state слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 86% | 14% | unit/mobile/visual/DOM role/finance/runtime/API/cross-screen/logistics gates |
-| Полное ТЗ | 63% | 37% | сильный P0-костяк, не финальный продукт |
+| Release-gates | 87% | 13% | unit/mobile/visual/DOM role/finance/runtime/API/cross-screen/logistics gates |
+| Полное ТЗ | 64% | 36% | сильный P0-костяк, не финальный продукт |
 
 ## Что закрыто в последнем проходе
 
-1. `35e9f56d8c961273650c1d9b80c4963a8265ef1e` стал green по всем 4 Vercel preview.
-2. В `BidLifecyclePanel` добавлен rollback/error state.
-3. Command FAILED показывает отдельный блок ошибки.
-4. Network error показывает отдельный блок ошибки.
-5. UI не делает optimistic-перезапись без server projection.
-6. Состояние остаётся по последней серверной версии.
-7. Некорректно созданная escape-route папка удалена.
-8. Последний проверенный code SHA `b4646660ca7a8075b79477d1cc6b1003e89b6c85` green по всем 4 Vercel preview.
+1. `b84998117b4752b2040fcaa1bfa389c473448588` стал green по всем 4 Vercel preview.
+2. В `platform-v7-logistics-runtime-api.spec.ts` добавлена проверка failed-команды.
+3. Failed logistics command теперь тестом обязан сохранять последнюю серверную projection.
+4. В `LogisticsLifecycleScreens.tsx` добавлен rollback/error state.
+5. Command FAILED показывает отдельный блок ошибки.
+6. Network error показывает отдельный блок ошибки.
+7. UI не делает optimistic-перезапись без server projection.
+8. Состояние логистики остаётся по последней серверной версии.
 
 ## Ограничения
 
 1. Runtime stores пока server-side in-memory, не durable DB/event-store.
 2. State может сбрасываться при restart/deploy/serverless cold start.
 3. Детальная страница рейса ещё не закрыта из-за блокировки инструмента записи.
-4. Logistics rollback/error state ещё не закрыт: большой update файла был заблокирован safety-filter.
-5. Local `typecheck/test/build` из этого интерфейса не выполнялся.
-6. PR остаётся draft.
+4. Local `typecheck/test/build` из этого интерфейса не выполнялся.
+5. PR остаётся draft.
 
 ## Следующий проход
 
-1. Добавить logistics rollback/error state малым патчем.
-2. Подключить durable persistence или адаптер к существующему runtime command API.
-3. Закрыть AI route/external DOM question.
-4. Повторить детальную страницу рейса через другой безопасный механизм, если инструмент позволит.
+1. Подключить durable persistence или адаптер к существующему runtime command API.
+2. Закрыть AI route/external DOM question.
+3. Повторить детальную страницу рейса через другой безопасный механизм, если инструмент позволит.
