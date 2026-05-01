@@ -1,0 +1,43 @@
+name: Platform V7 Visual Gates
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/platform-v7-visual-gates.yml'
+  workflow_dispatch:
+
+jobs:
+  visual-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: pnpm --dir apps/web exec playwright install chromium
+      - name: Mobile and screenshot gates
+        run: >-
+          pnpm --dir apps/web exec playwright test
+          tests/e2e/platform-v7-mobile-smoke.spec.ts
+          tests/e2e/platform-v7-screenshot-capture-smoke.spec.ts
+          tests/e2e/platform-v7-pixel-baseline-smoke.spec.ts
+          --project=chromium
+          --workers=1
+          --timeout=30000
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-visual-playwright-report
+          path: apps/web/playwright-report
+          if-no-files-found: ignore
