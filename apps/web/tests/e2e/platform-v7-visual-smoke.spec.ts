@@ -56,4 +56,19 @@ test.describe('platform-v7 execution visual gates', () => {
       expect(brokenImages, `${route} should not have broken visible images`).toEqual([]);
     });
   }
+
+  test('/platform-v7/buyer hides competing bids and seller floor in sealed mode', async ({ page }) => {
+    const response = await page.goto('/platform-v7/buyer', { waitUntil: 'networkidle' });
+    expect(response?.ok()).toBeTruthy();
+
+    const bodyText = await page.locator('body').innerText();
+    await expect(page.getByText('Ваша ставка')).toBeVisible();
+    await expect(page.getByText('Сделать ставку')).toBeVisible();
+
+    expect(bodyText).not.toContain('Минимум продавца');
+    expect(bodyText).not.toContain('Лучшая ставка');
+    expect(bodyText).not.toContain('Покупатель A');
+    expect(bodyText).not.toContain('Покупатель B');
+    expect(bodyText).not.toContain('Покупатель C');
+  });
 });
