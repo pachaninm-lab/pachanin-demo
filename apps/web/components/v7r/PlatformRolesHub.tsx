@@ -4,280 +4,176 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
-const ROLE_CARDS: Array<{
-  role: PlatformRole;
+type ScenarioCard = {
   title: string;
-  subtitle: string;
+  description: string;
+  cta: string;
   href: string;
-  nextStep: string;
-  stage: 'sandbox' | 'pilot' | 'role-sim';
-}> = [
+  role?: PlatformRole;
+  accent: string;
+};
+
+const SCENARIO_CARDS: ScenarioCard[] = [
   {
-    role: 'seller',
-    title: 'Продавец / хозяйство',
-    subtitle: 'Лоты, документы, отгрузка, сумма к выпуску и причины удержания.',
+    title: 'Я продаю зерно',
+    description: 'Создать лот, получить предложения, принять цену, отследить документы, отгрузку и деньги.',
+    cta: 'Перейти в кабинет продавца',
     href: '/platform-v7/seller',
-    nextStep: 'Создать лот или открыть зависшую выплату.',
-    stage: 'pilot',
+    role: 'seller',
+    accent: '#0A7A5F',
   },
   {
-    role: 'buyer',
-    title: 'Покупатель / трейдер',
-    subtitle: 'Отбор предложений, сделки, качество, резерв, спорные суммы.',
+    title: 'Я покупаю зерно',
+    description: 'Найти лот, сделать ставку, зарезервировать деньги, принять груз и закрыть документы.',
+    cta: 'Перейти в кабинет покупателя',
     href: '/platform-v7/buyer',
-    nextStep: 'Открыть закупку или проблемную сделку.',
-    stage: 'pilot',
+    role: 'buyer',
+    accent: '#2563EB',
   },
   {
-    role: 'operator',
-    title: 'Оператор платформы',
-    subtitle: 'Очереди, блокеры, деньги под риском, ручные эскалации.',
-    href: '/platform-v7/control-tower',
-    nextStep: 'Перейти в центр управления.',
-    stage: 'pilot',
-  },
-  {
-    role: 'logistics',
-    title: 'Логистика / перевозка',
-    subtitle: 'Рейсы, окна, ETA, отклонения, полевые события.',
-    href: '/platform-v7/logistics',
-    nextStep: 'Открыть диспетчерскую и активные рейсы.',
-    stage: 'pilot',
-  },
-  {
+    title: 'Я везу груз',
+    description: 'Принять рейс, фиксировать прибытие, фото, пломбу, вес, маршрут и завершение перевозки.',
+    cta: 'Открыть рейс водителя',
+    href: '/platform-v7/driver/field',
     role: 'driver',
-    title: 'Водитель',
-    subtitle: 'Мобильный контур: маршрут, прибытие, инцидент, работа без связи.',
-    href: '/platform-v7/driver',
-    nextStep: 'Открыть текущий рейс.',
-    stage: 'role-sim',
+    accent: '#7C3AED',
   },
   {
-    role: 'surveyor',
-    title: 'Сюрвейер / инспектор',
-    subtitle: 'Назначения, акт осмотра, фотофиксация, доказательственный пакет.',
-    href: '/platform-v7/surveyor',
-    nextStep: 'Открыть назначенный кейс.',
-    stage: 'role-sim',
-  },
-  {
-    role: 'elevator',
-    title: 'Элеватор / приёмка',
-    subtitle: 'Окна, вес, разгрузка, акты и события площадки.',
+    title: 'Я принимаю или проверяю груз',
+    description: 'Зафиксировать вес, качество, документы, отклонения и результат приёмки.',
+    cta: 'Выбрать роль приёмки',
     href: '/platform-v7/elevator',
-    nextStep: 'Открыть очередь приёмки.',
-    stage: 'role-sim',
+    role: 'elevator',
+    accent: '#B45309',
   },
   {
-    role: 'lab',
-    title: 'Лаборатория',
-    subtitle: 'Пробы, протоколы, допуски и качественная дельта.',
-    href: '/platform-v7/lab',
-    nextStep: 'Открыть новые образцы.',
-    stage: 'role-sim',
-  },
-  {
-    role: 'bank',
-    title: 'Банк / финпартнёр',
-    subtitle: 'Резерв, удержание, выпуск, возврат и ручная проверка.',
-    href: '/platform-v7/bank',
-    nextStep: 'Открыть денежный контур.',
-    stage: 'sandbox',
-  },
-  {
-    role: 'arbitrator',
-    title: 'Арбитр / споры',
-    subtitle: 'Комнаты разбора, пакет доказательств, решение и денежный эффект.',
-    href: '/platform-v7/arbitrator',
-    nextStep: 'Открыть активные споры.',
-    stage: 'role-sim',
-  },
-  {
-    role: 'compliance',
-    title: 'Комплаенс / допуск',
-    subtitle: 'KYC, реквизиты, аудит действий и стоп-флаги.',
-    href: '/platform-v7/compliance',
-    nextStep: 'Открыть журнал и очередь допуска.',
-    stage: 'sandbox',
-  },
-  {
-    role: 'executive',
-    title: 'Руководитель / наблюдатель',
-    subtitle: 'Сводка по обороту, спорности, SLA и зрелости контуров.',
-    href: '/platform-v7/executive',
-    nextStep: 'Открыть сводную панель.',
-    stage: 'role-sim',
+    title: 'Я контролирую сделку',
+    description: 'Видеть деньги, документы, споры, банк, причины остановки и следующий ответственный шаг.',
+    cta: 'Открыть контроль сделки',
+    href: '/platform-v7/control-tower',
+    role: 'operator',
+    accent: '#0F172A',
   },
 ];
 
-const AUTH_LINKS = [
-  {
-    title: 'Вход',
-    description: 'ЕСИА, СберБизнес ID и email-контур.',
-    href: '/platform-v7/login',
-  },
-  {
-    title: 'Регистрация',
-    description: 'Создание учётной записи компании и подключение документов.',
-    href: '/platform-v7/register',
-  },
-  {
-    title: 'Auth hub',
-    description: 'Все способы входа и связки в одной точке.',
-    href: '/platform-v7/auth',
-  },
-  {
-    title: 'Онбординг',
-    description: '6 шагов от компании до первого лота.',
-    href: '/platform-v7/onboarding',
-  },
-];
+const SECONDARY_LINKS = [
+  { title: 'Все роли', href: '/platform-v7/roles' },
+  { title: 'Демо-сценарий', href: '/platform-v7/demo' },
+  { title: 'Инвесторский режим', href: '/platform-v7/investor' },
+] as const;
 
-const NEW_SURFACES = [
-  {
-    title: 'Банковые модули',
-    description: 'Факторинг, эскроу и обновлённый денежный контур внутри платформы.',
-    links: [
-      { label: 'Факторинг', href: '/platform-v7/bank/factoring' },
-      { label: 'Эскроу', href: '/platform-v7/bank/escrow' },
-      { label: 'Банк', href: '/platform-v7/bank' },
-    ],
-  },
-  {
-    title: 'Подключение компании',
-    description: 'Вход, регистрация, auth hub и пошаговый онбординг в одном контуре.',
-    links: [
-      { label: 'Вход', href: '/platform-v7/login' },
-      { label: 'Регистрация', href: '/platform-v7/register' },
-      { label: 'Онбординг', href: '/platform-v7/onboarding' },
-    ],
-  },
-  {
-    title: 'Доверие после сделки',
-    description: 'Углублённые карточки контрагентов, команда компании и отзывы по сделкам.',
-    links: [
-      { label: 'Контрагент', href: '/platform-v7/companies/6829123456' },
-      { label: 'Команда', href: '/platform-v7/profile/team' },
-      { label: 'Отзыв', href: '/platform-v7/deals/DL-9107/review' },
-    ],
-  },
-];
+const RECEIVING_LINKS = [
+  { title: 'Элеватор', href: '/platform-v7/elevator', role: 'elevator' as PlatformRole },
+  { title: 'Лаборатория', href: '/platform-v7/lab', role: 'lab' as PlatformRole },
+  { title: 'Сюрвейер', href: '/platform-v7/surveyor', role: 'surveyor' as PlatformRole },
+] as const;
 
-function stageBadge(stage: 'sandbox' | 'pilot' | 'role-sim') {
-  if (stage === 'pilot') return { label: 'Пилотный режим', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  if (stage === 'sandbox') return { label: 'Тестовая среда', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
-  return { label: 'Демо-данные', bg: '#F5F7F8', border: '#E4E6EA', color: '#475569' };
-}
+const CONTROL_LINKS = [
+  { title: 'Центр управления', href: '/platform-v7/control-tower', role: 'operator' as PlatformRole },
+  { title: 'Банк', href: '/platform-v7/bank', role: 'bank' as PlatformRole },
+  { title: 'Комплаенс', href: '/platform-v7/compliance', role: 'compliance' as PlatformRole },
+  { title: 'Арбитр', href: '/platform-v7/arbitrator', role: 'arbitrator' as PlatformRole },
+] as const;
 
-export function PlatformRolesHub() {
+function ScenarioLink({ scenario }: { scenario: ScenarioCard }) {
   const { setRole } = usePlatformV7RStore();
 
   return (
-    <div data-demo="true" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Выбор роли и рабочего контура</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 900 }}>
-              Это канонический вход в платформу. Каждый кабинет помечен честно: «Пилотный режим», «Тестовая среда» или «Демо-данные». Следующий шаг по каждой роли показан сразу.
-            </div>
-          </div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#B45309', fontSize: 12, fontWeight: 800 }}>
-            Канонический вход
-          </div>
-        </div>
-      </section>
+    <Link
+      href={`${scenario.href}${scenario.role ? `?as=${scenario.role}` : ''}`}
+      onClick={() => scenario.role && setRole(scenario.role)}
+      style={{
+        textDecoration: 'none',
+        background: '#fff',
+        border: '1px solid #E4E6EA',
+        borderRadius: 22,
+        padding: 20,
+        display: 'grid',
+        gap: 14,
+        minHeight: 246,
+        boxShadow: '0 18px 45px rgba(15, 20, 25, 0.06)',
+      }}
+    >
+      <div style={{ width: 42, height: 4, borderRadius: 999, background: scenario.accent }} />
+      <div style={{ display: 'grid', gap: 10 }}>
+        <h2 style={{ margin: 0, fontSize: 22, lineHeight: 1.18, fontWeight: 900, color: '#0F1419' }}>{scenario.title}</h2>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: '#475569' }}>{scenario.description}</p>
+      </div>
+      <div style={{ marginTop: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '11px 14px', borderRadius: 14, background: scenario.accent, color: '#fff', fontSize: 14, lineHeight: 1.2, fontWeight: 850, textAlign: 'center' }}>
+        {scenario.cta}
+      </div>
+    </Link>
+  );
+}
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-        {ROLE_CARDS.map((item) => {
-          const badge = stageBadge(item.stage);
-          const href = `${item.href}?as=${item.role}`;
-          return (
-            <Link
-              key={item.role}
-              href={href}
-              onClick={() => setRole(item.role)}
-              style={{
-                textDecoration: 'none',
-                textAlign: 'left',
-                background: '#fff',
-                border: '1px solid #E4E6EA',
-                borderRadius: 18,
-                padding: 18,
-                cursor: 'pointer',
-                display: 'grid',
-                gap: 12,
-                minHeight: 220,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
-                <div style={{ fontSize: 18, lineHeight: 1.3, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: badge.bg, border: `1px solid ${badge.border}`, color: badge.color, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap' }}>{badge.label}</span>
-              </div>
-              <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.65 }}>{item.subtitle}</div>
-              <div style={{ marginTop: 'auto' }}>
-                <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 6 }}>{item.nextStep}</div>
-                <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(10,122,95,0.16)', background: 'rgba(10,122,95,0.08)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Открыть кабинет</div>
-              </div>
-            </Link>
-          );
-        })}
-      </section>
+function InlineRoleLinks({ mode }: { mode: 'receiving' | 'control' }) {
+  const { setRole } = usePlatformV7RStore();
+  const links = mode === 'receiving' ? RECEIVING_LINKS : CONTROL_LINKS;
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Вход и подключение компании</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-            Отдельные поверхности для входа, регистрации, выбора контура авторизации и пошагового онбординга компании.
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          {AUTH_LINKS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                textDecoration: 'none',
-                display: 'grid',
-                gap: 8,
-                padding: 16,
-                borderRadius: 14,
-                background: '#F8FAFB',
-                border: '1px solid #E4E6EA',
-              }}
-            >
-              <span style={{ fontSize: 16, lineHeight: 1.25, fontWeight: 800, color: '#0F1419' }}>{item.title}</span>
-              <span style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.description}</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Новые поверхности платформы</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-            Всё новое вынесено прямо на главный вход: банковые модули, подключение компании и доверительный слой после сделки.
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
-          {NEW_SURFACES.map((item) => (
-            <section key={item.title} style={{ display: 'grid', gap: 10, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-              <div style={{ fontSize: 16, lineHeight: 1.25, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
-              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.description}</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {item.links.map((link) => (
-                  <Link key={link.href} href={link.href} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', padding: '8px 10px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#0A7A5F', fontSize: 12, fontWeight: 800 }}>
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      </section>
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {links.map((link) => (
+        <Link
+          key={link.href}
+          href={`${link.href}?as=${link.role}`}
+          onClick={() => setRole(link.role)}
+          style={{ textDecoration: 'none', padding: '8px 11px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 800 }}
+        >
+          {link.title}
+        </Link>
+      ))}
     </div>
+  );
+}
+
+export function PlatformRolesHub() {
+  return (
+    <main style={{ display: 'grid', gap: 18, padding: '8px 0 24px' }}>
+      <section style={{ background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 26, padding: 22, display: 'grid', gap: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gap: 10, maxWidth: 900 }}>
+            <div style={{ display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>
+              Пилотный контур. Часть внешних подключений работает в тестовом режиме.
+            </div>
+            <h1 style={{ margin: 0, fontSize: 'clamp(32px, 5vw, 56px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950, color: '#0F1419' }}>
+              Исполнение зерновой сделки по ролям
+            </h1>
+            <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: '#475569', maxWidth: 820 }}>
+              Это не доска объявлений. Выберите свою роль и сразу откройте рабочий контур: лот, ставка, сделка, резерв, логистика, приёмка, документы, деньги, спор и доказательства.
+            </p>
+          </div>
+          <Link href='/platform-v7/control-tower?as=operator' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '11px 14px', borderRadius: 14, background: '#0F172A', color: '#fff', fontSize: 14, fontWeight: 850 }}>
+            Открыть центр управления
+          </Link>
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14 }}>
+        {SCENARIO_CARDS.map((scenario) => (
+          <ScenarioLink key={scenario.title} scenario={scenario} />
+        ))}
+      </section>
+
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+        <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
+          <div style={{ fontSize: 16, fontWeight: 900, color: '#0F1419' }}>Роли приёмки</div>
+          <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>Отдельные кабинеты для веса, качества и проверки на площадке.</div>
+          <InlineRoleLinks mode='receiving' />
+        </div>
+        <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
+          <div style={{ fontSize: 16, fontWeight: 900, color: '#0F1419' }}>Контроль сделки</div>
+          <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>Операционный контроль, деньги, допуск сторон и споры разнесены по ролям.</div>
+          <InlineRoleLinks mode='control' />
+        </div>
+      </section>
+
+      <nav aria-label='Дополнительные режимы platform-v7' style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        {SECONDARY_LINKS.map((link) => (
+          <Link key={link.href} href={link.href} style={{ textDecoration: 'none', minHeight: 40, display: 'inline-flex', alignItems: 'center', padding: '9px 13px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 850 }}>
+            {link.title}
+          </Link>
+        ))}
+      </nav>
+    </main>
   );
 }
