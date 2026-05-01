@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 
 const routes = [
   '/platform-v7/lots',
+  '/platform-v7/lots/LOT-2403/bids',
+  '/platform-v7/deals/DL-9116',
   '/platform-v7/buyer',
   '/platform-v7/seller',
   '/platform-v7/logistics/requests',
@@ -61,6 +63,31 @@ test.describe('platform-v7 execution visual gates', () => {
       expect(brokenImages, `${route} should not have broken visible images`).toEqual([]);
     });
   }
+
+  test('/platform-v7/lots/LOT-2403/bids exposes seller bid comparison', async ({ page }) => {
+    const response = await page.goto('/platform-v7/lots/LOT-2403/bids', { waitUntil: 'networkidle' });
+    expect(response?.ok()).toBeTruthy();
+
+    const text = await bodyText(page);
+    await expect(page.getByText('Сравнение ставок')).toBeVisible();
+    expect(text).toContain('Покупатель A');
+    expect(text).toContain('Покупатель B');
+    expect(text).toContain('Покупатель C');
+    expect(text).toContain('Принять');
+  });
+
+  test('/platform-v7/deals/DL-9116 exposes accepted bid to deal timeline', async ({ page }) => {
+    const response = await page.goto('/platform-v7/deals/DL-9116', { waitUntil: 'networkidle' });
+    expect(response?.ok()).toBeTruthy();
+
+    const text = await bodyText(page);
+    await expect(page.getByText('Экономика из принятой ставки')).toBeVisible();
+    await expect(page.getByText('Таймлайн исполнения')).toBeVisible();
+    expect(text).toContain('Ставка принята');
+    expect(text).toContain('Сделка создана');
+    expect(text).toContain('Заявка в логистику создана');
+    expect(text).toContain('К выпуску денег');
+  });
 
   test('/platform-v7/buyer hides competing bids and seller floor in sealed mode', async ({ page }) => {
     const response = await page.goto('/platform-v7/buyer', { waitUntil: 'networkidle' });
