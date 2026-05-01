@@ -7,11 +7,11 @@
 
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
-| P0 backlog | 59% | 41% | доменный P0-костяк + часть route/UI + unit/e2e gates |
-| P1 backlog | 22% | 78% | начат базовый UX/RBAC/mobile/a11y слой |
+| P0 backlog | 60% | 40% | доменный P0-костяк + route/UI + buyer/driver RBAC gates |
+| P1 backlog | 23% | 77% | начат базовый UX/RBAC/mobile/a11y слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 49% | 51% | unit-gates + mobile/forbidden/runtime/a11y smoke gates + keyboard entry |
-| Полное ТЗ | 35% | 65% | сильный P0-костяк, не финальный продукт |
+| Release-gates | 51% | 49% | unit-gates + mobile/forbidden/runtime/a11y/buyer-RBAC smoke gates |
+| Полное ТЗ | 36% | 64% | сильный P0-костяк, не финальный продукт |
 
 ## P0 backlog
 
@@ -26,20 +26,20 @@
 | P0-07 | Trip из LogisticsQuote | 70% | 30% | доменная функция и экран рейса есть |
 | P0-08 | Очистить внешний UI от technical terms | 50% | 50% | scanner + visible-copy e2e gate есть для P0-страниц; старые страницы ещё надо чистить |
 | P0-09 | Убрать AI из внешнего DOM | 10% | 90% | не закрыто; старый AI route остаётся |
-| P0-10 | Закрыть водительский RBAC | 80% | 20% | `/driver` field shell + DOM e2e gate; нужен полный role matrix |
+| P0-10 | Закрыть водительский RBAC | 82% | 18% | `/driver` field shell + DOM e2e gate; нужен полный role matrix |
 | P0-11 | Mobile release-gates | 52% | 48% | 18 viewports + overflow + runtime smoke + keyboard entry; screenshot baseline ещё нет |
-| P0-12 | Убрать hardcoded KPI | 25% | 75% | новый контур считает суммы из bid; старые KPI ещё есть |
+| P0-12 | Убрать hardcoded KPI | 28% | 72% | buyer-safe экран больше не раскрывает чужие ставки/минимум продавца; старые KPI ещё есть |
 | P0-13 | Связать документы с деньгами | 60% | 40% | release safety учитывает документы; нужен UI/route bank integration |
 | P0-14 | Data consistency tests | 70% | 30% | unit consistency test есть; нужен полный cross-screen e2e |
 
-Средний P0 прогресс: 59%.
+Средний P0 прогресс: 60%.
 
 ## P1 backlog
 
 | ID | Задача | Готово | Осталось |
 |---|---|---:|---:|
 | P1-01 | Seller bid comparison | 45% | 55% |
-| P1-02 | Buyer bid status UX | 35% | 65% |
+| P1-02 | Buyer bid status UX | 45% | 55% |
 | P1-03 | Rejection reasons | 70% | 30% |
 | P1-04 | Change request после акцепта | 0% | 100% |
 | P1-05 | Logistics inbox | 45% | 55% |
@@ -49,14 +49,14 @@
 | P1-09 | Единый lexicon file | 10% | 90% |
 | P1-10 | Mobile table-to-card system | 45% | 55% |
 
-Средний P1 прогресс: 22%.
+Средний P1 прогресс: 23%.
 
 ## Release-gates
 
 | Gate | Готово | Осталось | Комментарий |
 |---|---:|---:|---|
 | Forbidden DOM terms scanner | 55% | 45% | функция, unit-test и visible-copy e2e gate есть для P0-страниц |
-| RBAC DOM tests | 45% | 55% | driver DOM covered; нужна полная role matrix |
+| RBAC DOM tests | 55% | 45% | driver DOM + buyer sealed-mode e2e; нужна полная role matrix |
 | Bid lifecycle tests | 70% | 30% | unit covered; нужен UI lifecycle |
 | Deal creation tests | 70% | 30% | unit covered; нужен route-level test |
 | Logistics lifecycle tests | 65% | 35% | unit covered + logistics routes in e2e |
@@ -70,16 +70,16 @@
 | Keyboard navigation test | 50% | 50% | базовый Tab/focus smoke + общая keyboard-entry точка P7Page |
 | Focus visible test | 40% | 60% | есть фокусируемая точка входа; полноценный focus-visible стиль ещё не доказан |
 | Touch target size test | 40% | 60% | driver primary actions + P7Page keyboard-entry покрыты min 44px |
-| Role visibility matrix test | 45% | 55% | driver + bid visibility started |
+| Role visibility matrix test | 55% | 45% | driver + bid visibility + buyer sealed-mode started |
 
-Средний release-gates прогресс: 49%.
+Средний release-gates прогресс: 51%.
 
 ## Подключённые route-блоки
 
 | Route | Статус |
 |---|---|
 | `/platform-v7/lots` | подключено |
-| `/platform-v7/buyer` | подключено |
+| `/platform-v7/buyer` | подключено к buyer-safe экрану |
 | `/platform-v7/seller` | подключено |
 | `/platform-v7/logistics/requests` | подключено |
 | `/platform-v7/logistics/trips` | подключено |
@@ -96,9 +96,9 @@ Route coverage по текущему P0-набору: 8 из 11 = 73%.
 
 Каждый commit в этой ветке запускает Vercel preview deployments.
 
-Последний проверенный SHA перед этой фиксацией: `79ffdbd0ab3bb858de8af2ca0649b54ad653e644`.
+Последний проверенный SHA: `f9aaf9a6a75c4b99cd164b54be6bfe4d604ff0e1`.
 
-Статус Vercel по SHA `79ffdbd0ab3bb858de8af2ca0649b54ad653e644`:
+Статус Vercel по SHA `f9aaf9a6a75c4b99cd164b54be6bfe4d604ff0e1`:
 
 | Контур | Статус |
 |---|---|
@@ -114,13 +114,15 @@ Production merge/deploy запрещён до зелёного `pachanin-canonic
 1. Dynamic route write для `/platform-v7/deals/[id]` был заблокирован инструментом записи.
 2. Dynamic route write для `/platform-v7/lots/[lotId]/bids` был заблокирован инструментом записи.
 3. Прямое обновление `/platform-v7/bank/release-safety/page.tsx` было заблокировано инструментом записи.
-4. Локальный запуск `typecheck/test/build` из этого интерфейса не выполнялся.
-5. PR отстаёт от актуального `main`; перед merge нужен rebase/update branch.
+4. Обновление type import в `platform-v7-a11y-runtime-smoke.spec.ts` было заблокировано инструментом записи.
+5. Локальный запуск `typecheck/test/build` из этого интерфейса не выполнялся.
+6. PR отстаёт от актуального `main`; перед merge нужен rebase/update branch.
 
 ## Следующий проход
 
 1. Проверить Vercel status нового progress SHA.
-2. Подключить dynamic routes через допустимый путь записи или вручную.
-3. Почистить старый bank route от technical terms.
-4. Добавить screenshot baselines для mobile/dark-light.
-5. Прогнать CI и только после зелёного CI переводить PR из draft в ready.
+2. Добавить полноценную role visibility matrix для seller/logistics/bank/investor.
+3. Подключить dynamic routes через допустимый путь записи или вручную.
+4. Почистить старый bank route от technical terms.
+5. Добавить screenshot baselines для mobile/dark-light.
+6. Прогнать CI и только после зелёного CI переводить PR из draft в ready.
