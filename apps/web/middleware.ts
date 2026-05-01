@@ -208,7 +208,7 @@ export function middleware(req: NextRequest) {
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
   const resolvedRole = resolveRole(req, session?.role ?? null);
 
-  if (isPublic(p) || p.startsWith('/platform-v7') || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
+  if (isPublic(p) || p.startsWith('/platform-v7') || p.startsWith('/api/platform-v7/') || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
     const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
     if (req.cookies.get('pc-role')?.value !== resolvedRole) {
       response.cookies.set('pc-role', resolvedRole, {
