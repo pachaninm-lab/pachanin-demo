@@ -115,6 +115,18 @@ function findBid(state: BidRuntimeState, bidId?: string): Bid {
   return bid;
 }
 
+function assertActiveBid(bid: Bid, actionTitle: string) {
+  if (!['submitted', 'leading', 'outbid'].includes(bid.status)) {
+    throw new Error(`${actionTitle} можно выполнить только по активной ставке.`);
+  }
+}
+
+function assertBuyerOwnsBid(bid: Bid, viewerCounterpartyId?: string) {
+  if (viewerCounterpartyId && bid.buyerId !== viewerCounterpartyId) {
+    throw new Error('Покупатель может управлять только своей ставкой.');
+  }
+}
+
 function appendEvent(state: BidRuntimeState, event: Omit<BidRuntimeEvent, 'eventId'>): BidRuntimeEvent {
   const next: BidRuntimeEvent = { eventId: eventId(event.action), ...event };
   state.events = [next, ...state.events].slice(0, 40);
@@ -190,6 +202,8 @@ export function applyBidRuntimeCommand(input: CommandInput) {
     let result: Record<string, unknown> = {};
 
     if (input.action === 'accept_bid') {
+      const acceptedBid = findBid(state, input.bidId);
+      assertActiveBid(acceptedBid, 'Принять ставку');
       const accepted = acceptBid({ lot, bids: state.bids, bidId: input.bidId || '', actorRole, acceptedAt: now });
       state.lots = state.lots.map((item) => item.lotId === lot.lotId ? accepted.lot : item);
       state.bids = accepted.bids;
@@ -202,6 +216,7 @@ export function applyBidRuntimeCommand(input: CommandInput) {
 
     if (input.action === 'reject_bid') {
       const bid = findBid(state, input.bidId);
+      assertActiveBid(bid, 'Отклонить ставку');
       const nextBid = rejectBid(bid, input.reason || 'Цена ниже ожидания', now);
       state.bids = state.bids.map((item) => item.bidId === nextBid.bidId ? nextBid : item);
       objectId = nextBid.bidId;
@@ -212,6 +227,7 @@ export function applyBidRuntimeCommand(input: CommandInput) {
 
     if (input.action === 'clarify_bid') {
       const bid = findBid(state, input.bidId);
+      assertActiveBid(bid, 'Запросить уточнение');
       objectId = bid.bidId;
       title = 'Запрошено уточнение';
       details = `${bid.buyerAlias || 'Покупатель'} должен подтвердить окно вывоза, документы и условия оплаты.`;
@@ -220,6 +236,7 @@ export function applyBidRuntimeCommand(input: CommandInput) {
 
     if (input.action === 'improve_bid') {
       const bid = findBid(state, input.bidId);
+      assertBuyerOwnsBid(bid, input.viewerCounterpartyId);
       const nextBid = updateBid(bid, { pricePerTon: bid.pricePerTon + (input.priceDelta || 100), comment: 'Цена повышена покупателем в пилотном интерфейсе.' }, now);
       state.bids = state.bids.map((item) => item.bidId === nextBid.bidId ? nextBid : item);
       objectId = nextBid.bidId;
@@ -230,6 +247,7 @@ export function applyBidRuntimeCommand(input: CommandInput) {
 
     if (input.action === 'withdraw_bid') {
       const bid = findBid(state, input.bidId);
+      assertBuyerOwnsBid(bid, input.viewerCounterpartyId);
       const nextBid = withdrawBid(bid, now);
       state.bids = state.bids.map((item) => item.bidId === nextBid.bidId ? nextBid : item);
       objectId = nextBid.bidId;
