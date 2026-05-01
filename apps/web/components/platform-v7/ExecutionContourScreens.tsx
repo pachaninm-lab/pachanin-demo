@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { BidLifecyclePanel } from '@/components/platform-v7/BidLifecyclePanel';
 import { P7Page } from '@/components/platform-v7/P7Page';
 import { P7Section } from '@/components/platform-v7/P7Section';
 import {
@@ -10,7 +11,6 @@ import {
   executionContourFixtures,
   getVisibleBidsForRole,
   submitLogisticsQuote,
-  type Bid,
   type Lot,
 } from '@/lib/platform-v7/execution-contour';
 
@@ -142,30 +142,6 @@ function Metric({ label, value }: { readonly label: string; readonly value: stri
   );
 }
 
-function BidCard({ bid, lot }: { readonly bid: Bid; readonly lot: Lot }) {
-  return (
-    <article style={cardStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <strong>{bid.buyerAlias ?? bid.buyerId}</strong>
-        <Pill>{bid.status === 'leading' ? 'лидирует' : bid.status === 'submitted' ? 'активна' : bid.status}</Pill>
-      </div>
-      <div style={gridStyle}>
-        <Metric label="Цена" value={`${money(bid.pricePerTon)}/т`} />
-        <Metric label="Объём" value={`${bid.volumeTons} т`} />
-        <Metric label="Сумма" value={money(bid.totalAmount)} />
-        <Metric label="Оплата" value={bid.paymentTerms === 'bank_reserve' ? 'резерв' : 'постоплата'} />
-      </div>
-      <div style={mutedStyle}>Логистика: {bid.logisticsOption === 'platform_logistics_required' ? 'нужна логистика платформы' : 'самовывоз'} · окно: {bid.pickupWindow}</div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Action>Принять</Action>
-        <Pill>Запросить уточнение</Pill>
-        <Pill>Отклонить с причиной</Pill>
-      </div>
-      <div style={mutedStyle}>Минимум продавца: {lot.minAcceptablePricePerTon ? `${money(lot.minAcceptablePricePerTon)}/т` : '—'} · отклонение без причины запрещено.</div>
-    </article>
-  );
-}
-
 export function PlatformV7LotsPage() {
   return (
     <P7Page title="Лоты и ставки" subtitle={pageSubtitle} testId="platform-v7-lots">
@@ -182,7 +158,7 @@ export function PlatformV7LotBidsPage() {
   return (
     <P7Page title={`${lot.lotId}: ставки по лоту`} subtitle="Продавец видит все ставки по своему лоту, сравнивает цену, объём, оплату и логистику. Покупатель в закрытом режиме видит только свою ставку." testId="platform-v7-lot-bids">
       <P7Section title="Сравнение ставок" subtitle="После принятия одной ставки условия замораживаются, остальные ставки закрываются, а сделка создаётся из принятого предложения.">
-        <div style={gridStyle}>{visibleBids.map(bid => <BidCard key={bid.bidId} bid={bid} lot={lot} />)}</div>
+        <BidLifecyclePanel lot={lot} initialBids={visibleBids} mode="seller" />
       </P7Section>
     </P7Page>
   );
@@ -190,14 +166,14 @@ export function PlatformV7LotBidsPage() {
 
 export function PlatformV7BuyerLotsPage() {
   const lot = executionContourFixtures.lots[0];
-  const buyerBid = getVisibleBidsForRole({ role: 'buyer', lot, bids: executionContourFixtures.bids, viewerCounterpartyId: 'cp-buyer-2' })[0];
+  const buyerBids = getVisibleBidsForRole({ role: 'buyer', lot, bids: executionContourFixtures.bids, viewerCounterpartyId: 'cp-buyer-2' });
   return (
     <P7Page title="Покупатель: доступные лоты" subtitle="Покупатель ищет лоты, отправляет ставку и видит только собственную позицию в закрытом режиме." testId="platform-v7-buyer-lots">
       <P7Section title="Фильтры закупки" subtitle="Культура · класс · регион · объём · цена · базис · документы · срок вывоза · ФГИС/СДИЗ · логистика.">
         <LotCard lot={lot} />
       </P7Section>
       <P7Section title="Ваша ставка" subtitle="После отправки покупатель видит статус и доступные действия: повысить, изменить или отозвать.">
-        {buyerBid ? <BidCard bid={buyerBid} lot={lot} /> : null}
+        <BidLifecyclePanel lot={lot} initialBids={buyerBids} mode="buyer" />
       </P7Section>
     </P7Page>
   );
