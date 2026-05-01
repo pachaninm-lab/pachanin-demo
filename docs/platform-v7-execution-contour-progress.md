@@ -8,25 +8,26 @@
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
 | P0 backlog | 91% | 9% | runtime layer + rollback state + gates + green Vercel preview |
-| P1 backlog | 47% | 53% | начат UX/RBAC/mobile/a11y/visual/runtime/error-state/persistence-design слой |
+| P1 backlog | 48% | 52% | начат UX/RBAC/mobile/a11y/visual/runtime/error-state/persistence-design/repository-contract слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 93% | 7% | unit/mobile/visual/DOM role/runtime/API/cross-screen/screenshot/console gates |
-| Полное ТЗ | 71% | 29% | сильный P0-костяк, не финальный продукт |
+| Release-gates | 94% | 6% | unit/mobile/visual/DOM role/runtime/API/cross-screen/screenshot/console/repository-contract gates |
+| Полное ТЗ | 72% | 28% | сильный P0-костяк, не финальный продукт |
 
 ## Что закрыто в последнем проходе
 
-1. `7b8a6366f67953a47a38eb0624df7a276f3122cd` стал green по всем 4 Vercel preview.
-2. Добавлен `platform-v7-runtime-persistence-adr.md`.
-3. Добавлен `platform-v7-runtime-persistence-schema.sql`.
-4. Зафиксирован будущий путь к устойчивому command/event/snapshot хранилищу.
-5. Зафиксировано, что текущий runtime остаётся memory-store для controlled pilot.
-6. Зафиксирован запрет считать memory-store закрытым production persistence.
+1. `407ed8e6d894abbdca85eaccba8e5d17c8dd4aa0` стал green по всем 4 Vercel preview.
+2. Добавлен `runtime-repository.ts`.
+3. Добавлен repository contract для будущего durable adapter.
+4. Runtime stores к repository contract не подключены, чтобы не заявлять ложную durability.
+5. Добавлен `platformV7RuntimeRepository.test.ts`.
+6. Test запрещает считать non-durable repository production persistence.
+7. Vercel build прошёл compile, typecheck, static generation 140/140 и deploy.
 
 ## Ограничения
 
 1. Runtime stores пока server-side in-memory.
 2. State может сбрасываться при restart/deploy/serverless cold start.
-3. Persistence ADR/schema — proposed, not implemented.
+3. Persistence ADR/schema/repository contract — proposed, not implemented.
 4. Детальная страница рейса закрыта rewrite-обходом.
 5. Screenshot gate остаётся smoke/capture gate, не pixel-diff baseline.
 6. Локальный полный Playwright-run из этого интерфейса не выполнялся.
@@ -35,6 +36,6 @@
 
 ## Следующий проход
 
-1. Подготовить repository interface для будущего adapter без подключения к runtime.
-2. Продолжить visual polish / pixel baseline отдельным блоком.
-3. Подготовить PR к update branch перед merge.
+1. Продолжить visual polish / pixel baseline отдельным блоком.
+2. Подготовить PR к update branch перед merge.
+3. После выбора реального хранилища сделать adapter implementation.
