@@ -15,10 +15,10 @@ import StickyCTA from './components/StickyCTA';
 const navLinks = [
   ['Суть', '#top'],
   ['Потери', '#loss-map'],
-  ['Сделка', '#pilot-chain'],
+  ['Роли', '#roles'],
   ['Деньги', '#money'],
   ['Документы', '#trust'],
-  ['Пилот', '#pilot'],
+  ['Пилот', '#pilot-chain'],
   ['Заявка', '#contact'],
 ];
 
