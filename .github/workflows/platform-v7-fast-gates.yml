@@ -1,0 +1,29 @@
+name: Platform V7 Fast Gates
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/platform-v7-fast-gates.yml'
+  workflow_dispatch:
+
+jobs:
+  fast-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck web
+        run: pnpm --dir apps/web typecheck
+      - name: Platform v7 unit gates
+        run: pnpm --dir apps/web exec vitest run tests/unit/platformV7ExecutionContour.test.ts tests/unit/platformV7RuntimeRepository.test.ts --pool=forks
