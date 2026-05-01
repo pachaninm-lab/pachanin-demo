@@ -16,6 +16,7 @@ type RuntimeView = {
   readonly trip?: Trip | null;
   readonly events?: LogisticsRuntimeEvent[];
   readonly event?: LogisticsRuntimeEvent | null;
+  readonly command?: { readonly status?: string; readonly error?: string };
   readonly error?: string;
 };
 
@@ -25,6 +26,7 @@ const mutedStyle = { color: '#667085', fontSize: 13, lineHeight: 1.55 } as const
 const numberStyle = { fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace', fontVariantNumeric: 'tabular-nums' } as const;
 const buttonStyle = { minHeight: 44, border: 0, borderRadius: 14, background: '#0A7A5F', color: '#FFFFFF', padding: '0 14px', fontSize: 14, fontWeight: 800, cursor: 'pointer' } as const;
 const secondaryButtonStyle = { ...buttonStyle, background: '#FFFFFF', color: '#344054', border: '1px solid #D0D5DD' } as const;
+const errorStyle = { border: '1px solid #FDA29B', background: '#FFFBFA', color: '#B42318', borderRadius: 14, padding: 12, fontSize: 13, fontWeight: 800 } as const;
 
 function money(value: number): string {
   return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`;
@@ -78,6 +80,7 @@ export function PlatformV7LogisticsLifecyclePage() {
   const [revision, setRevision] = useState(1);
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [pending, setPending] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [notice, setNotice] = useState('Подключаем серверный журнал логистики.');
 
   const activeQuote = useMemo(() => quotes.find((quote) => quote.status === 'submitted'), [quotes]);
@@ -88,6 +91,13 @@ export function PlatformV7LogisticsLifecyclePage() {
     if (payload.trip !== undefined) setTrip(payload.trip);
     if (payload.events) setEvents(payload.events);
     if (typeof payload.revision === 'number') setRevision(payload.revision);
+    if (payload.command?.status === 'FAILED') {
+      const message = payload.command.error || payload.event?.details || payload.error || 'Действие логистики не выполнено. Состояние оставлено по последней серверной версии.';
+      setLastError(message);
+      setNotice(message);
+      return;
+    }
+    if (payload.ok !== false) setLastError(null);
     if (payload.event?.details) setNotice(payload.event.details);
     if (payload.error) setNotice(payload.error);
   }
@@ -110,6 +120,7 @@ export function PlatformV7LogisticsLifecyclePage() {
   async function runCommand(action: LogisticsRuntimeAction, quote?: LogisticsQuote) {
     if (!runtimeReady) return;
     setPending(true);
+    setLastError(null);
     try {
       const response = await fetch('/api/platform-v7/logistics/runtime/command', {
         method: 'POST',
@@ -118,9 +129,15 @@ export function PlatformV7LogisticsLifecyclePage() {
       });
       const payload = await response.json().catch(() => null) as RuntimeView | null;
       if (payload) applyView(payload);
-      if (!response.ok && !payload?.error) setNotice('Действие логистики не выполнено.');
+      if (!response.ok && !payload?.error && !payload?.command?.error) {
+        const message = 'Действие логистики не выполнено. Состояние не изменено без подтверждения сервера.';
+        setLastError(message);
+        setNotice(message);
+      }
     } catch {
-      setNotice('Действие не выполнено: нет связи с серверным журналом логистики.');
+      const message = 'Нет связи с серверным журналом логистики. Состояние не изменено без подтверждения сервера.';
+      setLastError(message);
+      setNotice(message);
     } finally {
       setPending(false);
     }
@@ -133,6 +150,7 @@ export function PlatformV7LogisticsLifecyclePage() {
       <P7Section title="Заявка на перевозку" subtitle={notice}>
         <article style={cardStyle} data-testid="platform-v7-logistics-request-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><h2 style={{ margin: 0 }}>{request.requestId}</h2><Pill>{requestStatusLabel(request.status)}</Pill></div>
+          {lastError ? <div data-testid="platform-v7-logistics-command-error" style={errorStyle}>Действие не выполнено: {lastError}</div> : null}
           <div style={gridStyle}>
             <Metric label="Сделка" value={request.dealId} />
             <Metric label="Груз" value={`${request.cargo.crop} · ${request.cargo.grade} · ${request.cargo.volumeTons} т`} />
