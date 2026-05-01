@@ -24,8 +24,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Install Playwright Chromium
+        timeout-minutes: 5
         run: pnpm --dir apps/web exec playwright install chromium
       - name: DOM and runtime e2e gates
+        timeout-minutes: 8
         run: >-
           pnpm --dir apps/web exec playwright test
           tests/e2e/platform-v7-cross-screen-contour.spec.ts
@@ -35,6 +37,7 @@ jobs:
           tests/e2e/platform-v7-runtime-supplemental.spec.ts
           --project=chromium
           --workers=1
+          --retries=0
           --timeout=30000
       - name: Upload Playwright report on failure
         if: failure()
