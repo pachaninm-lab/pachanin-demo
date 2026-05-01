@@ -7,11 +7,11 @@
 
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
-| P0 backlog | 74% | 26% | доменный P0-костяк + route/UI + expanded role visibility + full P0 route coverage |
+| P0 backlog | 75% | 25% | доменный P0-костяк + route/UI + expanded role visibility + full P0 route coverage + green Vercel preview |
 | P1 backlog | 29% | 71% | начат базовый UX/RBAC/mobile/a11y/finance visibility/visual capture слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 74% | 26% | unit-gates + mobile/visual/DOM role/finance/full route/runtime/screenshot-capture gates |
-| Полное ТЗ | 49% | 51% | сильный P0-костяк, не финальный продукт |
+| Release-gates | 75% | 25% | unit-gates + mobile/visual/DOM role/finance/full route/runtime/screenshot-capture gates + green preview deploy |
+| Полное ТЗ | 50% | 50% | сильный P0-костяк, не финальный продукт |
 
 ## P0 backlog
 
@@ -20,7 +20,7 @@
 | P0-01 | Bid object и lifecycle | 80% | 20% | типы и функции есть; нужен UI submit/update/withdraw |
 | P0-02 | Лента ставок на лоте | 85% | 15% | dynamic route `/lots/[lotId]/bids` подключён и покрыт visual/mobile/runtime smoke |
 | P0-03 | Акцепт ставки | 78% | 22% | доменная функция и тест есть; нужен настоящий UI action |
-| P0-04 | Deal из Bid | 88% | 12% | dynamic route `/deals/[dealId]` подключён к timeline screen; нужен runtime store/persistence |
+| P0-04 | Deal из Bid | 88% | 12% | dynamic route `/deals/[id]` подключён к clean timeline screen; нужен runtime store/persistence |
 | P0-05 | LogisticsRequest из Deal | 72% | 28% | доменная функция и экран заявок есть |
 | P0-06 | LogisticsQuote | 67% | 33% | доменная функция и экран предложения есть |
 | P0-07 | Trip из LogisticsQuote | 72% | 28% | доменная функция и экран рейса есть |
@@ -30,9 +30,9 @@
 | P0-11 | Mobile release-gates | 76% | 24% | 18 viewports + overflow + all 11 P0 routes + screenshot-capture smoke; pixel baseline ещё нет |
 | P0-12 | Убрать hardcoded KPI | 32% | 68% | buyer-safe экран и bank-safe экран частично убрали старый слой; старые KPI ещё есть |
 | P0-13 | Связать документы с деньгами | 80% | 20% | release safety route подключён к чистому execution-contour screen и покрыт visual/mobile/runtime smoke |
-| P0-14 | Data consistency tests | 75% | 25% | unit consistency test есть; all P0 routes связаны с demo graph; нужен полный cross-screen e2e |
+| P0-14 | Data consistency tests | 76% | 24% | unit consistency test есть; all P0 routes связаны с demo graph; duplicate deal route build-breaker снят |
 
-Средний P0 прогресс: 74%.
+Средний P0 прогресс: 75%.
 
 ## P1 backlog
 
@@ -59,21 +59,22 @@
 | Forbidden DOM terms scanner | 70% | 30% | функция, unit-test, visible-copy e2e и bank route cleanup есть |
 | RBAC DOM tests | 75% | 25% | driver/buyer/logistics/elevator/lab + bank/investor finance visibility smoke |
 | Bid lifecycle tests | 76% | 24% | unit covered + seller bid route visual/runtime smoke; нужен UI lifecycle action |
-| Deal creation tests | 80% | 20% | unit covered + deal dynamic route visual/runtime smoke |
+| Deal creation tests | 82% | 18% | unit covered + `/deals/[id]` clean route + Vercel route table green |
 | Logistics lifecycle tests | 67% | 33% | unit covered + logistics routes in e2e |
 | Money release safety tests | 84% | 16% | unit covered + bank release safety route cleanup + visual/mobile/runtime/finance visibility smoke |
 | Mobile screenshot tests | 45% | 55% | screenshot-capture smoke есть для ключевых mobile routes; сохранённых baseline-снимков нет |
 | Dark/light screenshot tests | 50% | 50% | screenshot-capture smoke есть для light/dark на ключевых routes; pixel diff baseline нет |
 | No horizontal scroll test | 80% | 20% | все 18 viewports по всем 11 P0 routes |
 | Console clean test | 65% | 35% | old runtime smoke + supplemental runtime gate для dynamic/bank routes |
-| Data consistency test | 75% | 25% | unit covered; all P0 routes связаны с demo graph |
+| Data consistency test | 76% | 24% | unit covered; all P0 routes связаны с demo graph |
 | Visual regression test | 45% | 55% | visual smoke + screenshot-capture smoke есть; diff baseline нет |
 | Keyboard navigation test | 60% | 40% | базовый Tab/focus smoke + supplemental keyboard-entry для dynamic/bank routes |
 | Focus visible test | 45% | 55% | есть фокусируемая точка входа; полноценный focus-visible стиль ещё не доказан |
 | Touch target size test | 48% | 52% | driver primary actions + P7Page keyboard-entry покрыты min 44px |
 | Role visibility matrix test | 92% | 8% | unit matrix + DOM gates for buyer/driver/logistics/elevator/lab/bank/investor |
+| Vercel preview deploy gate | 100% | 0% | latest SHA green across canonical-web/demo-api/demo-api-ovdc/demo-landing |
 
-Средний release-gates прогресс: 74%.
+Средний release-gates прогресс: 75%.
 
 ## Подключённые route-блоки
 
@@ -88,7 +89,7 @@
 | `/platform-v7/elevator` | подключено |
 | `/platform-v7/lab` | подключено |
 | `/platform-v7/lots/[lotId]/bids` | подключено |
-| `/platform-v7/deals/[dealId]` | подключено к новому timeline screen |
+| `/platform-v7/deals/[id]` | очищено и подключено к clean timeline screen |
 | `/platform-v7/bank/release-safety` | очищено и подключено к execution-contour screen |
 
 Route coverage по текущему P0-набору: 11 из 11 = 100%.
@@ -97,30 +98,31 @@ Route coverage по текущему P0-набору: 11 из 11 = 100%.
 
 Каждый commit в этой ветке запускает Vercel preview deployments.
 
-Последний проверенный code SHA: `15547982bd9fc3cac07646aa0a1b35de4445129f`.
+Последний проверенный code SHA: `a25d762ef80728e079e66981c800d782c2af2ca9`.
 
-Статус Vercel по SHA `15547982bd9fc3cac07646aa0a1b35de4445129f`:
+Статус Vercel по SHA `a25d762ef80728e079e66981c800d782c2af2ca9`:
 
 | Контур | Статус |
 |---|---|
 | `pachanin-demo-api` | success |
 | `pachanin-demo-api-ovdc` | success |
 | `pachanin-demo-landing` | success |
-| `pachanin-canonical-web` | failure |
+| `pachanin-canonical-web` | success / READY |
 
-Production merge/deploy запрещён: `pachanin-canonical-web` упал, PR остаётся draft, локальная проверка не выполнена.
+Причина предыдущего падения `pachanin-canonical-web`: duplicate dynamic route в сегменте `/platform-v7/deals` — одновременно существовали `[id]` и `[dealId]`. Исправление: существующий `[id]` переведён на clean timeline screen, duplicate `[dealId]` удалён.
+
+Production merge/deploy не выполнялся: PR остаётся draft, локальная проверка `typecheck/test/build` из этого интерфейса не выполнена.
 
 ## Заблокированные точки текущего прохода
 
-1. `pachanin-canonical-web` failed на последнем code SHA.
-2. Обновление `platform-v7-a11y-runtime-smoke.spec.ts` было заблокировано инструментом записи, поэтому добавлен отдельный `platform-v7-runtime-supplemental.spec.ts`.
-3. Первая попытка создать подробный finance visibility smoke была заблокирована инструментом записи, поэтому добавлен сокращённый `platform-v7-finance-visibility.spec.ts`.
-4. Локальный запуск `typecheck/test/build` из этого интерфейса не выполнялся.
-5. PR отстаёт от актуального `main`; перед merge нужен rebase/update branch.
-6. Screenshot gate пока capture-only, без сохранённого pixel-diff baseline.
+1. Обновление `platform-v7-a11y-runtime-smoke.spec.ts` было заблокировано инструментом записи, поэтому добавлен отдельный `platform-v7-runtime-supplemental.spec.ts`.
+2. Первая попытка создать подробный finance visibility smoke была заблокирована инструментом записи, поэтому добавлен сокращённый `platform-v7-finance-visibility.spec.ts`.
+3. Локальный запуск `typecheck/test/build` из этого интерфейса не выполнялся.
+4. PR отстаёт от актуального `main`; перед merge нужен rebase/update branch.
+5. Screenshot gate пока capture-only, без сохранённого pixel-diff baseline.
 
 ## Следующий проход
 
-1. Разобрать failure `pachanin-canonical-web` и убрать причину падения.
-2. Только после зелёного canonical-web продолжать UI lifecycle actions для submit/update/withdraw/accept bid.
-3. После фикса — прогнать CI и не переводить PR из draft до зелёных проверок.
+1. Начать UI lifecycle actions для submit/update/withdraw/accept bid.
+2. Добавить event journal/toast/optimistic update для bid actions.
+3. Прогнать CI и не переводить PR из draft до зелёных проверок.
