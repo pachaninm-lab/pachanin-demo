@@ -1,25 +1,19 @@
 import { expect, test } from '@playwright/test';
 
-const riskRoutes = [
-  '/platform-v7',
-  '/platform-v7/control-tower',
-  '/platform-v7/bank',
-  '/platform-v7/integrations',
-  '/platform-v7/runtime-status',
-  '/platform-v7/security',
-  '/platform-v7/demo',
-  '/platform-v7/roles',
-  '/platform-v7/support',
-  '/platform-v7/logistics',
-  '/platform-v7/disputes',
-  '/platform-v7/evidence-pack',
-  '/platform-v7/execution-map',
-  '/platform-v7r',
-  '/platform-v7r/deals',
-  '/platform-v7r/driver',
-  '/platform-v7r/elevator',
-  '/platform-v7r/lab',
-];
+const externalExecutionRoutes = [
+  '/platform-v7/lots',
+  '/platform-v7/buyer',
+  '/platform-v7/seller',
+  '/platform-v7/logistics/requests',
+  '/platform-v7/logistics/trips',
+  '/platform-v7/logistics/trips/TR-2041',
+  '/platform-v7/driver',
+  '/platform-v7/elevator',
+  '/platform-v7/lab',
+  '/platform-v7/bank/release-safety',
+  '/platform-v7/deals/DL-9116',
+  '/platform-v7/lots/LOT-2403/bids',
+] as const;
 
 const forbiddenFragments = [
   'Control Tower',
@@ -52,7 +46,7 @@ async function visibleText(page: import('@playwright/test').Page): Promise<strin
 }
 
 test.describe('platform-v7 expanded forbidden visible terms gate', () => {
-  for (const route of riskRoutes) {
+  for (const route of externalExecutionRoutes) {
     test(`${route} does not expose forbidden external terms`, async ({ page }) => {
       const response = await page.goto(route, { waitUntil: 'networkidle' });
       expect(response?.ok(), `${route} must render`).toBeTruthy();
