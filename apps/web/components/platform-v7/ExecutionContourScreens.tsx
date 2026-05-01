@@ -139,7 +139,7 @@ export function PlatformV7LotBidsPage() {
   const lot = executionContourFixtures.lots[0];
   const visibleBids = getVisibleBidsForRole({ role: 'seller', lot, bids: executionContourFixtures.bids });
   return (
-    <P7Page title={`${lot.lotId}: ставки по лоту`} subtitle="Продавец видит все ставки по своему лоту, сравнивает цену, объём, оплату и логистику. Покупатель в закрытом режиме видит только свою ставку." testId="platform-v7-lot-bids">
+    <P7Page title={`${lot.lotId}: Ставки по лоту`} subtitle="Продавец видит все ставки по своему лоту, сравнивает цену, объём, оплату и логистику. Покупатель в закрытом режиме видит только свою ставку." testId="platform-v7-lot-bids">
       <P7Section title="Сравнение ставок" subtitle="После принятия одной ставки условия замораживаются, остальные ставки закрываются, а сделка создаётся из принятого предложения.">
         <BidLifecyclePanel lot={lot} initialBids={visibleBids} mode="seller" />
       </P7Section>
@@ -151,7 +151,7 @@ export function PlatformV7BuyerLotsPage() {
   const lot = executionContourFixtures.lots[0];
   const buyerBids = getVisibleBidsForRole({ role: 'buyer', lot, bids: executionContourFixtures.bids, viewerCounterpartyId: 'cp-buyer-2' });
   return (
-    <P7Page title="Покупатель: доступные лоты" subtitle="Покупатель ищет лоты, отправляет ставку и видит только собственную позицию в закрытом режиме." testId="platform-v7-buyer-lots">
+    <P7Page title="Покупатель: Доступные лоты" subtitle="Покупатель ищет лоты, отправляет ставку и видит только собственную позицию в закрытом режиме." testId="platform-v7-buyer-lots">
       <P7Section title="Фильтры закупки" subtitle="Культура · класс · регион · объём · цена · базис · документы · срок вывоза · ФГИС/СДИЗ · логистика.">
         <LotCard lot={lot} audience="buyer" />
       </P7Section>
@@ -164,7 +164,7 @@ export function PlatformV7BuyerLotsPage() {
 
 export function PlatformV7SellerLotsPage() {
   return (
-    <P7Page title="Продавец: мои лоты" subtitle="Управление лотами, ставками, документами, логистикой и историей действий." testId="platform-v7-seller-lots">
+    <P7Page title="Продавец: Мои лоты" subtitle="Управление лотами, ставками, документами, логистикой и историей действий." testId="platform-v7-seller-lots">
       <div style={gridStyle}>{executionContourFixtures.lots.map((lot) => <LotCard key={lot.lotId} lot={lot} />)}</div>
     </P7Page>
   );
@@ -174,7 +174,7 @@ export function PlatformV7DealPage() {
   const steps = ['Лот опубликован', 'Ставка принята', 'Сделка создана', 'Заявка в логистику создана', 'Перевозчик предложил условия', 'Рейс создан', 'Приёмка завершена', 'Документы собраны', 'К выпуску денег'];
   return (
     <P7Page title={`${accepted.deal.dealId}: путь сделки`} subtitle="Карточка сделки показывает непрерывную цепочку от принятой ставки до денег и доказательств." testId="platform-v7-deal-detail">
-      <P7Section title="Экономика из принятой ставки">
+      <P7Section title="Деньги: экономика из принятой ставки">
         <div style={gridStyle}>
           <Metric label="Лот" value={accepted.deal.lotId} />
           <Metric label="Принятая ставка" value={accepted.deal.acceptedBidId} />
@@ -231,6 +231,15 @@ export function PlatformV7DriverPage() {
   const field = driverFieldView(assigned.trip);
   return (
     <main style={{ display: 'grid', gap: 18, minHeight: '100dvh', background: '#F8FAFC', padding: '16px 16px calc(24px + env(safe-area-inset-bottom))', color: '#101828' }} data-testid="platform-v7-driver-field-shell">
+      <style>{`
+        a[href="/platform-v7/investor"],
+        a[href="/platform-v7/demo"],
+        a[href="/platform-v7/roles"],
+        .pc-shell-select,
+        .pc-mobile-role {
+          display: none !important;
+        }
+      `}</style>
       <header style={cardStyle}><Pill>Полевой экран</Pill><h1 style={{ margin: 0, fontSize: 24 }}>Рейс {field.tripId}</h1><div style={mutedStyle}>{field.route}</div></header>
       <section style={gridStyle}><article style={cardStyle}><strong>Погрузка</strong><div style={mutedStyle}>{field.pickupPoint}</div></article><article style={cardStyle}><strong>Выгрузка</strong><div style={mutedStyle}>{field.deliveryPoint}</div></article><article style={cardStyle}><strong>ETA</strong><div style={mutedStyle}>{field.eta}</div></article><article style={cardStyle}><strong>Диспетчер</strong><div style={mutedStyle}>{field.dispatcherContact}</div></article></section>
       <section style={cardStyle}><h2 style={{ margin: 0, fontSize: 18 }}>Полевые действия</h2><div style={{ display: 'grid', gap: 10 }}>{field.fieldActions.map((action) => <Action key={action}>{action}</Action>)}</div><div style={mutedStyle}>Без связи событие сохраняется локально и синхронизируется после восстановления: ожидает отправки / отправлено / ошибка.</div></section>
