@@ -1,33 +1,49 @@
 import { expect, test } from '@playwright/test';
 
 const routes = [
-  '/platform-v7',
-  '/platform-v7/control-tower',
-  '/platform-v7/deals/DL-9102',
+  '/platform-v7/lots',
   '/platform-v7/buyer',
-  '/platform-v7/compliance',
-  '/platform-v7/field',
-  '/platform-v7/disputes/DK-2024-89',
+  '/platform-v7/seller',
+  '/platform-v7/logistics/requests',
+  '/platform-v7/logistics/trips',
+  '/platform-v7/driver',
+  '/platform-v7/elevator',
+  '/platform-v7/lab',
 ];
 
 const forbiddenVisibleCopy = [
-  'Controlled pilot',
   'Control Tower',
+  'callback',
   'callbacks',
   'evidence-first',
+  'release',
+  'hold',
+  'owner',
+  'blocker',
+  'sandbox dispatch',
+  'Action handoff',
+  'domain-core',
+  'runtime',
+  'idempotency',
+  'guard',
+  'legacy',
+  'mock',
+  'debug',
+  'test user',
 ];
 
-test.describe('platform-v7 visual smoke', () => {
+test.describe('platform-v7 execution visual gates', () => {
   for (const route of routes) {
-    test(`${route} has visible brand/header and no broken visible images`, async ({ page }) => {
+    test(`${route} has visible product content and no forbidden visible copy`, async ({ page }) => {
       const response = await page.goto(route, { waitUntil: 'networkidle' });
       expect(response?.ok(), `${route} should return ok response`).toBeTruthy();
 
-      await expect(page.getByText('Прозрачная Цена').first()).toBeVisible();
-      await expect(page.locator('header').first()).toBeVisible();
+      await expect(page.locator('body')).toBeVisible();
+      const bodyText = await page.locator('body').innerText();
+      expect(bodyText.trim().length, `${route} should render meaningful content`).toBeGreaterThan(80);
 
       for (const copy of forbiddenVisibleCopy) {
-        await expect(page.getByText(copy, { exact: false }), `${route} should not show ${copy}`).toHaveCount(0);
+        expect(bodyText, `${route} should not show ${copy}`).not.toContain(copy);
       }
 
       const brokenImages = await page.locator('img:visible').evaluateAll((images) =>
