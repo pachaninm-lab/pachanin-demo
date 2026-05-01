@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { AppShellV3 } from '@/components/v7r/AppShellV3';
 import { ToastProvider } from '@/components/v7r/Toast';
-import { AiShellEnhancer } from '@/components/v7r/AiShellEnhancer';
 import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
+import { PlatformV7ShellRouter } from '@/components/platform-v7/PlatformV7ShellRouter';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -41,12 +40,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   return (
     <ToastProvider>
       <ShellCopyNormalizer />
-      <AppShellV3 initialRole={initialRole}>
-        <>
-          <AiShellEnhancer />
-          {children}
-        </>
-      </AppShellV3>
+      <PlatformV7ShellRouter initialRole={initialRole}>{children}</PlatformV7ShellRouter>
     </ToastProvider>
   );
 }
