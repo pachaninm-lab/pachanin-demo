@@ -7,11 +7,11 @@
 
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
-| P0 backlog | 57% | 43% | доменный P0-костяк + часть route/UI + unit/e2e gates |
-| P1 backlog | 20% | 80% | начат базовый UX/RBAC слой |
+| P0 backlog | 58% | 42% | доменный P0-костяк + часть route/UI + unit/e2e gates |
+| P1 backlog | 21% | 79% | начат базовый UX/RBAC/mobile слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 34% | 66% | unit-gates + mobile/forbidden visible-copy e2e gates |
-| Полное ТЗ | 31% | 69% | сильный первый P0-костяк, не финальный продукт |
+| Release-gates | 46% | 54% | unit-gates + mobile/forbidden/runtime/a11y smoke gates |
+| Полное ТЗ | 34% | 66% | сильный P0-костяк, не финальный продукт |
 
 ## P0 backlog
 
@@ -27,12 +27,12 @@
 | P0-08 | Очистить внешний UI от technical terms | 50% | 50% | scanner + visible-copy e2e gate есть для P0-страниц; старые страницы ещё надо чистить |
 | P0-09 | Убрать AI из внешнего DOM | 10% | 90% | не закрыто; старый AI route остаётся |
 | P0-10 | Закрыть водительский RBAC | 80% | 20% | `/driver` field shell + DOM e2e gate; нужен полный role matrix |
-| P0-11 | Mobile release-gates | 45% | 55% | все 18 viewports добавлены в Playwright по P0-страницам; screenshot/dark gates ещё нет |
+| P0-11 | Mobile release-gates | 50% | 50% | 18 viewports + overflow + runtime smoke; screenshot baseline ещё нет |
 | P0-12 | Убрать hardcoded KPI | 25% | 75% | новый контур считает суммы из bid; старые KPI ещё есть |
 | P0-13 | Связать документы с деньгами | 60% | 40% | release safety учитывает документы; нужен UI/route bank integration |
 | P0-14 | Data consistency tests | 70% | 30% | unit consistency test есть; нужен полный cross-screen e2e |
 
-Средний P0 прогресс: 57%.
+Средний P0 прогресс: 58%.
 
 ## P1 backlog
 
@@ -47,9 +47,9 @@
 | P1-07 | Offline queue field roles | 20% | 80% |
 | P1-08 | Metric passport investor | 0% | 100% |
 | P1-09 | Единый lexicon file | 10% | 90% |
-| P1-10 | Mobile table-to-card system | 40% | 60% |
+| P1-10 | Mobile table-to-card system | 45% | 55% |
 
-Средний P1 прогресс: 20%.
+Средний P1 прогресс: 21%.
 
 ## Release-gates
 
@@ -62,17 +62,17 @@
 | Logistics lifecycle tests | 65% | 35% | unit covered + logistics routes in e2e |
 | Money release safety tests | 60% | 40% | unit covered; нужен bank route cleanup |
 | Mobile screenshot tests | 15% | 85% | viewports covered; screenshots не сохраняются как baseline |
-| Dark/light screenshot tests | 0% | 100% | не добавлены |
+| Dark/light screenshot tests | 35% | 65% | light/dark readability smoke есть; screenshot baseline нет |
 | No horizontal scroll test | 60% | 40% | все 18 viewports по P0-страницам добавлены |
-| Console clean test | 0% | 100% | не добавлен |
+| Console clean test | 45% | 55% | console/page runtime smoke gate добавлен по P0-страницам |
 | Data consistency test | 70% | 30% | unit covered |
 | Visual regression test | 10% | 90% | visible smoke есть; diff baseline нет |
-| Keyboard navigation test | 0% | 100% | не добавлен |
-| Focus visible test | 0% | 100% | не добавлен |
+| Keyboard navigation test | 35% | 65% | базовый Tab/focus smoke добавлен |
+| Focus visible test | 25% | 75% | проверяется наличие фокусируемого элемента; полноценный focus-visible стиль ещё не доказан |
 | Touch target size test | 35% | 65% | driver primary actions covered |
 | Role visibility matrix test | 45% | 55% | driver + bid visibility started |
 
-Средний release-gates прогресс: 34%.
+Средний release-gates прогресс: 46%.
 
 ## Подключённые route-блоки
 
@@ -92,6 +92,12 @@
 
 Route coverage по текущему P0-набору: 8 из 11 = 73%.
 
+## Деплой текущего прохода
+
+Каждый commit в этой ветке запускает Vercel preview deployments. Последний проверенный SHA: `af9f86fb530446f9a07c77e6edcf9fa764b0ede8`.
+
+На момент фиксации статусы Vercel были `pending`, поэтому production merge/deploy запрещён до зелёной проверки.
+
 ## Заблокированные точки текущего прохода
 
 1. Dynamic route write для `/platform-v7/deals/[id]` был заблокирован инструментом записи.
@@ -102,8 +108,8 @@ Route coverage по текущему P0-набору: 8 из 11 = 73%.
 
 ## Следующий проход
 
-1. Подключить dynamic routes через допустимый путь записи или вручную.
-2. Почистить старый bank route от technical terms.
-3. Добавить console-clean, keyboard, focus-visible и dark/light gates.
-4. Прогнать CI.
+1. Закрыть focusable-action gap на страницах elevator/lab/logistics, если e2e покажет отсутствие keyboard target.
+2. Подключить dynamic routes через допустимый путь записи или вручную.
+3. Почистить старый bank route от technical terms.
+4. Прогнать CI и проверить Vercel preview deployments.
 5. Только после зелёного CI переводить PR из draft в ready.
