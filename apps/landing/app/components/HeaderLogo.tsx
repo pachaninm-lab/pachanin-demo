@@ -1,9 +1,69 @@
-const logoSrc = 'data:image/webp;base64,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';
-
 export default function HeaderLogo() {
   return (
     <span className="brand-logo-mark shrink-0" aria-hidden="true">
-      <img className="header-logo-image" src={logoSrc} alt="" width={48} height={48} loading="eager" decoding="sync" />
+      <svg className="header-logo-image" viewBox="0 0 128 128" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="pcOuter" x1="18" y1="12" x2="110" y2="120" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#0B7B60" />
+            <stop offset="0.48" stopColor="#064332" />
+            <stop offset="1" stopColor="#02110D" />
+          </linearGradient>
+          <linearGradient id="pcPanel" x1="34" y1="24" x2="98" y2="104" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#142B27" />
+            <stop offset="0.52" stopColor="#061C17" />
+            <stop offset="1" stopColor="#020B09" />
+          </linearGradient>
+          <linearGradient id="pcChrome" x1="20" y1="18" x2="112" y2="108" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#FFFFFF" />
+            <stop offset="0.24" stopColor="#A9B8B0" />
+            <stop offset="0.52" stopColor="#EDF5F0" />
+            <stop offset="0.78" stopColor="#76847E" />
+            <stop offset="1" stopColor="#F7FBF8" />
+          </linearGradient>
+          <linearGradient id="pcLeftMetal" x1="34" y1="31" x2="66" y2="83" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#FFFFFF" />
+            <stop offset="0.55" stopColor="#F3F1EA" />
+            <stop offset="1" stopColor="#C7C5BC" />
+          </linearGradient>
+          <linearGradient id="pcRightMetal" x1="80" y1="31" x2="104" y2="103" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#C9CDC7" />
+            <stop offset="0.46" stopColor="#8D928B" />
+            <stop offset="1" stopColor="#656C65" />
+          </linearGradient>
+          <linearGradient id="pcMint" x1="18" y1="96" x2="98" y2="54" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#9DFFE0" />
+            <stop offset="0.48" stopColor="#68EFC1" />
+            <stop offset="1" stopColor="#8CFFD6" />
+          </linearGradient>
+          <filter id="pcSoftShadow" x="-25%" y="-25%" width="150%" height="150%">
+            <feDropShadow dx="0" dy="9" stdDeviation="8" floodColor="#000000" floodOpacity="0.38" />
+          </filter>
+          <filter id="pcHardShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="3" stdDeviation="2" floodColor="#000000" floodOpacity="0.42" />
+          </filter>
+        </defs>
+
+        <rect x="7" y="7" width="114" height="114" rx="31" fill="url(#pcOuter)" filter="url(#pcSoftShadow)" />
+        <rect x="23" y="22" width="82" height="82" rx="21" fill="url(#pcChrome)" opacity="0.96" />
+        <rect x="26" y="25" width="76" height="76" rx="18" fill="#071A15" />
+        <rect x="29" y="28" width="70" height="70" rx="15" fill="url(#pcPanel)" />
+        <path d="M31 30.5C41.5 26.4 80.5 25.2 96 31.5C89 27.2 47.5 27.1 31 30.5Z" fill="#FFFFFF" opacity="0.12" />
+        <path d="M31 93C48 99.4 84.8 99.4 96.5 92.7" stroke="#FFFFFF" strokeOpacity="0.11" strokeWidth="2" />
+
+        <g filter="url(#pcHardShadow)">
+          <path d="M40 39H66V78L58 86V50H49V90H40V39Z" fill="url(#pcLeftMetal)" />
+          <path d="M80 39H91V83H103V94H69V83H80V39Z" fill="url(#pcRightMetal)" />
+          <path d="M69 83H80V68H91V94H69V83Z" fill="#737A72" />
+          <path d="M64 74L58 80V86L66 78V74H64Z" fill="#F7F6F0" opacity="0.85" />
+        </g>
+
+        <path d="M17 101C25 91 30 90 37 90H48C52 90 55 89 58 85L67 74C70 70 73 69 78 69H82C86 69 88 68 91 64L99 55" fill="none" stroke="#0B211B" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" opacity="0.62" />
+        <path d="M17 100C25 91 30 90 37 90H48C52 90 55 89 58 85L67 74C70 70 73 69 78 69H82C86 69 88 68 91 64L99 55" fill="none" stroke="url(#pcMint)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M18 100C26 91.7 31 91 38 91H49" fill="none" stroke="#D8FFF2" strokeWidth="2" strokeLinecap="round" opacity="0.45" />
+        <circle cx="99" cy="55" r="10" fill="#061A15" stroke="#0A2E25" strokeWidth="2" />
+        <circle cx="99" cy="55" r="6.7" fill="url(#pcMint)" />
+        <circle cx="96.5" cy="52" r="2.2" fill="#E5FFF6" opacity="0.55" />
+      </svg>
     </span>
   );
 }
