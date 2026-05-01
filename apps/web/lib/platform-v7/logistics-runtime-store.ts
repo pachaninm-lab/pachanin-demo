@@ -1,3 +1,4 @@
+import { runtimePersistencePassport } from '@/lib/platform-v7/runtime-persistence-passport';
 import {
   acceptBid,
   acceptLogisticsQuoteCreateTrip,
@@ -97,7 +98,7 @@ function makeEvent(action: LogisticsRuntimeAction, actorRole: PlatformRole, titl
 }
 
 function view(scopeId: string, stateValue: LogisticsState, actorRole: PlatformRole) {
-  return { ok: true, scopeId, revision: stateValue.revision, request: stateValue.request, quotes: stateValue.quotes, trip: stateValue.trip, commands: stateValue.commands, events: stateValue.events, actorRole };
+  return { ok: true, scopeId, revision: stateValue.revision, request: stateValue.request, quotes: stateValue.quotes, trip: stateValue.trip, commands: stateValue.commands, events: stateValue.events, actorRole, persistence: runtimePersistencePassport };
 }
 
 export function getLogisticsRuntimeView(params?: { readonly scopeId?: string; readonly actorRole?: PlatformRole }) {
