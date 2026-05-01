@@ -7,28 +7,32 @@
   min-width: 48px !important;
   flex: 0 0 48px !important;
   padding: 0 !important;
+  margin: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
-  color: transparent !important;
-  overflow: visible !important;
-  text-indent: 0 !important;
-  font-size: 0 !important;
-  line-height: 0 !important;
   box-shadow: none !important;
-  filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.36)) drop-shadow(0 0 18px rgba(126, 242, 196, 0.10)) !important;
+  overflow: visible !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
 }
 
-.header-logo-image,
-.brand-logo-mark img,
-.brand-logo-mark svg {
+.header-logo-image {
   display: block !important;
   width: 48px !important;
   height: 48px !important;
+  min-width: 48px !important;
   object-fit: contain !important;
+  background: transparent !important;
   border: 0 !important;
   border-radius: 0 !important;
-  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.brand-logo-mark::before,
+.brand-logo-mark::after {
+  content: none !important;
+  display: none !important;
 }
 
 @media (max-width: 767px) {
@@ -39,24 +43,9 @@
     flex-basis: 44px !important;
   }
 
-  .header-logo-image,
-  .brand-logo-mark img,
-  .brand-logo-mark svg {
+  .header-logo-image {
     width: 44px !important;
     height: 44px !important;
+    min-width: 44px !important;
   }
-}
-
-.brand-logo-mark::before,
-.brand-logo-mark::after {
-  content: none !important;
-  display: none !important;
-}
-
-.premium-nav a[aria-label='Прозрачная Цена'] .text-mint {
-  color: #7ef2c4;
-}
-
-.premium-nav a[aria-label='Прозрачная Цена'] {
-  isolation: isolate;
 }
