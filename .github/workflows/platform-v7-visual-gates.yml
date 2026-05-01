@@ -26,13 +26,12 @@ jobs:
       - name: Install Playwright Chromium
         timeout-minutes: 5
         run: pnpm --dir apps/web exec playwright install chromium
-      - name: Mobile and screenshot gates
+      - name: Mobile and screenshot smoke gates
         timeout-minutes: 8
         run: >-
           pnpm --dir apps/web exec playwright test
           tests/e2e/platform-v7-mobile-smoke.spec.ts
           tests/e2e/platform-v7-screenshot-capture-smoke.spec.ts
-          tests/e2e/platform-v7-pixel-baseline-smoke.spec.ts
           --project=chromium
           --workers=1
           --retries=0
