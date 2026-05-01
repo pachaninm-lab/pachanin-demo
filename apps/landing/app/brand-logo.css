@@ -1,30 +1,32 @@
-.brand-logo-mark,
-.premium-nav a[aria-label='Прозрачная Цена'] > span:first-child {
-  display: block !important;
+.brand-logo-mark {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   width: 48px !important;
   height: 48px !important;
   min-width: 48px !important;
   flex: 0 0 48px !important;
   padding: 0 !important;
-  border: 0 !important;
+  border: 1px solid rgba(126, 242, 196, 0.22) !important;
   border-radius: 16px !important;
-  background-image: url('data:image/webp;base64,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') !important;
-  background-size: contain !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-  background-color: transparent !important;
+  background: linear-gradient(145deg, #09231b 0%, #061611 48%, #020806 100%) !important;
+  color: #7ef2c4 !important;
   overflow: hidden !important;
-  color: transparent !important;
-  font-size: 0 !important;
-  line-height: 0 !important;
-  text-indent: -9999px !important;
-  box-shadow: none !important;
-  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.34)) drop-shadow(0 0 16px rgba(126, 242, 196, 0.10));
+  text-indent: 0 !important;
+  font-size: inherit !important;
+  line-height: 1 !important;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34), 0 0 22px rgba(126, 242, 196, 0.10) !important;
+  filter: none !important;
+}
+
+.brand-logo-mark svg {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 @media (max-width: 767px) {
-  .brand-logo-mark,
-  .premium-nav a[aria-label='Прозрачная Цена'] > span:first-child {
+  .brand-logo-mark {
     width: 44px !important;
     height: 44px !important;
     min-width: 44px !important;
@@ -34,9 +36,7 @@
 }
 
 .brand-logo-mark::before,
-.brand-logo-mark::after,
-.premium-nav a[aria-label='Прозрачная Цена'] > span:first-child::before,
-.premium-nav a[aria-label='Прозрачная Цена'] > span:first-child::after {
+.brand-logo-mark::after {
   content: none !important;
   display: none !important;
 }
