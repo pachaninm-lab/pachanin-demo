@@ -6,6 +6,7 @@ const routes = [
   '/platform-v7/lots',
   '/platform-v7/lots/LOT-2403/bids',
   '/platform-v7/deals/DL-9116',
+  '/platform-v7/bank/release-safety',
   '/platform-v7/buyer',
   '/platform-v7/seller',
   '/platform-v7/logistics/requests',
