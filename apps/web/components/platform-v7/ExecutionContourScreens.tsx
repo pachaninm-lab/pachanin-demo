@@ -231,63 +231,6 @@ export function PlatformV7DriverPage() {
   const field = driverFieldView(assigned.trip);
   return (
     <main style={{ display: 'grid', gap: 18, minHeight: '100dvh', background: '#F8FAFC', padding: '16px 16px calc(24px + env(safe-area-inset-bottom))', color: '#101828' }} data-testid="platform-v7-driver-field-shell">
-      <style>{`
-        .pc-fixed-header,
-        .pc-role-banner,
-        .pc-giga,
-        .pc-shell-select,
-        .pc-mobile-role,
-        .pc-alert-panel,
-        a[href="/platform-v7/investor"],
-        a[href="/platform-v7/demo"],
-        a[href="/platform-v7/roles"] {
-          display: none !important;
-        }
-        .pc-main {
-          padding: 0 !important;
-          max-width: none !important;
-        }
-        .pc-shell-root {
-          background: #F8FAFC !important;
-        }
-      `}</style>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            (function isolateDriverFieldShell() {
-              function clean() {
-                var selectors = [
-                  '.pc-fixed-header',
-                  '.pc-role-banner',
-                  '.pc-giga',
-                  '.pc-alert-panel',
-                  '.pc-shell-select',
-                  '.pc-mobile-role',
-                  'a[href="/platform-v7/investor"]',
-                  'a[href="/platform-v7/demo"]',
-                  'a[href="/platform-v7/roles"]'
-                ];
-                selectors.forEach(function(selector) {
-                  document.querySelectorAll(selector).forEach(function(node) { node.remove(); });
-                });
-                document.querySelectorAll('button, a, span, div').forEach(function(node) {
-                  var text = (node.textContent || '').trim();
-                  if (text === 'Все роли' || text === 'Инвестор' || text === 'Демо' || text === 'Банк') {
-                    node.remove();
-                  }
-                });
-                document.querySelectorAll('.pc-main').forEach(function(node) {
-                  node.style.padding = '0';
-                  node.style.maxWidth = 'none';
-                });
-              }
-              clean();
-              window.setTimeout(clean, 0);
-              window.setTimeout(clean, 100);
-            })();
-          `,
-        }}
-      />
       <header style={cardStyle}><Pill>Полевой экран</Pill><h1 style={{ margin: 0, fontSize: 24 }}>Рейс {field.tripId}</h1><div style={mutedStyle}>{field.route}</div></header>
       <section style={gridStyle}><article style={cardStyle}><strong>Погрузка</strong><div style={mutedStyle}>{field.pickupPoint}</div></article><article style={cardStyle}><strong>Выгрузка</strong><div style={mutedStyle}>{field.deliveryPoint}</div></article><article style={cardStyle}><strong>ETA</strong><div style={mutedStyle}>{field.eta}</div></article><article style={cardStyle}><strong>Диспетчер</strong><div style={mutedStyle}>{field.dispatcherContact}</div></article></section>
       <section style={cardStyle}><h2 style={{ margin: 0, fontSize: 18 }}>Полевые действия</h2><div style={{ display: 'grid', gap: 10 }}>{field.fieldActions.map((action) => <Action key={action}>{action}</Action>)}</div><div style={mutedStyle}>Без связи событие сохраняется локально и синхронизируется после восстановления: ожидает отправки / отправлено / ошибка.</div></section>
