@@ -1,3 +1,4 @@
+import { runtimePersistencePassport } from '@/lib/platform-v7/runtime-persistence-passport';
 import {
   acceptBid,
   calculateBidTotal,
@@ -164,6 +165,7 @@ export function getBidRuntimeView(params?: { readonly scopeId?: string; readonly
     deals: state.deals,
     events: state.events,
     commands: state.commands,
+    persistence: runtimePersistencePassport,
   };
 }
 
