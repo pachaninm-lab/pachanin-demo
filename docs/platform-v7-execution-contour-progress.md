@@ -7,11 +7,11 @@
 
 | Блок | Готово | Осталось | Статус |
 |---|---:|---:|---|
-| P0 backlog | 81% | 19% | P0-костяк + bid runtime command/event layer + cross-screen smoke + green Vercel preview |
-| P1 backlog | 33% | 67% | начат UX/RBAC/mobile/a11y/finance visibility/visual capture/bid action/runtime слой |
+| P0 backlog | 83% | 17% | P0-костяк + bid runtime command/event layer + logistics lifecycle UI + cross-screen smoke + green Vercel preview |
+| P1 backlog | 35% | 65% | начат UX/RBAC/mobile/a11y/finance visibility/visual capture/bid runtime/logistics action слой |
 | P2 backlog | 5% | 95% | почти не начат |
-| Release-gates | 81% | 19% | unit-gates + mobile/visual/DOM role/finance/full route/runtime/action/API/cross-screen smoke gates |
-| Полное ТЗ | 56% | 44% | сильный P0-костяк, не финальный продукт |
+| Release-gates | 83% | 17% | unit-gates + mobile/visual/DOM role/finance/full route/runtime/action/API/cross-screen/logistics action smoke gates |
+| Полное ТЗ | 59% | 41% | сильный P0-костяк, не финальный продукт |
 
 ## P0 backlog
 
@@ -21,18 +21,18 @@
 | P0-02 | Лента ставок на лоте | 90% | 10% | seller route `/lots/[lotId]/bids` подключён к lifecycle panel, runtime API и visual/action smoke |
 | P0-03 | Акцепт ставки | 92% | 8% | accept action wired через command API + event journal + idempotency gate; нужен durable persistence |
 | P0-04 | Deal из Bid | 90% | 10% | runtime accept создаёт deal projection; `/deals/[id]` показывает clean timeline; нужен cross-screen runtime hydration сделки |
-| P0-05 | LogisticsRequest из Deal | 76% | 24% | доменная функция и экран заявок есть; cross-screen smoke проверяет переход к логистике |
-| P0-06 | LogisticsQuote | 69% | 31% | доменная функция и экран предложения есть; нужен интерактивный lifecycle перевозчика |
-| P0-07 | Trip из LogisticsQuote | 74% | 26% | доменная функция и экран рейса есть; dynamic `/logistics/trips/[tripId]` ещё не создан |
-| P0-08 | Очистить внешний UI от technical terms | 72% | 28% | scanner + visible-copy e2e gate есть; runtime UI не выводит technical copy |
+| P0-05 | LogisticsRequest из Deal | 82% | 18% | экран заявки получил lifecycle actions: отправить, просмотрено, предложить условия; нужен runtime command layer |
+| P0-06 | LogisticsQuote | 78% | 22% | интерактивное предложение перевозчика есть: ставка, ТС, водитель, ETA, выбор/отклонение; нужен backend/runtime persistence |
+| P0-07 | Trip из LogisticsQuote | 80% | 20% | выбор предложения создаёт рейс в UI; `/logistics/trips` подключён к trip context; dynamic `[tripId]` ещё не создан |
+| P0-08 | Очистить внешний UI от technical terms | 74% | 26% | scanner + visible-copy e2e gate есть; logistics lifecycle не выводит technical copy |
 | P0-09 | Убрать AI из внешнего DOM | 10% | 90% | не закрыто; старый AI route остаётся |
 | P0-10 | Закрыть водительский RBAC | 94% | 6% | buyer sealed-mode + driver/logistics/elevator/lab + bank/investor gates есть |
 | P0-11 | Mobile release-gates | 76% | 24% | 18 viewports + overflow + all 11 P0 routes + screenshot-capture smoke; pixel baseline ещё нет |
-| P0-12 | Убрать hardcoded KPI | 42% | 58% | часть buyer/bank-safe слоя очищена; старые KPI ещё есть в других контурах |
+| P0-12 | Убрать hardcoded KPI | 44% | 56% | часть buyer/bank/logistics-safe слоя очищена; старые KPI ещё есть в других контурах |
 | P0-13 | Связать документы с деньгами | 82% | 18% | release safety route подключён и включён в cross-screen smoke; нужен runtime link из конкретной сделки |
-| P0-14 | Data consistency tests | 82% | 18% | unit consistency + runtime API + cross-screen smoke: bid → deal → logistics → trip → money |
+| P0-14 | Data consistency tests | 84% | 16% | unit consistency + runtime API + cross-screen smoke + logistics action smoke |
 
-Средний P0 прогресс: 81%.
+Средний P0 прогресс: 83%.
 
 ## P1 backlog
 
@@ -42,8 +42,8 @@
 | P1-02 | Buyer bid status UX | 62% | 38% |
 | P1-03 | Rejection reasons | 78% | 22% |
 | P1-04 | Change request после акцепта | 0% | 100% |
-| P1-05 | Logistics inbox | 48% | 52% |
-| P1-06 | Carrier assignment | 35% | 65% |
+| P1-05 | Logistics inbox | 65% | 35% |
+| P1-06 | Carrier assignment | 55% | 45% |
 | P1-07 | Offline queue field roles | 20% | 80% |
 | P1-08 | Metric passport investor | 10% | 90% |
 | P1-09 | Единый lexicon file | 10% | 90% |
@@ -52,32 +52,33 @@
 | P1-12 | Bid lifecycle UI actions | 70% | 30% |
 | P1-13 | Runtime bid command/event layer | 55% | 45% |
 | P1-14 | Cross-screen execution smoke | 45% | 55% |
+| P1-15 | Logistics lifecycle UI actions | 60% | 40% |
 
-Средний P1 прогресс: 33%.
+Средний P1 прогресс: 35%.
 
 ## Release-gates
 
 | Gate | Готово | Осталось | Комментарий |
 |---|---:|---:|---|
-| Forbidden DOM terms scanner | 72% | 28% | функция, unit-test, visible-copy e2e и bank/runtime route cleanup есть |
-| RBAC DOM tests | 82% | 18% | buyer sealed-mode + driver/logistics/elevator/lab + bank/investor smoke |
+| Forbidden DOM terms scanner | 74% | 26% | функция, unit-test, visible-copy e2e и bank/runtime/logistics route cleanup есть |
+| RBAC DOM tests | 84% | 16% | buyer sealed-mode + driver/logistics/elevator/lab + bank/investor smoke |
 | Bid lifecycle tests | 90% | 10% | unit covered + clickable UI smoke + runtime API smoke + negative gates |
 | Deal creation tests | 86% | 14% | unit covered + runtime accept creates deal projection + cross-screen smoke |
-| Logistics lifecycle tests | 70% | 30% | unit covered + logistics routes in visual/cross-screen e2e |
+| Logistics lifecycle tests | 82% | 18% | unit covered + clickable logistics action smoke: request → quote → trip |
 | Money release safety tests | 86% | 14% | unit covered + bank release route + cross-screen smoke |
 | Mobile screenshot tests | 45% | 55% | screenshot-capture smoke есть для ключевых mobile routes; сохранённых baseline-снимков нет |
 | Dark/light screenshot tests | 50% | 50% | screenshot-capture smoke есть для light/dark на ключевых routes; pixel diff baseline нет |
 | No horizontal scroll test | 80% | 20% | все 18 viewports по всем 11 P0 routes |
-| Console clean test | 68% | 32% | runtime supplemental gates + new API/cross-screen smoke; полный browser console pass ещё не закрыт |
-| Data consistency test | 82% | 18% | unit consistency + runtime API + cross-screen smoke |
-| Visual regression test | 48% | 52% | visual smoke + screenshot-capture smoke есть; diff baseline нет |
-| Keyboard navigation test | 62% | 38% | bid action buttons есть; полноценный keyboard flow ещё не доказан |
+| Console clean test | 70% | 30% | runtime supplemental gates + API/cross-screen/logistics action smoke; полный browser console pass ещё не закрыт |
+| Data consistency test | 84% | 16% | unit consistency + runtime API + cross-screen + logistics action smoke |
+| Visual regression test | 50% | 50% | visual smoke + screenshot-capture smoke есть; diff baseline нет |
+| Keyboard navigation test | 64% | 36% | bid/logistics action buttons есть; полноценный keyboard flow ещё не доказан |
 | Focus visible test | 45% | 55% | есть фокусируемые действия; полноценный focus-visible стиль ещё не доказан |
-| Touch target size test | 52% | 48% | driver actions + bid lifecycle buttons min-height 44px |
+| Touch target size test | 55% | 45% | driver actions + bid/logistics lifecycle buttons min-height 44px |
 | Role visibility matrix test | 94% | 6% | unit matrix + DOM/API gates for buyer/driver/logistics/elevator/lab/bank/investor |
-| Vercel preview deploy gate | 100% | 0% | latest SHA green across canonical-web/demo-api/demo-api-ovdc/demo-landing |
+| Vercel preview deploy gate | 100% | 0% | latest code SHA green across canonical-web/demo-api/demo-api-ovdc/demo-landing |
 
-Средний release-gates прогресс: 81%.
+Средний release-gates прогресс: 83%.
 
 ## Подключённые route-блоки
 
@@ -86,8 +87,8 @@
 | `/platform-v7/lots` | подключено |
 | `/platform-v7/buyer` | подключено к buyer-safe lifecycle screen |
 | `/platform-v7/seller` | подключено |
-| `/platform-v7/logistics/requests` | подключено |
-| `/platform-v7/logistics/trips` | подключено |
+| `/platform-v7/logistics/requests` | подключено к logistics lifecycle screen |
+| `/platform-v7/logistics/trips` | подключено к trip lifecycle screen |
 | `/platform-v7/logistics/trips/[tripId]` | не закрыто; попытка создать route была заблокирована инструментом записи |
 | `/platform-v7/driver` | подключено |
 | `/platform-v7/elevator` | подключено |
@@ -105,9 +106,9 @@ P0 route coverage по текущему проверяемому набору: 1
 
 Каждый commit в этой ветке запускает Vercel preview deployments.
 
-Последний проверенный code SHA: `c356105c9afb3cd39cf02b5fc48e00008ead1906`.
+Последний проверенный code SHA: `736685cb3c84ed197955ada7e12abb744014ec86`.
 
-Статус Vercel по SHA `c356105c9afb3cd39cf02b5fc48e00008ead1906`:
+Статус Vercel по SHA `736685cb3c84ed197955ada7e12abb744014ec86`:
 
 | Контур | Статус |
 |---|---|
@@ -132,22 +133,27 @@ Production merge/deploy не выполнялся: PR остаётся draft, л
 10. Добавлен clickable Playwright smoke `platform-v7-bid-lifecycle-actions.spec.ts`.
 11. Добавлен API smoke `platform-v7-bid-runtime-api.spec.ts`.
 12. Добавлен cross-screen smoke `platform-v7-cross-screen-contour.spec.ts`: accepted bid → deal → logistics → trip → money.
-13. Visual smoke выровнен под новый lifecycle UI.
+13. Добавлен `LogisticsLifecycleScreens.tsx`.
+14. `/platform-v7/logistics/requests` получил действия: отправить в логистику, отметить просмотр, предложить условия, выбрать/отклонить предложение.
+15. `/platform-v7/logistics/trips` переведён на trip lifecycle screen.
+16. Добавлен clickable smoke `platform-v7-logistics-lifecycle-actions.spec.ts`.
+17. Visual smoke выровнен под новый lifecycle UI.
 
 ## Ограничения и blockers
 
 1. Runtime store пока server-side in-memory, не durable DB/event-store.
-2. State может сбрасываться при restart/deploy/serverless cold start.
-3. Dynamic route `/platform-v7/logistics/trips/[tripId]` не создан: запись файла с `[tripId]` была заблокирована инструментом.
-4. Обновление `platform-v7-a11y-runtime-smoke.spec.ts` было заблокировано инструментом записи, поэтому ранее добавлен отдельный `platform-v7-runtime-supplemental.spec.ts`.
-5. Локальный запуск `typecheck/test/build` из этого интерфейса не выполнялся.
-6. PR отстаёт от актуального `main`; перед merge нужен rebase/update branch.
-7. Screenshot gate пока capture-only, без сохранённого pixel-diff baseline.
-8. AI route/external DOM вопрос не закрыт.
+2. Logistics lifecycle пока client-demo state, не runtime command/event layer.
+3. State может сбрасываться при restart/deploy/serverless cold start.
+4. Dynamic route `/platform-v7/logistics/trips/[tripId]` не создан: запись файла с `[tripId]` была заблокирована инструментом.
+5. Обновление `platform-v7-a11y-runtime-smoke.spec.ts` было заблокировано инструментом записи, поэтому ранее добавлен отдельный `platform-v7-runtime-supplemental.spec.ts`.
+6. Локальный запуск `typecheck/test/build` из этого интерфейса не выполнялся.
+7. PR отстаёт от актуального `main`; перед merge нужен rebase/update branch.
+8. Screenshot gate пока capture-only, без сохранённого pixel-diff baseline.
+9. AI route/external DOM вопрос не закрыт.
 
 ## Следующий проход
 
-1. Добавить durable persistence для bid commands/events или адаптер к существующему runtime command API.
+1. Перевести logistics lifecycle actions на runtime command/event layer.
 2. Закрыть dynamic trip detail route `/platform-v7/logistics/trips/[tripId]`.
-3. Добавить rollback/error states в UI для runtime command failures.
-4. Начать logistics lifecycle actions: quote → accept quote → create trip через command/event слой.
+3. Добавить rollback/error states в UI для bid/logistics command failures.
+4. Добавить durable persistence для bid/logistics commands/events или адаптер к существующему runtime command API.
