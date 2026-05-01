@@ -88,8 +88,9 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
   const [scopeId] = useState(() => `platform-v7-${mode}-${lot.lotId}-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
   const [bids, setBids] = useState<Bid[]>(() => [...initialBids]);
   const [revision, setRevision] = useState<number>(1);
+  const [runtimeReady, setRuntimeReady] = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const [notice, setNotice] = useState<string>('Действия записываются в серверный журнал пилотного сценария.');
+  const [notice, setNotice] = useState<string>('Подключаем серверный журнал пилотного сценария.');
   const [journal, setJournal] = useState<JournalEntry[]>([
     { id: 'journal-start', title: 'Открыта карточка ставок', details: mode === 'seller' ? 'Продавец видит сравнение ставок по своему лоту.' : 'Покупатель видит только свою ставку и свои действия.' },
   ]);
@@ -115,13 +116,18 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
       if (viewerCounterpartyId) params.set('viewerCounterpartyId', viewerCounterpartyId);
       const response = await fetch(`/api/platform-v7/bids/runtime?${params.toString()}`, { cache: 'no-store' });
       const payload = await response.json().catch(() => null) as RuntimeView | null;
-      if (!cancelled && payload) applyRuntimeView(payload);
+      if (!cancelled && payload) {
+        applyRuntimeView(payload);
+        setRuntimeReady(true);
+        if (!payload.event?.details && !payload.error) setNotice('Действия записываются в серверный журнал пилотного сценария.');
+      }
     }
     void loadRuntimeView();
     return () => { cancelled = true; };
   }, [lot.lotId, role, scopeId, viewerCounterpartyId]);
 
   async function runCommand(action: BidRuntimeAction, bid?: Bid, extra?: Record<string, unknown>) {
+    if (!runtimeReady) return;
     setIsPending(true);
     try {
       const response = await fetch('/api/platform-v7/bids/runtime/command', {
@@ -156,16 +162,16 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
             <strong>{mode === 'seller' ? 'Действия продавца по ставкам' : 'Действия покупателя по своей ставке'}</strong>
             <div style={mutedStyle}>{notice}</div>
           </div>
-          <Pill>{acceptedBid ? `принята ${acceptedBid.bidId}` : `журнал ${revision}`}</Pill>
+          <Pill>{acceptedBid ? `принята ${acceptedBid.bidId}` : runtimeReady ? `журнал ${revision}` : 'подключение'}</Pill>
         </div>
-        {buyerCanSubmit ? <button type="button" style={buttonStyle} disabled={isPending} onClick={() => void runCommand('submit_bid')}>Отправить новую ставку</button> : null}
+        {buyerCanSubmit ? <button type="button" style={buttonStyle} disabled={isPending || !runtimeReady} onClick={() => void runCommand('submit_bid')}>Отправить новую ставку</button> : null}
       </article>
 
       <div style={gridStyle}>
         {sortedBids.map((bid) => {
           const closed = ['accepted', 'rejected', 'withdrawn', 'expired'].includes(bid.status);
           const name = mode === 'seller' ? (bid.buyerAlias ?? bid.buyerId) : 'Ваша ставка';
-          const disabled = isPending || closed || Boolean(acceptedBid && mode === 'seller');
+          const disabled = !runtimeReady || isPending || closed || Boolean(acceptedBid && mode === 'seller');
           return (
             <article key={bid.bidId} style={cardStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -187,8 +193,8 @@ export function BidLifecyclePanel({ lot, initialBids, mode }: { readonly lot: Lo
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" style={buttonStyle} disabled={isPending || closed} onClick={() => void runCommand('improve_bid', bid, { priceDelta: 100 })}>Повысить на 100 ₽/т</button>
-                  <button type="button" style={secondaryButtonStyle} disabled={isPending || closed} onClick={() => void runCommand('withdraw_bid', bid)}>Отозвать ставку</button>
+                  <button type="button" style={buttonStyle} disabled={!runtimeReady || isPending || closed} onClick={() => void runCommand('improve_bid', bid, { priceDelta: 100 })}>Повысить на 100 ₽/т</button>
+                  <button type="button" style={secondaryButtonStyle} disabled={!runtimeReady || isPending || closed} onClick={() => void runCommand('withdraw_bid', bid)}>Отозвать ставку</button>
                 </div>
               )}
               {mode === 'seller' ? <div style={mutedStyle}>Минимум продавца: {lot.minAcceptablePricePerTon ? `${money(lot.minAcceptablePricePerTon)}/т` : '—'} · отклонение без причины запрещено.</div> : null}
