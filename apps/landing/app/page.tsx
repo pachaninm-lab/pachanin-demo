@@ -17,7 +17,7 @@ const navLinks = [
   ['Потери', '#loss-map'],
   ['Роли', '#roles'],
   ['Деньги', '#money'],
-  ['Документы', '#trust'],
+  ['Сбер / AI', '#trust'],
   ['Пилот', '#pilot-chain'],
   ['Заявка', '#contact'],
 ];
@@ -45,7 +45,7 @@ export default function Home() {
             {navLinks.slice(1, -1).map(([label, href]) => (
               <a key={href} href={href} className="text-sm font-medium text-[#8BA89E] transition hover:text-white">{label}</a>
             ))}
-            <a href="#contact" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover">Получить карту</a>
+            <a href="#contact" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover">Хочу протестировать</a>
           </nav>
 
           <details className="group md:hidden [&>summary::-webkit-details-marker]:hidden">
@@ -57,7 +57,7 @@ export default function Home() {
               </span>
             </summary>
             <div className="fixed left-4 right-4 top-[92px] z-50 max-h-[calc(100vh-120px)] overflow-y-auto rounded-[28px] border border-[rgba(126,242,196,0.18)] bg-[#04100D]/[0.99] p-3 shadow-[0_34px_110px_rgba(0,0,0,0.72)] backdrop-blur-2xl">
-              <div className="border-b border-[rgba(126,242,196,0.08)] px-3 pb-3 pt-2 text-[10px] font-black uppercase tracking-[0.20em] text-mint">Навигация по сделке</div>
+              <div className="border-b border-[rgba(126,242,196,0.08)] px-3 pb-3 pt-2 text-[10px] font-black uppercase tracking-[0.20em] text-mint">Навигация по лендингу</div>
               <div className="grid gap-1 py-2">
                 {navLinks.map(([label, href]) => (
                   <a key={href} href={href} className="flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-bold text-[#DDE8E3] transition hover:bg-[rgba(126,242,196,0.08)] hover:text-white">
@@ -66,7 +66,7 @@ export default function Home() {
                   </a>
                 ))}
               </div>
-              <a href="#contact" className="lux-button mt-1 block rounded-2xl bg-brand px-4 py-3 text-center text-sm font-black text-white">Получить карту потерь</a>
+              <a href="#contact" className="lux-button mt-1 block rounded-2xl bg-brand px-4 py-3 text-center text-sm font-black text-white">Хочу протестировать</a>
             </div>
           </details>
         </div>
@@ -109,7 +109,7 @@ export default function Home() {
             <span className="text-xs font-semibold uppercase tracking-wide text-mint">следующий шаг</span>
           </div>
           <h2 className="mb-6 text-4xl font-black tracking-tight md:text-6xl">Получите карту потерь по вашей сделке.</h2>
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Опишите одну сделку: культура, объём, маршрут, приёмка, документы, оплата или спор. Ответим с фокусом на деньги, факты, банк, документы, AI-риски и пилот.</p>
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Опишите одну сделку: культура, объём, маршрут, приёмка, документы, оплата или спор. Ответим с фокусом на деньги, факты, Сбер-контур, AI-риски и пилот.</p>
           <PilotLeadForm />
         </div>
       </section>
