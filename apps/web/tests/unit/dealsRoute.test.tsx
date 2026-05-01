@@ -17,35 +17,30 @@ describe('PlatformV7 deals routes', () => {
     expect(screen.getAllByRole('link').some((link) => link.getAttribute('href') === '/platform-v7/deals/DL-9102')).toBe(true);
   });
 
-  it('renders deal detail with money guarantees and no production-ready claims', () => {
-    render(<PlatformV7DealDetailPage params={{ id: 'DL-9102' }} />);
+  it('renders the execution-contour deal detail without production-ready claims', () => {
+    render(<PlatformV7DealDetailPage />);
 
-    expect(screen.getByText('DL-9102')).toBeInTheDocument();
-    expect(screen.getByText('Гарантии сделки')).toBeInTheDocument();
-    expect(screen.getByText('Резерв денег')).toBeInTheDocument();
-    expect(screen.getByText('Документы')).toBeInTheDocument();
-    expect(screen.getByText('ФГИС / ЕСИА')).toBeInTheDocument();
-    expect(screen.getByText('Спор и удержание')).toBeInTheDocument();
-    expect(screen.getByText(/Здесь нет маркетинговых обещаний/)).toBeInTheDocument();
+    expect(screen.getByText(/путь сделки/)).toBeInTheDocument();
+    expect(screen.getByText('Экономика из принятой ставки')).toBeInTheDocument();
+    expect(screen.getByText('Лот')).toBeInTheDocument();
+    expect(screen.getByText('Принятая ставка')).toBeInTheDocument();
+    expect(screen.getByText('Цена')).toBeInTheDocument();
+    expect(screen.getByText('Сумма')).toBeInTheDocument();
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
   });
 
-  it('renders consistency links between deal detail, readiness, money, logistics, dispute and domain core', () => {
-    render(<PlatformV7DealDetailPage params={{ id: 'DL-9102' }} />);
+  it('renders the complete execution timeline from lot to money', () => {
+    render(<PlatformV7DealDetailPage />);
 
-    expect(screen.getByText('Связанные контуры сделки')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Готовность/ })).toHaveAttribute('href', '/platform-v7/readiness');
-    expect(screen.getByRole('link', { name: /Проверка денег/ })).toHaveAttribute('href', '/platform-v7/bank/release-safety');
-    expect(screen.getByRole('link', { name: /Банк/ })).toHaveAttribute('href', '/platform-v7/bank');
-    expect(screen.getByRole('link', { name: /Логистика/ }).getAttribute('href')).toMatch(/^\/platform-v7\/logistics/);
-    expect(screen.getByRole('link', { name: /Спор \/ evidence pack/ }).getAttribute('href')).toMatch(/^\/platform-v7\/disputes/);
-    expect(screen.getByRole('link', { name: /Движок сделки/ })).toHaveAttribute('href', '/platform-v7/domain-core');
-  });
-
-  it('renders not-found deal state with safe return link', () => {
-    render(<PlatformV7DealDetailPage params={{ id: 'DL-NOT-FOUND' }} />);
-
-    expect(screen.getByText(/Сделка не найдена/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Все сделки' })).toHaveAttribute('href', '/platform-v7/deals');
+    expect(screen.getByText('Таймлайн исполнения')).toBeInTheDocument();
+    expect(screen.getByText('Лот опубликован')).toBeInTheDocument();
+    expect(screen.getByText('Ставка принята')).toBeInTheDocument();
+    expect(screen.getByText('Сделка создана')).toBeInTheDocument();
+    expect(screen.getByText('Заявка в логистику создана')).toBeInTheDocument();
+    expect(screen.getByText('Перевозчик предложил условия')).toBeInTheDocument();
+    expect(screen.getByText('Рейс создан')).toBeInTheDocument();
+    expect(screen.getByText('Приёмка завершена')).toBeInTheDocument();
+    expect(screen.getByText('Документы собраны')).toBeInTheDocument();
+    expect(screen.getByText('К выпуску денег')).toBeInTheDocument();
   });
 });
