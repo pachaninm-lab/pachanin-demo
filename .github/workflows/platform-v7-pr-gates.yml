@@ -1,0 +1,76 @@
+name: Platform V7 PR Gates
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'docs/platform-v7*'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/platform-v7-pr-gates.yml'
+  workflow_dispatch:
+
+jobs:
+  platform-v7-gates:
+    name: platform-v7-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck web
+        run: pnpm --dir apps/web typecheck
+
+      - name: Unit tests for platform-v7 runtime contracts
+        run: pnpm --dir apps/web test -- tests/platformV7ExecutionContour.test.ts tests/platformV7RuntimeRepository.test.ts
+
+      - name: Install Playwright Chromium
+        run: pnpm --dir apps/web exec playwright install --with-deps chromium
+
+      - name: Run platform-v7 critical e2e gates
+        run: >-
+          pnpm --dir apps/web exec playwright test
+          tests/e2e/platform-v7-bid-runtime-api.spec.ts
+          tests/e2e/platform-v7-logistics-runtime-api.spec.ts
+          tests/e2e/platform-v7-runtime-persistence-passport.spec.ts
+          tests/e2e/platform-v7-cross-screen-contour.spec.ts
+          tests/e2e/platform-v7-internal-assistant-dom-gate.spec.ts
+          tests/e2e/platform-v7-expanded-forbidden-terms-gate.spec.ts
+          tests/e2e/platform-v7-trip-detail-rewrite.spec.ts
+          tests/e2e/platform-v7-runtime-supplemental.spec.ts
+          --project=chromium
+
+      - name: Run platform-v7 mobile and screenshot smoke gates
+        run: >-
+          pnpm --dir apps/web exec playwright test
+          tests/e2e/platform-v7-mobile-smoke.spec.ts
+          tests/e2e/platform-v7-screenshot-capture-smoke.spec.ts
+          tests/e2e/platform-v7-pixel-baseline-smoke.spec.ts
+          --project=chromium
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-playwright-report
+          path: apps/web/playwright-report
+          if-no-files-found: ignore
