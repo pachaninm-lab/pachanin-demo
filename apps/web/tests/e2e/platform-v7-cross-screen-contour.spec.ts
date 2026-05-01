@@ -52,7 +52,7 @@ test.describe('platform-v7 cross-screen execution contour', () => {
     expect(logisticsText).not.toContain('Лучшая ставка');
     expect(logisticsText).not.toContain('Минимум продавца');
 
-    await page.goto('/platform-v7/logistics/trips/TR-2041', { waitUntil: 'networkidle' });
+    await page.goto('/platform-v7/logistics/trips', { waitUntil: 'networkidle' });
     const tripText = await readBody(page);
     expect(tripText).toContain('TR-2041');
     expect(tripText).toContain('DL-9116');
