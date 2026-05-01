@@ -10,7 +10,7 @@ Branch: `feat/platform-v7-execution-contour-p0`
 - PR открыт.
 - PR draft.
 - PR mergeable по GitHub metadata.
-- Последний проверенный head: `c62d125b7388fed0715d4591e20b0225e0bdd4ba`.
+- Последний проверенный head: `5ba2964eee5b284f7c924dbaf86a7ff68c3e99b8`.
 - Vercel по head green во всех 4 preview-контурах:
   - `pachanin-demo-api`
   - `pachanin-demo-api-ovdc`
@@ -21,7 +21,7 @@ Branch: `feat/platform-v7-execution-contour-p0`
 
 Сравнение `main` → `feat/platform-v7-execution-contour-p0`:
 
-- branch ahead by 101 commits;
+- branch ahead by 101+ commits;
 - branch behind by 27 commits;
 - status: diverged.
 
@@ -53,10 +53,41 @@ Branch: `feat/platform-v7-execution-contour-p0`
 
 Но update/rebase всё равно должен быть отдельным controlled step, потому что:
 
-1. PR содержит 101 commit;
+1. PR содержит 100+ commits;
 2. PR уже diverged;
 3. после update branch нужно заново подтвердить Vercel и tests;
 4. production merge без полного CI запрещён.
+
+## Controlled update branch sequence
+
+```bash
+git fetch origin
+git checkout feat/platform-v7-execution-contour-p0
+git status --short
+git merge --no-ff origin/main
+```
+
+Если conflicts отсутствуют:
+
+```bash
+npm --prefix apps/web run typecheck
+npm --prefix apps/web test
+npx playwright test apps/web/tests/e2e/platform-v7-*.spec.ts
+```
+
+Если всё green:
+
+```bash
+git push origin feat/platform-v7-execution-contour-p0
+```
+
+После push:
+
+1. дождаться 4 Vercel preview checks;
+2. открыть PR #412;
+3. проверить changed files;
+4. убедиться, что landing-only changes из main не затронули `apps/web`;
+5. только потом переводить draft в ready for review.
 
 ## Merge-readiness checklist
 
