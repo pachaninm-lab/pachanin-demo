@@ -56,9 +56,10 @@ export function EvidencePack() {
   const hasWeight = routeEvents.some((event) => event.event.toLowerCase().includes('взвеш'));
   const hasLab = dealEvents.some((event) => event.actor.toLowerCase().includes('лаб') || event.action.toLowerCase().includes('лаборатор'));
   const hasAudit = dealEvents.length > 0;
+  const latestDealEvent = hasAudit ? dealEvents[dealEvents.length - 1] : undefined;
   const metadata = createPlatformV7EvidenceMetadata({
-    actor: hasAudit ? dealEvents[dealEvents.length - 1]?.actor : null,
-    timestamp: hasAudit ? dealEvents[dealEvents.length - 1]?.time : null,
+    actor: latestDealEvent?.actor ?? null,
+    timestamp: latestDealEvent?.ts ?? null,
     geo: firstRouteEventWithGps?.gps ?? null,
     fileHash: null,
     version: null,
