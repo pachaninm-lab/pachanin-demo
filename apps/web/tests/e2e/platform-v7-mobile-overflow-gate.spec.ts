@@ -15,16 +15,26 @@ const PRIORITY_ROUTES = [
   '/platform-v7/investor',
 ] as const;
 
-test.describe('platform-v7 mobile overflow gate', () => {
-  for (const route of PRIORITY_ROUTES) {
-    test(`${route} has no horizontal overflow at 390px`, async ({ page }) => {
-      await page.setViewportSize({ width: 390, height: 844 });
-      const response = await page.goto(route, { waitUntil: 'networkidle' });
+const VIEWPORTS = [
+  { label: '375px', width: 375, height: 667 },
+  { label: '390px', width: 390, height: 844 },
+  { label: '414px', width: 414, height: 896 },
+  { label: '768px', width: 768, height: 1024 },
+  { label: '1440px', width: 1440, height: 900 },
+] as const;
 
-      expect(response?.ok(), `${route} should return 200`).toBeTruthy();
+test.describe('platform-v7 responsive overflow gate', () => {
+  for (const viewport of VIEWPORTS) {
+    for (const route of PRIORITY_ROUTES) {
+      test(`${route} has no horizontal overflow at ${viewport.label}`, async ({ page }) => {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        const response = await page.goto(route, { waitUntil: 'networkidle' });
 
-      const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-      expect(overflowX, `${route} should not have horizontal overflow at 390px`).toBe(false);
-    });
+        expect(response?.ok(), `${route} should return 200 at ${viewport.label}`).toBeTruthy();
+
+        const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+        expect(overflowX, `${route} should not have horizontal overflow at ${viewport.label}`).toBe(false);
+      });
+    }
   }
 });
