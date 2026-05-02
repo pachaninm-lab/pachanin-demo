@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { selectAllDeals } from '@/lib/domain/selectors';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import { SANDBOX_FGIS_PARTIES, canCreateLotPassport } from '@/lib/platform-v7/fgis-lot-passport';
@@ -26,19 +27,21 @@ export default function PlatformV7SellerPage() {
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+      <RoleExecutionSummary role="seller" />
+
       <section style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 12, color: MUTED, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Кабинет продавца</div>
             <div style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 900, color: TEXT, marginTop: 8 }}>Деньги, сделки и ближайшее действие</div>
-            <div style={{ marginTop: 8, fontSize: 14, color: MUTED, maxWidth: 860 }}>Первый экран продавца должен отвечать на три вопроса: сколько денег получите, что сейчас заблокировано и что нужно сделать прямо сейчас.</div>
+            <div style={{ marginTop: 8, fontSize: 14, color: MUTED, maxWidth: 860 }}>Первый экран продавца показывает сумму к получению, причины удержаний и действие, которое двигает сделку дальше.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/seller/fgis-parties' style={btn('primary')}>Мои партии ФГИС</Link>
-            <Link href='/platform-v7/seller/offers' style={btn('primary')}>Ставки по лотам</Link>
-            <Link href='/platform-v7/market-rfq' style={btn()}>Рынок и заявки</Link>
+            <Link href='/platform-v7/seller/fgis-parties' style={btn('primary')}>Открыть партии ФГИС</Link>
+            <Link href='/platform-v7/seller/offers' style={btn('primary')}>Открыть предложения</Link>
+            <Link href='/platform-v7/market-rfq' style={btn()}>Открыть заявки рынка</Link>
             <Link href='/platform-v7/lots/create' style={btn()}>Создать лот</Link>
-            <Link href='/platform-v7/deals' style={btn()}>Все сделки</Link>
+            <Link href='/platform-v7/deals' style={btn()}>Открыть сделки</Link>
           </div>
         </div>
       </section>
@@ -57,7 +60,7 @@ export default function PlatformV7SellerPage() {
           <div style={{ fontSize: 12, color: DANGER_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Главное действие</div>
           <div style={{ fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: TEXT, marginTop: 8 }}>{actionDeal.id} · {actionDeal.grain}</div>
           <div style={{ marginTop: 8, fontSize: 13, color: MUTED }}>Статус: {statusLabel(actionDeal.status)} · Удержано: {formatCompactMoney(actionDeal.holdAmount)}</div>
-          <div style={{ marginTop: 8, fontSize: 14, color: MUTED }}>{actionDeal.holdAmount > 0 ? 'Закройте спор или недостающие документы, чтобы снять удержание.' : actionDeal.blockers.length ? 'Уберите блокеры, чтобы довести сделку до выпуска.' : 'Создайте новый лот или доведите текущую сделку до следующего этапа.'}</div>
+          <div style={{ marginTop: 8, fontSize: 14, color: MUTED }}>{actionDeal.holdAmount > 0 ? 'Закройте спор или недостающие документы, чтобы снять удержание.' : actionDeal.blockers.length ? 'Уберите причины остановки, чтобы довести сделку до выпуска.' : 'Создайте новый лот или доведите текущую сделку до следующего этапа.'}</div>
           <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href={`/platform-v7/deals/${actionDeal.id}`} style={btn('primary')}>Открыть сделку</Link>
             <Link href='/platform-v7/lots/create' style={btn()}>Создать лот</Link>
@@ -100,10 +103,10 @@ function FgisQuickStatus() {
       <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         <div>
           <span style={{ fontSize: 12, fontWeight: 800, color: ACCENT, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            ФГИС ЗЕРНО · <span style={{ color: WARNING_TEXT }}>sandbox</span>
+            ФГИС ЗЕРНО · <span style={{ color: WARNING_TEXT }}>тестовый режим</span>
           </span>
           <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>
-            {verified} орг. подтверждено · {canCreate} готовы к созданию лота · {totalTons} т в sandbox
+            {verified} орг. подтверждено · {canCreate} готовы к созданию лота · {totalTons} т в тестовом сценарии
             {errors > 0 && <span style={{ marginLeft: 8, color: DANGER_TEXT, fontWeight: 700 }}>· {errors} ошибка синхронизации</span>}
           </div>
         </div>
