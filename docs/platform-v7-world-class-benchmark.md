@@ -18,43 +18,43 @@ This document is a benchmark gate, not a production-readiness claim. External in
 | Criterion | Score | Current evidence | Next step |
 | --- | ---: | --- | --- |
 | Onboarding / first entry | 3 | `/platform-v7` opens a scenario-based entry instead of dumping users into an operator dashboard. | Add guided first-run hints per role. |
-| Role UX | 2 | RoleExecutionSummary exists across core roles and explains current state, blocked state, money, documents, execution, next owner, and one CTA. | Replace remaining deep-page role leaks and duplicate secondary actions. |
-| Deal as one execution object | 2 | Route audit, role summaries, bank/dispute/logistics layers now point back to the deal chain. | Continue normalizing deal selectors across all legacy runtime surfaces. |
-| Money visibility | 2 | Control Tower has four primary money/risk KPI cards; bank page has MoneyTree strip; MoneyTree helper avoids double counting. | Mount MoneyTree on Control Tower and buyer/seller read-only contexts. |
-| Document workflow | 2 | DocumentsMatrix exists on bank page and shows document status, owner, block reason, money impact, and next step. | Replace derived/fallback logic with normalized document records when available. |
-| Route / field execution | 2 | `/platform-v7/driver/field` is split from the general driver page, has compact field mode, 56px CTA, and mobile leakage smoke. | Add offline queue visual state for every driver action. |
-| Dispute / evidence | 2 | EvidencePack exists on disputes page and shows photos, GPS, weight, seal, lab, documents, and audit trail with honest missing-data states. | Add immutable evidence versioning once data model supports it. |
-| Mobile field-shell | 3 | Driver field-shell has dedicated 390px e2e smoke and hides bank/investor/trading language. | Add screenshots and visual diff baseline. |
-| Action feedback | 1 | Driver field actions have toasts; some older actions still need status updates and audit/timeline events. | Complete ActionFeedback pass for Control Tower, bank, seller, buyer. |
-| Role leakage protection | 2 | Role leakage matrix, driver field leakage smoke, and route-specific forbidden-copy tests exist. | Expand tests to buyer closed-bid mode and logistics grain-price hiding. |
-| Trust markers | 2 | UI copy now uses pilot/test/manual-check language and avoids inflated production claims in touched screens. | Run full text audit across all deep legacy pages. |
-| Visual clarity | 2 | Entry, summaries, Control Tower KPI reduction, MoneyTree, DocumentsMatrix, EvidencePack simplify key surfaces. | Consolidate tokens/components into design-system pass. |
-| Performance / reliability | 1 | Changes are incremental; smoke/build gates are passing. No Lighthouse regression gate has been added in this pass. | Add Lighthouse baseline and no-regression threshold. |
-| No-regression quality gates | 2 | Route audit, forbidden copy, role summary, MoneyTree, DocumentsMatrix, EvidencePack, driver field mobile smoke tests exist. | Add visual regression snapshots. |
+| Role UX | 2 | RoleExecutionSummary, role route policy, and driver route hint exist. | Extend route hints beyond driver and deepen buyer/seller/logistics leakage checks. |
+| Deal as one execution object | 2 | Money, document, evidence, dispute, action-feedback, and manual-action layers point back to deal context. | Continue normalizing deal selectors across legacy runtime surfaces. |
+| Money visibility | 2 | Bank has MoneyTree strip; Control Tower has money/risk KPI structure; helper logic avoids independent duplicate sums. | Mount MoneyTree read-only summary where it clarifies seller/buyer/operator flows. |
+| Document workflow | 3 | DocumentsMatrix shows document status, owner, block reason, money impact, next step, and honest metadata gaps. | Connect actual document actions step by step. |
+| Route / field execution | 2 | `/platform-v7/driver/field` is separated from the general platform shell and covered by leakage/mobile smoke. | Add offline queue visual state for every driver action. |
+| Dispute / evidence | 3 | EvidencePack shows evidence categories plus metadata slots and marks missing geo/hash/version as requiring connection. | Add immutable evidence versioning once data model supports it. |
+| Mobile field-shell | 3 | Driver field-shell has dedicated smoke coverage and hides bank/investor/trading language. | Add screenshots and visual diff baseline. |
+| Action feedback | 2 | Action result helper, result strip, manual-action helper, and Control Tower manual-action strip exist. | Connect helpers to more older buttons in seller/buyer/bank/operator flows. |
+| Role leakage protection | 2 | Role leakage matrix, route policy helper, driver field leakage smoke, and forbidden-copy tests exist. | Expand tests to buyer closed-bid mode and logistics grain-price hiding. |
+| Trust markers | 3 | Forbidden-copy gates, metadata gaps, and pilot/test wording prevent inflated live claims in touched screens. | Expand copy gate with Russian claim variants. |
+| Visual clarity | 2 | Entry, summaries, Control Tower layers, MoneyTree, DocumentsMatrix, EvidencePack, and manual-action strip simplify key surfaces. | Consolidate more shared UI tokens and add visual snapshots. |
+| Performance / reliability | 1 | Build, route, forbidden-copy, metadata, manual-action, and responsive overflow gates exist. Lighthouse is not automated yet. | Add Lighthouse baseline and no-regression threshold. |
+| No-regression quality gates | 3 | Route screen, responsive overflow across 375/390/414/768/1440, forbidden copy, metadata, manual action, and leakage gates exist. | Add visual regression screenshots. |
 | Maturity claim honesty | 3 | PR copy and UI avoid production-ready / fully live / fully integrated claims; missing external data is shown as requiring connection. | Keep this as a required PR gate. |
 
 ## Score summary
 
-- Criteria scored 2 or higher: 12 / 15 = 80%
-- Criteria scored 3: 3 / 15 = 20%
+- Criteria scored 2 or higher: 14 / 15 = 93%
+- Criteria scored 3: 6 / 15 = 40%
 - Critical criteria scored 0: 0
 
 The target threshold of 80% criteria at 2+ is met.
 
-The target threshold of 30% criteria at 3 is not yet met. Current score is 20%.
+The target threshold of 30% criteria at 3 is met.
 
 ## Honest conclusion
 
-Platform V7 is no longer just a heavy internal dashboard. It now has a role-first entry, role summaries, clearer operator KPIs, separated driver field-shell, money decomposition, document matrix, evidence pack, and stronger copy/leakage gates.
+Platform V7 is no longer just a heavy internal dashboard. It now has a role-first entry, role summaries, clearer operator KPIs, separated driver field-shell, money decomposition, document matrix, evidence pack, manual-action reason discipline, and stronger copy/leakage/responsive gates.
 
-It is still not a complete live production product. The remaining gap is not more screens; it is deeper action feedback, normalized documents/evidence data, Lighthouse/visual regression, and real external integration validation.
+It is still not a complete live production product. The remaining gap is not more screens; it is deeper action feedback, broader old-button wiring, Lighthouse/visual regression, and real external integration validation.
 
 ## Remaining fast-pass work
 
-1. Expand action feedback on bank, seller, buyer, and Control Tower actions.
-2. Mount MoneyTree beyond bank where it adds clarity without duplicating money.
-3. Add normalized document and evidence adapters when data supports them.
-4. Add visual regression screenshots for core routes.
-5. Add Lighthouse baseline and no-regression gate.
-6. Run final full-route forbidden-copy sweep.
+1. Add visual regression screenshots for core routes.
+2. Add Lighthouse baseline and no-regression gate.
+3. Connect manual-action reasons to more actual operator actions.
+4. Connect action feedback helpers to more seller, buyer, bank, and Control Tower buttons.
+5. Extend route policy hints beyond the driver route.
+6. Expand copy gate with Russian overclaim variants.
 7. Keep `apps/landing` untouched for platform work.
