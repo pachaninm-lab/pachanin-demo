@@ -1,3 +1,4 @@
+import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
 
 export default function DriverFieldPage() {
@@ -23,6 +24,7 @@ export default function DriverFieldPage() {
           Здесь нет ставок, банковских действий, инвесторского режима и общего контроля сделки. Только маршрут, связь, прибытие и проблема по рейсу.
         </p>
       </section>
+      <RoleRouteHint role="driver" route="/platform-v7/driver/field" />
       <FieldDriverRuntime compact />
     </main>
   );

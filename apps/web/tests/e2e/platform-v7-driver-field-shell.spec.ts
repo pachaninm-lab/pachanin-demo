@@ -7,6 +7,8 @@ test.describe('platform-v7 driver field shell', () => {
 
     expect(response?.ok()).toBeTruthy();
     await expect(page.getByTestId('platform-v7-driver-field-shell')).toBeVisible();
+    await expect(page.getByTestId('platform-v7-role-route-hint')).toBeVisible();
+    await expect(page.getByText('Роль · рабочий экран')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Рейс водителя' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Подтвердить прибытие|Прибытие подтверждено/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Сообщить об отклонении' })).toBeVisible();
