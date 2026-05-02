@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { useDeals } from '@/lib/domain/hooks';
 import type { DomainDeal } from '@/lib/domain/types';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
@@ -81,17 +82,19 @@ export default function PlatformV7BuyerPage() {
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+      <RoleExecutionSummary role="buyer" />
+
       <section style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 12, color: MUTED, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Кабинет покупателя</div>
             <div style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 900, color: TEXT, marginTop: 8 }}>Резерв, проблемы и ближайшее решение</div>
-            <div style={{ marginTop: 8, fontSize: 14, color: MUTED, maxWidth: 860 }}>Первый экран покупателя должен отвечать на три вопроса: сколько денег стоит в резерве, что сейчас блокирует выпуск и какую сделку нужно открыть первой.</div>
+            <div style={{ marginTop: 8, fontSize: 14, color: MUTED, maxWidth: 860 }}>Первый экран покупателя показывает резерв, причины остановки и сделку, которую нужно открыть первой.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/buyer/financing' style={btn('primary')}>Финансирование</Link>
-            <Link href='/platform-v7/deals' style={btn()}>Сделки</Link>
-            <Link href='/platform-v7/bank' style={btn()}>Банк</Link>
+            <Link href='/platform-v7/buyer/financing' style={btn('primary')}>Открыть финансирование</Link>
+            <Link href='/platform-v7/deals' style={btn()}>Открыть сделки</Link>
+            <Link href='/platform-v7/bank' style={btn()}>Открыть банк</Link>
           </div>
         </div>
       </section>
@@ -106,7 +109,7 @@ export default function PlatformV7BuyerPage() {
       <section style={{ background: CREDIT_BG, border: `1px solid ${CREDIT_BORDER}`, borderRadius: 16, padding: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
         <div>
           <span style={{ fontSize: 12, fontWeight: 800, color: CREDIT, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Финансирование закупки · <span style={{ color: WARNING_TEXT }}>sandbox</span>
+            Финансирование закупки · <span style={{ color: WARNING_TEXT }}>тестовый режим</span>
           </span>
           <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>
             Лимит: {formatCompactMoney(SANDBOX_CREDIT_LIMITS.total)} · Использовано: {formatCompactMoney(SANDBOX_CREDIT_LIMITS.used)} · Доступно: {formatCompactMoney(SANDBOX_CREDIT_LIMITS.available)}
@@ -122,7 +125,7 @@ export default function PlatformV7BuyerPage() {
           <div style={{ fontSize: 12, color: DANGER_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Главное действие</div>
           <div style={{ fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: TEXT, marginTop: 8 }}>{nextActionDeal.id} · {nextActionDeal.grain}</div>
           <div style={{ marginTop: 8, fontSize: 13, color: MUTED }}>Статус: {statusLabel(nextActionDeal.status)} · Удержано: {formatCompactMoney(nextActionDeal.holdAmount)}</div>
-          <div style={{ marginTop: 8, fontSize: 14, color: MUTED }}>{nextActionDeal.holdAmount > 0 ? 'Решите спор или недостающие документы, чтобы снять удержание и довести сделку до выпуска.' : nextActionDeal.blockers.length ? 'Уберите препятствия по сделке, чтобы перейти к следующему этапу.' : 'Откройте сделку и доведите её до банкового выпуска.'}</div>
+          <div style={{ marginTop: 8, fontSize: 14, color: MUTED }}>{nextActionDeal.holdAmount > 0 ? 'Решите спор или недостающие документы, чтобы снять удержание и довести сделку до выпуска.' : nextActionDeal.blockers.length ? 'Уберите причины остановки по сделке, чтобы перейти к следующему этапу.' : 'Откройте сделку и доведите её до банковской проверки выпуска.'}</div>
           <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href={`/platform-v7/deals/${nextActionDeal.id}`} style={btn('primary')}>Открыть сделку</Link>
             <Link href='/platform-v7/bank' style={btn()}>Открыть банк</Link>
