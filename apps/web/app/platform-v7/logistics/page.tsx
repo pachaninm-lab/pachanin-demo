@@ -68,14 +68,14 @@ export default function LogisticsPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Логистика · <span style={{ color: WARN }}>sandbox</span>
+              Логистика · <span style={{ color: WARN }}>тестовый режим</span>
             </div>
             <div style={{ fontSize: 26, fontWeight: 900, color: T, marginTop: 8, lineHeight: 1.1 }}>Диспетчерская</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 760 }}>
-              Логистический заказ привязан к сделке. Экран показывает sandbox projection: заказ → рейсы → инциденты → транспортный gate. Live GPS, перевозчик и ЭДО здесь не заявляются.
+              Логистический заказ привязан к сделке. Экран показывает тестовый сценарий: заказ → рейсы → инциденты → транспортная проверка. Боевой GPS, перевозчик и ЭДО здесь не заявляются.
             </div>
           </div>
-          <Link href='/platform-v7/control-tower' style={btn()}>Башня управления</Link>
+          <Link href='/platform-v7/control-tower' style={btn()}>Открыть центр управления</Link>
         </div>
       </section>
 
@@ -144,7 +144,7 @@ export default function LogisticsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 8, marginTop: 12 }}>
                   <SmallCell label='Рейсов' value={`${projection.completedLegs}/${projection.totalLegs}`} />
                   <SmallCell label='Инцидентов' value={String(projection.openIncidents)} danger={projection.openIncidents > 0} />
-                  <SmallCell label='Транспортный gate' value={projection.transportGateCleared ? 'Очищен' : 'Блокирован'} danger={!projection.transportGateCleared} good={projection.transportGateCleared} />
+                  <SmallCell label='Транспортная проверка' value={projection.transportGateCleared ? 'Очищена' : 'Блокирована'} danger={!projection.transportGateCleared} good={projection.transportGateCleared} />
                 </div>
 
                 {projection.deviations.length > 0 ? (
@@ -208,9 +208,9 @@ function DL9102LogisticsCard() {
       </div>
 
       <div style={{ background: gateBg, border: `1px solid ${gateBorder}`, borderRadius: 12, padding: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
-        <span style={{ fontSize: 12, fontWeight: 900, color: gateColor }}>Транспортный gate:</span>
+        <span style={{ fontSize: 12, fontWeight: 900, color: gateColor }}>Транспортная проверка:</span>
         <span style={{ fontSize: 12, color: gateColor, fontWeight: 800 }}>{logistics.gateStatus}</span>
-        <span style={{ fontSize: 11, color: M }}>· Live GPS, ЭДО и боевой перевозчик здесь не заявляются (имитация проверочного контура)</span>
+        <span style={{ fontSize: 11, color: M }}>· Боевой GPS, ЭДО и перевозчик здесь не заявляются: показан тестовый проверочный контур.</span>
       </div>
     </section>
   );
