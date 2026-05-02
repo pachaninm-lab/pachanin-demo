@@ -7,7 +7,9 @@ import {
   SANDBOX_LOGISTICS_ORDERS,
   SANDBOX_ROUTE_LEGS,
   buildLogisticsProjection,
+  buildTransportDecision,
   type LogisticsOrderStatus,
+  type TransportDecisionStop,
 } from '@/lib/platform-v7/logistics-chain';
 import { PLATFORM_V7_EXECUTION_SOURCE } from '@/lib/platform-v7/deal-execution-source-of-truth';
 
@@ -29,6 +31,14 @@ const INFO_BG = 'rgba(37,99,235,0.06)';
 const INFO_BORDER = 'rgba(37,99,235,0.18)';
 const INFO = '#2563EB';
 
+const transportStopLabels: Record<TransportDecisionStop, string> = {
+  NO_LEGS: 'рейсы не созданы',
+  LEGS_NOT_DONE: 'рейсы не завершены',
+  DOCS_NOT_SIGNED: 'транспортные документы не подписаны',
+  INCIDENTS_OPEN: 'есть открытые инциденты',
+  DEVIATIONS: 'есть отклонения по рейсу',
+};
+
 function orderStatusTone(status: LogisticsOrderStatus) {
   if (status === 'completed') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Завершён' };
   if (status === 'in_transit') return { bg: INFO_BG, border: INFO_BORDER, color: INFO, label: 'В пути' };
@@ -44,6 +54,10 @@ function orderStatusTone(status: LogisticsOrderStatus) {
 
 function btn(): React.CSSProperties {
   return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: SS, border: `1px solid ${B}`, color: T, fontSize: 13, fontWeight: 700 };
+}
+
+function formatStops(stops: readonly TransportDecisionStop[]) {
+  return stops.length ? stops.map((stop) => transportStopLabels[stop]).join(', ') : '—';
 }
 
 export default function LogisticsPage() {
@@ -118,6 +132,10 @@ export default function LogisticsPage() {
         <div style={{ display: 'grid', gap: 12 }}>
           {orders.map((order, index) => {
             const projection = projections[index];
+            const decision = buildTransportDecision(projection);
+            const decisionColor = decision.canContinue ? BRAND : ERR;
+            const decisionBg = decision.canContinue ? BRAND_BG : ERR_BG;
+            const decisionBorder = decision.canContinue ? BRAND_BORDER : ERR_BORDER;
             const tone = orderStatusTone(order.status);
             const orderLegs = legs.filter((leg) => leg.logisticsOrderId === order.id);
             return (
@@ -145,6 +163,11 @@ export default function LogisticsPage() {
                   <SmallCell label='Рейсов' value={`${projection.completedLegs}/${projection.totalLegs}`} />
                   <SmallCell label='Инцидентов' value={String(projection.openIncidents)} danger={projection.openIncidents > 0} />
                   <SmallCell label='Транспортная проверка' value={projection.transportGateCleared ? 'Очищена' : 'Блокирована'} danger={!projection.transportGateCleared} good={projection.transportGateCleared} />
+                  <SmallCell label='Решение' value={decision.canContinue ? 'Можно продолжать' : 'Остановлено'} danger={!decision.canContinue} good={decision.canContinue} />
+                </div>
+
+                <div style={{ marginTop: 10, background: decisionBg, border: `1px solid ${decisionBorder}`, borderRadius: 10, padding: 10, fontSize: 12, color: decisionColor, fontWeight: 800 }}>
+                  {decision.canContinue ? 'Транспортный контур не мешает дальнейшему расчёту.' : `Причины остановки: ${formatStops(decision.stops)}`}
                 </div>
 
                 {projection.deviations.length > 0 ? (
