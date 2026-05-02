@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ManualActionReasonsStrip } from '@/components/platform-v7/ManualActionReasonsStrip';
 import { P7Page } from '@/components/platform-v7/P7Page';
 import { P7Section } from '@/components/platform-v7/P7Section';
 import { P7Toolbar } from '@/components/platform-v7/P7Toolbar';
@@ -126,6 +127,10 @@ export default function PlatformV7ControlTowerPage() {
 
         <P7Section title='Тестовый контур исполнения' subtitle='Единый контур действий: состояние сделки, проверка условий, журнал, timeline и обратная связь без параллельной старой логики.'>
           <ExecutionSimulationActionPanel />
+        </P7Section>
+
+        <P7Section title='Ручные действия' subtitle='Любое ручное вмешательство должно иметь причину и запись в журнале.'>
+          <ManualActionReasonsStrip />
         </P7Section>
 
         <P7Section title='Очередь проблем и действий' subtitle='Каждая строка — это деньги, причина, владелец и одно правильное действие.'>
