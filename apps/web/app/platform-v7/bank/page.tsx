@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { P7MoneySafetyAuditStrip } from '@/components/platform-v7/P7MoneySafetyAuditStrip';
 import { BankBeneficiariesPanel } from '@/components/platform-v7/BankBeneficiariesPanel';
 import { BankManualReviewPanel } from '@/components/platform-v7/BankManualReviewPanel';
@@ -57,8 +58,8 @@ const quickLinks = [
 const partners = [
   {
     name: 'Сбер',
-    status: 'Активный sandbox-контур',
-    note: 'Основной банковый слой controlled-pilot: безопасная сделка, транспортный контроль, факторинг и эскроу. Боевые подключения требуют договоров, доступов и подтверждения на реальных сделках.',
+    status: 'Пилотный контур',
+    note: 'Основной банковый слой: безопасная сделка, транспортный контроль, факторинг и эскроу. Боевые подключения требуют договоров, доступов и подтверждения на реальных сделках.',
     tone: 'rgba(10,122,95,0.08)',
     border: 'rgba(10,122,95,0.18)',
     color: '#0A7A5F',
@@ -66,7 +67,7 @@ const partners = [
   {
     name: 'ВТБ',
     status: 'Следующий слой',
-    note: 'Кандидат на второй банковый контур после закрепления повторяемого controlled-pilot.',
+    note: 'Кандидат на второй банковый контур после закрепления повторяемого пилотного контура.',
     tone: '#F8FAFB',
     border: '#E4E6EA',
     color: '#475569',
@@ -92,6 +93,7 @@ const partners = [
 export default function PlatformV7BankPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
+      <RoleExecutionSummary role="bank" />
       <DomainMoneySummary />
       <P7MoneySafetyAuditStrip />
       <EvidenceDisputeContinuityPanel />
@@ -110,23 +112,23 @@ export default function PlatformV7BankPage() {
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 999, background: '#fff', border: '1px solid rgba(10,122,95,0.18)' }}>
               <span style={{ width: 10, height: 10, borderRadius: 999, background: '#0A7A5F', boxShadow: '0 0 0 3px rgba(10,122,95,0.12)' }} />
-              <span style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>Банк · sandbox</span>
+              <span style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>Банк · тестовый режим</span>
             </div>
             <h1 style={{ margin: '10px 0 0', fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
-              Банковый контур с guard-контролем
+              Банковый контур с проверкой условий
             </h1>
             <p style={{ margin: '8px 0 0', fontSize: 13, color: '#425466', maxWidth: 760 }}>
-              Выпуск денег связан с приёмкой, документами, транспортным gate, комплаенсом и спором. Новые панели ниже работают в sandbox и не заявляют боевую банковую интеграцию.
+              Выпуск денег связан с приёмкой, документами, транспортной проверкой, комплаенсом и спором. Новые панели ниже работают в тестовом режиме и не заявляют боевую банковую интеграцию.
             </p>
           </div>
           <div style={{ display: 'grid', gap: 8, minWidth: 240 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px solid rgba(10,122,95,0.14)' }}>
-              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Guard-контур</span>
-              <span style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 900 }}>Включён</span>
+              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Проверка условий</span>
+              <span style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 900 }}>Включена</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px solid rgba(217,119,6,0.14)' }}>
-              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Интеграции</span>
-              <span style={{ fontSize: 12, color: '#B45309', fontWeight: 900 }}>sandbox</span>
+              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Подключения</span>
+              <span style={{ fontSize: 12, color: '#B45309', fontWeight: 900 }}>тестовый режим</span>
             </div>
           </div>
         </div>
@@ -159,7 +161,7 @@ export default function PlatformV7BankPage() {
         <div>
           <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Банки-партнёры</div>
           <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-            Сейчас активный контур построен вокруг Сбера в sandbox/controlled-pilot логике. Остальные банки показаны как следующий слой масштаба, а не как уже подтверждённые боевые интеграции.
+            Сейчас активный контур построен вокруг Сбера в логике пилотного режима. Остальные банки показаны как следующий слой масштаба, а не как уже подтверждённые боевые интеграции.
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
