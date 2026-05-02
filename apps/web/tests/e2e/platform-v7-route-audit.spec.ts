@@ -11,6 +11,7 @@ const p0Routes = [
   '/platform-v7/lab',
   '/platform-v7/surveyor',
   '/platform-v7/bank',
+  '/platform-v7/bank/clean',
   '/platform-v7/bank/events',
   '/platform-v7/bank/release-safety',
   '/platform-v7/control-tower',
