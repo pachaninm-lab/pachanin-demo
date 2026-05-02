@@ -18,6 +18,7 @@ const p0Routes = [
   '/platform-v7/disputes',
   '/platform-v7/disputes/DK-2024-89',
   '/platform-v7/dispute/DK-2024-89',
+  '/platform-v7/deals/DL-9102/clean',
   '/platform-v7/compliance',
   '/platform-v7/arbitrator',
   '/platform-v7/investor',
