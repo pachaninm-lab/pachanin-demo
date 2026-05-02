@@ -198,6 +198,15 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
         </Link>
       </div>
 
+      <div data-testid="platform-v7-role-workspace-hint" style={{ border: '1px solid #DDE7F0', background: '#F8FBFF', borderRadius: 12, padding: 10, display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 12, lineHeight: 1.45, color: '#334155', fontWeight: 750 }}>
+          Рабочий экран роли: {summary.title}. Основное действие — {summary.cta.toLowerCase()}.
+        </div>
+        <Link href={summary.href} style={{ textDecoration: 'none', minHeight: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderRadius: 10, background: '#fff', color: '#0F1419', border: '1px solid #CBD5E1', fontSize: 12, fontWeight: 850 }}>
+          Открыть экран
+        </Link>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
         {rows.map(([label, value]) => (
           <div key={label} style={{ border: '1px solid #EEF1F4', borderRadius: 12, background: '#F8FAFB', padding: 10, minWidth: 0 }}>
