@@ -25,6 +25,12 @@ const FORBIDDEN_COPY = [
   'domain-core',
   'Action handoff',
   'requestReserve',
+  'всё готово',
+  'нет рисков',
+  'нет аналогов',
+  'платформа гарантирует оплату',
+  'платформа сама выпускает деньги',
+  'лучшая в мире',
 ] as const;
 
 test.describe('platform-v7 forbidden copy gate', () => {
@@ -34,10 +40,10 @@ test.describe('platform-v7 forbidden copy gate', () => {
       const response = await page.goto(route, { waitUntil: 'networkidle' });
 
       expect(response?.ok(), `${route} should return 200`).toBeTruthy();
-      const bodyText = await page.locator('body').innerText();
+      const bodyText = await page.locator('body').innerText().then((text) => text.toLowerCase());
 
       for (const forbidden of FORBIDDEN_COPY) {
-        expect(bodyText, `${route} should not expose ${forbidden}`).not.toContain(forbidden);
+        expect(bodyText, `${route} should not expose ${forbidden}`).not.toContain(forbidden.toLowerCase());
       }
     });
   }
