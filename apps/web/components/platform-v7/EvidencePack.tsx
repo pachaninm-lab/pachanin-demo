@@ -1,6 +1,7 @@
 'use client';
 
 import { selectRuntimeDeals, selectRuntimeDisputes } from '@/lib/domain/selectors';
+import { createPlatformV7EvidenceMetadata } from '@/lib/platform-v7/metadata-slots';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
 
 type EvidenceStatus = 'ready' | 'partial' | 'missing';
@@ -25,6 +26,12 @@ function tone(status: EvidenceStatus) {
   return { bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.18)', color: '#64748B' };
 }
 
+function metadataTone(status: string) {
+  if (status === 'available') return { bg: 'rgba(10,122,95,0.08)', color: '#0A7A5F' };
+  if (status === 'partial') return { bg: 'rgba(217,119,6,0.08)', color: '#B45309' };
+  return { bg: 'rgba(100,116,139,0.08)', color: '#64748B' };
+}
+
 export function EvidencePack() {
   const disputes = selectRuntimeDisputes();
   const deals = selectRuntimeDeals();
@@ -44,11 +51,19 @@ export function EvidencePack() {
   const dealEvents = deal.events ?? [];
   const uploadedEvidence = dispute.evidence?.uploaded ?? 0;
   const totalEvidence = dispute.evidence?.total ?? 0;
-  const hasGps = routeEvents.some((event) => Boolean(event.gps));
+  const firstRouteEventWithGps = routeEvents.find((event) => Boolean(event.gps));
+  const hasGps = Boolean(firstRouteEventWithGps);
   const hasWeight = routeEvents.some((event) => event.event.toLowerCase().includes('взвеш'));
   const hasLab = dealEvents.some((event) => event.actor.toLowerCase().includes('лаб') || event.action.toLowerCase().includes('лаборатор'));
-  const hasRoute = routeEvents.length > 0;
   const hasAudit = dealEvents.length > 0;
+  const latestDealEvent = hasAudit ? dealEvents[dealEvents.length - 1] : undefined;
+  const metadata = createPlatformV7EvidenceMetadata({
+    actor: latestDealEvent?.actor ?? null,
+    timestamp: latestDealEvent?.ts ?? null,
+    geo: firstRouteEventWithGps?.gps ?? null,
+    fileHash: null,
+    version: null,
+  });
 
   const items: EvidenceItem[] = [
     {
@@ -131,6 +146,22 @@ export function EvidencePack() {
             </div>
           );
         })}
+      </div>
+
+      <div data-testid="platform-v7-evidence-metadata" style={{ borderTop: '1px solid #EEF1F4', paddingTop: 12, display: 'grid', gap: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>Метаданные доказательств</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
+          {metadata.map((slot) => {
+            const t = metadataTone(slot.status);
+            return (
+              <div key={slot.key} style={{ borderRadius: 12, padding: 10, background: t.bg, color: t.color }}>
+                <div style={{ fontSize: 11, fontWeight: 900 }}>{slot.label}</div>
+                <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.4 }}>{slot.value}</div>
+                <div style={{ marginTop: 4, fontSize: 10, opacity: 0.78 }}>{slot.source}</div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
