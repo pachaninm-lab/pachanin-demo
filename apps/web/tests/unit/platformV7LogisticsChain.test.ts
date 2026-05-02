@@ -4,6 +4,7 @@ import {
   SANDBOX_LOGISTICS_ORDERS,
   SANDBOX_ROUTE_LEGS,
   buildLogisticsProjection,
+  buildTransportDecision,
   isTransportGateCleared,
   type TransportPack,
 } from '@/lib/platform-v7/logistics-chain';
@@ -81,5 +82,34 @@ describe('platform-v7 logistics chain domain', () => {
 
     expect(projection.transportGateCleared).toBe(true);
     expect(projection.activeLegs).toBe(1);
+  });
+
+  it('allows continuing when all transport conditions are clean', () => {
+    const decision = buildTransportDecision({
+      completedLegs: 2,
+      totalLegs: 2,
+      openIncidents: 0,
+      transportGateCleared: true,
+      deviations: [],
+    });
+
+    expect(decision.canContinue).toBe(true);
+    expect(decision.stops).toEqual([]);
+  });
+
+  it('stops continuing when transport has unfinished legs, incidents, documents, or deviations', () => {
+    const decision = buildTransportDecision({
+      completedLegs: 0,
+      totalLegs: 1,
+      openIncidents: 1,
+      transportGateCleared: false,
+      deviations: ['Вес при сдаче ниже погрузки'],
+    });
+
+    expect(decision.canContinue).toBe(false);
+    expect(decision.stops).toContain('LEGS_NOT_DONE');
+    expect(decision.stops).toContain('DOCS_NOT_SIGNED');
+    expect(decision.stops).toContain('INCIDENTS_OPEN');
+    expect(decision.stops).toContain('DEVIATIONS');
   });
 });
