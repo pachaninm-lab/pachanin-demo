@@ -29,6 +29,18 @@ const p0Routes = [
   '/platform-v7/reports',
 ] as const;
 
+const visibleExecutionRoutes = [
+  { route: '/platform-v7', text: 'Центр исполнения зерновой сделки' },
+  { route: '/platform-v7/deals', text: 'Сделки: деньги, документы, рейс и спор в одном контуре' },
+  { route: '/platform-v7/logistics', text: 'Рейс, водитель, маршрут и инциденты связаны с деньгами' },
+  { route: '/platform-v7/bank', text: 'Деньги выпускаются только после доказанных условий' },
+  { route: '/platform-v7/buyer', text: 'Ставка должна сразу вести к сделке, резерву денег и логистике' },
+  { route: '/platform-v7/seller', text: 'Лот должен приводить к сделке, документам и получению денег' },
+  { route: '/platform-v7/elevator', text: 'Вес и качество должны сразу влиять на документы и деньги' },
+  { route: '/platform-v7/lab', text: 'Качество должно сразу показывать допуск, удержание и риск спора' },
+  { route: '/platform-v7/documents', text: 'Неполный пакет документов должен сразу останавливать деньги' },
+] as const;
+
 const forbiddenVisibleCopy = [
   'Controlled pilot',
   'Simulation-grade',
@@ -64,5 +76,12 @@ test.describe('platform-v7 route audit baseline', () => {
     await page.goto('/platform-v7/bank/clean', { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { name: 'Деньги по сделкам' })).toBeVisible();
     await expect(page.getByText('Стабильная пилотная страница контроля денег по сделке.')).toBeVisible();
+  });
+
+  test('key routes render visible execution entry copy', async ({ page }) => {
+    for (const item of visibleExecutionRoutes) {
+      await page.goto(item.route, { waitUntil: 'networkidle' });
+      await expect(page.getByText(item.text, { exact: false }), `${item.route} should show visible execution entry`).toBeVisible();
+    }
   });
 });
