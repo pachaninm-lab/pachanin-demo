@@ -217,6 +217,34 @@ export function buildLogisticsProjection(
   };
 }
 
+export type TransportDecisionStop = 'NO_LEGS' | 'LEGS_NOT_DONE' | 'DOCS_NOT_SIGNED' | 'INCIDENTS_OPEN' | 'DEVIATIONS';
+
+export interface TransportDecision {
+  readonly canContinue: boolean;
+  readonly stops: readonly TransportDecisionStop[];
+  readonly completedLegs: number;
+  readonly totalLegs: number;
+  readonly openIncidents: number;
+}
+
+export function buildTransportDecision(projection: Pick<LogisticsChainProjection, 'completedLegs' | 'totalLegs' | 'openIncidents' | 'transportGateCleared' | 'deviations'>): TransportDecision {
+  const stops: TransportDecisionStop[] = [];
+
+  if (projection.totalLegs <= 0) stops.push('NO_LEGS');
+  if (projection.totalLegs > 0 && projection.completedLegs < projection.totalLegs) stops.push('LEGS_NOT_DONE');
+  if (!projection.transportGateCleared) stops.push('DOCS_NOT_SIGNED');
+  if (projection.openIncidents > 0) stops.push('INCIDENTS_OPEN');
+  if (projection.deviations.length > 0) stops.push('DEVIATIONS');
+
+  return {
+    canContinue: stops.length === 0,
+    stops,
+    completedLegs: projection.completedLegs,
+    totalLegs: projection.totalLegs,
+    openIncidents: projection.openIncidents,
+  };
+}
+
 const NOW = '2026-04-27T00:00:00.000Z';
 
 export const SANDBOX_LOGISTICS_ORDERS: readonly LogisticsOrder[] = [
