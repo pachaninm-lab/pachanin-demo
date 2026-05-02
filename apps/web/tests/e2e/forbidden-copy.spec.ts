@@ -12,12 +12,17 @@ const routes = [
   '/platform-v7/lab',
   '/platform-v7/surveyor',
   '/platform-v7/bank',
+  '/platform-v7/bank/events',
   '/platform-v7/control-tower',
   '/platform-v7/disputes',
   '/platform-v7/compliance',
   '/platform-v7/arbitrator',
   '/platform-v7/investor',
   '/platform-v7/demo',
+  '/platform-v7/demo/execution-flow',
+  '/platform-v7/simulator',
+  '/platform-v7/trust',
+  '/platform-v7/reports',
 ] as const;
 
 const forbiddenVisibleTerms = [
