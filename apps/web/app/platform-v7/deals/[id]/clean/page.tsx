@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation';
 import { DISPUTES, getDealById, getDealIntegrationState } from '@/lib/v7r/data';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 
+type CleanDealPageParams = { id: string };
+type CleanDealPageProps = { params: Promise<CleanDealPageParams> | CleanDealPageParams };
+
 function cell(label: string, value: string, tone: 'base' | 'good' | 'warn' | 'danger' = 'base') {
   const color = tone === 'good' ? '#0A7A5F' : tone === 'warn' ? '#B45309' : tone === 'danger' ? '#B91C1C' : '#0F1419';
   const border = tone === 'good' ? 'rgba(10,122,95,0.18)' : tone === 'warn' ? 'rgba(217,119,6,0.18)' : tone === 'danger' ? 'rgba(220,38,38,0.18)' : '#E4E6EA';
@@ -10,8 +13,9 @@ function cell(label: string, value: string, tone: 'base' | 'good' | 'warn' | 'da
   return { label, value, color, border, bg };
 }
 
-export default function PlatformV7CleanDealPage({ params }: { params: { id: string } }) {
-  const deal = getDealById(params.id);
+export default async function PlatformV7CleanDealPage({ params }: CleanDealPageProps) {
+  const resolvedParams = await Promise.resolve(params);
+  const deal = getDealById(resolvedParams.id);
   if (!deal) return notFound();
 
   const state = getDealIntegrationState(deal.id, deal.lotId);
