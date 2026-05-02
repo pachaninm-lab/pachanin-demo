@@ -112,8 +112,8 @@ export function DocumentsMatrix() {
   const missingCount = rows.filter((row) => row.status === 'missing').length;
   const reviewCount = rows.filter((row) => row.status === 'review').length;
   const metadata = [
-    createPlatformV7MetadataSlot({ key: 'source', label: 'Источник', value: primaryDeal?.sourceOfTruth ? String(primaryDeal.sourceOfTruth) : null, source: 'текущие данные' }),
-    createPlatformV7MetadataSlot({ key: 'version', label: 'Версия сделки', value: primaryDeal ? String(primaryDeal.version) : null, source: 'журнал версий' }),
+    createPlatformV7MetadataSlot({ key: 'source', label: 'Источник', fallback: primaryDeal ? 'текущий контур сделки' : undefined, source: 'текущие данные' }),
+    createPlatformV7MetadataSlot({ key: 'version', label: 'Версия сделки', source: 'журнал версий' }),
     createPlatformV7MetadataSlot({ key: 'signature', label: 'Подпись', source: 'ЭДО' }),
     createPlatformV7MetadataSlot({ key: 'externalConfirmation', label: 'Внешнее подтверждение', source: 'внешняя система' }),
   ];
