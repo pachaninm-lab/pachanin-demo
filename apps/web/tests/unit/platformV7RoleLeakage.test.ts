@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PLATFORM_V7_ROLE_BLOCKED_ROUTE_PREFIXES,
   PLATFORM_V7_ROLE_FORBIDDEN_SURFACES,
+  canPlatformV7RoleOpenRoute,
+  getPlatformV7RoleHomeRoute,
   isPlatformV7SurfaceForbiddenForRole,
   type PlatformV7Role,
 } from '@/lib/platform-v7/role-access';
@@ -26,6 +29,14 @@ describe('platform-v7 role leakage matrix', () => {
     expect(Object.keys(PLATFORM_V7_ROLE_FORBIDDEN_SURFACES).sort()).toEqual([...roles].sort());
   });
 
+  it('defines route policy for every platform role', () => {
+    expect(Object.keys(PLATFORM_V7_ROLE_BLOCKED_ROUTE_PREFIXES).sort()).toEqual([...roles].sort());
+
+    for (const role of roles) {
+      expect(getPlatformV7RoleHomeRoute(role)).toMatch(/^\/platform-v7/);
+    }
+  });
+
   it('keeps driver isolated from money, trading and operator surfaces', () => {
     expect(isPlatformV7SurfaceForbiddenForRole('driver', 'bankReserve')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('driver', 'moneyRelease')).toBe(true);
@@ -35,10 +46,18 @@ describe('platform-v7 role leakage matrix', () => {
     expect(isPlatformV7SurfaceForbiddenForRole('driver', 'roleSwitcher')).toBe(true);
   });
 
+  it('keeps driver route policy focused on field work', () => {
+    expect(canPlatformV7RoleOpenRoute('driver', '/platform-v7/driver/field')).toEqual({ allowed: true, reason: 'Маршрут доступен для роли.' });
+    expect(canPlatformV7RoleOpenRoute('driver', '/platform-v7/bank').allowed).toBe(false);
+    expect(canPlatformV7RoleOpenRoute('driver', '/platform-v7/control-tower').allowed).toBe(false);
+    expect(canPlatformV7RoleOpenRoute('driver', '/platform-v7/investor').allowed).toBe(false);
+  });
+
   it('keeps logistics away from grain trading price and banking reserve', () => {
     expect(isPlatformV7SurfaceForbiddenForRole('logistics', 'grainPrice')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('logistics', 'bankReserve')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('logistics', 'thirdPartyBids')).toBe(true);
+    expect(canPlatformV7RoleOpenRoute('logistics', '/platform-v7/bank').allowed).toBe(false);
   });
 
   it('keeps buyer and seller away from private/internal surfaces', () => {
@@ -46,9 +65,11 @@ describe('platform-v7 role leakage matrix', () => {
     expect(isPlatformV7SurfaceForbiddenForRole('buyer', 'operatorControls')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('buyer', 'bankInternalEvents')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('seller', 'bankInternalEvents')).toBe(true);
+    expect(canPlatformV7RoleOpenRoute('buyer', '/platform-v7/control-tower').allowed).toBe(false);
   });
 
   it('keeps operator as the only unrestricted fast-pass role at UI matrix level', () => {
     expect(PLATFORM_V7_ROLE_FORBIDDEN_SURFACES.operator).toEqual([]);
+    expect(PLATFORM_V7_ROLE_BLOCKED_ROUTE_PREFIXES.operator).toEqual([]);
   });
 });
