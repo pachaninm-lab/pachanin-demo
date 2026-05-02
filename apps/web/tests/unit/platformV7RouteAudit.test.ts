@@ -29,19 +29,22 @@ describe('platform-v7 fast-pass route audit registry', () => {
     }
   });
 
-  it('documents the current driver field-shell compatibility gap instead of pretending it is green', () => {
-    const knownGaps = getPlatformV7KnownRouteGaps();
+  it('promotes the field shell route into current smoke after isolation', () => {
+    const routes = getPlatformV7P0SmokeRoutes();
+    const fieldRoute = PLATFORM_V7_FAST_PASS_ROUTE_AUDIT.find((item) => item.route === '/platform-v7/driver/field');
 
-    expect(knownGaps).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          route: '/platform-v7/driver/field',
-          owner: 'driver',
-          status: 'known-gap',
-          p0Smoke: false,
-        }),
-      ])
+    expect(routes).toContain('/platform-v7/driver/field');
+    expect(fieldRoute).toEqual(
+      expect.objectContaining({
+        owner: 'driver',
+        status: 'current-smoke',
+        p0Smoke: true,
+      })
     );
+  });
+
+  it('keeps no current known route gaps after the field shell promotion', () => {
+    expect(getPlatformV7KnownRouteGaps()).toEqual([]);
   });
 
   it('keeps route audit records reviewable and non-empty', () => {
