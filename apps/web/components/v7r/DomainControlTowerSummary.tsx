@@ -14,13 +14,12 @@ export function DomainControlTowerSummary() {
   const kpis = useControlTowerKpis();
   const canonicalKpis = useCanonicalRegistryControlTowerKpis();
   const formula = (key: MetricKey) => formatKpiFormula(key, kpis[key]);
-  const canonicalMoneyAtRiskFormula = `registry.controlTower.moneyAtRisk: ${canonicalKpis.moneyAtRisk}`;
-  const canonicalReserveFormula = `registry.controlTower.totalReserved: ${canonicalKpis.totalReserved}`;
-  const canonicalHoldFormula = `registry.controlTower.totalHold: ${canonicalKpis.totalHold}`;
-  const canonicalReadyToReleaseFormula = `registry.controlTower.readyToRelease: ${canonicalKpis.readyToRelease}`;
+  const moneyAtRiskFormula = `Деньги под риском = удержание + резервная надбавка по сделкам со спором или удержанием: ${canonicalKpis.moneyAtRisk}`;
+  const holdFormula = `Под удержанием = сумма удержаний по сделкам: ${canonicalKpis.totalHold}`;
+  const readyToReleaseFormula = `К выпуску = сделки без открытых причин остановки: ${canonicalKpis.readyToRelease}`;
 
   return (
-    <section style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md }} aria-label='Доменная сводка центра управления'>
+    <section style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md }} aria-label='Сводка центра управления'>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
         <div
           style={{
@@ -31,7 +30,7 @@ export function DomainControlTowerSummary() {
             letterSpacing: '0.06em',
           }}
         >
-          KPI центра управления
+          Главное за 10 секунд
         </div>
         <Link
           href='/platform-v7/control-tower/canonical-reconciliation'
@@ -46,18 +45,15 @@ export function DomainControlTowerSummary() {
             fontWeight: 800,
           }}
         >
-          Сверка canonical KPI
+          Открыть сверку KPI
         </Link>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.md }}>
-        <P7MetricLinkCard testId='kpi-moneyAtRisk' title='Деньги под риском' value={formatCompactMoney(canonicalKpis.moneyAtRisk)} note='Консервативный canonical Control Tower risk из registry: удержание плюс резервная надбавка для сделок со спором или удержанием.' formula={canonicalMoneyAtRiskFormula} href='/platform-v7/disputes' tone='danger' />
-        <P7MetricLinkCard testId='kpi-heldAmount' title='Под удержанием' value={formatCompactMoney(canonicalKpis.totalHold)} note='Удержание из canonical registry.' formula={canonicalHoldFormula} href='/platform-v7/disputes' tone='danger' />
-        <P7MetricLinkCard testId='kpi-readyToRelease' title='К выпуску' value={formatCompactMoney(canonicalKpis.readyToRelease)} note='К выпуску из canonical registry: только RELEASE_PENDING без блокеров.' formula={canonicalReadyToReleaseFormula} href='/platform-v7/bank' tone='success' />
-        <P7MetricLinkCard testId='kpi-integrationStops' title='Интеграционные стопы' value={String(kpis.integrationStops.value)} note='Доменные признаки остановки интеграций.' formula={formula('integrationStops')} href='/platform-v7/connectors' tone='integration' />
-        <P7MetricLinkCard testId='kpi-transportStops' title='Транспортные стопы' value={String(kpis.transportStops.value)} note='Доменные признаки транспортной остановки.' formula={formula('transportStops')} href='/platform-v7/control-tower/hotlist' tone='warning' />
-        <P7MetricLinkCard testId='kpi-slaCritical' title='SLA срочно' value={String(kpis.slaCritical.value)} note='Сделки с критичным дедлайном.' formula={formula('slaCritical')} href='/platform-v7/deals' tone='danger' />
-        <P7MetricLinkCard testId='kpi-reserveTotal' title='В резерве' value={formatCompactMoney(canonicalKpis.totalReserved)} note='Резерв из canonical registry.' formula={canonicalReserveFormula} href='/platform-v7/bank' tone='money' />
+        <P7MetricLinkCard testId='kpi-readyToRelease' title='К выпуску' value={formatCompactMoney(canonicalKpis.readyToRelease)} note='Деньги, которые ближе всего к подтверждению банком.' formula={readyToReleaseFormula} href='/platform-v7/bank' tone='success' />
+        <P7MetricLinkCard testId='kpi-heldAmount' title='Под удержанием' value={formatCompactMoney(canonicalKpis.totalHold)} note='Сумма, которую нельзя выпускать до закрытия причины остановки.' formula={holdFormula} href='/platform-v7/disputes' tone='danger' />
+        <P7MetricLinkCard testId='kpi-moneyAtRisk' title='Деньги под риском' value={formatCompactMoney(canonicalKpis.moneyAtRisk)} note='Сумма, где есть спор, удержание или риск по исполнению.' formula={moneyAtRiskFormula} href='/platform-v7/disputes' tone='danger' />
+        <P7MetricLinkCard testId='kpi-slaCritical' title='SLA срочно' value={String(kpis.slaCritical.value)} note='Сделки, по которым нужно действовать быстрее остальных.' formula={formula('slaCritical')} href='/platform-v7/deals' tone='danger' />
       </div>
     </section>
   );
