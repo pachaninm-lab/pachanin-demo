@@ -21,6 +21,13 @@ export interface PlatformV7ActionLogEvent {
   timestamp: string;
 }
 
+export interface PlatformV7ActionResult {
+  readonly feedback: PlatformV7ActionFeedback;
+  readonly nextStep: string;
+  readonly testMode: boolean;
+  readonly journal: PlatformV7ActionLogEvent;
+}
+
 export function createPlatformV7ActionFeedback(args: {
   actionId: string;
   entityId: string;
@@ -38,6 +45,39 @@ export function createPlatformV7ActionFeedback(args: {
     severity: args.severity ?? (args.status === 'error' ? 'error' : args.status === 'success' ? 'success' : 'info'),
     retryable: args.retryable ?? args.status === 'error',
     timestamp: args.timestamp ?? new Date().toISOString(),
+  };
+}
+
+export function createPlatformV7ActionResult(args: {
+  readonly actionId: string;
+  readonly entityId: string;
+  readonly actor: string;
+  readonly label: string;
+  readonly nextStep?: string;
+  readonly testMode?: boolean;
+  readonly stopReason?: string;
+  readonly timestamp?: string;
+}): PlatformV7ActionResult {
+  const isStopped = Boolean(args.stopReason);
+  const feedback = createPlatformV7ActionFeedback({
+    actionId: args.actionId,
+    entityId: args.entityId,
+    status: isStopped ? 'error' : 'success',
+    severity: isStopped ? 'warning' : 'success',
+    retryable: isStopped,
+    timestamp: args.timestamp,
+    message: isStopped
+      ? `${args.label}: действие остановлено. Причина: ${args.stopReason}`
+      : args.testMode
+        ? `${args.label}: тестовый результат зафиксирован.`
+        : `${args.label}: действие выполнено.`,
+  });
+
+  return {
+    feedback,
+    nextStep: args.nextStep ?? (isStopped ? 'Укажите основание и отправьте на ручную проверку.' : 'Откройте следующий шаг по сделке.'),
+    testMode: Boolean(args.testMode),
+    journal: actionFeedbackToLogEvent(feedback, args.actor),
   };
 }
 
