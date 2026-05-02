@@ -7,6 +7,11 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: '/platform-v7/deals/:id',
+        destination: '/platform-v7/deals/:id/clean',
+        permanent: false,
+      },
+      {
         source: '/platform-v7/integrations',
         destination: '/platform-v7/connectors',
         permanent: true,
