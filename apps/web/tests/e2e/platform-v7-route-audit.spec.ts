@@ -55,4 +55,14 @@ test.describe('platform-v7 route audit baseline', () => {
       }
     });
   }
+
+  test('clean routes render stable Russian pilot copy', async ({ page }) => {
+    await page.goto('/platform-v7/deals/DL-9102/clean', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { name: 'Карточка сделки' })).toBeVisible();
+    await expect(page.getByText('Стабильная пилотная карточка исполнения сделки.')).toBeVisible();
+
+    await page.goto('/platform-v7/bank/clean', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { name: 'Деньги по сделкам' })).toBeVisible();
+    await expect(page.getByText('Стабильная пилотная страница контроля денег по сделке.')).toBeVisible();
+  });
 });
