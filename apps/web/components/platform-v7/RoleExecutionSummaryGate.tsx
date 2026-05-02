@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { RoleExecutionSummary, type PlatformV7ExecutionRole } from './RoleExecutionSummary';
 
-const SUMMARY_BY_ROUTE: Record<string, PlatformV7ExecutionRole> = {
+export const PLATFORM_V7_SUMMARY_BY_ROUTE: Record<string, PlatformV7ExecutionRole> = {
   '/platform-v7/logistics': 'logistics',
   '/platform-v7/control-tower': 'operator',
   '/platform-v7/investor': 'investor',
@@ -11,7 +11,7 @@ const SUMMARY_BY_ROUTE: Record<string, PlatformV7ExecutionRole> = {
 
 export function RoleExecutionSummaryGate() {
   const pathname = usePathname();
-  const role = pathname ? SUMMARY_BY_ROUTE[pathname] : undefined;
+  const role = pathname ? PLATFORM_V7_SUMMARY_BY_ROUTE[pathname] : undefined;
 
   if (!role) return null;
 
