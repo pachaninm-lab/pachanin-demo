@@ -13,6 +13,11 @@ test.describe('platform-v7 EvidencePack', () => {
     await expect(page.getByText('Пломба')).toBeVisible();
     await expect(page.getByText('Лаборатория')).toBeVisible();
     await expect(page.getByText('Журнал действий')).toBeVisible();
+    await expect(page.getByTestId('platform-v7-evidence-metadata')).toBeVisible();
+    await expect(page.getByText('Метаданные доказательств')).toBeVisible();
+    await expect(page.getByText('Хэш файла')).toBeVisible();
+    await expect(page.getByText('Версия')).toBeVisible();
+    await expect(page.getByText('требует подключения')).toBeVisible();
 
     const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(overflowX, '/platform-v7/disputes should not have horizontal overflow at 390px').toBe(false);
