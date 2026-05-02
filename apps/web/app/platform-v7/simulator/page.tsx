@@ -3,7 +3,6 @@ import {
   PLATFORM_V7_BANK_EVENTS_ROUTE,
   PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE,
   PLATFORM_V7_DISPUTES_ROUTE,
-  PLATFORM_V7_EXPORT_CENTER_ROUTE,
   PLATFORM_V7_TRUST_ROUTE,
 } from '@/lib/platform-v7/routes';
 
@@ -30,7 +29,7 @@ export default function PlatformV7SimulatorPage() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Link href={PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE} style={primaryLink}>Путь сделки</Link>
           <Link href={PLATFORM_V7_BANK_EVENTS_ROUTE} style={secondaryLink}>События банка</Link>
-          <Link href={PLATFORM_V7_EXPORT_CENTER_ROUTE} style={secondaryLink}>Выгрузки</Link>
+          <Link href="/platform-v7/reports" style={secondaryLink}>Отчёты</Link>
           <Link href={PLATFORM_V7_TRUST_ROUTE} style={secondaryLink}>Центр доверия</Link>
         </div>
       </section>
