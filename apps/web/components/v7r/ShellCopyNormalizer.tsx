@@ -4,15 +4,21 @@ import * as React from 'react';
 
 const TEXT_REPLACEMENTS: Array<[string, string]> = [
   ['Controlled pilot', 'Пилотный режим'],
-  ['Sandbox + callbacks', 'Тестовая среда · входящие события'],
+  ['Sandbox + callbacks', 'Тестовая среда · ответы банка'],
   ['Sandbox + evidence', 'Тестовая среда · доказательства'],
-  ['Sandbox + rules', 'Тестовая среда · правила'],
+  ['Sandbox + rules', 'Тестовая среда · правила сделки'],
+  ['Simulation-grade контур исполнения', 'Тестовый контур исполнения'],
+  ['Simulation-grade', 'Тестовый сценарий сделки'],
   ['Control Tower', 'Центр управления'],
-  ['callbacks', 'входящие события'],
-  ['evidence-first', 'доказательства первичны'],
+  ['callbacks', 'ответы банка'],
+  ['evidence-first', 'доказательный контур'],
+  ['guard-правила', 'проверка условий'],
+  ['runtime-контур', 'контур исполнения'],
+  ['Action handoff', 'передача следующего действия'],
+  ['requestReserve', 'запросить резерв'],
   ['release', 'выпуск денег'],
   ['review', 'ручная проверка'],
-  ['blocker', 'препятствие'],
+  ['blocker', 'причина остановки'],
 ];
 
 function normalizeNodeText(node: Node) {
