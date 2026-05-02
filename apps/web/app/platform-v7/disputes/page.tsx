@@ -1,3 +1,4 @@
+import { EvidencePack } from '@/components/platform-v7/EvidencePack';
 import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import { DomainDisputesSummary } from '@/components/v7r/DomainDisputesSummary';
 import { DisputesRuntime } from '@/components/v7r/DisputesRuntime';
@@ -68,6 +69,7 @@ export default function PlatformV7DisputesPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       <P7ExecutionMachineReadOnlyStrip compact />
+      <EvidencePack />
       <EvidenceDisputeContinuityPanel />
       <DL9102DisputeCard />
       <DomainDisputesSummary />
