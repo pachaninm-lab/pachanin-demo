@@ -1,5 +1,6 @@
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import {
+  PLATFORM_V7_BANK_CLEAN_ROUTE,
   PLATFORM_V7_BANK_EVENTS_ROUTE,
   PLATFORM_V7_BANK_ROUTE,
   PLATFORM_V7_BUYER_ROUTE,
@@ -39,7 +40,7 @@ export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, PlatformV7ShellRouteS
   surveyor: PLATFORM_V7R_SURVEYOR_ROUTE,
   elevator: PLATFORM_V7R_ELEVATOR_ROUTE,
   lab: PLATFORM_V7R_LAB_ROUTE,
-  bank: PLATFORM_V7_BANK_ROUTE,
+  bank: PLATFORM_V7_BANK_CLEAN_ROUTE,
   arbitrator: PLATFORM_V7R_ARBITRATOR_ROUTE,
   compliance: PLATFORM_V7_COMPLIANCE_ROUTE,
   executive: PLATFORM_V7R_ANALYTICS_ROUTE,
@@ -51,7 +52,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
     { href: PLATFORM_V7_PROCUREMENT_ROUTE, label: 'Закупки' },
     { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Логистика' },
-    { href: PLATFORM_V7_BANK_ROUTE, label: 'Банк' },
+    { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Деньги' },
     { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'События банка' },
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
     { href: PLATFORM_V7_TRUST_ROUTE, label: 'Центр доверия' },
@@ -99,7 +100,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
   ],
   bank: [
-    { href: PLATFORM_V7_BANK_ROUTE, label: 'Банковый контур' },
+    { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Деньги по сделкам' },
     { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'События банка' },
     { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
@@ -126,7 +127,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр управления' },
     { href: PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, label: 'Путь сделки' },
     { href: PLATFORM_V7_SIMULATOR_ROUTE, label: 'Симулятор' },
-    { href: PLATFORM_V7_BANK_ROUTE, label: 'Банк' },
+    { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Деньги' },
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
     { href: PLATFORM_V7_TRUST_ROUTE, label: 'Центр доверия' },
     { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
