@@ -3,10 +3,10 @@
 import Link from 'next/link';
 
 const METRICS = [
-  { label: 'Оборот в демо-срезе', value: '118 млн ₽', sub: '+30% к марту' },
-  { label: 'Комиссия платформы', value: '1,8%', sub: 'Модель дохода платформы' },
-  { label: 'Активных сделок', value: '31', sub: 'Пик по текущему ряду' },
-  { label: 'Средний цикл', value: '8,3 дн.', sub: 'От контракта до расчёта' },
+  { label: 'Оборот в тестовом срезе', value: '118 млн ₽', sub: 'Данные сценария, не подтверждённый GMV' },
+  { label: 'Модель комиссии', value: '1,8%', sub: 'Гипотеза unit economics для пилота' },
+  { label: 'Сделок в сценарии', value: '31', sub: 'Тестовый ряд для проверки UX' },
+  { label: 'Средний цикл', value: '8,3 дн.', sub: 'Расчёт по сценарным данным' },
 ];
 
 const REGIONS = [
@@ -18,50 +18,69 @@ const REGIONS = [
   { name: 'Ростовская', deals: 3, gmv: 12.6, color: '#DC2626' },
 ];
 
-const PLAN = [
-  'Подключение ФГИС в боевой контур после управляемого пилота',
-  'Пилот с тремя агрохолдингами ЮФО',
-  'Мобильный кабинет для водителей и элеваторов',
-  'Доступ для банков-партнёров после подтверждения пилотного контура',
-  'Расширение на 15 регионов после проверки экономики сделки',
+const TRUTH_BLOCKS = [
+  {
+    title: 'Что доказано интерфейсом',
+    items: ['Ролевой вход', 'Контур сделки', 'Деньги без двойного счёта', 'Документы и доказательства', 'Мобильный экран водителя'],
+  },
+  {
+    title: 'Что в пилотном контуре',
+    items: ['Сценарии продавца и покупателя', 'Банк как проверочный слой', 'Операторская очередь', 'Спор и доказательства', 'Контроль качества UX gates'],
+  },
+  {
+    title: 'Что остаётся тестовым',
+    items: ['Оборот и региональный ряд', 'Ответы внешних систем', 'Отправка документов', 'GPS/телематика', 'Банковские действия'],
+  },
+  {
+    title: 'Что требует live-подключений',
+    items: ['ФГИС', 'ЭДО/ЭТрН', 'Банк', 'Лаборатория', 'GPS/телематика', 'Реальные договоры и доступы'],
+  },
 ];
 
-const TRUST = [
-  { label: 'Просрочка по сделкам', value: '0%', good: true },
-  { label: 'Спорность', value: '8%', good: true },
-  { label: 'Покрытие ФГИС в песочнице', value: '100%', good: true },
-  { label: 'Активных сделок', value: '31', good: true },
+const RISKS = [
+  { label: 'Интеграции', value: 'требуют договоров, доступов и проверки на реальной сделке' },
+  { label: 'Ручная нагрузка', value: 'часть действий пока закрывается оператором и тестовыми сценариями' },
+  { label: 'Данные', value: 'часть метрик основана на демонстрационном ряду' },
+  { label: 'Банк', value: 'выпуск денег должен подтверждать банк, а не платформа' },
+];
+
+const PLAN = [
+  'Проверить сквозной сценарий сделки с реальными участниками пилота',
+  'Подготовить доступы и договоры для внешних подключений',
+  'Снять ручную операционную нагрузку по ключевым действиям',
+  'Подтвердить экономику сделки на фактических данных',
+  'Расширять регионы только после повторяемого пилотного результата',
 ];
 
 const SHIPPED = [
   {
-    title: 'Пакет проверки',
-    state: 'Встроено',
-    note: 'Честная карта для банка и инвестора: что собрано, что в песочнице и что требует пилота.',
+    title: 'Проверочный пакет',
+    state: 'Пилотный контур',
+    note: 'Карта для банка и инвестора: что собрано, что тестовое и что требует проверки на реальной сделке.',
     href: '/platform-v7/data-room',
   },
   {
-    title: 'Вход и подключение компании',
-    state: 'Встроено',
-    note: 'Вход, регистрация и подключение компании уже внутри платформы.',
+    title: 'Вход и компания',
+    state: 'Пилотный контур',
+    note: 'Вход, регистрация и подключение компании доступны внутри платформы, без заявления боевой зрелости.',
     href: '/platform-v7/auth',
   },
   {
     title: 'Факторинг и эскроу',
-    state: 'Встроено',
-    note: 'Банковские поверхности оформлены и связаны с денежным контуром в песочнице.',
+    state: 'Тестовый режим',
+    note: 'Банковские поверхности связаны с денежным контуром, но требуют внешнего подтверждения для реального применения.',
     href: '/platform-v7/bank',
   },
   {
     title: 'Слой доверия',
-    state: 'Встроено',
-    note: 'Профиль компании, команда, карточки контрагентов и отзывы по сделкам уже доступны.',
+    state: 'Пилотный контур',
+    note: 'Профиль компании, команда, карточки контрагентов и отзывы доступны как часть проверочного UX.',
     href: '/platform-v7/profile',
   },
   {
     title: 'Контур готовности',
-    state: 'Встроено',
-    note: 'Есть отдельный слой готовности сервисов и новых модулей.',
+    state: 'Пилотный контур',
+    note: 'Готовность сервисов и модулей показана честно: тестовый режим отдельно от live-подключений.',
     href: '/platform-v7/status',
   },
 ];
@@ -73,15 +92,15 @@ export default function InvestorPage() {
     <div style={{ display: 'grid', gap: 24 }}>
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', margin: 0, borderLeft: '4px solid #0A7A5F', paddingLeft: 12 }}>
-          Инвестор и раунд
+          Инвесторский режим
         </h1>
         <p style={{ fontSize: 13, color: '#6B778C', marginTop: 4, paddingLeft: 16 }}>
-          Показатели доверия · Операционные показатели · План развития
+          Зрелость · экономика · риски · ручная нагрузка · roadmap
         </p>
       </div>
 
-      <div style={{ padding: '14px 16px', borderRadius: 16, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#0F1419', fontSize: 13, lineHeight: 1.6 }}>
-        Страница показывает демонстрационный инвестиционный срез. Боевые интеграции, подтверждённый оборот и полная готовность не заявляются без управляемого пилота.
+      <div data-testid="platform-v7-investor-truth-banner" style={{ padding: '14px 16px', borderRadius: 16, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#0F1419', fontSize: 13, lineHeight: 1.6 }}>
+        Инвесторский экран показывает controlled-pilot картину. Оборот, регионы и часть действий являются тестовым сценарием. Внешние подключения, банковские операции и реальное исполнение требуют договоров, доступов и проверки на фактической сделке.
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
@@ -94,11 +113,30 @@ export default function InvestorPage() {
         ))}
       </div>
 
+      <section data-testid="platform-v7-investor-truth-grid" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Правда по зрелости</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+            Экран разделяет готовые UX-слои, пилотный контур, тестовый сценарий и live-подключения. Это снижает риск завышенных ожиданий у инвестора.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
+          {TRUTH_BLOCKS.map((block) => (
+            <article key={block.title} style={{ border: '1px solid #EEF1F4', borderRadius: 14, padding: 14, background: '#F8FAFB' }}>
+              <div style={{ fontSize: 14, fontWeight: 900, color: '#0F1419' }}>{block.title}</div>
+              <ul style={{ margin: '10px 0 0', paddingLeft: 18, display: 'grid', gap: 6, color: '#475569', fontSize: 12, lineHeight: 1.45 }}>
+                {block.items.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 14 }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Что уже встроено в продукт</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Что уже собрано в продукте</div>
           <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
-            Ключевые P1-слои встроены в платформу и доступны пользователю. Статус интеграций остаётся честно ограниченным: песочница или управляемый пилот.
+            Ключевые слои доступны пользователю, но их статус не смешивается с реальным внешним исполнением.
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
@@ -117,7 +155,7 @@ export default function InvestorPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 16 }}>Распределение по регионам</div>
+          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 16 }}>Региональный тестовый срез</div>
           <div style={{ display: 'grid', gap: 10 }}>
             {REGIONS.map((r) => (
               <div key={r.name}>
@@ -134,13 +172,13 @@ export default function InvestorPage() {
         </div>
 
         <div style={{ display: 'grid', gap: 16 }}>
-          <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14 }}>Показатели доверия</div>
+          <div data-testid="platform-v7-investor-risks" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14 }}>Риски и ручная нагрузка</div>
             <div style={{ display: 'grid', gap: 10 }}>
-              {TRUST.map(({ label, value, good }) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 10, background: good ? 'rgba(10,122,95,0.06)' : 'rgba(220,38,38,0.06)', border: `1px solid ${good ? 'rgba(10,122,95,0.14)' : 'rgba(220,38,38,0.14)'}` }}>
-                  <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{label}</span>
-                  <span style={{ fontSize: 14, fontWeight: 900, color: good ? '#0A7A5F' : '#B91C1C' }}>{value}</span>
+              {RISKS.map(({ label, value }) => (
+                <div key={label} style={{ display: 'grid', gap: 4, padding: '10px 12px', borderRadius: 10, background: 'rgba(217,119,6,0.06)', border: '1px solid rgba(217,119,6,0.14)' }}>
+                  <span style={{ fontSize: 12, color: '#92400E', fontWeight: 900 }}>{label}</span>
+                  <span style={{ fontSize: 12, color: '#374151', lineHeight: 1.45 }}>{value}</span>
                 </div>
               ))}
             </div>
@@ -162,7 +200,7 @@ export default function InvestorPage() {
 
       <div style={{ padding: '16px 20px', borderRadius: 16, background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>Запросить материалы по раунду</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>Запросить материалы по пилоту</div>
           <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>Финансовая модель, план роста и проверочный пакет</div>
         </div>
         <a href="mailto:invest@pachanin.ru" style={{ display: 'inline-flex', alignItems: 'center', padding: '10px 18px', borderRadius: 12, background: '#0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, textDecoration: 'none' }}>
