@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { MoneyTreeStrip } from '@/components/platform-v7/MoneyTreeStrip';
 
 export type PlatformV7ExecutionRole =
   | 'seller'
@@ -28,6 +29,8 @@ type RoleExecutionSummaryConfig = {
   cta: string;
   href: string;
 };
+
+const MONEY_TREE_ROLES: ReadonlySet<PlatformV7ExecutionRole> = new Set(['seller', 'buyer', 'bank', 'operator']);
 
 export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRole, RoleExecutionSummaryConfig> = {
   seller: {
@@ -206,6 +209,8 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
           Открыть экран
         </Link>
       </div>
+
+      {MONEY_TREE_ROLES.has(role) ? <MoneyTreeStrip /> : null}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
         {rows.map(([label, value]) => (
