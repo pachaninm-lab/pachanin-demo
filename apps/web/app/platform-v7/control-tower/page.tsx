@@ -110,7 +110,7 @@ export default function PlatformV7ControlTowerPage() {
       `}</style>
       <P7Page
         title='Центр управления'
-        subtitle='Операторский экран: деньги, стопы, транспортные документы, следующий владелец и одно правильное действие по каждой сделке.'
+        subtitle='Операторский экран: деньги, причины остановки, транспортные документы, следующий владелец и одно правильное действие по каждой сделке.'
         actions={(
           <P7Toolbar testId='control-tower-toolbar'>
             <Badge tone='red'>Проблемы</Badge>
@@ -120,11 +120,11 @@ export default function PlatformV7ControlTowerPage() {
         )}
         testId='platform-v7-control-tower-page'
       >
-        <P7Section title='Деньги и риски' subtitle='KPI берутся из единого runtime-контура и ведут в соответствующие рабочие зоны.'>
+        <P7Section title='Деньги и риски' subtitle='KPI берутся из единого контура исполнения и ведут в соответствующие рабочие зоны.'>
           <DomainControlTowerSummary />
         </P7Section>
 
-        <P7Section title='Simulation-grade контур исполнения' subtitle='Единый action-контур: состояние сделки, guard-правила, audit, timeline и UI-feedback без параллельной legacy-логики.'>
+        <P7Section title='Тестовый контур исполнения' subtitle='Единый контур действий: состояние сделки, проверка условий, журнал, timeline и обратная связь без параллельной старой логики.'>
           <ExecutionSimulationActionPanel />
         </P7Section>
 
@@ -179,7 +179,7 @@ export default function PlatformV7ControlTowerPage() {
                   <div style={{ fontSize:12, color:'#334155', lineHeight:1.6 }}>{item.note}</div>
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                     <Link href={item.primaryHref} style={btn()}>Открыть пакет</Link>
-                    <Link href={item.simulationHref} style={btn('primary')}>Симуляция</Link>
+                    <Link href={item.simulationHref} style={btn('primary')}>Открыть тестовый сценарий</Link>
                   </div>
                 </div>
               ))}
