@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document defines the next production-hardening gates for Platform V7 without real external integrations.
+This document defines the production-hardening gates for Platform V7 without real external integrations.
 
 Where a bank, FGIS, EDO, ETRN, GPS, or lab connection is needed, the platform must show a clear test-mode simulation and must not claim live execution.
 
@@ -35,6 +35,21 @@ Required mobile checks:
 Required desktop check:
 
 - 1440 x 900
+
+## Automated gates already added
+
+The following gates now exist as code:
+
+- Route screen gate for priority routes.
+- Mobile overflow gate at 390px for priority routes.
+- Forbidden-copy gate for maturity and internal terms.
+- Driver field-shell leakage smoke.
+- EvidencePack metadata smoke.
+- DocumentsMatrix metadata smoke.
+- Manual action reason smoke on Control Tower.
+- Role route policy unit coverage.
+- Metadata slots unit coverage.
+- Manual action reason unit coverage.
 
 ## Visual regression gate
 
@@ -78,17 +93,21 @@ For each priority route, verify:
 9. Role-specific pages do not expose unrelated controls.
 10. `apps/landing` is not part of Platform V7 changes.
 
-## Required next implementation work
+## Remaining implementation work
 
-- Add automated screenshot capture for the priority routes.
+- Add automated screenshot capture for priority routes.
 - Add no-regression comparison for screenshots.
 - Add Lighthouse baseline script or CI job.
-- Add mobile overflow checks for every priority route.
+- Expand mobile overflow checks to 375, 414, 768, and 1440 viewports.
 - Add route policy UI hints beyond the driver field route.
-- Expand action-feedback strip into real old-button flows without real external integrations.
+- Expand action-feedback strip into old-button flows without real external integrations.
+- Connect manual action reasons to actual operator actions step by step.
+- Add a final benchmark document against B2B/agro references.
 
 ## Current status
 
-This is a hardening gate definition. It is not the final automated gate yet.
+The hardening gates are partially automated.
 
-The next PRs should convert this checklist into code and CI checks in small, reviewable steps.
+The platform now has automated protection for route availability, first-screen presence, mobile overflow at 390px, forbidden copy, driver leakage, evidence metadata, document metadata, and manual action reasons.
+
+The remaining gates should be added in small, reviewable PRs without rewriting the architecture, adding real integrations, or touching `apps/landing`.
