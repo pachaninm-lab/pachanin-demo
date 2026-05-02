@@ -1,0 +1,29 @@
+{
+  "ci": {
+    "collect": {
+      "url": [
+        "http://localhost:3000/platform-v7",
+        "http://localhost:3000/platform-v7/control-tower",
+        "http://localhost:3000/platform-v7/driver/field",
+        "http://localhost:3000/platform-v7/bank"
+      ],
+      "numberOfRuns": 1,
+      "settings": {
+        "preset": "desktop"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:accessibility": ["warn", { "minScore": 0.95 }],
+        "categories:best-practices": ["warn", { "minScore": 0.95 }],
+        "largest-contentful-paint": ["warn", { "maxNumericValue": 2500 }],
+        "cumulative-layout-shift": ["warn", { "maxNumericValue": 0.1 }],
+        "interactive": "off",
+        "total-blocking-time": ["warn", { "maxNumericValue": 200 }]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}
