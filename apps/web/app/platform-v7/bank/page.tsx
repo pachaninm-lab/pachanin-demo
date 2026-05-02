@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
+import { MoneyTreeStrip } from '@/components/platform-v7/MoneyTreeStrip';
 import { P7MoneySafetyAuditStrip } from '@/components/platform-v7/P7MoneySafetyAuditStrip';
 import { BankBeneficiariesPanel } from '@/components/platform-v7/BankBeneficiariesPanel';
 import { BankManualReviewPanel } from '@/components/platform-v7/BankManualReviewPanel';
@@ -94,6 +95,7 @@ export default function PlatformV7BankPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       <RoleExecutionSummary role="bank" />
+      <MoneyTreeStrip />
       <DomainMoneySummary />
       <P7MoneySafetyAuditStrip />
       <EvidenceDisputeContinuityPanel />
