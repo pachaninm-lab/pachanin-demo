@@ -6,7 +6,11 @@ import { useToast } from '@/components/v7r/Toast';
 import { useFieldRuntimeStore } from '@/stores/useFieldRuntimeStore';
 import { trackEvent } from '@/lib/analytics/track';
 
-export function FieldDriverRuntime() {
+type FieldDriverRuntimeProps = {
+  compact?: boolean;
+};
+
+export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps) {
   const toast = useToast();
   const trip = useFieldRuntimeStore((s) => s.trip);
   const confirmArrival = useFieldRuntimeStore((s) => s.confirmArrival);
@@ -55,23 +59,27 @@ export function FieldDriverRuntime() {
               trackEvent('driver_arrived', { tripId: trip.id, dealId: trip.dealId });
               toast('Прибытие по рейсу подтверждено.', 'success');
             }}
-            style={{ padding: '12px 16px', borderRadius: 12, border: 'none', background: arrived ? '#E4E6EA' : '#0A7A5F', color: arrived ? '#9CA3AF' : '#fff', fontSize: 14, fontWeight: 800, cursor: arrived ? 'default' : 'pointer' }}
+            style={{ padding: compact ? '16px 18px' : '12px 16px', minHeight: compact ? 56 : 44, borderRadius: 12, border: 'none', background: arrived ? '#E4E6EA' : '#0A7A5F', color: arrived ? '#9CA3AF' : '#fff', fontSize: compact ? 16 : 14, fontWeight: 800, cursor: arrived ? 'default' : 'pointer' }}
           >
             {arrived ? 'Прибытие подтверждено' : 'Подтвердить прибытие'}
           </button>
-          <Link href={`/platform-v7/deals/${trip.dealId}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 14, fontWeight: 700 }}>
-            Открыть сделку
-          </Link>
-          <Link href='/platform-v7/elevator' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 14, fontWeight: 700 }}>
-            Приёмка
-          </Link>
+          {!compact ? (
+            <>
+              <Link href={`/platform-v7/deals/${trip.dealId}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 14, fontWeight: 700 }}>
+                Открыть сделку
+              </Link>
+              <Link href='/platform-v7/elevator' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 14, fontWeight: 700 }}>
+                Приёмка
+              </Link>
+            </>
+          ) : null}
         </div>
       </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Отклонение</div>
         {!showDeviation ? (
-          <button onClick={() => setShowDeviation(true)} style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(220,38,38,0.2)', background: 'rgba(220,38,38,0.06)', color: '#DC2626', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+          <button onClick={() => setShowDeviation(true)} style={{ padding: compact ? '16px 18px' : '12px 16px', minHeight: compact ? 56 : 44, borderRadius: 12, border: '1px solid rgba(220,38,38,0.2)', background: 'rgba(220,38,38,0.06)', color: '#DC2626', fontSize: compact ? 16 : 14, fontWeight: 700, cursor: 'pointer' }}>
             Сообщить об отклонении
           </button>
         ) : (
