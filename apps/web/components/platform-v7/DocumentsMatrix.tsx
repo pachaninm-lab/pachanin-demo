@@ -1,6 +1,7 @@
 'use client';
 
 import { selectRuntimeDeals } from '@/lib/domain/selectors';
+import { createPlatformV7MetadataSlot } from '@/lib/platform-v7/metadata-slots';
 
 type DocumentStatus = 'ready' | 'missing' | 'review' | 'notRequired';
 
@@ -26,6 +27,12 @@ function statusTone(status: DocumentStatus) {
   if (status === 'missing') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
   if (status === 'review') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
   return { bg: '#F8FAFB', border: '#E4E6EA', color: '#64748B' };
+}
+
+function metadataTone(status: string) {
+  if (status === 'available') return { bg: 'rgba(10,122,95,0.08)', color: '#0A7A5F' };
+  if (status === 'partial') return { bg: 'rgba(217,119,6,0.08)', color: '#B45309' };
+  return { bg: 'rgba(100,116,139,0.08)', color: '#64748B' };
 }
 
 function hasBlocker(dealBlockers: readonly string[], pattern: string) {
@@ -104,6 +111,12 @@ export function DocumentsMatrix() {
   const rows = primaryDeal ? buildDocumentRows(primaryDeal) : [];
   const missingCount = rows.filter((row) => row.status === 'missing').length;
   const reviewCount = rows.filter((row) => row.status === 'review').length;
+  const metadata = [
+    createPlatformV7MetadataSlot({ key: 'source', label: 'Источник', fallback: primaryDeal ? 'текущий контур сделки' : undefined, source: 'текущие данные' }),
+    createPlatformV7MetadataSlot({ key: 'version', label: 'Версия сделки', source: 'журнал версий' }),
+    createPlatformV7MetadataSlot({ key: 'signature', label: 'Подпись', source: 'ЭДО' }),
+    createPlatformV7MetadataSlot({ key: 'externalConfirmation', label: 'Внешнее подтверждение', source: 'внешняя система' }),
+  ];
 
   return (
     <section data-testid="platform-v7-documents-matrix" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
@@ -139,6 +152,22 @@ export function DocumentsMatrix() {
             </div>
           );
         })}
+      </div>
+
+      <div data-testid="platform-v7-document-metadata" style={{ borderTop: '1px solid #EEF1F4', paddingTop: 12, display: 'grid', gap: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>Метаданные документов</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
+          {metadata.map((slot) => {
+            const t = metadataTone(slot.status);
+            return (
+              <div key={slot.key} style={{ borderRadius: 12, padding: 10, background: t.bg, color: t.color }}>
+                <div style={{ fontSize: 11, fontWeight: 900 }}>{slot.label}</div>
+                <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.4 }}>{slot.value}</div>
+                <div style={{ marginTop: 4, fontSize: 10, opacity: 0.78 }}>{slot.source}</div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
