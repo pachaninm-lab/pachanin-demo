@@ -65,10 +65,10 @@ const SOURCE_LABELS: Record<P7EvidenceSource, string> = {
 };
 
 const TRUST_LABELS: Record<P7EvidenceTrust, string> = {
-  self_declared: 'Самозаявлено',
+  self_declared: 'Заявлено стороной',
   platform_verified: 'Проверено платформой',
   provider_verified: 'Проверено провайдером',
-  signed: 'Pilot signature marker',
+  signed: 'Есть метка подписи',
 };
 
 const STATUS_LABELS: Record<P7EvidencePackStatus, string> = {
@@ -78,11 +78,11 @@ const STATUS_LABELS: Record<P7EvidencePackStatus, string> = {
 };
 
 const LIMITATIONS = [
-  'Controlled pilot data layer.',
-  'Live file upload не подключён.',
-  'Binary payload hashing не подключён.',
+  'Данные тестового пилотного слоя.',
+  'Живая загрузка файлов не подключена.',
+  'Хеширование файлового содержимого не подключено.',
   'Квалифицированная электронная подпись не подключена.',
-  'Production evidence archive не подключён.',
+  'Боевой архив доказательств не подключён.',
 ];
 
 function toneForStatus(status: P7EvidencePackStatus): P7EvidenceUiTone {
@@ -92,12 +92,12 @@ function toneForStatus(status: P7EvidencePackStatus): P7EvidenceUiTone {
 }
 
 function formatIssue(issue: P7EvidencePackIssue): string {
-  if (issue.code === 'MISSING_REQUIRED_EVIDENCE') return `Не хватает обязательного evidence: ${issue.target}`;
-  if (issue.code === 'HASH_MISSING') return `Нет hash: ${issue.target}`;
-  if (issue.code === 'IMMUTABILITY_BROKEN') return `Evidence изменяемый: ${issue.target}`;
+  if (issue.code === 'MISSING_REQUIRED_EVIDENCE') return `Не хватает обязательного доказательства: ${issue.target}`;
+  if (issue.code === 'HASH_MISSING') return `Нет хеша: ${issue.target}`;
+  if (issue.code === 'IMMUTABILITY_BROKEN') return `Доказательство можно изменить: ${issue.target}`;
   if (issue.code === 'VERSION_INVALID') return `Некорректная версия: ${issue.target}`;
-  if (issue.code === 'SIGNATURE_REQUIRED') return `Нет pilot signature marker: ${issue.target}`;
-  return `Разорвана chain-of-custody: ${issue.target}`;
+  if (issue.code === 'SIGNATURE_REQUIRED') return `Нет метки подписи: ${issue.target}`;
+  return `Разорвана цепочка владения: ${issue.target}`;
 }
 
 function formatGeo(item: P7EvidenceItem): string {
@@ -119,9 +119,9 @@ function summarizeItem(item: P7EvidenceItem, issues: readonly P7EvidencePackIssu
     uploadedAtLabel: item.uploadedAt,
     geoLabel: formatGeo(item),
     signatureLabel: item.signedBy ?? '—',
-    versionLabel: `v${item.version}`,
-    immutableLabel: item.immutable ? 'immutable=true' : 'immutable=false',
-    chainLabel: item.previousHash ? `previous=${item.previousHash}` : 'root',
+    versionLabel: `версия ${item.version}`,
+    immutableLabel: item.immutable ? 'изменение запрещено' : 'изменение возможно',
+    chainLabel: item.previousHash ? `предыдущий хеш: ${item.previousHash}` : 'начало цепочки',
     issueLabels: issues.filter((issue) => issue.target === item.id).map(formatIssue),
   };
 }
@@ -136,8 +136,8 @@ export function buildEvidencePackReadinessUiModel(disputeId: string): P7Evidence
     statusLabel: STATUS_LABELS[readiness.status],
     statusTone: toneForStatus(readiness.status),
     scoreLabel: `${readiness.score}%`,
-    requiredLabel: `${readiness.requiredReady}/${readiness.requiredTotal} required`,
-    totalLabel: `${readiness.total} evidence objects`,
+    requiredLabel: `${readiness.requiredReady}/${readiness.requiredTotal} обязательных`,
+    totalLabel: `${readiness.total} доказательств`,
     blockers: readiness.issues.map(formatIssue),
     limitations: LIMITATIONS,
     items: pack.items.map((item) => summarizeItem(item, readiness.issues)),
