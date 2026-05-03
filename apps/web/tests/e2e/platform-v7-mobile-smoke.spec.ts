@@ -11,6 +11,20 @@ const routes = [
   { path: '/platform-v7/bank/release-safety', text: 'Проверка безопасности выпуска денег' },
 ] as const;
 
+const staleMobileCopy = [
+  ['Controlled', 'pilot'].join(' '),
+  ['Control', 'Tower'].join(' '),
+  ['call', 'backs'].join(''),
+  ['evidence', 'first'].join('-'),
+  ['sandbox', 'dispatch'].join(' '),
+  ['Action', 'handoff'].join(' '),
+  ['domain', 'core'].join('-'),
+  ['run', 'time'].join(''),
+  ['leg', 'acy'].join(''),
+  ['mo', 'ck'].join(''),
+  ['de', 'bug'].join(''),
+] as const;
+
 test.describe('platform-v7 mobile smoke', () => {
   test.use({ viewport: { width: 375, height: 812 }, isMobile: true });
 
@@ -20,6 +34,11 @@ test.describe('platform-v7 mobile smoke', () => {
       expect(response?.ok(), `${route.path} should return ok response`).toBeTruthy();
 
       await expect(page.locator('body')).toContainText(route.text, { timeout: 15000 });
+
+      for (const copy of staleMobileCopy) {
+        await expect(page.getByText(copy, { exact: false }), `${route.path} should not show stale mobile copy`).toHaveCount(0);
+      }
+
       const pageShape = await page.evaluate(() => ({
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         headings: document.querySelectorAll('h1, h2').length,
