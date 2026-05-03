@@ -73,7 +73,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
           <p style={{ margin: 0, color: red, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Что блокирует выпуск денег</p>
           <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>
-            {releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : deal.blockers.length > 0 ? deal.blockers.join(' · ') : 'Нет технических блокеров'}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}
+            {releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : deal.blockers.length > 0 ? deal.blockers.join(' · ') : 'Нет причин остановки денег'}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}
           </p>
         </section>
       ) : null}
