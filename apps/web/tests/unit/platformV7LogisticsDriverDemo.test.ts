@@ -12,7 +12,7 @@ function read(relativePath: string) {
 
 describe('platform-v7 logistics driver simulation', () => {
   it('connects lot winner to logistics inbox and driver trip', () => {
-    const lot = read('app/platform-v7/lots/[id]/page.tsx');
+    const lot = read('app/platform-v7/lots/[lotId]/page.tsx');
     const inbox = read('app/platform-v7/logistics/inbox/page.tsx');
     const driver = read('app/platform-v7/driver/page.tsx');
     const demo = read('app/platform-v7/demo/run/page.tsx');
