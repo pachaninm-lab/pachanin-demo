@@ -8,6 +8,9 @@ const steps = [
   { number: '4', title: 'Элеватор ВРЖ-08', state: 'следующий пункт', done: false },
 ] as const;
 
+const yandexRouteUrl = 'https://yandex.ru/maps/?rtext=52.721246%2C41.452238~52.632233%2C41.443594&rtt=auto';
+const yandexMapWidgetUrl = 'https://yandex.ru/map-widget/v1/?ll=41.447916%2C52.676740&mode=routes&rtext=52.721246%2C41.452238~52.632233%2C41.443594&rtt=auto&z=10';
+
 export default function DriverPage() {
   return (
     <main style={{ display: 'grid', gap: 14, width: '100%', maxWidth: 760, margin: '0 auto', padding: '4px 0 18px' }}>
@@ -31,6 +34,8 @@ export default function DriverPage() {
           <Info label='ETA' value='14:28' />
         </div>
       </section>
+
+      <YandexMapCard />
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 14, boxShadow: '0 12px 28px rgba(15,20,25,0.04)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -69,6 +74,39 @@ export default function DriverPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function YandexMapCard() {
+  return (
+    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 12px 28px rgba(15,20,25,0.04)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div>
+          <div style={microLabel}>Яндекс.Карты</div>
+          <h2 style={{ margin: '5px 0 0', color: '#0F1419', fontSize: 26, lineHeight: 1.08, fontWeight: 950 }}>Маршрут рейса ТМБ-14</h2>
+          <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13, lineHeight: 1.45 }}>Склад продавца → Элеватор ВРЖ-08 · текущая точка показана в пилотном режиме</p>
+        </div>
+        <a href={yandexRouteUrl} target='_blank' rel='noreferrer' style={{ ...buttonLink, background: '#FFDD2D', borderColor: '#E8C600', color: '#0F1419' }}>
+          Открыть в Яндекс.Картах
+        </a>
+      </div>
+
+      <div style={{ position: 'relative', minHeight: 300, borderRadius: 20, overflow: 'hidden', border: '1px solid #DDE5EC', background: '#EEF6F3' }}>
+        <iframe
+          title='Яндекс.Карта маршрута рейса ТМБ-14'
+          src={yandexMapWidgetUrl}
+          width='100%'
+          height='320'
+          loading='lazy'
+          referrerPolicy='no-referrer-when-downgrade'
+          style={{ display: 'block', width: '100%', height: 320, border: 0 }}
+        />
+        <div style={{ position: 'absolute', left: 12, bottom: 12, display: 'grid', gap: 6, maxWidth: 'calc(100% - 24px)' }}>
+          <div style={{ display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '8px 11px', background: 'rgba(15,20,25,0.88)', color: '#fff', fontSize: 13, fontWeight: 900 }}>62% пути · ETA 14:28</div>
+          <div style={{ display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '7px 10px', background: 'rgba(255,255,255,0.94)', color: '#0F1419', fontSize: 12, fontWeight: 850, border: '1px solid #E4E6EA' }}>Точка водителя обновляется в демо-сценарии</div>
+        </div>
+      </div>
+    </section>
   );
 }
 
