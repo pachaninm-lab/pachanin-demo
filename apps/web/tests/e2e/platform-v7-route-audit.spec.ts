@@ -39,6 +39,7 @@ const mobileSmokeRoutes = [
   '/platform-v7/bank',
   '/platform-v7/elevator',
   '/platform-v7/lab',
+  '/platform-v7/surveyor',
   '/platform-v7/documents',
 ] as const;
 
@@ -52,6 +53,7 @@ const visibleExecutionRoutes = [
   { route: '/platform-v7/seller', text: 'Лот должен приводить к сделке, документам и получению денег' },
   { route: '/platform-v7/elevator', text: 'Вес и качество должны сразу влиять на документы и деньги' },
   { route: '/platform-v7/lab', text: 'Качество должно сразу показывать допуск, удержание и риск спора' },
+  { route: '/platform-v7/surveyor', text: 'Сюрвейер фиксирует расхождения как доказательства для спора и выплаты' },
   { route: '/platform-v7/documents', text: 'Неполный пакет документов должен сразу останавливать деньги' },
 ] as const;
 
