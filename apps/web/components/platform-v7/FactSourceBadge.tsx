@@ -7,7 +7,16 @@ import {
 } from '@/lib/platform-v7/integrations/providerRegistry';
 
 export function ProviderStatusBadge({ status }: { readonly status: ProviderConnectionStatus }) {
-  const tone = status === 'live_connected' ? 'success' : status === 'degraded' || status === 'down' ? 'danger' : status === 'manual_review' ? 'warning' : status === 'test_connected' ? 'info' : 'neutral';
+  const tone =
+    status === 'live_connected'
+      ? 'success'
+      : status === 'degraded'
+        ? 'danger'
+        : status === 'manual_review'
+          ? 'warning'
+          : status === 'test_connected'
+            ? 'info'
+            : 'neutral';
 
   return <P7Badge tone={tone}>{getProviderConnectionStatusLabel(status)}</P7Badge>;
 }
