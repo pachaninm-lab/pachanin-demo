@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 const routes = [
+  { path: '/platform-v7', text: 'Прозрачная Цена' },
+  { path: '/platform-v7/control-tower', text: 'Центр управления' },
   { path: '/platform-v7/driver', text: 'Полевой экран водителя' },
   { path: '/platform-v7/elevator', text: 'Приёмка как доказательство сделки' },
   { path: '/platform-v7/lab', text: 'Лаборатория как доказательство качества' },
