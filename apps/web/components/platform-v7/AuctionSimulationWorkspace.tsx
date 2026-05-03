@@ -10,6 +10,7 @@ type SimRole = 'seller' | 'buyer1' | 'buyer2' | 'operator';
 type AuctionMode = 'open' | 'closed' | 'fixed' | 'negotiation';
 type RuntimeBid = LotBid & { withdrawn?: boolean; isRuntime?: boolean };
 type JournalItem = { time: string; actor: string; text: string };
+type BadgeTone = 'green' | 'red' | 'amber' | 'blue' | 'neutral';
 
 const roleLabels: Record<SimRole, string> = {
   seller: 'Продавец',
@@ -42,7 +43,7 @@ function statusText(status: RuntimeBid['status'], withdrawn?: boolean) {
   return 'заблокирована';
 }
 
-function statusTone(status: RuntimeBid['status'], withdrawn?: boolean) {
+function statusTone(status: RuntimeBid['status'], withdrawn?: boolean): BadgeTone {
   if (withdrawn) return 'neutral';
   if (status === 'winner' || status === 'leader') return 'green';
   if (status === 'blocked') return 'red';
@@ -59,24 +60,32 @@ function rankBids(bids: RuntimeBid[]) {
   });
 }
 
+function isBuyerRole(role: SimRole): role is 'buyer1' | 'buyer2' {
+  return role === 'buyer1' || role === 'buyer2';
+}
+
 function visibleBidLabel(bid: RuntimeBid, role: SimRole, mode: AuctionMode) {
-  const isBuyer = role === 'buyer1' || role === 'buyer2';
-  const own = isBuyer && bid.buyer === buyerNames[role];
-  if (mode === 'closed' && isBuyer && !own) return 'Скрытая ставка конкурента';
+  const own = isBuyerRole(role) && bid.buyer === buyerNames[role];
+  if (mode === 'closed' && isBuyerRole(role) && !own) return 'Скрытая ставка конкурента';
   return bid.buyer;
 }
 
 function visiblePrice(bid: RuntimeBid, role: SimRole, mode: AuctionMode) {
-  const isBuyer = role === 'buyer1' || role === 'buyer2';
-  const own = isBuyer && bid.buyer === buyerNames[role];
-  if (mode === 'closed' && isBuyer && !own) return 'скрыто';
+  const own = isBuyerRole(role) && bid.buyer === buyerNames[role];
+  if (mode === 'closed' && isBuyerRole(role) && !own) return 'скрыто';
   return `${rub(bid.pricePerTon)} / т`;
 }
 
-export function AuctionSimulationWorkspace({ simulation }: { simulation: LotBiddingSimulation }) {
+function visiblePrivateValue(value: string, bid: RuntimeBid, role: SimRole, mode: AuctionMode) {
+  const own = isBuyerRole(role) && bid.buyer === buyerNames[role];
+  if (mode === 'closed' && isBuyerRole(role) && !own) return 'скрыто';
+  return value;
+}
+
+export function AuctionSimulationWorkspace({ simulation, initialRole = 'seller' }: { simulation: LotBiddingSimulation; initialRole?: SimRole }) {
   const router = useRouter();
   const staticWinner = selectWinningLotBid(simulation);
-  const [role, setRole] = React.useState<SimRole>('seller');
+  const [role, setRole] = React.useState<SimRole>(initialRole);
   const [mode, setMode] = React.useState<AuctionMode>('open');
   const [secondsLeft, setSecondsLeft] = React.useState(9 * 60 + 30);
   const [selectedBidId, setSelectedBidId] = React.useState<string | null>(simulation.winnerBidId);
@@ -96,8 +105,8 @@ export function AuctionSimulationWorkspace({ simulation }: { simulation: LotBidd
   const activeBids = bids.filter((bid) => !bid.withdrawn && bid.status !== 'blocked');
   const leader = [...activeBids].sort((a, b) => b.pricePerTon - a.pricePerTon || b.score - a.score)[0] ?? null;
   const selectedBid = bids.find((bid) => bid.id === selectedBidId) ?? staticWinner;
-  const buyerOwnBid = role === 'buyer1' || role === 'buyer2' ? bids.find((bid) => bid.buyer === buyerNames[role]) : null;
-  const canBid = !blockedByGate && !closedByTimer && !dealCreated && (role === 'buyer1' || role === 'buyer2') && mode !== 'fixed';
+  const buyerOwnBid = isBuyerRole(role) ? bids.find((bid) => bid.buyer === buyerNames[role]) : null;
+  const canBid = !blockedByGate && !closedByTimer && !dealCreated && isBuyerRole(role) && mode !== 'fixed';
   const canSelectWinner = !blockedByGate && !dealCreated && (role === 'seller' || role === 'operator') && Boolean(leader);
   const minutes = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const seconds = String(secondsLeft % 60).padStart(2, '0');
@@ -108,8 +117,8 @@ export function AuctionSimulationWorkspace({ simulation }: { simulation: LotBidd
   }
 
   function placeBid() {
-    if (!canBid) return;
-    const buyer = buyerNames[role as 'buyer1' | 'buyer2'];
+    if (!canBid || !isBuyerRole(role)) return;
+    const buyer = buyerNames[role];
     const nextPrice = Math.max((leader?.pricePerTon ?? simulation.bestPricePerTon ?? 0) + 150, simulation.bestPricePerTon ?? 0);
     const existing = bids.find((bid) => bid.buyer === buyer);
     const nextBids = existing
@@ -134,7 +143,7 @@ export function AuctionSimulationWorkspace({ simulation }: { simulation: LotBidd
   }
 
   function withdrawBid() {
-    if (!(role === 'buyer1' || role === 'buyer2') || !buyerOwnBid || dealCreated) return;
+    if (!isBuyerRole(role) || !buyerOwnBid || dealCreated) return;
     setBids(rankBids(bids.map((bid) => bid.id === buyerOwnBid.id ? { ...bid, withdrawn: true } : bid)));
     addJournal(roleLabels[role], `ставка отозвана: ${buyerOwnBid.id}`);
   }
@@ -202,13 +211,13 @@ export function AuctionSimulationWorkspace({ simulation }: { simulation: LotBidd
             <div key={bid.id} style={{ border: '1px solid var(--pc-border)', borderRadius: 16, padding: 14, background: bid.id === leader?.id ? 'var(--pc-accent-bg)' : 'var(--pc-bg-elevated)', display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                 <strong>{visibleBidLabel(bid, role, mode)}</strong>
-                <Badge tone={statusTone(bid.status, bid.withdrawn) as any}>{statusText(bid.status, bid.withdrawn)}</Badge>
+                <Badge tone={statusTone(bid.status, bid.withdrawn)}>{statusText(bid.status, bid.withdrawn)}</Badge>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
                 <Small label="Цена" value={visiblePrice(bid, role, mode)} />
                 <Small label="Объём" value={`${bid.volumeTons} т`} />
-                <Small label="Оплата" value={mode === 'closed' && role.startsWith('buyer') && bid.buyer !== buyerNames[role as 'buyer1' | 'buyer2'] ? 'скрыто' : bid.payment} />
-                <Small label="Логистика" value={mode === 'closed' && role.startsWith('buyer') && bid.buyer !== buyerNames[role as 'buyer1' | 'buyer2'] ? 'скрыто' : bid.logistics} />
+                <Small label="Оплата" value={visiblePrivateValue(bid.payment, bid, role, mode)} />
+                <Small label="Логистика" value={visiblePrivateValue(bid.logistics, bid, role, mode)} />
                 <Small label="Следующий шаг" value={bid.nextStep} />
               </div>
             </div>
@@ -220,7 +229,7 @@ export function AuctionSimulationWorkspace({ simulation }: { simulation: LotBidd
         <div style={sectionTitle()}>Действия</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
           <button disabled={!canBid} onClick={placeBid} style={button(canBid ? 'primary' : 'disabled')}>Подать / повысить ставку</button>
-          <button disabled={!(role === 'buyer1' || role === 'buyer2') || !buyerOwnBid || dealCreated} onClick={withdrawBid} style={button('default')}>Отозвать ставку</button>
+          <button disabled={!isBuyerRole(role) || !buyerOwnBid || dealCreated} onClick={withdrawBid} style={button('default')}>Отозвать ставку</button>
           <button disabled={!canSelectWinner} onClick={selectWinner} style={button(canSelectWinner ? 'primary' : 'disabled')}>Выбрать победителя</button>
           <button disabled={!selectedBid || dealCreated || blockedByGate} onClick={createDeal} style={button(selectedBid && !dealCreated && !blockedByGate ? 'primary' : 'disabled')}>Создать сделку</button>
           {dealCreated && simulation.resultingDealId ? <button onClick={() => router.push(`/platform-v7/deals/${simulation.resultingDealId}`)} style={button('primary')}>Перейти к сделке</button> : null}
@@ -257,8 +266,9 @@ export function AuctionSimulationWorkspace({ simulation }: { simulation: LotBidd
 
       <section style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Link href="/platform-v7/lots" style={linkBtn()}>Все лоты</Link>
-        <Link href={`/platform-v7/buyer?auction=${simulation.auctionId}`} style={linkBtn()}>Вид покупателя</Link>
-        <Link href="/platform-v7/control-tower" style={linkBtn()}>Центр управления</Link>
+        <Link href={`/platform-v7/buyer/auction/${simulation.auctionId}`} style={linkBtn()}>Вид покупателя</Link>
+        <Link href="/platform-v7/logistics/inbox" style={linkBtn()}>Заявка в логистику</Link>
+        <Link href="/platform-v7/demo/run" style={linkBtn()}>Демо-цикл</Link>
         {simulation.resultingDealId ? <Link href={`/platform-v7/deals/${simulation.resultingDealId}`} style={linkBtn()}>Связанная сделка</Link> : null}
       </section>
     </div>
@@ -274,4 +284,4 @@ function linkBtn(): React.CSSProperties { return { textDecoration: 'none', borde
 
 function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) { return <div style={{ border: '1px solid var(--pc-border)', borderRadius: 14, padding: 12 }}><div style={eyebrow()}>{label}</div><div style={{ marginTop: 6, fontSize: 18, fontWeight: 900, color: danger ? '#B91C1C' : 'var(--pc-text-primary)' }}>{value}</div></div>; }
 function Small({ label, value }: { label: string; value: string }) { return <div><div style={eyebrow()}>{label}</div><div style={{ marginTop: 4, fontWeight: 800 }}>{value}</div></div>; }
-function Badge({ tone, children }: { tone: 'green' | 'red' | 'amber' | 'blue' | 'neutral'; children: React.ReactNode }) { const map = { green: ['rgba(22,163,74,.08)', '#15803D'], red: ['rgba(220,38,38,.08)', '#B91C1C'], amber: ['rgba(217,119,6,.08)', '#B45309'], blue: ['rgba(37,99,235,.08)', '#1D4ED8'], neutral: ['rgba(100,116,139,.08)', '#475569'] } as const; return <span style={{ borderRadius: 999, padding: '5px 9px', background: map[tone][0], color: map[tone][1], fontSize: 12, fontWeight: 900 }}>{children}</span>; }
+function Badge({ tone, children }: { tone: BadgeTone; children: React.ReactNode }) { const map = { green: ['rgba(22,163,74,.08)', '#15803D'], red: ['rgba(220,38,38,.08)', '#B91C1C'], amber: ['rgba(217,119,6,.08)', '#B45309'], blue: ['rgba(37,99,235,.08)', '#1D4ED8'], neutral: ['rgba(100,116,139,.08)', '#475569'] } as const; return <span style={{ borderRadius: 999, padding: '5px 9px', background: map[tone][0], color: map[tone][1], fontSize: 12, fontWeight: 900 }}>{children}</span>; }
