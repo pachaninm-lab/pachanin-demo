@@ -9,7 +9,6 @@ const steps = [
 ] as const;
 
 const yandexRouteUrl = 'https://yandex.ru/maps/?rtext=52.721246%2C41.452238~52.632233%2C41.443594&rtt=auto';
-const yandexMapWidgetUrl = 'https://yandex.ru/map-widget/v1/?ll=41.447916%2C52.676740&mode=routes&rtext=52.721246%2C41.452238~52.632233%2C41.443594&rtt=auto&z=10';
 
 export default function DriverPage() {
   return (
@@ -84,7 +83,7 @@ function YandexMapCard() {
         <div>
           <div style={microLabel}>Яндекс.Карты</div>
           <h2 style={{ margin: '5px 0 0', color: '#0F1419', fontSize: 26, lineHeight: 1.08, fontWeight: 950 }}>Маршрут рейса ТМБ-14</h2>
-          <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13, lineHeight: 1.45 }}>Склад продавца → Элеватор ВРЖ-08 · текущая точка показана в пилотном режиме</p>
+          <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13, lineHeight: 1.45 }}>Склад продавца → Элеватор ВРЖ-08 · ниже показана симуляция локации водителя.</p>
         </div>
         <div style={{ display: 'grid', gap: 8 }}>
           <a href={yandexRouteUrl} target='_blank' rel='noreferrer' style={{ ...buttonLink, background: '#FFDD2D', borderColor: '#E8C600', color: '#0F1419' }}>
@@ -98,21 +97,28 @@ function YandexMapCard() {
         </div>
       </div>
 
-      <div style={{ position: 'relative', minHeight: 300, borderRadius: 20, overflow: 'hidden', border: '1px solid #DDE5EC', background: '#EEF6F3' }}>
-        <iframe
-          title='Яндекс.Карта маршрута рейса ТМБ-14'
-          src={yandexMapWidgetUrl}
-          width='100%'
-          height='320'
-          loading='lazy'
-          referrerPolicy='no-referrer-when-downgrade'
-          style={{ display: 'block', width: '100%', height: 320, border: 0 }}
-        />
-        <div aria-label='Симулированная точка водителя на маршруте' style={{ position: 'absolute', left: '58%', top: '45%', transform: 'translate(-50%, -50%)', display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
-          <span style={{ width: 46, height: 46, borderRadius: 999, background: 'rgba(10,122,95,0.16)', border: '1px solid rgba(10,122,95,0.22)', display: 'inline-grid', placeItems: 'center' }}>
-            <span style={{ width: 22, height: 22, borderRadius: 999, background: '#0A7A5F', border: '4px solid #fff', boxShadow: '0 8px 22px rgba(15,20,25,0.32)' }} />
+      <div style={{ position: 'relative', minHeight: 330, borderRadius: 20, overflow: 'hidden', border: '1px solid #DDE5EC', background: '#EAF2EA' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(255,255,255,0.42) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.42) 1px, transparent 1px), linear-gradient(135deg,#DDEFD9 0%,#EAF7F1 45%,#D9EAF8 100%)', backgroundSize: '42px 42px,42px 42px,auto' }} />
+        <div style={{ position: 'absolute', left: '-8%', top: '54%', width: '116%', height: 18, borderRadius: 999, background: '#FFFFFF', transform: 'rotate(-11deg)', boxShadow: '0 0 0 1px rgba(148,163,184,0.45)' }} />
+        <div style={{ position: 'absolute', left: '9%', top: '26%', width: '82%', height: 14, borderRadius: 999, background: '#FFFFFF', transform: 'rotate(17deg)', boxShadow: '0 0 0 1px rgba(148,163,184,0.36)' }} />
+        <div style={{ position: 'absolute', left: '18%', top: '72%', width: '58%', height: 12, borderRadius: 999, background: '#FFFFFF', transform: 'rotate(5deg)', boxShadow: '0 0 0 1px rgba(148,163,184,0.28)' }} />
+
+        <div style={{ position: 'absolute', left: '12%', top: '64%', display: 'grid', gap: 5 }}>
+          <span style={mapPin('#0A7A5F')} />
+          <span style={mapLabel}>Склад продавца</span>
+        </div>
+        <div style={{ position: 'absolute', right: '8%', top: '19%', display: 'grid', gap: 5, justifyItems: 'end' }}>
+          <span style={mapPin('#0F172A')} />
+          <span style={mapLabel}>Элеватор ВРЖ-08</span>
+        </div>
+
+        <div aria-label='Симулированная точка водителя на карте' style={{ position: 'absolute', left: '58%', top: '45%', transform: 'translate(-50%, -50%)', display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+          <span style={{ width: 64, height: 64, borderRadius: 999, background: 'rgba(10,122,95,0.16)', border: '1px solid rgba(10,122,95,0.22)', display: 'inline-grid', placeItems: 'center' }}>
+            <span style={{ width: 28, height: 28, borderRadius: 999, background: '#0A7A5F', border: '5px solid #fff', boxShadow: '0 10px 26px rgba(15,20,25,0.35)' }} />
           </span>
         </div>
+
+        <div style={{ position: 'absolute', left: 12, top: 12, display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 999, padding: '8px 11px', background: '#FFDD2D', color: '#0F1419', fontSize: 13, fontWeight: 950, boxShadow: '0 8px 22px rgba(15,20,25,0.12)' }}>Яндекс.Карта · демо</div>
         <div style={{ position: 'absolute', left: 12, bottom: 12, display: 'grid', gap: 6, maxWidth: 'calc(100% - 24px)' }}>
           <div style={{ display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '8px 11px', background: 'rgba(15,20,25,0.88)', color: '#fff', fontSize: 13, fontWeight: 900 }}>62% пути · ETA 14:28</div>
           <div style={{ display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '7px 10px', background: 'rgba(255,255,255,0.94)', color: '#0F1419', fontSize: 12, fontWeight: 850, border: '1px solid #E4E6EA' }}>Симулированная точка водителя на маршруте</div>
@@ -131,5 +137,10 @@ function Info({ label, value, accent = false }: { label: string; value: string; 
   );
 }
 
+function mapPin(color: string) {
+  return { width: 18, height: 18, borderRadius: 999, background: color, border: '4px solid #fff', boxShadow: '0 6px 16px rgba(15,20,25,0.24)' } as const;
+}
+
 const microLabel = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const mapLabel = { display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '6px 9px', background: 'rgba(255,255,255,0.92)', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 850 } as const;
 const buttonLink = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
