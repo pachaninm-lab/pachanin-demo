@@ -1,250 +1,142 @@
-'use client';
-
 import Link from 'next/link';
-import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
-import {
-  SANDBOX_INCIDENTS,
-  SANDBOX_LOGISTICS_ORDERS,
-  SANDBOX_ROUTE_LEGS,
-  buildLogisticsProjection,
-  buildTransportDecision,
-  type LogisticsOrderStatus,
-  type TransportDecisionStop,
-} from '@/lib/platform-v7/logistics-chain';
-import { PLATFORM_V7_EXECUTION_SOURCE } from '@/lib/platform-v7/deal-execution-source-of-truth';
 
-const S = 'var(--pc-bg-card)';
-const SS = 'var(--pc-bg-elevated)';
-const B = 'var(--pc-border)';
-const T = 'var(--pc-text-primary)';
-const M = 'var(--pc-text-secondary)';
-const BRAND = '#0A7A5F';
-const BRAND_BG = 'rgba(10,122,95,0.08)';
-const BRAND_BORDER = 'rgba(10,122,95,0.18)';
-const WARN_BG = 'rgba(217,119,6,0.08)';
-const WARN_BORDER = 'rgba(217,119,6,0.18)';
-const WARN = '#B45309';
-const ERR_BG = 'rgba(220,38,38,0.08)';
-const ERR_BORDER = 'rgba(220,38,38,0.18)';
-const ERR = '#B91C1C';
-const INFO_BG = 'rgba(37,99,235,0.06)';
-const INFO_BORDER = 'rgba(37,99,235,0.18)';
-const INFO = '#2563EB';
-
-const transportStopLabels: Record<TransportDecisionStop, string> = {
-  NO_LEGS: 'рейсы не созданы',
-  LEGS_NOT_DONE: 'рейсы не завершены',
-  DOCS_NOT_SIGNED: 'транспортные документы не подписаны',
-  INCIDENTS_OPEN: 'есть открытые инциденты',
-  DEVIATIONS: 'есть отклонения по рейсу',
-};
-
-function orderStatusTone(status: LogisticsOrderStatus) {
-  if (status === 'completed') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Завершён' };
-  if (status === 'in_transit') return { bg: INFO_BG, border: INFO_BORDER, color: INFO, label: 'В пути' };
-  if (status === 'arrived') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Прибыл' };
-  if (status === 'unloading') return { bg: INFO_BG, border: INFO_BORDER, color: INFO, label: 'Выгрузка' };
-  if (status === 'loading_started' || status === 'loading_done') return { bg: WARN_BG, border: WARN_BORDER, color: WARN, label: 'Погрузка' };
-  if (status === 'loading_scheduled') return { bg: WARN_BG, border: WARN_BORDER, color: WARN, label: 'Ожидает погрузки' };
-  if (status === 'carrier_assigned' || status === 'carrier_matching') return { bg: INFO_BG, border: INFO_BORDER, color: INFO, label: 'Назначение перевозчика' };
-  if (status === 'incident') return { bg: ERR_BG, border: ERR_BORDER, color: ERR, label: 'Инцидент' };
-  if (status === 'cancelled') return { bg: SS, border: B, color: M, label: 'Отменён' };
-  return { bg: SS, border: B, color: M, label: 'Черновик' };
-}
-
-function btn(): React.CSSProperties {
-  return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: SS, border: `1px solid ${B}`, color: T, fontSize: 13, fontWeight: 700 };
-}
-
-function formatStops(stops: readonly TransportDecisionStop[]) {
-  return stops.length ? stops.map((stop) => transportStopLabels[stop]).join(', ') : '—';
-}
+const orders = [
+  {
+    id: 'LOG-REQ-2403',
+    dealId: 'DL-9106',
+    lotId: 'LOT-2403',
+    crop: 'Пшеница 4 класса',
+    volume: '600 т',
+    route: 'Тамбовская область → Элеватор ВРЖ-08',
+    status: 'Водитель назначен',
+    driver: 'Водитель А',
+    vehicle: 'Р***ТУ',
+    eta: '14:28',
+    progress: '62%',
+    incidents: 'нет',
+    docs: 'транспортный пакет на проверке',
+    next: 'контроль прибытия',
+    href: '/platform-v7/driver',
+  },
+  {
+    id: 'LOG-9102',
+    dealId: 'DL-9102',
+    lotId: 'LOT-2402',
+    crop: 'Ячмень 2 класса',
+    volume: '180 т',
+    route: 'Воронежская область → Курская область',
+    status: 'Прибыл',
+    driver: 'Водитель Б',
+    vehicle: 'С***АА',
+    eta: 'прибыл 14:28',
+    progress: '100%',
+    incidents: 'есть отклонение веса',
+    docs: 'не подписаны',
+    next: 'закрыть инцидент',
+    href: '/platform-v7/driver',
+  },
+  {
+    id: 'LOG-9103',
+    dealId: 'DL-9103',
+    lotId: 'LOT-2407',
+    crop: 'Кукуруза 1 класса',
+    volume: '360 т',
+    route: 'Курская область → Белгородская область',
+    status: 'Ожидает погрузки',
+    driver: 'не назначен',
+    vehicle: '—',
+    eta: '7–14 дней',
+    progress: '0%',
+    incidents: 'нет',
+    docs: 'не создан рейс',
+    next: 'назначить водителя',
+    href: '/platform-v7/logistics/inbox',
+  },
+] as const;
 
 export default function LogisticsPage() {
-  const orders = SANDBOX_LOGISTICS_ORDERS;
-  const legs = SANDBOX_ROUTE_LEGS;
-  const incidents = SANDBOX_INCIDENTS;
-
-  const projections = orders.map((order) => {
-    const orderLegs = legs.filter((leg) => leg.logisticsOrderId === order.id);
-    const orderIncidents = incidents.filter((incident) => incident.logisticsOrderId === order.id);
-    return buildLogisticsProjection(order, orderLegs, null, orderIncidents);
-  });
-
-  const inTransit = orders.filter((order) => order.status === 'in_transit').length;
-  const arrived = orders.filter((order) => order.status === 'arrived').length;
-  const openIncidents = incidents.filter((incident) => incident.status === 'open' || incident.status === 'under_review').length;
-  const totalDeals = new Set(orders.map((order) => order.dealId)).size;
+  const inTransit = orders.filter((order) => order.status === 'Водитель назначен').length;
+  const arrived = orders.filter((order) => order.status === 'Прибыл').length;
+  const incidents = orders.filter((order) => order.incidents !== 'нет').length;
 
   return (
-    <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Логистика · <span style={{ color: WARN }}>тестовый режим</span>
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: T, marginTop: 8, lineHeight: 1.1 }}>Диспетчерская</div>
-            <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 760 }}>
-              Логистический заказ привязан к сделке. Экран показывает тестовый сценарий: заказ → рейсы → инциденты → транспортная проверка. Боевой GPS, перевозчик и ЭДО здесь не заявляются.
-            </div>
-          </div>
-          <Link href='/platform-v7/control-tower' style={btn()}>Открыть центр управления</Link>
+    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={badge}>Кабинет логистики</div>
+        <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Заявки, водители и рейсы</h1>
+        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Логистика видит только исполнение перевозки: заявку, сделку, маршрут, водителя, машину, ETA, документы и инциденты. Деньги и ставки не раскрываются.</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link href='/platform-v7/logistics/inbox' style={primaryBtn}>Входящие заявки</Link>
+          <Link href='/platform-v7/driver' style={ghostBtn}>Открыть рейс водителя</Link>
         </div>
       </section>
 
-      <P7ExecutionMachineReadOnlyStrip compact />
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
+        <Metric label='В пути' value={String(inTransit)} />
+        <Metric label='Прибыли' value={String(arrived)} good />
+        <Metric label='Инцидентов' value={String(incidents)} danger={incidents > 0} />
+        <Metric label='Заказов' value={String(orders.length)} />
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 14 }}>
-        {[
-          { label: 'В пути', value: String(inTransit), color: INFO },
-          { label: 'Прибыли', value: String(arrived), color: BRAND },
-          { label: 'Инцидентов', value: String(openIncidents), color: openIncidents > 0 ? ERR : BRAND },
-          { label: 'Сделок охвачено', value: String(totalDeals), color: T },
-        ].map(({ label, value, color }) => (
-          <div key={label} style={{ background: S, border: `1px solid ${B}`, borderRadius: 16, padding: 16 }}>
-            <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color, marginTop: 8, lineHeight: 1.1 }}>{value}</div>
-          </div>
-        ))}
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={micro}>Текущая очередь</div>
+        {orders.map((order) => <OrderCard key={order.id} order={order} />)}
+      </section>
+    </main>
+  );
+}
+
+function OrderCard({ order }: { order: typeof orders[number] }) {
+  const hasIncident = order.incidents !== 'нет';
+  const isActive = order.status === 'Водитель назначен';
+  return (
+    <Link href={order.href} style={{ textDecoration: 'none', color: 'inherit', background: isActive ? 'rgba(10,122,95,0.06)' : '#F8FAFB', border: `1px solid ${isActive ? 'rgba(10,122,95,0.2)' : '#E4E6EA'}`, borderRadius: 20, padding: 15, display: 'grid', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.id} → {order.dealId}</div>
+          <h2 style={{ margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 }}>{order.crop} · {order.volume}</h2>
+          <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13 }}>{order.route}</p>
+        </div>
+        <span style={isActive ? status : neutralStatus}>{order.status}</span>
       </div>
 
-      {openIncidents > 0 ? (
-        <section style={{ background: ERR_BG, border: `1px solid ${ERR_BORDER}`, borderRadius: 14, padding: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: ERR, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Открытые инциденты ({openIncidents})
-          </div>
-          {incidents
-            .filter((incident) => incident.status === 'open' || incident.status === 'under_review')
-            .map((incident) => (
-              <div key={incident.id} style={{ marginTop: 8, fontSize: 13, color: T }}>
-                <strong>{incident.type}</strong> · {incident.description}
-                {incident.moneyImpact ? <span style={{ marginLeft: 8, color: ERR, fontWeight: 700 }}>риск {incident.moneyImpact.toLocaleString('ru-RU')} ₽</span> : null}
-              </div>
-            ))}
-        </section>
-      ) : null}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 }}>
+        <Cell label='Водитель' value={order.driver} />
+        <Cell label='Машина' value={order.vehicle} />
+        <Cell label='ETA' value={order.eta} strong={isActive} />
+        <Cell label='Прогресс' value={order.progress} strong={isActive} />
+        <Cell label='Документы' value={order.docs} danger={order.docs.includes('не')} />
+        <Cell label='Инциденты' value={order.incidents} danger={hasIncident} />
+      </div>
 
-      <DL9102LogisticsCard />
+      <div style={{ background: hasIncident ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 14, padding: 11, color: hasIncident ? '#B91C1C' : '#0A7A5F', fontSize: 13, fontWeight: 900 }}>
+        Следующее действие: {order.next}
+      </div>
+    </Link>
+  );
+}
 
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: T, marginBottom: 14 }}>Логистические заказы</div>
-        <div style={{ display: 'grid', gap: 12 }}>
-          {orders.map((order, index) => {
-            const projection = projections[index];
-            const decision = buildTransportDecision(projection);
-            const decisionColor = decision.canContinue ? BRAND : ERR;
-            const decisionBg = decision.canContinue ? BRAND_BG : ERR_BG;
-            const decisionBorder = decision.canContinue ? BRAND_BORDER : ERR_BORDER;
-            const tone = orderStatusTone(order.status);
-            const orderLegs = legs.filter((leg) => leg.logisticsOrderId === order.id);
-            return (
-              <div key={order.id} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: BRAND }}>{order.id}</span>
-                    <span style={{ marginLeft: 8, fontSize: 13, color: M }}>→ Сделка</span>
-                    <Link href={`/platform-v7/deals/${order.dealId}`} style={{ marginLeft: 6, fontFamily: 'monospace', fontSize: 13, fontWeight: 800, color: BRAND, textDecoration: 'none' }}>
-                      {order.dealId}
-                    </Link>
-                  </div>
-                  <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color }}>
-                    {tone.label}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: 14, fontWeight: 800, color: T, marginTop: 10 }}>{order.grain} · {order.volumeTons} т</div>
-                <div style={{ fontSize: 12, color: M, marginTop: 4 }}>
-                  {order.originRegion} → {order.destinationRegion}
-                  {order.carrierName ? <span style={{ marginLeft: 8 }}>· {order.carrierName}</span> : null}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 8, marginTop: 12 }}>
-                  <SmallCell label='Рейсов' value={`${projection.completedLegs}/${projection.totalLegs}`} />
-                  <SmallCell label='Инцидентов' value={String(projection.openIncidents)} danger={projection.openIncidents > 0} />
-                  <SmallCell label='Транспортная проверка' value={projection.transportGateCleared ? 'Очищена' : 'Блокирована'} danger={!projection.transportGateCleared} good={projection.transportGateCleared} />
-                  <SmallCell label='Решение' value={decision.canContinue ? 'Можно продолжать' : 'Остановлено'} danger={!decision.canContinue} good={decision.canContinue} />
-                </div>
-
-                <div style={{ marginTop: 10, background: decisionBg, border: `1px solid ${decisionBorder}`, borderRadius: 10, padding: 10, fontSize: 12, color: decisionColor, fontWeight: 800 }}>
-                  {decision.canContinue ? 'Транспортный контур не мешает дальнейшему расчёту.' : `Причины остановки: ${formatStops(decision.stops)}`}
-                </div>
-
-                {projection.deviations.length > 0 ? (
-                  <div style={{ marginTop: 10, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 8, padding: 10, fontSize: 12, color: WARN }}>
-                    {projection.deviations.map((deviation) => <div key={deviation}>⚠ {deviation}</div>)}
-                  </div>
-                ) : null}
-
-                {orderLegs.length > 0 ? (
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', marginBottom: 6 }}>Рейсы</div>
-                    {orderLegs.map((leg) => (
-                      <div key={leg.id} style={{ fontSize: 12, color: T, padding: '6px 0', borderTop: `1px solid ${B}` }}>
-                        <span style={{ fontWeight: 700 }}>{leg.sequence}.</span> {leg.originName} → {leg.destinationName}
-                        {leg.driverRef ? <span style={{ marginLeft: 8, color: M }}>· {leg.driverRef.name}</span> : null}
-                        {leg.vehicleRef ? <span style={{ marginLeft: 8, fontFamily: 'monospace', fontSize: 11, color: M }}>{leg.vehicleRef.plate}</span> : null}
-                        {leg.deviationNote ? <span style={{ marginLeft: 8, color: WARN, fontWeight: 700 }}>⚠ {leg.deviationNote}</span> : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      </section>
+function Metric({ label, value, good = false, danger = false }: { label: string; value: string; good?: boolean; danger?: boolean }) {
+  return (
+    <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16 }}>
+      <div style={micro}>{label}</div>
+      <div style={{ marginTop: 8, color: danger ? '#B91C1C' : good ? '#0A7A5F' : '#0F1419', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div>
     </div>
   );
 }
 
-function DL9102LogisticsCard() {
-  const { deal, logistics } = PLATFORM_V7_EXECUTION_SOURCE;
-  const gateColor = logistics.gateStatus === 'готово' ? BRAND : logistics.gateStatus === 'стоп' ? ERR : WARN;
-  const gateBg = logistics.gateStatus === 'готово' ? BRAND_BG : logistics.gateStatus === 'стоп' ? ERR_BG : WARN_BG;
-  const gateBorder = logistics.gateStatus === 'готово' ? BRAND_BORDER : logistics.gateStatus === 'стоп' ? ERR_BORDER : WARN_BORDER;
-
+function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
   return (
-    <section style={{ background: S, border: `1px solid ${BRAND_BORDER}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-      <div>
-        <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Демо-сделка · проверочный контур · {deal.maturity}</div>
-        <div style={{ marginTop: 4, fontSize: 18, fontWeight: 900, color: T }}>{deal.id} · {logistics.orderId}</div>
-        <div style={{ marginTop: 4, fontSize: 13, color: M }}>{deal.lotId} · {deal.crop} · {deal.basis}</div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
-        {[
-          { label: 'Перевозчик', value: logistics.carrier },
-          { label: 'Водитель', value: logistics.driverAlias },
-          { label: 'Транспорт', value: logistics.vehicleMasked },
-          { label: 'Погрузка', value: logistics.pickupPoint },
-          { label: 'Доставка', value: logistics.deliveryPoint },
-          { label: 'Расчётный срок', value: logistics.eta },
-          { label: 'Текущий этап', value: logistics.currentLeg },
-          { label: 'Инциденты', value: logistics.incidentStatus },
-        ].map(({ label, value }) => (
-          <div key={label} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 10 }}>
-            <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-            <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, color: T }}>{value}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ background: gateBg, border: `1px solid ${gateBorder}`, borderRadius: 12, padding: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
-        <span style={{ fontSize: 12, fontWeight: 900, color: gateColor }}>Транспортная проверка:</span>
-        <span style={{ fontSize: 12, color: gateColor, fontWeight: 800 }}>{logistics.gateStatus}</span>
-        <span style={{ fontSize: 11, color: M }}>· Боевой GPS, ЭДО и перевозчик здесь не заявляются: показан тестовый проверочный контур.</span>
-      </div>
-    </section>
-  );
-}
-
-function SmallCell({ label, value, danger = false, good = false }: { label: string; value: string; danger?: boolean; good?: boolean }) {
-  const color = danger ? ERR : good ? BRAND : T;
-  return (
-    <div style={{ background: S, border: `1px solid ${B}`, borderRadius: 10, padding: '8px 10px' }}>
-      <div style={{ fontSize: 10, color: M, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ fontSize: 13, fontWeight: 700, color, marginTop: 4 }}>{value}</div>
+    <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 13, padding: 10, minWidth: 0 }}>
+      <div style={micro}>{label}</div>
+      <div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.25, fontWeight: 900, overflowWrap: 'break-word' }}>{value}</div>
     </div>
   );
 }
+
+const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
+const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
+const status = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
+const neutralStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 } as const;
