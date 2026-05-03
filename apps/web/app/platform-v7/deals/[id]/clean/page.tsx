@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { P7DealWorkspaceTabs } from '@/components/platform-v7/P7DealWorkspaceTabs';
-import { selectDealById, selectDisputesByDealId } from '@/lib/domain/selectors';
+import { canonicalDomainDeals, selectDealById, selectDisputesByDealId } from '@/lib/domain/selectors';
+import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
+import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels';
 
 const border = '#E4E6EA';
 const text = '#0F1419';
@@ -30,9 +32,12 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
     );
   }
 
-  const releaseAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
+  const canonicalDeal = canonicalDomainDeals.find((item) => item.id === deal.id);
+  const releaseCheck = canonicalDeal ? evaluateReleaseGuard(canonicalDeal) : null;
+  const releaseAmount = releaseCheck?.releaseAmount ?? deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
   const disputes = selectDisputesByDealId(deal.id);
-  const hasBlockers = deal.blockers.length > 0 || deal.holdAmount > 0 || disputes.length > 0;
+  const releaseReasons = releaseCheck?.blockers ?? [];
+  const hasBlockers = releaseReasons.length > 0 || deal.blockers.length > 0 || deal.holdAmount > 0 || disputes.length > 0;
 
   return (
     <main style={{ display: 'grid', gap: 16 }}>
@@ -44,7 +49,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
             <p style={{ margin: '8px 0 0', color: muted, lineHeight: 1.55 }}>Цена, логистика, документы, деньги, спор и доказательства собраны в одном рабочем контуре.</p>
           </div>
           <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
-            {hasBlockers ? 'есть блокеры' : 'критичных блокеров нет'}
+            {hasBlockers ? 'деньги остановлены' : 'критичных блокеров нет'}
           </span>
         </div>
       </section>
@@ -67,7 +72,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
           <p style={{ margin: 0, color: red, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Что блокирует выпуск денег</p>
           <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>
-            {deal.blockers.length > 0 ? deal.blockers.join(' · ') : 'Нет технических блокеров'}{deal.holdAmount > 0 ? ` · удержание ${rub(deal.holdAmount)}` : ''}{disputes.length > 0 ? ` · спор ${disputes[0]?.id}` : ''}
+            {releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : deal.blockers.length > 0 ? deal.blockers.join(' · ') : 'Нет технических блокеров'}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}
           </p>
         </section>
       ) : null}

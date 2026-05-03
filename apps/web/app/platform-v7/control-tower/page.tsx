@@ -3,7 +3,9 @@ import { ManualActionReasonsStrip } from '@/components/platform-v7/ManualActionR
 import { P7Page } from '@/components/platform-v7/P7Page';
 import { P7Section } from '@/components/platform-v7/P7Section';
 import { P7Toolbar } from '@/components/platform-v7/P7Toolbar';
-import { selectRuntimeCallbacks, selectRuntimeDeals, selectRuntimeDisputes, selectDealIntegrationState } from '@/lib/domain/selectors';
+import { canonicalDomainDeals, selectRuntimeCallbacks, selectRuntimeDeals, selectRuntimeDisputes, selectDealIntegrationState } from '@/lib/domain/selectors';
+import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
+import { primaryMoneyStopReason } from '@/lib/platform-v7/domain/money-stop-labels';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import { DomainControlTowerSummary } from '@/components/v7r/DomainControlTowerSummary';
 import { ExecutionSimulationActionPanel } from '@/components/v7r/ExecutionSimulationActionPanel';
@@ -29,7 +31,7 @@ function describeReason(code: string) {
   }
 }
 
-function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?: string | null; reasonCodes: string[]; blockers: string[] }) {
+function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?: string | null; reasonCodes: string[]; blockers: string[]; releaseStopped: boolean }) {
   const reasons = [...args.reasonCodes, ...args.blockers];
   if ((args.status === 'quality_disputed' || reasons.includes('DISPUTE_OPEN') || reasons.includes('QUALITY_DISPUTE') || reasons.includes('dispute')) && args.disputeId) {
     return { href: `/platform-v7/disputes/${args.disputeId}`, label: 'Открыть спор' };
@@ -40,8 +42,8 @@ function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?
   if (reasons.includes('FGIS_GATE_FAIL') || reasons.includes('ESIA_LINK_MISSING') || reasons.includes('ESIA_REAUTH_REQUIRED') || reasons.includes('SYNC_CONFIRM_REQUIRED')) {
     return { href: '/platform-v7/connectors', label: 'Открыть интеграции' };
   }
-  if (args.status === 'release_requested' || reasons.includes('BANK_REVIEW_PENDING') || reasons.includes('bank_confirm')) {
-    return { href: '/platform-v7/bank', label: 'Открыть банк' };
+  if (args.releaseStopped || args.status === 'release_requested' || reasons.includes('BANK_REVIEW_PENDING') || reasons.includes('bank_confirm')) {
+    return { href: '/platform-v7/bank/release-safety', label: 'Проверить деньги' };
   }
   return { href: `/platform-v7/deals/${args.dealId}`, label: 'Открыть сделку' };
 }
@@ -66,26 +68,31 @@ export default function PlatformV7ControlTowerPage() {
 
   const queue = integratedDeals
     .map(({ deal, integration }) => {
-      const amountAtRisk = Math.max(deal.holdAmount, integration.gateState === 'FAIL' ? (deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0)) : 0);
+      const canonicalDeal = canonicalDomainDeals.find((item) => item.id === deal.id);
+      const releaseCheck = canonicalDeal ? evaluateReleaseGuard(canonicalDeal) : null;
+      const releaseStopped = releaseCheck ? !releaseCheck.canRequestRelease : false;
+      const releaseReason = releaseCheck && releaseCheck.blockers.length > 0 ? primaryMoneyStopReason(releaseCheck.blockers) : null;
+      const amountAtRisk = Math.max(deal.holdAmount, integration.gateState === 'FAIL' || releaseStopped ? (deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0)) : 0);
       const isDispute = Boolean(deal.dispute);
-      const reason = isDispute
+      const reason = releaseReason ?? (isDispute
         ? 'Открыт спор по сделке'
         : integration.reasonCodes.length
           ? describeReason(integration.reasonCodes[0])
           : deal.blockers.length
             ? describeReason(deal.blockers[0])
-            : 'Нужно довести сделку до следующего шага';
-      const owner = integration.nextOwner ?? (isDispute ? 'Оператор' : '—');
+            : 'Нужно довести сделку до следующего шага');
+      const owner = releaseStopped ? 'Банк / оператор' : integration.nextOwner ?? (isDispute ? 'Оператор' : '—');
       const primaryAction = resolvePrimaryAction({
         dealId: deal.id,
         status: deal.status,
         disputeId: deal.dispute?.id,
         reasonCodes: integration.reasonCodes,
         blockers: deal.blockers,
+        releaseStopped,
       });
-      const severity = integration.gateState === 'FAIL' || deal.holdAmount > 0 ? 3 : integration.gateState === 'REVIEW' || deal.status === 'release_requested' ? 2 : 1;
+      const severity = integration.gateState === 'FAIL' || releaseStopped || deal.holdAmount > 0 ? 3 : integration.gateState === 'REVIEW' || deal.status === 'release_requested' ? 2 : 1;
       const slaState = deal.slaDeadline ? (new Date(deal.slaDeadline) < today ? 'Просрочено' : (new Date(deal.slaDeadline).getTime() - today.getTime() <= 24 * 60 * 60 * 1000 ? 'Менее 24 часов' : deal.slaDeadline)) : '—';
-      return { deal, integration, amountAtRisk, reason, owner, primaryAction, severity, slaState };
+      return { deal, integration, amountAtRisk, reason, owner, primaryAction, severity, slaState, releaseStopped };
     })
     .sort((a, b) => b.severity - a.severity || b.amountAtRisk - a.amountAtRisk || b.deal.riskScore - a.deal.riskScore)
     .slice(0, 8);
@@ -141,7 +148,7 @@ export default function PlatformV7ControlTowerPage() {
                   <div className='ct-row'>
                     <span style={{ fontFamily:'JetBrains Mono, monospace', fontWeight:800, fontSize:13, color:'#0A7A5F' }}>{item.deal.id}</span>
                     <Badge tone={item.severity === 3 ? 'red' : item.severity === 2 ? 'amber' : 'blue'}>{statusLabel(item.deal.status)}</Badge>
-                    <Badge tone={item.integration.gateState === 'FAIL' ? 'red' : item.integration.gateState === 'REVIEW' ? 'amber' : 'green'}>{item.integration.gateState === 'FAIL' ? 'Проверка: стоп' : item.integration.gateState === 'REVIEW' ? 'Проверка вручную' : 'Проверено'}</Badge>
+                    <Badge tone={item.integration.gateState === 'FAIL' || item.releaseStopped ? 'red' : item.integration.gateState === 'REVIEW' ? 'amber' : 'green'}>{item.integration.gateState === 'FAIL' || item.releaseStopped ? 'Деньги остановлены' : item.integration.gateState === 'REVIEW' ? 'Проверка вручную' : 'Проверено'}</Badge>
                     <Badge tone={String(item.slaState).includes('Просрочено') ? 'red' : String(item.slaState).includes('24') ? 'amber' : 'blue'}>{item.slaState}</Badge>
                   </div>
                   <div style={{ fontSize:15, fontWeight:800, color:'#0F1419' }}>{item.deal.grain} · {item.deal.quantity} {item.deal.unit}</div>
