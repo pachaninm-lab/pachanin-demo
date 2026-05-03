@@ -16,6 +16,13 @@ describe('PlatformV7 clean deal card route', () => {
     expect(screen.getByText(/Источник: Сбер · тестовый контур/)).toBeInTheDocument();
   });
 
+  it('renders release guard money stop reasons on the deal card', () => {
+    render(<PlatformV7CleanDealPage params={{ id: 'DL-9102' }} />);
+
+    expect(screen.getByText('Что блокирует выпуск денег')).toBeInTheDocument();
+    expect(screen.getByText(/документы не закрыты|ФГИС\/СДИЗ не подтверждены|есть активное удержание|стадия сделки не готова к выплате/)).toBeInTheDocument();
+  });
+
   it('renders safe not found state', () => {
     render(<PlatformV7CleanDealPage params={{ id: 'DL-NOT-FOUND' }} />);
 
