@@ -34,7 +34,8 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
 
   const canonicalDeal = canonicalDomainDeals.find((item) => item.id === deal.id);
   const releaseCheck = canonicalDeal ? evaluateReleaseGuard(canonicalDeal) : null;
-  const releaseAmount = releaseCheck?.releaseAmount ?? deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
+  const releaseAmountRaw = releaseCheck?.releaseAmount ?? deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
+  const releaseAmount = releaseCheck && !releaseCheck.canRequestRelease ? 0 : releaseAmountRaw;
   const disputes = selectDisputesByDealId(deal.id);
   const releaseReasons = releaseCheck?.blockers ?? [];
   const hasBlockers = releaseReasons.length > 0 || deal.blockers.length > 0 || deal.holdAmount > 0 || disputes.length > 0;
