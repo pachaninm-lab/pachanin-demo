@@ -25,8 +25,13 @@ const ERR_BORDER = 'rgba(220,38,38,0.18)';
 const reasonLabels: Record<ReleaseGuardBlocker, string> = {
   NO_RESERVED_MONEY: 'нет подтверждённого резерва',
   NO_RELEASE_AMOUNT: 'нет суммы к выплате',
+  HOLD_AMOUNT_ACTIVE: 'есть активное удержание',
   OPEN_DISPUTE: 'открыт спор',
   DOCUMENTS_NOT_READY: 'документы не закрыты',
+  FGIS_NOT_READY: 'ФГИС/СДИЗ не подтверждены',
+  TRANSPORT_NOT_READY: 'рейс или транспортные документы не закрыты',
+  ACCEPTANCE_NOT_CONFIRMED: 'приёмка не подтверждена',
+  QUALITY_NOT_APPROVED: 'качество не подтверждено',
   MANUAL_BLOCKER: 'есть ручная остановка',
   DEAL_NOT_READY: 'стадия сделки не готова к выплате',
 };
@@ -67,7 +72,7 @@ export default function BankReleaseSafetyPage() {
             <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · тестовый контур</div>
             <div style={{ marginTop: 6, fontSize: 26, lineHeight: 1.1, fontWeight: 900, color: T }}>Проверка безопасности выпуска денег</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 860 }}>
-              Экран показывает, почему выпуск денег не должен обходить спор, документы, ручную остановку и стадию сделки. Это контрольный экран, а не платёжный механизм.
+              Экран показывает, почему выпуск денег не должен обходить резерв, документы, ФГИС/СДИЗ, рейс, приёмку, качество, спор и удержание. Это контрольный экран, а не платёжный механизм.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -85,7 +90,7 @@ export default function BankReleaseSafetyPage() {
       </P7Grid>
 
       <P7Notice title='Правило' tone='amber'>
-        Выплата допустима только после закрытия условий: резерв, сумма к выплате, документы, отсутствие спора и ручных остановок.
+        Выплата допустима только после закрытия условий: резерв, сумма к выплате, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.
       </P7Notice>
 
       <P7ExecutionMachineReadOnlyStrip compact />
