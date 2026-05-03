@@ -48,6 +48,13 @@ describe('platform-v7 release guard', () => {
     expect(result.blockers).toContain('NO_RELEASE_AMOUNT');
   });
 
+  it('blocks release while hold amount is active', () => {
+    const result = evaluateReleaseGuard(deal({ money: { totalAmount: 1200000, reservedAmount: 1200000, holdAmount: 100000, releaseAmount: 1100000 } }));
+
+    expect(result.canRequestRelease).toBe(false);
+    expect(result.blockers).toContain('HOLD_AMOUNT_ACTIVE');
+  });
+
   it('blocks release while dispute is open', () => {
     const result = evaluateReleaseGuard(deal({ status: 'DISPUTED', dispute: { id: 'DSP-1', title: 'Спор', amountAtRisk: 200000 } }));
 
@@ -58,11 +65,30 @@ describe('platform-v7 release guard', () => {
 
   it('blocks release when required documents are not ready', () => {
     const result = evaluateReleaseGuard(deal({
-      documents: [{ id: 'DOC-1', name: 'СДИЗ', status: 'missing', uploadedAt: null, size: null, owner: 'seller', blocksMoneyRelease: true }],
+      documents: [{ id: 'DOC-1', name: 'Договор', status: 'missing', uploadedAt: null, size: null, owner: 'seller', blocksMoneyRelease: true }],
     }));
 
     expect(result.canRequestRelease).toBe(false);
     expect(result.blockers).toContain('DOCUMENTS_NOT_READY');
+  });
+
+  it('blocks release when FGIS or SDIZ evidence is not ready', () => {
+    const result = evaluateReleaseGuard(deal({
+      documents: [{ id: 'DOC-FGIS', name: 'СДИЗ', status: 'missing', uploadedAt: null, size: null, owner: 'seller', blocksMoneyRelease: false }],
+    }));
+
+    expect(result.canRequestRelease).toBe(false);
+    expect(result.blockers).toContain('FGIS_NOT_READY');
+  });
+
+  it('blocks release before transport, acceptance and quality are confirmed', () => {
+    const result = evaluateReleaseGuard(deal({ status: 'IN_TRANSIT' }));
+
+    expect(result.canRequestRelease).toBe(false);
+    expect(result.blockers).toContain('TRANSPORT_NOT_READY');
+    expect(result.blockers).toContain('ACCEPTANCE_NOT_CONFIRMED');
+    expect(result.blockers).toContain('QUALITY_NOT_APPROVED');
+    expect(result.blockers).toContain('DEAL_NOT_READY');
   });
 
   it('blocks release when manual blockers remain', () => {
