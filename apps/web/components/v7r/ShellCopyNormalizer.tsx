@@ -71,10 +71,71 @@ function polishDrawer(root: ParentNode = document) {
   }
 }
 
+function setHeaderAction(el: HTMLElement | null, label: string, tabIndex = 0) {
+  if (!el) return;
+  el.setAttribute('role', el.getAttribute('role') || 'button');
+  el.setAttribute('aria-label', label);
+  el.setAttribute('tabindex', String(tabIndex));
+  el.style.cursor = 'pointer';
+}
+
+function stabilizeHeaderLinks() {
+  const brand = document.querySelector('.pc-header-brand') as HTMLElement | null;
+  setHeaderAction(brand, 'Открыть главную страницу платформы');
+
+  const roleButton = document.querySelector('.pc-mobile-role') as HTMLElement | null;
+  if (roleButton) {
+    roleButton.setAttribute('aria-label', 'Открыть выбор роли');
+    roleButton.style.cursor = 'pointer';
+  }
+}
+
+function isInteractiveElement(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest('a,button,input,select,textarea,[role="button"]'));
+}
+
+function handleHeaderNavigation(event: MouseEvent) {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+
+  const brand = target.closest('.pc-header-brand');
+  if (brand && !target.closest('button,a,select,input,textarea')) {
+    window.location.assign('/platform-v7');
+    return;
+  }
+
+  const roleButton = target.closest('.pc-mobile-role');
+  if (roleButton) {
+    window.location.assign('/platform-v7/roles');
+  }
+}
+
+function handleHeaderKeyboard(event: KeyboardEvent) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+
+  const brand = target.closest('.pc-header-brand');
+  if (brand && !isInteractiveElement(target)) {
+    event.preventDefault();
+    window.location.assign('/platform-v7');
+    return;
+  }
+
+  const roleButton = target.closest('.pc-mobile-role');
+  if (roleButton) {
+    event.preventDefault();
+    window.location.assign('/platform-v7/roles');
+  }
+}
+
 export function ShellCopyNormalizer() {
   React.useEffect(() => {
     normalizeTree(document.body);
     polishDrawer(document.body);
+    stabilizeHeaderLinks();
+    document.addEventListener('click', handleHeaderNavigation, true);
+    document.addEventListener('keydown', handleHeaderKeyboard, true);
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         mutation.addedNodes.forEach((node) => {
@@ -86,9 +147,14 @@ export function ShellCopyNormalizer() {
         });
       }
       polishDrawer(document.body);
+      stabilizeHeaderLinks();
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('click', handleHeaderNavigation, true);
+      document.removeEventListener('keydown', handleHeaderKeyboard, true);
+    };
   }, []);
 
   return null;
