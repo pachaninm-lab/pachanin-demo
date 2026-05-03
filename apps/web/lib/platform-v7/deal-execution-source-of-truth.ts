@@ -31,6 +31,7 @@ export interface ExecutionMoney {
 
 export interface ExecutionLogistics {
   orderId: string;
+  tripId: string;
   carrier: string;
   driverAlias: string;
   vehicleMasked: string;
@@ -84,8 +85,8 @@ export const PLATFORM_V7_EXECUTION_SOURCE: {
   audit: AuditEvent[];
 } = {
   deal: {
-    id: 'DL-9102',
-    lotId: 'Лот ТМБ-2403',
+    id: 'DL-9106',
+    lotId: 'LOT-2403',
     fgisPartyId: 'ФГИС-68-2403-001',
     crop: 'Пшеница 4 класса',
     volumeTons: 600,
@@ -114,12 +115,13 @@ export const PLATFORM_V7_EXECUTION_SOURCE: {
     bankDecision: 'проверить',
   },
   logistics: {
-    orderId: 'LO-4421',
+    orderId: 'LOG-REQ-2403',
+    tripId: 'TRIP-SIM-001',
     carrier: 'ТК «Южные маршруты»',
     driverAlias: 'Водитель А',
     vehicleMasked: 'Р***ТУ',
     pickupPoint: 'Тамбовская область · элеватор',
-    deliveryPoint: 'Назначение покупателя',
+    deliveryPoint: 'Элеватор ВРЖ-08',
     eta: '7–14 дней с момента допуска',
     currentLeg: 'ожидает погрузки',
     incidentStatus: 'нет инцидентов',
@@ -140,11 +142,11 @@ export const PLATFORM_V7_EXECUTION_SOURCE: {
     arbitratorNeeded: false,
   },
   audit: [
-    { time: '09:50', actor: 'Платформа', action: 'Создан черновик сделки', note: 'Условия из принятой ставки Покупателя 1', status: 'зафиксировано' },
+    { time: '09:50', actor: 'Платформа', action: 'Создан черновик сделки', note: 'Условия из принятой ставки Покупателя 1 по LOT-2403', status: 'зафиксировано' },
     { time: '09:52', actor: 'Оператор', action: 'Запущена проверка готовности', note: 'ФГИС, документы, логистика, банк, спор', status: 'зафиксировано' },
     { time: '10:05', actor: 'ФГИС', action: 'Партия подтверждена', note: 'ФГИС-68-2403-001 — остаток достаточен', status: 'готово' },
     { time: '10:12', actor: 'Банк', action: 'Запрос резерва денег', note: 'Покупатель 1 готов к резерву, решение банка ожидается', status: 'проверить' },
-    { time: '10:15', actor: 'Логистика', action: 'Перевозчик назначен', note: 'ТК «Южные маршруты», слот погрузки ожидается', status: 'проверить' },
+    { time: '10:15', actor: 'Логистика', action: 'Перевозчик назначен', note: 'Создана заявка LOG-REQ-2403 и рейс TRIP-SIM-001', status: 'проверить' },
   ],
 };
 
@@ -187,11 +189,13 @@ export function expectedDealAmountRub(): number {
 }
 
 export function executionSummary() {
-  const { deal, money } = PLATFORM_V7_EXECUTION_SOURCE;
+  const { deal, money, logistics } = PLATFORM_V7_EXECUTION_SOURCE;
   return {
     dealId: deal.id,
     lotId: deal.lotId,
     fgisPartyId: deal.fgisPartyId,
+    logisticsOrderId: logistics.orderId,
+    tripId: logistics.tripId,
     readinessScore: executionReadinessScore(),
     blockers: executionBlockers(),
     blockersCount: executionBlockers().length,
