@@ -63,6 +63,13 @@ const forbiddenVisibleCopy = [
   'fully live',
   'fully integrated',
   'production-ready',
+  'Release review',
+  'sandbox',
+  'mock',
+  'debug',
+  'test user',
+  'legacy',
+  'runtime',
 ] as const;
 
 test.describe('platform-v7 route audit baseline', () => {
