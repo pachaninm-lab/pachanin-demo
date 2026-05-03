@@ -57,7 +57,13 @@ export default function PlatformV7ControlTowerPage() {
   const integratedDeals = activeDeals.map((deal) => ({ deal, integration: selectDealIntegrationState(deal) }));
   const totalReserved = activeDeals.reduce((sum, d) => sum + d.reservedAmount, 0);
   const totalHold = activeDeals.reduce((sum, d) => sum + d.holdAmount, 0);
-  const totalRelease = integratedDeals.reduce((sum, item) => sum + (item.integration.gateState === 'FAIL' ? 0 : (item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0))), 0);
+  const totalRelease = integratedDeals.reduce((sum, item) => {
+    const canonicalDeal = canonicalDomainDeals.find((deal) => deal.id === item.deal.id);
+    const releaseCheck = canonicalDeal ? evaluateReleaseGuard(canonicalDeal) : null;
+    const canRequestRelease = releaseCheck ? releaseCheck.canRequestRelease : item.integration.gateState !== 'FAIL';
+    const releaseAmount = item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0);
+    return sum + (canRequestRelease ? releaseAmount : 0);
+  }, 0);
   const blockedByIntegration = integratedDeals.filter((item) => item.integration.gateState === 'FAIL');
   const reviewByIntegration = integratedDeals.filter((item) => item.integration.gateState === 'REVIEW');
   const integrationBlockedAmount = blockedByIntegration.reduce((sum, item) => sum + (item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0)), 0);
