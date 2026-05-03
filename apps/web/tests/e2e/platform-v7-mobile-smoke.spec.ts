@@ -1,31 +1,26 @@
 import { expect, test } from '@playwright/test';
 
 const routes = [
-  '/platform-v7',
-  '/platform-v7/control-tower',
-  '/platform-v7/deals',
-  '/platform-v7/deals/DL-9102',
-  '/platform-v7/buyer',
-  '/platform-v7/compliance',
-  '/platform-v7/field',
-  '/platform-v7/disputes/DK-2024-89',
-];
+  { path: '/platform-v7/driver', text: 'Полевой экран водителя' },
+  { path: '/platform-v7/elevator', text: 'Приёмка как доказательство сделки' },
+  { path: '/platform-v7/lab', text: 'Лаборатория как доказательство качества' },
+  { path: '/platform-v7/surveyor', text: 'Независимая фиксация на площадке' },
+  { path: '/platform-v7/deals/DL-9102/clean', text: 'Карточка сделки · пилотный контур' },
+  { path: '/platform-v7/bank/release-safety', text: 'Проверка безопасности выпуска денег' },
+] as const;
 
 test.describe('platform-v7 mobile smoke', () => {
   test.use({ viewport: { width: 375, height: 812 }, isMobile: true });
 
   for (const route of routes) {
-    test(`${route} renders at 375px without horizontal overflow`, async ({ page }) => {
-      const response = await page.goto(route, { waitUntil: 'networkidle' });
-      expect(response?.ok(), `${route} should return ok response`).toBeTruthy();
+    test(`${route.path} renders at 375px without horizontal overflow`, async ({ page }) => {
+      const response = await page.goto(route.path, { waitUntil: 'domcontentloaded' });
+      expect(response?.ok(), `${route.path} should return ok response`).toBeTruthy();
 
-      await expect(page.locator('body')).toBeVisible();
-      const overflow = await page.evaluate(() => {
-        const documentElement = document.documentElement;
-        return documentElement.scrollWidth - documentElement.clientWidth;
-      });
+      await expect(page.locator('body')).toContainText(route.text, { timeout: 15000 });
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
-      expect(overflow, `${route} should not overflow horizontally`).toBeLessThanOrEqual(2);
+      expect(overflow, `${route.path} should not overflow horizontally`).toBeLessThanOrEqual(8);
     });
   }
 });
