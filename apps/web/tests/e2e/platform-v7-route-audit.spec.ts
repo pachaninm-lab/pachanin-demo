@@ -29,6 +29,18 @@ const p0Routes = [
   '/platform-v7/reports',
 ] as const;
 
+const mobileSmokeRoutes = [
+  '/platform-v7',
+  '/platform-v7/deals',
+  '/platform-v7/seller',
+  '/platform-v7/buyer',
+  '/platform-v7/logistics',
+  '/platform-v7/bank',
+  '/platform-v7/elevator',
+  '/platform-v7/lab',
+  '/platform-v7/documents',
+] as const;
+
 const visibleExecutionRoutes = [
   { route: '/platform-v7', text: 'Центр исполнения зерновой сделки' },
   { route: '/platform-v7/deals', text: 'Сделки: деньги, документы, рейс и спор в одном контуре' },
@@ -82,6 +94,20 @@ test.describe('platform-v7 route audit baseline', () => {
     for (const item of visibleExecutionRoutes) {
       await page.goto(item.route, { waitUntil: 'networkidle' });
       await expect(page.getByText(item.text, { exact: false }), `${item.route} should show visible execution entry`).toBeVisible();
+    }
+  });
+
+  test('key routes render on narrow mobile width without page-level overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    for (const route of mobileSmokeRoutes) {
+      const response = await page.goto(route, { waitUntil: 'networkidle' });
+      expect(response?.ok(), `${route} should return 2xx on mobile`).toBeTruthy();
+      await expect(page.locator('body')).toBeVisible();
+      await expect(page.locator('text=/404|500|Application error|Unhandled Runtime Error/i')).toHaveCount(0);
+
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow, `${route} should not create page-level horizontal overflow on mobile`).toBeLessThanOrEqual(2);
     }
   });
 });
