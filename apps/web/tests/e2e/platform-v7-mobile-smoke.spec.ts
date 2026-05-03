@@ -48,6 +48,15 @@ test.describe('platform-v7 mobile smoke', () => {
       expect(pageShape.overflow, `${route.path} should not overflow horizontally`).toBeLessThanOrEqual(8);
       expect(pageShape.headings, `${route.path} should keep a usable mobile hierarchy`).toBeGreaterThan(0);
       expect(pageShape.controls, `${route.path} should keep reachable mobile controls`).toBeGreaterThan(0);
+
+      const brokenImages = await page.locator('img:visible').evaluateAll((images) =>
+        images
+          .filter((img) => img instanceof HTMLImageElement)
+          .filter((img) => !img.complete || img.naturalWidth === 0 || img.naturalHeight === 0)
+          .map((img) => ({ src: img.getAttribute('src'), alt: img.getAttribute('alt') }))
+      );
+
+      expect(brokenImages, `${route.path} should not have broken visible images on mobile`).toEqual([]);
     });
   }
 });
