@@ -1,194 +1,79 @@
 import Link from 'next/link';
-import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
-import { MoneyTreeStrip } from '@/components/platform-v7/MoneyTreeStrip';
-import { DocumentsMatrix } from '@/components/platform-v7/DocumentsMatrix';
-import { DocumentsMatrixActions } from '@/components/platform-v7/DocumentsMatrixActions';
-import { P7ActionFeedbackStrip } from '@/components/platform-v7/P7ActionFeedbackStrip';
-import { P7MoneySafetyAuditStrip } from '@/components/platform-v7/P7MoneySafetyAuditStrip';
-import { BankBeneficiariesPanel } from '@/components/platform-v7/BankBeneficiariesPanel';
-import { BankManualReviewPanel } from '@/components/platform-v7/BankManualReviewPanel';
-import { BankSmartContractsPanel } from '@/components/platform-v7/BankSmartContractsPanel';
-import { BankRuntime } from '@/components/v7r/BankRuntime';
-import { DomainMoneySummary } from '@/components/v7r/DomainMoneySummary';
-import { EvidenceDisputeContinuityPanel } from '@/components/v7r/EvidenceDisputeContinuityPanel';
-import {
-  PLATFORM_V7_ANTI_BYPASS_ROUTE,
-  PLATFORM_V7_BANK_ESCROW_ROUTE,
-  PLATFORM_V7_BANK_FACTORING_ROUTE,
-  PLATFORM_V7_DEALS_ROUTE,
-  PLATFORM_V7_OFFER_LOG_ROUTE,
-  PLATFORM_V7_READINESS_ROUTE,
-  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
-} from '@/lib/platform-v7/routes';
 
-const quickLinks = [
-  {
-    title: 'Проверка выпуска денег',
-    description: 'Блокеры, удержания и кандидаты к выпуску.',
-    href: PLATFORM_V7_RELEASE_SAFETY_ROUTE,
-  },
-  {
-    title: 'Готовность сделки',
-    description: 'ФГИС, документы, логистика, банк, спор и удержания.',
-    href: PLATFORM_V7_READINESS_ROUTE,
-  },
-  {
-    title: 'Журнал торгов',
-    description: 'История ставок, изменений, проверки денег и выбора предложения.',
-    href: PLATFORM_V7_OFFER_LOG_ROUTE,
-  },
-  {
-    title: 'Антиобход',
-    description: 'Правила раскрытия сторон, контактов и удержания сделки внутри платформы.',
-    href: PLATFORM_V7_ANTI_BYPASS_ROUTE,
-  },
-  {
-    title: 'Пакет перевозочных документов',
-    description: 'DL-9102 · юридически значимый пакет по рейсу, подписям и влиянию на выпуск денег.',
-    href: `${PLATFORM_V7_DEALS_ROUTE}/DL-9102/transport-documents`,
-  },
-  {
-    title: 'Факторинг',
-    description: 'Лимиты покупателя, ставка, заявки на финансирование и выплаченные авансы.',
-    href: PLATFORM_V7_BANK_FACTORING_ROUTE,
-  },
-  {
-    title: 'Эскроу',
-    description: 'Резервирование денег до наступления подтверждённых условий раскрытия.',
-    href: PLATFORM_V7_BANK_ESCROW_ROUTE,
-  },
-];
-
-const partners = [
-  {
-    name: 'Сбер',
-    status: 'Пилотный контур',
-    note: 'Основной банковый слой: безопасная сделка, транспортный контроль, факторинг и эскроу. Боевые подключения требуют договоров, доступов и подтверждения на реальных сделках.',
-    tone: 'rgba(10,122,95,0.08)',
-    border: 'rgba(10,122,95,0.18)',
-    color: '#0A7A5F',
-  },
-  {
-    name: 'ВТБ',
-    status: 'Следующий слой',
-    note: 'Кандидат на второй банковый контур после закрепления повторяемого пилотного контура.',
-    tone: '#F8FAFB',
-    border: '#E4E6EA',
-    color: '#475569',
-  },
-  {
-    name: 'Альфа',
-    status: 'Следующий слой',
-    note: 'Потенциальный партнёр для расширения сценариев покупателя и платёжных инструментов после верификации экономики.',
-    tone: '#F8FAFB',
-    border: '#E4E6EA',
-    color: '#475569',
-  },
-  {
-    name: 'Россельхозбанк',
-    status: 'Профильный банк',
-    note: 'Логичный кандидат для отраслевого масштаба после доказанного пилотного контура.',
-    tone: '#F8FAFB',
-    border: '#E4E6EA',
-    color: '#475569',
-  },
-];
+const deals = [
+  { id: 'DL-9106', lot: 'LOT-2403', buyer: 'Покупатель 1', amount: '9,65 млн ₽', reserve: 'ожидает подтверждения', docs: 'СДИЗ не оформлен', logistics: 'рейс создан', decision: 'не выпускать', next: 'подтвердить резерв после документов', danger: true },
+  { id: 'DL-9102', lot: 'LOT-2402', buyer: 'Покупатель 2', amount: '6,24 млн ₽', reserve: 'подтверждён', docs: 'есть спор по весу', logistics: 'прибыл', decision: 'удержание 624 тыс. ₽', next: 'ждать закрытия спора', danger: true },
+  { id: 'DL-9105', lot: 'LOT-2408', buyer: 'Покупатель 4', amount: '4,3 млн ₽', reserve: 'подтверждён', docs: 'пакет готов', logistics: 'погрузка', decision: 'проверить', next: 'дождаться приёмки', danger: false },
+] as const;
 
 export default function PlatformV7BankPage() {
   return (
-    <div style={{ display: 'grid', gap: 18 }}>
-      <RoleExecutionSummary role="bank" />
-      <MoneyTreeStrip />
-      <DocumentsMatrix />
-      <DocumentsMatrixActions />
-      <P7ActionFeedbackStrip />
-      <DomainMoneySummary />
-      <P7MoneySafetyAuditStrip />
-      <EvidenceDisputeContinuityPanel />
-
-      <section
-        style={{
-          background: 'linear-gradient(135deg, rgba(10,122,95,0.08) 0%, rgba(14,165,233,0.08) 100%)',
-          border: '1px solid rgba(10,122,95,0.18)',
-          borderRadius: 18,
-          padding: 18,
-          display: 'grid',
-          gap: 14,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 999, background: '#fff', border: '1px solid rgba(10,122,95,0.18)' }}>
-              <span style={{ width: 10, height: 10, borderRadius: 999, background: '#0A7A5F', boxShadow: '0 0 0 3px rgba(10,122,95,0.12)' }} />
-              <span style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>Банк · тестовый режим</span>
-            </div>
-            <h1 style={{ margin: '10px 0 0', fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
-              Банковый контур с проверкой условий
-            </h1>
-            <p style={{ margin: '8px 0 0', fontSize: 13, color: '#425466', maxWidth: 760 }}>
-              Выпуск денег связан с приёмкой, документами, транспортной проверкой, комплаенсом и спором. Новые панели ниже работают в тестовом режиме и не заявляют боевую банковую интеграцию.
-            </p>
-          </div>
-          <div style={{ display: 'grid', gap: 8, minWidth: 240 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px solid rgba(10,122,95,0.14)' }}>
-              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Проверка условий</span>
-              <span style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 900 }}>Включена</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px solid rgba(217,119,6,0.14)' }}>
-              <span style={{ fontSize: 12, color: '#425466', fontWeight: 700 }}>Подключения</span>
-              <span style={{ fontSize: 12, color: '#B45309', fontWeight: 900 }}>тестовый режим</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-          {quickLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              style={{
-                textDecoration: 'none',
-                display: 'grid',
-                gap: 8,
-                padding: 16,
-                borderRadius: 14,
-                background: '#fff',
-                border: '1px solid rgba(15,20,25,0.08)',
-                boxShadow: '0 8px 24px rgba(15,20,25,0.04)',
-              }}
-            >
-              <span style={{ fontSize: 14, lineHeight: 1.3, fontWeight: 900, color: '#0F1419' }}>{link.title}</span>
-              <span style={{ fontSize: 12, lineHeight: 1.5, color: '#5B6576' }}>{link.description}</span>
-              <span style={{ fontSize: 12, fontWeight: 900, color: '#0A7A5F' }}>Открыть →</span>
-            </Link>
-          ))}
+    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <section style={card}>
+        <div style={badge}>Кабинет банка</div>
+        <h1 style={h1}>Резерв, удержание и выпуск денег</h1>
+        <p style={lead}>Банк видит только денежный контур сделки: резерв, документы, транспортный статус, спор, решение и причину остановки. Выпуск не показывается как доступный, пока условия не закрыты.</p>
+        <div style={actions}>
+          <Link href='/platform-v7/release-safety' style={primaryBtn}>Проверка выпуска</Link>
+          <Link href='/platform-v7/deals' style={ghostBtn}>Все сделки</Link>
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Банки-партнёры</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-            Сейчас активный контур построен вокруг Сбера в логике пилотного режима. Остальные банки показаны как следующий слой масштаба, а не как уже подтверждённые боевые интеграции.
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          {partners.map((partner) => (
-            <div key={partner.name} style={{ display: 'grid', gap: 10, padding: 16, borderRadius: 14, background: partner.tone, border: `1px solid ${partner.border}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 16, lineHeight: 1.25, fontWeight: 900, color: '#0F1419' }}>{partner.name}</div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: `1px solid ${partner.border}`, color: partner.color, fontSize: 11, fontWeight: 800 }}>{partner.status}</span>
+      <section style={metricsGrid}>
+        <Metric label='В резерве' value='20,19 млн ₽' />
+        <Metric label='К проверке' value='13,95 млн ₽' />
+        <Metric label='Под удержанием' value='624 тыс. ₽' danger />
+        <Metric label='Готово к выпуску' value='0 ₽' />
+      </section>
+
+      <section style={card}>
+        <div style={micro}>Денежная очередь</div>
+        {deals.map((deal) => (
+          <Link key={deal.id} href={`/platform-v7/deals/${deal.id}`} style={rowLink}>
+            <div style={rowHead}>
+              <div>
+                <div style={idText}>{deal.id} · {deal.lot}</div>
+                <h2 style={h2}>{deal.amount}</h2>
+                <p style={muted}>{deal.buyer}</p>
               </div>
-              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{partner.note}</div>
+              <span style={deal.danger ? dangerPill : statusPill}>{deal.decision}</span>
             </div>
-          ))}
-        </div>
+            <div style={grid2}>
+              <Cell label='Резерв' value={deal.reserve} strong={!deal.danger} />
+              <Cell label='Документы' value={deal.docs} danger={deal.docs.includes('не') || deal.docs.includes('спор')} />
+              <Cell label='Логистика' value={deal.logistics} />
+              <Cell label='Следующее действие' value={deal.next} strong />
+            </div>
+          </Link>
+        ))}
       </section>
-
-      <BankBeneficiariesPanel />
-      <BankSmartContractsPanel />
-      <BankManualReviewPanel />
-      <BankRuntime />
-    </div>
+    </main>
   );
 }
+
+function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+  return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16 }}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : '#0F1419', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div></div>;
+}
+
+function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
+  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{value}</div></div>;
+}
+
+const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
+const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(15,23,42,0.08)', border: '1px solid rgba(15,23,42,0.18)', color: '#0F172A', fontSize: 12, fontWeight: 900 } as const;
+const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 } as const;
+const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 } as const;
+const muted = { margin: '6px 0 0', color: '#64748B', fontSize: 13 } as const;
+const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
+const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0F172A', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
+const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
+const rowLink = { textDecoration: 'none', color: 'inherit', background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 20, padding: 15, display: 'grid', gap: 12 } as const;
+const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
+const idText = { color: '#0F172A', fontSize: 13, fontWeight: 950 } as const;
+const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
+const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 13, padding: 10, minWidth: 0 } as const;
+const statusPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
+const dangerPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
