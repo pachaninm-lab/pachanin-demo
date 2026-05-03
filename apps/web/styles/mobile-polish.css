@@ -1,4 +1,4 @@
-/* Mobile polish for platform-v7: less noise, no horizontal overflow, cleaner operator-facing surfaces. */
+/* Mobile polish for platform-v7: less noise, no horizontal overflow, cleaner role-facing surfaces. */
 .pc-shell-root,
 .pc-main {
   max-width: 100vw !important;
@@ -33,8 +33,14 @@
 
 [data-testid='role-dispatch-bridge'],
 [data-testid='role-action-journal'],
+[data-testid^='role-execution-summary-'],
+[data-testid^='role-continuity-'],
+[data-testid='role-action-handoff'],
 .pc-main [data-testid='role-dispatch-bridge'],
-.pc-main [data-testid='role-action-journal'] {
+.pc-main [data-testid='role-action-journal'],
+.pc-main [data-testid^='role-execution-summary-'],
+.pc-main [data-testid^='role-continuity-'],
+.pc-main [data-testid='role-action-handoff'] {
   display: none !important;
 }
 
