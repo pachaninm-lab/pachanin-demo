@@ -10,6 +10,9 @@ const orders = [
     route: 'Тамбовская область → Элеватор ВРЖ-08',
     status: 'Водитель назначен',
     driver: 'Водитель А',
+    driverStatus: 'в пути',
+    driverLocation: '52.6671, 41.4479 · 62% маршрута',
+    driverUpdated: '14:28',
     vehicle: 'Р***ТУ',
     eta: '14:28',
     progress: '62%',
@@ -27,6 +30,9 @@ const orders = [
     route: 'Воронежская область → Курская область',
     status: 'Прибыл',
     driver: 'Водитель Б',
+    driverStatus: 'на приёмке',
+    driverLocation: 'Элеватор назначения · прибыл',
+    driverUpdated: '14:28',
     vehicle: 'С***АА',
     eta: 'прибыл 14:28',
     progress: '100%',
@@ -44,6 +50,9 @@ const orders = [
     route: 'Курская область → Белгородская область',
     status: 'Ожидает погрузки',
     driver: 'не назначен',
+    driverStatus: 'нет водителя',
+    driverLocation: '—',
+    driverUpdated: '—',
     vehicle: '—',
     eta: '7–14 дней',
     progress: '0%',
@@ -58,6 +67,7 @@ export default function LogisticsPage() {
   const inTransit = orders.filter((order) => order.status === 'Водитель назначен').length;
   const arrived = orders.filter((order) => order.status === 'Прибыл').length;
   const incidents = orders.filter((order) => order.incidents !== 'нет').length;
+  const assignedDrivers = orders.filter((order) => order.driver !== 'не назначен');
 
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
@@ -79,10 +89,40 @@ export default function LogisticsPage() {
       </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={micro}>Текущая очередь</div>
+        <div style={micro}>Водители на линии</div>
+        {assignedDrivers.map((order) => <DriverCard key={`driver-${order.id}`} order={order} />)}
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={micro}>Текущая очередь заказов</div>
         {orders.map((order) => <OrderCard key={order.id} order={order} />)}
       </section>
     </main>
+  );
+}
+
+function DriverCard({ order }: { order: typeof orders[number] }) {
+  const hasIncident = order.incidents !== 'нет';
+  return (
+    <Link href='/platform-v7/driver' style={{ textDecoration: 'none', color: 'inherit', background: order.status === 'Водитель назначен' ? 'rgba(10,122,95,0.06)' : '#F8FAFB', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 20, padding: 15, display: 'grid', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.driver} · {order.vehicle}</div>
+          <h2 style={{ margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 }}>{order.driverStatus}</h2>
+          <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13 }}>Заказ {order.id} · сделка {order.dealId}</p>
+        </div>
+        <span style={hasIncident ? dangerStatus : status}>{hasIncident ? 'инцидент' : order.status}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 }}>
+        <Cell label='Где водитель' value={order.driverLocation} strong={!hasIncident} />
+        <Cell label='На каком заказе' value={`${order.id} · ${order.crop}`} />
+        <Cell label='Маршрут' value={order.route} />
+        <Cell label='ETA / обновлено' value={`${order.eta} · ${order.driverUpdated}`} strong />
+      </div>
+      <div style={{ background: hasIncident ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 14, padding: 11, color: hasIncident ? '#B91C1C' : '#0A7A5F', fontSize: 13, fontWeight: 900 }}>
+        Следующее действие логиста: {order.next}
+      </div>
+    </Link>
   );
 }
 
@@ -102,6 +142,8 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 }}>
         <Cell label='Водитель' value={order.driver} />
+        <Cell label='Где водитель' value={order.driverLocation} strong={isActive} />
+        <Cell label='Заказ' value={order.id} />
         <Cell label='Машина' value={order.vehicle} />
         <Cell label='ETA' value={order.eta} strong={isActive} />
         <Cell label='Прогресс' value={order.progress} strong={isActive} />
@@ -140,3 +182,4 @@ const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-fle
 const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
 const status = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const neutralStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 } as const;
+const dangerStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
