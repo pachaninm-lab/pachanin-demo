@@ -129,7 +129,6 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
   ],
   compliance: [
     { href: '/platform-v7/compliance', label: 'Допуск', icon: 'cabinet' },
-    { href: '/platform-v7/connectors', label: PLATFORM_V7_LEXICON.nav.connectors, icon: 'integrations' },
     { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals, icon: 'deals' },
   ],
   executive: [

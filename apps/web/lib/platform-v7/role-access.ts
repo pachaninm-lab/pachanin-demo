@@ -23,7 +23,8 @@ export type PlatformV7SensitiveSurface =
   | 'investorMode'
   | 'controlTower'
   | 'roleSwitcher'
-  | 'driverActions';
+  | 'driverActions'
+  | 'providerDebug';
 
 export type PlatformV7AccessDecision = {
   readonly allowed: boolean;
@@ -31,18 +32,18 @@ export type PlatformV7AccessDecision = {
 };
 
 export const PLATFORM_V7_ROLE_FORBIDDEN_SURFACES: Record<PlatformV7Role, readonly PlatformV7SensitiveSurface[]> = {
-  driver: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'controlTower', 'roleSwitcher'],
-  logistics: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids'],
-  buyer: ['thirdPartyBids', 'operatorControls', 'bankInternalEvents'],
-  seller: ['bankInternalEvents', 'thirdPartyBids'],
-  bank: ['driverActions', 'thirdPartyBids'],
-  elevator: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode'],
-  lab: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'driverActions'],
-  surveyor: ['bankReserve', 'moneyRelease', 'thirdPartyBids', 'investorMode'],
-  arbitrator: ['driverActions', 'thirdPartyBids'],
-  compliance: ['driverActions', 'thirdPartyBids'],
-  investor: ['driverActions', 'bankInternalEvents', 'operatorControls'],
-  executive: ['driverActions', 'bankInternalEvents'],
+  driver: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'controlTower', 'roleSwitcher', 'providerDebug'],
+  logistics: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'providerDebug'],
+  buyer: ['thirdPartyBids', 'operatorControls', 'bankInternalEvents', 'providerDebug'],
+  seller: ['bankInternalEvents', 'thirdPartyBids', 'providerDebug'],
+  bank: ['driverActions', 'thirdPartyBids', 'providerDebug'],
+  elevator: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'providerDebug'],
+  lab: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'driverActions', 'providerDebug'],
+  surveyor: ['bankReserve', 'moneyRelease', 'thirdPartyBids', 'investorMode', 'providerDebug'],
+  arbitrator: ['driverActions', 'thirdPartyBids', 'providerDebug'],
+  compliance: ['driverActions', 'thirdPartyBids', 'providerDebug'],
+  investor: ['driverActions', 'bankInternalEvents', 'operatorControls', 'providerDebug'],
+  executive: ['driverActions', 'bankInternalEvents', 'providerDebug'],
   operator: [],
 };
 
@@ -63,18 +64,18 @@ export const PLATFORM_V7_ROLE_HOME_ROUTE: Record<PlatformV7Role, string> = {
 };
 
 export const PLATFORM_V7_ROLE_BLOCKED_ROUTE_PREFIXES: Record<PlatformV7Role, readonly string[]> = {
-  driver: ['/platform-v7/bank', '/platform-v7/control-tower', '/platform-v7/investor', '/platform-v7/buyer', '/platform-v7/seller'],
-  logistics: ['/platform-v7/bank', '/platform-v7/investor'],
-  buyer: ['/platform-v7/control-tower', '/platform-v7/bank/release-safety'],
-  seller: ['/platform-v7/bank/release-safety'],
-  bank: ['/platform-v7/driver/field', '/platform-v7/lots/create'],
-  elevator: ['/platform-v7/bank', '/platform-v7/investor'],
-  lab: ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/driver/field'],
-  surveyor: ['/platform-v7/bank', '/platform-v7/investor'],
-  arbitrator: ['/platform-v7/driver/field'],
-  compliance: ['/platform-v7/driver/field'],
-  investor: ['/platform-v7/driver/field', '/platform-v7/control-tower'],
-  executive: ['/platform-v7/driver/field'],
+  driver: ['/platform-v7/bank', '/platform-v7/control-tower', '/platform-v7/investor', '/platform-v7/buyer', '/platform-v7/seller', '/platform-v7/connectors'],
+  logistics: ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/connectors'],
+  buyer: ['/platform-v7/control-tower', '/platform-v7/bank/release-safety', '/platform-v7/connectors'],
+  seller: ['/platform-v7/bank/release-safety', '/platform-v7/connectors'],
+  bank: ['/platform-v7/driver/field', '/platform-v7/lots/create', '/platform-v7/connectors'],
+  elevator: ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/connectors'],
+  lab: ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/driver/field', '/platform-v7/connectors'],
+  surveyor: ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/connectors'],
+  arbitrator: ['/platform-v7/driver/field', '/platform-v7/connectors'],
+  compliance: ['/platform-v7/driver/field', '/platform-v7/connectors'],
+  investor: ['/platform-v7/driver/field', '/platform-v7/control-tower', '/platform-v7/connectors'],
+  executive: ['/platform-v7/driver/field', '/platform-v7/connectors'],
   operator: [],
 };
 
