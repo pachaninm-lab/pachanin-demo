@@ -1,6 +1,6 @@
 export const PLATFORM_V7_TRADING_SOURCE = {
   lot: {
-    id: 'Лот ТМБ-2403',
+    id: 'LOT-2403',
     fgisPartyId: 'ФГИС-68-2403-001',
     crop: 'Пшеница 4 класса',
     harvestYear: '2025',
