@@ -20,9 +20,15 @@ test.describe('platform-v7 mobile smoke', () => {
       expect(response?.ok(), `${route.path} should return ok response`).toBeTruthy();
 
       await expect(page.locator('body')).toContainText(route.text, { timeout: 15000 });
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      const pageShape = await page.evaluate(() => ({
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        headings: document.querySelectorAll('h1, h2').length,
+        controls: document.querySelectorAll('a, button').length,
+      }));
 
-      expect(overflow, `${route.path} should not overflow horizontally`).toBeLessThanOrEqual(8);
+      expect(pageShape.overflow, `${route.path} should not overflow horizontally`).toBeLessThanOrEqual(8);
+      expect(pageShape.headings, `${route.path} should keep a usable mobile hierarchy`).toBeGreaterThan(0);
+      expect(pageShape.controls, `${route.path} should keep reachable mobile controls`).toBeGreaterThan(0);
     });
   }
 });
