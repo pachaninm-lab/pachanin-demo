@@ -38,8 +38,19 @@ describe('PlatformV7 deals routes', () => {
     expect(screen.getByRole('link', { name: /Проверка денег/ })).toHaveAttribute('href', '/platform-v7/bank/release-safety');
     expect(screen.getByRole('link', { name: /Банк/ })).toHaveAttribute('href', '/platform-v7/bank');
     expect(screen.getByRole('link', { name: /Логистика/ }).getAttribute('href')).toMatch(/^\/platform-v7\/logistics/);
-    expect(screen.getByRole('link', { name: /Спор \/ evidence pack/ }).getAttribute('href')).toMatch(/^\/platform-v7\/disputes/);
+    expect(screen.getByRole('link', { name: /Спор \/ пакет доказательств/ }).getAttribute('href')).toMatch(/^\/platform-v7\/disputes/);
     expect(screen.getByRole('link', { name: /Движок сделки/ })).toHaveAttribute('href', '/platform-v7/domain-core');
+  });
+
+  it('renders deal workspace fact sources without live integration claims', () => {
+    render(<PlatformV7DealDetailPage params={{ id: 'DL-9102' }} />);
+
+    expect(screen.getByText('Рабочая зона сделки · тестовый контур')).toBeInTheDocument();
+    expect(screen.getByText(/Источник: Сбер · тестовый контур/)).toBeInTheDocument();
+    expect(screen.getByText(/Источник: ФГИС · ручная проверка/)).toBeInTheDocument();
+    expect(screen.queryByText(/Deal Workspace/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sandbox-aware/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Evidence/i)).not.toBeInTheDocument();
   });
 
   it('renders not-found deal state with safe return link', () => {
