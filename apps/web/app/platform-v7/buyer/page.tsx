@@ -32,13 +32,20 @@ const deals = [
   { id: 'DL-9102', lot: 'LOT-2402', status: 'спор по весу', reserve: '6,24 млн ₽', hold: '624 тыс. ₽', next: 'закрыть отклонение веса', href: '/platform-v7/deals/DL-9102' },
 ] as const;
 
+const creditSteps = [
+  { label: 'Сбер · Оплата в кредит', value: 'лимит покупателя', state: 'ok' },
+  { label: 'Заявка', value: 'предодобрена в тестовом сценарии', state: 'ok' },
+  { label: 'Доступно к резерву', value: '9,65 млн ₽', state: 'wait' },
+  { label: 'Продавец', value: 'не получает кредитную линию', state: 'manual' },
+] as const;
+
 export default function PlatformV7BuyerPage() {
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={card}>
         <div style={badge}>Кабинет покупателя</div>
-        <h1 style={h1}>Лоты, ставки и резерв денег</h1>
-        <p style={lead}>Покупатель видит доступные лоты, свою ставку, готовность документов, сумму резерва и следующий шаг по сделке. Чужие ставки раскрываются только в допустимом обезличенном виде.</p>
+        <h1 style={h1}>Лоты, ставки, резерв и кредит Сбера</h1>
+        <p style={lead}>Покупатель видит доступные лоты, свою ставку, готовность документов, резерв денег и кредитный лимит. Чужие ставки раскрываются только в допустимом обезличенном виде.</p>
         <div style={actions}>
           <Link href='/platform-v7/lots' style={primaryBtn}>Открыть лоты</Link>
           <Link href='/platform-v7/bank' style={ghostBtn}>Резерв денег</Link>
@@ -50,6 +57,14 @@ export default function PlatformV7BuyerPage() {
         <Metric label='К подтверждению' value='9,65 млн ₽' good />
         <Metric label='Под удержанием' value='624 тыс. ₽' danger />
         <Metric label='Активных ставок' value='2' />
+      </section>
+
+      <section style={card}>
+        <div style={micro}>Кредитный лимит покупателя</div>
+        <div style={grid2}>
+          {creditSteps.map((item) => <CreditCell key={item.label} item={item} />)}
+        </div>
+        <div style={creditNotice}>Сбер · Оплата в кредит — сценарий покупателя. Это не кредитная линия продавца. Для продавца это влияет только на готовность покупателя зарезервировать деньги по сделке.</div>
       </section>
 
       <section style={card}>
@@ -106,6 +121,13 @@ function Cell({ label, value, strong = false, danger = false }: { label: string;
   return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{value}</div></div>;
 }
 
+function CreditCell({ item }: { item: typeof creditSteps[number] }) {
+  const color = item.state === 'ok' ? '#0A7A5F' : item.state === 'wait' ? '#B45309' : '#64748B';
+  const bg = item.state === 'ok' ? 'rgba(10,122,95,0.06)' : item.state === 'wait' ? 'rgba(217,119,6,0.06)' : '#F8FAFB';
+  const border = item.state === 'ok' ? 'rgba(10,122,95,0.18)' : item.state === 'wait' ? 'rgba(217,119,6,0.18)' : '#E4E6EA';
+  return <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 13, padding: 10 }}><div style={{ ...micro, color }}>{item.label}</div><div style={{ marginTop: 4, color: '#0F1419', fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{item.value}</div></div>;
+}
+
 const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#2563EB', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
@@ -124,3 +146,4 @@ const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr
 const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 13, padding: 10, minWidth: 0 } as const;
 const statusPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const dangerPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
+const creditNotice = { background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.16)', color: '#1D4ED8', borderRadius: 14, padding: 12, fontSize: 13, fontWeight: 900, lineHeight: 1.45 } as const;
