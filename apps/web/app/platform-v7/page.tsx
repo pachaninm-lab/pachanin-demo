@@ -1,5 +1,5 @@
-import { PlatformRolesHub } from '@/components/v7r/PlatformRolesHub';
+import { PlatformCommandCenterHub } from '@/components/v7r/PlatformCommandCenterHub';
 
 export default function PlatformV7RootPage() {
-  return <PlatformRolesHub />;
+  return <PlatformCommandCenterHub />;
 }
