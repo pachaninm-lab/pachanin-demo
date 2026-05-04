@@ -3,6 +3,7 @@ import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7Exec
 import { P7Grid, P7LinkButton, P7MetricCard, P7Notice, P7PanelShell } from '@/components/platform-v7/P7UiPrimitives';
 import { canonicalDomainDeals } from '@/lib/domain/selectors';
 import { evaluateReleaseGuard, type ReleaseGuardBlocker } from '@/lib/platform-v7/domain/release-guard';
+import { getBlockedIrreversibleActions, getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
 import {
   PLATFORM_V7_BANK_ROUTE,
@@ -39,7 +40,7 @@ const reasonLabels: Record<ReleaseGuardBlocker, string> = {
 function stateStyle(stopped: boolean) {
   return stopped
     ? { label: 'Остановлено', bg: ERR_BG, border: ERR_BORDER, color: ERR }
-    : { label: 'Разрешено', bg: BRAND_BG, border: BRAND_BORDER, color: BRAND };
+    : { label: 'Разрешено к запросу', bg: BRAND_BG, border: BRAND_BORDER, color: BRAND };
 }
 
 function reasonText(reasons: readonly ReleaseGuardBlocker[]) {
@@ -49,30 +50,42 @@ function reasonText(reasons: readonly ReleaseGuardBlocker[]) {
 export default function BankReleaseSafetyPage() {
   const rows = canonicalDomainDeals.slice(0, 12).map((deal) => {
     const check = evaluateReleaseGuard(deal);
+    const scenario = getDeal360Scenario(deal.id);
+    const irreversibleBlocks = getBlockedIrreversibleActions(scenario);
+    const providerBlocks = scenario.providerGates.filter((gate) => gate.blocksIrreversibleAction).length;
+    const documentBlocks = scenario.documents.filter((doc) => doc.requiredForRelease && doc.blocksMoney).length;
+    const stopped = !check.canRequestRelease || irreversibleBlocks.length > 0;
+
     return {
       id: deal.id,
       grain: deal.grain,
       reserved: check.reservedAmount,
       hold: deal.money.holdAmount,
-      release: check.releaseAmount,
+      release: stopped ? 0 : check.releaseAmount,
+      rawRelease: check.releaseAmount,
       reasons: check.blockers,
-      stopped: !check.canRequestRelease,
+      stopped,
+      providerBlocks,
+      documentBlocks,
+      irreversibleBlocks,
+      maturity: scenario.maturityLabel,
     };
   });
 
   const stoppedRows = rows.filter((row) => row.stopped);
   const releaseCandidate = rows.filter((row) => !row.stopped).reduce((sum, row) => sum + row.release, 0);
-  const moneyUnderCheck = stoppedRows.reduce((sum, row) => sum + Math.max(row.hold, row.release), 0);
+  const moneyUnderCheck = stoppedRows.reduce((sum, row) => sum + Math.max(row.hold, row.rawRelease), 0);
+  const irreversibleBlockCount = rows.reduce((sum, row) => sum + row.irreversibleBlocks.length, 0);
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
       <P7PanelShell>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · тестовый контур</div>
+            <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · controlled-pilot</div>
             <div style={{ marginTop: 6, fontSize: 26, lineHeight: 1.1, fontWeight: 900, color: T }}>Проверка безопасности выпуска денег</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 860 }}>
-              Экран показывает, почему выпуск денег не должен обходить резерв, документы, ФГИС/СДИЗ, рейс, приёмку, качество, спор и удержание. Это контрольный экран, а не платёжный механизм.
+              Экран показывает, почему выпуск денег не должен обходить резерв, документы, ФГИС/СДИЗ, рейс, приёмку, качество, спор, удержание и внешний банковый контур. Это контрольный экран, а не платёжный механизм и не доказательство production-ready.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -87,10 +100,11 @@ export default function BankReleaseSafetyPage() {
         <P7MetricCard title='К выплате после проверки' value={formatCompactMoney(releaseCandidate)} tone='green' />
         <P7MetricCard title='Остановлено' value={String(stoppedRows.length)} tone={stoppedRows.length > 0 ? 'red' : 'green'} />
         <P7MetricCard title='На проверке' value={formatCompactMoney(moneyUnderCheck)} tone={moneyUnderCheck > 0 ? 'red' : 'green'} />
+        <P7MetricCard title='Необратимых блокировок' value={String(irreversibleBlockCount)} tone={irreversibleBlockCount > 0 ? 'red' : 'green'} />
       </P7Grid>
 
       <P7Notice title='Правило' tone='amber'>
-        Выплата допустима только после закрытия условий: резерв, сумма к выплате, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.
+        Выплата допустима только после закрытия условий: резерв, сумма к выплате, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора, отсутствие ручных остановок и подтверждённое событие банка. Внутренняя карточка платформы не заменяет банк, ФГИС, ЭДО или транспортный ЭПД.
       </P7Notice>
 
       <P7ExecutionMachineReadOnlyStrip compact />
@@ -104,17 +118,30 @@ export default function BankReleaseSafetyPage() {
               <div key={row.id} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <div>
-                    <Link href={`/platform-v7/deals/${row.id}`} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND, textDecoration: 'none' }}>{row.id}</Link>
+                    <Link href={`/platform-v7/deals/${row.id}/clean`} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND, textDecoration: 'none' }}>{row.id}</Link>
                     <span style={{ marginLeft: 8, fontSize: 13, color: M }}>{row.grain}</span>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: WARN, fontWeight: 800 }}>{row.maturity}</span>
                   </div>
                   <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color }}>{tone.label}</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 12 }}>
                   <Cell label='Резерв' value={formatCompactMoney(row.reserved)} />
                   <Cell label='Удержано' value={formatCompactMoney(row.hold)} danger={row.hold > 0} />
-                  <Cell label='К выплате' value={formatCompactMoney(row.release)} />
-                  <Cell label='Причины остановки' value={reasonText(row.reasons)} danger={row.reasons.length > 0} />
+                  <Cell label='К выплате' value={formatCompactMoney(row.release)} danger={row.stopped} />
+                  <Cell label='Release guard' value={reasonText(row.reasons)} danger={row.reasons.length > 0} />
+                  <Cell label='Интеграционные gate-ы' value={`${row.providerBlocks} блок.`} danger={row.providerBlocks > 0} />
+                  <Cell label='Документные gate-ы' value={`${row.documentBlocks} блок.`} danger={row.documentBlocks > 0} />
                 </div>
+                {row.irreversibleBlocks.length > 0 ? (
+                  <div style={{ marginTop: 12, background: ERR_BG, border: `1px solid ${ERR_BORDER}`, borderRadius: 10, padding: 10 }}>
+                    <div style={{ fontSize: 10, color: ERR, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Запрещено до закрытия gate-ов</div>
+                    <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
+                      {row.irreversibleBlocks.slice(0, 4).map((block) => (
+                        <div key={block} style={{ fontSize: 12, color: T, fontWeight: 750 }}>— {block}</div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
