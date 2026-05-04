@@ -1,31 +1,27 @@
-import AgroScenarios from './components/AgroScenarios';
 import FortyEightHourResult from './components/FortyEightHourResult';
 import HeaderLogo from './components/HeaderLogo';
 import LandingHero from './components/LandingHero';
-import LandingTrustBlocks from './components/LandingTrustBlocks';
 import LossMap from './components/LossMap';
-import NotAnotherTool from './components/NotAnotherTool';
 import PilotLeadForm from './components/PilotLeadForm';
 import PilotSingleDeal from './components/PilotSingleDeal';
 import PremiumMockups from './components/PremiumMockups';
 import RoleEntry from './components/RoleEntry';
-import SampleLossCard from './components/SampleLossCard';
 import StickyCTA from './components/StickyCTA';
 
 const navLinks = [
   ['Суть', '#top'],
   ['Проблема', '#problem'],
-  ['Как работает', '#how'],
-  ['Потери', '#loss-map'],
-  ['Для кого', '#roles'],
+  ['Карта', '#loss-map'],
+  ['Роли', '#roles'],
+  ['Мокап', '#mockup'],
   ['Пилот', '#pilot'],
   ['Заявка', '#contact'],
 ];
 
 const pains = [
-  ['Цена согласована', 'Но деньги ещё можно потерять на весе, качестве, рейсе, документах и удержаниях.'],
-  ['Нет одной картины', 'Звонки, фото, лаборатория, СДИЗ, ЭДО и оплата живут отдельно.'],
-  ['Неясно, кто тормозит', 'Когда нет общего следа сделки, спорят по перепискам, а не по фактам.'],
+  ['Исполнение', 'Цена уже согласована, но рейс, вес, качество и приёмка ещё могут изменить итоговую сумму.'],
+  ['Документы', 'СДИЗ, ЭДО, УПД и транспортные документы часто закрываются позже самой поставки.'],
+  ['Деньги', 'Выпуск средств должен идти не по переписке, а по подтверждённым событиям сделки.'],
 ];
 
 export default function Home() {
@@ -74,16 +70,16 @@ export default function Home() {
 
       <LandingHero />
 
-      <section id="problem" className="relative z-10 scroll-mt-28 py-20 md:py-24">
+      <section id="problem" className="relative z-10 scroll-mt-28 py-16 md:py-20">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="mb-12 max-w-3xl">
-            <div className="mb-5 inline-flex rounded-full border border-[rgba(255,139,144,0.24)] bg-[rgba(255,139,144,0.05)] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#FF8B90]">простая проблема</div>
-            <h2 className="mb-5 text-3xl font-black tracking-tight md:text-5xl">После цены начинается самая дорогая часть сделки.</h2>
-            <p className="text-lg leading-relaxed text-[#8BA89E]">Платформа нужна не для красивой витрины. Она показывает, что происходит со сделкой прямо сейчас: где груз, где документы, где деньги и что мешает оплате.</p>
+          <div className="mb-10 max-w-3xl">
+            <div className="mb-5 inline-flex rounded-full border border-[rgba(255,139,144,0.24)] bg-[rgba(255,139,144,0.05)] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#FF8B90]">где ломается сделка</div>
+            <h2 className="mb-5 text-3xl font-black tracking-tight md:text-5xl">Рынок теряет деньги не на поиске цены, а после неё.</h2>
+            <p className="text-lg leading-relaxed text-[#8BA89E]">Лендинг теперь говорит короче: платформа нужна там, где сделку надо довести до оплаты, документов и доказательств без ручного хаоса.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {pains.map(([title, text], index) => (
-              <div key={title} className="premium-card rounded-2xl p-6 transition hover:-translate-y-1">
+              <div key={title} className="premium-card motion-lift rounded-2xl p-6">
                 <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(255,139,144,0.18)] bg-[rgba(255,139,144,0.055)] font-mono text-sm font-black text-[#FF8B90]">{index + 1}</div>
                 <h3 className="mb-3 text-lg font-black text-white">{title}</h3>
                 <p className="text-sm leading-relaxed text-[#8BA89E]">{text}</p>
@@ -95,22 +91,18 @@ export default function Home() {
 
       <FortyEightHourResult />
       <LossMap />
-      <AgroScenarios />
       <RoleEntry />
       <PremiumMockups />
-      <LandingTrustBlocks />
-      <NotAnotherTool />
       <PilotSingleDeal />
-      <SampleLossCard />
 
-      <section id="contact" className="relative z-10 scroll-mt-28 overflow-hidden py-20 md:py-24">
+      <section id="contact" className="relative z-10 scroll-mt-28 overflow-hidden py-16 md:py-20">
         <div className="mx-auto max-w-5xl px-6 text-center">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[rgba(126,242,196,0.2)] bg-[rgba(126,242,196,0.05)] px-4 py-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-mint" />
             <span className="text-xs font-bold uppercase tracking-wide text-mint">следующий шаг</span>
           </div>
           <h2 className="mb-6 text-4xl font-black tracking-tight md:text-6xl">Покажем, где в вашей сделке зависают деньги.</h2>
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Опишите одну сделку: культура, объём, маршрут, приёмка, документы, оплата или спор. В ответ соберём понятную карту потерь и следующий пилотный шаг.</p>
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Опишите одну сделку. В ответ соберём короткую карту риска: рейс, качество, документы, оплата или спор.</p>
           <PilotLeadForm />
         </div>
       </section>
