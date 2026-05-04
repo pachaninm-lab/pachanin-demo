@@ -9,6 +9,7 @@ const disputes = [
     amount: '624 тыс. ₽',
     status: 'удержание активно',
     responsible: 'оператор',
+    sla: '4 часа до решения',
     next: 'закрыть акт расхождения и решение по удержанию',
     href: '/platform-v7/deals/DL-9102/clean',
     evidence: ['весовая ведомость', 'акт расхождения', 'фото приёмки', 'журнал рейса'],
@@ -21,10 +22,20 @@ const disputes = [
     amount: '9,65 млн ₽',
     status: 'выплата остановлена',
     responsible: 'лаборатория',
+    sla: 'до 18:00 сегодня',
     next: 'получить протокол ФГБУ ЦОК АПК и закрыть акт приёмки',
     href: '/platform-v7/elevator',
     evidence: ['проба', 'показатели качества', 'акт приёмки', 'журнал элеватора'],
   },
+] as const;
+
+const disputeSummary = [
+  { label: 'Что сейчас', value: '2 открытых спора', note: 'Каждый спор объясняет, почему деньги не выпущены или удержаны.' },
+  { label: 'Сумма влияния', value: '15,89 млн ₽', note: 'Включает активное удержание и сделку, где выпуск закрыт до качества.' },
+  { label: 'Удержание', value: '624 тыс. ₽', note: 'Удержание нельзя снять без решения, суммы и основания.' },
+  { label: 'SLA', value: '4 часа / до 18:00', note: 'Очередь должна сортироваться по срочности и влиянию на деньги.' },
+  { label: 'Владельцы', value: 'оператор · лаборатория · элеватор', note: 'У каждого спора есть владелец следующего шага.' },
+  { label: 'Доказательства', value: 'акт · вес · фото · протокол · журнал', note: 'Спор не закрывается устной перепиской или ручным обходом.' },
 ] as const;
 
 export default function PlatformV7DisputesPage() {
@@ -33,10 +44,22 @@ export default function PlatformV7DisputesPage() {
       <section style={hero}>
         <div style={badge}>Споры и удержания</div>
         <h1 style={h1}>Спор объясняет, почему деньги не выпущены</h1>
-        <p style={lead}>Здесь собраны причина удержания, сумма влияния, ответственный и доказательства. Спор не закрывается без решения, суммы и основания.</p>
+        <p style={lead}>Здесь собраны причина удержания, сумма влияния, SLA, ответственный и доказательства. Спор не закрывается без решения, суммы и основания.</p>
         <div style={actions}>
           <Link href='/platform-v7/operator' style={primaryBtn}>Центр управления</Link>
           <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
+          <Link href='/platform-v7/bank' style={ghostBtn}>Деньги и удержания</Link>
+        </div>
+      </section>
+
+      <section style={darkCard}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ ...micro, color: '#FECACA' }}>контроль спора</div>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
+          <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Спор — это сумма влияния, причина, SLA, владелец шага, доказательства и решение по деньгам.</p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+          {disputeSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
 
@@ -67,6 +90,10 @@ export default function PlatformV7DisputesPage() {
   );
 }
 
+function SummaryCard({ item }: { item: typeof disputeSummary[number] }) {
+  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#FECACA' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#FEE2E2', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+}
+
 function DisputeCard({ item }: { item: typeof disputes[number] }) {
   return (
     <Link href={item.href} style={disputeCard}>
@@ -80,9 +107,9 @@ function DisputeCard({ item }: { item: typeof disputes[number] }) {
       </div>
       <div style={grid2}>
         <Cell label='Сумма влияния' value={item.amount} danger />
+        <Cell label='SLA' value={item.sla} danger />
         <Cell label='Ответственный' value={item.responsible} />
         <Cell label='Следующее действие' value={item.next} strong />
-        <Cell label='Открыть' value='сделка / приёмка' />
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {item.evidence.map((evidence) => <span key={evidence} style={evidencePill}>{evidence}</span>)}
@@ -104,6 +131,7 @@ function Rule({ title, text }: { title: string; text: string }) {
 }
 
 const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#FFF7ED 100%)', border: '1px solid #E4E6EA', borderRadius: 26, padding: 22, display: 'grid', gap: 12 } as const;
+const darkCard = { background: '#7F1D1D', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(127,29,29,0.18)' } as const;
 const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
 const metric = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
