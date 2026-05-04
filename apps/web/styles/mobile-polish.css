@@ -90,6 +90,81 @@
   color: var(--p7-color-background) !important;
 }
 
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='#F8FAFB'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='#F8FAFB'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='#F8FAFB'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='#F5F7F8'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='#F5F7F8'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='#F5F7F8'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='#FFFFFF'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='#FFFFFF'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='#FFFFFF'] {
+  background: var(--p7-color-surface) !important;
+  border-color: var(--p7-color-border) !important;
+  color: var(--p7-color-text-primary) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='#F1F5F9'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='#F1F5F9'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='#F1F5F9'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='#F2F6F0'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='#F2F6F0'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='#F2F6F0'] {
+  background: var(--p7-color-surface-muted) !important;
+  border-color: var(--p7-color-border) !important;
+  color: var(--p7-color-text-primary) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#0F1419'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#111827'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#1E293B'] {
+  color: var(--p7-color-text-primary) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#334155'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#475569'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#64748B'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#667085'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#94A3B8'] {
+  color: var(--p7-color-text-secondary) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#E4E6EA'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#E5E7EB'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#CBD5E1'] {
+  border-color: var(--p7-color-border) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#ECFDF3'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#F0FDF4'] {
+  background: var(--p7-color-success-soft) !important;
+  color: var(--p7-color-success) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#FFFAEB'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#FEF3C7'] {
+  background: var(--p7-color-warning-soft) !important;
+  color: var(--p7-color-warning) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#FEF2F2'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='#FEF3F2'] {
+  background: var(--p7-color-danger-soft) !important;
+  color: var(--p7-color-danger) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='rgba(255,255,255'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='rgba(255, 255, 255'] {
+  background: color-mix(in srgb, var(--p7-color-surface) 86%, transparent) !important;
+  border-color: var(--p7-color-border) !important;
+  color: var(--p7-color-text-primary) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main button,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main a[role='button'] {
+  min-height: 44px;
+}
+
 @media (max-width: 768px) {
   .pc-shell-root {
     --pc-header-offset: 116px !important;
