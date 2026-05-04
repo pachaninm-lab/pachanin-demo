@@ -31,6 +31,16 @@ describe('platform-v7 dark role fixes', () => {
     expect(css).toContain('accent-color: var(--p7-color-brand)');
   });
 
+  it('uses runtime hardening for class-based light cards that are not inline-style matched', () => {
+    expect(normalizer).toContain('stabilizeDarkSurfaces');
+    expect(normalizer).toContain('window.getComputedStyle');
+    expect(normalizer).toContain('data-p7-dark-fixed');
+    expect(normalizer).toContain('themeObserver');
+    expect(normalizer).toContain('requestAnimationFrame');
+    expect(css).toContain("[data-p7-dark-fixed='surface']");
+    expect(css).toContain("[data-p7-dark-fixed='action']");
+  });
+
   it('normalizes risky runtime copy', () => {
     expect(normalizer).toContain('Зафиксировать решение: полный выпуск');
     expect(normalizer).toContain('Предпилотная готовность');
