@@ -23,7 +23,7 @@ const BASE: Deal360Scenario = {
   tripId: 'TRIP-SIM-001',
   route: 'Тамбовская область → Элеватор ВРЖ-08',
   releaseAllowed: false,
-  nextAction: 'закрыть СДИЗ, ЭТрН, УПД и протокол качества перед выплатой продавцу',
+  nextAction: 'закрыть СДИЗ, ЭТрН, ГИС ЭПД, УПД, акт приёмки, акт расхождения и протокол качества перед выплатой продавцу',
   chain: [
     { title: 'Лот', value: 'LOT-2403', state: 'ok' },
     { title: 'Ставка', value: 'принята', state: 'ok' },
@@ -47,6 +47,7 @@ const BASE: Deal360Scenario = {
     { provider: 'ФГИС «Зерно»', object: 'СДИЗ по партии', status: 'СДИЗ не подтверждён', impact: 'останавливает финальную выплату', state: 'stop' },
     { provider: 'Контур.Диадок', object: 'договор, УПД, акт', status: 'УПД ждёт подписи покупателя', impact: 'останавливает финальную выплату', state: 'stop' },
     { provider: 'СБИС / Saby ЭТрН', object: 'электронная транспортная накладная', status: 'ждёт подписи грузополучателя', impact: 'останавливает финальную выплату', state: 'stop' },
+    { provider: 'ГИС ЭПД', object: 'перевозочный документ', status: 'ожидает закрытия ЭТрН', impact: 'останавливает транспортное основание', state: 'wait' },
     { provider: 'КриптоПро DSS', object: 'КЭП / полномочия подписанта', status: 'сертификат доступен в тестовом контуре', impact: 'ошибка подписи остановит ЭДО', state: 'ok' },
     { provider: 'ATI.SU', object: 'расчёт перевозчика', status: 'перевозчик выбран в симуляции', impact: 'подтверждает транспортный сценарий', state: 'ok' },
     { provider: 'Wialon', object: 'телематика рейса', status: 'точка водителя 62% пути', impact: 'отклонение создаст инцидент', state: 'ok' },
@@ -58,8 +59,11 @@ const BASE: Deal360Scenario = {
     { title: 'Договор', source: 'Контур.Диадок', responsible: 'продавец + покупатель', status: 'подписан в тестовом контуре', blocksMoney: false },
     { title: 'УПД', source: 'Контур.Диадок', responsible: 'покупатель', status: 'ждёт подписи', blocksMoney: true },
     { title: 'ЭТрН', source: 'СБИС / Saby ЭТрН', responsible: 'грузополучатель', status: 'не закрыта всеми сторонами', blocksMoney: true },
+    { title: 'ГИС ЭПД', source: 'ГИС ЭПД', responsible: 'логист + перевозчик', status: 'ожидает закрытия ЭТрН', blocksMoney: true },
     { title: 'СДИЗ', source: 'ФГИС «Зерно»', responsible: 'продавец', status: 'не подтверждён', blocksMoney: true },
+    { title: 'КЭП / МЧД', source: 'КриптоПро DSS', responsible: 'уполномоченный подписант', status: 'тестовый сертификат доступен', blocksMoney: false },
     { title: 'Акт приёмки', source: 'приёмка + Контур.Диадок', responsible: 'элеватор', status: 'готовится', blocksMoney: true },
+    { title: 'Акт расхождения', source: 'элеватор + стороны сделки', responsible: 'элеватор + оператор', status: 'требуется при отклонении веса', blocksMoney: true },
     { title: 'Протокол качества', source: 'ФГБУ ЦОК АПК', responsible: 'лаборатория', status: 'ожидается', blocksMoney: true },
   ],
 };
