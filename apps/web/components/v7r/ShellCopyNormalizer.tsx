@@ -44,6 +44,8 @@ const TEXT_REPLACEMENTS: Array<[string, string]> = [
 ];
 
 const SIDE_DRAWER_HIDDEN_LINK_TEXT = new Set(['Инвестор', 'Демо']);
+const SURFACE_SELECTOR = 'section, article, div, a, button, label, li';
+const TEXT_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, span, strong, small, label, div';
 
 function normalizeNodeText(node: Node) {
   if (node.nodeType === Node.TEXT_NODE && node.textContent) {
@@ -60,6 +62,96 @@ function normalizeTree(root: ParentNode) {
   const nodes: Node[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
   nodes.forEach(normalizeNodeText);
+}
+
+function parseRgb(value: string) {
+  const match = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/i);
+  if (!match) return null;
+  return {
+    r: Number(match[1]),
+    g: Number(match[2]),
+    b: Number(match[3]),
+    a: match[4] === undefined ? 1 : Number(match[4]),
+  };
+}
+
+function isDarkRuntimeMode() {
+  const theme = document.documentElement.getAttribute('data-theme');
+  return theme !== 'light' && theme !== 'high-contrast';
+}
+
+function isNearWhite(value: string) {
+  const rgb = parseRgb(value);
+  if (!rgb || rgb.a < 0.55) return false;
+  return rgb.r >= 232 && rgb.g >= 232 && rgb.b >= 232;
+}
+
+function isPaleText(value: string) {
+  const rgb = parseRgb(value);
+  if (!rgb || rgb.a < 0.55) return false;
+  return rgb.r >= 176 && rgb.g >= 176 && rgb.b >= 176;
+}
+
+function hasVisibleBox(el: HTMLElement) {
+  const rect = el.getBoundingClientRect();
+  return rect.width >= 44 && rect.height >= 28;
+}
+
+function shouldSkipSurface(el: HTMLElement) {
+  const tag = el.tagName;
+  if (tag === 'HTML' || tag === 'BODY' || tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || tag === 'PATH' || tag === 'IMG') return true;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (el.closest('.pc-shell-header, .pc-fixed-header')) return true;
+  if (el.dataset.p7DarkFixed === 'surface' || el.dataset.p7DarkFixed === 'action') return true;
+  return false;
+}
+
+function markSurface(el: HTMLElement, mode: 'surface' | 'action') {
+  el.dataset.p7DarkFixed = mode;
+  el.style.background = mode === 'action' ? 'var(--p7-color-surface-muted)' : 'var(--p7-color-surface)';
+  el.style.backgroundColor = mode === 'action' ? 'var(--p7-color-surface-muted)' : 'var(--p7-color-surface)';
+  el.style.borderColor = 'var(--p7-color-border)';
+  el.style.color = 'var(--p7-color-text-primary)';
+  el.style.boxShadow = 'var(--pc-shadow-sm)';
+  if (mode === 'action') {
+    el.style.opacity = '1';
+  }
+}
+
+function stabilizeTextInside(surface: HTMLElement) {
+  const textNodes = Array.from(surface.querySelectorAll(TEXT_SELECTOR)) as HTMLElement[];
+  for (const node of textNodes) {
+    if (node.closest('button, a') && node.closest('button, a') !== surface) continue;
+    const computed = window.getComputedStyle(node);
+    const isHeading = /^H[1-6]$/.test(node.tagName) || node.tagName === 'STRONG';
+    if (isHeading || isPaleText(computed.color)) {
+      node.style.color = isHeading ? 'var(--p7-color-text-primary)' : 'var(--p7-color-text-secondary)';
+      node.style.opacity = '1';
+    }
+  }
+}
+
+function stabilizeDarkSurfaces(root: ParentNode = document) {
+  if (!isDarkRuntimeMode()) return;
+  const scopes = Array.from(document.querySelectorAll('.pc-main, main')) as HTMLElement[];
+  const scopeSet = new Set<HTMLElement>(scopes.length ? scopes : [document.body]);
+  const candidates: HTMLElement[] = [];
+
+  if (root instanceof HTMLElement && root.matches(SURFACE_SELECTOR)) candidates.push(root);
+  if ('querySelectorAll' in root) candidates.push(...(Array.from(root.querySelectorAll(SURFACE_SELECTOR)) as HTMLElement[]));
+
+  for (const el of candidates) {
+    if (shouldSkipSurface(el) || !hasVisibleBox(el)) continue;
+    const inScope = Array.from(scopeSet).some((scope) => scope === el || scope.contains(el));
+    if (!inScope) continue;
+
+    const computed = window.getComputedStyle(el);
+    if (!isNearWhite(computed.backgroundColor)) continue;
+
+    const mode = el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button' ? 'action' : 'surface';
+    markSurface(el, mode);
+    stabilizeTextInside(el);
+  }
 }
 
 function polishDrawer(root: ParentNode = document) {
@@ -139,6 +231,8 @@ export function ShellCopyNormalizer() {
     normalizeTree(document.body);
     polishDrawer(document.body);
     stabilizeHeaderLinks();
+    stabilizeDarkSurfaces(document.body);
+    requestAnimationFrame(() => stabilizeDarkSurfaces(document.body));
     document.addEventListener('click', handleHeaderNavigation, true);
     document.addEventListener('keydown', handleHeaderKeyboard, true);
     const observer = new MutationObserver((mutations) => {
@@ -148,15 +242,23 @@ export function ShellCopyNormalizer() {
           if (node instanceof Element) {
             normalizeTree(node);
             polishDrawer(node);
+            stabilizeDarkSurfaces(node);
           }
         });
       }
       polishDrawer(document.body);
       stabilizeHeaderLinks();
+      stabilizeDarkSurfaces(document.body);
+    });
+    const themeObserver = new MutationObserver(() => {
+      stabilizeDarkSurfaces(document.body);
+      requestAnimationFrame(() => stabilizeDarkSurfaces(document.body));
     });
     observer.observe(document.body, { childList: true, subtree: true });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => {
       observer.disconnect();
+      themeObserver.disconnect();
       document.removeEventListener('click', handleHeaderNavigation, true);
       document.removeEventListener('keydown', handleHeaderKeyboard, true);
     };
