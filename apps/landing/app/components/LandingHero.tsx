@@ -1,8 +1,8 @@
 const heroFeatures = [
   ['01', 'Сделка', 'цена, партия, стороны'],
-  ['02', 'Рейс', 'машина, маршрут, срок прибытия'],
-  ['03', 'Приёмка', 'вес, качество, документы'],
-  ['04', 'Деньги', 'выпуск, удержание, спор'],
+  ['02', 'Рейс', 'машина, маршрут'],
+  ['03', 'Приёмка', 'вес, качество'],
+  ['04', 'Деньги', 'выпуск, удержание'],
 ];
 
 const eventRows = [
@@ -30,14 +30,14 @@ export default function LandingHero() {
         <div className="reveal">
           <div className="mx-auto max-w-3xl text-center lg:mx-0 lg:text-left">
             <div className="hero-kicker mb-7 inline-flex rounded-full border border-[rgba(126,242,196,0.18)] bg-[rgba(126,242,196,0.055)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-mint shadow-[0_0_42px_rgba(126,242,196,0.08)] md:text-xs">
-              зерно · сделка · деньги · доказательства
+              сделка · деньги · доказательства
             </div>
             <h1 className="hero-title text-5xl font-black leading-[0.94] tracking-[-0.06em] text-white sm:text-6xl md:text-8xl">
               Деньги видны<br />
               <span className="gradient-text">до последнего шага</span>
             </h1>
             <p className="hero-subtitle mx-auto mt-6 max-w-2xl text-xl font-semibold leading-relaxed text-[#C9D8D2] md:text-2xl lg:mx-0">
-              Короткий цифровой контур зерновой сделки: цена, рейс, приёмка, документы, удержание и выпуск средств в одной проверяемой цепочке.
+              Цена, рейс, приёмка, документы, удержание и выпуск средств — в одной проверяемой цепочке.
             </p>
           </div>
 
