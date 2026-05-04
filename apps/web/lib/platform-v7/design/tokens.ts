@@ -105,7 +105,7 @@ export const PLATFORM_V7_DARK_TOKENS = {
     surfaceMuted: '#14211D',
     surfaceStrong: '#1B2B26',
     border: '#24342F',
-    borderStrong: '#3A4D46',
+    borderStrong: '#587169',
     text: '#E8F0EC',
     textPrimary: '#E8F0EC',
     textSecondary: '#B8C7C2',
