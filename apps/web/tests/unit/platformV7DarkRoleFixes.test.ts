@@ -41,6 +41,14 @@ describe('platform-v7 dark role fixes', () => {
     expect(css).toContain("[data-p7-dark-fixed='action']");
   });
 
+  it('uses runtime hardening for light gradient hero panels', () => {
+    expect(normalizer).toContain('isLargeHeroCandidate');
+    expect(normalizer).toContain('isLightGradient');
+    expect(normalizer).toContain('hasPaleHeroHeading');
+    expect(normalizer).toContain("p7DarkFixed = mode");
+    expect(normalizer).toContain("mode === 'hero'");
+  });
+
   it('normalizes risky runtime copy', () => {
     expect(normalizer).toContain('Зафиксировать решение: полный выпуск');
     expect(normalizer).toContain('Предпилотная готовность');
