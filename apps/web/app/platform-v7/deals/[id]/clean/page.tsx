@@ -1,9 +1,19 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { P7DealWorkspaceTabs } from '@/components/platform-v7/P7DealWorkspaceTabs';
 import { canonicalDomainDeals, selectDealById, selectDisputesByDealId } from '@/lib/domain/selectors';
 import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels';
-import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
+import {
+  DEAL360_DOCUMENT_LEVEL_LABELS,
+  DEAL360_READINESS_LABELS,
+  DEAL360_WORKSPACE_TABS,
+  getBlockedIrreversibleActions,
+  getDeal360ProviderReadinessSummary,
+  getDeal360Scenario,
+  type Deal360Readiness,
+  type Deal360State,
+} from '@/lib/platform-v7/deal360-source-of-truth';
 
 const border = '#E4E6EA';
 const text = '#0F1419';
@@ -36,26 +46,42 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
   }
 
   const scenario = getDeal360Scenario(deal.id);
+  const readinessSummary = getDeal360ProviderReadinessSummary(scenario);
+  const blockedIrreversibleActions = getBlockedIrreversibleActions(scenario);
   const canonicalDeal = canonicalDomainDeals.find((item) => item.id === deal.id);
   const releaseCheck = canonicalDeal ? evaluateReleaseGuard(canonicalDeal) : null;
   const releaseAmountRaw = releaseCheck?.releaseAmount ?? deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
   const releaseAmount = releaseCheck && !releaseCheck.canRequestRelease ? 0 : releaseAmountRaw;
   const disputes = selectDisputesByDealId(deal.id);
   const releaseReasons = releaseCheck?.blockers ?? [];
-  const hasBlockers = releaseReasons.length > 0 || deal.blockers.length > 0 || deal.holdAmount > 0 || disputes.length > 0 || !scenario.releaseAllowed;
+  const hasBlockers = releaseReasons.length > 0 || deal.blockers.length > 0 || deal.holdAmount > 0 || disputes.length > 0 || !scenario.releaseAllowed || blockedIrreversibleActions.length > 0;
 
   return (
     <main style={{ display: 'grid', gap: 16 }}>
       <section style={card()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Deal 360 · пилотный контур</p>
+            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Deal 360 · controlled-pilot</p>
             <h1 style={{ margin: '6px 0 0', fontSize: 28, color: text }}>{deal.id} · {scenario.lotId}</h1>
-            <p style={{ margin: '8px 0 0', color: muted, lineHeight: 1.55 }}>Цена, логистика, документы, деньги, спор и доказательства собраны в одном рабочем контуре. Внешние подключения показаны как симуляция по логике интеграции.</p>
+            <p style={{ margin: '8px 0 0', color: muted, lineHeight: 1.55 }}>Цена, логистика, документы, деньги, спор и доказательства собраны в одном рабочем контуре. Внешние подключения честно размечены по уровню готовности.</p>
           </div>
           <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
             {hasBlockers ? 'выплата остановлена' : 'готово к выплате'}
           </span>
+        </div>
+      </section>
+
+      <section style={{ ...card(), borderColor: 'rgba(180,83,9,0.28)', background: 'rgba(180,83,9,0.06)' }}>
+        <p style={{ margin: 0, color: amber, fontSize: 12, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Граница зрелости</p>
+        <h2 style={{ margin: '6px 0 0', color: text, fontSize: 20 }}>{scenario.maturityLabel}</h2>
+        <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>{scenario.runtimeStatus}</p>
+        <p style={{ margin: '8px 0 0', color: red, lineHeight: 1.55, fontWeight: 900 }}>{scenario.releasePolicy}</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+          {(Object.keys(readinessSummary) as Deal360Readiness[]).map((key) => (
+            <span key={key} style={{ border: `1px solid ${border}`, borderRadius: 999, background: '#fff', color: text, fontSize: 12, fontWeight: 900, padding: '6px 9px' }}>
+              {DEAL360_READINESS_LABELS[key]}: {readinessSummary[key]}
+            </span>
+          ))}
         </div>
       </section>
 
@@ -64,6 +90,15 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         <Cell label='Объём' value={`${deal.quantity} ${deal.unit}`} />
         <Cell label='Принятая ставка' value={scenario.acceptedBid} />
         <Cell label='Маршрут' value={scenario.route} />
+      </section>
+
+      <section style={card()}>
+        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Единое рабочее пространство сделки</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+          {DEAL360_WORKSPACE_TABS.map((tab) => (
+            <span key={tab} style={{ borderRadius: 999, border: `1px solid ${border}`, padding: '7px 10px', color: text, fontSize: 12, fontWeight: 900, background: '#F8FAFB' }}>{tab}</span>
+          ))}
+        </div>
       </section>
 
       <section style={card()}>
@@ -99,16 +134,18 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       </section>
 
       <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Интеграции в сделке · симуляция</p>
+        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Интеграционные gate-ы сделки</p>
         <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
           {scenario.providerGates.map((gate) => (
-            <div key={`${gate.provider}-${gate.object}`} style={{ border: `1px solid ${stateColor(gate.state, 'border')}`, background: stateColor(gate.state, 'bg'), borderRadius: 14, padding: 12, display: 'grid', gap: 5 }}>
+            <div key={`${gate.provider}-${gate.object}`} style={{ border: `1px solid ${stateColor(gate.state, 'border')}`, background: stateColor(gate.state, 'bg'), borderRadius: 14, padding: 12, display: 'grid', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                 <strong style={{ color: text, fontSize: 14 }}>{gate.provider}</strong>
-                <span style={{ color: stateColor(gate.state, 'text'), fontSize: 12, fontWeight: 900 }}>{gate.status}</span>
+                <span style={{ color: stateColor(gate.state, 'text'), fontSize: 12, fontWeight: 900 }}>{DEAL360_READINESS_LABELS[gate.readiness]} · {gate.status}</span>
               </div>
               <div style={{ color: muted, fontSize: 12 }}>{gate.object}</div>
               <div style={{ color: text, fontSize: 13, fontWeight: 800 }}>{gate.impact}</div>
+              <div style={{ color: muted, fontSize: 12, lineHeight: 1.35 }}>Основание: {gate.evidence}</div>
+              {gate.blocksIrreversibleAction ? <div style={{ color: red, fontSize: 12, fontWeight: 950 }}>Запрещает необратимое действие</div> : null}
             </div>
           ))}
         </div>
@@ -118,13 +155,26 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица документов</p>
         <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
           {scenario.documents.map((doc) => (
-            <div key={`${doc.title}-${doc.source}`} style={{ border: `1px solid ${doc.blocksMoney ? 'rgba(220,38,38,0.18)' : border}`, background: doc.blocksMoney ? redBg : '#fff', borderRadius: 14, padding: 12, display: 'grid', gridTemplateColumns: 'minmax(130px,1fr) minmax(130px,1fr)', gap: 8 }}>
+            <div key={`${doc.title}-${doc.source}`} style={{ border: `1px solid ${doc.blocksMoney ? 'rgba(220,38,38,0.18)' : border}`, background: doc.blocksMoney ? redBg : '#fff', borderRadius: 14, padding: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 }}>
               <CellInline label={doc.title} value={doc.source} />
               <CellInline label={doc.responsible} value={doc.status} danger={doc.blocksMoney} />
+              <CellInline label='Правовой уровень' value={DEAL360_DOCUMENT_LEVEL_LABELS[doc.legalLevel]} danger={doc.blocksMoney} />
+              <CellInline label='Внешний статус' value={doc.externalStatus} danger={doc.blocksMoney} />
             </div>
           ))}
         </div>
       </section>
+
+      {blockedIrreversibleActions.length > 0 ? (
+        <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
+          <p style={{ margin: 0, color: red, fontSize: 12, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Что нельзя делать сейчас</p>
+          <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+            {blockedIrreversibleActions.slice(0, 8).map((item) => (
+              <div key={item} style={{ color: text, fontSize: 13, fontWeight: 800 }}>— {item}</div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {hasBlockers ? (
         <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
@@ -160,11 +210,11 @@ function CellInline({ label, value, danger = false }: { label: string; value: st
   return <div><div style={{ color: muted, fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div><div style={{ marginTop: 4, color: danger ? red : text, fontSize: 13, fontWeight: 900 }}>{value}</div></div>;
 }
 
-function card(): React.CSSProperties {
+function card(): CSSProperties {
   return { background: '#fff', border: `1px solid ${border}`, borderRadius: 18, padding: 20 };
 }
 
-function grid(): React.CSSProperties {
+function grid(): CSSProperties {
   return { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 };
 }
 
@@ -175,6 +225,6 @@ function stateColor(state: Deal360State, part: 'bg' | 'border' | 'text') {
   return part === 'bg' ? '#F8FAFB' : part === 'border' ? border : muted;
 }
 
-function linkStyle(tone: 'default' | 'danger' = 'default'): React.CSSProperties {
+function linkStyle(tone: 'default' | 'danger' = 'default'): CSSProperties {
   return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
 }
