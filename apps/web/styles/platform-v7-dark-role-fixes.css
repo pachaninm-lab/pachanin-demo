@@ -2,7 +2,8 @@
    Scope: legacy runtime screens with inline light styles.
    Light and high-contrast themes are intentionally excluded. */
 
-:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main {
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) main {
   --p7-role-card: var(--p7-color-surface);
   --p7-role-card-muted: var(--p7-color-surface-muted);
   --p7-role-card-strong: var(--p7-color-background-elevated);
@@ -10,6 +11,45 @@
   --p7-role-text-secondary: var(--p7-color-text-secondary);
   --p7-role-text-muted: var(--p7-color-text-muted);
   --p7-role-border: var(--p7-color-border);
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'][style] {
+  background: var(--p7-role-card) !important;
+  background-color: var(--p7-role-card) !important;
+  border-color: var(--p7-role-border) !important;
+  color: var(--p7-role-text) !important;
+  box-shadow: var(--pc-shadow-sm) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='action'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='action'][style] {
+  background: var(--p7-role-card-muted) !important;
+  background-color: var(--p7-role-card-muted) !important;
+  border-color: var(--p7-role-border) !important;
+  color: var(--p7-role-text) !important;
+  opacity: 1 !important;
+  box-shadow: var(--pc-shadow-sm) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] h1,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] h2,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] h3,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] h4,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] h5,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] h6,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] strong {
+  color: var(--p7-role-text) !important;
+  opacity: 1 !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] p,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] span,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] small,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] label,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) [data-p7-dark-fixed='surface'] div {
+  color: var(--p7-role-text-secondary) !important;
+  opacity: 1 !important;
 }
 
 :root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='background: rgb(255, 255, 255)'],
