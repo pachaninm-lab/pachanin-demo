@@ -1,32 +1,30 @@
 import Link from 'next/link';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
 
-const steps = [
-  { number: '1', title: 'Склад продавца', state: 'пройдено', done: true },
-  { number: '2', title: 'Погрузка', state: 'подтверждена', done: true },
-  { number: '3', title: 'В пути', state: '62%', done: true },
-  { number: '4', title: 'Элеватор ВРЖ-08', state: 'следующий пункт', done: false },
+const yandexRouteUrl = 'https://yandex.ru/maps/?rtext=52.721246%2C41.452238~52.632233%2C41.443594&rtt=auto';
+
+const routeSteps = [
+  ['1', 'Склад продавца', 'пройдено'],
+  ['2', 'Погрузка', 'подтверждена'],
+  ['3', 'В пути', '62% маршрута'],
+  ['4', 'Элеватор ВРЖ-08', 'следующий пункт'],
 ] as const;
 
-const yandexRouteUrl = 'https://yandex.ru/maps/?rtext=52.721246%2C41.452238~52.632233%2C41.443594&rtt=auto';
+const routeDocs = [
+  ['ЭТрН', 'СБИС / Saby ЭТрН', 'ждёт подписи грузополучателя', 'wait'],
+  ['ГИС ЭПД', 'передача перевозочного документа', 'ожидает закрытия ЭТрН', 'wait'],
+  ['Пломба', 'фото и номер пломбы', 'зафиксирована', 'ok'],
+  ['Фото погрузки', 'журнал рейса', 'приложено', 'ok'],
+] as const;
 
 export default function DriverPage() {
   return (
     <main style={{ display: 'grid', gap: 14, width: '100%', maxWidth: 760, margin: '0 auto', padding: '4px 0 18px' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 14, boxShadow: '0 12px 28px rgba(15,20,25,0.04)' }}>
-        <div style={{ display: 'grid', gap: 8 }}>
-          <div style={{ display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>
-            Рейс водителя
-          </div>
-          <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px, 8vw, 44px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>
-            ТМБ-14 · склад продавца → элеватор ВРЖ-08
-          </h1>
-          <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.5 }}>
-            Водитель видит только свой рейс, маршрут и полевые действия. Деньги, ставки и контрагенты скрыты.
-          </p>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 10 }}>
+      <section style={card}>
+        <div style={badge}>Рейс водителя</div>
+        <h1 style={h1}>ТМБ-14 · склад продавца → элеватор ВРЖ-08</h1>
+        <p style={lead}>Водитель видит рейс, маршрут, документы рейса и полевые действия. Деньги, ставки и контрагенты скрыты.</p>
+        <div style={grid4}>
           <Info label='Рейс' value='TRIP-SIM-001' />
           <Info label='Сделка' value='DL-9106' />
           <Info label='Статус' value='В пути · 62%' accent />
@@ -34,113 +32,97 @@ export default function DriverPage() {
         </div>
       </section>
 
-      <YandexMapCard />
-
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 14, boxShadow: '0 12px 28px rgba(15,20,25,0.04)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <section style={card}>
+        <div style={topRow}>
           <div>
-            <div style={microLabel}>Маршрут</div>
-            <h2 style={{ margin: '5px 0 0', color: '#0F1419', fontSize: 26, lineHeight: 1.08, fontWeight: 950 }}>62% пути</h2>
+            <div style={micro}>Яндекс.Карты</div>
+            <h2 style={h2}>Маршрут рейса</h2>
+            <p style={muted}>Склад продавца → Элеватор ВРЖ-08 · точка водителя показана в тестовом сценарии.</p>
           </div>
-          <span style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '8px 12px', background: '#0F1419', color: '#fff', fontSize: 13, fontWeight: 900 }}>в пути</span>
+          <a href={yandexRouteUrl} target='_blank' rel='noreferrer' style={{ ...button, background: '#FFDD2D', borderColor: '#E8C600' }}>Открыть в Яндекс.Картах</a>
         </div>
+        <div style={mapBox}>
+          <div style={roadOne} />
+          <div style={roadTwo} />
+          <MapPoint left='12%' top='65%' label='Склад продавца' />
+          <MapPoint left='76%' top='21%' label='Элеватор ВРЖ-08' dark />
+          <div style={driverPoint}><span /></div>
+          <div style={mapStatus}>62% пути · ETA 14:28</div>
+        </div>
+      </section>
 
-        <div style={{ border: '1px solid #DDE5EC', borderRadius: 20, background: 'linear-gradient(135deg,#EAF7F1,#F8FBFF)', padding: 14, display: 'grid', gap: 10 }}>
-          {steps.map((step) => (
-            <div key={step.number} style={{ display: 'grid', gridTemplateColumns: '34px minmax(0, 1fr)', gap: 10, alignItems: 'center', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 12 }}>
-              <span style={{ width: 30, height: 30, borderRadius: 999, display: 'inline-grid', placeItems: 'center', background: step.done ? '#0A7A5F' : '#CBD5E1', color: '#fff', fontSize: 14, fontWeight: 950 }}>{step.number}</span>
-              <span style={{ display: 'grid', gap: 2 }}>
-                <strong style={{ color: '#0F1419', fontSize: 15, lineHeight: 1.2 }}>{step.title}</strong>
-                <span style={{ color: '#64748B', fontSize: 12 }}>{step.state}</span>
-              </span>
+      <section style={card}>
+        <div style={micro}>Документы рейса</div>
+        <div style={grid4}>
+          {routeDocs.map(([title, source, status, state]) => <DocGate key={title} title={title} source={source} status={status} state={state} />)}
+        </div>
+        <div style={notice}>Следующее действие: довезти груз до элеватора и подтвердить прибытие. Подпись грузополучателя по ЭТрН закрывает транспортное условие для выплаты.</div>
+      </section>
+
+      <section style={card}>
+        <div style={topRow}>
+          <div>
+            <div style={micro}>Маршрут</div>
+            <h2 style={h2}>62% пути</h2>
+          </div>
+          <span style={darkPill}>в пути</span>
+        </div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {routeSteps.map(([number, title, state], index) => (
+            <div key={title} style={stepRow}>
+              <span style={{ ...stepNo, background: index < 3 ? '#0A7A5F' : '#CBD5E1' }}>{number}</span>
+              <span><strong style={stepTitle}>{title}</strong><br /><span style={mutedSmall}>{state}</span></span>
             </div>
           ))}
         </div>
       </section>
 
-      <section style={{ background: '#ECFDF3', border: '1px solid #9AF5BB', borderRadius: 22, padding: 18, display: 'grid', gap: 5 }}>
-        <h2 style={{ margin: 0, color: '#15803D', fontSize: 'clamp(24px, 6.8vw, 34px)', lineHeight: 1.08, fontWeight: 950 }}>Прибытие зафиксировано в 14:28</h2>
-        <p style={{ margin: 0, color: '#16A34A', fontSize: 14 }}>Рейс ТМБ-14 · сделка DL-9106</p>
-      </section>
-
       <FieldDriverRuntime compact />
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 22, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={microLabel}>Связанные действия</div>
+      <section style={card}>
+        <div style={micro}>Связанные действия</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Link href='/platform-v7/elevator' style={buttonLink}>Приёмка</Link>
-          <Link href='/platform-v7/logistics/inbox' style={buttonLink}>Заявка логистики</Link>
+          <Link href='/platform-v7/elevator' style={button}>Приёмка</Link>
+          <Link href='/platform-v7/logistics/inbox' style={button}>Заявка логистики</Link>
         </div>
       </section>
     </main>
   );
 }
 
-function YandexMapCard() {
-  return (
-    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 12px 28px rgba(15,20,25,0.04)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(210px, 260px)', gap: 12, alignItems: 'start' }}>
-        <div>
-          <div style={microLabel}>Яндекс.Карты</div>
-          <h2 style={{ margin: '5px 0 0', color: '#0F1419', fontSize: 26, lineHeight: 1.08, fontWeight: 950 }}>Маршрут рейса ТМБ-14</h2>
-          <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13, lineHeight: 1.45 }}>Склад продавца → Элеватор ВРЖ-08 · ниже показана симуляция локации водителя.</p>
-        </div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          <a href={yandexRouteUrl} target='_blank' rel='noreferrer' style={{ ...buttonLink, background: '#FFDD2D', borderColor: '#E8C600', color: '#0F1419' }}>
-            Открыть в Яндекс.Картах
-          </a>
-          <div style={{ background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 16, padding: 12, display: 'grid', gap: 5 }}>
-            <div style={{ ...microLabel, color: '#0A7A5F' }}>Симуляция локации водителя</div>
-            <strong style={{ color: '#0F1419', fontSize: 15, lineHeight: 1.2 }}>52.6671, 41.4479</strong>
-            <span style={{ color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>62% пути · обновлено 14:28</span>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ position: 'relative', minHeight: 330, borderRadius: 20, overflow: 'hidden', border: '1px solid #DDE5EC', background: '#EAF2EA' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(255,255,255,0.42) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.42) 1px, transparent 1px), linear-gradient(135deg,#DDEFD9 0%,#EAF7F1 45%,#D9EAF8 100%)', backgroundSize: '42px 42px,42px 42px,auto' }} />
-        <div style={{ position: 'absolute', left: '-8%', top: '54%', width: '116%', height: 18, borderRadius: 999, background: '#FFFFFF', transform: 'rotate(-11deg)', boxShadow: '0 0 0 1px rgba(148,163,184,0.45)' }} />
-        <div style={{ position: 'absolute', left: '9%', top: '26%', width: '82%', height: 14, borderRadius: 999, background: '#FFFFFF', transform: 'rotate(17deg)', boxShadow: '0 0 0 1px rgba(148,163,184,0.36)' }} />
-        <div style={{ position: 'absolute', left: '18%', top: '72%', width: '58%', height: 12, borderRadius: 999, background: '#FFFFFF', transform: 'rotate(5deg)', boxShadow: '0 0 0 1px rgba(148,163,184,0.28)' }} />
-
-        <div style={{ position: 'absolute', left: '12%', top: '64%', display: 'grid', gap: 5 }}>
-          <span style={mapPin('#0A7A5F')} />
-          <span style={mapLabel}>Склад продавца</span>
-        </div>
-        <div style={{ position: 'absolute', right: '8%', top: '19%', display: 'grid', gap: 5, justifyItems: 'end' }}>
-          <span style={mapPin('#0F172A')} />
-          <span style={mapLabel}>Элеватор ВРЖ-08</span>
-        </div>
-
-        <div aria-label='Симулированная точка водителя на карте' style={{ position: 'absolute', left: '58%', top: '45%', transform: 'translate(-50%, -50%)', display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
-          <span style={{ width: 64, height: 64, borderRadius: 999, background: 'rgba(10,122,95,0.16)', border: '1px solid rgba(10,122,95,0.22)', display: 'inline-grid', placeItems: 'center' }}>
-            <span style={{ width: 28, height: 28, borderRadius: 999, background: '#0A7A5F', border: '5px solid #fff', boxShadow: '0 10px 26px rgba(15,20,25,0.35)' }} />
-          </span>
-        </div>
-
-        <div style={{ position: 'absolute', left: 12, top: 12, display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 999, padding: '8px 11px', background: '#FFDD2D', color: '#0F1419', fontSize: 13, fontWeight: 950, boxShadow: '0 8px 22px rgba(15,20,25,0.12)' }}>Яндекс.Карта · демо</div>
-        <div style={{ position: 'absolute', left: 12, bottom: 12, display: 'grid', gap: 6, maxWidth: 'calc(100% - 24px)' }}>
-          <div style={{ display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '8px 11px', background: 'rgba(15,20,25,0.88)', color: '#fff', fontSize: 13, fontWeight: 900 }}>62% пути · ETA 14:28</div>
-          <div style={{ display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '7px 10px', background: 'rgba(255,255,255,0.94)', color: '#0F1419', fontSize: 12, fontWeight: 850, border: '1px solid #E4E6EA' }}>Симулированная точка водителя на маршруте</div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function Info({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div style={{ background: accent ? 'rgba(10,122,95,0.08)' : '#F8FAFB', border: `1px solid ${accent ? 'rgba(10,122,95,0.18)' : '#E4E6EA'}`, borderRadius: 16, padding: 13, display: 'grid', gap: 6 }}>
-      <span style={microLabel}>{label}</span>
-      <strong style={{ color: accent ? '#0A7A5F' : '#0F1419', fontSize: 15, lineHeight: 1.2 }}>{value}</strong>
-    </div>
-  );
+  return <div style={{ ...smallCard, background: accent ? 'rgba(10,122,95,0.08)' : '#F8FAFB', borderColor: accent ? 'rgba(10,122,95,0.18)' : '#E4E6EA' }}><div style={micro}>{label}</div><strong style={{ color: accent ? '#0A7A5F' : '#0F1419', fontSize: 15 }}>{value}</strong></div>;
 }
 
-function mapPin(color: string) {
-  return { width: 18, height: 18, borderRadius: 999, background: color, border: '4px solid #fff', boxShadow: '0 6px 16px rgba(15,20,25,0.24)' } as const;
+function DocGate({ title, source, status, state }: { title: string; source: string; status: string; state: 'ok' | 'wait' }) {
+  const wait = state === 'wait';
+  return <div style={{ ...smallCard, background: wait ? 'rgba(217,119,6,0.08)' : 'rgba(10,122,95,0.06)', borderColor: wait ? 'rgba(217,119,6,0.18)' : 'rgba(10,122,95,0.18)' }}><div style={{ ...micro, color: wait ? '#B45309' : '#0A7A5F' }}>{title}</div><strong style={{ color: '#0F1419', fontSize: 13 }}>{status}</strong><span style={mutedSmall}>{source}</span></div>;
 }
 
-const microLabel = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+function MapPoint({ left, top, label, dark = false }: { left: string; top: string; label: string; dark?: boolean }) {
+  return <div style={{ position: 'absolute', left, top, display: 'grid', gap: 5 }}><span style={{ width: 18, height: 18, borderRadius: 999, background: dark ? '#0F172A' : '#0A7A5F', border: '4px solid #fff', boxShadow: '0 6px 16px rgba(15,20,25,0.24)' }} /><span style={mapLabel}>{label}</span></div>;
+}
+
+const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 14, boxShadow: '0 12px 28px rgba(15,20,25,0.04)' } as const;
+const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
+const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px, 8vw, 44px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const h2 = { margin: '5px 0 0', color: '#0F1419', fontSize: 26, lineHeight: 1.08, fontWeight: 950 } as const;
+const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.5 } as const;
+const muted = { margin: '6px 0 0', color: '#64748B', fontSize: 13, lineHeight: 1.45 } as const;
+const mutedSmall = { color: '#64748B', fontSize: 12, lineHeight: 1.35 } as const;
+const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const grid4 = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10 } as const;
+const topRow = { display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' } as const;
+const smallCard = { border: '1px solid #E4E6EA', borderRadius: 16, padding: 12, display: 'grid', gap: 5, minWidth: 0 } as const;
+const button = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
+const darkPill = { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '8px 12px', background: '#0F1419', color: '#fff', fontSize: 13, fontWeight: 900 } as const;
+const mapBox = { position: 'relative', minHeight: 330, borderRadius: 20, overflow: 'hidden', border: '1px solid #DDE5EC', background: 'linear-gradient(135deg,#DDEFD9 0%,#EAF7F1 45%,#D9EAF8 100%)' } as const;
+const roadOne = { position: 'absolute', left: '-8%', top: '54%', width: '116%', height: 18, borderRadius: 999, background: '#fff', transform: 'rotate(-11deg)', boxShadow: '0 0 0 1px rgba(148,163,184,0.45)' } as const;
+const roadTwo = { position: 'absolute', left: '9%', top: '26%', width: '82%', height: 14, borderRadius: 999, background: '#fff', transform: 'rotate(17deg)', boxShadow: '0 0 0 1px rgba(148,163,184,0.36)' } as const;
+const driverPoint = { position: 'absolute', left: '58%', top: '45%', transform: 'translate(-50%,-50%)', width: 64, height: 64, borderRadius: 999, background: 'rgba(10,122,95,0.16)', border: '1px solid rgba(10,122,95,0.22)', display: 'grid', placeItems: 'center' } as const;
+const mapStatus = { position: 'absolute', left: 12, bottom: 12, borderRadius: 999, padding: '8px 11px', background: 'rgba(15,20,25,0.88)', color: '#fff', fontSize: 13, fontWeight: 900 } as const;
 const mapLabel = { display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '6px 9px', background: 'rgba(255,255,255,0.92)', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 850 } as const;
-const buttonLink = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
+const notice = { background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#B45309', borderRadius: 14, padding: 12, fontSize: 13, fontWeight: 900, lineHeight: 1.4 } as const;
+const stepRow = { display: 'grid', gridTemplateColumns: '34px minmax(0,1fr)', gap: 10, alignItems: 'center', background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 16, padding: 12 } as const;
+const stepNo = { width: 30, height: 30, borderRadius: 999, display: 'inline-grid', placeItems: 'center', color: '#fff', fontSize: 14, fontWeight: 950 } as const;
+const stepTitle = { color: '#0F1419', fontSize: 15, lineHeight: 1.2 } as const;
