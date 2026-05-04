@@ -15,6 +15,7 @@ import '@/styles/theme.css';
 import '@/styles/enterprise-ui.css';
 import '@/styles/design-fixes.css';
 import '@/styles/mobile-polish.css';
+import '@/styles/platform-v7-dark-role-fixes.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',

@@ -1,0 +1,139 @@
+/* Platform v7 dark role runtime fixes.
+   Scope: legacy runtime screens with inline light styles.
+   Light and high-contrast themes are intentionally excluded. */
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main {
+  --p7-role-card: var(--p7-color-surface);
+  --p7-role-card-muted: var(--p7-color-surface-muted);
+  --p7-role-card-strong: var(--p7-color-background-elevated);
+  --p7-role-text: var(--p7-color-text-primary);
+  --p7-role-text-secondary: var(--p7-color-text-secondary);
+  --p7-role-text-muted: var(--p7-color-text-muted);
+  --p7-role-border: var(--p7-color-border);
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='background: rgb(255, 255, 255)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='background: rgb(255, 255, 255)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='background: rgb(255, 255, 255)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main form[style*='background: rgb(255, 255, 255)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='background-color: rgb(255, 255, 255)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='background-color: rgb(255, 255, 255)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='background-color: rgb(255, 255, 255)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main form[style*='background-color: rgb(255, 255, 255)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='background: #fff'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='background: #fff'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='background: #fff'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main form[style*='background: #fff'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='background: white'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='background: white'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='background: white'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main form[style*='background: white'] {
+  background: var(--p7-role-card) !important;
+  border-color: var(--p7-role-border) !important;
+  color: var(--p7-role-text) !important;
+  box-shadow: var(--pc-shadow-sm) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='background: rgb(248, 250, 251)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='background: rgb(248, 250, 251)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='background: rgb(248, 250, 251)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='background: rgb(245, 247, 248)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='background: rgb(245, 247, 248)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='background: rgb(245, 247, 248)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main section[style*='background: rgb(241, 245, 249)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main article[style*='background: rgb(241, 245, 249)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main div[style*='background: rgb(241, 245, 249)'] {
+  background: var(--p7-role-card-muted) !important;
+  border-color: var(--p7-role-border) !important;
+  color: var(--p7-role-text) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main h1,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main h2,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main h3,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='color: rgb(15, 20, 25)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='color: rgb(17, 24, 39)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='color: rgb(31, 41, 55)'] {
+  color: var(--p7-role-text) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main p,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main label,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main th,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main td,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='color: rgb(51, 65, 85)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='color: rgb(71, 85, 105)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='color: rgb(100, 116, 139)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='color: rgb(107, 119, 140)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='color: rgb(148, 163, 184)'] {
+  color: var(--p7-role-text-secondary) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main input,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main textarea,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main select {
+  background: var(--p7-role-card-strong) !important;
+  border-color: var(--p7-role-border) !important;
+  color: var(--p7-role-text) !important;
+  min-height: 44px;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main input::placeholder,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main textarea::placeholder {
+  color: var(--p7-role-text-muted) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main input[type='radio'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main input[type='checkbox'] {
+  accent-color: var(--p7-color-brand);
+  min-height: auto;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main table,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main thead,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main tbody,
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main tr {
+  background: transparent !important;
+  color: var(--p7-role-text) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='border: 1px solid rgb(228, 230, 234)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='border-color: rgb(228, 230, 234)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='border-bottom: 1px solid rgb(241, 243, 245)'] {
+  border-color: var(--p7-role-border) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='background: rgb(254, 242, 242)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='background: rgb(254, 243, 242)'] {
+  background: var(--p7-color-danger-soft) !important;
+  color: var(--p7-color-danger) !important;
+  border-color: color-mix(in srgb, var(--p7-color-danger) 32%, transparent) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='background: rgb(255, 250, 235)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='background: rgb(254, 243, 199)'] {
+  background: var(--p7-color-warning-soft) !important;
+  color: var(--p7-color-warning) !important;
+  border-color: color-mix(in srgb, var(--p7-color-warning) 32%, transparent) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='background: rgb(240, 253, 244)'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main [style*='background: rgb(236, 253, 243)'] {
+  background: var(--p7-color-success-soft) !important;
+  color: var(--p7-color-success) !important;
+  border-color: color-mix(in srgb, var(--p7-color-success) 32%, transparent) !important;
+}
+
+@media (max-width: 768px) {
+  .pc-alert-panel {
+    top: calc(env(safe-area-inset-top) + 88px) !important;
+    right: 10px !important;
+    max-width: min(360px, calc(100vw - 20px)) !important;
+  }
+
+  .pc-main [style*='minHeight: 44'],
+  .pc-main button,
+  .pc-main a[style] {
+    min-height: 44px !important;
+  }
+}

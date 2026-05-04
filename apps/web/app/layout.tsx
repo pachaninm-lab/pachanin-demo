@@ -1,4 +1,5 @@
 import './globals.css';
+import '@/styles/platform-v7-dark-role-fixes.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import Script from 'next/script';
