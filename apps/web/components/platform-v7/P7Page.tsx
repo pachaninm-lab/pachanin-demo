@@ -5,24 +5,29 @@ export interface P7PageProps {
   readonly children: ReactNode;
   readonly title?: ReactNode;
   readonly subtitle?: ReactNode;
+  readonly eyebrow?: ReactNode;
   readonly actions?: ReactNode;
   readonly testId?: string;
+  readonly maxWidth?: number | string;
 }
 
-export function P7Page({ children, title, subtitle, actions, testId }: P7PageProps) {
+export function P7Page({ children, title, subtitle, eyebrow, actions, testId, maxWidth = 1440 }: P7PageProps) {
   return (
     <main
       data-testid={testId}
       style={{
         display: 'grid',
         gap: PLATFORM_V7_TOKENS.spacing.xl,
+        width: '100%',
+        maxWidth,
+        margin: '0 auto',
         minHeight: '100%',
         background: PLATFORM_V7_TOKENS.color.background,
-        color: PLATFORM_V7_TOKENS.color.text,
+        color: PLATFORM_V7_TOKENS.color.textPrimary,
         fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
       }}
     >
-      {(title || subtitle || actions) && (
+      {(title || subtitle || eyebrow || actions) && (
         <header
           style={{
             display: 'flex',
@@ -32,16 +37,30 @@ export function P7Page({ children, title, subtitle, actions, testId }: P7PagePro
             flexWrap: 'wrap',
           }}
         >
-          <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs, minWidth: 260 }}>
+          <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs, minWidth: 260, maxWidth: 860 }}>
+            {eyebrow && (
+              <div
+                style={{
+                  color: PLATFORM_V7_TOKENS.color.textMuted,
+                  fontSize: PLATFORM_V7_TOKENS.typography.micro.size,
+                  lineHeight: PLATFORM_V7_TOKENS.typography.micro.lineHeight,
+                  fontWeight: PLATFORM_V7_TOKENS.typography.micro.weight,
+                  letterSpacing: PLATFORM_V7_TOKENS.typography.micro.letterSpacing,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {eyebrow}
+              </div>
+            )}
             {title && (
               <h1
                 style={{
                   margin: 0,
-                  color: PLATFORM_V7_TOKENS.color.text,
+                  color: PLATFORM_V7_TOKENS.color.textPrimary,
                   fontSize: PLATFORM_V7_TOKENS.typography.h1.size,
                   lineHeight: PLATFORM_V7_TOKENS.typography.h1.lineHeight,
                   fontWeight: PLATFORM_V7_TOKENS.typography.h1.weight,
-                  letterSpacing: '-0.03em',
+                  letterSpacing: PLATFORM_V7_TOKENS.typography.h1.letterSpacing,
                 }}
               >
                 {title}
@@ -50,7 +69,7 @@ export function P7Page({ children, title, subtitle, actions, testId }: P7PagePro
             {subtitle && (
               <div
                 style={{
-                  color: PLATFORM_V7_TOKENS.color.textMuted,
+                  color: PLATFORM_V7_TOKENS.color.textSecondary,
                   fontSize: PLATFORM_V7_TOKENS.typography.body.size,
                   lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight,
                   fontWeight: PLATFORM_V7_TOKENS.typography.body.weight,
