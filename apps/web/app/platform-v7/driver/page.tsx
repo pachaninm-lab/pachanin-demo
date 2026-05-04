@@ -17,18 +17,38 @@ const routeDocs = [
   ['Фото погрузки', 'журнал рейса', 'приложено', 'ok'],
 ] as const;
 
+const driverSummary = [
+  { label: 'Что сейчас', value: 'TRIP-SIM-001 · в пути · 62%', note: 'Водитель работает только с текущим рейсом и ближайшим действием.' },
+  { label: 'Куда ехать', value: 'склад продавца → элеватор ВРЖ-08', note: 'Маршрут открыт в Яндекс.Картах, ETA — 14:28.' },
+  { label: 'Что подтвердить', value: 'прибытие, пломба, фото, отклонение', note: 'Каждое полевое действие сохраняется в журнале рейса.' },
+  { label: 'Документы рейса', value: 'ЭТрН ждёт подписи · ГИС ЭПД после ЭТрН', note: 'Водитель видит только транспортные документы своего рейса.' },
+  { label: 'Что скрыто', value: 'деньги, ставки, банк, покупатель, кредит', note: 'Полевой кабинет не раскрывает коммерческие и банковские данные.' },
+  { label: 'Если нет связи', value: 'действия сохраняются локально', note: 'Очередь событий уходит после восстановления сети.' },
+] as const;
+
 export default function DriverPage() {
   return (
     <main style={{ display: 'grid', gap: 14, width: '100%', maxWidth: 760, margin: '0 auto', padding: '4px 0 18px' }}>
       <section style={card}>
         <div style={badge}>Рейс водителя</div>
         <h1 style={h1}>ТМБ-14 · склад продавца → элеватор ВРЖ-08</h1>
-        <p style={lead}>Водитель видит рейс, маршрут, документы рейса и полевые действия. Деньги, ставки и контрагенты скрыты.</p>
+        <p style={lead}>Водитель видит только свой рейс, маршрут, транспортные документы и полевые действия. Деньги, ставки, банк, покупатель и кредит скрыты.</p>
         <div style={grid4}>
           <Info label='Рейс' value='TRIP-SIM-001' />
-          <Info label='Сделка' value='DL-9106' />
+          <Info label='Контур' value='только перевозка' />
           <Info label='Статус' value='В пути · 62%' accent />
           <Info label='ETA' value='14:28' />
+        </div>
+      </section>
+
+      <section style={darkCard}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ ...micro, color: '#A7F3D0' }}>полевой экран</div>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,34px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что водитель должен понять за 5 секунд</h2>
+          <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Один рейс, один маршрут, одно следующее действие. Никаких ставок, денег, банка, покупателя и кредитных сценариев.</p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+          {driverSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
 
@@ -90,6 +110,10 @@ export default function DriverPage() {
   );
 }
 
+function SummaryCard({ item }: { item: typeof driverSummary[number] }) {
+  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#A7F3D0' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#CBD5E1', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+}
+
 function Info({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return <div style={{ ...smallCard, background: accent ? 'rgba(10,122,95,0.08)' : '#F8FAFB', borderColor: accent ? 'rgba(10,122,95,0.18)' : '#E4E6EA' }}><div style={micro}>{label}</div><strong style={{ color: accent ? '#0A7A5F' : '#0F1419', fontSize: 15 }}>{value}</strong></div>;
 }
@@ -104,6 +128,7 @@ function MapPoint({ left, top, label, dark = false }: { left: string; top: strin
 }
 
 const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 14, boxShadow: '0 12px 28px rgba(15,20,25,0.04)' } as const;
+const darkCard = { background: '#0F172A', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(15,23,42,0.18)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px, 8vw, 44px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '5px 0 0', color: '#0F1419', fontSize: 26, lineHeight: 1.08, fontWeight: 950 } as const;
