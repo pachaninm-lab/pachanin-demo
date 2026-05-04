@@ -34,7 +34,7 @@ describe('platform-v7 dark role fixes', () => {
   it('uses runtime hardening for class-based light cards that are not inline-style matched', () => {
     expect(normalizer).toContain('stabilizeDarkSurfaces');
     expect(normalizer).toContain('window.getComputedStyle');
-    expect(normalizer).toContain('data-p7-dark-fixed');
+    expect(normalizer).toContain('p7DarkFixed');
     expect(normalizer).toContain('themeObserver');
     expect(normalizer).toContain('requestAnimationFrame');
     expect(css).toContain("[data-p7-dark-fixed='surface']");
