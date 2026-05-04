@@ -1,0 +1,38 @@
+[data-testid^='role-execution-summary-'],
+[data-testid^='platform-v7-audit-surface-'],
+[data-testid^='platform-v7-system-surface-'],
+[data-testid='platform-v7-money-tree-strip'] {
+  background: var(--p7-color-surface) !important;
+  border-color: var(--p7-color-border) !important;
+  color: var(--p7-color-text-primary) !important;
+  box-shadow: var(--pc-shadow-sm) !important;
+}
+
+[data-testid^='role-execution-summary-'] h1,
+[data-testid^='platform-v7-audit-surface-'] h1,
+[data-testid^='platform-v7-system-surface-'] h1 {
+  color: var(--p7-color-text-primary) !important;
+}
+
+[data-testid^='role-execution-summary-'] article,
+[data-testid^='platform-v7-audit-surface-'] article,
+[data-testid^='platform-v7-system-surface-'] article {
+  background: var(--p7-color-surface-muted) !important;
+  border-color: var(--p7-color-border) !important;
+  color: var(--p7-color-text-primary) !important;
+}
+
+[data-testid='platform-command-center-hero'] a:first-of-type {
+  background: var(--p7-color-text-primary) !important;
+  color: var(--p7-color-background) !important;
+}
+
+@media (max-width: 768px) {
+  [data-testid^='role-execution-summary-'],
+  [data-testid^='platform-v7-audit-surface-'],
+  [data-testid^='platform-v7-system-surface-'],
+  [data-testid='platform-v7-money-tree-strip'] {
+    border-radius: 18px !important;
+    padding: 14px !important;
+  }
+}
