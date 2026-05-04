@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { P7Badge } from '@/components/platform-v7/P7Badge';
 import { P7Card } from '@/components/platform-v7/P7Card';
+import { P7DealSpine } from '@/components/platform-v7/P7DealSpine';
+import { P7Hero } from '@/components/platform-v7/P7Hero';
 import { P7MetricCard } from '@/components/platform-v7/P7MetricCard';
 import { P7Page } from '@/components/platform-v7/P7Page';
 import { P7Section } from '@/components/platform-v7/P7Section';
@@ -19,6 +21,13 @@ describe('platform-v7 design tokens', () => {
     expect(PLATFORM_V7_TOKENS.color.integration).toBe('#0E9384');
   });
 
+  it('keeps role and audit surface colors explicit', () => {
+    expect(PLATFORM_V7_TOKENS.color.bank).toBe('#1E293B');
+    expect(PLATFORM_V7_TOKENS.color.logistics).toBe('#5B21B6');
+    expect(PLATFORM_V7_TOKENS.color.document).toBe('#0369A1');
+    expect(PLATFORM_V7_TOKENS.color.dispute).toBe('#9F1239');
+  });
+
   it('returns tone tokens for product states', () => {
     expect(getPlatformV7ToneTokens('success')).toMatchObject({ fg: '#027A48' });
     expect(getPlatformV7ToneTokens('warning')).toMatchObject({ fg: '#B54708' });
@@ -26,12 +35,21 @@ describe('platform-v7 design tokens', () => {
     expect(getPlatformV7ToneTokens('money')).toMatchObject({ fg: '#155EEF' });
     expect(getPlatformV7ToneTokens('evidence')).toMatchObject({ fg: '#6941C6' });
     expect(getPlatformV7ToneTokens('integration')).toMatchObject({ fg: '#0E9384' });
+    expect(getPlatformV7ToneTokens('bank')).toMatchObject({ fg: '#1E293B' });
+    expect(getPlatformV7ToneTokens('logistics')).toMatchObject({ fg: '#5B21B6' });
+    expect(getPlatformV7ToneTokens('document')).toMatchObject({ fg: '#0369A1' });
+    expect(getPlatformV7ToneTokens('dispute')).toMatchObject({ fg: '#9F1239' });
   });
 
-  it('keeps spacing and typography numeric', () => {
+  it('keeps spacing, radius and typography normalized', () => {
     expect(PLATFORM_V7_TOKENS.spacing.md).toBe(16);
-    expect(PLATFORM_V7_TOKENS.radius.lg).toBe(16);
+    expect(PLATFORM_V7_TOKENS.spacing.section).toBe(40);
+    expect(PLATFORM_V7_TOKENS.spacing.xxl).toBe(56);
+    expect(PLATFORM_V7_TOKENS.radius.lg).toBe(20);
+    expect(PLATFORM_V7_TOKENS.radius.xl).toBe(28);
     expect(PLATFORM_V7_TOKENS.typography.metric.size).toBe(30);
+    expect(PLATFORM_V7_TOKENS.typography.display.size).toBe(56);
+    expect(PLATFORM_V7_TOKENS.typography.micro.size).toBe(11);
   });
 });
 
@@ -41,12 +59,25 @@ describe('platform-v7 contrast helpers', () => {
   });
 
   it('keeps base text colors AA-compliant on the main surface', () => {
-    expect(meetsWcagAaText(PLATFORM_V7_TOKENS.color.text, PLATFORM_V7_TOKENS.color.surface)).toBe(true);
-    expect(meetsWcagAaText(PLATFORM_V7_TOKENS.color.textMuted, PLATFORM_V7_TOKENS.color.surface)).toBe(true);
+    expect(meetsWcagAaText(PLATFORM_V7_TOKENS.color.textPrimary, PLATFORM_V7_TOKENS.color.surface)).toBe(true);
+    expect(meetsWcagAaText(PLATFORM_V7_TOKENS.color.textSecondary, PLATFORM_V7_TOKENS.color.surface)).toBe(true);
   });
 
   it('keeps semantic tone pairs UI-AA compliant', () => {
-    const tones: readonly PlatformV7Tone[] = ['neutral', 'success', 'warning', 'danger', 'info', 'money', 'evidence', 'integration'];
+    const tones: readonly PlatformV7Tone[] = [
+      'neutral',
+      'success',
+      'warning',
+      'danger',
+      'info',
+      'money',
+      'evidence',
+      'integration',
+      'bank',
+      'logistics',
+      'document',
+      'dispute',
+    ];
 
     for (const tone of tones) {
       const colors = getPlatformV7ToneTokens(tone);
@@ -103,14 +134,15 @@ describe('P7MetricCard', () => {
 });
 
 describe('P7Page', () => {
-  it('renders page title, subtitle, actions and content', () => {
+  it('renders page title, subtitle, eyebrow, actions and content', () => {
     render(
-      <P7Page title='Центр управления' subtitle='Единый контур сделки' actions={<button type='button'>Фильтр</button>} testId='p7-page'>
+      <P7Page title='Центр управления' subtitle='Единый контур сделки' eyebrow='операционный экран' actions={<button type='button'>Фильтр</button>} testId='p7-page'>
         Рабочая область
       </P7Page>,
     );
 
     expect(screen.getByTestId('p7-page')).toBeInTheDocument();
+    expect(screen.getByText('операционный экран')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Центр управления' })).toBeInTheDocument();
     expect(screen.getByText('Единый контур сделки')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Фильтр' })).toBeInTheDocument();
@@ -138,6 +170,17 @@ describe('P7Section', () => {
     expect(screen.getByRole('button', { name: 'Экспорт' })).toBeInTheDocument();
     expect(screen.getByText('Карточки очереди')).toBeInTheDocument();
   });
+
+  it('can render a premium card surface', () => {
+    render(
+      <P7Section surface='card' title='Банковский контур' testId='p7-section-card'>
+        Условия выпуска
+      </P7Section>,
+    );
+
+    expect(screen.getByTestId('p7-section-card')).toHaveStyle({ background: '#FFFFFF' });
+    expect(screen.getByText('Условия выпуска')).toBeInTheDocument();
+  });
 });
 
 describe('P7Toolbar', () => {
@@ -153,5 +196,44 @@ describe('P7Toolbar', () => {
     expect(screen.getByRole('button', { name: 'Фильтры' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Сохранить вид' })).toBeInTheDocument();
     expect(screen.getByTestId('p7-toolbar')).toHaveStyle({ background: '#FFFFFF' });
+  });
+});
+
+describe('P7Hero', () => {
+  it('renders premium hero content', () => {
+    render(
+      <P7Hero title='Цифровой контур исполнения сделки' subtitle='Деньги, груз, документы и спор в одной линии' eyebrow='controlled-pilot' testId='p7-hero'>
+        <span>Deal spine</span>
+      </P7Hero>,
+    );
+
+    expect(screen.getByTestId('p7-hero')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Цифровой контур исполнения сделки' })).toBeInTheDocument();
+    expect(screen.getByText('controlled-pilot')).toBeInTheDocument();
+    expect(screen.getByText('Деньги, груз, документы и спор в одной линии')).toBeInTheDocument();
+    expect(screen.getByText('Deal spine')).toBeInTheDocument();
+  });
+});
+
+describe('P7DealSpine', () => {
+  it('renders deal execution steps with semantic tones', () => {
+    render(
+      <P7DealSpine
+        testId='p7-deal-spine'
+        steps={[
+          { label: 'лот', value: 'LOT-2403', tone: 'document' },
+          { label: 'деньги', value: 'резерв', tone: 'bank' },
+          { label: 'рейс', value: 'TRIP-SIM-001', tone: 'logistics' },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId('p7-deal-spine')).toBeInTheDocument();
+    expect(screen.getByText('лот')).toBeInTheDocument();
+    expect(screen.getByText('LOT-2403')).toBeInTheDocument();
+    expect(screen.getByText('деньги')).toBeInTheDocument();
+    expect(screen.getByText('резерв')).toBeInTheDocument();
+    expect(screen.getByText('рейс')).toBeInTheDocument();
+    expect(screen.getByText('TRIP-SIM-001')).toBeInTheDocument();
   });
 });
