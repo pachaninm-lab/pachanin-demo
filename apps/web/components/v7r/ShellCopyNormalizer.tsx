@@ -47,6 +47,8 @@ const SIDE_DRAWER_HIDDEN_LINK_TEXT = new Set(['Инвестор', 'Демо']);
 const SURFACE_SELECTOR = 'section, article, div, a, button, label, li';
 const TEXT_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, span, strong, small, label, div';
 
+type DarkSurfaceMode = 'surface' | 'action' | 'hero';
+
 function normalizeNodeText(node: Node) {
   if (node.nodeType === Node.TEXT_NODE && node.textContent) {
     let next = node.textContent;
@@ -97,19 +99,46 @@ function hasVisibleBox(el: HTMLElement) {
   return rect.width >= 44 && rect.height >= 28;
 }
 
+function isLargeHeroCandidate(el: HTMLElement) {
+  const rect = el.getBoundingClientRect();
+  if (rect.width < 260 || rect.height < 220) return false;
+  if (!el.querySelector('h1, h2')) return false;
+  if (el.closest('[aria-label*="карта" i], [data-map], .map, .ymaps')) return false;
+  return true;
+}
+
+function isLightGradient(value: string) {
+  if (!value || value === 'none') return false;
+  const normalized = value.toLowerCase();
+  if (!normalized.includes('gradient') && !normalized.includes('rgb') && !normalized.includes('#fff') && !normalized.includes('white')) return false;
+  return /rgb[a]?\(\s*(23[2-9]|24\d|25[0-5])\s*,\s*(23[2-9]|24\d|25[0-5])\s*,\s*(23[2-9]|24\d|25[0-5])/.test(normalized) || normalized.includes('#fff') || normalized.includes('white');
+}
+
+function hasPaleHeroHeading(el: HTMLElement) {
+  const heading = el.querySelector('h1, h2') as HTMLElement | null;
+  if (!heading) return false;
+  return isPaleText(window.getComputedStyle(heading).color);
+}
+
 function shouldSkipSurface(el: HTMLElement) {
   const tag = el.tagName;
   if (tag === 'HTML' || tag === 'BODY' || tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || tag === 'PATH' || tag === 'IMG') return true;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (el.closest('.pc-shell-header, .pc-fixed-header')) return true;
-  if (el.dataset.p7DarkFixed === 'surface' || el.dataset.p7DarkFixed === 'action') return true;
+  if (el.dataset.p7DarkFixed === 'surface' || el.dataset.p7DarkFixed === 'action' || el.dataset.p7DarkFixed === 'hero') return true;
   return false;
 }
 
-function markSurface(el: HTMLElement, mode: 'surface' | 'action') {
+function markSurface(el: HTMLElement, mode: DarkSurfaceMode) {
   el.dataset.p7DarkFixed = mode;
-  el.style.background = mode === 'action' ? 'var(--p7-color-surface-muted)' : 'var(--p7-color-surface)';
-  el.style.backgroundColor = mode === 'action' ? 'var(--p7-color-surface-muted)' : 'var(--p7-color-surface)';
+  if (mode === 'hero') {
+    el.style.background = 'linear-gradient(145deg, var(--p7-color-surface), var(--p7-color-background-elevated))';
+    el.style.backgroundColor = 'var(--p7-color-surface)';
+    el.style.backgroundImage = 'linear-gradient(145deg, var(--p7-color-surface), var(--p7-color-background-elevated))';
+  } else {
+    el.style.background = mode === 'action' ? 'var(--p7-color-surface-muted)' : 'var(--p7-color-surface)';
+    el.style.backgroundColor = mode === 'action' ? 'var(--p7-color-surface-muted)' : 'var(--p7-color-surface)';
+  }
   el.style.borderColor = 'var(--p7-color-border)';
   el.style.color = 'var(--p7-color-text-primary)';
   el.style.boxShadow = 'var(--pc-shadow-sm)';
@@ -118,13 +147,13 @@ function markSurface(el: HTMLElement, mode: 'surface' | 'action') {
   }
 }
 
-function stabilizeTextInside(surface: HTMLElement) {
+function stabilizeTextInside(surface: HTMLElement, mode: DarkSurfaceMode = 'surface') {
   const textNodes = Array.from(surface.querySelectorAll(TEXT_SELECTOR)) as HTMLElement[];
   for (const node of textNodes) {
     if (node.closest('button, a') && node.closest('button, a') !== surface) continue;
     const computed = window.getComputedStyle(node);
     const isHeading = /^H[1-6]$/.test(node.tagName) || node.tagName === 'STRONG';
-    if (isHeading || isPaleText(computed.color)) {
+    if (mode === 'hero' || isHeading || isPaleText(computed.color)) {
       node.style.color = isHeading ? 'var(--p7-color-text-primary)' : 'var(--p7-color-text-secondary)';
       node.style.opacity = '1';
     }
@@ -146,11 +175,13 @@ function stabilizeDarkSurfaces(root: ParentNode = document) {
     if (!inScope) continue;
 
     const computed = window.getComputedStyle(el);
-    if (!isNearWhite(computed.backgroundColor)) continue;
+    const hasLightSurface = isNearWhite(computed.backgroundColor);
+    const hasLightHeroGradient = isLargeHeroCandidate(el) && (isLightGradient(computed.backgroundImage) || hasPaleHeroHeading(el));
+    if (!hasLightSurface && !hasLightHeroGradient) continue;
 
-    const mode = el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button' ? 'action' : 'surface';
+    const mode: DarkSurfaceMode = hasLightHeroGradient ? 'hero' : el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button' ? 'action' : 'surface';
     markSurface(el, mode);
-    stabilizeTextInside(el);
+    stabilizeTextInside(el, mode);
   }
 }
 
