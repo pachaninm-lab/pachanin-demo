@@ -17,8 +17,11 @@ const orders = [
     eta: '14:28',
     progress: '62%',
     incidents: 'нет',
+    etrn: 'СБИС / Saby ЭТрН · ждёт подписи грузополучателя',
+    gisEpd: 'ГИС ЭПД · ожидает передачи после подписи',
+    fgis: 'ФГИС «Зерно» · СДИЗ не подтверждён',
     docs: 'транспортный пакет на проверке',
-    next: 'контроль прибытия',
+    next: 'контроль прибытия и подписи ЭТрН',
     href: '/platform-v7/driver',
   },
   {
@@ -37,8 +40,11 @@ const orders = [
     eta: 'прибыл 14:28',
     progress: '100%',
     incidents: 'есть отклонение веса',
-    docs: 'не подписаны',
-    next: 'закрыть инцидент',
+    etrn: 'СБИС / Saby ЭТрН · подписана перевозчиком',
+    gisEpd: 'ГИС ЭПД · принята',
+    fgis: 'ФГИС «Зерно» · СДИЗ подтверждён',
+    docs: 'акт расхождения не подписан',
+    next: 'закрыть инцидент и акт удержания',
     href: '/platform-v7/driver',
   },
   {
@@ -57,10 +63,20 @@ const orders = [
     eta: '7–14 дней',
     progress: '0%',
     incidents: 'нет',
+    etrn: 'СБИС / Saby ЭТрН · не создана',
+    gisEpd: 'ГИС ЭПД · не отправлено',
+    fgis: 'ФГИС «Зерно» · партия ожидает сверки',
     docs: 'не создан рейс',
-    next: 'назначить водителя',
+    next: 'назначить водителя и создать ЭТрН',
     href: '/platform-v7/logistics/inbox',
   },
+] as const;
+
+const gates = [
+  { title: 'СБИС / Saby ЭТрН', value: '1 ждёт подписи · 1 подписана · 1 не создана', state: 'stop' },
+  { title: 'ГИС ЭПД', value: 'передача после подписания ЭТрН', state: 'wait' },
+  { title: 'ФГИС «Зерно»', value: 'СДИЗ влияет на выпуск денег', state: 'stop' },
+  { title: 'Wialon', value: '2 водителя с текущим статусом', state: 'ok' },
 ] as const;
 
 export default function LogisticsPage() {
@@ -73,11 +89,12 @@ export default function LogisticsPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
         <div style={badge}>Кабинет логистики</div>
-        <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Заявки, водители и рейсы</h1>
-        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Логистика видит только исполнение перевозки: заявку, сделку, маршрут, водителя, машину, ETA, документы и инциденты. Деньги и ставки не раскрываются.</p>
+        <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Заявки, водители, ЭТрН и маршрут</h1>
+        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Логистика видит исполнение перевозки: заявку, сделку, водителя, машину, маршрут, ETA, ЭТрН, ГИС ЭПД, СДИЗ и инциденты. Деньги и ставки не раскрываются.</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/logistics/inbox' style={primaryBtn}>Входящие заявки</Link>
           <Link href='/platform-v7/driver' style={ghostBtn}>Открыть рейс водителя</Link>
+          <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
         </div>
       </section>
 
@@ -86,6 +103,13 @@ export default function LogisticsPage() {
         <Metric label='Прибыли' value={String(arrived)} good />
         <Metric label='Инцидентов' value={String(incidents)} danger={incidents > 0} />
         <Metric label='Заказов' value={String(orders.length)} />
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={micro}>Документные условия перевозки</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 }}>
+          {gates.map((gate) => <Gate key={gate.title} gate={gate} />)}
+        </div>
       </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
@@ -98,6 +122,15 @@ export default function LogisticsPage() {
         {orders.map((order) => <OrderCard key={order.id} order={order} />)}
       </section>
     </main>
+  );
+}
+
+function Gate({ gate }: { gate: typeof gates[number] }) {
+  return (
+    <div style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 16, padding: 13 }}>
+      <div style={{ ...micro, color: stateText(gate.state) }}>{gate.title}</div>
+      <div style={{ marginTop: 6, color: '#0F1419', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{gate.value}</div>
+    </div>
   );
 }
 
@@ -116,8 +149,8 @@ function DriverCard({ order }: { order: typeof orders[number] }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 }}>
         <Cell label='Где водитель' value={order.driverLocation} strong={!hasIncident} />
         <Cell label='На каком заказе' value={`${order.id} · ${order.crop}`} />
-        <Cell label='Маршрут' value={order.route} />
-        <Cell label='ETA / обновлено' value={`${order.eta} · ${order.driverUpdated}`} strong />
+        <Cell label='ЭТрН' value={order.etrn} danger={order.etrn.includes('ждёт') || order.etrn.includes('не создана')} />
+        <Cell label='ГИС ЭПД' value={order.gisEpd} danger={order.gisEpd.includes('ожидает') || order.gisEpd.includes('не отправлено')} />
       </div>
       <div style={{ background: hasIncident ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 14, padding: 11, color: hasIncident ? '#B91C1C' : '#0A7A5F', fontSize: 13, fontWeight: 900 }}>
         Следующее действие логиста: {order.next}
@@ -147,6 +180,8 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
         <Cell label='Машина' value={order.vehicle} />
         <Cell label='ETA' value={order.eta} strong={isActive} />
         <Cell label='Прогресс' value={order.progress} strong={isActive} />
+        <Cell label='ЭТрН' value={order.etrn} danger={order.etrn.includes('ждёт') || order.etrn.includes('не создана')} />
+        <Cell label='СДИЗ' value={order.fgis} danger={order.fgis.includes('не подтверждён') || order.fgis.includes('ожидает')} />
         <Cell label='Документы' value={order.docs} danger={order.docs.includes('не')} />
         <Cell label='Инциденты' value={order.incidents} danger={hasIncident} />
       </div>
@@ -174,6 +209,22 @@ function Cell({ label, value, strong = false, danger = false }: { label: string;
       <div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.25, fontWeight: 900, overflowWrap: 'break-word' }}>{value}</div>
     </div>
   );
+}
+
+function stateBg(state: string) {
+  if (state === 'ok') return 'rgba(10,122,95,0.06)';
+  if (state === 'stop') return 'rgba(220,38,38,0.06)';
+  return 'rgba(217,119,6,0.06)';
+}
+function stateBorder(state: string) {
+  if (state === 'ok') return 'rgba(10,122,95,0.18)';
+  if (state === 'stop') return 'rgba(220,38,38,0.18)';
+  return 'rgba(217,119,6,0.18)';
+}
+function stateText(state: string) {
+  if (state === 'ok') return '#0A7A5F';
+  if (state === 'stop') return '#B91C1C';
+  return '#B45309';
 }
 
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
