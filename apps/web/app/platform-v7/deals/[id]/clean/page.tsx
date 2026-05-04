@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { P7DealWorkspaceTabs } from '@/components/platform-v7/P7DealWorkspaceTabs';
 import { canonicalDomainDeals, selectDealById, selectDisputesByDealId } from '@/lib/domain/selectors';
 import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
@@ -209,11 +210,11 @@ function CellInline({ label, value, danger = false }: { label: string; value: st
   return <div><div style={{ color: muted, fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div><div style={{ marginTop: 4, color: danger ? red : text, fontSize: 13, fontWeight: 900 }}>{value}</div></div>;
 }
 
-function card(): React.CSSProperties {
+function card(): CSSProperties {
   return { background: '#fff', border: `1px solid ${border}`, borderRadius: 18, padding: 20 };
 }
 
-function grid(): React.CSSProperties {
+function grid(): CSSProperties {
   return { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 };
 }
 
@@ -224,6 +225,6 @@ function stateColor(state: Deal360State, part: 'bg' | 'border' | 'text') {
   return part === 'bg' ? '#F8FAFB' : part === 'border' ? border : muted;
 }
 
-function linkStyle(tone: 'default' | 'danger' = 'default'): React.CSSProperties {
+function linkStyle(tone: 'default' | 'danger' = 'default'): CSSProperties {
   return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
 }
