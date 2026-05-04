@@ -9,7 +9,7 @@ const lots = [
     state: 'Победитель выбран',
     ends: 'торги завершены',
     payout: 'выплата остановлена до закрытия документов',
-    money: ['Резерв: 9,65 млн ₽', 'К выплате сейчас: 0 ₽', 'СДИЗ: не подтверждён', 'ЭТрН: ждёт подписи'],
+    money: ['Сумма сделки: 9,65 млн ₽', 'Резерв: 9,65 млн ₽', 'К выплате сейчас: 0 ₽', 'СДИЗ: не подтверждён', 'ЭТрН: ждёт подписи'],
     chain: ['Победитель: Покупатель 1', 'Сделка DL-9106', 'Резерв 9,65 млн ₽', 'Логистика LOG-REQ-2403', 'Рейс TRIP-SIM-001'],
     bids: [
       { buyer: 'Покупатель 1', region: 'Воронежская область', rating: 91, price: '16 080 ₽/т', volume: '600 т', money: 'готов к резерву', time: 'принята 2 мин назад', status: 'Принята' },
@@ -35,6 +35,22 @@ const lots = [
   },
 ] as const;
 
+const sellerSummary = [
+  { label: 'Что сейчас', value: 'LOT-2403 → победитель выбран → DL-9106', note: 'Ставка принята, но это ещё не выплата продавцу.' },
+  { label: 'Где деньги', value: 'Резерв 9,65 млн ₽ · к выплате 0 ₽', note: 'Видна готовность денег и условия выплаты, без внутренних финансовых лимитов покупателя.' },
+  { label: 'Где груз', value: 'LOG-REQ-2403 / TRIP-SIM-001', note: 'Рейс ждёт погрузки и подтверждения слота.' },
+  { label: 'Где документы', value: 'СДИЗ, ЭТрН, УПД, КЭП', note: 'Неполный пакет останавливает выпуск денег.' },
+  { label: 'Что блокирует', value: 'СДИЗ не оформлен', note: 'Следом закрываются транспортный пакет, подписи, приёмка и качество.' },
+  { label: 'Кто следующий', value: 'продавец + оператор + логистика', note: 'Каждый шаг должен иметь ответственного и след в журнале.' },
+] as const;
+
+const payoutDocs = [
+  { name: 'СДИЗ', source: 'ФГИС «Зерно»', owner: 'продавец + оператор', status: 'не оформлен', impact: 'останавливает финальный выпуск денег' },
+  { name: 'ЭТрН', source: 'СБИС / Saby + ГИС ЭПД', owner: 'логистика + перевозчик', status: 'ждёт подписи', impact: 'останавливает закрытие рейса' },
+  { name: 'УПД', source: 'Контур.Диадок', owner: 'продавец + покупатель', status: 'не запущен', impact: 'останавливает расчётное закрытие' },
+  { name: 'КЭП', source: 'КриптоПро DSS', owner: 'подписант продавца', status: 'не подписан', impact: 'останавливает юридически значимое подписание' },
+] as const;
+
 export default function PlatformV7SellerPage() {
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
@@ -44,7 +60,29 @@ export default function PlatformV7SellerPage() {
         <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Продавец видит лоты, обезличенные ставки, числовой рейтинг покупателей, победителя, резерв и условия выплаты. Деньги не показываются как доступные, пока не закрыты СДИЗ, ЭТрН, приёмка и документы.</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/lots/create' style={primaryBtn}>Создать лот</Link>
+          <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть Deal 360</Link>
           <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
+          <Link href='/platform-v7/logistics' style={ghostBtn}>Рейс и логистика</Link>
+        </div>
+      </section>
+
+      <section style={{ background: '#0F172A', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(15,23,42,0.18)' }}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ ...micro, color: '#A7F3D0' }}>Контроль выплаты по DL-9106</div>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что продавец должен понять за 5 секунд</h2>
+          <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Победитель выбран, но деньги ещё не доступны. Причина должна быть видна сразу: документы, рейс, приёмка, качество и спор.</p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+          {sellerSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={micro}>Документы, влияющие на выплату</div>
+        <h2 style={{ margin: 0, color: '#0F1419', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Почему продавцу ещё нельзя выплатить деньги</h2>
+        <p style={{ margin: 0, color: '#64748B', fontSize: 14, lineHeight: 1.55 }}>Каждый документ имеет источник, ответственного, статус и прямое влияние на выпуск денег. Внутренняя карточка не заменяет ФГИС, ЭДО, ГИС ЭПД и КЭП.</p>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {payoutDocs.map((doc) => <DocRow key={doc.name} doc={doc} />)}
         </div>
       </section>
 
@@ -93,6 +131,14 @@ export default function PlatformV7SellerPage() {
   );
 }
 
+function SummaryCard({ item }: { item: typeof sellerSummary[number] }) {
+  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#94A3B8' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#CBD5E1', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+}
+
+function DocRow({ doc }: { doc: typeof payoutDocs[number] }) {
+  return <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 9, background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 16, padding: 13 }}><DocCell label='Документ' value={doc.name} strong /><DocCell label='Источник' value={doc.source} /><DocCell label='Ответственный' value={doc.owner} /><DocCell label='Статус' value={doc.status} warning /><DocCell label='Влияние' value={doc.impact} /></div>;
+}
+
 function BidRow({ bid }: { bid: typeof lots[number]['bids'][number] }) {
   const isBest = bid.status === 'Принята' || bid.status === 'Лучшая ставка';
   return (
@@ -119,6 +165,9 @@ function Cell({ label, value, strong = false }: { label: string; value: string; 
 }
 function Mini({ value }: { value: string }) {
   return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, color: '#0F1419', fontSize: 13, fontWeight: 900 }}>{value}</div>;
+}
+function DocCell({ label, value, strong = false, warning = false }: { label: string; value: string; strong?: boolean; warning?: boolean }) {
+  return <div><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0F1419' : '#475569', fontSize: 13, lineHeight: 1.45, fontWeight: strong || warning ? 900 : 750 }}>{value}</div></div>;
 }
 
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
