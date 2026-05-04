@@ -7,6 +7,7 @@ import { AiShellEnhancer } from '@/components/v7r/AiShellEnhancer';
 import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSummaryGate';
 import { RoleExecutionSummaryGate } from '@/components/platform-v7/RoleExecutionSummaryGate';
+import { SystemRouteSummaryGate } from '@/components/platform-v7/SystemRouteSummaryGate';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -49,6 +50,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <AiShellEnhancer />
           <RoleExecutionSummaryGate />
           <AuditSurfaceSummaryGate />
+          <SystemRouteSummaryGate />
           {children}
         </>
       </AppShellV3>
