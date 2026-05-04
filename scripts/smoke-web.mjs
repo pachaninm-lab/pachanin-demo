@@ -2,13 +2,18 @@
 
 const DEFAULT_PATHS = [
   '/platform-v7',
-  '/platform-v7/control-tower',
-  '/platform-v7/deals',
-  '/platform-v7/deals/DL-9102',
+  '/platform-v7/seller',
   '/platform-v7/buyer',
-  '/platform-v7/compliance',
-  '/platform-v7/field',
-  '/platform-v7/disputes/DK-2024-89',
+  '/platform-v7/logistics',
+  '/platform-v7/driver',
+  '/platform-v7/elevator',
+  '/platform-v7/bank',
+  '/platform-v7/operator',
+  '/platform-v7/disputes',
+  '/platform-v7/documents',
+  '/platform-v7/connectors',
+  '/platform-v7/deals/DL-9106/clean',
+  '/platform-v7/lots/LOT-2403',
 ];
 
 const baseUrl = normalizeBaseUrl(
