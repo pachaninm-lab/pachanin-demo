@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { ExternalCopyGuard } from './ExternalCopyGuard';
 import { SystemRouteSummary } from './SystemRouteSummary';
 
 type SystemSurface =
@@ -36,7 +37,10 @@ export function SystemRouteSummaryGate() {
   const pathname = usePathname();
   const surface = getPlatformV7SystemSurface(pathname);
 
-  if (!surface) return null;
-
-  return <SystemRouteSummary surface={surface} />;
+  return (
+    <>
+      <ExternalCopyGuard />
+      {surface ? <SystemRouteSummary surface={surface} /> : null}
+    </>
+  );
 }
