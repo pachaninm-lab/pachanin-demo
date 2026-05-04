@@ -33,6 +33,15 @@ const bankQueue = [
   },
 ] as const;
 
+const releaseSummary = [
+  { label: 'Что сейчас', value: 'DL-9106 · выпуск денег закрыт', note: 'Сделка есть, но выпуск продавцу невозможен без закрытых условий.' },
+  { label: 'Где деньги', value: 'резерв ожидает подтверждения · к выплате 0 ₽', note: 'Банк видит резерв, удержание и основание остановки, а не декоративную кнопку выплаты.' },
+  { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Каждый блокер должен иметь источник, ответственного, статус и влияние на деньги.' },
+  { label: 'Где груз', value: 'TRIP-SIM-001 · приёмка и качество в работе', note: 'Транспортный и приёмочный факты нужны как основание для выпуска.' },
+  { label: 'Решение банка', value: 'не выпускать', note: 'В controlled-pilot нет заявления о live-выплате или боевом банковском callback.' },
+  { label: 'Кто следующий', value: 'оператор + владелец документа', note: 'Следующее действие фиксируется в сделке и журнале.' },
+] as const;
+
 const gates = mainDeal.providerGates.filter((gate) => ['Сбер · Безопасные сделки', 'Сбер · Оплата в кредит', 'ФГИС «Зерно»', 'Контур.Диадок', 'СБИС / Saby ЭТрН', 'ФГБУ ЦОК АПК'].includes(gate.provider));
 
 export default function PlatformV7BankPage() {
@@ -45,6 +54,17 @@ export default function PlatformV7BankPage() {
         <div style={actions}>
           <Link href='/platform-v7/bank/release-safety' style={primaryBtn}>Проверка выплаты</Link>
           <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Deal 360</Link>
+        </div>
+      </section>
+
+      <section style={darkCard}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ ...micro, color: '#CBD5E1' }}>release safety</div>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что банк должен понять за 5 секунд</h2>
+          <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Выплата продавцу не является ручной кнопкой. Это результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+          {releaseSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
 
@@ -113,6 +133,10 @@ export default function PlatformV7BankPage() {
   );
 }
 
+function SummaryCard({ item }: { item: typeof releaseSummary[number] }) {
+  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#CBD5E1' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#CBD5E1', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+}
+
 function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
   return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16 }}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : '#0F1419', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div></div>;
 }
@@ -141,6 +165,7 @@ function stateText(state: Deal360State) {
 }
 
 const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 26, padding: 22, display: 'grid', gap: 12 } as const;
+const darkCard = { background: '#0F172A', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(15,23,42,0.18)' } as const;
 const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(15,23,42,0.08)', border: '1px solid rgba(15,23,42,0.18)', color: '#0F172A', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
