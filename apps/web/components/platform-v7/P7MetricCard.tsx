@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { PLATFORM_V7_TOKENS, getPlatformV7ToneTokens, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
+import { PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
+import { P7_THEME_CSS, getP7ToneCssVariables } from '@/components/platform-v7/p7Theme';
 
 export interface P7MetricCardProps {
   readonly title: ReactNode;
@@ -11,7 +12,7 @@ export interface P7MetricCardProps {
 }
 
 export function P7MetricCard({ title, value, note, footer, tone = 'neutral', testId }: P7MetricCardProps) {
-  const toneTokens = getPlatformV7ToneTokens(tone);
+  const toneTokens = getP7ToneCssVariables(tone);
 
   return (
     <section
@@ -23,12 +24,13 @@ export function P7MetricCard({ title, value, note, footer, tone = 'neutral', tes
         border: `1px solid ${toneTokens.border}`,
         borderRadius: PLATFORM_V7_TOKENS.radius.xl,
         background: toneTokens.bg,
+        color: P7_THEME_CSS.color.textPrimary,
         padding: PLATFORM_V7_TOKENS.spacing.lg,
       }}
     >
       <div
         style={{
-          color: PLATFORM_V7_TOKENS.color.textMuted,
+          color: P7_THEME_CSS.color.textMuted,
           fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
           fontSize: PLATFORM_V7_TOKENS.typography.caption.size,
           lineHeight: PLATFORM_V7_TOKENS.typography.caption.lineHeight,
@@ -41,7 +43,7 @@ export function P7MetricCard({ title, value, note, footer, tone = 'neutral', tes
       </div>
       <div
         style={{
-          color: PLATFORM_V7_TOKENS.color.text,
+          color: P7_THEME_CSS.color.text,
           fontFamily: PLATFORM_V7_TOKENS.typography.fontMono,
           fontSize: PLATFORM_V7_TOKENS.typography.metric.size,
           lineHeight: PLATFORM_V7_TOKENS.typography.metric.lineHeight,
@@ -54,7 +56,7 @@ export function P7MetricCard({ title, value, note, footer, tone = 'neutral', tes
       {note && (
         <div
           style={{
-            color: PLATFORM_V7_TOKENS.color.textMuted,
+            color: P7_THEME_CSS.color.textMuted,
             fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
             fontSize: PLATFORM_V7_TOKENS.typography.caption.size,
             lineHeight: PLATFORM_V7_TOKENS.typography.caption.lineHeight,
