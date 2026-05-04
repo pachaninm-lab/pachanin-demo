@@ -20,38 +20,38 @@ const moneySignals = [
 
 export default function LandingHero() {
   return (
-    <section id="top" className="lux-line relative min-h-screen scroll-mt-28 pt-[92px] grid-bg">
+    <section id="top" className="landing-hero lux-line relative min-h-screen scroll-mt-28 pt-[92px] grid-bg">
       <div className="orb orb-a" />
       <div className="orb orb-b" />
       <div className="hero-scanline" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_72%_52%_at_50%_0%,rgba(10,122,95,0.26),transparent_72%)]" />
 
-      <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-10 px-5 pb-20 pt-10 md:px-6 md:pt-14 lg:grid-cols-[0.92fr_1.08fr]">
+      <div className="landing-hero-inner relative z-10 mx-auto grid max-w-7xl items-center gap-10 px-5 pb-20 pt-10 md:px-6 md:pt-14 lg:grid-cols-[0.92fr_1.08fr]">
         <div className="reveal">
           <div className="mx-auto max-w-3xl text-center lg:mx-0 lg:text-left">
-            <div className="mb-7 inline-flex rounded-full border border-[rgba(126,242,196,0.18)] bg-[rgba(126,242,196,0.055)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-mint shadow-[0_0_42px_rgba(126,242,196,0.08)] md:text-xs">
+            <div className="hero-kicker mb-7 inline-flex rounded-full border border-[rgba(126,242,196,0.18)] bg-[rgba(126,242,196,0.055)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-mint shadow-[0_0_42px_rgba(126,242,196,0.08)] md:text-xs">
               зерно · сделка · деньги · доказательства
             </div>
-            <h1 className="text-5xl font-black leading-[0.94] tracking-[-0.06em] text-white sm:text-6xl md:text-8xl">
+            <h1 className="hero-title text-5xl font-black leading-[0.94] tracking-[-0.06em] text-white sm:text-6xl md:text-8xl">
               Деньги видны<br />
               <span className="gradient-text">до последнего шага</span>
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-xl font-semibold leading-relaxed text-[#C9D8D2] md:text-2xl lg:mx-0">
+            <p className="hero-subtitle mx-auto mt-6 max-w-2xl text-xl font-semibold leading-relaxed text-[#C9D8D2] md:text-2xl lg:mx-0">
               Короткий цифровой контур зерновой сделки: цена, рейс, приёмка, документы, удержание и выпуск средств в одной проверяемой цепочке.
             </p>
           </div>
 
-          <div className="reveal reveal-delay-1 mt-9 grid grid-cols-2 gap-3">
+          <div className="hero-feature-grid reveal reveal-delay-1 mt-9 grid grid-cols-2 gap-3">
             {heroFeatures.map(([icon, title, text]) => (
-              <div key={title} className="motion-lift rounded-[22px] border border-[rgba(126,242,196,0.14)] bg-[rgba(255,255,255,0.035)] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.20)] md:p-5">
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(126,242,196,0.18)] bg-[rgba(126,242,196,0.08)] font-mono text-xs font-black text-mint">{icon}</div>
-                <div className="text-base font-black leading-tight text-white md:text-lg">{title}</div>
-                <div className="mt-1 text-sm leading-snug text-[#8BA89E]">{text}</div>
+              <div key={title} className="hero-feature-card motion-lift rounded-[22px] border border-[rgba(126,242,196,0.14)] bg-[rgba(255,255,255,0.035)] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.20)] md:p-5">
+                <div className="hero-feature-number mb-4 flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(126,242,196,0.18)] bg-[rgba(126,242,196,0.08)] font-mono text-xs font-black text-mint">{icon}</div>
+                <div className="hero-feature-title text-base font-black leading-tight text-white md:text-lg">{title}</div>
+                <div className="hero-feature-text mt-1 text-sm leading-snug text-[#8BA89E]">{text}</div>
               </div>
             ))}
           </div>
 
-          <div className="reveal reveal-delay-2 mt-6 rounded-[24px] border border-[rgba(126,242,196,0.14)] bg-[#07110E]/78 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.28)]">
+          <div className="hero-principle reveal reveal-delay-2 mt-6 rounded-[24px] border border-[rgba(126,242,196,0.14)] bg-[#07110E]/78 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.28)]">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(126,242,196,0.20)] bg-[rgba(126,242,196,0.08)] text-xl font-black text-mint">✓</div>
               <div className="text-lg leading-relaxed text-[#C9D8D2]">Главный принцип:<br /><span className="font-black text-mint">деньги двигаются только по подтверждённым фактам.</span></div>
@@ -63,7 +63,7 @@ export default function LandingHero() {
             <a href="#loss-map" className="rounded-xl border border-[rgba(126,242,196,0.2)] bg-[rgba(255,255,255,0.02)] px-8 py-4 text-center font-semibold text-[#EAF1EE] transition hover:border-[rgba(126,242,196,0.4)]">Где теряются деньги</a>
           </div>
 
-          <p className="reveal reveal-delay-3 mt-6 max-w-2xl text-xs leading-relaxed text-[#6F8C82]">
+          <p className="hero-note reveal reveal-delay-3 mt-6 max-w-2xl text-xs leading-relaxed text-[#6F8C82]">
             Предпилотный контур. Боевые подключения к банкам, ФГИС «Зерно», СДИЗ и ЭДО требуют договоров, доступов и проверки в контролируемом пилоте.
           </p>
         </div>
