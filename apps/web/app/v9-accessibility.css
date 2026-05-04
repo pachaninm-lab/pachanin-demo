@@ -1,3 +1,5 @@
+@import '../styles/platform-v7-world-class.css';
+
 .v9-root :focus-visible {
   outline: 3px solid #0A7A5F;
   outline-offset: 2px;
