@@ -8,6 +8,8 @@ const lots = [
     basis: 'Тамбовская область · EXW',
     state: 'Победитель выбран',
     ends: 'торги завершены',
+    payout: 'выплата остановлена до закрытия документов',
+    money: ['Резерв: 9,65 млн ₽', 'К выплате сейчас: 0 ₽', 'СДИЗ: не подтверждён', 'ЭТрН: ждёт подписи'],
     chain: ['Победитель: Покупатель 1', 'Сделка DL-9106', 'Резерв 9,65 млн ₽', 'Логистика LOG-REQ-2403', 'Рейс TRIP-SIM-001'],
     bids: [
       { buyer: 'Покупатель 1', region: 'Воронежская область', rating: 91, price: '16 080 ₽/т', volume: '600 т', money: 'готов к резерву', time: 'принята 2 мин назад', status: 'Принята' },
@@ -22,6 +24,8 @@ const lots = [
     basis: 'Тамбовская область · EXW',
     state: 'Идут ставки',
     ends: 'осталось 01:18:42',
+    payout: 'деньги появятся после выбора победителя и резерва',
+    money: ['Лучшая ставка: 16 120 ₽/т', 'Резерв: готовность покупателя', 'Сделка: ещё не создана', 'Выплата: недоступна'],
     chain: ['Ожидает выбора победителя', 'После принятия: сделка → резерв → логистика → рейс'],
     bids: [
       { buyer: 'Покупатель 4', region: 'Воронежская область', rating: 94, price: '16 120 ₽/т', volume: '240 т', money: 'резерв готов', time: '12 сек назад', status: 'Лучшая ставка' },
@@ -36,11 +40,11 @@ export default function PlatformV7SellerPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 10 }}>
         <div style={badge}>Кабинет продавца</div>
-        <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Лоты, ставки и цепочка сделки</h1>
-        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Каждый лот кликабелен. Ставки показывают обезличенного покупателя, регион, числовой рейтинг, цену, объём, готовность денег и время обновления.</p>
+        <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Лоты, ставки и когда будут деньги</h1>
+        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Продавец видит лоты, обезличенные ставки, числовой рейтинг покупателей, победителя, резерв и условия выплаты. Деньги не показываются как доступные, пока не закрыты СДИЗ, ЭТрН, приёмка и документы.</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/lots/create' style={primaryBtn}>Создать лот</Link>
-          <Link href='/platform-v7/seller/offers' style={ghostBtn}>Все предложения</Link>
+          <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
         </div>
       </section>
 
@@ -62,6 +66,14 @@ export default function PlatformV7SellerPage() {
 
           <div style={{ display: 'grid', gap: 8 }}>
             {lot.bids.map((bid) => <BidRow key={`${lot.id}-${bid.buyer}`} bid={bid} />)}
+          </div>
+
+          <div style={{ background: lot.id === 'LOT-2403' ? 'rgba(220,38,38,0.06)' : 'rgba(217,119,6,0.06)', border: `1px solid ${lot.id === 'LOT-2403' ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)'}`, borderRadius: 18, padding: 14, display: 'grid', gap: 10 }}>
+            <div style={{ ...micro, color: lot.id === 'LOT-2403' ? '#B91C1C' : '#B45309' }}>Когда продавец получает деньги</div>
+            <strong style={{ color: '#0F1419', fontSize: 16 }}>{lot.payout}</strong>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 8 }}>
+              {lot.money.map((item) => <Mini key={item} value={item} />)}
+            </div>
           </div>
 
           <div style={{ background: '#0F172A', color: '#fff', borderRadius: 18, padding: 14, display: 'grid', gap: 8 }}>
@@ -104,6 +116,9 @@ function BidRow({ bid }: { bid: typeof lots[number]['bids'][number] }) {
 
 function Cell({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10 }}><div style={micro}>{label}</div><div style={{ marginTop: 3, color: strong ? '#0A7A5F' : '#0F1419', fontSize: 13, fontWeight: 900 }}>{value}</div></div>;
+}
+function Mini({ value }: { value: string }) {
+  return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, color: '#0F1419', fontSize: 13, fontWeight: 900 }}>{value}</div>;
 }
 
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
