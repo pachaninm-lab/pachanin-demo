@@ -92,9 +92,9 @@ describe('P7Badge', () => {
     expect(screen.getByText('PASS')).toBeInTheDocument();
   });
 
-  it('uses semantic tone colors', () => {
+  it('uses semantic theme variables', () => {
     render(<P7Badge tone='danger'>FAIL</P7Badge>);
-    expect(screen.getByText('FAIL')).toHaveStyle({ color: '#B42318' });
+    expect(screen.getByText('FAIL')).toHaveStyle({ color: 'var(--p7-color-danger)' });
   });
 });
 
@@ -112,6 +112,11 @@ describe('P7Card', () => {
     expect(screen.getByText('Тело карточки')).toBeInTheDocument();
     expect(screen.getByText('Открыть')).toBeInTheDocument();
   });
+
+  it('uses the theme-aware card surface', () => {
+    render(<P7Card testId='p7-card-surface'>Тело карточки</P7Card>);
+    expect(screen.getByTestId('p7-card-surface')).toHaveStyle({ background: 'var(--p7-color-surface)' });
+  });
 });
 
 describe('P7MetricCard', () => {
@@ -127,9 +132,9 @@ describe('P7MetricCard', () => {
     expect(screen.getByText('Перейти')).toBeInTheDocument();
   });
 
-  it('uses semantic tone surfaces', () => {
+  it('uses semantic theme surfaces', () => {
     render(<P7MetricCard title='Evidence' value='5/5' tone='evidence' testId='evidence-metric' />);
-    expect(screen.getByTestId('evidence-metric')).toHaveStyle({ background: '#F4F3FF' });
+    expect(screen.getByTestId('evidence-metric')).toHaveStyle({ background: 'var(--p7-color-evidence-soft)' });
   });
 });
 
@@ -178,7 +183,7 @@ describe('P7Section', () => {
       </P7Section>,
     );
 
-    expect(screen.getByTestId('p7-section-card')).toHaveStyle({ background: '#FFFFFF' });
+    expect(screen.getByTestId('p7-section-card')).toHaveStyle({ background: 'var(--p7-color-surface)' });
     expect(screen.getByText('Условия выпуска')).toBeInTheDocument();
   });
 });
@@ -195,7 +200,7 @@ describe('P7Toolbar', () => {
     expect(screen.getByTestId('p7-toolbar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Фильтры' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Сохранить вид' })).toBeInTheDocument();
-    expect(screen.getByTestId('p7-toolbar')).toHaveStyle({ background: '#FFFFFF' });
+    expect(screen.getByTestId('p7-toolbar')).toHaveStyle({ background: 'var(--p7-color-surface)' });
   });
 });
 
@@ -235,5 +240,6 @@ describe('P7DealSpine', () => {
     expect(screen.getByText('резерв')).toBeInTheDocument();
     expect(screen.getByText('рейс')).toBeInTheDocument();
     expect(screen.getByText('TRIP-SIM-001')).toBeInTheDocument();
+    expect(screen.getByTestId('p7-deal-spine')).not.toHaveStyle({ background: 'rgba(255,255,255,0.78)' });
   });
 });
