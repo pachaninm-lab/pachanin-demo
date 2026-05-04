@@ -104,7 +104,7 @@ function BidRow({ bid }: { bid: typeof lots[number]['bids'][number] }) {
         </div>
         <span style={isBest ? status : neutralStatus}>{bid.status}</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(92px,1fr))', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(132px,1fr))', gap: 8 }}>
         <Cell label='Рейтинг' value={`${bid.rating}/100`} strong={bid.rating >= 90} />
         <Cell label='Цена' value={bid.price} strong={isBest} />
         <Cell label='Объём' value={bid.volume} />
