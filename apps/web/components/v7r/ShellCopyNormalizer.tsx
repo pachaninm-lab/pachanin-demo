@@ -102,7 +102,7 @@ function shouldSkipSurface(el: HTMLElement) {
   if (tag === 'HTML' || tag === 'BODY' || tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || tag === 'PATH' || tag === 'IMG') return true;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (el.closest('.pc-shell-header, .pc-fixed-header')) return true;
-  if (el.closest('[data-p7-dark-fixed="surface"], [data-p7-dark-fixed="action"]')) return true;
+  if (el.dataset.p7DarkFixed === 'surface' || el.dataset.p7DarkFixed === 'action') return true;
   return false;
 }
 
@@ -113,6 +113,9 @@ function markSurface(el: HTMLElement, mode: 'surface' | 'action') {
   el.style.borderColor = 'var(--p7-color-border)';
   el.style.color = 'var(--p7-color-text-primary)';
   el.style.boxShadow = 'var(--pc-shadow-sm)';
+  if (mode === 'action') {
+    el.style.opacity = '1';
+  }
 }
 
 function stabilizeTextInside(surface: HTMLElement) {
@@ -123,6 +126,7 @@ function stabilizeTextInside(surface: HTMLElement) {
     const isHeading = /^H[1-6]$/.test(node.tagName) || node.tagName === 'STRONG';
     if (isHeading || isPaleText(computed.color)) {
       node.style.color = isHeading ? 'var(--p7-color-text-primary)' : 'var(--p7-color-text-secondary)';
+      node.style.opacity = '1';
     }
   }
 }
@@ -246,9 +250,15 @@ export function ShellCopyNormalizer() {
       stabilizeHeaderLinks();
       stabilizeDarkSurfaces(document.body);
     });
+    const themeObserver = new MutationObserver(() => {
+      stabilizeDarkSurfaces(document.body);
+      requestAnimationFrame(() => stabilizeDarkSurfaces(document.body));
+    });
     observer.observe(document.body, { childList: true, subtree: true });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => {
       observer.disconnect();
+      themeObserver.disconnect();
       document.removeEventListener('click', handleHeaderNavigation, true);
       document.removeEventListener('keydown', handleHeaderKeyboard, true);
     };
