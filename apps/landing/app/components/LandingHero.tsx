@@ -1,6 +1,6 @@
 const heroFeatures = [
   ['01', 'Сделка', 'цена, партия, стороны'],
-  ['02', 'Рейс', 'машина, маршрут, ETA'],
+  ['02', 'Рейс', 'машина, маршрут, срок прибытия'],
   ['03', 'Приёмка', 'вес, качество, документы'],
   ['04', 'Деньги', 'выпуск, удержание, спор'],
 ];
@@ -25,6 +25,7 @@ export default function LandingHero() {
       <div className="orb orb-b" />
       <div className="hero-scanline" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_72%_52%_at_50%_0%,rgba(10,122,95,0.26),transparent_72%)]" />
+
       <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-10 px-5 pb-20 pt-10 md:px-6 md:pt-14 lg:grid-cols-[0.92fr_1.08fr]">
         <div className="reveal">
           <div className="mx-auto max-w-3xl text-center lg:mx-0 lg:text-left">
@@ -63,7 +64,7 @@ export default function LandingHero() {
           </div>
 
           <p className="reveal reveal-delay-3 mt-6 max-w-2xl text-xs leading-relaxed text-[#6F8C82]">
-            Предпилотный контур. Боевые подключения к банкам, ФГИС «Зерно», СДИЗ и ЭДО требуют договоров, доступов и проверки на controlled pilot.
+            Предпилотный контур. Боевые подключения к банкам, ФГИС «Зерно», СДИЗ и ЭДО требуют договоров, доступов и проверки в контролируемом пилоте.
           </p>
         </div>
 

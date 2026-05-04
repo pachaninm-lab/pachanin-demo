@@ -9,13 +9,11 @@ import RoleEntry from './components/RoleEntry';
 import StickyCTA from './components/StickyCTA';
 
 const navLinks = [
-  ['Суть', '#top'],
   ['Проблема', '#problem'],
   ['Карта', '#loss-map'],
   ['Роли', '#roles'],
-  ['Мокап', '#mockup'],
+  ['Экран', '#mockup'],
   ['Пилот', '#pilot'],
-  ['Заявка', '#contact'],
 ];
 
 const pains = [
@@ -36,35 +34,13 @@ export default function Home() {
               <span className="mt-0.5 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6F8C82] lg:block">контроль сделки от цены до денег</span>
             </span>
           </a>
-
           <nav className="hidden items-center gap-5 md:flex">
-            {navLinks.slice(1, -1).map(([label, href]) => (
+            {navLinks.map(([label, href]) => (
               <a key={href} href={href} className="text-sm font-semibold text-[#8BA89E] transition hover:text-white">{label}</a>
             ))}
             <a href="#contact" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-hover">Разобрать сделку</a>
           </nav>
-
-          <details className="group md:hidden [&>summary::-webkit-details-marker]:hidden">
-            <summary className="flex h-12 w-12 cursor-pointer list-none items-center justify-center rounded-2xl border border-[rgba(126,242,196,0.20)] bg-[rgba(126,242,196,0.055)] text-mint shadow-[0_0_30px_rgba(126,242,196,0.08)] transition hover:border-[rgba(126,242,196,0.38)]" aria-label="Открыть меню">
-              <span className="relative h-4 w-5">
-                <span className="absolute left-0 top-0 h-0.5 w-5 rounded-full bg-current transition group-open:top-2 group-open:rotate-45" />
-                <span className="absolute left-0 top-2 h-0.5 w-5 rounded-full bg-current transition group-open:opacity-0" />
-                <span className="absolute bottom-0 left-0 h-0.5 w-5 rounded-full bg-current transition group-open:bottom-1.5 group-open:-rotate-45" />
-              </span>
-            </summary>
-            <div className="fixed left-4 right-4 top-[92px] z-50 max-h-[calc(100vh-120px)] overflow-y-auto rounded-[28px] border border-[rgba(126,242,196,0.18)] bg-[#04100D]/[0.99] p-3 shadow-[0_34px_110px_rgba(0,0,0,0.72)] backdrop-blur-2xl">
-              <div className="border-b border-[rgba(126,242,196,0.08)] px-3 pb-3 pt-2 text-[10px] font-black uppercase tracking-[0.20em] text-mint">Куда перейти</div>
-              <div className="grid gap-1 py-2">
-                {navLinks.map(([label, href]) => (
-                  <a key={href} href={href} className="flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-bold text-[#DDE8E3] transition hover:bg-[rgba(126,242,196,0.08)] hover:text-white">
-                    <span>{label}</span>
-                    <span className="text-[#35584C]">→</span>
-                  </a>
-                ))}
-              </div>
-              <a href="#contact" className="lux-button mt-1 block rounded-2xl bg-brand px-4 py-3 text-center text-sm font-black text-white">Разобрать сделку</a>
-            </div>
-          </details>
+          <a href="#contact" className="lux-button rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white md:hidden">Заявка</a>
         </div>
       </header>
 
@@ -75,7 +51,7 @@ export default function Home() {
           <div className="mb-10 max-w-3xl">
             <div className="mb-5 inline-flex rounded-full border border-[rgba(255,139,144,0.24)] bg-[rgba(255,139,144,0.05)] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#FF8B90]">где ломается сделка</div>
             <h2 className="mb-5 text-3xl font-black tracking-tight md:text-5xl">Рынок теряет деньги не на поиске цены, а после неё.</h2>
-            <p className="text-lg leading-relaxed text-[#8BA89E]">Лендинг теперь говорит короче: платформа нужна там, где сделку надо довести до оплаты, документов и доказательств без ручного хаоса.</p>
+            <p className="text-lg leading-relaxed text-[#8BA89E]">Платформа нужна там, где сделку надо довести до оплаты, документов и доказательств без ручного хаоса.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {pains.map(([title, text], index) => (
