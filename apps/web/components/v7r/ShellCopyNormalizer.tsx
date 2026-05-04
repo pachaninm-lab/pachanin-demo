@@ -44,10 +44,11 @@ const TEXT_REPLACEMENTS: Array<[string, string]> = [
 ];
 
 const SIDE_DRAWER_HIDDEN_LINK_TEXT = new Set(['Инвестор', 'Демо']);
-const SURFACE_SELECTOR = 'section, article, div, a, button, label, li';
+const SURFACE_SELECTOR = 'section, article, div, a, button, label, li, span, small';
 const TEXT_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, span, strong, small, label, div';
 
-type DarkSurfaceMode = 'surface' | 'action' | 'hero';
+type DarkSurfaceMode = 'surface' | 'action' | 'hero' | 'chip';
+type ChipTone = 'neutral' | 'success' | 'warning' | 'danger';
 
 function normalizeNodeText(node: Node) {
   if (node.nodeType === Node.TEXT_NODE && node.textContent) {
@@ -96,7 +97,7 @@ function isPaleText(value: string) {
 
 function hasVisibleBox(el: HTMLElement) {
   const rect = el.getBoundingClientRect();
-  return rect.width >= 44 && rect.height >= 28;
+  return rect.width >= 24 && rect.height >= 14;
 }
 
 function isLargeHeroCandidate(el: HTMLElement) {
@@ -120,12 +121,36 @@ function hasPaleHeroHeading(el: HTMLElement) {
   return isPaleText(window.getComputedStyle(heading).color);
 }
 
+function numericStyle(value: string) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isCompactPillCandidate(el: HTMLElement, computed: CSSStyleDeclaration) {
+  const rect = el.getBoundingClientRect();
+  if (rect.width < 34 || rect.height < 16 || rect.height > 64) return false;
+  if (el.children.length > 2) return false;
+  const text = el.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  if (!text || text.length > 96) return false;
+  const radius = numericStyle(computed.borderTopLeftRadius);
+  const tag = el.tagName;
+  return radius >= 8 || tag === 'BUTTON' || tag === 'A' || tag === 'SPAN' || tag === 'SMALL' || el.getAttribute('role') === 'button';
+}
+
+function inferChipTone(el: HTMLElement): ChipTone {
+  const text = el.textContent?.toLowerCase() ?? '';
+  if (/спор|ошиб|стоп|останов|не подтверж|не создан|требует|удержан|расхожд|просроч/.test(text)) return 'danger';
+  if (/жд[её]т|ожида|draft|симуляц|провер|частич|rfq|сценар/.test(text)) return 'warning';
+  if (/актив|готов|подтверж|закрыт|подписан|доступен/.test(text)) return 'success';
+  return 'neutral';
+}
+
 function shouldSkipSurface(el: HTMLElement) {
   const tag = el.tagName;
   if (tag === 'HTML' || tag === 'BODY' || tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || tag === 'PATH' || tag === 'IMG') return true;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (el.closest('.pc-shell-header, .pc-fixed-header')) return true;
-  if (el.dataset.p7DarkFixed === 'surface' || el.dataset.p7DarkFixed === 'action' || el.dataset.p7DarkFixed === 'hero') return true;
+  if (el.dataset.p7DarkFixed === 'surface' || el.dataset.p7DarkFixed === 'action' || el.dataset.p7DarkFixed === 'hero' || el.dataset.p7DarkFixed === 'chip') return true;
   return false;
 }
 
@@ -135,14 +160,25 @@ function markSurface(el: HTMLElement, mode: DarkSurfaceMode) {
     el.style.background = 'linear-gradient(145deg, var(--p7-color-surface), var(--p7-color-background-elevated))';
     el.style.backgroundColor = 'var(--p7-color-surface)';
     el.style.backgroundImage = 'linear-gradient(145deg, var(--p7-color-surface), var(--p7-color-background-elevated))';
+  } else if (mode === 'chip') {
+    const tone = inferChipTone(el);
+    const bg = tone === 'danger' ? 'var(--p7-color-danger-soft)' : tone === 'warning' ? 'var(--p7-color-warning-soft)' : tone === 'success' ? 'var(--p7-color-success-soft)' : 'var(--p7-color-surface-muted)';
+    const fg = tone === 'danger' ? 'var(--p7-color-danger)' : tone === 'warning' ? 'var(--p7-color-warning)' : tone === 'success' ? 'var(--p7-color-success)' : 'var(--p7-color-text-primary)';
+    el.style.background = bg;
+    el.style.backgroundColor = bg;
+    el.style.backgroundImage = 'none';
+    el.style.color = fg;
+    el.style.borderColor = tone === 'neutral' ? 'var(--p7-color-border)' : `color-mix(in srgb, ${fg} 38%, transparent)`;
   } else {
     el.style.background = mode === 'action' ? 'var(--p7-color-surface-muted)' : 'var(--p7-color-surface)';
     el.style.backgroundColor = mode === 'action' ? 'var(--p7-color-surface-muted)' : 'var(--p7-color-surface)';
   }
-  el.style.borderColor = 'var(--p7-color-border)';
-  el.style.color = 'var(--p7-color-text-primary)';
-  el.style.boxShadow = 'var(--pc-shadow-sm)';
-  if (mode === 'action') {
+  if (mode !== 'chip') {
+    el.style.borderColor = 'var(--p7-color-border)';
+    el.style.color = 'var(--p7-color-text-primary)';
+  }
+  el.style.boxShadow = mode === 'chip' ? 'none' : 'var(--pc-shadow-sm)';
+  if (mode === 'action' || mode === 'chip') {
     el.style.opacity = '1';
   }
 }
@@ -176,10 +212,12 @@ function stabilizeDarkSurfaces(root: ParentNode = document) {
 
     const computed = window.getComputedStyle(el);
     const hasLightSurface = isNearWhite(computed.backgroundColor);
-    const hasLightHeroGradient = isLargeHeroCandidate(el) && (isLightGradient(computed.backgroundImage) || hasPaleHeroHeading(el));
-    if (!hasLightSurface && !hasLightHeroGradient) continue;
+    const hasLightGradient = isLightGradient(computed.backgroundImage);
+    const hasLightHeroGradient = isLargeHeroCandidate(el) && (hasLightGradient || hasPaleHeroHeading(el));
+    const hasLightChip = isCompactPillCandidate(el, computed) && (hasLightSurface || hasLightGradient || isPaleText(computed.color));
+    if (!hasLightSurface && !hasLightHeroGradient && !hasLightChip) continue;
 
-    const mode: DarkSurfaceMode = hasLightHeroGradient ? 'hero' : el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button' ? 'action' : 'surface';
+    const mode: DarkSurfaceMode = hasLightHeroGradient ? 'hero' : hasLightChip ? 'chip' : el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button' ? 'action' : 'surface';
     markSurface(el, mode);
     stabilizeTextInside(el, mode);
   }

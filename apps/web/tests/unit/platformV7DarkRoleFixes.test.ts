@@ -49,6 +49,16 @@ describe('platform-v7 dark role fixes', () => {
     expect(normalizer).toContain("mode === 'hero'");
   });
 
+  it('uses runtime hardening for small light chips and badges', () => {
+    expect(normalizer).toContain("'chip'");
+    expect(normalizer).toContain('isCompactPillCandidate');
+    expect(normalizer).toContain('inferChipTone');
+    expect(normalizer).toContain('hasLightChip');
+    expect(normalizer).toContain("el.dataset.p7DarkFixed === 'chip'");
+    expect(normalizer).toContain('var(--p7-color-warning-soft)');
+    expect(normalizer).toContain('var(--p7-color-danger-soft)');
+  });
+
   it('normalizes risky runtime copy', () => {
     expect(normalizer).toContain('Зафиксировать решение: полный выпуск');
     expect(normalizer).toContain('Предпилотная готовность');
