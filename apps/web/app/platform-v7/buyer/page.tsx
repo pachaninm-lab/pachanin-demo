@@ -39,6 +39,15 @@ const creditSteps = [
   { label: 'Продавец', value: 'не получает кредитную линию', state: 'manual' },
 ] as const;
 
+const buyerSummary = [
+  { label: 'Что сейчас', value: 'LOT-2403 → ставка принята → DL-9106', note: 'Покупатель выиграл объём, но сделка ещё ждёт резерв денег.' },
+  { label: 'Моя ставка', value: '16 080 ₽/т · 600 т', note: 'Чужие закрытые ставки не раскрываются. Видна только собственная ставка и допустимый статус рынка.' },
+  { label: 'Где деньги', value: 'резерв 9,65 млн ₽ · к подтверждению', note: 'Сбер · Оплата в кредит относится только к покупателю. Продавец видит не кредит, а готовность резерва.' },
+  { label: 'Где груз', value: 'LOG-REQ-2403 / TRIP-SIM-001', note: 'После резерва сделка идёт в логистику, рейс и приёмку.' },
+  { label: 'Где документы', value: 'СДИЗ не оформлен · ЭТрН ждёт подписи', note: 'Без документов, приёмки и качества выпуск денег продавцу закрыт.' },
+  { label: 'Что делать дальше', value: 'подтвердить резерв денег', note: 'Следующий шаг покупателя должен оставить след в сделке и банковом контуре.' },
+] as const;
+
 export default function PlatformV7BuyerPage() {
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
@@ -48,7 +57,20 @@ export default function PlatformV7BuyerPage() {
         <p style={lead}>Покупатель видит доступные лоты, свою ставку, готовность документов, резерв денег и кредитный лимит. Чужие ставки раскрываются только в допустимом обезличенном виде.</p>
         <div style={actions}>
           <Link href='/platform-v7/lots' style={primaryBtn}>Открыть лоты</Link>
+          <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть Deal 360</Link>
+          <Link href='/platform-v7/buyer/financing' style={ghostBtn}>Сбер · Оплата в кредит</Link>
           <Link href='/platform-v7/bank' style={ghostBtn}>Резерв денег</Link>
+        </div>
+      </section>
+
+      <section style={buyerControlCard}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ ...micro, color: '#BFDBFE' }}>контроль покупки по DL-9106</div>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что покупатель должен понять за 5 секунд</h2>
+          <p style={{ margin: 0, color: '#DBEAFE', fontSize: 14, lineHeight: 1.55 }}>Экран отделяет ставку от сделки, резерв от выплаты продавцу, кредитный лимит покупателя от видимости продавца и закрытые ставки от допустимого обзора рынка.</p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+          {buyerSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
 
@@ -83,7 +105,7 @@ export default function PlatformV7BuyerPage() {
               <Cell label='Цена' value={lot.price} strong />
               <Cell label='Рейтинг продавца' value={lot.sellerScore} />
               <Cell label='Следующее действие' value={lot.action} />
-              <Cell label='Доступ' value='кликнуть и открыть лот' />
+              <Cell label='Видимость ставок' value='чужие закрытые ставки скрыты' />
             </div>
           </Link>
         ))}
@@ -113,6 +135,10 @@ export default function PlatformV7BuyerPage() {
   );
 }
 
+function SummaryCard({ item }: { item: typeof buyerSummary[number] }) {
+  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#BFDBFE' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#DBEAFE', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+}
+
 function Metric({ label, value, good = false, danger = false }: { label: string; value: string; good?: boolean; danger?: boolean }) {
   return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16 }}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : good ? '#0A7A5F' : '#0F1419', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div></div>;
 }
@@ -129,6 +155,7 @@ function CreditCell({ item }: { item: typeof creditSteps[number] }) {
 }
 
 const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
+const buyerControlCard = { background: '#1D4ED8', border: '1px solid rgba(37,99,235,0.35)', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(37,99,235,0.18)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#2563EB', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 } as const;
