@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PLATFORM_V7_TOKENS } from '@/lib/platform-v7/design/tokens';
+import { P7_THEME_CSS } from '@/components/platform-v7/p7Theme';
 
 export interface P7PageProps {
   readonly children: ReactNode;
@@ -22,8 +23,8 @@ export function P7Page({ children, title, subtitle, eyebrow, actions, testId, ma
         maxWidth,
         margin: '0 auto',
         minHeight: '100%',
-        background: PLATFORM_V7_TOKENS.color.background,
-        color: PLATFORM_V7_TOKENS.color.textPrimary,
+        background: P7_THEME_CSS.color.background,
+        color: P7_THEME_CSS.color.textPrimary,
         fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
       }}
     >
@@ -41,7 +42,7 @@ export function P7Page({ children, title, subtitle, eyebrow, actions, testId, ma
             {eyebrow && (
               <div
                 style={{
-                  color: PLATFORM_V7_TOKENS.color.textMuted,
+                  color: P7_THEME_CSS.color.textMuted,
                   fontSize: PLATFORM_V7_TOKENS.typography.micro.size,
                   lineHeight: PLATFORM_V7_TOKENS.typography.micro.lineHeight,
                   fontWeight: PLATFORM_V7_TOKENS.typography.micro.weight,
@@ -56,7 +57,7 @@ export function P7Page({ children, title, subtitle, eyebrow, actions, testId, ma
               <h1
                 style={{
                   margin: 0,
-                  color: PLATFORM_V7_TOKENS.color.textPrimary,
+                  color: P7_THEME_CSS.color.textPrimary,
                   fontSize: PLATFORM_V7_TOKENS.typography.h1.size,
                   lineHeight: PLATFORM_V7_TOKENS.typography.h1.lineHeight,
                   fontWeight: PLATFORM_V7_TOKENS.typography.h1.weight,
@@ -69,7 +70,7 @@ export function P7Page({ children, title, subtitle, eyebrow, actions, testId, ma
             {subtitle && (
               <div
                 style={{
-                  color: PLATFORM_V7_TOKENS.color.textSecondary,
+                  color: P7_THEME_CSS.color.textSecondary,
                   fontSize: PLATFORM_V7_TOKENS.typography.body.size,
                   lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight,
                   fontWeight: PLATFORM_V7_TOKENS.typography.body.weight,
