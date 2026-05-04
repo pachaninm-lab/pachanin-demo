@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PLATFORM_V7_TOKENS } from '@/lib/platform-v7/design/tokens';
+import { P7_THEME_CSS } from '@/components/platform-v7/p7Theme';
 
 export interface P7SectionProps {
   readonly children: ReactNode;
@@ -20,15 +21,16 @@ export function P7Section({ children, title, subtitle, eyebrow, actions, testId,
       style={{
         display: 'grid',
         gap: PLATFORM_V7_TOKENS.spacing.md,
-        border: isCard ? `1px solid ${PLATFORM_V7_TOKENS.color.border}` : undefined,
+        border: isCard ? `1px solid ${P7_THEME_CSS.color.border}` : undefined,
         borderRadius: isCard ? PLATFORM_V7_TOKENS.radius.xl : undefined,
         background:
           surface === 'card'
-            ? PLATFORM_V7_TOKENS.color.surface
+            ? P7_THEME_CSS.surface.card
             : surface === 'muted'
-              ? PLATFORM_V7_TOKENS.color.surfaceMuted
+              ? P7_THEME_CSS.surface.muted
               : undefined,
-        boxShadow: surface === 'card' ? PLATFORM_V7_TOKENS.shadow.soft : undefined,
+        boxShadow: surface === 'card' ? P7_THEME_CSS.shadow.soft : undefined,
+        color: P7_THEME_CSS.color.textPrimary,
         padding: isCard ? PLATFORM_V7_TOKENS.spacing.lg : undefined,
       }}
     >
@@ -38,7 +40,7 @@ export function P7Section({ children, title, subtitle, eyebrow, actions, testId,
             {eyebrow && (
               <div
                 style={{
-                  color: PLATFORM_V7_TOKENS.color.textMuted,
+                  color: P7_THEME_CSS.color.textMuted,
                   fontSize: PLATFORM_V7_TOKENS.typography.micro.size,
                   lineHeight: PLATFORM_V7_TOKENS.typography.micro.lineHeight,
                   fontWeight: PLATFORM_V7_TOKENS.typography.micro.weight,
@@ -53,7 +55,7 @@ export function P7Section({ children, title, subtitle, eyebrow, actions, testId,
               <h2
                 style={{
                   margin: 0,
-                  color: PLATFORM_V7_TOKENS.color.textPrimary,
+                  color: P7_THEME_CSS.color.textPrimary,
                   fontSize: PLATFORM_V7_TOKENS.typography.h2.size,
                   lineHeight: PLATFORM_V7_TOKENS.typography.h2.lineHeight,
                   fontWeight: PLATFORM_V7_TOKENS.typography.h2.weight,
@@ -66,7 +68,7 @@ export function P7Section({ children, title, subtitle, eyebrow, actions, testId,
             {subtitle && (
               <div
                 style={{
-                  color: PLATFORM_V7_TOKENS.color.textSecondary,
+                  color: P7_THEME_CSS.color.textSecondary,
                   fontSize: PLATFORM_V7_TOKENS.typography.body.size,
                   lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight,
                   maxWidth: 760,

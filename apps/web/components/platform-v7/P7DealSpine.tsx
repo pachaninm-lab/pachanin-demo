@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { PLATFORM_V7_TOKENS, getPlatformV7ToneTokens, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
+import { PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
+import { P7_THEME_CSS, getP7ToneCssVariables } from '@/components/platform-v7/p7Theme';
 
 export interface P7DealSpineStep {
   readonly label: string;
@@ -20,15 +21,16 @@ export function P7DealSpine({ steps, testId }: P7DealSpineProps) {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))',
         gap: PLATFORM_V7_TOKENS.spacing.sm,
-        border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
+        border: `1px solid ${P7_THEME_CSS.color.border}`,
         borderRadius: PLATFORM_V7_TOKENS.radius.xl,
-        background: 'rgba(255,255,255,0.78)',
+        background: P7_THEME_CSS.surface.spine,
+        color: P7_THEME_CSS.color.textPrimary,
         padding: PLATFORM_V7_TOKENS.spacing.sm,
-        boxShadow: PLATFORM_V7_TOKENS.shadow.soft,
+        boxShadow: P7_THEME_CSS.shadow.soft,
       }}
     >
       {steps.map((step, index) => {
-        const tone = getPlatformV7ToneTokens(step.tone ?? 'neutral');
+        const tone = getP7ToneCssVariables(step.tone ?? 'neutral');
 
         return (
           <div
@@ -56,7 +58,7 @@ export function P7DealSpine({ steps, testId }: P7DealSpineProps) {
             />
             <div
               style={{
-                color: PLATFORM_V7_TOKENS.color.textMuted,
+                color: P7_THEME_CSS.color.textMuted,
                 fontSize: PLATFORM_V7_TOKENS.typography.micro.size,
                 lineHeight: PLATFORM_V7_TOKENS.typography.micro.lineHeight,
                 fontWeight: PLATFORM_V7_TOKENS.typography.micro.weight,
@@ -68,7 +70,7 @@ export function P7DealSpine({ steps, testId }: P7DealSpineProps) {
             </div>
             <div
               style={{
-                color: PLATFORM_V7_TOKENS.color.textPrimary,
+                color: P7_THEME_CSS.color.textPrimary,
                 fontSize: PLATFORM_V7_TOKENS.typography.body.size,
                 lineHeight: 1.42,
                 fontWeight: 760,

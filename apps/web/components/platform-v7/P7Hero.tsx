@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PLATFORM_V7_TOKENS } from '@/lib/platform-v7/design/tokens';
+import { P7_THEME_CSS } from '@/components/platform-v7/p7Theme';
 
 export interface P7HeroProps {
   readonly title: ReactNode;
@@ -19,10 +20,11 @@ export function P7Hero({ title, subtitle, eyebrow, actions, children, testId }: 
         overflow: 'hidden',
         display: 'grid',
         gap: PLATFORM_V7_TOKENS.spacing.lg,
-        border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
+        border: `1px solid ${P7_THEME_CSS.color.border}`,
         borderRadius: PLATFORM_V7_TOKENS.radius.xl,
-        background: `linear-gradient(135deg, ${PLATFORM_V7_TOKENS.color.surface} 0%, ${PLATFORM_V7_TOKENS.color.background} 56%, ${PLATFORM_V7_TOKENS.color.brandSoft} 100%)`,
-        boxShadow: PLATFORM_V7_TOKENS.shadow.elevated,
+        background: P7_THEME_CSS.surface.premium,
+        boxShadow: P7_THEME_CSS.shadow.elevated,
+        color: P7_THEME_CSS.color.textPrimary,
         padding: PLATFORM_V7_TOKENS.spacing.xl,
       }}
     >
@@ -32,7 +34,7 @@ export function P7Hero({ title, subtitle, eyebrow, actions, children, testId }: 
           position: 'absolute',
           inset: 0,
           backgroundImage:
-            'linear-gradient(rgba(15,20,25,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(15,20,25,0.035) 1px, transparent 1px)',
+            'linear-gradient(color-mix(in srgb, var(--p7-color-text-primary) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--p7-color-text-primary) 5%, transparent) 1px, transparent 1px)',
           backgroundSize: '32px 32px',
           maskImage: 'linear-gradient(135deg, rgba(0,0,0,0.7), transparent 72%)',
           pointerEvents: 'none',
@@ -42,7 +44,7 @@ export function P7Hero({ title, subtitle, eyebrow, actions, children, testId }: 
         {eyebrow && (
           <div
             style={{
-              color: PLATFORM_V7_TOKENS.color.textMuted,
+              color: P7_THEME_CSS.color.textMuted,
               fontSize: PLATFORM_V7_TOKENS.typography.micro.size,
               lineHeight: PLATFORM_V7_TOKENS.typography.micro.lineHeight,
               fontWeight: PLATFORM_V7_TOKENS.typography.micro.weight,
@@ -56,7 +58,7 @@ export function P7Hero({ title, subtitle, eyebrow, actions, children, testId }: 
         <h1
           style={{
             margin: 0,
-            color: PLATFORM_V7_TOKENS.color.textPrimary,
+            color: P7_THEME_CSS.color.textPrimary,
             fontSize: `clamp(34px, 7vw, ${PLATFORM_V7_TOKENS.typography.display.size}px)`,
             lineHeight: PLATFORM_V7_TOKENS.typography.display.lineHeight,
             fontWeight: PLATFORM_V7_TOKENS.typography.display.weight,
@@ -69,7 +71,7 @@ export function P7Hero({ title, subtitle, eyebrow, actions, children, testId }: 
           <div
             style={{
               maxWidth: 760,
-              color: PLATFORM_V7_TOKENS.color.textSecondary,
+              color: P7_THEME_CSS.color.textSecondary,
               fontSize: 17,
               lineHeight: 1.62,
               fontWeight: PLATFORM_V7_TOKENS.typography.body.weight,

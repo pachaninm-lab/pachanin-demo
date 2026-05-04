@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { getPlatformV7ToneTokens, PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
+import { PLATFORM_V7_TOKENS, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
+import { getP7ToneCssVariables } from '@/components/platform-v7/p7Theme';
 
 export function P7Badge({ children, tone = 'neutral' }: { readonly children: ReactNode; readonly tone?: PlatformV7Tone }) {
-  const colors = getPlatformV7ToneTokens(tone);
+  const colors = getP7ToneCssVariables(tone);
 
   return (
     <span
