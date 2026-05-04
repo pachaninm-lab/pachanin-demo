@@ -5,6 +5,7 @@ import { AppShellV3 } from '@/components/v7r/AppShellV3';
 import { ToastProvider } from '@/components/v7r/Toast';
 import { AiShellEnhancer } from '@/components/v7r/AiShellEnhancer';
 import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
+import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSummaryGate';
 import { RoleExecutionSummaryGate } from '@/components/platform-v7/RoleExecutionSummaryGate';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
@@ -47,6 +48,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
         <>
           <AiShellEnhancer />
           <RoleExecutionSummaryGate />
+          <AuditSurfaceSummaryGate />
           {children}
         </>
       </AppShellV3>
