@@ -14,6 +14,7 @@ import '@/app/v9-accessibility.css';
 import '@/styles/theme.css';
 import '@/styles/enterprise-ui.css';
 import '@/styles/design-fixes.css';
+import '@/styles/platform-v7-dark-layers.css';
 import '@/styles/mobile-polish.css';
 
 export const metadata: Metadata = {
