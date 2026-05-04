@@ -422,34 +422,74 @@ details[open] > div {
     background: linear-gradient(180deg, rgba(3,13,10,0.98), rgba(3,13,10,0.90));
   }
 
-  #top {
+  .landing-hero {
     min-height: auto;
-    padding-top: 86px;
+    padding-top: 78px;
   }
 
-  #top h1 {
-    font-size: clamp(3.1rem, 14vw, 5.1rem);
-    line-height: 0.9;
-    letter-spacing: -0.078em;
+  .landing-hero-inner {
+    padding-top: 2rem;
+    padding-bottom: 3.25rem;
+    gap: 1.1rem;
   }
 
-  #top p {
-    font-size: clamp(1rem, 4.5vw, 1.22rem);
-    line-height: 1.48;
+  .hero-kicker {
+    max-width: 100%;
+    margin-bottom: 1.55rem;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    white-space: normal;
+    line-height: 1.45;
+    justify-content: center;
   }
 
-  #top .grid.grid-cols-2 {
-    gap: 0.75rem;
+  .hero-title {
+    font-size: clamp(3.05rem, 13vw, 4.35rem) !important;
+    line-height: 0.9 !important;
+    letter-spacing: -0.082em !important;
   }
 
-  #top .grid.grid-cols-2 > div {
+  .hero-subtitle {
+    margin-top: 1.55rem;
+    font-size: clamp(1.03rem, 4.3vw, 1.22rem) !important;
+    line-height: 1.52 !important;
+  }
+
+  .hero-feature-grid {
+    margin-top: 2rem;
+    gap: 0.85rem;
+  }
+
+  .hero-feature-card {
+    min-height: 132px;
     border-radius: 20px;
     padding: 1rem;
     box-shadow: 0 16px 44px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.04);
   }
 
-  #top .grid.grid-cols-2 > div .mb-4 {
-    margin-bottom: 0.75rem;
+  .hero-feature-number {
+    height: 3rem;
+    width: 3rem;
+    margin-bottom: 0.9rem;
+    border-radius: 1.2rem;
+  }
+
+  .hero-feature-title {
+    font-size: 1.02rem;
+  }
+
+  .hero-feature-text {
+    font-size: 0.88rem;
+    line-height: 1.32;
+  }
+
+  .hero-principle {
+    display: none;
+  }
+
+  .hero-note {
+    margin-top: 1.5rem;
   }
 
   .premium-card {
@@ -468,6 +508,21 @@ details[open] > div {
 
   footer {
     padding-bottom: 7.5rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .hero-title {
+    font-size: clamp(2.72rem, 12.2vw, 3.55rem) !important;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem !important;
+  }
+
+  .hero-feature-card {
+    min-height: 124px;
+    padding: 0.9rem;
   }
 }
 
