@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PLATFORM_V7_EXHIBITION_ACCEPTANCE,
   PLATFORM_V7_QA_VIEWPORTS,
   PLATFORM_V7_VISUAL_QA_BLOCKERS,
   PLATFORM_V7_VISUAL_QA_ROUTES,
@@ -51,11 +52,22 @@ describe('platform-v7 visual QA guardrails', () => {
   });
 
   it('documents blockers that must fail visual acceptance', () => {
-    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('apps/landing changed');
-    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('production-ready or live-integrated claim appears without proof');
-    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('fake payout or release CTA appears without release conditions');
-    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('mobile horizontal scroll');
-    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('catch-all masks an unknown broken route as valid product screen');
+    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('изменён apps/landing');
+    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('заявление о промышленной готовности или боевой интеграции без доказательства');
+    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('кнопка выпуска денег без условий безопасного выпуска');
+    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('горизонтальная прокрутка на мобильном экране');
+    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('английский или технический текст виден во внешнем контуре');
+    expect(PLATFORM_V7_VISUAL_QA_BLOCKERS).toContain('тёмная тема содержит светлые карточки, бледный текст или нечитабельные бейджи');
+  });
+
+  it('locks exhibition acceptance criteria', () => {
+    expect(PLATFORM_V7_EXHIBITION_ACCEPTANCE).toContain('единая визуальная система на всех экранах');
+    expect(PLATFORM_V7_EXHIBITION_ACCEPTANCE).toContain('понятность роли за 5 секунд');
+    expect(PLATFORM_V7_EXHIBITION_ACCEPTANCE).toContain('безупречная мобильная версия без горизонтальной прокрутки');
+    expect(PLATFORM_V7_EXHIBITION_ACCEPTANCE).toContain('полноценный светлый и тёмный режим без светлых пятен');
+    expect(PLATFORM_V7_EXHIBITION_ACCEPTANCE).toContain('русский официальный язык без англицизмов и следов разработки');
+    expect(PLATFORM_V7_EXHIBITION_ACCEPTANCE).toContain('банковская строгость и премиальный B2B-уровень');
+    expect(PLATFORM_V7_EXHIBITION_ACCEPTANCE).toContain('честный статус controlled pilot без заявлений о боевой готовности');
   });
 
   it('requires every QA route to answer at least five product-critical questions', () => {
