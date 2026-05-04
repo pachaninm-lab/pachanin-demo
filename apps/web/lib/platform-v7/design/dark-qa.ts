@@ -1,0 +1,61 @@
+export const PLATFORM_V7_DARK_QA_VIEWPORTS = [
+  { name: '360 Android', width: 360, height: 800 },
+  { name: '375 iPhone SE', width: 375, height: 667 },
+  { name: '430 iPhone 14 Pro Max', width: 430, height: 932 },
+  { name: '768 iPad portrait', width: 768, height: 1024 },
+  { name: '1024 iPad landscape', width: 1024, height: 768 },
+  { name: '1280 desktop', width: 1280, height: 800 },
+  { name: '1366 desktop', width: 1366, height: 768 },
+  { name: '1440 desktop', width: 1440, height: 900 },
+  { name: '1728 desktop', width: 1728, height: 1117 },
+  { name: '1920 desktop', width: 1920, height: 1080 },
+  { name: '2560 desktop', width: 2560, height: 1440 },
+] as const;
+
+export const PLATFORM_V7_DARK_QA_P0_ROUTES = [
+  '/platform-v7',
+  '/platform-v7/seller',
+  '/platform-v7/buyer',
+  '/platform-v7/logistics',
+  '/platform-v7/logistics/inbox',
+  '/platform-v7/driver',
+  '/platform-v7/elevator',
+  '/platform-v7/bank',
+  '/platform-v7/documents',
+  '/platform-v7/disputes',
+  '/platform-v7/connectors',
+  '/platform-v7/deals/DL-9106/clean',
+  '/platform-v7/lots/LOT-2403',
+  '/platform-v7/control-tower',
+  '/platform-v7/demo',
+  '/platform-v7/auth',
+  '/platform-v7/register',
+  '/platform-v7/deploy-check',
+] as const;
+
+export const PLATFORM_V7_DARK_QA_BLOCKERS = [
+  'dark mode toggle exists but full dark token set is missing',
+  'dark mode uses light-only hardcoded surface',
+  'dark mode muted text contrast below AA',
+  'critical action below 44px on mobile',
+  'horizontal scroll on mobile P0 route',
+  'sticky header or footer overlaps primary action',
+  'controlled-pilot or simulation-grade boundary is unreadable',
+  'degraded or access-required integration state looks like live success',
+  'money release CTA implies fake payout before conditions are closed',
+  'role surface exposes data outside role permission boundary',
+] as const;
+
+export const PLATFORM_V7_DARK_QA_ACCEPTANCE = {
+  darkModeRequired: true,
+  lightModeMustNotRegress: true,
+  appsLandingUnchanged: true,
+  noProductionReadyClaims: true,
+  noLiveIntegratedClaims: true,
+  noFakePayoutCta: true,
+  noRolePermissionRegression: true,
+  minTextContrastAa: true,
+  minStatusContrastAa: true,
+  focusVisibleRequired: true,
+  minMobileCriticalActionPx: 44,
+} as const;
