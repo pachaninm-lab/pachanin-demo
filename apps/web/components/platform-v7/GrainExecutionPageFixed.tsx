@@ -160,17 +160,17 @@ function TitleForMode({ mode }: { readonly mode: GrainExecutionPageMode }) {
   const titles: Record<GrainExecutionPageMode, string> = {
     batches: 'Партии зерна',
     'batch-detail': 'Карточка партии',
-    'quick-sale': 'Продать зерно за 5 минут',
+    'quick-sale': 'Быстрая продажа партии',
     'rfq-list': 'Закупочные запросы',
     'rfq-new': 'Новый закупочный запрос',
-    'rfq-detail': 'Карточка RFQ',
+    'rfq-detail': 'Карточка закупочного запроса',
     'elevator-terminal': 'Элеваторный терминал',
     'elevator-operation': 'Операция элеватора',
     'deal-quality': 'Качество и удержания',
     'deal-weight': 'Весовой баланс',
     'deal-sdiz': 'СДИЗ и ФГИС',
     'deal-release': 'Выпуск и удержание денег',
-    'demo-flow': 'Сквозной демо-сценарий',
+    'demo-flow': 'Сквозной сценарий',
   };
   return <>{titles[mode]}</>;
 }
@@ -183,7 +183,7 @@ function Summary({ ctx, role }: { readonly ctx: GrainContext; readonly role: Use
         <Metric label='к выпуску через банк' value={summary.moneySummary ? formatMoney(summary.moneySummary.readyToReleaseAmount) : '—'} note='После закрытия документов, СДИЗ и ручных проверок.' tone='money' />
         <Metric label='под удержанием' value={summary.moneySummary ? formatMoney(summary.moneySummary.heldAmount) : '—'} note='Удерживается только спорная часть.' tone='warn' />
         <Metric label='документы' value={summary.documentSummary ? `${summary.documentSummary.ready}/${summary.documentSummary.total}` : '—'} note='Документы являются допуском действий и денег.' />
-        <Metric label='support cases' value={summary.supportSummary ? String(summary.supportSummary.openCases) : '—'} note={summary.supportSummary?.nextActionTitle ?? 'Создаются из причин остановки.'} tone={summary.supportSummary?.criticalCases ? 'bad' : 'neutral'} />
+        <Metric label='обращения' value={summary.supportSummary ? String(summary.supportSummary.openCases) : '—'} note={summary.supportSummary?.nextActionTitle ?? 'Создаются из причин остановки.'} tone={summary.supportSummary?.criticalCases ? 'bad' : 'neutral'} />
       </div>
     </P7Section>
   );
@@ -299,7 +299,7 @@ function Elevator({ ctx }: { readonly ctx: GrainContext }) {
 }
 
 function Demo({ ctx }: { readonly ctx: GrainContext }) {
-  const steps = ['Партия создана', 'Готовность рассчитана', 'Лот создан из партии', 'RFQ подобрал партию', 'Оффер принят', 'Деньги зарезервированы в тестовом статусе', 'СДИЗ поставлен как допуск', 'Логистика назначена', 'Водитель прибыл', 'Элеватор зафиксировал вес', 'Проба передана в лабораторию', 'Качество создало удержание', 'Спор открыт на конкретную сумму', 'Доказательства собраны', 'Банк видит основание частичного выпуска'];
+  const steps = ['Партия создана', 'Готовность рассчитана', 'Лот создан из партии', 'Закупочный запрос подобрал партию', 'Оффер принят', 'Деньги зарезервированы в тестовом статусе', 'СДИЗ поставлен как допуск', 'Логистика назначена', 'Водитель прибыл', 'Элеватор зафиксировал вес', 'Проба передана в лабораторию', 'Качество создало удержание', 'Спор открыт на конкретную сумму', 'Доказательства собраны', 'Банк видит основание частичного выпуска'];
   return <P7Section surface='card' eyebrow='Демо 3–5 минут' title='Сквозной сценарий от партии до денег' subtitle={`Активная партия: ${ctx.primaryBatch.id}. Интеграции показаны как тестовый или ручной контур.`}><div style={gridStyle}>{steps.map((step, index) => <div key={step} style={cardStyle}><Pill>{String(index + 1).padStart(2, '0')}</Pill><p style={textStrong}>{step}</p></div>)}</div></P7Section>;
 }
 
@@ -328,7 +328,7 @@ export function GrainExecutionPage({ mode, role = 'operator' }: { readonly mode:
 
   return (
     <main style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.section, color: P7_THEME_CSS.color.textPrimary }} data-platform-v7-grain-execution='true'>
-      <P7Section surface='card' eyebrow='Цифровой контур исполнения зерновой сделки' title={<TitleForMode mode={mode} />} subtitle='Партия зерна → готовность → лот / RFQ → оффер → сделка → деньги → СДИЗ → логистика → водитель → элеватор → вес → проба → лаборатория → документы → удержание → спор → доказательства → решение.' actions={<Pill tone='warn'>{maturityLabel[summary.maturity]}</Pill>}>
+      <P7Section surface='card' eyebrow='Цифровой контур исполнения зерновой сделки' title={<TitleForMode mode={mode} />} subtitle='Партия зерна → готовность → лот / закупочный запрос → оффер → сделка → деньги → СДИЗ → логистика → водитель → элеватор → вес → проба → лаборатория → документы → удержание → спор → доказательства → решение.' actions={<Pill tone='warn'>{maturityLabel[summary.maturity]}</Pill>}>
         <div style={gridStyle}>
           <Metric label='активная партия' value={ctx.primaryBatch.id} note={`${ctx.primaryBatch.crop} ${ctx.primaryBatch.gostClass ?? ''}`} />
           <Metric label='роль' value={roleLabel[role]} note='Проекция данных ограничена ролью.' />
