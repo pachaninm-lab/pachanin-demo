@@ -32,29 +32,32 @@ Did not touch:
 
 ## Added routes
 
-Exact dynamic routes were partially blocked by the tool safety layer during this pass, so this PR adds working static fallback routes for the demo contour:
+Canonical routes added where the tool allowed dynamic paths:
 
 - `/platform-v7/batches`
-- `/platform-v7/batches/create`
-- `/platform-v7/batches/view`
+- `/platform-v7/batches/new`
+- `/platform-v7/batches/[batchId]`
 - `/platform-v7/seller/quick-sale`
 - `/platform-v7/buyer/rfq`
+- `/platform-v7/buyer/rfq/[rfqId]`
+- `/platform-v7/elevator/terminal`
+- `/platform-v7/elevator/terminal/[operationId]`
+- `/platform-v7/demo/grain-execution`
+
+Working static fallback routes added for demo and navigation stability:
+
+- `/platform-v7/batches/create`
+- `/platform-v7/batches/view`
 - `/platform-v7/buyer/rfq/create`
 - `/platform-v7/buyer/rfq/detail`
-- `/platform-v7/elevator/terminal`
 - `/platform-v7/deals/grain-quality`
 - `/platform-v7/deals/grain-weight`
 - `/platform-v7/deals/grain-sdiz`
 - `/platform-v7/deals/grain-release`
-- `/platform-v7/demo/grain-execution`
 
-Follow-up when the tool allows it:
+Follow-up when the tool allows the remaining blocked dynamic paths:
 
-- `/platform-v7/batches/new`
-- `/platform-v7/batches/[batchId]`
 - `/platform-v7/buyer/rfq/new`
-- `/platform-v7/buyer/rfq/[rfqId]`
-- `/platform-v7/elevator/terminal/[operationId]`
 - `/platform-v7/deals/[dealId]/quality`
 - `/platform-v7/deals/[dealId]/weight`
 - `/platform-v7/deals/[dealId]/sdiz`
