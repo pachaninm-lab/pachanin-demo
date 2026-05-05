@@ -24,19 +24,19 @@ export default function PilotLeadForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...payload,
-          source: 'landing_10_quick_lead',
+          source: 'landing_quick_lead',
           intent: 'Получить карту потерь сделки за 48 часов',
         }),
       });
       const result = await response.json().catch(() => ({}));
-      if (response.ok && result?.sent === true) {
+      if (response.ok && result?.accepted === true) {
         setState('success');
-        setMessage('Заявка отправлена. Следующий шаг — показать, где в сделке деньги, блокеры и риск.');
+        setMessage(result?.sent === true ? 'Заявка отправлена. Следующий шаг — показать, где в сделке деньги, блокеры и риск.' : 'Заявка принята. Если автоматическая отправка не подключена, продублируйте сообщение на почту или по телефону ниже.');
         form.reset();
         return;
       }
       setState('fallback');
-      setMessage('Заявка собрана, но почтовый провайдер ещё не настроен в Vercel. Напишите напрямую на почту или позвоните по номеру ниже.');
+      setMessage('Заявка собрана. Напишите напрямую на почту или позвоните по номеру ниже.');
     } catch {
       setState('fallback');
       setMessage('Связь с формой не прошла. Напишите напрямую на почту или позвоните по номеру ниже.');
@@ -62,14 +62,14 @@ export default function PilotLeadForm() {
           </div>
           <div className={styles.grid}>
             <label className={styles.label}>Кто вы в сделке<select className={styles.field} name="role" required defaultValue=""><option value="" disabled>Выберите роль</option><option>Продавец / КФХ</option><option>Покупатель зерна</option><option>Элеватор / приёмка</option><option>Логистика / перевозчик</option><option>Банк / финансирование</option><option>Регион / институт развития</option><option>Другое</option></select></label>
-            <label className={styles.label}>Что болит<select className={styles.field} name="risk" required defaultValue=""><option value="" disabled>Выберите проблему</option><option>Оплата / удержание</option><option>Качество / лаборатория</option><option>Вес / недовес</option><option>ЭДО / ЭПД / МЧД</option><option>СДИЗ / ФГИС Зерно</option><option>Рейс / водитель / маршрут</option><option>Сбер-контур / банк</option><option>Спор / доказательства</option></select></label>
+            <label className={styles.label}>Что болит<select className={styles.field} name="risk" required defaultValue=""><option value="" disabled>Выберите проблему</option><option>Оплата / удержание</option><option>Качество / лаборатория</option><option>Вес / недовес</option><option>ЭДО / ЭПД / МЧД</option><option>СДИЗ / ФГИС Зерно</option><option>Рейс / водитель / маршрут</option><option>Банк / оплата</option><option>Спор / доказательства</option></select></label>
           </div>
           <label className={styles.label}>Коротко о сделке<textarea className={`${styles.field} ${styles.textarea}`} name="deal" required rows={4} placeholder="Например: пшеница, 240 т, Тамбов — покупатель удержал оплату из-за качества и документов" /></label>
           <input type="hidden" name="company" value="Не указано на первом шаге" />
           <input type="hidden" name="email" value="" />
           <input type="hidden" name="scenario" value="Карта потерь за 48 часов" />
           <input type="hidden" name="timeline" value="быстрый разбор" />
-          <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем...' : state === 'success' ? 'Заявка отправлена' : 'Показать, где зависают деньги'}</button>
+          <button type="submit" disabled={state === 'loading' || state === 'success'} className={styles.button}>{state === 'loading' ? 'Отправляем...' : state === 'success' ? 'Заявка принята' : 'Показать, где зависают деньги'}</button>
           {message ? <p className={`${styles.message} ${state === 'success' ? styles.ok : styles.warn}`}>{message}</p> : null}
         </form>
         <div className={styles.contacts}>

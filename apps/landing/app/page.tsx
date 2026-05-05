@@ -1,5 +1,6 @@
 import FortyEightHourResult from './components/FortyEightHourResult';
 import HeaderLogo from './components/HeaderLogo';
+import InterestChat from './components/InterestChat';
 import LandingHero from './components/LandingHero';
 import LossMap from './components/LossMap';
 import PilotLeadForm from './components/PilotLeadForm';
@@ -11,7 +12,7 @@ import StickyCTA from './components/StickyCTA';
 const navLinks = [
   ['Проблема', '#problem'],
   ['Карта', '#loss-map'],
-  ['Роли', '#roles'],
+  ['Интерес', '#interest'],
   ['Экран', '#mockup'],
   ['Пилот', '#pilot'],
 ];
@@ -38,9 +39,9 @@ export default function Home() {
             {navLinks.map(([label, href]) => (
               <a key={href} href={href} className="text-sm font-semibold text-[#8BA89E] transition hover:text-white">{label}</a>
             ))}
-            <a href="#contact" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-hover">Разобрать сделку</a>
+            <a href="#interest" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-hover">Пройти мини-чат</a>
           </nav>
-          <a href="#contact" className="lux-button rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white md:hidden">Заявка</a>
+          <a href="#interest" className="lux-button rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white md:hidden">Мини-чат</a>
         </div>
       </header>
 
@@ -67,6 +68,7 @@ export default function Home() {
 
       <FortyEightHourResult />
       <LossMap />
+      <InterestChat />
       <RoleEntry />
       <PremiumMockups />
       <PilotSingleDeal />
