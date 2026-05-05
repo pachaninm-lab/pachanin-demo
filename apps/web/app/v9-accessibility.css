@@ -2,6 +2,7 @@
 @import '../styles/platform-v7-premium-rhythm.css';
 @import '../styles/platform-v7-showcase-hardening.css';
 @import '../styles/platform-v7-mobile-notification-safe.css';
+@import '../styles/platform-v7-workspace-mode.css';
 
 .v9-root :focus-visible {
   outline: 3px solid #0A7A5F;
