@@ -37,15 +37,30 @@
 
 @media (max-width: 767px) {
   .brand-logo-mark {
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
-    flex-basis: 44px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    flex-basis: 40px !important;
   }
 
   .header-logo-image {
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .brand-logo-mark {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    flex-basis: 36px !important;
+  }
+
+  .header-logo-image {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
   }
 }
