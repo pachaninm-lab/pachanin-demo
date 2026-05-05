@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 type LeadPayload = Record<string, unknown>;
-
 type Lead = ReturnType<typeof normalizeLead>;
 
 function clean(value: unknown, limit = 1600) {
@@ -22,10 +21,8 @@ function normalizeLead(payload: LeadPayload) {
 
   return {
     createdAt: new Date().toISOString(),
-    source: compact(payload.source, 140) || 'landing',
+    source: compact(payload.source, 140) || 'landing_email_form',
     intent: compact(payload.intent, 260) || 'Получить карту потерь сделки',
-    interestLevel: compact(payload.interestLevel, 140),
-    interestSummary: compact(payload.interestSummary, 320),
     name,
     company,
     phone,
@@ -34,9 +31,6 @@ function normalizeLead(payload: LeadPayload) {
     region: compact(payload.region, 180),
     cropVolume: compact(payload.cropVolume, 180),
     risk: compact(payload.risk, 180),
-    urgency: compact(payload.urgency, 180),
-    readiness: compact(payload.readiness, 180),
-    dealSize: compact(payload.dealSize, 180),
     scenario: compact(payload.scenario, 220),
     timeline: compact(payload.timeline, 220),
     deal: clean(payload.deal, 2200),
@@ -45,13 +39,11 @@ function normalizeLead(payload: LeadPayload) {
 
 function buildText(lead: Lead) {
   return [
-    'Новый сигнал с лендинга Прозрачная Цена',
+    'Новая заявка с лендинга Прозрачная Цена',
     '',
     `Время: ${lead.createdAt}`,
     `Источник: ${lead.source}`,
     `Цель: ${lead.intent}`,
-    `Интерес: ${lead.interestLevel || '—'}`,
-    lead.interestSummary ? `Вывод: ${lead.interestSummary}` : '',
     '',
     `Имя: ${lead.name}`,
     `Компания: ${lead.company}`,
@@ -61,61 +53,12 @@ function buildText(lead: Lead) {
     `Регион: ${lead.region || '—'}`,
     `Культура и объём: ${lead.cropVolume || '—'}`,
     `Ключевой риск: ${lead.risk || '—'}`,
-    `Срочность: ${lead.urgency || '—'}`,
-    `Готовность: ${lead.readiness || '—'}`,
-    `Масштаб: ${lead.dealSize || '—'}`,
     `Сценарий: ${lead.scenario || '—'}`,
     `Срок: ${lead.timeline || '—'}`,
     '',
-    'Описание:',
+    'Описание сделки:',
     lead.deal || '—',
   ].filter(Boolean).join('\n');
-}
-
-function buildTelegramText(lead: Lead) {
-  return [
-    'Новый лид: Прозрачная Цена',
-    lead.interestLevel ? `Интерес: ${lead.interestLevel}` : '',
-    `Роль: ${lead.role || '—'}`,
-    `Боль: ${lead.risk || '—'}`,
-    `Срочность: ${lead.urgency || '—'}`,
-    `Готовность: ${lead.readiness || '—'}`,
-    `Масштаб: ${lead.dealSize || '—'}`,
-    `Имя: ${lead.name}`,
-    `Телефон: ${lead.phone || '—'}`,
-    lead.deal ? `Описание: ${lead.deal.slice(0, 900)}` : '',
-  ].filter(Boolean).join('\n');
-}
-
-async function sendWebhook(lead: Lead) {
-  const webhookUrl = process.env.PILOT_WEBHOOK_URL;
-  if (!webhookUrl) return false;
-
-  const response = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lead, leadText: buildText(lead) }),
-  });
-
-  return response.ok;
-}
-
-async function sendTelegram(lead: Lead) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) return false;
-
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: buildTelegramText(lead),
-      disable_web_page_preview: true,
-    }),
-  });
-
-  return response.ok;
 }
 
 async function sendEmail(lead: Lead) {
@@ -135,7 +78,7 @@ async function sendEmail(lead: Lead) {
     body: JSON.stringify({
       from: leadFrom,
       to: [leadTo],
-      subject: `Прозрачная Цена — ${subjectSuffix}`,
+      subject: `Прозрачная Цена — заявка — ${subjectSuffix}`,
       text: buildText(lead),
     }),
   });
@@ -162,8 +105,6 @@ export async function POST(request: Request) {
     }
 
     let emailSent = false;
-    let webhookSent = false;
-    let telegramSent = false;
     const leadText = buildText(lead);
 
     try {
@@ -172,31 +113,15 @@ export async function POST(request: Request) {
       console.error('pilot_request_email_failed', error);
     }
 
-    try {
-      webhookSent = await sendWebhook(lead);
-    } catch (error) {
-      console.error('pilot_request_webhook_failed', error);
-    }
-
-    try {
-      telegramSent = await sendTelegram(lead);
-    } catch (error) {
-      console.error('pilot_request_telegram_failed', error);
-    }
-
-    console.info('pilot_request_received', JSON.stringify({ ...lead, emailSent, webhookSent, telegramSent }));
-
-    const delivered = emailSent || webhookSent || telegramSent;
+    console.info('pilot_request_received', JSON.stringify({ ...lead, emailSent }));
 
     return NextResponse.json({
       accepted: true,
       sent: emailSent,
-      routedToWebhook: webhookSent,
-      routedToTelegram: telegramSent,
-      delivered,
+      delivered: emailSent,
       leadText,
-      next: delivered ? 'lead_routed' : 'lead_logged_without_provider',
-    }, { status: delivered ? 200 : 202 });
+      next: emailSent ? 'email_sent' : 'email_provider_not_configured',
+    }, { status: emailSent ? 200 : 202 });
   } catch (error) {
     console.error('pilot_request_failed', error);
     return NextResponse.json({ accepted: false, sent: false, error: 'server_error' }, { status: 500 });
