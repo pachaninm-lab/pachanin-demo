@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import type { SupportCase, SupportCategory, SupportPriority, SupportRelatedEntityType } from '@/lib/platform-v7/support-types';
-import { SUPPORT_CATEGORY_LABELS, SUPPORT_PRIORITY_LABELS, supportCategoryByText, supportFormatRub, supportOwner, supportPriority, supportSlaDueAt, supportStatusByOwner } from '@/lib/platform-v7/support-helpers';
+import { SUPPORT_CATEGORY_LABELS, SUPPORT_PRIORITY_LABELS, supportCategoryByText, supportFormatRub, supportOwner, supportPriority, supportSlaDueAt, supportSlaHours, supportStatusByOwner } from '@/lib/platform-v7/support-helpers';
 
 const roles: PlatformRole[] = ['operator', 'buyer', 'seller', 'logistics', 'driver', 'elevator', 'lab', 'bank'];
 const roleLabels: Record<string, string> = { operator: 'Оператор', buyer: 'Покупатель', seller: 'Продавец', logistics: 'Логистика', driver: 'Водитель', elevator: 'Элеватор', lab: 'Лаборатория', bank: 'Банк' };
