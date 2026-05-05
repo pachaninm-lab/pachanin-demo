@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+import { useSupportCases } from '@/lib/platform-v7/support-client-store';
 import type { SupportCase, SupportCategory, SupportPriority, SupportRelatedEntityType } from '@/lib/platform-v7/support-types';
 import { SUPPORT_CATEGORY_LABELS, SUPPORT_PRIORITY_LABELS, supportCategoryByText, supportFormatRub, supportOwner, supportPriority, supportSlaDueAt, supportSlaHours, supportStatusByOwner } from '@/lib/platform-v7/support-helpers';
 
@@ -14,6 +15,8 @@ const inputStyle: React.CSSProperties = { width: '100%', minHeight: 44, border: 
 const card: React.CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 };
 
 export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCase> }) {
+  const router = useRouter();
+  const { createCase } = useSupportCases();
   const [title, setTitle] = React.useState(defaults.title ?? '');
   const [description, setDescription] = React.useState(defaults.description ?? '');
   const [requesterRole, setRequesterRole] = React.useState<PlatformRole>(defaults.requesterRole ?? 'operator');
@@ -24,17 +27,22 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
   const [tripId, setTripId] = React.useState(defaults.tripId ?? '');
   const [moneyAtRiskRub, setMoneyAtRiskRub] = React.useState(String(defaults.moneyAtRiskRub ?? 0));
   const [blocker, setBlocker] = React.useState(defaults.blocker ?? '');
-  const [createdCase, setCreatedCase] = React.useState<SupportCase | null>(null);
+  const [error, setError] = React.useState('');
 
   const category: SupportCategory = supportCategoryByText(`${title} ${description} ${blocker}`);
   const money = Number(moneyAtRiskRub.replace(/[^0-9]/g, '')) || 0;
   const priority: SupportPriority = supportPriority(category, money, `${description} ${blocker}`);
   const owner = supportOwner(category);
   const now = new Date().toISOString();
+  const objectReady = Boolean(relatedEntityId || dealId || tripId || lotId);
 
-  function createCase() {
-    const safeEntityId = relatedEntityId || dealId || tripId || lotId || 'OBJECT-NEW';
-    const next: SupportCase = {
+  function submitCase() {
+    const safeEntityId = relatedEntityId || dealId || tripId || lotId;
+    if (!safeEntityId) {
+      setError('Нужно указать объект: сделку, лот, рейс, документ, блокер или спор. Обращение без объекта не создаётся.');
+      return;
+    }
+    const supportCase: SupportCase = {
       id: `SC-${Date.now().toString().slice(-6)}`,
       title: title || `${SUPPORT_CATEGORY_LABELS[category]}: обращение по объекту ${safeEntityId}`,
       description: description || 'Нужно проверить блокер и определить следующий шаг.',
@@ -48,15 +56,15 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
       lotId: lotId || undefined,
       tripId: tripId || undefined,
       moneyAtRiskRub: money,
-      blocker: blocker || 'Блокер не указан',
+      blocker: blocker || 'Блокер требует уточнения',
       owner,
       nextAction: owner === 'Логистика' ? 'Проверить рейс, маршрут и подтверждения.' : owner === 'Банковый контур' ? 'Проверить деньги, основание удержания и доказательства.' : 'Проверить объект, блокер и ответственного.',
       slaDueAt: supportSlaDueAt(priority, now),
       createdAt: now,
       updatedAt: now,
     };
-    window.localStorage.setItem('pc-support-created-case', JSON.stringify(next));
-    setCreatedCase(next);
+    createCase(supportCase, description || supportCase.description);
+    router.push(`/platform-v7/support/${supportCase.id}`);
   }
 
   return (
@@ -67,7 +75,7 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
         <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748b)', lineHeight: 1.6 }}>Помощник определяет категорию, предлагает приоритет, подтягивает ID объекта и формирует следующий шаг. Он не меняет статусы сделки, не выпускает деньги, не закрывает спор и не обещает результат.</p>
       </section>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 14 }}>
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 14 }}>
         <div style={{ ...card, display: 'grid', gap: 12 }}>
           <label>Тема<input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} /></label>
           <label>Описание<textarea value={description} onChange={(e) => setDescription(e.target.value)} style={{ ...inputStyle, minHeight: 110 }} /></label>
@@ -83,7 +91,8 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
           </div>
           <label>Деньги под риском<input value={moneyAtRiskRub} onChange={(e) => setMoneyAtRiskRub(e.target.value)} style={inputStyle} /></label>
           <label>Блокер<textarea value={blocker} onChange={(e) => setBlocker(e.target.value)} style={{ ...inputStyle, minHeight: 90 }} /></label>
-          <button onClick={createCase} style={{ minHeight: 46, borderRadius: 14, border: 0, background: 'var(--pc-accent, #0A7A5F)', color: '#fff', fontWeight: 900, cursor: 'pointer' }}>Создать обращение</button>
+          {error ? <div style={{ color: 'var(--pc-danger, #B42318)', fontSize: 13, fontWeight: 800 }}>{error}</div> : null}
+          <button onClick={submitCase} disabled={!objectReady} style={{ minHeight: 46, borderRadius: 14, border: 0, background: objectReady ? 'var(--pc-accent, #0A7A5F)' : 'var(--pc-bg-muted, #E4E6EA)', color: objectReady ? '#fff' : 'var(--pc-text-muted, #64748b)', fontWeight: 900, cursor: objectReady ? 'pointer' : 'not-allowed' }}>Создать обращение</button>
         </div>
         <aside style={{ ...card, display: 'grid', gap: 10, alignContent: 'start' }}>
           <div style={{ fontWeight: 900 }}>Предварительная оценка</div>
@@ -92,7 +101,7 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
           <div>Ответственный: <b>{owner}</b></div>
           <div>SLA: <b>{supportSlaHours(priority)} ч.</b></div>
           <div>Деньги под риском: <b>{supportFormatRub(money)}</b></div>
-          {createdCase ? <Link href={`/platform-v7/support/${createdCase.id}`} style={{ color: 'var(--pc-accent, #0A7A5F)', fontWeight: 900 }}>Открыть созданное обращение</Link> : null}
+          <div style={{ color: objectReady ? 'var(--pc-text-muted, #64748b)' : 'var(--pc-danger, #B42318)', fontSize: 13, lineHeight: 1.5 }}>{objectReady ? 'Объект указан. Обращение можно создать.' : 'Нужен объект платформы: сделка, лот, рейс, документ, блокер или спор.'}</div>
         </aside>
       </section>
     </div>
