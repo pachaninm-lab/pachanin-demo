@@ -88,6 +88,61 @@ function NotificationRow({ notification, onOpen }: { notification: PlatformV7She
   );
 }
 
+function HeaderIconButton({
+  ariaLabel,
+  active,
+  children,
+  badge,
+  tone,
+  onClick,
+}: {
+  ariaLabel: string;
+  active?: boolean;
+  children: React.ReactNode;
+  badge?: string | number;
+  tone?: 'critical' | 'default';
+  onClick: () => void;
+}) {
+  const isCritical = tone === 'critical';
+  return (
+    <button
+      type='button'
+      aria-label={ariaLabel}
+      aria-expanded={active}
+      aria-haspopup='dialog'
+      className='pc-shell-iconbtn'
+      onClick={onClick}
+      style={isCritical ? { borderColor: 'rgba(255,139,144,0.42)' } : undefined}
+    >
+      {children}
+      {badge ? (
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            right: 2,
+            top: 2,
+            minWidth: 17,
+            height: 17,
+            borderRadius: 999,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '0 4px',
+            background: isCritical ? '#E5484D' : 'var(--pc-accent)',
+            color: isCritical ? '#fff' : 'var(--pc-bg)',
+            fontSize: 9,
+            fontWeight: 850,
+            lineHeight: 1,
+          }}
+        >
+          {badge}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 export function PlatformV7NotificationCenter({
   model = platformV7ShellNotificationCenterModel(),
 }: {
@@ -113,47 +168,30 @@ export function PlatformV7NotificationCenter({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [close, open]);
 
-  const ariaLabel = hasCritical
-    ? `Уведомления: ${summary.unread} непрочитанных, ${summary.critical} критических`
-    : `Уведомления: ${summary.unread} непрочитанных`;
+  const warningsLabel = hasCritical
+    ? `Предупреждения: ${summary.critical} критических`
+    : 'Предупреждения: критических нет';
+  const notificationsLabel = `Уведомления: ${summary.unread} непрочитанных`;
 
   return (
-    <div style={{ position: 'relative' }}>
-      <button
-        ref={buttonRef}
-        type='button'
-        aria-label={ariaLabel}
-        aria-expanded={open}
-        aria-haspopup='dialog'
-        className='pc-shell-iconbtn'
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <HeaderIconButton
+        ariaLabel={warningsLabel}
+        active={open}
+        tone='critical'
+        badge={hasCritical ? summary.critical : undefined}
         onClick={() => setOpen((value) => !value)}
-        style={hasCritical ? { borderColor: 'rgba(255,139,144,0.42)' } : undefined}
       >
-        {hasCritical ? <AlertTriangle size={18} aria-hidden style={{ color: '#FF8B90' }} /> : <Bell size={18} aria-hidden />}
-        {hasUnread ? (
-          <span
-            aria-hidden
-            style={{
-              position: 'absolute',
-              right: -3,
-              top: -5,
-              minWidth: 18,
-              height: 18,
-              borderRadius: 999,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 4px',
-              background: hasCritical ? '#E5484D' : 'var(--pc-accent)',
-              color: hasCritical ? '#fff' : 'var(--pc-bg)',
-              fontSize: 10,
-              fontWeight: 850,
-            }}
-          >
-            {badgeLabel}
-          </span>
-        ) : null}
-      </button>
+        <AlertTriangle size={18} aria-hidden style={{ color: hasCritical ? '#FF8B90' : 'var(--pc-text-muted)' }} />
+      </HeaderIconButton>
+      <HeaderIconButton
+        ariaLabel={notificationsLabel}
+        active={open}
+        badge={hasUnread ? badgeLabel : undefined}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Bell size={18} aria-hidden />
+      </HeaderIconButton>
 
       {open ? (
         <>
