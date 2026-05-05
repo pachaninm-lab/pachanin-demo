@@ -48,18 +48,58 @@ const buyerSummary = [
   { label: 'Что делать дальше', value: 'подтвердить резерв денег', note: 'Следующий шаг покупателя должен оставить след в сделке и банковом контуре.' },
 ] as const;
 
+const buyerGrainEntries = [
+  {
+    title: 'Создать закупочный запрос',
+    note: 'Зафиксировать культуру, объём, регион, базис, цену и требования к документам.',
+    href: '/platform-v7/buyer/rfq/create',
+  },
+  {
+    title: 'Подбор партии',
+    note: 'Сопоставить потребность с партиями, документами, логистикой и риском исполнения.',
+    href: '/platform-v7/buyer/rfq',
+  },
+  {
+    title: 'Карточка запроса',
+    note: 'Проверить цену до точки, риск продавца, документы, следующий шаг и готовность сделки.',
+    href: '/platform-v7/buyer/rfq/detail',
+  },
+  {
+    title: 'Резерв и сделка',
+    note: 'Подтвердить резерв денег и увидеть, что блокирует дальнейшее исполнение.',
+    href: '/platform-v7/deals/DL-9106/clean',
+  },
+] as const;
+
 export default function PlatformV7BuyerPage() {
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={card}>
         <div style={badge}>Кабинет покупателя</div>
-        <h1 style={h1}>Лоты, ставки, резерв и кредит Сбера</h1>
-        <p style={lead}>Покупатель видит доступные лоты, свою ставку, готовность документов, резерв денег и кредитный лимит. Чужие ставки раскрываются только в допустимом обезличенном виде.</p>
+        <h1 style={h1}>Закупочные запросы, партии, резерв и кредит Сбера</h1>
+        <p style={lead}>Покупатель видит доступные партии, свой закупочный запрос, собственную ставку, готовность документов, резерв денег и кредитный лимит. Чужие ставки раскрываются только в допустимом обезличенном виде.</p>
         <div style={actions}>
-          <Link href='/platform-v7/lots' style={primaryBtn}>Открыть лоты</Link>
+          <Link href='/platform-v7/buyer/rfq/create' style={primaryBtn}>Создать закупочный запрос</Link>
+          <Link href='/platform-v7/buyer/rfq' style={ghostBtn}>Подбор партий</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть Deal 360</Link>
           <Link href='/platform-v7/buyer/financing' style={ghostBtn}>Сбер · Оплата в кредит</Link>
           <Link href='/platform-v7/bank' style={ghostBtn}>Резерв денег</Link>
+        </div>
+      </section>
+
+      <section style={card}>
+        <div style={micro}>Зерновой контур покупателя</div>
+        <h2 style={{ margin: 0, color: '#0F1419', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>От потребности до сделки</h2>
+        <p style={{ margin: 0, color: '#64748B', fontSize: 14, lineHeight: 1.55 }}>Покупателю нужен короткий путь: задать потребность, увидеть подходящую партию, проверить цену до точки, риск документов, рейтинг продавца и готовность резерва.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+          {buyerGrainEntries.map((entry) => (
+            <Link key={entry.href} href={entry.href} style={buyerEntryCard}>
+              <span style={{ width: 42, height: 4, borderRadius: 999, background: '#2563EB' }} />
+              <strong style={{ color: '#0F1419', fontSize: 17, lineHeight: 1.2 }}>{entry.title}</strong>
+              <span style={{ color: '#64748B', fontSize: 13, lineHeight: 1.5 }}>{entry.note}</span>
+              <span style={{ marginTop: 'auto', color: '#2563EB', fontSize: 12, fontWeight: 900 }}>Открыть</span>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -171,6 +211,7 @@ const idText = { color: '#2563EB', fontSize: 13, fontWeight: 950 } as const;
 const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
 const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 13, padding: 10, minWidth: 0 } as const;
+const buyerEntryCard = { textDecoration: 'none', minHeight: 156, display: 'grid', gap: 9, padding: 14, borderRadius: 18, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#0F1419' } as const;
 const statusPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const dangerPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
 const creditNotice = { background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.16)', color: '#1D4ED8', borderRadius: 14, padding: 12, fontSize: 13, fontWeight: 900, lineHeight: 1.45 } as const;
