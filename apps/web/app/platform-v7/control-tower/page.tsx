@@ -130,12 +130,27 @@ export default function PlatformV7ControlTowerPage() {
             <Badge tone='red'>Проблемы</Badge>
             <Badge tone='amber'>К выпуску</Badge>
             <Badge tone='blue'>Проверка</Badge>
+            <Link href='/platform-v7/control-tower/grain' style={btn('primary')}>Зерновой контур</Link>
           </P7Toolbar>
         )}
         testId='platform-v7-control-tower-page'
       >
         <P7Section title='Деньги и риски' subtitle='KPI берутся из единого контура исполнения и ведут в соответствующие рабочие зоны.'>
           <DomainControlTowerSummary />
+        </P7Section>
+
+        <P7Section
+          title='Зерновой контур исполнения'
+          subtitle='Отдельный операторский вход в цепочку: партия, закупочный запрос, качество, вес, СДИЗ, документы, удержание, спор и основание выпуска денег через банк.'
+          actions={<Link href='/platform-v7/control-tower/grain' style={btn('primary')}>Открыть контур</Link>}
+        >
+          <section className='ct-queue'>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12 }}>
+              <Metric title='Рабочие зоны' value='7' note='Партия, запрос, качество, вес, СДИЗ, деньги и сквозной сценарий.' href='/platform-v7/control-tower/grain' tone='green' />
+              <Metric title='Денежный фокус' value='удержание / выпуск' note='Проверка оснований удержания и частичного выпуска через банк.' href='/platform-v7/deals/grain-release' tone='default' />
+              <Metric title='Тестовая цепочка' value='3–5 мин' note='Сквозной сценарий без заявлений о боевых интеграциях.' href='/platform-v7/demo/grain-execution' tone='default' />
+            </div>
+          </section>
         </P7Section>
 
         <P7Section title='Тестовый контур исполнения' subtitle='Единый контур действий: состояние сделки, проверка условий, журнал, timeline и обратная связь без параллельной старой логики.'>
