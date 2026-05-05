@@ -5,19 +5,6 @@ const heroFeatures = [
   ['04', 'Деньги', 'выпуск, удержание'],
 ];
 
-const eventRows = [
-  ['Лот', 'ставка принята', 'цена и объём зафиксированы'],
-  ['Логистика', 'рейс назначен', 'водитель, машина и маршрут видны'],
-  ['Приёмка', 'есть расхождение', 'качество требует подтверждения'],
-  ['Оплата', 'часть удержана', 'есть основание и следующий шаг'],
-];
-
-const moneySignals = [
-  ['к выпуску', '2 711 520 ₽'],
-  ['удержано', '1 162 080 ₽'],
-  ['блокер', 'качество + документы'],
-];
-
 export default function LandingHero() {
   return (
     <section id="top" className="landing-hero lux-line relative min-h-screen scroll-mt-28 pt-[92px] grid-bg">
@@ -59,7 +46,7 @@ export default function LandingHero() {
           </div>
 
           <div className="reveal reveal-delay-3 mt-8 hidden flex-col gap-4 sm:flex-row md:flex">
-            <a href="#interest" className="lux-button rounded-xl bg-brand px-8 py-4 text-center font-bold text-white glow transition hover:scale-[1.02] hover:bg-brand-hover">Пройти мини-чат</a>
+            <a href="#contact" className="lux-button rounded-xl bg-brand px-8 py-4 text-center font-bold text-white glow transition hover:scale-[1.02] hover:bg-brand-hover">Оставить заявку</a>
             <a href="#loss-map" className="rounded-xl border border-[rgba(126,242,196,0.2)] bg-[rgba(255,255,255,0.02)] px-8 py-4 text-center font-semibold text-[#EAF1EE] transition hover:border-[rgba(126,242,196,0.4)]">Где теряются деньги</a>
           </div>
 
@@ -80,25 +67,10 @@ export default function LandingHero() {
             </div>
 
             <div className="grid gap-3 md:grid-cols-3">
-              {moneySignals.map(([label, value]) => (
-                <div key={label} className="money-tile rounded-2xl border border-[rgba(126,242,196,0.1)] bg-[rgba(126,242,196,0.035)] p-4">
-                  <div className="text-xs uppercase tracking-[0.14em] text-[#6F8C82]">{label}</div>
+              {['2 711 520 ₽', '1 162 080 ₽', 'качество + документы'].map((value, index) => (
+                <div key={value} className="money-tile rounded-2xl border border-[rgba(126,242,196,0.1)] bg-[rgba(126,242,196,0.035)] p-4">
+                  <div className="text-xs uppercase tracking-[0.14em] text-[#6F8C82]">{['к выпуску', 'удержано', 'блокер'][index]}</div>
                   <div className="mt-1 font-mono text-base font-black text-white">{value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div id="how" className="mt-5 space-y-2.5 scroll-mt-28">
-              {eventRows.map(([title, status, text], index) => (
-                <div key={title} className="flow-dot motion-slide flex gap-3 rounded-xl border border-[rgba(126,242,196,0.07)] bg-[#111C19] px-4 py-3 transition hover:translate-x-1 hover:border-[rgba(126,242,196,0.22)]">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(126,242,196,0.08)] font-mono text-xs text-mint">{index + 1}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-sm font-bold text-white">{title}</span>
-                      <span className="text-xs font-semibold text-[#F5B41E]">{status}</span>
-                    </div>
-                    <div className="mt-1 text-xs text-[#8BA89E]">{text}</div>
-                  </div>
                 </div>
               ))}
             </div>
