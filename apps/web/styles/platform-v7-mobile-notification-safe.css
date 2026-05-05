@@ -1,0 +1,50 @@
+/* Platform v7 mobile notification safe zone: фикс обрезки значка уведомлений на мобильном. */
+
+.pc-header-top,
+.pc-header-actions,
+.pc-shell-iconbtn {
+  overflow: visible !important;
+}
+
+.pc-header-actions {
+  padding-right: max(4px, env(safe-area-inset-right));
+}
+
+.pc-header-actions > * {
+  flex-shrink: 0;
+}
+
+.pc-shell-iconbtn {
+  flex: 0 0 46px;
+  isolation: isolate;
+}
+
+.pc-shell-iconbtn > span[aria-hidden='true'] {
+  top: 2px !important;
+  right: 2px !important;
+  z-index: 2;
+  transform: none !important;
+}
+
+@media (max-width: 768px) {
+  .pc-header-top {
+    overflow: visible !important;
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  .pc-header-actions {
+    overflow: visible !important;
+    padding-right: max(2px, env(safe-area-inset-right));
+  }
+
+  .pc-shell-iconbtn {
+    min-width: 46px;
+    min-height: 46px;
+    flex-basis: 46px;
+  }
+
+  .pc-shell-iconbtn > span[aria-hidden='true'] {
+    top: 2px !important;
+    right: 2px !important;
+  }
+}
