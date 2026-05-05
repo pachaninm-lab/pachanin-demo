@@ -13,7 +13,7 @@ function readRepoFile(relativePath: string): string {
   return readFileSync(path, 'utf8');
 }
 
-describe('platform-v7 mobile notification safe CSS', () => {
+describe('platform-v7 mobile notification/header safe CSS', () => {
   const css = readRepoFile('styles/platform-v7-mobile-notification-safe.css');
   const accessibilityCss = readRepoFile('app/v9-accessibility.css');
 
@@ -31,16 +31,30 @@ describe('platform-v7 mobile notification safe CSS', () => {
     expect(css).toContain('overflow: visible !important;');
   });
 
-  it('keeps the unread badge inside the 46px tap target', () => {
+  it('keeps the unread badge inside the tap target', () => {
     expect(css).toContain(".pc-shell-iconbtn > span[aria-hidden='true']");
     expect(css).toContain('top: 2px !important;');
     expect(css).toContain('right: 2px !important;');
     expect(css).toContain('transform: none !important;');
   });
 
-  it('protects mobile safe-area spacing', () => {
+  it('protects mobile safe-area spacing and fixed button basis', () => {
     expect(css).toContain('@media (max-width: 768px)');
     expect(css).toContain('env(safe-area-inset-right)');
     expect(css).toContain('flex-basis: 46px;');
+  });
+
+  it('keeps critical header icons visible on narrow iPhone widths', () => {
+    expect(css).toContain('@media (max-width: 430px)');
+    expect(css).toContain('.pc-brand-title,');
+    expect(css).toContain('display: none !important;');
+    expect(css).toContain('max-width: 104px !important;');
+    expect(css).toContain('flex-basis: 44px !important;');
+  });
+
+  it('has a fallback for very narrow 380px screens', () => {
+    expect(css).toContain('@media (max-width: 380px)');
+    expect(css).toContain('max-width: 92px !important;');
+    expect(css).toContain('flex-basis: 42px !important;');
   });
 });
