@@ -1,6 +1,33 @@
 'use client';
 
+import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { PlatformV7NotificationCenter } from '@/components/v7r/PlatformV7NotificationCenter';
+
+function HeaderNotificationsPortal() {
+  const [target, setTarget] = React.useState<Element | null>(null);
+
+  React.useEffect(() => {
+    function syncTarget() {
+      setTarget(document.querySelector('.pc-header-actions'));
+    }
+
+    syncTarget();
+    const observer = new MutationObserver(syncTarget);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, []);
+
+  if (!target) return null;
+
+  return createPortal(
+    <span className='pc-header-notifications-slot' aria-label='Значки уведомлений и предупреждений в шапке'>
+      <PlatformV7NotificationCenter />
+    </span>,
+    target,
+  );
+}
 
 export function AiShellEnhancer() {
   return (
@@ -33,15 +60,11 @@ export function AiShellEnhancer() {
           display: none !important;
         }
 
-        .pc-header-actions button[aria-label^='Уведомления:']:not([aria-label*='непрочитанных']) {
-          display: none !important;
-        }
-
-        .pc-notification-center-bridge {
-          position: fixed;
-          top: calc(env(safe-area-inset-top) + 10px);
-          right: 174px;
-          z-index: 132;
+        .pc-header-notifications-slot {
+          display: inline-flex;
+          align-items: center;
+          flex: 0 0 auto;
+          order: -1;
         }
 
         .pc-shell-root {
@@ -56,11 +79,6 @@ export function AiShellEnhancer() {
           .pc-shell-root {
             --pc-header-offset: 136px !important;
           }
-
-          .pc-notification-center-bridge {
-            top: calc(env(safe-area-inset-top) + 8px);
-            right: 154px;
-          }
         }
 
         @media (max-width: 560px) {
@@ -68,21 +86,12 @@ export function AiShellEnhancer() {
             --pc-header-offset: 132px !important;
           }
 
-          .pc-notification-center-bridge {
-            top: calc(env(safe-area-inset-top) + 8px);
-            right: 112px;
-          }
-        }
-
-        @media (max-width: 390px) {
-          .pc-notification-center-bridge {
-            right: 104px;
+          .pc-header-notifications-slot {
+            order: -1;
           }
         }
       `}</style>
-      <div className='pc-notification-center-bridge' aria-label='Значки уведомлений и предупреждений в шапке'>
-        <PlatformV7NotificationCenter />
-      </div>
+      <HeaderNotificationsPortal />
     </>
   );
 }
