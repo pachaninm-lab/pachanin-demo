@@ -59,7 +59,7 @@ export default function LandingHero() {
           </div>
 
           <div className="reveal reveal-delay-3 mt-8 hidden flex-col gap-4 sm:flex-row md:flex">
-            <a href="#interest" className="lux-button rounded-xl bg-brand px-8 py-4 text-center font-bold text-white glow transition hover:scale-[1.02] hover:bg-brand-hover">Пройти мини-чат</a>
+            <a href="#contact" className="lux-button rounded-xl bg-brand px-8 py-4 text-center font-bold text-white glow transition hover:scale-[1.02] hover:bg-brand-hover">Оставить заявку</a>
             <a href="#loss-map" className="rounded-xl border border-[rgba(126,242,196,0.2)] bg-[rgba(255,255,255,0.02)] px-8 py-4 text-center font-semibold text-[#EAF1EE] transition hover:border-[rgba(126,242,196,0.4)]">Где теряются деньги</a>
           </div>
 
