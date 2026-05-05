@@ -1,4 +1,5 @@
 import type { SupportCase, SupportCategory, SupportMessage, SupportPriority, SupportRelatedEntityType, SupportStatus } from './support-types';
+export { SUPPORT_MATURITY_LABEL } from './support-types';
 
 export const SUPPORT_CATEGORY_LABELS: Record<SupportCategory, string> = { money: 'Деньги', documents: 'Документы', logistics: 'Логистика', acceptance: 'Приёмка', quality: 'Качество', dispute: 'Спор', access: 'Доступ', integration: 'Интеграция', other: 'Другое' };
 export const SUPPORT_PRIORITY_LABELS: Record<SupportPriority, string> = { P0: 'Критично', P1: 'Высоко', P2: 'Обычно', P3: 'Справка' };
