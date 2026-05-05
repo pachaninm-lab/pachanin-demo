@@ -36,6 +36,8 @@ export default function InterestChat() {
   const [contact, setContact] = useState({ name: '', phone: '', note: '' });
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const [message, setMessage] = useState('');
+  const [serverLeadText, setServerLeadText] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const completed = steps.filter((step) => answers[step.key]).length;
   const progress = Math.round((completed / steps.length) * 100);
@@ -46,6 +48,7 @@ export default function InterestChat() {
     setAnswers((current) => ({ ...current, [key]: value }));
     setSubmitState('idle');
     setMessage('');
+    setCopied(false);
   }
 
   function buildSummary() {
@@ -60,12 +63,24 @@ export default function InterestChat() {
     ].filter(Boolean).join('\n');
   }
 
+  async function copyLeadText() {
+    const text = serverLeadText || buildSummary();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isComplete || !contact.phone.trim()) return;
 
     setSubmitState('loading');
     setMessage('');
+    setServerLeadText('');
+    setCopied(false);
 
     const payload = {
       name: contact.name || 'Не указано',
@@ -93,20 +108,23 @@ export default function InterestChat() {
         body: JSON.stringify(payload),
       });
       const result = await response.json().catch(() => ({}));
-      if (response.ok && result?.accepted === true) {
+      if ((response.ok || response.status === 202) && result?.accepted === true) {
         setSubmitState('success');
-        setMessage('Сигнал интереса принят. Следующий шаг — короткий разбор одной сделки и проверка пользы.');
+        setServerLeadText(typeof result?.leadText === 'string' ? result.leadText : buildSummary());
+        setMessage(result?.delivered === true ? 'Сигнал интереса принят и отправлен.' : 'Сигнал интереса принят. Канал доставки ещё не подключён, поэтому ниже можно скопировать сводку или отправить её на почту.');
         return;
       }
       setSubmitState('fallback');
-      setMessage('Сводка собрана. Отправьте её напрямую на почту или оставьте заявку ниже.');
+      setServerLeadText(buildSummary());
+      setMessage('Сводка собрана. Скопируйте её или отправьте напрямую на почту.');
     } catch {
       setSubmitState('fallback');
-      setMessage('Сводка собрана. Отправьте её напрямую на почту или оставьте заявку ниже.');
+      setServerLeadText(buildSummary());
+      setMessage('Сводка собрана. Скопируйте её или отправьте напрямую на почту.');
     }
   }
 
-  const mailtoHref = `mailto:pachaninm@gmail.com?subject=${encodeURIComponent('Интерес к Прозрачной Цене')}&body=${encodeURIComponent(buildSummary())}`;
+  const mailtoHref = `mailto:pachaninm@gmail.com?subject=${encodeURIComponent('Интерес к Прозрачной Цене')}&body=${encodeURIComponent(serverLeadText || buildSummary())}`;
 
   return (
     <section id="interest" className={styles.section}>
@@ -148,7 +166,14 @@ export default function InterestChat() {
             <label>Комментарий<textarea value={contact.note} onChange={(event) => setContact((current) => ({ ...current, note: event.target.value }))} placeholder="Например: есть спор по качеству, нужна карта сделки" rows={3} /></label>
             <button type="submit" disabled={!isComplete || !contact.phone.trim() || submitState === 'loading'}>{submitState === 'loading' ? 'Отправляем...' : 'Отправить сигнал интереса'}</button>
             {message ? <p className={submitState === 'success' ? styles.ok : styles.warn}>{message}</p> : null}
-            <a className={styles.mailLink} href={mailtoHref}>Отправить сводку на почту</a>
+            {(submitState === 'success' || submitState === 'fallback') ? (
+              <div className={styles.afterSubmit}>
+                <button type="button" onClick={copyLeadText} className={styles.secondaryButton}>{copied ? 'Сводка скопирована' : 'Скопировать сводку'}</button>
+                <a className={styles.mailLink} href={mailtoHref}>Отправить сводку на почту</a>
+              </div>
+            ) : (
+              <a className={styles.mailLink} href={mailtoHref}>Отправить сводку на почту</a>
+            )}
           </form>
         </div>
       </div>
