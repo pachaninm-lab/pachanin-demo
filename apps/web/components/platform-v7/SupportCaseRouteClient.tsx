@@ -1,10 +1,11 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { SupportCaseView } from './SupportCaseView';
 import { useSupportCases } from '@/lib/platform-v7/support-client-store';
 
-const card: React.CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 };
+const card: CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 };
 
 export function SupportCaseRouteClient({ caseId }: { caseId: string }) {
   const { cases, messages, internalNotes, auditEvents } = useSupportCases();
