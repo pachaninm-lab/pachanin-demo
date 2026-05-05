@@ -46,7 +46,8 @@ function notificationLinkLabel(notification: PlatformV7ShellNotification): strin
   return `${notification.title}${notification.dealId ? `, сделка ${notification.dealId}` : ''} — открыть`;
 }
 
-function NotificationRow({ notification, onOpen }: { notification: PlatformV7ShellNotification; onOpen: () => void }) {
+function NotificationRow({ notification, onOpen, read }: { notification: PlatformV7ShellNotification; onOpen: () => void; read?: boolean }) {
+  const isRead = read ?? notification.read;
   return (
     <Link
       href={notification.href}
@@ -58,17 +59,17 @@ function NotificationRow({ notification, onOpen }: { notification: PlatformV7She
         padding: '10px 12px',
         borderRadius: 12,
         textDecoration: 'none',
-        background: notification.read ? 'transparent' : 'var(--pc-bg-subtle)',
-        border: `1px solid ${notification.read ? 'transparent' : 'var(--pc-border)'}`,
-        boxShadow: notification.read ? 'none' : 'var(--pc-shadow-sm)',
-        opacity: notification.read ? 0.68 : 1,
+        background: isRead ? 'transparent' : 'var(--pc-bg-subtle)',
+        border: `1px solid ${isRead ? 'transparent' : 'var(--pc-border)'}`,
+        boxShadow: isRead ? 'none' : 'var(--pc-shadow-sm)',
+        opacity: isRead ? 0.72 : 1,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ color: 'var(--pc-text-primary)', fontSize: 12, fontWeight: notification.read ? 650 : 850, lineHeight: 1.4 }}>
+        <span style={{ color: 'var(--pc-text-primary)', fontSize: 12, fontWeight: isRead ? 650 : 850, lineHeight: 1.4 }}>
           {notification.title}
         </span>
-        <span style={{ ...severityTone(notification.severity), flexShrink: 0, fontSize: 10, fontWeight: 850, lineHeight: 1.4 }}>
+        <span style={{ ...severityTone(notification.severity), flexShrink: 0, fontSize: 10, fontWeight: 850, lineHeight: 1.4, opacity: isRead ? 0.72 : 1 }}>
           {severityLabel[notification.severity]}
         </span>
       </div>
@@ -149,12 +150,21 @@ export function PlatformV7NotificationCenter({
   model?: PlatformV7ShellNotificationCenterModel;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [acknowledged, setAcknowledged] = React.useState(false);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
   const { summary, primary, items, hasCritical, hasUnread, badgeLabel } = model;
+  const hasNewItems = !acknowledged && (hasCritical || hasUnread);
+  const showWarningTrigger = !acknowledged && hasCritical;
+  const readItems = acknowledged;
 
   const close = React.useCallback(() => {
     setOpen(false);
     buttonRef.current?.focus();
+  }, []);
+
+  const togglePanel = React.useCallback(() => {
+    setOpen((value) => !value);
+    setAcknowledged(true);
   }, []);
 
   React.useEffect(() => {
@@ -169,26 +179,30 @@ export function PlatformV7NotificationCenter({
   }, [close, open]);
 
   const warningsLabel = hasCritical
-    ? `Предупреждения: ${summary.critical} критических`
+    ? `Предупреждения: ${acknowledged ? 'просмотрены' : `${summary.critical} критических`}`
     : 'Предупреждения: критических нет';
-  const notificationsLabel = `Уведомления: ${summary.unread} непрочитанных`;
+  const notificationsLabel = acknowledged
+    ? 'Уведомления: последние просмотренные'
+    : `Уведомления: ${summary.unread} непрочитанных`;
 
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      <HeaderIconButton
-        ariaLabel={warningsLabel}
-        active={open}
-        tone='critical'
-        badge={hasCritical ? summary.critical : undefined}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <AlertTriangle size={18} aria-hidden style={{ color: hasCritical ? '#FF8B90' : 'var(--pc-text-muted)' }} />
-      </HeaderIconButton>
+      {showWarningTrigger ? (
+        <HeaderIconButton
+          ariaLabel={warningsLabel}
+          active={open}
+          tone='critical'
+          badge={summary.critical}
+          onClick={togglePanel}
+        >
+          <AlertTriangle size={18} aria-hidden style={{ color: '#FF8B90' }} />
+        </HeaderIconButton>
+      ) : null}
       <HeaderIconButton
         ariaLabel={notificationsLabel}
         active={open}
-        badge={hasUnread ? badgeLabel : undefined}
-        onClick={() => setOpen((value) => !value)}
+        badge={!acknowledged && hasUnread ? badgeLabel : undefined}
+        onClick={togglePanel}
       >
         <Bell size={18} aria-hidden />
       </HeaderIconButton>
@@ -199,8 +213,10 @@ export function PlatformV7NotificationCenter({
           <div role='dialog' aria-label='Центр уведомлений' className='pc-alert-panel' style={{ zIndex: 71 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '4px 6px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <span style={{ color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 900 }}>Уведомления</span>
-                {hasCritical ? (
+                <span style={{ color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 900 }}>
+                  {acknowledged ? 'Последние уведомления' : 'Уведомления'}
+                </span>
+                {!acknowledged && hasCritical ? (
                   <span
                     style={{
                       border: '1px solid rgba(255,139,144,0.3)',
@@ -218,7 +234,9 @@ export function PlatformV7NotificationCenter({
                 ) : null}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: 'var(--pc-text-muted)', fontSize: 11, whiteSpace: 'nowrap' }}>{summary.unread} непрочитанных</span>
+                <span style={{ color: 'var(--pc-text-muted)', fontSize: 11, whiteSpace: 'nowrap' }}>
+                  {hasNewItems ? `${summary.unread} непрочитанных` : 'новых нет'}
+                </span>
                 <button
                   type='button'
                   aria-label='Закрыть центр уведомлений'
@@ -244,7 +262,7 @@ export function PlatformV7NotificationCenter({
             {primary ? (
               <section style={{ marginBottom: 12 }}>
                 <div style={{ color: 'var(--pc-text-muted)', fontSize: 10, fontWeight: 850, letterSpacing: '0.06em', marginBottom: 4, padding: '3px 6px', textTransform: 'uppercase' }}>
-                  Главный блокер
+                  {acknowledged ? 'Последний важный сигнал' : 'Главный блокер'}
                 </div>
                 <Link
                   href={primary.href}
@@ -255,14 +273,15 @@ export function PlatformV7NotificationCenter({
                     padding: '11px 12px',
                     borderRadius: 12,
                     textDecoration: 'none',
-                    background: primary.severity === 'critical' ? 'rgba(255,139,144,0.06)' : 'rgba(245,180,30,0.06)',
-                    border: `1px solid ${primary.severity === 'critical' ? 'rgba(255,139,144,0.28)' : 'rgba(245,180,30,0.22)'}`,
-                    boxShadow: 'var(--pc-shadow-sm)',
+                    background: acknowledged ? 'transparent' : primary.severity === 'critical' ? 'rgba(255,139,144,0.06)' : 'rgba(245,180,30,0.06)',
+                    border: `1px solid ${acknowledged ? 'var(--pc-border)' : primary.severity === 'critical' ? 'rgba(255,139,144,0.28)' : 'rgba(245,180,30,0.22)'}`,
+                    boxShadow: acknowledged ? 'none' : 'var(--pc-shadow-sm)',
+                    opacity: acknowledged ? 0.78 : 1,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
                     <span style={{ color: 'var(--pc-text-primary)', fontSize: 12, fontWeight: 850, lineHeight: 1.4 }}>{primary.title}</span>
-                    <span style={{ ...severityTone(primary.severity), flexShrink: 0, fontSize: 10, fontWeight: 850 }}>{severityLabel[primary.severity]}</span>
+                    <span style={{ ...severityTone(primary.severity), flexShrink: 0, fontSize: 10, fontWeight: 850, opacity: acknowledged ? 0.72 : 1 }}>{severityLabel[primary.severity]}</span>
                   </div>
                   <div style={{ color: 'var(--pc-text-secondary)', fontSize: 11, lineHeight: 1.5, wordBreak: 'break-word' }}>{primary.description}</div>
                   {primary.dealId ? (
@@ -276,10 +295,10 @@ export function PlatformV7NotificationCenter({
 
             <section style={{ display: 'grid', gap: 4 }}>
               <div style={{ color: 'var(--pc-text-muted)', fontSize: 10, fontWeight: 850, letterSpacing: '0.06em', marginBottom: 2, padding: '3px 6px', textTransform: 'uppercase' }}>
-                Все уведомления · {items.length}
+                {acknowledged ? `Прочитанные · ${items.length}` : `Все уведомления · ${items.length}`}
               </div>
               {items.map((notification) => (
-                <NotificationRow key={notification.id} notification={notification} onOpen={close} />
+                <NotificationRow key={notification.id} notification={notification} onOpen={close} read={readItems || notification.read} />
               ))}
             </section>
           </div>
