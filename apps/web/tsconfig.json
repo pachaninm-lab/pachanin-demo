@@ -15,7 +15,12 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/components/platform-v7/GrainExecutionPage": [
+        "./components/platform-v7/GrainExecutionPageFixed.tsx"
+      ],
+      "@/*": [
+        "./*"
+      ]
     },
     "plugins": [
       {
@@ -29,6 +34,7 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "components/platform-v7/GrainExecutionPage.tsx"
   ]
 }
