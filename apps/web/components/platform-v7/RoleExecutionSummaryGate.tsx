@@ -12,6 +12,7 @@ export const PLATFORM_V7_SUMMARY_BY_ROUTE: Record<string, PlatformV7ExecutionRol
   '/platform-v7/driver/field': 'driver',
   '/platform-v7/elevator': 'elevator',
   '/platform-v7/control-tower': 'operator',
+  '/platform-v7/support/operator': 'operator',
   '/platform-v7/investor': 'investor',
 };
 
