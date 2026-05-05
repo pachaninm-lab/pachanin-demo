@@ -4,6 +4,8 @@ export const runtime = 'nodejs';
 
 type LeadPayload = Record<string, unknown>;
 
+type Lead = ReturnType<typeof normalizeLead>;
+
 function clean(value: unknown, limit = 1600) {
   return String(value || '').trim().slice(0, limit);
 }
@@ -41,7 +43,7 @@ function normalizeLead(payload: LeadPayload) {
   };
 }
 
-function buildText(lead: ReturnType<typeof normalizeLead>) {
+function buildText(lead: Lead) {
   return [
     'Новый сигнал с лендинга Прозрачная Цена',
     '',
@@ -70,20 +72,53 @@ function buildText(lead: ReturnType<typeof normalizeLead>) {
   ].filter(Boolean).join('\n');
 }
 
-async function sendWebhook(lead: ReturnType<typeof normalizeLead>) {
+function buildTelegramText(lead: Lead) {
+  return [
+    'Новый лид: Прозрачная Цена',
+    lead.interestLevel ? `Интерес: ${lead.interestLevel}` : '',
+    `Роль: ${lead.role || '—'}`,
+    `Боль: ${lead.risk || '—'}`,
+    `Срочность: ${lead.urgency || '—'}`,
+    `Готовность: ${lead.readiness || '—'}`,
+    `Масштаб: ${lead.dealSize || '—'}`,
+    `Имя: ${lead.name}`,
+    `Телефон: ${lead.phone || '—'}`,
+    lead.deal ? `Описание: ${lead.deal.slice(0, 900)}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+async function sendWebhook(lead: Lead) {
   const webhookUrl = process.env.PILOT_WEBHOOK_URL;
   if (!webhookUrl) return false;
 
   const response = await fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lead }),
+    body: JSON.stringify({ lead, leadText: buildText(lead) }),
   });
 
   return response.ok;
 }
 
-async function sendEmail(lead: ReturnType<typeof normalizeLead>) {
+async function sendTelegram(lead: Lead) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return false;
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: buildTelegramText(lead),
+      disable_web_page_preview: true,
+    }),
+  });
+
+  return response.ok;
+}
+
+async function sendEmail(lead: Lead) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
 
@@ -128,6 +163,8 @@ export async function POST(request: Request) {
 
     let emailSent = false;
     let webhookSent = false;
+    let telegramSent = false;
+    const leadText = buildText(lead);
 
     try {
       emailSent = await sendEmail(lead);
@@ -141,14 +178,25 @@ export async function POST(request: Request) {
       console.error('pilot_request_webhook_failed', error);
     }
 
-    console.info('pilot_request_received', JSON.stringify({ ...lead, emailSent, webhookSent }));
+    try {
+      telegramSent = await sendTelegram(lead);
+    } catch (error) {
+      console.error('pilot_request_telegram_failed', error);
+    }
+
+    console.info('pilot_request_received', JSON.stringify({ ...lead, emailSent, webhookSent, telegramSent }));
+
+    const delivered = emailSent || webhookSent || telegramSent;
 
     return NextResponse.json({
       accepted: true,
       sent: emailSent,
       routedToWebhook: webhookSent,
-      next: emailSent || webhookSent ? 'lead_routed' : 'lead_logged_without_provider',
-    }, { status: emailSent || webhookSent ? 200 : 202 });
+      routedToTelegram: telegramSent,
+      delivered,
+      leadText,
+      next: delivered ? 'lead_routed' : 'lead_logged_without_provider',
+    }, { status: delivered ? 200 : 202 });
   } catch (error) {
     console.error('pilot_request_failed', error);
     return NextResponse.json({ accepted: false, sent: false, error: 'server_error' }, { status: 500 });
