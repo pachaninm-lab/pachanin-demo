@@ -8,6 +8,7 @@ import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
 import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSummaryGate';
 import { RoleExecutionSummaryGate } from '@/components/platform-v7/RoleExecutionSummaryGate';
+import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { SystemRouteSummaryGate } from '@/components/platform-v7/SystemRouteSummaryGate';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
@@ -51,6 +52,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
       <AppShellV3 initialRole={initialRole}>
         <>
           <AiShellEnhancer />
+          <SupportHeaderIcon />
           <RoleExecutionSummaryGate />
           <AuditSurfaceSummaryGate />
           <SystemRouteSummaryGate />
