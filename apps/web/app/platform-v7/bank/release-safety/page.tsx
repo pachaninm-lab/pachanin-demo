@@ -79,6 +79,7 @@ export default function BankReleaseSafetyPage() {
             <P7LinkButton href={PLATFORM_V7_BANK_ROUTE}>← Банк</P7LinkButton>
             <P7LinkButton href={PLATFORM_V7_OPERATOR_ROUTE}>Оператор</P7LinkButton>
             <P7LinkButton href={PLATFORM_V7_CONTROL_TOWER_ROUTE}>Центр управления</P7LinkButton>
+            <P7LinkButton href='/platform-v7/deals/grain-release'>Зерновой выпуск</P7LinkButton>
           </div>
         </div>
       </P7PanelShell>
@@ -88,6 +89,22 @@ export default function BankReleaseSafetyPage() {
         <P7MetricCard title='Остановлено' value={String(stoppedRows.length)} tone={stoppedRows.length > 0 ? 'red' : 'green'} />
         <P7MetricCard title='На проверке' value={formatCompactMoney(moneyUnderCheck)} tone={moneyUnderCheck > 0 ? 'red' : 'green'} />
       </P7Grid>
+
+      <P7PanelShell>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Зерновой контур</div>
+            <div style={{ marginTop: 6, fontSize: 20, lineHeight: 1.15, fontWeight: 900, color: T }}>Выпуск денег по зерновой сделке</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: M, maxWidth: 760 }}>
+              Отдельный экран показывает частичный выпуск, удержание спорной части, документы, СДИЗ и основание банковского подтверждения без заявления о самостоятельном платёжном механизме.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <P7LinkButton href='/platform-v7/deals/grain-release'>Открыть зерновой выпуск</P7LinkButton>
+            <P7LinkButton href='/platform-v7/control-tower/grain'>Открыть зерновой контур</P7LinkButton>
+          </div>
+        </div>
+      </P7PanelShell>
 
       <P7Notice title='Правило' tone='amber'>
         Выплата допустима только после закрытия условий: резерв, сумма к выплате, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.
