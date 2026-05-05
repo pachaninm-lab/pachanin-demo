@@ -36,7 +36,7 @@ const DEAL_SPINE_STEPS: readonly P7DealSpineStep[] = [
 ];
 
 const FAST_ANSWERS = [
-  { label: 'Что происходит', value: `${deal.lotId} → ${deal.id} → ${logistics.tripId}`, note: 'Одна сделка показана как execution-контур, не как витрина лотов.' },
+  { label: 'Что происходит', value: `${deal.lotId} → ${deal.id} → ${logistics.tripId}`, note: 'Сделка показана как цепочка исполнения, а не как витрина лотов.' },
   { label: 'Где деньги', value: `${formatRub(money.reservedRub)} в резервном контуре`, note: `${formatRub(money.releaseCandidateRub)} к выпуску после закрытия условий.` },
   { label: 'Где груз', value: logistics.currentLeg, note: `${logistics.pickupPoint} → ${logistics.deliveryPoint}. ETA: ${logistics.eta}.` },
   { label: 'Где документы', value: `СДИЗ: ${documents.sdizStatus}`, note: `Не хватает: ${documents.missingDocuments.join(', ')}.` },
@@ -61,16 +61,16 @@ export function PlatformCommandCenterHub() {
       <P7Hero
         eyebrow={
           <span style={{ display: 'inline-flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap' }}>
-            <P7Badge tone='info'>controlled-pilot</P7Badge>
-            <P7Badge tone='warning'>simulation-grade</P7Badge>
-            <P7Badge tone='neutral'>не production-ready</P7Badge>
+            <P7Badge tone='info'>контролируемый пилот</P7Badge>
+            <P7Badge tone='warning'>тестовый контур</P7Badge>
+            <P7Badge tone='neutral'>не промышленный запуск</P7Badge>
           </span>
         }
-        title='Дорогой контур исполнения зерновой сделки'
-        subtitle={`От цены и допуска до рейса, приёмки, документов, удержания денег и спора. На экране сразу видно: где ${formatTons(deal.volumeTons)}, где ${formatRub(expectedDealAmount)}, кто отвечает и почему выпуск денег ещё закрыт.`}
+        title='Центр исполнения зерновой сделки'
+        subtitle={`Партия, сделка, рейс, приёмка, документы и деньги в одном контуре. Сейчас в работе: ${formatTons(deal.volumeTons)}, ${formatRub(expectedDealAmount)}, готовность ${readinessScore}%.`}
         actions={
           <>
-            <Link href='/platform-v7/demo' style={primaryCta}>Пройти сделку за 3 минуты</Link>
+            <Link href='/platform-v7/control-tower/grain' style={primaryCta}>Открыть зерновой контур</Link>
             <Link href={`/platform-v7/deals/${deal.id}/clean`} style={secondaryCta}>Открыть Deal 360</Link>
           </>
         }
@@ -80,9 +80,23 @@ export function PlatformCommandCenterHub() {
       </P7Hero>
 
       <P7Section
+        eyebrow='основной вход'
+        title='Зерновой контур исполнения'
+        subtitle='Операторский вход в рабочие зоны: партия, закупочный запрос, качество, вес, СДИЗ, документы, выпуск денег и сквозной сценарий.'
+        surface='card'
+      >
+        <Link href='/platform-v7/control-tower/grain' style={grainEntryStyle}>
+          <span style={{ width: 48, height: 4, borderRadius: PLATFORM_V7_TOKENS.radius.pill, background: PLATFORM_V7_TOKENS.color.brand }} />
+          <strong style={{ color: PLATFORM_V7_TOKENS.color.textPrimary, fontSize: 22, lineHeight: 1.15, letterSpacing: '-0.03em' }}>Проверить сделку от партии до денег</strong>
+          <span style={{ color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: 14, lineHeight: 1.55 }}>Единый экран для контроля: готовность партии, закупочный запрос, приёмка, документы, СДИЗ, удержание, спор и основание выпуска денег через банк.</span>
+          <span style={{ color: PLATFORM_V7_TOKENS.color.brand, fontSize: 13, fontWeight: 850 }}>Перейти в рабочий контур</span>
+        </Link>
+      </P7Section>
+
+      <P7Section
         eyebrow='ответы за 5 секунд'
-        title='Деньги, груз, документы, блокер и следующий ответственный — выше первого скролла'
-        subtitle='Первый экран не должен быть каталогом карточек. Он должен дать банку, продавцу, покупателю и оператору одну картину исполнения сделки.'
+        title='Деньги, груз, документы, блокер и следующий ответственный'
+        subtitle='Первый экран должен дать банку, продавцу, покупателю и оператору одну картину исполнения сделки.'
         surface='card'
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
@@ -99,7 +113,7 @@ export function PlatformCommandCenterHub() {
       <P7Section
         eyebrow='ролевой вход'
         title='Каждая роль видит только свой участок сделки'
-        subtitle='Ролевой вход не выглядит как dev-tool: это безопасная карта рабочих поверхностей, где скрыто всё лишнее — деньги, кредит, ставки или банк, если роль не должна их видеть.'
+        subtitle='Ролевой вход скрывает лишнее: деньги, кредит, ставки или банк, если роль не должна их видеть.'
         surface='card'
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
@@ -159,6 +173,16 @@ const secondaryCta = {
   textDecoration: 'none',
   fontSize: 14,
   fontWeight: 820,
+} as const;
+
+const grainEntryStyle = {
+  display: 'grid',
+  gap: PLATFORM_V7_TOKENS.spacing.sm,
+  textDecoration: 'none',
+  border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
+  borderRadius: PLATFORM_V7_TOKENS.radius.lg,
+  background: PLATFORM_V7_TOKENS.color.surface,
+  padding: PLATFORM_V7_TOKENS.spacing.md,
 } as const;
 
 const answerCardStyle = {
