@@ -1,6 +1,8 @@
+'use client';
+
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
-import { SUPPORT_CASES, SUPPORT_MESSAGES } from '@/lib/platform-v7/support-data';
+import { useSupportCases } from '@/lib/platform-v7/support-client-store';
 import { SUPPORT_CATEGORY_LABELS, SUPPORT_MATURITY_LABEL, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_LABELS, supportFormatRub, supportLastMessage, supportObjectLabel, supportSortCases } from '@/lib/platform-v7/support-helpers';
 
 const card: CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 };
@@ -12,9 +14,10 @@ function dt(value: string) {
 }
 
 export function SupportIndexPage() {
-  const cases = supportSortCases(SUPPORT_CASES);
-  const totalMoney = cases.reduce((sum, item) => sum + item.moneyAtRiskRub, 0);
-  const urgent = cases.filter((item) => item.priority === 'P0' || item.priority === 'P1').length;
+  const { cases, messages } = useSupportCases();
+  const sortedCases = supportSortCases(cases);
+  const totalMoney = sortedCases.reduce((sum, item) => sum + item.moneyAtRiskRub, 0);
+  const urgent = sortedCases.filter((item) => item.priority === 'P0' || item.priority === 'P1').length;
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1180, margin: '0 auto' }}>
@@ -28,7 +31,7 @@ export function SupportIndexPage() {
       </section>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>
-        <div style={card}><div style={muted}>Всего обращений</div><div style={{ fontSize: 28, fontWeight: 900 }}>{cases.length}</div></div>
+        <div style={card}><div style={muted}>Всего обращений</div><div style={{ fontSize: 28, fontWeight: 900 }}>{sortedCases.length}</div></div>
         <div style={card}><div style={muted}>Срочные</div><div style={{ fontSize: 28, fontWeight: 900 }}>{urgent}</div></div>
         <div style={card}><div style={muted}>Деньги под риском</div><div style={{ fontSize: 28, fontWeight: 900 }}>{supportFormatRub(totalMoney)}</div></div>
         <div style={card}><div style={muted}>Операторская очередь</div><Link href='/platform-v7/support/operator' style={{ color: 'var(--pc-accent, #0A7A5F)', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>Открыть очередь</Link></div>
@@ -40,9 +43,9 @@ export function SupportIndexPage() {
           <Link href='/platform-v7/support/new' style={{ color: 'var(--pc-accent, #0A7A5F)', fontWeight: 900, textDecoration: 'none' }}>+ Новое обращение</Link>
         </div>
         <div style={{ display: 'grid', gap: 10 }}>
-          {cases.map((item) => (
+          {sortedCases.map((item) => (
             <Link key={item.id} href={`/platform-v7/support/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, background: 'var(--pc-bg-elevated, rgba(15,20,25,0.02))' }}>
-              <div style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><span style={pill}>{item.id}</span><span style={pill}>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span style={pill}>{SUPPORT_CATEGORY_LABELS[item.category]}</span></div><div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div><div style={muted}>{supportLastMessage(item.id, SUPPORT_MESSAGES)}</div></div>
+              <div style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><span style={pill}>{item.id}</span><span style={pill}>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span style={pill}>{SUPPORT_CATEGORY_LABELS[item.category]}</span></div><div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div><div style={muted}>{supportLastMessage(item.id, messages)}</div></div>
               <div style={{ display: 'grid', gap: 6 }}><div style={muted}>Статус</div><b>{SUPPORT_STATUS_LABELS[item.status]}</b><div style={muted}>Следующий шаг: {item.nextAction}</div></div>
               <div style={{ display: 'grid', gap: 6 }}><div style={muted}>{supportObjectLabel(item)}</div><b>SLA: {dt(item.slaDueAt)}</b><b>{supportFormatRub(item.moneyAtRiskRub)}</b></div>
             </Link>
