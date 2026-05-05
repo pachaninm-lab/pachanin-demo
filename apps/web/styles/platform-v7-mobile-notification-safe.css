@@ -1,4 +1,4 @@
-/* Platform v7 mobile notification safe zone: фикс обрезки значка уведомлений на мобильном. */
+/* Platform v7 mobile notification/header safe zone: фикс обрезки alert/notification иконок на мобильном. */
 
 .pc-header-top,
 .pc-header-actions,
@@ -32,9 +32,20 @@
     padding-right: max(0px, env(safe-area-inset-right));
   }
 
+  .pc-header-brand {
+    min-width: 0 !important;
+  }
+
+  .pc-brand-copy {
+    min-width: 0 !important;
+  }
+
   .pc-header-actions {
     overflow: visible !important;
     padding-right: max(2px, env(safe-area-inset-right));
+    flex-wrap: nowrap !important;
+    flex: 0 0 auto;
+    min-width: 0;
   }
 
   .pc-shell-iconbtn {
@@ -46,5 +57,61 @@
   .pc-shell-iconbtn > span[aria-hidden='true'] {
     top: 2px !important;
     right: 2px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .pc-shell-header {
+    padding-left: max(10px, env(safe-area-inset-left)) !important;
+    padding-right: max(10px, env(safe-area-inset-right)) !important;
+  }
+
+  .pc-header-top {
+    gap: 8px !important;
+  }
+
+  .pc-header-brand {
+    gap: 8px !important;
+    flex: 1 1 auto !important;
+  }
+
+  .pc-brand-title,
+  .pc-brand-subtitle,
+  .pc-brand-crumbs {
+    display: none !important;
+  }
+
+  .pc-header-actions {
+    gap: 6px !important;
+  }
+
+  .pc-mobile-role {
+    max-width: 104px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  .pc-shell-iconbtn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex-basis: 44px !important;
+    padding: 9px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .pc-mobile-role {
+    max-width: 92px !important;
+  }
+
+  .pc-header-actions {
+    gap: 4px !important;
+  }
+
+  .pc-shell-iconbtn {
+    min-width: 42px !important;
+    min-height: 42px !important;
+    flex-basis: 42px !important;
+    padding: 8px !important;
   }
 }
