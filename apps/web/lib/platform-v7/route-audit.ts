@@ -27,6 +27,9 @@ export const PLATFORM_V7_P0_SMOKE_ROUTES = [
   '/platform-v7/arbitrator',
   '/platform-v7/investor',
   '/platform-v7/demo',
+  '/platform-v7/support',
+  '/platform-v7/support/new',
+  '/platform-v7/support/operator',
 ] as const;
 
 export const PLATFORM_V7_FAST_PASS_TARGET_ROUTES = [
@@ -49,6 +52,10 @@ export const PLATFORM_V7_FAST_PASS_TARGET_ROUTES = [
   '/platform-v7/demo',
   '/platform-v7/connectors',
   '/platform-v7/documents',
+  '/platform-v7/support',
+  '/platform-v7/support/new',
+  '/platform-v7/support/operator',
+  '/platform-v7/support/SC-9103',
 ] as const;
 
 export const PLATFORM_V7_FAST_PASS_ROUTE_AUDIT: readonly PlatformV7RouteAuditItem[] = [
@@ -69,6 +76,10 @@ export const PLATFORM_V7_FAST_PASS_ROUTE_AUDIT: readonly PlatformV7RouteAuditIte
   { route: '/platform-v7/arbitrator', surface: 'role', owner: 'arbitrator', status: 'current-smoke', p0Smoke: true },
   { route: '/platform-v7/investor', surface: 'demo', owner: 'investor', status: 'current-smoke', p0Smoke: true },
   { route: '/platform-v7/demo', surface: 'demo', owner: 'all', status: 'current-smoke', p0Smoke: true },
+  { route: '/platform-v7/support', surface: 'ops', owner: 'all', status: 'current-smoke', p0Smoke: true },
+  { route: '/platform-v7/support/new', surface: 'ops', owner: 'all', status: 'current-smoke', p0Smoke: true },
+  { route: '/platform-v7/support/operator', surface: 'ops', owner: 'operator', status: 'current-smoke', p0Smoke: true },
+  { route: '/platform-v7/support/SC-9103', surface: 'ops', owner: 'operator', status: 'target-fast-pass', p0Smoke: false },
   { route: '/platform-v7/connectors', surface: 'ops', owner: 'operator', status: 'target-fast-pass', p0Smoke: false },
   { route: '/platform-v7/documents', surface: 'documents', owner: 'all', status: 'target-fast-pass', p0Smoke: false },
 ] as const;
