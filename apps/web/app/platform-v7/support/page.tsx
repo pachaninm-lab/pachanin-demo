@@ -1,87 +1,105 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  formatSupportRub,
+  getSupportMoneyAtRisk,
+  getSupportOpenCases,
+  getSupportSlaLabel,
+  supportCategoryLabel,
+  supportPriorityLabel,
+  supportRoleLabel,
+  supportStatusLabel,
+} from '@/lib/platform-v7/support-center';
 
 export const metadata: Metadata = {
   title: 'Поддержка',
-  description: 'Контур поддержки: быстрый маршрут эскалации, Telegram и fallback для проблем в сделке.',
+  description: 'Центр обращений по сделкам, документам, рейсам, деньгам и блокерам.',
 };
 
-const SUPPORT_CHANNELS = [
-  {
-    title: 'Telegram-оператор',
-    value: '@transparent_price_support',
-    note: 'Быстрый канал для блокеров сделки, документов и споров.',
-    accent: { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB' },
-  },
-  {
-    title: 'Jivo fallback',
-    value: 'Подключается по рабочему окну',
-    note: 'Резервный канал, если нужно быстро собрать доказательства или дать handoff оператору.',
-    accent: { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  },
-  {
-    title: 'Почта эскалации',
-    value: 'support@transparent-price.demo',
-    note: 'Для формального следа, если спор уже влияет на деньги и сроки.',
-    accent: { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
-  },
-];
+export default function PlatformV7SupportPage() {
+  const cases = getSupportOpenCases();
+  const p0 = cases.filter((item) => item.priority === 'P0').length;
 
-const ESCALATION_STEPS = [
-  'Сначала привяжи тикет к сделке, спору или документному пакету.',
-  'Покажи, где именно блокер: деньги, документы, ФГИС, ЕСИА, транспорт или лаборатория.',
-  'Приложи ID сделки, ID спора и что уже пытались сделать.',
-  'Если блокер денежный, сразу укажи сумму hold / reserve / release.',
-];
-
-export default function SupportPage() {
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 8 }}>
-        <div style={{ fontSize: 28, fontWeight: 900, color: '#0F1419' }}>Поддержка</div>
-        <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
-          Поддержка здесь не декоративная. Это рабочий канал эскалации, когда сделка уже застряла и нужно быстро передать проблему оператору с нормальным контекстом.
+    <main style={page}>
+      <section style={hero}>
+        <span style={micro}>поддержка исполнения сделки</span>
+        <h1 style={h1}>Центр обращений</h1>
+        <p style={lead}>Каждое обращение связано с объектом сделки: деньги, документы, рейс, приёмка, спор или доступ. Цель — снять блокер, назначить ответственного и оставить след в журнале.</p>
+        <div style={actions}>
+          <Link href='/platform-v7/support/new' style={primary}>Создать обращение</Link>
+          <Link href='/platform-v7/support/operator' style={secondary}>Очередь оператора</Link>
+        </div>
+        <div style={metrics}>
+          <Metric label='Открыто' value={String(cases.length)} />
+          <Metric label='P0' value={String(p0)} danger />
+          <Metric label='Деньги под влиянием' value={formatSupportRub(getSupportMoneyAtRisk())} />
+          <Metric label='Контроль' value='SLA + ответственный' />
         </div>
       </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-        {SUPPORT_CHANNELS.map((item) => (
-          <section key={item.title} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16, display: 'grid', gap: 10 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: item.accent.bg, border: `1px solid ${item.accent.border}`, color: item.accent.color, fontSize: 11, fontWeight: 800, width: 'fit-content' }}>
-              {item.title}
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>{item.value}</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>{item.note}</div>
-          </section>
-        ))}
-      </div>
-
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Как правильно эскалировать блокер</div>
+      <section style={panel}>
+        <span style={micro}>мои обращения</span>
         <div style={{ display: 'grid', gap: 10 }}>
-          {ESCALATION_STEPS.map((step, index) => (
-            <div key={step} style={{ display: 'grid', gridTemplateColumns: '28px 1fr', gap: 10, alignItems: 'start' }}>
-              <div style={{ width: 28, height: 28, borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 800 }}>{index + 1}</div>
-              <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.7 }}>{step}</div>
-            </div>
+          {cases.map((item) => (
+            <Link key={item.id} href={`/platform-v7/support/${item.id}`} style={caseCard}>
+              <div style={caseHead}>
+                <div>
+                  <span style={micro}>{item.id} · {supportCategoryLabel[item.category]} · {supportRoleLabel[item.requesterRole]}</span>
+                  <h2 style={caseTitle}>{item.title}</h2>
+                </div>
+                <div style={badges}>
+                  <span style={priorityBadge(item.priority)}>{supportPriorityLabel[item.priority]}</span>
+                  <span style={statusBadge}>{supportStatusLabel[item.status]}</span>
+                </div>
+              </div>
+              <p style={muted}>{item.description}</p>
+              <div style={grid}>
+                <Cell label='Сделка' value={item.dealId ?? '—'} />
+                <Cell label='Объект' value={item.relatedEntityId} />
+                <Cell label='SLA' value={getSupportSlaLabel(item)} danger={item.priority === 'P0'} />
+                <Cell label='Деньги под влиянием' value={formatSupportRub(item.moneyAtRiskRub)} danger={(item.moneyAtRiskRub ?? 0) > 0} />
+                <Cell label='Ответственный' value={item.owner ?? '—'} />
+                <Cell label='Следующий шаг' value={item.nextAction ?? '—'} />
+              </div>
+            </Link>
           ))}
         </div>
       </section>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7/control-tower/hotlist' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          Открыть hotlist
-        </Link>
-        <Link href='/platform-v7/disputes' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
-          Споры
-        </Link>
-        <Link href='/platform-v7/documents' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
-          Документы
-        </Link>
-        <Link href='/platform-v7/runtime-status' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
-          Статус системы
-        </Link>
-      </div>
-    </div>
+    </main>
   );
 }
+
+function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+  return <div style={metric}><span style={micro}>{label}</span><strong style={{ color: danger ? '#B91C1C' : '#0F1419', fontSize: 18 }}>{value}</strong></div>;
+}
+
+function Cell({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+  return <div style={cell}><span style={micro}>{label}</span><strong style={{ color: danger ? '#B91C1C' : '#0F1419', fontSize: 13 }}>{value}</strong></div>;
+}
+
+function priorityBadge(priority: 'P0' | 'P1' | 'P2' | 'P3') {
+  const color = priority === 'P0' ? '#B91C1C' : priority === 'P1' ? '#B45309' : '#2563EB';
+  return { ...pill, color, borderColor: 'rgba(15,23,42,0.14)', background: '#F8FAFB' } as const;
+}
+
+const page = { display: 'grid', gap: 14, maxWidth: 1120, margin: '0 auto', paddingBottom: 28 } as const;
+const hero = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 20, padding: 18, display: 'grid', gap: 12, boxShadow: 'var(--pc-shadow-sm)' } as const;
+const panel = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16, display: 'grid', gap: 12 } as const;
+const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,5vw,44px)', lineHeight: 1.04, letterSpacing: '-0.04em', fontWeight: 950 } as const;
+const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55, maxWidth: 820 } as const;
+const micro = { color: '#64748B', fontSize: 11, fontWeight: 850, letterSpacing: '0.04em' } as const;
+const muted = { margin: 0, color: '#64748B', fontSize: 13, lineHeight: 1.5 } as const;
+const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
+const primary = { textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 42, borderRadius: 12, padding: '10px 14px', background: '#0F172A', border: '1px solid #0F172A', color: '#fff', fontSize: 13, fontWeight: 850 } as const;
+const secondary = { ...primary, background: '#fff', color: '#0F1419', border: '1px solid #E4E6EA' } as const;
+const metrics = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 } as const;
+const metric = { border: '1px solid #E4E6EA', borderRadius: 14, padding: 12, display: 'grid', gap: 5, background: '#F8FAFB' } as const;
+const caseCard = { textDecoration: 'none', color: 'inherit', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gap: 10 } as const;
+const caseHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
+const caseTitle = { margin: '4px 0 0', color: '#0F1419', fontSize: 18, lineHeight: 1.18, fontWeight: 900 } as const;
+const badges = { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' } as const;
+const pill = { display: 'inline-flex', alignItems: 'center', width: 'fit-content', border: '1px solid', borderRadius: 999, padding: '5px 9px', fontSize: 11, fontWeight: 850 } as const;
+const statusBadge = { ...pill, color: '#0A7A5F', borderColor: 'rgba(10,122,95,0.18)', background: 'rgba(10,122,95,0.06)' } as const;
+const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(165px,1fr))', gap: 8 } as const;
+const cell = { border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, background: '#F8FAFB', display: 'grid', gap: 5 } as const;
