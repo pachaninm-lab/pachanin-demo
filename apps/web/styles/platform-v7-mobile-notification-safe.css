@@ -1,4 +1,4 @@
-/* Platform v7 mobile notification/header safe zone: фикс обрезки alert/notification иконок на мобильном. */
+/* Platform v7 mobile notification/header safe zone: финальный фикс обрезки alert/notification иконок на мобильном. */
 
 .pc-header-top,
 .pc-header-actions,
@@ -60,7 +60,7 @@
   }
 }
 
-@media (max-width: 430px) {
+@media (max-width: 480px) {
   .pc-shell-header {
     padding-left: max(10px, env(safe-area-inset-left)) !important;
     padding-right: max(10px, env(safe-area-inset-right)) !important;
@@ -68,13 +68,17 @@
 
   .pc-header-top {
     gap: 8px !important;
+    align-items: center !important;
   }
 
   .pc-header-brand {
     gap: 8px !important;
     flex: 1 1 auto !important;
+    max-width: calc(100vw - 156px) !important;
+    overflow: hidden !important;
   }
 
+  .pc-brand-copy,
   .pc-brand-title,
   .pc-brand-subtitle,
   .pc-brand-crumbs {
@@ -83,12 +87,14 @@
 
   .pc-header-actions {
     gap: 6px !important;
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
   }
 
-  .pc-mobile-role {
-    max-width: 104px !important;
-    padding-left: 10px !important;
-    padding-right: 10px !important;
+  .pc-mobile-role,
+  .pc-header-actions select,
+  .pc-header-actions .pc-shell-select {
+    display: none !important;
   }
 
   .pc-shell-iconbtn {
@@ -99,9 +105,9 @@
   }
 }
 
-@media (max-width: 380px) {
-  .pc-mobile-role {
-    max-width: 92px !important;
+@media (max-width: 390px) {
+  .pc-header-brand {
+    max-width: calc(100vw - 144px) !important;
   }
 
   .pc-header-actions {

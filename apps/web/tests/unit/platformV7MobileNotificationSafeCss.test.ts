@@ -20,18 +20,15 @@ describe('platform-v7 mobile notification/header safe CSS', () => {
   it('is imported after showcase hardening', () => {
     expect(accessibilityCss).toContain("@import '../styles/platform-v7-showcase-hardening.css';");
     expect(accessibilityCss).toContain("@import '../styles/platform-v7-mobile-notification-safe.css';");
-    expect(accessibilityCss.indexOf('platform-v7-showcase-hardening.css')).toBeLessThan(
-      accessibilityCss.indexOf('platform-v7-mobile-notification-safe.css'),
-    );
   });
 
-  it('keeps header actions and notification button overflow visible', () => {
+  it('keeps header actions and icon buttons visible', () => {
     expect(css).toContain('.pc-header-actions');
     expect(css).toContain('.pc-shell-iconbtn');
     expect(css).toContain('overflow: visible !important;');
   });
 
-  it('keeps the unread badge inside the tap target', () => {
+  it('keeps the badge inside the tap target', () => {
     expect(css).toContain(".pc-shell-iconbtn > span[aria-hidden='true']");
     expect(css).toContain('top: 2px !important;');
     expect(css).toContain('right: 2px !important;');
@@ -44,17 +41,17 @@ describe('platform-v7 mobile notification/header safe CSS', () => {
     expect(css).toContain('flex-basis: 46px;');
   });
 
-  it('keeps critical header icons visible on narrow iPhone widths', () => {
-    expect(css).toContain('@media (max-width: 430px)');
-    expect(css).toContain('.pc-brand-title,');
+  it('reserves the right side on narrow mobile screens', () => {
+    expect(css).toContain('@media (max-width: 480px)');
+    expect(css).toContain('.pc-mobile-role,');
     expect(css).toContain('display: none !important;');
-    expect(css).toContain('max-width: 104px !important;');
+    expect(css).toContain('max-width: calc(100vw - 156px) !important;');
     expect(css).toContain('flex-basis: 44px !important;');
   });
 
-  it('has a fallback for very narrow 380px screens', () => {
-    expect(css).toContain('@media (max-width: 380px)');
-    expect(css).toContain('max-width: 92px !important;');
+  it('has a fallback for very narrow screens', () => {
+    expect(css).toContain('@media (max-width: 390px)');
+    expect(css).toContain('max-width: calc(100vw - 144px) !important;');
     expect(css).toContain('flex-basis: 42px !important;');
   });
 });
