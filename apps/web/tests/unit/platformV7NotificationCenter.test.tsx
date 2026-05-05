@@ -10,7 +10,7 @@ vi.mock('next/link', () => ({
 }));
 
 describe('PlatformV7NotificationCenter', () => {
-  it('renders separate warning and notification triggers in the header', () => {
+  it('renders separate warning and notification triggers before the first read', () => {
     const model = platformV7ShellNotificationCenterModel();
     render(<PlatformV7NotificationCenter model={model} />);
 
@@ -24,29 +24,30 @@ describe('PlatformV7NotificationCenter', () => {
     expect(screen.getByText(model.badgeLabel)).toBeInTheDocument();
   });
 
-  it('opens the read-only notification panel from the warning trigger', () => {
+  it('collapses to one read notification trigger after opening the panel', () => {
     const model = platformV7ShellNotificationCenterModel();
     render(<PlatformV7NotificationCenter model={model} />);
 
-    const trigger = screen.getByRole('button', { name: /Предупреждения/i });
-    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: /Предупреждения/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Закрыть центр уведомлений/i }));
 
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('dialog', { name: 'Центр уведомлений' })).toBeInTheDocument();
-    expect(screen.getByText('Главный блокер')).toBeInTheDocument();
-    expect(screen.getAllByText(model.primary!.title).length).toBeGreaterThan(0);
-    expect(screen.getByText(new RegExp(`${model.summary.critical}.*критич`, 'i'))).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Предупреждения/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Уведомления: последние просмотренные/i })).toBeInTheDocument();
+    expect(screen.queryByText(model.badgeLabel)).not.toBeInTheDocument();
   });
 
-  it('opens the same panel from the notification trigger', () => {
+  it('opens the panel with read-state wording after acknowledgement', () => {
     const model = platformV7ShellNotificationCenterModel();
     render(<PlatformV7NotificationCenter model={model} />);
 
-    const trigger = screen.getByRole('button', { name: /Уведомления/i });
-    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: /Предупреждения/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Закрыть центр уведомлений/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Уведомления: последние просмотренные/i }));
 
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('dialog', { name: 'Центр уведомлений' })).toBeInTheDocument();
+    expect(screen.getByText('Последние уведомления')).toBeInTheDocument();
+    expect(screen.getByText('новых нет')).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Прочитанные.*${model.items.length}`, 'i'))).toBeInTheDocument();
   });
 
   it('keeps every rendered action inside platform v7 with accessible link names', () => {
@@ -66,15 +67,15 @@ describe('PlatformV7NotificationCenter', () => {
     }
   });
 
-  it('closes with Escape and returns aria-expanded to false', () => {
+  it('closes with Escape and keeps the single read trigger after acknowledgement', () => {
     const model = platformV7ShellNotificationCenterModel();
     render(<PlatformV7NotificationCenter model={model} />);
 
-    const trigger = screen.getByRole('button', { name: /Уведомления/i });
-    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: /Уведомления/i }));
     fireEvent.keyDown(window, { key: 'Escape' });
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: /Предупреждения/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Уведомления: последние просмотренные/i })).toHaveAttribute('aria-expanded', 'false');
   });
 });
