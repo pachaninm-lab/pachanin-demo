@@ -1,6 +1,5 @@
 import FortyEightHourResult from './components/FortyEightHourResult';
 import HeaderLogo from './components/HeaderLogo';
-import InterestChat from './components/InterestChat';
 import LandingHero from './components/LandingHero';
 import LossMap from './components/LossMap';
 import PilotLeadForm from './components/PilotLeadForm';
@@ -12,7 +11,7 @@ import StickyCTA from './components/StickyCTA';
 const navLinks = [
   ['Проблема', '#problem'],
   ['Карта', '#loss-map'],
-  ['Интерес', '#interest'],
+  ['Роли', '#roles'],
   ['Экран', '#mockup'],
   ['Пилот', '#pilot'],
 ];
@@ -39,9 +38,9 @@ export default function Home() {
             {navLinks.map(([label, href]) => (
               <a key={href} href={href} className="text-sm font-semibold text-[#8BA89E] transition hover:text-white">{label}</a>
             ))}
-            <a href="#interest" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-hover">Пройти мини-чат</a>
+            <a href="#contact" className="lux-button rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-hover">Оставить заявку</a>
           </nav>
-          <a href="#interest" className="lux-button rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white md:hidden">Мини-чат</a>
+          <a href="#contact" className="lux-button rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white md:hidden">Заявка</a>
         </div>
       </header>
 
@@ -68,7 +67,6 @@ export default function Home() {
 
       <FortyEightHourResult />
       <LossMap />
-      <InterestChat />
       <RoleEntry />
       <PremiumMockups />
       <PilotSingleDeal />
@@ -80,7 +78,7 @@ export default function Home() {
             <span className="text-xs font-bold uppercase tracking-wide text-mint">следующий шаг</span>
           </div>
           <h2 className="mb-6 text-4xl font-black tracking-tight md:text-6xl">Покажем, где в вашей сделке зависают деньги.</h2>
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Опишите одну сделку. В ответ соберём короткую карту риска: рейс, качество, документы, оплата или спор.</p>
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-[#8BA89E]">Опишите одну сделку. Заявка уйдёт отдельным письмом на Gmail.</p>
           <PilotLeadForm />
         </div>
       </section>
