@@ -1,0 +1,46 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+function readRepoFile(relativePath: string): string {
+  const candidates = [join(process.cwd(), relativePath), join(process.cwd(), 'apps/web', relativePath)];
+  const path = candidates.find((candidate) => existsSync(candidate));
+
+  if (!path) {
+    throw new Error(`Cannot find ${relativePath}. Checked: ${candidates.join(', ')}`);
+  }
+
+  return readFileSync(path, 'utf8');
+}
+
+describe('platform-v7 mobile notification safe CSS', () => {
+  const css = readRepoFile('styles/platform-v7-mobile-notification-safe.css');
+  const accessibilityCss = readRepoFile('app/v9-accessibility.css');
+
+  it('is imported after showcase hardening', () => {
+    expect(accessibilityCss).toContain("@import '../styles/platform-v7-showcase-hardening.css';");
+    expect(accessibilityCss).toContain("@import '../styles/platform-v7-mobile-notification-safe.css';");
+    expect(accessibilityCss.indexOf('platform-v7-showcase-hardening.css')).toBeLessThan(
+      accessibilityCss.indexOf('platform-v7-mobile-notification-safe.css'),
+    );
+  });
+
+  it('keeps header actions and notification button overflow visible', () => {
+    expect(css).toContain('.pc-header-actions');
+    expect(css).toContain('.pc-shell-iconbtn');
+    expect(css).toContain('overflow: visible !important;');
+  });
+
+  it('keeps the unread badge inside the 46px tap target', () => {
+    expect(css).toContain(".pc-shell-iconbtn > span[aria-hidden='true']");
+    expect(css).toContain('top: 2px !important;');
+    expect(css).toContain('right: 2px !important;');
+    expect(css).toContain('transform: none !important;');
+  });
+
+  it('protects mobile safe-area spacing', () => {
+    expect(css).toContain('@media (max-width: 768px)');
+    expect(css).toContain('env(safe-area-inset-right)');
+    expect(css).toContain('flex-basis: 46px;');
+  });
+});
