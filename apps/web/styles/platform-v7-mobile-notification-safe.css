@@ -1,3 +1,5 @@
+@import './platform-v7-workspace-mode.css';
+
 /* Platform v7 mobile notification/header safe zone: финальный фикс обрезки alert/notification иконок на мобильном. */
 
 .pc-header-top,
