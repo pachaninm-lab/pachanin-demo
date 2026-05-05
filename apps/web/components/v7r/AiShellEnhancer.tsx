@@ -39,8 +39,8 @@ export function AiShellEnhancer() {
 
         .pc-notification-center-bridge {
           position: fixed;
-          top: calc(env(safe-area-inset-top) + 88px);
-          right: 16px;
+          top: calc(env(safe-area-inset-top) + 10px);
+          right: 174px;
           z-index: 132;
         }
 
@@ -58,8 +58,8 @@ export function AiShellEnhancer() {
           }
 
           .pc-notification-center-bridge {
-            top: calc(env(safe-area-inset-top) + 82px);
-            right: 12px;
+            top: calc(env(safe-area-inset-top) + 8px);
+            right: 154px;
           }
         }
 
@@ -69,12 +69,18 @@ export function AiShellEnhancer() {
           }
 
           .pc-notification-center-bridge {
-            top: calc(env(safe-area-inset-top) + 78px);
-            right: 10px;
+            top: calc(env(safe-area-inset-top) + 8px);
+            right: 112px;
+          }
+        }
+
+        @media (max-width: 390px) {
+          .pc-notification-center-bridge {
+            right: 104px;
           }
         }
       `}</style>
-      <div className='pc-notification-center-bridge' aria-label='Центр уведомлений platform-v7 shell'>
+      <div className='pc-notification-center-bridge' aria-label='Значки уведомлений и предупреждений в шапке'>
         <PlatformV7NotificationCenter />
       </div>
     </>
