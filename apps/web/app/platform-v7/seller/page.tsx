@@ -44,6 +44,29 @@ const sellerSummary = [
   { label: 'Кто следующий', value: 'продавец + оператор + логистика', note: 'Каждый шаг должен иметь ответственного и след в журнале.' },
 ] as const;
 
+const sellerGrainEntries = [
+  {
+    title: 'Быстрая продажа партии',
+    note: 'Создать стартовую карточку партии без знания всех документов заранее.',
+    href: '/platform-v7/seller/quick-sale',
+  },
+  {
+    title: 'Партии зерна',
+    note: 'Готовность партии, доступный объём, ФГИС, качество и следующий шаг.',
+    href: '/platform-v7/batches',
+  },
+  {
+    title: 'Документы и СДИЗ',
+    note: 'Что продавец должен закрыть, чтобы не держать выплату.',
+    href: '/platform-v7/deals/grain-sdiz',
+  },
+  {
+    title: 'Статус выплаты',
+    note: 'Резерв, удержание спорной части и основание выпуска денег через банк.',
+    href: '/platform-v7/deals/grain-release',
+  },
+] as const;
+
 const payoutDocs = [
   { name: 'СДИЗ', source: 'ФГИС «Зерно»', owner: 'продавец + оператор', status: 'не оформлен', impact: 'останавливает финальный выпуск денег' },
   { name: 'ЭТрН', source: 'СБИС / Saby + ГИС ЭПД', owner: 'логистика + перевозчик', status: 'ждёт подписи', impact: 'останавливает закрытие рейса' },
@@ -59,10 +82,27 @@ export default function PlatformV7SellerPage() {
         <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Лоты, ставки и когда будут деньги</h1>
         <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Продавец видит лоты, обезличенные ставки, числовой рейтинг покупателей, победителя, резерв и условия выплаты. Деньги не показываются как доступные, пока не закрыты СДИЗ, ЭТрН, приёмка и документы.</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Link href='/platform-v7/lots/create' style={primaryBtn}>Создать лот</Link>
+          <Link href='/platform-v7/seller/quick-sale' style={primaryBtn}>Продать зерно</Link>
+          <Link href='/platform-v7/batches' style={ghostBtn}>Партии зерна</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть Deal 360</Link>
           <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
           <Link href='/platform-v7/logistics' style={ghostBtn}>Рейс и логистика</Link>
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={micro}>Зерновой контур продавца</div>
+        <h2 style={{ margin: 0, color: '#0F1419', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>От партии до выплаты</h2>
+        <p style={{ margin: 0, color: '#64748B', fontSize: 14, lineHeight: 1.55 }}>Продавцу не нужен операторский центр управления. Ему нужен короткий путь: создать партию, понять готовность, закрыть документы и увидеть, почему деньги ещё не выпущены.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+          {sellerGrainEntries.map((entry) => (
+            <Link key={entry.href} href={entry.href} style={sellerEntryCard}>
+              <span style={{ width: 42, height: 4, borderRadius: 999, background: '#0A7A5F' }} />
+              <strong style={{ color: '#0F1419', fontSize: 17, lineHeight: 1.2 }}>{entry.title}</strong>
+              <span style={{ color: '#64748B', fontSize: 13, lineHeight: 1.5 }}>{entry.note}</span>
+              <span style={{ marginTop: 'auto', color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>Открыть</span>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -174,6 +214,7 @@ const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px
 const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
 const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
+const sellerEntryCard = { textDecoration: 'none', minHeight: 156, display: 'grid', gap: 9, padding: 14, borderRadius: 18, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#0F1419' } as const;
 const status = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const neutralStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 } as const;
 const timer = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.22)', color: '#B45309', fontSize: 12, fontWeight: 900 } as const;
