@@ -1,4 +1,4 @@
-import type { ExecutionBlocker, RoleExecutionSummary, UserRole } from './types';
+import type { ExecutionBlocker, NextAction, RoleExecutionSummary, UserRole } from './types';
 import {
   disputes,
   documents,
@@ -27,6 +27,10 @@ import { projectSummaryForRole } from './automation/role-visibility-engine';
 
 const createdAt = '2026-05-05T09:00:00.000Z';
 
+function isNextAction(action: NextAction | undefined): action is NextAction {
+  return Boolean(action);
+}
+
 export function getGrainExecutionContext() {
   const primaryBatch = grainBatches[0];
   const primaryLot = marketLots[0];
@@ -38,7 +42,7 @@ export function getGrainExecutionContext() {
   const primarySdizGates = sdizGates.filter((gate) => gate.dealId === 'DL-GRAIN-450' || gate.batchId === primaryBatch.id);
   const primaryDocuments = documents.filter((document) => document.dealId === 'DL-GRAIN-450');
   const netbacks = rankOffersByNetback(
-    offers.map((offer, index) =>
+    offers.map((offer) =>
       calculateNetback({
         id: `NB-${offer.id}`,
         batchId: offer.batchId ?? primaryBatch.id,
@@ -73,6 +77,7 @@ export function getGrainExecutionContext() {
     createdAt,
   });
   const auditEvents = createRequiredAuditEvents(createdAt);
+  const nextActions = [moneyProjection.nextAction, ...readiness.nextActions].filter(isNextAction);
 
   const baseSummary: RoleExecutionSummary = {
     role: 'operator',
@@ -80,7 +85,7 @@ export function getGrainExecutionContext() {
     entityId: 'DL-GRAIN-450',
     currentState: 'Приёмка завершена, качество и вес создали удержания, СДИЗ перевозки требует ручной проверки.',
     blockers,
-    nextActions: [moneyProjection.nextAction, ...readiness.nextActions].filter(Boolean),
+    nextActions,
     moneySummary: moneyProjection,
     documentSummary: summarizeDocuments(primaryDocuments),
     logisticsSummary: {
