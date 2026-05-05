@@ -60,6 +60,15 @@ export function AiShellEnhancer() {
           display: none !important;
         }
 
+        .pc-header-actions > button[aria-label^='Уведомления:'],
+        .pc-header-actions > div > button[aria-label^='Уведомления:'] {
+          display: none !important;
+        }
+
+        .pc-header-actions .pc-header-notifications-slot button[aria-label^='Уведомления:'] {
+          display: inline-flex !important;
+        }
+
         .pc-header-notifications-slot {
           display: inline-flex;
           align-items: center;
