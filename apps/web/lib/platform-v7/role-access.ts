@@ -26,6 +26,18 @@ export type PlatformV7SensitiveSurface =
   | 'driverActions'
   | 'providerDebug';
 
+export type PlatformV7SensitiveField =
+  | 'phone'
+  | 'email'
+  | 'exactAddress'
+  | 'fullLegalName'
+  | 'bankDetails'
+  | 'fullDocuments'
+  | 'responsiblePerson'
+  | 'driverContact'
+  | 'carrierContact'
+  | 'closedOfferTerms';
+
 export type PlatformV7AccessDecision = {
   readonly allowed: boolean;
   readonly reason: string;
@@ -45,6 +57,22 @@ export const PLATFORM_V7_ROLE_FORBIDDEN_SURFACES: Record<PlatformV7Role, readonl
   investor: ['driverActions', 'bankInternalEvents', 'operatorControls', 'providerDebug'],
   executive: ['driverActions', 'bankInternalEvents', 'providerDebug'],
   operator: [],
+};
+
+export const PLATFORM_V7_ROLE_FORBIDDEN_FIELDS: Record<PlatformV7Role, readonly PlatformV7SensitiveField[]> = {
+  seller: ['bankDetails', 'closedOfferTerms'],
+  buyer: ['phone', 'email', 'exactAddress', 'bankDetails', 'closedOfferTerms'],
+  logistics: ['bankDetails', 'closedOfferTerms'],
+  driver: ['phone', 'email', 'bankDetails', 'closedOfferTerms', 'fullDocuments', 'responsiblePerson'],
+  elevator: ['bankDetails', 'closedOfferTerms'],
+  lab: ['bankDetails', 'closedOfferTerms', 'driverContact', 'carrierContact'],
+  surveyor: ['bankDetails', 'closedOfferTerms'],
+  bank: ['driverContact', 'carrierContact'],
+  operator: [],
+  arbitrator: ['driverContact', 'carrierContact'],
+  compliance: ['driverContact', 'carrierContact'],
+  investor: ['phone', 'email', 'exactAddress', 'bankDetails', 'fullDocuments', 'responsiblePerson', 'driverContact', 'carrierContact', 'closedOfferTerms'],
+  executive: ['driverContact', 'carrierContact', 'bankDetails'],
 };
 
 export const PLATFORM_V7_ROLE_HOME_ROUTE: Record<PlatformV7Role, string> = {
@@ -83,6 +111,10 @@ export function isPlatformV7SurfaceForbiddenForRole(role: PlatformV7Role, surfac
   return PLATFORM_V7_ROLE_FORBIDDEN_SURFACES[role].includes(surface);
 }
 
+export function isPlatformV7FieldForbiddenForRole(role: PlatformV7Role, field: PlatformV7SensitiveField): boolean {
+  return PLATFORM_V7_ROLE_FORBIDDEN_FIELDS[role].includes(field);
+}
+
 export function getPlatformV7RoleHomeRoute(role: PlatformV7Role): string {
   return PLATFORM_V7_ROLE_HOME_ROUTE[role];
 }
@@ -101,4 +133,22 @@ export function canPlatformV7RoleOpenRoute(role: PlatformV7Role, route: string):
     allowed: true,
     reason: 'Маршрут доступен для роли.',
   };
+}
+
+export function canPlatformV7RoleSeeField(role: PlatformV7Role, field: PlatformV7SensitiveField): PlatformV7AccessDecision {
+  if (isPlatformV7FieldForbiddenForRole(role, field)) {
+    return {
+      allowed: false,
+      reason: 'Поле закрыто для роли до наступления допустимого этапа сделки.',
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: 'Поле доступно для роли.',
+  };
+}
+
+export function getPlatformV7VisibleFields(role: PlatformV7Role, fields: readonly PlatformV7SensitiveField[]): PlatformV7SensitiveField[] {
+  return fields.filter((field) => !isPlatformV7FieldForbiddenForRole(role, field));
 }
