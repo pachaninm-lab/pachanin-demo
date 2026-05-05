@@ -11,7 +11,7 @@
   }
 
   .premium-nav > div {
-    height: 70px !important;
+    height: 64px !important;
     max-width: 100vw;
     padding-left: max(14px, env(safe-area-inset-left)) !important;
     padding-right: max(14px, env(safe-area-inset-right)) !important;
@@ -25,20 +25,21 @@
   }
 
   .premium-nav a[aria-label='Прозрачная Цена'] > span:last-child {
-    font-size: clamp(1.12rem, 5vw, 1.42rem) !important;
+    font-size: clamp(1.08rem, 4.7vw, 1.32rem) !important;
     line-height: 1;
     white-space: nowrap;
   }
 
   .premium-nav .lux-button {
-    border-radius: 18px !important;
-    padding: 0.82rem 1.05rem !important;
-    font-size: 0.96rem !important;
+    border-radius: 17px !important;
+    padding: 0.72rem 0.96rem !important;
+    font-size: 0.92rem !important;
     white-space: nowrap;
   }
 
   .landing-hero {
-    padding-top: 70px !important;
+    min-height: auto !important;
+    padding-top: 64px !important;
     overflow: hidden;
   }
 
@@ -47,9 +48,9 @@
     max-width: 100vw;
     padding-left: max(16px, env(safe-area-inset-left)) !important;
     padding-right: max(16px, env(safe-area-inset-right)) !important;
-    padding-top: 1.4rem !important;
-    padding-bottom: 2.2rem !important;
-    gap: 0.75rem !important;
+    padding-top: 1.05rem !important;
+    padding-bottom: 1.35rem !important;
+    gap: 0.62rem !important;
   }
 
   .landing-hero-inner > div {
@@ -59,87 +60,97 @@
 
   .hero-kicker {
     max-width: calc(100vw - 38px) !important;
-    margin-bottom: 1.1rem !important;
-    padding: 0.48rem 0.78rem !important;
-    font-size: 0.55rem !important;
-    letter-spacing: 0.15em !important;
-    line-height: 1.3 !important;
+    margin-bottom: 0.78rem !important;
+    padding: 0.42rem 0.72rem !important;
+    font-size: 0.52rem !important;
+    letter-spacing: 0.14em !important;
+    line-height: 1.25 !important;
   }
 
   .hero-title {
     max-width: 100%;
-    font-size: clamp(2.56rem, 10.9vw, 3.6rem) !important;
-    line-height: 0.91 !important;
-    letter-spacing: -0.072em !important;
+    font-size: clamp(2.32rem, 9.95vw, 3.28rem) !important;
+    line-height: 0.9 !important;
+    letter-spacing: -0.07em !important;
   }
 
   .hero-subtitle {
     max-width: min(94%, 360px) !important;
-    margin-top: 1.1rem !important;
-    font-size: clamp(0.96rem, 3.65vw, 1.06rem) !important;
-    line-height: 1.43 !important;
+    margin-top: 0.82rem !important;
+    font-size: clamp(0.88rem, 3.35vw, 0.98rem) !important;
+    line-height: 1.36 !important;
   }
 
   .hero-feature-grid {
     width: 100%;
     max-width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 1.25rem !important;
-    gap: 0.66rem !important;
+    margin-top: 0.95rem !important;
+    gap: 0.55rem !important;
   }
 
   .hero-feature-card {
     min-width: 0;
-    min-height: 96px !important;
-    border-radius: 17px !important;
-    padding: 0.72rem !important;
-    box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    min-height: 78px !important;
+    border-radius: 15px !important;
+    padding: 0.58rem !important;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.04) !important;
   }
 
   .hero-feature-number {
-    height: 2.22rem !important;
-    width: 2.22rem !important;
-    margin-bottom: 0.55rem !important;
-    border-radius: 0.92rem !important;
-    font-size: 0.66rem !important;
+    height: 1.9rem !important;
+    width: 1.9rem !important;
+    margin-bottom: 0.42rem !important;
+    border-radius: 0.78rem !important;
+    font-size: 0.6rem !important;
   }
 
   .hero-feature-title {
-    font-size: 0.94rem !important;
-    line-height: 1.05 !important;
+    font-size: 0.85rem !important;
+    line-height: 1.04 !important;
   }
 
   .hero-feature-text {
-    font-size: 0.76rem !important;
-    line-height: 1.22 !important;
+    margin-top: 0.12rem !important;
+    font-size: 0.68rem !important;
+    line-height: 1.18 !important;
+  }
+
+  #problem {
+    padding-top: 2.25rem !important;
   }
 }
 
 @media (max-width: 390px) {
   .premium-nav > div {
+    height: 62px !important;
     padding-left: 12px !important;
     padding-right: 12px !important;
   }
 
   .premium-nav a[aria-label='Прозрачная Цена'] > span:last-child {
-    font-size: clamp(1.02rem, 4.8vw, 1.22rem) !important;
+    font-size: clamp(0.98rem, 4.55vw, 1.16rem) !important;
   }
 
   .premium-nav .lux-button {
-    padding: 0.74rem 0.9rem !important;
-    font-size: 0.9rem !important;
+    padding: 0.68rem 0.84rem !important;
+    font-size: 0.88rem !important;
+  }
+
+  .landing-hero {
+    padding-top: 62px !important;
   }
 
   .hero-title {
-    font-size: clamp(2.34rem, 10.55vw, 3.08rem) !important;
+    font-size: clamp(2.12rem, 9.8vw, 2.86rem) !important;
   }
 
   .hero-subtitle {
-    font-size: 0.92rem !important;
+    font-size: 0.86rem !important;
   }
 
   .hero-feature-card {
-    min-height: 92px !important;
-    padding: 0.68rem !important;
+    min-height: 74px !important;
+    padding: 0.54rem !important;
   }
 }
