@@ -95,6 +95,7 @@ export function calculateBatchReadiness(
     ),
   );
 
+  const targetRoute = '/platform-v7/batches/view';
   const nextActions = sortNextActions([
     ...(!batch.qualityProfileId
       ? [
@@ -105,7 +106,7 @@ export function calculateBatchReadiness(
             role: 'seller',
             priority: 'high',
             actionType: 'attach_quality',
-            targetRoute: `/platform-v7/batches/${batch.id}`,
+            targetRoute,
           }),
         ]
       : []),
@@ -118,7 +119,7 @@ export function calculateBatchReadiness(
             role: 'seller',
             priority: 'critical',
             actionType: 'link_fgis',
-            targetRoute: `/platform-v7/batches/${batch.id}`,
+            targetRoute,
             requiresReason: true,
           }),
         ]
@@ -130,7 +131,7 @@ export function calculateBatchReadiness(
       role: 'seller',
       priority: score >= 80 ? 'medium' : 'high',
       actionType: 'publish_lot',
-      targetRoute: `/platform-v7/batches/${batch.id}`,
+      targetRoute,
       disabled: score < 70,
       disabledReason: score < 70 ? 'Готовность партии ниже безопасного порога.' : undefined,
     }),
