@@ -4,7 +4,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LifeBuoy } from 'lucide-react';
+import { CircleHelp } from 'lucide-react';
 
 function useHeaderActionsTarget() {
   const [target, setTarget] = React.useState<Element | null>(null);
@@ -61,7 +61,7 @@ export function SupportHeaderIcon() {
         background: active ? 'var(--pc-accent-bg)' : undefined,
       }}
     >
-      <LifeBuoy size={18} strokeWidth={2.2} aria-hidden='true' />
+      <CircleHelp size={18} strokeWidth={2.2} aria-hidden='true' />
     </Link>,
     target,
   );
