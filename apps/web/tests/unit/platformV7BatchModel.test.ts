@@ -30,9 +30,10 @@ describe('platform-v7 batch model', () => {
     expect(isPlatformV7BatchVolumeBalanced({ ...baseBatch, reservedTons: 300, soldTons: 200 })).toBe(false);
   });
 
-  it('allows publication only when readiness is high and no critical blocker exists', () => {
+  it('allows publication only when readiness is high, volume is balanced and no critical blocker exists', () => {
     expect(canPlatformV7BatchPublish(baseBatch)).toBe(true);
     expect(canPlatformV7BatchPublish({ ...baseBatch, readinessScore: 70 })).toBe(false);
+    expect(canPlatformV7BatchPublish({ ...baseBatch, availableTons: 500, reservedTons: 200, soldTons: 100 })).toBe(false);
     expect(
       canPlatformV7BatchPublish({
         ...baseBatch,
