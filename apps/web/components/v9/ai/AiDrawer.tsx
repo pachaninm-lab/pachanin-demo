@@ -1,11 +1,9 @@
 'use client';
 import * as React from 'react';
 import { Bot, X, Lightbulb, AlertTriangle, TrendingUp, ExternalLink } from 'lucide-react';
-import { cn } from '@/lib/v9/utils';
-import { Button } from '../ui/button';
 import { useSessionStore } from '@/stores/useSessionStore';
 
-interface AiSuggestion {
+interface DealAssistantSuggestion {
   id: string;
   title: string;
   reasoning: string;
@@ -14,26 +12,25 @@ interface AiSuggestion {
   priority: 'high' | 'medium' | 'low';
 }
 
-// Context-aware suggestions based on current page path
-function getSuggestions(pathname: string, role: string): AiSuggestion[] {
+function getSuggestions(pathname: string): DealAssistantSuggestion[] {
   if (pathname.includes('control-tower') || pathname === '/platform-v7') {
     return [
       {
         id: 's1', priority: 'high',
-        title: 'DL-9102 требует немедленного внимания',
-        reasoning: 'На основе: Risk score 92, hold 624 000 ₽, SLA осталось 6 дней, спор DK-2024-89 без эксперта.',
-        action: 'Открыть war-room DK-2024-89', actionHref: '/platform-v7/disputes/DK-2024-89',
+        title: 'DL-9102 требует внимания',
+        reasoning: 'Причина: риск 92, удержание 624 000 ₽, срок реакции 6 дней, спор DK-2024-89 без эксперта.',
+        action: 'Открыть спор DK-2024-89', actionHref: '/platform-v7/disputes/DK-2024-89',
       },
       {
         id: 's2', priority: 'high',
-        title: 'CB-442 Mismatch блокирует release 5.76 млн ₽',
-        reasoning: 'На основе: Callback не закрыт 4 дня. Зависимые сделки: DL-9102. Требуется ручная верификация.',
+        title: 'CB-442 блокирует выпуск 5.76 млн ₽',
+        reasoning: 'Ответ банка не закрыт 4 дня. Зависимые сделки: DL-9102. Требуется ручная проверка.',
         action: 'Перейти к банку', actionHref: '/platform-v7/bank',
       },
       {
         id: 's3', priority: 'medium',
         title: 'DL-9110 — второй активный спор',
-        reasoning: 'Risk score 78, hold 512 000 ₽, SLA 13 дней. Расхождение влажности кукурузы 16.2% vs 14%.',
+        reasoning: 'Риск 78, удержание 512 000 ₽, срок реакции 13 дней. Расхождение влажности кукурузы 16.2% vs 14%.',
         action: 'Открыть DK-2024-91', actionHref: '/platform-v7/disputes/DK-2024-91',
       },
     ];
@@ -43,15 +40,15 @@ function getSuggestions(pathname: string, role: string): AiSuggestion[] {
     return [
       {
         id: 'd1', priority: 'high',
-        title: 'Загрузите заключение эксперта — осталось 6 дней',
-        reasoning: 'Evidence pack неполный (4/5). Без заключения независимого эксперта арбитраж невозможен.',
-        action: 'Перейти к evidence pack',
+        title: 'Нужно заключение эксперта — осталось 6 дней',
+        reasoning: 'Пакет доказательств неполный (4/5). Без заключения независимого эксперта решение по спору нельзя подтверждать.',
+        action: 'Открыть пакет доказательств',
       },
       {
         id: 'd2', priority: 'medium',
         title: 'Паспорт ФГИС и протокол ЛАБ-2847 расходятся на 0.8%',
-        reasoning: 'Типичная разрешаемость: 6 из 10 споров по качеству решаются частичным release (70%) + доп. гарантией.',
-        action: 'Предложить частичный release 70%',
+        reasoning: 'Рабочий вариант: частичный выпуск денег 70% и удержание спорной части до решения.',
+        action: 'Проверить частичный выпуск 70%',
       },
     ];
   }
@@ -60,14 +57,14 @@ function getSuggestions(pathname: string, role: string): AiSuggestion[] {
     return [
       {
         id: 'b1', priority: 'high',
-        title: 'CB-442 заблокирован 4+ дня — нестандартная ситуация',
-        reasoning: 'Среднее время обработки mismatch: 1.2 дня. Текущий: 4 дня. Рекомендую эскалацию.',
-        action: 'Эскалировать в Сбер',
+        title: 'CB-442 заблокирован 4+ дня',
+        reasoning: 'Обычный срок обработки расхождения: 1.2 дня. Текущий срок: 4 дня. Нужна эскалация.',
+        action: 'Эскалировать проверку',
       },
       {
         id: 'b2', priority: 'medium',
-        title: 'Два документа блокируют release 3.2 млн ₽',
-        reasoning: 'Акт приёмки (форма А) + форма ЗТТ. Ответственный: Продавец. Уведомление не отправлялось 18ч.',
+        title: 'Два документа блокируют выпуск 3.2 млн ₽',
+        reasoning: 'Акт приёмки и форма ЗТТ. Ответственный: продавец. Уведомление не отправлялось 18 часов.',
         action: 'Отправить напоминание продавцу',
       },
     ];
@@ -77,26 +74,25 @@ function getSuggestions(pathname: string, role: string): AiSuggestion[] {
     return [
       {
         id: 'dl1', priority: 'high',
-        title: 'Фаза «Приёмка» заблокирована спором',
-        reasoning: 'Разблокировка через: загрузка заключения эксперта + закрытие CB-442. ETA: 3-5 рабочих дней.',
-        action: 'War-room спора', actionHref: '/platform-v7/disputes/DK-2024-89',
+        title: 'Приёмка заблокирована спором',
+        reasoning: 'Разблокировка: заключение эксперта и закрытие CB-442. Оценка срока: 3–5 рабочих дней.',
+        action: 'Открыть спор', actionHref: '/platform-v7/disputes/DK-2024-89',
       },
       {
         id: 'dl2', priority: 'medium',
-        title: 'Partial release 70% возможен сейчас',
-        reasoning: 'Лаб-результат подтверждён. Спорная часть 10% (624 000 ₽) останется под hold до решения.',
-        action: 'Оформить release 70%',
+        title: 'Частичный выпуск 70% возможен к проверке',
+        reasoning: 'Лабораторный результат подтверждён. Спорная часть 10% (624 000 ₽) остаётся под удержанием до решения.',
+        action: 'Проверить выпуск 70%',
       },
     ];
   }
 
-  // Default
   return [
     {
       id: 'def1', priority: 'medium',
       title: 'Недостаточно контекста для подсказки',
-      reasoning: 'Выберите конкретную сделку или раздел для получения контекстных рекомендаций.',
-      action: 'Открыть Control Tower', actionHref: '/platform-v7/control-tower',
+      reasoning: 'Выберите конкретную сделку или раздел для контекстной рекомендации.',
+      action: 'Открыть центр управления', actionHref: '/platform-v7/control-tower',
     },
   ];
 }
@@ -114,12 +110,11 @@ interface AiDrawerProps {
 }
 
 export function AiDrawer({ open, onClose, pathname }: AiDrawerProps) {
-  const { role, demoMode } = useSessionStore();
-  const suggestions = getSuggestions(pathname, role);
+  const { demoMode } = useSessionStore();
+  const suggestions = getSuggestions(pathname);
 
   return (
     <>
-      {/* Backdrop */}
       {open && (
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(15,20,25,0.2)' }}
@@ -128,10 +123,9 @@ export function AiDrawer({ open, onClose, pathname }: AiDrawerProps) {
         />
       )}
 
-      {/* Drawer */}
       <aside
         role="complementary"
-        aria-label="AI-помощник"
+        aria-label="Помощник сделки"
         style={{
           position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 50,
           width: 360, background: '#fff',
@@ -142,16 +136,15 @@ export function AiDrawer({ open, onClose, pathname }: AiDrawerProps) {
           transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
         }}
       >
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderBottom: '1px solid #E4E6EA' }}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(10,122,95,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Bot size={16} color="#0A7A5F" />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>AI-помощник</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>Помощник сделки</div>
             <div style={{ fontSize: 11, color: '#6B778C' }}>
               Контекст: {pathname.split('/').pop() ?? 'платформа'}
-              {demoMode ? ' · SANDBOX' : ''}
+              {demoMode ? ' · тестовый контур' : ''}
             </div>
           </div>
           <button onClick={onClose} style={{ color: '#6B778C', background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6 }} aria-label="Закрыть">
@@ -159,7 +152,6 @@ export function AiDrawer({ open, onClose, pathname }: AiDrawerProps) {
           </button>
         </div>
 
-        {/* Suggestions */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6B778C', marginBottom: 4 }}>
             {suggestions.length} рекомендации
@@ -208,9 +200,9 @@ export function AiDrawer({ open, onClose, pathname }: AiDrawerProps) {
                       fontSize: 11, fontWeight: 700, color: demoMode ? '#6B778C' : colors.icon,
                       display: 'flex', alignItems: 'center', gap: 4,
                     }}
-                    title={demoMode ? 'SANDBOX: действие отключено' : undefined}
+                    title={demoMode ? 'Тестовый контур: действие отключено' : undefined}
                   >
-                    {s.action} {demoMode && <span style={{ fontSize: 9, color: '#D97706' }}>(sandbox)</span>}
+                    {s.action} {demoMode && <span style={{ fontSize: 9, color: '#D97706' }}>(тестовый контур)</span>}
                   </button>
                 )}
               </div>
@@ -218,10 +210,9 @@ export function AiDrawer({ open, onClose, pathname }: AiDrawerProps) {
           })}
         </div>
 
-        {/* Footer */}
         <div style={{ padding: '12px 20px', borderTop: '1px solid #E4E6EA', fontSize: 11, color: '#6B778C', textAlign: 'center' }}>
-          AI-рекомендации основаны на данных платформы.
-          {demoMode && ' В SANDBOX-режиме — демо-данные.'}
+          Рекомендации основаны на данных платформы.
+          {demoMode && ' В тестовом контуре используются проверочные данные.'}
         </div>
       </aside>
     </>

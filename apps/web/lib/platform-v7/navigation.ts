@@ -25,7 +25,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
   operator: [
     { href: '/platform-v7/control-tower', label: PLATFORM_V7_LEXICON.nav.controlTower, icon: 'dashboard' },
     { href: '/platform-v7/batches', label: 'Партии зерна', icon: 'lots' },
-    { href: '/platform-v7/buyer/rfq', label: 'RFQ / закупки', icon: 'procurement' },
+    { href: '/platform-v7/buyer/rfq', label: 'Закупочные запросы', icon: 'procurement' },
     { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals, icon: 'deals' },
     { href: '/platform-v7/deals/grain-release', label: 'Деньги и удержания', icon: 'bank' },
     { href: '/platform-v7/deals/grain-sdiz', label: 'СДИЗ и документы', icon: 'integrations' },
@@ -35,7 +35,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
     { href: '/platform-v7/connectors', label: PLATFORM_V7_LEXICON.nav.connectors, icon: 'integrations' },
     { href: '/platform-v7/bank', label: PLATFORM_V7_LEXICON.nav.bank, icon: 'bank' },
     { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes, icon: 'disputes' },
-    { href: '/platform-v7/demo/grain-execution', label: 'Демо-цепочка', icon: 'demo' },
+    { href: '/platform-v7/demo/grain-execution', label: 'Проверочный сценарий', icon: 'demo' },
   ],
   buyer: [
     { href: '/platform-v7/buyer', label: PLATFORM_V7_LEXICON.nav.cabinet, icon: 'cabinet' },
@@ -71,15 +71,15 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
   bank: [
     { href: '/platform-v7/bank', label: 'Банковый контур', icon: 'bank' },
     { href: '/platform-v7/deals/grain-release', label: 'Основания выпуска', icon: 'bank' },
-    { href: '/platform-v7/deals/grain-sdiz', label: 'СДИЗ / документы', icon: 'integrations' },
+    { href: '/platform-v7/deals/grain-sdiz', label: 'СДИЗ и документы', icon: 'integrations' },
     { href: '/platform-v7/bank/factoring', label: PLATFORM_V7_LEXICON.nav.factoring, icon: 'bank' },
     { href: '/platform-v7/bank/escrow', label: PLATFORM_V7_LEXICON.nav.escrow, icon: 'bank' },
     { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals, icon: 'deals' },
     { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.holds, icon: 'disputes' },
   ],
   arbitrator: [{ href: '/platform-v7/arbitrator', label: 'Разбор', icon: 'analytics' }, { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes, icon: 'disputes' }, { href: '/platform-v7/deals/grain-quality', label: 'Качество и доказательства', icon: 'lab' }],
-  compliance: [{ href: '/platform-v7/compliance', label: 'Допуск', icon: 'cabinet' }, { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals, icon: 'deals' }, { href: '/platform-v7/deals/grain-sdiz', label: 'СДИЗ / документы', icon: 'integrations' }],
-  executive: [{ href: '/platform-v7/executive', label: PLATFORM_V7_LEXICON.nav.executive, icon: 'analytics' }, { href: '/platform-v7/control-tower', label: PLATFORM_V7_LEXICON.nav.controlTower, icon: 'dashboard' }, { href: '/platform-v7/demo/grain-execution', label: 'Демо-цепочка', icon: 'demo' }, { href: '/platform-v7/bank', label: PLATFORM_V7_LEXICON.nav.money, icon: 'bank' }],
+  compliance: [{ href: '/platform-v7/compliance', label: 'Допуск', icon: 'cabinet' }, { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals, icon: 'deals' }, { href: '/platform-v7/deals/grain-sdiz', label: 'СДИЗ и документы', icon: 'integrations' }],
+  executive: [{ href: '/platform-v7/executive', label: PLATFORM_V7_LEXICON.nav.executive, icon: 'analytics' }, { href: '/platform-v7/control-tower', label: PLATFORM_V7_LEXICON.nav.controlTower, icon: 'dashboard' }, { href: '/platform-v7/demo/grain-execution', label: 'Проверочный сценарий', icon: 'demo' }, { href: '/platform-v7/bank', label: PLATFORM_V7_LEXICON.nav.money, icon: 'bank' }],
 };
 
 export function platformV7RoleLabel(role: PlatformRole): string { return PLATFORM_V7_ROLE_LABELS[role]; }

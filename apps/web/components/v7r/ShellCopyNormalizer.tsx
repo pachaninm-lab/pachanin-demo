@@ -4,9 +4,9 @@ import * as React from 'react';
 
 const TEXT_REPLACEMENTS: Array<[string, string]> = [
   ['Controlled pilot', 'Пилотный режим'],
-  ['Sandbox + callbacks', 'Тестовая среда · ответы банка'],
-  ['Sandbox + evidence', 'Тестовая среда · доказательства'],
-  ['Sandbox + rules', 'Тестовая среда · правила сделки'],
+  ['Sandbox + callbacks', 'Тестовый контур · ответы банка'],
+  ['Sandbox + evidence', 'Тестовый контур · доказательства'],
+  ['Sandbox + rules', 'Тестовый контур · правила сделки'],
   ['Simulation-grade контур исполнения', 'Тестовый контур исполнения'],
   ['Simulation-grade', 'Тестовый сценарий сделки'],
   ['simulation-only', 'тестовый контур'],
@@ -16,9 +16,21 @@ const TEXT_REPLACEMENTS: Array<[string, string]> = [
   ['Будет выпущено', 'Будет зафиксировано решение о выпуске'],
   ['Выпуск 512 тыс. ₽ инициирован', 'Решение о полном выпуске 512 тыс. ₽ зафиксировано'],
   ['Control Tower', 'Центр управления'],
+  ['RFQ / закупки', 'Закупочные запросы'],
+  ['Демо-цепочка', 'Проверочный сценарий'],
+  ['Демо-сценарий', 'Проверочный сценарий'],
+  ['Инвесторский режим', 'Инвесторский обзор'],
+  ['Тестовый режим', 'Тестовый контур'],
+  ['AI-помощник', 'Помощник сделки'],
+  ['AI', 'помощник сделки'],
   ['callbacks', 'ответы банка'],
   ['callback', 'ответ банка'],
   ['evidence-first', 'доказательный контур'],
+  ['marketplace', 'лоты и запросы'],
+  ['domain-core', 'контур сделки'],
+  ['debug', 'служебная проверка'],
+  ['mock', 'проверочные данные'],
+  ['legacy', 'старый контур'],
   ['Evidence', 'Доказательства'],
   ['Audit', 'Журнал'],
   ['Timeline', 'Ход сделки'],
@@ -36,6 +48,8 @@ const TEXT_REPLACEMENTS: Array<[string, string]> = [
   ['assignDriver', 'назначить водителя'],
   ['publishLot', 'опубликовать лот'],
   ['release', 'выпуск денег'],
+  ['hold', 'удержание денег'],
+  ['owner', 'ответственный'],
   ['review', 'ручная проверка'],
   ['REVIEW', 'ПРОВЕРКА'],
   ['Dispute open', 'Открыт спор'],
@@ -43,20 +57,37 @@ const TEXT_REPLACEMENTS: Array<[string, string]> = [
   ['Blocker', 'Причина остановки'],
 ];
 
-const SIDE_DRAWER_HIDDEN_LINK_TEXT = new Set(['Инвестор', 'Демо']);
+const SIDE_DRAWER_HIDDEN_LINK_TEXT = new Set(['Инвестор', 'Демо', 'Инвесторский обзор', 'Проверочный сценарий']);
 const SURFACE_SELECTOR = 'section, article, div, a, button, label, li, span, small';
 const TEXT_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, span, strong, small, label, div';
 
 type DarkSurfaceMode = 'surface' | 'action' | 'hero' | 'chip';
 type ChipTone = 'neutral' | 'success' | 'warning' | 'danger';
 
+function applyTextReplacements(value: string) {
+  let next = value;
+  for (const [from, to] of TEXT_REPLACEMENTS) {
+    next = next.split(from).join(to);
+  }
+  return next;
+}
+
 function normalizeNodeText(node: Node) {
   if (node.nodeType === Node.TEXT_NODE && node.textContent) {
-    let next = node.textContent;
-    for (const [from, to] of TEXT_REPLACEMENTS) {
-      next = next.split(from).join(to);
-    }
+    const next = applyTextReplacements(node.textContent);
     if (next !== node.textContent) node.textContent = next;
+  }
+}
+
+function normalizeAttributes(root: ParentNode) {
+  const elements = Array.from(root.querySelectorAll('[aria-label], [title]')) as HTMLElement[];
+  for (const element of elements) {
+    for (const attr of ['aria-label', 'title'] as const) {
+      const value = element.getAttribute(attr);
+      if (!value) continue;
+      const next = applyTextReplacements(value);
+      if (next !== value) element.setAttribute(attr, next);
+    }
   }
 }
 
@@ -65,6 +96,7 @@ function normalizeTree(root: ParentNode) {
   const nodes: Node[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
   nodes.forEach(normalizeNodeText);
+  normalizeAttributes(root);
 }
 
 function parseRgb(value: string) {
