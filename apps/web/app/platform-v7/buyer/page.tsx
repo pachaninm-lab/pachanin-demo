@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
 
-const buyerMetrics = [
+type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
+
+const buyerMetrics: MetricItem[] = [
   { label: 'Подходящие партии', value: '7', note: 'отфильтрованы по культуре, региону и документам' },
   { label: 'Мой резерв', value: '9,65 млн ₽', note: 'готовность денег по DL-9106', good: true },
   { label: 'Под удержанием', value: '624 тыс. ₽', note: 'спорная часть по весу', danger: true },
   { label: 'Следующий шаг', value: 'резерв', note: 'подтвердить денежный guard', warn: true },
-] as const;
+];
 
 const buyerLots = [
   {
@@ -91,7 +93,7 @@ export default function PlatformV7BuyerPage() {
   );
 }
 
-function Metric({ metric }: { metric: typeof buyerMetrics[number] }) {
+function Metric({ metric }: { metric: MetricItem }) {
   return (
     <div style={metricCard}>
       <div style={micro}>{metric.label}</div>
