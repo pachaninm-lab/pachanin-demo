@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { AppShellV3 } from '@/components/v7r/AppShellV3';
+import { AppShellV4 } from '@/components/v7r/AppShellV4';
 import { ToastProvider } from '@/components/v7r/Toast';
-import { AiShellEnhancer } from '@/components/v7r/AiShellEnhancer';
 import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
 import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSummaryGate';
@@ -49,16 +48,15 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     <ToastProvider>
       <PlatformThemeSync />
       <ShellCopyNormalizer />
-      <AppShellV3 initialRole={initialRole}>
+      <AppShellV4 initialRole={initialRole}>
         <>
-          <AiShellEnhancer />
           <SupportHeaderIcon />
           <RoleExecutionSummaryGate />
           <AuditSurfaceSummaryGate />
           <SystemRouteSummaryGate />
           {children}
         </>
-      </AppShellV3>
+      </AppShellV4>
     </ToastProvider>
   );
 }
