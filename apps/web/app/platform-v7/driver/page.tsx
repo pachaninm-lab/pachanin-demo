@@ -76,7 +76,7 @@ export default function DriverPage() {
         <div style={grid4}>
           {routeDocs.map(([title, source, status, state]) => <DocGate key={title} title={title} source={source} status={status} state={state} />)}
         </div>
-        <div style={notice}>Следующее действие: довезти груз до элеватора и подтвердить прибытие. Подпись грузополучателя по ЭТрН закрывает транспортное условие для выплаты.</div>
+        <div style={notice}>Следующее действие: довезти груз до элеватора и подтвердить прибытие. Подпись грузополучателя по ЭТрН закрывает транспортное условие рейса.</div>
       </section>
 
       <section style={card}>
