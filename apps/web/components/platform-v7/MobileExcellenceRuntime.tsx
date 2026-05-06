@@ -16,7 +16,10 @@ const TEXT_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/Связка/g, 'Связь'],
   [/связка/g, 'связь'],
   [/Антиобход/g, 'контакт закрыт'],
+  [/без критического стопа/g, 'без критической остановки'],
+  [/Без критического стопа/g, 'Без критической остановки'],
   [/\bСтоп\b/g, 'остановлено'],
+  [/\bстоп\b/g, 'остановлено'],
   [/Нужна проверка/g, 'на проверке'],
   [/нужна проверка/g, 'на проверке'],
   [/Ручные/g, 'Ручной источник'],
@@ -24,6 +27,8 @@ const TEXT_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
 ];
 
 const SKIP_TEXT_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'CODE', 'PRE']);
+const SECONDARY_HEADER_COPY = /тема|theme|поиск|search|помощь|help|справка/i;
+const PRIMARY_HEADER_COPY = /уведом|notification|поддержка|support/i;
 
 function shortFgisId(raw: string) {
   const normalized = raw.replace(/-/g, '').toUpperCase();
@@ -81,6 +86,41 @@ function normalizeTree(root: ParentNode) {
   normalizeAttributes(root);
 }
 
+function readableHeaderName(element: HTMLElement) {
+  return [
+    element.getAttribute('aria-label'),
+    element.getAttribute('title'),
+    element.textContent,
+  ].filter(Boolean).join(' ');
+}
+
+function compactMobileHeaderControls() {
+  const actions = document.querySelector('.pc-v4-actions') as HTMLElement | null;
+  if (!actions) return;
+
+  const controls = Array.from(actions.querySelectorAll<HTMLElement>('.pc-v4-iconbtn'));
+  for (const control of controls) {
+    const name = readableHeaderName(control);
+    if (!control.dataset.supportHeaderIcon && SECONDARY_HEADER_COPY.test(name) && !PRIMARY_HEADER_COPY.test(name)) {
+      control.dataset.mobileSecondaryControl = 'true';
+      control.setAttribute('aria-hidden', 'true');
+      control.setAttribute('tabindex', '-1');
+    }
+  }
+
+  const primaryControls = controls.filter((control) => !control.dataset.mobileSecondaryControl);
+  if (primaryControls.length <= 2) return;
+
+  for (const control of primaryControls) {
+    if (primaryControls.filter((item) => !item.dataset.mobileSecondaryControl).length <= 2) break;
+    const name = readableHeaderName(control);
+    if (PRIMARY_HEADER_COPY.test(name) || control.dataset.supportHeaderIcon) continue;
+    control.dataset.mobileSecondaryControl = 'true';
+    control.setAttribute('aria-hidden', 'true');
+    control.setAttribute('tabindex', '-1');
+  }
+}
+
 function ensureSupportInBurger() {
   const nav = document.querySelector('.pc-v4-nav') as HTMLElement | null;
   if (!nav || nav.querySelector('[data-mobile-support-link="true"]')) return;
@@ -107,6 +147,7 @@ function markRuntimeReady() {
 
 function run(root: ParentNode = document.body) {
   normalizeTree(root);
+  compactMobileHeaderControls();
   ensureSupportInBurger();
   markRuntimeReady();
 }
@@ -122,6 +163,7 @@ export function MobileExcellenceRuntime() {
           if (node instanceof Element) run(node);
         });
       }
+      compactMobileHeaderControls();
       ensureSupportInBurger();
       markRuntimeReady();
     });
