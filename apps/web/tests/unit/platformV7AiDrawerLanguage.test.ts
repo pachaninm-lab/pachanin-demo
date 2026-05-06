@@ -16,7 +16,7 @@ describe('platform-v7 deal assistant drawer language', () => {
   it('keeps recommendations attached to concrete execution objects', () => {
     expect(drawer).toContain('DL-9102');
     expect(drawer).toContain('DK-2024-89');
-    expect(drawer).toContain('Банк ·');
+    expect(drawer).toContain('Перейти к банку');
     expect(drawer).toContain('/platform-v7/disputes/DK-2024-89');
     expect(drawer).toContain('/platform-v7/bank');
   });
