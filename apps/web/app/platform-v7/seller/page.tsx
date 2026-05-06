@@ -14,7 +14,7 @@ const sellerLots = [
   {
     id: 'LOT-2403',
     title: 'Пшеница 4 класса · 600 т · EXW',
-    status: 'оффер принят',
+    status: 'предложение принято',
     money: 'резерв 9,65 млн ₽ · к выплате 0 ₽',
     next: 'закрыть СДИЗ, ЭТрН и приёмку',
     href: '/platform-v7/lots/LOT-2403',
@@ -22,7 +22,7 @@ const sellerLots = [
   {
     id: 'LOT-2405',
     title: 'Пшеница 4 класса · 240 т · EXW',
-    status: 'идут офферы',
+    status: 'идут предложения',
     money: 'лучшая ставка 16 120 ₽/т',
     next: 'проверить рейтинг покупателя и условия резерва',
     href: '/platform-v7/lots/LOT-2405',
@@ -41,12 +41,12 @@ export default function PlatformV7SellerPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={hero}>
         <div style={badge}>Кабинет продавца</div>
-        <h1 style={h1}>Лоты, офферы, документы и выпуск денег</h1>
-        <p style={lead}>Лот должен приводить к сделке, документам и получению денег. Продавец видит не красивую витрину, а рабочий контур: партия → лот → оффер → DealDraft → резерв → документы → рейс → приёмка → выпуск денег.</p>
+        <h1 style={h1}>Лоты, предложения, документы и выпуск денег</h1>
+        <p style={lead}>Лот должен приводить к сделке, документам и получению денег. Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → выпуск денег.</p>
         <div style={actions}>
           <Link href='/platform-v7/seller/batches/new' style={primaryBtn}>Создать партию</Link>
           <Link href='/platform-v7/seller/lots/new' style={ghostBtn}>Опубликовать лот</Link>
-          <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть Deal 360</Link>
+          <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть сделку</Link>
           <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
         </div>
       </section>
