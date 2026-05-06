@@ -14,7 +14,7 @@ function useHeaderActionsTarget() {
     let observer: MutationObserver | null = null;
 
     const findTarget = () => {
-      const nextTarget = document.querySelector('.pc-header-actions');
+      const nextTarget = document.querySelector('.pc-v4-actions, .pc-header-actions');
       if (nextTarget) {
         setTarget(nextTarget);
         return true;
@@ -51,7 +51,7 @@ export function SupportHeaderIcon() {
       href='/platform-v7/support'
       aria-label='Поддержка'
       title='Поддержка'
-      className='pc-shell-iconbtn'
+      className='pc-v4-iconbtn pc-shell-iconbtn'
       data-support-header-icon='true'
       data-active={active}
       style={{
