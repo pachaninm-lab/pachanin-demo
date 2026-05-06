@@ -4,7 +4,12 @@ const p0Routes = [
   '/platform-v7',
   '/platform-v7/roles',
   '/platform-v7/seller',
+  '/platform-v7/seller/batches/new',
+  '/platform-v7/seller/lots/new',
   '/platform-v7/buyer',
+  '/platform-v7/buyer/rfq/new',
+  '/platform-v7/buyer/matches',
+  '/platform-v7/buyer/offers',
   '/platform-v7/logistics',
   '/platform-v7/driver',
   '/platform-v7/elevator',
@@ -19,6 +24,8 @@ const p0Routes = [
   '/platform-v7/disputes/DK-2024-89',
   '/platform-v7/dispute/DK-2024-89',
   '/platform-v7/deals/DL-9102/clean',
+  '/platform-v7/deals/DL-9106/audit',
+  '/platform-v7/deals/DL-9106/money',
   '/platform-v7/compliance',
   '/platform-v7/arbitrator',
   '/platform-v7/investor',
@@ -32,8 +39,13 @@ const p0Routes = [
 const mobileSmokeRoutes = [
   '/platform-v7',
   '/platform-v7/deals',
+  '/platform-v7/deals/DL-9106/audit',
   '/platform-v7/seller',
+  '/platform-v7/seller/batches/new',
+  '/platform-v7/seller/lots/new',
   '/platform-v7/buyer',
+  '/platform-v7/buyer/rfq/new',
+  '/platform-v7/buyer/matches',
   '/platform-v7/logistics',
   '/platform-v7/driver',
   '/platform-v7/bank',
@@ -62,6 +74,7 @@ const forbiddenVisibleCopy = [
   'Simulation-grade',
   'evidence-first',
   'domain-core',
+  'marketplace',
   'Action handoff',
   'requestReserve',
   'fully live',
@@ -106,6 +119,20 @@ test.describe('platform-v7 route audit baseline', () => {
       await page.goto(item.route, { waitUntil: 'networkidle' });
       await expect(page.getByText(item.text, { exact: false }), `${item.route} should show visible execution entry`).toBeVisible();
     }
+  });
+
+  test('seller and buyer actions mutate visible state and audit journal', async ({ page }) => {
+    await page.goto('/platform-v7/seller', { waitUntil: 'networkidle' });
+    await expect(page.getByTestId('workflow-action-panel-seller')).toBeVisible();
+    await page.getByRole('button', { name: /Опубликовать лот/ }).click();
+    await expect(page.getByText('Лот опубликован внутри управляемого контура. Контакты не раскрыты.')).toBeVisible();
+    await expect(page.getByText('Лот опубликован', { exact: true })).toBeVisible();
+
+    await page.goto('/platform-v7/buyer', { waitUntil: 'networkidle' });
+    await expect(page.getByTestId('workflow-action-panel-buyer')).toBeVisible();
+    await page.getByRole('button', { name: /Подтвердить резерв денег/ }).click();
+    await expect(page.getByText('Резерв подтверждён. Выпуск денег продавцу остаётся закрыт до обязательных условий.')).toBeVisible();
+    await expect(page.getByText('Резерв денег подтверждён', { exact: true })).toBeVisible();
   });
 
   test('key routes render on narrow mobile width without page-level overflow', async ({ page }) => {
