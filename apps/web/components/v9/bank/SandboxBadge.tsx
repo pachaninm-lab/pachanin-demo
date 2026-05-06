@@ -21,13 +21,13 @@ export function SandboxBadge({ className }: SandboxBadgeProps) {
 
   const colors: Record<BankContourState, string> = {
     pilot: 'bg-[rgba(217,119,6,0.1)] text-warning border-[rgba(217,119,6,0.2)]',
-    test: 'bg-[rgba(37,99,235,0.1)] text-info border-[rgba(37,99,235,0.2)]',
+    test: 'bg-[rgba(217,119,6,0.1)] text-warning border-[rgba(217,119,6,0.2)]',
     unavailable: 'bg-muted text-text-muted border-border',
   };
 
   const dotColors: Record<BankContourState, string> = {
     pilot: 'bg-warning',
-    test: 'bg-info',
+    test: 'bg-warning',
     unavailable: 'bg-text-muted',
   };
 
