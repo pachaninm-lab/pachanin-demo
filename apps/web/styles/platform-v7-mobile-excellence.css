@@ -198,10 +198,6 @@
     font-size: 11px !important;
   }
 
-  .pc-v4-actions [data-support-header-icon='true'] {
-    display: none !important;
-  }
-
   .pc-v4-main {
     padding: calc(var(--pc-header-offset) + 10px) 10px calc(96px + env(safe-area-inset-bottom)) !important;
     overflow-x: clip;
