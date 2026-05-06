@@ -38,5 +38,5 @@ export function isPlatformV7BatchVolumeBalanced(batch: PlatformV7GrainBatch): bo
 }
 
 export function canPlatformV7BatchPublish(batch: PlatformV7GrainBatch): boolean {
-  return batch.readinessScore >= 80 && batch.blockers.every((blocker) => blocker.severity !== 'critical');
+  return isPlatformV7BatchVolumeBalanced(batch) && batch.readinessScore >= 80 && batch.blockers.every((blocker) => blocker.severity !== 'critical');
 }
