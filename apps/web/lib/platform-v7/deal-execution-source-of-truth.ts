@@ -96,7 +96,7 @@ export const PLATFORM_V7_EXECUTION_SOURCE: {
     buyerDisclosure: 'раскрыт только внутри черновика сделки',
     basis: 'самовывоз с элеватора',
     status: 'черновик сделки',
-    maturity: 'песочница',
+    maturity: 'тестовый режим',
   },
   readiness: {
     fgis: { status: 'готово', blocker: '', note: 'Партия ФГИС-68-2403-001 подтверждена, остаток достаточен' },
