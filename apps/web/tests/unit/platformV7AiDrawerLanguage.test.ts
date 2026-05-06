@@ -10,7 +10,7 @@ describe('platform-v7 deal assistant drawer language', () => {
     expect(drawer).toContain('тестовый контур');
     expect(drawer).toContain('выпуск');
     expect(drawer).toContain('удержание');
-    expect(drawer).toContain('ответ банка');
+    expect(drawer).toContain('Ответ банка');
   });
 
   it('keeps recommendations attached to concrete execution objects', () => {
