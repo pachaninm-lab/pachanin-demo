@@ -6,7 +6,6 @@ import {
   PLATFORM_V7_CONTROL_TOWER_ROUTE,
   PLATFORM_V7_DEALS_ROUTE,
   PLATFORM_V7_DISPUTES_ROUTE,
-  PLATFORM_V7_DOMAIN_CORE_ROUTE,
   PLATFORM_V7_LOGISTICS_ROUTE,
   PLATFORM_V7_PROCUREMENT_ROUTE,
   PLATFORM_V7R_ANALYTICS_ROUTE,
@@ -33,7 +32,6 @@ export interface PlatformV7QuickJumpItem {
 export const PLATFORM_V7_QUICK_JUMP_ITEMS: PlatformV7QuickJumpItem[] = [
   { href: PLATFORM_V7R_ROLES_ROUTE, label: 'Все роли', group: 'Навигация' },
   { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр управления', group: 'Навигация' },
-  { href: PLATFORM_V7_DOMAIN_CORE_ROUTE, label: 'Движок сделки', group: 'Навигация' },
   { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки', group: 'Навигация' },
   { href: PLATFORM_V7_PROCUREMENT_ROUTE, label: 'Закупки', group: 'Навигация' },
   { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Логистика', group: 'Навигация' },
