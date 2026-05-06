@@ -37,6 +37,15 @@ describe('platform-v7 role leakage matrix', () => {
     }
   });
 
+  it('keeps role switch route operator-only', () => {
+    for (const role of roles.filter((role) => role !== 'operator')) {
+      expect(isPlatformV7SurfaceForbiddenForRole(role, 'roleSwitcher')).toBe(true);
+      expect(canPlatformV7RoleOpenRoute(role, '/platform-v7/roles').allowed).toBe(false);
+    }
+
+    expect(canPlatformV7RoleOpenRoute('operator', '/platform-v7/roles')).toEqual({ allowed: true, reason: 'Маршрут доступен для роли.' });
+  });
+
   it('keeps driver isolated from money, trading and operator surfaces', () => {
     expect(isPlatformV7SurfaceForbiddenForRole('driver', 'bankReserve')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('driver', 'moneyRelease')).toBe(true);
@@ -49,6 +58,7 @@ describe('platform-v7 role leakage matrix', () => {
 
   it('keeps driver route policy focused on field work', () => {
     expect(canPlatformV7RoleOpenRoute('driver', '/platform-v7/driver/field')).toEqual({ allowed: true, reason: 'Маршрут доступен для роли.' });
+    expect(canPlatformV7RoleOpenRoute('driver', '/platform-v7/roles').allowed).toBe(false);
     expect(canPlatformV7RoleOpenRoute('driver', '/platform-v7/bank').allowed).toBe(false);
     expect(canPlatformV7RoleOpenRoute('driver', '/platform-v7/control-tower').allowed).toBe(false);
     expect(canPlatformV7RoleOpenRoute('driver', '/platform-v7/investor').allowed).toBe(false);
@@ -60,6 +70,7 @@ describe('platform-v7 role leakage matrix', () => {
     expect(isPlatformV7SurfaceForbiddenForRole('logistics', 'bankReserve')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('logistics', 'thirdPartyBids')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('logistics', 'providerDebug')).toBe(true);
+    expect(canPlatformV7RoleOpenRoute('logistics', '/platform-v7/roles').allowed).toBe(false);
     expect(canPlatformV7RoleOpenRoute('logistics', '/platform-v7/bank').allowed).toBe(false);
     expect(canPlatformV7RoleOpenRoute('logistics', '/platform-v7/connectors').allowed).toBe(false);
   });
@@ -71,6 +82,8 @@ describe('platform-v7 role leakage matrix', () => {
     expect(isPlatformV7SurfaceForbiddenForRole('buyer', 'providerDebug')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('seller', 'bankInternalEvents')).toBe(true);
     expect(isPlatformV7SurfaceForbiddenForRole('seller', 'providerDebug')).toBe(true);
+    expect(canPlatformV7RoleOpenRoute('buyer', '/platform-v7/roles').allowed).toBe(false);
+    expect(canPlatformV7RoleOpenRoute('seller', '/platform-v7/roles').allowed).toBe(false);
     expect(canPlatformV7RoleOpenRoute('buyer', '/platform-v7/control-tower').allowed).toBe(false);
     expect(canPlatformV7RoleOpenRoute('buyer', '/platform-v7/connectors').allowed).toBe(false);
     expect(canPlatformV7RoleOpenRoute('seller', '/platform-v7/connectors').allowed).toBe(false);
