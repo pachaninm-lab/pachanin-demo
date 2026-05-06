@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
 
-const sellerMetrics = [
-  { label: 'Активные лоты', value: '2', note: 'оба связаны с партиями и документами' },
-  { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'виден как готовность денег, не как выплата' },
+type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
+
+const sellerMetrics: MetricItem[] = [
+  { label: 'Активные лоты', value: '2', note: 'оба связаны с партиями и документами', good: true },
+  { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'виден как готовность денег, не как выплата', good: true },
   { label: 'К выплате сейчас', value: '0 ₽', note: 'СДИЗ и ЭТрН ещё блокируют выпуск', danger: true },
   { label: 'Следующий шаг', value: 'СДИЗ', note: 'без документа деньги не выпускаются', warn: true },
-] as const;
+];
 
 const sellerLots = [
   {
@@ -90,11 +92,11 @@ export default function PlatformV7SellerPage() {
   );
 }
 
-function Metric({ metric }: { metric: typeof sellerMetrics[number] }) {
+function Metric({ metric }: { metric: MetricItem }) {
   return (
     <div style={metricCard}>
       <div style={micro}>{metric.label}</div>
-      <div style={{ color: metric.danger ? '#B91C1C' : metric.warn ? '#B45309' : '#0A7A5F', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{metric.value}</div>
+      <div style={{ color: metric.danger ? '#B91C1C' : metric.warn ? '#B45309' : metric.good ? '#0A7A5F' : '#0F1419', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{metric.value}</div>
       <p style={{ margin: 0, color: '#64748B', fontSize: 12, lineHeight: 1.45, fontWeight: 750 }}>{metric.note}</p>
     </div>
   );
