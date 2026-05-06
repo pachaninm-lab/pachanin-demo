@@ -178,8 +178,18 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   return applySecurityHeaders(response, protectedResponse);
 }
 
+function redirectToAssistant(req: NextRequest) {
+  const u = req.nextUrl.clone();
+  u.pathname = '/platform-v7/assistant';
+  return applySecurityHeaders(NextResponse.redirect(u, 308), true);
+}
+
 export function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
+
+  if (p === '/platform-v7/ai') {
+    return redirectToAssistant(req);
+  }
 
   const canonRedirect = CANON_REDIRECTS[p];
   if (canonRedirect) {
