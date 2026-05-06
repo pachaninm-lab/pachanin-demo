@@ -28,7 +28,7 @@ const buyerLots = [
 ] as const;
 
 const buyerPaths = [
-  { title: 'Создать закупочный запрос', href: '/platform-v7/buyer/rfq/create', note: 'культура, объём, регион, базис, документы' },
+  { title: 'Создать закупочный запрос', href: '/platform-v7/buyer/rfq/new', note: 'культура, объём, регион, базис, документы' },
   { title: 'Подобрать партии', href: '/platform-v7/buyer/matches', note: 'цена до точки, качество, логистика и риск' },
   { title: 'Офферы покупателя', href: '/platform-v7/buyer/offers', note: 'версии условий, срок действия и акцепт' },
   { title: 'Резерв денег', href: '/platform-v7/deals/DL-9106/money', note: 'готовность денег без преждевременного выпуска' },
@@ -42,7 +42,7 @@ export default function PlatformV7BuyerPage() {
         <h1 style={h1}>Запросы, партии, офферы и резерв денег</h1>
         <p style={lead}>Ставка должна сразу вести к сделке, резерву денег и логистике. Покупатель видит свой закупочный запрос, подходящие партии, собственные офферы, статус резерва, документы и следующий обязательный шаг.</p>
         <div style={actions}>
-          <Link href='/platform-v7/buyer/rfq/create' style={primaryBtn}>Создать запрос</Link>
+          <Link href='/platform-v7/buyer/rfq/new' style={primaryBtn}>Создать запрос</Link>
           <Link href='/platform-v7/buyer/matches' style={ghostBtn}>Подбор партий</Link>
           <Link href='/platform-v7/buyer/offers' style={ghostBtn}>Офферы</Link>
           <Link href='/platform-v7/buyer/financing' style={ghostBtn}>Оплата в кредит</Link>
