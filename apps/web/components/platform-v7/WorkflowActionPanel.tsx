@@ -87,7 +87,7 @@ export function WorkflowActionPanel({ context }: { context: WorkflowActionContex
           <div key={event.id} style={journalRow}>
             <div style={{ display: 'grid', gap: 3, minWidth: 0 }}>
               <strong style={{ color: '#0F1419', fontSize: 13, overflowWrap: 'anywhere' }}>{translateAction(event.action)}</strong>
-              <span style={{ color: '#64748B', fontSize: 12, overflowWrap: 'anywhere' }}>{event.entityType} · {event.entityId}{event.dealId ? ` · ${event.dealId}` : ''}</span>
+              <span style={{ color: '#64748B', fontSize: 12, overflowWrap: 'anywhere' }}>{entityLabel(event.entityType)} · {event.entityId}{event.dealId ? ` · ${event.dealId}` : ''}</span>
             </div>
             <span style={rolePill}>{roleLabel(event.actorRole)}</span>
           </div>
@@ -119,7 +119,7 @@ function persistWorkflowState(payload: PersistedWorkflowState): void {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
-    // В controlled pilot отсутствие localStorage не должно ломать действие на странице.
+    // Отсутствие localStorage не должно ломать действие на странице.
   }
 }
 
@@ -153,6 +153,21 @@ function translateAction(action: string): string {
     open_manual_review: 'Включена ручная проверка',
   };
   return map[action] ?? action;
+}
+
+function entityLabel(entityType: string): string {
+  const map: Record<string, string> = {
+    workflow: 'рабочая поверхность',
+    market_lot: 'лот',
+    offer: 'оффер',
+    document: 'документ',
+    money_plan: 'денежный план',
+    deal_draft: 'черновик сделки',
+    bypass_signal: 'сигнал антиобхода',
+    deal: 'сделка',
+    counterparty: 'контрагент',
+  };
+  return map[entityType] ?? entityType;
 }
 
 function roleLabel(role: string): string {
