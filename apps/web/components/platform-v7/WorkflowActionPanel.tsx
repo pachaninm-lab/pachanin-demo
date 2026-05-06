@@ -45,12 +45,12 @@ export function WorkflowActionPanel({ context }: { context: WorkflowActionContex
       <div style={stateGrid}>
         <StateCell label='Партия' value={state.batchStatus} />
         <StateCell label='Лот' value={state.lotStatus} />
-        <StateCell label='Оффер' value={state.offerStatus} />
+        <StateCell label='Предложение' value={state.offerStatus} />
         <StateCell label='Черновик сделки' value={state.dealDraftStatus} />
         <StateCell label='Деньги' value={state.moneyStatus} accent />
         <StateCell label='Документы' value={state.documentStatus} />
         <StateCell label='Логистика' value={state.logisticsStatus} />
-        <StateCell label='Антиобход' value={state.bypassStatus} warning />
+        <StateCell label='Контакты' value={state.bypassStatus} warning />
       </div>
 
       <div style={nextBox}>
@@ -145,8 +145,8 @@ function translateAction(action: string): string {
   const map: Record<string, string> = {
     workflow_opened: 'Открыта рабочая поверхность',
     publish_market_lot: 'Лот опубликован',
-    send_buyer_offer: 'Оффер отправлен',
-    accept_offer_to_draft: 'Оффер принят, создан черновик сделки',
+    send_buyer_offer: 'Предложение отправлено',
+    accept_offer_to_draft: 'Предложение принято, создан черновик сделки',
     confirm_money_reserve: 'Резерв денег подтверждён',
     request_document_preview: 'Документ открыт в защищённом просмотре',
     block_contact_leak: 'Контакт замаскирован',
@@ -159,11 +159,11 @@ function entityLabel(entityType: string): string {
   const map: Record<string, string> = {
     workflow: 'рабочая поверхность',
     market_lot: 'лот',
-    offer: 'оффер',
+    offer: 'предложение',
     document: 'документ',
     money_plan: 'денежный план',
     deal_draft: 'черновик сделки',
-    bypass_signal: 'сигнал антиобхода',
+    bypass_signal: 'сигнал закрытого контакта',
     deal: 'сделка',
     counterparty: 'контрагент',
   };
