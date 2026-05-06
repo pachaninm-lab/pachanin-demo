@@ -31,6 +31,18 @@ describe('platform-v7 money readiness consistency', () => {
     expect(money.releaseCandidateRub).toBe(0);
   });
 
+  it('does not double-count held money and release candidate as independent available money', () => {
+    const summary = executionSummary();
+    const activeMoneyBucketsRub = summary.holdRub + summary.releaseCandidateRub;
+
+    expect(summary.reservedRub).toBe(expectedDealAmountRub());
+    expect(activeMoneyBucketsRub).toBeLessThanOrEqual(summary.reservedRub);
+
+    if (!summary.canRelease) {
+      expect(summary.releaseCandidateRub).toBe(0);
+    }
+  });
+
   it('keeps blockers visible across readiness, bank and deal execution summary', () => {
     const blockers = executionBlockers();
     const summary = executionSummary();
