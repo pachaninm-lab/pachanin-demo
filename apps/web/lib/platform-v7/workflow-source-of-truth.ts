@@ -54,7 +54,7 @@ export interface WorkflowDashboardModel {
 const baseState: WorkflowState = {
   batchStatus: 'партия готова к публикации',
   lotStatus: 'лот доступен проверенным покупателям',
-  offerStatus: 'оффер ожидает решения',
+  offerStatus: 'предложение ожидает решения',
   dealDraftStatus: 'черновик сделки ещё не создан',
   moneyStatus: 'резерв денег не подтверждён',
   documentStatus: 'СДИЗ и ЭТрН требуют закрытия',
@@ -82,7 +82,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
   seller: {
     context: 'seller',
     title: 'Действия продавца по сделке',
-    lead: 'Продавец публикует лот, принимает оффер и видит, почему деньги ещё не выпущены. Каждое действие меняет состояние и попадает в журнал.',
+    lead: 'Продавец публикует лот, принимает предложение и видит, почему деньги ещё не выпущены. Каждое действие меняет состояние и попадает в журнал.',
     state: baseState,
     actions: [
       {
@@ -95,7 +95,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
       },
       {
         kind: 'accept_offer_to_draft',
-        label: 'Принять оффер',
+        label: 'Принять предложение',
         actorRole: 'seller',
         entityType: 'offer',
         entityId: 'OFF-2405-B4',
@@ -118,16 +118,16 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
   buyer: {
     context: 'buyer',
     title: 'Действия покупателя по закупке',
-    lead: 'Покупатель создаёт оффер, подтверждает резерв и видит цену до своей точки. Чужие закрытые ставки и прямые контакты не раскрываются.',
-    state: { ...baseState, nextAction: 'создать оффер или подтвердить резерв денег' },
+    lead: 'Покупатель создаёт предложение, подтверждает резерв и видит цену до своей точки. Чужие закрытые ставки и прямые контакты не раскрываются.',
+    state: { ...baseState, nextAction: 'создать предложение или подтвердить резерв денег' },
     actions: [
       {
         kind: 'send_buyer_offer',
-        label: 'Сделать оффер',
+        label: 'Сделать предложение',
         actorRole: 'buyer',
         entityType: 'offer',
         entityId: 'OFF-2405-B4',
-        description: 'Оффер фиксирует цену, объём, базис, документы и срок действия. Устные условия не меняют сделку.',
+        description: 'Предложение фиксирует цену, объём, базис, документы и срок действия. Устные условия не меняют сделку.',
       },
       {
         kind: 'confirm_money_reserve',
@@ -169,7 +169,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
       },
       {
         kind: 'block_contact_leak',
-        label: 'Заблокировать контакт вне сделки',
+        label: 'Ограничить контакт вне сделки',
         actorRole: 'operator',
         entityType: 'bypass_signal',
         entityId: 'BYP-DL-9106-01',
@@ -192,7 +192,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
   },
   operator: {
     context: 'operator',
-    title: 'Операторский контроль антиобхода',
+    title: 'Операторский контроль контактов',
     lead: 'Оператор видит сигнал, сумму риска, раскрытые данные и ограничения. Каждое снятие или усиление риска фиксируется.',
     state: { ...baseState, bypassStatus: 'есть сигнал среднего риска', nextAction: 'проверить сигнал и выбрать ограничение' },
     actions: [
@@ -208,7 +208,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
       },
       {
         kind: 'open_manual_review',
-        label: 'Назначить ручную проверку',
+        label: 'Назначить проверку',
         actorRole: 'operator',
         entityType: 'counterparty',
         entityId: 'BUYER-184',
@@ -252,15 +252,15 @@ function reduceWorkflowState(kind: WorkflowActionKind, currentState: WorkflowSta
       return {
         ...currentState,
         lotStatus: 'лот опубликован как управляемый рыночный лот',
-        offerStatus: 'ожидаются офферы проверенных покупателей',
+        offerStatus: 'ожидаются предложения проверенных покупателей',
         bypassStatus: 'контакты и точный адрес скрыты',
-        nextAction: 'проверить входящие офферы и рейтинг покупателя',
+        nextAction: 'проверить входящие предложения и рейтинг покупателя',
         updatedAt,
       };
     case 'send_buyer_offer':
       return {
         ...currentState,
-        offerStatus: 'оффер отправлен продавцу',
+        offerStatus: 'предложение отправлено продавцу',
         dealDraftStatus: 'ожидает принятия условий',
         nextAction: 'дождаться решения продавца или встречного предложения',
         updatedAt,
@@ -268,7 +268,7 @@ function reduceWorkflowState(kind: WorkflowActionKind, currentState: WorkflowSta
     case 'accept_offer_to_draft':
       return {
         ...currentState,
-        offerStatus: 'оффер принят',
+        offerStatus: 'предложение принято',
         dealDraftStatus: 'черновик сделки создан',
         moneyStatus: 'требуется денежный план',
         documentStatus: 'требуется документный план',
@@ -317,9 +317,9 @@ function toastForAction(kind: WorkflowActionKind): string {
     case 'publish_market_lot':
       return 'Лот опубликован внутри управляемого контура. Контакты не раскрыты.';
     case 'send_buyer_offer':
-      return 'Оффер отправлен. Условия зафиксированы версией и попадут в сделку после принятия.';
+      return 'Предложение отправлено. Условия зафиксированы версией и попадут в сделку после принятия.';
     case 'accept_offer_to_draft':
-      return 'Оффер принят. Создан черновик сделки с условиями по деньгам, документам и логистике.';
+      return 'Предложение принято. Создан черновик сделки с условиями по деньгам, документам и логистике.';
     case 'confirm_money_reserve':
       return 'Резерв подтверждён. Выпуск денег продавцу остаётся закрыт до обязательных условий.';
     case 'request_document_preview':
@@ -327,7 +327,7 @@ function toastForAction(kind: WorkflowActionKind): string {
     case 'block_contact_leak':
       return 'Контактные данные замаскированы. Сигнал передан в операторский контроль.';
     case 'open_manual_review':
-      return 'Ручная проверка включена. Дальнейшие действия требуют основания в журнале.';
+      return 'Проверка включена. Дальнейшие действия требуют основания в журнале.';
     default:
       return 'Действие выполнено и записано в журнал.';
   }
