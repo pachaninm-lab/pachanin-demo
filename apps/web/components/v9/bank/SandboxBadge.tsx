@@ -3,7 +3,7 @@ import * as React from 'react';
 import { cn } from '@/lib/v9/utils';
 import { useSessionStore } from '@/stores/useSessionStore';
 
-type SberState = 'live' | 'sandbox' | 'offline';
+type BankContourState = 'pilot' | 'test' | 'unavailable';
 
 interface SandboxBadgeProps {
   className?: string;
@@ -11,24 +11,24 @@ interface SandboxBadgeProps {
 
 export function SandboxBadge({ className }: SandboxBadgeProps) {
   const demoMode = useSessionStore(s => s.demoMode);
-  const state: SberState = demoMode ? 'sandbox' : 'live';
+  const state: BankContourState = demoMode ? 'test' : 'pilot';
 
-  const labels: Record<SberState, string> = {
-    live: 'LIVE',
-    sandbox: 'SANDBOX',
-    offline: 'OFFLINE',
+  const labels: Record<BankContourState, string> = {
+    pilot: 'пилотный режим',
+    test: 'тестовый контур',
+    unavailable: 'нет связи',
   };
 
-  const colors: Record<SberState, string> = {
-    live: 'bg-[rgba(22,163,74,0.1)] text-success border-[rgba(22,163,74,0.2)]',
-    sandbox: 'bg-[rgba(217,119,6,0.1)] text-warning border-[rgba(217,119,6,0.2)]',
-    offline: 'bg-muted text-text-muted border-border',
+  const colors: Record<BankContourState, string> = {
+    pilot: 'bg-[rgba(217,119,6,0.1)] text-warning border-[rgba(217,119,6,0.2)]',
+    test: 'bg-[rgba(217,119,6,0.1)] text-warning border-[rgba(217,119,6,0.2)]',
+    unavailable: 'bg-muted text-text-muted border-border',
   };
 
-  const dotColors: Record<SberState, string> = {
-    live: 'bg-success',
-    sandbox: 'bg-warning',
-    offline: 'bg-text-muted',
+  const dotColors: Record<BankContourState, string> = {
+    pilot: 'bg-warning',
+    test: 'bg-warning',
+    unavailable: 'bg-text-muted',
   };
 
   return (
@@ -38,11 +38,11 @@ export function SandboxBadge({ className }: SandboxBadgeProps) {
         colors[state],
         className
       )}
-      title={`Номинальный счёт Сбер: ${labels[state]}`}
-      aria-label={`Статус банковской интеграции: ${labels[state]}`}
+      title={`Банковый контур: ${labels[state]}. Не промышленная эксплуатация.`}
+      aria-label={`Статус банкового контура: ${labels[state]}`}
     >
       <span className={cn('w-1.5 h-1.5 rounded-full', dotColors[state])} aria-hidden />
-      Сбер · {labels[state]}
+      Банк · {labels[state]}
     </span>
   );
 }
