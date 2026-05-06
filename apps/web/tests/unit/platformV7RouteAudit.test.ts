@@ -21,6 +21,20 @@ describe('platform-v7 fast-pass route audit registry', () => {
     }
   });
 
+  it('keeps legacy and restricted routes out of P0 smoke', () => {
+    const routes = getPlatformV7P0SmokeRoutes();
+
+    expect(routes).not.toContain('/platform-v7/roles');
+    expect(routes).not.toContain('/platform-v7/demo');
+
+    expect(PLATFORM_V7_FAST_PASS_ROUTE_AUDIT.find((item) => item.route === '/platform-v7/roles')).toEqual(
+      expect.objectContaining({ surface: 'legacy', owner: 'operator', p0Smoke: false })
+    );
+    expect(PLATFORM_V7_FAST_PASS_ROUTE_AUDIT.find((item) => item.route === '/platform-v7/demo')).toEqual(
+      expect.objectContaining({ surface: 'legacy', owner: 'operator', p0Smoke: false })
+    );
+  });
+
   it('keeps every P0 route inside the fast-pass target surface', () => {
     const targetRoutes = new Set<string>(PLATFORM_V7_FAST_PASS_TARGET_ROUTES);
 
@@ -37,6 +51,17 @@ describe('platform-v7 fast-pass route audit registry', () => {
     expect(fieldRoute).toEqual(
       expect.objectContaining({
         owner: 'driver',
+        status: 'current-smoke',
+        p0Smoke: true,
+      })
+    );
+  });
+
+  it('keeps investor as a role surface rather than a demo surface', () => {
+    expect(PLATFORM_V7_FAST_PASS_ROUTE_AUDIT.find((item) => item.route === '/platform-v7/investor')).toEqual(
+      expect.objectContaining({
+        surface: 'role',
+        owner: 'investor',
         status: 'current-smoke',
         p0Smoke: true,
       })
