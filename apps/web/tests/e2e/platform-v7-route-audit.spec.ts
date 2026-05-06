@@ -68,7 +68,7 @@ const mobileSmokeRoutes = [
 ] as const;
 
 const visibleExecutionRoutes = [
-  { route: '/platform-v7', text: 'Центр исполнения зерновой сделки' },
+  { route: '/platform-v7', text: 'Центр исполнения сделки' },
   { route: '/platform-v7/deals', text: 'Сделки: деньги, документы, рейс и спор в одном контуре' },
   { route: '/platform-v7/logistics', text: 'Рейс, водитель, маршрут и инциденты связаны с деньгами' },
   { route: '/platform-v7/driver', text: 'Водитель фиксирует события рейса без доступа к деньгам и лишним ролям' },
@@ -119,7 +119,7 @@ test.describe('platform-v7 route audit baseline', () => {
   test('recursive platform-v7 link crawler catches hidden internal 404s', async ({ page }) => {
     const discovered = new Set<string>(crawlerSeedRoutes);
     const visited = new Set<string>();
-    const queue = crawlerSeedRoutes.map((route) => ({ route, depth: 0 }));
+    const queue: Array<{ route: string; depth: number }> = crawlerSeedRoutes.map((route) => ({ route, depth: 0 }));
     const maxDepth = 2;
     const maxRoutes = 85;
 
