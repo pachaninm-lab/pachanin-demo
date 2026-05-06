@@ -7,15 +7,15 @@ const SERVICES = [
     status: 'ok',
     uptime: '99.4%',
     note: 'Проверка партий и источников работает. Возможны редкие ручные перепроверки.',
-    incidents: ['2026-04-11 · краткая деградация ответа API', '2026-04-03 · ручная сверка по 1 партии'],
+    incidents: ['2026-04-11 · краткая деградация ответа внешней системы', '2026-04-03 · ручная сверка по 1 партии'],
   },
   {
     id: 'bank',
-    name: 'Банк / release callbacks',
+    name: 'Банк / события внешней системы',
     status: 'degraded',
     uptime: '97.8%',
-    note: 'Деньги идут, но часть кейсов может уйти в ручную проверку.',
-    incidents: ['2026-04-18 · ручная проверка выпуска по 2 сделкам', '2026-04-09 · задержка callback до 14 мин'],
+    note: 'Часть операций может уходить на ручную проверку.',
+    incidents: ['2026-04-18 · ручная проверка выпуска по 2 сделкам', '2026-04-09 · задержка события банка до 14 мин'],
   },
   {
     id: 'spark',
@@ -28,9 +28,9 @@ const SERVICES = [
   {
     id: 'labs',
     name: 'Лаборатории / протоколы',
-    status: 'sandbox',
+    status: 'test_mode',
     uptime: 'Пилот',
-    note: 'Предпилотный режим. Часть протоколов ещё загружается вручную.',
+    note: 'Тестовый режим. Часть протоколов ещё загружается вручную.',
     incidents: ['2026-04-15 · ручной ввод протокола по тестовой сделке'],
   },
 ];
@@ -44,7 +44,7 @@ const MODULES = [
   },
   {
     title: 'Онбординг компании',
-    readiness: 'Pilot-ready UI',
+    readiness: 'Пилотный интерфейс',
     note: 'Есть 6-шаговый вход от компании до первого лота.',
     href: '/platform-v7/onboarding',
   },
@@ -65,7 +65,7 @@ const MODULES = [
 function serviceTone(status: string) {
   if (status === 'ok') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ОК' };
   if (status === 'degraded') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Нестабильно' };
-  return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB', label: 'Песочница' };
+  return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB', label: 'Тестовый режим' };
 }
 
 export default function StatusPage() {
@@ -74,15 +74,15 @@ export default function StatusPage() {
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Статус сервисов</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
-          Операционный статус интеграций и внешних контуров. Это честная витрина состояния: где всё ок, где есть деградация и что ещё работает в предпилотном режиме.
+          Операционный статус интеграций и внешних контуров. Здесь видно: где всё ок, где есть деградация и что ещё работает в тестовом режиме.
         </div>
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <Metric title='ОК' value='2' note='ФГИС и СПАРК проходят штатно.' />
         <Metric title='Нестабильно' value='1' note='Банк иногда уводит кейсы в ручную проверку.' />
-        <Metric title='Песочница' value='1' note='Лабораторный контур ещё не полностью боевой.' />
-        <Metric title='Режим' value='Pilot' note='Честная стадия: pilot-ready с сопровождением.' />
+        <Metric title='Тестовый режим' value='1' note='Лабораторный контур требует ручного сопровождения.' />
+        <Metric title='Режим' value='Пилот' note='Честная стадия: пилотный контур с сопровождением.' />
       </div>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
@@ -144,7 +144,7 @@ export default function StatusPage() {
           Открыть интеграции
         </Link>
         <Link href='/platform-v7/control-tower' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
-          Вернуться в Control Tower
+          Вернуться в Центр управления
         </Link>
       </div>
     </div>
