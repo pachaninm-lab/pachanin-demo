@@ -175,7 +175,8 @@
   .pc-v4-stage,
   .pc-v4-select,
   .pc-v4-search,
-  .pc-v4-actions :is([aria-label*='тема' i], [title*='тема' i], [aria-label*='theme' i], [title*='theme' i]) {
+  .pc-v4-actions :is([aria-label*='тема' i], [title*='тема' i], [aria-label*='theme' i], [title*='theme' i]),
+  .pc-v4-actions [data-mobile-secondary-control='true'] {
     display: none !important;
   }
 
@@ -236,6 +237,10 @@
 
   .pc-v4-main :is(section, article, aside, form, [data-card-grid], [data-action-grid], [class*='grid' i], [style*='grid-template-columns']) {
     grid-template-columns: 1fr !important;
+  }
+
+  .pc-v4-main :is([data-kpi-grid], [data-status-grid], [class*='kpi' i], [class*='status' i]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .pc-v4-main :is([style*='display: flex'], [style*='display:flex']) {
