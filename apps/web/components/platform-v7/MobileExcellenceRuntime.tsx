@@ -90,6 +90,10 @@ function readableHeaderName(element: HTMLElement) {
   return [element.getAttribute('aria-label'), element.getAttribute('title'), element.textContent].filter(Boolean).join(' ');
 }
 
+function markMobileSecondaryControl(control: HTMLElement) {
+  control.dataset.mobileSecondaryControl = 'true';
+}
+
 function compactMobileHeaderControls() {
   const actions = document.querySelector('.pc-v4-actions') as HTMLElement | null;
   if (!actions) return;
@@ -98,9 +102,7 @@ function compactMobileHeaderControls() {
   for (const control of controls) {
     const name = readableHeaderName(control);
     if (!control.dataset.supportHeaderIcon && SECONDARY_HEADER_COPY.test(name) && !PRIMARY_HEADER_COPY.test(name)) {
-      control.dataset.mobileSecondaryControl = 'true';
-      control.setAttribute('aria-hidden', 'true');
-      control.setAttribute('tabindex', '-1');
+      markMobileSecondaryControl(control);
     }
   }
 
@@ -111,9 +113,7 @@ function compactMobileHeaderControls() {
     if (primaryControls.filter((item) => !item.dataset.mobileSecondaryControl).length <= 2) break;
     const name = readableHeaderName(control);
     if (PRIMARY_HEADER_COPY.test(name) || control.dataset.supportHeaderIcon) continue;
-    control.dataset.mobileSecondaryControl = 'true';
-    control.setAttribute('aria-hidden', 'true');
-    control.setAttribute('tabindex', '-1');
+    markMobileSecondaryControl(control);
   }
 }
 
