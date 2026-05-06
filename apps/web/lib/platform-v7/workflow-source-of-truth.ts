@@ -55,7 +55,7 @@ const baseState: WorkflowState = {
   batchStatus: 'партия готова к публикации',
   lotStatus: 'лот доступен проверенным покупателям',
   offerStatus: 'оффер ожидает решения',
-  dealDraftStatus: 'DealDraft ещё не создан',
+  dealDraftStatus: 'черновик сделки ещё не создан',
   moneyStatus: 'резерв денег не подтверждён',
   documentStatus: 'СДИЗ и ЭТрН требуют закрытия',
   logisticsStatus: 'логистика включается после принятия условий',
@@ -100,8 +100,8 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
         entityType: 'offer',
         entityId: 'OFF-2405-B4',
         dealId: 'DL-9106',
-        reason: 'Лучший netback при допустимом рейтинге покупателя',
-        description: 'Принятие не завершает продажу, а создаёт DealDraft с guard-условиями по деньгам, документам и логистике.',
+        reason: 'Лучший чистый результат при допустимом рейтинге покупателя',
+        description: 'Принятие не завершает продажу, а создаёт черновик сделки с условиями по деньгам, документам и логистике.',
       },
       {
         kind: 'request_document_preview',
@@ -110,7 +110,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
         entityType: 'document',
         entityId: 'DOC-SDIZ-2405',
         dealId: 'DL-9106',
-        description: 'Документ открывается в preview-режиме с водяным знаком и записью в журнале.',
+        description: 'Документ открывается в режиме просмотра с водяным знаком и записью в журнале.',
       },
     ],
     auditSeed: seedAudit('seller'),
@@ -155,7 +155,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
     context: 'deal',
     title: 'Действия по сделке',
     lead: 'Деньги, документы, рейс, качество и спор меняют один объект сделки. Любой шаг должен иметь состояние, ответственного и журнал.',
-    state: { ...baseState, dealDraftStatus: 'DealDraft создан, ждёт план денег, документов и логистики', nextAction: 'закрыть guard-условия сделки' },
+    state: { ...baseState, dealDraftStatus: 'черновик сделки создан, ждёт план денег, документов и логистики', nextAction: 'закрыть обязательные условия сделки' },
     actions: [
       {
         kind: 'confirm_money_reserve',
@@ -165,7 +165,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
         entityId: 'DRAFT-DL-9106',
         dealId: 'DL-9106',
         reason: 'Проверка готовности денег перед исполнением',
-        description: 'Денежный план закрывает только один guard. Документы, СДИЗ, логистика и риск обхода проверяются отдельно.',
+        description: 'Денежный план закрывает только одно условие. Документы, СДИЗ, логистика и риск обхода проверяются отдельно.',
       },
       {
         kind: 'block_contact_leak',
@@ -203,7 +203,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
         entityType: 'bypass_signal',
         entityId: 'BYP-DL-9106-02',
         dealId: 'DL-9106',
-        reason: 'Контакты запрошены до DealDraft',
+        reason: 'Контакты запрошены до черновика сделки',
         description: 'Система ограничивает контакты и документы, но не делает публичных обвинений.',
       },
       {
@@ -269,18 +269,18 @@ function reduceWorkflowState(kind: WorkflowActionKind, currentState: WorkflowSta
       return {
         ...currentState,
         offerStatus: 'оффер принят',
-        dealDraftStatus: 'DealDraft создан',
+        dealDraftStatus: 'черновик сделки создан',
         moneyStatus: 'требуется денежный план',
         documentStatus: 'требуется документный план',
         logisticsStatus: 'требуется план логистики',
-        nextAction: 'закрыть money plan, document plan и logistics plan',
+        nextAction: 'закрыть денежный, документный и логистический план',
         updatedAt,
       };
     case 'confirm_money_reserve':
       return {
         ...currentState,
         moneyStatus: 'резерв денег подтверждён, выпуск продавцу ещё закрыт',
-        dealDraftStatus: 'денежный guard закрыт',
+        dealDraftStatus: 'денежное условие закрыто',
         nextAction: 'закрыть документы, СДИЗ, рейс, приёмку и качество',
         updatedAt,
       };
@@ -319,7 +319,7 @@ function toastForAction(kind: WorkflowActionKind): string {
     case 'send_buyer_offer':
       return 'Оффер отправлен. Условия зафиксированы версией и попадут в сделку после принятия.';
     case 'accept_offer_to_draft':
-      return 'Оффер принят. Создан DealDraft с guard-условиями по деньгам, документам и логистике.';
+      return 'Оффер принят. Создан черновик сделки с условиями по деньгам, документам и логистике.';
     case 'confirm_money_reserve':
       return 'Резерв подтверждён. Выпуск денег продавцу остаётся закрыт до обязательных условий.';
     case 'request_document_preview':
