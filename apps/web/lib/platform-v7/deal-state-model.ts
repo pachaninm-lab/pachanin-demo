@@ -1,4 +1,17 @@
-import type { PlatformV7DealStatus } from './execution-model';
+export type PlatformV7DealStatus =
+  | 'draft'
+  | 'awaiting_reserve'
+  | 'money_reserved'
+  | 'awaiting_documents'
+  | 'awaiting_logistics'
+  | 'in_transit'
+  | 'awaiting_acceptance'
+  | 'awaiting_lab'
+  | 'awaiting_money_release'
+  | 'manual_review'
+  | 'dispute'
+  | 'closed'
+  | 'cancelled';
 
 export const PLATFORM_V7_DEAL_STATUS_ORDER: readonly PlatformV7DealStatus[] = [
   'draft',
