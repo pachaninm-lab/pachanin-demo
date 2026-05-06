@@ -18,6 +18,8 @@ import '@/styles/enterprise-ui.css';
 import '@/styles/design-fixes.css';
 import '@/styles/mobile-polish.css';
 import '@/styles/platform-v7-dark-role-fixes.css';
+import '@/styles/platform-v7-shell-clarity.css';
+import '@/styles/platform-v7-work-surfaces.css';
 import '@/styles/platform-v7-mobile-excellence.css';
 
 export const metadata: Metadata = {
