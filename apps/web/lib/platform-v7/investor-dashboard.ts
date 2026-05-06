@@ -17,19 +17,19 @@ export interface PlatformV7InvestorDashboardModel {
 export function platformV7InvestorDashboardModel(): PlatformV7InvestorDashboardModel {
   return {
     title: 'Прозрачная Цена — контур исполнения зерновой сделки',
-    subtitle: 'Investor-mode показывает механику сделки: цена и допуск → логистика → приёмка → документы → деньги → спор и доказательства.',
-    disclosure: 'Данные investor-mode являются demo/controlled pilot-гипотезами и не должны трактоваться как production-ready показатели до подтверждения на реальных сделках.',
+    subtitle: 'Обзор показывает механику сделки: цена и допуск → логистика → приёмка → документы → деньги → спор и доказательства.',
+    disclosure: 'Данные обзора являются гипотезами пилотного сценария.',
     metrics: platformV7InvestorMetrics(),
     story: platformV7InvestorStory(),
     roadmap: platformV7InvestorRoadmap(),
     roadmapSummary: platformV7InvestorRoadmapSummary(),
-    primaryCta: 'Показать инвестору',
-    secondaryCta: 'Открыть демо-сценарий',
+    primaryCta: 'Показать руководителю',
+    secondaryCta: 'Открыть проверочный сценарий',
   };
 }
 
 export function platformV7InvestorDashboardIsHonest(model = platformV7InvestorDashboardModel()): boolean {
-  const hasDisclosure = model.disclosure.includes('demo') && model.disclosure.includes('controlled pilot');
+  const hasDisclosure = model.disclosure.includes('гипотезами') && model.disclosure.includes('пилотного сценария');
   const metricsAreMarked = model.metrics.every((metric) => metric.note.startsWith('ГИПОТЕЗА'));
   const roadmapHasRisks = model.roadmap.every((item) => item.risk.length > 0 && item.evidence.length > 0);
   return hasDisclosure && metricsAreMarked && roadmapHasRisks;

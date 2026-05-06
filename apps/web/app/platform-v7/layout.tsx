@@ -3,13 +3,11 @@ import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { AppShellV4 } from '@/components/v7r/AppShellV4';
 import { ToastProvider } from '@/components/v7r/Toast';
-import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
 import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSummaryGate';
 import { RoleExecutionSummaryGate } from '@/components/platform-v7/RoleExecutionSummaryGate';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { SystemRouteSummaryGate } from '@/components/platform-v7/SystemRouteSummaryGate';
-import { MobileExcellenceRuntime } from '@/components/platform-v7/MobileExcellenceRuntime';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -51,8 +49,6 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   return (
     <ToastProvider>
       <PlatformThemeSync />
-      <ShellCopyNormalizer />
-      <MobileExcellenceRuntime />
       <AppShellV4 initialRole={initialRole}>
         <>
           <SupportHeaderIcon />
