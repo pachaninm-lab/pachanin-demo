@@ -36,16 +36,28 @@ const p0Routes = [
   '/platform-v7/reports',
 ] as const;
 
+const crawlerSeedRoutes = [
+  '/platform-v7',
+  '/platform-v7/seller',
+  '/platform-v7/buyer',
+  '/platform-v7/deals',
+  '/platform-v7/logistics',
+  '/platform-v7/bank',
+  '/platform-v7/control-tower',
+] as const;
+
 const mobileSmokeRoutes = [
   '/platform-v7',
   '/platform-v7/deals',
   '/platform-v7/deals/DL-9106/audit',
+  '/platform-v7/deals/DL-9106/money',
   '/platform-v7/seller',
   '/platform-v7/seller/batches/new',
   '/platform-v7/seller/lots/new',
   '/platform-v7/buyer',
   '/platform-v7/buyer/rfq/new',
   '/platform-v7/buyer/matches',
+  '/platform-v7/buyer/offers',
   '/platform-v7/logistics',
   '/platform-v7/driver',
   '/platform-v7/bank',
@@ -104,6 +116,53 @@ test.describe('platform-v7 route audit baseline', () => {
     });
   }
 
+  test('recursive platform-v7 link crawler catches hidden internal 404s', async ({ page }) => {
+    const discovered = new Set<string>(crawlerSeedRoutes);
+    const visited = new Set<string>();
+    const queue = crawlerSeedRoutes.map((route) => ({ route, depth: 0 }));
+    const maxDepth = 2;
+    const maxRoutes = 85;
+
+    while (queue.length > 0 && visited.size < maxRoutes) {
+      const current = queue.shift();
+      if (!current || visited.has(current.route)) continue;
+
+      visited.add(current.route);
+      const response = await page.goto(current.route, { waitUntil: 'networkidle' });
+      expect(response?.ok(), `${current.route} should return 2xx during crawl`).toBeTruthy();
+      await expect(page.locator('text=/404|500|Application error|Unhandled Runtime Error/i'), `${current.route} should not render crash or 404 copy during crawl`).toHaveCount(0);
+
+      if (current.depth >= maxDepth) continue;
+
+      const links = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href]')).map((anchor) => anchor.href));
+      for (const href of links) {
+        const route = normalizePlatformRoute(href);
+        if (!route || discovered.has(route) || visited.has(route)) continue;
+        discovered.add(route);
+        queue.push({ route, depth: current.depth + 1 });
+        if (discovered.size >= maxRoutes) break;
+      }
+    }
+
+    expect(visited.size, 'crawler should find more than the static seed list').toBeGreaterThan(crawlerSeedRoutes.length);
+  });
+
+  test('workflow action state persists across seller, deal and buyer surfaces', async ({ page }) => {
+    await page.goto('/platform-v7/seller', { waitUntil: 'networkidle' });
+    await page.evaluate(() => window.localStorage.removeItem('pc-platform-v7-workflow-state-v2'));
+    await page.reload({ waitUntil: 'networkidle' });
+
+    await page.getByRole('button', { name: /Опубликовать лот/ }).click();
+    await expect(page.getByText('Лот опубликован внутри управляемого контура. Контакты не раскрыты.')).toBeVisible();
+
+    await page.goto('/platform-v7/deals/DL-9106/audit', { waitUntil: 'networkidle' });
+    await expect(page.getByText('лот опубликован как управляемый рыночный лот')).toBeVisible();
+    await expect(page.getByText('Лот опубликован', { exact: true })).toBeVisible();
+
+    await page.goto('/platform-v7/buyer', { waitUntil: 'networkidle' });
+    await expect(page.getByText('лот опубликован как управляемый рыночный лот')).toBeVisible();
+  });
+
   test('clean routes render stable Russian pilot copy', async ({ page }) => {
     await page.goto('/platform-v7/deals/DL-9102/clean', { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { name: 'Карточка сделки' })).toBeVisible();
@@ -123,6 +182,8 @@ test.describe('platform-v7 route audit baseline', () => {
 
   test('seller and buyer actions mutate visible state and audit journal', async ({ page }) => {
     await page.goto('/platform-v7/seller', { waitUntil: 'networkidle' });
+    await page.evaluate(() => window.localStorage.removeItem('pc-platform-v7-workflow-state-v2'));
+    await page.reload({ waitUntil: 'networkidle' });
     await expect(page.getByTestId('workflow-action-panel-seller')).toBeVisible();
     await page.getByRole('button', { name: /Опубликовать лот/ }).click();
     await expect(page.getByText('Лот опубликован внутри управляемого контура. Контакты не раскрыты.')).toBeVisible();
@@ -149,3 +210,17 @@ test.describe('platform-v7 route audit baseline', () => {
     }
   });
 });
+
+function normalizePlatformRoute(href: string): string | null {
+  try {
+    const url = new URL(href);
+    if (!url.pathname.startsWith('/platform-v7')) return null;
+    if (url.pathname.startsWith('/platform-v7r')) return null;
+    if (url.pathname.includes('/api/')) return null;
+    if (url.pathname.includes('/_next/')) return null;
+
+    return url.pathname.replace(/\/$/, '') || '/platform-v7';
+  } catch {
+    return null;
+  }
+}
