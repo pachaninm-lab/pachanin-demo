@@ -3,17 +3,20 @@ import { PLATFORM_V7_COMMAND_ROUTE_SURFACE, PLATFORM_V7_DOMAIN_CORE_ROUTE, PLATF
 import { platformV7QuickJumpItems } from '@/lib/platform-v7/shellQuickJump';
 
 describe('platform-v7 domain core routing', () => {
-  it('registers domain core in route surfaces', () => {
+  it('keeps domain core as an internal technical route constant only', () => {
     expect(PLATFORM_V7_DOMAIN_CORE_ROUTE).toBe('/platform-v7/domain-core');
-    expect(PLATFORM_V7_COMMAND_ROUTE_SURFACE).toContain(PLATFORM_V7_DOMAIN_CORE_ROUTE);
-    expect(PLATFORM_V7_SHELL_ROUTE_SURFACE).toContain(PLATFORM_V7_DOMAIN_CORE_ROUTE);
-    expect(PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES).toContain(PLATFORM_V7_DOMAIN_CORE_ROUTE);
   });
 
-  it('exposes domain core in quick jump', () => {
-    expect(platformV7QuickJumpItems()).toEqual(
+  it('does not expose domain core in public route surfaces', () => {
+    expect(PLATFORM_V7_COMMAND_ROUTE_SURFACE).not.toContain(PLATFORM_V7_DOMAIN_CORE_ROUTE);
+    expect(PLATFORM_V7_SHELL_ROUTE_SURFACE).not.toContain(PLATFORM_V7_DOMAIN_CORE_ROUTE);
+    expect(PLATFORM_V7_EXECUTION_MACHINE_STRIP_ROUTES).not.toContain(PLATFORM_V7_DOMAIN_CORE_ROUTE);
+  });
+
+  it('does not expose domain core in quick jump', () => {
+    expect(platformV7QuickJumpItems()).not.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ href: PLATFORM_V7_DOMAIN_CORE_ROUTE, label: 'Движок сделки', group: 'Навигация' }),
+        expect.objectContaining({ href: PLATFORM_V7_DOMAIN_CORE_ROUTE }),
       ])
     );
   });
