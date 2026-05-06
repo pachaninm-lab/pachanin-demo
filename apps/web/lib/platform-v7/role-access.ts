@@ -43,19 +43,21 @@ export type PlatformV7AccessDecision = {
   readonly reason: string;
 };
 
+const ROLE_SWITCH_ROUTE = '/platform-v7/roles';
+
 export const PLATFORM_V7_ROLE_FORBIDDEN_SURFACES: Record<PlatformV7Role, readonly PlatformV7SensitiveSurface[]> = {
   driver: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'controlTower', 'roleSwitcher', 'providerDebug'],
-  logistics: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'providerDebug'],
-  buyer: ['thirdPartyBids', 'operatorControls', 'bankInternalEvents', 'providerDebug'],
-  seller: ['bankInternalEvents', 'thirdPartyBids', 'providerDebug'],
-  bank: ['driverActions', 'thirdPartyBids', 'providerDebug'],
-  elevator: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'providerDebug'],
-  lab: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'driverActions', 'providerDebug'],
-  surveyor: ['bankReserve', 'moneyRelease', 'thirdPartyBids', 'investorMode', 'providerDebug'],
-  arbitrator: ['driverActions', 'thirdPartyBids', 'providerDebug'],
-  compliance: ['driverActions', 'thirdPartyBids', 'providerDebug'],
-  investor: ['driverActions', 'bankInternalEvents', 'operatorControls', 'providerDebug'],
-  executive: ['driverActions', 'bankInternalEvents', 'providerDebug'],
+  logistics: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'providerDebug', 'roleSwitcher'],
+  buyer: ['thirdPartyBids', 'operatorControls', 'bankInternalEvents', 'providerDebug', 'roleSwitcher'],
+  seller: ['bankInternalEvents', 'thirdPartyBids', 'providerDebug', 'roleSwitcher'],
+  bank: ['driverActions', 'thirdPartyBids', 'providerDebug', 'roleSwitcher'],
+  elevator: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'providerDebug', 'roleSwitcher'],
+  lab: ['bankReserve', 'moneyRelease', 'grainPrice', 'thirdPartyBids', 'investorMode', 'driverActions', 'providerDebug', 'roleSwitcher'],
+  surveyor: ['bankReserve', 'moneyRelease', 'thirdPartyBids', 'investorMode', 'providerDebug', 'roleSwitcher'],
+  arbitrator: ['driverActions', 'thirdPartyBids', 'providerDebug', 'roleSwitcher'],
+  compliance: ['driverActions', 'thirdPartyBids', 'providerDebug', 'roleSwitcher'],
+  investor: ['driverActions', 'bankInternalEvents', 'operatorControls', 'providerDebug', 'roleSwitcher'],
+  executive: ['driverActions', 'bankInternalEvents', 'providerDebug', 'roleSwitcher'],
   operator: [],
 };
 
@@ -92,18 +94,18 @@ export const PLATFORM_V7_ROLE_HOME_ROUTE: Record<PlatformV7Role, string> = {
 };
 
 export const PLATFORM_V7_ROLE_BLOCKED_ROUTE_PREFIXES: Record<PlatformV7Role, readonly string[]> = {
-  driver: ['/platform-v7/bank', '/platform-v7/control-tower', '/platform-v7/investor', '/platform-v7/buyer', '/platform-v7/seller', '/platform-v7/connectors'],
-  logistics: ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/connectors'],
-  buyer: ['/platform-v7/control-tower', '/platform-v7/bank/release-safety', '/platform-v7/connectors'],
-  seller: ['/platform-v7/bank/release-safety', '/platform-v7/connectors'],
-  bank: ['/platform-v7/driver/field', '/platform-v7/lots/create', '/platform-v7/connectors'],
-  elevator: ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/connectors'],
-  lab: ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/driver/field', '/platform-v7/connectors'],
-  surveyor: ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/connectors'],
-  arbitrator: ['/platform-v7/driver/field', '/platform-v7/connectors'],
-  compliance: ['/platform-v7/driver/field', '/platform-v7/connectors'],
-  investor: ['/platform-v7/driver/field', '/platform-v7/control-tower', '/platform-v7/connectors'],
-  executive: ['/platform-v7/driver/field', '/platform-v7/connectors'],
+  driver: [ROLE_SWITCH_ROUTE, '/platform-v7/bank', '/platform-v7/control-tower', '/platform-v7/investor', '/platform-v7/buyer', '/platform-v7/seller', '/platform-v7/connectors'],
+  logistics: [ROLE_SWITCH_ROUTE, '/platform-v7/bank', '/platform-v7/investor', '/platform-v7/connectors'],
+  buyer: [ROLE_SWITCH_ROUTE, '/platform-v7/control-tower', '/platform-v7/bank/release-safety', '/platform-v7/connectors'],
+  seller: [ROLE_SWITCH_ROUTE, '/platform-v7/bank/release-safety', '/platform-v7/connectors'],
+  bank: [ROLE_SWITCH_ROUTE, '/platform-v7/driver/field', '/platform-v7/lots/create', '/platform-v7/connectors'],
+  elevator: [ROLE_SWITCH_ROUTE, '/platform-v7/bank', '/platform-v7/investor', '/platform-v7/connectors'],
+  lab: [ROLE_SWITCH_ROUTE, '/platform-v7/bank', '/platform-v7/investor', '/platform-v7/driver/field', '/platform-v7/connectors'],
+  surveyor: [ROLE_SWITCH_ROUTE, '/platform-v7/bank', '/platform-v7/investor', '/platform-v7/connectors'],
+  arbitrator: [ROLE_SWITCH_ROUTE, '/platform-v7/driver/field', '/platform-v7/connectors'],
+  compliance: [ROLE_SWITCH_ROUTE, '/platform-v7/driver/field', '/platform-v7/connectors'],
+  investor: [ROLE_SWITCH_ROUTE, '/platform-v7/driver/field', '/platform-v7/control-tower', '/platform-v7/connectors'],
+  executive: [ROLE_SWITCH_ROUTE, '/platform-v7/driver/field', '/platform-v7/connectors'],
   operator: [],
 };
 
