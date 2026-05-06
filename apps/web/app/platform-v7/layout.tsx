@@ -9,6 +9,7 @@ import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSu
 import { RoleExecutionSummaryGate } from '@/components/platform-v7/RoleExecutionSummaryGate';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { SystemRouteSummaryGate } from '@/components/platform-v7/SystemRouteSummaryGate';
+import { MobileExcellenceRuntime } from '@/components/platform-v7/MobileExcellenceRuntime';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -19,6 +20,7 @@ import '@/styles/mobile-polish.css';
 import '@/styles/platform-v7-dark-role-fixes.css';
 import '@/styles/platform-v7-shell-clarity.css';
 import '@/styles/platform-v7-work-surfaces.css';
+import '@/styles/platform-v7-mobile-excellence.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',
@@ -50,6 +52,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     <ToastProvider>
       <PlatformThemeSync />
       <ShellCopyNormalizer />
+      <MobileExcellenceRuntime />
       <AppShellV4 initialRole={initialRole}>
         <>
           <SupportHeaderIcon />
