@@ -8,6 +8,7 @@ import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSu
 import { RoleExecutionSummaryGate } from '@/components/platform-v7/RoleExecutionSummaryGate';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { SystemRouteSummaryGate } from '@/components/platform-v7/SystemRouteSummaryGate';
+import { WorkRouteNav } from '@/components/platform-v7/WorkRouteNav';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -55,6 +56,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <RoleExecutionSummaryGate />
           <AuditSurfaceSummaryGate />
           <SystemRouteSummaryGate />
+          <WorkRouteNav />
           {children}
         </>
       </AppShellV4>
