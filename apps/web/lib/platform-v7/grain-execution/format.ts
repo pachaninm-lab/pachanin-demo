@@ -11,6 +11,10 @@ export function formatMoney(amount: MoneyAmount, options?: { readonly signed?: b
   return `${sign}${rounded.toLocaleString('ru-RU')} ${suffix}`;
 }
 
+export function formatRub(amount: MoneyAmount): string {
+  return formatMoney(amount);
+}
+
 export function formatMoneyPerTon(amount: MoneyAmount): string {
   return `${formatMoney(amount)}/т`;
 }

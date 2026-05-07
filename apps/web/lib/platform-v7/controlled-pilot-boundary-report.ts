@@ -40,8 +40,7 @@ export function buildPlatformV7ControlledPilotBoundaryReport(): PlatformV7Contro
     apiBoundaries: getPlatformV7ApiBoundaryReadinessSummary(),
     payloadBoundaries: getPlatformV7ApiPayloadReadinessSummary(),
     runtimeReadiness: getPlatformV7RuntimeReadinessSummary(runtime),
-    allowedClaim:
-      'Platform-v7 has a controlled-pilot contract layer for execution boundaries, payload validation, idempotency, audit, preflight checks, observability signals and runtime readiness checks.',
+    allowedClaim: 'Platform-v7 has a controlled-pilot contract layer for execution boundaries, payload validation, idempotency, audit, preflight checks, observability signals and runtime readiness checks.',
     forbiddenClaimCodes: [
       'production_maturity_overclaim',
       'live_mode_overclaim',
@@ -63,7 +62,7 @@ export function buildPlatformV7ControlledPilotBoundaryReport(): PlatformV7Contro
       'transaction state store',
       'money reconciliation runtime',
       'feature flags',
-      'kill switches',
+      'runtime stop flags',
       'external confirmation boundaries',
     ],
   };
@@ -72,7 +71,7 @@ export function buildPlatformV7ControlledPilotBoundaryReport(): PlatformV7Contro
 export function canPlatformV7BoundaryReportClaimProductionMaturity(
   report = buildPlatformV7ControlledPilotBoundaryReport(),
 ): boolean {
-  return report.canClaimProductionMaturity === true;
+  return report.canClaimProductionMaturity;
 }
 
 export function getPlatformV7BoundaryReportCompactSummary(report = buildPlatformV7ControlledPilotBoundaryReport()) {
