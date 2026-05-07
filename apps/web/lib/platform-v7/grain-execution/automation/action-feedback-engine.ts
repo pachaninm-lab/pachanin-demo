@@ -43,18 +43,25 @@ function moneyProjectionMismatch(moneyProjection?: MoneyProjection): boolean {
   return Math.abs(reserved - parts) > 0.01;
 }
 
+function hasMoneyBlockingReasons(moneyProjection?: MoneyProjection): boolean {
+  return Boolean(moneyProjection?.releaseBlockedReasons.length);
+}
+
 export function createActionFeedbackPreview(action: NextAction, moneyProjection?: MoneyProjection): ActionFeedbackPreview {
   const isMoneyAction = action.actionType === 'approve_release' || action.actionType === 'reserve_money';
   const hasMoneyMismatch = isMoneyAction && moneyProjectionMismatch(moneyProjection);
+  const hasMoneyBlockers = isMoneyAction && hasMoneyBlockingReasons(moneyProjection);
   const statusText = hasMoneyMismatch
     ? 'Денежное действие закрыто: суммы резерва, выпуска, удержания и ручной проверки не сходятся.'
-    : action.disabled
-      ? action.disabledReason ?? 'Действие закрыто до выполнения условий.'
-      : actionStatusText[action.actionType];
+    : hasMoneyBlockers
+      ? 'Денежное действие закрыто: есть незакрытые документы, СДИЗ или ручная проверка.'
+      : action.disabled
+        ? action.disabledReason ?? 'Действие закрыто до выполнения условий.'
+        : actionStatusText[action.actionType];
 
   return {
     actionId: action.id,
-    title: action.disabled || hasMoneyMismatch ? 'Действие пока закрыто' : 'Действие принято в работу',
+    title: action.disabled || hasMoneyMismatch || hasMoneyBlockers ? 'Действие пока закрыто' : 'Действие принято в работу',
     statusText,
     auditEvent: {
       entityType: 'next_action',
@@ -63,9 +70,11 @@ export function createActionFeedbackPreview(action: NextAction, moneyProjection?
       action: action.title,
       reason: hasMoneyMismatch
         ? 'Перед действием нужна сверка денежных сумм.'
-        : action.requiresReason
-          ? 'Действие требует основания и будет сохранено в журнале после подтверждения.'
-          : 'Действие сохранено как controlled-pilot событие интерфейса.',
+        : hasMoneyBlockers
+          ? 'Перед действием нужно закрыть блокирующие основания по документам, СДИЗ или ручной проверке.'
+          : action.requiresReason
+            ? 'Действие требует основания и будет сохранено в журнале после подтверждения.'
+            : 'Действие сохранено как controlled-pilot событие интерфейса.',
     },
     externalConfirmationText:
       action.actionType === 'approve_release' || action.actionType === 'reserve_money'
