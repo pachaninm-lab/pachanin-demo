@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { SUPPORT_AUDIT_EVENTS, SUPPORT_CASES, SUPPORT_INTERNAL_NOTES, SUPPORT_MESSAGES } from './support-data';
+import { createSupportAuditEvent, supportEscalationTraceDescription } from './support-helpers';
 import type { SupportAuditEvent, SupportCase, SupportInternalNote, SupportMessage, SupportStatus } from './support-types';
 
 const STORAGE_KEY = 'pc-platform-v7-support-cases';
@@ -81,14 +82,15 @@ export function useSupportCases() {
       createdAt: supportCase.createdAt,
       public: true,
     };
-    const audit: SupportAuditEvent = {
-      id: `SAE-${supportCase.id}-1`,
+    const audit = createSupportAuditEvent({
       caseId: supportCase.id,
       actor: 'Пользователь',
       action: 'created',
       description: `Создано обращение по объекту ${supportCase.relatedEntityId}.`,
       createdAt: supportCase.createdAt,
-    };
+      relatedEntityId: supportCase.relatedEntityId,
+      sequence: 1,
+    });
     const next = {
       cases: dedupeCases([...nextSnapshot.cases, supportCase]),
       messages: [...nextSnapshot.messages, message],
@@ -101,21 +103,24 @@ export function useSupportCases() {
 
   const updateCaseStatus = React.useCallback((caseId: string, status: SupportStatus, actor: string, description: string) => {
     const current = readSnapshot();
-    const before = current.cases.find((item) => item.id === caseId)?.status;
+    const targetCase = current.cases.find((item) => item.id === caseId);
+    const before = targetCase?.status;
     const now = new Date().toISOString();
+    const traceDescription = targetCase ? supportEscalationTraceDescription(targetCase, status) : description;
+    const audit = createSupportAuditEvent({
+      caseId,
+      actor,
+      action: status === 'escalated' ? 'escalated' : 'status_changed',
+      description: `${description} ${traceDescription}`,
+      before,
+      after: status,
+      createdAt: now,
+      relatedEntityId: targetCase?.relatedEntityId,
+    });
     const next = {
       ...current,
       cases: current.cases.map((item) => item.id === caseId ? { ...item, status, updatedAt: now } : item),
-      auditEvents: [...current.auditEvents, {
-        id: `SAE-${caseId}-${Date.now()}`,
-        caseId,
-        actor,
-        action: 'status_changed',
-        description,
-        before,
-        after: status,
-        createdAt: now,
-      }],
+      auditEvents: [...current.auditEvents, audit],
     };
     persist(next);
   }, [persist]);
