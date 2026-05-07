@@ -11,7 +11,38 @@ export function supportSlaHours(priority: SupportPriority): number { return prio
 export function supportOwner(category: SupportCategory): string { return category === 'money' || category === 'dispute' ? 'Банковый контур' : category === 'logistics' ? 'Логистика' : category === 'documents' ? 'Документы' : category === 'acceptance' ? 'Приёмка' : category === 'quality' ? 'Качество' : category === 'access' ? 'Доступ' : category === 'integration' ? 'Интеграции' : 'Оператор сделки'; }
 export function supportStatusByOwner(owner: string): SupportStatus { return owner === 'Банковый контур' ? 'assigned_bank' : owner === 'Логистика' ? 'assigned_logistics' : 'assigned_operator'; }
 export function supportObjectLabel(item: Pick<SupportCase, 'relatedEntityType' | 'relatedEntityId'>): string { return `${SUPPORT_ENTITY_LABELS[item.relatedEntityType]} ${item.relatedEntityId}`; }
-export function supportSortCases(cases: SupportCase[]): SupportCase[] { const rank = { P0: 0, P1: 1, P2: 2, P3: 3 }; return [...cases].sort((a, b) => rank[a.priority] - rank[b.priority] || new Date(a.slaDueAt).getTime() - new Date(b.slaDueAt).getTime()); }
+export function supportLinkedExecutionHref(item: Pick<SupportCase, 'relatedEntityType' | 'relatedEntityId' | 'dealId' | 'lotId' | 'tripId'>): string {
+  if (item.relatedEntityType === 'deal') return `/platform-v7/deals/${item.dealId ?? item.relatedEntityId}`;
+  if (item.relatedEntityType === 'lot') return `/platform-v7/market/lots/${item.lotId ?? item.relatedEntityId}`;
+  if (item.relatedEntityType === 'trip') return `/platform-v7/logistics/trips/${item.tripId ?? item.relatedEntityId}`;
+  if (item.relatedEntityType === 'document') return `/platform-v7/documents?document=${encodeURIComponent(item.relatedEntityId)}`;
+  if (item.relatedEntityType === 'money') return `/platform-v7/bank?money=${encodeURIComponent(item.relatedEntityId)}`;
+  if (item.relatedEntityType === 'dispute') return `/platform-v7/disputes?dispute=${encodeURIComponent(item.relatedEntityId)}`;
+  if (item.relatedEntityType === 'integration') return `/platform-v7/connectors?integration=${encodeURIComponent(item.relatedEntityId)}`;
+  if (item.dealId) return `/platform-v7/deals/${item.dealId}`;
+  if (item.lotId) return `/platform-v7/market/lots/${item.lotId}`;
+  if (item.tripId) return `/platform-v7/logistics/trips/${item.tripId}`;
+  return '/platform-v7/control-tower';
+}
+export function supportSlaState(item: Pick<SupportCase, 'slaDueAt' | 'status'>, now = '2026-05-05T12:00:00.000Z'): 'closed' | 'breached' | 'due_soon' | 'open' {
+  if (item.status === 'closed' || item.status === 'resolved') return 'closed';
+  const remainingMs = new Date(item.slaDueAt).getTime() - new Date(now).getTime();
+  if (remainingMs < 0) return 'breached';
+  if (remainingMs <= 2 * 3600000) return 'due_soon';
+  return 'open';
+}
+export function supportSlaLabel(item: Pick<SupportCase, 'slaDueAt' | 'status'>, now = '2026-05-05T12:00:00.000Z'): string {
+  const state = supportSlaState(item, now);
+  if (state === 'closed') return 'SLA закрыт';
+  if (state === 'breached') return 'SLA просрочен';
+  if (state === 'due_soon') return 'SLA скоро истечёт';
+  return 'SLA в работе';
+}
+export function supportSortCases(cases: SupportCase[]): SupportCase[] {
+  const rank = { P0: 0, P1: 1, P2: 2, P3: 3 };
+  const slaRank = { breached: 0, due_soon: 1, open: 2, closed: 3 };
+  return [...cases].sort((a, b) => slaRank[supportSlaState(a)] - slaRank[supportSlaState(b)] || rank[a.priority] - rank[b.priority] || new Date(a.slaDueAt).getTime() - new Date(b.slaDueAt).getTime() || b.moneyAtRiskRub - a.moneyAtRiskRub);
+}
 export function supportLastMessage(caseId: string, messages: SupportMessage[]): string { return messages.filter((m) => m.caseId === caseId && m.public).at(-1)?.body ?? 'Ответ ещё не добавлен.'; }
 export function supportSlaDueAt(priority: SupportPriority, now: string): string { return new Date(new Date(now).getTime() + supportSlaHours(priority) * 3600000).toISOString(); }
 export function supportCategoryByText(text: string): SupportCategory { const value = text.toLowerCase(); if (/(деньг|оплат|выпуск|удерж|резерв|банк|сумм)/i.test(value)) return 'money'; if (/(документ|сдиз|эдо|наклад|акт|пакет)/i.test(value)) return 'documents'; if (/(рейс|водител|маршрут|машин|логист|груз)/i.test(value)) return 'logistics'; if (/(при[её]мк|вес|разгруз|элеватор)/i.test(value)) return 'acceptance'; if (/(качеств|лаборатор|проб|класс)/i.test(value)) return 'quality'; if (/(спор|претенз|арбитр|доказательств)/i.test(value)) return 'dispute'; if (/(доступ|роль|войти|кабинет|права)/i.test(value)) return 'access'; if (/(интеграц|фгис|есиа|внешн)/i.test(value)) return 'integration'; return 'other'; }
