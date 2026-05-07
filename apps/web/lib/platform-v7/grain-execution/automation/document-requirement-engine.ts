@@ -16,6 +16,22 @@ function responsibleRole(documentType: DocumentType): UserRole {
   return 'seller';
 }
 
+function requiresExternalConfirmation(document: DocumentRequirement): boolean {
+  return document.externalSystem !== 'manual';
+}
+
+function hasConfirmedExternalStatus(document: DocumentRequirement): boolean {
+  return Boolean(document.externalStatus && /(подтвержд|confirmed|accepted|redeemed|sent|signed)/i.test(document.externalStatus));
+}
+
+export function isDocumentRequirementSatisfied(document: DocumentRequirement): boolean {
+  if (!document.required || document.status === 'not_required') return true;
+  if (document.status === 'rejected' || document.status === 'expired') return false;
+  if (!requiresExternalConfirmation(document)) return document.status === 'uploaded' || document.status === 'signed';
+  if (document.status !== 'signed') return false;
+  return hasConfirmedExternalStatus(document);
+}
+
 export function buildDocumentRequirements(params: {
   readonly dealId: string;
   readonly relatedEntityId: string;
@@ -50,26 +66,27 @@ export function buildDocumentRequirements(params: {
 }
 
 export function summarizeDocuments(documents: readonly DocumentRequirement[]) {
-  const readyStatuses: DocumentRequirement['status'][] = ['uploaded', 'signed', 'not_required'];
-  const ready = documents.filter((doc) => readyStatuses.includes(doc.status)).length;
-  const missing = documents.filter((doc) => doc.required && !readyStatuses.includes(doc.status)).length;
+  const ready = documents.filter(isDocumentRequirementSatisfied).length;
+  const missing = documents.filter((doc) => doc.required && !isDocumentRequirementSatisfied(doc)).length;
   return {
     total: documents.length,
     ready,
     missing,
-    blockingMoneyRelease: documents.filter((doc) => doc.blocksMoneyRelease && !readyStatuses.includes(doc.status)).length,
+    blockingMoneyRelease: documents.filter((doc) => doc.blocksMoneyRelease && !isDocumentRequirementSatisfied(doc)).length,
   };
 }
 
 export function documentBlockers(documents: readonly DocumentRequirement[]) {
   return documents
-    .filter((doc) => doc.required && doc.blocksMoneyRelease && !['uploaded', 'signed', 'not_required'].includes(doc.status))
+    .filter((doc) => doc.required && doc.blocksMoneyRelease && !isDocumentRequirementSatisfied(doc))
     .map((doc) => ({
       id: `${doc.id}-block`,
       type: 'document' as const,
       severity: doc.status === 'expired' || doc.status === 'rejected' ? ('critical' as const) : ('warning' as const),
       title: 'Документ блокирует деньги',
-      description: 'Документ нужен для допуска к выпуску денег через банк.',
+      description: doc.externalSystem === 'manual'
+        ? 'Документ нужен для допуска к выпуску денег через банк.'
+        : 'Загрузка файла не является внешним подтверждением. Нужен ответ внешнего контура или ручная сверка.',
       blocks: 'money_release' as const,
       responsibleRole: doc.responsibleRole,
       relatedEntityType: 'document_requirement',
