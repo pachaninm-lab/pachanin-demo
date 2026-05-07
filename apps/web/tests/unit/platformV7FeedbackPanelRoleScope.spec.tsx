@@ -11,9 +11,7 @@ describe('GrainActionFeedbackPanel role scope', () => {
     const ctx = getGrainExecutionContext();
 
     expect(ctx.supportActionFeedbackForRole('driver')).toHaveLength(0);
-    expect(ctx.actionFeedbackPreviewsForRole('driver')).toSatisfy((items) =>
-      items.every((item) => item.auditEvent.actorRole === 'driver'),
-    );
+    expect(ctx.actionFeedbackPreviewsForRole('driver').every((item) => item.auditEvent.actorRole === 'driver')).toBe(true);
 
     render(<GrainActionFeedbackPanel role='driver' />);
 
