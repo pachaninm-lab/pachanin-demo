@@ -21,6 +21,14 @@ const routes = [
   '/platform-v7/compliance',
   '/platform-v7/arbitrator',
   '/platform-v7/investor',
+  '/platform-v7/operator',
+  '/platform-v7/status',
+  '/platform-v7/profile',
+  '/platform-v7/auth',
+  '/platform-v7/support',
+  '/platform-v7/support/new',
+  '/platform-v7/support/operator',
+  '/platform-v7/deals/grain-release',
   '/platform-v7/demo',
   '/platform-v7/demo/execution-flow',
   '/platform-v7/simulator',
@@ -53,6 +61,13 @@ const forbiddenVisibleTerms = [
   'fully integrated',
   'complete product',
   'no risks',
+  'нет аналогов',
+  'без рисков',
+  'всё готово',
+  'полностью готово',
+  'гарантирует оплату',
+  'прямой выпуск',
+  'выпустить сейчас',
 ] as const;
 
 test.describe('platform-v7 forbidden user-facing copy', () => {
