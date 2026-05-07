@@ -1,4 +1,4 @@
-import type { PriceBasis, SdizGate, SdizOperationType, UserRole } from '../types';
+import type { ExecutionBlocker, PriceBasis, SdizGate, SdizOperationType, UserRole } from '../types';
 
 const basisOperations: Record<PriceBasis, readonly SdizOperationType[]> = {
   EXW: ['realization'],
@@ -12,6 +12,24 @@ function responsibleRoleFor(basis: PriceBasis, operationType: SdizOperationType)
   if (basis === 'EXW' && operationType !== 'realization') return 'buyer';
   if (operationType === 'acceptance') return 'buyer';
   return 'seller';
+}
+
+function isSdizGateSatisfied(gate: SdizGate): boolean {
+  return ['sent', 'redeemed', 'partially_redeemed', 'not_required'].includes(gate.status);
+}
+
+function sdizBlockerSeverity(gate: SdizGate): ExecutionBlocker['severity'] {
+  return gate.status === 'error' || gate.status === 'manual_review' ? 'critical' : 'warning';
+}
+
+function sdizBlockerDescription(gate: SdizGate, block: ExecutionBlocker['blocks']): string {
+  if (gate.errorMessage) return gate.errorMessage;
+  if (gate.status === 'manual_review') return 'СДИЗ отправлен на ручную сверку. Продолжение этапа требует подтверждения ответственного контура.';
+  if (block === 'shipment') return 'СДИЗ не позволяет начинать или продолжать отгрузку без подтверждённого статуса.';
+  if (block === 'acceptance') return 'СДИЗ не позволяет закрыть приёмку без подтверждённого статуса.';
+  if (block === 'money_release') return 'СДИЗ не позволяет выпуск денег без подтверждённого статуса.';
+  if (block === 'deal_creation') return 'СДИЗ не позволяет создать сделку без подтверждённого статуса.';
+  return 'СДИЗ не позволяет продолжить действие без проверки.';
 }
 
 export function buildSdizGates(params: {
@@ -55,24 +73,30 @@ export function buildSdizGates(params: {
   });
 }
 
-export function getSdizGateBlockers(gates: readonly SdizGate[]) {
-  return gates
-    .filter((gate) => gate.required && !['signed', 'sent', 'redeemed', 'partially_redeemed', 'not_required'].includes(gate.status))
-    .map((gate) => ({
-      id: `${gate.id}-block`,
+function sdizStageBlocks(gate: SdizGate): ExecutionBlocker['blocks'][] {
+  return [
+    gate.blockingLotPublication ? 'lot_publication' : null,
+    gate.blockingDealCreation ? 'deal_creation' : null,
+    gate.blockingShipment ? 'shipment' : null,
+    gate.blockingAcceptance ? 'acceptance' : null,
+    gate.blockingMoneyRelease ? 'money_release' : null,
+  ].filter((block): block is ExecutionBlocker['blocks'] => Boolean(block));
+}
+
+export function getSdizGateBlockers(gates: readonly SdizGate[]): ExecutionBlocker[] {
+  return gates.flatMap((gate) => {
+    if (!gate.required || isSdizGateSatisfied(gate)) return [];
+
+    return sdizStageBlocks(gate).map((block) => ({
+      id: `${gate.id}-${block}-block`,
       type: 'sdiz' as const,
-      severity: gate.status === 'error' ? ('critical' as const) : ('warning' as const),
+      severity: sdizBlockerSeverity(gate),
       title: 'СДИЗ требует действия',
-      description: gate.errorMessage ?? 'Статус СДИЗ не позволяет продолжить действие без проверки.',
-      blocks: gate.blockingMoneyRelease
-        ? ('money_release' as const)
-        : gate.blockingShipment
-          ? ('shipment' as const)
-          : gate.blockingDealCreation
-            ? ('deal_creation' as const)
-            : ('lot_publication' as const),
+      description: sdizBlockerDescription(gate, block),
+      blocks: block,
       responsibleRole: gate.responsibleRole,
       relatedEntityType: 'sdiz_gate',
       relatedEntityId: gate.id,
     }));
+  });
 }
