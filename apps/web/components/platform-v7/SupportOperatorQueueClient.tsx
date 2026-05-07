@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import type { SupportCategory, SupportPriority, SupportRelatedEntityType } from '@/lib/platform-v7/support-types';
 import { useSupportCases } from '@/lib/platform-v7/support-client-store';
-import { SUPPORT_CATEGORY_LABELS, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_LABELS, supportFormatRub, supportObjectLabel, supportSortCases } from '@/lib/platform-v7/support-helpers';
+import { SUPPORT_CATEGORY_LABELS, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_LABELS, supportFormatRub, supportLinkedExecutionHref, supportObjectLabel, supportSlaLabel, supportSortCases } from '@/lib/platform-v7/support-helpers';
 
 const card: CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 };
 const muted: CSSProperties = { color: 'var(--pc-text-muted, #64748b)', fontSize: 13, lineHeight: 1.6 };
@@ -34,6 +34,7 @@ export function SupportOperatorQueueClient() {
   });
   const selected = rows[0];
   const moneyTotal = rows.reduce((sum, item) => sum + item.moneyAtRiskRub, 0);
+  const selectedExecutionHref = selected ? supportLinkedExecutionHref(selected) : null;
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1220, margin: '0 auto' }}>
@@ -63,7 +64,7 @@ export function SupportOperatorQueueClient() {
         <div style={{ ...card, display: 'grid', gap: 10 }}>
           {rows.map((item) => (
             <Link key={item.id} href={`/platform-v7/support/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 7, background: item.id === selected?.id ? 'var(--pc-accent-bg, rgba(10,122,95,0.08))' : 'var(--pc-bg-elevated, rgba(15,20,25,0.02))' }}>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><b>{item.id}</b><span>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span>{SUPPORT_CATEGORY_LABELS[item.category]}</span><span>SLA {dt(item.slaDueAt)}</span></div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><b>{item.id}</b><span>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span>{SUPPORT_CATEGORY_LABELS[item.category]}</span><span>{supportSlaLabel(item)}</span><span>SLA {dt(item.slaDueAt)}</span></div>
               <div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div>
               <div style={muted}>{supportObjectLabel(item)} · {supportFormatRub(item.moneyAtRiskRub)}</div>
               <div style={muted}>Блокер: {item.blocker}</div>
@@ -75,7 +76,9 @@ export function SupportOperatorQueueClient() {
         {selected ? (
           <aside style={{ ...card, display: 'grid', gap: 12, alignContent: 'start' }}>
             <div style={{ fontSize: 18, fontWeight: 900 }}>{selected.title}</div>
-            <div style={muted}>{SUPPORT_STATUS_LABELS[selected.status]} · {selected.owner}</div>
+            <div style={muted}>{SUPPORT_STATUS_LABELS[selected.status]} · {selected.owner} · {supportSlaLabel(selected)}</div>
+            <div><b>Связанный объект:</b> {supportObjectLabel(selected)}</div>
+            {selectedExecutionHref ? <Link href={selectedExecutionHref} style={{ color: 'var(--pc-accent, #0A7A5F)', fontWeight: 900, textDecoration: 'none' }}>Открыть связанный контур исполнения</Link> : null}
             <div><b>Деньги под риском:</b> {supportFormatRub(selected.moneyAtRiskRub)}</div>
             <div><b>Блокер:</b> {selected.blocker}</div>
             <div><b>Следующий шаг:</b> {selected.nextAction}</div>
