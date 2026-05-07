@@ -72,6 +72,15 @@ export interface PlatformV7LogisticsService {
   reportIncident(orderId: string, incident: Partial<LogisticsIncident>): Promise<PlatformV7WriteResult<LogisticsIncident>>;
 }
 
+export interface PlatformV7TripService {
+  getDriverTrip(driverId: string): Promise<LogisticsOrder | undefined>;
+  appendTripAudit(tripId: string, event: Partial<AuditEvent>): Promise<PlatformV7WriteResult<AuditEvent>>;
+  confirmTripCheckpoint(
+    tripId: string,
+    status: 'arrived' | 'loading_started' | 'loading_done' | 'in_transit' | 'unloading' | 'completed',
+  ): Promise<PlatformV7WriteResult<LogisticsOrder>>;
+}
+
 export interface PlatformV7DisputeService {
   listDisputes(): Promise<readonly Dispute[]>;
   openDispute(dealId: string, reason: Dispute['reason']): Promise<PlatformV7WriteResult<Dispute>>;
@@ -113,6 +122,7 @@ export interface PlatformV7ServiceRegistry {
   readonly money: PlatformV7MoneyService;
   readonly document: PlatformV7DocumentService;
   readonly logistics: PlatformV7LogisticsService;
+  readonly trip: PlatformV7TripService;
   readonly dispute: PlatformV7DisputeService;
   readonly support: PlatformV7SupportService;
   readonly rating: PlatformV7RatingService;
@@ -130,6 +140,7 @@ export const PLATFORM_V7_REQUIRED_SERVICE_NAMES = [
   'money',
   'document',
   'logistics',
+  'trip',
   'dispute',
   'support',
   'rating',
