@@ -1,4 +1,4 @@
-import type { AuditEvent, NextAction, UserRole } from '../types';
+import type { AuditEvent, MoneyProjection, NextAction, UserRole } from '../types';
 
 export interface ActionFeedbackPreview {
   readonly actionId: string;
@@ -36,23 +36,36 @@ function canSeeActionFeedback(role: UserRole, action: NextAction): boolean {
   return action.role === role;
 }
 
-export function createActionFeedbackPreview(action: NextAction): ActionFeedbackPreview {
-  const statusText = action.disabled
-    ? action.disabledReason ?? 'Действие закрыто до выполнения условий.'
-    : actionStatusText[action.actionType];
+function moneyProjectionMismatch(moneyProjection?: MoneyProjection): boolean {
+  if (!moneyProjection) return false;
+  const reserved = moneyProjection.reservedAmount.value;
+  const parts = moneyProjection.readyToReleaseAmount.value + moneyProjection.heldAmount.value + moneyProjection.manualReviewAmount.value + moneyProjection.releasedAmount.value;
+  return Math.abs(reserved - parts) > 0.01;
+}
+
+export function createActionFeedbackPreview(action: NextAction, moneyProjection?: MoneyProjection): ActionFeedbackPreview {
+  const isMoneyAction = action.actionType === 'approve_release' || action.actionType === 'reserve_money';
+  const hasMoneyMismatch = isMoneyAction && moneyProjectionMismatch(moneyProjection);
+  const statusText = hasMoneyMismatch
+    ? 'Денежное действие закрыто: суммы резерва, выпуска, удержания и ручной проверки не сходятся.'
+    : action.disabled
+      ? action.disabledReason ?? 'Действие закрыто до выполнения условий.'
+      : actionStatusText[action.actionType];
 
   return {
     actionId: action.id,
-    title: action.disabled ? 'Действие пока закрыто' : 'Действие принято в работу',
+    title: action.disabled || hasMoneyMismatch ? 'Действие пока закрыто' : 'Действие принято в работу',
     statusText,
     auditEvent: {
       entityType: 'next_action',
       entityId: action.id,
       actorRole: action.role,
       action: action.title,
-      reason: action.requiresReason
-        ? 'Действие требует основания и будет сохранено в журнале после подтверждения.'
-        : 'Действие сохранено как controlled-pilot событие интерфейса.',
+      reason: hasMoneyMismatch
+        ? 'Перед действием нужна сверка денежных сумм.'
+        : action.requiresReason
+          ? 'Действие требует основания и будет сохранено в журнале после подтверждения.'
+          : 'Действие сохранено как controlled-pilot событие интерфейса.',
     },
     externalConfirmationText:
       action.actionType === 'approve_release' || action.actionType === 'reserve_money'
@@ -61,6 +74,6 @@ export function createActionFeedbackPreview(action: NextAction): ActionFeedbackP
   };
 }
 
-export function createActionFeedbackPreviewsForRole(actions: readonly NextAction[], role: UserRole): ActionFeedbackPreview[] {
-  return actions.filter((action) => canSeeActionFeedback(role, action)).map(createActionFeedbackPreview);
+export function createActionFeedbackPreviewsForRole(actions: readonly NextAction[], role: UserRole, moneyProjection?: MoneyProjection): ActionFeedbackPreview[] {
+  return actions.filter((action) => canSeeActionFeedback(role, action)).map((action) => createActionFeedbackPreview(action, moneyProjection));
 }
