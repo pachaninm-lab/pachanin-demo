@@ -3,13 +3,35 @@ import { getGrainExecutionContext } from '@/lib/platform-v7/grain-execution/cont
 import { guardNextActionsForExecutionState } from '@/lib/platform-v7/grain-execution/automation/action-guard-engine';
 import { createNextAction } from '@/lib/platform-v7/grain-execution/automation/next-action-engine';
 
-it('keeps unsafe money release disabled when documents or SDIZ still block it', () => {
+it('keeps unsafe direct money release disabled when documents or SDIZ still block it', () => {
   const ctx = getGrainExecutionContext();
-  const releaseAction = ctx.summary.nextActions.find((action) => action.actionType === 'approve_release' || action.actionType === 'resolve_blocker');
+  const approveReleaseAction = createNextAction({
+    seed: 'unsafe-release-test',
+    title: 'Подготовить выпуск денег через банк',
+    role: 'bank',
+    priority: 'high',
+    actionType: 'approve_release',
+    targetRoute: '/platform-v7/deals/DL-GRAIN-450/release',
+  });
 
-  expect(releaseAction).toBeDefined();
-  expect(releaseAction?.disabled).toBe(true);
-  expect(releaseAction?.disabledReason).toMatch(/выпуск денег|документ|СДИЗ|остановки/i);
+  const [guardedAction] = guardNextActionsForExecutionState([approveReleaseAction], {
+    readiness: ctx.readiness,
+    moneyProjection: ctx.moneyProjection,
+    documents: ctx.documents,
+    sdizGates: ctx.sdizGates,
+    logisticsOrder: ctx.primaryLogisticsOrder,
+  });
+
+  expect(guardedAction.disabled).toBe(true);
+  expect(guardedAction.disabledReason).toMatch(/выпуск денег|документ|СДИЗ|остановки/i);
+});
+
+it('keeps blocker-resolution actions available while final release is closed', () => {
+  const ctx = getGrainExecutionContext();
+  const blockerAction = ctx.summary.nextActions.find((action) => action.actionType === 'resolve_blocker');
+
+  expect(blockerAction).toBeDefined();
+  expect(blockerAction?.disabled).not.toBe(true);
 });
 
 it('blocks lot publication below the safe readiness threshold', () => {
