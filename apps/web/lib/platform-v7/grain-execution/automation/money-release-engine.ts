@@ -1,8 +1,9 @@
-import type { DocumentRequirement, ExecutionBlocker, MoneyAdjustment, MoneyProjection, QualityDelta, SdizGate, WeightBalance } from '../types';
+import type { DocumentRequirement, ExecutionBlocker, LogisticsIncident, MoneyAdjustment, MoneyProjection, QualityDelta, SdizGate, WeightBalance } from '../types';
 import { money } from '../format';
-import { documentBlockers } from './document-requirement-engine';
+import { documentBlockers, isDocumentRequirementSatisfied } from './document-requirement-engine';
 import { getSdizGateBlockers } from './sdiz-gate-engine';
 import { createNextAction } from './next-action-engine';
+import { logisticsIncidentAdjustment, logisticsIncidentBlockers } from './logistics-incident-engine';
 
 export type BankReleaseConfirmationStatus = 'not_requested' | 'requested' | 'confirmed' | 'manual_review' | 'mismatch';
 
@@ -88,7 +89,7 @@ export function weightAdjustment(balance: WeightBalance): MoneyAdjustment | null
 }
 
 export function documentAdjustment(document: DocumentRequirement): MoneyAdjustment | null {
-  if (!document.blocksMoneyRelease || ['uploaded', 'signed', 'not_required'].includes(document.status)) return null;
+  if (!document.blocksMoneyRelease || isDocumentRequirementSatisfied(document)) return null;
   return {
     id: `MA-${document.id}`,
     dealId: document.dealId,
@@ -110,6 +111,7 @@ export function calculateMoneyProjection(params: {
   readonly reservedAmount: number;
   readonly documents?: readonly DocumentRequirement[];
   readonly sdizGates?: readonly SdizGate[];
+  readonly logisticsIncidents?: readonly LogisticsIncident[];
   readonly qualityDelta?: QualityDelta;
   readonly weightBalance?: WeightBalance;
   readonly releasedAmount?: number;
@@ -120,11 +122,13 @@ export function calculateMoneyProjection(params: {
     params.qualityDelta ? qualityAdjustment(params.qualityDelta) : null,
     params.weightBalance ? weightAdjustment(params.weightBalance) : null,
     ...(params.documents ?? []).map(documentAdjustment),
+    ...(params.logisticsIncidents ?? []).map(logisticsIncidentAdjustment),
   ].filter((item): item is MoneyAdjustment => Boolean(item));
 
   const releaseBlockedReasons: ExecutionBlocker[] = [
     ...documentBlockers(params.documents ?? []),
     ...getSdizGateBlockers(params.sdizGates ?? []).filter((blocker) => blocker.blocks === 'money_release'),
+    ...logisticsIncidentBlockers(params.logisticsIncidents ?? []),
     bankReleaseConfirmationBlocker({
       dealId: params.dealId,
       bankConfirmationStatus: params.bankConfirmationStatus,
@@ -153,7 +157,7 @@ export function calculateMoneyProjection(params: {
     nextAction: createNextAction({
       seed: `${params.dealId}-release`,
       title: releaseBlockedReasons.length > 0 ? 'Закрыть причины остановки денег' : 'Подготовить выпуск денег через банк',
-      description: releaseBlockedReasons.length > 0 ? 'Сначала закройте документы, СДИЗ или ручную проверку.' : 'Сумма готова к банковскому подтверждению.',
+      description: releaseBlockedReasons.length > 0 ? 'Сначала закройте документы, СДИЗ, логистический инцидент или ручную проверку.' : 'Сумма готова к банковскому подтверждению.',
       role: releaseBlockedReasons[0]?.responsibleRole ?? 'bank',
       priority: releaseBlockedReasons.length > 0 ? 'critical' : 'high',
       actionType: releaseBlockedReasons.length > 0 ? 'resolve_blocker' : 'approve_release',
