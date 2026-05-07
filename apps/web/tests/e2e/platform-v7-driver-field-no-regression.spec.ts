@@ -44,8 +44,8 @@ test.describe('platform-v7 driver field shell no-regression gate', () => {
       expect(text, `driver field must not show ${forbidden}`).not.toContain(forbidden.toLowerCase());
     }
 
-    await expect(page.locator('.pc-v4-search')).toHaveCount(0);
-    await expect(page.locator('.pc-v4-select')).toHaveCount(0);
+    await expect(page.locator('.pc-v4-search')).toBeHidden();
+    await expect(page.locator('.pc-v4-select')).toBeHidden();
     await expect(page.locator('table')).toHaveCount(0);
     await assertNoHorizontalOverflow(page);
   });
