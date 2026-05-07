@@ -26,7 +26,7 @@ import { createRequiredAuditEvents } from './automation/audit-event-engine';
 import { projectSummaryForRole } from './automation/role-visibility-engine';
 import { guardNextActionsForExecutionState } from './automation/action-guard-engine';
 import { createActionFeedbackPreview } from './automation/action-feedback-engine';
-import { createSupportActionFeedbackList } from './automation/support-action-feedback-engine';
+import { createSupportActionFeedbackList, createSupportActionFeedbackListForRole } from './automation/support-action-feedback-engine';
 
 const createdAt = '2026-05-05T09:00:00.000Z';
 
@@ -147,6 +147,7 @@ export function getGrainExecutionContext() {
     evidencePacks,
     supportCases,
     supportActionFeedback,
+    supportActionFeedbackForRole: (role: UserRole) => createSupportActionFeedbackListForRole(supportCases, role),
     auditEvents,
     moneyProjection,
     nextActions: guardedNextActions,
