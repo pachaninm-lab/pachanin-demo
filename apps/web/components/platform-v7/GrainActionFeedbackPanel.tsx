@@ -63,7 +63,7 @@ export function GrainActionFeedbackPanel() {
       surface='card'
       eyebrow='Результат действий'
       title='Что произойдёт после нажатия'
-      subtitle='Показан controlled-pilot след действия: статус, основание аудита и граница внешнего подтверждения. Банк, ФГИС и ЭДО не имитируются.'
+      subtitle='Показан тестовый след действия: статус, запись журнала и связанные обращения поддержки.'
     >
       <div style={gridStyle}>
         {ctx.actionFeedbackPreviews.slice(0, 4).map((feedback) => (
@@ -74,6 +74,17 @@ export function GrainActionFeedbackPanel() {
             <p style={microStyle}>Роль: {roleLabel[feedback.auditEvent.actorRole]}</p>
             <p style={microStyle}>{feedback.auditEvent.reason}</p>
             <p style={microStyle}>{feedback.externalConfirmationText}</p>
+          </div>
+        ))}
+      </div>
+      <div style={gridStyle}>
+        {ctx.supportCases.slice(0, 3).map((supportCase) => (
+          <div key={supportCase.id} style={cardStyle}>
+            <StatusPill>{supportCase.priority}</StatusPill>
+            <p style={strongStyle}>{supportCase.title}</p>
+            <p style={microStyle}>Связь: {supportCase.relatedEntityType} {supportCase.relatedEntityId}</p>
+            <p style={microStyle}>Следующее действие: {supportCase.nextActionTitle ?? supportCase.suggestedResolution}</p>
+            <p style={microStyle}>Ответственный: {roleLabel[supportCase.nextActionRole ?? supportCase.requesterRole]}</p>
           </div>
         ))}
       </div>
