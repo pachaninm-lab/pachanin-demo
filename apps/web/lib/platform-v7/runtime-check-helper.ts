@@ -8,6 +8,7 @@ export type PlatformV7RuntimeCheckId =
   | 'append_only_audit'
   | 'idempotency_store'
   | 'transaction_state_store'
+  | 'trip_runtime'
   | 'money_reconciliation'
   | 'observability'
   | 'feature_flags'
@@ -113,6 +114,14 @@ export const PLATFORM_V7_RUNTIME_CHECKS: readonly PlatformV7RuntimeCheck[] = [
     critical: true,
     moneyCritical: true,
     summary: 'Deals, money, documents, trips and disputes need a durable state store.',
+  },
+  {
+    id: 'trip_runtime',
+    label: 'Trip runtime',
+    status: 'missing',
+    critical: true,
+    moneyCritical: true,
+    summary: 'Driver checkpoints and trip audit must be backed by server runtime, durable trip state and append-only audit before they can affect execution.',
   },
   {
     id: 'money_reconciliation',
