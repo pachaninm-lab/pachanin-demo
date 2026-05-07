@@ -12,13 +12,16 @@ export function supportOwner(category: SupportCategory): string { return categor
 export function supportStatusByOwner(owner: string): SupportStatus { return owner === 'Банковый контур' ? 'assigned_bank' : owner === 'Логистика' ? 'assigned_logistics' : 'assigned_operator'; }
 export function supportObjectLabel(item: Pick<SupportCase, 'relatedEntityType' | 'relatedEntityId'>): string { return `${SUPPORT_ENTITY_LABELS[item.relatedEntityType]} ${item.relatedEntityId}`; }
 export function supportLinkedExecutionHref(item: Pick<SupportCase, 'relatedEntityType' | 'relatedEntityId' | 'dealId' | 'lotId' | 'tripId'>): string {
-  if (item.relatedEntityType === 'deal' || item.dealId) return `/platform-v7/deals/${item.dealId ?? item.relatedEntityId}`;
-  if (item.relatedEntityType === 'lot' || item.lotId) return `/platform-v7/market/lots/${item.lotId ?? item.relatedEntityId}`;
-  if (item.relatedEntityType === 'trip' || item.tripId) return `/platform-v7/logistics/trips/${item.tripId ?? item.relatedEntityId}`;
+  if (item.relatedEntityType === 'deal') return `/platform-v7/deals/${item.dealId ?? item.relatedEntityId}`;
+  if (item.relatedEntityType === 'lot') return `/platform-v7/market/lots/${item.lotId ?? item.relatedEntityId}`;
+  if (item.relatedEntityType === 'trip') return `/platform-v7/logistics/trips/${item.tripId ?? item.relatedEntityId}`;
   if (item.relatedEntityType === 'document') return `/platform-v7/documents?document=${encodeURIComponent(item.relatedEntityId)}`;
   if (item.relatedEntityType === 'money') return `/platform-v7/bank?money=${encodeURIComponent(item.relatedEntityId)}`;
   if (item.relatedEntityType === 'dispute') return `/platform-v7/disputes?dispute=${encodeURIComponent(item.relatedEntityId)}`;
   if (item.relatedEntityType === 'integration') return `/platform-v7/connectors?integration=${encodeURIComponent(item.relatedEntityId)}`;
+  if (item.dealId) return `/platform-v7/deals/${item.dealId}`;
+  if (item.lotId) return `/platform-v7/market/lots/${item.lotId}`;
+  if (item.tripId) return `/platform-v7/logistics/trips/${item.tripId}`;
   return '/platform-v7/control-tower';
 }
 export function supportSlaState(item: Pick<SupportCase, 'slaDueAt' | 'status'>, now = '2026-05-05T12:00:00.000Z'): 'closed' | 'breached' | 'due_soon' | 'open' {
