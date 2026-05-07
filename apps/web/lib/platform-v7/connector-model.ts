@@ -5,7 +5,7 @@ export type PlatformV7ConnectorMode =
   | 'test_mode'
   | 'awaiting_contract'
   | 'awaiting_access'
-  | 'live_connection_active'
+  | 'confirmed_external_connection'
   | 'external_error'
   | 'manual_review';
 
@@ -24,8 +24,8 @@ export interface PlatformV7ConnectorState {
   fallback: 'manual_check' | 'retry' | 'operator_review' | 'none';
 }
 
-export function isPlatformV7ConnectorLive(connector: PlatformV7ConnectorState): boolean {
-  return connector.mode === 'live_connection_active' && connector.status === 'ok' && Boolean(connector.externalId);
+export function isPlatformV7ConnectorConfirmed(connector: PlatformV7ConnectorState): boolean {
+  return connector.mode === 'confirmed_external_connection' && connector.status === 'ok' && Boolean(connector.externalId);
 }
 
 export function isPlatformV7ConnectorTestMode(connector: PlatformV7ConnectorState): boolean {
@@ -41,5 +41,5 @@ export function doesPlatformV7ConnectorNeedFallback(connector: PlatformV7Connect
 }
 
 export function canPlatformV7ConnectorConfirmExternalEvent(connector: PlatformV7ConnectorState): boolean {
-  return isPlatformV7ConnectorLive(connector) && Boolean(connector.lastEventAt);
+  return isPlatformV7ConnectorConfirmed(connector) && Boolean(connector.lastEventAt);
 }
