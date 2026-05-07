@@ -64,7 +64,7 @@ export function isPlatformV7ExecutionBlocked(result: PlatformV7ExecutionResult):
 }
 
 export function canPlatformV7ExecutionResultClaimExecuted(result: PlatformV7ExecutionResult): boolean {
-  return result.canClaimExecuted === true;
+  return result.canClaimExecuted;
 }
 
 export function getPlatformV7ExecutionResultSummary(result: PlatformV7ExecutionResult) {
