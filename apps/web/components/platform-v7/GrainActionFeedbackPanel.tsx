@@ -14,6 +14,12 @@ const cardStyle = {
   minWidth: 0,
 } as const;
 
+const groupStyle = {
+  display: 'grid',
+  gap: PLATFORM_V7_TOKENS.spacing.md,
+  minWidth: 0,
+} as const;
+
 const gridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
@@ -25,6 +31,14 @@ const microStyle = {
   color: P7_THEME_CSS.color.textMuted,
   fontSize: PLATFORM_V7_TOKENS.typography.caption.size,
   lineHeight: PLATFORM_V7_TOKENS.typography.caption.lineHeight,
+} as const;
+
+const groupTitleStyle = {
+  margin: 0,
+  color: P7_THEME_CSS.color.textSecondary,
+  fontSize: PLATFORM_V7_TOKENS.typography.body.size,
+  lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight,
+  fontWeight: 800,
 } as const;
 
 const strongStyle = {
@@ -65,28 +79,34 @@ export function GrainActionFeedbackPanel() {
       title='Что произойдёт после нажатия'
       subtitle='Показан тестовый след действия: статус, запись журнала и связанные обращения поддержки.'
     >
-      <div style={gridStyle}>
-        {ctx.actionFeedbackPreviews.slice(0, 4).map((feedback) => (
-          <div key={feedback.actionId} style={cardStyle}>
-            <StatusPill>{feedback.title}</StatusPill>
-            <p style={strongStyle}>{feedback.statusText}</p>
-            <p style={microStyle}>Журнал: {feedback.auditEvent.action}</p>
-            <p style={microStyle}>Роль: {roleLabel[feedback.auditEvent.actorRole]}</p>
-            <p style={microStyle}>{feedback.auditEvent.reason}</p>
-            <p style={microStyle}>{feedback.externalConfirmationText}</p>
-          </div>
-        ))}
+      <div style={groupStyle}>
+        <p style={groupTitleStyle}>Действия по сделке</p>
+        <div style={gridStyle}>
+          {ctx.actionFeedbackPreviews.slice(0, 4).map((feedback) => (
+            <div key={feedback.actionId} style={cardStyle}>
+              <StatusPill>{feedback.title}</StatusPill>
+              <p style={strongStyle}>{feedback.statusText}</p>
+              <p style={microStyle}>Журнал: {feedback.auditEvent.action}</p>
+              <p style={microStyle}>Роль: {roleLabel[feedback.auditEvent.actorRole]}</p>
+              <p style={microStyle}>{feedback.auditEvent.reason}</p>
+              <p style={microStyle}>{feedback.externalConfirmationText}</p>
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={gridStyle}>
-        {ctx.supportCases.slice(0, 3).map((supportCase) => (
-          <div key={supportCase.id} style={cardStyle}>
-            <StatusPill>{supportCase.priority}</StatusPill>
-            <p style={strongStyle}>{supportCase.title}</p>
-            <p style={microStyle}>Связь: {supportCase.relatedEntityType} {supportCase.relatedEntityId}</p>
-            <p style={microStyle}>Следующее действие: {supportCase.nextActionTitle ?? supportCase.suggestedResolution}</p>
-            <p style={microStyle}>Ответственный: {roleLabel[supportCase.nextActionRole ?? supportCase.requesterRole]}</p>
-          </div>
-        ))}
+      <div style={groupStyle}>
+        <p style={groupTitleStyle}>Связанные обращения</p>
+        <div style={gridStyle}>
+          {ctx.supportCases.slice(0, 3).map((supportCase) => (
+            <div key={supportCase.id} style={cardStyle}>
+              <StatusPill>{supportCase.priority}</StatusPill>
+              <p style={strongStyle}>{supportCase.title}</p>
+              <p style={microStyle}>Связь: {supportCase.relatedEntityType} {supportCase.relatedEntityId}</p>
+              <p style={microStyle}>Следующее действие: {supportCase.nextActionTitle ?? supportCase.suggestedResolution}</p>
+              <p style={microStyle}>Ответственный: {roleLabel[supportCase.nextActionRole ?? supportCase.requesterRole]}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </P7Section>
   );
