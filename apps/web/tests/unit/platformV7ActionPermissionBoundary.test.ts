@@ -4,16 +4,25 @@ import {
   getPlatformV7ActionPermissionBoundarySummary,
   PLATFORM_V7_ACTION_PERMISSION_POLICIES,
 } from '@/lib/platform-v7/action-permission-boundary';
+import { getPlatformV7ActionServiceName } from '@/lib/platform-v7/action-service-map';
 
 describe('platform-v7 action permission boundary', () => {
   it('keeps every action behind durable write, audit and idempotency requirements', () => {
     expect(getPlatformV7ActionPermissionBoundarySummary()).toEqual({
       mode: 'contract_only_requires_runtime',
       actionCount: PLATFORM_V7_ACTION_PERMISSION_POLICIES.length,
+      serviceCount: 9,
       needsDurableWrite: true,
       needsAuditEvent: true,
       needsIdempotencyKey: true,
     });
+  });
+
+  it('keeps every action mapped to its execution service boundary', () => {
+    for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(getPlatformV7ActionServiceName(policy.actionId)).toBe(policy.serviceName);
+    }
+    expect(getPlatformV7ActionServiceName('driver.confirm_checkpoint')).toBe('trip');
   });
 
   it('keeps driver limited to driver checkpoint and support actions', () => {
