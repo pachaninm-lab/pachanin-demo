@@ -30,7 +30,7 @@ const allowedAreas: Record<UserRole, readonly VisibilityArea[]> = {
   driver: ['driver_field'],
   elevator: ['elevator_terminal', 'weight', 'quality', 'documents', 'support'],
   lab: ['lab_protocols', 'quality', 'support'],
-  bank: ['deals', 'money', 'documents', 'quality', 'weight', 'bank_release', 'disputes'],
+  bank: ['deals', 'money', 'documents', 'quality', 'weight', 'bank_release', 'support', 'disputes'],
   operator: ['batches', 'lots', 'rfq', 'offers', 'deals', 'money', 'documents', 'quality', 'weight', 'logistics', 'driver_field', 'elevator_terminal', 'lab_protocols', 'bank_release', 'support', 'disputes', 'internal_notes', 'closed_bids', 'commercial_margin', 'role_switcher'],
   investor: ['investor'],
   admin: ['batches', 'lots', 'rfq', 'offers', 'deals', 'money', 'documents', 'quality', 'weight', 'logistics', 'driver_field', 'elevator_terminal', 'lab_protocols', 'bank_release', 'support', 'disputes', 'internal_notes', 'closed_bids', 'commercial_margin', 'role_switcher'],
