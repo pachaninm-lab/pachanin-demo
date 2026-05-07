@@ -1,6 +1,9 @@
 import Link from 'next/link';
+import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platform-v7/grain-execution/automation/evidence-pack-engine';
+import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/grain-execution/mock-data';
+import { formatRub } from '@/lib/platform-v7/grain-execution/format';
 
-const disputes = [
+const staticDisputes = [
   {
     id: 'DSP-9102-WEIGHT',
     deal: 'DL-9102',
@@ -28,6 +31,26 @@ const disputes = [
     evidence: ['проба', 'показатели качества', 'акт приёмки', 'журнал элеватора'],
   },
 ] as const;
+
+const evidenceGateRows = executionDisputes.map((dispute) => {
+  const pack = evidencePacks.find((item) => item.id === dispute.evidencePackId);
+  const readiness = pack ? calculateEvidencePackReadiness(pack) : null;
+  const blocker = pack ? evidencePackBlocker(pack) : null;
+  return {
+    id: dispute.id,
+    deal: dispute.dealId,
+    evidencePackId: dispute.evidencePackId,
+    reason: dispute.reason,
+    disputedAmount: formatRub(dispute.disputedAmount),
+    status: dispute.status,
+    readiness,
+    blocker,
+    href: `/platform-v7/disputes?dispute=${encodeURIComponent(dispute.id)}`,
+  };
+});
+
+const readyDisputeCount = evidenceGateRows.filter((item) => item.readiness?.ready).length;
+const blockedDisputeCount = evidenceGateRows.filter((item) => !item.readiness?.ready).length;
 
 const disputeSummary = [
   { label: 'Что сейчас', value: '2 открытых спора', note: 'Каждый спор объясняет, почему деньги не выпущены или удержаны.' },
@@ -67,13 +90,21 @@ export default function PlatformV7DisputesPage() {
         <Metric label='Открытых споров' value='2' danger />
         <Metric label='Под удержанием' value='624 тыс. ₽' danger />
         <Metric label='Деньги под влиянием' value='15,89 млн ₽' danger />
-        <Metric label='Готово к закрытию' value='0' />
+        <Metric label='Готово к решению' value={String(readyDisputeCount)} />
+        <Metric label='Закрыто доказательствами' value={String(blockedDisputeCount)} danger />
       </section>
 
       <section style={card}>
         <div style={micro}>Очередь споров</div>
         <div style={{ display: 'grid', gap: 8 }}>
-          {disputes.map((item) => <DisputeCard key={item.id} item={item} />)}
+          {staticDisputes.map((item) => <DisputeCard key={item.id} item={item} />)}
+        </div>
+      </section>
+
+      <section style={card}>
+        <div style={micro}>Проверка доказательного пакета</div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {evidenceGateRows.map((item) => <EvidenceGateCard key={item.id} item={item} />)}
         </div>
       </section>
 
@@ -94,7 +125,7 @@ function SummaryCard({ item }: { item: typeof disputeSummary[number] }) {
   return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#FECACA' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#FEE2E2', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
 }
 
-function DisputeCard({ item }: { item: typeof disputes[number] }) {
+function DisputeCard({ item }: { item: typeof staticDisputes[number] }) {
   return (
     <Link href={item.href} style={disputeCard}>
       <div style={rowHead}>
@@ -115,6 +146,37 @@ function DisputeCard({ item }: { item: typeof disputes[number] }) {
         {item.evidence.map((evidence) => <span key={evidence} style={evidencePill}>{evidence}</span>)}
       </div>
     </Link>
+  );
+}
+
+function EvidenceGateCard({ item }: { item: typeof evidenceGateRows[number] }) {
+  const ready = Boolean(item.readiness?.ready);
+  const missing = item.readiness?.missing ?? [];
+  const present = item.readiness?.present ?? [];
+
+  return (
+    <div style={disputeCard}>
+      <div style={rowHead}>
+        <div>
+          <div style={idText}>{item.id} · {item.deal} · {item.evidencePackId}</div>
+          <h2 style={h2}>{ready ? 'Решение можно готовить' : 'Решение закрыто до комплекта доказательств'}</h2>
+          <p style={muted}>{item.blocker?.description ?? 'Минимальный доказательный пакет собран.'}</p>
+        </div>
+        <span style={ready ? safePill : dangerPill}>{ready ? 'evidence pack готов' : 'решение заблокировано'}</span>
+      </div>
+      <div style={grid2}>
+        <Cell label='Готовность' value={`${item.readiness?.score ?? 0}%`} danger={!ready} />
+        <Cell label='Сумма спора' value={item.disputedAmount} danger />
+        <Cell label='Статус' value={item.status} />
+        <Cell label='Действие' value={ready ? 'подготовить решение по спору' : 'дособрать доказательства'} strong />
+      </div>
+      <div style={{ display: 'grid', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {present.map((evidence) => <span key={evidence} style={evidencePill}>есть: {evidence}</span>)}
+        </div>
+        {missing.length > 0 ? <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{missing.map((evidence) => <span key={evidence} style={missingEvidencePill}>нет: {evidence}</span>)}</div> : null}
+      </div>
+    </div>
   );
 }
 
@@ -150,4 +212,6 @@ const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-fle
 const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
 const disputeCard = { textDecoration: 'none', color: 'inherit', background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.16)', borderRadius: 18, padding: 14, display: 'grid', gap: 10 } as const;
 const dangerPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
+const safePill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const evidencePill = { display: 'inline-flex', width: 'fit-content', padding: '6px 9px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 850 } as const;
+const missingEvidencePill = { display: 'inline-flex', width: 'fit-content', padding: '6px 9px', borderRadius: 999, background: '#fff', border: '1px solid rgba(220,38,38,0.22)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
