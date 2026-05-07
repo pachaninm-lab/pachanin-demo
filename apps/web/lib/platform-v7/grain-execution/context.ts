@@ -26,6 +26,7 @@ import { createRequiredAuditEvents } from './automation/audit-event-engine';
 import { projectSummaryForRole } from './automation/role-visibility-engine';
 import { guardNextActionsForExecutionState } from './automation/action-guard-engine';
 import { createActionFeedbackPreview } from './automation/action-feedback-engine';
+import { createSupportActionFeedbackList } from './automation/support-action-feedback-engine';
 
 const createdAt = '2026-05-05T09:00:00.000Z';
 
@@ -88,6 +89,7 @@ export function getGrainExecutionContext() {
     logisticsOrder: primaryLogisticsOrder,
   });
   const actionFeedbackPreviews = guardedNextActions.map(createActionFeedbackPreview);
+  const supportActionFeedback = createSupportActionFeedbackList(supportCases);
 
   const baseSummary: RoleExecutionSummary = {
     role: 'operator',
@@ -144,6 +146,7 @@ export function getGrainExecutionContext() {
     disputes,
     evidencePacks,
     supportCases,
+    supportActionFeedback,
     auditEvents,
     moneyProjection,
     nextActions: guardedNextActions,
