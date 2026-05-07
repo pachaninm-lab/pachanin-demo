@@ -55,7 +55,7 @@ test.describe('platform-v7 driver field shell no-regression gate', () => {
     await page.goto(DRIVER_FIELD_ROUTE, { waitUntil: 'networkidle' });
 
     await expect(page.getByRole('heading', { name: 'Рейс водителя' })).toBeVisible();
-    await expect(page.getByText(/Рейс TRIP-/)).toBeVisible();
+    await expect(page.getByText(/Рейс ТМБ-/)).toBeVisible();
     await expect(page.getByText(/Сделка DL-/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Подтвердить прибытие|Прибытие подтверждено/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Сообщить об отклонении' })).toBeVisible();
