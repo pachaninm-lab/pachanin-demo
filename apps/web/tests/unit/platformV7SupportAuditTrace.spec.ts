@@ -52,7 +52,7 @@ describe('platform-v7 support audit trace', () => {
 
   it('records escalation trace with object, blocker and next action', () => {
     expect(supportEscalationTraceDescription(supportCase, 'escalated')).toBe(
-      'Эскалация по Сделка DL-9103: Не подтверждены вес и качество после разгрузки. Следующий шаг: Оператор сверяет приёмку, лабораторию и документный пакет..',
+      'Эскалация по Сделка DL-9103: Не подтверждены вес и качество после разгрузки. Следующий шаг: Оператор сверяет приёмку, лабораторию и документный пакет.',
     );
   });
 
