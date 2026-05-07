@@ -3,7 +3,7 @@ import {
   canPlatformV7ConnectorConfirmExternalEvent,
   doesPlatformV7ConnectorNeedFallback,
   isPlatformV7ConnectorBlocking,
-  isPlatformV7ConnectorLive,
+  isPlatformV7ConnectorConfirmed,
   isPlatformV7ConnectorTestMode,
   type PlatformV7ConnectorState,
 } from '@/lib/platform-v7/connector-model';
@@ -19,23 +19,23 @@ const connector: PlatformV7ConnectorState = {
 };
 
 describe('platform-v7 connector model', () => {
-  it('separates test mode from live external confirmation', () => {
+  it('separates test mode from confirmed external connection', () => {
     expect(isPlatformV7ConnectorTestMode(connector)).toBe(true);
-    expect(isPlatformV7ConnectorLive(connector)).toBe(false);
+    expect(isPlatformV7ConnectorConfirmed(connector)).toBe(false);
     expect(canPlatformV7ConnectorConfirmExternalEvent(connector)).toBe(false);
   });
 
-  it('requires live mode, ok status, external id and last event for external confirmation', () => {
+  it('requires confirmed mode, ok status, external id and last event for external confirmation', () => {
     expect(
       canPlatformV7ConnectorConfirmExternalEvent({
         ...connector,
-        mode: 'live_connection_active',
+        mode: 'confirmed_external_connection',
         status: 'ok',
         externalId: 'EXT-1',
         lastEventAt: '2026-05-06T10:00:00.000Z',
       })
     ).toBe(true);
-    expect(canPlatformV7ConnectorConfirmExternalEvent({ ...connector, mode: 'live_connection_active', status: 'ok' })).toBe(false);
+    expect(canPlatformV7ConnectorConfirmExternalEvent({ ...connector, mode: 'confirmed_external_connection', status: 'ok' })).toBe(false);
   });
 
   it('marks connector blocking only when it blocks a gate and status is blocking', () => {
