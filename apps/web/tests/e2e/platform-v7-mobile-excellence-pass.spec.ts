@@ -9,6 +9,23 @@ const CORE_ROUTES = [
   '/platform-v7/control-tower',
 ] as const;
 
+const EXECUTION_MOBILE_ROUTES = [
+  '/platform-v7',
+  '/platform-v7/seller',
+  '/platform-v7/buyer',
+  '/platform-v7/logistics',
+  '/platform-v7/driver/field',
+  '/platform-v7/elevator',
+  '/platform-v7/lab',
+  '/platform-v7/bank',
+  '/platform-v7/control-tower',
+  '/platform-v7/disputes',
+  '/platform-v7/support',
+  '/platform-v7/support/new',
+  '/platform-v7/support/operator',
+  '/platform-v7/deals/grain-release',
+] as const;
+
 const FORBIDDEN_COPY = [
   'оффер',
   'Оффер',
@@ -37,6 +54,21 @@ async function assertForbiddenCopy(page: import('@playwright/test').Page, route:
   for (const copy of FORBIDDEN_COPY) {
     expect(text, `${route} should not expose forbidden copy in work surface: ${copy}`).not.toContain(copy);
   }
+}
+
+async function assertMobileExecutionRoute(page: import('@playwright/test').Page, route: string) {
+  const response = await page.goto(route, { waitUntil: 'networkidle' });
+  expect(response?.ok(), `${route} should return 2xx on mobile`).toBeTruthy();
+  await expect(page.locator('body'), `${route} should render body on mobile`).toBeVisible();
+  await expect(page.locator('text=/404|500|Application error|Unhandled Runtime Error/i'), `${route} should not render crash or 404 copy`).toHaveCount(0);
+
+  await assertNoHorizontalOverflow(page, route);
+
+  const headerCount = await page.locator('.pc-v4-header').count();
+  expect(headerCount, `${route} should not duplicate the platform header`).toBeLessThanOrEqual(1);
+
+  const bodyText = await page.locator('body').innerText();
+  expect(bodyText.trim().length, `${route} should not render an empty mobile route`).toBeGreaterThan(30);
 }
 
 test.describe('platform-v7 mobile excellence source-level pass', () => {
@@ -94,6 +126,13 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
       await assertNoHorizontalOverflow(page, route);
       const bottomPadding = await page.locator('.pc-v4-main').evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom));
       expect(bottomPadding).toBeGreaterThanOrEqual(96);
+    });
+  }
+
+  for (const route of EXECUTION_MOBILE_ROUTES) {
+    test(`${route} keeps execution mobile route stable at 390px`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await assertMobileExecutionRoute(page, route);
     });
   }
 
