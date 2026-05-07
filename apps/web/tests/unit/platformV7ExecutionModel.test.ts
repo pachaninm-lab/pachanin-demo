@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PLATFORM_V7_EXECUTION_CHAIN,
   PLATFORM_V7_EXECUTION_ROLES,
+  getPlatformV7MoneyTreeOperationalRub,
   isPlatformV7MoneyTreeBalanced,
   type PlatformV7DocumentRequirement,
   type PlatformV7MoneyTree,
@@ -35,14 +36,14 @@ describe('platform-v7 execution model contracts', () => {
     ]);
   });
 
-  it('treats money buckets as parts of one deal amount, not independent money', () => {
+  it('treats money buckets as parts of the reserved amount, not independent money', () => {
     const balancedTree: PlatformV7MoneyTree = {
       id: 'money-1',
       dealId: 'deal-1',
       totalDealAmountRub: 1_000,
       reservedAmountRub: 1_000,
       readyToReleaseRub: 400,
-      heldAmountRub: 200,
+      heldAmountRub: 300,
       disputedAmountRub: 100,
       manualReviewAmountRub: 100,
       releasedAmountRub: 100,
@@ -51,10 +52,17 @@ describe('platform-v7 execution model contracts', () => {
       reconciliationStatus: 'balanced',
     };
 
-    const brokenTree = { ...balancedTree, readyToReleaseRub: 900, heldAmountRub: 900 };
+    const doubleCountedTree = { ...balancedTree, readyToReleaseRub: 500 };
+    const uncoveredDisputeTree = { ...balancedTree, heldAmountRub: 50, manualReviewAmountRub: 0 };
+    const overReservedTree = { ...balancedTree, reservedAmountRub: 1_100 };
+    const negativeBucketTree = { ...balancedTree, heldAmountRub: -1 };
 
+    expect(getPlatformV7MoneyTreeOperationalRub(balancedTree)).toBe(1_000);
     expect(isPlatformV7MoneyTreeBalanced(balancedTree)).toBe(true);
-    expect(isPlatformV7MoneyTreeBalanced(brokenTree)).toBe(false);
+    expect(isPlatformV7MoneyTreeBalanced(doubleCountedTree)).toBe(false);
+    expect(isPlatformV7MoneyTreeBalanced(uncoveredDisputeTree)).toBe(false);
+    expect(isPlatformV7MoneyTreeBalanced(overReservedTree)).toBe(false);
+    expect(isPlatformV7MoneyTreeBalanced(negativeBucketTree)).toBe(false);
   });
 
   it('requires each document to have an owner, blocking effect and next action', () => {
