@@ -67,10 +67,15 @@ export function createSupportAuditEvent(params: {
     createdAt: params.createdAt,
   };
 }
+function cleanSentence(value: string): string {
+  return value.trim().replace(/[.。]+$/u, '');
+}
 export function supportEscalationTraceDescription(item: Pick<SupportCase, 'relatedEntityType' | 'relatedEntityId' | 'owner' | 'blocker' | 'nextAction'>, targetStatus: SupportStatus): string {
   const object = supportObjectLabel(item);
-  if (targetStatus === 'escalated') return `Эскалация по ${object}: ${item.blocker}. Следующий шаг: ${item.nextAction}.`;
-  if (targetStatus === 'waiting_user') return `Запрошены данные по ${object}: ${item.blocker}.`;
+  const blocker = cleanSentence(item.blocker);
+  const nextAction = cleanSentence(item.nextAction);
+  if (targetStatus === 'escalated') return `Эскалация по ${object}: ${blocker}. Следующий шаг: ${nextAction}.`;
+  if (targetStatus === 'waiting_user') return `Запрошены данные по ${object}: ${blocker}.`;
   if (targetStatus === 'resolved') return `Подготовлено решение по ${object}. Ответственный контур: ${item.owner}.`;
   return `Статус обращения по ${object} изменён. Ответственный контур: ${item.owner}.`;
 }
