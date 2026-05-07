@@ -7,6 +7,8 @@ export type PlatformV7ExecutionServiceRegistry = PlatformV7ServiceRegistry & {
   readonly trip: PlatformV7TripService;
 };
 
+export type PlatformV7ExecutionServiceName = keyof PlatformV7ExecutionServiceRegistry;
+
 export const PLATFORM_V7_EXECUTION_SERVICE_NAMES = [
   ...PLATFORM_V7_REQUIRED_SERVICE_NAMES,
   PLATFORM_V7_TRIP_SERVICE_NAME,
