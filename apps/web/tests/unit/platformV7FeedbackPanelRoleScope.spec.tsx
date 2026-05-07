@@ -38,14 +38,15 @@ describe('GrainActionFeedbackPanel role scope', () => {
     expect(screen.queryByText(/Ответственный:/i)).not.toBeInTheDocument();
   });
 
-  it('bank sees only money, document or dispute support feedback', () => {
+  it('bank sees money, document or dispute support feedback without field-role action leakage', () => {
     const ctx = getGrainExecutionContext();
     const bankCaseIds = new Set(ctx.supportActionFeedbackForRole('bank').map((feedback) => feedback.supportCaseId));
     const bankCases = ctx.supportCases.filter((supportCase) => bankCaseIds.has(supportCase.id));
+    const hiddenFieldRoles = new Set(['driver', 'logistics', 'elevator', 'lab', 'investor']);
 
     expect(bankCases.length).toBeGreaterThan(0);
     expect(bankCases.every((supportCase) => ['money', 'documents', 'dispute'].includes(supportCase.category))).toBe(true);
-    expect(ctx.actionFeedbackPreviewsForRole('bank').every((feedback) => feedback.auditEvent.actorRole === 'bank')).toBe(true);
+    expect(ctx.actionFeedbackPreviewsForRole('bank').every((feedback) => !hiddenFieldRoles.has(feedback.auditEvent.actorRole))).toBe(true);
   });
 
   it('operator keeps the full feedback surface', () => {
