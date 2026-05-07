@@ -1,5 +1,5 @@
+import type { PlatformV7ExecutionServiceName } from './execution-service-registry-contract';
 import { canPlatformV7RoleOpenRoute, type PlatformV7AccessDecision, type PlatformV7Role } from './role-access';
-import type { PlatformV7ExecutionServiceName } from './action-service-map';
 
 export type PlatformV7ActionPermissionId =
   | 'seller.create_batch'
