@@ -24,6 +24,7 @@ import { getSdizGateBlockers } from './automation/sdiz-gate-engine';
 import { createSupportCases, summarizeSupport } from './automation/support-case-engine';
 import { createRequiredAuditEvents } from './automation/audit-event-engine';
 import { projectSummaryForRole } from './automation/role-visibility-engine';
+import { guardNextActionsForExecutionState } from './automation/action-guard-engine';
 
 const createdAt = '2026-05-05T09:00:00.000Z';
 
@@ -78,6 +79,13 @@ export function getGrainExecutionContext() {
   });
   const auditEvents = createRequiredAuditEvents(createdAt);
   const nextActions = [moneyProjection.nextAction, ...readiness.nextActions].filter(isNextAction);
+  const guardedNextActions = guardNextActionsForExecutionState(nextActions, {
+    readiness,
+    moneyProjection,
+    documents: primaryDocuments,
+    sdizGates: primarySdizGates,
+    logisticsOrder: primaryLogisticsOrder,
+  });
 
   const baseSummary: RoleExecutionSummary = {
     role: 'operator',
@@ -85,7 +93,7 @@ export function getGrainExecutionContext() {
     entityId: 'DL-GRAIN-450',
     currentState: 'Приёмка завершена, качество и вес создали удержания, СДИЗ перевозки требует ручной проверки.',
     blockers,
-    nextActions,
+    nextActions: guardedNextActions,
     moneySummary: moneyProjection,
     documentSummary: summarizeDocuments(primaryDocuments),
     logisticsSummary: {
@@ -136,6 +144,7 @@ export function getGrainExecutionContext() {
     supportCases,
     auditEvents,
     moneyProjection,
+    nextActions: guardedNextActions,
     summary: baseSummary,
     summaryForRole: (role: UserRole) => projectSummaryForRole(baseSummary, role),
   };
