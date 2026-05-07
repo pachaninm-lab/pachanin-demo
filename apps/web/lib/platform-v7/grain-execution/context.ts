@@ -25,7 +25,7 @@ import { createSupportCases, summarizeSupport } from './automation/support-case-
 import { createRequiredAuditEvents } from './automation/audit-event-engine';
 import { projectSummaryForRole } from './automation/role-visibility-engine';
 import { guardNextActionsForExecutionState } from './automation/action-guard-engine';
-import { createActionFeedbackPreview } from './automation/action-feedback-engine';
+import { createActionFeedbackPreview, createActionFeedbackPreviewsForRole } from './automation/action-feedback-engine';
 import { createSupportActionFeedbackList, createSupportActionFeedbackListForRole } from './automation/support-action-feedback-engine';
 
 const createdAt = '2026-05-05T09:00:00.000Z';
@@ -152,6 +152,7 @@ export function getGrainExecutionContext() {
     moneyProjection,
     nextActions: guardedNextActions,
     actionFeedbackPreviews,
+    actionFeedbackPreviewsForRole: (role: UserRole) => createActionFeedbackPreviewsForRole(guardedNextActions, role),
     summary: baseSummary,
     summaryForRole: (role: UserRole) => projectSummaryForRole(baseSummary, role),
   };
