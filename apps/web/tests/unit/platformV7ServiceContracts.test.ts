@@ -10,6 +10,7 @@ const REQUIRED = [
   'money',
   'document',
   'logistics',
+  'trip',
   'dispute',
   'support',
   'rating',
