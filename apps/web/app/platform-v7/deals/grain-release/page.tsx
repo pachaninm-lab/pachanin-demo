@@ -5,7 +5,7 @@ export default function PlatformV7DealReleasePage() {
   return (
     <>
       <GrainExecutionPage mode='deal-release' role='bank' />
-      <GrainActionFeedbackPanel />
+      <GrainActionFeedbackPanel role='bank' />
     </>
   );
 }
