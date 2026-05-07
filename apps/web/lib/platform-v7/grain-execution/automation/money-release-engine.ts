@@ -4,6 +4,55 @@ import { documentBlockers } from './document-requirement-engine';
 import { getSdizGateBlockers } from './sdiz-gate-engine';
 import { createNextAction } from './next-action-engine';
 
+export type BankReleaseConfirmationStatus = 'not_requested' | 'requested' | 'confirmed' | 'manual_review' | 'mismatch';
+
+export function createReleaseIdempotencyKey(params: {
+  readonly dealId: string;
+  readonly operation: 'reserve' | 'release' | 'hold' | 'return';
+  readonly currency?: string;
+  readonly amount: number;
+  readonly counterpartyId?: string;
+}): string {
+  const currency = params.currency ?? 'RUB';
+  const amountMinor = Math.round(params.amount * 100);
+  const counterparty = params.counterpartyId ?? 'unknown-counterparty';
+  return `platform-v7:${params.dealId}:${params.operation}:${counterparty}:${currency}:${amountMinor}`;
+}
+
+function bankReleaseConfirmationBlocker(params: {
+  readonly dealId: string;
+  readonly bankConfirmationStatus?: BankReleaseConfirmationStatus;
+  readonly relatedEntityId?: string;
+}): ExecutionBlocker | null {
+  if (!params.bankConfirmationStatus || params.bankConfirmationStatus === 'confirmed') return null;
+
+  const titleByStatus: Record<Exclude<BankReleaseConfirmationStatus, 'confirmed'>, string> = {
+    not_requested: 'Ответ банка ещё не запрошен',
+    requested: 'Ожидается ответ банка',
+    manual_review: 'Банк отправил выпуск на ручную проверку',
+    mismatch: 'Ответ банка не сходится с системой',
+  };
+
+  const descriptionByStatus: Record<Exclude<BankReleaseConfirmationStatus, 'confirmed'>, string> = {
+    not_requested: 'Выпуск денег нельзя считать разрешённым без запроса и ответа банка.',
+    requested: 'Выпуск денег ожидает внешнее банковое подтверждение. Платформа не имитирует ответ банка.',
+    manual_review: 'Перед выпуском нужна ручная сверка банкового события и основания сделки.',
+    mismatch: 'Перед выпуском нужна сверка расхождения между банковым событием и системной суммой.',
+  };
+
+  return {
+    id: `bank-release-${params.dealId}-${params.bankConfirmationStatus}`,
+    type: 'money',
+    severity: params.bankConfirmationStatus === 'requested' ? 'warning' : 'critical',
+    title: titleByStatus[params.bankConfirmationStatus],
+    description: descriptionByStatus[params.bankConfirmationStatus],
+    blocks: 'money_release',
+    responsibleRole: 'bank',
+    relatedEntityType: 'bank_release_confirmation',
+    relatedEntityId: params.relatedEntityId ?? params.dealId,
+  };
+}
+
 export function qualityAdjustment(delta: QualityDelta): MoneyAdjustment | null {
   if (delta.totalHoldAmount.value <= 0) return null;
   return {
@@ -64,6 +113,8 @@ export function calculateMoneyProjection(params: {
   readonly qualityDelta?: QualityDelta;
   readonly weightBalance?: WeightBalance;
   readonly releasedAmount?: number;
+  readonly bankConfirmationStatus?: BankReleaseConfirmationStatus;
+  readonly bankConfirmationId?: string;
 }): MoneyProjection {
   const adjustments = [
     params.qualityDelta ? qualityAdjustment(params.qualityDelta) : null,
@@ -74,7 +125,12 @@ export function calculateMoneyProjection(params: {
   const releaseBlockedReasons: ExecutionBlocker[] = [
     ...documentBlockers(params.documents ?? []),
     ...getSdizGateBlockers(params.sdizGates ?? []).filter((blocker) => blocker.blocks === 'money_release'),
-  ];
+    bankReleaseConfirmationBlocker({
+      dealId: params.dealId,
+      bankConfirmationStatus: params.bankConfirmationStatus,
+      relatedEntityId: params.bankConfirmationId,
+    }),
+  ].filter((item): item is ExecutionBlocker => Boolean(item));
 
   const heldAmount = adjustments.reduce((sum, next) => sum + (next.amount.value > 0 ? next.amount.value : 0), 0);
   const disputedAmount = adjustments.filter((next) => next.status === 'disputed').reduce((sum, next) => sum + next.amount.value, 0);
