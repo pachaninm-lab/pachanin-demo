@@ -23,7 +23,27 @@ describe('platform-v7 runtime check helper', () => {
       'append_only_audit',
       'idempotency_store',
       'transaction_state_store',
+      'trip_runtime',
     ]);
+  });
+
+  it('keeps trip runtime blocked until server-backed trip state and audit are ready', () => {
+    const checks = markPlatformV7RuntimeChecksReady([
+      'server_routes',
+      'auth',
+      'rbac',
+      'entity_acl',
+      'persistence',
+      'append_only_audit',
+      'idempotency_store',
+      'transaction_state_store',
+    ]);
+
+    const result = assessPlatformV7RuntimeReadiness(checks);
+
+    expect(result.status).toBe('contract_only');
+    expect(result.canRunServerActions).toBe(false);
+    expect(result.missingCritical).toEqual(['trip_runtime']);
   });
 
   it('allows non-money runtime consideration only after critical checks are ready', () => {
@@ -36,6 +56,7 @@ describe('platform-v7 runtime check helper', () => {
       'append_only_audit',
       'idempotency_store',
       'transaction_state_store',
+      'trip_runtime',
     ]);
 
     const result = assessPlatformV7RuntimeReadiness(checks);
@@ -74,8 +95,8 @@ describe('platform-v7 runtime check helper', () => {
       canRunServerActions: false,
       canAffectMoney: false,
       canClaimRealExecution: false,
-      missingCriticalCount: 8,
-      missingMoneyCriticalCount: 12,
+      missingCriticalCount: 9,
+      missingMoneyCriticalCount: 13,
       manualReviewCount: 1,
     });
   });
