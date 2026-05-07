@@ -21,8 +21,21 @@ export type PlatformV7WriteResult<T> = {
   readonly mode: PlatformV7ServiceMode;
   readonly data?: T;
   readonly auditEventId?: string;
+  readonly idempotencyKey?: string;
   readonly reason?: string;
 };
+
+export function hasPlatformV7WriteAuditTrace(result: PlatformV7WriteResult<unknown>): boolean {
+  return Boolean(result.auditEventId?.trim());
+}
+
+export function hasPlatformV7WriteIdempotencyTrace(result: PlatformV7WriteResult<unknown>): boolean {
+  return Boolean(result.idempotencyKey?.trim());
+}
+
+export function isPlatformV7WriteResultTraceable(result: PlatformV7WriteResult<unknown>): boolean {
+  return result.ok && result.mode !== 'test' && hasPlatformV7WriteAuditTrace(result) && hasPlatformV7WriteIdempotencyTrace(result);
+}
 
 export interface PlatformV7BatchService {
   listSellerBatches(sellerId: string): Promise<readonly GrainBatch[]>;
