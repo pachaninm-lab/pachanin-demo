@@ -21,7 +21,7 @@ export default function DriverFieldPage() {
           Рейс водителя
         </h1>
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: 'rgba(255,255,255,0.74)' }}>
-          Здесь нет ставок, банковских действий, инвесторского режима и общего контроля сделки. Только маршрут, связь, прибытие и проблема по рейсу.
+          Только текущий рейс: маршрут, связь, прибытие и проблема по рейсу.
         </p>
       </section>
       <RoleRouteHint role="driver" route="/platform-v7/driver/field" />
