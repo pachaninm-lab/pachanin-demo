@@ -112,7 +112,25 @@ export const PLATFORM_V7_EXECUTION_ROLES = [
   'executive',
 ] as const satisfies readonly PlatformV7ExecutionRole[];
 
+export function getPlatformV7MoneyTreeOperationalRub(tree: PlatformV7MoneyTree): number {
+  return tree.readyToReleaseRub + tree.heldAmountRub + tree.manualReviewAmountRub + tree.releasedAmountRub + tree.returnedAmountRub + tree.feeAmountRub;
+}
+
 export function isPlatformV7MoneyTreeBalanced(tree: PlatformV7MoneyTree): boolean {
-  const activeBucketsRub = tree.readyToReleaseRub + tree.heldAmountRub + tree.disputedAmountRub + tree.manualReviewAmountRub + tree.releasedAmountRub + tree.returnedAmountRub + tree.feeAmountRub;
-  return activeBucketsRub <= tree.totalDealAmountRub && tree.reservedAmountRub <= tree.totalDealAmountRub;
+  const amounts = [
+    tree.totalDealAmountRub,
+    tree.reservedAmountRub,
+    tree.readyToReleaseRub,
+    tree.heldAmountRub,
+    tree.disputedAmountRub,
+    tree.manualReviewAmountRub,
+    tree.releasedAmountRub,
+    tree.returnedAmountRub,
+    tree.feeAmountRub,
+  ];
+  const hasNegativeAmount = amounts.some((amount) => amount < 0);
+  const operationalBucketsRub = getPlatformV7MoneyTreeOperationalRub(tree);
+  const disputedIsCoveredByHeldOrReview = tree.disputedAmountRub <= tree.heldAmountRub + tree.manualReviewAmountRub;
+
+  return !hasNegativeAmount && tree.reservedAmountRub <= tree.totalDealAmountRub && operationalBucketsRub === tree.reservedAmountRub && disputedIsCoveredByHeldOrReview;
 }
