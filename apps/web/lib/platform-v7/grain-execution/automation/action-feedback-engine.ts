@@ -1,4 +1,4 @@
-import type { AuditEvent, NextAction } from '../types';
+import type { AuditEvent, NextAction, UserRole } from '../types';
 
 export interface ActionFeedbackPreview {
   readonly actionId: string;
@@ -28,6 +28,14 @@ const actionStatusText: Record<NextAction['actionType'], string> = {
   approve_release: 'Будет подготовлено основание для банковского подтверждения выпуска денег.',
 };
 
+function canSeeActionFeedback(role: UserRole, action: NextAction): boolean {
+  if (role === 'admin' || role === 'operator') return true;
+  if (role === 'driver') return action.role === 'driver' && ['capture_weight', 'upload_document', 'request_support'].includes(action.actionType);
+  if (role === 'investor') return false;
+  if (role === 'bank') return action.role === 'bank' || ['approve_release', 'reserve_money', 'upload_document'].includes(action.actionType);
+  return action.role === role;
+}
+
 export function createActionFeedbackPreview(action: NextAction): ActionFeedbackPreview {
   const statusText = action.disabled
     ? action.disabledReason ?? 'Действие закрыто до выполнения условий.'
@@ -51,4 +59,8 @@ export function createActionFeedbackPreview(action: NextAction): ActionFeedbackP
         ? 'Внешнее банковое подтверждение не имитируется. Нужен ответ банка или ручная сверка.'
         : 'Внешнее подтверждение не имитируется. Показан внутренний след действия.',
   };
+}
+
+export function createActionFeedbackPreviewsForRole(actions: readonly NextAction[], role: UserRole): ActionFeedbackPreview[] {
+  return actions.filter((action) => canSeeActionFeedback(role, action)).map(createActionFeedbackPreview);
 }
