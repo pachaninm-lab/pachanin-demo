@@ -18,6 +18,8 @@ const BRAND = '#0A7A5F';
 const BRAND_BG = 'rgba(10,122,95,0.08)';
 const BRAND_BORDER = 'rgba(10,122,95,0.18)';
 const WARN = '#B45309';
+const WARN_BG = 'rgba(217,119,6,0.08)';
+const WARN_BORDER = 'rgba(217,119,6,0.18)';
 const ERR = '#B91C1C';
 const ERR_BG = 'rgba(220,38,38,0.08)';
 const ERR_BORDER = 'rgba(220,38,38,0.18)';
@@ -36,14 +38,14 @@ const reasonLabels: Record<ReleaseGuardBlocker, string> = {
   DEAL_NOT_READY: 'стадия сделки не готова к выплате',
 };
 
-function stateStyle(stopped: boolean) {
-  return stopped
-    ? { label: 'Остановлено', bg: ERR_BG, border: ERR_BORDER, color: ERR }
-    : { label: 'Разрешено', bg: BRAND_BG, border: BRAND_BORDER, color: BRAND };
+function releaseRequestState(row: { readonly stopped: boolean; readonly canExecuteRelease: boolean }) {
+  if (row.stopped) return { label: 'Закрыть условия', note: 'Запрос на банковскую проверку скрыт до закрытия причин остановки.', bg: ERR_BG, border: ERR_BORDER, color: ERR };
+  if (!row.canExecuteRelease) return { label: 'Запросить проверку', note: 'Можно подготовить запрос в банк, но это ещё не выпуск денег.', bg: WARN_BG, border: WARN_BORDER, color: WARN };
+  return { label: 'Ожидает банк', note: 'Основание готово к внешнему банковому подтверждению.', bg: BRAND_BG, border: BRAND_BORDER, color: BRAND };
 }
 
 function reasonText(reasons: readonly ReleaseGuardBlocker[]) {
-  return reasons.length ? reasons.map((reason) => reasonLabels[reason]).join(', ') : '—';
+  return reasons.length ? reasons.map((reason) => reasonLabels[reason]).join(', ') : 'условия закрыты для запроса проверки';
 }
 
 export default function BankReleaseSafetyPage() {
@@ -57,6 +59,7 @@ export default function BankReleaseSafetyPage() {
       release: check.releaseAmount,
       reasons: check.blockers,
       stopped: !check.canRequestRelease,
+      canExecuteRelease: check.canExecuteRelease,
     };
   });
 
@@ -85,7 +88,7 @@ export default function BankReleaseSafetyPage() {
       </P7PanelShell>
 
       <P7Grid min={200} gap={14}>
-        <P7MetricCard title='К выплате после проверки' value={formatCompactMoney(releaseCandidate)} tone='green' />
+        <P7MetricCard title='К запросу после проверки' value={formatCompactMoney(releaseCandidate)} tone='green' />
         <P7MetricCard title='Остановлено' value={String(stoppedRows.length)} tone={stoppedRows.length > 0 ? 'red' : 'green'} />
         <P7MetricCard title='На проверке' value={formatCompactMoney(moneyUnderCheck)} tone={moneyUnderCheck > 0 ? 'red' : 'green'} />
       </P7Grid>
@@ -107,7 +110,7 @@ export default function BankReleaseSafetyPage() {
       </P7PanelShell>
 
       <P7Notice title='Правило' tone='amber'>
-        Выплата допустима только после закрытия условий: резерв, сумма к выплате, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.
+        Запрос к банку допустим только после закрытия условий: резерв, сумма к выплате, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.
       </P7Notice>
 
       <P7ExecutionMachineReadOnlyStrip compact />
@@ -116,7 +119,7 @@ export default function BankReleaseSafetyPage() {
         <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и условия выплаты</div>
         <div style={{ display: 'grid', gap: 10 }}>
           {rows.map((row) => {
-            const tone = stateStyle(row.stopped);
+            const actionState = releaseRequestState(row);
             return (
               <div key={row.id} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -124,13 +127,14 @@ export default function BankReleaseSafetyPage() {
                     <Link href={`/platform-v7/deals/${row.id}`} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND, textDecoration: 'none' }}>{row.id}</Link>
                     <span style={{ marginLeft: 8, fontSize: 13, color: M }}>{row.grain}</span>
                   </div>
-                  <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color }}>{tone.label}</span>
+                  <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: actionState.bg, border: `1px solid ${actionState.border}`, color: actionState.color }}>{actionState.label}</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 12 }}>
                   <Cell label='Резерв' value={formatCompactMoney(row.reserved)} />
                   <Cell label='Удержано' value={formatCompactMoney(row.hold)} danger={row.hold > 0} />
-                  <Cell label='К выплате' value={formatCompactMoney(row.release)} />
+                  <Cell label='К запросу' value={formatCompactMoney(row.release)} />
                   <Cell label='Причины остановки' value={reasonText(row.reasons)} danger={row.reasons.length > 0} />
+                  <Cell label='Доступное действие' value={actionState.note} danger={row.stopped} />
                 </div>
               </div>
             );
