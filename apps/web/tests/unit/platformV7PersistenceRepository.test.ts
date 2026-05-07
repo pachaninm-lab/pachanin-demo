@@ -34,12 +34,10 @@ describe('platform-v7 persistence repository foundation', () => {
       auditEventIds: [],
     };
 
-    const result = repository.save(invalid);
-
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain('Owner id is required for deal.');
-    expect(result.error).toContain('Idempotency key is required.');
-    expect(result.error).toContain('Audit link is required for deal.');
+    expect(repository.save(invalid)).toEqual({
+      ok: false,
+      error: 'Owner id is required for deal. Idempotency key is required. Audit link is required for deal.',
+    });
   });
 
   it('rejects deal-bound records without deal id', () => {
@@ -54,10 +52,10 @@ describe('platform-v7 persistence repository foundation', () => {
       payload: { amountMinor: 100 },
     };
 
-    const result = repository.save(moneyRecord);
-
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain('Deal id is required for money_record.');
+    expect(repository.save(moneyRecord)).toEqual({
+      ok: false,
+      error: 'Deal id is required for money_record.',
+    });
   });
 
   it('prevents updating append-only records', () => {
