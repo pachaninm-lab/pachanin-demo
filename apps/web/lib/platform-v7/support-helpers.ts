@@ -1,4 +1,4 @@
-import type { SupportAuditEvent, SupportCase, SupportCategory, SupportMessage, SupportPriority, SupportRelatedEntityType, SupportStatus } from './support-types';
+import type { SupportAuditEvent, SupportCase, SupportCategory, SupportInternalNote, SupportMessage, SupportPriority, SupportRelatedEntityType, SupportStatus } from './support-types';
 export { SUPPORT_MATURITY_LABEL } from './support-types';
 
 export const SUPPORT_CATEGORY_LABELS: Record<SupportCategory, string> = { money: 'Деньги', documents: 'Документы', logistics: 'Логистика', acceptance: 'Приёмка', quality: 'Качество', dispute: 'Спор', access: 'Доступ', integration: 'Интеграция', other: 'Другое' };
@@ -78,6 +78,19 @@ export function supportEscalationTraceDescription(item: Pick<SupportCase, 'relat
   if (targetStatus === 'waiting_user') return `Запрошены данные по ${object}: ${blocker}.`;
   if (targetStatus === 'resolved') return `Подготовлено решение по ${object}. Ответственный контур: ${item.owner}.`;
   return `Статус обращения по ${object} изменён. Ответственный контур: ${item.owner}.`;
+}
+export function supportSortedAuditEvents(audit: readonly SupportAuditEvent[]): SupportAuditEvent[] {
+  return [...audit].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id.localeCompare(b.id));
+}
+export function supportSortedInternalNotes(notes: readonly SupportInternalNote[]): SupportInternalNote[] {
+  return [...notes].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id.localeCompare(b.id));
+}
+export function supportAuditTransitionLabel(event: Pick<SupportAuditEvent, 'before' | 'after'>): string | null {
+  if (!event.before && !event.after) return null;
+  return `${event.before ?? '—'} → ${event.after ?? '—'}`;
+}
+export function supportInternalNoteIntegrityLabel(note: Pick<SupportInternalNote, 'id' | 'createdAt'>): string {
+  return `Внутренняя заметка · ${note.id} · ${note.createdAt}`;
 }
 export function supportLastMessage(caseId: string, messages: SupportMessage[]): string { return messages.filter((m) => m.caseId === caseId && m.public).at(-1)?.body ?? 'Ответ ещё не добавлен.'; }
 export function supportSlaDueAt(priority: SupportPriority, now: string): string { return new Date(new Date(now).getTime() + supportSlaHours(priority) * 3600000).toISOString(); }
