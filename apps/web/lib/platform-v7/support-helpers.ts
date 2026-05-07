@@ -1,4 +1,4 @@
-import type { SupportCase, SupportCategory, SupportMessage, SupportPriority, SupportRelatedEntityType, SupportStatus } from './support-types';
+import type { SupportAuditEvent, SupportCase, SupportCategory, SupportMessage, SupportPriority, SupportRelatedEntityType, SupportStatus } from './support-types';
 export { SUPPORT_MATURITY_LABEL } from './support-types';
 
 export const SUPPORT_CATEGORY_LABELS: Record<SupportCategory, string> = { money: 'Деньги', documents: 'Документы', logistics: 'Логистика', acceptance: 'Приёмка', quality: 'Качество', dispute: 'Спор', access: 'Доступ', integration: 'Интеграция', other: 'Другое' };
@@ -42,6 +42,37 @@ export function supportSortCases(cases: SupportCase[]): SupportCase[] {
   const rank = { P0: 0, P1: 1, P2: 2, P3: 3 };
   const slaRank = { breached: 0, due_soon: 1, open: 2, closed: 3 };
   return [...cases].sort((a, b) => slaRank[supportSlaState(a)] - slaRank[supportSlaState(b)] || rank[a.priority] - rank[b.priority] || new Date(a.slaDueAt).getTime() - new Date(b.slaDueAt).getTime() || b.moneyAtRiskRub - a.moneyAtRiskRub);
+}
+export function createSupportAuditEvent(params: {
+  readonly caseId: string;
+  readonly actor: string;
+  readonly action: SupportAuditEvent['action'];
+  readonly description: string;
+  readonly before?: string;
+  readonly after?: string;
+  readonly createdAt: string;
+  readonly relatedEntityId?: string;
+  readonly sequence?: number;
+}): SupportAuditEvent {
+  const suffix = params.sequence ?? new Date(params.createdAt).getTime();
+  const objectPart = params.relatedEntityId ? `-${params.relatedEntityId}` : '';
+  return {
+    id: `SAE-${params.caseId}-${params.action}${objectPart}-${suffix}`,
+    caseId: params.caseId,
+    actor: params.actor,
+    action: params.action,
+    description: params.description,
+    before: params.before,
+    after: params.after,
+    createdAt: params.createdAt,
+  };
+}
+export function supportEscalationTraceDescription(item: Pick<SupportCase, 'relatedEntityType' | 'relatedEntityId' | 'owner' | 'blocker' | 'nextAction'>, targetStatus: SupportStatus): string {
+  const object = supportObjectLabel(item);
+  if (targetStatus === 'escalated') return `Эскалация по ${object}: ${item.blocker}. Следующий шаг: ${item.nextAction}.`;
+  if (targetStatus === 'waiting_user') return `Запрошены данные по ${object}: ${item.blocker}.`;
+  if (targetStatus === 'resolved') return `Подготовлено решение по ${object}. Ответственный контур: ${item.owner}.`;
+  return `Статус обращения по ${object} изменён. Ответственный контур: ${item.owner}.`;
 }
 export function supportLastMessage(caseId: string, messages: SupportMessage[]): string { return messages.filter((m) => m.caseId === caseId && m.public).at(-1)?.body ?? 'Ответ ещё не добавлен.'; }
 export function supportSlaDueAt(priority: SupportPriority, now: string): string { return new Date(new Date(now).getTime() + supportSlaHours(priority) * 3600000).toISOString(); }
