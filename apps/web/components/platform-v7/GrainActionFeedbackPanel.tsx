@@ -1,3 +1,4 @@
+import type { UserRole } from '@/lib/platform-v7/grain-execution/types';
 import { P7Section } from '@/components/platform-v7/P7Section';
 import { P7_THEME_CSS } from '@/components/platform-v7/p7Theme';
 import { PLATFORM_V7_TOKENS } from '@/lib/platform-v7/design/tokens';
@@ -49,6 +50,10 @@ const strongStyle = {
   fontWeight: PLATFORM_V7_TOKENS.typography.h3.weight,
 } as const;
 
+interface GrainActionFeedbackPanelProps {
+  readonly role?: UserRole;
+}
+
 function StatusPill({ children }: { readonly children: string }) {
   return (
     <span
@@ -69,8 +74,12 @@ function StatusPill({ children }: { readonly children: string }) {
   );
 }
 
-export function GrainActionFeedbackPanel() {
+export function GrainActionFeedbackPanel({ role }: GrainActionFeedbackPanelProps = {}) {
   const ctx = getGrainExecutionContext();
+  const actionFeedbackPreviews = role ? ctx.actionFeedbackPreviewsForRole(role) : ctx.actionFeedbackPreviews;
+  const supportActionFeedback = role ? ctx.supportActionFeedbackForRole(role) : ctx.supportActionFeedback;
+  const visibleSupportCaseIds = new Set(supportActionFeedback.map((feedback) => feedback.supportCaseId));
+  const supportCases = role ? ctx.supportCases.filter((supportCase) => visibleSupportCaseIds.has(supportCase.id)) : ctx.supportCases;
 
   return (
     <P7Section
@@ -82,7 +91,7 @@ export function GrainActionFeedbackPanel() {
       <div style={groupStyle}>
         <p style={groupTitleStyle}>Действия по сделке</p>
         <div style={gridStyle}>
-          {ctx.actionFeedbackPreviews.slice(0, 4).map((feedback) => (
+          {actionFeedbackPreviews.slice(0, 4).map((feedback) => (
             <div key={feedback.actionId} style={cardStyle}>
               <StatusPill>{feedback.title}</StatusPill>
               <p style={strongStyle}>{feedback.statusText}</p>
@@ -97,7 +106,7 @@ export function GrainActionFeedbackPanel() {
       <div style={groupStyle}>
         <p style={groupTitleStyle}>Связанные обращения</p>
         <div style={gridStyle}>
-          {ctx.supportCases.slice(0, 3).map((supportCase) => (
+          {supportCases.slice(0, 3).map((supportCase) => (
             <div key={supportCase.id} style={cardStyle}>
               <StatusPill>{supportCase.priority}</StatusPill>
               <p style={strongStyle}>{supportCase.title}</p>
