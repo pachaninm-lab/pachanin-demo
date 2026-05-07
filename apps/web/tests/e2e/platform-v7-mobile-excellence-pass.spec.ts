@@ -18,15 +18,18 @@ const EXECUTION_MOBILE_ROUTES = [
   '/platform-v7/elevator',
   '/platform-v7/lab',
   '/platform-v7/bank',
+  '/platform-v7/bank/release-safety',
   '/platform-v7/control-tower',
   '/platform-v7/disputes',
+  '/platform-v7/operator',
+  '/platform-v7/investor',
   '/platform-v7/support',
   '/platform-v7/support/new',
   '/platform-v7/support/operator',
   '/platform-v7/deals/grain-release',
 ] as const;
 
-const FORBIDDEN_COPY = [
+const WORK_SURFACE_FORBIDDEN_COPY = [
   'оффер',
   'Оффер',
   'DealDraft',
@@ -40,6 +43,15 @@ const FORBIDDEN_COPY = [
   'Ручные',
 ] as const;
 
+const GLOBAL_FORBIDDEN_CLAIMS = [
+  'production-ready',
+  'fully live',
+  'fully integrated',
+  'нет аналогов',
+  'без рисков',
+  'гарантирует оплату',
+] as const;
+
 async function assertNoHorizontalOverflow(page: import('@playwright/test').Page, route: string) {
   const overflow = await page.evaluate(() => ({
     document: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -51,8 +63,15 @@ async function assertNoHorizontalOverflow(page: import('@playwright/test').Page,
 
 async function assertForbiddenCopy(page: import('@playwright/test').Page, route: string) {
   const text = await page.locator('.pc-v4-main').innerText();
-  for (const copy of FORBIDDEN_COPY) {
+  for (const copy of WORK_SURFACE_FORBIDDEN_COPY) {
     expect(text, `${route} should not expose forbidden copy in work surface: ${copy}`).not.toContain(copy);
+  }
+}
+
+async function assertGlobalForbiddenClaims(page: import('@playwright/test').Page, route: string) {
+  const text = (await page.locator('body').innerText()).toLowerCase();
+  for (const copy of GLOBAL_FORBIDDEN_CLAIMS) {
+    expect(text, `${route} should not expose over-claiming copy: ${copy}`).not.toContain(copy.toLowerCase());
   }
 }
 
@@ -63,6 +82,7 @@ async function assertMobileExecutionRoute(page: import('@playwright/test').Page,
   await expect(page.locator('text=/404|500|Application error|Unhandled Runtime Error/i'), `${route} should not render crash or 404 copy`).toHaveCount(0);
 
   await assertNoHorizontalOverflow(page, route);
+  await assertGlobalForbiddenClaims(page, route);
 
   const headerCount = await page.locator('.pc-v4-header').count();
   expect(headerCount, `${route} should not duplicate the platform header`).toBeLessThanOrEqual(1);
@@ -96,6 +116,7 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
     const visibleIconCount = await page.locator('.pc-v4-actions .pc-v4-iconbtn:visible').count();
     expect(visibleIconCount).toBeLessThanOrEqual(3);
     await assertNoHorizontalOverflow(page, '/platform-v7/control-tower');
+    await assertGlobalForbiddenClaims(page, '/platform-v7/control-tower');
   });
 
   test('burger labels and descriptions stay readable at 390px', async ({ page }) => {
@@ -114,6 +135,7 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
     }
 
     await assertNoHorizontalOverflow(page, '/platform-v7/seller');
+    await assertGlobalForbiddenClaims(page, '/platform-v7/seller');
   });
 
   for (const route of CORE_ROUTES) {
@@ -123,6 +145,7 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
       expect(response?.ok(), `${route} should return 2xx`).toBeTruthy();
       await expect(page.locator('body')).toContainText('Прозрачная Цена');
       await assertForbiddenCopy(page, route);
+      await assertGlobalForbiddenClaims(page, route);
       await assertNoHorizontalOverflow(page, route);
       const bottomPadding = await page.locator('.pc-v4-main').evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom));
       expect(bottomPadding).toBeGreaterThanOrEqual(96);
@@ -142,6 +165,7 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
       const response = await page.goto(route, { waitUntil: 'networkidle' });
       expect(response?.ok(), `${route} should return 2xx on desktop`).toBeTruthy();
       await assertForbiddenCopy(page, route);
+      await assertGlobalForbiddenClaims(page, route);
       await assertNoHorizontalOverflow(page, route);
       await expect(page.locator('.pc-v4-search')).toBeVisible();
       await expect(page.locator('.pc-v4-select')).toBeVisible();
