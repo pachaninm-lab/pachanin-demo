@@ -88,7 +88,7 @@ export function getGrainExecutionContext() {
     sdizGates: primarySdizGates,
     logisticsOrder: primaryLogisticsOrder,
   });
-  const actionFeedbackPreviews = guardedNextActions.map(createActionFeedbackPreview);
+  const actionFeedbackPreviews = guardedNextActions.map((action) => createActionFeedbackPreview(action, moneyProjection));
   const supportActionFeedback = createSupportActionFeedbackList(supportCases);
 
   const baseSummary: RoleExecutionSummary = {
@@ -152,7 +152,7 @@ export function getGrainExecutionContext() {
     moneyProjection,
     nextActions: guardedNextActions,
     actionFeedbackPreviews,
-    actionFeedbackPreviewsForRole: (role: UserRole) => createActionFeedbackPreviewsForRole(guardedNextActions, role),
+    actionFeedbackPreviewsForRole: (role: UserRole) => createActionFeedbackPreviewsForRole(guardedNextActions, role, moneyProjection),
     summary: baseSummary,
     summaryForRole: (role: UserRole) => projectSummaryForRole(baseSummary, role),
   };
