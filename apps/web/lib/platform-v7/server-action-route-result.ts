@@ -1,8 +1,15 @@
 import type { PlatformV7ServerActionContractResponse } from './server-action-contract-wrapper';
 
+export type PlatformV7ServerActionRouteHttpMeaning =
+  | 'not_accepted'
+  | 'stopped_by_server_boundary'
+  | 'accepted_for_manual_review'
+  | 'ready_for_runtime_write';
+
 export type PlatformV7ServerActionRouteResult = {
   readonly ok: boolean;
   readonly status: number;
+  readonly httpMeaning: PlatformV7ServerActionRouteHttpMeaning;
   readonly body: Record<string, unknown>;
 };
 
@@ -115,6 +122,13 @@ function isRouteIssue(issue: PlatformV7ServerActionRouteIssue | undefined): issu
   return issue !== undefined;
 }
 
+function withHttpMeaning(
+  body: Record<string, unknown>,
+  httpMeaning: PlatformV7ServerActionRouteHttpMeaning,
+): Record<string, unknown> {
+  return { ...body, httpMeaning };
+}
+
 function getRuntimeStage(input: {
   readonly canReachRuntimeBoundary: boolean;
   readonly canAttemptRuntimeWrite: boolean;
@@ -216,16 +230,29 @@ export function buildPlatformV7ServerActionRouteResult(input: {
   readonly body: Record<string, unknown>;
 }): PlatformV7ServerActionRouteResult {
   if (input.response.status === 'not_accepted') {
-    return { ok: false, status: input.response.httpStatus, body: input.body };
+    return {
+      ok: false,
+      status: input.response.httpStatus,
+      httpMeaning: 'not_accepted',
+      body: withHttpMeaning(input.body, 'not_accepted'),
+    };
   }
 
   if (!input.routeSummary.canReachRuntimeBoundary) {
-    return { ok: false, status: 409, body: input.body };
+    return {
+      ok: false,
+      status: 409,
+      httpMeaning: 'stopped_by_server_boundary',
+      body: withHttpMeaning(input.body, 'stopped_by_server_boundary'),
+    };
   }
+
+  const httpMeaning = input.routeSummary.canAttemptRuntimeWrite ? 'ready_for_runtime_write' : 'accepted_for_manual_review';
 
   return {
     ok: true,
     status: input.routeSummary.canAttemptRuntimeWrite ? 200 : 202,
-    body: input.body,
+    httpMeaning,
+    body: withHttpMeaning(input.body, httpMeaning),
   };
 }
