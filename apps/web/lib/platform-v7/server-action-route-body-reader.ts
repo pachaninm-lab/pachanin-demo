@@ -65,12 +65,48 @@ function readPayloadBoolean(payload: Record<string, unknown>, key: string): bool
   return readPlatformV7RouteOptionalBoolean(payload[key]);
 }
 
+function readPayloadNumber(payload: Record<string, unknown>, key: string): number | undefined {
+  return readPlatformV7RouteOptionalNumber(payload[key]);
+}
+
 function readPayloadString(payload: Record<string, unknown>, key: string): string | undefined {
   return readPlatformV7RouteOptionalString(payload[key]);
 }
 
 export function readPlatformV7RoutePayload(inputPayload: unknown): Record<string, unknown> {
   return isPlatformV7RouteRecord(inputPayload) ? inputPayload : {};
+}
+
+export function readPlatformV7RouteDealId(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): string | undefined {
+  return readPlatformV7RouteOptionalString(body.dealId) ?? readPayloadString(payload, 'dealId');
+}
+
+export function readPlatformV7RouteMoneyAmountMinor(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): number | undefined {
+  return (
+    readPlatformV7RouteOptionalNumber(body.amountMinor) ??
+    readPayloadNumber(payload, 'amountMinor') ??
+    readPayloadNumber(payload, 'claimAmountMinor')
+  );
+}
+
+export function readPlatformV7RouteCurrency(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): string | undefined {
+  return readPlatformV7RouteOptionalString(body.currency) ?? readPayloadString(payload, 'currency');
+}
+
+export function readPlatformV7RouteEvidenceRefsFromBody(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): readonly string[] | undefined {
+  return readPlatformV7RouteEvidenceRefs(body.evidenceRefs) ?? readPlatformV7RouteEvidenceRefs(payload.evidenceRefs);
 }
 
 export function readPlatformV7RouteExternalConfirmationReady(
@@ -134,19 +170,21 @@ export function buildPlatformV7ServerActionInputFromRouteBody(
   }
   if (!isPlatformV7RouteString(body.entityId) || !isPlatformV7RouteString(body.entityType)) return undefined;
 
+  const payload = readPlatformV7RoutePayload(body.payload);
+
   return {
     boundaryId: body.boundaryId as PlatformV7ApiBoundaryId,
     actorId: body.actorId,
     actorRole: body.actorRole,
     entityId: body.entityId,
     entityType: body.entityType,
-    dealId: readPlatformV7RouteOptionalString(body.dealId),
-    amountMinor: readPlatformV7RouteOptionalNumber(body.amountMinor),
-    currency: readPlatformV7RouteOptionalString(body.currency),
+    dealId: readPlatformV7RouteDealId(body, payload),
+    amountMinor: readPlatformV7RouteMoneyAmountMinor(body, payload),
+    currency: readPlatformV7RouteCurrency(body, payload),
     attemptId: readPlatformV7RouteOptionalString(body.attemptId),
     occurredAt: readPlatformV7RouteOptionalString(body.occurredAt) ?? new Date(0).toISOString(),
     summary: readPlatformV7RouteOptionalString(body.summary) ?? 'Platform-v7 action boundary checked.',
-    evidenceRefs: readPlatformV7RouteEvidenceRefs(body.evidenceRefs),
-    payload: readPlatformV7RoutePayload(body.payload),
+    evidenceRefs: readPlatformV7RouteEvidenceRefsFromBody(body, payload),
+    payload,
   };
 }
