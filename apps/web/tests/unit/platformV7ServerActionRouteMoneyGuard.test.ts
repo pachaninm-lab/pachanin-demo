@@ -63,7 +63,117 @@ describe('platform-v7 server action route money guard', () => {
       status: 'ready_for_money_runtime_boundary',
       canReachMoneyRuntimeBoundary: true,
       canClaimMoneyMoved: false,
+      requiresBankOrExternalConfirmation: false,
       amountValid: true,
+    });
+  });
+
+  it('blocks bank money confirmation boundary without explicit external confirmation readiness', () => {
+    const idempotencyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'confirm_money_reserved',
+      actorId: 'bank-1',
+      entityId: 'money-1',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      attemptId: 'attempt-1',
+    });
+
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'confirm_money_reserved',
+      actorId: 'bank-1',
+      actorRole: 'bank',
+      entityId: 'money-1',
+      entityType: 'money_record',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      idempotencyKey,
+      occurredAt: '2026-05-08T03:20:00.000Z',
+      summary: 'Bank reserve confirmation boundary checked.',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(409);
+    expect(result.body.moneyGuardSummary).toMatchObject({
+      status: 'blocked_external_confirmation_required',
+      canReachMoneyRuntimeBoundary: false,
+      canClaimMoneyMoved: false,
+      requiresBankOrExternalConfirmation: true,
+      amountValid: true,
+    });
+  });
+
+  it('allows bank money confirmation boundary to reach runtime boundary with explicit external confirmation readiness', () => {
+    const idempotencyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'confirm_money_reserved',
+      actorId: 'bank-1',
+      entityId: 'money-1',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      attemptId: 'attempt-1',
+    });
+
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'confirm_money_reserved',
+      actorId: 'bank-1',
+      actorRole: 'bank',
+      entityId: 'money-1',
+      entityType: 'money_record',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      externalConfirmationReady: true,
+      idempotencyKey,
+      occurredAt: '2026-05-08T03:20:00.000Z',
+      summary: 'Bank reserve confirmation boundary checked.',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe(202);
+    expect(result.body.moneyGuardSummary).toMatchObject({
+      status: 'ready_for_money_runtime_boundary',
+      canReachMoneyRuntimeBoundary: true,
+      canClaimMoneyMoved: false,
+      requiresBankOrExternalConfirmation: true,
+      amountValid: true,
+    });
+  });
+
+  it('accepts external confirmation readiness from payload for bank money confirmation compatibility', () => {
+    const idempotencyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'confirm_money_released',
+      actorId: 'bank-1',
+      entityId: 'money-1',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      attemptId: 'attempt-1',
+    });
+
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'confirm_money_released',
+      actorId: 'bank-1',
+      actorRole: 'bank',
+      entityId: 'money-1',
+      entityType: 'money_record',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      idempotencyKey,
+      occurredAt: '2026-05-08T03:20:00.000Z',
+      summary: 'Bank release confirmation boundary checked.',
+      payload: { externalConfirmationReady: true },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe(202);
+    expect(result.body.moneyGuardSummary).toMatchObject({
+      status: 'ready_for_money_runtime_boundary',
+      canReachMoneyRuntimeBoundary: true,
+      canClaimMoneyMoved: false,
+      requiresBankOrExternalConfirmation: true,
     });
   });
 });
