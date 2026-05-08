@@ -73,6 +73,7 @@ export function handlePlatformV7ServerActionRouteBody(
         ok: false,
         status: 'not_accepted',
         message: 'Недостаточно данных для проверки действия.',
+        acceptedForReview: false,
         canClaimExecuted: false,
         persisted: false,
         attemptedRuntimeWrite: false,
