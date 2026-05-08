@@ -67,6 +67,23 @@ export type PlatformV7ServerActionRouteResult = {
   readonly body: Record<string, unknown>;
 };
 
+type PlatformV7ServerActionRouteIssue = {
+  readonly boundary: string;
+  readonly status: string;
+  readonly reason: string;
+};
+
+export type PlatformV7ServerActionRouteSummary = {
+  readonly status: 'ready_for_manual_runtime_review' | 'ready_for_runtime_write' | 'stopped_by_server_boundary';
+  readonly canReachRuntimeBoundary: boolean;
+  readonly canAttemptRuntimeWrite: boolean;
+  readonly canClaimExecuted: false;
+  readonly persisted: false;
+  readonly requiresManualReview: boolean;
+  readonly issueCount: number;
+  readonly issues: readonly PlatformV7ServerActionRouteIssue[];
+};
+
 const isString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -93,6 +110,70 @@ function readRiskSnapshot(value: unknown): PlatformV7RiskReviewSnapshot | undefi
     status,
     score: readOptionalNumber(value.score),
     source: readOptionalString(value.source),
+  };
+}
+
+function routeIssue(boundary: string, status: string, reason: string): PlatformV7ServerActionRouteIssue {
+  return { boundary, status, reason };
+}
+
+function isRouteIssue(issue: PlatformV7ServerActionRouteIssue | undefined): issue is PlatformV7ServerActionRouteIssue {
+  return issue !== undefined;
+}
+
+function buildPlatformV7ServerActionRouteSummary(input: {
+  readonly idempotencyBoundary: ReturnType<typeof checkPlatformV7ServerIdempotencyBoundary>;
+  readonly auditBoundary: ReturnType<typeof checkPlatformV7ServerAuditBoundary>;
+  readonly documentGate: ReturnType<typeof checkPlatformV7ServerDocumentGate>;
+  readonly tripGate: ReturnType<typeof checkPlatformV7ServerTripGate>;
+  readonly disputeGate: ReturnType<typeof checkPlatformV7ServerDisputeGate>;
+  readonly supportGate: ReturnType<typeof checkPlatformV7ServerSupportGate>;
+  readonly riskReviewGate: ReturnType<typeof checkPlatformV7ServerRiskReviewGate>;
+  readonly moneyGuard: ReturnType<typeof checkPlatformV7ServerMoneyOperationGuard>;
+  readonly persistenceBoundary: ReturnType<typeof checkPlatformV7ServerPersistenceBoundary>;
+}): PlatformV7ServerActionRouteSummary {
+  const issues = [
+    !input.idempotencyBoundary.canProceed
+      ? routeIssue('idempotency', input.idempotencyBoundary.status, input.idempotencyBoundary.reason)
+      : undefined,
+    !input.auditBoundary.canProceed
+      ? routeIssue('audit', input.auditBoundary.status, input.auditBoundary.reason)
+      : undefined,
+    !input.documentGate.canReachDocumentRuntimeBoundary
+      ? routeIssue('document', input.documentGate.status, input.documentGate.reason)
+      : undefined,
+    !input.tripGate.canReachTripRuntimeBoundary ? routeIssue('trip', input.tripGate.status, input.tripGate.reason) : undefined,
+    !input.disputeGate.canReachDisputeRuntimeBoundary
+      ? routeIssue('dispute', input.disputeGate.status, input.disputeGate.reason)
+      : undefined,
+    !input.supportGate.canReachSupportRuntimeBoundary
+      ? routeIssue('support', input.supportGate.status, input.supportGate.reason)
+      : undefined,
+    !input.riskReviewGate.canReachRiskReviewBoundary
+      ? routeIssue('risk_review', input.riskReviewGate.status, input.riskReviewGate.reason)
+      : undefined,
+    !input.moneyGuard.canReachMoneyRuntimeBoundary ? routeIssue('money', input.moneyGuard.status, input.moneyGuard.reason) : undefined,
+  ].filter(isRouteIssue);
+
+  const canReachRuntimeBoundary = issues.length === 0;
+  const canAttemptRuntimeWrite = canReachRuntimeBoundary && input.persistenceBoundary.canAttemptRuntimeWrite;
+
+  return {
+    status: canReachRuntimeBoundary
+      ? canAttemptRuntimeWrite
+        ? 'ready_for_runtime_write'
+        : 'ready_for_manual_runtime_review'
+      : 'stopped_by_server_boundary',
+    canReachRuntimeBoundary,
+    canAttemptRuntimeWrite,
+    canClaimExecuted: false,
+    persisted: false,
+    requiresManualReview:
+      !input.persistenceBoundary.repositoryDurable ||
+      input.riskReviewGate.requiresManualReview ||
+      input.moneyGuard.requiresBankOrExternalConfirmation,
+    issueCount: issues.length,
+    issues,
   };
 }
 
@@ -204,6 +285,17 @@ export function handlePlatformV7ServerActionRouteBody(
     auditBoundary,
   });
   const persistenceBoundary = checkPlatformV7ServerPersistenceBoundary(response, repository);
+  const routeSummary = buildPlatformV7ServerActionRouteSummary({
+    idempotencyBoundary,
+    auditBoundary,
+    documentGate,
+    tripGate,
+    disputeGate,
+    supportGate,
+    riskReviewGate,
+    moneyGuard,
+    persistenceBoundary,
+  });
 
   return {
     ok: response.status !== 'not_accepted',
@@ -212,6 +304,7 @@ export function handlePlatformV7ServerActionRouteBody(
       ok: response.status !== 'not_accepted',
       response,
       summary: getPlatformV7ServerActionContractSummary(response),
+      routeSummary,
       idempotencyBoundary,
       idempotencySummary: getPlatformV7ServerIdempotencyBoundarySummary(idempotencyBoundary),
       auditBoundary,
