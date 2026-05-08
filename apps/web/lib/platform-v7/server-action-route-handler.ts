@@ -62,6 +62,8 @@ export type PlatformV7ServerActionRouteBody = {
   readonly evidenceRefs?: unknown;
   readonly documentId?: unknown;
   readonly disputeId?: unknown;
+  readonly partyId?: unknown;
+  readonly riskSnapshot?: unknown;
   readonly supportCaseId?: unknown;
   readonly tripId?: unknown;
   readonly payload?: unknown;
@@ -108,6 +110,17 @@ function readDocumentId(body: PlatformV7ServerActionRouteBody, payload: Record<s
 
 function readDisputeId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
   return readOptionalString(body.disputeId) ?? readPayloadString(payload, 'disputeId');
+}
+
+function readPartyId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
+  return readOptionalString(body.partyId) ?? readPayloadString(payload, 'partyId');
+}
+
+function readRouteRiskSnapshot(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): PlatformV7RiskReviewSnapshot | undefined {
+  return readRiskSnapshot(body.riskSnapshot) ?? readRiskSnapshot(payload.riskSnapshot);
 }
 
 function readSupportCaseId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
@@ -213,8 +226,8 @@ export function handlePlatformV7ServerActionRouteBody(
   });
   const riskReviewGate = checkPlatformV7ServerRiskReviewGate({
     response,
-    partyId: readPayloadString(payload, 'partyId'),
-    riskSnapshot: readRiskSnapshot(payload.riskSnapshot),
+    partyId: readPartyId(body, payload),
+    riskSnapshot: readRouteRiskSnapshot(body, payload),
     idempotencyBoundary,
     auditBoundary,
   });
