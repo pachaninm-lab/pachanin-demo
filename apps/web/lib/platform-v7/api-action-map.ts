@@ -20,6 +20,7 @@ export const PLATFORM_V7_API_ACTION_MAP: Partial<Record<PlatformV7ApiBoundaryId,
   accept_document: 'document.accept',
   open_dispute: 'dispute.open',
   create_support_case: 'support.create_case',
+  append_support_message: 'support.append_message',
 };
 
 export function getPlatformV7ActionForApiBoundary(
