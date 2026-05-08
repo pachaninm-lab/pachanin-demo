@@ -109,6 +109,13 @@ export function readPlatformV7RouteEvidenceRefsFromBody(
   return readPlatformV7RouteEvidenceRefs(body.evidenceRefs) ?? readPlatformV7RouteEvidenceRefs(payload.evidenceRefs);
 }
 
+export function readPlatformV7RouteIdempotencyKey(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): string | undefined {
+  return readPlatformV7RouteOptionalString(body.idempotencyKey) ?? readPayloadString(payload, 'idempotencyKey');
+}
+
 export function readPlatformV7RouteExternalConfirmationReady(
   body: PlatformV7ServerActionRouteBody,
   payload: Record<string, unknown>,
