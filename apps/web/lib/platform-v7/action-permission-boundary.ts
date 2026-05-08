@@ -14,6 +14,7 @@ export type PlatformV7ActionPermissionId =
   | 'bank.confirm_money_released'
   | 'logistics.assign_driver'
   | 'driver.confirm_checkpoint'
+  | 'trip.accept'
   | 'document.attach'
   | 'document.accept'
   | 'dispute.open'
@@ -42,6 +43,7 @@ export const PLATFORM_V7_ACTION_PERMISSION_POLICIES: readonly PlatformV7ActionPe
   { actionId: 'bank.confirm_money_released', route: '/platform-v7/bank', allowedRoles: ['bank'], serviceName: 'money', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'logistics.assign_driver', route: '/platform-v7/logistics', allowedRoles: ['logistics', 'operator'], serviceName: 'logistics', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'driver.confirm_checkpoint', route: '/platform-v7/driver/field', allowedRoles: ['driver', 'operator'], serviceName: 'trip', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
+  { actionId: 'trip.accept', route: '/platform-v7/deals', allowedRoles: ['elevator', 'surveyor', 'operator'], serviceName: 'trip', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'document.attach', route: '/platform-v7/documents', allowedRoles: ['seller', 'buyer', 'logistics', 'elevator', 'lab', 'surveyor', 'operator'], serviceName: 'document', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'document.accept', route: '/platform-v7/compliance', allowedRoles: ['operator', 'compliance'], serviceName: 'document', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'dispute.open', route: '/platform-v7/disputes', allowedRoles: ['seller', 'buyer', 'operator', 'arbitrator', 'compliance'], serviceName: 'dispute', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },

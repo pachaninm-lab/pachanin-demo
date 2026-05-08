@@ -14,6 +14,7 @@ export const PLATFORM_V7_ACTION_SERVICE_MAP: Record<PlatformV7ActionPermissionId
   'bank.confirm_money_released': 'money',
   'logistics.assign_driver': 'logistics',
   'driver.confirm_checkpoint': 'trip',
+  'trip.accept': 'trip',
   'document.attach': 'document',
   'document.accept': 'document',
   'dispute.open': 'dispute',
