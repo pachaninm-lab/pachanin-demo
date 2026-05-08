@@ -129,4 +129,42 @@ describe('platform-v7 server action route trip gate', () => {
       mayAffectMoney: true,
     });
   });
+
+  it('allows incident opening without treating it as a direct money operation', () => {
+    const idempotencyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'open_incident',
+      actorId: 'driver-1',
+      entityId: 'deal-1',
+      dealId: 'deal-1',
+      attemptId: 'attempt-1',
+    });
+
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'open_incident',
+      actorId: 'driver-1',
+      actorRole: 'driver',
+      entityId: 'deal-1',
+      entityType: 'deal',
+      tripId: 'trip-1',
+      dealId: 'deal-1',
+      idempotencyKey,
+      occurredAt: '2026-05-08T04:40:00.000Z',
+      summary: 'Trip incident boundary checked.',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe(202);
+    expect(result.body.tripGateSummary).toMatchObject({
+      status: 'ready_for_trip_runtime_boundary',
+      canReachTripRuntimeBoundary: true,
+      canClaimTripStateChanged: false,
+      mayAffectMoney: true,
+    });
+    expect(result.body.moneyGuardSummary).toMatchObject({
+      status: 'not_money_boundary',
+      canReachMoneyRuntimeBoundary: true,
+      canClaimMoneyMoved: false,
+      amountValid: true,
+    });
+  });
 });
