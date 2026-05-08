@@ -9,7 +9,7 @@ import {
   readPlatformV7RouteDocumentId,
   readPlatformV7RouteDisputeId,
   readPlatformV7RouteExternalConfirmationReady,
-  readPlatformV7RouteOptionalString,
+  readPlatformV7RouteIdempotencyKey,
   readPlatformV7RoutePartyId,
   readPlatformV7RoutePayload,
   readPlatformV7RouteRiskSnapshotFromBody,
@@ -84,7 +84,7 @@ export function handlePlatformV7ServerActionRouteBody(
   const externalConfirmationReady = readPlatformV7RouteExternalConfirmationReady(body, payload);
   const repository = createPlatformV7MemoryPersistenceRepository();
   const response = buildPlatformV7ServerActionContractResponse(input, repository);
-  const idempotencyKey = readPlatformV7RouteOptionalString(body.idempotencyKey);
+  const idempotencyKey = readPlatformV7RouteIdempotencyKey(body, payload);
   const idempotencyBoundary = checkPlatformV7ServerIdempotencyBoundary(response, idempotencyKey);
   const auditEvent = buildPlatformV7AuditEvent({
     boundaryId: input.boundaryId,
