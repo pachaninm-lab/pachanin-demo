@@ -62,6 +62,18 @@ export function getPlatformV7ActionPermissionPolicy(actionId: PlatformV7ActionPe
   return policy;
 }
 
+export function getPlatformV7ActionPermissionPoliciesForService(
+  serviceName: PlatformV7ExecutionServiceName,
+): PlatformV7ActionPermissionPolicy[] {
+  return PLATFORM_V7_ACTION_PERMISSION_POLICIES.filter((policy) => policy.serviceName === serviceName);
+}
+
+export function getPlatformV7ActionPermissionPoliciesForRole(
+  role: PlatformV7Role,
+): PlatformV7ActionPermissionPolicy[] {
+  return PLATFORM_V7_ACTION_PERMISSION_POLICIES.filter((policy) => policy.allowedRoles.includes(role));
+}
+
 export function canPlatformV7RoleInvokeAction(
   role: PlatformV7Role,
   actionId: PlatformV7ActionPermissionId,
