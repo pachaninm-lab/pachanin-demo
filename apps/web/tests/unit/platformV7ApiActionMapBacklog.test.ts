@@ -8,9 +8,10 @@ describe('platform-v7 api action map backlog', () => {
       (boundary) => boundary.method !== 'GET' && !PLATFORM_V7_API_ACTION_MAP[boundary.id],
     ).map((boundary) => boundary.id);
 
-    expect(unmappedWrites).toHaveLength(2);
+    expect(unmappedWrites).toHaveLength(1);
     expect(unmappedWrites).not.toContain('accept_trip');
     expect(unmappedWrites).not.toContain('open_incident');
+    expect(unmappedWrites).not.toContain('append_support_message');
   });
 
   it('does not hide money-affecting unmapped writes', () => {
