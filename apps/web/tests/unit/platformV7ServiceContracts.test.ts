@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PLATFORM_V7_EXECUTION_SERVICE_NAMES,
+  doesPlatformV7ExecutionRegistryRequireTripBoundary,
+} from '@/lib/platform-v7/execution-service-registry-contract';
+import {
   hasPlatformV7WriteAuditTrace,
   hasPlatformV7WriteIdempotencyTrace,
   isPlatformV7WriteResultTraceable,
@@ -27,6 +31,11 @@ const REQUIRED = [
 describe('platform-v7 service contracts', () => {
   it('keeps the full controlled-pilot backend service boundary explicit', () => {
     expect(PLATFORM_V7_REQUIRED_SERVICE_NAMES).toEqual(REQUIRED);
+  });
+
+  it('keeps the trip service inside the execution registry', () => {
+    expect(doesPlatformV7ExecutionRegistryRequireTripBoundary()).toBe(true);
+    expect(PLATFORM_V7_EXECUTION_SERVICE_NAMES).toContain('trip');
   });
 
   it('does not mark service boundary as production-ready', () => {
