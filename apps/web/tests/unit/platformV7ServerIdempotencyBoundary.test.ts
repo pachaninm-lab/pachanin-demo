@@ -54,7 +54,7 @@ describe('platform-v7 server idempotency boundary', () => {
     });
   });
 
-  it('blocks money boundaries when amount or currency is missing from idempotency key', () => {
+  it('blocks direct money boundaries when amount or currency is missing from idempotency key', () => {
     const key = buildPlatformV7IdempotencyKey({
       boundaryId: 'request_money_reserve',
       actorId: 'buyer-1',
@@ -73,7 +73,7 @@ describe('platform-v7 server idempotency boundary', () => {
     });
   });
 
-  it('allows money boundaries to reach durable idempotency record check with full money key', () => {
+  it('allows direct money boundaries to reach durable idempotency record check with full money key', () => {
     const key = buildPlatformV7IdempotencyKey({
       boundaryId: 'request_money_reserve',
       actorId: 'buyer-1',
@@ -92,6 +92,46 @@ describe('platform-v7 server idempotency boundary', () => {
       requiresIdempotencyRecord: true,
       keyValid: true,
       moneyKey: true,
+    });
+  });
+
+  it('allows money-impact trip boundaries to use non-money idempotency keys', () => {
+    const key = buildPlatformV7IdempotencyKey({
+      boundaryId: 'accept_trip',
+      actorId: 'elevator-1',
+      entityId: 'trip-1',
+      dealId: 'deal-1',
+      attemptId: 'attempt-1',
+    });
+
+    const result = checkPlatformV7ServerIdempotencyBoundary(response('accept_trip'), key);
+
+    expect(result).toMatchObject({
+      status: 'ready_for_idempotency_record',
+      canProceed: true,
+      requiresIdempotencyRecord: true,
+      keyValid: true,
+      moneyKey: false,
+    });
+  });
+
+  it('allows money-impact document boundaries to use non-money idempotency keys', () => {
+    const key = buildPlatformV7IdempotencyKey({
+      boundaryId: 'accept_document',
+      actorId: 'operator-1',
+      entityId: 'doc-1',
+      dealId: 'deal-1',
+      attemptId: 'attempt-1',
+    });
+
+    const result = checkPlatformV7ServerIdempotencyBoundary(response('accept_document'), key);
+
+    expect(result).toMatchObject({
+      status: 'ready_for_idempotency_record',
+      canProceed: true,
+      requiresIdempotencyRecord: true,
+      keyValid: true,
+      moneyKey: false,
     });
   });
 });
