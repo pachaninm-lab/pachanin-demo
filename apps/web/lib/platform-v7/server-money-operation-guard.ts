@@ -1,4 +1,5 @@
 import { getPlatformV7ApiBoundary } from './api-boundary-contracts';
+import { isPlatformV7DirectMoneyBoundary } from './direct-money-boundaries';
 import type { PlatformV7ServerActionContractResponse } from './server-action-contract-wrapper';
 import type { PlatformV7ServerAuditBoundaryResult } from './server-audit-boundary';
 import type { PlatformV7ServerIdempotencyBoundaryResult } from './server-idempotency-boundary';
@@ -33,18 +34,13 @@ export type PlatformV7ServerMoneyOperationGuardResult = {
 };
 
 const hasText = (value: string | undefined): boolean => typeof value === 'string' && value.trim().length > 0;
-const isDirectMoneyBoundary = (boundaryId: string): boolean =>
-  boundaryId === 'request_money_reserve' ||
-  boundaryId === 'confirm_money_reserved' ||
-  boundaryId === 'mark_money_ready_to_release' ||
-  boundaryId === 'confirm_money_released';
 
 export function checkPlatformV7ServerMoneyOperationGuard(
   input: PlatformV7ServerMoneyOperationGuardInput,
 ): PlatformV7ServerMoneyOperationGuardResult {
   const boundary = getPlatformV7ApiBoundary(input.response.boundaryId);
 
-  if (boundary?.affectsMoney !== true || !isDirectMoneyBoundary(input.response.boundaryId)) {
+  if (boundary?.affectsMoney !== true || !isPlatformV7DirectMoneyBoundary(input.response.boundaryId)) {
     return {
       status: 'not_money_boundary',
       canReachMoneyRuntimeBoundary: true,
