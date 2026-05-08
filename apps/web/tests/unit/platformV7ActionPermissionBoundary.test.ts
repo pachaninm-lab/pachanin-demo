@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   canPlatformV7RoleInvokeAction,
   getPlatformV7ActionPermissionBoundarySummary,
+  getPlatformV7ActionPermissionPoliciesForRole,
+  getPlatformV7ActionPermissionPoliciesForService,
   PLATFORM_V7_ACTION_PERMISSION_POLICIES,
 } from '@/lib/platform-v7/action-permission-boundary';
 import { getPlatformV7ActionServiceName } from '@/lib/platform-v7/action-service-map';
@@ -27,6 +29,24 @@ describe('platform-v7 action permission boundary', () => {
     expect(getPlatformV7ActionServiceName('bank.confirm_money_released')).toBe('money');
     expect(getPlatformV7ActionServiceName('document.accept')).toBe('document');
     expect(getPlatformV7ActionServiceName('arbitration.record_decision')).toBe('dispute');
+  });
+
+  it('returns stable action groups by service and role', () => {
+    expect(getPlatformV7ActionPermissionPoliciesForService('money').map((policy) => policy.actionId)).toEqual([
+      'money.request_reserve',
+      'bank.confirm_money_reserved',
+      'bank.mark_money_ready_to_release',
+      'bank.confirm_money_released',
+    ]);
+    expect(getPlatformV7ActionPermissionPoliciesForService('support').map((policy) => policy.actionId)).toEqual([
+      'support.create_case',
+      'support.append_message',
+    ]);
+    expect(getPlatformV7ActionPermissionPoliciesForRole('driver').map((policy) => policy.actionId)).toEqual([
+      'trip.open_incident',
+      'support.create_case',
+      'support.append_message',
+    ]);
   });
 
   it('keeps driver limited to driver checkpoint and support actions', () => {
