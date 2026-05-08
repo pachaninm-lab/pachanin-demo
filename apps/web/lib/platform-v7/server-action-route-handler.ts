@@ -31,6 +31,11 @@ import {
   getPlatformV7ServerPersistenceBoundarySummary,
 } from './server-persistence-boundary';
 import {
+  checkPlatformV7ServerRiskReviewGate,
+  getPlatformV7ServerRiskReviewGateSummary,
+  type PlatformV7RiskReviewSnapshot,
+} from './server-risk-review-gate';
+import {
   checkPlatformV7ServerSupportGate,
   getPlatformV7ServerSupportGateSummary,
 } from './server-support-gate';
@@ -78,6 +83,17 @@ function readEvidenceRefs(value: unknown): readonly string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const refs = value.filter(isString);
   return refs.length > 0 ? refs : undefined;
+}
+
+function readRiskSnapshot(value: unknown): PlatformV7RiskReviewSnapshot | undefined {
+  if (!isRecord(value)) return undefined;
+  const status = value.status;
+  if (status !== 'clear' && status !== 'review' && status !== 'blocked' && status !== 'unknown') return undefined;
+  return {
+    status,
+    score: readOptionalNumber(value.score),
+    source: readOptionalString(value.source),
+  };
 }
 
 export function buildPlatformV7ServerActionInputFromRouteBody(
@@ -172,6 +188,13 @@ export function handlePlatformV7ServerActionRouteBody(
     idempotencyBoundary,
     auditBoundary,
   });
+  const riskReviewGate = checkPlatformV7ServerRiskReviewGate({
+    response,
+    partyId: readOptionalString(isRecord(input.payload) ? input.payload.partyId : undefined),
+    riskSnapshot: readRiskSnapshot(isRecord(input.payload) ? input.payload.riskSnapshot : undefined),
+    idempotencyBoundary,
+    auditBoundary,
+  });
   const moneyGuard = checkPlatformV7ServerMoneyOperationGuard({
     response,
     dealId: input.dealId,
@@ -201,6 +224,8 @@ export function handlePlatformV7ServerActionRouteBody(
       disputeGateSummary: getPlatformV7ServerDisputeGateSummary(disputeGate),
       supportGate,
       supportGateSummary: getPlatformV7ServerSupportGateSummary(supportGate),
+      riskReviewGate,
+      riskReviewGateSummary: getPlatformV7ServerRiskReviewGateSummary(riskReviewGate),
       moneyGuard,
       moneyGuardSummary: getPlatformV7ServerMoneyOperationGuardSummary(moneyGuard),
       persistenceBoundary,
