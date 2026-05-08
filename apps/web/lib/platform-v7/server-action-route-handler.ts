@@ -6,6 +6,10 @@ import {
   getPlatformV7ServerActionContractSummary,
 } from './server-action-contract-wrapper';
 import {
+  checkPlatformV7ServerIdempotencyBoundary,
+  getPlatformV7ServerIdempotencyBoundarySummary,
+} from './server-idempotency-boundary';
+import {
   checkPlatformV7ServerPersistenceBoundary,
   getPlatformV7ServerPersistenceBoundarySummary,
 } from './server-persistence-boundary';
@@ -20,6 +24,7 @@ export type PlatformV7ServerActionRouteBody = {
   readonly amountMinor?: unknown;
   readonly currency?: unknown;
   readonly attemptId?: unknown;
+  readonly idempotencyKey?: unknown;
   readonly occurredAt?: unknown;
   readonly summary?: unknown;
   readonly evidenceRefs?: unknown;
@@ -95,6 +100,10 @@ export function handlePlatformV7ServerActionRouteBody(
 
   const repository = createPlatformV7MemoryPersistenceRepository();
   const response = buildPlatformV7ServerActionContractResponse(input, repository);
+  const idempotencyBoundary = checkPlatformV7ServerIdempotencyBoundary(
+    response,
+    readOptionalString(body.idempotencyKey),
+  );
   const persistenceBoundary = checkPlatformV7ServerPersistenceBoundary(response, repository);
 
   return {
@@ -104,6 +113,8 @@ export function handlePlatformV7ServerActionRouteBody(
       ok: response.status !== 'not_accepted',
       response,
       summary: getPlatformV7ServerActionContractSummary(response),
+      idempotencyBoundary,
+      idempotencySummary: getPlatformV7ServerIdempotencyBoundarySummary(idempotencyBoundary),
       persistenceBoundary,
       persistenceSummary: getPlatformV7ServerPersistenceBoundarySummary(persistenceBoundary),
     },
