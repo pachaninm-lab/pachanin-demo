@@ -16,6 +16,7 @@ describe('platform-v7 server action route handler', () => {
     expect(result.body).toMatchObject({
       ok: false,
       status: 'not_accepted',
+      message: 'Недостаточно данных для проверки действия.',
       canClaimExecuted: false,
       persisted: false,
       attemptedRuntimeWrite: false,
@@ -119,6 +120,13 @@ describe('platform-v7 server action route handler', () => {
 
     expect(result.status).toBe(202);
     expect(result.body.ok).toBe(true);
+    expect(result.body.executionClaim).toMatchObject({
+      executed: false,
+      persisted: false,
+      moneyMoved: false,
+      externalConfirmed: false,
+      stage: 'manual_runtime_review_required',
+    });
     expect(result.body.response).toMatchObject({
       boundaryId: 'request_money_reserve',
       actionId: 'money.request_reserve',
