@@ -11,6 +11,10 @@ import {
   getPlatformV7ServerAuditBoundarySummary,
 } from './server-audit-boundary';
 import {
+  checkPlatformV7ServerDisputeGate,
+  getPlatformV7ServerDisputeGateSummary,
+} from './server-dispute-gate';
+import {
   checkPlatformV7ServerDocumentGate,
   getPlatformV7ServerDocumentGateSummary,
 } from './server-document-gate';
@@ -148,6 +152,14 @@ export function handlePlatformV7ServerActionRouteBody(
     idempotencyBoundary,
     auditBoundary,
   });
+  const disputeGate = checkPlatformV7ServerDisputeGate({
+    response,
+    dealId: input.dealId,
+    disputeId: input.entityId,
+    evidenceRefs: input.evidenceRefs,
+    idempotencyBoundary,
+    auditBoundary,
+  });
   const moneyGuard = checkPlatformV7ServerMoneyOperationGuard({
     response,
     dealId: input.dealId,
@@ -173,6 +185,8 @@ export function handlePlatformV7ServerActionRouteBody(
       documentGateSummary: getPlatformV7ServerDocumentGateSummary(documentGate),
       tripGate,
       tripGateSummary: getPlatformV7ServerTripGateSummary(tripGate),
+      disputeGate,
+      disputeGateSummary: getPlatformV7ServerDisputeGateSummary(disputeGate),
       moneyGuard,
       moneyGuardSummary: getPlatformV7ServerMoneyOperationGuardSummary(moneyGuard),
       persistenceBoundary,
