@@ -1,4 +1,4 @@
-import type { AuditEvent, LogisticsOrder } from './grain-execution/types';
+import type { AuditEvent, LogisticsIncident, LogisticsOrder } from './grain-execution/types';
 import type { PlatformV7WriteResult } from './service-contracts';
 
 export const PLATFORM_V7_TRIP_SERVICE_NAME = 'trip' as const;
@@ -18,10 +18,12 @@ export interface PlatformV7TripService {
     tripId: string,
     checkpoint: PlatformV7TripCheckpoint,
   ): Promise<PlatformV7WriteResult<LogisticsOrder>>;
+  openTripIncident(tripId: string, incident: Partial<LogisticsIncident>): Promise<PlatformV7WriteResult<LogisticsIncident>>;
 }
 
 export const PLATFORM_V7_TRIP_SERVICE_REQUIRED_METHODS = [
   'getDriverTrip',
   'appendTripAudit',
   'confirmTripCheckpoint',
+  'openTripIncident',
 ] as const;
