@@ -113,15 +113,15 @@ function readPayloadString(payload: Record<string, unknown>, key: string): strin
   return readOptionalString(payload[key]);
 }
 
-function readDocumentId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
-  return readOptionalString(body.documentId) ?? readPayloadString(payload, 'documentId');
-}
-
-function readDocumentExternalConfirmationReady(
+function readExternalConfirmationReady(
   body: PlatformV7ServerActionRouteBody,
   payload: Record<string, unknown>,
 ): boolean | undefined {
   return readOptionalBoolean(body.externalConfirmationReady) ?? readPayloadBoolean(payload, 'externalConfirmationReady');
+}
+
+function readDocumentId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
+  return readOptionalString(body.documentId) ?? readPayloadString(payload, 'documentId');
 }
 
 function readDisputeId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
@@ -191,6 +191,7 @@ export function handlePlatformV7ServerActionRouteBody(
   }
 
   const payload = isRecord(input.payload) ? input.payload : {};
+  const externalConfirmationReady = readExternalConfirmationReady(body, payload);
   const repository = createPlatformV7MemoryPersistenceRepository();
   const response = buildPlatformV7ServerActionContractResponse(input, repository);
   const idempotencyKey = readOptionalString(body.idempotencyKey);
@@ -214,7 +215,7 @@ export function handlePlatformV7ServerActionRouteBody(
     response,
     dealId: input.dealId,
     documentId: readDocumentId(body, payload),
-    externalConfirmationReady: readDocumentExternalConfirmationReady(body, payload),
+    externalConfirmationReady,
     idempotencyBoundary,
     auditBoundary,
   });
@@ -253,6 +254,7 @@ export function handlePlatformV7ServerActionRouteBody(
     dealId: input.dealId,
     amountMinor: input.amountMinor,
     currency: input.currency,
+    externalConfirmationReady,
     idempotencyBoundary,
     auditBoundary,
   });

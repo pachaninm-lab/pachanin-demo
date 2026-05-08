@@ -10,6 +10,7 @@ export type PlatformV7ServerMoneyOperationGuardStatus =
   | 'blocked_invalid_amount'
   | 'blocked_idempotency_boundary'
   | 'blocked_audit_boundary'
+  | 'blocked_external_confirmation_required'
   | 'ready_for_money_runtime_boundary';
 
 export type PlatformV7ServerMoneyOperationGuardInput = {
@@ -17,6 +18,7 @@ export type PlatformV7ServerMoneyOperationGuardInput = {
   readonly dealId?: string;
   readonly amountMinor?: number;
   readonly currency?: string;
+  readonly externalConfirmationReady?: boolean;
   readonly idempotencyBoundary: PlatformV7ServerIdempotencyBoundaryResult;
   readonly auditBoundary: PlatformV7ServerAuditBoundaryResult;
 };
@@ -100,6 +102,17 @@ export function checkPlatformV7ServerMoneyOperationGuard(
       requiresBankOrExternalConfirmation: boundary.requiresExternalConfirmation,
       amountValid: true,
       reason: 'Money operation cannot proceed until critical append-only audit boundary is ready.',
+    };
+  }
+
+  if (boundary.requiresExternalConfirmation === true && input.externalConfirmationReady !== true) {
+    return {
+      status: 'blocked_external_confirmation_required',
+      canReachMoneyRuntimeBoundary: false,
+      canClaimMoneyMoved: false,
+      requiresBankOrExternalConfirmation: true,
+      amountValid: true,
+      reason: 'Money confirmation requires bank or external confirmation before it may reach runtime boundary.',
     };
   }
 
