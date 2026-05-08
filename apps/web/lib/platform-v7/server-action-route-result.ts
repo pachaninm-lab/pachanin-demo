@@ -17,10 +17,20 @@ export type PlatformV7ServerActionRouteRuntimeStage =
   | 'manual_runtime_review_required'
   | 'runtime_write_ready';
 
+export type PlatformV7ServerActionRouteExecutionClaim = {
+  readonly executed: false;
+  readonly persisted: false;
+  readonly moneyMoved: false;
+  readonly externalConfirmed: false;
+  readonly stage: PlatformV7ServerActionRouteRuntimeStage;
+  readonly reason: string;
+};
+
 export type PlatformV7ServerActionRouteSummary = {
   readonly status: 'ready_for_manual_runtime_review' | 'ready_for_runtime_write' | 'stopped_by_server_boundary';
   readonly runtimeStage: PlatformV7ServerActionRouteRuntimeStage;
   readonly runtimeReason: string;
+  readonly executionClaim: PlatformV7ServerActionRouteExecutionClaim;
   readonly canReachRuntimeBoundary: boolean;
   readonly canAttemptRuntimeWrite: boolean;
   readonly canClaimExecuted: false;
@@ -132,6 +142,20 @@ function getRuntimeStage(input: {
   };
 }
 
+function getExecutionClaim(runtime: {
+  readonly runtimeStage: PlatformV7ServerActionRouteRuntimeStage;
+  readonly runtimeReason: string;
+}): PlatformV7ServerActionRouteExecutionClaim {
+  return {
+    executed: false,
+    persisted: false,
+    moneyMoved: false,
+    externalConfirmed: false,
+    stage: runtime.runtimeStage,
+    reason: runtime.runtimeReason,
+  };
+}
+
 export function buildPlatformV7ServerActionRouteSummary(
   input: PlatformV7ServerActionRouteSummaryInput,
 ): PlatformV7ServerActionRouteSummary {
@@ -172,6 +196,7 @@ export function buildPlatformV7ServerActionRouteSummary(
       : 'stopped_by_server_boundary',
     runtimeStage: runtime.runtimeStage,
     runtimeReason: runtime.runtimeReason,
+    executionClaim: getExecutionClaim(runtime),
     canReachRuntimeBoundary,
     canAttemptRuntimeWrite,
     canClaimExecuted: false,
