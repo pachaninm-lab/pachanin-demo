@@ -129,4 +129,77 @@ describe('platform-v7 server action route document gate', () => {
       requiresExternalConfirmation: true,
     });
   });
+
+  it('allows document acceptance to reach runtime boundary when explicit confirmation readiness is present', () => {
+    const idempotencyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'accept_document',
+      actorId: 'operator-1',
+      entityId: 'deal-1',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      attemptId: 'attempt-1',
+    });
+
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'accept_document',
+      actorId: 'operator-1',
+      actorRole: 'operator',
+      entityId: 'deal-1',
+      entityType: 'deal',
+      documentId: 'doc-1',
+      externalConfirmationReady: true,
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      idempotencyKey,
+      occurredAt: '2026-05-08T04:20:00.000Z',
+      summary: 'Document acceptance boundary checked.',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe(202);
+    expect(result.body.documentGateSummary).toMatchObject({
+      status: 'ready_for_document_runtime_boundary',
+      canReachDocumentRuntimeBoundary: true,
+      canClaimDocumentAccepted: false,
+      requiresExternalConfirmation: true,
+    });
+  });
+
+  it('accepts document confirmation readiness from payload for compatibility', () => {
+    const idempotencyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'accept_document',
+      actorId: 'operator-1',
+      entityId: 'deal-1',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      attemptId: 'attempt-1',
+    });
+
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'accept_document',
+      actorId: 'operator-1',
+      actorRole: 'operator',
+      entityId: 'deal-1',
+      entityType: 'deal',
+      documentId: 'doc-1',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      idempotencyKey,
+      occurredAt: '2026-05-08T04:20:00.000Z',
+      summary: 'Document acceptance boundary checked.',
+      payload: { externalConfirmationReady: true },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe(202);
+    expect(result.body.documentGateSummary).toMatchObject({
+      status: 'ready_for_document_runtime_boundary',
+      canReachDocumentRuntimeBoundary: true,
+      canClaimDocumentAccepted: false,
+    });
+  });
 });

@@ -62,6 +62,7 @@ export type PlatformV7ServerActionRouteBody = {
   readonly evidenceRefs?: unknown;
   readonly documentId?: unknown;
   readonly disputeId?: unknown;
+  readonly externalConfirmationReady?: unknown;
   readonly partyId?: unknown;
   readonly riskSnapshot?: unknown;
   readonly supportCaseId?: unknown;
@@ -74,6 +75,10 @@ export type { PlatformV7ServerActionRouteResult } from './server-action-route-re
 const isString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+function readOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
+}
 
 function readOptionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -100,12 +105,23 @@ function readRiskSnapshot(value: unknown): PlatformV7RiskReviewSnapshot | undefi
   };
 }
 
+function readPayloadBoolean(payload: Record<string, unknown>, key: string): boolean | undefined {
+  return readOptionalBoolean(payload[key]);
+}
+
 function readPayloadString(payload: Record<string, unknown>, key: string): string | undefined {
   return readOptionalString(payload[key]);
 }
 
 function readDocumentId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
   return readOptionalString(body.documentId) ?? readPayloadString(payload, 'documentId');
+}
+
+function readDocumentExternalConfirmationReady(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): boolean | undefined {
+  return readOptionalBoolean(body.externalConfirmationReady) ?? readPayloadBoolean(payload, 'externalConfirmationReady');
 }
 
 function readDisputeId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
@@ -198,6 +214,7 @@ export function handlePlatformV7ServerActionRouteBody(
     response,
     dealId: input.dealId,
     documentId: readDocumentId(body, payload),
+    externalConfirmationReady: readDocumentExternalConfirmationReady(body, payload),
     idempotencyBoundary,
     auditBoundary,
   });
