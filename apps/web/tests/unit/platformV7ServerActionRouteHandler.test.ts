@@ -120,6 +120,7 @@ describe('platform-v7 server action route handler', () => {
 
     expect(result.status).toBe(202);
     expect(result.body.ok).toBe(true);
+    expect(result.body.acceptedForReview).toBe(true);
     expect(result.body.executionClaim).toMatchObject({
       executed: false,
       persisted: false,
