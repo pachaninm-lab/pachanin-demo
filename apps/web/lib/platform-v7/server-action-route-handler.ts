@@ -60,6 +60,7 @@ export type PlatformV7ServerActionRouteBody = {
   readonly occurredAt?: unknown;
   readonly summary?: unknown;
   readonly evidenceRefs?: unknown;
+  readonly supportCaseId?: unknown;
   readonly payload?: unknown;
 };
 
@@ -92,6 +93,14 @@ function readRiskSnapshot(value: unknown): PlatformV7RiskReviewSnapshot | undefi
     score: readOptionalNumber(value.score),
     source: readOptionalString(value.source),
   };
+}
+
+function readPayloadString(payload: Record<string, unknown>, key: string): string | undefined {
+  return readOptionalString(payload[key]);
+}
+
+function readSupportCaseId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
+  return readOptionalString(body.supportCaseId) ?? readPayloadString(payload, 'supportCaseId');
 }
 
 export function buildPlatformV7ServerActionInputFromRouteBody(
@@ -137,6 +146,7 @@ export function handlePlatformV7ServerActionRouteBody(
     };
   }
 
+  const payload = isRecord(input.payload) ? input.payload : {};
   const repository = createPlatformV7MemoryPersistenceRepository();
   const response = buildPlatformV7ServerActionContractResponse(input, repository);
   const idempotencyKey = readOptionalString(body.idempotencyKey);
@@ -182,14 +192,14 @@ export function handlePlatformV7ServerActionRouteBody(
     response,
     relatedEntityId: input.entityId,
     relatedEntityType: input.entityType,
-    supportCaseId: input.entityId,
+    supportCaseId: readSupportCaseId(body, payload),
     idempotencyBoundary,
     auditBoundary,
   });
   const riskReviewGate = checkPlatformV7ServerRiskReviewGate({
     response,
-    partyId: readOptionalString(isRecord(input.payload) ? input.payload.partyId : undefined),
-    riskSnapshot: readRiskSnapshot(isRecord(input.payload) ? input.payload.riskSnapshot : undefined),
+    partyId: readPayloadString(payload, 'partyId'),
+    riskSnapshot: readRiskSnapshot(payload.riskSnapshot),
     idempotencyBoundary,
     auditBoundary,
   });
