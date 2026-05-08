@@ -60,6 +60,7 @@ export type PlatformV7ServerActionRouteBody = {
   readonly occurredAt?: unknown;
   readonly summary?: unknown;
   readonly evidenceRefs?: unknown;
+  readonly documentId?: unknown;
   readonly disputeId?: unknown;
   readonly supportCaseId?: unknown;
   readonly payload?: unknown;
@@ -98,6 +99,10 @@ function readRiskSnapshot(value: unknown): PlatformV7RiskReviewSnapshot | undefi
 
 function readPayloadString(payload: Record<string, unknown>, key: string): string | undefined {
   return readOptionalString(payload[key]);
+}
+
+function readDocumentId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
+  return readOptionalString(body.documentId) ?? readPayloadString(payload, 'documentId');
 }
 
 function readDisputeId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
@@ -174,7 +179,7 @@ export function handlePlatformV7ServerActionRouteBody(
   const documentGate = checkPlatformV7ServerDocumentGate({
     response,
     dealId: input.dealId,
-    documentId: input.entityId,
+    documentId: readDocumentId(body, payload),
     idempotencyBoundary,
     auditBoundary,
   });
