@@ -26,6 +26,10 @@ import {
   checkPlatformV7ServerPersistenceBoundary,
   getPlatformV7ServerPersistenceBoundarySummary,
 } from './server-persistence-boundary';
+import {
+  checkPlatformV7ServerTripGate,
+  getPlatformV7ServerTripGateSummary,
+} from './server-trip-gate';
 
 export type PlatformV7ServerActionRouteBody = {
   readonly boundaryId?: unknown;
@@ -137,6 +141,13 @@ export function handlePlatformV7ServerActionRouteBody(
     idempotencyBoundary,
     auditBoundary,
   });
+  const tripGate = checkPlatformV7ServerTripGate({
+    response,
+    dealId: input.dealId,
+    tripId: input.entityId,
+    idempotencyBoundary,
+    auditBoundary,
+  });
   const moneyGuard = checkPlatformV7ServerMoneyOperationGuard({
     response,
     dealId: input.dealId,
@@ -160,6 +171,8 @@ export function handlePlatformV7ServerActionRouteBody(
       auditSummary: getPlatformV7ServerAuditBoundarySummary(auditBoundary),
       documentGate,
       documentGateSummary: getPlatformV7ServerDocumentGateSummary(documentGate),
+      tripGate,
+      tripGateSummary: getPlatformV7ServerTripGateSummary(tripGate),
       moneyGuard,
       moneyGuardSummary: getPlatformV7ServerMoneyOperationGuardSummary(moneyGuard),
       persistenceBoundary,
