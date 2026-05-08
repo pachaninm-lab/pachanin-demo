@@ -23,6 +23,9 @@ describe('platform-v7 action permission boundary', () => {
       expect(getPlatformV7ActionServiceName(policy.actionId)).toBe(policy.serviceName);
     }
     expect(getPlatformV7ActionServiceName('driver.confirm_checkpoint')).toBe('trip');
+    expect(getPlatformV7ActionServiceName('money.request_reserve')).toBe('money');
+    expect(getPlatformV7ActionServiceName('bank.confirm_money_released')).toBe('money');
+    expect(getPlatformV7ActionServiceName('document.accept')).toBe('document');
   });
 
   it('keeps driver limited to driver checkpoint and support actions', () => {
@@ -31,6 +34,17 @@ describe('platform-v7 action permission boundary', () => {
     expect(canPlatformV7RoleInvokeAction('driver', 'seller.publish_lot').allowed).toBe(false);
     expect(canPlatformV7RoleInvokeAction('driver', 'buyer.submit_offer').allowed).toBe(false);
     expect(canPlatformV7RoleInvokeAction('driver', 'logistics.assign_driver').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('driver', 'money.request_reserve').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('driver', 'bank.confirm_money_released').allowed).toBe(false);
+  });
+
+  it('keeps bank money confirmations separate from buyer reserve request', () => {
+    expect(canPlatformV7RoleInvokeAction('buyer', 'money.request_reserve').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('buyer', 'bank.confirm_money_reserved').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('buyer', 'bank.confirm_money_released').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('bank', 'money.request_reserve').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('bank', 'bank.confirm_money_reserved').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('bank', 'bank.confirm_money_released').allowed).toBe(true);
   });
 
   it('keeps seller and buyer symmetric but separate', () => {

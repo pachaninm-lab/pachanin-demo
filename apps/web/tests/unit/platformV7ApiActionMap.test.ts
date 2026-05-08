@@ -18,4 +18,21 @@ describe('platform-v7 api action map', () => {
     expect(actionId).toBe('driver.confirm_checkpoint');
     expect(actionId ? getPlatformV7ActionServiceName(actionId) : undefined).toBe('trip');
   });
+
+  it('keeps money api boundaries tied to money actions and money service', () => {
+    expect(getPlatformV7ActionForApiBoundary('request_money_reserve')).toBe('money.request_reserve');
+    expect(getPlatformV7ActionForApiBoundary('confirm_money_reserved')).toBe('bank.confirm_money_reserved');
+    expect(getPlatformV7ActionForApiBoundary('mark_money_ready_to_release')).toBe('bank.mark_money_ready_to_release');
+    expect(getPlatformV7ActionForApiBoundary('confirm_money_released')).toBe('bank.confirm_money_released');
+
+    for (const boundaryId of [
+      'request_money_reserve',
+      'confirm_money_reserved',
+      'mark_money_ready_to_release',
+      'confirm_money_released',
+    ] as const) {
+      const actionId = getPlatformV7ActionForApiBoundary(boundaryId);
+      expect(actionId ? getPlatformV7ActionServiceName(actionId) : undefined).toBe('money');
+    }
+  });
 });

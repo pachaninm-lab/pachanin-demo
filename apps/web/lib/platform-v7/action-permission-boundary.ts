@@ -7,9 +7,14 @@ export type PlatformV7ActionPermissionId =
   | 'buyer.create_rfq'
   | 'buyer.submit_offer'
   | 'seller.accept_offer'
+  | 'money.request_reserve'
+  | 'bank.confirm_money_reserved'
+  | 'bank.mark_money_ready_to_release'
+  | 'bank.confirm_money_released'
   | 'logistics.assign_driver'
   | 'driver.confirm_checkpoint'
   | 'document.attach'
+  | 'document.accept'
   | 'dispute.open'
   | 'support.create_case';
 
@@ -29,9 +34,14 @@ export const PLATFORM_V7_ACTION_PERMISSION_POLICIES: readonly PlatformV7ActionPe
   { actionId: 'buyer.create_rfq', route: '/platform-v7/buyer/rfq/new', allowedRoles: ['buyer', 'operator'], serviceName: 'rfq', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'buyer.submit_offer', route: '/platform-v7/buyer', allowedRoles: ['buyer', 'operator'], serviceName: 'proposal', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'seller.accept_offer', route: '/platform-v7/seller', allowedRoles: ['seller', 'operator'], serviceName: 'proposal', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
+  { actionId: 'money.request_reserve', route: '/platform-v7/buyer', allowedRoles: ['buyer', 'operator'], serviceName: 'money', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
+  { actionId: 'bank.confirm_money_reserved', route: '/platform-v7/bank', allowedRoles: ['bank'], serviceName: 'money', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
+  { actionId: 'bank.mark_money_ready_to_release', route: '/platform-v7/bank', allowedRoles: ['bank', 'operator'], serviceName: 'money', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
+  { actionId: 'bank.confirm_money_released', route: '/platform-v7/bank', allowedRoles: ['bank'], serviceName: 'money', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'logistics.assign_driver', route: '/platform-v7/logistics', allowedRoles: ['logistics', 'operator'], serviceName: 'logistics', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'driver.confirm_checkpoint', route: '/platform-v7/driver/field', allowedRoles: ['driver', 'operator'], serviceName: 'trip', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'document.attach', route: '/platform-v7/documents', allowedRoles: ['seller', 'buyer', 'logistics', 'elevator', 'lab', 'surveyor', 'operator'], serviceName: 'document', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
+  { actionId: 'document.accept', route: '/platform-v7/compliance', allowedRoles: ['operator', 'compliance'], serviceName: 'document', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'dispute.open', route: '/platform-v7/disputes', allowedRoles: ['seller', 'buyer', 'operator', 'arbitrator', 'compliance'], serviceName: 'dispute', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'support.create_case', route: '/platform-v7/support/new', allowedRoles: ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator', 'arbitrator', 'compliance'], serviceName: 'support', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
 ];
