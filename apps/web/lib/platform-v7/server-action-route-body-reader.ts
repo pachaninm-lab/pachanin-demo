@@ -102,6 +102,35 @@ export function readPlatformV7RouteCurrency(
   return readPlatformV7RouteOptionalString(body.currency) ?? readPayloadString(payload, 'currency');
 }
 
+export function readPlatformV7RouteAttemptId(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): string | undefined {
+  return readPlatformV7RouteOptionalString(body.attemptId) ?? readPayloadString(payload, 'attemptId');
+}
+
+export function readPlatformV7RouteOccurredAt(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): string {
+  return (
+    readPlatformV7RouteOptionalString(body.occurredAt) ??
+    readPayloadString(payload, 'occurredAt') ??
+    new Date(0).toISOString()
+  );
+}
+
+export function readPlatformV7RouteSummary(
+  body: PlatformV7ServerActionRouteBody,
+  payload: Record<string, unknown>,
+): string {
+  return (
+    readPlatformV7RouteOptionalString(body.summary) ??
+    readPayloadString(payload, 'summary') ??
+    'Platform-v7 action boundary checked.'
+  );
+}
+
 export function readPlatformV7RouteEvidenceRefsFromBody(
   body: PlatformV7ServerActionRouteBody,
   payload: Record<string, unknown>,
@@ -188,9 +217,9 @@ export function buildPlatformV7ServerActionInputFromRouteBody(
     dealId: readPlatformV7RouteDealId(body, payload),
     amountMinor: readPlatformV7RouteMoneyAmountMinor(body, payload),
     currency: readPlatformV7RouteCurrency(body, payload),
-    attemptId: readPlatformV7RouteOptionalString(body.attemptId),
-    occurredAt: readPlatformV7RouteOptionalString(body.occurredAt) ?? new Date(0).toISOString(),
-    summary: readPlatformV7RouteOptionalString(body.summary) ?? 'Platform-v7 action boundary checked.',
+    attemptId: readPlatformV7RouteAttemptId(body, payload),
+    occurredAt: readPlatformV7RouteOccurredAt(body, payload),
+    summary: readPlatformV7RouteSummary(body, payload),
     evidenceRefs: readPlatformV7RouteEvidenceRefsFromBody(body, payload),
     payload,
   };
