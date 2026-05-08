@@ -3,7 +3,6 @@ import { PLATFORM_V7_API_ACTION_MAP } from '@/lib/platform-v7/api-action-map';
 import { PLATFORM_V7_API_BOUNDARIES } from '@/lib/platform-v7/api-boundary-contracts';
 
 const expectedUnmappedWriteBoundaries = [
-  'confirm_deal_terms',
   'accept_trip',
   'open_incident',
   'resolve_dispute',
