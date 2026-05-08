@@ -167,6 +167,49 @@ describe('platform-v7 server action route document gate', () => {
     });
   });
 
+  it('allows document acceptance without treating it as a direct money operation', () => {
+    const idempotencyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'accept_document',
+      actorId: 'operator-1',
+      entityId: 'deal-1',
+      dealId: 'deal-1',
+      attemptId: 'attempt-1',
+    });
+
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'accept_document',
+      actorId: 'operator-1',
+      actorRole: 'operator',
+      entityId: 'deal-1',
+      entityType: 'deal',
+      documentId: 'doc-1',
+      externalConfirmationReady: true,
+      dealId: 'deal-1',
+      idempotencyKey,
+      occurredAt: '2026-05-08T04:20:00.000Z',
+      summary: 'Document acceptance boundary checked.',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe(202);
+    expect(result.body.documentGateSummary).toMatchObject({
+      status: 'ready_for_document_runtime_boundary',
+      canReachDocumentRuntimeBoundary: true,
+      canClaimDocumentAccepted: false,
+      requiresExternalConfirmation: true,
+    });
+    expect(result.body.auditSummary).toMatchObject({
+      canProceed: true,
+      moneyAuditComplete: true,
+    });
+    expect(result.body.moneyGuardSummary).toMatchObject({
+      status: 'not_money_boundary',
+      canReachMoneyRuntimeBoundary: true,
+      canClaimMoneyMoved: false,
+      amountValid: true,
+    });
+  });
+
   it('accepts document confirmation readiness from payload for compatibility', () => {
     const idempotencyKey = buildPlatformV7IdempotencyKey({
       boundaryId: 'accept_document',

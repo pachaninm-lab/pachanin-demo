@@ -1,5 +1,6 @@
 import type { PlatformV7ApiBoundaryId } from './api-boundary-contracts';
 import { getPlatformV7ApiBoundary } from './api-boundary-contracts';
+import { isPlatformV7DirectMoneyBoundary } from './direct-money-boundaries';
 import { validatePlatformV7IdempotencyKey } from './idempotency-key-helper';
 
 export type PlatformV7AuditEventSeverity = 'info' | 'warning' | 'critical';
@@ -111,8 +112,8 @@ export function validatePlatformV7AuditEvent(event: PlatformV7AuditEvent): Platf
     issues.push('Audit event idempotency key is invalid.');
   }
 
-  if (event.affectsMoney && (event.moneyAmountMinor === undefined || !event.currency?.trim())) {
-    issues.push('Money-affecting audit event must include amount and currency.');
+  if (isPlatformV7DirectMoneyBoundary(event.boundaryId) && (event.moneyAmountMinor === undefined || !event.currency?.trim())) {
+    issues.push('Direct money audit event must include amount and currency.');
   }
 
   return { ok: issues.length === 0, issues };
