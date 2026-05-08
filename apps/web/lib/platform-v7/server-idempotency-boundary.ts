@@ -1,4 +1,5 @@
 import { getPlatformV7ApiBoundary } from './api-boundary-contracts';
+import { isPlatformV7DirectMoneyBoundary } from './direct-money-boundaries';
 import { getPlatformV7IdempotencyKeySummary, validatePlatformV7IdempotencyKey } from './idempotency-key-helper';
 import type { PlatformV7ServerActionContractResponse } from './server-action-contract-wrapper';
 
@@ -60,14 +61,14 @@ export function checkPlatformV7ServerIdempotencyBoundary(
     };
   }
 
-  if (boundary.affectsMoney && !summary.moneyKey) {
+  if (isPlatformV7DirectMoneyBoundary(response.boundaryId) && !summary.moneyKey) {
     return {
       status: 'blocked_money_key_incomplete',
       canProceed: false,
       requiresIdempotencyRecord: true,
       keyValid: true,
       moneyKey: false,
-      reason: 'Money-affecting boundary requires amount and currency in idempotency key.',
+      reason: 'Direct money boundary requires amount and currency in idempotency key.',
     };
   }
 
