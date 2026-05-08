@@ -107,6 +107,40 @@ describe('platform-v7 server action route handler', () => {
     });
   });
 
+  it('keeps execution flags server-owned even when client body claims otherwise', () => {
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'request_money_reserve',
+      actorId: 'buyer-1',
+      actorRole: 'buyer',
+      entityId: 'money-1',
+      entityType: 'money_record',
+      canClaimExecuted: true,
+      persisted: true,
+      attemptedRuntimeWrite: true,
+      payload: {
+        dealId: 'deal-1',
+        amountMinor: 100_000,
+        currency: 'RUB',
+        reason: 'Reserve request.',
+        canClaimExecuted: true,
+        persisted: true,
+        attemptedRuntimeWrite: true,
+      },
+      occurredAt: '2026-05-07T10:00:00.000Z',
+      summary: 'Reserve boundary checked.',
+    } as never);
+
+    expect(result.body.response).toMatchObject({
+      canClaimExecuted: false,
+      persisted: false,
+      attemptedRuntimeWrite: false,
+    });
+    expect(result.body.routeSummary).toMatchObject({
+      canClaimExecuted: false,
+      persisted: false,
+    });
+  });
+
   it('uses idempotency key from payload for route-boundary compatibility', () => {
     const idempotencyKey = buildPlatformV7IdempotencyKey({
       boundaryId: 'request_money_reserve',
