@@ -19,6 +19,7 @@ export const PLATFORM_V7_ACTION_SERVICE_MAP: Record<PlatformV7ActionPermissionId
   'document.attach': 'document',
   'document.accept': 'document',
   'dispute.open': 'dispute',
+  'arbitration.record_decision': 'dispute',
   'support.create_case': 'support',
   'support.append_message': 'support',
 };
