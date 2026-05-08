@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key-helper';
 import {
   buildPlatformV7ServerActionInputFromRouteBody,
   handlePlatformV7ServerActionRouteBody,
@@ -43,9 +44,35 @@ describe('platform-v7 server action route handler', () => {
       actorRole: 'driver',
       entityId: 'trip-1',
       entityType: 'trip',
+      dealId: 'deal-1',
       occurredAt: '1970-01-01T00:00:00.000Z',
       summary: 'Platform-v7 action boundary checked.',
       evidenceRefs: ['geo-1'],
+    });
+  });
+
+  it('normalizes money and evidence fields from payload before route gates', () => {
+    const input = buildPlatformV7ServerActionInputFromRouteBody({
+      boundaryId: 'resolve_dispute',
+      actorId: 'arbitrator-1',
+      actorRole: 'arbitrator',
+      entityId: 'dispute-1',
+      entityType: 'dispute',
+      payload: {
+        dealId: 'deal-1',
+        disputeId: 'dispute-1',
+        decision: 'partial_release',
+        claimAmountMinor: 25_000,
+        currency: 'RUB',
+        evidenceRefs: ['lab-1', 'weight-1'],
+      },
+    });
+
+    expect(input).toMatchObject({
+      dealId: 'deal-1',
+      amountMinor: 25_000,
+      currency: 'RUB',
+      evidenceRefs: ['lab-1', 'weight-1'],
     });
   });
 
@@ -77,6 +104,76 @@ describe('platform-v7 server action route handler', () => {
       persisted: false,
       attemptedRuntimeWrite: false,
       repositoryDurable: false,
+    });
+  });
+
+  it('keeps execution flags server-owned even when client body claims otherwise', () => {
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'request_money_reserve',
+      actorId: 'buyer-1',
+      actorRole: 'buyer',
+      entityId: 'money-1',
+      entityType: 'money_record',
+      canClaimExecuted: true,
+      persisted: true,
+      attemptedRuntimeWrite: true,
+      payload: {
+        dealId: 'deal-1',
+        amountMinor: 100_000,
+        currency: 'RUB',
+        reason: 'Reserve request.',
+        canClaimExecuted: true,
+        persisted: true,
+        attemptedRuntimeWrite: true,
+      },
+      occurredAt: '2026-05-07T10:00:00.000Z',
+      summary: 'Reserve boundary checked.',
+    } as never);
+
+    expect(result.body.response).toMatchObject({
+      canClaimExecuted: false,
+      persisted: false,
+      attemptedRuntimeWrite: false,
+    });
+    expect(result.body.routeSummary).toMatchObject({
+      canClaimExecuted: false,
+      persisted: false,
+    });
+  });
+
+  it('uses idempotency key from payload for route-boundary compatibility', () => {
+    const idempotencyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'request_money_reserve',
+      actorId: 'buyer-1',
+      entityId: 'money-1',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      attemptId: 'attempt-1',
+    });
+
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'request_money_reserve',
+      actorId: 'buyer-1',
+      actorRole: 'buyer',
+      entityId: 'money-1',
+      entityType: 'money_record',
+      payload: {
+        dealId: 'deal-1',
+        amountMinor: 100_000,
+        currency: 'RUB',
+        reason: 'Reserve request.',
+        idempotencyKey,
+      },
+      occurredAt: '2026-05-07T10:00:00.000Z',
+      summary: 'Reserve boundary checked.',
+    });
+
+    expect(result.body.idempotencySummary).toMatchObject({
+      status: 'ready_for_idempotency_record',
+      canProceed: true,
+      keyValid: true,
+      moneyKey: true,
     });
   });
 
