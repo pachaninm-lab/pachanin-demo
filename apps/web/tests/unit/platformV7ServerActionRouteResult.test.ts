@@ -50,6 +50,14 @@ describe('platform-v7 server action route result helper', () => {
       status: 'ready_for_manual_runtime_review',
       runtimeStage: 'manual_runtime_review_required',
       runtimeReason: 'Runtime boundary reached, but durable repository is not connected.',
+      executionClaim: {
+        executed: false,
+        persisted: false,
+        moneyMoved: false,
+        externalConfirmed: false,
+        stage: 'manual_runtime_review_required',
+        reason: 'Runtime boundary reached, but durable repository is not connected.',
+      },
       canReachRuntimeBoundary: true,
       canAttemptRuntimeWrite: false,
       canClaimExecuted: false,
@@ -68,6 +76,13 @@ describe('platform-v7 server action route result helper', () => {
     expect(summary).toMatchObject({
       status: 'ready_for_runtime_write',
       runtimeStage: 'runtime_write_ready',
+      executionClaim: {
+        executed: false,
+        persisted: false,
+        moneyMoved: false,
+        externalConfirmed: false,
+        stage: 'runtime_write_ready',
+      },
       canReachRuntimeBoundary: true,
       canAttemptRuntimeWrite: true,
       canClaimExecuted: false,
@@ -89,6 +104,13 @@ describe('platform-v7 server action route result helper', () => {
     expect(summary).toMatchObject({
       status: 'stopped_by_server_boundary',
       runtimeStage: 'stopped_by_server_boundary',
+      executionClaim: {
+        executed: false,
+        persisted: false,
+        moneyMoved: false,
+        externalConfirmed: false,
+        stage: 'stopped_by_server_boundary',
+      },
       canReachRuntimeBoundary: false,
       canAttemptRuntimeWrite: false,
       canClaimExecuted: false,
