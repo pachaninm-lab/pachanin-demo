@@ -19,6 +19,7 @@ export type PlatformV7ActionPermissionId =
   | 'document.attach'
   | 'document.accept'
   | 'dispute.open'
+  | 'arbitration.record_decision'
   | 'support.create_case'
   | 'support.append_message';
 
@@ -50,6 +51,7 @@ export const PLATFORM_V7_ACTION_PERMISSION_POLICIES: readonly PlatformV7ActionPe
   { actionId: 'document.attach', route: '/platform-v7/documents', allowedRoles: ['seller', 'buyer', 'logistics', 'elevator', 'lab', 'surveyor', 'operator'], serviceName: 'document', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'document.accept', route: '/platform-v7/compliance', allowedRoles: ['operator', 'compliance'], serviceName: 'document', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'dispute.open', route: '/platform-v7/disputes', allowedRoles: ['seller', 'buyer', 'operator', 'arbitrator', 'compliance'], serviceName: 'dispute', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
+  { actionId: 'arbitration.record_decision', route: '/platform-v7/disputes', allowedRoles: ['arbitrator', 'bank', 'operator'], serviceName: 'dispute', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'support.create_case', route: '/platform-v7/support/new', allowedRoles: ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator', 'arbitrator', 'compliance'], serviceName: 'support', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'support.append_message', route: '/platform-v7/support', allowedRoles: ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator', 'arbitrator', 'compliance'], serviceName: 'support', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
 ];
