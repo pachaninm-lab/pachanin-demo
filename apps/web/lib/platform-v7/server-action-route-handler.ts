@@ -63,6 +63,7 @@ export type PlatformV7ServerActionRouteBody = {
   readonly documentId?: unknown;
   readonly disputeId?: unknown;
   readonly supportCaseId?: unknown;
+  readonly tripId?: unknown;
   readonly payload?: unknown;
 };
 
@@ -111,6 +112,10 @@ function readDisputeId(body: PlatformV7ServerActionRouteBody, payload: Record<st
 
 function readSupportCaseId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
   return readOptionalString(body.supportCaseId) ?? readPayloadString(payload, 'supportCaseId');
+}
+
+function readTripId(body: PlatformV7ServerActionRouteBody, payload: Record<string, unknown>): string | undefined {
+  return readOptionalString(body.tripId) ?? readPayloadString(payload, 'tripId');
 }
 
 export function buildPlatformV7ServerActionInputFromRouteBody(
@@ -186,7 +191,7 @@ export function handlePlatformV7ServerActionRouteBody(
   const tripGate = checkPlatformV7ServerTripGate({
     response,
     dealId: input.dealId,
-    tripId: input.entityId,
+    tripId: readTripId(body, payload),
     idempotencyBoundary,
     auditBoundary,
   });
