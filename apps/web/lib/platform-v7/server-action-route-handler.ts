@@ -162,6 +162,7 @@ export function handlePlatformV7ServerActionRouteBody(
   });
   const responseBody = {
     ok: routeSummary.canReachRuntimeBoundary && response.status !== 'not_accepted',
+    executionClaim: routeSummary.executionClaim,
     response,
     summary: getPlatformV7ServerActionContractSummary(response),
     routeSummary,
