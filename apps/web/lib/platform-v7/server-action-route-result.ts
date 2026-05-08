@@ -12,8 +12,15 @@ export type PlatformV7ServerActionRouteIssue = {
   readonly reason: string;
 };
 
+export type PlatformV7ServerActionRouteRuntimeStage =
+  | 'stopped_by_server_boundary'
+  | 'manual_runtime_review_required'
+  | 'runtime_write_ready';
+
 export type PlatformV7ServerActionRouteSummary = {
   readonly status: 'ready_for_manual_runtime_review' | 'ready_for_runtime_write' | 'stopped_by_server_boundary';
+  readonly runtimeStage: PlatformV7ServerActionRouteRuntimeStage;
+  readonly runtimeReason: string;
   readonly canReachRuntimeBoundary: boolean;
   readonly canAttemptRuntimeWrite: boolean;
   readonly canClaimExecuted: false;
@@ -98,6 +105,33 @@ function isRouteIssue(issue: PlatformV7ServerActionRouteIssue | undefined): issu
   return issue !== undefined;
 }
 
+function getRuntimeStage(input: {
+  readonly canReachRuntimeBoundary: boolean;
+  readonly canAttemptRuntimeWrite: boolean;
+  readonly repositoryDurable: boolean;
+}): { readonly runtimeStage: PlatformV7ServerActionRouteRuntimeStage; readonly runtimeReason: string } {
+  if (!input.canReachRuntimeBoundary) {
+    return {
+      runtimeStage: 'stopped_by_server_boundary',
+      runtimeReason: 'Server boundary stopped the action before runtime write readiness.',
+    };
+  }
+
+  if (!input.canAttemptRuntimeWrite) {
+    return {
+      runtimeStage: 'manual_runtime_review_required',
+      runtimeReason: input.repositoryDurable
+        ? 'Runtime boundary reached, but manual review is still required before execution claim.'
+        : 'Runtime boundary reached, but durable repository is not connected.',
+    };
+  }
+
+  return {
+    runtimeStage: 'runtime_write_ready',
+    runtimeReason: 'Runtime write boundary is ready, but execution still must be confirmed by the server boundary.',
+  };
+}
+
 export function buildPlatformV7ServerActionRouteSummary(
   input: PlatformV7ServerActionRouteSummaryInput,
 ): PlatformV7ServerActionRouteSummary {
@@ -124,6 +158,11 @@ export function buildPlatformV7ServerActionRouteSummary(
 
   const canReachRuntimeBoundary = issues.length === 0;
   const canAttemptRuntimeWrite = canReachRuntimeBoundary && input.persistenceBoundary.canAttemptRuntimeWrite;
+  const runtime = getRuntimeStage({
+    canReachRuntimeBoundary,
+    canAttemptRuntimeWrite,
+    repositoryDurable: input.persistenceBoundary.repositoryDurable,
+  });
 
   return {
     status: canReachRuntimeBoundary
@@ -131,6 +170,8 @@ export function buildPlatformV7ServerActionRouteSummary(
         ? 'ready_for_runtime_write'
         : 'ready_for_manual_runtime_review'
       : 'stopped_by_server_boundary',
+    runtimeStage: runtime.runtimeStage,
+    runtimeReason: runtime.runtimeReason,
     canReachRuntimeBoundary,
     canAttemptRuntimeWrite,
     canClaimExecuted: false,

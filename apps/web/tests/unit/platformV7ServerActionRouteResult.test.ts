@@ -48,12 +48,31 @@ describe('platform-v7 server action route result helper', () => {
 
     expect(summary).toMatchObject({
       status: 'ready_for_manual_runtime_review',
+      runtimeStage: 'manual_runtime_review_required',
+      runtimeReason: 'Runtime boundary reached, but durable repository is not connected.',
       canReachRuntimeBoundary: true,
       canAttemptRuntimeWrite: false,
       canClaimExecuted: false,
       persisted: false,
       requiresManualReview: true,
       issueCount: 0,
+    });
+  });
+
+  it('marks runtime write readiness without claiming execution', () => {
+    const summary = buildPlatformV7ServerActionRouteSummary({
+      ...baseInput,
+      persistenceBoundary: { canAttemptRuntimeWrite: true, repositoryDurable: true },
+    });
+
+    expect(summary).toMatchObject({
+      status: 'ready_for_runtime_write',
+      runtimeStage: 'runtime_write_ready',
+      canReachRuntimeBoundary: true,
+      canAttemptRuntimeWrite: true,
+      canClaimExecuted: false,
+      persisted: false,
+      requiresManualReview: false,
     });
   });
 
@@ -69,6 +88,7 @@ describe('platform-v7 server action route result helper', () => {
 
     expect(summary).toMatchObject({
       status: 'stopped_by_server_boundary',
+      runtimeStage: 'stopped_by_server_boundary',
       canReachRuntimeBoundary: false,
       canAttemptRuntimeWrite: false,
       canClaimExecuted: false,
