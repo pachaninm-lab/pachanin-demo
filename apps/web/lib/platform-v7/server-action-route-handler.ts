@@ -5,6 +5,10 @@ import {
   buildPlatformV7ServerActionContractResponse,
   getPlatformV7ServerActionContractSummary,
 } from './server-action-contract-wrapper';
+import {
+  checkPlatformV7ServerPersistenceBoundary,
+  getPlatformV7ServerPersistenceBoundarySummary,
+} from './server-persistence-boundary';
 
 export type PlatformV7ServerActionRouteBody = {
   readonly boundaryId?: unknown;
@@ -89,10 +93,9 @@ export function handlePlatformV7ServerActionRouteBody(
     };
   }
 
-  const response = buildPlatformV7ServerActionContractResponse(
-    input,
-    createPlatformV7MemoryPersistenceRepository(),
-  );
+  const repository = createPlatformV7MemoryPersistenceRepository();
+  const response = buildPlatformV7ServerActionContractResponse(input, repository);
+  const persistenceBoundary = checkPlatformV7ServerPersistenceBoundary(response, repository);
 
   return {
     ok: response.status !== 'not_accepted',
@@ -101,6 +104,8 @@ export function handlePlatformV7ServerActionRouteBody(
       ok: response.status !== 'not_accepted',
       response,
       summary: getPlatformV7ServerActionContractSummary(response),
+      persistenceBoundary,
+      persistenceSummary: getPlatformV7ServerPersistenceBoundarySummary(persistenceBoundary),
     },
   };
 }
