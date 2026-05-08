@@ -1,10 +1,15 @@
 import type { PlatformV7ApiBoundaryId } from './api-boundary-contracts';
+import { buildPlatformV7AuditEvent } from './audit-event-helper';
 import type { PlatformV7ExecutionEnvelopeInput } from './execution-envelope-helper';
 import { createPlatformV7MemoryPersistenceRepository } from './persistence-repository';
 import {
   buildPlatformV7ServerActionContractResponse,
   getPlatformV7ServerActionContractSummary,
 } from './server-action-contract-wrapper';
+import {
+  checkPlatformV7ServerAuditBoundary,
+  getPlatformV7ServerAuditBoundarySummary,
+} from './server-audit-boundary';
 import {
   checkPlatformV7ServerIdempotencyBoundary,
   getPlatformV7ServerIdempotencyBoundarySummary,
@@ -100,10 +105,23 @@ export function handlePlatformV7ServerActionRouteBody(
 
   const repository = createPlatformV7MemoryPersistenceRepository();
   const response = buildPlatformV7ServerActionContractResponse(input, repository);
-  const idempotencyBoundary = checkPlatformV7ServerIdempotencyBoundary(
-    response,
-    readOptionalString(body.idempotencyKey),
-  );
+  const idempotencyKey = readOptionalString(body.idempotencyKey);
+  const idempotencyBoundary = checkPlatformV7ServerIdempotencyBoundary(response, idempotencyKey);
+  const auditEvent = buildPlatformV7AuditEvent({
+    boundaryId: input.boundaryId,
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    entityId: input.entityId,
+    entityType: input.entityType,
+    dealId: input.dealId,
+    idempotencyKey,
+    occurredAt: input.occurredAt,
+    summary: input.summary,
+    evidenceRefs: input.evidenceRefs,
+    moneyAmountMinor: input.amountMinor,
+    currency: input.currency,
+  });
+  const auditBoundary = checkPlatformV7ServerAuditBoundary(response, auditEvent);
   const persistenceBoundary = checkPlatformV7ServerPersistenceBoundary(response, repository);
 
   return {
@@ -115,6 +133,8 @@ export function handlePlatformV7ServerActionRouteBody(
       summary: getPlatformV7ServerActionContractSummary(response),
       idempotencyBoundary,
       idempotencySummary: getPlatformV7ServerIdempotencyBoundarySummary(idempotencyBoundary),
+      auditBoundary,
+      auditSummary: getPlatformV7ServerAuditBoundarySummary(auditBoundary),
       persistenceBoundary,
       persistenceSummary: getPlatformV7ServerPersistenceBoundarySummary(persistenceBoundary),
     },
