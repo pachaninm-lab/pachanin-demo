@@ -94,6 +94,7 @@ export interface PlatformV7DisputeService {
 export interface PlatformV7SupportService {
   listCases(entityId: string): Promise<readonly SupportCase[]>;
   createCase(input: Partial<SupportCase>): Promise<PlatformV7WriteResult<SupportCase>>;
+  appendMessage(caseId: string, message: string): Promise<PlatformV7WriteResult<SupportCase>>;
   escalateCase(caseId: string, reason: string): Promise<PlatformV7WriteResult<SupportCase>>;
 }
 
