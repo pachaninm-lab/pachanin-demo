@@ -19,7 +19,8 @@ export type PlatformV7ActionPermissionId =
   | 'document.attach'
   | 'document.accept'
   | 'dispute.open'
-  | 'support.create_case';
+  | 'support.create_case'
+  | 'support.append_message';
 
 export type PlatformV7ActionPermissionPolicy = {
   readonly actionId: PlatformV7ActionPermissionId;
@@ -50,6 +51,7 @@ export const PLATFORM_V7_ACTION_PERMISSION_POLICIES: readonly PlatformV7ActionPe
   { actionId: 'document.accept', route: '/platform-v7/compliance', allowedRoles: ['operator', 'compliance'], serviceName: 'document', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'dispute.open', route: '/platform-v7/disputes', allowedRoles: ['seller', 'buyer', 'operator', 'arbitrator', 'compliance'], serviceName: 'dispute', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
   { actionId: 'support.create_case', route: '/platform-v7/support/new', allowedRoles: ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator', 'arbitrator', 'compliance'], serviceName: 'support', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
+  { actionId: 'support.append_message', route: '/platform-v7/support', allowedRoles: ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator', 'arbitrator', 'compliance'], serviceName: 'support', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
 ];
 
 export function getPlatformV7ActionPermissionPolicy(actionId: PlatformV7ActionPermissionId): PlatformV7ActionPermissionPolicy {

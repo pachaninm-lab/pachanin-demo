@@ -20,6 +20,7 @@ export const PLATFORM_V7_ACTION_SERVICE_MAP: Record<PlatformV7ActionPermissionId
   'document.accept': 'document',
   'dispute.open': 'dispute',
   'support.create_case': 'support',
+  'support.append_message': 'support',
 };
 
 export function getPlatformV7ActionServiceName(
