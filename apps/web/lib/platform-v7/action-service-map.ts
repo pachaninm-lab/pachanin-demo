@@ -15,6 +15,7 @@ export const PLATFORM_V7_ACTION_SERVICE_MAP: Record<PlatformV7ActionPermissionId
   'logistics.assign_driver': 'logistics',
   'driver.confirm_checkpoint': 'trip',
   'trip.accept': 'trip',
+  'trip.open_incident': 'trip',
   'document.attach': 'document',
   'document.accept': 'document',
   'dispute.open': 'dispute',
