@@ -76,6 +76,30 @@ describe('platform-v7 server action route handler', () => {
     });
   });
 
+  it('normalizes envelope metadata from payload before audit and idempotency gates', () => {
+    const input = buildPlatformV7ServerActionInputFromRouteBody({
+      boundaryId: 'request_money_reserve',
+      actorId: 'buyer-1',
+      actorRole: 'buyer',
+      entityId: 'money-1',
+      entityType: 'money_record',
+      payload: {
+        dealId: 'deal-1',
+        amountMinor: 100_000,
+        currency: 'RUB',
+        attemptId: 'attempt-99',
+        occurredAt: '2026-05-08T14:40:00.000Z',
+        summary: 'Payload reserve boundary checked.',
+      },
+    });
+
+    expect(input).toMatchObject({
+      attemptId: 'attempt-99',
+      occurredAt: '2026-05-08T14:40:00.000Z',
+      summary: 'Payload reserve boundary checked.',
+    });
+  });
+
   it('returns contract-checked result without runtime persistence claim', () => {
     const result = handlePlatformV7ServerActionRouteBody({
       boundaryId: 'request_money_reserve',
