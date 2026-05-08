@@ -33,20 +33,25 @@ export type PlatformV7ServerMoneyOperationGuardResult = {
 };
 
 const hasText = (value: string | undefined): boolean => typeof value === 'string' && value.trim().length > 0;
+const isDirectMoneyBoundary = (boundaryId: string): boolean =>
+  boundaryId === 'request_money_reserve' ||
+  boundaryId === 'confirm_money_reserved' ||
+  boundaryId === 'mark_money_ready_to_release' ||
+  boundaryId === 'confirm_money_released';
 
 export function checkPlatformV7ServerMoneyOperationGuard(
   input: PlatformV7ServerMoneyOperationGuardInput,
 ): PlatformV7ServerMoneyOperationGuardResult {
   const boundary = getPlatformV7ApiBoundary(input.response.boundaryId);
 
-  if (boundary?.affectsMoney !== true) {
+  if (boundary?.affectsMoney !== true || !isDirectMoneyBoundary(input.response.boundaryId)) {
     return {
       status: 'not_money_boundary',
       canReachMoneyRuntimeBoundary: true,
       canClaimMoneyMoved: false,
       requiresBankOrExternalConfirmation: false,
       amountValid: true,
-      reason: 'Boundary does not affect money state.',
+      reason: 'Boundary may affect money decisions elsewhere, but it is not a direct money operation.',
     };
   }
 
