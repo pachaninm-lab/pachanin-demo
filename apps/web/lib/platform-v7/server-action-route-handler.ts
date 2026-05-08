@@ -15,6 +15,10 @@ import {
   getPlatformV7ServerIdempotencyBoundarySummary,
 } from './server-idempotency-boundary';
 import {
+  checkPlatformV7ServerMoneyOperationGuard,
+  getPlatformV7ServerMoneyOperationGuardSummary,
+} from './server-money-operation-guard';
+import {
   checkPlatformV7ServerPersistenceBoundary,
   getPlatformV7ServerPersistenceBoundarySummary,
 } from './server-persistence-boundary';
@@ -122,6 +126,14 @@ export function handlePlatformV7ServerActionRouteBody(
     currency: input.currency,
   });
   const auditBoundary = checkPlatformV7ServerAuditBoundary(response, auditEvent);
+  const moneyGuard = checkPlatformV7ServerMoneyOperationGuard({
+    response,
+    dealId: input.dealId,
+    amountMinor: input.amountMinor,
+    currency: input.currency,
+    idempotencyBoundary,
+    auditBoundary,
+  });
   const persistenceBoundary = checkPlatformV7ServerPersistenceBoundary(response, repository);
 
   return {
@@ -135,6 +147,8 @@ export function handlePlatformV7ServerActionRouteBody(
       idempotencySummary: getPlatformV7ServerIdempotencyBoundarySummary(idempotencyBoundary),
       auditBoundary,
       auditSummary: getPlatformV7ServerAuditBoundarySummary(auditBoundary),
+      moneyGuard,
+      moneyGuardSummary: getPlatformV7ServerMoneyOperationGuardSummary(moneyGuard),
       persistenceBoundary,
       persistenceSummary: getPlatformV7ServerPersistenceBoundarySummary(persistenceBoundary),
     },
