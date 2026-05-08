@@ -88,6 +88,8 @@ describe('platform-v7 server action contract wrapper', () => {
 
     expect(getPlatformV7ServerActionContractSummary(response)).toEqual({
       boundaryId: 'mark_trip_arrived',
+      actionId: 'driver.confirm_checkpoint',
+      serviceName: 'trip',
       status: 'contract_checked',
       httpStatus: 202,
       canClaimExecuted: false,

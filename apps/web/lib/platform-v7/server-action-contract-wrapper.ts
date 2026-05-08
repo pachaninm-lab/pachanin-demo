@@ -1,4 +1,8 @@
+import { getPlatformV7ActionForApiBoundary } from './api-action-map';
 import type { PlatformV7ApiBoundaryId } from './api-boundary-contracts';
+import { getPlatformV7ActionServiceName } from './action-service-map';
+import type { PlatformV7ActionPermissionId } from './action-permission-boundary';
+import type { PlatformV7ExecutionServiceName } from './execution-service-registry-contract';
 import type { PlatformV7ExecutionEnvelopeInput } from './execution-envelope-helper';
 import type { PlatformV7PersistenceRepository } from './persistence-repository';
 import { runPlatformV7ServiceBoundary } from './service-boundary-runner';
@@ -7,6 +11,8 @@ export type PlatformV7ServerActionContractStatus = 'not_accepted' | 'contract_ch
 
 export type PlatformV7ServerActionContractResponse = {
   readonly boundaryId: PlatformV7ApiBoundaryId;
+  readonly actionId?: PlatformV7ActionPermissionId;
+  readonly serviceName?: PlatformV7ExecutionServiceName;
   readonly status: PlatformV7ServerActionContractStatus;
   readonly httpStatus: 200 | 202 | 400 | 403 | 409;
   readonly message: string;
@@ -19,18 +25,28 @@ export type PlatformV7ServerActionContractResponse = {
   readonly repositoryDurable: boolean;
 };
 
+function getServerActionTrace(boundaryId: PlatformV7ApiBoundaryId) {
+  const actionId = getPlatformV7ActionForApiBoundary(boundaryId);
+  return {
+    actionId,
+    serviceName: actionId ? getPlatformV7ActionServiceName(actionId) : undefined,
+  };
+}
+
 export function buildPlatformV7ServerActionContractResponse(
   input: PlatformV7ExecutionEnvelopeInput,
   repository: PlatformV7PersistenceRepository,
 ): PlatformV7ServerActionContractResponse {
   const run = runPlatformV7ServiceBoundary(input, repository);
   const issueCount = run.result.issues.length + run.result.payloadIssues.length;
+  const trace = getServerActionTrace(run.result.boundaryId);
 
   if (run.result.status === 'blocked') {
     const forbidden = run.gate.issues.some((issue) => issue.code === 'role_not_allowed');
 
     return {
       boundaryId: run.result.boundaryId,
+      ...trace,
       status: 'not_accepted',
       httpStatus: forbidden ? 403 : 400,
       message: run.result.safeMessage,
@@ -47,6 +63,7 @@ export function buildPlatformV7ServerActionContractResponse(
   if (run.result.status === 'contract_only') {
     return {
       boundaryId: run.result.boundaryId,
+      ...trace,
       status: 'contract_checked',
       httpStatus: 202,
       message: run.result.safeMessage,
@@ -62,6 +79,7 @@ export function buildPlatformV7ServerActionContractResponse(
 
   return {
     boundaryId: run.result.boundaryId,
+    ...trace,
     status: 'runtime_candidate',
     httpStatus: run.repository.durable ? 202 : 409,
     message: run.repository.durable
@@ -82,6 +100,8 @@ export function buildPlatformV7ServerActionContractResponse(
 export function getPlatformV7ServerActionContractSummary(response: PlatformV7ServerActionContractResponse) {
   return {
     boundaryId: response.boundaryId,
+    actionId: response.actionId,
+    serviceName: response.serviceName,
     status: response.status,
     httpStatus: response.httpStatus,
     canClaimExecuted: response.canClaimExecuted,
