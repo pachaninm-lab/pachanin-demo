@@ -67,6 +67,12 @@ export type PlatformV7ServerActionRouteResult = {
   readonly body: Record<string, unknown>;
 };
 
+type PlatformV7ServerActionRouteIssue = {
+  readonly boundary: string;
+  readonly status: string;
+  readonly reason: string;
+};
+
 export type PlatformV7ServerActionRouteSummary = {
   readonly status: 'ready_for_manual_runtime_review' | 'ready_for_runtime_write' | 'stopped_by_server_boundary';
   readonly canReachRuntimeBoundary: boolean;
@@ -75,11 +81,7 @@ export type PlatformV7ServerActionRouteSummary = {
   readonly persisted: false;
   readonly requiresManualReview: boolean;
   readonly issueCount: number;
-  readonly issues: readonly {
-    readonly boundary: string;
-    readonly status: string;
-    readonly reason: string;
-  }[];
+  readonly issues: readonly PlatformV7ServerActionRouteIssue[];
 };
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
@@ -111,6 +113,14 @@ function readRiskSnapshot(value: unknown): PlatformV7RiskReviewSnapshot | undefi
   };
 }
 
+function routeIssue(boundary: string, status: string, reason: string): PlatformV7ServerActionRouteIssue {
+  return { boundary, status, reason };
+}
+
+function isRouteIssue(issue: PlatformV7ServerActionRouteIssue | undefined): issue is PlatformV7ServerActionRouteIssue {
+  return issue !== undefined;
+}
+
 function buildPlatformV7ServerActionRouteSummary(input: {
   readonly idempotencyBoundary: ReturnType<typeof checkPlatformV7ServerIdempotencyBoundary>;
   readonly auditBoundary: ReturnType<typeof checkPlatformV7ServerAuditBoundary>;
@@ -124,30 +134,26 @@ function buildPlatformV7ServerActionRouteSummary(input: {
 }): PlatformV7ServerActionRouteSummary {
   const issues = [
     !input.idempotencyBoundary.canProceed
-      ? { boundary: 'idempotency', status: input.idempotencyBoundary.status, reason: input.idempotencyBoundary.reason }
+      ? routeIssue('idempotency', input.idempotencyBoundary.status, input.idempotencyBoundary.reason)
       : undefined,
     !input.auditBoundary.canProceed
-      ? { boundary: 'audit', status: input.auditBoundary.status, reason: input.auditBoundary.reason }
+      ? routeIssue('audit', input.auditBoundary.status, input.auditBoundary.reason)
       : undefined,
     !input.documentGate.canReachDocumentRuntimeBoundary
-      ? { boundary: 'document', status: input.documentGate.status, reason: input.documentGate.reason }
+      ? routeIssue('document', input.documentGate.status, input.documentGate.reason)
       : undefined,
-    !input.tripGate.canReachTripRuntimeBoundary
-      ? { boundary: 'trip', status: input.tripGate.status, reason: input.tripGate.reason }
-      : undefined,
+    !input.tripGate.canReachTripRuntimeBoundary ? routeIssue('trip', input.tripGate.status, input.tripGate.reason) : undefined,
     !input.disputeGate.canReachDisputeRuntimeBoundary
-      ? { boundary: 'dispute', status: input.disputeGate.status, reason: input.disputeGate.reason }
+      ? routeIssue('dispute', input.disputeGate.status, input.disputeGate.reason)
       : undefined,
     !input.supportGate.canReachSupportRuntimeBoundary
-      ? { boundary: 'support', status: input.supportGate.status, reason: input.supportGate.reason }
+      ? routeIssue('support', input.supportGate.status, input.supportGate.reason)
       : undefined,
     !input.riskReviewGate.canReachRiskReviewBoundary
-      ? { boundary: 'risk_review', status: input.riskReviewGate.status, reason: input.riskReviewGate.reason }
+      ? routeIssue('risk_review', input.riskReviewGate.status, input.riskReviewGate.reason)
       : undefined,
-    !input.moneyGuard.canReachMoneyRuntimeBoundary
-      ? { boundary: 'money', status: input.moneyGuard.status, reason: input.moneyGuard.reason }
-      : undefined,
-  ].filter((issue): issue is { boundary: string; status: string; reason: string } => issue !== undefined);
+    !input.moneyGuard.canReachMoneyRuntimeBoundary ? routeIssue('money', input.moneyGuard.status, input.moneyGuard.reason) : undefined,
+  ].filter(isRouteIssue);
 
   const canReachRuntimeBoundary = issues.length === 0;
   const canAttemptRuntimeWrite = canReachRuntimeBoundary && input.persistenceBoundary.canAttemptRuntimeWrite;
