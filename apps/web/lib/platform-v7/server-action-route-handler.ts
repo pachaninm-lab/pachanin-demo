@@ -177,6 +177,26 @@ function buildPlatformV7ServerActionRouteSummary(input: {
   };
 }
 
+function buildPlatformV7ServerActionRouteResult(input: {
+  readonly response: ReturnType<typeof buildPlatformV7ServerActionContractResponse>;
+  readonly routeSummary: PlatformV7ServerActionRouteSummary;
+  readonly body: Record<string, unknown>;
+}): PlatformV7ServerActionRouteResult {
+  if (input.response.status === 'not_accepted') {
+    return { ok: false, status: input.response.httpStatus, body: input.body };
+  }
+
+  if (!input.routeSummary.canReachRuntimeBoundary) {
+    return { ok: false, status: 409, body: input.body };
+  }
+
+  return {
+    ok: true,
+    status: input.routeSummary.canAttemptRuntimeWrite ? 200 : 202,
+    body: input.body,
+  };
+}
+
 export function buildPlatformV7ServerActionInputFromRouteBody(
   body: PlatformV7ServerActionRouteBody,
 ): PlatformV7ExecutionEnvelopeInput | undefined {
@@ -296,33 +316,30 @@ export function handlePlatformV7ServerActionRouteBody(
     moneyGuard,
     persistenceBoundary,
   });
-
-  return {
-    ok: response.status !== 'not_accepted',
-    status: response.httpStatus,
-    body: {
-      ok: response.status !== 'not_accepted',
-      response,
-      summary: getPlatformV7ServerActionContractSummary(response),
-      routeSummary,
-      idempotencyBoundary,
-      idempotencySummary: getPlatformV7ServerIdempotencyBoundarySummary(idempotencyBoundary),
-      auditBoundary,
-      auditSummary: getPlatformV7ServerAuditBoundarySummary(auditBoundary),
-      documentGate,
-      documentGateSummary: getPlatformV7ServerDocumentGateSummary(documentGate),
-      tripGate,
-      tripGateSummary: getPlatformV7ServerTripGateSummary(tripGate),
-      disputeGate,
-      disputeGateSummary: getPlatformV7ServerDisputeGateSummary(disputeGate),
-      supportGate,
-      supportGateSummary: getPlatformV7ServerSupportGateSummary(supportGate),
-      riskReviewGate,
-      riskReviewGateSummary: getPlatformV7ServerRiskReviewGateSummary(riskReviewGate),
-      moneyGuard,
-      moneyGuardSummary: getPlatformV7ServerMoneyOperationGuardSummary(moneyGuard),
-      persistenceBoundary,
-      persistenceSummary: getPlatformV7ServerPersistenceBoundarySummary(persistenceBoundary),
-    },
+  const responseBody = {
+    ok: routeSummary.canReachRuntimeBoundary && response.status !== 'not_accepted',
+    response,
+    summary: getPlatformV7ServerActionContractSummary(response),
+    routeSummary,
+    idempotencyBoundary,
+    idempotencySummary: getPlatformV7ServerIdempotencyBoundarySummary(idempotencyBoundary),
+    auditBoundary,
+    auditSummary: getPlatformV7ServerAuditBoundarySummary(auditBoundary),
+    documentGate,
+    documentGateSummary: getPlatformV7ServerDocumentGateSummary(documentGate),
+    tripGate,
+    tripGateSummary: getPlatformV7ServerTripGateSummary(tripGate),
+    disputeGate,
+    disputeGateSummary: getPlatformV7ServerDisputeGateSummary(disputeGate),
+    supportGate,
+    supportGateSummary: getPlatformV7ServerSupportGateSummary(supportGate),
+    riskReviewGate,
+    riskReviewGateSummary: getPlatformV7ServerRiskReviewGateSummary(riskReviewGate),
+    moneyGuard,
+    moneyGuardSummary: getPlatformV7ServerMoneyOperationGuardSummary(moneyGuard),
+    persistenceBoundary,
+    persistenceSummary: getPlatformV7ServerPersistenceBoundarySummary(persistenceBoundary),
   };
+
+  return buildPlatformV7ServerActionRouteResult({ response, routeSummary, body: responseBody });
 }
