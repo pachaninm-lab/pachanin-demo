@@ -11,6 +11,7 @@ describe('platform-v7 trip service contract', () => {
       'getDriverTrip',
       'appendTripAudit',
       'confirmTripCheckpoint',
+      'openTripIncident',
     ]);
   });
 
