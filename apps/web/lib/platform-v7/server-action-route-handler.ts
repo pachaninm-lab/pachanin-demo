@@ -31,6 +31,10 @@ import {
   getPlatformV7ServerPersistenceBoundarySummary,
 } from './server-persistence-boundary';
 import {
+  checkPlatformV7ServerSupportGate,
+  getPlatformV7ServerSupportGateSummary,
+} from './server-support-gate';
+import {
   checkPlatformV7ServerTripGate,
   getPlatformV7ServerTripGateSummary,
 } from './server-trip-gate';
@@ -160,6 +164,14 @@ export function handlePlatformV7ServerActionRouteBody(
     idempotencyBoundary,
     auditBoundary,
   });
+  const supportGate = checkPlatformV7ServerSupportGate({
+    response,
+    relatedEntityId: input.entityId,
+    relatedEntityType: input.entityType,
+    supportCaseId: input.entityId,
+    idempotencyBoundary,
+    auditBoundary,
+  });
   const moneyGuard = checkPlatformV7ServerMoneyOperationGuard({
     response,
     dealId: input.dealId,
@@ -187,6 +199,8 @@ export function handlePlatformV7ServerActionRouteBody(
       tripGateSummary: getPlatformV7ServerTripGateSummary(tripGate),
       disputeGate,
       disputeGateSummary: getPlatformV7ServerDisputeGateSummary(disputeGate),
+      supportGate,
+      supportGateSummary: getPlatformV7ServerSupportGateSummary(supportGate),
       moneyGuard,
       moneyGuardSummary: getPlatformV7ServerMoneyOperationGuardSummary(moneyGuard),
       persistenceBoundary,
