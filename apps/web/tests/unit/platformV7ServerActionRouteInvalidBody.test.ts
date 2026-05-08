@@ -9,10 +9,12 @@ describe('platform-v7 server action route invalid body response', () => {
     });
 
     expect(result.status).toBe(400);
+    expect(result.httpMeaning).toBe('not_accepted');
     expect(result.body).toMatchObject({
       ok: false,
       status: 'not_accepted',
       acceptedForReview: false,
+      httpMeaning: 'not_accepted',
       canClaimExecuted: false,
       persisted: false,
       attemptedRuntimeWrite: false,
