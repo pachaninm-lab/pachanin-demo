@@ -26,6 +26,7 @@ describe('platform-v7 action permission boundary', () => {
     expect(getPlatformV7ActionServiceName('money.request_reserve')).toBe('money');
     expect(getPlatformV7ActionServiceName('bank.confirm_money_released')).toBe('money');
     expect(getPlatformV7ActionServiceName('document.accept')).toBe('document');
+    expect(getPlatformV7ActionServiceName('arbitration.record_decision')).toBe('dispute');
   });
 
   it('keeps driver limited to driver checkpoint and support actions', () => {
@@ -45,6 +46,15 @@ describe('platform-v7 action permission boundary', () => {
     expect(canPlatformV7RoleInvokeAction('bank', 'money.request_reserve').allowed).toBe(false);
     expect(canPlatformV7RoleInvokeAction('bank', 'bank.confirm_money_reserved').allowed).toBe(true);
     expect(canPlatformV7RoleInvokeAction('bank', 'bank.confirm_money_released').allowed).toBe(true);
+  });
+
+  it('keeps decision recording limited to arbitration, bank and operator roles', () => {
+    expect(canPlatformV7RoleInvokeAction('arbitrator', 'arbitration.record_decision').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('bank', 'arbitration.record_decision').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('operator', 'arbitration.record_decision').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('seller', 'arbitration.record_decision').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('buyer', 'arbitration.record_decision').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('driver', 'arbitration.record_decision').allowed).toBe(false);
   });
 
   it('keeps seller and buyer symmetric but separate', () => {
