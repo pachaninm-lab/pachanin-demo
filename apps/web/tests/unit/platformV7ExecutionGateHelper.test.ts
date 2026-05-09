@@ -33,6 +33,28 @@ describe('platform-v7 execution gate helper', () => {
     expect(canPlatformV7ExecutionGateProceedToRuntime(result)).toBe(true);
   });
 
+  it('blocks unknown actor roles before runtime', () => {
+    const result = checkPlatformV7ExecutionGate({
+      boundaryId: 'request_money_reserve',
+      actorId: 'unknown-1',
+      actorRole: 'external_admin',
+      entityId: 'money-1',
+      entityType: 'money_record',
+      payload: {
+        dealId: 'deal-1',
+        amountMinor: 100,
+        currency: 'RUB',
+        reason: 'Reserve request.',
+      },
+      occurredAt: '2026-05-07T10:00:00.000Z',
+      summary: 'Unknown actor role boundary attempt.',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues.map((issue) => issue.code)).toContain('role_not_allowed');
+    expect(canPlatformV7ExecutionGateProceedToRuntime(result)).toBe(false);
+  });
+
   it('blocks roles from calling forbidden money boundaries', () => {
     const result = checkPlatformV7ExecutionGate({
       boundaryId: 'confirm_money_released',
