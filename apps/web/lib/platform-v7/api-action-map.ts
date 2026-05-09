@@ -19,6 +19,7 @@ export const PLATFORM_V7_API_ACTION_MAP: Partial<Record<PlatformV7ApiBoundaryId,
   upload_document: 'document.attach',
   accept_document: 'document.accept',
   open_dispute: 'dispute.open',
+  resolve_dispute: 'arbitration.record_decision',
   create_support_case: 'support.create_case',
   append_support_message: 'support.append_message',
 };
