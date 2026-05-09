@@ -9,6 +9,7 @@ import {
   PLATFORM_V7_API_BOUNDARIES,
 } from '@/lib/platform-v7/api-boundary-contracts';
 import { getPlatformV7ExecutionCommand } from '@/lib/platform-v7/execution-command-contracts';
+import { PLATFORM_V7_ROLE_HOME_ROUTE } from '@/lib/platform-v7/role-access';
 
 describe('platform-v7 api boundary contracts', () => {
   it('keeps API surface explicitly contract-only', () => {
@@ -39,6 +40,16 @@ describe('platform-v7 api boundary contracts', () => {
     expect(moneyBoundaries.every((boundary) => boundary.requiresDealId)).toBe(true);
     expect(moneyBoundaries.every((boundary) => boundary.requiresIdempotencyKey)).toBe(true);
     expect(moneyBoundaries.every((boundary) => boundary.writesAuditEvent)).toBe(true);
+  });
+
+  it('keeps every API boundary role registered in route access', () => {
+    const registeredRoles = new Set(Object.keys(PLATFORM_V7_ROLE_HOME_ROUTE));
+
+    for (const boundary of PLATFORM_V7_API_BOUNDARIES) {
+      for (const role of boundary.actorRoles) {
+        expect(registeredRoles.has(role), `${boundary.id}:${role}`).toBe(true);
+      }
+    }
   });
 
   it('keeps command-backed endpoints aligned with execution command contracts', () => {
