@@ -41,6 +41,8 @@ export type PlatformV7PersistenceRepository = {
 };
 
 const keyFor = (entity: PlatformV7PersistentEntity, id: string) => `${entity}:${id}`;
+const idempotencyKeyFor = (entity: PlatformV7PersistentEntity, idempotencyKey: string) =>
+  `${entity}:${idempotencyKey}`;
 
 const validateRecord = (record: PlatformV7PersistedRecord): string[] => {
   const contract = getPlatformV7PersistenceContract(record.entity);
@@ -62,27 +64,37 @@ const validateRecord = (record: PlatformV7PersistedRecord): string[] => {
 
 export function createPlatformV7MemoryPersistenceRepository(): PlatformV7PersistenceRepository {
   const records = new Map<string, PlatformV7PersistedRecord>();
+  const idempotencyIndex = new Map<string, string>();
 
   return {
     mode: 'memory_test_adapter_not_durable',
     save: <TPayload extends Record<string, unknown>>(record: PlatformV7PersistedRecord<TPayload>) => {
       const issues = validateRecord(record);
       const key = keyFor(record.entity, record.id);
+      const idempotencyKey = idempotencyKeyFor(record.entity, record.idempotencyKey);
 
       if (issues.length > 0) return { ok: false, error: issues.join(' ') };
       if (records.has(key)) return { ok: false, error: `Record ${key} already exists.` };
+      if (idempotencyIndex.has(idempotencyKey)) {
+        return { ok: false, error: `Idempotency key ${idempotencyKey} already exists.` };
+      }
 
       records.set(key, record);
+      idempotencyIndex.set(idempotencyKey, key);
       return { ok: true, value: record };
     },
     update: <TPayload extends Record<string, unknown>>(record: PlatformV7PersistedRecord<TPayload>) => {
       const contract = getPlatformV7PersistenceContract(record.entity);
       const key = keyFor(record.entity, record.id);
       const issues = validateRecord(record);
+      const existingRecord = records.get(key);
 
       if (issues.length > 0) return { ok: false, error: issues.join(' ') };
-      if (!records.has(key)) return { ok: false, error: `Record ${key} does not exist.` };
+      if (!existingRecord) return { ok: false, error: `Record ${key} does not exist.` };
       if (contract?.storageMode === 'append_only') return { ok: false, error: `Append-only entity ${record.entity} cannot be updated.` };
+      if (existingRecord.idempotencyKey !== record.idempotencyKey) {
+        return { ok: false, error: `Idempotency key cannot be changed for ${key}.` };
+      }
 
       records.set(key, record);
       return { ok: true, value: record };
@@ -95,11 +107,13 @@ export function createPlatformV7MemoryPersistenceRepository(): PlatformV7Persist
       Array.from(records.values()).filter((record) => record.entity === entity) as PlatformV7PersistedRecord<TPayload>[],
     remove: (entity: PlatformV7PersistentEntity, id: string) => {
       const key = keyFor(entity, id);
+      const record = records.get(key);
 
-      if (!records.has(key)) return { ok: false, error: `Record ${key} does not exist.` };
+      if (!record) return { ok: false, error: `Record ${key} does not exist.` };
       if (!canPlatformV7EntityBeDeletedByUser(entity)) return { ok: false, error: `Entity ${entity} cannot be removed by user action.` };
 
       records.delete(key);
+      idempotencyIndex.delete(idempotencyKeyFor(record.entity, record.idempotencyKey));
       return { ok: true, value: null };
     },
   };
