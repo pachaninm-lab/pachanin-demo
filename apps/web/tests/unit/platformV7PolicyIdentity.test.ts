@@ -20,6 +20,14 @@ describe('platform-v7 policy identity', () => {
     }
   });
 
+  it('keeps every policy behind execution boundaries', () => {
+    for (const item of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(item.needsDurableWrite).toBe(true);
+      expect(item.needsAuditEvent).toBe(true);
+      expect(item.needsIdempotencyKey).toBe(true);
+    }
+  });
+
   it('uses registered services', () => {
     const services = new Set(PLATFORM_V7_EXECUTION_SERVICE_NAMES);
 
