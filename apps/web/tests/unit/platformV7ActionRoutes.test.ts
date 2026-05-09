@@ -21,4 +21,12 @@ describe('platform-v7 action routes', () => {
     const actionIds = PLATFORM_V7_ACTION_PERMISSION_POLICIES.map((policy) => policy.actionId);
     expect(new Set(actionIds).size).toBe(actionIds.length);
   });
+
+  it('keeps action permission policies audit-ready', () => {
+    for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(policy.needsDurableWrite, policy.actionId).toBe(true);
+      expect(policy.needsAuditEvent, policy.actionId).toBe(true);
+      expect(policy.needsIdempotencyKey, policy.actionId).toBe(true);
+    }
+  });
 });
