@@ -25,6 +25,11 @@ describe('platform-v7 action routes', () => {
     expect(new Set(actionIds).size).toBe(actionIds.length);
   });
 
+  it('keeps action permission policy routes unique', () => {
+    const routes = PLATFORM_V7_ACTION_PERMISSION_POLICIES.map((policy) => policy.route);
+    expect(new Set(routes).size).toBe(routes.length);
+  });
+
   it('keeps action permission policies audit-ready', () => {
     for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
       expect(policy.needsDurableWrite, policy.actionId).toBe(true);
