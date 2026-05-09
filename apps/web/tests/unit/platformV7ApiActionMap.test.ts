@@ -19,6 +19,13 @@ describe('platform-v7 api action map', () => {
     expect(actionId ? getPlatformV7ActionServiceName(actionId) : undefined).toBe('trip');
   });
 
+  it('keeps trip incident api tied to trip action and trip service', () => {
+    const actionId = getPlatformV7ActionForApiBoundary('open_incident');
+
+    expect(actionId).toBe('trip.open_incident');
+    expect(actionId ? getPlatformV7ActionServiceName(actionId) : undefined).toBe('trip');
+  });
+
   it('keeps money api boundaries tied to money actions and money service', () => {
     expect(getPlatformV7ActionForApiBoundary('request_money_reserve')).toBe('money.request_reserve');
     expect(getPlatformV7ActionForApiBoundary('confirm_money_reserved')).toBe('bank.confirm_money_reserved');
