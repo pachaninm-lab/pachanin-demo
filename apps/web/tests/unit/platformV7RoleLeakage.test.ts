@@ -89,6 +89,14 @@ describe('platform-v7 role leakage matrix', () => {
     expect(canPlatformV7RoleOpenRoute('seller', '/platform-v7/connectors').allowed).toBe(false);
   });
 
+  it('keeps investor route policy observational', () => {
+    expect(canPlatformV7RoleOpenRoute('investor', '/platform-v7/investor')).toEqual({ allowed: true, reason: 'Маршрут доступен для роли.' });
+    expect(canPlatformV7RoleOpenRoute('investor', '/platform-v7/roles').allowed).toBe(false);
+    expect(canPlatformV7RoleOpenRoute('investor', '/platform-v7/driver/field').allowed).toBe(false);
+    expect(canPlatformV7RoleOpenRoute('investor', '/platform-v7/control-tower').allowed).toBe(false);
+    expect(canPlatformV7RoleOpenRoute('investor', '/platform-v7/connectors').allowed).toBe(false);
+  });
+
   it('keeps provider integration registry internal to operator surfaces', () => {
     for (const role of roles.filter((role) => role !== 'operator')) {
       expect(isPlatformV7SurfaceForbiddenForRole(role, 'providerDebug')).toBe(true);
