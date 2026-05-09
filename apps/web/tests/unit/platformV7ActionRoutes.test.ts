@@ -36,4 +36,14 @@ describe('platform-v7 action routes', () => {
       expect(policy.serviceName.trim(), policy.actionId).toBe(policy.serviceName);
     }
   });
+
+  it('keeps action permission roles normalized and unique per policy', () => {
+    for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(new Set(policy.allowedRoles).size, policy.actionId).toBe(policy.allowedRoles.length);
+
+      for (const role of policy.allowedRoles) {
+        expect(role.trim(), policy.actionId).toBe(role);
+      }
+    }
+  });
 });
