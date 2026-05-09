@@ -14,7 +14,9 @@ const knownRoles = Object.keys(PLATFORM_V7_ROLE_HOME_ROUTE) as PlatformV7Role[];
 const knownRoleSet = new Set(knownRoles);
 
 function isRouteBlockedForRole(role: PlatformV7Role, route: string): boolean {
-  return PLATFORM_V7_ROLE_BLOCKED_ROUTE_PREFIXES[role].some((prefix) => route === prefix || route.startsWith(`${prefix}/`));
+  return PLATFORM_V7_ROLE_BLOCKED_ROUTE_PREFIXES[role].some(
+    (prefix) => route === prefix || route.startsWith(`${prefix}/`),
+  );
 }
 
 describe('platform-v7 action policy roles', () => {
