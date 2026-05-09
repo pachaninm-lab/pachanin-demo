@@ -17,6 +17,7 @@ describe('platform-v7 action routes', () => {
       expect(policy.route.includes('?'), policy.actionId).toBe(false);
       expect(policy.route.includes('#'), policy.actionId).toBe(false);
       expect(policy.route.endsWith('/'), policy.actionId).toBe(false);
+      expect(policy.route).toBe(policy.route.toLowerCase());
     }
   });
 
@@ -31,6 +32,7 @@ describe('platform-v7 action routes', () => {
       expect(policy.actionId.includes('/'), policy.route).toBe(false);
       expect(policy.actionId.includes('?'), policy.route).toBe(false);
       expect(policy.actionId.includes('#'), policy.route).toBe(false);
+      expect(policy.actionId).toMatch(/^[a-z]+(?:_[a-z]+)*\.[a-z]+(?:_[a-z]+)*$/);
     }
   });
 
@@ -55,6 +57,7 @@ describe('platform-v7 action routes', () => {
       expect(policy.serviceName.includes('/'), policy.actionId).toBe(false);
       expect(policy.serviceName.includes('?'), policy.actionId).toBe(false);
       expect(policy.serviceName.includes('#'), policy.actionId).toBe(false);
+      expect(policy.serviceName).toMatch(/^[a-z]+(?:_[a-z]+)*$/);
     }
   });
 
