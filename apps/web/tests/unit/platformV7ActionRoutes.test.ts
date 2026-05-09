@@ -16,4 +16,9 @@ describe('platform-v7 action routes', () => {
       expect(policy.route.includes('//'), policy.actionId).toBe(false);
     }
   });
+
+  it('keeps action permission policies unique by action id', () => {
+    const actionIds = PLATFORM_V7_ACTION_PERMISSION_POLICIES.map((policy) => policy.actionId);
+    expect(new Set(actionIds).size).toBe(actionIds.length);
+  });
 });
