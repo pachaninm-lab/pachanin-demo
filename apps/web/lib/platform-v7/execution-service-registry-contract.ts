@@ -20,6 +20,12 @@ export function hasUniquePlatformV7ExecutionServiceNames(
   return new Set(serviceNames).size === serviceNames.length;
 }
 
+export function hasOnlyNamedPlatformV7ExecutionServices(
+  serviceNames: readonly string[] = PLATFORM_V7_EXECUTION_SERVICE_NAMES,
+): boolean {
+  return serviceNames.every((name) => name.trim().length > 0);
+}
+
 export function doesPlatformV7ExecutionRegistryRequireTripBoundary(
   serviceNames: readonly string[] = PLATFORM_V7_EXECUTION_SERVICE_NAMES,
 ): boolean {
