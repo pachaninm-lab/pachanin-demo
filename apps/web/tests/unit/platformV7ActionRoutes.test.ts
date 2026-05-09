@@ -52,6 +52,9 @@ describe('platform-v7 action routes', () => {
       expect(policy.allowedRoles.length, policy.actionId).toBeGreaterThan(0);
       expect(policy.serviceName.length, policy.actionId).toBeGreaterThan(0);
       expect(policy.serviceName.trim(), policy.actionId).toBe(policy.serviceName);
+      expect(policy.serviceName.includes('/'), policy.actionId).toBe(false);
+      expect(policy.serviceName.includes('?'), policy.actionId).toBe(false);
+      expect(policy.serviceName.includes('#'), policy.actionId).toBe(false);
     }
   });
 
