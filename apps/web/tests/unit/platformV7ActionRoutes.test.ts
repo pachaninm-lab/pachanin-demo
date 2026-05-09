@@ -14,6 +14,9 @@ describe('platform-v7 action routes', () => {
       expect(policy.route.trim(), policy.actionId).toBe(policy.route);
       expect(policy.route.includes(' '), policy.actionId).toBe(false);
       expect(policy.route.includes('//'), policy.actionId).toBe(false);
+      expect(policy.route.includes('?'), policy.actionId).toBe(false);
+      expect(policy.route.includes('#'), policy.actionId).toBe(false);
+      expect(policy.route.endsWith('/'), policy.actionId).toBe(false);
     }
   });
 
