@@ -8,6 +8,7 @@ import {
   getPlatformV7MoneyAffectingApiBoundaries,
   PLATFORM_V7_API_BOUNDARIES,
 } from '@/lib/platform-v7/api-boundary-contracts';
+import { getPlatformV7ExecutionCommand } from '@/lib/platform-v7/execution-command-contracts';
 
 describe('platform-v7 api boundary contracts', () => {
   it('keeps API surface explicitly contract-only', () => {
@@ -38,6 +39,23 @@ describe('platform-v7 api boundary contracts', () => {
     expect(moneyBoundaries.every((boundary) => boundary.requiresDealId)).toBe(true);
     expect(moneyBoundaries.every((boundary) => boundary.requiresIdempotencyKey)).toBe(true);
     expect(moneyBoundaries.every((boundary) => boundary.writesAuditEvent)).toBe(true);
+  });
+
+  it('keeps command-backed endpoints aligned with execution command contracts', () => {
+    const commandBackedBoundaries = PLATFORM_V7_API_BOUNDARIES.filter((boundary) => boundary.commandId);
+
+    expect(commandBackedBoundaries.length).toBeGreaterThan(15);
+
+    for (const boundary of commandBackedBoundaries) {
+      const command = getPlatformV7ExecutionCommand(boundary.commandId!);
+
+      expect(command, boundary.id).toBeDefined();
+      expect(boundary.actorRoles, boundary.id).toEqual(command?.actorRoles);
+      expect(boundary.requiresDealId, boundary.id).toBe(command?.requiresDealId);
+      expect(boundary.requiresIdempotencyKey, boundary.id).toBe(command?.requiresIdempotencyKey);
+      expect(boundary.writesAuditEvent, boundary.id).toBe(command?.requiresAuditEvent);
+      expect(boundary.affectsMoney, boundary.id).toBe(command?.affectsMoney);
+    }
   });
 
   it('keeps bank-only confirmation endpoints externally confirmed', () => {
