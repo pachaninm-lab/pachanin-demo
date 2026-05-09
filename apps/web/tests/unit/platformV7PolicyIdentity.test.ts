@@ -28,6 +28,12 @@ describe('platform-v7 policy identity', () => {
     }
   });
 
+  it('keeps every policy route inside platform-v7', () => {
+    for (const item of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(item.route.startsWith('/platform-v7')).toBe(true);
+    }
+  });
+
   it('uses registered services', () => {
     const services = new Set(PLATFORM_V7_EXECUTION_SERVICE_NAMES);
 
