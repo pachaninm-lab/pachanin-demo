@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { PLATFORM_V7_ACTION_PERMISSION_POLICIES } from '@/lib/platform-v7/action-permission-boundary';
-import { PLATFORM_V7_EXECUTION_SERVICE_NAMES } from '@/lib/platform-v7/execution-service-registry-contract';
+import {
+  PLATFORM_V7_EXECUTION_SERVICE_NAMES,
+  hasUniquePlatformV7ExecutionServiceNames,
+} from '@/lib/platform-v7/execution-service-registry-contract';
 
 describe('platform-v7 policy identity', () => {
   it('has unique ids', () => {
@@ -32,6 +35,11 @@ describe('platform-v7 policy identity', () => {
     for (const item of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
       expect(item.route.startsWith('/platform-v7')).toBe(true);
     }
+  });
+
+  it('keeps execution service names unique', () => {
+    expect(hasUniquePlatformV7ExecutionServiceNames()).toBe(true);
+    expect(hasUniquePlatformV7ExecutionServiceNames(['deal', 'deal'])).toBe(false);
   });
 
   it('uses registered services', () => {
