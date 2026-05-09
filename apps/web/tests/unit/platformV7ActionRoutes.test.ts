@@ -56,6 +56,7 @@ describe('platform-v7 action routes', () => {
       expect(policy.serviceName.includes('/'), policy.actionId).toBe(false);
       expect(policy.serviceName.includes('?'), policy.actionId).toBe(false);
       expect(policy.serviceName.includes('#'), policy.actionId).toBe(false);
+      expect(policy.serviceName).toMatch(/^[a-z]+(?:_[a-z]+)*$/);
     }
   });
 
