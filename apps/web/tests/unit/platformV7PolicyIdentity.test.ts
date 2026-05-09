@@ -14,6 +14,12 @@ describe('platform-v7 policy identity', () => {
     }
   });
 
+  it('does not repeat roles inside one policy', () => {
+    for (const item of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(new Set(item.allowedRoles).size).toBe(item.allowedRoles.length);
+    }
+  });
+
   it('uses registered services', () => {
     const services = new Set(PLATFORM_V7_EXECUTION_SERVICE_NAMES);
 
