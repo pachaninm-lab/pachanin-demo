@@ -1,3 +1,4 @@
+import type { PlatformV7Role } from './role-access';
 import type { PlatformV7StateEntity, PlatformV7TransitionGuard } from './state-transition-contracts';
 
 export type PlatformV7ExecutionCommandId =
@@ -23,7 +24,7 @@ export type PlatformV7ExecutionCommandId =
 export type PlatformV7ExecutionCommandContract = {
   readonly id: PlatformV7ExecutionCommandId;
   readonly label: string;
-  readonly actorRoles: readonly string[];
+  readonly actorRoles: readonly PlatformV7Role[];
   readonly entity: PlatformV7StateEntity;
   readonly from: string;
   readonly to: string;
@@ -313,7 +314,7 @@ export function getPlatformV7ExecutionCommand(id: PlatformV7ExecutionCommandId) 
   return PLATFORM_V7_EXECUTION_COMMANDS.find((command) => command.id === id);
 }
 
-export function getPlatformV7ExecutionCommandsForRole(role: string) {
+export function getPlatformV7ExecutionCommandsForRole(role: PlatformV7Role) {
   return PLATFORM_V7_EXECUTION_COMMANDS.filter((command) => command.actorRoles.includes(role));
 }
 
@@ -321,7 +322,7 @@ export function getPlatformV7ExecutionCommandsForEntity(entity: PlatformV7StateE
   return PLATFORM_V7_EXECUTION_COMMANDS.filter((command) => command.entity === entity);
 }
 
-export function canPlatformV7RoleRunCommand(role: string, id: PlatformV7ExecutionCommandId): boolean {
+export function canPlatformV7RoleRunCommand(role: PlatformV7Role, id: PlatformV7ExecutionCommandId): boolean {
   return getPlatformV7ExecutionCommand(id)?.actorRoles.includes(role) === true;
 }
 
