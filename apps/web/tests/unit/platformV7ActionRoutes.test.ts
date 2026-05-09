@@ -22,6 +22,14 @@ describe('platform-v7 action routes', () => {
     }
   });
 
+  it('keeps action permission routes away from weak legacy surfaces', () => {
+    for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(policy.route.includes('/demo'), policy.actionId).toBe(false);
+      expect(policy.route.includes('/marketplace'), policy.actionId).toBe(false);
+      expect(policy.route.includes('/domain-core'), policy.actionId).toBe(false);
+    }
+  });
+
   it('keeps action permission policies unique by action id', () => {
     const actionIds = PLATFORM_V7_ACTION_PERMISSION_POLICIES.map((policy) => policy.actionId);
     expect(new Set(actionIds).size).toBe(actionIds.length);
