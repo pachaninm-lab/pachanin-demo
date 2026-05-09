@@ -39,6 +39,43 @@ describe('platform-v7 server action route idempotency exposure', () => {
     });
   });
 
+  it('stops invalid money-looking idempotency keys before runtime boundary', () => {
+    const result = handlePlatformV7ServerActionRouteBody({
+      boundaryId: 'request_money_reserve',
+      actorId: 'buyer-1',
+      actorRole: 'buyer',
+      entityId: 'money-1',
+      entityType: 'money_record',
+      idempotencyKey: 'wrong:request_money_reserve:actor-buyer:entity-money:deal-1:amount-100000:currency-rub:attempt-1',
+      payload: {
+        dealId: 'deal-1',
+        amountMinor: 100_000,
+        currency: 'RUB',
+        reason: 'Reserve request.',
+      },
+      occurredAt: '2026-05-07T10:00:00.000Z',
+      summary: 'Reserve boundary checked.',
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: 409,
+      httpMeaning: 'stopped_by_server_boundary',
+    });
+    expect(result.body.idempotencyBoundary).toMatchObject({
+      status: 'blocked_invalid_idempotency_key',
+      canProceed: false,
+      requiresIdempotencyRecord: true,
+      keyValid: false,
+      moneyKey: false,
+    });
+    expect(result.body.routeSummary).toMatchObject({
+      status: 'stopped_by_server_boundary',
+      canReachRuntimeBoundary: false,
+      canAttemptRuntimeWrite: false,
+    });
+  });
+
   it('exposes ready idempotency boundary when money key is complete', () => {
     const idempotencyKey = buildPlatformV7IdempotencyKey({
       boundaryId: 'request_money_reserve',
