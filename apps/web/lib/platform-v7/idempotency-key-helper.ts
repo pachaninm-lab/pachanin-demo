@@ -57,27 +57,27 @@ export function validatePlatformV7IdempotencyKey(key: string): PlatformV7Idempot
     issues.push('Idempotency key must include boundary id.');
   }
 
-  if (!parts[2]?.startsWith('actor-') || parts[2] === 'actor-none') {
+  if (!parts[2]?.startsWith('actor-') || parts[2] === 'actor-none' || parts[2] === 'actor-') {
     issues.push('Idempotency key must include actor id.');
   }
 
-  if (!parts[3]?.startsWith('entity-') || parts[3] === 'entity-none') {
+  if (!parts[3]?.startsWith('entity-') || parts[3] === 'entity-none' || parts[3] === 'entity-') {
     issues.push('Idempotency key must include entity id.');
   }
 
-  if (!parts[4]?.startsWith('deal-')) {
+  if (!parts[4]?.startsWith('deal-') || parts[4] === 'deal-') {
     issues.push('Idempotency key must include deal segment.');
   }
 
-  if (!parts[5]?.startsWith('amount-')) {
+  if (!parts[5]?.startsWith('amount-') || parts[5] === 'amount-') {
     issues.push('Idempotency key must include amount segment.');
   }
 
-  if (!parts[6]?.startsWith('currency-')) {
+  if (!parts[6]?.startsWith('currency-') || parts[6] === 'currency-') {
     issues.push('Idempotency key must include currency segment.');
   }
 
-  if (!parts[7]?.startsWith('attempt-')) {
+  if (!parts[7]?.startsWith('attempt-') || parts[7] === 'attempt-') {
     issues.push('Idempotency key must include attempt segment.');
   }
 
