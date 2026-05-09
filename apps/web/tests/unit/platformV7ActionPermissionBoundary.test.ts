@@ -7,6 +7,7 @@ import {
   PLATFORM_V7_ACTION_PERMISSION_POLICIES,
 } from '@/lib/platform-v7/action-permission-boundary';
 import { getPlatformV7ActionServiceName } from '@/lib/platform-v7/action-service-map';
+import { PLATFORM_V7_EXECUTION_SERVICE_NAMES } from '@/lib/platform-v7/execution-service-registry-contract';
 
 describe('platform-v7 action permission boundary', () => {
   it('keeps every action behind durable write, audit and idempotency requirements', () => {
@@ -18,6 +19,14 @@ describe('platform-v7 action permission boundary', () => {
       needsAuditEvent: true,
       needsIdempotencyKey: true,
     });
+  });
+
+  it('keeps every action mapped to an execution registry service', () => {
+    const serviceNames = new Set<string>(PLATFORM_V7_EXECUTION_SERVICE_NAMES);
+
+    for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(serviceNames.has(policy.serviceName)).toBe(true);
+    }
   });
 
   it('keeps every action mapped to its execution service boundary', () => {
@@ -43,6 +52,7 @@ describe('platform-v7 action permission boundary', () => {
       'support.append_message',
     ]);
     expect(getPlatformV7ActionPermissionPoliciesForRole('driver').map((policy) => policy.actionId)).toEqual([
+      'driver.confirm_checkpoint',
       'trip.open_incident',
       'support.create_case',
       'support.append_message',
