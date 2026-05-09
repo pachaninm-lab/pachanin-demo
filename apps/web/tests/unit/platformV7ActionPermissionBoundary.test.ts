@@ -8,6 +8,23 @@ import {
 } from '@/lib/platform-v7/action-permission-boundary';
 import { getPlatformV7ActionServiceName } from '@/lib/platform-v7/action-service-map';
 import { PLATFORM_V7_EXECUTION_SERVICE_NAMES } from '@/lib/platform-v7/execution-service-registry-contract';
+import { canPlatformV7RoleOpenRoute, type PlatformV7Role } from '@/lib/platform-v7/role-access';
+
+const PLATFORM_V7_TEST_ROLES = [
+  'seller',
+  'buyer',
+  'logistics',
+  'driver',
+  'elevator',
+  'lab',
+  'surveyor',
+  'bank',
+  'operator',
+  'arbitrator',
+  'compliance',
+  'investor',
+  'executive',
+] as const satisfies readonly PlatformV7Role[];
 
 describe('platform-v7 action permission boundary', () => {
   it('keeps every action behind durable write, audit and idempotency requirements', () => {
@@ -19,6 +36,36 @@ describe('platform-v7 action permission boundary', () => {
       needsAuditEvent: true,
       needsIdempotencyKey: true,
     });
+  });
+
+  it('keeps action ids unique, role-scoped and inside the platform-v7 route boundary', () => {
+    const actionIds = PLATFORM_V7_ACTION_PERMISSION_POLICIES.map((policy) => policy.actionId);
+
+    expect(new Set(actionIds).size).toBe(actionIds.length);
+
+    for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(policy.route.startsWith('/platform-v7/')).toBe(true);
+      expect(policy.allowedRoles.length).toBeGreaterThan(0);
+
+      for (const role of policy.allowedRoles) {
+        expect(canPlatformV7RoleOpenRoute(role, policy.route).allowed).toBe(true);
+      }
+    }
+  });
+
+  it('keeps role action decisions aligned with route access decisions', () => {
+    for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      for (const role of PLATFORM_V7_TEST_ROLES) {
+        const decision = canPlatformV7RoleInvokeAction(role, policy.actionId);
+
+        if (!policy.allowedRoles.includes(role)) {
+          expect(decision.allowed).toBe(false);
+          continue;
+        }
+
+        expect(decision).toEqual(canPlatformV7RoleOpenRoute(role, policy.route));
+      }
+    }
   });
 
   it('keeps every action mapped to an execution registry service', () => {
