@@ -85,6 +85,8 @@ describe('platform-v7 action permission boundary', () => {
     expect(getPlatformV7ActionServiceName('bank.confirm_money_released')).toBe('money');
     expect(getPlatformV7ActionServiceName('document.accept')).toBe('document');
     expect(getPlatformV7ActionServiceName('arbitration.record_decision')).toBe('dispute');
+    expect(getPlatformV7ActionServiceName('proposal.submit')).toBe('proposal');
+    expect(getPlatformV7ActionServiceName('proposal.accept')).toBe('proposal');
   });
 
   it('returns stable action groups by service and role', () => {
@@ -93,6 +95,12 @@ describe('platform-v7 action permission boundary', () => {
       'bank.confirm_money_reserved',
       'bank.mark_money_ready_to_release',
       'bank.confirm_money_released',
+    ]);
+    expect(getPlatformV7ActionPermissionPoliciesForService('proposal').map((policy) => policy.actionId)).toEqual([
+      'buyer.submit_offer',
+      'seller.accept_offer',
+      'proposal.submit',
+      'proposal.accept',
     ]);
     expect(getPlatformV7ActionPermissionPoliciesForService('support').map((policy) => policy.actionId)).toEqual([
       'support.create_case',
@@ -132,6 +140,16 @@ describe('platform-v7 action permission boundary', () => {
     expect(canPlatformV7RoleInvokeAction('seller', 'arbitration.record_decision').allowed).toBe(false);
     expect(canPlatformV7RoleInvokeAction('buyer', 'arbitration.record_decision').allowed).toBe(false);
     expect(canPlatformV7RoleInvokeAction('driver', 'arbitration.record_decision').allowed).toBe(false);
+  });
+
+  it('keeps neutral proposal API actions limited to seller and buyer roles', () => {
+    expect(canPlatformV7RoleInvokeAction('seller', 'proposal.submit').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('buyer', 'proposal.submit').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('seller', 'proposal.accept').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('buyer', 'proposal.accept').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('operator', 'proposal.submit').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('bank', 'proposal.accept').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('driver', 'proposal.submit').allowed).toBe(false);
   });
 
   it('keeps seller and buyer symmetric but separate', () => {
