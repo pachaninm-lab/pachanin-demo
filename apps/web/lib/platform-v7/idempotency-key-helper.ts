@@ -85,7 +85,18 @@ export function validatePlatformV7IdempotencyKey(key: string): PlatformV7Idempot
 }
 
 export function isPlatformV7MoneyIdempotencyKey(key: string): boolean {
-  return key.includes(':amount-') && !key.includes(':amount-none') && key.includes(':currency-') && !key.includes(':currency-none');
+  const parts = key.split(':');
+  const amount = parts[5];
+  const currency = parts[6];
+
+  return Boolean(
+    amount?.startsWith('amount-') &&
+      amount !== 'amount-none' &&
+      amount !== 'amount-' &&
+      currency?.startsWith('currency-') &&
+      currency !== 'currency-none' &&
+      currency !== 'currency-',
+  );
 }
 
 export function getPlatformV7IdempotencyKeySummary(key: string) {
