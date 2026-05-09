@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AuditEvent } from '../../lib/platform-v7/core-types';
+import type { AuditEvent, PlatformRole } from '../../lib/platform-v7/core-types';
 import {
   getWorkflowDashboardModel,
   runWorkflowAction,
@@ -170,8 +170,8 @@ function entityLabel(entityType: string): string {
   return map[entityType] ?? entityType;
 }
 
-function roleLabel(role: string): string {
-  const map: Record<string, string> = {
+function roleLabel(role: PlatformRole): string {
+  const map: Record<PlatformRole, string> = {
     seller: 'продавец',
     buyer: 'покупатель',
     operator: 'оператор',
@@ -183,7 +183,7 @@ function roleLabel(role: string): string {
     lab: 'лаборатория',
     investor: 'наблюдатель',
   };
-  return map[role] ?? role;
+  return map[role];
 }
 
 const shell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 14, boxShadow: '0 14px 34px rgba(15,20,25,0.045)', minWidth: 0, overflow: 'hidden' } as const;
