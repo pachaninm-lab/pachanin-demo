@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PLATFORM_V7_ACTION_PERMISSION_POLICIES } from '@/lib/platform-v7/action-permission-boundary';
 import {
   PLATFORM_V7_EXECUTION_SERVICE_NAMES,
+  hasOnlyNamedPlatformV7ExecutionServices,
   hasUniquePlatformV7ExecutionServiceNames,
 } from '@/lib/platform-v7/execution-service-registry-contract';
 
@@ -40,6 +41,11 @@ describe('platform-v7 policy identity', () => {
   it('keeps execution service names unique', () => {
     expect(hasUniquePlatformV7ExecutionServiceNames()).toBe(true);
     expect(hasUniquePlatformV7ExecutionServiceNames(['deal', 'deal'])).toBe(false);
+  });
+
+  it('keeps execution service names explicit', () => {
+    expect(hasOnlyNamedPlatformV7ExecutionServices()).toBe(true);
+    expect(hasOnlyNamedPlatformV7ExecutionServices(['deal', ' '])).toBe(false);
   });
 
   it('uses registered services', () => {
