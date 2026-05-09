@@ -7,6 +7,8 @@ export const PLATFORM_V7_ACTION_SERVICE_MAP: Record<PlatformV7ActionPermissionId
   'buyer.create_rfq': 'rfq',
   'buyer.submit_offer': 'proposal',
   'seller.accept_offer': 'proposal',
+  'proposal.submit': 'proposal',
+  'proposal.accept': 'proposal',
   'deal.confirm_terms': 'deal',
   'money.request_reserve': 'money',
   'bank.confirm_money_reserved': 'money',

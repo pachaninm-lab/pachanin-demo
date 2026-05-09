@@ -30,6 +30,17 @@ describe('platform-v7 api action map', () => {
     expect(new Set(actionIds).size).toBe(actionIds.length);
   });
 
+  it('keeps proposal api boundaries tied to neutral proposal actions and service', () => {
+    expect(getPlatformV7ActionForApiBoundary('submit_proposal')).toBe('proposal.submit');
+    expect(getPlatformV7ActionForApiBoundary('accept_proposal')).toBe('proposal.accept');
+
+    for (const boundaryId of ['submit_proposal', 'accept_proposal'] as const) {
+      const actionId = getPlatformV7ActionForApiBoundary(boundaryId);
+      expect(actionId ? getPlatformV7ActionServiceName(actionId) : undefined).toBe('proposal');
+      expect(actionId ? getPlatformV7ActionPermissionPolicy(actionId).allowedRoles : undefined).toEqual(['seller', 'buyer']);
+    }
+  });
+
   it('keeps dispute resolution tied to arbitration action and dispute service', () => {
     const actionId = getPlatformV7ActionForApiBoundary('resolve_dispute');
 
