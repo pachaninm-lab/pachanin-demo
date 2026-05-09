@@ -33,27 +33,182 @@ export type PlatformV7ActionPermissionPolicy = {
   readonly needsIdempotencyKey: true;
 };
 
+type PlatformV7ActionPermissionDefinition = Omit<
+  PlatformV7ActionPermissionPolicy,
+  'needsDurableWrite' | 'needsAuditEvent' | 'needsIdempotencyKey'
+>;
+
+export const PLATFORM_V7_ACTION_RUNTIME_REQUIREMENTS = {
+  needsDurableWrite: true,
+  needsAuditEvent: true,
+  needsIdempotencyKey: true,
+} as const;
+
+const SELLER_OPERATOR_ROLES = ['seller', 'operator'] as const satisfies readonly PlatformV7Role[];
+const BUYER_OPERATOR_ROLES = ['buyer', 'operator'] as const satisfies readonly PlatformV7Role[];
+const DEAL_COUNTERPARTY_ROLES = ['seller', 'buyer', 'operator'] as const satisfies readonly PlatformV7Role[];
+const MONEY_BANK_ROLES = ['bank'] as const satisfies readonly PlatformV7Role[];
+const MONEY_RELEASE_REVIEW_ROLES = ['bank', 'operator'] as const satisfies readonly PlatformV7Role[];
+const LOGISTICS_OPERATOR_ROLES = ['logistics', 'operator'] as const satisfies readonly PlatformV7Role[];
+const DRIVER_CHECKPOINT_ROLES = ['driver', 'operator'] as const satisfies readonly PlatformV7Role[];
+const TRIP_ACCEPTANCE_ROLES = ['elevator', 'surveyor', 'operator'] as const satisfies readonly PlatformV7Role[];
+const TRIP_INCIDENT_ROLES = ['logistics', 'driver', 'elevator', 'surveyor', 'operator'] as const satisfies readonly PlatformV7Role[];
+const DOCUMENT_ATTACHMENT_ROLES = [
+  'seller',
+  'buyer',
+  'logistics',
+  'elevator',
+  'lab',
+  'surveyor',
+  'operator',
+] as const satisfies readonly PlatformV7Role[];
+const DOCUMENT_ACCEPTANCE_ROLES = ['operator', 'compliance'] as const satisfies readonly PlatformV7Role[];
+const DISPUTE_OPEN_ROLES = ['seller', 'buyer', 'operator', 'arbitrator', 'compliance'] as const satisfies readonly PlatformV7Role[];
+const ARBITRATION_DECISION_ROLES = ['arbitrator', 'bank', 'operator'] as const satisfies readonly PlatformV7Role[];
+const SUPPORT_PARTICIPANT_ROLES = [
+  'seller',
+  'buyer',
+  'logistics',
+  'driver',
+  'elevator',
+  'lab',
+  'surveyor',
+  'bank',
+  'operator',
+  'arbitrator',
+  'compliance',
+] as const satisfies readonly PlatformV7Role[];
+
+function definePlatformV7ActionPermissionPolicy(
+  definition: PlatformV7ActionPermissionDefinition,
+): PlatformV7ActionPermissionPolicy {
+  return {
+    ...definition,
+    ...PLATFORM_V7_ACTION_RUNTIME_REQUIREMENTS,
+  };
+}
+
 export const PLATFORM_V7_ACTION_PERMISSION_POLICIES: readonly PlatformV7ActionPermissionPolicy[] = [
-  { actionId: 'seller.create_batch', route: '/platform-v7/batches/new', allowedRoles: ['seller', 'operator'], serviceName: 'batch', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'seller.publish_lot', route: '/platform-v7/lots/create', allowedRoles: ['seller', 'operator'], serviceName: 'lot', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'buyer.create_rfq', route: '/platform-v7/buyer/rfq/new', allowedRoles: ['buyer', 'operator'], serviceName: 'rfq', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'buyer.submit_offer', route: '/platform-v7/buyer', allowedRoles: ['buyer', 'operator'], serviceName: 'proposal', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'seller.accept_offer', route: '/platform-v7/seller', allowedRoles: ['seller', 'operator'], serviceName: 'proposal', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'deal.confirm_terms', route: '/platform-v7/deals', allowedRoles: ['seller', 'buyer', 'operator'], serviceName: 'deal', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'money.request_reserve', route: '/platform-v7/buyer', allowedRoles: ['buyer', 'operator'], serviceName: 'money', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'bank.confirm_money_reserved', route: '/platform-v7/bank', allowedRoles: ['bank'], serviceName: 'money', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'bank.mark_money_ready_to_release', route: '/platform-v7/bank', allowedRoles: ['bank', 'operator'], serviceName: 'money', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'bank.confirm_money_released', route: '/platform-v7/bank', allowedRoles: ['bank'], serviceName: 'money', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'logistics.assign_driver', route: '/platform-v7/logistics', allowedRoles: ['logistics', 'operator'], serviceName: 'logistics', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'driver.confirm_checkpoint', route: '/platform-v7/driver/field', allowedRoles: ['driver', 'operator'], serviceName: 'trip', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'trip.accept', route: '/platform-v7/deals', allowedRoles: ['elevator', 'surveyor', 'operator'], serviceName: 'trip', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'trip.open_incident', route: '/platform-v7/logistics', allowedRoles: ['logistics', 'driver', 'elevator', 'surveyor', 'operator'], serviceName: 'trip', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'document.attach', route: '/platform-v7/documents', allowedRoles: ['seller', 'buyer', 'logistics', 'elevator', 'lab', 'surveyor', 'operator'], serviceName: 'document', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'document.accept', route: '/platform-v7/compliance', allowedRoles: ['operator', 'compliance'], serviceName: 'document', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'dispute.open', route: '/platform-v7/disputes', allowedRoles: ['seller', 'buyer', 'operator', 'arbitrator', 'compliance'], serviceName: 'dispute', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'arbitration.record_decision', route: '/platform-v7/disputes', allowedRoles: ['arbitrator', 'bank', 'operator'], serviceName: 'dispute', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'support.create_case', route: '/platform-v7/support/new', allowedRoles: ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator', 'arbitrator', 'compliance'], serviceName: 'support', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
-  { actionId: 'support.append_message', route: '/platform-v7/support', allowedRoles: ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator', 'arbitrator', 'compliance'], serviceName: 'support', needsDurableWrite: true, needsAuditEvent: true, needsIdempotencyKey: true },
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'seller.create_batch',
+    route: '/platform-v7/batches/new',
+    allowedRoles: SELLER_OPERATOR_ROLES,
+    serviceName: 'batch',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'seller.publish_lot',
+    route: '/platform-v7/lots/create',
+    allowedRoles: SELLER_OPERATOR_ROLES,
+    serviceName: 'lot',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'buyer.create_rfq',
+    route: '/platform-v7/buyer/rfq/new',
+    allowedRoles: BUYER_OPERATOR_ROLES,
+    serviceName: 'rfq',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'buyer.submit_offer',
+    route: '/platform-v7/buyer',
+    allowedRoles: BUYER_OPERATOR_ROLES,
+    serviceName: 'proposal',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'seller.accept_offer',
+    route: '/platform-v7/seller',
+    allowedRoles: SELLER_OPERATOR_ROLES,
+    serviceName: 'proposal',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'deal.confirm_terms',
+    route: '/platform-v7/deals',
+    allowedRoles: DEAL_COUNTERPARTY_ROLES,
+    serviceName: 'deal',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'money.request_reserve',
+    route: '/platform-v7/buyer',
+    allowedRoles: BUYER_OPERATOR_ROLES,
+    serviceName: 'money',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'bank.confirm_money_reserved',
+    route: '/platform-v7/bank',
+    allowedRoles: MONEY_BANK_ROLES,
+    serviceName: 'money',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'bank.mark_money_ready_to_release',
+    route: '/platform-v7/bank',
+    allowedRoles: MONEY_RELEASE_REVIEW_ROLES,
+    serviceName: 'money',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'bank.confirm_money_released',
+    route: '/platform-v7/bank',
+    allowedRoles: MONEY_BANK_ROLES,
+    serviceName: 'money',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'logistics.assign_driver',
+    route: '/platform-v7/logistics',
+    allowedRoles: LOGISTICS_OPERATOR_ROLES,
+    serviceName: 'logistics',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'driver.confirm_checkpoint',
+    route: '/platform-v7/driver/field',
+    allowedRoles: DRIVER_CHECKPOINT_ROLES,
+    serviceName: 'trip',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'trip.accept',
+    route: '/platform-v7/deals',
+    allowedRoles: TRIP_ACCEPTANCE_ROLES,
+    serviceName: 'trip',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'trip.open_incident',
+    route: '/platform-v7/logistics',
+    allowedRoles: TRIP_INCIDENT_ROLES,
+    serviceName: 'trip',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'document.attach',
+    route: '/platform-v7/documents',
+    allowedRoles: DOCUMENT_ATTACHMENT_ROLES,
+    serviceName: 'document',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'document.accept',
+    route: '/platform-v7/compliance',
+    allowedRoles: DOCUMENT_ACCEPTANCE_ROLES,
+    serviceName: 'document',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'dispute.open',
+    route: '/platform-v7/disputes',
+    allowedRoles: DISPUTE_OPEN_ROLES,
+    serviceName: 'dispute',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'arbitration.record_decision',
+    route: '/platform-v7/disputes',
+    allowedRoles: ARBITRATION_DECISION_ROLES,
+    serviceName: 'dispute',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'support.create_case',
+    route: '/platform-v7/support/new',
+    allowedRoles: SUPPORT_PARTICIPANT_ROLES,
+    serviceName: 'support',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'support.append_message',
+    route: '/platform-v7/support',
+    allowedRoles: SUPPORT_PARTICIPANT_ROLES,
+    serviceName: 'support',
+  }),
 ];
 
 export function getPlatformV7ActionPermissionPolicy(actionId: PlatformV7ActionPermissionId): PlatformV7ActionPermissionPolicy {
