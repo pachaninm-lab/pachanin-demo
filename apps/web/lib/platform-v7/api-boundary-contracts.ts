@@ -1,4 +1,5 @@
 import type { PlatformV7ExecutionCommandId } from './execution-command-contracts';
+import type { PlatformV7Role } from './role-access';
 
 export type PlatformV7ApiMethod = 'GET' | 'POST' | 'PATCH';
 
@@ -30,7 +31,7 @@ export type PlatformV7ApiBoundaryContract = {
   readonly id: PlatformV7ApiBoundaryId;
   readonly method: PlatformV7ApiMethod;
   readonly path: string;
-  readonly actorRoles: readonly string[];
+  readonly actorRoles: readonly PlatformV7Role[];
   readonly commandId?: PlatformV7ExecutionCommandId;
   readonly requiresAuth: boolean;
   readonly requiresEntityAcl: boolean;
@@ -420,7 +421,7 @@ export function getPlatformV7ApiBoundary(id: PlatformV7ApiBoundaryId) {
   return PLATFORM_V7_API_BOUNDARIES.find((boundary) => boundary.id === id);
 }
 
-export function getPlatformV7ApiBoundariesForRole(role: string) {
+export function getPlatformV7ApiBoundariesForRole(role: PlatformV7Role) {
   return PLATFORM_V7_API_BOUNDARIES.filter((boundary) => boundary.actorRoles.includes(role));
 }
 
@@ -432,7 +433,7 @@ export function getPlatformV7MoneyAffectingApiBoundaries() {
   return PLATFORM_V7_API_BOUNDARIES.filter((boundary) => boundary.affectsMoney);
 }
 
-export function canPlatformV7RoleCallApiBoundary(role: string, id: PlatformV7ApiBoundaryId): boolean {
+export function canPlatformV7RoleCallApiBoundary(role: PlatformV7Role, id: PlatformV7ApiBoundaryId): boolean {
   return getPlatformV7ApiBoundary(id)?.actorRoles.includes(role) === true;
 }
 

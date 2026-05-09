@@ -6,6 +6,7 @@ import {
   type PlatformV7ExecutionEnvelope,
   type PlatformV7ExecutionEnvelopeInput,
 } from './execution-envelope-helper';
+import { PLATFORM_V7_ROLE_HOME_ROUTE, type PlatformV7Role } from './role-access';
 
 export type PlatformV7ExecutionGateIssueCode =
   | 'boundary_not_found'
@@ -29,6 +30,10 @@ export type PlatformV7ExecutionGateResult = {
   readonly contractOnly: true;
 };
 
+function isPlatformV7Role(role: string): role is PlatformV7Role {
+  return Object.prototype.hasOwnProperty.call(PLATFORM_V7_ROLE_HOME_ROUTE, role);
+}
+
 export function checkPlatformV7ExecutionGate(input: PlatformV7ExecutionEnvelopeInput): PlatformV7ExecutionGateResult {
   const boundary = getPlatformV7ApiBoundary(input.boundaryId);
   const issues: PlatformV7ExecutionGateIssue[] = [];
@@ -49,7 +54,7 @@ export function checkPlatformV7ExecutionGate(input: PlatformV7ExecutionEnvelopeI
     };
   }
 
-  if (!canPlatformV7RoleCallApiBoundary(input.actorRole, input.boundaryId)) {
+  if (!isPlatformV7Role(input.actorRole) || !canPlatformV7RoleCallApiBoundary(input.actorRole, input.boundaryId)) {
     issues.push({
       code: 'role_not_allowed',
       message: `Role ${input.actorRole} cannot call boundary ${input.boundaryId}.`,
