@@ -14,6 +14,12 @@ export const PLATFORM_V7_EXECUTION_SERVICE_NAMES = [
   PLATFORM_V7_TRIP_SERVICE_NAME,
 ] as const;
 
+export function hasUniquePlatformV7ExecutionServiceNames(
+  serviceNames: readonly string[] = PLATFORM_V7_EXECUTION_SERVICE_NAMES,
+): boolean {
+  return new Set(serviceNames).size === serviceNames.length;
+}
+
 export function doesPlatformV7ExecutionRegistryRequireTripBoundary(
   serviceNames: readonly string[] = PLATFORM_V7_EXECUTION_SERVICE_NAMES,
 ): boolean {
