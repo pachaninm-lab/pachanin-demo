@@ -8,6 +8,12 @@ describe('platform-v7 policy identity', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('has at least one role per policy', () => {
+    for (const item of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(item.allowedRoles.length).toBeGreaterThan(0);
+    }
+  });
+
   it('uses registered services', () => {
     const services = new Set(PLATFORM_V7_EXECUTION_SERVICE_NAMES);
 
