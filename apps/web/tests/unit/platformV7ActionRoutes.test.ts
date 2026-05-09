@@ -29,4 +29,11 @@ describe('platform-v7 action routes', () => {
       expect(policy.needsIdempotencyKey, policy.actionId).toBe(true);
     }
   });
+
+  it('keeps action permission policies assigned to roles and services', () => {
+    for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(policy.allowedRoles.length, policy.actionId).toBeGreaterThan(0);
+      expect(policy.serviceName.trim(), policy.actionId).toBe(policy.serviceName);
+    }
+  });
 });
