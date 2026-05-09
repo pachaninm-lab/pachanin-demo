@@ -26,6 +26,13 @@ export function hasOnlyNamedPlatformV7ExecutionServices(
   return serviceNames.every((name) => name.trim().length > 0);
 }
 
+export function isPlatformV7ExecutionServiceName(
+  serviceName: string,
+  serviceNames: readonly string[] = PLATFORM_V7_EXECUTION_SERVICE_NAMES,
+): serviceName is PlatformV7ExecutionServiceName {
+  return serviceNames.includes(serviceName);
+}
+
 export function doesPlatformV7ExecutionRegistryRequireTripBoundary(
   serviceNames: readonly string[] = PLATFORM_V7_EXECUTION_SERVICE_NAMES,
 ): boolean {
