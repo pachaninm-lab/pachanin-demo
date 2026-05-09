@@ -18,6 +18,7 @@ describe('platform-v7 action routes', () => {
       expect(policy.route.includes('#'), policy.actionId).toBe(false);
       expect(policy.route.endsWith('/'), policy.actionId).toBe(false);
       expect(policy.route).toBe(policy.route.toLowerCase());
+      expect(policy.route).toMatch(/^\/platform-v7\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/);
     }
   });
 
