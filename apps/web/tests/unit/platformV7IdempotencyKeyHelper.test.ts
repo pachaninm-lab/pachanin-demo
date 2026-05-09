@@ -108,6 +108,14 @@ describe('platform-v7 idempotency key helper', () => {
     expect(isPlatformV7MoneyIdempotencyKey('p7:confirm_money_reserved:actor-bank:entity-money:deal-1:currency-rub:amount-100:attempt-none')).toBe(false);
   });
 
+  it('does not treat invalid money-looking keys as money keys', () => {
+    const invalidMoneyLikeKey = 'wrong:confirm_money_reserved:actor-bank:entity-money:deal-1:amount-100:currency-rub:attempt-none';
+
+    expect(validatePlatformV7IdempotencyKey(invalidMoneyLikeKey)).toMatchObject({ ok: false });
+    expect(isPlatformV7MoneyIdempotencyKey(invalidMoneyLikeKey)).toBe(false);
+    expect(getPlatformV7IdempotencyKeySummary(invalidMoneyLikeKey)).toMatchObject({ valid: false, moneyKey: false });
+  });
+
   it('returns a readable summary', () => {
     const key = buildPlatformV7IdempotencyKey({
       boundaryId: 'confirm_money_released',

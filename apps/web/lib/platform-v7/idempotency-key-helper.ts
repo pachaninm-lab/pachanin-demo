@@ -85,6 +85,10 @@ export function validatePlatformV7IdempotencyKey(key: string): PlatformV7Idempot
 }
 
 export function isPlatformV7MoneyIdempotencyKey(key: string): boolean {
+  if (!validatePlatformV7IdempotencyKey(key).ok) {
+    return false;
+  }
+
   const parts = key.split(':');
   const amount = parts[5];
   const currency = parts[6];
