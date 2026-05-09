@@ -3,7 +3,7 @@ import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key
 import { handlePlatformV7ServerActionRouteBody } from '@/lib/platform-v7/server-action-route-handler';
 
 describe('platform-v7 server action route idempotency exposure', () => {
-  it('exposes missing idempotency boundary for sensitive write route responses', () => {
+  it('stops sensitive write route responses when idempotency key is missing', () => {
     const result = handlePlatformV7ServerActionRouteBody({
       boundaryId: 'request_money_reserve',
       actorId: 'buyer-1',
@@ -20,13 +20,22 @@ describe('platform-v7 server action route idempotency exposure', () => {
       summary: 'Reserve boundary checked.',
     });
 
-    expect(result.status).toBe(202);
+    expect(result).toMatchObject({
+      ok: false,
+      status: 409,
+      httpMeaning: 'stopped_by_server_boundary',
+    });
     expect(result.body.idempotencyBoundary).toMatchObject({
       status: 'blocked_missing_idempotency_key',
       canProceed: false,
       requiresIdempotencyRecord: true,
       keyValid: false,
       moneyKey: false,
+    });
+    expect(result.body.routeSummary).toMatchObject({
+      status: 'stopped_by_server_boundary',
+      canReachRuntimeBoundary: false,
+      canAttemptRuntimeWrite: false,
     });
   });
 
