@@ -20,6 +20,11 @@ describe('platform-v7 api action map', () => {
     }
   });
 
+  it('keeps api boundary mappings unique by boundary id', () => {
+    const boundaryIds = Object.keys(PLATFORM_V7_API_ACTION_MAP);
+    expect(new Set(boundaryIds).size).toBe(boundaryIds.length);
+  });
+
   it('keeps the dispute close api unmapped until the action boundary is reviewed', () => {
     expect(getPlatformV7ApiBoundary('resolve_dispute')).toBeDefined();
     expect(getPlatformV7ActionForApiBoundary('resolve_dispute')).toBeUndefined();
