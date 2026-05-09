@@ -25,6 +25,11 @@ describe('platform-v7 api action map', () => {
     expect(new Set(boundaryIds).size).toBe(boundaryIds.length);
   });
 
+  it('keeps api action mappings one-to-one by default', () => {
+    const actionIds = Object.values(PLATFORM_V7_API_ACTION_MAP);
+    expect(new Set(actionIds).size).toBe(actionIds.length);
+  });
+
   it('keeps the dispute close api unmapped until the action boundary is reviewed', () => {
     expect(getPlatformV7ApiBoundary('resolve_dispute')).toBeDefined();
     expect(getPlatformV7ActionForApiBoundary('resolve_dispute')).toBeUndefined();
