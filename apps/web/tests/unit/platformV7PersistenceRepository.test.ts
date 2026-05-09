@@ -40,6 +40,38 @@ describe('platform-v7 persistence repository foundation', () => {
     });
   });
 
+  it('rejects duplicate idempotency keys within the same entity', () => {
+    const repository = createPlatformV7MemoryPersistenceRepository();
+    const duplicateIdempotencyRecord: PlatformV7PersistedRecord = {
+      ...baseRecord,
+      id: 'deal-2',
+      auditEventIds: ['audit-2'],
+      payload: { status: 'duplicate-submit' },
+    };
+
+    expect(repository.save(baseRecord)).toEqual({ ok: true, value: baseRecord });
+    expect(repository.save(duplicateIdempotencyRecord)).toEqual({
+      ok: false,
+      error: 'Idempotency key deal:idem-1 already exists.',
+    });
+  });
+
+  it('does not allow idempotency key changes on update', () => {
+    const repository = createPlatformV7MemoryPersistenceRepository();
+    const changedKeyRecord: PlatformV7PersistedRecord = {
+      ...baseRecord,
+      idempotencyKey: 'idem-2',
+      updatedAt: '2026-05-07T10:01:00.000Z',
+      payload: { status: 'changed-key' },
+    };
+
+    expect(repository.save(baseRecord)).toEqual({ ok: true, value: baseRecord });
+    expect(repository.update(changedKeyRecord)).toEqual({
+      ok: false,
+      error: 'Idempotency key cannot be changed for deal:deal-1.',
+    });
+  });
+
   it('rejects deal-bound records without deal id', () => {
     const repository = createPlatformV7MemoryPersistenceRepository();
     const moneyRecord: PlatformV7PersistedRecord = {
