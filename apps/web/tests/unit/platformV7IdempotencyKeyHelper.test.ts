@@ -53,6 +53,33 @@ describe('platform-v7 idempotency key helper', () => {
     expect(validatePlatformV7IdempotencyKey('wrong')).toMatchObject({ ok: false });
   });
 
+  it('rejects empty prefixed segments', () => {
+    expect(validatePlatformV7IdempotencyKey('p7:open_dispute:actor-:entity-1:deal-1:amount-100:currency-rub:attempt-1')).toMatchObject({
+      ok: false,
+      issues: ['Idempotency key must include actor id.'],
+    });
+    expect(validatePlatformV7IdempotencyKey('p7:open_dispute:actor-1:entity-:deal-1:amount-100:currency-rub:attempt-1')).toMatchObject({
+      ok: false,
+      issues: ['Idempotency key must include entity id.'],
+    });
+    expect(validatePlatformV7IdempotencyKey('p7:open_dispute:actor-1:entity-1:deal-:amount-100:currency-rub:attempt-1')).toMatchObject({
+      ok: false,
+      issues: ['Idempotency key must include deal segment.'],
+    });
+    expect(validatePlatformV7IdempotencyKey('p7:open_dispute:actor-1:entity-1:deal-1:amount-:currency-rub:attempt-1')).toMatchObject({
+      ok: false,
+      issues: ['Idempotency key must include amount segment.'],
+    });
+    expect(validatePlatformV7IdempotencyKey('p7:open_dispute:actor-1:entity-1:deal-1:amount-100:currency-:attempt-1')).toMatchObject({
+      ok: false,
+      issues: ['Idempotency key must include currency segment.'],
+    });
+    expect(validatePlatformV7IdempotencyKey('p7:open_dispute:actor-1:entity-1:deal-1:amount-100:currency-rub:attempt-')).toMatchObject({
+      ok: false,
+      issues: ['Idempotency key must include attempt segment.'],
+    });
+  });
+
   it('detects money idempotency keys', () => {
     const moneyKey = buildPlatformV7IdempotencyKey({
       boundaryId: 'confirm_money_reserved',
