@@ -7,6 +7,8 @@ export type PlatformV7ActionPermissionId =
   | 'buyer.create_rfq'
   | 'buyer.submit_offer'
   | 'seller.accept_offer'
+  | 'proposal.submit'
+  | 'proposal.accept'
   | 'deal.confirm_terms'
   | 'money.request_reserve'
   | 'bank.confirm_money_reserved'
@@ -46,6 +48,7 @@ export const PLATFORM_V7_ACTION_RUNTIME_REQUIREMENTS = {
 
 const SELLER_OPERATOR_ROLES = ['seller', 'operator'] as const satisfies readonly PlatformV7Role[];
 const BUYER_OPERATOR_ROLES = ['buyer', 'operator'] as const satisfies readonly PlatformV7Role[];
+const PROPOSAL_COUNTERPARTY_ROLES = ['seller', 'buyer'] as const satisfies readonly PlatformV7Role[];
 const DEAL_COUNTERPARTY_ROLES = ['seller', 'buyer', 'operator'] as const satisfies readonly PlatformV7Role[];
 const MONEY_BANK_ROLES = ['bank'] as const satisfies readonly PlatformV7Role[];
 const MONEY_RELEASE_REVIEW_ROLES = ['bank', 'operator'] as const satisfies readonly PlatformV7Role[];
@@ -117,6 +120,18 @@ export const PLATFORM_V7_ACTION_PERMISSION_POLICIES: readonly PlatformV7ActionPe
     actionId: 'seller.accept_offer',
     route: '/platform-v7/seller',
     allowedRoles: SELLER_OPERATOR_ROLES,
+    serviceName: 'proposal',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'proposal.submit',
+    route: '/platform-v7/deals',
+    allowedRoles: PROPOSAL_COUNTERPARTY_ROLES,
+    serviceName: 'proposal',
+  }),
+  definePlatformV7ActionPermissionPolicy({
+    actionId: 'proposal.accept',
+    route: '/platform-v7/deals',
+    allowedRoles: PROPOSAL_COUNTERPARTY_ROLES,
     serviceName: 'proposal',
   }),
   definePlatformV7ActionPermissionPolicy({
