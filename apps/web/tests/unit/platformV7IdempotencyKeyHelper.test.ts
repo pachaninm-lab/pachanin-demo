@@ -100,6 +100,14 @@ describe('platform-v7 idempotency key helper', () => {
     expect(isPlatformV7MoneyIdempotencyKey(nonMoneyKey)).toBe(false);
   });
 
+  it('does not treat malformed amount or currency segments as money keys', () => {
+    expect(isPlatformV7MoneyIdempotencyKey('p7:confirm_money_reserved:actor-bank:entity-money:deal-1:amount-:currency-rub:attempt-none')).toBe(false);
+    expect(isPlatformV7MoneyIdempotencyKey('p7:confirm_money_reserved:actor-bank:entity-money:deal-1:amount-100:currency-:attempt-none')).toBe(false);
+    expect(isPlatformV7MoneyIdempotencyKey('p7:confirm_money_reserved:actor-bank:entity-money:deal-1:amount-none:currency-rub:attempt-none')).toBe(false);
+    expect(isPlatformV7MoneyIdempotencyKey('p7:confirm_money_reserved:actor-bank:entity-money:deal-1:amount-100:currency-none:attempt-none')).toBe(false);
+    expect(isPlatformV7MoneyIdempotencyKey('p7:confirm_money_reserved:actor-bank:entity-money:deal-1:currency-rub:amount-100:attempt-none')).toBe(false);
+  });
+
   it('returns a readable summary', () => {
     const key = buildPlatformV7IdempotencyKey({
       boundaryId: 'confirm_money_released',
