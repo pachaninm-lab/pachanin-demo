@@ -30,9 +30,12 @@ describe('platform-v7 api action map', () => {
     expect(new Set(actionIds).size).toBe(actionIds.length);
   });
 
-  it('keeps the dispute close api unmapped until the action boundary is reviewed', () => {
+  it('keeps dispute resolution tied to arbitration action and dispute service', () => {
+    const actionId = getPlatformV7ActionForApiBoundary('resolve_dispute');
+
     expect(getPlatformV7ApiBoundary('resolve_dispute')).toBeDefined();
-    expect(getPlatformV7ActionForApiBoundary('resolve_dispute')).toBeUndefined();
+    expect(actionId).toBe('arbitration.record_decision');
+    expect(actionId ? getPlatformV7ActionServiceName(actionId) : undefined).toBe('dispute');
   });
 
   it('keeps driver trip arrival api tied to driver checkpoint and trip service', () => {
