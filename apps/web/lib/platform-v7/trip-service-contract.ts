@@ -27,3 +27,17 @@ export const PLATFORM_V7_TRIP_SERVICE_REQUIRED_METHODS = [
   'confirmTripCheckpoint',
   'openTripIncident',
 ] as const;
+
+export const PLATFORM_V7_TRIP_SERVICE_WRITE_METHODS = [
+  'appendTripAudit',
+  'confirmTripCheckpoint',
+  'openTripIncident',
+] as const satisfies readonly (typeof PLATFORM_V7_TRIP_SERVICE_REQUIRED_METHODS)[number][];
+
+export function getPlatformV7TripServiceWriteMethods(): readonly string[] {
+  return PLATFORM_V7_TRIP_SERVICE_WRITE_METHODS;
+}
+
+export function doesPlatformV7TripServiceExposeWriteMethods(): boolean {
+  return getPlatformV7TripServiceWriteMethods().length > 0;
+}
