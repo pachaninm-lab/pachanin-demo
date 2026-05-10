@@ -26,8 +26,14 @@ export type PlatformV7WriteResult<T> = {
   readonly reason?: string;
 };
 
+export function isPlatformV7AuditEventId(value: string | undefined): boolean {
+  const auditEventId = value?.trim();
+
+  return Boolean(auditEventId && /^audit-[a-z0-9][a-z0-9_-]*$/i.test(auditEventId));
+}
+
 export function hasPlatformV7WriteAuditTrace(result: PlatformV7WriteResult<unknown>): boolean {
-  return Boolean(result.auditEventId?.trim());
+  return isPlatformV7AuditEventId(result.auditEventId);
 }
 
 export function hasPlatformV7WriteIdempotencyTrace(result: PlatformV7WriteResult<unknown>): boolean {
