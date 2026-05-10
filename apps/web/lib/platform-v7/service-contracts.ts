@@ -162,3 +162,28 @@ export const PLATFORM_V7_REQUIRED_SERVICE_NAMES = [
 ] as const;
 
 export type PlatformV7RequiredServiceName = (typeof PLATFORM_V7_REQUIRED_SERVICE_NAMES)[number];
+
+export const PLATFORM_V7_SERVICE_WRITE_METHODS = {
+  batch: ['createBatch'],
+  lot: ['publishLot', 'blockLot'],
+  rfq: ['createRequest'],
+  proposal: ['submitOffer', 'acceptOffer'],
+  deal: ['appendDealAudit'],
+  money: ['requestReserve', 'requestBankCheck'],
+  document: ['attachDocument', 'markExternalStatus'],
+  logistics: ['assignDriver', 'reportIncident'],
+  dispute: ['openDispute', 'requestEvidence'],
+  support: ['createCase', 'appendMessage', 'escalateCase'],
+  rating: ['recordPostDealSignal'],
+  audit: ['appendEvent'],
+  notification: ['notifyRole'],
+  integrations: ['sendExternalRequest', 'receiveExternalEvent'],
+} as const satisfies Record<PlatformV7RequiredServiceName, readonly string[]>;
+
+export function getPlatformV7ServiceWriteMethods(serviceName: PlatformV7RequiredServiceName): readonly string[] {
+  return PLATFORM_V7_SERVICE_WRITE_METHODS[serviceName];
+}
+
+export function doesPlatformV7ServiceExposeWriteMethods(serviceName: PlatformV7RequiredServiceName): boolean {
+  return getPlatformV7ServiceWriteMethods(serviceName).length > 0;
+}
