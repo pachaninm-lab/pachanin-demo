@@ -13,6 +13,7 @@ import type {
   RoleExecutionSummary,
   SupportCase,
 } from './grain-execution/types';
+import { validatePlatformV7IdempotencyKey } from './idempotency-key-helper';
 
 export type PlatformV7ServiceMode = 'test' | 'controlled_pilot' | 'real_requires_connection';
 
@@ -30,7 +31,9 @@ export function hasPlatformV7WriteAuditTrace(result: PlatformV7WriteResult<unkno
 }
 
 export function hasPlatformV7WriteIdempotencyTrace(result: PlatformV7WriteResult<unknown>): boolean {
-  return Boolean(result.idempotencyKey?.trim());
+  const key = result.idempotencyKey?.trim();
+
+  return Boolean(key && validatePlatformV7IdempotencyKey(key).ok);
 }
 
 export function isPlatformV7WriteResultTraceable(result: PlatformV7WriteResult<unknown>): boolean {
