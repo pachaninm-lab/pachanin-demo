@@ -1,6 +1,7 @@
 import type { PlatformV7ActionPermissionId } from './action-permission-boundary';
 import { canPlatformV7RoleInvokeAction } from './action-permission-boundary';
 import type { PlatformV7DealStatus } from './deal-state-model';
+import { canPlatformV7DealTransition } from './deal-state-model';
 import type { PlatformV7DisputeStatus } from './dispute-model';
 import type { PlatformV7MoneyTree } from './execution-model';
 import type { PlatformV7Role } from './role-access';
@@ -178,6 +179,30 @@ export function applyPlatformV7RuntimeAction(
   const auditEventId = `audit-${command.actionId.replace(/\./g, '-')}-${timestamp.replace(/[:.]/g, '-')}`;
 
   switch (command.actionId) {
+    case 'deal.confirm_terms': {
+      const nextDealStatus: PlatformV7DealStatus = 'awaiting_reserve';
+      if (!canPlatformV7DealTransition(state.dealStatus, nextDealStatus)) {
+        return [
+          state,
+          blocked(
+            command,
+            `Нельзя подтвердить условия сделки из статуса ${state.dealStatus}.`,
+            'none',
+          ),
+        ];
+      }
+      const auditEvent = makeAuditEvent(auditEventId, timestamp, command);
+      const nextState: PlatformV7ExecutionState = {
+        ...state,
+        dealStatus: nextDealStatus,
+        auditEvents: [...state.auditEvents, auditEvent],
+      };
+      const result = makeOkResult(command, auditEventId, {
+        nextAction: 'Запросить резерв денег у банка.',
+      });
+      return [{ ...nextState, lastActionResult: result }, result];
+    }
+
     case 'support.create_case': {
       const caseRecord: PlatformV7SupportCaseRecord = {
         id: command.entityId,
