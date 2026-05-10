@@ -28,6 +28,14 @@ const REQUIRED = [
   'integrations',
 ] as const;
 
+const TRACEABLE_WRITE_RESULT: PlatformV7WriteResult<{ readonly saved: true }> = {
+  ok: true,
+  mode: 'controlled_pilot',
+  data: { saved: true },
+  auditEventId: 'audit-1',
+  idempotencyKey: 'p7:assign_driver:actor-logistics-1:entity-trip-1:deal-deal-1:amount-none:currency-none:attempt-1',
+};
+
 describe('platform-v7 service contracts', () => {
   it('keeps the full controlled-pilot backend service boundary explicit', () => {
     expect(PLATFORM_V7_REQUIRED_SERVICE_NAMES).toEqual(REQUIRED);
@@ -52,11 +60,66 @@ describe('platform-v7 service contracts', () => {
     expect(hasPlatformV7WriteAuditTrace(base)).toBe(false);
     expect(hasPlatformV7WriteIdempotencyTrace(base)).toBe(false);
     expect(isPlatformV7WriteResultTraceable(base)).toBe(false);
+    expect(isPlatformV7WriteResultTraceable(TRACEABLE_WRITE_RESULT)).toBe(true);
+  });
+
+  it('rejects write results when either required trace is missing', () => {
     expect(
       isPlatformV7WriteResultTraceable({
-        ...base,
-        auditEventId: 'audit-1',
-        idempotencyKey: 'p7:assign_driver:actor-logistics-1:entity-trip-1:deal-deal-1:amount-none:currency-none:attempt-1',
+        ...TRACEABLE_WRITE_RESULT,
+        auditEventId: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      isPlatformV7WriteResultTraceable({
+        ...TRACEABLE_WRITE_RESULT,
+        idempotencyKey: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects blank write traces after trimming', () => {
+    expect(
+      hasPlatformV7WriteAuditTrace({
+        ...TRACEABLE_WRITE_RESULT,
+        auditEventId: '   ',
+      }),
+    ).toBe(false);
+    expect(
+      hasPlatformV7WriteIdempotencyTrace({
+        ...TRACEABLE_WRITE_RESULT,
+        idempotencyKey: '   ',
+      }),
+    ).toBe(false);
+    expect(
+      isPlatformV7WriteResultTraceable({
+        ...TRACEABLE_WRITE_RESULT,
+        auditEventId: '   ',
+      }),
+    ).toBe(false);
+    expect(
+      isPlatformV7WriteResultTraceable({
+        ...TRACEABLE_WRITE_RESULT,
+        idempotencyKey: '   ',
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps failed write results non-traceable even when traces exist', () => {
+    expect(
+      isPlatformV7WriteResultTraceable({
+        ...TRACEABLE_WRITE_RESULT,
+        ok: false,
+        reason: 'manual-review-required',
+      }),
+    ).toBe(false);
+  });
+
+  it('allows non-test write results to become traceable when required traces exist', () => {
+    expect(
+      isPlatformV7WriteResultTraceable({
+        ...TRACEABLE_WRITE_RESULT,
+        mode: 'real_requires_connection',
       }),
     ).toBe(true);
   });
