@@ -272,6 +272,37 @@ export function applyPlatformV7RuntimeAction(
       return [{ ...nextState, lastActionResult: result }, result];
     }
 
+    case 'money.request_reserve': {
+      const requestedAmountRub = Number(
+        command.payload?.requestedAmountRub ?? command.payload?.amountRub ?? state.money?.totalDealAmountRub ?? 0,
+      );
+      const money: PlatformV7MoneyTree = {
+        id: state.money?.id ?? `money-${command.entityId}`,
+        dealId: state.dealId,
+        totalDealAmountRub: requestedAmountRub,
+        reservedAmountRub: state.money?.reservedAmountRub ?? 0,
+        readyToReleaseRub: state.money?.readyToReleaseRub ?? 0,
+        heldAmountRub: state.money?.heldAmountRub ?? 0,
+        disputedAmountRub: state.money?.disputedAmountRub ?? 0,
+        manualReviewAmountRub: state.money?.manualReviewAmountRub ?? 0,
+        releasedAmountRub: state.money?.releasedAmountRub ?? 0,
+        returnedAmountRub: state.money?.returnedAmountRub ?? 0,
+        feeAmountRub: state.money?.feeAmountRub ?? 0,
+        reconciliationStatus: 'awaiting_bank_event',
+      };
+      const auditEvent = makeAuditEvent(auditEventId, timestamp, command);
+      const nextState: PlatformV7ExecutionState = {
+        ...state,
+        money,
+        auditEvents: [...state.auditEvents, auditEvent],
+      };
+      const result = makeOkResult(command, auditEventId, {
+        moneyImpact: 'requires_bank_confirmation',
+        nextAction: 'Ожидается подтверждение банка по резерву денег.',
+      });
+      return [{ ...nextState, lastActionResult: result }, result];
+    }
+
     case 'document.attach': {
       const documentRef = String(command.payload?.documentRef ?? `doc-${command.entityId}`);
       const attachment: PlatformV7DocumentAttachment = {
@@ -329,7 +360,7 @@ function makeOkResult(
   impacts: Partial<
     Pick<
       PlatformV7RuntimeActionResult,
-      'moneyImpact' | 'documentImpact' | 'tripImpact' | 'disputeImpact' | 'supportImpact'
+      'moneyImpact' | 'documentImpact' | 'tripImpact' | 'disputeImpact' | 'supportImpact' | 'nextAction'
     >
   >,
 ): PlatformV7RuntimeActionResult {
@@ -342,6 +373,7 @@ function makeOkResult(
     stateChanged: true,
     auditEventId,
     idempotencyKey: command.idempotencyKey,
+    nextAction: impacts.nextAction,
     moneyImpact: impacts.moneyImpact ?? 'none',
     documentImpact: impacts.documentImpact ?? 'none',
     tripImpact: impacts.tripImpact ?? 'none',
