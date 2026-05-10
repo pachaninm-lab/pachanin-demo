@@ -43,7 +43,7 @@ const allowed = {
 describe('platform-v7 sensitive role actions', () => {
   it('blocks sensitive roles from actions outside their explicit allow list', () => {
     for (const [role, actionIds] of Object.entries(allowed)) {
-      const allowSet = new Set(actionIds);
+      const allowSet = new Set<PlatformV7ActionPermissionId>(actionIds);
 
       for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
         expect(canPlatformV7RoleInvokeAction(role as PlatformV7Role, policy.actionId).allowed).toBe(
