@@ -6,6 +6,7 @@ import {
   getPlatformV7StateTransitionSummary,
   getPlatformV7TransitionGuard,
   getPlatformV7TransitionsForEntity,
+  PLATFORM_V7_STATE_TRANSITIONS,
 } from '@/lib/platform-v7/state-transition-contracts';
 
 describe('platform-v7 state transition contracts', () => {
@@ -49,5 +50,53 @@ describe('platform-v7 state transition contracts', () => {
     expect(canPlatformV7Transition('dispute', 'draft', 'resolved')).toBe(false);
     expect(getPlatformV7TransitionGuard('dispute', 'draft', 'opened')).toBe('evidence_required');
     expect(getPlatformV7TransitionGuard('dispute', 'decision_ready', 'resolved')).toBe('decision_required');
+  });
+
+  it('keeps external confirmations away from commercial, field and observer roles', () => {
+    const nonConfirmingRoles = new Set([
+      'seller',
+      'buyer',
+      'logistics',
+      'driver',
+      'elevator',
+      'lab',
+      'surveyor',
+      'investor',
+      'executive',
+    ]);
+    const externalTransitions = PLATFORM_V7_STATE_TRANSITIONS.filter(
+      (transition) => transition.guard === 'external_confirmation_required',
+    );
+
+    expect(externalTransitions.length).toBeGreaterThan(0);
+
+    for (const transition of externalTransitions) {
+      expect(transition.actorRoles.some((role) => nonConfirmingRoles.has(role))).toBe(false);
+    }
+  });
+
+  it('keeps final money release bank-confirmed and non-autonomous', () => {
+    const moneyReleaseTransition = PLATFORM_V7_STATE_TRANSITIONS.find(
+      (transition) => transition.entity === 'money' && transition.from === 'ready_to_release' && transition.to === 'released',
+    );
+
+    expect(moneyReleaseTransition).toMatchObject({
+      guard: 'external_confirmation_required',
+      actorRoles: ['bank'],
+      affectsMoney: true,
+    });
+    expect(moneyReleaseTransition?.summary).toContain('platform does not release money by itself');
+    expect(moneyReleaseTransition?.summary.toLowerCase()).not.toMatch(/automatic release|autonomous release|platform releases money/);
+  });
+
+  it('keeps transition contract copy away from live-production claims', () => {
+    const transitionCopy = [
+      getPlatformV7StateTransitionSummary().mode,
+      ...PLATFORM_V7_STATE_TRANSITIONS.map((transition) => transition.summary),
+    ]
+      .join('\n')
+      .toLowerCase();
+
+    expect(transitionCopy).not.toMatch(/production-ready|fully live|fully integrated|live bank|live integration|guarantees payment/);
   });
 });
