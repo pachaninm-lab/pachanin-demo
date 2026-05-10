@@ -151,3 +151,5 @@ export const PLATFORM_V7_REQUIRED_SERVICE_NAMES = [
   'notification',
   'integrations',
 ] as const;
+
+export type PlatformV7RequiredServiceName = (typeof PLATFORM_V7_REQUIRED_SERVICE_NAMES)[number];
