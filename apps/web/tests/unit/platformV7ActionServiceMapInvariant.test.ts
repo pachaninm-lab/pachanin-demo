@@ -15,7 +15,7 @@ const executionServiceNames = new Set<string>(PLATFORM_V7_EXECUTION_SERVICE_NAME
 
 describe('platform-v7 action service map invariant', () => {
   it('keeps the action service map complete against permission policies', () => {
-    expect(serviceMapActionIds.toSorted()).toEqual(policyActionIds.toSorted());
+    expect([...serviceMapActionIds].sort()).toEqual([...policyActionIds].sort());
   });
 
   it('keeps every mapped service inside the execution service registry', () => {
