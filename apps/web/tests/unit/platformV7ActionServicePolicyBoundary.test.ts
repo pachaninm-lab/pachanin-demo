@@ -22,6 +22,10 @@ const EXPECTED_ACTIONS_BY_SERVICE = {
   document: ['document.attach', 'document.accept'],
   dispute: ['dispute.open', 'arbitration.record_decision'],
   support: ['support.create_case', 'support.append_message'],
+  rating: [],
+  audit: [],
+  notification: [],
+  integrations: [],
 } as const satisfies Record<PlatformV7ExecutionServiceName, readonly PlatformV7ActionPermissionId[]>;
 
 describe('platform-v7 action service policy boundary', () => {
