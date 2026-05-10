@@ -1,3 +1,5 @@
+import type { PlatformV7RequiredServiceName } from './service-contracts';
+
 export type PlatformV7DealWorkspaceActionId =
   | 'request-release'
   | 'release-funds'
@@ -22,6 +24,12 @@ export type PlatformV7DealWorkspaceGateId =
 
 export type PlatformV7DealWorkspaceMaturityMode = 'sandbox' | 'manual' | 'controlled-pilot' | 'live';
 
+export interface PlatformV7DealWorkspaceActionRuntimeRequirement {
+  service: PlatformV7RequiredServiceName;
+  operation: string;
+  requiresTraceableWrite: boolean;
+}
+
 export interface PlatformV7DealWorkspaceAction {
   id: PlatformV7DealWorkspaceActionId;
   label: string;
@@ -29,6 +37,7 @@ export interface PlatformV7DealWorkspaceAction {
   tone: 'neutral' | 'success' | 'danger';
   href?: string;
   requiredGates: PlatformV7DealWorkspaceGateId[];
+  runtimeRequirements: PlatformV7DealWorkspaceActionRuntimeRequirement[];
   maturityMode: PlatformV7DealWorkspaceMaturityMode;
   irreversible: boolean;
   rollback: string;
@@ -83,6 +92,11 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
     kind: 'primary',
     tone: 'success',
     requiredGates: ['money', 'documents', 'transport', 'fgis', 'degradation'],
+    runtimeRequirements: [
+      { service: 'money', operation: 'requestBankCheck', requiresTraceableWrite: true },
+      { service: 'audit', operation: 'appendEvent', requiresTraceableWrite: true },
+      { service: 'notification', operation: 'notifyRole', requiresTraceableWrite: true },
+    ],
     maturityMode: 'controlled-pilot',
     irreversible: false,
     rollback: 'Отменить запрос через operator action log до банкового подтверждения.',
@@ -93,6 +107,11 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
     kind: 'primary',
     tone: 'success',
     requiredGates: RELEASE_GATES,
+    runtimeRequirements: [
+      { service: 'money', operation: 'requestBankCheck', requiresTraceableWrite: true },
+      { service: 'integrations', operation: 'sendExternalRequest', requiresTraceableWrite: true },
+      { service: 'audit', operation: 'appendEvent', requiresTraceableWrite: true },
+    ],
     maturityMode: 'controlled-pilot',
     irreversible: true,
     rollback: 'Запретить прямой rollback; только банковая сверка, refund/dispute flow и ручное исключение с audit event.',
@@ -103,6 +122,11 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
     kind: 'secondary',
     tone: 'neutral',
     requiredGates: [],
+    runtimeRequirements: [
+      { service: 'document', operation: 'listRequirements', requiresTraceableWrite: false },
+      { service: 'audit', operation: 'appendEvent', requiresTraceableWrite: true },
+      { service: 'notification', operation: 'notifyRole', requiresTraceableWrite: true },
+    ],
     maturityMode: 'controlled-pilot',
     irreversible: false,
     rollback: 'Закрыть document task через action log без изменения первичных документов.',
@@ -113,6 +137,10 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
     kind: 'secondary',
     tone: 'success',
     requiredGates: ['documents', 'fgis', 'degradation'],
+    runtimeRequirements: [
+      { service: 'document', operation: 'markExternalStatus', requiresTraceableWrite: true },
+      { service: 'audit', operation: 'appendEvent', requiresTraceableWrite: true },
+    ],
     maturityMode: 'controlled-pilot',
     irreversible: false,
     rollback: 'Вернуть DocumentGate в review и оставить причину в audit event.',
@@ -123,6 +151,11 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
     kind: 'secondary',
     tone: 'danger',
     requiredGates: [],
+    runtimeRequirements: [
+      { service: 'dispute', operation: 'openDispute', requiresTraceableWrite: true },
+      { service: 'audit', operation: 'appendEvent', requiresTraceableWrite: true },
+      { service: 'notification', operation: 'notifyRole', requiresTraceableWrite: true },
+    ],
     maturityMode: 'controlled-pilot',
     irreversible: false,
     rollback: 'Закрыть спор только решением dispute workflow; исходное открытие остаётся в журнале.',
@@ -133,6 +166,11 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
     kind: 'secondary',
     tone: 'success',
     requiredGates: ['evidence', 'quality', 'compliance', 'degradation'],
+    runtimeRequirements: [
+      { service: 'dispute', operation: 'requestEvidence', requiresTraceableWrite: true },
+      { service: 'audit', operation: 'appendEvent', requiresTraceableWrite: true },
+      { service: 'money', operation: 'requestBankCheck', requiresTraceableWrite: true },
+    ],
     maturityMode: 'controlled-pilot',
     irreversible: false,
     rollback: 'Переоткрыть спор корректирующим dispute decision без удаления прошлого решения.',
@@ -144,6 +182,7 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
     tone: 'neutral',
     href: '/platform-v7/bank',
     requiredGates: [],
+    runtimeRequirements: [],
     maturityMode: 'controlled-pilot',
     irreversible: false,
     rollback: 'Навигационное действие без rollback.',
@@ -155,6 +194,7 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
     tone: 'neutral',
     href: '/platform-v7/disputes',
     requiredGates: [],
+    runtimeRequirements: [],
     maturityMode: 'controlled-pilot',
     irreversible: false,
     rollback: 'Навигационное действие без rollback.',
@@ -241,4 +281,22 @@ export function platformV7DealWorkspaceSafeActionPlan(
 export function platformV7DealWorkspaceActionHasFullReleaseGuard(actionId: PlatformV7DealWorkspaceActionId): boolean {
   const action = platformV7DealWorkspaceActionById(actionId);
   return RELEASE_GATES.every((gate) => action.requiredGates.includes(gate));
+}
+
+export function platformV7DealWorkspaceActionHasRuntimeRequirements(actionId: PlatformV7DealWorkspaceActionId): boolean {
+  return platformV7DealWorkspaceActionById(actionId).runtimeRequirements.length > 0;
+}
+
+export function platformV7DealWorkspaceActionRequiresTraceableWrite(actionId: PlatformV7DealWorkspaceActionId): boolean {
+  return platformV7DealWorkspaceActionById(actionId).runtimeRequirements.some(
+    (requirement) => requirement.requiresTraceableWrite,
+  );
+}
+
+export function platformV7DealWorkspaceActionRuntimeServices(
+  actionId: PlatformV7DealWorkspaceActionId,
+): PlatformV7RequiredServiceName[] {
+  return Array.from(
+    new Set(platformV7DealWorkspaceActionById(actionId).runtimeRequirements.map((requirement) => requirement.service)),
+  );
 }
