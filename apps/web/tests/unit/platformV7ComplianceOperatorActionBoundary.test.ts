@@ -34,6 +34,7 @@ describe('platform-v7 compliance and operator action boundary', () => {
       'seller.publish_lot',
       'buyer.create_rfq',
       'buyer.submit_offer',
+      'seller.accept_offer',
       'deal.confirm_terms',
       'money.request_reserve',
       'bank.mark_money_ready_to_release',
@@ -49,6 +50,7 @@ describe('platform-v7 compliance and operator action boundary', () => {
       'support.append_message',
     ]);
 
+    expect(canPlatformV7RoleInvokeAction('operator', 'seller.accept_offer').allowed).toBe(true);
     expect(canPlatformV7RoleInvokeAction('operator', 'bank.mark_money_ready_to_release').allowed).toBe(true);
     expect(canPlatformV7RoleInvokeAction('operator', 'arbitration.record_decision').allowed).toBe(true);
     expect(canPlatformV7RoleInvokeAction('operator', 'logistics.assign_driver').allowed).toBe(true);
