@@ -8,6 +8,10 @@ import {
   PLATFORM_V7_ACTION_SERVICE_MAP,
 } from '@/lib/platform-v7/action-service-map';
 import { PLATFORM_V7_EXECUTION_SERVICE_NAMES } from '@/lib/platform-v7/execution-service-registry-contract';
+import {
+  doesPlatformV7ServiceExposeWriteMethods,
+  type PlatformV7RequiredServiceName,
+} from '@/lib/platform-v7/service-contracts';
 
 const policyActionIds = PLATFORM_V7_ACTION_PERMISSION_POLICIES.map((policy) => policy.actionId);
 const serviceMapActionIds = Object.keys(PLATFORM_V7_ACTION_SERVICE_MAP) as PlatformV7ActionPermissionId[];
@@ -22,6 +26,15 @@ describe('platform-v7 action service map invariant', () => {
     for (const [actionId, serviceName] of Object.entries(PLATFORM_V7_ACTION_SERVICE_MAP)) {
       expect(executionServiceNames.has(serviceName), `${actionId}:${serviceName}`).toBe(true);
       expect(serviceName.trim(), actionId).toBe(serviceName);
+    }
+  });
+
+  it('keeps every mapped action service attached to an explicit write surface', () => {
+    for (const [actionId, serviceName] of Object.entries(PLATFORM_V7_ACTION_SERVICE_MAP)) {
+      expect(
+        doesPlatformV7ServiceExposeWriteMethods(serviceName as PlatformV7RequiredServiceName),
+        `${actionId}:${serviceName}`,
+      ).toBe(true);
     }
   });
 
