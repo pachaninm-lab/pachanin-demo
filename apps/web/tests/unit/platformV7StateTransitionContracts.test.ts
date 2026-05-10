@@ -10,6 +10,9 @@ import {
 } from '@/lib/platform-v7/state-transition-contracts';
 
 describe('platform-v7 state transition contracts', () => {
+  const transitionsForRole = (role: string) =>
+    PLATFORM_V7_STATE_TRANSITIONS.filter((transition) => transition.actorRoles.includes(role));
+
   it('keeps core entity state maps covered', () => {
     expect(getPlatformV7StateTransitionSummary()).toMatchObject({
       entities: ['lot', 'rfq', 'proposal', 'deal', 'money', 'document', 'trip', 'dispute'],
@@ -72,6 +75,72 @@ describe('platform-v7 state transition contracts', () => {
 
     for (const transition of externalTransitions) {
       expect(transition.actorRoles.some((role) => nonConfirmingRoles.has(role))).toBe(false);
+    }
+  });
+
+  it('keeps observer roles out of operational state mutations', () => {
+    expect(transitionsForRole('investor')).toEqual([]);
+    expect(transitionsForRole('executive')).toEqual([]);
+  });
+
+  it('keeps driver authority inside the trip field boundary', () => {
+    const driverTransitions = transitionsForRole('driver');
+
+    expect(driverTransitions.length).toBeGreaterThan(0);
+    for (const transition of driverTransitions) {
+      expect(transition.entity).toBe('trip');
+      expect(['loading_started', 'in_transit', 'arrived', 'incident_opened']).toContain(transition.to);
+      expect(transition.to).not.toBe('accepted');
+      expect(transition.to).not.toBe('released');
+    }
+  });
+
+  it('keeps non-bank roles away from bank money confirmation boundaries', () => {
+    const bankMoneyTransitions = PLATFORM_V7_STATE_TRANSITIONS.filter(
+      (transition) => transition.entity === 'money' && transition.guard === 'external_confirmation_required',
+    );
+    const forbiddenMoneyActors = new Set([
+      'seller',
+      'buyer',
+      'logistics',
+      'driver',
+      'elevator',
+      'lab',
+      'surveyor',
+      'operator',
+      'compliance',
+      'arbitrator',
+      'investor',
+      'executive',
+    ]);
+
+    expect(bankMoneyTransitions.length).toBeGreaterThan(0);
+    for (const transition of bankMoneyTransitions) {
+      expect(transition.actorRoles).toEqual(['bank']);
+      expect(transition.actorRoles.some((role) => forbiddenMoneyActors.has(role))).toBe(false);
+    }
+  });
+
+  it('keeps specialist roles from crossing into final money release', () => {
+    const releaseTransition = PLATFORM_V7_STATE_TRANSITIONS.find(
+      (transition) => transition.entity === 'money' && transition.from === 'ready_to_release' && transition.to === 'released',
+    );
+    const specialistRoles = ['elevator', 'lab', 'surveyor', 'logistics', 'driver', 'compliance', 'arbitrator'];
+
+    expect(releaseTransition?.actorRoles).toEqual(['bank']);
+    for (const role of specialistRoles) {
+      expect(releaseTransition?.actorRoles).not.toContain(role);
+    }
+  });
+
+  it('keeps arbitration authority inside the dispute path', () => {
+    const arbitratorTransitions = transitionsForRole('arbitrator');
+
+    expect(arbitratorTransitions.length).toBeGreaterThan(0);
+    for (const transition of arbitratorTransitions) {
+      expect(transition.entity).toBe('dispute');
+      expect(transition.affectsMoney).toBe(true);
+      expect(transition.to).not.toBe('released');
     }
   });
 
