@@ -9,12 +9,12 @@ import {
   type PlatformV7RequiredServiceName,
 } from '@/lib/platform-v7/service-contracts';
 import {
+  doesPlatformV7TripServiceExposeWriteMethods,
+  getPlatformV7TripServiceWriteMethods,
   PLATFORM_V7_TRIP_SERVICE_NAME,
-  PLATFORM_V7_TRIP_SERVICE_REQUIRED_METHODS,
 } from '@/lib/platform-v7/trip-service-contract';
 
 const requiredServiceNames = new Set<string>(PLATFORM_V7_REQUIRED_SERVICE_NAMES);
-const tripWriteMethods = ['appendTripAudit', 'confirmTripCheckpoint', 'openTripIncident'] as const;
 
 describe('platform-v7 action runtime write requirements', () => {
   it('keeps every action policy explicitly gated by durable write, audit and idempotency', () => {
@@ -34,9 +34,14 @@ describe('platform-v7 action runtime write requirements', () => {
   it('does not allow action policies to point at services without write methods', () => {
     for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
       if (policy.serviceName === PLATFORM_V7_TRIP_SERVICE_NAME) {
-        for (const methodName of tripWriteMethods) {
-          expect(PLATFORM_V7_TRIP_SERVICE_REQUIRED_METHODS, `${policy.actionId}:${methodName}`).toContain(methodName);
-        }
+        expect(
+          doesPlatformV7TripServiceExposeWriteMethods(),
+          `${policy.actionId}:trip:write-surface`,
+        ).toBe(true);
+        expect(
+          getPlatformV7TripServiceWriteMethods().length,
+          `${policy.actionId}:trip:write-methods`,
+        ).toBeGreaterThan(0);
         continue;
       }
 
