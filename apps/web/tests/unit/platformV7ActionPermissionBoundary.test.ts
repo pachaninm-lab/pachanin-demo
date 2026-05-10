@@ -133,6 +133,42 @@ describe('platform-v7 action permission boundary', () => {
     expect(canPlatformV7RoleInvokeAction('bank', 'bank.confirm_money_released').allowed).toBe(true);
   });
 
+  it('keeps final bank money confirmations closed to operator and compliance review roles', () => {
+    expect(canPlatformV7RoleInvokeAction('operator', 'bank.mark_money_ready_to_release').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('operator', 'bank.confirm_money_reserved').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('operator', 'bank.confirm_money_released').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('compliance', 'bank.mark_money_ready_to_release').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('compliance', 'bank.confirm_money_reserved').allowed).toBe(false);
+    expect(canPlatformV7RoleInvokeAction('compliance', 'bank.confirm_money_released').allowed).toBe(false);
+  });
+
+  it('keeps non-bank roles away from bank-only confirmation actions', () => {
+    const nonBankRoles = PLATFORM_V7_TEST_ROLES.filter((role) => role !== 'bank');
+
+    for (const role of nonBankRoles) {
+      expect(canPlatformV7RoleInvokeAction(role, 'bank.confirm_money_reserved').allowed).toBe(false);
+      expect(canPlatformV7RoleInvokeAction(role, 'bank.confirm_money_released').allowed).toBe(false);
+    }
+  });
+
+  it('keeps investor and executive out of durable execution writes', () => {
+    for (const action of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      expect(canPlatformV7RoleInvokeAction('investor', action.actionId).allowed).toBe(false);
+      expect(canPlatformV7RoleInvokeAction('executive', action.actionId).allowed).toBe(false);
+    }
+  });
+
+  it('keeps field checkpoint writes limited to driver and operator roles', () => {
+    expect(canPlatformV7RoleInvokeAction('driver', 'driver.confirm_checkpoint').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('operator', 'driver.confirm_checkpoint').allowed).toBe(true);
+
+    for (const role of PLATFORM_V7_TEST_ROLES) {
+      if (role === 'driver' || role === 'operator') continue;
+
+      expect(canPlatformV7RoleInvokeAction(role, 'driver.confirm_checkpoint').allowed).toBe(false);
+    }
+  });
+
   it('keeps decision recording limited to arbitration, bank and operator roles', () => {
     expect(canPlatformV7RoleInvokeAction('arbitrator', 'arbitration.record_decision').allowed).toBe(true);
     expect(canPlatformV7RoleInvokeAction('bank', 'arbitration.record_decision').allowed).toBe(true);
