@@ -78,6 +78,16 @@ describe('platform-v7 service contracts', () => {
     ).toBe(false);
   });
 
+  it('rejects malformed idempotency traces', () => {
+    const malformed = {
+      ...TRACEABLE_WRITE_RESULT,
+      idempotencyKey: 'random-text-without-platform-v7-boundary',
+    };
+
+    expect(hasPlatformV7WriteIdempotencyTrace(malformed)).toBe(false);
+    expect(isPlatformV7WriteResultTraceable(malformed)).toBe(false);
+  });
+
   it('rejects blank write traces after trimming', () => {
     expect(
       hasPlatformV7WriteAuditTrace({
