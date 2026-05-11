@@ -6,10 +6,10 @@ import { formatRub } from '@/lib/platform-v7/grain-execution/format';
 
 const disputesHandoff: HandoffItem[] = [
   { direction: 'sends', role: 'арбитр', requirement: 'вынести решение с основанием и суммой' },
-  { direction: 'sends', role: 'банк', requirement: 'скорректировать удержание или выпустить спорную сумму' },
+  { direction: 'sends', role: 'банк', requirement: 'передать решение по удержанию или спорной сумме после банковской проверки' },
   { direction: 'sends', role: 'оператор', requirement: 'записать решение в журнал сделки и закрыть спор' },
   { direction: 'awaits', role: 'стороны сделки', requirement: 'предоставить доказательства: вес, фото, акты, протоколы' },
-  { direction: 'awaits', role: 'лаборатория', requirement: 'протокол качества при споре о показателях' },
+  { direction: 'awaits', role: 'лаборатория', requirement: 'пилотный протокол качества при споре о показателях' },
 ];
 
 const staticDisputes = [
@@ -35,7 +35,7 @@ const staticDisputes = [
     status: 'выплата остановлена',
     responsible: 'лаборатория',
     sla: 'до 18:00 сегодня',
-    next: 'получить протокол ФГБУ ЦОК АПК и закрыть акт приёмки',
+    next: 'получить пилотный протокол качества и закрыть акт приёмки',
     href: '/platform-v7/elevator',
     evidence: ['проба', 'показатели качества', 'акт приёмки', 'журнал элеватора'],
   },
