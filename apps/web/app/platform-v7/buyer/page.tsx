@@ -5,6 +5,7 @@ import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionState
 import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
+import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 
 const buyerHandoff: HandoffItem[] = [
   {
@@ -96,6 +97,15 @@ export default function PlatformV7BuyerPage() {
       <section style={metricsGrid}>
         {buyerMetrics.map((metric) => <Metric key={metric.label} metric={metric} />)}
       </section>
+
+      <MoneyImpactSummaryStrip
+        amountContext='резерв 9,65 млн ₽ · удержание 624 тыс. ₽'
+        pilotState='waiting'
+        pilotStateLabel='пилотный контур · ожидание подтверждения'
+        responsible='покупатель · банк'
+        nextStep='ожидать банковского подтверждения резерва'
+        stopReason='сделка не переходит к логистике до банковского подтверждения'
+      />
 
       <P7ActionStateChip
         status='active'
