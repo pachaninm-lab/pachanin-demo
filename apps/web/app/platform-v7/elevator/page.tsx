@@ -27,14 +27,14 @@ const quality = [
   { label: 'Влажность', value: '13,1%', limit: 'допуск до 14%', state: 'ok' },
   { label: 'Клейковина', value: '23%', limit: 'минимум 21%', state: 'ok' },
   { label: 'Сорная примесь', value: '2,4%', limit: 'допуск до 2%', state: 'stop' },
-  { label: 'Протокол', value: 'ожидается', limit: 'ФГБУ ЦОК АПК', state: 'wait' },
+  { label: 'Протокол', value: 'ожидается', limit: 'пилотный контур качества', state: 'wait' },
 ] as const;
 
 const gates = [
   { title: 'Вес', value: 'отклонение -1,2 т', impact: 'создаёт удержание до акта расхождения', state: 'stop' },
   { title: 'Качество', value: 'есть превышение по примеси', impact: 'требует протокол качества', state: 'stop' },
   { title: 'Акт приёмки', value: 'готовится', impact: 'без акта выплата невозможна', state: 'wait' },
-  { title: 'ФГБУ ЦОК АПК', value: 'протокол ожидается', impact: 'качество влияет на цену и спор', state: 'wait' },
+  { title: 'Качество', value: 'протокол ожидается', impact: 'качество влияет на цену и спор', state: 'wait' },
 ] as const;
 
 export default function Page() {
@@ -89,7 +89,7 @@ export default function Page() {
       </section>
 
       <section style={card}>
-        <div style={micro}>Качество партии · протокол ФГБУ ЦОК АПК</div>
+        <div style={micro}>Качество партии · пилотный протокол качества</div>
         <div style={grid2}>
           {quality.map((item) => <QualityCell key={item.label} item={item} />)}
         </div>
