@@ -3,6 +3,7 @@ import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platf
 import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/grain-execution/mock-data';
 import { formatRub } from '@/lib/platform-v7/grain-execution/format';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 
 const disputesHandoff: HandoffItem[] = [
   {
@@ -146,6 +147,8 @@ export default function PlatformV7DisputesPage() {
           {evidenceGateRows.map((item) => <EvidenceGateCard key={item.id} item={item} />)}
         </div>
       </section>
+
+      <EvidenceReadinessMiniMatrix context='disputes' />
 
       <section style={card}>
         <div style={micro}>Правила закрытия</div>

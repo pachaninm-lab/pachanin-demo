@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 
 const elevatorHandoff: HandoffItem[] = [
   {
@@ -130,6 +131,8 @@ export default function Page() {
         </div>
         <div style={notice}>При отклонении веса или качества платформа должна создать акт расхождения, удержание и задачу оператору. Финальная выплата продавцу не разрешается до закрытия акта и протокола.</div>
       </section>
+
+      <EvidenceReadinessMiniMatrix context='elevator' />
 
       <RoleExecutionHandoff items={elevatorHandoff} title='исполнение: что приёмка отправляет и ожидает' />
 
