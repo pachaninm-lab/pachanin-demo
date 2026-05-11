@@ -7,7 +7,7 @@ const buyerMetrics: MetricItem[] = [
   { label: 'Подходящие партии', value: '7', note: 'отфильтрованы по культуре, региону и документам' },
   { label: 'Мой резерв', value: '9,65 млн ₽', note: 'готовность денег по DL-9106', good: true },
   { label: 'Под удержанием', value: '624 тыс. ₽', note: 'спорная часть по весу', danger: true },
-  { label: 'Следующий шаг', value: 'резерв', note: 'подтвердить денежный guard', warn: true },
+  { label: 'Следующий шаг', value: 'резерв', note: 'подтвердить условие резерва', warn: true },
 ];
 
 const buyerLots = [
@@ -45,9 +45,6 @@ export default function PlatformV7BuyerPage() {
         <p style={lead}>Ставка должна сразу вести к сделке, резерву денег и логистике. Покупатель видит свой закупочный запрос, подходящие партии, собственные предложения, статус резерва, документы и следующий обязательный шаг.</p>
         <div style={actions}>
           <Link href='/platform-v7/buyer/rfq/new' style={primaryBtn}>Создать запрос</Link>
-          <Link href='/platform-v7/buyer/matches' style={ghostBtn}>Подбор партий</Link>
-          <Link href='/platform-v7/buyer/offers' style={ghostBtn}>Предложения</Link>
-          <Link href='/platform-v7/buyer/financing' style={ghostBtn}>Оплата в кредит</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Карточка сделки</Link>
         </div>
       </section>

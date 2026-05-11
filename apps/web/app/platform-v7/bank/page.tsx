@@ -38,7 +38,7 @@ const releaseSummary = [
   { label: 'Где деньги', value: 'резерв ожидает подтверждения · к выплате 0 ₽', note: 'Банк видит резерв, удержание и основание остановки, а не декоративную кнопку выплаты.' },
   { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Каждый блокер должен иметь источник, ответственного, статус и влияние на деньги.' },
   { label: 'Где груз', value: 'TRIP-SIM-001 · приёмка и качество в работе', note: 'Транспортный и приёмочный факты нужны как основание для выпуска.' },
-  { label: 'Решение банка', value: 'не выпускать', note: 'В controlled-pilot нет заявления о live-выплате или боевом банковском callback.' },
+  { label: 'Решение банка', value: 'не выпускать', note: 'В тестовом сценарии нет заявления о live-выплате или боевом банковском подтверждении.' },
   { label: 'Кто следующий', value: 'оператор + владелец документа', note: 'Следующее действие фиксируется в сделке и журнале.' },
 ] as const;
 
@@ -53,13 +53,13 @@ export default function PlatformV7BankPage() {
         <p style={lead}>Банк видит резерв, удержание, документы, приёмку, качество и причину остановки. Здесь нет кнопки прямой выплаты: сначала проверка условий, потом выпуск денег продавцу.</p>
         <div style={actions}>
           <Link href='/platform-v7/bank/release-safety' style={primaryBtn}>Проверка выплаты</Link>
-          <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Deal 360</Link>
+          <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Карточка сделки</Link>
         </div>
       </section>
 
       <section style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ ...micro, color: '#CBD5E1' }}>release safety</div>
+          <div style={{ ...micro, color: '#CBD5E1' }}>проверка выпуска</div>
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что банк должен понять за 5 секунд</h2>
           <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Выплата продавцу не является ручной кнопкой. Это результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
         </div>
@@ -77,7 +77,7 @@ export default function PlatformV7BankPage() {
 
       <section style={card}>
         <div style={micro}>Сбер · Безопасные сделки</div>
-        <h2 style={h2}>Waterfall выплаты продавцу</h2>
+        <h2 style={h2}>Условия и цепочка выплаты продавцу</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
           {mainDeal.money.map((item) => (
             <div key={item.title} style={{ background: stateBg(item.state), border: `1px solid ${stateBorder(item.state)}`, borderRadius: 16, padding: 13 }}>
