@@ -126,7 +126,7 @@ describe('platform-v7 evidence readiness data', () => {
 
 describe('EvidenceReadinessMiniMatrix component', () => {
   it('renders disputes matrix rows and stop reasons', () => {
-    const { container } = render(<EvidenceReadinessMiniMatrix context='disputes' />);
+    const { container } = render(React.createElement(EvidenceReadinessMiniMatrix, { context: 'disputes' }));
     expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
     expect(screen.getAllByTestId('platform-v7-evidence-readiness-mini-matrix-row')).toHaveLength(4);
     expect(screen.getAllByTestId('platform-v7-evidence-readiness-mini-matrix-stop-reason')).toHaveLength(3);
@@ -134,14 +134,14 @@ describe('EvidenceReadinessMiniMatrix component', () => {
   });
 
   it('renders bank matrix rows and summary', () => {
-    const { container } = render(<EvidenceReadinessMiniMatrix context='bank' />);
+    const { container } = render(React.createElement(EvidenceReadinessMiniMatrix, { context: 'bank' }));
     expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix-summary')).toHaveTextContent('4 не готово');
     expect(screen.getAllByTestId('platform-v7-evidence-readiness-mini-matrix-row')).toHaveLength(5);
     expectNoUnsafeCopy(container.innerHTML);
   });
 
   it('renders elevator matrix rows and context label', () => {
-    const { container } = render(<EvidenceReadinessMiniMatrix context='elevator' />);
+    const { container } = render(React.createElement(EvidenceReadinessMiniMatrix, { context: 'elevator' }));
     expect(container.innerHTML).toContain('Готовность доказательств — элеватор');
     expect(screen.getAllByTestId('platform-v7-evidence-readiness-mini-matrix-row')).toHaveLength(4);
     expectNoUnsafeCopy(container.innerHTML);
@@ -150,19 +150,19 @@ describe('EvidenceReadinessMiniMatrix component', () => {
 
 describe('EvidenceReadinessMiniMatrix page placement', () => {
   it('disputes page renders evidence readiness matrix without demo links', () => {
-    const { container } = render(<DisputesPage />);
+    const { container } = render(React.createElement(DisputesPage));
     expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });
 
   it('bank page renders evidence readiness matrix without demo links', () => {
-    const { container } = render(<BankPage />);
+    const { container } = render(React.createElement(BankPage));
     expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });
 
   it('elevator page renders evidence readiness matrix without demo links', () => {
-    const { container } = render(<ElevatorPage />);
+    const { container } = render(React.createElement(ElevatorPage));
     expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });

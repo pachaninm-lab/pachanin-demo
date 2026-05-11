@@ -1,6 +1,8 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import SellerPage from '@/app/platform-v7/seller/page';
 import BuyerPage from '@/app/platform-v7/buyer/page';
@@ -30,6 +32,16 @@ function expectNoForbiddenCopy(html: string) {
     expect(html).not.toMatch(pattern);
   }
   expect(html).not.toContain('/platform-v7/demo/');
+}
+
+function readSourceFile(...pathParts: string[]): string {
+  const candidates = [
+    join(process.cwd(), ...pathParts),
+    join(process.cwd(), 'apps/web', ...pathParts),
+  ];
+  const sourcePath = candidates.find((candidate) => existsSync(candidate));
+  if (!sourcePath) throw new Error(`Missing source file: ${pathParts.join('/')}`);
+  return readFileSync(sourcePath, 'utf8');
 }
 
 describe('RoleExecutionHandoff component', () => {
@@ -258,9 +270,10 @@ describe('Disputes page execution handoff', () => {
 });
 
 describe('No apps/landing imports in handoff component', () => {
-  it('RoleExecutionHandoff does not import from apps/landing', async () => {
-    const src = await import('@/components/platform-v7/RoleExecutionHandoff?raw');
-    expect(src).toBeDefined();
+  it('RoleExecutionHandoff does not import from apps/landing', () => {
+    const src = readSourceFile('components/platform-v7/RoleExecutionHandoff.tsx');
+    expect(src).not.toContain('apps/landing');
+    expect(src).not.toContain('@/app/landing');
   });
 
   it('seller page does not link to /platform-v7/demo/', () => {
