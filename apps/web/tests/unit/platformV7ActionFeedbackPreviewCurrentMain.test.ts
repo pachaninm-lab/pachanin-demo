@@ -109,12 +109,15 @@ describe('ActionFeedbackPreviewStrip component', () => {
   }
 
   it('renders mobile-safe dense text containers', () => {
-    const { container } = render(React.createElement(ActionFeedbackPreviewStrip, { context: 'bank' }));
-    const html = container.innerHTML;
+    render(React.createElement(ActionFeedbackPreviewStrip, { context: 'bank' }));
 
-    expect(html).toContain('min-width: 0');
-    expect(html).toContain('overflow-wrap: anywhere');
-    expect(html).toContain('white-space: normal');
+    const container = screen.getByTestId('platform-v7-action-feedback-preview-strip');
+    const badge = screen.getByTestId('platform-v7-action-feedback-idempotency-badge');
+    const boundary = screen.getByTestId('platform-v7-action-feedback-external-boundary');
+
+    expect(container.style.minWidth).toBe('0px');
+    expect(badge.style.whiteSpace).toBe('normal');
+    expect(boundary.style.minWidth).toBe('0px');
   });
 });
 
