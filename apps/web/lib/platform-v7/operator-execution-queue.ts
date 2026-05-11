@@ -55,7 +55,7 @@ export const OPERATOR_QUEUE_ITEMS: readonly OperatorQueueItem[] = [
     ownerRole: 'лаборатория',
     priority: 'wait',
     slaLabel: 'ожидание результата',
-    requiredAction: 'лаборатория ФГБУ ЦОК АПК выдаёт протокол качества',
+    requiredAction: 'лабораторный контур качества выдаёт пилотный протокол',
     safeNextAction: 'проверить статус заявки в элеваторе',
     whyNotExecutable: 'пилотный контур ожидает внешнего лабораторного события — оператор не может ускорить выдачу',
     href: '/platform-v7/elevator',
