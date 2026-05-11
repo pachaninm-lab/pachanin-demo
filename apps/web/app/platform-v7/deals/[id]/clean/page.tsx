@@ -3,7 +3,7 @@ import { P7DealWorkspaceTabs } from '@/components/platform-v7/P7DealWorkspaceTab
 import { canonicalDomainDeals, selectDealById, selectDisputesByDealId } from '@/lib/domain/selectors';
 import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels';
-import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
+import { getDeal360Scenario, type Deal360State, type Deal360Cockpit } from '@/lib/platform-v7/deal360-source-of-truth';
 
 const border = '#E4E6EA';
 const text = '#0F1419';
@@ -49,15 +49,16 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       <section style={card()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Deal 360 · пилотный контур</p>
+            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Deal 360 · пилотный контур — без активных боевых интеграций</p>
             <h1 style={{ margin: '6px 0 0', fontSize: 28, color: text }}>{deal.id} · {scenario.lotId}</h1>
-            <p style={{ margin: '8px 0 0', color: muted, lineHeight: 1.55 }}>Цена, логистика, документы, деньги, спор и доказательства собраны в одном рабочем контуре. Внешние подключения отображены в пилотном режиме — без активных боевых интеграций.</p>
           </div>
           <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
             {hasBlockers ? 'выплата остановлена' : 'готово к выплате'}
           </span>
         </div>
       </section>
+
+      <Cockpit cockpit={scenario.cockpit} />
 
       <section style={grid()}>
         <Cell label='Культура' value={deal.grain} />
@@ -147,6 +148,44 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
   );
 }
 
+function Cockpit({ cockpit }: { cockpit: Deal360Cockpit }) {
+  const dims: Array<{ label: string; value: string; state: Deal360State }> = [
+    { label: 'Деньги', value: cockpit.moneyStatus.label, state: cockpit.moneyStatus.state },
+    { label: 'Документы', value: cockpit.docStatus.label, state: cockpit.docStatus.state },
+    { label: 'Груз / рейс', value: cockpit.tripStatus.label, state: cockpit.tripStatus.state },
+    { label: 'Качество / приёмка', value: cockpit.qualityStatus.label, state: cockpit.qualityStatus.state },
+    { label: 'Споры', value: cockpit.disputeStatus.label, state: cockpit.disputeStatus.state },
+  ];
+  return (
+    <section style={{ background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Статус исполнения</p>
+        <span style={{ color: muted, fontSize: 12 }}>Этап: <strong style={{ color: text }}>{cockpit.currentStage}</strong></span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 8 }}>
+        {dims.map((dim) => (
+          <div key={dim.label} style={{ border: `1px solid ${stateColor(dim.state, 'border')}`, background: stateColor(dim.state, 'bg'), borderRadius: 12, padding: 10 }}>
+            <div style={{ color: muted, fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{dim.label}</div>
+            <div style={{ marginTop: 5, color: stateColor(dim.state, 'text'), fontSize: 12, fontWeight: 900, lineHeight: 1.35 }}>{dim.value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, borderTop: '1px solid #E4E6EA', paddingTop: 12 }}>
+        <div>
+          <p style={{ margin: 0, color: amber, fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующий исполнитель</p>
+          <p style={{ margin: '5px 0 0', color: text, fontSize: 13, fontWeight: 900, lineHeight: 1.35 }}>{cockpit.nextActor}</p>
+        </div>
+        {cockpit.cannotHappenReason && (
+          <div>
+            <p style={{ margin: 0, color: red, fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Что сейчас невозможно</p>
+            <p style={{ margin: '5px 0 0', color: text, fontSize: 13, lineHeight: 1.4 }}>{cockpit.cannotHappenReason}</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function Cell({ label, value, accent = false, danger = false, muted: isMuted = false }: { label: string; value: string; accent?: boolean; danger?: boolean; muted?: boolean }) {
   return (
     <div style={card()}>
@@ -176,5 +215,5 @@ function stateColor(state: Deal360State, part: 'bg' | 'border' | 'text') {
 }
 
 function linkStyle(tone: 'default' | 'danger' = 'default'): React.CSSProperties {
-  return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', minHeight: 44, color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
+  return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
 }
