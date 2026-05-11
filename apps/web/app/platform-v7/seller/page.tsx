@@ -1,5 +1,43 @@
 import Link from 'next/link';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
+import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
+
+const sellerHandoff: HandoffItem[] = [
+  {
+    direction: 'sends',
+    role: 'продавец → покупатель',
+    requirement: 'публикует лот и ждёт встречного предложения от покупателя',
+    entity: 'LOT-2403',
+    href: '/platform-v7/lots/LOT-2403',
+    documentImpact: true,
+  },
+  {
+    direction: 'awaits',
+    role: 'от покупателя и банка',
+    requirement: 'резерв ожидает банковского подтверждения',
+    moneyImpact: true,
+  },
+  {
+    direction: 'awaits',
+    role: 'от ФГИС «Зерно»',
+    requirement: 'СДИЗ ожидает закрытия — без этого выплата не передаётся на проверку банка',
+    moneyImpact: true,
+    documentImpact: true,
+  },
+  {
+    direction: 'blockedBy',
+    requirement: 'ЭТрН, акт приёмки и протокол качества ещё не закрыты',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'next',
+    requirement: 'закрыть СДИЗ, ЭТрН и акт приёмки для передачи выплаты в банк',
+    entity: 'DL-9106',
+    href: '/platform-v7/deals/DL-9106/clean',
+    moneyImpact: true,
+  },
+];
 
 type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
 
@@ -54,6 +92,8 @@ export default function PlatformV7SellerPage() {
       </section>
 
       <WorkflowActionPanel context='seller' />
+
+      <RoleExecutionHandoff items={sellerHandoff} title='исполнение: что продавец отправляет и ожидает' />
 
       <section style={card}>
         <div style={micro}>рабочие маршруты продавца</div>

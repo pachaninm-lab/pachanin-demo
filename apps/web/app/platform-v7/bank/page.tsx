@@ -1,5 +1,42 @@
 import Link from 'next/link';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
+import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+
+const bankHandoff: HandoffItem[] = [
+  {
+    direction: 'awaits',
+    role: 'банк ← все роли',
+    requirement: 'документы, приёмка, качество и спор должны быть закрыты до банковского события',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'awaits',
+    role: 'банк ← продавец',
+    requirement: 'СДИЗ и ЭТрН ожидают закрытия — без этого выплата не передаётся на банковское событие',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'sends',
+    role: 'банк → продавец',
+    requirement: 'банковское событие выпуска денег после ручной сверки всех условий',
+    moneyImpact: true,
+  },
+  {
+    direction: 'blockedBy',
+    requirement: 'СДИЗ, ЭТрН, акт приёмки и протокол качества ещё не закрыты — выпуск невозможен',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'next',
+    requirement: 'ждать закрытия всех условий для банковского события по DL-9106',
+    entity: 'DL-9106',
+    href: '/platform-v7/deals/DL-9106/clean',
+    moneyImpact: true,
+  },
+];
 
 const mainDeal = getDeal360Scenario('DL-9106');
 const disputeDeal = getDeal360Scenario('DL-9102');
@@ -129,6 +166,8 @@ export default function PlatformV7BankPage() {
           </Link>
         ))}
       </section>
+
+      <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
     </main>
   );
 }

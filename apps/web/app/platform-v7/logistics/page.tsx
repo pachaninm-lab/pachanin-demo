@@ -1,4 +1,33 @@
 import Link from 'next/link';
+import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
+
+const logisticsHandoff: HandoffItem[] = [
+  {
+    direction: 'sends',
+    role: 'логистика → элеватор',
+    requirement: 'данные о рейсе, водителе и маршруте — в контур приёмки',
+    entity: 'LOG-REQ-2403',
+    documentImpact: true,
+  },
+  {
+    direction: 'awaits',
+    role: 'от элеватора',
+    requirement: 'ЭТрН ожидает подписи грузополучателя',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'blockedBy',
+    requirement: 'СДИЗ не подтверждён — без этого выплата не может быть проверена',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'next',
+    requirement: 'обеспечить подпись ЭТрН и передать транспортный пакет в контур документов',
+    documentImpact: true,
+  },
+];
 
 const orders = [
   {
@@ -103,6 +132,8 @@ export default function LogisticsPage() {
         <Metric label='Инцидентов' value={String(incidents)} danger={incidents > 0} />
         <Metric label='Заказов' value={String(orders.length)} />
       </section>
+
+      <RoleExecutionHandoff items={logisticsHandoff} title='исполнение: что логистика отправляет и ожидает' />
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
         <div style={micro}>Документные условия перевозки</div>

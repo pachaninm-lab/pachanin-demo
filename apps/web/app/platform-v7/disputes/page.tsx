@@ -2,6 +2,46 @@ import Link from 'next/link';
 import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platform-v7/grain-execution/automation/evidence-pack-engine';
 import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/grain-execution/mock-data';
 import { formatRub } from '@/lib/platform-v7/grain-execution/format';
+import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+
+const disputesHandoff: HandoffItem[] = [
+  {
+    direction: 'awaits',
+    role: 'споры ← элеватор',
+    requirement: 'акт расхождения от элеватора — без него удержание не закрывается',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'awaits',
+    role: 'споры ← лабораторный контур качества',
+    requirement: 'пилотный протокол качества — основание для решения по спорной сумме',
+    documentImpact: true,
+  },
+  {
+    direction: 'sends',
+    role: 'споры → банк',
+    requirement: 'решение по удержанию или спорной сумме после проверки оснований',
+    moneyImpact: true,
+  },
+  {
+    direction: 'sends',
+    role: 'споры → контур документов',
+    requirement: 'доказательный пакет: акт, вес, фото, протокол и журнал — в контур банка',
+    documentImpact: true,
+  },
+  {
+    direction: 'blockedBy',
+    requirement: 'спор не закрыт — выпуск денег продавцу невозможен до решения и суммы',
+    moneyImpact: true,
+  },
+  {
+    direction: 'next',
+    requirement: 'закрыть акт расхождения DSP-9102-WEIGHT и получить протокол DSP-9106-QUALITY',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+];
 
 const staticDisputes = [
   {
@@ -116,6 +156,8 @@ export default function PlatformV7DisputesPage() {
           <Rule title='Журнал' text='закрытие спора записывается в журнал сделки' />
         </div>
       </section>
+
+      <RoleExecutionHandoff items={disputesHandoff} title='исполнение: что споры отправляют и ожидают' />
     </main>
   );
 }

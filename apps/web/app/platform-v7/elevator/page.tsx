@@ -1,5 +1,40 @@
 import Link from 'next/link';
 import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
+import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+
+const elevatorHandoff: HandoffItem[] = [
+  {
+    direction: 'sends',
+    role: 'элеватор → контур документов',
+    requirement: 'акт приёмки и акт расхождения в контур документов',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'sends',
+    role: 'элеватор → лабораторный контур качества',
+    requirement: 'проба и показатели качества — в пилотный протокол качества',
+    documentImpact: true,
+  },
+  {
+    direction: 'awaits',
+    role: 'от логистики',
+    requirement: 'рейс с ЭТрН и данными водителя перед началом приёмки',
+    documentImpact: true,
+  },
+  {
+    direction: 'blockedBy',
+    requirement: 'отклонение веса -1,2 т — нужен акт расхождения до банковского события',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'next',
+    requirement: 'зафиксировать вес, подписать акт приёмки и передать пробу в лабораторный контур качества',
+    entity: 'TRIP-SIM-001',
+    documentImpact: true,
+  },
+];
 
 const receiving = {
   tripId: 'TRIP-SIM-001',
@@ -95,6 +130,8 @@ export default function Page() {
         </div>
         <div style={notice}>При отклонении веса или качества платформа должна создать акт расхождения, удержание и задачу оператору. Финальная выплата продавцу не разрешается до закрытия акта и протокола.</div>
       </section>
+
+      <RoleExecutionHandoff items={elevatorHandoff} title='исполнение: что приёмка отправляет и ожидает' />
 
       <FieldElevatorRuntime />
     </main>
