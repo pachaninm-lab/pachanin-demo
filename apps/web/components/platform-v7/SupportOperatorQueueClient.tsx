@@ -68,6 +68,7 @@ export function SupportOperatorQueueClient() {
               <div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div>
               <div style={muted}>{supportObjectLabel(item)} · {supportFormatRub(item.moneyAtRiskRub)}</div>
               <div style={muted}>Блокер: {item.blocker}</div>
+              {item.evidenceNeeded.length > 0 ? <div style={{ ...muted, color: 'var(--pc-danger, #B42318)', fontWeight: 700 }}>Не хватает: {item.evidenceNeeded.length} пункт(а)</div> : null}
             </Link>
           ))}
           {rows.length === 0 ? <div style={muted}>По выбранным фильтрам обращений нет.</div> : null}
@@ -82,6 +83,14 @@ export function SupportOperatorQueueClient() {
             <div><b>Деньги под риском:</b> {supportFormatRub(selected.moneyAtRiskRub)}</div>
             <div><b>Блокер:</b> {selected.blocker}</div>
             <div><b>Следующий шаг:</b> {selected.nextAction}</div>
+            {selected.evidenceNeeded.length > 0 ? (
+              <div style={{ display: 'grid', gap: 4 }}>
+                <b>Не хватает ({selected.evidenceNeeded.length}):</b>
+                <ul style={{ margin: 0, padding: '0 0 0 16px', display: 'grid', gap: 3 }}>
+                  {selected.evidenceNeeded.map((ev) => <li key={ev} style={muted}>{ev}</li>)}
+                </ul>
+              </div>
+            ) : null}
             <Link href={`/platform-v7/support/${selected.id}`} style={{ color: 'var(--pc-accent, #0A7A5F)', fontWeight: 900, textDecoration: 'none' }}>Открыть карточку</Link>
             <div style={{ borderTop: '1px solid var(--pc-border, #E4E6EA)', paddingTop: 12, display: 'grid', gap: 8 }}>
               <b>Действия оператора</b>

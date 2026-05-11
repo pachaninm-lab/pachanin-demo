@@ -29,12 +29,40 @@ export function SupportCaseView({ item, messages, notes, audit }: { item: Suppor
       </section>
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 14 }}>
         <div style={{ display: 'grid', gap: 14 }}>
-          <section style={{ ...card, display: 'grid', gap: 10 }}><h2 style={{ margin: 0, fontSize: 20 }}>Что происходит сейчас</h2><div style={muted}>Блокер: <b style={{ color: 'var(--pc-text-primary, #0F1419)' }}>{item.blocker}</b></div><div style={muted}>Следующий шаг: <b style={{ color: 'var(--pc-text-primary, #0F1419)' }}>{item.nextAction}</b></div><Link href={linkedExecutionHref} style={{ color: 'var(--pc-accent, #0A7A5F)', fontWeight: 900, textDecoration: 'none' }}>Открыть связанный объект</Link></section>
-          <section style={{ ...card, display: 'grid', gap: 12 }}><h2 style={{ margin: 0, fontSize: 20 }}>Сообщения</h2>{messages.map((m) => <div key={m.id} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 12 }}><b>{m.author}</b><div style={muted}>{dt(m.createdAt)}</div><p style={{ margin: '8px 0 0', lineHeight: 1.6 }}>{m.body}</p></div>)}</section>
+          <section style={{ ...card, display: 'grid', gap: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 20 }}>Что происходит сейчас</h2>
+            <div style={muted}>Блокер: <b style={{ color: 'var(--pc-text-primary, #0F1419)' }}>{item.blocker}</b></div>
+            <div style={muted}>Следующий шаг: <b style={{ color: 'var(--pc-text-primary, #0F1419)' }}>{item.nextAction}</b></div>
+            <Link href={linkedExecutionHref} style={{ color: 'var(--pc-accent, #0A7A5F)', fontWeight: 900, textDecoration: 'none' }}>Открыть связанный объект</Link>
+          </section>
+          {item.evidenceNeeded.length > 0 ? (
+            <section style={{ ...card, display: 'grid', gap: 10 }}>
+              <h2 style={{ margin: 0, fontSize: 20 }}>Что нужно для продолжения</h2>
+              <div style={{ ...muted, fontWeight: 800 }}>Отсутствующие доказательства</div>
+              <ul style={{ margin: 0, padding: '0 0 0 18px', display: 'grid', gap: 6 }}>
+                {item.evidenceNeeded.map((evidence) => (
+                  <li key={evidence} style={{ ...muted, listStyle: 'disc' }}>{evidence}</li>
+                ))}
+              </ul>
+              <div style={{ ...muted, fontSize: 12 }}>Поддержка не может продолжить обращение, пока эти материалы не приложены или не подтверждены.</div>
+            </section>
+          ) : null}
+          <section style={{ ...card, display: 'grid', gap: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 20 }}>Сообщения</h2>
+            {messages.map((m) => <div key={m.id} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 12 }}><b>{m.author}</b><div style={muted}>{dt(m.createdAt)}</div><p style={{ margin: '8px 0 0', lineHeight: 1.6 }}>{m.body}</p></div>)}
+          </section>
         </div>
         <aside style={{ display: 'grid', gap: 14, alignContent: 'start' }}>
-          <section style={{ ...card, display: 'grid', gap: 10 }}><h2 style={{ margin: 0, fontSize: 18 }}>Внутренние заметки</h2>{sortedNotes.map((note) => <div key={note.id} style={{ display: 'grid', gap: 4 }}><div style={muted}>{supportInternalNoteIntegrityLabel(note)}</div><div style={muted}><b>{note.author}:</b> {note.body}</div></div>)}{sortedNotes.length === 0 ? <div style={muted}>Заметок нет.</div> : null}</section>
-          <section style={{ ...card, display: 'grid', gap: 10 }}><h2 style={{ margin: 0, fontSize: 18 }}>Журнал действий</h2>{sortedAudit.map((e) => { const transition = supportAuditTransitionLabel(e); return <div key={e.id} style={{ borderLeft: '2px solid var(--pc-accent, #0A7A5F)', paddingLeft: 10, display: 'grid', gap: 4 }}><b>{e.actor} · {e.action}</b><div style={muted}>{dt(e.createdAt)} · {e.description}</div>{transition ? <div style={muted}>Переход: {transition}</div> : null}<div style={muted}>ID события: {e.id}</div></div>; })}</section>
+          {sortedNotes.length > 0 ? (
+            <section style={{ ...card, display: 'grid', gap: 10 }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>Внутренние заметки</h2>
+              {sortedNotes.map((note) => <div key={note.id} style={{ display: 'grid', gap: 4 }}><div style={muted}>{supportInternalNoteIntegrityLabel(note)}</div><div style={muted}><b>{note.author}:</b> {note.body}</div></div>)}
+            </section>
+          ) : null}
+          <section style={{ ...card, display: 'grid', gap: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Журнал действий</h2>
+            {sortedAudit.map((e) => { const transition = supportAuditTransitionLabel(e); return <div key={e.id} style={{ borderLeft: '2px solid var(--pc-accent, #0A7A5F)', paddingLeft: 10, display: 'grid', gap: 4 }}><b>{e.actor} · {e.action}</b><div style={muted}>{dt(e.createdAt)} · {e.description}</div>{transition ? <div style={muted}>Переход: {transition}</div> : null}<div style={muted}>ID события: {e.id}</div></div>; })}
+          </section>
         </aside>
       </section>
     </div>

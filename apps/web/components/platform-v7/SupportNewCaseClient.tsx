@@ -27,6 +27,7 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
   const [tripId, setTripId] = React.useState(defaults.tripId ?? '');
   const [moneyAtRiskRub, setMoneyAtRiskRub] = React.useState(String(defaults.moneyAtRiskRub ?? 0));
   const [blocker, setBlocker] = React.useState(defaults.blocker ?? '');
+  const [evidenceRaw, setEvidenceRaw] = React.useState('');
   const [error, setError] = React.useState('');
 
   const category: SupportCategory = supportCategoryByText(`${title} ${description} ${blocker}`);
@@ -42,6 +43,7 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
       setError('Нужно указать объект: сделку, лот, рейс, документ, блокер или спор. Обращение без объекта не создаётся.');
       return;
     }
+    const evidenceNeeded = evidenceRaw.split('\n').map((s) => s.trim()).filter(Boolean);
     const supportCase: SupportCase = {
       id: `SC-${Date.now().toString().slice(-6)}`,
       title: title || `${SUPPORT_CATEGORY_LABELS[category]}: обращение по объекту ${safeEntityId}`,
@@ -59,6 +61,7 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
       blocker: blocker || 'Блокер требует уточнения',
       owner,
       nextAction: owner === 'Логистика' ? 'Проверить рейс, маршрут и подтверждения.' : owner === 'Банковый контур' ? 'Проверить деньги, основание удержания и доказательства.' : 'Проверить объект, блокер и ответственного.',
+      evidenceNeeded,
       slaDueAt: supportSlaDueAt(priority, now),
       createdAt: now,
       updatedAt: now,
@@ -91,6 +94,10 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
           </div>
           <label>Деньги под риском<input value={moneyAtRiskRub} onChange={(e) => setMoneyAtRiskRub(e.target.value)} style={inputStyle} /></label>
           <label>Блокер<textarea value={blocker} onChange={(e) => setBlocker(e.target.value)} style={{ ...inputStyle, minHeight: 90 }} /></label>
+          <label>
+            Чего не хватает для продолжения (каждый пункт с новой строки)
+            <textarea value={evidenceRaw} onChange={(e) => setEvidenceRaw(e.target.value)} placeholder={'Акт приёмки\nЛабораторный протокол\nПодтверждение от элеватора'} style={{ ...inputStyle, minHeight: 90 }} />
+          </label>
           {error ? <div style={{ color: 'var(--pc-danger, #B42318)', fontSize: 13, fontWeight: 800 }}>{error}</div> : null}
           <button onClick={submitCase} disabled={!objectReady} style={{ minHeight: 46, borderRadius: 14, border: 0, background: objectReady ? 'var(--pc-accent, #0A7A5F)' : 'var(--pc-bg-muted, #E4E6EA)', color: objectReady ? '#fff' : 'var(--pc-text-muted, #64748b)', fontWeight: 900, cursor: objectReady ? 'pointer' : 'not-allowed' }}>Создать обращение</button>
         </div>
@@ -101,6 +108,14 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
           <div>Ответственный: <b>{owner}</b></div>
           <div>SLA: <b>{supportSlaHours(priority)} ч.</b></div>
           <div>Деньги под риском: <b>{supportFormatRub(money)}</b></div>
+          {evidenceRaw.trim() ? (
+            <div style={{ display: 'grid', gap: 4 }}>
+              <div style={{ fontWeight: 800, fontSize: 13 }}>Что нужно ({evidenceRaw.split('\n').filter((s) => s.trim()).length} пункт(а)):</div>
+              <ul style={{ margin: 0, padding: '0 0 0 16px', display: 'grid', gap: 4 }}>
+                {evidenceRaw.split('\n').filter((s) => s.trim()).map((s) => <li key={s} style={{ color: 'var(--pc-text-muted, #64748b)', fontSize: 13 }}>{s.trim()}</li>)}
+              </ul>
+            </div>
+          ) : null}
           <div style={{ color: objectReady ? 'var(--pc-text-muted, #64748b)' : 'var(--pc-danger, #B42318)', fontSize: 13, lineHeight: 1.5 }}>{objectReady ? 'Объект указан. Обращение можно создать.' : 'Нужен объект платформы: сделка, лот, рейс, документ, блокер или спор.'}</div>
         </aside>
       </section>

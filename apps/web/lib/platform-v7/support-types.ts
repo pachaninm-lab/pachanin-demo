@@ -22,6 +22,8 @@ export type SupportCase = {
   blocker: string;
   owner: string;
   nextAction: string;
+  /** Evidence items still missing before the case can progress. Operator-visible on queue; user-visible on their own case. */
+  evidenceNeeded: string[];
   slaDueAt: string;
   createdAt: string;
   updatedAt: string;

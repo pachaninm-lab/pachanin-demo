@@ -30,7 +30,7 @@ export function SupportCaseRouteClient({ caseId }: { caseId: string }) {
     <SupportCaseView
       item={item}
       messages={messages.filter((message) => message.caseId === item.id && message.public)}
-      notes={internalNotes.filter((note) => note.caseId === item.id)}
+      notes={[]}
       audit={auditEvents.filter((event) => event.caseId === item.id)}
     />
   );
