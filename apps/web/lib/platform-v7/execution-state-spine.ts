@@ -6,6 +6,7 @@ import type { PlatformV7DisputeStatus } from './dispute-model';
 import type { PlatformV7MoneyTree } from './execution-model';
 import type { PlatformV7Role } from './role-access';
 import type { PlatformV7TripStatus } from './trip-state-model';
+import { canPlatformV7TripTransition } from './trip-state-model';
 
 export type PlatformV7ExecutionStateMode =
   | 'contract_only'
@@ -199,6 +200,38 @@ export function applyPlatformV7RuntimeAction(
       };
       const result = makeOkResult(command, auditEventId, {
         nextAction: 'Запросить резерв денег у банка.',
+      });
+      return [{ ...nextState, lastActionResult: result }, result];
+    }
+
+    case 'trip.accept': {
+      const nextDealStatus: PlatformV7DealStatus = 'awaiting_lab';
+      const nextTripStatus: PlatformV7TripStatus = 'completed';
+      if (!state.trip) {
+        return [state, blocked(command, 'Нет рейса для приёмки.', 'none')];
+      }
+      if (!canPlatformV7DealTransition(state.dealStatus, nextDealStatus)) {
+        return [
+          state,
+          blocked(command, `Нельзя принять рейс из статуса сделки ${state.dealStatus}.`, 'none'),
+        ];
+      }
+      if (!canPlatformV7TripTransition(state.trip.status, nextTripStatus)) {
+        return [
+          state,
+          blocked(command, `Нельзя завершить рейс из статуса ${state.trip.status}.`, 'none'),
+        ];
+      }
+      const auditEvent = makeAuditEvent(auditEventId, timestamp, command);
+      const nextState: PlatformV7ExecutionState = {
+        ...state,
+        dealStatus: nextDealStatus,
+        trip: { ...state.trip, status: nextTripStatus },
+        auditEvents: [...state.auditEvents, auditEvent],
+      };
+      const result = makeOkResult(command, auditEventId, {
+        tripImpact: 'checkpoint_advanced',
+        nextAction: 'Передать результаты приёмки в лабораторный и документный контур.',
       });
       return [{ ...nextState, lastActionResult: result }, result];
     }
