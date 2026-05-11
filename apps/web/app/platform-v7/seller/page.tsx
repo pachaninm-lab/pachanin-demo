@@ -6,6 +6,7 @@ import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
+import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
 
 const sellerHandoff: HandoffItem[] = [
   {
@@ -123,6 +124,8 @@ export default function PlatformV7SellerPage() {
       <DocumentReadinessMiniMatrix role='seller' />
 
       <WorkflowActionPanel context='seller' />
+
+      <ActionFeedbackPreviewStrip context='seller' />
 
       <RoleExecutionHandoff items={sellerHandoff} title='исполнение: что продавец отправляет и ожидает' />
 
