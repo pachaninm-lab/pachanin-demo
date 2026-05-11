@@ -148,12 +148,12 @@ export default function PlatformV7ControlTowerPage() {
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12 }}>
               <Metric title='Рабочие зоны' value='7' note='Партия, запрос, качество, вес, СДИЗ, деньги и сквозной сценарий.' href='/platform-v7/control-tower/grain' tone='green' />
               <Metric title='Денежный фокус' value='удержание / выпуск' note='Проверка оснований удержания и частичного выпуска через банк.' href='/platform-v7/deals/grain-release' tone='default' />
-              <Metric title='Тестовая цепочка' value='3–5 мин' note='Сквозной сценарий без заявлений о боевых интеграциях.' href='/platform-v7/demo/grain-execution' tone='default' />
+              <Metric title='Пилотная цепочка' value='3–5 мин' note='Пилотный сценарий. Внешние интеграции не подключены, деньги не движутся.' href='/platform-v7/control-tower/grain' tone='default' />
             </div>
           </section>
         </P7Section>
 
-        <P7Section title='Тестовый контур исполнения' subtitle='Единый контур действий: состояние сделки, проверка условий, журнал, timeline и обратная связь без параллельной старой логики.'>
+        <P7Section title='Контур исполнения (пилот)' subtitle='Состояние каждой сделки, проверка условий, журнал и следующее действие. Пилотный режим: внешние подтверждения не активны.'>
           <ExecutionSimulationActionPanel />
         </P7Section>
 
@@ -212,7 +212,7 @@ export default function PlatformV7ControlTowerPage() {
                   <div style={{ fontSize:12, color:'#334155', lineHeight:1.6 }}>{item.note}</div>
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                     <Link href={item.primaryHref} style={btn()}>Открыть пакет</Link>
-                    <Link href={item.simulationHref} style={btn('primary')}>Открыть тестовый сценарий</Link>
+                    <Link href={item.simulationHref} style={btn('primary')}>Пилотный сценарий</Link>
                   </div>
                 </div>
               ))}

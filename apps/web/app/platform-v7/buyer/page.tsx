@@ -7,7 +7,7 @@ const buyerMetrics: MetricItem[] = [
   { label: 'Подходящие партии', value: '7', note: 'отфильтрованы по культуре, региону и документам' },
   { label: 'Мой резерв', value: '9,65 млн ₽', note: 'готовность денег по DL-9106', good: true },
   { label: 'Под удержанием', value: '624 тыс. ₽', note: 'спорная часть по весу', danger: true },
-  { label: 'Следующий шаг', value: 'резерв', note: 'подтвердить денежный guard', warn: true },
+  { label: 'Следующий шаг', value: 'резерв', note: 'подтвердить резерв денег в банке', warn: true },
 ];
 
 const buyerLots = [
