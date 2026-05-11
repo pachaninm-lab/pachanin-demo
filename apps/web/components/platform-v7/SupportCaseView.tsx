@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
-import type { SupportAuditEvent, SupportCase, SupportInternalNote, SupportMessage } from '@/lib/platform-v7/support-types';
-import { SUPPORT_CATEGORY_LABELS, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_LABELS, supportAuditTransitionLabel, supportFormatRub, supportInternalNoteIntegrityLabel, supportLinkedExecutionHref, supportObjectLabel, supportSlaLabel, supportSortedAuditEvents, supportSortedInternalNotes } from '@/lib/platform-v7/support-helpers';
+import type { SupportAuditEvent, SupportCase, SupportMessage } from '@/lib/platform-v7/support-types';
+import { SUPPORT_CATEGORY_LABELS, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_LABELS, supportAuditTransitionLabel, supportFormatRub, supportLinkedExecutionHref, supportObjectLabel, supportSlaLabel, supportSortedAuditEvents } from '@/lib/platform-v7/support-helpers';
 
 const card: CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 };
 const muted: CSSProperties = { color: 'var(--pc-text-muted, #64748b)', fontSize: 13, lineHeight: 1.6 };
@@ -11,9 +11,8 @@ function dt(value: string) {
   return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 }
 
-export function SupportCaseView({ item, messages, notes, audit }: { item: SupportCase; messages: SupportMessage[]; notes: SupportInternalNote[]; audit: SupportAuditEvent[] }) {
+export function SupportCaseView({ item, messages, audit }: { item: SupportCase; messages: SupportMessage[]; audit: SupportAuditEvent[] }) {
   const linkedExecutionHref = supportLinkedExecutionHref(item);
-  const sortedNotes = supportSortedInternalNotes(notes);
   const sortedAudit = supportSortedAuditEvents(audit);
 
   return (
@@ -33,7 +32,6 @@ export function SupportCaseView({ item, messages, notes, audit }: { item: Suppor
           <section style={{ ...card, display: 'grid', gap: 12 }}><h2 style={{ margin: 0, fontSize: 20 }}>Сообщения</h2>{messages.map((m) => <div key={m.id} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 12 }}><b>{m.author}</b><div style={muted}>{dt(m.createdAt)}</div><p style={{ margin: '8px 0 0', lineHeight: 1.6 }}>{m.body}</p></div>)}</section>
         </div>
         <aside style={{ display: 'grid', gap: 14, alignContent: 'start' }}>
-          <section style={{ ...card, display: 'grid', gap: 10 }}><h2 style={{ margin: 0, fontSize: 18 }}>Внутренние заметки</h2>{sortedNotes.map((note) => <div key={note.id} style={{ display: 'grid', gap: 4 }}><div style={muted}>{supportInternalNoteIntegrityLabel(note)}</div><div style={muted}><b>{note.author}:</b> {note.body}</div></div>)}{sortedNotes.length === 0 ? <div style={muted}>Заметок нет.</div> : null}</section>
           <section style={{ ...card, display: 'grid', gap: 10 }}><h2 style={{ margin: 0, fontSize: 18 }}>Журнал действий</h2>{sortedAudit.map((e) => { const transition = supportAuditTransitionLabel(e); return <div key={e.id} style={{ borderLeft: '2px solid var(--pc-accent, #0A7A5F)', paddingLeft: 10, display: 'grid', gap: 4 }}><b>{e.actor} · {e.action}</b><div style={muted}>{dt(e.createdAt)} · {e.description}</div>{transition ? <div style={muted}>Переход: {transition}</div> : null}<div style={muted}>ID события: {e.id}</div></div>; })}</section>
         </aside>
       </section>

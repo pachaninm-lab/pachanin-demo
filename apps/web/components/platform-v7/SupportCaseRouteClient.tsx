@@ -8,7 +8,7 @@ import { useSupportCases } from '@/lib/platform-v7/support-client-store';
 const card: CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 };
 
 export function SupportCaseRouteClient({ caseId }: { caseId: string }) {
-  const { cases, messages, internalNotes, auditEvents } = useSupportCases();
+  const { cases, messages, auditEvents } = useSupportCases();
   const item = cases.find((supportCase) => supportCase.id === caseId);
 
   if (!item) {
@@ -30,7 +30,6 @@ export function SupportCaseRouteClient({ caseId }: { caseId: string }) {
     <SupportCaseView
       item={item}
       messages={messages.filter((message) => message.caseId === item.id && message.public)}
-      notes={internalNotes.filter((note) => note.caseId === item.id)}
       audit={auditEvents.filter((event) => event.caseId === item.id)}
     />
   );
