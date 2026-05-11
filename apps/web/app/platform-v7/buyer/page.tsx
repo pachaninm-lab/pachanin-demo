@@ -4,6 +4,7 @@ import { RoleExecutionHandoff, type HandoffItem } from '../../../components/plat
 import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
+import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 
 const buyerHandoff: HandoffItem[] = [
   {
@@ -108,6 +109,8 @@ export default function PlatformV7BuyerPage() {
         responsible='покупатель'
         documentState='ожидает банковского подтверждения'
       />
+
+      <DocumentReadinessMiniMatrix role='buyer' />
 
       <WorkflowActionPanel context='buyer' />
 
