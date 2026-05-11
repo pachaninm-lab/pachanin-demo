@@ -45,7 +45,7 @@ describe('platform-v7 driver route boundary', () => {
   });
 
   it('forbids driver money, bank, investor and switcher surfaces', () => {
-    [
+    ([
       'bankReserve',
       'moneyRelease',
       'grainPrice',
@@ -65,7 +65,7 @@ describe('platform-v7 driver route boundary', () => {
     expect(canPlatformV7RoleInvokeAction('driver', 'support.create_case')).toMatchObject({ allowed: true });
     expect(canPlatformV7RoleInvokeAction('driver', 'support.append_message')).toMatchObject({ allowed: true });
 
-    [
+    ([
       'money.request_reserve',
       'bank.confirm_money_reserved',
       'bank.mark_money_ready_to_release',
