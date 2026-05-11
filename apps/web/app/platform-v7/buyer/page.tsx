@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
+import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
 
 const buyerHandoff: HandoffItem[] = [
   {
@@ -92,6 +93,13 @@ export default function PlatformV7BuyerPage() {
       <section style={metricsGrid}>
         {buyerMetrics.map((metric) => <Metric key={metric.label} metric={metric} />)}
       </section>
+
+      <P7ActionStateChip
+        status='active'
+        label='пилотный сценарий'
+        nextActor='покупатель'
+        moneyEffect='резерв после банковского подтверждения'
+      />
 
       <WorkflowActionPanel context='buyer' />
 
