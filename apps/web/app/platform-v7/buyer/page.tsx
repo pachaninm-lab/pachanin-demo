@@ -3,6 +3,7 @@ import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowAct
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
 import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
+import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
 
 const buyerHandoff: HandoffItem[] = [
   {
@@ -100,6 +101,12 @@ export default function PlatformV7BuyerPage() {
         label='пилотный сценарий'
         nextActor='покупатель'
         moneyEffect='резерв после банковского подтверждения'
+      />
+
+      <ConditionReasonStrip
+        condition='пилотный сценарий'
+        responsible='покупатель'
+        documentState='ожидает банковского подтверждения'
       />
 
       <WorkflowActionPanel context='buyer' />
