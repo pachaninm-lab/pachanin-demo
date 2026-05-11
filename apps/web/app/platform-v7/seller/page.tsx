@@ -5,6 +5,7 @@ import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionState
 import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
+import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 
 const sellerHandoff: HandoffItem[] = [
   {
@@ -36,7 +37,7 @@ const sellerHandoff: HandoffItem[] = [
   },
   {
     direction: 'next',
-    requirement: 'закрыть СДИЗ, ЭТрН и акт приёмки для передачи выплаты в банк',
+    requirement: 'закрыть СДИЗ, ЭТрН и акт приёмки для передачи выплаты на банковскую проверку',
     entity: 'DL-9106',
     href: '/platform-v7/deals/DL-9106/clean',
     moneyImpact: true,
@@ -48,8 +49,8 @@ type MetricItem = { label: string; value: string; note: string; good?: boolean; 
 const sellerMetrics: MetricItem[] = [
   { label: 'Активные лоты', value: '2', note: 'оба связаны с партиями и документами', good: true },
   { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'виден как готовность денег, не как выплата', good: true },
-  { label: 'К выплате сейчас', value: '0 ₽', note: 'СДИЗ и ЭТрН ещё блокируют выпуск', danger: true },
-  { label: 'Следующий шаг', value: 'СДИЗ', note: 'без документа деньги не выпускаются', warn: true },
+  { label: 'К выплате сейчас', value: '0 ₽', note: 'СДИЗ и ЭТрН ещё блокируют проверку выплаты', danger: true },
+  { label: 'Следующий шаг', value: 'СДИЗ', note: 'без документа выплата не передаётся на банковскую проверку', warn: true },
 ];
 
 const sellerLots = [
@@ -83,8 +84,8 @@ export default function PlatformV7SellerPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={hero}>
         <div style={badge}>Кабинет продавца</div>
-        <h1 style={h1}>Лоты, предложения, документы и выпуск денег</h1>
-        <p style={lead}>Лот должен приводить к сделке, документам и получению денег. Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → выпуск денег.</p>
+        <h1 style={h1}>Лоты, предложения, документы и проверка выплаты</h1>
+        <p style={lead}>Лот должен приводить к сделке, документам и получению денег. Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → банковская проверка выплаты.</p>
         <div style={actions}>
           <Link href='/platform-v7/seller/batches/new' style={primaryBtn}>Создать партию</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть сделку</Link>
@@ -95,19 +96,28 @@ export default function PlatformV7SellerPage() {
         {sellerMetrics.map((metric) => <Metric key={metric.label} metric={metric} />)}
       </section>
 
+      <MoneyImpactSummaryStrip
+        amountContext='резерв 9,65 млн ₽ · к выплате 0 ₽'
+        pilotState='waiting'
+        pilotStateLabel='пилотный контур · ожидание документов'
+        responsible='продавец · ФГИС «Зерно»'
+        nextStep='закрыть СДИЗ и ЭТрН для передачи выплаты на банковскую проверку'
+        stopReason='проверка выплаты остановлена: СДИЗ и ЭТрН не закрыты'
+      />
+
       <P7ActionStateChip
         status='waiting'
         label='пилотный сценарий'
         nextActor='ФГИС «Зерно» и банк'
         blocker='СДИЗ и ЭТрН не закрыты'
-        moneyEffect='выплата остановлена'
+        moneyEffect='проверка выплаты остановлена'
       />
 
       <ConditionReasonStrip
         condition='пилотный сценарий'
         responsible='ФГИС «Зерно» и банк'
         documentState='СДИЗ и ЭТрН не закрыты'
-        stopReason='выплата остановлена'
+        stopReason='проверка выплаты остановлена'
       />
 
       <DocumentReadinessMiniMatrix role='seller' />
