@@ -70,7 +70,6 @@ export default function PlatformV7DisputesPage() {
         <p style={lead}>Здесь собраны причина удержания, сумма влияния, SLA, ответственный и доказательства. Спор не закрывается без решения, суммы и основания.</p>
         <div style={actions}>
           <Link href='/platform-v7/operator' style={primaryBtn}>Центр управления</Link>
-          <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
           <Link href='/platform-v7/bank' style={ghostBtn}>Деньги и удержания</Link>
         </div>
       </section>
