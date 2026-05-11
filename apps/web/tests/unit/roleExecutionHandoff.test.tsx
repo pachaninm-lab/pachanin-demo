@@ -9,6 +9,29 @@ import ElevatorPage from '@/app/platform-v7/elevator/page';
 import BankPage from '@/app/platform-v7/bank/page';
 import DisputesPage from '@/app/platform-v7/disputes/page';
 
+const forbiddenCopy = [
+  /production-ready/i,
+  /fully live/i,
+  /fully integrated/i,
+  /live callback/i,
+  /платформа гарантирует оплату/i,
+  /платформа выпускает деньги/i,
+  /деньги переведены/i,
+  /выплата выполнена/i,
+  /деньги отправлены/i,
+  /ФГБУ ЦОК АПК/i,
+  /СДИЗ не подтверждён/i,
+  /выпуск денег/i,
+  /банковское событие по выпуску/i,
+];
+
+function expectNoForbiddenCopy(html: string) {
+  for (const pattern of forbiddenCopy) {
+    expect(html).not.toMatch(pattern);
+  }
+  expect(html).not.toContain('/platform-v7/demo/');
+}
+
 describe('RoleExecutionHandoff component', () => {
   it('renders sends/awaits/blockedBy/next directions with user-facing labels', () => {
     const items: HandoffItem[] = [
@@ -76,8 +99,6 @@ describe('RoleExecutionHandoff component', () => {
       { direction: 'awaits', requirement: 'ожидает банковского подтверждения' },
       { direction: 'blockedBy', requirement: 'причина остановки: документы не закрыты' },
     ];
-    render(<RoleExecutionHandoff items={items} />);
-
     const { container } = render(<RoleExecutionHandoff items={items} />);
     const html = container.innerHTML;
 
@@ -118,31 +139,16 @@ describe('Seller page execution handoff', () => {
     expect(screen.getAllByText('следующий шаг').length).toBeGreaterThan(0);
   });
 
-  it('seller handoff contains СДИЗ and bank confirmation wording', () => {
+  it('seller handoff contains SDIZ and bank confirmation wording', () => {
     render(<SellerPage />);
 
     expect(screen.getByText(/СДИЗ ожидает закрытия/)).toBeInTheDocument();
     expect(screen.getByText(/резерв ожидает банковского подтверждения/)).toBeInTheDocument();
   });
 
-  it('seller page has no /platform-v7/demo/ links', () => {
+  it('seller page has no forbidden copy', () => {
     const { container } = render(<SellerPage />);
-
-    expect(container.innerHTML).not.toContain('/platform-v7/demo/');
-  });
-
-  it('seller page has no forbidden money movement wording', () => {
-    const { container } = render(<SellerPage />);
-    const html = container.innerHTML;
-
-    expect(html).not.toMatch(/деньги переведены/i);
-    expect(html).not.toMatch(/выплата выполнена/i);
-    expect(html).not.toMatch(/деньги отправлены/i);
-    expect(html).not.toMatch(/платформа гарантирует оплату/i);
-    expect(html).not.toMatch(/платформа выпускает деньги/i);
-    expect(html).not.toMatch(/production-ready/i);
-    expect(html).not.toMatch(/fully live/i);
-    expect(html).not.toMatch(/fully integrated/i);
+    expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
@@ -161,18 +167,14 @@ describe('Buyer page execution handoff', () => {
     expect(screen.getByText(/запрос банковского подтверждения резерва/)).toBeInTheDocument();
   });
 
-  it('buyer page has no forbidden wording', () => {
+  it('buyer page has no forbidden copy', () => {
     const { container } = render(<BuyerPage />);
-    const html = container.innerHTML;
-
-    expect(html).not.toMatch(/платформа гарантирует оплату/i);
-    expect(html).not.toMatch(/production-ready/i);
-    expect(html).not.toContain('/platform-v7/demo/');
+    expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
 describe('Logistics page execution handoff', () => {
-  it('renders execution handoff section with ЭТрН wording', () => {
+  it('renders execution handoff section with ETRN wording', () => {
     render(<LogisticsPage />);
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
@@ -183,20 +185,17 @@ describe('Logistics page execution handoff', () => {
     render(<LogisticsPage />);
 
     expect(screen.getByText(/передаёт данные о рейсе и водителе — ожидает подтверждения приёмки от элеватора/)).toBeInTheDocument();
-    expect(screen.getByText(/ожидать закрытия ЭТрН подписью грузополучателя — пакет передаётся в контур документов после подтверждения/)).toBeInTheDocument();
+    expect(screen.getByText(/СДИЗ ожидает закрытия/)).toBeInTheDocument();
   });
 
-  it('logistics page has no forbidden wording', () => {
+  it('logistics page has no forbidden copy', () => {
     const { container } = render(<LogisticsPage />);
-    const html = container.innerHTML;
-
-    expect(html).not.toMatch(/production-ready/i);
-    expect(html).not.toContain('/platform-v7/demo/');
+    expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
 describe('Elevator page execution handoff', () => {
-  it('renders execution handoff section with акт приёмки wording', () => {
+  it('renders execution handoff section with acceptance act wording', () => {
     render(<ElevatorPage />);
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
@@ -209,17 +208,14 @@ describe('Elevator page execution handoff', () => {
     expect(screen.getByText(/отклонение веса -1,2 т/)).toBeInTheDocument();
   });
 
-  it('elevator page has no forbidden wording', () => {
+  it('elevator page has no forbidden copy', () => {
     const { container } = render(<ElevatorPage />);
-    const html = container.innerHTML;
-
-    expect(html).not.toMatch(/production-ready/i);
-    expect(html).not.toContain('/platform-v7/demo/');
+    expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
 describe('Bank page execution handoff', () => {
-  it('renders execution handoff section with банковское событие wording', () => {
+  it('renders execution handoff section with bank event wording', () => {
     render(<BankPage />);
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
@@ -231,20 +227,17 @@ describe('Bank page execution handoff', () => {
 
     expect(screen.getByText(/банк направляет уведомление о готовности к банковскому событию/)).toBeInTheDocument();
     expect(screen.getByText(/пилотный контур требует ручной сверки оператором/)).toBeInTheDocument();
+    expect(screen.getByText(/банковская проверка выплаты не продолжается/)).toBeInTheDocument();
   });
 
-  it('bank page has no forbidden wording', () => {
+  it('bank page has no forbidden copy', () => {
     const { container } = render(<BankPage />);
-    const html = container.innerHTML;
-
-    expect(html).not.toMatch(/production-ready/i);
-    expect(html).not.toMatch(/платформа гарантирует оплату/i);
-    expect(html).not.toContain('/platform-v7/demo/');
+    expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
 describe('Disputes page execution handoff', () => {
-  it('renders execution handoff section with удержание and review wording', () => {
+  it('renders execution handoff section with retention and review wording', () => {
     render(<DisputesPage />);
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
@@ -255,16 +248,12 @@ describe('Disputes page execution handoff', () => {
     render(<DisputesPage />);
 
     expect(screen.getByText(/рекомендация по удержанию или спорной сумме — передаётся оператору на ручную проверку оснований/)).toBeInTheDocument();
-    expect(screen.getByText(/банковское событие по выпуску невозможно до решения оператора и закрытия суммы/)).toBeInTheDocument();
+    expect(screen.getByText(/спорная сумма остаётся на ручной проверке до решения оператора/)).toBeInTheDocument();
   });
 
-  it('disputes page has no forbidden wording', () => {
+  it('disputes page has no forbidden copy', () => {
     const { container } = render(<DisputesPage />);
-    const html = container.innerHTML;
-
-    expect(html).not.toMatch(/production-ready/i);
-    expect(html).not.toMatch(/деньги переведены/i);
-    expect(html).not.toContain('/platform-v7/demo/');
+    expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
