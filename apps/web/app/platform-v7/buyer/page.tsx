@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
+import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 
 type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
 
@@ -55,6 +56,15 @@ export default function PlatformV7BuyerPage() {
       <section style={metricsGrid}>
         {buyerMetrics.map((metric) => <Metric key={metric.label} metric={metric} />)}
       </section>
+
+      <MoneyImpactSummaryStrip
+        amountContext='резерв 9,65 млн ₽ · удержание 624 тыс. ₽'
+        pilotState='waiting'
+        pilotStateLabel='пилотный контур · ожидание подтверждения'
+        responsible='покупатель · банк'
+        nextStep='ожидать банковского подтверждения резерва'
+        stopReason='сделка не переходит к логистике до банковского подтверждения'
+      />
 
       <WorkflowActionPanel context='buyer' />
 

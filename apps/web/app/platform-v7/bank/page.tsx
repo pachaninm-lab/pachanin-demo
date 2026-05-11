@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
+import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
 
 const mainDeal = getDeal360Scenario('DL-9106');
 const disputeDeal = getDeal360Scenario('DL-9102');
@@ -67,6 +68,15 @@ export default function PlatformV7BankPage() {
           {releaseSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
+
+      <MoneyImpactSummaryStrip
+        amountContext='в резерве 15,89 млн ₽ · к выплате 0 ₽ · удержание 624 тыс. ₽'
+        pilotState='blocked'
+        pilotStateLabel='пилотный контур · удержание выпуска'
+        responsible='банк · оператор'
+        nextStep='ручная сверка после закрытия всех условий'
+        stopReason='выпуск остановлен: СДИЗ, ЭТрН, акт приёмки, качество не закрыты'
+      />
 
       <section style={metricsGrid}>
         <Metric label='В резерве' value='15,89 млн ₽' />

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
+import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 
 type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
 
@@ -54,6 +55,15 @@ export default function PlatformV7SellerPage() {
       <section style={metricsGrid}>
         {sellerMetrics.map((metric) => <Metric key={metric.label} metric={metric} />)}
       </section>
+
+      <MoneyImpactSummaryStrip
+        amountContext='резерв 9,65 млн ₽ · к выплате 0 ₽'
+        pilotState='waiting'
+        pilotStateLabel='пилотный контур · ожидание документов'
+        responsible='продавец · ФГИС «Зерно»'
+        nextStep='закрыть СДИЗ и ЭТрН для передачи на проверку выплаты'
+        stopReason='выпуск остановлен: СДИЗ, ЭТрН не закрыты'
+      />
 
       <WorkflowActionPanel context='seller' />
 
