@@ -5,6 +5,7 @@ import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '@/components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentReadinessMiniMatrix';
+import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -108,6 +109,15 @@ export default function PlatformV7BankPage() {
           {releaseSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
+
+      <MoneyImpactSummaryStrip
+        amountContext='в резерве 15,89 млн ₽ · к выплате 0 ₽ · удержание 624 тыс. ₽'
+        pilotState='blocked'
+        pilotStateLabel='пилотный контур · удержание до закрытия условий'
+        responsible='банк · оператор'
+        nextStep='ручная сверка после закрытия всех условий'
+        stopReason='банковская проверка выплаты остановлена: СДИЗ, ЭТрН, акт приёмки и качество не закрыты'
+      />
 
       <P7ActionStateChip
         status='blocked'
