@@ -4,6 +4,7 @@ import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/
 import { formatRub } from '@/lib/platform-v7/grain-execution/format';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
+import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
 
 const disputesHandoff: HandoffItem[] = [
   {
@@ -147,6 +148,8 @@ export default function PlatformV7DisputesPage() {
           {evidenceGateRows.map((item) => <EvidenceGateCard key={item.id} item={item} />)}
         </div>
       </section>
+
+      <DecisionRecommendationStrip context='disputes' />
 
       <EvidenceReadinessMiniMatrix context='disputes' />
 
