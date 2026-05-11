@@ -1,5 +1,42 @@
 import Link from 'next/link';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
+import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+
+const bankHandoff: HandoffItem[] = [
+  {
+    direction: 'awaits',
+    role: 'банк ← все роли',
+    requirement: 'документы, приёмка, качество и спор должны быть закрыты до банковского события',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'awaits',
+    role: 'банк ← продавец',
+    requirement: 'СДИЗ и ЭТрН ожидают закрытия — без этого выплата не передаётся на банковскую проверку',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'sends',
+    role: 'банк → оператор',
+    requirement: 'банк направляет уведомление о готовности к банковскому событию — пилотный контур требует ручной сверки оператором',
+    moneyImpact: true,
+  },
+  {
+    direction: 'blockedBy',
+    requirement: 'СДИЗ, ЭТрН, акт приёмки и протокол качества ещё не закрыты — банковская проверка выплаты не продолжается',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'next',
+    requirement: 'ждать закрытия всех условий для банковского события по DL-9106',
+    entity: 'DL-9106',
+    href: '/platform-v7/deals/DL-9106/clean',
+    moneyImpact: true,
+  },
+];
 
 const mainDeal = getDeal360Scenario('DL-9106');
 const disputeDeal = getDeal360Scenario('DL-9102');
@@ -10,10 +47,10 @@ const bankQueue = [
     lot: mainDeal.lotId,
     buyer: 'Покупатель 1',
     amount: '9,65 млн ₽',
-    reserve: 'ожидает подтверждения',
+    reserve: 'ожидает банковского подтверждения',
     releaseNow: '0 ₽',
     hold: '0 ₽',
-    decision: 'не выпускать',
+    decision: 'не передавать на выплату',
     next: mainDeal.nextAction,
     href: `/platform-v7/deals/${mainDeal.dealId}/clean`,
     state: 'stop' as Deal360State,
@@ -23,10 +60,10 @@ const bankQueue = [
     lot: disputeDeal.lotId,
     buyer: 'Покупатель 2',
     amount: '6,24 млн ₽',
-    reserve: 'подтверждён',
+    reserve: 'отмечен в пилотном контуре',
     releaseNow: '5,616 млн ₽',
     hold: '624 тыс. ₽',
-    decision: 'частичный выпуск после решения',
+    decision: 'частичная выплата после решения и банковского подтверждения',
     next: disputeDeal.nextAction,
     href: `/platform-v7/deals/${disputeDeal.dealId}/clean`,
     state: 'manual' as Deal360State,
@@ -34,23 +71,23 @@ const bankQueue = [
 ] as const;
 
 const releaseSummary = [
-  { label: 'Что сейчас', value: 'DL-9106 · выпуск денег закрыт', note: 'Сделка есть, но выпуск продавцу невозможен без закрытых условий.' },
-  { label: 'Где деньги', value: 'резерв ожидает подтверждения · к выплате 0 ₽', note: 'Банк видит резерв, удержание и основание остановки, а не декоративную кнопку выплаты.' },
-  { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Каждый блокер должен иметь источник, ответственного, статус и влияние на деньги.' },
-  { label: 'Где груз', value: 'TRIP-SIM-001 · приёмка и качество в работе', note: 'Транспортный и приёмочный факты нужны как основание для выпуска.' },
-  { label: 'Решение банка', value: 'не выпускать', note: 'В controlled-pilot нет заявления о live-выплате или боевом банковском callback.' },
-  { label: 'Кто следующий', value: 'оператор + владелец документа', note: 'Следующее действие фиксируется в сделке и журнале.' },
+  { label: 'Что сейчас', value: 'DL-9106 · выплата остановлена', note: 'Сделка есть, но передача на выплату невозможна без закрытых условий.' },
+  { label: 'Где деньги', value: 'резерв ожидает банковского подтверждения · к выплате 0 ₽', note: 'Банк видит резерв, удержание и основание остановки, а не декоративную кнопку выплаты.' },
+  { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Каждая причина остановки должна иметь источник, ответственного, статус и влияние на деньги.' },
+  { label: 'Где груз', value: 'TRIP-SIM-001 · приёмка и качество в работе', note: 'Транспортный и приёмочный факты нужны как основание для банковской проверки.' },
+  { label: 'Решение банка', value: 'не передавать на выплату', note: 'В пилотном контуре нет заявления о live-выплате или боевом банковском событии.' },
+  { label: 'Кто следующий', value: 'оператор + ответственный за документ', note: 'Следующее действие фиксируется в сделке и журнале.' },
 ] as const;
 
-const gates = mainDeal.providerGates.filter((gate) => ['Сбер · Безопасные сделки', 'Сбер · Оплата в кредит', 'ФГИС «Зерно»', 'Контур.Диадок', 'СБИС / Saby ЭТрН', 'ФГБУ ЦОК АПК'].includes(gate.provider));
+const gates = mainDeal.providerGates.filter((gate) => ['Сбер · Безопасные сделки', 'Сбер · Оплата в кредит', 'ФГИС «Зерно»', 'Контур.Диадок', 'СБИС / Saby ЭТрН', 'Лабораторный контур качества'].includes(gate.provider));
 
 export default function PlatformV7BankPage() {
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={hero}>
         <div style={badge}>Кабинет банка</div>
-        <h1 style={h1}>Деньги выпускаются только после условий сделки</h1>
-        <p style={lead}>Банк видит резерв, удержание, документы, приёмку, качество и причину остановки. Здесь нет кнопки прямой выплаты: сначала проверка условий, потом выпуск денег продавцу.</p>
+        <h1 style={h1}>Деньги передаются на выплату только после условий сделки</h1>
+        <p style={lead}>Банк видит резерв, удержание, документы, приёмку, качество и причину остановки. Здесь нет кнопки прямой выплаты: сначала проверка условий, потом банковское событие или ручная сверка.</p>
         <div style={actions}>
           <Link href='/platform-v7/bank/release-safety' style={primaryBtn}>Проверка выплаты</Link>
           <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Deal 360</Link>
@@ -59,9 +96,9 @@ export default function PlatformV7BankPage() {
 
       <section style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ ...micro, color: '#CBD5E1' }}>release safety</div>
+          <div style={{ ...micro, color: '#CBD5E1' }}>проверка выплаты</div>
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что банк должен понять за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Выплата продавцу не является ручной кнопкой. Это результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
+          <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Выплата продавцу не является ручной кнопкой платформы. Это результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {releaseSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
@@ -77,7 +114,7 @@ export default function PlatformV7BankPage() {
 
       <section style={card}>
         <div style={micro}>Сбер · Безопасные сделки</div>
-        <h2 style={h2}>Waterfall выплаты продавцу</h2>
+        <h2 style={h2}>Проверка выплаты продавцу</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
           {mainDeal.money.map((item) => (
             <div key={item.title} style={{ background: stateBg(item.state), border: `1px solid ${stateBorder(item.state)}`, borderRadius: 16, padding: 13 }}>
@@ -91,7 +128,7 @@ export default function PlatformV7BankPage() {
       </section>
 
       <section style={card}>
-        <div style={micro}>Условия выпуска денег</div>
+        <div style={micro}>Условия выплаты денег</div>
         <div style={{ display: 'grid', gap: 8 }}>
           {gates.map((gate) => (
             <article key={`${gate.provider}-${gate.object}`} style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 16, padding: 13, display: 'grid', gap: 6 }}>
@@ -121,7 +158,7 @@ export default function PlatformV7BankPage() {
               <span style={{ ...pill, background: stateBg(deal.state), borderColor: stateBorder(deal.state), color: stateText(deal.state) }}>{deal.decision}</span>
             </div>
             <div style={grid2}>
-              <Cell label='Резерв' value={deal.reserve} strong={deal.reserve === 'подтверждён'} />
+              <Cell label='Резерв' value={deal.reserve} strong={deal.reserve === 'отмечен в пилотном контуре'} />
               <Cell label='К выплате сейчас' value={deal.releaseNow} danger={deal.releaseNow === '0 ₽'} />
               <Cell label='Удержано' value={deal.hold} danger={deal.hold !== '0 ₽'} />
               <Cell label='Следующее действие' value={deal.next} strong />
@@ -129,6 +166,8 @@ export default function PlatformV7BankPage() {
           </Link>
         ))}
       </section>
+
+      <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
     </main>
   );
 }

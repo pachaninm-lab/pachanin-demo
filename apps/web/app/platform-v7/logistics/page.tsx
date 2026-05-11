@@ -1,4 +1,33 @@
 import Link from 'next/link';
+import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
+
+const logisticsHandoff: HandoffItem[] = [
+  {
+    direction: 'sends',
+    role: 'логистика → элеватор',
+    requirement: 'передаёт данные о рейсе и водителе — ожидает подтверждения приёмки от элеватора',
+    entity: 'LOG-REQ-2403',
+    documentImpact: true,
+  },
+  {
+    direction: 'awaits',
+    role: 'от элеватора',
+    requirement: 'ЭТрН ожидает подписи грузополучателя',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'blockedBy',
+    requirement: 'СДИЗ ожидает закрытия — денежная проверка не продолжается без документа',
+    documentImpact: true,
+    moneyImpact: true,
+  },
+  {
+    direction: 'next',
+    requirement: 'ожидать закрытия ЭТрН подписью грузополучателя — пакет передаётся в контур документов после подтверждения',
+    documentImpact: true,
+  },
+];
 
 const orders = [
   {
@@ -19,7 +48,7 @@ const orders = [
     incidents: 'нет',
     etrn: 'СБИС / Saby ЭТрН · ждёт подписи грузополучателя',
     gisEpd: 'ГИС ЭПД · ожидает передачи после подписи',
-    fgis: 'ФГИС «Зерно» · СДИЗ не подтверждён',
+    fgis: 'ФГИС «Зерно» · СДИЗ ожидает подтверждения',
     docs: 'транспортный пакет на проверке',
     next: 'контроль прибытия и подписи ЭТрН',
     href: '/platform-v7/driver',
@@ -41,8 +70,8 @@ const orders = [
     progress: '100%',
     incidents: 'есть отклонение веса',
     etrn: 'СБИС / Saby ЭТрН · подписана перевозчиком',
-    gisEpd: 'ГИС ЭПД · принята',
-    fgis: 'ФГИС «Зерно» · СДИЗ подтверждён',
+    gisEpd: 'ГИС ЭПД · принята в пилотном контуре',
+    fgis: 'ФГИС «Зерно» · СДИЗ отмечен в пилотном контуре',
     docs: 'акт расхождения не подписан',
     next: 'закрыть инцидент и акт удержания',
     href: '/platform-v7/driver',
@@ -75,7 +104,7 @@ const orders = [
 const gates = [
   { title: 'СБИС / Saby ЭТрН', value: '1 ждёт подписи · 1 подписана · 1 не создана', state: 'stop' },
   { title: 'ГИС ЭПД', value: 'передача после подписания ЭТрН', state: 'wait' },
-  { title: 'ФГИС «Зерно»', value: 'СДИЗ влияет на выпуск денег', state: 'stop' },
+  { title: 'ФГИС «Зерно»', value: 'СДИЗ влияет на проверку выплаты', state: 'stop' },
   { title: 'Wialon', value: '2 водителя с текущим статусом', state: 'ok' },
 ] as const;
 
@@ -103,6 +132,8 @@ export default function LogisticsPage() {
         <Metric label='Инцидентов' value={String(incidents)} danger={incidents > 0} />
         <Metric label='Заказов' value={String(orders.length)} />
       </section>
+
+      <RoleExecutionHandoff items={logisticsHandoff} title='исполнение: что логистика отправляет и ожидает' />
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
         <div style={micro}>Документные условия перевозки</div>
@@ -180,7 +211,7 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
         <Cell label='ETA' value={order.eta} strong={isActive} />
         <Cell label='Прогресс' value={order.progress} strong={isActive} />
         <Cell label='ЭТрН' value={order.etrn} danger={order.etrn.includes('ждёт') || order.etrn.includes('не создана')} />
-        <Cell label='СДИЗ' value={order.fgis} danger={order.fgis.includes('не подтверждён') || order.fgis.includes('ожидает')} />
+        <Cell label='СДИЗ' value={order.fgis} danger={order.fgis.includes('ожидает')} />
         <Cell label='Документы' value={order.docs} danger={order.docs.includes('не')} />
         <Cell label='Инциденты' value={order.incidents} danger={hasIncident} />
       </div>
