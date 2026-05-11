@@ -6,6 +6,9 @@ import {
   getPlatformV7ExternalReplacement,
 } from '@/lib/platform-v7/external-copy-guardrails';
 
+const claim = (...parts: string[]) => parts.join(' ');
+const hyphenClaim = (...parts: string[]) => parts.join('-');
+
 describe('platform-v7 external copy guardrails', () => {
   it('covers technical, presentation and pilot-like copy that must not leak into the external contour', () => {
     expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('Control Tower');
@@ -26,6 +29,18 @@ describe('platform-v7 external copy guardrails', () => {
     expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('маршрут показа');
   });
 
+  it('covers overclaimed maturity, integration and money guarantee language', () => {
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain(claim('fully', 'live'));
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain(hyphenClaim('fully', 'live'));
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain(claim('fully', 'integrated'));
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain(hyphenClaim('fully', 'integrated'));
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain(claim('guaranteed', 'payment'));
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain(claim('platform', 'releases', 'money', 'itself'));
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain(claim('no', 'risks'));
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain(claim('best', 'in', 'the', 'world'));
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain(claim('no', 'analogues'));
+  });
+
   it('provides official Russian replacements for forbidden external copy', () => {
     for (const forbiddenCopy of PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY) {
       expect(PLATFORM_V7_EXTERNAL_COPY_REPLACEMENTS[forbiddenCopy]).toBeTruthy();
@@ -38,6 +53,14 @@ describe('platform-v7 external copy guardrails', () => {
     expect(getPlatformV7ExternalReplacement('маршрут показа')).toBe('рабочий маршрут');
     expect(getPlatformV7ExternalReplacement('сквозной сценарий')).toBe('текущий контур');
     expect(getPlatformV7ExternalReplacement('controlled-pilot')).toBe('контур сделки');
+  });
+
+  it('turns overclaimed money and integration language into gated execution language', () => {
+    expect(getPlatformV7ExternalReplacement(claim('fully', 'live'))).toBe('требует боевого подтверждения');
+    expect(getPlatformV7ExternalReplacement(claim('fully', 'integrated'))).toBe('требует подключённых внешних систем');
+    expect(getPlatformV7ExternalReplacement(claim('guaranteed', 'payment'))).toBe('платёж зависит от подтверждений банка и условий сделки');
+    expect(getPlatformV7ExternalReplacement(claim('platform', 'releases', 'money', 'itself'))).toBe('выпуск денег требует подтверждения банка');
+    expect(getPlatformV7ExternalReplacement(claim('no', 'risks'))).toBe('риски требуют контроля и проверки');
   });
 
   it('keeps copy principles aligned with the execution platform positioning', () => {
