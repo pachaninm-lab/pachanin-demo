@@ -102,10 +102,11 @@ describe('platform-v7 role UX regressions', () => {
     });
   });
 
-  describe('elevator uses official protocol name', () => {
-    it('quality section uses ФГБУ ЦОК АПК, not a simulation label', () => {
-      expect(elevatorPage).toContain('ФГБУ ЦОК АПК');
+  describe('elevator quality wording stays pilot-safe', () => {
+    it('quality section uses pilot wording, not simulation or external-confirmed wording', () => {
+      expect(elevatorPage).toContain('пилотный протокол качества');
       expect(elevatorPage).not.toContain('симуляция протокола');
+      expect(elevatorPage).not.toContain('ФГБУ ЦОК АПК');
     });
 
     it('elevator role summary hides commercial data from acceptance role', () => {
