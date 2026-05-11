@@ -8,6 +8,7 @@ import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentRe
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
+import { IdempotencyAuditPolicyStrip } from '@/components/platform-v7/IdempotencyAuditPolicyStrip';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -203,6 +204,8 @@ export default function PlatformV7BankPage() {
       <DocumentReadinessMiniMatrix role='bank' />
 
       <EvidenceReadinessMiniMatrix context='bank' />
+
+      <IdempotencyAuditPolicyStrip context='bank' />
 
       <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
 
