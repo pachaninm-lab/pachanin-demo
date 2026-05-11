@@ -1,4 +1,10 @@
+import React from 'react';
 import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
+import DisputesPage from '@/app/platform-v7/disputes/page';
+import BankPage from '@/app/platform-v7/bank/page';
+import ElevatorPage from '@/app/platform-v7/elevator/page';
 import {
   canContextProceed,
   EVIDENCE_READINESS_CONTEXT_LABEL,
@@ -8,11 +14,32 @@ import {
   getContextBlockers,
 } from '@/lib/platform-v7/evidence-readiness-matrix';
 
-describe('platform-v7 evidence readiness mini matrix', () => {
+const FORBIDDEN = [
+  /production-ready/i,
+  /fully live/i,
+  /fully integrated/i,
+  /live callback/i,
+  /платформа гарантирует оплату/i,
+  /платформа выпускает деньги/i,
+  /деньги переведены/i,
+  /выплата выполнена/i,
+  /деньги отправлены/i,
+  /автоматический выпуск/i,
+  /боевой ответ/i,
+];
+
+function expectNoUnsafeCopy(html: string) {
+  for (const pattern of FORBIDDEN) {
+    expect(html).not.toMatch(pattern);
+  }
+  expect(html).not.toContain('/platform-v7/demo/');
+}
+
+describe('platform-v7 evidence readiness data', () => {
   it('exports all four state labels', () => {
     expect(EVIDENCE_READINESS_STATE_LABEL.ready).toBe('Готов к проверке');
     expect(EVIDENCE_READINESS_STATE_LABEL.partial).toBe('Частично готов');
-    expect(EVIDENCE_READINESS_STATE_LABEL.blocked).toBe('Заблокирован');
+    expect(EVIDENCE_READINESS_STATE_LABEL.blocked).toBe('Требует действия');
     expect(EVIDENCE_READINESS_STATE_LABEL.pending).toBe('Ожидает подтверждения');
   });
 
@@ -59,14 +86,14 @@ describe('platform-v7 evidence readiness mini matrix', () => {
     expect(canContextProceed('elevator')).toBe(false);
   });
 
-  it('disputes has 3 non-ready rows (1 partial + 2 blocked)', () => {
+  it('disputes has 3 non-ready rows', () => {
     expect(getContextBlockerCount('disputes')).toBe(3);
     const blockers = getContextBlockers('disputes');
     expect(blockers.filter((r) => r.pilotState === 'partial')).toHaveLength(1);
     expect(blockers.filter((r) => r.pilotState === 'blocked')).toHaveLength(2);
   });
 
-  it('bank has 4 non-ready rows (1 partial + 3 blocked) and 1 ready row', () => {
+  it('bank has 4 non-ready rows and 1 ready row', () => {
     expect(getContextBlockerCount('bank')).toBe(4);
     const blockers = getContextBlockers('bank');
     expect(blockers.filter((r) => r.pilotState === 'blocked')).toHaveLength(3);
@@ -76,7 +103,7 @@ describe('platform-v7 evidence readiness mini matrix', () => {
     expect(readyRows[0].item).toContain('Резерв сделки');
   });
 
-  it('elevator has 3 non-ready rows (partial + blocked + pending)', () => {
+  it('elevator has 3 non-ready rows', () => {
     expect(getContextBlockerCount('elevator')).toBe(3);
     const states = getContextBlockers('elevator').map((r) => r.pilotState);
     expect(states).toContain('partial');
@@ -89,5 +116,54 @@ describe('platform-v7 evidence readiness mini matrix', () => {
       const readyRows = EVIDENCE_READINESS_ROWS[context].filter((r) => r.pilotState === 'ready');
       expect(readyRows, `${context} should have exactly 1 ready row`).toHaveLength(1);
     }
+  });
+
+  it('data avoids unsafe wording', () => {
+    const data = JSON.stringify(EVIDENCE_READINESS_ROWS);
+    expectNoUnsafeCopy(data);
+  });
+});
+
+describe('EvidenceReadinessMiniMatrix component', () => {
+  it('renders disputes matrix rows and stop reasons', () => {
+    const { container } = render(<EvidenceReadinessMiniMatrix context='disputes' />);
+    expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
+    expect(screen.getAllByTestId('platform-v7-evidence-readiness-mini-matrix-row')).toHaveLength(4);
+    expect(screen.getAllByTestId('platform-v7-evidence-readiness-mini-matrix-stop-reason')).toHaveLength(3);
+    expectNoUnsafeCopy(container.innerHTML);
+  });
+
+  it('renders bank matrix rows and summary', () => {
+    const { container } = render(<EvidenceReadinessMiniMatrix context='bank' />);
+    expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix-summary')).toHaveTextContent('4 не готово');
+    expect(screen.getAllByTestId('platform-v7-evidence-readiness-mini-matrix-row')).toHaveLength(5);
+    expectNoUnsafeCopy(container.innerHTML);
+  });
+
+  it('renders elevator matrix rows and context label', () => {
+    const { container } = render(<EvidenceReadinessMiniMatrix context='elevator' />);
+    expect(container.innerHTML).toContain('Готовность доказательств — элеватор');
+    expect(screen.getAllByTestId('platform-v7-evidence-readiness-mini-matrix-row')).toHaveLength(4);
+    expectNoUnsafeCopy(container.innerHTML);
+  });
+});
+
+describe('EvidenceReadinessMiniMatrix page placement', () => {
+  it('disputes page renders evidence readiness matrix without demo links', () => {
+    const { container } = render(<DisputesPage />);
+    expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
+    expectNoUnsafeCopy(container.innerHTML);
+  });
+
+  it('bank page renders evidence readiness matrix without demo links', () => {
+    const { container } = render(<BankPage />);
+    expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
+    expectNoUnsafeCopy(container.innerHTML);
+  });
+
+  it('elevator page renders evidence readiness matrix without demo links', () => {
+    const { container } = render(<ElevatorPage />);
+    expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
+    expectNoUnsafeCopy(container.innerHTML);
   });
 });
