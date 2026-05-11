@@ -5,6 +5,7 @@ import { formatRub } from '@/lib/platform-v7/grain-execution/format';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
+import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
 
 const disputesHandoff: HandoffItem[] = [
   {
@@ -152,6 +153,8 @@ export default function PlatformV7DisputesPage() {
       <DecisionRecommendationStrip context='disputes' />
 
       <EvidenceReadinessMiniMatrix context='disputes' />
+
+      <DecisionPackMiniPanel context='dl9102_dispute_hold' />
 
       <section style={card}>
         <div style={micro}>Правила закрытия</div>

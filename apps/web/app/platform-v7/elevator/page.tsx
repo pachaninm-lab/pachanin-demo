@@ -3,6 +3,7 @@ import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
+import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
 
 const elevatorHandoff: HandoffItem[] = [
   {
@@ -136,6 +137,8 @@ export default function Page() {
       <DecisionRecommendationStrip context='elevator' />
 
       <EvidenceReadinessMiniMatrix context='elevator' />
+
+      <DecisionPackMiniPanel context='dl9106_payout_review' />
 
       <RoleExecutionHandoff items={elevatorHandoff} title='исполнение: что приёмка отправляет и ожидает' />
 

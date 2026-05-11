@@ -6,6 +6,7 @@ import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
+import { DecisionPackMiniPanel } from '../../../components/platform-v7/DecisionPackMiniPanel';
 
 const buyerHandoff: HandoffItem[] = [
   {
@@ -121,6 +122,8 @@ export default function PlatformV7BuyerPage() {
       />
 
       <DocumentReadinessMiniMatrix role='buyer' />
+
+      <DecisionPackMiniPanel context='buyer_reserve_request' />
 
       <WorkflowActionPanel context='buyer' />
 
