@@ -1,4 +1,10 @@
+import React from 'react';
 import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
+import DisputesPage from '@/app/platform-v7/disputes/page';
+import BankPage from '@/app/platform-v7/bank/page';
+import ElevatorPage from '@/app/platform-v7/elevator/page';
 import {
   DECISION_PILOT_STATE_LABEL,
   DECISION_RECOMMENDATION_DATA,
@@ -19,6 +25,7 @@ const FORBIDDEN_PATTERNS = [
   /fully protected/i,
   /no risks/i,
   /автоматический выпуск платформой/i,
+  /best in the world/i,
 ];
 
 function assertNoForbiddenWording(text: string, label: string) {
@@ -94,5 +101,59 @@ describe('decision-recommendation data', () => {
     expect(disputeReason).toMatch(/ручная проверка|ожидает|не получен|не подписан/i);
     expect(bankReason).toMatch(/ручная проверка|не продолжается|не закрыты|остановлена/i);
     expect(elevatorReason).toMatch(/ручная проверка|не подписан|не оформлен|остаётся/i);
+  });
+});
+
+describe('DecisionRecommendationStrip component', () => {
+  it('renders disputes recommendation with responsible role and blocker reason', () => {
+    const { container } = render(<DecisionRecommendationStrip context='disputes' />);
+
+    expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
+    expect(screen.getByTestId('platform-v7-decision-recommendation-strip-state')).toHaveTextContent('Ожидает доказательств');
+    expect(screen.getByTestId('platform-v7-decision-recommendation-strip-responsible')).toHaveTextContent('оператор / лаборатория');
+    expect(screen.getByTestId('platform-v7-decision-recommendation-strip-blocker')).toHaveTextContent('ручной проверке');
+    assertNoForbiddenWording(container.innerHTML, 'disputes strip');
+  });
+
+  it('renders bank recommendation with evidence pills and safe wording', () => {
+    const { container } = render(<DecisionRecommendationStrip context='bank' />);
+
+    expect(screen.getByTestId('platform-v7-decision-recommendation-strip-recommendation')).toHaveTextContent('банковскую проверку выплаты');
+    expect(container.innerHTML).toContain('СДИЗ');
+    expect(container.innerHTML).toContain('ЭТрН');
+    expect(container.innerHTML).toContain('акт приёмки');
+    assertNoForbiddenWording(container.innerHTML, 'bank strip');
+  });
+
+  it('renders elevator recommendation with acceptance and lab evidence', () => {
+    const { container } = render(<DecisionRecommendationStrip context='elevator' />);
+
+    expect(screen.getByTestId('platform-v7-decision-recommendation-strip-recommendation')).toHaveTextContent('Зафиксировать вес');
+    expect(container.innerHTML).toContain('акт приёмки');
+    expect(container.innerHTML).toContain('пилотный протокол качества');
+    assertNoForbiddenWording(container.innerHTML, 'elevator strip');
+  });
+});
+
+describe('DecisionRecommendationStrip page placement', () => {
+  it('disputes page renders the decision strip without demo links or unsafe wording', () => {
+    const { container } = render(<DisputesPage />);
+
+    expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
+    assertNoForbiddenWording(container.innerHTML, 'disputes page');
+  });
+
+  it('bank page renders the decision strip without demo links or unsafe wording', () => {
+    const { container } = render(<BankPage />);
+
+    expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
+    assertNoForbiddenWording(container.innerHTML, 'bank page');
+  });
+
+  it('elevator page renders the decision strip without demo links or unsafe wording', () => {
+    const { container } = render(<ElevatorPage />);
+
+    expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
+    assertNoForbiddenWording(container.innerHTML, 'elevator page');
   });
 });
