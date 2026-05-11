@@ -6,7 +6,7 @@ const buyerHandoff: HandoffItem[] = [
   {
     direction: 'sends',
     role: 'покупатель → банк',
-    requirement: 'запрос резерва денег в банк',
+    requirement: 'запрос банковского подтверждения резерва',
     entity: 'DL-9106',
     href: '/platform-v7/deals/DL-9106/money',
     moneyImpact: true,
@@ -22,7 +22,7 @@ const buyerHandoff: HandoffItem[] = [
   {
     direction: 'awaits',
     role: 'от банка',
-    requirement: 'банк подтверждает резерв — без этого сделка не переходит к логистике',
+    requirement: 'резерв ожидает банковского подтверждения — до этого сделка не переходит к логистике',
     moneyImpact: true,
   },
   {
@@ -34,7 +34,7 @@ const buyerHandoff: HandoffItem[] = [
   },
   {
     direction: 'next',
-    requirement: 'подтвердить резерв денег в банке и перейти к логистике',
+    requirement: 'запросить банковское подтверждение резерва и перейти к логистике после статуса банка',
     entity: 'DL-9106',
     href: '/platform-v7/deals/DL-9106/clean',
     moneyImpact: true,
@@ -45,9 +45,9 @@ type MetricItem = { label: string; value: string; note: string; good?: boolean; 
 
 const buyerMetrics: MetricItem[] = [
   { label: 'Подходящие партии', value: '7', note: 'отфильтрованы по культуре, региону и документам' },
-  { label: 'Мой резерв', value: '9,65 млн ₽', note: 'готовность денег по DL-9106', good: true },
+  { label: 'Мой резерв', value: '9,65 млн ₽', note: 'пилотная готовность денег по DL-9106', good: true },
   { label: 'Под удержанием', value: '624 тыс. ₽', note: 'спорная часть по весу', danger: true },
-  { label: 'Следующий шаг', value: 'резерв', note: 'подтвердить резерв денег в банке', warn: true },
+  { label: 'Следующий шаг', value: 'резерв', note: 'запросить банковское подтверждение', warn: true },
 ];
 
 const buyerLots = [
@@ -64,7 +64,7 @@ const buyerLots = [
     title: 'Пшеница 4 класса · 600 т · Тамбовская область',
     price: '16 080 ₽/т',
     status: 'ставка принята',
-    next: 'подтвердить резерв денег',
+    next: 'запросить банковское подтверждение резерва',
     href: '/platform-v7/lots/LOT-2403',
   },
 ] as const;
