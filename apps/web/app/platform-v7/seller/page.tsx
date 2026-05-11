@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
+import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
 
 const sellerHandoff: HandoffItem[] = [
   {
@@ -90,6 +91,14 @@ export default function PlatformV7SellerPage() {
       <section style={metricsGrid}>
         {sellerMetrics.map((metric) => <Metric key={metric.label} metric={metric} />)}
       </section>
+
+      <P7ActionStateChip
+        status='waiting'
+        label='пилотный сценарий'
+        nextActor='ФГИС «Зерно» и банк'
+        blocker='СДИЗ и ЭТрН не закрыты'
+        moneyEffect='выплата остановлена'
+      />
 
       <WorkflowActionPanel context='seller' />
 

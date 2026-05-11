@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { PLATFORM_V7_MARKET_RFQ_ROUTE } from '@/lib/platform-v7/routes';
 import { PLATFORM_V7_TRADING_SOURCE, rubPerTon, tons } from '@/lib/platform-v7/trading-source-of-truth';
+import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -97,6 +98,13 @@ export default function PlatformV7BuyerLotPage() {
           <Cell label='Оплата' value={lot.paymentCondition} />
         </div>
       </section>
+
+      <P7ActionStateChip
+        status='active'
+        label='пилотный сценарий'
+        nextActor='покупатель'
+        moneyEffect='резерв после банковского подтверждения'
+      />
 
       <P7ExecutionActionsPanel
         title='Действия покупателя по ставке'
