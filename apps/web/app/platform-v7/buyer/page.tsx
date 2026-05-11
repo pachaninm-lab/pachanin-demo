@@ -3,20 +3,20 @@ import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowAct
 import { RoleHandoffStrip, type HandoffItem } from '../../../components/platform-v7/RoleHandoffStrip';
 
 const buyerHandoff: HandoffItem[] = [
-  { direction: 'sends', role: 'банк', requirement: 'подтвердить резерв денег — без этого сделка не стартует' },
+  { direction: 'sends', role: 'банк', requirement: 'запросить резерв денег — без банковского подтверждения сделка не стартует' },
   { direction: 'sends', role: 'продавец', requirement: 'подписать УПД после поставки' },
-  { direction: 'awaits', role: 'продавец', requirement: 'СДИЗ подтверждён и документы закрыты' },
-  { direction: 'awaits', role: 'логистика', requirement: 'рейс назначен и ЭТрН подписана всеми сторонами' },
-  { direction: 'awaits', role: 'банк', requirement: 'резерв активирован — деньги замораживаются до условий' },
+  { direction: 'awaits', role: 'продавец', requirement: 'СДИЗ и документы ожидают закрытия' },
+  { direction: 'awaits', role: 'логистика', requirement: 'рейс назначен и ЭТрН ожидает закрытия всеми сторонами' },
+  { direction: 'awaits', role: 'банк', requirement: 'резерв ожидает банковского события; деньги не считаются выпущенными' },
 ];
 
 type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
 
 const buyerMetrics: MetricItem[] = [
   { label: 'Подходящие партии', value: '7', note: 'отфильтрованы по культуре, региону и документам' },
-  { label: 'Мой резерв', value: '9,65 млн ₽', note: 'готовность денег по DL-9106', good: true },
+  { label: 'Мой резерв', value: '9,65 млн ₽', note: 'пилотная готовность денег по DL-9106', good: true },
   { label: 'Под удержанием', value: '624 тыс. ₽', note: 'спорная часть по весу', danger: true },
-  { label: 'Следующий шаг', value: 'резерв', note: 'подтвердить денежный guard', warn: true },
+  { label: 'Следующий шаг', value: 'резерв', note: 'запросить банковское подтверждение', warn: true },
 ];
 
 const buyerLots = [
@@ -33,7 +33,7 @@ const buyerLots = [
     title: 'Пшеница 4 класса · 600 т · Тамбовская область',
     price: '16 080 ₽/т',
     status: 'ставка принята',
-    next: 'подтвердить резерв денег',
+    next: 'запросить резерв денег',
     href: '/platform-v7/lots/LOT-2403',
   },
 ] as const;
