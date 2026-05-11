@@ -18,7 +18,7 @@ const logisticsHandoff: HandoffItem[] = [
   },
   {
     direction: 'blockedBy',
-    requirement: 'СДИЗ не подтверждён — без этого выплата не может быть проверена',
+    requirement: 'СДИЗ ожидает закрытия — денежная проверка не продолжается без документа',
     documentImpact: true,
     moneyImpact: true,
   },
