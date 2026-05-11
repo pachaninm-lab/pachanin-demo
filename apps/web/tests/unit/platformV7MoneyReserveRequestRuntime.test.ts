@@ -50,6 +50,58 @@ describe('platform-v7 money reserve request runtime', () => {
     });
   });
 
+  it('accepts amountRub fallback while keeping bank confirmation pending', () => {
+    const state = createPlatformV7ExecutionState('deal-001b');
+    const [nextState, result] = applyPlatformV7RuntimeAction(
+      state,
+      reserveCommand({
+        entityId: 'deal-money-001b',
+        idempotencyKey: 'idem-reserve-001b',
+        payload: { amountRub: '8_000_000'.replace('_', '') },
+      }),
+      () => '2026-05-10T22:30:30.000Z',
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.moneyImpact).toBe('requires_bank_confirmation');
+    expect(nextState.money?.totalDealAmountRub).toBe(8_000_000);
+    expect(nextState.money?.reservedAmountRub).toBe(0);
+    expect(nextState.money?.reconciliationStatus).toBe('awaiting_bank_event');
+  });
+
+  it('blocks reserve requests without a positive finite amount', () => {
+    const invalidPayloads: ReadonlyArray<Readonly<Record<string, unknown>>> = [
+      {},
+      { requestedAmountRub: 0 },
+      { requestedAmountRub: -1 },
+      { requestedAmountRub: Number.NaN },
+      { requestedAmountRub: Number.POSITIVE_INFINITY },
+      { requestedAmountRub: '' },
+      { requestedAmountRub: '   ' },
+      { requestedAmountRub: 'not-a-number' },
+    ];
+
+    invalidPayloads.forEach((payload, index) => {
+      const state = createPlatformV7ExecutionState(`deal-invalid-${index}`);
+      const [nextState, result] = applyPlatformV7RuntimeAction(
+        state,
+        reserveCommand({
+          entityId: `deal-money-invalid-${index}`,
+          idempotencyKey: `idem-reserve-invalid-${index}`,
+          payload,
+        }),
+        () => '2026-05-10T22:30:45.000Z',
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.stateChanged).toBe(false);
+      expect(result.moneyImpact).toBe('none');
+      expect(result.blockedReason).toBe('Нужна положительная сумма резерва денег.');
+      expect(nextState.money).toBeNull();
+      expect(nextState.auditEvents).toHaveLength(0);
+    });
+  });
+
   it('keeps reserve request idempotent and does not create duplicate audit entries', () => {
     const state = createPlatformV7ExecutionState('deal-002');
     const [nextState] = applyPlatformV7RuntimeAction(
