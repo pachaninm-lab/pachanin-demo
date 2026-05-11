@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   canPlatformV7RoleOpenRoute,
@@ -9,11 +9,17 @@ import {
 import { canPlatformV7RoleInvokeAction } from '@/lib/platform-v7/action-permission-boundary';
 import { platformV7NavItems, platformV7RoleRoute } from '@/lib/platform-v7/navigation';
 
-const repoRoot = process.cwd();
-const driverFieldPageSource = readFileSync(
-  join(repoRoot, 'app/platform-v7/driver/field/page.tsx'),
-  'utf8',
-);
+function readSourceFile(...pathParts: string[]): string {
+  const candidates = [
+    join(process.cwd(), ...pathParts),
+    join(process.cwd(), 'apps/web', ...pathParts),
+  ];
+  const sourcePath = candidates.find((candidate) => existsSync(candidate));
+  if (!sourcePath) throw new Error(`Missing source file: ${pathParts.join('/')}`);
+  return readFileSync(sourcePath, 'utf8');
+}
+
+const fieldPageSource = readSourceFile('app/platform-v7/driver/field/page.tsx');
 
 describe('platform-v7 driver route boundary', () => {
   it('keeps driver home and role navigation on the field route', () => {
@@ -74,7 +80,7 @@ describe('platform-v7 driver route boundary', () => {
   });
 
   it('keeps the field page source free of direct privileged route links', () => {
-    expect(driverFieldPageSource).not.toContain('next/link');
+    expect(fieldPageSource).not.toContain('next/link');
     [
       '/platform-v7/bank',
       '/platform-v7/control-tower',
@@ -85,7 +91,7 @@ describe('platform-v7 driver route boundary', () => {
       '/platform-v7/roles',
       '/platform-v7/demo',
     ].forEach((route) => {
-      expect(driverFieldPageSource).not.toContain(route);
+      expect(fieldPageSource).not.toContain(route);
     });
   });
 });
