@@ -5,18 +5,18 @@ import { RoleHandoffStrip, type HandoffItem } from '../../../components/platform
 const sellerHandoff: HandoffItem[] = [
   { direction: 'sends', role: 'покупатель', requirement: 'подписать УПД после согласования сделки' },
   { direction: 'sends', role: 'логистика', requirement: 'назначить рейс и водителя для партии' },
-  { direction: 'awaits', role: 'покупатель', requirement: 'резерв денег подтверждён в банке' },
-  { direction: 'awaits', role: 'ФГИС «Зерно»', requirement: 'СДИЗ подтверждён — без этого выплата заблокирована' },
-  { direction: 'awaits', role: 'элеватор', requirement: 'акт приёмки и протокол качества закрыты' },
-  { direction: 'awaits', role: 'банк', requirement: 'выпуск денег после всех условий сделки' },
+  { direction: 'awaits', role: 'покупатель', requirement: 'резерв денег ожидает банковского подтверждения' },
+  { direction: 'awaits', role: 'ФГИС «Зерно»', requirement: 'СДИЗ ожидает подтверждения — без этого выплата заблокирована' },
+  { direction: 'awaits', role: 'элеватор', requirement: 'акт приёмки и протокол качества ожидают закрытия' },
+  { direction: 'awaits', role: 'банк', requirement: 'банковское событие выплаты после всех условий сделки' },
 ];
 
 type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
 
 const sellerMetrics: MetricItem[] = [
   { label: 'Активные лоты', value: '2', note: 'оба связаны с партиями и документами', good: true },
-  { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'виден как готовность денег, не как выплата', good: true },
-  { label: 'К выплате сейчас', value: '0 ₽', note: 'СДИЗ и ЭТрН ещё блокируют выпуск', danger: true },
+  { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'пилотная готовность денег, не выплата', good: true },
+  { label: 'К выплате сейчас', value: '0 ₽', note: 'СДИЗ и ЭТрН ещё блокируют выплату', danger: true },
   { label: 'Следующий шаг', value: 'СДИЗ', note: 'без документа деньги не выпускаются', warn: true },
 ];
 
@@ -25,7 +25,7 @@ const sellerLots = [
     id: 'LOT-2403',
     title: 'Пшеница 4 класса · 600 т · EXW',
     status: 'предложение принято',
-    money: 'резерв 9,65 млн ₽ · к выплате 0 ₽',
+    money: 'резерв ожидает подтверждения · к выплате 0 ₽',
     next: 'закрыть СДИЗ, ЭТрН и приёмку',
     href: '/platform-v7/lots/LOT-2403',
   },
@@ -51,8 +51,8 @@ export default function PlatformV7SellerPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={hero}>
         <div style={badge}>Кабинет продавца</div>
-        <h1 style={h1}>Лоты, предложения, документы и выпуск денег</h1>
-        <p style={lead}>Лот должен приводить к сделке, документам и получению денег. Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → выпуск денег.</p>
+        <h1 style={h1}>Лоты, предложения, документы и выплата денег</h1>
+        <p style={lead}>Лот должен приводить к сделке, документам и получению денег. Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → банковское событие выплаты.</p>
         <div style={actions}>
           <Link href='/platform-v7/seller/batches/new' style={primaryBtn}>Создать партию</Link>
           <Link href='/platform-v7/seller/lots/new' style={ghostBtn}>Опубликовать лот</Link>
