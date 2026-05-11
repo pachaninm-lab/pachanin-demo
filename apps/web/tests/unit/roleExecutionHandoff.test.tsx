@@ -155,10 +155,10 @@ describe('Buyer page execution handoff', () => {
     expect(screen.getAllByText('отправляет').length).toBeGreaterThan(0);
   });
 
-  it('buyer handoff contains money reserve wording', () => {
+  it('buyer handoff contains bank confirmation request wording', () => {
     render(<BuyerPage />);
 
-    expect(screen.getByText(/запрос резерва денег в банк/)).toBeInTheDocument();
+    expect(screen.getByText(/запрос банковского подтверждения резерва/)).toBeInTheDocument();
   });
 
   it('buyer page has no forbidden wording', () => {
