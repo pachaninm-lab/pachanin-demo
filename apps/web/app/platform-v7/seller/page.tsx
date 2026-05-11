@@ -1,5 +1,15 @@
 import Link from 'next/link';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
+import { RoleHandoffStrip, type HandoffItem } from '../../../components/platform-v7/RoleHandoffStrip';
+
+const sellerHandoff: HandoffItem[] = [
+  { direction: 'sends', role: 'покупатель', requirement: 'подписать УПД после согласования сделки' },
+  { direction: 'sends', role: 'логистика', requirement: 'назначить рейс и водителя для партии' },
+  { direction: 'awaits', role: 'покупатель', requirement: 'резерв денег подтверждён в банке' },
+  { direction: 'awaits', role: 'ФГИС «Зерно»', requirement: 'СДИЗ подтверждён — без этого выплата заблокирована' },
+  { direction: 'awaits', role: 'элеватор', requirement: 'акт приёмки и протокол качества закрыты' },
+  { direction: 'awaits', role: 'банк', requirement: 'выпуск денег после всех условий сделки' },
+];
 
 type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
 
@@ -56,6 +66,8 @@ export default function PlatformV7SellerPage() {
       </section>
 
       <WorkflowActionPanel context='seller' />
+
+      <RoleHandoffStrip items={sellerHandoff} />
 
       <section style={card}>
         <div style={micro}>рабочие маршруты продавца</div>

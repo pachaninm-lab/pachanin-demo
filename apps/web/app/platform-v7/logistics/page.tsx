@@ -1,4 +1,13 @@
 import Link from 'next/link';
+import { RoleHandoffStrip, type HandoffItem } from '../../../components/platform-v7/RoleHandoffStrip';
+
+const logisticsHandoff: HandoffItem[] = [
+  { direction: 'sends', role: 'водитель', requirement: 'назначить маршрут и передать данные рейса TRIP' },
+  { direction: 'sends', role: 'элеватор', requirement: 'уведомить о прибытии для приёмки груза' },
+  { direction: 'sends', role: 'ГИС ЭПД', requirement: 'закрыть перевозочный документ после ЭТрН' },
+  { direction: 'awaits', role: 'водитель', requirement: 'ЭТрН подписана грузополучателем' },
+  { direction: 'awaits', role: 'элеватор', requirement: 'акт приёмки закрыт — подтверждает финальный вес' },
+];
 
 const orders = [
   {
@@ -121,6 +130,8 @@ export default function LogisticsPage() {
         <div style={micro}>Текущая очередь заказов</div>
         {orders.map((order) => <OrderCard key={order.id} order={order} />)}
       </section>
+
+      <RoleHandoffStrip items={logisticsHandoff} />
     </main>
   );
 }

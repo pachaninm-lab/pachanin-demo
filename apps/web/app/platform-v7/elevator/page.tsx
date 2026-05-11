@@ -1,5 +1,14 @@
 import Link from 'next/link';
 import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
+import { RoleHandoffStrip, type HandoffItem } from '@/components/platform-v7/RoleHandoffStrip';
+
+const elevatorHandoff: HandoffItem[] = [
+  { direction: 'sends', role: 'лаборатория', requirement: 'отобрать пробу и передать на анализ ФГБУ ЦОК АПК' },
+  { direction: 'sends', role: 'документы (ЭДО)', requirement: 'закрыть акт приёмки и акт расхождения в Контур.Диадок' },
+  { direction: 'sends', role: 'оператор', requirement: 'сообщить об отклонении веса или качества' },
+  { direction: 'awaits', role: 'лаборатория', requirement: 'протокол качества ФГБУ ЦОК АПК — без него выплата заблокирована' },
+  { direction: 'awaits', role: 'водитель', requirement: 'ЭТрН подписана — юридическое основание для акта приёмки' },
+];
 
 const receiving = {
   tripId: 'TRIP-SIM-001',
@@ -95,6 +104,8 @@ export default function Page() {
         </div>
         <div style={notice}>При отклонении веса или качества платформа должна создать акт расхождения, удержание и задачу оператору. Финальная выплата продавцу не разрешается до закрытия акта и протокола.</div>
       </section>
+
+      <RoleHandoffStrip items={elevatorHandoff} />
 
       <FieldElevatorRuntime />
     </main>

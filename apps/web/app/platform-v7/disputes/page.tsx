@@ -1,7 +1,16 @@
 import Link from 'next/link';
+import { RoleHandoffStrip, type HandoffItem } from '@/components/platform-v7/RoleHandoffStrip';
 import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platform-v7/grain-execution/automation/evidence-pack-engine';
 import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/grain-execution/mock-data';
 import { formatRub } from '@/lib/platform-v7/grain-execution/format';
+
+const disputesHandoff: HandoffItem[] = [
+  { direction: 'sends', role: 'арбитр', requirement: 'вынести решение с основанием и суммой' },
+  { direction: 'sends', role: 'банк', requirement: 'скорректировать удержание или выпустить спорную сумму' },
+  { direction: 'sends', role: 'оператор', requirement: 'записать решение в журнал сделки и закрыть спор' },
+  { direction: 'awaits', role: 'стороны сделки', requirement: 'предоставить доказательства: вес, фото, акты, протоколы' },
+  { direction: 'awaits', role: 'лаборатория', requirement: 'протокол качества при споре о показателях' },
+];
 
 const staticDisputes = [
   {
@@ -117,6 +126,8 @@ export default function PlatformV7DisputesPage() {
           <Rule title='Журнал' text='закрытие спора записывается в журнал сделки' />
         </div>
       </section>
+
+      <RoleHandoffStrip items={disputesHandoff} />
     </main>
   );
 }

@@ -1,5 +1,14 @@
 import Link from 'next/link';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
+import { RoleHandoffStrip, type HandoffItem } from '@/components/platform-v7/RoleHandoffStrip';
+
+const bankHandoff: HandoffItem[] = [
+  { direction: 'sends', role: 'резерв → оператор', requirement: 'подтвердить активацию резерва после условий сделки' },
+  { direction: 'sends', role: 'выпуск → продавец', requirement: 'освободить деньги только после всех закрытых условий' },
+  { direction: 'sends', role: 'ручная проверка → оператор', requirement: 'эскалировать при расхождении суммы или документов' },
+  { direction: 'awaits', role: 'документы', requirement: 'УПД, ЭТрН, СДИЗ, акт приёмки, протокол качества — все закрыты' },
+  { direction: 'awaits', role: 'споры', requirement: 'открытый спор блокирует выпуск спорной суммы' },
+];
 
 const mainDeal = getDeal360Scenario('DL-9106');
 const disputeDeal = getDeal360Scenario('DL-9102');
@@ -129,6 +138,8 @@ export default function PlatformV7BankPage() {
           </Link>
         ))}
       </section>
+
+      <RoleHandoffStrip items={bankHandoff} />
     </main>
   );
 }
