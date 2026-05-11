@@ -32,7 +32,7 @@ const disputesHandoff: HandoffItem[] = [
   },
   {
     direction: 'blockedBy',
-    requirement: 'спор не закрыт — банковское событие по выпуску невозможно до решения оператора и закрытия суммы',
+    requirement: 'спор не закрыт — спорная сумма остаётся на ручной проверке до решения оператора',
     moneyImpact: true,
   },
   {
@@ -66,7 +66,7 @@ const staticDisputes = [
     status: 'выплата остановлена',
     responsible: 'лаборатория',
     sla: 'до 18:00 сегодня',
-    next: 'получить протокол ФГБУ ЦОК АПК и закрыть акт приёмки',
+    next: 'получить пилотный протокол качества и закрыть акт приёмки',
     href: '/platform-v7/elevator',
     evidence: ['проба', 'показатели качества', 'акт приёмки', 'журнал элеватора'],
   },
@@ -93,11 +93,11 @@ const readyDisputeCount = evidenceGateRows.filter((item) => item.readiness?.read
 const blockedDisputeCount = evidenceGateRows.filter((item) => !item.readiness?.ready).length;
 
 const disputeSummary = [
-  { label: 'Что сейчас', value: '2 открытых спора', note: 'Каждый спор объясняет, почему деньги не выпущены или удержаны.' },
-  { label: 'Сумма влияния', value: '15,89 млн ₽', note: 'Включает активное удержание и сделку, где выпуск закрыт до качества.' },
+  { label: 'Что сейчас', value: '2 открытых спора', note: 'Каждый спор объясняет, почему сумма остановлена или удержана.' },
+  { label: 'Сумма влияния', value: '15,89 млн ₽', note: 'Включает активное удержание и сделку, где выплата остановлена до качества.' },
   { label: 'Удержание', value: '624 тыс. ₽', note: 'Удержание нельзя снять без решения, суммы и основания.' },
   { label: 'SLA', value: '4 часа / до 18:00', note: 'Очередь должна сортироваться по срочности и влиянию на деньги.' },
-  { label: 'Владельцы', value: 'оператор · лаборатория · элеватор', note: 'У каждого спора есть владелец следующего шага.' },
+  { label: 'Владельцы', value: 'оператор · лаборатория · элеватор', note: 'У каждого спора есть ответственный за следующий шаг.' },
   { label: 'Доказательства', value: 'акт · вес · фото · протокол · журнал', note: 'Спор не закрывается устной перепиской или ручным обходом.' },
 ] as const;
 
@@ -106,7 +106,7 @@ export default function PlatformV7DisputesPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={hero}>
         <div style={badge}>Споры и удержания</div>
-        <h1 style={h1}>Спор объясняет, почему деньги не выпущены</h1>
+        <h1 style={h1}>Спор объясняет, почему сумма остановлена</h1>
         <p style={lead}>Здесь собраны причина удержания, сумма влияния, SLA, ответственный и доказательства. Спор не закрывается без решения, суммы и основания.</p>
         <div style={actions}>
           <Link href='/platform-v7/operator' style={primaryBtn}>Центр управления</Link>
@@ -118,7 +118,7 @@ export default function PlatformV7DisputesPage() {
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ ...micro, color: '#FECACA' }}>контроль спора</div>
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Спор — это сумма влияния, причина, SLA, владелец шага, доказательства и решение по деньгам.</p>
+          <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Спор — это сумма влияния, причина, SLA, ответственный, доказательства и решение по деньгам.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {disputeSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
