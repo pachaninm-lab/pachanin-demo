@@ -95,19 +95,21 @@ export function DocumentReadinessMiniMatrix({ role }: { role: RoleContext }) {
               data-testid="platform-v7-readiness-mini-matrix-row"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(120px, 1fr) auto minmax(120px, 1fr) minmax(140px, 1fr)',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))',
                 gap: 8,
-                alignItems: 'center',
+                alignItems: 'start',
                 background: '#F8FAFB',
                 border: '1px solid #EEF1F4',
                 borderRadius: 10,
                 padding: '8px 10px',
+                minWidth: 0,
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 900, color: '#0F1419', minWidth: 0 }}>{row.name}</div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: '#0F1419', minWidth: 0, overflowWrap: 'anywhere' }}>{row.name}</div>
               <span
                 style={{
-                  whiteSpace: 'nowrap',
+                  whiteSpace: 'normal',
+                  width: 'fit-content',
                   display: 'inline-flex',
                   alignItems: 'center',
                   padding: '4px 8px',
@@ -117,15 +119,16 @@ export function DocumentReadinessMiniMatrix({ role }: { role: RoleContext }) {
                   color: tone.color,
                   fontSize: 11,
                   fontWeight: 900,
+                  lineHeight: 1.2,
                 }}
               >
                 {STATE_LABEL[row.state]}
               </span>
-              <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.35 }}>
+              <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.35, minWidth: 0, overflowWrap: 'anywhere' }}>
                 <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>ответственный</span>
                 {row.responsible}
               </div>
-              <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.35, fontWeight: 750 }}>
+              <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.35, fontWeight: 750, minWidth: 0, overflowWrap: 'anywhere' }}>
                 <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>следующий шаг</span>
                 {row.nextStep}
               </div>
