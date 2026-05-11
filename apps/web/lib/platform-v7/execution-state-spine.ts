@@ -203,6 +203,32 @@ export function applyPlatformV7RuntimeAction(
       return [{ ...nextState, lastActionResult: result }, result];
     }
 
+    case 'dispute.open': {
+      const nextDealStatus: PlatformV7DealStatus = 'dispute';
+      if (state.dispute) {
+        return [state, blocked(command, 'Спор по сделке уже открыт.', 'none')];
+      }
+      if (!canPlatformV7DealTransition(state.dealStatus, nextDealStatus)) {
+        return [
+          state,
+          blocked(command, `Нельзя открыть спор из статуса ${state.dealStatus}.`, 'none'),
+        ];
+      }
+      const reason = String(command.payload?.reason ?? 'other');
+      const auditEvent = makeAuditEvent(auditEventId, timestamp, command);
+      const nextState: PlatformV7ExecutionState = {
+        ...state,
+        dealStatus: nextDealStatus,
+        dispute: { status: 'open', reason },
+        auditEvents: [...state.auditEvents, auditEvent],
+      };
+      const result = makeOkResult(command, auditEventId, {
+        disputeImpact: 'opened',
+        nextAction: 'Собрать доказательства и передать спор на разбор.',
+      });
+      return [{ ...nextState, lastActionResult: result }, result];
+    }
+
     case 'support.create_case': {
       const caseRecord: PlatformV7SupportCaseRecord = {
         id: command.entityId,
