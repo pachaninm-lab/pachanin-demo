@@ -6,6 +6,7 @@ import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '@/components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentReadinessMiniMatrix';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
+import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedbackPreviewStrip';
 import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
 
 const bankHandoff: HandoffItem[] = [
@@ -200,6 +201,8 @@ export default function PlatformV7BankPage() {
       <DocumentReadinessMiniMatrix role='bank' />
 
       <EvidenceReadinessMiniMatrix context='bank' />
+
+      <ActionFeedbackPreviewStrip context='bank' />
 
       <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
 

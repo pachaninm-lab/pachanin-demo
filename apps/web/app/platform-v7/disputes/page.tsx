@@ -4,6 +4,7 @@ import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/
 import { formatRub } from '@/lib/platform-v7/grain-execution/format';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
+import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedbackPreviewStrip';
 
 const disputesHandoff: HandoffItem[] = [
   {
@@ -149,6 +150,8 @@ export default function PlatformV7DisputesPage() {
       </section>
 
       <EvidenceReadinessMiniMatrix context='disputes' />
+
+      <ActionFeedbackPreviewStrip context='disputes' />
 
       <section style={card}>
         <div style={micro}>Правила закрытия</div>
