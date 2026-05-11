@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   canPlatformV7RoleInvokeAction,
-  canPlatformV7RoleOpenRoute,
   PLATFORM_V7_ACTION_PERMISSION_POLICIES,
   type PlatformV7ActionPermissionId,
 } from '@/lib/platform-v7/action-permission-boundary';
-import type { PlatformV7Role } from '@/lib/platform-v7/role-access';
+import { canPlatformV7RoleOpenRoute, type PlatformV7Role } from '@/lib/platform-v7/role-access';
 
 const observerRoles = ['investor', 'executive'] as const satisfies readonly PlatformV7Role[];
 const fieldRoles = ['driver', 'elevator', 'lab', 'surveyor'] as const satisfies readonly PlatformV7Role[];
 const commercialRoles = ['seller', 'buyer', 'logistics'] as const satisfies readonly PlatformV7Role[];
 const physicalRoles = ['driver', 'elevator', 'lab', 'surveyor', 'logistics'] as const satisfies readonly PlatformV7Role[];
+const fieldRouteReaderRoles = ['seller', 'buyer', 'logistics', 'elevator', 'surveyor'] as const satisfies readonly PlatformV7Role[];
 
 function policyFor(actionId: PlatformV7ActionPermissionId) {
   const policy = PLATFORM_V7_ACTION_PERMISSION_POLICIES.find((item) => item.actionId === actionId);
@@ -54,9 +54,7 @@ describe('platform-v7 route and action permission invariants', () => {
   });
 
   it('keeps field route access separate from driver checkpoint authority', () => {
-    ['seller', 'buyer', 'logistics', 'elevator', 'surveyor'] as const satisfies readonly PlatformV7Role[];
-
-    (['seller', 'buyer', 'logistics', 'elevator', 'surveyor'] as const).forEach((role) => {
+    fieldRouteReaderRoles.forEach((role) => {
       expect(canPlatformV7RoleOpenRoute(role, '/platform-v7/driver/field')).toMatchObject({ allowed: true });
       expect(canPlatformV7RoleInvokeAction(role, 'driver.confirm_checkpoint')).toMatchObject({ allowed: false });
     });
