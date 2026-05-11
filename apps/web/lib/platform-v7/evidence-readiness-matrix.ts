@@ -13,7 +13,7 @@ export interface EvidenceReadinessRow {
 export const EVIDENCE_READINESS_STATE_LABEL: Record<EvidenceReadinessState, string> = {
   ready: 'Готов к проверке',
   partial: 'Частично готов',
-  blocked: 'Заблокирован',
+  blocked: 'Требует действия',
   pending: 'Ожидает подтверждения',
 };
 
@@ -30,14 +30,14 @@ export const EVIDENCE_READINESS_ROWS: Record<EvidenceReadinessContext, readonly 
       pilotState: 'partial',
       responsible: 'элеватор / оператор',
       nextStep: 'закрыть акт расхождения DSP-9102-WEIGHT',
-      stopReason: 'удержание не закрывается — акт расхождения не подписан',
+      stopReason: 'удержание остаётся на ручной проверке — акт расхождения не подписан',
     },
     {
       item: 'Протокол качества',
       pilotState: 'blocked',
       responsible: 'лаборатория',
       nextStep: 'получить пилотный протокол качества по DL-9106',
-      stopReason: 'выплата остановлена — протокол качества ещё не получен',
+      stopReason: 'проверка выплаты остановлена — протокол качества ещё не получен',
     },
     {
       item: 'Фото приёмки',
@@ -55,17 +55,17 @@ export const EVIDENCE_READINESS_ROWS: Record<EvidenceReadinessContext, readonly 
   ],
   bank: [
     {
-      item: 'Резерв сделки (эскроу)',
+      item: 'Резерв сделки',
       pilotState: 'ready',
-      responsible: 'банк / Сбер · Безопасные сделки',
-      nextStep: 'резерв зафиксирован в пилотном контуре — ожидает закрытия условий',
+      responsible: 'банк / контур безопасной сделки',
+      nextStep: 'резерв отмечен в пилотном контуре — ожидает закрытия условий',
     },
     {
       item: 'СДИЗ',
       pilotState: 'partial',
       responsible: 'продавец / ФГИС «Зерно»',
       nextStep: 'закрыть СДИЗ в ФГИС «Зерно»',
-      stopReason: 'банковское событие не инициируется без закрытого СДИЗ',
+      stopReason: 'банковское событие ожидает закрытого СДИЗ',
     },
     {
       item: 'ЭТрН',
@@ -79,14 +79,14 @@ export const EVIDENCE_READINESS_ROWS: Record<EvidenceReadinessContext, readonly 
       pilotState: 'blocked',
       responsible: 'элеватор',
       nextStep: 'подтвердить вес и приёмку',
-      stopReason: 'денежное исполнение не передаётся без акта приёмки',
+      stopReason: 'банковская проверка выплаты не продолжается без акта приёмки',
     },
     {
       item: 'Пилотный протокол качества',
       pilotState: 'blocked',
       responsible: 'лаборатория',
       nextStep: 'загрузить лабораторный протокол качества',
-      stopReason: 'спорная сумма по DL-9106 не разрешается без протокола качества',
+      stopReason: 'спорная сумма по DL-9106 остаётся на ручной проверке без протокола качества',
     },
   ],
   elevator: [
@@ -102,7 +102,7 @@ export const EVIDENCE_READINESS_ROWS: Record<EvidenceReadinessContext, readonly 
       pilotState: 'blocked',
       responsible: 'элеватор',
       nextStep: 'оформить акт расхождения по отклонению -1,2 т',
-      stopReason: 'удержание не разрешается без закрытого акта расхождения',
+      stopReason: 'удержание остаётся на ручной проверке до закрытия акта расхождения',
     },
     {
       item: 'Протокол качества',
