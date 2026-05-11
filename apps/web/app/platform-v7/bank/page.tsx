@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -104,6 +105,14 @@ export default function PlatformV7BankPage() {
           {releaseSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
+
+      <P7ActionStateChip
+        status='blocked'
+        label='банковская проверка выплаты'
+        nextActor='оператор и ответственный за документ'
+        blocker='СДИЗ, ЭТрН, УПД, приёмка, качество'
+        moneyEffect='удержание до закрытия условий'
+      />
 
       <section style={metricsGrid}>
         <Metric label='В резерве' value='15,89 млн ₽' />
