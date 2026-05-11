@@ -294,4 +294,16 @@
   .pc-v4-actions {
     gap: 4px !important;
   }
+
+  /* Tap targets for standalone action links (not inline text links) */
+  .pc-v4-main a[style*='display: inline-flex'],
+  .pc-v4-main a[style*='display:inline-flex'] {
+    min-height: 44px !important;
+  }
+
+  /* Prevent long cell labels from overflowing narrow cards */
+  .pc-v4-main :is(div, section, article) > * {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
 }

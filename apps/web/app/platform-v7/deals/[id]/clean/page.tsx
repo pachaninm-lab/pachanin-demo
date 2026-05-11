@@ -176,5 +176,5 @@ function stateColor(state: Deal360State, part: 'bg' | 'border' | 'text') {
 }
 
 function linkStyle(tone: 'default' | 'danger' = 'default'): React.CSSProperties {
-  return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
+  return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', minHeight: 44, color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
 }
