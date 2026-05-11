@@ -6,6 +6,7 @@ import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
+import { CounterpartyRiskStrip } from '../../../components/platform-v7/CounterpartyRiskStrip';
 
 const sellerHandoff: HandoffItem[] = [
   {
@@ -119,6 +120,8 @@ export default function PlatformV7SellerPage() {
         documentState='СДИЗ и ЭТрН не закрыты'
         stopReason='проверка выплаты остановлена'
       />
+
+      <CounterpartyRiskStrip context='seller' />
 
       <DocumentReadinessMiniMatrix role='seller' />
 
