@@ -11,6 +11,7 @@ import { DomainControlTowerSummary } from '@/components/v7r/DomainControlTowerSu
 import { ExecutionSimulationActionPanel } from '@/components/v7r/ExecutionSimulationActionPanel';
 import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
 import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
+import { AuditConsistencyMiniLedger } from '@/components/platform-v7/AuditConsistencyMiniLedger';
 
 function describeReason(code: string) {
   switch (code) {
@@ -243,6 +244,10 @@ export default function PlatformV7ControlTowerPage() {
               </div>
             </section>
           </section>
+        </P7Section>
+
+        <P7Section title='Аудит-предпросмотр · пилотный журнал' subtitle='Пилотный контур · аудит-предпросмотр. Записи отражают намерения и блокеры — не фактические движения денег.'>
+          <AuditConsistencyMiniLedger context='control-tower' />
         </P7Section>
       </P7Page>
     </>
