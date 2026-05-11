@@ -357,9 +357,14 @@ export function applyPlatformV7RuntimeAction(
     }
 
     case 'money.request_reserve': {
-      const requestedAmountRub = Number(
-        command.payload?.requestedAmountRub ?? command.payload?.amountRub ?? state.money?.totalDealAmountRub ?? 0,
+      const requestedAmountRub = parsePositiveRubAmount(
+        command.payload?.requestedAmountRub ??
+          command.payload?.amountRub ??
+          state.money?.totalDealAmountRub,
       );
+      if (requestedAmountRub === null) {
+        return [state, blocked(command, 'Нужна положительная сумма резерва денег.', 'none')];
+      }
       const money: PlatformV7MoneyTree = {
         id: state.money?.id ?? `money-${command.entityId}`,
         dealId: state.dealId,
@@ -436,6 +441,12 @@ function makeAuditEvent(
     idempotencyKey: command.idempotencyKey,
     source: 'simulated_runtime',
   };
+}
+
+function parsePositiveRubAmount(value: unknown): number | null {
+  const amount = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+
+  return typeof amount === 'number' && Number.isFinite(amount) && amount > 0 ? amount : null;
 }
 
 function makeOkResult(
