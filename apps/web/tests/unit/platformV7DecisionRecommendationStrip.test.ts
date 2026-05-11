@@ -106,7 +106,7 @@ describe('decision-recommendation data', () => {
 
 describe('DecisionRecommendationStrip component', () => {
   it('renders disputes recommendation with responsible role and blocker reason', () => {
-    const { container } = render(<DecisionRecommendationStrip context='disputes' />);
+    const { container } = render(React.createElement(DecisionRecommendationStrip, { context: 'disputes' }));
 
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip-state')).toHaveTextContent('Ожидает доказательств');
@@ -116,7 +116,7 @@ describe('DecisionRecommendationStrip component', () => {
   });
 
   it('renders bank recommendation with evidence pills and safe wording', () => {
-    const { container } = render(<DecisionRecommendationStrip context='bank' />);
+    const { container } = render(React.createElement(DecisionRecommendationStrip, { context: 'bank' }));
 
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip-recommendation')).toHaveTextContent('банковскую проверку выплаты');
     expect(container.innerHTML).toContain('СДИЗ');
@@ -126,7 +126,7 @@ describe('DecisionRecommendationStrip component', () => {
   });
 
   it('renders elevator recommendation with acceptance and lab evidence', () => {
-    const { container } = render(<DecisionRecommendationStrip context='elevator' />);
+    const { container } = render(React.createElement(DecisionRecommendationStrip, { context: 'elevator' }));
 
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip-recommendation')).toHaveTextContent('Зафиксировать вес');
     expect(container.innerHTML).toContain('акт приёмки');
@@ -137,21 +137,21 @@ describe('DecisionRecommendationStrip component', () => {
 
 describe('DecisionRecommendationStrip page placement', () => {
   it('disputes page renders the decision strip without demo links or unsafe wording', () => {
-    const { container } = render(<DisputesPage />);
+    const { container } = render(React.createElement(DisputesPage));
 
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
     assertNoForbiddenWording(container.innerHTML, 'disputes page');
   });
 
   it('bank page renders the decision strip without demo links or unsafe wording', () => {
-    const { container } = render(<BankPage />);
+    const { container } = render(React.createElement(BankPage));
 
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
     assertNoForbiddenWording(container.innerHTML, 'bank page');
   });
 
   it('elevator page renders the decision strip without demo links or unsafe wording', () => {
-    const { container } = render(<ElevatorPage />);
+    const { container } = render(React.createElement(ElevatorPage));
 
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
     assertNoForbiddenWording(container.innerHTML, 'elevator page');
