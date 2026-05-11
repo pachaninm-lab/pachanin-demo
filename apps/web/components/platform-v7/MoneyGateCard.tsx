@@ -3,10 +3,10 @@ export type MoneyGateState = 'requested' | 'awaiting_bank' | 'reserved' | 'held'
 const labels: Record<MoneyGateState, string> = {
   requested: 'Запрошен',
   awaiting_bank: 'Ожидает банк',
-  reserved: 'Зарезервирован',
+  reserved: 'Резерв отмечен',
   held: 'Удержан',
-  ready: 'Готов к выплате',
-  released: 'Выплачен',
+  ready: 'Готово к проверке банка',
+  released: 'Выплата по банковскому событию',
   manual_review: 'Ручная проверка',
 };
 
@@ -27,8 +27,11 @@ type Props = {
   blockedBy?: string;
 };
 
+const bankControlledStates = new Set<MoneyGateState>(['reserved', 'ready', 'released']);
+
 export function MoneyGateCard({ amount, state, note, blockedBy }: Props) {
   const c = colors[state];
+  const requiresBankEvent = bankControlledStates.has(state);
   return (
     <div style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 14, padding: 14, display: 'grid', gap: 5 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
@@ -37,6 +40,11 @@ export function MoneyGateCard({ amount, state, note, blockedBy }: Props) {
       </div>
       <p style={{ margin: 0, color: '#0F1419', fontSize: 18, fontWeight: 950 }}>{amount}</p>
       {note && <p style={{ margin: 0, color: '#475569', fontSize: 12, lineHeight: 1.4 }}>{note}</p>}
+      {requiresBankEvent && (
+        <p style={{ margin: 0, color: '#475569', fontSize: 11, lineHeight: 1.4 }}>
+          Денежный статус требует банковского события или ручной сверки.
+        </p>
+      )}
       {blockedBy && (
         <p style={{ margin: 0, color: '#B91C1C', fontSize: 12, lineHeight: 1.4 }}>
           Заблокировано: {blockedBy}
