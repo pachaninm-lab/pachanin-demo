@@ -45,9 +45,7 @@ export default function PlatformV7SellerPage() {
         <p style={lead}>Лот должен приводить к сделке, документам и получению денег. Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → выпуск денег.</p>
         <div style={actions}>
           <Link href='/platform-v7/seller/batches/new' style={primaryBtn}>Создать партию</Link>
-          <Link href='/platform-v7/seller/lots/new' style={ghostBtn}>Опубликовать лот</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть сделку</Link>
-          <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
         </div>
       </section>
 

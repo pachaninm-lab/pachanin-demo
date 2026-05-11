@@ -94,7 +94,6 @@ export default function LogisticsPage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/logistics/inbox' style={primaryBtn}>Входящие заявки</Link>
           <Link href='/platform-v7/driver' style={ghostBtn}>Открыть рейс водителя</Link>
-          <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
         </div>
       </section>
 

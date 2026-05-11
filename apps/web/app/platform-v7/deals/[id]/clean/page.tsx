@@ -51,7 +51,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
           <div>
             <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Deal 360 · пилотный контур</p>
             <h1 style={{ margin: '6px 0 0', fontSize: 28, color: text }}>{deal.id} · {scenario.lotId}</h1>
-            <p style={{ margin: '8px 0 0', color: muted, lineHeight: 1.55 }}>Цена, логистика, документы, деньги, спор и доказательства собраны в одном рабочем контуре. Внешние подключения показаны как симуляция по логике интеграции.</p>
+            <p style={{ margin: '8px 0 0', color: muted, lineHeight: 1.55 }}>Цена, логистика, документы, деньги, спор и доказательства собраны в одном рабочем контуре. Внешние подключения отображены в пилотном режиме — без активных боевых интеграций.</p>
           </div>
           <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
             {hasBlockers ? 'выплата остановлена' : 'готово к выплате'}
@@ -99,7 +99,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       </section>
 
       <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Интеграции в сделке · симуляция</p>
+        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Интеграции в сделке · пилот</p>
         <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
           {scenario.providerGates.map((gate) => (
             <div key={`${gate.provider}-${gate.object}`} style={{ border: `1px solid ${stateColor(gate.state, 'border')}`, background: stateColor(gate.state, 'bg'), borderRadius: 14, padding: 12, display: 'grid', gap: 5 }}>
@@ -176,5 +176,5 @@ function stateColor(state: Deal360State, part: 'bg' | 'border' | 'text') {
 }
 
 function linkStyle(tone: 'default' | 'danger' = 'default'): React.CSSProperties {
-  return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
+  return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', minHeight: 44, color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
 }
