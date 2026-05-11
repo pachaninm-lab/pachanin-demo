@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ManualActionReasonsStrip } from '@/components/platform-v7/ManualActionReasonsStrip';
+import { AntiBypassControlStrip } from '@/components/platform-v7/AntiBypassControlStrip';
 import { P7Page } from '@/components/platform-v7/P7Page';
 import { P7Section } from '@/components/platform-v7/P7Section';
 import { P7Toolbar } from '@/components/platform-v7/P7Toolbar';
@@ -159,6 +160,10 @@ export default function PlatformV7ControlTowerPage() {
 
         <P7Section title='Ручные действия' subtitle='Любое ручное вмешательство должно иметь причину и запись в журнале.'>
           <ManualActionReasonsStrip />
+        </P7Section>
+
+        <P7Section title='Контроль обхода платформы' subtitle='Пилотный контур. Снижает риск обхода, не исключает его.'>
+          <AntiBypassControlStrip context='control-tower' />
         </P7Section>
 
         <P7Section title='Очередь проблем и действий' subtitle='Каждая строка — это деньги, причина, владелец и одно правильное действие.'>
