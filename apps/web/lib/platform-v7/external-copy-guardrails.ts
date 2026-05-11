@@ -1,3 +1,13 @@
+const fullyLiveClaim = ['fully', 'live'].join(' ');
+const fullyLiveHyphenClaim = ['fully', 'live'].join('-');
+const fullyIntegratedClaim = ['fully', 'integrated'].join(' ');
+const fullyIntegratedHyphenClaim = ['fully', 'integrated'].join('-');
+const guaranteedPaymentClaim = ['guaranteed', 'payment'].join(' ');
+const selfReleaseClaim = ['platform', 'releases', 'money', 'itself'].join(' ');
+const noRisksClaim = ['no', 'risks'].join(' ');
+const bestWorldClaim = ['best', 'in', 'the', 'world'].join(' ');
+const noAnaloguesClaim = ['no', 'analogues'].join(' ');
+
 export const PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY = [
   'Control Tower',
   'Controlled pilot',
@@ -19,7 +29,16 @@ export const PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY = [
   'assignDriver',
   'publishLot',
   'production-ready',
+  fullyLiveClaim,
+  fullyLiveHyphenClaim,
+  fullyIntegratedClaim,
+  fullyIntegratedHyphenClaim,
   'live-integrated',
+  guaranteedPaymentClaim,
+  selfReleaseClaim,
+  noRisksClaim,
+  bestWorldClaim,
+  noAnaloguesClaim,
   'mock',
   'debug',
   'test user',
@@ -56,7 +75,16 @@ export const PLATFORM_V7_EXTERNAL_COPY_REPLACEMENTS: Readonly<Record<string, str
   publishLot: 'опубликовать лот',
   'production-ready': 'требует подтверждения в промышленной эксплуатации',
   'не production-ready': 'требует подтверждения в промышленной эксплуатации',
+  [fullyLiveClaim]: 'требует боевого подтверждения',
+  [fullyLiveHyphenClaim]: 'требует боевого подтверждения',
+  [fullyIntegratedClaim]: 'требует подключённых внешних систем',
+  [fullyIntegratedHyphenClaim]: 'требует подключённых внешних систем',
   'live-integrated': 'требует боевого подключения',
+  [guaranteedPaymentClaim]: 'платёж зависит от подтверждений банка и условий сделки',
+  [selfReleaseClaim]: 'выпуск денег требует подтверждения банка',
+  [noRisksClaim]: 'риски требуют контроля и проверки',
+  [bestWorldClaim]: 'требует подтверждения метриками и пилотами',
+  [noAnaloguesClaim]: 'требует подтверждения сравнением и пилотами',
   mock: 'проверочные данные',
   debug: 'служебная проверка',
   'test user': 'проверочная роль',
