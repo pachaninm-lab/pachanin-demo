@@ -102,17 +102,17 @@ const DL_9102: Deal360Scenario = {
   cockpit: {
     currentStage: 'Спор по весу — удержание 624 тыс. ₽',
     nextActor: 'арбитр + оператор',
-    moneyStatus: { label: 'резерв подтверждён · 624 тыс. ₽ под удержанием', state: 'manual' },
+    moneyStatus: { label: 'пилотный резерв отмечен · 624 тыс. ₽ под удержанием', state: 'manual' },
     docStatus: { label: 'документы в порядке', state: 'ok' },
     tripStatus: { label: 'TRIP-SIM-002 · рейс завершён · приёмка закрыта', state: 'ok' },
-    qualityStatus: { label: 'качество подтверждено · отклонение веса в споре', state: 'wait' },
+    qualityStatus: { label: 'качество отмечено в пилотном контуре · отклонение веса в споре', state: 'wait' },
     disputeStatus: { label: 'DSP-9102-WEIGHT · 624 тыс. ₽ · открыт', state: 'stop' },
     cannotHappenReason: 'спорная сумма 624 тыс. ₽ не выпускается до решения DSP-9102-WEIGHT · арбитр должен вынести решение',
   },
   money: [
-    { title: 'Сумма сделки', value: '6,24 млн ₽', note: 'резерв подтверждён', state: 'ok' },
+    { title: 'Сумма сделки', value: '6,24 млн ₽', note: 'расчёт по условиям пилотного сценария', state: 'ok' },
     { title: 'Удержание', value: '624 тыс. ₽', note: 'спор по весу', state: 'stop' },
-    { title: 'К выплате сейчас', value: '5,616 млн ₽', note: 'без спорной части', state: 'manual' },
+    { title: 'К выплате сейчас', value: '5,616 млн ₽', note: 'без спорной части, после банковского подтверждения', state: 'manual' },
     { title: 'Спорная часть', value: '624 тыс. ₽', note: 'до решения спора', state: 'stop' },
   ],
 };
