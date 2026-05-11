@@ -8,6 +8,7 @@ import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentRe
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
+import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
 import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedbackPreviewStrip';
 
 const bankHandoff: HandoffItem[] = [
@@ -200,6 +201,8 @@ export default function PlatformV7BankPage() {
       </section>
 
       <DecisionRecommendationStrip context='bank' />
+
+      <DecisionPackMiniPanel context='bank_release_review' />
 
       <DocumentReadinessMiniMatrix role='bank' />
 
