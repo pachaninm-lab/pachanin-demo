@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
+import { OperatorExecutionQueue } from '../../../components/platform-v7/OperatorExecutionQueue';
 
 const deal9106 = getDeal360Scenario('DL-9106');
 const deal9102 = getDeal360Scenario('DL-9102');
@@ -47,6 +48,8 @@ export default function PlatformV7OperatorAliasPage() {
           {blockers.map((item) => <BlockerRow key={`${item.deal}-${item.reason}`} item={item} />)}
         </div>
       </section>
+
+      <OperatorExecutionQueue />
 
       <section style={card}>
         <div style={micro}>Сквозные действия</div>
