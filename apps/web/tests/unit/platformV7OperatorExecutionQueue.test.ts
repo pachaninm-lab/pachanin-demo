@@ -8,6 +8,8 @@ import {
   getTotalMoneyAtRiskCount,
 } from '../../lib/platform-v7/operator-execution-queue';
 import { OperatorExecutionQueue } from '../../components/platform-v7/OperatorExecutionQueue';
+import ControlTowerPage from '../../app/platform-v7/control-tower/page';
+import OperatorPage from '../../app/platform-v7/operator/page';
 
 const FORBIDDEN_PATTERNS = [
   'production-ready',
@@ -18,12 +20,14 @@ const FORBIDDEN_PATTERNS = [
   'fully protected',
   'автоматически исполняется',
   'гарантирует',
+  'ФГБУ ЦОК АПК',
 ];
 
 function assertNoForbiddenWording(text: string) {
   for (const pattern of FORBIDDEN_PATTERNS) {
     expect(text.toLowerCase()).not.toContain(pattern.toLowerCase());
   }
+  expect(text).not.toContain('/platform-v7/demo/');
 }
 
 describe('operator-execution-queue data', () => {
@@ -148,6 +152,22 @@ describe('OperatorExecutionQueue component', () => {
   it('contains no forbidden wording in rendered output', () => {
     render(React.createElement(OperatorExecutionQueue));
     const container = screen.getByTestId('platform-v7-operator-execution-queue');
+    assertNoForbiddenWording(container.textContent ?? '');
+  });
+});
+
+describe('OperatorExecutionQueue page placement', () => {
+  it('control tower page renders the operator queue without unsafe wording', () => {
+    const { container } = render(React.createElement(ControlTowerPage));
+
+    expect(screen.getByTestId('platform-v7-operator-execution-queue')).toBeDefined();
+    assertNoForbiddenWording(container.textContent ?? '');
+  });
+
+  it('operator page renders the operator queue without unsafe wording', () => {
+    const { container } = render(React.createElement(OperatorPage));
+
+    expect(screen.getByTestId('platform-v7-operator-execution-queue')).toBeDefined();
     assertNoForbiddenWording(container.textContent ?? '');
   });
 });
