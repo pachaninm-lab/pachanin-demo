@@ -179,10 +179,11 @@ describe('Logistics page execution handoff', () => {
     expect(screen.getByText(/ЭТрН ожидает подписи грузополучателя/)).toBeInTheDocument();
   });
 
-  it('logistics handoff has sends item about рейс data', () => {
+  it('logistics handoff frames document states as awaiting confirmation', () => {
     render(<LogisticsPage />);
 
-    expect(screen.getByText(/данные о рейсе, водителе и маршруте/)).toBeInTheDocument();
+    expect(screen.getByText(/передаёт данные о рейсе и водителе — ожидает подтверждения приёмки от элеватора/)).toBeInTheDocument();
+    expect(screen.getByText(/ожидать закрытия ЭТрН подписью грузополучателя — пакет передаётся в контур документов после подтверждения/)).toBeInTheDocument();
   });
 
   it('logistics page has no forbidden wording', () => {
@@ -225,10 +226,11 @@ describe('Bank page execution handoff', () => {
     expect(screen.getByText(/документы, приёмка, качество и спор должны быть закрыты до банковского события/)).toBeInTheDocument();
   });
 
-  it('bank handoff has sends item about release after ручная сверка', () => {
+  it('bank handoff describes bank-side event/check, not platform-controlled money release', () => {
     render(<BankPage />);
 
-    expect(screen.getByText(/банковское событие выпуска денег после ручной сверки всех условий/)).toBeInTheDocument();
+    expect(screen.getByText(/банк направляет уведомление о готовности к банковскому событию/)).toBeInTheDocument();
+    expect(screen.getByText(/пилотный контур требует ручной сверки оператором/)).toBeInTheDocument();
   });
 
   it('bank page has no forbidden wording', () => {
@@ -242,17 +244,18 @@ describe('Bank page execution handoff', () => {
 });
 
 describe('Disputes page execution handoff', () => {
-  it('renders execution handoff section with удержание and decision wording', () => {
+  it('renders execution handoff section with удержание and review wording', () => {
     render(<DisputesPage />);
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
-    expect(screen.getByText(/решение по удержанию или спорной сумме после проверки оснований/)).toBeInTheDocument();
+    expect(screen.getByText(/рекомендация по удержанию или спорной сумме/)).toBeInTheDocument();
   });
 
-  it('disputes handoff has blockedBy item blocking money release', () => {
+  it('disputes handoff describes review of disputed amount, not platform-controlled release', () => {
     render(<DisputesPage />);
 
-    expect(screen.getByText(/спор не закрыт — выпуск денег продавцу невозможен до решения и суммы/)).toBeInTheDocument();
+    expect(screen.getByText(/рекомендация по удержанию или спорной сумме — передаётся оператору на ручную проверку оснований/)).toBeInTheDocument();
+    expect(screen.getByText(/банковское событие по выпуску невозможно до решения оператора и закрытия суммы/)).toBeInTheDocument();
   });
 
   it('disputes page has no forbidden wording', () => {

@@ -5,7 +5,7 @@ const logisticsHandoff: HandoffItem[] = [
   {
     direction: 'sends',
     role: 'логистика → элеватор',
-    requirement: 'данные о рейсе, водителе и маршруте — в контур приёмки',
+    requirement: 'передаёт данные о рейсе и водителе — ожидает подтверждения приёмки от элеватора',
     entity: 'LOG-REQ-2403',
     documentImpact: true,
   },
@@ -24,7 +24,7 @@ const logisticsHandoff: HandoffItem[] = [
   },
   {
     direction: 'next',
-    requirement: 'обеспечить подпись ЭТрН и передать транспортный пакет в контур документов',
+    requirement: 'ожидать закрытия ЭТрН подписью грузополучателя — пакет передаётся в контур документов после подтверждения',
     documentImpact: true,
   },
 ];

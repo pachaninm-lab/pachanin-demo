@@ -20,8 +20,8 @@ const disputesHandoff: HandoffItem[] = [
   },
   {
     direction: 'sends',
-    role: 'споры → банк',
-    requirement: 'решение по удержанию или спорной сумме после проверки оснований',
+    role: 'споры → оператор',
+    requirement: 'рекомендация по удержанию или спорной сумме — передаётся оператору на ручную проверку оснований',
     moneyImpact: true,
   },
   {
@@ -32,7 +32,7 @@ const disputesHandoff: HandoffItem[] = [
   },
   {
     direction: 'blockedBy',
-    requirement: 'спор не закрыт — выпуск денег продавцу невозможен до решения и суммы',
+    requirement: 'спор не закрыт — банковское событие по выпуску невозможно до решения оператора и закрытия суммы',
     moneyImpact: true,
   },
   {
