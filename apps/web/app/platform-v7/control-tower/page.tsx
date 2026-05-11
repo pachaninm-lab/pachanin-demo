@@ -11,6 +11,7 @@ import { DomainControlTowerSummary } from '@/components/v7r/DomainControlTowerSu
 import { ExecutionSimulationActionPanel } from '@/components/v7r/ExecutionSimulationActionPanel';
 import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
 import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
+import { OperatorExecutionQueue } from '@/components/platform-v7/OperatorExecutionQueue';
 
 function describeReason(code: string) {
   switch (code) {
@@ -186,6 +187,10 @@ export default function PlatformV7ControlTowerPage() {
               </div>
             ))}
           </section>
+        </P7Section>
+
+        <P7Section title='Очередь исполнения оператора' subtitle='Пилотный контур · ручная проверка. Каждый элемент — ответственный, деньги под риском и безопасный следующий шаг.'>
+          <OperatorExecutionQueue />
         </P7Section>
 
         <P7Section
