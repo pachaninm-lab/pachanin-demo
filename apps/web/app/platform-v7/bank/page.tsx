@@ -7,6 +7,7 @@ import { ConditionReasonStrip } from '@/components/platform-v7/ConditionReasonSt
 import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentReadinessMiniMatrix';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
+import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -196,6 +197,8 @@ export default function PlatformV7BankPage() {
           </Link>
         ))}
       </section>
+
+      <DecisionRecommendationStrip context='bank' />
 
       <DocumentReadinessMiniMatrix role='bank' />
 
