@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
+import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -177,6 +178,8 @@ export default function PlatformV7BankPage() {
       </section>
 
       <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
+
+      <JournalPreview role='bank' maxEntries={3} />
     </main>
   );
 }
