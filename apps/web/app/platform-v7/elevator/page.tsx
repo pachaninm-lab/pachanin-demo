@@ -3,11 +3,11 @@ import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
 import { RoleHandoffStrip, type HandoffItem } from '@/components/platform-v7/RoleHandoffStrip';
 
 const elevatorHandoff: HandoffItem[] = [
-  { direction: 'sends', role: 'лаборатория', requirement: 'отобрать пробу и передать на анализ ФГБУ ЦОК АПК' },
-  { direction: 'sends', role: 'документы (ЭДО)', requirement: 'закрыть акт приёмки и акт расхождения в Контур.Диадок' },
+  { direction: 'sends', role: 'лабораторный контур качества', requirement: 'отобрать пробу и передать на пилотный анализ качества' },
+  { direction: 'sends', role: 'документы (ЭДО)', requirement: 'подготовить акт приёмки и акт расхождения для подписания' },
   { direction: 'sends', role: 'оператор', requirement: 'сообщить об отклонении веса или качества' },
-  { direction: 'awaits', role: 'лаборатория', requirement: 'протокол качества ФГБУ ЦОК АПК — без него выплата заблокирована' },
-  { direction: 'awaits', role: 'водитель', requirement: 'ЭТрН подписана — юридическое основание для акта приёмки' },
+  { direction: 'awaits', role: 'лаборатория', requirement: 'пилотный протокол качества ожидается — без него выплата не разрешается' },
+  { direction: 'awaits', role: 'водитель', requirement: 'ЭТрН ожидает закрытия сторонами — основание для акта приёмки' },
 ];
 
 const receiving = {
@@ -36,14 +36,14 @@ const quality = [
   { label: 'Влажность', value: '13,1%', limit: 'допуск до 14%', state: 'ok' },
   { label: 'Клейковина', value: '23%', limit: 'минимум 21%', state: 'ok' },
   { label: 'Сорная примесь', value: '2,4%', limit: 'допуск до 2%', state: 'stop' },
-  { label: 'Протокол', value: 'ожидается', limit: 'ФГБУ ЦОК АПК', state: 'wait' },
+  { label: 'Протокол', value: 'ожидается', limit: 'пилотный протокол качества', state: 'wait' },
 ] as const;
 
 const gates = [
   { title: 'Вес', value: 'отклонение -1,2 т', impact: 'создаёт удержание до акта расхождения', state: 'stop' },
   { title: 'Качество', value: 'есть превышение по примеси', impact: 'требует протокол качества', state: 'stop' },
   { title: 'Акт приёмки', value: 'готовится', impact: 'без акта выплата невозможна', state: 'wait' },
-  { title: 'ФГБУ ЦОК АПК', value: 'протокол ожидается', impact: 'качество влияет на цену и спор', state: 'wait' },
+  { title: 'Лабораторный контур качества', value: 'протокол ожидается', impact: 'качество влияет на цену и спор', state: 'wait' },
 ] as const;
 
 export default function Page() {
@@ -98,7 +98,7 @@ export default function Page() {
       </section>
 
       <section style={card}>
-        <div style={micro}>Качество партии · симуляция протокола</div>
+        <div style={micro}>Качество партии · пилотный протокол</div>
         <div style={grid2}>
           {quality.map((item) => <QualityCell key={item.label} item={item} />)}
         </div>
