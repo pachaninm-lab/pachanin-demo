@@ -71,10 +71,10 @@ const BASE: Deal360Scenario = {
     { provider: 'СБИС / Saby ЭТрН', object: 'электронная транспортная накладная', status: 'ждёт подписи грузополучателя', impact: 'останавливает финальную выплату', state: 'stop' },
     { provider: 'ГИС ЭПД', object: 'перевозочный документ', status: 'ожидает закрытия ЭТрН', impact: 'останавливает транспортное основание', state: 'wait' },
     { provider: 'КриптоПро DSS', object: 'КЭП / полномочия подписанта', status: 'сертификат доступен в пилотном контуре', impact: 'ошибка подписи остановит ЭДО', state: 'ok' },
-    { provider: 'ATI.SU', object: 'расчёт перевозчика', status: 'перевозчик выбран в пилотном сценарии', impact: 'подтверждает транспортный сценарий', state: 'ok' },
+    { provider: 'ATI.SU', object: 'расчёт перевозчика', status: 'перевозчик выбран в пилотном сценарии', impact: 'показывает транспортный сценарий', state: 'ok' },
     { provider: 'Wialon', object: 'телематика рейса', status: 'точка водителя 62% пути', impact: 'отклонение создаст инцидент', state: 'ok' },
     { provider: 'Яндекс.Карты', object: 'карта маршрута', status: 'визуализация маршрута', impact: 'показывает маршрут водителю и логисту', state: 'ok' },
-    { provider: 'ФГБУ ЦОК АПК', object: 'протокол качества', status: 'протокол ожидается', impact: 'без качества выплата не разрешается', state: 'stop' },
+    { provider: 'Лабораторный контур качества', object: 'пилотный протокол качества', status: 'протокол качества ожидается', impact: 'без качества выплата не разрешается', state: 'stop' },
     { provider: 'GigaChat Enterprise', object: 'помощник оператора', status: 'объясняет причины остановки и готовит черновики', impact: 'не принимает решений и не выпускает деньги', state: 'manual' },
   ],
   documents: [
@@ -86,7 +86,7 @@ const BASE: Deal360Scenario = {
     { title: 'КЭП / МЧД', source: 'КриптоПро DSS', responsible: 'уполномоченный подписант', status: 'пилотный сертификат доступен', blocksMoney: false },
     { title: 'Акт приёмки', source: 'приёмка + Контур.Диадок', responsible: 'элеватор', status: 'готовится', blocksMoney: true },
     { title: 'Акт расхождения', source: 'элеватор + стороны сделки', responsible: 'элеватор + оператор', status: 'требуется при отклонении веса', blocksMoney: true },
-    { title: 'Протокол качества', source: 'ФГБУ ЦОК АПК', responsible: 'лаборатория', status: 'ожидается', blocksMoney: true },
+    { title: 'Протокол качества', source: 'лабораторный контур качества', responsible: 'лаборатория', status: 'ожидается', blocksMoney: true },
   ],
 };
 
