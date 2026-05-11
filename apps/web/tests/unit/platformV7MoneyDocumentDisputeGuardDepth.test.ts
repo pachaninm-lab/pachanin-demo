@@ -121,7 +121,7 @@ describe('platform-v7 money, document and dispute guard depth', () => {
     expect(decideMoneyRelease({ dealId: 'deal-001', reservedAmount: 1_000_000, holdAmount: 0, requestedAmount: 400_000, docsComplete: true, bankCallbackConfirmed: true, disputeOpen: false, transportGateClear: true, fgisGateClear: false }).blockers).toContain('FGIS_GATE_BLOCKED');
   });
 
-  it('keeps manual reconciliation as a release stop, not a continue signal', () => {
+  it('keeps manual reconciliation from allowing continuation', () => {
     expect(reconcileMoneyEventWithLedger([], baseMoneyEvent)).toMatchObject({
       state: 'manual_review',
       reasonCode: 'MISSING_LEDGER_ENTRY',
@@ -151,7 +151,11 @@ describe('platform-v7 money, document and dispute guard depth', () => {
     expect(result.documentImpact).toBe('attached');
     expect(result.moneyImpact).toBe('none');
     expect(nextState.documents).toHaveLength(1);
-    expect(nextState.documents[0]).toMatchObject({ documentRef: 'sdiz-001', status: 'attached' });
+    expect(nextState.documents[0]).toMatchObject({
+      documentRef: 'sdiz-001',
+      attachedByRole: 'seller',
+    });
+    expect(result.documentImpact).not.toBe('status_changed');
     expect(nextState.money).toBeNull();
   });
 
