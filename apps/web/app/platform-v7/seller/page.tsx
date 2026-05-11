@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
 import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
+import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 
 const sellerHandoff: HandoffItem[] = [
   {
@@ -103,6 +104,8 @@ export default function PlatformV7SellerPage() {
       <WorkflowActionPanel context='seller' />
 
       <RoleExecutionHandoff items={sellerHandoff} title='исполнение: что продавец отправляет и ожидает' />
+
+      <JournalPreview role='seller' maxEntries={3} />
 
       <section style={card}>
         <div style={micro}>рабочие маршруты продавца</div>
