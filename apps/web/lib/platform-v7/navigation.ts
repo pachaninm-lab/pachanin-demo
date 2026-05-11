@@ -18,7 +18,7 @@ export const PLATFORM_V7_ROLE_STAGE: Record<PlatformRole, { label: string; tone:
 };
 
 export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
-  operator: '/platform-v7/control-tower', buyer: '/platform-v7/buyer', seller: '/platform-v7/seller', logistics: '/platform-v7/logistics', driver: '/platform-v7/driver', surveyor: '/platform-v7/surveyor', elevator: '/platform-v7/elevator', lab: '/platform-v7/lab', bank: '/platform-v7/bank', arbitrator: '/platform-v7/arbitrator', compliance: '/platform-v7/compliance', executive: '/platform-v7/executive',
+  operator: '/platform-v7/control-tower', buyer: '/platform-v7/buyer', seller: '/platform-v7/seller', logistics: '/platform-v7/logistics', driver: '/platform-v7/driver/field', surveyor: '/platform-v7/surveyor', elevator: '/platform-v7/elevator', lab: '/platform-v7/lab', bank: '/platform-v7/bank', arbitrator: '/platform-v7/arbitrator', compliance: '/platform-v7/compliance', executive: '/platform-v7/executive',
 };
 
 export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> = {
@@ -35,7 +35,6 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
     { href: '/platform-v7/connectors', label: PLATFORM_V7_LEXICON.nav.connectors, icon: 'integrations' },
     { href: '/platform-v7/bank', label: PLATFORM_V7_LEXICON.nav.bank, icon: 'bank' },
     { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes, icon: 'disputes' },
-    { href: '/platform-v7/demo/grain-execution', label: 'Проверочный сценарий', icon: 'demo' },
   ],
   buyer: [
     { href: '/platform-v7/buyer', label: PLATFORM_V7_LEXICON.nav.cabinet, icon: 'cabinet' },
@@ -56,12 +55,12 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
   ],
   logistics: [
     { href: '/platform-v7/logistics', label: 'Диспетчерская', icon: 'logistics' },
-    { href: '/platform-v7/driver', label: PLATFORM_V7_LEXICON.nav.driver, icon: 'cabinet' },
+    { href: '/platform-v7/driver/field', label: PLATFORM_V7_LEXICON.nav.driver, icon: 'cabinet' },
     { href: '/platform-v7/elevator/terminal', label: 'Элеваторный терминал', icon: 'receiving' },
     { href: '/platform-v7/elevator', label: PLATFORM_V7_LEXICON.nav.receiving, icon: 'receiving' },
     { href: '/platform-v7/lab', label: PLATFORM_V7_LEXICON.nav.lab, icon: 'lab' },
   ],
-  driver: [{ href: '/platform-v7/driver', label: 'Маршрут', icon: 'logistics' }],
+  driver: [{ href: '/platform-v7/driver/field', label: 'Маршрут', icon: 'logistics' }],
   surveyor: [{ href: '/platform-v7/surveyor', label: 'Назначения', icon: 'cabinet' }],
   elevator: [
     { href: '/platform-v7/elevator/terminal', label: 'Терминал приёмки', icon: 'receiving' },
@@ -79,7 +78,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
   ],
   arbitrator: [{ href: '/platform-v7/arbitrator', label: 'Разбор', icon: 'analytics' }, { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes, icon: 'disputes' }, { href: '/platform-v7/deals/grain-quality', label: 'Качество и доказательства', icon: 'lab' }],
   compliance: [{ href: '/platform-v7/compliance', label: 'Допуск', icon: 'cabinet' }, { href: '/platform-v7/deals', label: PLATFORM_V7_LEXICON.nav.deals, icon: 'deals' }, { href: '/platform-v7/deals/grain-sdiz', label: 'СДИЗ и документы', icon: 'integrations' }],
-  executive: [{ href: '/platform-v7/executive', label: PLATFORM_V7_LEXICON.nav.executive, icon: 'analytics' }, { href: '/platform-v7/control-tower', label: PLATFORM_V7_LEXICON.nav.controlTower, icon: 'dashboard' }, { href: '/platform-v7/demo/grain-execution', label: 'Проверочный сценарий', icon: 'demo' }, { href: '/platform-v7/bank', label: PLATFORM_V7_LEXICON.nav.money, icon: 'bank' }],
+  executive: [{ href: '/platform-v7/executive', label: PLATFORM_V7_LEXICON.nav.executive, icon: 'analytics' }, { href: '/platform-v7/control-tower', label: PLATFORM_V7_LEXICON.nav.controlTower, icon: 'dashboard' }, { href: '/platform-v7/bank', label: PLATFORM_V7_LEXICON.nav.money, icon: 'bank' }],
 };
 
 export function platformV7RoleLabel(role: PlatformRole): string { return PLATFORM_V7_ROLE_LABELS[role]; }
