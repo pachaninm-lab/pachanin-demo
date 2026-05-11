@@ -89,7 +89,7 @@ export default function Page() {
       </section>
 
       <section style={card}>
-        <div style={micro}>Качество партии · симуляция протокола</div>
+        <div style={micro}>Качество партии · протокол ФГБУ ЦОК АПК</div>
         <div style={grid2}>
           {quality.map((item) => <QualityCell key={item.label} item={item} />)}
         </div>
