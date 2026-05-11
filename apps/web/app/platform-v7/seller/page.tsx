@@ -3,6 +3,7 @@ import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowAct
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
 import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
+import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
 
 const sellerHandoff: HandoffItem[] = [
   {
@@ -99,6 +100,13 @@ export default function PlatformV7SellerPage() {
         nextActor='ФГИС «Зерно» и банк'
         blocker='СДИЗ и ЭТрН не закрыты'
         moneyEffect='выплата остановлена'
+      />
+
+      <ConditionReasonStrip
+        condition='пилотный сценарий'
+        responsible='ФГИС «Зерно» и банк'
+        documentState='СДИЗ и ЭТрН не закрыты'
+        stopReason='выплата остановлена'
       />
 
       <WorkflowActionPanel context='seller' />

@@ -3,6 +3,7 @@ import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
+import { ConditionReasonStrip } from '@/components/platform-v7/ConditionReasonStrip';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -113,6 +114,13 @@ export default function PlatformV7BankPage() {
         nextActor='оператор и ответственный за документ'
         blocker='СДИЗ, ЭТрН, УПД, приёмка, качество'
         moneyEffect='удержание до закрытия условий'
+      />
+
+      <ConditionReasonStrip
+        condition='банковская проверка выплаты'
+        responsible='оператор и ответственный за документ'
+        documentState='СДИЗ, ЭТрН, УПД, приёмка, качество'
+        stopReason='удержание до закрытия условий'
       />
 
       <section style={metricsGrid}>
