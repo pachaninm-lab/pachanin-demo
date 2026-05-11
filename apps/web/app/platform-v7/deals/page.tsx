@@ -19,11 +19,8 @@ export default function PlatformV7DealsPage() {
               Реестр исполнения сделки
             </div>
             <h1 style={{ margin: 0, fontSize: 'clamp(30px, 4.8vw, 52px)', lineHeight: 1.04, letterSpacing: '-0.045em', color: '#0F1419', fontWeight: 950 }}>
-              Сделки: деньги, документы, рейс и спор в одном контуре
+              Сделки: деньги, документы, рейс и спор
             </h1>
-            <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.7 }}>
-              Этот экран нужен не для просмотра списка. Он должен сразу показать, какая сделка остановлена, где деньги, чего не хватает по документам, где груз и кто отвечает за следующий шаг.
-            </p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/deals/DL-9102/clean' style={primary}>Открыть DL-9102</Link>

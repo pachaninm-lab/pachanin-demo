@@ -7,7 +7,7 @@ const buyerMetrics: MetricItem[] = [
   { label: 'Подходящие партии', value: '7', note: 'отфильтрованы по культуре, региону и документам' },
   { label: 'Мой резерв', value: '9,65 млн ₽', note: 'готовность денег по DL-9106', good: true },
   { label: 'Под удержанием', value: '624 тыс. ₽', note: 'спорная часть по весу', danger: true },
-  { label: 'Следующий шаг', value: 'резерв', note: 'подтвердить денежный guard', warn: true },
+  { label: 'Следующий шаг', value: 'резерв', note: 'подтвердить резерв денег в банке', warn: true },
 ];
 
 const buyerLots = [
@@ -42,7 +42,7 @@ export default function PlatformV7BuyerPage() {
       <section style={hero}>
         <div style={badge}>Кабинет покупателя</div>
         <h1 style={h1}>Запросы, партии, предложения и резерв денег</h1>
-        <p style={lead}>Ставка должна сразу вести к сделке, резерву денег и логистике. Покупатель видит свой закупочный запрос, подходящие партии, собственные предложения, статус резерва, документы и следующий обязательный шаг.</p>
+        <p style={lead}>Запрос → подбор партии → предложение → сделка → резерв денег → документы → приёмка.</p>
         <div style={actions}>
           <Link href='/platform-v7/buyer/rfq/new' style={primaryBtn}>Создать запрос</Link>
           <Link href='/platform-v7/buyer/matches' style={ghostBtn}>Подбор партий</Link>

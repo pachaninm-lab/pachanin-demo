@@ -42,7 +42,7 @@ export default function PlatformV7SellerPage() {
       <section style={hero}>
         <div style={badge}>Кабинет продавца</div>
         <h1 style={h1}>Лоты, предложения, документы и выпуск денег</h1>
-        <p style={lead}>Лот должен приводить к сделке, документам и получению денег. Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → выпуск денег.</p>
+        <p style={lead}>Партия → лот → предложение → сделка → резерв → документы → рейс → приёмка → выпуск денег.</p>
         <div style={actions}>
           <Link href='/platform-v7/seller/batches/new' style={primaryBtn}>Создать партию</Link>
           <Link href='/platform-v7/seller/lots/new' style={ghostBtn}>Опубликовать лот</Link>

@@ -49,9 +49,8 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       <section style={card()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Deal 360 · пилотный контур</p>
+            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Deal 360 · пилотный контур — без активных боевых интеграций</p>
             <h1 style={{ margin: '6px 0 0', fontSize: 28, color: text }}>{deal.id} · {scenario.lotId}</h1>
-            <p style={{ margin: '8px 0 0', color: muted, lineHeight: 1.55 }}>Цена, логистика, документы, деньги, спор и доказательства собраны в одном рабочем контуре. Внешние подключения показаны как симуляция по логике интеграции.</p>
           </div>
           <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
             {hasBlockers ? 'выплата остановлена' : 'готово к выплате'}
@@ -99,7 +98,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       </section>
 
       <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Интеграции в сделке · симуляция</p>
+        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Интеграции в сделке · пилот</p>
         <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
           {scenario.providerGates.map((gate) => (
             <div key={`${gate.provider}-${gate.object}`} style={{ border: `1px solid ${stateColor(gate.state, 'border')}`, background: stateColor(gate.state, 'bg'), borderRadius: 14, padding: 12, display: 'grid', gap: 5 }}>
