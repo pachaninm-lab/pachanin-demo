@@ -2,6 +2,22 @@ import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
+import SellerPage from '@/app/platform-v7/seller/page';
+import BuyerPage from '@/app/platform-v7/buyer/page';
+import BankPage from '@/app/platform-v7/bank/page';
+
+function expectNoUnsafeCopy(html: string) {
+  expect(html).not.toMatch(/production-ready/i);
+  expect(html).not.toMatch(/fully live/i);
+  expect(html).not.toMatch(/fully integrated/i);
+  expect(html).not.toMatch(/live callback/i);
+  expect(html).not.toMatch(/платформа гарантирует оплату/i);
+  expect(html).not.toMatch(/платформа выпускает деньги/i);
+  expect(html).not.toMatch(/деньги переведены/i);
+  expect(html).not.toMatch(/выплата выполнена/i);
+  expect(html).not.toMatch(/деньги отправлены/i);
+  expect(html).not.toContain('/platform-v7/demo/');
+}
 
 describe('P7ActionStateChip', () => {
   it('renders label text', () => {
@@ -72,5 +88,31 @@ describe('P7ActionStateChip', () => {
     render(<P7ActionStateChip status='manual' label='ручная сверка' />);
     const chip = screen.getByTestId('p7-action-state-chip');
     expect(chip).toHaveStyle({ border: '1px solid rgba(15,23,42,0.18)' });
+  });
+});
+
+describe('P7ActionStateChip page placement', () => {
+  it('seller page exposes visible action state chip', () => {
+    const { container } = render(<SellerPage />);
+    expect(screen.getByTestId('p7-action-state-chip')).toBeInTheDocument();
+    expect(screen.getByText('пилотный сценарий')).toBeInTheDocument();
+    expect(screen.getByText('выплата остановлена')).toBeInTheDocument();
+    expectNoUnsafeCopy(container.innerHTML);
+  });
+
+  it('buyer page exposes visible action state chip', () => {
+    const { container } = render(<BuyerPage />);
+    expect(screen.getByTestId('p7-action-state-chip')).toBeInTheDocument();
+    expect(screen.getByText('пилотный сценарий')).toBeInTheDocument();
+    expect(screen.getByText('резерв после банковского подтверждения')).toBeInTheDocument();
+    expectNoUnsafeCopy(container.innerHTML);
+  });
+
+  it('bank page exposes visible action state chip', () => {
+    const { container } = render(<BankPage />);
+    expect(screen.getByTestId('p7-action-state-chip')).toBeInTheDocument();
+    expect(screen.getByText('банковская проверка выплаты')).toBeInTheDocument();
+    expect(screen.getByText('удержание до закрытия условий')).toBeInTheDocument();
+    expectNoUnsafeCopy(container.innerHTML);
   });
 });
