@@ -4,6 +4,7 @@ import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7
 import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '@/components/platform-v7/ConditionReasonStrip';
+import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentReadinessMiniMatrix';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -184,6 +185,8 @@ export default function PlatformV7BankPage() {
           </Link>
         ))}
       </section>
+
+      <DocumentReadinessMiniMatrix role='bank' />
 
       <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
 

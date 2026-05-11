@@ -4,6 +4,7 @@ import { RoleExecutionHandoff, type HandoffItem } from '../../../components/plat
 import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
+import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 
 const sellerHandoff: HandoffItem[] = [
   {
@@ -108,6 +109,8 @@ export default function PlatformV7SellerPage() {
         documentState='СДИЗ и ЭТрН не закрыты'
         stopReason='выплата остановлена'
       />
+
+      <DocumentReadinessMiniMatrix role='seller' />
 
       <WorkflowActionPanel context='seller' />
 
