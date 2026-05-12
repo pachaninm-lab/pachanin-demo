@@ -49,7 +49,12 @@ function RoleScopedShellPolicy() {
       .pc-v4-mobile-role,
       .pc-v4-search,
       .pc-v4-role-grid,
-      .pc-v4-statuses {
+      .pc-v4-statuses,
+      .pc-v4-drawer {
+        display: none !important;
+      }
+
+      .pc-v4-top > button.pc-v4-iconbtn:first-child {
         display: none !important;
       }
 
@@ -63,11 +68,11 @@ function RoleScopedShellPolicy() {
         }
 
         .pc-v4-top {
-          grid-template-columns: auto minmax(0, 1fr) auto !important;
+          grid-template-columns: minmax(0, 1fr) auto !important;
         }
 
         .pc-v4-title {
-          max-width: 132px !important;
+          max-width: 164px !important;
         }
 
         .pc-v4-main {
