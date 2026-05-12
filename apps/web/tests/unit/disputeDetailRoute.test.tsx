@@ -22,11 +22,11 @@ describe('PlatformV7DisputeDetailPage', () => {
     );
   });
 
-  it('keeps evidence/dispute wording inside controlled-pilot boundaries', () => {
+  it('keeps evidence/dispute wording inside pilot boundaries', () => {
     render(<PlatformV7DisputeDetailPage params={{ id: 'DK-2024-89' }} />);
 
-    expect(screen.getByText(/controlled pilot/)).toBeInTheDocument();
-    expect(screen.getByText(/Это не live storage, не файловая загрузка и не квалифицированная электронная подпись/)).toBeInTheDocument();
+    expect(screen.getByText(/Объектный пакет для пилотного контура/)).toBeInTheDocument();
+    expect(screen.getByText(/Живая загрузка файлов, КЭП и боевой архив требуют внешних подключений/)).toBeInTheDocument();
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/live arbitration/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/legally final/i)).not.toBeInTheDocument();
