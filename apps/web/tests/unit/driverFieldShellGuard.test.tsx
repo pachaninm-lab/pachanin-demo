@@ -14,8 +14,11 @@ vi.mock('@/stores/usePlatformV7RStore', () => ({
   usePlatformV7RStore: (selector: (state: { role: string }) => unknown) => selector({ role: activeRole }),
 }));
 
+const FIELD_ROLES = ['driver', 'surveyor', 'elevator', 'lab'] as const;
+const FIELD_PATHS = ['/platform-v7/driver', '/platform-v7/surveyor', '/platform-v7/elevator', '/platform-v7/lab'] as const;
+
 describe('DriverFieldShellGuard', () => {
-  it('does not render outside the driver contour for non-driver roles', () => {
+  it('does not render outside field shell for non-field roles', () => {
     activeRole = 'seller';
     usePathname.mockReturnValue('/platform-v7/seller');
 
@@ -24,9 +27,9 @@ describe('DriverFieldShellGuard', () => {
     expect(container.querySelector('style')).toBeNull();
   });
 
-  it('renders driver-only shell isolation styles on driver routes', () => {
+  it.each(FIELD_PATHS)('renders shell isolation styles on %s', (path) => {
     activeRole = 'operator';
-    usePathname.mockReturnValue('/platform-v7/driver');
+    usePathname.mockReturnValue(path);
 
     const { container } = render(<DriverFieldShellGuard />);
     const style = container.querySelector('style');
@@ -38,7 +41,7 @@ describe('DriverFieldShellGuard', () => {
     expect(style?.textContent).toContain('.pc-v4-drawer');
   });
 
-  it('also protects the field subroute', () => {
+  it('also protects the driver field subroute', () => {
     activeRole = 'operator';
     usePathname.mockReturnValue('/platform-v7/driver/field');
 
@@ -47,8 +50,8 @@ describe('DriverFieldShellGuard', () => {
     expect(screen.getByText(/pc-v4-mobile-role/i)).toBeInTheDocument();
   });
 
-  it('protects any platform route when the active role is driver', () => {
-    activeRole = 'driver';
+  it.each(FIELD_ROLES)('protects any platform route when the active role is %s', (role) => {
+    activeRole = role;
     usePathname.mockReturnValue('/platform-v7/deals/DL-9106');
 
     render(<DriverFieldShellGuard />);
