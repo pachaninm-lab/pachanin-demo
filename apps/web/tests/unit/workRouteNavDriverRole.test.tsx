@@ -14,10 +14,18 @@ vi.mock('@/stores/usePlatformV7RStore', () => ({
   usePlatformV7RStore: (selector: (state: { role: string }) => unknown) => selector({ role: activeRole }),
 }));
 
-const FIELD_ROLES = ['driver', 'surveyor', 'elevator', 'lab'] as const;
-const FIELD_PATHS = ['/platform-v7/driver', '/platform-v7/surveyor', '/platform-v7/elevator', '/platform-v7/lab'] as const;
+const SCOPED_ROLES = ['driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance'] as const;
+const SCOPED_PATHS = [
+  '/platform-v7/driver',
+  '/platform-v7/surveyor',
+  '/platform-v7/elevator',
+  '/platform-v7/lab',
+  '/platform-v7/bank',
+  '/platform-v7/arbitrator',
+  '/platform-v7/compliance',
+] as const;
 
-describe('WorkRouteNav field role isolation', () => {
+describe('WorkRouteNav scoped role isolation', () => {
   it('renders work navigation for normal operational roles', () => {
     activeRole = 'seller';
     usePathname.mockReturnValue('/platform-v7/seller');
@@ -28,7 +36,7 @@ describe('WorkRouteNav field role isolation', () => {
     expect(screen.getByRole('link', { name: 'Центр управления' })).toBeInTheDocument();
   });
 
-  it.each(FIELD_PATHS)('hides work navigation on %s', (path) => {
+  it.each(SCOPED_PATHS)('hides work navigation on %s', (path) => {
     activeRole = 'operator';
     usePathname.mockReturnValue(path);
 
@@ -37,7 +45,7 @@ describe('WorkRouteNav field role isolation', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it.each(FIELD_ROLES)('hides work navigation on any route when active role is %s', (role) => {
+  it.each(SCOPED_ROLES)('hides work navigation on any route when active role is %s', (role) => {
     activeRole = role;
     usePathname.mockReturnValue('/platform-v7/deals/DL-9106');
 
