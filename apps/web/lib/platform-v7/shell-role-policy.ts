@@ -32,6 +32,5 @@ export function canShowDrawer(role: PlatformRole, pathname: string): boolean {
 
 export function canShowPortalRoleSwitcher(role: PlatformRole, pathname: string): boolean {
   const pathPolicy = getShellPolicy('operator', pathname);
-  if (pathPolicy === 'operator') return false;
-  return getShellPolicy(role, pathname) !== 'operator';
+  return pathPolicy === 'role-scoped' && getShellPolicy(role, pathname) === 'role-scoped';
 }
