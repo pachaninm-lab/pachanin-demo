@@ -18,14 +18,31 @@ const WORK_LINKS = [
   { href: '/platform-v7/support', label: 'Поддержка' },
 ] as const;
 
-const FIELD_WORK_NAV_ROLES = new Set<PlatformRole>(['driver', 'surveyor', 'elevator', 'lab']);
-const FIELD_WORK_NAV_PATHS = ['/platform-v7/driver', '/platform-v7/surveyor', '/platform-v7/elevator', '/platform-v7/lab'] as const;
+const SCOPED_WORK_NAV_ROLES = new Set<PlatformRole>([
+  'driver',
+  'surveyor',
+  'elevator',
+  'lab',
+  'bank',
+  'arbitrator',
+  'compliance',
+]);
+
+const SCOPED_WORK_NAV_PATHS = [
+  '/platform-v7/driver',
+  '/platform-v7/surveyor',
+  '/platform-v7/elevator',
+  '/platform-v7/lab',
+  '/platform-v7/bank',
+  '/platform-v7/arbitrator',
+  '/platform-v7/compliance',
+] as const;
 
 export function WorkRouteNav() {
   const pathname = usePathname();
   const role = usePlatformV7RStore((state) => state.role);
-  const fieldByPath = FIELD_WORK_NAV_PATHS.some((path) => pathname.startsWith(path));
-  if (fieldByPath || FIELD_WORK_NAV_ROLES.has(role)) return null;
+  const scopedByPath = SCOPED_WORK_NAV_PATHS.some((path) => pathname.startsWith(path));
+  if (scopedByPath || SCOPED_WORK_NAV_ROLES.has(role)) return null;
 
   return (
     <nav aria-label='Рабочие разделы platform-v7' style={nav}>
