@@ -158,7 +158,7 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Пакет доказательств</div>
-            <div style={{ marginTop: 5, fontSize: 12, color: 'var(--pc-text-muted)', lineHeight: 1.5 }}>Объектный пакет для пилотного контура. Живая загрузка файлов, КЭП и боевой архив требуют внешних подключений.</div>
+            <div style={{ marginTop: 5, fontSize: 12, color: 'var(--pc-text-muted)', lineHeight: 1.5 }}>В режиме controlled pilot доказательства фиксируются как объектные записи. Это не live storage, не файловая загрузка и не квалифицированная электронная подпись.</div>
           </div>
           <Badge tone={evidenceUi.statusTone}>{evidenceUi.statusLabel}</Badge>
         </div>
