@@ -91,7 +91,7 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
     status: '3 минуты по цепочке исполнения',
     purpose: 'ведёт по маршруту: лот → ставка → сделка → резерв → рейс → приёмка → документы → деньги → спор',
     visible: 'демо должно показывать контур исполнения, а не набор ссылок или декоративную презентацию',
-    boundary: 'все данные в демо остаются тестовым сценарием controlled-pilot',
+    boundary: 'все данные в демо остаются тестовым сценарием пилотного контура',
     next: 'начать с карточки сделки и пройти ключевые блокеры',
     cta: 'Начать демо',
     href: '/platform-v7/demo',
@@ -125,7 +125,7 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
     purpose: 'выглядит как контролируемый доступ в банковски надёжный контур исполнения сделки',
     visible: 'пользователь должен понимать, что доступ связан с ролью, организацией и пилотным режимом',
     boundary: 'не показывать служебный язык во внешнем контуре',
-    next: 'пройти вход или регистрацию через controlled-pilot доступ',
+    next: 'пройти вход или регистрацию через пилотный доступ',
     cta: 'Открыть вход',
     href: '/platform-v7/auth',
   },
@@ -180,7 +180,7 @@ export function SystemRouteSummary({ surface }: { surface: SystemSurface }) {
         <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs, maxWidth: 860 }}>
           <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap' }}>
             <P7Badge tone={config.tone}>{config.title}</P7Badge>
-            <P7Badge tone='warning'>controlled-pilot</P7Badge>
+            <P7Badge tone='warning'>Пилотный контур</P7Badge>
             <P7Badge tone='neutral'>{config.status}</P7Badge>
           </div>
           <h1
