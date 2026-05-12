@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
+import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const WORK_LINKS = [
   { href: '/platform-v7/control-tower', label: 'Центр управления' },
@@ -18,10 +18,14 @@ const WORK_LINKS = [
   { href: '/platform-v7/support', label: 'Поддержка' },
 ] as const;
 
+const FIELD_WORK_NAV_ROLES = new Set<PlatformRole>(['driver', 'surveyor', 'elevator', 'lab']);
+const FIELD_WORK_NAV_PATHS = ['/platform-v7/driver', '/platform-v7/surveyor', '/platform-v7/elevator', '/platform-v7/lab'] as const;
+
 export function WorkRouteNav() {
   const pathname = usePathname();
   const role = usePlatformV7RStore((state) => state.role);
-  if (pathname.startsWith('/platform-v7/driver') || role === 'driver') return null;
+  const fieldByPath = FIELD_WORK_NAV_PATHS.some((path) => pathname.startsWith(path));
+  if (fieldByPath || FIELD_WORK_NAV_ROLES.has(role)) return null;
 
   return (
     <nav aria-label='Рабочие разделы platform-v7' style={nav}>
