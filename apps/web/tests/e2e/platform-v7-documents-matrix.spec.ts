@@ -18,6 +18,23 @@ test.describe('platform-v7 DocumentsMatrix', () => {
     await expect(page.getByText('Внешнее подтверждение')).toBeVisible();
     await expect(page.getByText('требует подключения')).toBeVisible();
 
+    await expect(page.getByTestId('platform-v7-documents-actions')).toBeVisible();
+    await expect(page.getByText('Документный статус должен вести к следующему шагу')).toBeVisible();
+    await expect(page.getByText('Отправить на ручную проверку')).toBeVisible();
+    await expect(page.getByText('ожидает банковского подтверждения')).toBeVisible();
+
+    const forbiddenClaims = [
+      'production-ready',
+      'fully live',
+      'fully integrated',
+      'платформа гарантирует оплату',
+      'платформа выпускает деньги',
+    ];
+
+    for (const claim of forbiddenClaims) {
+      await expect(page.getByText(claim, { exact: false })).toHaveCount(0);
+    }
+
     const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(overflowX, '/platform-v7/bank should not have horizontal overflow at 390px').toBe(false);
   });
