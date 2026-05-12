@@ -50,7 +50,8 @@ function RoleScopedShellPolicy() {
       .pc-v4-search,
       .pc-v4-role-grid,
       .pc-v4-statuses,
-      .pc-v4-drawer {
+      .pc-v4-drawer,
+      .pc-v4-pilot-note {
         display: none !important;
       }
 
