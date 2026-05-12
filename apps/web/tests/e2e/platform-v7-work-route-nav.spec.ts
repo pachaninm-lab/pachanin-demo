@@ -27,10 +27,12 @@ test.describe('platform-v7 work route navigation', () => {
     }
   });
 
-  test('driver field screen keeps work route navigation hidden', async ({ page }) => {
+  test('driver routes keep work route navigation hidden', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/platform-v7/driver/field', { waitUntil: 'networkidle' });
 
-    await expect(page.getByLabel('Рабочие разделы platform-v7')).toHaveCount(0);
+    for (const route of ['/platform-v7/driver', '/platform-v7/driver/field']) {
+      await page.goto(route, { waitUntil: 'networkidle' });
+      await expect(page.getByLabel('Рабочие разделы platform-v7')).toHaveCount(0);
+    }
   });
 });
