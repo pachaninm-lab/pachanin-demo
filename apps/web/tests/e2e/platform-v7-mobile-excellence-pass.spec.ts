@@ -99,7 +99,8 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
 
     await expect(page.locator('.pc-v4-header')).toHaveCount(1);
     await expect(page.locator('.pc-v4-brand')).toBeVisible();
-    await expect(page.locator('.pc-v4-mobile-role')).toBeVisible();
+    await expect(page.locator('.pc-v4-select')).toBeVisible();
+    await expect(page.locator('.pc-v4-mobile-role')).toBeHidden();
     await expect(page.locator('.pc-v4-search')).toBeHidden();
     await expect(page.locator('.pc-v4-stage')).toBeHidden();
 
