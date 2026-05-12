@@ -40,7 +40,11 @@ export function MoneyImpactSummaryStrip({
   bankPlatformBoundary,
 }: MoneyImpactSummaryProps) {
   const tone = STATE_TONE[pilotState];
-  const hasResolutionContext = Boolean(requiredEvidence || afterResolved || bankPlatformBoundary);
+  const needsBankFallback = responsible.toLowerCase().includes('банк') && pilotState === 'blocked';
+  const resolvedRequiredEvidence = requiredEvidence ?? (needsBankFallback ? 'закрытые документы, приёмка, качество и решение по спорной части' : undefined);
+  const resolvedAfterResolved = afterResolved ?? (needsBankFallback ? 'после закрытия условий банк получает основание для проверки выплаты по своим правилам' : undefined);
+  const resolvedBankPlatformBoundary = bankPlatformBoundary ?? (needsBankFallback ? 'платформа показывает основание, причину остановки и журнал; банк подтверждает проверку денег' : undefined);
+  const hasResolutionContext = Boolean(resolvedRequiredEvidence || resolvedAfterResolved || resolvedBankPlatformBoundary);
 
   return (
     <section
@@ -92,9 +96,9 @@ export function MoneyImpactSummaryStrip({
           data-testid="platform-v7-money-impact-resolution"
           style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px 16px', background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 12, padding: '10px 12px' }}
         >
-          {requiredEvidence && <Slot label='какое основание нужно' value={requiredEvidence} testId='platform-v7-money-impact-evidence' />}
-          {afterResolved && <Slot label='после закрытия причины' value={afterResolved} testId='platform-v7-money-impact-after-resolved' />}
-          {bankPlatformBoundary && <Slot label='банк / платформа' value={bankPlatformBoundary} testId='platform-v7-money-impact-bank-boundary' />}
+          {resolvedRequiredEvidence && <Slot label='какое основание нужно' value={resolvedRequiredEvidence} testId='platform-v7-money-impact-evidence' />}
+          {resolvedAfterResolved && <Slot label='после закрытия причины' value={resolvedAfterResolved} testId='platform-v7-money-impact-after-resolved' />}
+          {resolvedBankPlatformBoundary && <Slot label='банк / платформа' value={resolvedBankPlatformBoundary} testId='platform-v7-money-impact-bank-boundary' />}
         </div>
       )}
     </section>
