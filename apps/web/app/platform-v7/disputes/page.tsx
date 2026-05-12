@@ -3,6 +3,7 @@ import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platf
 import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/grain-execution/mock-data';
 import { formatRub } from '@/lib/platform-v7/grain-execution/format';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+import { EvidenceDecisionPanel } from '@/components/platform-v7/EvidenceDecisionPanel';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
 import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
@@ -150,6 +151,8 @@ export default function PlatformV7DisputesPage() {
           {evidenceGateRows.map((item) => <EvidenceGateCard key={item.id} item={item} />)}
         </div>
       </section>
+
+      <EvidenceDecisionPanel />
 
       <DecisionRecommendationStrip context='disputes' />
 
