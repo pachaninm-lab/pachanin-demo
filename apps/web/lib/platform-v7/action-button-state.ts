@@ -35,6 +35,14 @@ export interface ResolvePlatformV7ActionButtonStateInput {
   blockedReason?: string;
 }
 
+function defaultBlockedReason(blockerLabels: readonly string[]) {
+  if (blockerLabels.length === 0) {
+    return 'Действие недоступно: сначала нужно закрыть условия сделки.';
+  }
+
+  return `Действие недоступно: сначала закрой условия сделки — ${blockerLabels.join(', ')}.`;
+}
+
 export function resolvePlatformV7ActionButtonState(
   input: ResolvePlatformV7ActionButtonStateInput,
 ): PlatformV7ActionButtonState {
@@ -58,7 +66,7 @@ export function platformV7ActionButtonUiProps(state: PlatformV7ActionButtonState
     variant: state.tone,
     state: state.ariaBusy ? 'loading' : 'idle',
     loadingLabel: state.ariaBusy ? state.label : undefined,
-    disabledReason: state.blockedReason ?? (state.blockerLabels.length > 0 ? `Не закрыты: ${state.blockerLabels.join(', ')}` : undefined),
+    disabledReason: state.blockedReason ?? (state.blocked ? defaultBlockedReason(state.blockerLabels) : undefined),
     'aria-busy': state.ariaBusy,
     'data-guard-state': state.ariaBusy ? 'busy' : state.blocked ? 'blocked' : 'ready',
   };
