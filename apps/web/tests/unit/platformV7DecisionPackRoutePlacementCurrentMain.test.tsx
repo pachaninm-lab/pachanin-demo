@@ -77,6 +77,15 @@ describe('platform-v7 guarded decision pack route placement', () => {
     expect(screen.queryByTestId('platform-v7-decision-pack-mini-panel')).not.toBeInTheDocument();
   });
 
+  it('keeps buyer decision pack on the normalized buyer route', () => {
+    navigationMock.pathname = '/platform-v7/buyer/';
+    const { container } = renderLayout(BuyerLayout);
+
+    expect(screen.getByTestId('platform-v7-decision-pack-mini-panel')).toBeInTheDocument();
+    expect(container.textContent ?? '').toContain('покупатель · запрос резерва');
+    assertNoForbiddenWording(container.textContent ?? '', 'buyer decision pack normalized route placement');
+  });
+
   it('renders elevator decision pack only on the exact elevator route', () => {
     navigationMock.pathname = '/platform-v7/elevator';
     const { container, unmount } = renderLayout(ElevatorLayout);
@@ -90,5 +99,14 @@ describe('platform-v7 guarded decision pack route placement', () => {
     renderLayout(ElevatorLayout);
 
     expect(screen.queryByTestId('platform-v7-decision-pack-mini-panel')).not.toBeInTheDocument();
+  });
+
+  it('keeps elevator decision pack on the normalized elevator route', () => {
+    navigationMock.pathname = '/platform-v7/elevator/';
+    const { container } = renderLayout(ElevatorLayout);
+
+    expect(screen.getByTestId('platform-v7-decision-pack-mini-panel')).toBeInTheDocument();
+    expect(container.textContent ?? '').toContain('DL-9102 · спор и удержание');
+    assertNoForbiddenWording(container.textContent ?? '', 'elevator decision pack normalized route placement');
   });
 });
