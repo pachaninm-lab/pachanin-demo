@@ -34,9 +34,9 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
     title: 'Операторский контур',
     tone: 'dispute',
     status: 'очередь действий без ручного обхода',
-    purpose: 'показывает блокер, сумму влияния, SLA, ответственного и следующий подтверждаемый шаг',
+    purpose: 'показывает причину остановки, сумму влияния, SLA, ответственного и следующий подтверждаемый шаг',
     visible: 'оператор видит деньги, документы, рейс, спор и журнал, но каждое действие должно оставлять след',
-    boundary: 'экран не должен выглядеть как dev-dashboard или место тихого ручного исправления данных',
+    boundary: 'экран не должен выглядеть как техническая панель или место тихого ручного исправления данных',
     next: 'открыть очередь действий и закрыть первый блокер через основание',
     cta: 'Открыть центр управления',
     href: '/platform-v7/control-tower',
@@ -44,11 +44,11 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
   operatorQueues: {
     title: 'Очереди оператора',
     tone: 'warning',
-    status: 'SLA и владелец шага выше списка',
-    purpose: 'сортирует задачи по срочности, сумме влияния и owner, а не по внутренней технической очереди',
-    visible: 'оператор видит только то, что требует действия, эскалации или журналирования',
-    boundary: 'никаких debug-меток, внутренних id без смысла и кнопок без изменения состояния',
-    next: 'перейти в строку очереди, где есть сумма влияния и следующий владелец',
+    status: 'SLA и ответственный выше списка',
+    purpose: 'сортирует задачи по срочности, сумме влияния и ответственному, а не по внутренней технической очереди',
+    visible: 'оператор видит только то, что требует действия, эскалации или записи в журнал',
+    boundary: 'никаких технических меток, внутренних id без смысла и кнопок без изменения состояния',
+    next: 'перейти в строку очереди, где есть сумма влияния и следующий ответственный',
     cta: 'Открыть очередь',
     href: '/platform-v7/operator-cockpit/queues',
   },
@@ -69,7 +69,7 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
     status: 'качество влияет на приёмку, спор и деньги',
     purpose: 'показывает пробу, показатели, протокол, источник, ответственного и влияние на выплату',
     visible: 'лаборатория видит качество и протокол, но не видит цену, кредит, банк и чужие ставки',
-    boundary: 'AI и интерфейс не заменяют протокол и независимое подтверждение качества',
+    boundary: 'помощник по сделке не заменяет протокол и независимое подтверждение качества',
     next: 'закрыть протокол или передать отклонение в спор',
     cta: 'Открыть лабораторию',
     href: '/platform-v7/lab',
@@ -79,9 +79,9 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
     tone: 'document',
     status: 'допуск, полномочия и основания риска',
     purpose: 'показывает юридический риск, документ, основание, статус, действие и след в журнале',
-    visible: 'комплаенс видит допуск, полномочия и stop-факторы, которые могут блокировать деньги',
+    visible: 'комплаенс видит допуск, полномочия и причины остановки, которые могут блокировать деньги',
     boundary: 'Предпилотная готовность не является подтверждённым боевым допуском',
-    next: 'запросить недостающий документ или зафиксировать stop-фактор',
+    next: 'запросить недостающий документ или зафиксировать причину остановки',
     cta: 'Открыть комплаенс',
     href: '/platform-v7/compliance',
   },
@@ -90,9 +90,9 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
     tone: 'info',
     status: '3 минуты по цепочке исполнения',
     purpose: 'ведёт по маршруту: лот → ставка → сделка → резерв → рейс → приёмка → документы → деньги → спор',
-    visible: 'демо должно показывать execution-контур, а не набор ссылок или декоративную презентацию',
-    boundary: 'все данные в демо остаются controlled-pilot / simulation-grade',
-    next: 'начать с Deal 360 и пройти ключевые блокеры',
+    visible: 'демо должно показывать контур исполнения, а не набор ссылок или декоративную презентацию',
+    boundary: 'все данные в демо остаются тестовым сценарием пилотного контура',
+    next: 'начать с карточки сделки и пройти ключевые блокеры',
     cta: 'Начать демо',
     href: '/platform-v7/demo',
   },
@@ -102,8 +102,8 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
     status: 'только события с влиянием на сделку',
     purpose: 'показывает события, связанные с деньгами, грузом, документами, спором или следующим действием',
     visible: 'пользователь не должен получать шум, который не помогает закрыть сделку',
-    boundary: 'уведомления не должны имитировать live-интеграции или банковские callbacks без подтверждения',
-    next: 'открыть событие, которое меняет статус или owner',
+    boundary: 'уведомления не должны имитировать боевые интеграции или банковские события без подтверждения',
+    next: 'открыть событие, которое меняет статус или ответственного',
     cta: 'Открыть уведомления',
     href: '/platform-v7/notifications',
   },
@@ -112,8 +112,8 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
     tone: 'neutral',
     status: 'роль, организация, доступы и безопасность',
     purpose: 'объясняет, кто пользователь, от какой организации действует и какие контуры ему разрешены',
-    visible: 'профиль должен быть частью банковски аккуратной системы доступа, не dev-формой',
-    boundary: 'никаких лишних технических меток, debug-полей и неподтверждённых прав',
+    visible: 'профиль должен быть частью банковски аккуратной системы доступа, а не технической формой',
+    boundary: 'никаких лишних технических меток и неподтверждённых прав',
     next: 'проверить роль, организацию и разрешённые рабочие экраны',
     cta: 'Открыть профиль',
     href: '/platform-v7/profile',
@@ -121,21 +121,21 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
   auth: {
     title: 'Доступ в платформу',
     tone: 'bank',
-    status: 'вход без dev-вида',
+    status: 'вход без технического вида',
     purpose: 'выглядит как контролируемый доступ в банковски надёжный контур исполнения сделки',
     visible: 'пользователь должен понимать, что доступ связан с ролью, организацией и пилотным режимом',
-    boundary: 'не показывать mock/debug/test-user язык во внешнем контуре',
-    next: 'пройти вход или регистрацию через controlled-pilot доступ',
+    boundary: 'не показывать служебный язык во внешнем контуре',
+    next: 'пройти вход или регистрацию через пилотный доступ',
     cta: 'Открыть вход',
     href: '/platform-v7/auth',
   },
   register: {
     title: 'Заявка на доступ',
     tone: 'bank',
-    status: 'controlled-pilot onboarding',
-    purpose: 'собирает роль, организацию и основание доступа без обещания production/live подключения',
-    visible: 'новый участник должен видеть, что это заявка на пилотный доступ, а не мгновенный live-запуск',
-    boundary: 'не обещать боевые выплаты, live-интеграции и автоматический допуск',
+    status: 'заявка на пилотный доступ',
+    purpose: 'собирает роль, организацию и основание доступа без обещания боевого подключения',
+    visible: 'новый участник должен видеть, что это заявка на пилотный доступ, а не мгновенный запуск',
+    boundary: 'не обещать боевые выплаты, активные интеграции и автоматический допуск',
     next: 'оставить заявку и пройти проверку роли/организации',
     cta: 'Открыть регистрацию',
     href: '/platform-v7/register',
@@ -145,7 +145,7 @@ export const PLATFORM_V7_SYSTEM_SURFACES: Record<SystemSurface, SystemRouteConfi
     tone: 'warning',
     status: 'не пользовательский экран',
     purpose: 'служит только для внутренней проверки деплоя и не должен участвовать во внешней демонстрации',
-    visible: 'внешний пользователь не должен воспринимать deploy-check как часть продукта',
+    visible: 'внешний пользователь не должен воспринимать проверку деплоя как часть продукта',
     boundary: 'экран должен быть визуально и навигационно отделён как служебный',
     next: 'использовать только для внутренней проверки сборки',
     cta: 'Вернуться в платформу',
@@ -180,20 +180,20 @@ export function SystemRouteSummary({ surface }: { surface: SystemSurface }) {
         <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs, maxWidth: 860 }}>
           <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap' }}>
             <P7Badge tone={config.tone}>{config.title}</P7Badge>
-            <P7Badge tone='warning'>controlled-pilot</P7Badge>
+            <P7Badge tone='warning'>Пилотный контур</P7Badge>
             <P7Badge tone='neutral'>{config.status}</P7Badge>
           </div>
           <h1
             style={{
               margin: 0,
               color: PLATFORM_V7_TOKENS.color.textPrimary,
-              fontSize: `clamp(23px, 5vw, ${PLATFORM_V7_TOKENS.typography.h1.size}px)`,
+              fontSize: `clamp(22px, 5vw, ${PLATFORM_V7_TOKENS.typography.h1.size}px)`,
               lineHeight: PLATFORM_V7_TOKENS.typography.h1.lineHeight,
               fontWeight: PLATFORM_V7_TOKENS.typography.h1.weight,
               letterSpacing: PLATFORM_V7_TOKENS.typography.h1.letterSpacing,
             }}
           >
-            {config.title}: внешний-safe рабочий контур
+            {config.title}: рабочий контур исполнения
           </h1>
         </div>
         <Link href={config.href} style={{ ...primaryActionStyle, background: tone.fg }}>

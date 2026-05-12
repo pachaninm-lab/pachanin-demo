@@ -3,7 +3,7 @@ import Link from 'next/link';
 const sections = [
   { title: 'Решение', value: 'держать выпуск закрытым', note: 'Открытые документы, риск и спор не дают основания для выплаты.', href: '/platform-v7/settlement/grain', tone: 'stop' },
   { title: 'Риск', value: '78/100', note: 'Аномалии доступа, обход и отклонение маршрута требуют контроля.', href: '/platform-v7/security/grain', tone: 'warn' },
-  { title: 'Доказательства', value: 'пакет собран', note: 'Data-room содержит документы, фото, акт, протокол и журнал оснований.', href: '/platform-v7/data-room/grain', tone: 'good' },
+  { title: 'Доказательства', value: 'пакет собран', note: 'Пакет содержит документы, фото, акт, протокол и журнал оснований.', href: '/platform-v7/data-room/grain', tone: 'good' },
   { title: 'Следующий шаг', value: 'закрыть СДИЗ', note: 'Ответственный экран — оператор сделки; действие ведёт к документному блоку.', href: '/platform-v7/operator/grain', tone: 'good' },
 ] as const;
 
@@ -18,11 +18,11 @@ export default function GrainExecutivePage() {
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={card}>
-        <div style={badge}>Executive summary зерновой сделки</div>
-        <h1 style={h1}>Решение, риск, деньги, документы и следующий управленческий шаг</h1>
+        <div style={badge}>Управленческая сводка зерновой сделки</div>
+        <h1 style={h1}>Решение, риск, деньги, документы и следующий шаг</h1>
         <p style={lead}>Управленческий экран показывает сделку через контрольные рычаги: что блокирует деньги, где риск, какие доказательства собраны, кто ответственный и какое действие должно быть следующим.</p>
         <div style={actions}>
-          <Link href='/platform-v7/executive' style={primaryBtn}>Executive</Link>
+          <Link href='/platform-v7/executive' style={primaryBtn}>Сводка</Link>
           <Link href='/platform-v7/reports/grain' style={ghostBtn}>Отчёт</Link>
           <Link href='/platform-v7/settlement/grain' style={ghostBtn}>Расчёт</Link>
         </div>
@@ -36,9 +36,9 @@ export default function GrainExecutivePage() {
       </section>
 
       <section style={darkCard}>
-        <div style={{ ...micro, color: '#CBD5E1' }}>Правило executive-view</div>
-        <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Руководитель принимает решение по рычагам, а не вручную</h2>
-        <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Если деньги, риск или документы не закрыты, executive-view должен вести к ответственному экрану и основанию. Сводка не подменяет банк, оператора, комплаенс или арбитраж.</p>
+        <div style={{ ...micro, color: '#CBD5E1' }}>Правило управленческой сводки</div>
+        <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Руководитель принимает решение по основаниям, а не вручную</h2>
+        <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Если деньги, риск или документы не закрыты, сводка должна вести к ответственному экрану и основанию. Она не подменяет банк, оператора, комплаенс или арбитраж.</p>
       </section>
     </main>
   );
@@ -57,7 +57,7 @@ function color(tone: string) { return tone === 'bad' || tone === 'stop' ? '#B91C
 const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
 const darkCard = { background: '#0F172A', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(15,23,42,0.08)', border: '1px solid rgba(15,23,42,0.18)', color: '#0F172A', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(28px,7vw,46px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 } as const;
 const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0F172A', color: '#fff', fontSize: 14, fontWeight: 900 } as const;

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend,
+  PieChart, Pie, Cell, LineChart, Line, CartesianGrid,
 } from 'recharts';
 
 const monthlyDeals = [
@@ -14,18 +14,18 @@ const monthlyDeals = [
 ];
 
 const dealsByStatus = [
-  { name: 'Закрыта',   value: 24, color: '#0A7A5F' },
-  { name: 'В пути',    value: 5,  color: '#0B6B9A' },
-  { name: 'Спор',      value: 2,  color: '#DC2626' },
-  { name: 'Прочие',    value: 4,  color: '#D97706' },
+  { name: 'Закрыта', value: 24, color: '#0A7A5F' },
+  { name: 'В пути', value: 5, color: '#0B6B9A' },
+  { name: 'Спор', value: 2, color: '#DC2626' },
+  { name: 'Прочие', value: 4, color: '#D97706' },
 ];
 
 const topCounterparties = [
-  { name: 'Агрохолдинг СК',      deals: 8, volume: 38.4 },
-  { name: 'ЗАО МелькомбинатЮг',  deals: 5, volume: 22.1 },
-  { name: 'МаслоПресс ООО',      deals: 4, volume: 17.2 },
-  { name: 'Экспортёр Юг',        deals: 3, volume: 43.5 },
-  { name: 'КомбикормЦентр',      deals: 3, volume: 12.6 },
+  { name: 'Агрохолдинг СК', deals: 8, volume: 38.4 },
+  { name: 'ЗАО МелькомбинатЮг', deals: 5, volume: 22.1 },
+  { name: 'МаслоПресс ООО', deals: 4, volume: 17.2 },
+  { name: 'Экспортёр Юг', deals: 3, volume: 43.5 },
+  { name: 'КомбикормЦентр', deals: 3, volume: 12.6 },
 ];
 
 function Kpi({ label, value, sub }: { label: string; value: string; sub: string }) {
@@ -43,18 +43,16 @@ export default function AnalyticsV7RPage() {
     <div style={{ display: 'grid', gap: 20 }}>
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', margin: 0, borderLeft: '4px solid #0A7A5F', paddingLeft: 12 }}>Сводка руководителя</h1>
-        <p style={{ fontSize: 13, color: '#6B778C', marginTop: 4, paddingLeft: 16 }}>Executive view по исполнению сделок, обороту и спорности</p>
+        <p style={{ fontSize: 13, color: '#6B778C', marginTop: 4, paddingLeft: 16 }}>Управленческий срез по исполнению сделок, обороту и спорности</p>
       </div>
 
-      {/* KPI tiles */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-        <Kpi label="Спорность" value="8%" sub="Снизилась с 12% в марте ✅" />
+        <Kpi label="Спорность" value="8%" sub="Снизилась с 12% в марте" />
         <Kpi label="Средний чек" value="4,2 млн ₽" sub="Средний размер сделки" />
         <Kpi label="Скорость закрытия" value="8,3 дн." sub="Среднее от контракта до расчёта" />
         <Kpi label="Сделок в апреле" value="31" sub="Пик по текущему ряду" />
       </div>
 
-      {/* Charts row 1 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 16 }}>Сделки по месяцам</div>
@@ -83,7 +81,6 @@ export default function AnalyticsV7RPage() {
         </div>
       </div>
 
-      {/* Pie + Table */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 16 }}>Распределение по статусам</div>
@@ -99,10 +96,10 @@ export default function AnalyticsV7RPage() {
               </PieChart>
             </ResponsiveContainer>
             <div style={{ display: 'grid', gap: 8 }}>
-              {dealsByStatus.map(s => (
-                <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: '#374151' }}>{s.name}: <strong>{s.value}</strong></span>
+              {dealsByStatus.map((status) => (
+                <div key={status.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 12, height: 12, borderRadius: 3, background: status.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: '#374151' }}>{status.name}: <strong>{status.value}</strong></span>
                 </div>
               ))}
             </div>
@@ -114,17 +111,17 @@ export default function AnalyticsV7RPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Контрагент', 'Сделок', 'Объём, млн ₽'].map(h => (
-                  <th key={h} style={{ padding: '6px 8px', fontSize: 11, fontWeight: 700, color: '#6B778C', textAlign: 'left', textTransform: 'uppercase', borderBottom: '1px solid #E4E6EA' }}>{h}</th>
+                {['Контрагент', 'Сделок', 'Объём, млн ₽'].map((head) => (
+                  <th key={head} style={{ padding: '6px 8px', fontSize: 11, fontWeight: 700, color: '#6B778C', textAlign: 'left', textTransform: 'uppercase', borderBottom: '1px solid #E4E6EA' }}>{head}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {topCounterparties.map((c, i) => (
-                <tr key={c.name} style={{ borderBottom: i < topCounterparties.length - 1 ? '1px solid #F1F3F5' : 'none' }}>
-                  <td style={{ padding: '10px 8px', fontSize: 12, fontWeight: 600 }}>{c.name}</td>
-                  <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>{c.deals}</td>
-                  <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 700, textAlign: 'right', color: '#0A7A5F' }}>{c.volume}</td>
+              {topCounterparties.map((counterparty, index) => (
+                <tr key={counterparty.name} style={{ borderBottom: index < topCounterparties.length - 1 ? '1px solid #F1F3F5' : 'none' }}>
+                  <td style={{ padding: '10px 8px', fontSize: 12, fontWeight: 600 }}>{counterparty.name}</td>
+                  <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>{counterparty.deals}</td>
+                  <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 700, textAlign: 'right', color: '#0A7A5F' }}>{counterparty.volume}</td>
                 </tr>
               ))}
             </tbody>
@@ -132,11 +129,9 @@ export default function AnalyticsV7RPage() {
         </div>
       </div>
 
-      {/* Тренды */}
       <div style={{ padding: '14px 18px', borderRadius: 16, background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.14)', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 20 }}>📈</span>
-        <div style={{ fontSize: 13, color: '#374151' }}>
-          <strong>Тренды:</strong> спорность снизилась с 12% (март) до 8% (апрель) ✅ · оборот +30% месяц к месяцу · среднее время закрытия −0,7 дня
+        <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.45 }}>
+          <strong>Тренды:</strong> спорность снизилась с 12% в марте до 8% в апреле · оборот +30% месяц к месяцу · среднее время закрытия −0,7 дня
         </div>
       </div>
     </div>
