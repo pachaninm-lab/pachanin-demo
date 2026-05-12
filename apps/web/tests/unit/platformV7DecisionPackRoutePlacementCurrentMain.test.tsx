@@ -53,6 +53,15 @@ describe('platform-v7 guarded decision pack route placement', () => {
     expect(screen.queryByTestId('platform-v7-decision-pack-mini-panel')).not.toBeInTheDocument();
   });
 
+  it('keeps seller decision pack on the normalized seller route', () => {
+    navigationMock.pathname = '/platform-v7/seller/';
+    const { container } = renderLayout(SellerLayout);
+
+    expect(screen.getByTestId('platform-v7-decision-pack-mini-panel')).toBeInTheDocument();
+    expect(container.textContent ?? '').toContain('продавец · передача документов');
+    assertNoForbiddenWording(container.textContent ?? '', 'seller decision pack normalized route placement');
+  });
+
   it('renders buyer decision pack only on the exact buyer route', () => {
     navigationMock.pathname = '/platform-v7/buyer';
     const { container, unmount } = renderLayout(BuyerLayout);
