@@ -58,7 +58,7 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>
         <Cell label='Сумма сделки' value={compactRub(amount)} />
         <Cell label='Статус сделки' value={human(deal.status)} tone={deal.status === 'DISPUTE_OPEN' ? 'danger' : 'default'} />
-        <Cell label='Спор' value={dispute ? human(dispute.status) : 'Нет'} tone={isOpen ? 'danger' : 'accent'} />
+        <Cell label='Спор' value={dispute ? humanDisputeStatus(dispute.status) : 'Нет'} tone={isOpen ? 'danger' : 'accent'} />
         <Cell label='Доказательства' value={String(evidence.length)} />
         <Cell label='Решение банка' value={bankDecision.label} tone={bankDecision.tone} />
         <Cell label='Готовность пакета' value={`${readiness.score}%`} tone={readiness.tone} />
@@ -86,10 +86,10 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
-        <ListBlock title='Доказательства' empty='Нет доказательств по выбранной сделке.' rows={evidence.slice(0, 5).map((item) => ({ id: item.id, kicker: item.type, text: `${item.title} · ${item.hash.slice(0, 18)}…` }))} />
-        <ListBlock title='Спорный контекст' empty='Нет активного спора по выбранной сделке.' rows={dispute ? [{ id: dispute.id, kicker: dispute.reason, text: `${dispute.status} · влияние ${compactRub(dispute.amountImpactRub)}` }] : []} />
-        <ListBlock title='Журнал действий' empty='Нет событий по выбранной сделке или спору.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${item.actionType} · ${item.entityId}` }))} />
-        <ListBlock title='Лента сделки' empty='Нет событий ленты по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
+        <ListBlock title='Доказательства' empty='Нет доказательств по выбранной сделке.' rows={evidence.slice(0, 5).map((item) => ({ id: item.id, kicker: humanEvidenceType(item.type), text: `${item.title} · хеш ${item.hash.slice(0, 18)}…` }))} />
+        <ListBlock title='Спорный контекст' empty='Нет активного спора по выбранной сделке.' rows={dispute ? [{ id: dispute.id, kicker: humanDisputeReason(dispute.reason), text: `${humanDisputeStatus(dispute.status)} · влияние ${compactRub(dispute.amountImpactRub)}` }] : []} />
+        <ListBlock title='Журнал действий' empty='Нет событий по выбранной сделке или спору.' rows={audit.map((item) => ({ id: item.id, kicker: humanRole(item.actorRole), text: `${humanAction(item.actionType)} · объект ${item.entityId}` }))} />
+        <ListBlock title='Лента сделки' empty='Нет событий ленты по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: humanRole(item.actorRole), text: item.title }))} />
       </div>
     </section>
   );
@@ -183,6 +183,68 @@ function Cell({ label, value, tone = 'default' }: { label: string; value: string
 
 function human(value: string) {
   return value.replace(/_/g, ' ').toLowerCase().replace(/^./, (char) => char.toUpperCase());
+}
+
+function humanEvidenceType(value: string) {
+  const labels: Record<string, string> = {
+    lab_protocol: 'Лабораторный протокол',
+    photo: 'Фотофиксация',
+    transport_document: 'Транспортный документ',
+    weighing: 'Взвешивание',
+    acceptance: 'Приёмка',
+  };
+  return labels[value] || human(value);
+}
+
+function humanDisputeStatus(value: string) {
+  const labels: Record<string, string> = {
+    open: 'Открыт',
+    under_review: 'На проверке',
+    resolved: 'Решён',
+    closed: 'Закрыт',
+  };
+  return labels[value] || human(value);
+}
+
+function humanDisputeReason(value: string) {
+  const labels: Record<string, string> = {
+    quality_mismatch: 'Расхождение качества',
+    weight_mismatch: 'Расхождение веса',
+    document_mismatch: 'Расхождение документов',
+    late_delivery: 'Срыв срока доставки',
+  };
+  return labels[value] || human(value);
+}
+
+function humanRole(value: string) {
+  const labels: Record<string, string> = {
+    seller: 'Продавец',
+    buyer: 'Покупатель',
+    bank: 'Банк',
+    arbitrator: 'Арбитр',
+    logistics: 'Логистика',
+    driver: 'Водитель',
+    elevator: 'Элеватор',
+    lab: 'Лаборатория',
+    surveyor: 'Сюрвейер',
+    compliance: 'Комплаенс',
+    operator: 'Оператор',
+    system: 'Система',
+  };
+  return labels[value] || human(value);
+}
+
+function humanAction(value: string) {
+  const labels: Record<string, string> = {
+    dispute_opened: 'Спор открыт',
+    evidence_uploaded: 'Доказательство загружено',
+    money_hold_requested: 'Запрошено удержание денег',
+    bank_review_requested: 'Запрошена банковская проверка',
+    decision_recorded: 'Решение зафиксировано',
+    document_checked: 'Документ проверен',
+    timeline_event_added: 'Событие добавлено в ленту',
+  };
+  return labels[value] || human(value);
 }
 
 function compactRub(value: number) {
