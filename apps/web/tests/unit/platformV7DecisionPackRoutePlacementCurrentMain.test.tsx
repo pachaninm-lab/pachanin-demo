@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import SellerLayout from '@/app/platform-v7/seller/layout';
+import BuyerLayout from '@/app/platform-v7/buyer/layout';
 import ElevatorLayout from '@/app/platform-v7/elevator/layout';
 
 const navigationMock = vi.hoisted(() => ({ pathname: '/platform-v7/seller' }));
@@ -48,6 +49,21 @@ describe('platform-v7 guarded decision pack route placement', () => {
     unmount();
     navigationMock.pathname = '/platform-v7/seller/batches/new';
     renderLayout(SellerLayout);
+
+    expect(screen.queryByTestId('platform-v7-decision-pack-mini-panel')).not.toBeInTheDocument();
+  });
+
+  it('renders buyer decision pack only on the exact buyer route', () => {
+    navigationMock.pathname = '/platform-v7/buyer';
+    const { container, unmount } = renderLayout(BuyerLayout);
+
+    expect(screen.getByTestId('platform-v7-decision-pack-mini-panel')).toBeInTheDocument();
+    expect(container.textContent ?? '').toContain('покупатель · запрос резерва');
+    assertNoForbiddenWording(container.textContent ?? '', 'buyer decision pack route placement');
+
+    unmount();
+    navigationMock.pathname = '/platform-v7/buyer/rfq/new';
+    renderLayout(BuyerLayout);
 
     expect(screen.queryByTestId('platform-v7-decision-pack-mini-panel')).not.toBeInTheDocument();
   });
