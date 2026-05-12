@@ -7,6 +7,12 @@ describe('PlatformV7ArbitratorPage', () => {
   it('renders arbitration summary without claiming automatic dispute resolution', () => {
     render(<PlatformV7ArbitratorPage />);
 
+    expect(screen.getByTestId('platform-v7-arbitrator-decision-guard')).toBeInTheDocument();
+    expect(screen.getByText('Решение арбитра создаёт основание для проверки')).toBeInTheDocument();
+    expect(screen.getByText('Сумма спора')).toBeInTheDocument();
+    expect(screen.getByText('Доказательства')).toBeInTheDocument();
+    expect(screen.getByText('Следующий шаг')).toBeInTheDocument();
+    expect(screen.getByText('Журнал')).toBeInTheDocument();
     expect(screen.getByText('Активных споров')).toBeInTheDocument();
     expect(screen.getByText('Под удержанием')).toBeInTheDocument();
     expect(screen.getByText('Решений сегодня')).toBeInTheDocument();
