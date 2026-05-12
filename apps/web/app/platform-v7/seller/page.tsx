@@ -26,7 +26,7 @@ const sellerHandoff: HandoffItem[] = [
   {
     direction: 'awaits',
     role: 'от ФГИС «Зерно»',
-    requirement: 'СДИЗ ожидает закрытия — без этого основание не передаётся на проверку банка',
+    requirement: 'СДИЗ ожидает закрытия — без этого основание не передаётся на банковскую проверку',
     moneyImpact: true,
     documentImpact: true,
   },
@@ -48,10 +48,10 @@ const sellerHandoff: HandoffItem[] = [
 type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
 
 const sellerMetrics: MetricItem[] = [
-  { label: 'Активные лоты', value: '2', note: 'оба связаны с партиями и документами', good: true },
-  { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'виден как готовность денег, не как выплата', good: true },
-  { label: 'К передаче банку', value: '0 ₽', note: 'СДИЗ и ЭТрН ещё блокируют банковскую проверку выплаты', danger: true },
-  { label: 'Следующий шаг', value: 'СДИЗ', note: 'без документа основание не передаётся на банковскую проверку', warn: true },
+  { label: 'Активные лоты', value: '2', note: 'связаны с партиями и документами', good: true },
+  { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'готовность денег; это ещё не выплата', good: true },
+  { label: 'На проверку банку', value: '0 ₽', note: 'СДИЗ и ЭТрН блокируют передачу основания', danger: true },
+  { label: 'Следующий шаг', value: 'СДИЗ', note: 'закрыть документ перед банковской проверкой', warn: true },
 ];
 
 const sellerLots = [
@@ -59,7 +59,7 @@ const sellerLots = [
     id: 'LOT-2403',
     title: 'Пшеница 4 класса · 600 т · EXW',
     status: 'предложение принято',
-    money: 'резерв 9,65 млн ₽ · к передаче банку 0 ₽',
+    money: 'резерв 9,65 млн ₽ · на проверку банку 0 ₽',
     next: 'закрыть СДИЗ, ЭТрН и приёмку',
     href: '/platform-v7/lots/LOT-2403',
   },
@@ -77,7 +77,7 @@ const sellerPaths = [
   { title: 'Создать партию', href: '/platform-v7/seller/batches/new', note: 'культура, объём, качество, документы, ФГИС' },
   { title: 'Опубликовать лот', href: '/platform-v7/seller/lots/new', note: 'управляемая публикация без раскрытия контактов' },
   { title: 'Проверить запросы', href: '/platform-v7/seller/rfq', note: 'сравнение спроса, netback и рисков покупателя' },
-  { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'деньги, документы, рейс, спор и аудит' },
+  { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, основание и банковская проверка' },
 ] as const;
 
 export default function PlatformV7SellerPage() {
@@ -85,8 +85,8 @@ export default function PlatformV7SellerPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={hero}>
         <div style={badge}>Кабинет продавца</div>
-        <h1 style={h1}>Лоты, предложения, документы и проверка выплаты</h1>
-        <p style={lead}>Лот должен приводить к сделке, документам и получению денег. Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → банковская проверка выплаты.</p>
+        <h1 style={h1}>Лоты, документы и банковская проверка</h1>
+        <p style={lead}>Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → основание для банковской проверки. Выплату подтверждает банк, платформа показывает статус и причину остановки.</p>
         <div style={actions}>
           <Link href='/platform-v7/seller/batches/new' style={primaryBtn}>Создать партию</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть сделку</Link>
@@ -98,12 +98,12 @@ export default function PlatformV7SellerPage() {
       </section>
 
       <MoneyImpactSummaryStrip
-        amountContext='резерв 9,65 млн ₽ · к передаче банку 0 ₽'
+        amountContext='резерв 9,65 млн ₽ · на проверку банку 0 ₽'
         pilotState='waiting'
         pilotStateLabel='пилотный контур · ожидание документов'
         responsible='продавец · ФГИС «Зерно»'
         nextStep='закрыть СДИЗ и ЭТрН для передачи основания банку на проверку'
-        stopReason='проверка выплаты остановлена: СДИЗ и ЭТрН не закрыты'
+        stopReason='банковская проверка остановлена: СДИЗ и ЭТрН не закрыты'
         requiredEvidence='закрытый СДИЗ, ЭТрН, акт приёмки и протокол качества без незакрытых расхождений'
         afterResolved='сделка передаёт основание банку; банк проверяет выплату по своим правилам'
         bankPlatformBoundary='платформа показывает основание и статус, банк подтверждает проверку и движение денег'
@@ -114,14 +114,14 @@ export default function PlatformV7SellerPage() {
         label='пилотный сценарий'
         nextActor='ФГИС «Зерно» и банк'
         blocker='СДИЗ и ЭТрН не закрыты'
-        moneyEffect='проверка выплаты остановлена'
+        moneyEffect='банковская проверка остановлена'
       />
 
       <ConditionReasonStrip
         condition='пилотный сценарий'
         responsible='ФГИС «Зерно» и банк'
         documentState='СДИЗ и ЭТрН не закрыты'
-        stopReason='проверка выплаты остановлена'
+        stopReason='банковская проверка остановлена'
       />
 
       <DocumentReadinessMiniMatrix role='seller' />
