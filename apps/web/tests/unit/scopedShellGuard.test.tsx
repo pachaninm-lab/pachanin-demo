@@ -62,6 +62,7 @@ describe('ScopedShellGuard', () => {
     expect(screen.getByText(/pc-v4-role-grid/i)).toBeInTheDocument();
     expect(screen.getByText(/pc-v4-statuses/i)).toBeInTheDocument();
     expect(screen.getByText(/pc-v4-drawer/i)).toBeInTheDocument();
+    expect(screen.getByText(/pc-v4-pilot-note/i)).toBeInTheDocument();
   });
 
   it.each(ROLE_SCOPED_ROLES)('applies compact role-scoped shell policy when active role is %s', (role) => {
@@ -73,5 +74,6 @@ describe('ScopedShellGuard', () => {
     expect(screen.getByText(/pc-v4-role-grid/i)).toBeInTheDocument();
     expect(screen.getByText(/pc-v4-search/i)).toBeInTheDocument();
     expect(screen.getByText(/pc-v4-drawer/i)).toBeInTheDocument();
+    expect(screen.getByText(/pc-v4-pilot-note/i)).toBeInTheDocument();
   });
 });
