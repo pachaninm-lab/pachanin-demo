@@ -30,17 +30,17 @@ const DEAL_SPINE_STEPS: readonly P7DealSpineStep[] = [
   { label: 'рейс', value: logistics.tripId, tone: 'logistics' },
   { label: 'приёмка', value: logistics.currentLeg, tone: 'warning' },
   { label: 'СДИЗ', value: documents.sdizStatus, tone: 'document' },
-  { label: 'выпуск денег', value: formatRub(money.releaseCandidateRub), tone: 'money' },
+  { label: 'проверка выплаты', value: formatRub(money.releaseCandidateRub), tone: 'money' },
   { label: 'спор', value: dispute.status, tone: 'dispute' },
 ];
 
 const FAST_ANSWERS = [
   { label: 'Сделка', value: `${deal.lotId} → ${deal.id}`, note: `${formatTons(deal.volumeTons)} · ${formatRub(expectedDealAmount)} · готовность ${readinessScore}%` },
-  { label: 'Деньги', value: `${formatRub(money.reservedRub)} в резерве`, note: `${formatRub(money.releaseCandidateRub)} можно выпускать только после закрытия условий.` },
+  { label: 'Деньги', value: `${formatRub(money.reservedRub)} в резерве`, note: `${formatRub(money.releaseCandidateRub)} можно передавать банку только после закрытия условий.` },
   { label: 'Груз', value: logistics.currentLeg, note: `${logistics.pickupPoint} → ${logistics.deliveryPoint}. Срок: ${logistics.eta}.` },
   { label: 'Документы', value: `СДИЗ: ${documents.sdizStatus}`, note: `Не хватает: ${documents.missingDocuments.join(', ')}.` },
   { label: 'Блокер', value: blockers.length > 0 ? `${blockers.length} активных` : 'нет критического стопа', note: firstBlocker },
-  { label: 'Следующий шаг', value: blockers.length > 0 ? 'закрыть блокер' : 'проверить выпуск денег', note: 'Каждое действие должно оставлять запись в журнале.' },
+  { label: 'Следующий шаг', value: blockers.length > 0 ? 'закрыть блокер' : 'передать основание банку', note: 'Каждое действие должно оставлять запись в журнале.' },
 ] as const;
 
 const ROLE_ENTRY_POINTS: readonly { label: string; href: string; role: PlatformRole; tone: string; text: string }[] = [
@@ -48,7 +48,7 @@ const ROLE_ENTRY_POINTS: readonly { label: string; href: string; role: PlatformR
   { label: 'Покупатель', href: '/platform-v7/buyer?as=buyer', role: 'buyer', tone: PLATFORM_V7_TOKENS.color.money, text: 'заявка, ставка, резерв, приёмка, следующий шаг' },
   { label: 'Логистика', href: '/platform-v7/logistics?as=logistics', role: 'logistics', tone: PLATFORM_V7_TOKENS.color.logistics, text: 'заявка, водитель, машина, срок, документы рейса' },
   { label: 'Водитель', href: '/platform-v7/driver?as=driver', role: 'driver', tone: PLATFORM_V7_TOKENS.color.textSecondary, text: 'один рейс, маршрут, фото, пломба, проблема' },
-  { label: 'Банк', href: '/platform-v7/bank?as=bank', role: 'bank', tone: PLATFORM_V7_TOKENS.color.bank, text: 'резерв, удержание, условия выпуска, ручная проверка' },
+  { label: 'Банк', href: '/platform-v7/bank?as=bank', role: 'bank', tone: PLATFORM_V7_TOKENS.color.bank, text: 'резерв, удержание, условия выплаты, ручная проверка' },
   { label: 'Оператор', href: '/platform-v7/control-tower?as=operator', role: 'operator', tone: PLATFORM_V7_TOKENS.color.dispute, text: 'очередь блокеров, ответственный, срок, журнал' },
 ] as const;
 
@@ -98,7 +98,7 @@ export function PlatformCommandCenterHub() {
       <P7Section
         eyebrow='основной вход'
         title='Проверить сделку от партии до денег'
-        subtitle='Партия, закупочный запрос, приёмка, документы, СДИЗ, удержание, спор и основание выпуска денег.'
+        subtitle='Партия, закупочный запрос, приёмка, документы, СДИЗ, удержание, спор и основание для банковской проверки выплаты.'
         surface='card'
       >
         <Link href='/platform-v7/control-tower/grain' style={grainEntryStyle}>
@@ -149,6 +149,7 @@ const primaryCta = {
   textDecoration: 'none',
   fontSize: 14,
   fontWeight: 820,
+  boxShadow: '0 14px 30px rgba(15,23,42,0.14)',
 } as const;
 
 const secondaryCta = {
@@ -158,39 +159,43 @@ const secondaryCta = {
   minHeight: 46,
   borderRadius: PLATFORM_V7_TOKENS.radius.md,
   border: `1px solid ${PLATFORM_V7_TOKENS.color.borderStrong}`,
-  background: 'rgba(255,255,255,0.74)',
+  background: 'rgba(255,255,255,0.82)',
   color: PLATFORM_V7_TOKENS.color.textPrimary,
   padding: '12px 18px',
   textDecoration: 'none',
   fontSize: 14,
   fontWeight: 820,
+  boxShadow: '0 10px 24px rgba(15,23,42,0.06)',
 } as const;
 
 const grainEntryStyle = {
   display: 'grid',
   gap: PLATFORM_V7_TOKENS.spacing.sm,
   textDecoration: 'none',
-  border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
-  borderRadius: PLATFORM_V7_TOKENS.radius.lg,
-  background: PLATFORM_V7_TOKENS.color.surface,
-  padding: PLATFORM_V7_TOKENS.spacing.md,
+  border: `1px solid ${PLATFORM_V7_TOKENS.color.borderStrong}`,
+  borderRadius: 24,
+  background: `linear-gradient(135deg, ${PLATFORM_V7_TOKENS.color.surface} 0%, ${PLATFORM_V7_TOKENS.color.surfaceMuted} 100%)`,
+  padding: PLATFORM_V7_TOKENS.spacing.lg,
+  boxShadow: '0 18px 44px rgba(15,23,42,0.08)',
 } as const;
 
 const answerCardStyle = {
   display: 'grid',
   gap: PLATFORM_V7_TOKENS.spacing.xs,
-  minHeight: 120,
+  minHeight: 124,
   border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
-  borderRadius: PLATFORM_V7_TOKENS.radius.lg,
-  background: PLATFORM_V7_TOKENS.color.surfaceMuted,
+  borderRadius: 20,
+  background: `linear-gradient(180deg, ${PLATFORM_V7_TOKENS.color.surface} 0%, ${PLATFORM_V7_TOKENS.color.surfaceMuted} 100%)`,
   padding: PLATFORM_V7_TOKENS.spacing.md,
+  boxShadow: '0 12px 28px rgba(15,23,42,0.055)',
 } as const;
 
 const detailsStyle = {
   border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
-  borderRadius: PLATFORM_V7_TOKENS.radius.lg,
-  background: PLATFORM_V7_TOKENS.color.surface,
+  borderRadius: 20,
+  background: `linear-gradient(180deg, ${PLATFORM_V7_TOKENS.color.surface} 0%, ${PLATFORM_V7_TOKENS.color.surfaceMuted} 100%)`,
   padding: PLATFORM_V7_TOKENS.spacing.md,
+  boxShadow: '0 12px 28px rgba(15,23,42,0.045)',
 } as const;
 
 const summaryStyle = {
@@ -205,9 +210,10 @@ const roleEntryStyle = {
   gap: PLATFORM_V7_TOKENS.spacing.xs,
   textDecoration: 'none',
   border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
-  borderRadius: PLATFORM_V7_TOKENS.radius.lg,
-  background: PLATFORM_V7_TOKENS.color.surfaceMuted,
+  borderRadius: 20,
+  background: PLATFORM_V7_TOKENS.color.surface,
   padding: PLATFORM_V7_TOKENS.spacing.md,
+  boxShadow: '0 10px 24px rgba(15,23,42,0.045)',
 } as const;
 
 const microLabelStyle = {
