@@ -120,9 +120,9 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
     await assertGlobalForbiddenClaims(page, '/platform-v7/control-tower');
   });
 
-  test('burger labels and descriptions stay readable at 390px', async ({ page }) => {
+  test('operator burger labels and descriptions stay readable at 390px', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/platform-v7/seller', { waitUntil: 'networkidle' });
+    await page.goto('/platform-v7/control-tower', { waitUntil: 'networkidle' });
     await page.locator('.pc-v4-iconbtn').first().click();
 
     const drawer = page.locator('.pc-v4-drawer[data-open="true"]');
@@ -131,10 +131,19 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
     await expect(drawer.locator('.pc-v4-nav-note').first()).toBeVisible();
 
     const drawerText = await drawer.innerText();
-    for (const glued of ['Кабинетмои', 'Лоты и запросырынок', 'Создать лотпартия', 'Сделкиисполнение']) {
+    for (const glued of ['Центр управленияблокеры', 'Сделкиреестр', 'Лоты и запросыпредсделочный', 'Спорыудержания']) {
       expect(drawerText).not.toContain(glued);
     }
 
+    await assertNoHorizontalOverflow(page, '/platform-v7/control-tower');
+    await assertGlobalForbiddenClaims(page, '/platform-v7/control-tower');
+  });
+
+  test('seller scoped mobile shell keeps burger and drawer hidden', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/platform-v7/seller', { waitUntil: 'networkidle' });
+    await expect(page.locator('.pc-v4-drawer')).toBeHidden();
+    await expect(page.locator('.pc-v4-top > button.pc-v4-iconbtn').first()).toBeHidden();
     await assertNoHorizontalOverflow(page, '/platform-v7/seller');
     await assertGlobalForbiddenClaims(page, '/platform-v7/seller');
   });
