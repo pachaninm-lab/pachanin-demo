@@ -52,15 +52,20 @@ describe('shell role policy', () => {
     ['seller', '/platform-v7/seller'],
     ['buyer', '/platform-v7/buyer'],
     ['logistics', '/platform-v7/logistics'],
+    ['bank', '/platform-v7/bank'],
+    ['arbitrator', '/platform-v7/arbitrator'],
+    ['compliance', '/platform-v7/compliance'],
+  ] as Array<[PlatformRole, string]>)('allows one portal role switcher on %s compact header', (role, path) => {
+    expect(canShowPortalRoleSwitcher(role, path)).toBe(true);
+  });
+
+  it.each([
     ['driver', '/platform-v7/driver/field'],
     ['surveyor', '/platform-v7/surveyor'],
     ['elevator', '/platform-v7/elevator'],
     ['lab', '/platform-v7/lab'],
-    ['bank', '/platform-v7/bank'],
-    ['arbitrator', '/platform-v7/arbitrator'],
-    ['compliance', '/platform-v7/compliance'],
-  ] as Array<[PlatformRole, string]>)('allows one portal role switcher on %s scoped header', (role, path) => {
-    expect(canShowPortalRoleSwitcher(role, path)).toBe(true);
+  ] as Array<[PlatformRole, string]>)('keeps %s field header isolated from portal role switcher', (role, path) => {
+    expect(canShowPortalRoleSwitcher(role, path)).toBe(false);
   });
 
   it.each([
