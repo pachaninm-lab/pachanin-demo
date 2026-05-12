@@ -1,10 +1,13 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
 
 export function DriverFieldShellGuard() {
   const pathname = usePathname();
-  if (!pathname.startsWith('/platform-v7/driver')) return null;
+  const role = usePlatformV7RStore((state) => state.role);
+  const isDriverShell = pathname.startsWith('/platform-v7/driver') || role === 'driver';
+  if (!isDriverShell) return null;
 
   return (
     <style>{`
