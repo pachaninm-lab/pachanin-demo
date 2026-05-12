@@ -26,17 +26,17 @@ const initialRows: EscrowRow[] = [
     trigger: 'Финальный протокол качества',
     state: 'Удержание',
     owner: 'Оператор / банк',
-    note: 'Деньги стоят в sandbox hold до закрытия качества и полного пакета документов. Боевой эскроу-счёт не открыт.'
+    note: 'Деньги остаются на удержании до закрытия качества и полного пакета документов. Боевой эскроу-счёт не открыт.'
   },
   {
     id: 'ESC-302',
     deal: 'DL-9108',
     amount: 12.8,
     released: 0,
-    trigger: 'Приёмка + bank callback',
+    trigger: 'Приёмка + банковское подтверждение',
     state: 'Готово к раскрытию',
     owner: 'Банк',
-    note: 'Все обязательные события подтверждены в controlled-pilot логике; можно имитировать движение денег без live-платежа.'
+    note: 'Все обязательные события подтверждены в пилотной логике; можно отметить готовность без боевого платежа.'
   },
   {
     id: 'ESC-303',
@@ -46,7 +46,7 @@ const initialRows: EscrowRow[] = [
     trigger: 'Закрытие спора',
     state: 'Ожидание решения',
     owner: 'Арбитр / оператор',
-    note: 'Денежный режим зависит от решения по спорной качественной дельте; выпуск денег заблокирован до доказательств.'
+    note: 'Денежный режим зависит от решения по спорной качественной дельте; движение денег заблокировано до доказательств.'
   }
 ];
 
@@ -82,10 +82,10 @@ export default function BankEscrowPage() {
     const released = rows.reduce((sum, row) => sum + row.released, 0);
     const triggers = new Set(rows.map((row) => row.trigger)).size;
     return [
-      { title: 'Sandbox escrow', value: String(rows.length), note: 'Денежные кейсы по сделкам в controlled-pilot контуре' },
-      { title: 'На удержании', value: formatMillions(held || 0), note: 'Сумма, которая ещё не может быть раскрыта в симуляции' },
-      { title: 'Условия раскрытия', value: String(triggers), note: 'Приёмка, качество, документы, callback и спорный режим' },
-      { title: 'Sandbox release', value: formatMillions(released || 0), note: 'Имитация выпущенных средств; боевой платёж не выполнялся' }
+      { title: 'Тестовые кейсы', value: String(rows.length), note: 'Денежные кейсы по сделкам в пилотном контуре' },
+      { title: 'На удержании', value: formatMillions(held || 0), note: 'Сумма, которая ещё не может быть раскрыта в тестовом сценарии' },
+      { title: 'Условия раскрытия', value: String(triggers), note: 'Приёмка, качество, документы, банковское подтверждение и спорный режим' },
+      { title: 'Отмечено к раскрытию', value: formatMillions(released || 0), note: 'Имитация выпущенных средств; боевой платёж не выполнялся' }
     ];
   }, [rows]);
 
@@ -94,23 +94,23 @@ export default function BankEscrowPage() {
       if (row.id !== id) return row;
       if (row.state === 'Готово к раскрытию') {
         const partial = Number((row.amount * 0.5).toFixed(1));
-        setMessage(`Эскроу ${row.id}: sandbox-раскрытие ${formatMillions(partial)} по сделке ${row.deal}; live-платёж не выполнялся.`);
+        setMessage(`Эскроу ${row.id}: отмечено частичное раскрытие ${formatMillions(partial)} по сделке ${row.deal}; боевой платёж не выполнялся.`);
         return {
           ...row,
           released: partial,
           state: 'Частично раскрыто',
           owner: 'Банк / оператор',
-          note: 'Первая часть выпущена в sandbox. Остаток ждёт финального подтверждения закрытия кейса.'
+          note: 'Первая часть отмечена в тестовом контуре. Остаток ждёт финального подтверждения закрытия кейса.'
         };
       }
       if (row.state === 'Частично раскрыто') {
-        setMessage(`Эскроу ${row.id}: полностью раскрыто в sandbox и закрыто по сделке ${row.deal}.`);
+        setMessage(`Эскроу ${row.id}: полностью отмечено к раскрытию в тестовом контуре и закрыто по сделке ${row.deal}.`);
         return {
           ...row,
           released: row.amount,
           state: 'Раскрыто',
           owner: 'Банк',
-          note: 'Все условия выполнены в controlled-pilot логике; денежный кейс закрыт без live-платежа.'
+          note: 'Все условия выполнены в пилотной логике; денежный кейс закрыт без боевого платежа.'
         };
       }
       setMessage(`Эскроу ${row.id}: сначала нужно снять удержание или дождаться готовности к раскрытию.`);
@@ -122,16 +122,16 @@ export default function BankEscrowPage() {
     setRows((current) => current.map((row) => {
       if (row.id !== id) return row;
       if (row.state === 'Удержание' || row.state === 'Ожидание решения') {
-        setMessage(`Эскроу ${row.id}: блокер снят, кейс готов к sandbox-раскрытию.`);
+        setMessage(`Эскроу ${row.id}: причина удержания закрыта, кейс готов к тестовому раскрытию.`);
         return {
           ...row,
           state: 'Готово к раскрытию',
           owner: 'Банк',
-          trigger: 'Финальная сверка + callback банка',
-          note: 'Критический блокер снят, можно переходить к имитации денежного выпуска.'
+          trigger: 'Финальная сверка + банковское подтверждение',
+          note: 'Критическая причина удержания закрыта, можно переходить к имитации денежного выпуска.'
         };
       }
-      setMessage(`Эскроу ${row.id}: дополнительного перевода в ready не требуется.`);
+      setMessage(`Эскроу ${row.id}: дополнительного перевода в готовность не требуется.`);
       return row;
     }));
   };
@@ -140,15 +140,15 @@ export default function BankEscrowPage() {
     setRows((current) => current.map((row) => {
       if (row.id !== id) return row;
       if (row.state === 'Частично раскрыто') {
-        setMessage(`Эскроу ${row.id}: остаток возвращён в hold до закрытия документа или спора.`);
+        setMessage(`Эскроу ${row.id}: остаток возвращён на удержание до закрытия документа или спора.`);
         return {
           ...row,
           state: 'Удержание',
           owner: 'Оператор / банк',
-          note: 'Часть денег уже выпущена в sandbox, остаток снова удержан до дополнительной проверки.'
+          note: 'Часть денег уже отмечена в тестовом контуре, остаток снова удержан до дополнительной проверки.'
         };
       }
-      setMessage(`Эскроу ${row.id}: возврат в hold возможен после частичного раскрытия.`);
+      setMessage(`Эскроу ${row.id}: возврат на удержание возможен после частичного раскрытия.`);
       return row;
     }));
   };
@@ -160,11 +160,11 @@ export default function BankEscrowPage() {
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419' }}>Эскроу</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-              Sandbox-контур удержания и раскрытия денег по подтверждённым событиям: приёмка, лаборатория, документы, спор и callback банка. Это не live escrow и не боевое банковское списание.
+              Тестовый контур удержания и раскрытия денег по подтверждённым событиям: приёмка, лаборатория, документы, спор и банковское подтверждение. Это не боевой эскроу и не банковское списание.
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 800 }}>
-            Controlled-pilot · sandbox
+            Пилотный контур · тестовый сценарий
           </div>
         </div>
       </section>
@@ -181,7 +181,7 @@ export default function BankEscrowPage() {
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Активные escrow-кейсы</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Активные эскроу-кейсы</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {(['Все', 'Удержание', 'Ожидание решения', 'Готово к раскрытию', 'Частично раскрыто', 'Раскрыто'] as const).map((state) => {
               const active = filter === state;
@@ -228,7 +228,7 @@ export default function BankEscrowPage() {
                   <div style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{formatMillions(item.amount)}</div>
                 </div>
                 <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
-                  <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Уже выпущено</div>
+                  <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Отмечено к раскрытию</div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{formatMillions(item.released)}</div>
                 </div>
               </div>
@@ -242,13 +242,13 @@ export default function BankEscrowPage() {
                   Открыть сделку
                 </Link>
                 <button onClick={() => moveToReady(item.id)} style={{ appearance: 'none', border: '1px solid rgba(37,99,235,0.18)', background: 'rgba(37,99,235,0.08)', color: '#2563EB', minHeight: 44, padding: '10px 14px', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
-                  Снять блокер
+                  Снять причину удержания
                 </button>
                 <button onClick={() => releasePartial(item.id)} style={{ appearance: 'none', border: '1px solid rgba(10,122,95,0.18)', background: 'rgba(10,122,95,0.08)', color: '#0A7A5F', minHeight: 44, padding: '10px 14px', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
-                  {item.state === 'Готово к раскрытию' ? 'Sandbox release' : item.state === 'Частично раскрыто' ? 'Финально раскрыть' : 'Проверить release'}
+                  {item.state === 'Готово к раскрытию' ? 'Отметить частичное раскрытие' : item.state === 'Частично раскрыто' ? 'Отметить финальное раскрытие' : 'Проверить раскрытие'}
                 </button>
                 <button onClick={() => returnToHold(item.id)} style={{ appearance: 'none', border: '1px solid rgba(180,83,9,0.18)', background: 'rgba(180,83,9,0.08)', color: '#B45309', minHeight: 44, padding: '10px 14px', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
-                  Вернуть в hold
+                  Вернуть на удержание
                 </button>
               </div>
             </div>
