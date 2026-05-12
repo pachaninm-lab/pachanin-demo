@@ -29,3 +29,8 @@ export function canShowGlobalStatuses(role: PlatformRole, pathname: string): boo
 export function canShowDrawer(role: PlatformRole, pathname: string): boolean {
   return getShellPolicy(role, pathname) === 'operator';
 }
+
+export function canShowPortalRoleSwitcher(role: PlatformRole, pathname: string): boolean {
+  const pathPolicy = getShellPolicy('operator', pathname);
+  return pathPolicy === 'role-scoped' && getShellPolicy(role, pathname) === 'role-scoped';
+}
