@@ -55,6 +55,19 @@ describe('EvidenceDisputeContinuityPanel', () => {
     expect(panelText).not.toContain('Deal timeline');
   });
 
+  it('shows human-readable evidence, dispute and journal values instead of raw system identifiers', () => {
+    render(<EvidenceDisputeContinuityPanel />);
+
+    const panelText = screen.getByTestId('evidence-dispute-continuity-panel').textContent || '';
+    expect(panelText).toMatch(/Лабораторный протокол|Фотофиксация|Транспортный документ|Взвешивание|Приёмка/);
+    expect(panelText).toMatch(/Расхождение качества|Расхождение веса|Расхождение документов|Срыв срока доставки/);
+    expect(panelText).toMatch(/Продавец|Покупатель|Банк|Арбитр|Логистика|Водитель|Элеватор|Лаборатория|Сюрвейер|Комплаенс|Оператор|Система/);
+    expect(panelText).not.toContain('lab_protocol');
+    expect(panelText).not.toContain('quality_mismatch');
+    expect(panelText).not.toContain('evidence_uploaded');
+    expect(panelText).not.toContain('DISPUTE_OPEN');
+  });
+
   it('links to deal, disputes and bank routes', () => {
     render(<EvidenceDisputeContinuityPanel />);
 
