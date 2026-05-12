@@ -103,6 +103,25 @@ describe('MoneyImpactSummaryStrip component', () => {
     expect(screen.getByTestId('platform-v7-money-impact-stop')).toBeInTheDocument();
   });
 
+  it('renders fallback basis, after-resolution effect and boundary for blocked bank data', () => {
+    render(
+      <MoneyImpactSummaryStrip
+        amountContext='в резерве 15,89 млн ₽ · к выплате 0 ₽'
+        pilotState='blocked'
+        pilotStateLabel='пилотный контур · удержание до закрытия условий'
+        responsible='банк · оператор'
+        nextStep='ручная сверка после закрытия условий'
+        stopReason='банковская проверка выплаты остановлена'
+      />,
+    );
+
+    expect(screen.getByTestId('platform-v7-money-impact-resolution')).toBeInTheDocument();
+    expect(screen.getByTestId('platform-v7-money-impact-evidence')).toHaveTextContent('закрытые документы, приёмка, качество');
+    expect(screen.getByTestId('platform-v7-money-impact-after-resolved')).toHaveTextContent('банк получает основание для проверки выплаты');
+    expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent('платформа показывает основание');
+    expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent('банк подтверждает проверку денег');
+  });
+
   it('renders the needed basis, after-resolution effect and bank/platform boundary', () => {
     render(
       <MoneyImpactSummaryStrip
@@ -191,6 +210,14 @@ describe('MoneyImpactSummaryStrip page placement', () => {
     expect(screen.getByTestId('platform-v7-money-impact-strip')).toBeInTheDocument();
     expect(screen.getByTestId('platform-v7-money-impact-stop')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
+  });
+
+  it('bank page explains the platform and bank boundary for blocked money', () => {
+    render(<BankPage />);
+    expect(screen.getByTestId('platform-v7-money-impact-evidence')).toHaveTextContent('закрытые документы');
+    expect(screen.getByTestId('platform-v7-money-impact-after-resolved')).toHaveTextContent('банк получает основание');
+    expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent('платформа показывает основание');
+    expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent('банк подтверждает проверку денег');
   });
 
   it('bank page strip shows manual review in next step', () => {
