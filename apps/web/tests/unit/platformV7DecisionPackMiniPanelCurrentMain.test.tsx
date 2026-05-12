@@ -97,6 +97,14 @@ describe('document money decision pack data', () => {
     }
   });
 
+  it('blocked row selector returns only blocked rows', () => {
+    for (const context of DECISION_PACK_CONTEXTS) {
+      for (const row of getBlockedRows(context)) {
+        expect(row.currentPilotState, `${context}/${row.rowId} is not blocked`).toBe('blocked');
+      }
+    }
+  });
+
   it('data avoids unsafe wording', () => {
     assertNoForbidden(JSON.stringify(DECISION_PACK_DATA), 'DECISION_PACK_DATA');
   });
