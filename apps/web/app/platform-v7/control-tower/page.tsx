@@ -24,7 +24,7 @@ function describeReason(code: string) {
     case 'QUALITY_DISPUTE': return 'Есть спор по качеству';
     case 'ESIA_REAUTH_REQUIRED': return 'Нужно повторно подтвердить ЕСИА';
     case 'lab_result': return 'Нет финального лабораторного результата';
-    case 'bank_confirm': return 'Банк ещё не подтвердил выпуск';
+    case 'bank_confirm': return 'Банк ещё не подтвердил проверку выплаты';
     case 'reserve': return 'Резерв средств ещё не подтверждён';
     case 'docs': return 'Не хватает документов';
     case 'dispute': return 'Открыт спор по сделке';
@@ -108,20 +108,20 @@ export default function PlatformV7ControlTowerPage() {
     <>
       <style>{`
         .ct-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
-        .ct-metric{background:#fff;border:1px solid #E4E6EA;border-radius:18px;padding:18px;display:block;text-decoration:none;color:inherit}
-        .ct-metric-title{font-size:11px;color:#6B778C;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
-        .ct-metric-value{margin-top:8px;font-size:28px;line-height:1.1;font-weight:900;color:#0F1419}
-        .ct-metric-note{margin-top:8px;font-size:12px;color:#6B778C;line-height:1.45}
-        .ct-queue{background:#fff;border:1px solid #E4E6EA;border-radius:18px;padding:18px;display:grid;gap:12px}
-        .ct-queue-item{border:1px solid #E4E6EA;border-radius:16px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}
+        .ct-metric{background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%);border:1px solid #E4E6EA;border-radius:22px;padding:18px;display:block;text-decoration:none;color:inherit;box-shadow:0 14px 34px rgba(15,23,42,.055)}
+        .ct-metric-title{font-size:11px;color:#6B778C;font-weight:850;text-transform:uppercase;letter-spacing:.07em}
+        .ct-metric-value{margin-top:8px;font-size:29px;line-height:1.05;font-weight:950;color:#0F1419;letter-spacing:-.035em}
+        .ct-metric-note{margin-top:9px;font-size:12px;color:#6B778C;line-height:1.5}
+        .ct-queue{background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%);border:1px solid #E4E6EA;border-radius:24px;padding:18px;display:grid;gap:12px;box-shadow:0 16px 38px rgba(15,23,42,.06)}
+        .ct-queue-item{border:1px solid #E4E6EA;border-radius:20px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFD 100%);box-shadow:0 10px 26px rgba(15,23,42,.045)}
         .ct-queue-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
         .ct-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-        .ct-title{font-size:18px;font-weight:800;color:#0F1419}
+        .ct-title{font-size:19px;font-weight:900;color:#0F1419;letter-spacing:-.02em}
         .ct-sub{font-size:13px;color:#6B778C;line-height:1.5}
-        .ct-badge{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800}
+        .ct-badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:850;box-shadow:0 1px 0 rgba(15,23,42,.03)}
         .ct-two{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
         @media (max-width:1100px){.ct-two{grid-template-columns:1fr}}
-        @media (max-width:768px){.ct-queue-item{grid-template-columns:1fr}.ct-queue-actions{justify-content:flex-start}}
+        @media (max-width:768px){.ct-queue-item{grid-template-columns:1fr}.ct-queue-actions{justify-content:flex-start}.ct-metric-value{font-size:26px}}
       `}</style>
       <P7Page
         title='Центр управления'
@@ -129,8 +129,8 @@ export default function PlatformV7ControlTowerPage() {
         actions={(
           <P7Toolbar testId='control-tower-toolbar'>
             <Badge tone='red'>Проблемы</Badge>
-            <Badge tone='amber'>К выпуску</Badge>
-            <Badge tone='blue'>Проверка</Badge>
+            <Badge tone='amber'>К проверке</Badge>
+            <Badge tone='blue'>Ручная сверка</Badge>
             <Link href='/platform-v7/control-tower/grain' style={btn('primary')}>Зерновой контур</Link>
           </P7Toolbar>
         )}
@@ -142,13 +142,13 @@ export default function PlatformV7ControlTowerPage() {
 
         <P7Section
           title='Зерновой контур исполнения'
-          subtitle='Отдельный операторский вход в цепочку: партия, закупочный запрос, качество, вес, СДИЗ, документы, удержание, спор и основание выпуска денег через банк.'
+          subtitle='Отдельный операторский вход в цепочку: партия, закупочный запрос, качество, вес, СДИЗ, документы, удержание, спор и основание для банковской проверки выплаты.'
           actions={<Link href='/platform-v7/control-tower/grain' style={btn('primary')}>Открыть контур</Link>}
         >
           <section className='ct-queue'>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12 }}>
               <Metric title='Рабочие зоны' value='7' note='Партия, запрос, качество, вес, СДИЗ, деньги и сквозной сценарий.' href='/platform-v7/control-tower/grain' tone='green' />
-              <Metric title='Денежный фокус' value='удержание / выпуск' note='Проверка оснований удержания и частичного выпуска через банк.' href='/platform-v7/deals/grain-release' tone='default' />
+              <Metric title='Денежный фокус' value='удержание / проверка' note='Проверка оснований удержания и передачи основания банку.' href='/platform-v7/deals/grain-release' tone='default' />
               <Metric title='Пилотная цепочка' value='3–5 мин' note='Пилотный сценарий. Внешние интеграции не подключены, деньги не движутся.' href='/platform-v7/control-tower/grain' tone='default' />
             </div>
           </section>
@@ -173,8 +173,8 @@ export default function PlatformV7ControlTowerPage() {
                     <Badge tone={item.integration.gateState === 'FAIL' || item.releaseStopped ? 'red' : item.integration.gateState === 'REVIEW' ? 'amber' : 'green'}>{item.integration.gateState === 'FAIL' || item.releaseStopped ? 'Деньги остановлены' : item.integration.gateState === 'REVIEW' ? 'Проверка вручную' : 'Проверено'}</Badge>
                     <Badge tone={String(item.slaState).includes('Просрочено') ? 'red' : String(item.slaState).includes('24') ? 'amber' : 'blue'}>{item.slaState}</Badge>
                   </div>
-                  <div style={{ fontSize:15, fontWeight:800, color:'#0F1419' }}>{item.deal.grain} · {item.deal.quantity} {item.deal.unit}</div>
-                  <div style={{ fontSize:13, color:'#334155' }}>{item.reason}</div>
+                  <div style={{ fontSize:15, fontWeight:850, color:'#0F1419' }}>{item.deal.grain} · {item.deal.quantity} {item.deal.unit}</div>
+                  <div style={{ fontSize:13, color:'#334155', lineHeight:1.5 }}>{item.reason}</div>
                   <div className='ct-row'>
                     <span style={{ fontSize:12, color:'#6B778C' }}>Под риском: <strong style={{ color:'#0F1419' }}>{formatCompactMoney(item.amountAtRisk)}</strong></span>
                     <span style={{ fontSize:12, color:'#6B778C' }}>Владелец: <strong style={{ color:'#0F1419' }}>{item.owner}</strong></span>
@@ -195,24 +195,24 @@ export default function PlatformV7ControlTowerPage() {
 
         <P7Section
           title='Транспортный контур СберКорус'
-          subtitle='Пока этот контур не закрыт, банк не должен считать выпуск денег чистым.'
+          subtitle='Пока этот контур не закрыт, банк не должен считать основание выплаты чистым.'
           actions={<SberKorusBadge subtitle='Контроль перевозочных документов' compact />}
         >
           <section className='ct-queue'>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12 }}>
               <Metric title='Красный стоп' value={String(transportBlocked)} note='Пакеты, которые прямо держат деньги.' href='/platform-v7/control-tower/hotlist' tone='red' />
               <Metric title='Ждём подписи' value={String(transportAwaiting)} note='Сделки, где не собрана полная цепочка подписей.' href='/platform-v7/control-tower/hotlist' tone='default' />
-              <Metric title='Зелёный контур' value={String(transportCompleted)} note='Пакеты, которые больше не спорят с банковым выпуском.' href='/platform-v7/bank' tone='green' />
+              <Metric title='Зелёный контур' value={String(transportCompleted)} note='Пакеты, которые больше не спорят с банковской проверкой выплаты.' href='/platform-v7/bank' tone='green' />
             </div>
             <div style={{ display:'grid', gap:10 }}>
               {transportHotlist.map((item) => (
-                <div key={item.id} style={{ border:'1px solid #E4E6EA', borderRadius:16, padding:14, background:'#F8FAFB', display:'grid', gap:8 }}>
+                <div key={item.id} style={{ border:'1px solid #E4E6EA', borderRadius:18, padding:14, background:'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', display:'grid', gap:8, boxShadow:'0 10px 24px rgba(15,23,42,.045)' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', alignItems:'center' }}>
                     <div>
-                      <div style={{ fontSize:14, fontWeight:800, color:'#0F1419' }}>{item.title}</div>
+                      <div style={{ fontSize:14, fontWeight:850, color:'#0F1419' }}>{item.title}</div>
                       <div style={{ marginTop:4, fontSize:12, color:'#6B778C' }}>{item.providerLabel}</div>
                     </div>
-                    <Badge tone={item.moneyImpactStatus === 'blocks_release' ? 'red' : 'amber'}>{item.moneyImpactStatus === 'blocks_release' ? 'Блокирует выпуск' : 'Частично блокирует'}</Badge>
+                    <Badge tone={item.moneyImpactStatus === 'blocks_release' ? 'red' : 'amber'}>{item.moneyImpactStatus === 'blocks_release' ? 'Блокирует проверку' : 'Частично блокирует'}</Badge>
                   </div>
                   <div style={{ fontSize:12, color:'#334155', lineHeight:1.6 }}>{item.note}</div>
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
@@ -225,14 +225,14 @@ export default function PlatformV7ControlTowerPage() {
           </section>
         </P7Section>
 
-        <P7Section title='Финансовый контур и системные сигналы' subtitle='Резерв, удержание, выпуск денег и связанные рабочие зоны.'>
+        <P7Section title='Финансовый контур и системные сигналы' subtitle='Резерв, удержание, банковская проверка выплаты и связанные рабочие зоны.'>
           <section className='ct-two'>
             <section className='ct-queue'>
               <div className='ct-title'>Деньги по стадиям</div>
               <div style={{ display:'grid', gap:12 }}>
                 <MoneyBar label='Резерв' value={totalReserved} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='blue' />
                 <MoneyBar label='Удержание' value={totalHold} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='red' />
-                <MoneyBar label='К выпуску' value={totalRelease} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='green' />
+                <MoneyBar label='К проверке банком' value={totalRelease} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='green' />
                 <MoneyBar label='Заблокировано интеграцией' value={integrationBlockedAmount} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='red' />
               </div>
             </section>
@@ -241,7 +241,7 @@ export default function PlatformV7ControlTowerPage() {
               <div className='ct-title'>Сигналы системы</div>
               <div style={{ display:'grid', gap:10 }}>
                 <Signal title='Банк' detail={`${callbacks.length} события уже в контуре.`} href='/platform-v7/bank' />
-                <Signal title='Проверка выпуска денег' detail='Блокеры, удержания и кандидаты к выпуску.' href='/platform-v7/bank/release-safety' />
+                <Signal title='Проверка выплаты' detail='Блокеры, удержания и основания для банковской проверки.' href='/platform-v7/bank/release-safety' />
                 <Signal title='Споры' detail={`${disputes.length} активных кейса под удержанием.`} href='/platform-v7/disputes' />
                 <Signal title='Проверка' detail={`${reviewByIntegration.length} сделки ждут ручной проверки.`} href='/platform-v7/connectors' />
                 <Signal title='СберКорус' detail={`${transportBlocked + transportAwaiting} транспортных кейсов требуют действий.`} href='/platform-v7/control-tower/hotlist' />
@@ -255,7 +255,7 @@ export default function PlatformV7ControlTowerPage() {
 }
 
 function Metric({ title, value, note, href, tone = 'default' }: { title: string; value: string; note: string; href: string; tone?: 'default' | 'red' | 'green' }) {
-  const bg = tone === 'red' ? '#FEF2F2' : tone === 'green' ? '#F0FDF4' : '#fff';
+  const bg = tone === 'red' ? 'linear-gradient(180deg,#FEF2F2 0%,#FFFFFF 100%)' : tone === 'green' ? 'linear-gradient(180deg,#F0FDF4 0%,#FFFFFF 100%)' : 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)';
   const border = tone === 'red' ? '#FECACA' : tone === 'green' ? '#BBF7D0' : '#E4E6EA';
   return <Link href={href} className='ct-metric' style={{ background:bg, borderColor:border }}><div className='ct-metric-title'>{title}</div><div className='ct-metric-value'>{value}</div><div className='ct-metric-note'>{note}</div></Link>;
 }
@@ -271,10 +271,10 @@ function MoneyBar({ label, value, max, tone }: { label: string; value: number; m
   return (
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', gap:12, marginBottom:6 }}>
-        <span style={{ fontSize:13, fontWeight:700, color:'#0F1419' }}>{label}</span>
+        <span style={{ fontSize:13, fontWeight:750, color:'#0F1419' }}>{label}</span>
         <span style={{ fontSize:12, color:'#6B778C' }}>{formatCompactMoney(value)}</span>
       </div>
-      <div style={{ height:10, borderRadius:999, background:'#F1F5F9', overflow:'hidden' }}>
+      <div style={{ height:10, borderRadius:999, background:'#F1F5F9', overflow:'hidden', boxShadow:'inset 0 1px 2px rgba(15,23,42,.05)' }}>
         <div style={{ width:`${width}%`, height:'100%', background:color, borderRadius:999 }} />
       </div>
     </div>
@@ -282,11 +282,11 @@ function MoneyBar({ label, value, max, tone }: { label: string; value: number; m
 }
 
 function Signal({ title, detail, href }: { title: string; detail: string; href: string }) {
-  return <Link href={href} style={{ textDecoration:'none', borderRadius:14, padding:14, background:'#F8FAFB', border:'1px solid #E4E6EA', display:'grid', gap:6 }}><div style={{ fontSize:14, fontWeight:900, color:'#0F1419' }}>{title}</div><div style={{ fontSize:12, color:'#6B778C' }}>{detail}</div></Link>;
+  return <Link href={href} style={{ textDecoration:'none', borderRadius:16, padding:14, background:'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border:'1px solid #E4E6EA', display:'grid', gap:6, boxShadow:'0 8px 20px rgba(15,23,42,.04)' }}><div style={{ fontSize:14, fontWeight:900, color:'#0F1419' }}>{title}</div><div style={{ fontSize:12, color:'#6B778C', lineHeight:1.45 }}>{detail}</div></Link>;
 }
 
 function btn(kind: 'default' | 'primary' | 'danger' = 'default') {
-  if (kind === 'primary') return { textDecoration:'none', borderRadius:10, padding:'8px 12px', background:'#0A7A5F', border:'1px solid #0A7A5F', color:'#fff', fontWeight:700, fontSize:12 };
-  if (kind === 'danger') return { textDecoration:'none', borderRadius:10, padding:'8px 12px', background:'rgba(220,38,38,0.08)', border:'1px solid rgba(220,38,38,0.18)', color:'#B91C1C', fontWeight:700, fontSize:12 };
-  return { textDecoration:'none', borderRadius:10, padding:'8px 12px', background:'#fff', border:'1px solid #E4E6EA', color:'#0F1419', fontWeight:700, fontSize:12 };
+  if (kind === 'primary') return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'#0A7A5F', border:'1px solid #0A7A5F', color:'#fff', fontWeight:800, fontSize:12, boxShadow:'0 10px 22px rgba(10,122,95,.18)' };
+  if (kind === 'danger') return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'rgba(220,38,38,0.08)', border:'1px solid rgba(220,38,38,0.18)', color:'#B91C1C', fontWeight:800, fontSize:12 };
+  return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'#fff', border:'1px solid #E4E6EA', color:'#0F1419', fontWeight:800, fontSize:12, boxShadow:'0 8px 18px rgba(15,23,42,.04)' };
 }
