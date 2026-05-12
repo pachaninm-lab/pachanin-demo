@@ -14,8 +14,11 @@ vi.mock('@/stores/usePlatformV7RStore', () => ({
   usePlatformV7RStore: (selector: (state: { role: string }) => unknown) => selector({ role: activeRole }),
 }));
 
-const SCOPED_ROLES = ['driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance'] as const;
-const SCOPED_PATHS = [
+const ROLE_SCOPED_PATHS = [
+  '/platform-v7/buyer',
+  '/platform-v7/seller',
+  '/platform-v7/procurement',
+  '/platform-v7/logistics',
   '/platform-v7/driver',
   '/platform-v7/surveyor',
   '/platform-v7/elevator',
@@ -25,18 +28,21 @@ const SCOPED_PATHS = [
   '/platform-v7/compliance',
 ] as const;
 
-describe('WorkRouteNav scoped role isolation', () => {
-  it('renders work navigation for normal operational roles', () => {
-    activeRole = 'seller';
-    usePathname.mockReturnValue('/platform-v7/seller');
+const NON_BROAD_NAV_ROLES = ['buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance'] as const;
+
+describe('WorkRouteNav role scope', () => {
+  it.each(['operator', 'executive'] as const)('renders broad work navigation for %s on operator surfaces', (role) => {
+    activeRole = role;
+    usePathname.mockReturnValue('/platform-v7/control-tower');
 
     render(<WorkRouteNav />);
 
     expect(screen.getByLabelText('Рабочие разделы platform-v7')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Центр управления' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Сделки' })).toBeInTheDocument();
   });
 
-  it.each(SCOPED_PATHS)('hides work navigation on %s', (path) => {
+  it.each(ROLE_SCOPED_PATHS)('hides broad work navigation on role-scoped path %s', (path) => {
     activeRole = 'operator';
     usePathname.mockReturnValue(path);
 
@@ -45,7 +51,7 @@ describe('WorkRouteNav scoped role isolation', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it.each(SCOPED_ROLES)('hides work navigation on any route when active role is %s', (role) => {
+  it.each(NON_BROAD_NAV_ROLES)('hides broad work navigation on shared routes when active role is %s', (role) => {
     activeRole = role;
     usePathname.mockReturnValue('/platform-v7/deals/DL-9106');
 
