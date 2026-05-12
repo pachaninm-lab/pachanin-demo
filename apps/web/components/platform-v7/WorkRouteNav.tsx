@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
 
 const WORK_LINKS = [
   { href: '/platform-v7/control-tower', label: 'Центр управления' },
@@ -19,7 +20,8 @@ const WORK_LINKS = [
 
 export function WorkRouteNav() {
   const pathname = usePathname();
-  if (pathname.startsWith('/platform-v7/driver')) return null;
+  const role = usePlatformV7RStore((state) => state.role);
+  if (pathname.startsWith('/platform-v7/driver') || role === 'driver') return null;
 
   return (
     <nav aria-label='Рабочие разделы platform-v7' style={nav}>
