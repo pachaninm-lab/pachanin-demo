@@ -13,17 +13,19 @@ import {
 } from '@/lib/platform-v7/routes';
 
 describe('PlatformV7 bank routes', () => {
-  it('renders bank route with route-constant quick links and sandbox wording', () => {
+  it('renders bank main page with controlled-pilot wording and no live payment claims', () => {
     render(<PlatformV7BankPage />);
 
-    expect(screen.getByText('Банковый контур с guard-контролем')).toBeInTheDocument();
-    expect(screen.getByText('Банк · sandbox')).toBeInTheDocument();
-    expect(screen.getByText(/не заявляют боевую банковую интеграцию/)).toBeInTheDocument();
-    expect(screen.getByText(/sandbox\/controlled-pilot/)).toBeInTheDocument();
-    expect(screen.getByText(/Боевые подключения требуют договоров/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Факторинг/ })).toHaveAttribute('href', PLATFORM_V7_BANK_FACTORING_ROUTE);
-    expect(screen.getByRole('link', { name: /Эскроу/ })).toHaveAttribute('href', PLATFORM_V7_BANK_ESCROW_ROUTE);
+    expect(screen.getByText('Кабинет банка')).toBeInTheDocument();
+    expect(screen.getByText(/Деньги передаются на выплату только после условий сделки/)).toBeInTheDocument();
+    expect(screen.getByText(/Здесь нет кнопки прямой выплаты/)).toBeInTheDocument();
+    expect(screen.getByText(/Выплата продавцу не является ручной кнопкой платформы/)).toBeInTheDocument();
+    expect(screen.getByTestId('platform-v7-money-impact-state')).toHaveTextContent(/пилотный контур/);
+    expect(screen.getByTestId('platform-v7-money-impact-evidence')).toHaveTextContent(/закрытые документы|приёмка|качество/);
+    expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent(/банк подтверждает проверку денег/);
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/платформа гарантирует оплату/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/деньги автоматически выпускаются/i)).not.toBeInTheDocument();
   });
 
   it('registers factoring and escrow in command, shell and execution route surfaces', () => {
@@ -68,7 +70,7 @@ describe('PlatformV7 bank routes', () => {
     expect(screen.getByText('Активные escrow-кейсы')).toBeInTheDocument();
     expect(screen.getByText('На удержании')).toBeInTheDocument();
     expect(screen.getByText('Условия раскрытия')).toBeInTheDocument();
-    expect(screen.getByText('Sandbox release')).toBeInTheDocument();
+    expect(screen.getAllByText('Sandbox release').length).toBeGreaterThan(0);
     expect(screen.getByText('ESC-301')).toBeInTheDocument();
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
   });
