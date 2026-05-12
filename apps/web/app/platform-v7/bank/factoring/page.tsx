@@ -8,7 +8,7 @@ import { runPlatformAction } from '@/lib/platform-v7/action-runner';
 import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
 import { PLATFORM_V7_DEALS_ROUTE } from '@/lib/platform-v7/routes';
 
-type FactoringStatus = 'Проверка' | 'Документы' | 'Одобрено' | 'Аванс выплачен';
+type FactoringStatus = 'Проверка' | 'Документы' | 'Одобрено' | 'Аванс отмечен';
 
 type FactoringApplication = {
   id: string;
@@ -27,8 +27,8 @@ const initialApplications: FactoringApplication[] = [
     deal: 'DL-9108',
     amount: 8.6,
     status: 'Одобрено',
-    next: 'Подтвердить выпуск аванса',
-    note: 'Финальный лимит подтверждён в sandbox. В боевом контуре нужна банковская проверка, договор и подтверждённая уступка.',
+    next: 'Передать основание банку для проверки аванса',
+    note: 'Предварительный лимит отмечен в тестовом контуре. В боевом контуре нужна банковская проверка, договор и подтверждённая уступка.',
   },
   {
     id: 'FAC-202',
@@ -37,7 +37,7 @@ const initialApplications: FactoringApplication[] = [
     amount: 12.1,
     status: 'Проверка',
     next: 'Дождаться финального скоринга',
-    note: 'Банк дочитывает финансовый профиль и проверяет структуру сделки. Это не buyer-only кредитный экран.',
+    note: 'Банк дочитывает финансовый профиль и проверяет структуру сделки. Это не отдельный экран кредитования покупателя.',
   },
   {
     id: 'FAC-203',
@@ -45,15 +45,15 @@ const initialApplications: FactoringApplication[] = [
     deal: 'DL-9114',
     amount: 5.4,
     status: 'Документы',
-    next: 'Загрузить пакет уступки требований',
-    note: 'Не хватает уступки, акта сверки и финального реестра поставки. Без этого деньги не должны выпускаться.',
+    next: 'Собрать пакет уступки требований',
+    note: 'Не хватает уступки, акта сверки и финального реестра поставки. Без этого основание не передаётся на банковскую проверку.',
   },
 ];
 
 const formatMillions = (value: number) => `${value.toFixed(1).replace('.', ',')} млн ₽`;
 
 const badgeStyle = (status: FactoringStatus) => {
-  if (status === 'Аванс выплачен') {
+  if (status === 'Аванс отмечен') {
     return { background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F' };
   }
   if (status === 'Одобрено') {
@@ -67,13 +67,13 @@ const badgeStyle = (status: FactoringStatus) => {
 
 function getNextApplication(item: FactoringApplication): FactoringApplication {
   if (item.status === 'Проверка') {
-    return { ...item, status: 'Документы', next: 'Собрать уступку и акт сверки', note: 'Скоринг пройден в sandbox, остался документный пакет для уступки.' };
+    return { ...item, status: 'Документы', next: 'Собрать уступку и акт сверки', note: 'Скоринг пройден в тестовом контуре, остался документный пакет для уступки.' };
   }
   if (item.status === 'Документы') {
-    return { ...item, status: 'Одобрено', next: 'Подтвердить выпуск аванса', note: 'Документы закрыты в sandbox, заявка готова к имитации авансирования.' };
+    return { ...item, status: 'Одобрено', next: 'Передать основание банку для проверки аванса', note: 'Документы закрыты в тестовом контуре, заявка готова к банковской проверке.' };
   }
   if (item.status === 'Одобрено') {
-    return { ...item, status: 'Аванс выплачен', next: 'Контролировать возврат через закрытие поставки', note: 'Sandbox-аванс привязан к сделке. Боевой платёж не выполнялся.' };
+    return { ...item, status: 'Аванс отмечен', next: 'Контролировать возврат через закрытие поставки', note: 'Аванс отмечен в тестовом контуре и привязан к сделке. Боевой платёж не выполнялся.' };
   }
   return item;
 }
@@ -81,14 +81,14 @@ function getNextApplication(item: FactoringApplication): FactoringApplication {
 function getActionLabel(status: FactoringStatus): string {
   if (status === 'Проверка') return 'Завершить скоринг';
   if (status === 'Документы') return 'Принять пакет';
-  if (status === 'Одобрено') return 'Выплатить аванс';
+  if (status === 'Одобрено') return 'Передать на проверку аванса';
   return 'Проверить историю';
 }
 
 function getSuccessMessage(item: FactoringApplication): string {
-  if (item.status === 'Проверка') return `Заявка ${item.id}: скоринг завершён в sandbox, можно переходить к документам.`;
-  if (item.status === 'Документы') return `Заявка ${item.id}: пакет документов принят, лимит одобрен в sandbox.`;
-  if (item.status === 'Одобрено') return `Заявка ${item.id}: sandbox-аванс привязан к сделке ${item.deal}; боевой платёж не выполнялся.`;
+  if (item.status === 'Проверка') return `Заявка ${item.id}: скоринг завершён в тестовом контуре, можно переходить к документам.`;
+  if (item.status === 'Документы') return `Заявка ${item.id}: пакет документов принят, лимит отмечен в тестовом контуре.`;
+  if (item.status === 'Одобрено') return `Заявка ${item.id}: аванс отмечен для сделки ${item.deal}; боевой платёж не выполнялся.`;
   return `Заявка ${item.id}: дополнительное движение не требуется.`;
 }
 
@@ -108,14 +108,14 @@ export default function BankFactoringPage() {
     const approved = applications.filter((item) => item.status === 'Одобрено').length;
     const pending = applications.filter((item) => item.status === 'Проверка' || item.status === 'Документы').length;
     const paidAdvance = applications
-      .filter((item) => item.status === 'Аванс выплачен')
+      .filter((item) => item.status === 'Аванс отмечен')
       .reduce((sum, item) => sum + item.amount, 0);
 
     return [
-      { title: 'Sandbox-лимит', value: '48 млн ₽', note: 'Расчётный лимит для демонстрации; не кредитное решение банка' },
-      { title: 'Ставка', value: 'КС + 4.2%', note: 'Допущение controlled-pilot, не публичная оферта' },
-      { title: 'Активные заявки', value: String(total), note: `${pending} требуют движения, ${approved} готовы к sandbox-авансу` },
-      { title: 'Sandbox-авансы', value: formatMillions(paidAdvance || 0), note: 'Имитация профинансированных сделок по текущей выборке' },
+      { title: 'Тестовый лимит', value: '48 млн ₽', note: 'Расчётный лимит для демонстрации; не кредитное решение банка' },
+      { title: 'Ставка', value: 'КС + 4.2%', note: 'Допущение пилотного контура, не публичная оферта' },
+      { title: 'Активные заявки', value: String(total), note: `${pending} требуют движения, ${approved} готовы к проверке аванса` },
+      { title: 'Отмеченные авансы', value: formatMillions(paidAdvance || 0), note: 'Имитация профинансированных сделок по текущей выборке' },
     ];
   }, [applications]);
 
@@ -134,7 +134,7 @@ export default function BankFactoringPage() {
       objectId: item.id,
       action: 'factoring-advance',
       actor: 'Банк-офицер',
-      loadingMessage: `Факторинг ${item.id}: начато sandbox-действие "${getActionLabel(item.status)}".`,
+      loadingMessage: `Факторинг ${item.id}: начато тестовое действие "${getActionLabel(item.status)}".`,
       successMessage: () => getSuccessMessage(item),
       errorMessage: (error) => `Факторинг ${item.id}: действие не выполнено${error instanceof Error ? `: ${error.message}` : ''}.`,
       run: async () => getNextApplication(item),
@@ -161,11 +161,11 @@ export default function BankFactoringPage() {
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419' }}>Факторинг</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-              Controlled-pilot контур финансирования под сделку: лимиты, скоринг, уступка требований, документная готовность и sandbox-аванс. Это не buyer financing и не боевой банковский платёж.
+              Пилотный контур финансирования под сделку: лимиты, скоринг, уступка требований, документная готовность и проверка аванса. Это не кредитование покупателя и не боевой банковский платёж.
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#2563EB', fontSize: 12, fontWeight: 800 }}>
-            Пилотный банковый модуль · sandbox
+            Пилотный банковый модуль · тестовый контур
           </div>
         </div>
       </section>
@@ -184,7 +184,7 @@ export default function BankFactoringPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Заявки на факторинг</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {(['Все', 'Проверка', 'Документы', 'Одобрено', 'Аванс выплачен'] as const).map((item) => {
+            {(['Все', 'Проверка', 'Документы', 'Одобрено', 'Аванс отмечен'] as const).map((item) => {
               const active = filter === item;
               return (
                 <button
