@@ -65,15 +65,25 @@ function RoleScopedShellPolicy() {
 
       @media (max-width: 640px) {
         .pc-shell-root-v4 {
-          --pc-header-offset: 84px !important;
+          --pc-header-offset: 76px !important;
         }
 
         .pc-v4-top {
-          grid-template-columns: minmax(0, 1fr) auto !important;
+          grid-template-columns: auto minmax(0, 1fr) !important;
+          gap: 8px !important;
         }
 
-        .pc-v4-title {
-          max-width: 164px !important;
+        .pc-v4-title,
+        .pc-v4-subtitle {
+          display: none !important;
+        }
+
+        .pc-v4-brand {
+          max-width: 48px !important;
+        }
+
+        .pc-v4-actions {
+          min-width: 0 !important;
         }
 
         .pc-v4-main {
