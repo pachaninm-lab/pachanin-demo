@@ -1,13 +1,17 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
+import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
+
+const FIELD_SHELL_ROLES = new Set<PlatformRole>(['driver', 'surveyor', 'elevator', 'lab']);
+const FIELD_SHELL_PATHS = ['/platform-v7/driver', '/platform-v7/surveyor', '/platform-v7/elevator', '/platform-v7/lab'] as const;
 
 export function DriverFieldShellGuard() {
   const pathname = usePathname();
   const role = usePlatformV7RStore((state) => state.role);
-  const isDriverShell = pathname.startsWith('/platform-v7/driver') || role === 'driver';
-  if (!isDriverShell) return null;
+  const fieldByPath = FIELD_SHELL_PATHS.some((path) => pathname.startsWith(path));
+  const isFieldShell = fieldByPath || FIELD_SHELL_ROLES.has(role);
+  if (!isFieldShell) return null;
 
   return (
     <style>{`
