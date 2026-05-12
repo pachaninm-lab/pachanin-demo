@@ -23,6 +23,11 @@ describe('platform-v7 external copy guardrails', () => {
     expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('live-integrated');
     expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('mock');
     expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('debug');
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('Deal 360');
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('Executive view');
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('executive-view');
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('внешний-safe');
+    expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('stop-факторы');
     expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('Маршрут сделки за 3 минуты');
     expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('Ответы за 5 секунд');
     expect(PLATFORM_V7_FORBIDDEN_EXTERNAL_COPY).toContain('выше первого скролла');
@@ -53,6 +58,14 @@ describe('platform-v7 external copy guardrails', () => {
     expect(getPlatformV7ExternalReplacement('маршрут показа')).toBe('рабочий маршрут');
     expect(getPlatformV7ExternalReplacement('сквозной сценарий')).toBe('текущий контур');
     expect(getPlatformV7ExternalReplacement('controlled-pilot')).toBe('контур сделки');
+  });
+
+  it('turns screenshot-level UI leaks into official Russian copy', () => {
+    expect(getPlatformV7ExternalReplacement('Deal 360')).toBe('карточка сделки');
+    expect(getPlatformV7ExternalReplacement('Executive view')).toBe('управленческая сводка');
+    expect(getPlatformV7ExternalReplacement('executive-view')).toBe('управленческая сводка');
+    expect(getPlatformV7ExternalReplacement('внешний-safe')).toBe('рабочий');
+    expect(getPlatformV7ExternalReplacement('stop-факторы')).toBe('причины остановки');
   });
 
   it('turns overclaimed money and integration language into gated execution language', () => {
