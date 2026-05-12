@@ -19,7 +19,7 @@ const WORK_LINKS = [
 
 export function WorkRouteNav() {
   const pathname = usePathname();
-  if (pathname.startsWith('/platform-v7/driver/field')) return null;
+  if (pathname.startsWith('/platform-v7/driver')) return null;
 
   return (
     <nav aria-label='Рабочие разделы platform-v7' style={nav}>
