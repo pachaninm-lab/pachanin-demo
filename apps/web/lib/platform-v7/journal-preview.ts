@@ -1,6 +1,6 @@
 import type { PlatformActionLogEntry } from './action-log';
 
-export type JournalPreviewRole = 'seller' | 'buyer' | 'bank';
+export type JournalPreviewRole = 'seller' | 'buyer' | 'bank' | 'arbitrator';
 
 const SELLER_ENTRIES: readonly PlatformActionLogEntry[] = [
   {
@@ -102,10 +102,45 @@ const BANK_ENTRIES: readonly PlatformActionLogEntry[] = [
   },
 ];
 
+const ARBITRATOR_ENTRIES: readonly PlatformActionLogEntry[] = [
+  {
+    id: 'DK-2024-89-review-started',
+    scope: 'dispute',
+    status: 'started',
+    objectId: 'DK-2024-89',
+    action: 'review-dispute-evidence',
+    actor: 'арбитр',
+    at: '2026-05-10T14:05:00Z',
+    message: 'Арбитр начал сверку спорной суммы, акта и протокола качества.',
+  },
+  {
+    id: 'DK-2024-89-evidence-wait',
+    scope: 'dispute',
+    status: 'error',
+    objectId: 'DK-2024-89',
+    action: 'await-seller-response',
+    actor: 'арбитр',
+    at: '2026-05-10T14:20:00Z',
+    message: 'Решение не закрыто: нужен ответ продавца по спорной сумме.',
+    error: 'не хватает ответа продавца',
+  },
+  {
+    id: 'DK-2024-89-review-note',
+    scope: 'dispute',
+    status: 'success',
+    objectId: 'DL-9102',
+    action: 'record-dispute-note',
+    actor: 'арбитр',
+    at: '2026-05-10T14:35:00Z',
+    message: 'Основание по спору записано в журнал сделки для ручной проверки.',
+  },
+];
+
 const ROLE_ENTRIES: Record<JournalPreviewRole, readonly PlatformActionLogEntry[]> = {
   seller: SELLER_ENTRIES,
   buyer: BUYER_ENTRIES,
   bank: BANK_ENTRIES,
+  arbitrator: ARBITRATOR_ENTRIES,
 };
 
 export function getJournalPreviewEntries(
