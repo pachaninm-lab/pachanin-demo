@@ -1,29 +1,8 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
-
-const FIELD_SHELL_ROLES = new Set<PlatformRole>(['driver', 'surveyor', 'elevator', 'lab']);
-const FIELD_SHELL_PATHS = ['/platform-v7/driver', '/platform-v7/surveyor', '/platform-v7/elevator', '/platform-v7/lab'] as const;
-
-const ROLE_SCOPED_SHELL_ROLES = new Set<PlatformRole>([
-  'buyer',
-  'seller',
-  'logistics',
-  'bank',
-  'arbitrator',
-  'compliance',
-]);
-
-const ROLE_SCOPED_SHELL_PATHS = [
-  '/platform-v7/buyer',
-  '/platform-v7/seller',
-  '/platform-v7/procurement',
-  '/platform-v7/logistics',
-  '/platform-v7/bank',
-  '/platform-v7/arbitrator',
-  '/platform-v7/compliance',
-] as const;
+import { getShellPolicy } from '@/lib/platform-v7/shell-role-policy';
+import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
 
 function FieldShellPolicy() {
   return (
@@ -102,13 +81,8 @@ function RoleScopedShellPolicy() {
 export function ScopedShellGuard() {
   const pathname = usePathname();
   const role = usePlatformV7RStore((state) => state.role);
-  const fieldByPath = FIELD_SHELL_PATHS.some((path) => pathname.startsWith(path));
-  const isFieldShell = fieldByPath || FIELD_SHELL_ROLES.has(role);
-  if (isFieldShell) return <FieldShellPolicy />;
-
-  const roleScopedByPath = ROLE_SCOPED_SHELL_PATHS.some((path) => pathname.startsWith(path));
-  const isRoleScopedShell = roleScopedByPath || ROLE_SCOPED_SHELL_ROLES.has(role);
-  if (isRoleScopedShell) return <RoleScopedShellPolicy />;
-
+  const shellPolicy = getShellPolicy(role, pathname);
+  if (shellPolicy === 'field') return <FieldShellPolicy />;
+  if (shellPolicy === 'role-scoped') return <RoleScopedShellPolicy />;
   return null;
 }
