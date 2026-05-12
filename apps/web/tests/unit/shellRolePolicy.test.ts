@@ -17,9 +17,9 @@ describe('shell role policy', () => {
     ['bank', '/platform-v7/bank'],
     ['arbitrator', '/platform-v7/arbitrator'],
     ['compliance', '/platform-v7/compliance'],
-  ] as Array<[PlatformRole, string]>)('uses role-scoped shell for %s', (role, path) => {
+  ] as Array<[PlatformRole, string]>)('uses compact shell for %s', (role, path) => {
     expect(getShellPolicy(role, path)).toBe('role-scoped');
-    expect(canShowDrawer(role, path)).toBe(true);
+    expect(canShowDrawer(role, path)).toBe(false);
     expect(canShowRoleSwitcher(role, path)).toBe(false);
     expect(canShowGlobalSearch(role, path)).toBe(false);
     expect(canShowGlobalStatuses(role, path)).toBe(false);
@@ -36,6 +36,8 @@ describe('shell role policy', () => {
 
   it('uses path scope as a fallback when active role has not rehydrated yet', () => {
     expect(getShellPolicy('operator', '/platform-v7/seller')).toBe('role-scoped');
+    expect(canShowDrawer('operator', '/platform-v7/seller')).toBe(false);
     expect(getShellPolicy('operator', '/platform-v7/driver/field')).toBe('field');
+    expect(canShowDrawer('operator', '/platform-v7/driver/field')).toBe(false);
   });
 });
