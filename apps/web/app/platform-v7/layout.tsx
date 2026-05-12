@@ -6,6 +6,7 @@ import { ToastProvider } from '@/components/v7r/Toast';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
 import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSummaryGate';
 import { RoleExecutionSummaryGate } from '@/components/platform-v7/RoleExecutionSummaryGate';
+import { RoleHeaderSwitcher } from '@/components/platform-v7/RoleHeaderSwitcher';
 import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { SystemRouteSummaryGate } from '@/components/platform-v7/SystemRouteSummaryGate';
@@ -55,6 +56,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
         <>
           <ScopedShellGuard />
           <SupportHeaderIcon />
+          <RoleHeaderSwitcher />
           <RoleExecutionSummaryGate />
           <AuditSurfaceSummaryGate />
           <SystemRouteSummaryGate />
