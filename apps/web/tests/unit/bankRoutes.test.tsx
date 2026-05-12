@@ -17,15 +17,20 @@ describe('PlatformV7 bank routes', () => {
     render(<PlatformV7BankPage />);
 
     expect(screen.getByText('Кабинет банка')).toBeInTheDocument();
-    expect(screen.getByText(/Деньги передаются на выплату только после условий сделки/)).toBeInTheDocument();
+    expect(screen.getByText(/Основание передаётся банку только после условий сделки/)).toBeInTheDocument();
     expect(screen.getByText(/Здесь нет кнопки прямой выплаты/)).toBeInTheDocument();
-    expect(screen.getByText(/Выплата продавцу не является ручной кнопкой платформы/)).toBeInTheDocument();
+    expect(screen.getByText(/Передача основания банку не является ручной кнопкой платформы/)).toBeInTheDocument();
+    expect(screen.getByText(/К передаче банку сейчас/)).toBeInTheDocument();
+    expect(screen.getByText(/Условия банковской проверки выплаты/)).toBeInTheDocument();
     expect(screen.getByTestId('platform-v7-money-impact-state')).toHaveTextContent(/пилотный контур/);
     expect(screen.getByTestId('platform-v7-money-impact-evidence')).toHaveTextContent(/закрытые документы|приёмка|качество/);
     expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent(/банк подтверждает проверку денег/);
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/платформа гарантирует оплату/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/деньги автоматически выпускаются/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Можно выплатить сейчас/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Условия выплаты денег/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Выплата продавцу не является ручной кнопкой платформы/i)).not.toBeInTheDocument();
   });
 
   it('registers factoring and escrow in command, shell and execution route surfaces', () => {
