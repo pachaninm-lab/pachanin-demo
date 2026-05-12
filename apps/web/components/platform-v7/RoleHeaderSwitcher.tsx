@@ -2,9 +2,10 @@
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
-import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
+import { usePathname, useRouter } from 'next/navigation';
 import { trackRoleSwitch } from '@/lib/analytics/track';
+import { canShowPortalRoleSwitcher } from '@/lib/platform-v7/shell-role-policy';
+import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
   operator: 'Оператор',
@@ -71,11 +72,12 @@ function useHeaderActionsTarget() {
 
 export function RoleHeaderSwitcher() {
   const router = useRouter();
+  const pathname = usePathname();
   const target = useHeaderActionsTarget();
   const role = usePlatformV7RStore((state) => state.role);
   const setRole = usePlatformV7RStore((state) => state.setRole);
 
-  if (!target) return null;
+  if (!target || !canShowPortalRoleSwitcher(role, pathname)) return null;
 
   return createPortal(
     <select
