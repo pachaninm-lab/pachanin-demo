@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
 import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import { P7Grid, P7LinkButton, P7MetricCard, P7Notice, P7PanelShell } from '@/components/platform-v7/P7UiPrimitives';
 import { canonicalDomainDeals } from '@/lib/domain/selectors';
@@ -86,6 +87,8 @@ export default function BankReleaseSafetyPage() {
           </div>
         </div>
       </P7PanelShell>
+
+      <DecisionPackMiniPanel context='dl9106_payout_review' />
 
       <P7Grid min={200} gap={14}>
         <P7MetricCard title='К запросу после проверки' value={formatCompactMoney(releaseCandidate)} tone='green' />
