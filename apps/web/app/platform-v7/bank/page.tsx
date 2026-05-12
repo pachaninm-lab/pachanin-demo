@@ -5,6 +5,8 @@ import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '@/components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentReadinessMiniMatrix';
+import { DocumentsMatrix } from '@/components/platform-v7/DocumentsMatrix';
+import { DocumentsMatrixActions } from '@/components/platform-v7/DocumentsMatrixActions';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
@@ -137,6 +139,10 @@ export default function PlatformV7BankPage() {
         documentState='СДИЗ, ЭТрН, УПД, приёмка, качество'
         stopReason='удержание до закрытия условий'
       />
+
+      <DocumentsMatrix />
+
+      <DocumentsMatrixActions />
 
       <section style={metricsGrid}>
         <Metric label='В резерве' value='15,89 млн ₽' />
