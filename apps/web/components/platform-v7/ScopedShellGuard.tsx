@@ -100,11 +100,37 @@ function RoleScopedShellPolicy() {
   );
 }
 
+function OperatorShellPolicy() {
+  return (
+    <style>{`
+      @media (max-width: 980px) {
+        .pc-v4-mobile-role {
+          display: none !important;
+        }
+
+        .pc-v4-select {
+          display: inline-block !important;
+          min-width: 136px !important;
+          max-width: 152px !important;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .pc-v4-select {
+          min-width: 112px !important;
+          max-width: 128px !important;
+          padding-inline: 10px !important;
+        }
+      }
+    `}</style>
+  );
+}
+
 export function ScopedShellGuard() {
   const pathname = usePathname();
   const role = usePlatformV7RStore((state) => state.role);
   const shellPolicy = getShellPolicy(role, pathname);
   if (shellPolicy === 'field') return <FieldShellPolicy />;
   if (shellPolicy === 'role-scoped') return <RoleScopedShellPolicy />;
-  return null;
+  return <OperatorShellPolicy />;
 }
