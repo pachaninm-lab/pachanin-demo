@@ -5,7 +5,7 @@ import type { P7MoneySafetyAuditRow } from '@/lib/platform-v7/money-safety-audit
 function toneToken(tone: P7MoneySafetyAuditRow['tone']) {
   if (tone === 'safe') {
     return {
-      label: 'Можно выпускать',
+      label: 'Готово к проверке',
       background: 'rgba(10,122,95,0.08)',
       border: 'rgba(10,122,95,0.18)',
       color: '#0A7A5F',
@@ -22,7 +22,7 @@ function toneToken(tone: P7MoneySafetyAuditRow['tone']) {
   }
 
   return {
-    label: 'Заблокировано',
+    label: 'Есть остановка',
     background: 'rgba(220,38,38,0.08)',
     border: 'rgba(220,38,38,0.18)',
     color: '#B91C1C',
@@ -47,13 +47,13 @@ export function P7MoneySafetyAuditStrip() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Money safety audit</div>
+            <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Проверка денег перед запросом в банк</div>
             <div style={{ marginTop: 8, maxWidth: 820, fontSize: 13, lineHeight: 1.65, color: '#5B6576' }}>
-              E7 guard layer: выпуск денег решается через reserve, документы, bank callback, transport/FGIS gates, ledger и reconciliation. Источник строк — v7r money audit adapter.
+              Контрольный слой показывает резерв, документы, подтверждение банка, транспорт, ФГИС/СДИЗ, журнал и сверку. Это основание для проверки, а не платёжный механизм платформы.
             </div>
           </div>
           <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 900 }}>
-            Data layer · no live money movement
+            тестовый контур · без движения денег
           </span>
         </div>
 
@@ -90,7 +90,7 @@ export function P7MoneySafetyAuditStrip() {
                 </div>
 
                 <div style={{ display: 'grid', gap: 4, paddingTop: 4 }}>
-                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, color: '#64748B' }}>Idempotency key</div>
+                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, color: '#64748B' }}>Ключ операции</div>
                   <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, lineHeight: 1.5, color: '#334155', wordBreak: 'break-all' }}>{row.idempotencyKey}</div>
                 </div>
               </article>

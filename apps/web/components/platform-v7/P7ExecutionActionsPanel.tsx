@@ -39,17 +39,17 @@ export interface P7ExecutionActionsPanelProps {
 }
 
 const MODE_LABELS: Record<PlatformV7ExecutionMode, string> = {
-  sandbox: 'sandbox',
-  manual: 'manual',
-  'controlled-pilot': 'controlled-pilot',
-  live: 'live',
+  sandbox: 'тестовый режим',
+  manual: 'ручная проверка',
+  'controlled-pilot': 'пилотный контур',
+  live: 'боевой контур требует подтверждения',
 };
 
 const MODE_COPY: Record<PlatformV7ExecutionMode, string> = {
-  sandbox: 'Демо-данные. Нет боевого внешнего действия.',
-  manual: 'Ручной controlled-pilot контур. Нет live-интеграции.',
-  'controlled-pilot': 'Контролируемый пилот. Действие пишет состояние, журнал и откат, но не заявляет live-интеграцию.',
-  live: 'Live разрешён только при подтверждённой боевой интеграции.',
+  sandbox: 'Действие фиксируется в тестовом сценарии. Внешние системы не вызываются.',
+  manual: 'Действие требует ручной проверки. Внешнее подключение не заявлено.',
+  'controlled-pilot': 'Действие фиксирует состояние, журнал и возможность отката без заявления о боевой интеграции.',
+  live: 'Боевой контур допустим только после подтверждённых договоров и внешних подключений.',
 };
 
 export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, initialLog = [] }: P7ExecutionActionsPanelProps) {
@@ -99,11 +99,11 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
       status: 'success',
       objectId: lastApplied.entityId,
       action: `rollback:${lastApplied.actionId}`,
-      message: `Откат выполнен: ${lastApplied.actionId}. Состояние восстановлено до previousStateRef.`,
+      message: `Откат выполнен: ${lastApplied.actionId}. Состояние восстановлено до предыдущего шага.`,
       actor: lastApplied.actorRole,
       at: new Date().toISOString(),
     }, ...current]);
-    pushToast('success', `Откат выполнен: ${lastApplied.actionId}`);
+    pushToast('success', 'Последнее действие отменено');
     setLastApplied(null);
   }
 
@@ -111,17 +111,17 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
     <section style={{ background: PLATFORM_V7_TOKENS.color.surface, border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 11, color: PLATFORM_V7_TOKENS.color.brand, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>E4 · Action feedback core</div>
+          <div style={{ fontSize: 11, color: PLATFORM_V7_TOKENS.color.brand, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Действия по сделке</div>
           <div style={{ marginTop: 5, fontSize: 20, fontWeight: 900, color: PLATFORM_V7_TOKENS.color.text }}>{title}</div>
           <div style={{ marginTop: 6, fontSize: 13, color: PLATFORM_V7_TOKENS.color.textMuted, lineHeight: 1.55, maxWidth: 920 }}>{subtitle}</div>
         </div>
         <P7ActionButton disabled={!lastApplied} variant='secondary' disabledReason='Нет последнего успешного действия для отката.' onClick={rollbackLastAction}>
-          Откатить последнее действие
+          Отменить последнее действие
         </P7ActionButton>
       </div>
 
       <div style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 12, padding: 12, color: PLATFORM_V7_TOKENS.color.text, fontSize: 12, lineHeight: 1.55 }}>
-        Все действия ниже — controlled-pilot/manual слой. Они фиксируют состояние, журнал, toast и rollback, но не заявляют live ФГИС, live банк, ЭДО, СберКорус или УКЭП.
+        Все действия ниже фиксируют состояние, журнал и возможность отката в пилотном контуре. Они не заявляют боевое подключение к ФГИС, банку, ЭДО, СберКорус или УКЭП.
       </div>
 
       {toasts.length ? (
@@ -139,7 +139,7 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
           if (!target) {
             return (
               <div key={item.targetId} style={{ border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: 14, padding: 12 }}>
-                Target не найден: {item.targetId}
+                Действие недоступно: {item.targetId}
               </div>
             );
           }
@@ -171,7 +171,7 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
         })}
       </div>
 
-      <P7ActionLog title='Журнал действий E4' entries={log} emptyLabel='Действия ещё не выполнялись.' maxEntries={12} />
+      <P7ActionLog title='Журнал действий' entries={log} emptyLabel='Действия ещё не выполнялись.' maxEntries={12} />
     </section>
   );
 }
