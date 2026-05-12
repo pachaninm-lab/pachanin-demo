@@ -1,6 +1,6 @@
 import type { PlatformActionLogEntry } from './action-log';
 
-export type JournalPreviewRole = 'seller' | 'buyer' | 'bank';
+export type JournalPreviewRole = 'seller' | 'buyer' | 'bank' | 'arbitrator';
 
 const SELLER_ENTRIES: readonly PlatformActionLogEntry[] = [
   {
@@ -102,10 +102,45 @@ const BANK_ENTRIES: readonly PlatformActionLogEntry[] = [
   },
 ];
 
+const ARBITRATOR_ENTRIES: readonly PlatformActionLogEntry[] = [
+  {
+    id: 'DSP-9102-WEIGHT-review-started',
+    scope: 'deal',
+    status: 'started',
+    objectId: 'DSP-9102-WEIGHT',
+    action: 'review-evidence',
+    actor: 'арбитр',
+    at: '2026-05-10T15:30:00Z',
+    message: 'Проверка доказательного пакета по DSP-9102-WEIGHT начата — весовая ведомость, акт расхождения, фото приёмки. Пилотный контур, ручная проверка.',
+  },
+  {
+    id: 'DSP-9106-QUALITY-protocol-requested',
+    scope: 'deal',
+    status: 'started',
+    objectId: 'DSP-9106-QUALITY',
+    action: 'request-evidence',
+    actor: 'арбитр',
+    at: '2026-05-10T15:45:00Z',
+    message: 'Запрошен пилотный протокол качества по DSP-9106-QUALITY — решение заблокировано до получения от лаборатории.',
+    error: 'протокол качества не поступил — ожидание до 18:00',
+  },
+  {
+    id: 'DSP-9102-WEIGHT-decision-ready',
+    scope: 'deal',
+    status: 'success',
+    objectId: 'DSP-9102-WEIGHT',
+    action: 'prepare-decision',
+    actor: 'арбитр',
+    at: '2026-05-10T16:10:00Z',
+    message: 'Основание для решения по DSP-9102-WEIGHT зафиксировано — передано оператору на ручную проверку. Денежное действие остаётся в банковском контуре.',
+  },
+];
+
 const ROLE_ENTRIES: Record<JournalPreviewRole, readonly PlatformActionLogEntry[]> = {
   seller: SELLER_ENTRIES,
   buyer: BUYER_ENTRIES,
   bank: BANK_ENTRIES,
+  arbitrator: ARBITRATOR_ENTRIES,
 };
 
 export function getJournalPreviewEntries(

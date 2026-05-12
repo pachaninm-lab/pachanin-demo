@@ -6,6 +6,7 @@ import { getJournalPreviewEntries } from '@/lib/platform-v7/journal-preview';
 import SellerPage from '@/app/platform-v7/seller/page';
 import BuyerPage from '@/app/platform-v7/buyer/page';
 import BankPage from '@/app/platform-v7/bank/page';
+import ArbitratorPage from '@/app/platform-v7/arbitrator/page';
 
 describe('getJournalPreviewEntries', () => {
   it('returns entries for seller role', () => {
@@ -173,5 +174,36 @@ describe('JournalPreview on role pages', () => {
     render(<BankPage />);
     const preview = screen.getByTestId('journal-preview');
     expect(preview.innerHTML).toContain('банковское событие');
+  });
+
+  it('arbitrator page renders journal-preview section with role=arbitrator', () => {
+    render(<ArbitratorPage />);
+    const preview = screen.getByTestId('journal-preview');
+    expect(preview).toBeInTheDocument();
+    expect(preview).toHaveAttribute('data-role', 'arbitrator');
+  });
+
+  it('arbitrator journal entries reference dispute objects', () => {
+    render(<ArbitratorPage />);
+    const preview = screen.getByTestId('journal-preview');
+    expect(preview.innerHTML).toMatch(/DSP-9102|DSP-9106/);
+  });
+
+  it('arbitrator journal entries do not contain forbidden overclaim copy', () => {
+    const { container } = render(<JournalPreview role='arbitrator' />);
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/production-ready/i);
+    expect(html).not.toMatch(/fully live/i);
+    expect(html).not.toMatch(/fully integrated/i);
+    expect(html).not.toMatch(/платформа гарантирует/i);
+    expect(html).not.toMatch(/платформа выпускает деньги/i);
+    expect(html).not.toMatch(/деньги переведены/i);
+    expect(html).not.toMatch(/выплата выполнена/i);
+    expect(html).not.toMatch(/нет рисков/i);
+  });
+
+  it('arbitrator journal entries reference банковский контур wording (no direct bank action claim)', () => {
+    render(<JournalPreview role='arbitrator' />);
+    expect(screen.getByText(/банковском контуре/)).toBeInTheDocument();
   });
 });

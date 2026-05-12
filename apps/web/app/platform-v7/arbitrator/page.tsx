@@ -1,4 +1,5 @@
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
+import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import ArbitratorPage from '@/app/platform-v7r/arbitrator/page';
 
 export default function Page() {
@@ -25,6 +26,7 @@ export default function Page() {
           ))}
         </div>
       </section>
+      <JournalPreview role="arbitrator" />
       <ArbitratorPage />
     </div>
   );
