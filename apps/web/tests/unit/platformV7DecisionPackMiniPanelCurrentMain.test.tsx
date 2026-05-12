@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { DecisionPackMiniPanel } from '../../components/platform-v7/DecisionPackMiniPanel';
 import {
   DECISION_PACK_CONTEXTS,
+  DECISION_PACK_CONTEXT_LABEL,
   DECISION_PACK_DATA,
   getBlockedRows,
   getDecisionPackRows,
@@ -50,6 +51,16 @@ describe('document money decision pack data', () => {
         'seller_document_handoff',
       ].sort(),
     );
+  });
+
+  it('locks the user-facing context labels', () => {
+    expect(DECISION_PACK_CONTEXT_LABEL).toEqual({
+      bank_release_review: 'банк · условия выплаты',
+      buyer_reserve_request: 'покупатель · запрос резерва',
+      dl9102_dispute_hold: 'DL-9102 · спор и удержание',
+      dl9106_payout_review: 'DL-9106 · проверка выплаты',
+      seller_document_handoff: 'продавец · передача документов',
+    });
   });
 
   it('each context has at least one row', () => {
