@@ -11,8 +11,19 @@ const FORBIDDEN = [
   /fully live/i,
   /fully integrated/i,
   /live callback/i,
+  /live bank callback/i,
+  /sandbox/i,
+  /simulation-only/i,
+  /runtime/i,
+  /callback/i,
+  /evidence pack/i,
+  /bank decision/i,
+  /actionType/i,
+  /actorRole/i,
   /платформа гарантирует оплату/i,
   /платформа выпускает деньги/i,
+  /платформа сама выпускает деньги/i,
+  /деньги автоматически выпускаются/i,
   /деньги переведены/i,
   /выплата выполнена/i,
   /деньги отправлены/i,
@@ -92,6 +103,32 @@ describe('MoneyImpactSummaryStrip component', () => {
     expect(screen.getByTestId('platform-v7-money-impact-stop')).toBeInTheDocument();
   });
 
+  it('renders the needed basis, after-resolution effect and bank/platform boundary', () => {
+    render(
+      <MoneyImpactSummaryStrip
+        amountContext='резерв 9,65 млн ₽ · удержание 624 тыс. ₽'
+        pilotState='waiting'
+        pilotStateLabel='пилотный контур · ожидание подтверждения'
+        responsible='покупатель · банк'
+        nextStep='ожидать банковского подтверждения резерва'
+        stopReason='сделка не переходит к логистике до банковского подтверждения'
+        requiredEvidence='банковское подтверждение резерва; по спорной части — акт приёмки и протокол качества'
+        afterResolved='после подтверждения резерва сделка переходит к логистике; спорная часть остаётся под удержанием до закрытия расхождения'
+        bankPlatformBoundary='платформа показывает причину и следующий шаг, банк подтверждает резерв и дальнейшее движение денег'
+      />,
+    );
+
+    expect(screen.getByTestId('platform-v7-money-impact-resolution')).toBeInTheDocument();
+    expect(screen.getByTestId('platform-v7-money-impact-evidence')).toHaveTextContent('акт приёмки и протокол качества');
+    expect(screen.getByTestId('platform-v7-money-impact-after-resolved')).toHaveTextContent('спорная часть остаётся под удержанием');
+    expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent('банк подтверждает резерв');
+  });
+
+  it('does not render resolution block when no resolution context is provided', () => {
+    render(<MoneyImpactSummaryStrip {...BASE_PROPS} />);
+    expect(screen.queryByTestId('platform-v7-money-impact-resolution')).toBeNull();
+  });
+
   it('uses controlled-pilot wording only', () => {
     const { container } = render(
       <MoneyImpactSummaryStrip
@@ -101,6 +138,9 @@ describe('MoneyImpactSummaryStrip component', () => {
         responsible='банк · оператор'
         nextStep='ручная сверка'
         stopReason='проверка выплаты остановлена'
+        requiredEvidence='акт приёмки и протокол качества'
+        afterResolved='банк проверяет основание по своим правилам'
+        bankPlatformBoundary='платформа показывает основание и статус, банк подтверждает движение денег'
       />,
     );
     expectNoUnsafeCopy(container.innerHTML);
@@ -115,6 +155,13 @@ describe('MoneyImpactSummaryStrip page placement', () => {
     expectNoUnsafeCopy(container.innerHTML);
   });
 
+  it('seller page explains the evidence needed before bank review', () => {
+    render(<SellerPage />);
+    expect(screen.getByTestId('platform-v7-money-impact-evidence')).toHaveTextContent('закрытый СДИЗ');
+    expect(screen.getByTestId('platform-v7-money-impact-evidence')).toHaveTextContent('ЭТрН');
+    expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent('банк подтверждает проверку');
+  });
+
   it('seller page strip shows pilot label', () => {
     render(<SellerPage />);
     expect(screen.getByTestId('platform-v7-money-impact-state').textContent).toMatch(/пилотный контур/);
@@ -125,6 +172,13 @@ describe('MoneyImpactSummaryStrip page placement', () => {
     expect(screen.getByTestId('platform-v7-money-impact-strip')).toBeInTheDocument();
     expect(screen.getByTestId('platform-v7-money-impact-stop')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
+  });
+
+  it('buyer page explains reserve confirmation and disputed amount handling', () => {
+    render(<BuyerPage />);
+    expect(screen.getByTestId('platform-v7-money-impact-next').textContent).toMatch(/банковского подтверждения/);
+    expect(screen.getByTestId('platform-v7-money-impact-after-resolved')).toHaveTextContent('спорная часть остаётся под удержанием');
+    expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent('банк подтверждает резерв');
   });
 
   it('buyer page strip shows bank confirmation in next step', () => {
