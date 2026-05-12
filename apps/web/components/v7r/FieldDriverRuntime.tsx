@@ -35,12 +35,17 @@ export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps)
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 720, margin: '0 auto' }}>
       {!isOnline && (
-        <div style={{ padding: '12px 16px', borderRadius: 14, background: '#FFFBEB', border: '1px solid #FDE68A', color: '#B45309', fontSize: 13, fontWeight: 700 }}>
+        <div id="driver-offline-events" style={{ padding: '12px 16px', borderRadius: 14, background: '#FFFBEB', border: '1px solid #FDE68A', color: '#B45309', fontSize: 13, fontWeight: 700 }}>
           Нет связи — действия сохраняются локально и уйдут при восстановлении сети.
         </div>
       )}
+      {isOnline ? (
+        <div id="driver-offline-events" style={{ padding: '12px 16px', borderRadius: 14, background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#15803D', fontSize: 13, fontWeight: 700 }}>
+          Связь есть — офлайн-очередь пуста. Если связь пропадёт, действия сохранятся локально.
+        </div>
+      ) : null}
 
-      <section style={{ padding: '18px 20px', borderRadius: 18, background: arrived ? '#F0FDF4' : 'linear-gradient(135deg, #0A7A5F 0%, #0B6B9A 100%)', border: arrived ? '1px solid #BBF7D0' : 'none' }}>
+      <section id="driver-route-status" style={{ padding: '18px 20px', borderRadius: 18, background: arrived ? '#F0FDF4' : 'linear-gradient(135deg, #0A7A5F 0%, #0B6B9A 100%)', border: arrived ? '1px solid #BBF7D0' : 'none' }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: arrived ? '#15803D' : '#fff' }}>
           {arrived ? `Прибытие зафиксировано в ${trip.arrivedAt}` : `В пути · ETA ${trip.eta} · Осталось ${trip.kmLeft} км`}
         </div>
@@ -49,7 +54,7 @@ export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps)
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
+      <section id="driver-next-action" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Полевые действия</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
@@ -73,6 +78,14 @@ export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps)
               </Link>
             </>
           ) : null}
+        </div>
+      </section>
+
+      <section id="driver-photo-seal" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Фото и пломба</div>
+        <div style={{ display: 'grid', gap: 8, color: '#344054', fontSize: 13, lineHeight: 1.5 }}>
+          <div>Пломба: зафиксирована в рейсе {trip.id}.</div>
+          <div>Фото погрузки: приложено к рейсу и доступно для сверки при приёмке.</div>
         </div>
       </section>
 

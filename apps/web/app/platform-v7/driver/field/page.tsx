@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
 
@@ -24,9 +25,9 @@ export default function DriverFieldPage() {
           Только текущий рейс: маршрут, связь, прибытие, фото, вес, пломба и проблема по рейсу.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
-          <div style={fieldChip}>Следующее действие</div>
-          <div style={fieldChip}>Офлайн-события</div>
-          <div style={fieldChip}>Фото и пломба</div>
+          <Link href="#driver-next-action" style={fieldChip}>Следующее действие</Link>
+          <Link href="#driver-offline-events" style={fieldChip}>Офлайн-события</Link>
+          <Link href="#driver-photo-seal" style={fieldChip}>Фото и пломба</Link>
         </div>
       </section>
       <RoleRouteHint role="driver" route="/platform-v7/driver/field" />
@@ -47,4 +48,5 @@ const fieldChip = {
   fontSize: 13,
   fontWeight: 900,
   textAlign: 'center',
+  textDecoration: 'none',
 } as const;

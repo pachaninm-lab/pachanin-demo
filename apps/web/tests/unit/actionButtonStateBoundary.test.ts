@@ -7,8 +7,11 @@ import type { PlatformV7ActionTarget } from '@/lib/platform-v7/action-targets';
 
 const target: PlatformV7ActionTarget = {
   id: 'request-bank-review',
+  surface: 'deal-detail',
   label: 'Запросить банковскую проверку',
   actionId: 'requestRelease',
+  scope: 'deal',
+  requiresFeedback: true,
 };
 
 describe('platform-v7 action button state boundary', () => {
