@@ -116,17 +116,17 @@ export default function LogisticsPage() {
 
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={hero}>
         <div style={badge}>Кабинет логистики</div>
-        <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Заявки, водители, ЭТрН и маршрут</h1>
-        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Логистика видит исполнение перевозки: заявку, сделку, водителя, машину, маршрут, ETA, ЭТрН, ГИС ЭПД, СДИЗ и инциденты. Деньги и ставки не раскрываются.</p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <h1 style={h1}>Заявки, водители, ЭТрН и маршрут</h1>
+        <p style={lead}>Логистика видит исполнение перевозки: заявку, сделку, водителя, машину, маршрут, ETA, ЭТрН, ГИС ЭПД, СДИЗ и инциденты. Деньги и ставки не раскрываются.</p>
+        <div style={actions}>
           <Link href='/platform-v7/logistics/inbox' style={primaryBtn}>Входящие заявки</Link>
           <Link href='/platform-v7/driver' style={ghostBtn}>Открыть рейс водителя</Link>
         </div>
       </section>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
+      <section style={metricsGrid}>
         <Metric label='В пути' value={String(inTransit)} />
         <Metric label='Прибыли' value={String(arrived)} good />
         <Metric label='Инцидентов' value={String(incidents)} danger={incidents > 0} />
@@ -135,19 +135,19 @@ export default function LogisticsPage() {
 
       <RoleExecutionHandoff items={logisticsHandoff} title='исполнение: что логистика отправляет и ожидает' />
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={card}>
         <div style={micro}>Документные условия перевозки</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 }}>
+        <div style={gateGrid}>
           {gates.map((gate) => <Gate key={gate.title} gate={gate} />)}
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={card}>
         <div style={micro}>Водители на линии</div>
         {assignedDrivers.map((order) => <DriverCard key={`driver-${order.id}`} order={order} />)}
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={card}>
         <div style={micro}>Текущая очередь заказов</div>
         {orders.map((order) => <OrderCard key={order.id} order={order} />)}
       </section>
@@ -157,9 +157,9 @@ export default function LogisticsPage() {
 
 function Gate({ gate }: { gate: typeof gates[number] }) {
   return (
-    <div style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 16, padding: 13 }}>
+    <div style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}>
       <div style={{ ...micro, color: stateText(gate.state) }}>{gate.title}</div>
-      <div style={{ marginTop: 6, color: '#0F1419', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{gate.value}</div>
+      <div style={{ marginTop: 6, color: '#0F1419', fontSize: 13, lineHeight: 1.4, fontWeight: 900 }}>{gate.value}</div>
     </div>
   );
 }
@@ -167,22 +167,22 @@ function Gate({ gate }: { gate: typeof gates[number] }) {
 function DriverCard({ order }: { order: typeof orders[number] }) {
   const hasIncident = order.incidents !== 'нет';
   return (
-    <Link href='/platform-v7/driver' style={{ textDecoration: 'none', color: 'inherit', background: order.status === 'Водитель назначен' ? 'rgba(10,122,95,0.06)' : '#F8FAFB', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 20, padding: 15, display: 'grid', gap: 12 }}>
+    <Link href='/platform-v7/driver' style={{ textDecoration: 'none', color: 'inherit', background: order.status === 'Водитель назначен' ? 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)' : 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.driver} · {order.vehicle}</div>
-          <h2 style={{ margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 }}>{order.driverStatus}</h2>
+          <h2 style={h2}>{order.driverStatus}</h2>
           <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13 }}>Заказ {order.id} · сделка {order.dealId}</p>
         </div>
         <span style={hasIncident ? dangerStatus : status}>{hasIncident ? 'инцидент' : order.status}</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 }}>
+      <div style={twoColGrid}>
         <Cell label='Где водитель' value={order.driverLocation} strong={!hasIncident} />
         <Cell label='На каком заказе' value={`${order.id} · ${order.crop}`} />
         <Cell label='ЭТрН' value={order.etrn} danger={order.etrn.includes('ждёт') || order.etrn.includes('не создана')} />
         <Cell label='ГИС ЭПД' value={order.gisEpd} danger={order.gisEpd.includes('ожидает') || order.gisEpd.includes('не отправлено')} />
       </div>
-      <div style={{ background: hasIncident ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 14, padding: 11, color: hasIncident ? '#B91C1C' : '#0A7A5F', fontSize: 13, fontWeight: 900 }}>
+      <div style={{ background: hasIncident ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 15, padding: 12, color: hasIncident ? '#B91C1C' : '#0A7A5F', fontSize: 13, fontWeight: 900 }}>
         Следующее действие логиста: {order.next}
       </div>
     </Link>
@@ -193,17 +193,17 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
   const hasIncident = order.incidents !== 'нет';
   const isActive = order.status === 'Водитель назначен';
   return (
-    <Link href={order.href} style={{ textDecoration: 'none', color: 'inherit', background: isActive ? 'rgba(10,122,95,0.06)' : '#F8FAFB', border: `1px solid ${isActive ? 'rgba(10,122,95,0.2)' : '#E4E6EA'}`, borderRadius: 20, padding: 15, display: 'grid', gap: 12 }}>
+    <Link href={order.href} style={{ textDecoration: 'none', color: 'inherit', background: isActive ? 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)' : 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${isActive ? 'rgba(10,122,95,0.2)' : '#E4E6EA'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.id} → {order.dealId}</div>
-          <h2 style={{ margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 }}>{order.crop} · {order.volume}</h2>
+          <h2 style={h2}>{order.crop} · {order.volume}</h2>
           <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13 }}>{order.route}</p>
         </div>
         <span style={isActive ? status : neutralStatus}>{order.status}</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 }}>
+      <div style={twoColGrid}>
         <Cell label='Водитель' value={order.driver} />
         <Cell label='Где водитель' value={order.driverLocation} strong={isActive} />
         <Cell label='Заказ' value={order.id} />
@@ -216,7 +216,7 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
         <Cell label='Инциденты' value={order.incidents} danger={hasIncident} />
       </div>
 
-      <div style={{ background: hasIncident ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 14, padding: 11, color: hasIncident ? '#B91C1C' : '#0A7A5F', fontSize: 13, fontWeight: 900 }}>
+      <div style={{ background: hasIncident ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 15, padding: 12, color: hasIncident ? '#B91C1C' : '#0A7A5F', fontSize: 13, fontWeight: 900 }}>
         Следующее действие: {order.next}
       </div>
     </Link>
@@ -225,26 +225,26 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
 
 function Metric({ label, value, good = false, danger = false }: { label: string; value: string; good?: boolean; danger?: boolean }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16 }}>
+    <div style={metricCard}>
       <div style={micro}>{label}</div>
-      <div style={{ marginTop: 8, color: danger ? '#B91C1C' : good ? '#0A7A5F' : '#0F1419', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div>
+      <div style={{ marginTop: 8, color: danger ? '#B91C1C' : good ? '#0A7A5F' : '#0F1419', fontSize: 29, lineHeight: 1, fontWeight: 950, letterSpacing: '-0.035em' }}>{value}</div>
     </div>
   );
 }
 
 function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 13, padding: 10, minWidth: 0 }}>
+    <div style={cell}>
       <div style={micro}>{label}</div>
-      <div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.25, fontWeight: 900, overflowWrap: 'break-word' }}>{value}</div>
+      <div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.3, fontWeight: 900, overflowWrap: 'break-word' }}>{value}</div>
     </div>
   );
 }
 
 function stateBg(state: string) {
-  if (state === 'ok') return 'rgba(10,122,95,0.06)';
-  if (state === 'stop') return 'rgba(220,38,38,0.06)';
-  return 'rgba(217,119,6,0.06)';
+  if (state === 'ok') return 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)';
+  if (state === 'stop') return 'linear-gradient(180deg,#FFFFFF 0%,#FEF2F2 100%)';
+  return 'linear-gradient(180deg,#FFFFFF 0%,#FFFBEB 100%)';
 }
 function stateBorder(state: string) {
   if (state === 'ok') return 'rgba(10,122,95,0.18)';
@@ -257,10 +257,21 @@ function stateText(state: string) {
   return '#B45309';
 }
 
+const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
+const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
+const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
+const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.6 } as const;
+const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
+const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
+const metricCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' } as const;
+const gateGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 } as const;
+const twoColGrid = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
+const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
-const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
+const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(10,122,95,0.18)' } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
 const status = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const neutralStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 } as const;
 const dangerStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
