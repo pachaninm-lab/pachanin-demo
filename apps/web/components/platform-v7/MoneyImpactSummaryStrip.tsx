@@ -7,6 +7,9 @@ type MoneyImpactSummaryProps = {
   responsible: string;
   nextStep: string;
   stopReason?: string;
+  requiredEvidence?: string;
+  afterResolved?: string;
+  bankPlatformBoundary?: string;
 };
 
 const STATE_TONE: Record<MoneyPilotState, { bg: string; border: string; color: string }> = {
@@ -32,8 +35,12 @@ export function MoneyImpactSummaryStrip({
   responsible,
   nextStep,
   stopReason,
+  requiredEvidence,
+  afterResolved,
+  bankPlatformBoundary,
 }: MoneyImpactSummaryProps) {
   const tone = STATE_TONE[pilotState];
+  const hasResolutionContext = Boolean(requiredEvidence || afterResolved || bankPlatformBoundary);
 
   return (
     <section
@@ -77,6 +84,17 @@ export function MoneyImpactSummaryStrip({
         >
           <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: 1 }}>причина остановки</span>
           <span style={{ fontSize: 13, color: '#B91C1C', fontWeight: 850, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{stopReason}</span>
+        </div>
+      )}
+
+      {hasResolutionContext && (
+        <div
+          data-testid="platform-v7-money-impact-resolution"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px 16px', background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 12, padding: '10px 12px' }}
+        >
+          {requiredEvidence && <Slot label='какое основание нужно' value={requiredEvidence} testId='platform-v7-money-impact-evidence' />}
+          {afterResolved && <Slot label='после закрытия причины' value={afterResolved} testId='platform-v7-money-impact-after-resolved' />}
+          {bankPlatformBoundary && <Slot label='банк / платформа' value={bankPlatformBoundary} testId='platform-v7-money-impact-bank-boundary' />}
         </div>
       )}
     </section>
