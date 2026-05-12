@@ -26,7 +26,7 @@ const elevatorHandoff: HandoffItem[] = [
   },
   {
     direction: 'blockedBy',
-    requirement: 'отклонение веса -1,2 т — нужен акт расхождения до банковского события',
+    requirement: 'отклонение веса -1,2 т — нужен акт расхождения до банковской проверки',
     documentImpact: true,
     moneyImpact: true,
   },
@@ -57,7 +57,7 @@ const receivingSummary = [
   { label: 'Вес', value: '600 т заявлено · 598,8 т принято', note: 'Отклонение -1,2 т создаёт основание для акта расхождения.' },
   { label: 'Качество', value: 'сорная примесь выше допуска', note: 'Нужен протокол качества; это может изменить расчёт и открыть спор.' },
   { label: 'Что скрыто', value: 'ставки, цена, банк, резерв, кредит', note: 'Приёмка не видит коммерческий и банковский контур сторон.' },
-  { label: 'Что дальше', value: 'акт приёмки → акт расхождения → протокол', note: 'Без этих оснований выпуск денег продавцу не разрешается.' },
+  { label: 'Что дальше', value: 'акт приёмки → акт расхождения → протокол', note: 'Без этих оснований передача банку на проверку выплаты не продолжается.' },
 ] as const;
 
 const quality = [
@@ -70,8 +70,8 @@ const quality = [
 const gates = [
   { title: 'Вес', value: 'отклонение -1,2 т', impact: 'создаёт удержание до акта расхождения', state: 'stop' },
   { title: 'Качество', value: 'есть превышение по примеси', impact: 'требует протокол качества', state: 'stop' },
-  { title: 'Акт приёмки', value: 'готовится', impact: 'без акта выплата невозможна', state: 'wait' },
-  { title: 'Качество', value: 'протокол ожидается', impact: 'качество влияет на цену и спор', state: 'wait' },
+  { title: 'Акт приёмки', value: 'готовится', impact: 'без акта основание не передаётся банку', state: 'wait' },
+  { title: 'Качество', value: 'протокол ожидается', impact: 'качество влияет на расчёт и спор', state: 'wait' },
 ] as const;
 
 export default function Page() {
@@ -79,7 +79,7 @@ export default function Page() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={card}>
         <div style={badge}>Кабинет приёмки</div>
-        <h1 style={h1}>Вес, качество и основание выплаты</h1>
+        <h1 style={h1}>Вес, качество и основание для проверки выплаты</h1>
         <p style={lead}>Приёмка видит только груз, рейс, вес, лабораторию, документы и отклонения. Деньги, ставки, резерв, кредит и покупательская аналитика не раскрываются.</p>
       </section>
 
@@ -87,7 +87,7 @@ export default function Page() {
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ ...micro, color: '#FED7AA' }}>контроль приёмки</div>
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что приёмка должна понять за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#FFEDD5', fontSize: 14, lineHeight: 1.55 }}>Экран работает как доказательный контур физического исполнения: вес, качество, акт, расхождение и влияние на выплату.</p>
+          <p style={{ margin: 0, color: '#FFEDD5', fontSize: 14, lineHeight: 1.55 }}>Экран работает как доказательный контур физического исполнения: вес, качество, акт, расхождение и основание для банковской проверки.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {receivingSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
@@ -119,9 +119,9 @@ export default function Page() {
       </section>
 
       <section style={card}>
-        <div style={micro}>Условия приёмки, влияющие на выплату</div>
+        <div style={micro}>Условия приёмки, влияющие на банковскую проверку</div>
         <div style={grid2}>
-          {gates.map((gate) => <Gate key={gate.title} gate={gate} />)}
+          {gates.map((gate) => <Gate key={`${gate.title}-${gate.value}`} gate={gate} />)}
         </div>
       </section>
 
@@ -130,7 +130,7 @@ export default function Page() {
         <div style={grid2}>
           {quality.map((item) => <QualityCell key={item.label} item={item} />)}
         </div>
-        <div style={notice}>При отклонении веса или качества платформа должна создать акт расхождения, удержание и задачу оператору. Финальная выплата продавцу не разрешается до закрытия акта и протокола.</div>
+        <div style={notice}>При отклонении веса или качества платформа должна создать акт расхождения, удержание и задачу оператору. Передача основания банку на проверку выплаты не продолжается до закрытия акта и протокола.</div>
       </section>
 
       <DecisionRecommendationStrip context='elevator' />
@@ -145,27 +145,27 @@ export default function Page() {
 }
 
 function SummaryCard({ item }: { item: typeof receivingSummary[number] }) {
-  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#FED7AA' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#FFEDD5', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+  return <div style={{ background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 20, padding: 14, display: 'grid', gap: 7, boxShadow: '0 12px 26px rgba(15,23,42,0.12)' }}><div style={{ ...micro, color: '#FED7AA' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#FFEDD5', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
 }
 
 function Gate({ gate }: { gate: typeof gates[number] }) {
-  return <div style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 14, padding: 12 }}><div style={{ ...micro, color: stateText(gate.state) }}>{gate.title}</div><div style={{ marginTop: 5, color: '#0F1419', fontSize: 14, fontWeight: 900 }}>{gate.value}</div><div style={{ marginTop: 4, color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>{gate.impact}</div></div>;
+  return <div style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}><div style={{ ...micro, color: stateText(gate.state) }}>{gate.title}</div><div style={{ marginTop: 5, color: '#0F1419', fontSize: 14, fontWeight: 900 }}>{gate.value}</div><div style={{ marginTop: 4, color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>{gate.impact}</div></div>;
 }
 
 function QualityCell({ item }: { item: typeof quality[number] }) {
   const bad = item.state === 'stop';
   const wait = item.state === 'wait';
-  return <div style={{ background: stateBg(item.state), border: `1px solid ${stateBorder(item.state)}`, borderRadius: 14, padding: 12 }}><div style={{ ...micro, color: stateText(item.state) }}>{item.label}</div><div style={{ marginTop: 5, color: bad ? '#B91C1C' : '#0F1419', fontSize: 16, fontWeight: 950 }}>{item.value}</div><div style={{ marginTop: 4, color: wait ? '#B45309' : '#64748B', fontSize: 12 }}>{item.limit}</div></div>;
+  return <div style={{ background: stateBg(item.state), border: `1px solid ${stateBorder(item.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}><div style={{ ...micro, color: stateText(item.state) }}>{item.label}</div><div style={{ marginTop: 5, color: bad ? '#B91C1C' : '#0F1419', fontSize: 16, fontWeight: 950 }}>{item.value}</div><div style={{ marginTop: 4, color: wait ? '#B45309' : '#64748B', fontSize: 12 }}>{item.limit}</div></div>;
 }
 
 function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{value}</div></div>;
+  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.3, fontWeight: 900 }}>{value}</div></div>;
 }
 
 function stateBg(state: string) {
-  if (state === 'ok') return 'rgba(10,122,95,0.06)';
-  if (state === 'stop') return 'rgba(220,38,38,0.06)';
-  return 'rgba(217,119,6,0.06)';
+  if (state === 'ok') return 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)';
+  if (state === 'stop') return 'linear-gradient(180deg,#FFFFFF 0%,#FEF2F2 100%)';
+  return 'linear-gradient(180deg,#FFFFFF 0%,#FFFBEB 100%)';
 }
 function stateBorder(state: string) {
   if (state === 'ok') return 'rgba(10,122,95,0.18)';
@@ -178,20 +178,20 @@ function stateText(state: string) {
   return '#B45309';
 }
 
-const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
-const darkCard = { background: '#7C2D12', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(124,45,18,0.18)' } as const;
+const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
+const darkCard = { background: 'linear-gradient(135deg,#7C2D12 0%,#9A3412 58%,#431407 120%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(124,45,18,0.2)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(180,83,9,0.08)', border: '1px solid rgba(180,83,9,0.18)', color: '#B45309', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 } as const;
+const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
+const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.6 } as const;
 const muted = { margin: '6px 0 0', color: '#64748B', fontSize: 13 } as const;
 const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
 const idText = { color: '#B45309', fontSize: 13, fontWeight: 950 } as const;
 const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
-const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 13, padding: 10, minWidth: 0 } as const;
+const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const statusPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
-const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#B45309', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
-const notice = { background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', borderRadius: 14, padding: 12, fontSize: 13, fontWeight: 900, lineHeight: 1.45 } as const;
+const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#B45309', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(180,83,9,0.18)' } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
+const notice = { background: 'linear-gradient(180deg,#FFFFFF 0%,#FEF2F2 100%)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', borderRadius: 16, padding: 12, fontSize: 13, fontWeight: 900, lineHeight: 1.45, boxShadow: '0 10px 24px rgba(127,29,29,0.06)' } as const;
