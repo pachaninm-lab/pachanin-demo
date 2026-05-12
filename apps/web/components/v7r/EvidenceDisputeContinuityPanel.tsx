@@ -39,13 +39,13 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontSize: 11, color: isOpen ? DANGER : BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            P0-05 · evidence → dispute → money · sandbox
+            P0-05 · доказательства → спор → деньги · тестовый режим
           </div>
           <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.15, fontWeight: 900, color: T }}>
             Доказательный пакет сделки {deal.id}
           </div>
           <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 880 }}>
-            Контур связывает доказательства, спор, банковое удержание и timeline сделки. Это simulation-only слой: он объясняет логику удержания/выпуска, но не вызывает боевые банковские, ФГИС или ЭДО-интеграции.
+            Контур связывает доказательства, спор, банковское удержание и ленту сделки. Это тестовый слой: он объясняет логику удержания и проверки выплаты, но не вызывает боевые банковские, ФГИС или ЭДО-подключения.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -59,19 +59,19 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
         <Cell label='Сумма сделки' value={compactRub(amount)} />
         <Cell label='Статус сделки' value={human(deal.status)} tone={deal.status === 'DISPUTE_OPEN' ? 'danger' : 'default'} />
         <Cell label='Спор' value={dispute ? human(dispute.status) : 'Нет'} tone={isOpen ? 'danger' : 'accent'} />
-        <Cell label='Evidence' value={String(evidence.length)} />
-        <Cell label='Bank decision' value={bankDecision.label} tone={bankDecision.tone} />
-        <Cell label='Pack readiness' value={`${readiness.score}%`} tone={readiness.tone} />
+        <Cell label='Доказательства' value={String(evidence.length)} />
+        <Cell label='Решение банка' value={bankDecision.label} tone={bankDecision.tone} />
+        <Cell label='Готовность пакета' value={`${readiness.score}%`} tone={readiness.tone} />
       </div>
 
       <div style={{ background: isOpen ? DANGER_BG : WARN_BG, border: `1px solid ${isOpen ? DANGER_BORDER : WARN_BORDER}`, borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 900, color: isOpen ? DANGER : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Money hold / release explanation</div>
+        <div style={{ fontSize: 12, fontWeight: 900, color: isOpen ? DANGER : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Почему деньги удержаны или требуют проверки</div>
         <div style={{ fontSize: 14, color: T, fontWeight: 900, lineHeight: 1.5 }}>{moneyHoldReason.title}</div>
         <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>{moneyHoldReason.detail}</div>
       </div>
 
       <div data-testid='dispute-pack-readiness' style={{ background: readiness.score >= 80 ? BRAND_BG : WARN_BG, border: `1px solid ${readiness.score >= 80 ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 900, color: readiness.score >= 80 ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Dispute pack readiness</div>
+        <div style={{ fontSize: 12, fontWeight: 900, color: readiness.score >= 80 ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Готовность спорного пакета</div>
         <div style={{ fontSize: 18, color: T, fontWeight: 900 }}>{readiness.score}% · {readiness.label}</div>
         <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>{readiness.detail}</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 8 }}>
@@ -82,14 +82,14 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>Export-ready summary: sandbox preview only. PDF/ЭДО/КЭП экспорт не заявлен как live.</div>
+        <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>Сводка готова только для тестового просмотра. PDF/ЭДО/КЭП экспорт не заявлен как боевой.</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
-        <ListBlock title='Evidence pack' empty='Нет evidence по выбранной сделке.' rows={evidence.slice(0, 5).map((item) => ({ id: item.id, kicker: item.type, text: `${item.title} · ${item.hash.slice(0, 18)}…` }))} />
-        <ListBlock title='Dispute context' empty='Нет активного спора по выбранной сделке.' rows={dispute ? [{ id: dispute.id, kicker: dispute.reason, text: `${dispute.status} · влияние ${compactRub(dispute.amountImpactRub)}` }] : []} />
-        <ListBlock title='Audit trail' empty='Нет audit events по выбранной сделке/спору.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${item.actionType} · ${item.entityId}` }))} />
-        <ListBlock title='Deal timeline' empty='Нет timeline events по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
+        <ListBlock title='Доказательства' empty='Нет доказательств по выбранной сделке.' rows={evidence.slice(0, 5).map((item) => ({ id: item.id, kicker: item.type, text: `${item.title} · ${item.hash.slice(0, 18)}…` }))} />
+        <ListBlock title='Спорный контекст' empty='Нет активного спора по выбранной сделке.' rows={dispute ? [{ id: dispute.id, kicker: dispute.reason, text: `${dispute.status} · влияние ${compactRub(dispute.amountImpactRub)}` }] : []} />
+        <ListBlock title='Журнал действий' empty='Нет событий по выбранной сделке или спору.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${item.actionType} · ${item.entityId}` }))} />
+        <ListBlock title='Лента сделки' empty='Нет событий ленты по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
       </div>
     </section>
   );
@@ -109,51 +109,51 @@ function resolveMoneyHoldReason(deal: Deal, dispute: Dispute | undefined, eviden
   if (dispute && !['resolved', 'closed'].includes(dispute.status)) {
     return {
       title: 'Деньги удерживаются до решения спора',
-      detail: `Причина: ${dispute.reason}. Evidence count: ${evidenceCount}. Финальный выпуск запрещён до закрытия спора и проверки документов.`,
+      detail: `Причина: ${dispute.reason}. Количество доказательств: ${evidenceCount}. Финальная выплата запрещена до закрытия спора и проверки документов.`,
     };
   }
   if (deal.openDisputeId || deal.status === 'DISPUTE_OPEN') {
     return {
-      title: 'Есть спорный след, выпуск требует проверки',
-      detail: 'Сделка содержит dispute marker. Банк должен видеть основание удержания и связь с evidence pack.',
+      title: 'Есть спорный след, выплата требует проверки',
+      detail: 'Сделка содержит отметку о споре. Банк должен видеть основание удержания и связь с доказательным пакетом.',
     };
   }
   if (!deal.requiredDocumentsReady) {
     return {
-      title: 'Выпуск ограничен документной готовностью',
+      title: 'Выплата ограничена готовностью документов',
       detail: 'Даже без активного спора деньги не должны выпускаться без полного документного пакета.',
     };
   }
   return {
-    title: 'Спор не блокирует выпуск',
-    detail: 'Evidence pack остаётся в сделке как доказательный архив, но текущий dispute gate не удерживает деньги.',
+    title: 'Спор не блокирует выплату',
+    detail: 'Доказательный пакет остаётся в сделке как архив, но текущий спорный контур не удерживает деньги.',
   };
 }
 
 function resolveBankDecision(deal: Deal, dispute: Dispute | undefined, evidenceCount: number): { label: string; tone: 'default' | 'accent' | 'danger' } {
-  if (dispute && !['resolved', 'closed'].includes(dispute.status)) return { label: 'Hold', tone: 'danger' };
-  if (deal.status === 'DISPUTE_OPEN' || deal.openDisputeId) return { label: 'Review', tone: 'danger' };
-  if (!deal.requiredDocumentsReady || evidenceCount === 0) return { label: 'Review', tone: 'default' };
-  return { label: 'Can release', tone: 'accent' };
+  if (dispute && !['resolved', 'closed'].includes(dispute.status)) return { label: 'Удержание', tone: 'danger' };
+  if (deal.status === 'DISPUTE_OPEN' || deal.openDisputeId) return { label: 'Проверка', tone: 'danger' };
+  if (!deal.requiredDocumentsReady || evidenceCount === 0) return { label: 'Проверка', tone: 'default' };
+  return { label: 'Можно выпускать', tone: 'accent' };
 }
 
 function resolveDisputePackReadiness(deal: Deal, dispute: Dispute | undefined, evidenceCount: number, auditCount: number, timelineCount: number) {
   const checks = [
-    { label: 'Evidence attached', ok: evidenceCount > 0 },
-    { label: 'Dispute context', ok: Boolean(dispute) || Boolean(deal.openDisputeId) || deal.status === 'DISPUTE_OPEN' },
-    { label: 'Audit trail', ok: auditCount > 0 },
-    { label: 'Timeline linked', ok: timelineCount > 0 },
-    { label: 'Money decision explained', ok: true },
+    { label: 'Доказательства прикреплены', ok: evidenceCount > 0 },
+    { label: 'Контекст спора', ok: Boolean(dispute) || Boolean(deal.openDisputeId) || deal.status === 'DISPUTE_OPEN' },
+    { label: 'Журнал действий', ok: auditCount > 0 },
+    { label: 'Лента сделки связана', ok: timelineCount > 0 },
+    { label: 'Решение по деньгам объяснено', ok: true },
   ];
   const score = Math.round((checks.filter((check) => check.ok).length / checks.length) * 100);
   return {
     score,
     checks,
-    label: score >= 80 ? 'готов к sandbox-preview' : 'требует данных',
+    label: score >= 80 ? 'готов к тестовому просмотру' : 'требует данных',
     tone: score >= 80 ? 'accent' as const : 'default' as const,
     detail: score >= 80
-      ? 'Пакет можно показывать банку/арбитру как sandbox-preview: есть evidence, спорный контекст, audit/timeline и объяснение денежного решения.'
-      : 'Пакет нельзя подавать как полный: не хватает evidence, dispute context, audit или timeline связки.',
+      ? 'Пакет можно показывать банку и арбитру как тестовую сводку: есть доказательства, спорный контекст, журнал, лента и объяснение денежного решения.'
+      : 'Пакет нельзя подавать как полный: не хватает доказательств, спорного контекста, журнала или ленты сделки.',
   };
 }
 
