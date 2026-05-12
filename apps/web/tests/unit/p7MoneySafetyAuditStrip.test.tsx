@@ -8,7 +8,7 @@ describe('P7MoneySafetyAuditStrip', () => {
     render(<P7MoneySafetyAuditStrip />);
 
     expect(screen.getByTestId('money-safety-audit-strip')).toBeInTheDocument();
-    expect(screen.getByText('Money safety audit')).toBeInTheDocument();
+    expect(screen.getByText('Проверка условий выпуска денег')).toBeInTheDocument();
     expect(screen.getByTestId('money-safety-audit-row-safe')).toBeInTheDocument();
     expect(screen.getByTestId('money-safety-audit-row-blocked')).toBeInTheDocument();
     expect(screen.getByTestId('money-safety-audit-row-review')).toBeInTheDocument();

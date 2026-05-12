@@ -111,7 +111,7 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
     <section style={{ background: PLATFORM_V7_TOKENS.color.surface, border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 11, color: PLATFORM_V7_TOKENS.color.brand, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>E4 · Action feedback core</div>
+          <div style={{ fontSize: 11, color: PLATFORM_V7_TOKENS.color.brand, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Действия в пилотном контуре</div>
           <div style={{ marginTop: 5, fontSize: 20, fontWeight: 900, color: PLATFORM_V7_TOKENS.color.text }}>{title}</div>
           <div style={{ marginTop: 6, fontSize: 13, color: PLATFORM_V7_TOKENS.color.textMuted, lineHeight: 1.55, maxWidth: 920 }}>{subtitle}</div>
         </div>
@@ -121,7 +121,7 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
       </div>
 
       <div style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 12, padding: 12, color: PLATFORM_V7_TOKENS.color.text, fontSize: 12, lineHeight: 1.55 }}>
-        Все действия ниже — controlled-pilot/manual слой. Они фиксируют состояние, журнал, toast и rollback, но не заявляют live ФГИС, live банк, ЭДО, СберКорус или УКЭП.
+        Все действия ниже — пилотный контур. Они фиксируют состояние и журнал, но не запускают боевые интеграции: ФГИС, банк, ЭДО, СберКорус или УКЭП.
       </div>
 
       {toasts.length ? (

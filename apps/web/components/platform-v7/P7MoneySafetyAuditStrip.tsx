@@ -47,13 +47,13 @@ export function P7MoneySafetyAuditStrip() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Money safety audit</div>
+            <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Проверка условий выпуска денег</div>
             <div style={{ marginTop: 8, maxWidth: 820, fontSize: 13, lineHeight: 1.65, color: '#5B6576' }}>
-              E7 guard layer: выпуск денег решается через reserve, документы, bank callback, transport/FGIS gates, ledger и reconciliation. Источник строк — v7r money audit adapter.
+              Выпуск денег требует закрытия всех обязательных условий: резерв, документы, подтверждение банка, транспорт и ФГИС. Платформа фиксирует состояние — решение о выпуске принимает банк и оператор.
             </div>
           </div>
           <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 900 }}>
-            Data layer · no live money movement
+            Пилотный контур · движение денег не выполнялось
           </span>
         </div>
 
@@ -90,7 +90,7 @@ export function P7MoneySafetyAuditStrip() {
                 </div>
 
                 <div style={{ display: 'grid', gap: 4, paddingTop: 4 }}>
-                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, color: '#64748B' }}>Idempotency key</div>
+                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, color: '#64748B' }}>Код операции</div>
                   <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, lineHeight: 1.5, color: '#334155', wordBreak: 'break-all' }}>{row.idempotencyKey}</div>
                 </div>
               </article>
