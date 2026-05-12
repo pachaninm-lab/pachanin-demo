@@ -86,7 +86,7 @@ const releaseSummary = [
   { label: 'Где деньги', value: 'резерв ожидает банковского подтверждения · к передаче 0 ₽', note: 'Банк видит резерв, удержание и основание остановки, а не кнопку движения денег.' },
   { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Каждая причина остановки должна иметь источник, ответственного, статус и влияние на деньги.' },
   { label: 'Где груз', value: 'TRIP-SIM-001 · приёмка и качество в работе', note: 'Транспортный и приёмочный факты нужны как основание для банковской проверки.' },
-  { label: 'Решение банка', value: 'не передавать основание банку', note: 'В пилотном контуре нет заявления о live-выплате или боевом банковском событии.' },
+  { label: 'Решение банка', value: 'не передавать основание банку', note: 'В пилотном контуре нет заявления о боевой выплате или банковском событии.' },
   { label: 'Кто следующий', value: 'оператор + ответственный за документ', note: 'Следующее действие фиксируется в сделке и журнале.' },
 ] as const;
 
@@ -97,18 +97,18 @@ export default function PlatformV7BankPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={hero}>
         <div style={badge}>Кабинет банка</div>
-        <h1 style={h1}>Основание передаётся банку только после условий сделки</h1>
+        <h1 style={h1}>Основание передаётся банку только после закрытия условий</h1>
         <p style={lead}>Банк видит резерв, удержание, документы, приёмку, качество и причину остановки. Здесь нет кнопки прямой выплаты: сначала проверка условий, потом банковская проверка или ручная сверка.</p>
         <div style={actions}>
           <Link href='/platform-v7/bank/release-safety' style={primaryBtn}>Проверка выплаты</Link>
-          <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Deal 360</Link>
+          <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Карточка сделки</Link>
         </div>
       </section>
 
       <section style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ ...micro, color: '#CBD5E1' }}>проверка выплаты</div>
-          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что банк должен понять за 5 секунд</h2>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(23px,5.5vw,34px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что банк должен понять за 5 секунд</h2>
           <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Передача основания банку не является ручной кнопкой платформы. Это результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
@@ -258,7 +258,7 @@ const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F
 const darkCard = { background: 'linear-gradient(135deg,#0F172A 0%,#111827 58%,#0B1220 100%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 14, boxShadow: '0 20px 50px rgba(15,23,42,0.22)' } as const;
 const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(15,23,42,0.08)', border: '1px solid rgba(15,23,42,0.18)', color: '#0F172A', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(28px,7vw,46px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 } as const;
 const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 } as const;
 const muted = { margin: '6px 0 0', color: '#64748B', fontSize: 13 } as const;
