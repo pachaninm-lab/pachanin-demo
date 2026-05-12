@@ -33,7 +33,7 @@ const initialRows: EscrowRow[] = [
     deal: 'DL-9108',
     amount: 12.8,
     released: 0,
-    trigger: 'Приёмка + bank callback',
+    trigger: 'Приёмка + подтверждение банка',
     state: 'Готово к раскрытию',
     owner: 'Банк',
     note: 'Все обязательные события подтверждены в controlled-pilot логике; можно имитировать движение денег без live-платежа.'
@@ -84,7 +84,7 @@ export default function BankEscrowPage() {
     return [
       { title: 'Sandbox escrow', value: String(rows.length), note: 'Денежные кейсы по сделкам в controlled-pilot контуре' },
       { title: 'На удержании', value: formatMillions(held || 0), note: 'Сумма, которая ещё не может быть раскрыта в симуляции' },
-      { title: 'Условия раскрытия', value: String(triggers), note: 'Приёмка, качество, документы, callback и спорный режим' },
+      { title: 'Условия раскрытия', value: String(triggers), note: 'Приёмка, качество, документы, подтверждение банка и спорный режим' },
       { title: 'Sandbox release', value: formatMillions(released || 0), note: 'Имитация выпущенных средств; боевой платёж не выполнялся' }
     ];
   }, [rows]);
@@ -127,7 +127,7 @@ export default function BankEscrowPage() {
           ...row,
           state: 'Готово к раскрытию',
           owner: 'Банк',
-          trigger: 'Финальная сверка + callback банка',
+          trigger: 'Финальная сверка + подтверждение банка',
           note: 'Критический блокер снят, можно переходить к имитации денежного выпуска.'
         };
       }
@@ -160,7 +160,7 @@ export default function BankEscrowPage() {
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419' }}>Эскроу</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-              Sandbox-контур удержания и раскрытия денег по подтверждённым событиям: приёмка, лаборатория, документы, спор и callback банка. Это не live escrow и не боевое банковское списание.
+              Sandbox-контур удержания и раскрытия денег по подтверждённым событиям: приёмка, лаборатория, документы, спор и подтверждение банка. Это не live escrow и не боевое банковское списание.
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 800 }}>
