@@ -89,6 +89,12 @@ function RoleScopedShellPolicy() {
         .pc-v4-main {
           padding-top: calc(var(--pc-header-offset) + 10px) !important;
         }
+
+        .pc-v4-main h1 {
+          font-size: clamp(27px, 7vw, 42px) !important;
+          line-height: 1.08 !important;
+          letter-spacing: -0.035em !important;
+        }
       }
     `}</style>
   );
