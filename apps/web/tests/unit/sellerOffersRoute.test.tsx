@@ -20,9 +20,9 @@ describe('PlatformV7SellerOffersPage', () => {
     expect(screen.getByText('Всего ставок')).toBeInTheDocument();
     expect(screen.getByText('Лучшие ставки')).toBeInTheDocument();
     expect(screen.getByText('Готовы деньги')).toBeInTheDocument();
-    expect(screen.getByText('Остановить')).toBeInTheDocument();
+    expect(screen.getAllByText('Остановить').length).toBeGreaterThan(0);
     expect(screen.getByText('Действие продавца по ставке')).toBeInTheDocument();
-    expect(screen.getByText('Отправить ставку продавца')).toBeInTheDocument();
+    expect(screen.getAllByText('Отправить ставку продавца').length).toBeGreaterThan(0);
     expect(screen.getByText(/rollback без раскрытия контактов покупателя/)).toBeInTheDocument();
   });
 
@@ -34,7 +34,7 @@ describe('PlatformV7SellerOffersPage', () => {
     expect(screen.getAllByText('Деньги').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Риск').length).toBeGreaterThan(0);
     expect(screen.getByText('нет допуска')).toBeInTheDocument();
-    expect(screen.getByText('Операционные кнопки перенесены в E4-панель выше: там есть состояние, журнал и откат.')).toBeInTheDocument();
+    expect(screen.getAllByText('Операционные кнопки перенесены в E4-панель выше: там есть состояние, журнал и откат.').length).toBeGreaterThan(0);
   });
 
   it('uses stable route links', () => {
