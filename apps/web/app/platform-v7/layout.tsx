@@ -5,8 +5,8 @@ import { AppShellV4 } from '@/components/v7r/AppShellV4';
 import { ToastProvider } from '@/components/v7r/Toast';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
 import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSummaryGate';
-import { DriverFieldShellGuard } from '@/components/platform-v7/DriverFieldShellGuard';
 import { RoleExecutionSummaryGate } from '@/components/platform-v7/RoleExecutionSummaryGate';
+import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { SystemRouteSummaryGate } from '@/components/platform-v7/SystemRouteSummaryGate';
 import { WorkRouteNav } from '@/components/platform-v7/WorkRouteNav';
@@ -53,7 +53,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
       <PlatformThemeSync />
       <AppShellV4 initialRole={initialRole}>
         <>
-          <DriverFieldShellGuard />
+          <ScopedShellGuard />
           <SupportHeaderIcon />
           <RoleExecutionSummaryGate />
           <AuditSurfaceSummaryGate />
