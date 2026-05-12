@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { SupportNewCaseClient } from '@/components/platform-v7/SupportNewCaseClient';
+import { SupportNewCaseScopedClient } from '@/components/platform-v7/SupportNewCaseScopedClient';
 import type { SupportCase, SupportRelatedEntityType } from '@/lib/platform-v7/support-types';
 
 export const metadata: Metadata = {
@@ -34,5 +34,5 @@ export default async function SupportNewPage({ searchParams }: { searchParams?: 
     moneyAtRiskRub: money ? Number(money) : 0,
   };
 
-  return <SupportNewCaseClient defaults={defaults} />;
+  return <SupportNewCaseScopedClient defaults={defaults} />;
 }
