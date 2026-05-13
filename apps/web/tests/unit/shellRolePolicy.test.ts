@@ -137,10 +137,26 @@ describe('shell role policy', () => {
     expect(getHeaderSelectableRoles('logistics', '/platform-v7/logistics')).toEqual(['seller', 'buyer', 'logistics']);
   });
 
+  it('keeps commercial compact header selector free of control and field roles', () => {
+    const forbiddenRoles: PlatformRole[] = ['bank', 'arbitrator', 'compliance', 'driver', 'surveyor', 'elevator', 'lab', 'operator', 'executive'];
+    for (const path of ['/platform-v7/seller', '/platform-v7/buyer', '/platform-v7/logistics']) {
+      const roles = getHeaderSelectableRoles('seller', path);
+      for (const forbiddenRole of forbiddenRoles) expect(roles).not.toContain(forbiddenRole);
+    }
+  });
+
   it('limits control compact header switcher to bank, arbitrator and compliance', () => {
     expect(getHeaderSelectableRoles('bank', '/platform-v7/bank')).toEqual(['bank', 'arbitrator', 'compliance']);
     expect(getHeaderSelectableRoles('arbitrator', '/platform-v7/arbitrator')).toEqual(['bank', 'arbitrator', 'compliance']);
     expect(getHeaderSelectableRoles('compliance', '/platform-v7/compliance')).toEqual(['bank', 'arbitrator', 'compliance']);
+  });
+
+  it('keeps control compact header selector free of commercial and field roles', () => {
+    const forbiddenRoles: PlatformRole[] = ['seller', 'buyer', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'operator', 'executive'];
+    for (const path of ['/platform-v7/bank', '/platform-v7/arbitrator', '/platform-v7/compliance']) {
+      const roles = getHeaderSelectableRoles('bank', path);
+      for (const forbiddenRole of forbiddenRoles) expect(roles).not.toContain(forbiddenRole);
+    }
   });
 
   it.each([
