@@ -97,13 +97,13 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
       scope: 'dispute',
       status: 'success',
       objectId: dispute.id,
-      action: 'скачан-пакет-доказательств',
+      action: 'экспорт-пакета-доказательств',
       actor: 'оператор',
-      message: `Пакет доказательств скачан: ${evidenceUi.scoreLabel}, ${evidenceUi.totalLabel}.`,
+      message: `Пакет доказательств экспортирован: ${evidenceUi.scoreLabel}, ${evidenceUi.totalLabel}.`,
     });
     setSnapshotLog((current) => [logEntry, ...current].slice(0, 4));
     trackEvent('dispute_package_downloaded', { disputeId, evidenceObjects: evidenceUi.items.length, readiness: evidenceUi.scoreLabel });
-    toast(`Пакет доказательств ${evidenceUi.scoreLabel} скачан`, 'success');
+    toast(`Пакет доказательств ${evidenceUi.scoreLabel} экспортирован`, 'success');
   }
 
   if (!dispute) {
@@ -158,7 +158,7 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Пакет доказательств</div>
-            <div style={{ marginTop: 5, fontSize: 12, color: 'var(--pc-text-muted)', lineHeight: 1.5 }}>Объектный пакет для пилотного контура. Живая загрузка файлов, КЭП и боевой архив требуют внешних подключений.</div>
+            <div style={{ marginTop: 5, fontSize: 12, color: 'var(--pc-text-muted)', lineHeight: 1.5 }}>Объектный пакет для пилотного контрура. Живая загрузка файлов, КЭП и боевой архив требуют внешних подключений.</div>
           </div>
           <Badge tone={evidenceUi.statusTone}>{evidenceUi.statusLabel}</Badge>
         </div>
@@ -201,16 +201,16 @@ export function DisputeDetailRuntime({ disputeId }: { disputeId: string }) {
           ))}
         </div>
 
-        <button onClick={handlePackageDownload} style={{ justifySelf: 'start', padding: '10px 16px', borderRadius: 12, border: 'none', background: 'var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Скачать пакет доказательств</button>
-        <P7ActionLog title='Журнал скачивания доказательств' entries={snapshotLog} emptyLabel='Пакет ещё не скачивали.' maxEntries={4} />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button onClick={handlePackageDownload} style={{ padding: '9px 13px', borderRadius: 12, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-card)', color: 'var(--pc-text-muted)', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Экспорт пакета</button>
+          <button onClick={handleReminder} disabled={reminderSent} style={{ padding: '9px 13px', borderRadius: 12, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-card)', color: reminderSent ? '#9CA3AF' : 'var(--pc-text-muted)', fontSize: 12, fontWeight: 800, cursor: reminderSent ? 'default' : 'pointer' }}>
+            {reminderSent ? 'Напоминание отправлено' : 'Напомнить участнику'}
+          </button>
+        </div>
+        <P7ActionLog title='Журнал экспорта доказательств' entries={snapshotLog} emptyLabel='Пакет ещё не экспортировали.' maxEntries={4} />
       </section>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button onClick={handleReminder} disabled={reminderSent} style={{ padding: '10px 16px', borderRadius: 12, border: '1px solid rgba(37,99,235,0.2)', background: 'rgba(37,99,235,0.08)', color: reminderSent ? '#9CA3AF' : '#2563EB', fontSize: 13, fontWeight: 800, cursor: reminderSent ? 'default' : 'pointer' }}>
-          {reminderSent ? 'Напоминание отправлено ✓' : 'Отправить напоминание'}
-        </button>
-        <Link href={PLATFORM_V7_DISPUTES_ROUTE} style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-card)', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 700 }}>← Все споры</Link>
-      </div>
+      <Link href={PLATFORM_V7_DISPUTES_ROUTE} style={{ width: 'fit-content', textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-card)', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 700 }}>← Все споры</Link>
     </div>
   );
 }
