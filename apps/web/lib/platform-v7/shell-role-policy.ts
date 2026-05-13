@@ -38,10 +38,7 @@ export function getHeaderSelectableRoles(role: PlatformRole, pathname: string): 
   const pathRole = inferPlatformRoleFromPath(pathname, role);
   const pathPolicy = getShellPolicy(pathRole, pathname);
   if (pathPolicy === 'field') return [];
-  if (pathPolicy === 'operator') return OPERATOR_HEADER_ROLES;
-  if (COMMERCIAL_HEADER_ROLES.includes(pathRole as never)) return COMMERCIAL_HEADER_ROLES;
-  if (CONTROL_HEADER_ROLES.includes(pathRole as never)) return CONTROL_HEADER_ROLES;
-  return [pathRole];
+  return OPERATOR_HEADER_ROLES;
 }
 
 export function canShowRoleSwitcher(role: PlatformRole, pathname: string): boolean {
@@ -63,5 +60,5 @@ export function canShowDrawer(role: PlatformRole, pathname: string): boolean {
 export function canShowPortalRoleSwitcher(role: PlatformRole, pathname: string): boolean {
   const selectableRoles = getHeaderSelectableRoles(role, pathname);
   const pathPolicy = getShellPolicy(inferPlatformRoleFromPath(pathname, role), pathname);
-  return pathPolicy === 'role-scoped' && selectableRoles.length > 1;
+  return pathPolicy !== 'field' && selectableRoles.length > 1;
 }
