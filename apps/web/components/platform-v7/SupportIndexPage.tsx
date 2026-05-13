@@ -41,7 +41,7 @@ function supportIntro(role: PlatformRole) {
 
   return {
     title: 'Центр поддержки исполнения сделки',
-    text: 'Каждое обращение привязано к сделке, документу, рейсу, деньгам, спору или блокеру. Пользователь видит статус и следующий шаг. Оператор видит очередь, сумму риска и журнал действий.',
+    text: 'Каждое обращение привязано к сделке, документу, рейсу, деньгам, спору или причине остановки. Пользователь видит статус и следующий шаг. Оператор видит очередь, сумму риска и журнал действий.',
     listTitle: 'Мои обращения',
     showOperatorMetrics: OPERATOR_SUPPORT_ROLES.has(role),
     showMoney: true,
@@ -84,7 +84,7 @@ export function SupportIndexPage() {
             <Link key={item.id} href={`/platform-v7/support/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, background: 'var(--pc-bg-elevated, rgba(15,20,25,0.02))' }}>
               <div style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><span style={pill}>{item.id}</span><span style={pill}>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span style={pill}>{SUPPORT_CATEGORY_LABELS[item.category]}</span></div><div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div><div style={muted}>{supportLastMessage(item.id, messages)}</div></div>
               <div style={{ display: 'grid', gap: 6 }}><div style={muted}>Статус</div><b>{SUPPORT_STATUS_LABELS[item.status]}</b><div style={muted}>Следующий шаг: {item.nextAction}</div></div>
-              <div style={{ display: 'grid', gap: 6 }}><div style={muted}>{supportObjectLabel(item)}</div><b>SLA: {dt(item.slaDueAt)}</b>{intro.showMoney ? <b>{supportFormatRub(item.moneyAtRiskRub)}</b> : null}</div>
+              <div style={{ display: 'grid', gap: 6 }}><div style={muted}>{supportObjectLabel(item)}</div><b>Срок реакции: {dt(item.slaDueAt)}</b>{intro.showMoney ? <b>{supportFormatRub(item.moneyAtRiskRub)}</b> : null}</div>
             </Link>
           ))}
         </div>
