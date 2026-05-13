@@ -27,7 +27,7 @@ const initialApplications: FactoringApplication[] = [
     deal: 'DL-9108',
     amount: 8.6,
     status: 'Одобрено',
-    next: 'Передать основание банку для проверки аванса',
+    next: 'Подготовить основание для банковской проверки аванса',
     note: 'Предварительный лимит отмечен в тестовом контуре. В боевом контуре нужна банковская проверка, договор и подтверждённая уступка.',
   },
   {
@@ -46,7 +46,7 @@ const initialApplications: FactoringApplication[] = [
     amount: 5.4,
     status: 'Документы',
     next: 'Собрать пакет уступки требований',
-    note: 'Не хватает уступки, акта сверки и финального реестра поставки. Без этого основание не передаётся на банковскую проверку.',
+    note: 'Не хватает уступки, акта сверки и финального реестра поставки. Без этого основание не готово к банковской проверке.',
   },
 ];
 
@@ -70,7 +70,7 @@ function getNextApplication(item: FactoringApplication): FactoringApplication {
     return { ...item, status: 'Документы', next: 'Собрать уступку и акт сверки', note: 'Скоринг пройден в тестовом контуре, остался документный пакет для уступки.' };
   }
   if (item.status === 'Документы') {
-    return { ...item, status: 'Одобрено', next: 'Передать основание банку для проверки аванса', note: 'Документы закрыты в тестовом контуре, заявка готова к банковской проверке.' };
+    return { ...item, status: 'Одобрено', next: 'Подготовить основание для банковской проверки аванса', note: 'Документы закрыты в тестовом контуре, заявка готова к банковской проверке.' };
   }
   if (item.status === 'Одобрено') {
     return { ...item, status: 'Аванс отмечен', next: 'Контролировать возврат через закрытие поставки', note: 'Аванс отмечен в тестовом контуре и привязан к сделке. Боевой платёж не выполнялся.' };
@@ -81,7 +81,7 @@ function getNextApplication(item: FactoringApplication): FactoringApplication {
 function getActionLabel(status: FactoringStatus): string {
   if (status === 'Проверка') return 'Завершить скоринг';
   if (status === 'Документы') return 'Принять пакет';
-  if (status === 'Одобрено') return 'Передать на проверку аванса';
+  if (status === 'Одобрено') return 'Подготовить к проверке аванса';
   return 'Проверить историю';
 }
 
@@ -107,15 +107,15 @@ export default function BankFactoringPage() {
     const total = applications.length;
     const approved = applications.filter((item) => item.status === 'Одобрено').length;
     const pending = applications.filter((item) => item.status === 'Проверка' || item.status === 'Документы').length;
-    const paidAdvance = applications
+    const markedAdvance = applications
       .filter((item) => item.status === 'Аванс отмечен')
       .reduce((sum, item) => sum + item.amount, 0);
 
     return [
       { title: 'Тестовый лимит', value: '48 млн ₽', note: 'Расчётный лимит для демонстрации; не кредитное решение банка' },
-      { title: 'Ставка', value: 'КС + 4.2%', note: 'Допущение пилотного контура, не публичная оферта' },
+      { title: 'Условие финансирования', value: 'КС + 4,2%', note: 'Допущение пилотного контура, не публичная оферта' },
       { title: 'Активные заявки', value: String(total), note: `${pending} требуют движения, ${approved} готовы к проверке аванса` },
-      { title: 'Отмеченные авансы', value: formatMillions(paidAdvance || 0), note: 'Имитация профинансированных сделок по текущей выборке' },
+      { title: 'Авансы отмечены', value: formatMillions(markedAdvance || 0), note: 'Тестовая отметка по текущей выборке; боевой платёж не выполнялся' },
     ];
   }, [applications]);
 
@@ -165,7 +165,7 @@ export default function BankFactoringPage() {
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#2563EB', fontSize: 12, fontWeight: 800 }}>
-            Пилотный банковый модуль · тестовый контур
+            Пилотный банковский модуль · тестовый контур
           </div>
         </div>
       </section>
