@@ -10,7 +10,7 @@ import { SUPPORT_CATEGORY_LABELS, SUPPORT_PRIORITY_LABELS, supportCategoryByText
 const roles: PlatformRole[] = ['operator', 'buyer', 'seller', 'logistics', 'driver', 'elevator', 'lab', 'bank'];
 const roleLabels: Record<string, string> = { operator: 'Оператор', buyer: 'Покупатель', seller: 'Продавец', logistics: 'Логистика', driver: 'Водитель', elevator: 'Элеватор', lab: 'Лаборатория', bank: 'Банк' };
 const entityTypes: SupportRelatedEntityType[] = ['deal', 'lot', 'trip', 'document', 'blocker', 'dispute', 'money', 'integration', 'other'];
-const entityLabels: Record<SupportRelatedEntityType, string> = { deal: 'Сделка', lot: 'Лот', trip: 'Рейс', document: 'Документ', blocker: 'Блокер', dispute: 'Спор', money: 'Деньги', integration: 'Интеграция', other: 'Объект' };
+const entityLabels: Record<SupportRelatedEntityType, string> = { deal: 'Сделка', lot: 'Лот', trip: 'Рейс', document: 'Документ', blocker: 'Причина остановки', dispute: 'Спор', money: 'Деньги', integration: 'Интеграция', other: 'Объект' };
 const inputStyle: React.CSSProperties = { width: '100%', minHeight: 44, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: '10px 12px', background: 'var(--pc-bg-card, #fff)', color: 'var(--pc-text-primary, #0F1419)' };
 const card: React.CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 };
 
@@ -39,13 +39,13 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
   function submitCase() {
     const safeEntityId = relatedEntityId || dealId || tripId || lotId;
     if (!safeEntityId) {
-      setError('Нужно указать объект: сделку, лот, рейс, документ, блокер или спор. Обращение без объекта не создаётся.');
+      setError('Нужно указать объект: сделку, лот, рейс, документ, причину остановки или спор. Обращение без объекта не создаётся.');
       return;
     }
     const supportCase: SupportCase = {
       id: `SC-${Date.now().toString().slice(-6)}`,
       title: title || `${SUPPORT_CATEGORY_LABELS[category]}: обращение по объекту ${safeEntityId}`,
-      description: description || 'Нужно проверить блокер и определить следующий шаг.',
+      description: description || 'Нужно проверить причину остановки и определить следующий шаг.',
       status: supportStatusByOwner(owner),
       priority,
       category,
@@ -56,9 +56,9 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
       lotId: lotId || undefined,
       tripId: tripId || undefined,
       moneyAtRiskRub: money,
-      blocker: blocker || 'Блокер требует уточнения',
+      blocker: blocker || 'Причина остановки требует уточнения',
       owner,
-      nextAction: owner === 'Логистика' ? 'Проверить рейс, маршрут и подтверждения.' : owner === 'Банковый контур' ? 'Проверить деньги, основание удержания и доказательства.' : 'Проверить объект, блокер и ответственного.',
+      nextAction: owner === 'Логистика' ? 'Проверить рейс, маршрут и подтверждения.' : owner === 'Банковый контур' ? 'Проверить деньги, основание удержания и доказательства.' : 'Проверить объект, причину остановки и ответственного.',
       slaDueAt: supportSlaDueAt(priority, now),
       createdAt: now,
       updatedAt: now,
@@ -90,7 +90,7 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
             <label>ID рейса<input value={tripId} onChange={(e) => setTripId(e.target.value)} style={inputStyle} /></label>
           </div>
           <label>Деньги под риском<input value={moneyAtRiskRub} onChange={(e) => setMoneyAtRiskRub(e.target.value)} style={inputStyle} /></label>
-          <label>Блокер<textarea value={blocker} onChange={(e) => setBlocker(e.target.value)} style={{ ...inputStyle, minHeight: 90 }} /></label>
+          <label>Причина остановки<textarea value={blocker} onChange={(e) => setBlocker(e.target.value)} style={{ ...inputStyle, minHeight: 90 }} /></label>
           {error ? <div style={{ color: 'var(--pc-danger, #B42318)', fontSize: 13, fontWeight: 800 }}>{error}</div> : null}
           <button onClick={submitCase} disabled={!objectReady} style={{ minHeight: 46, borderRadius: 14, border: 0, background: objectReady ? 'var(--pc-accent, #0A7A5F)' : 'var(--pc-bg-muted, #E4E6EA)', color: objectReady ? '#fff' : 'var(--pc-text-muted, #64748b)', fontWeight: 900, cursor: objectReady ? 'pointer' : 'not-allowed' }}>Создать обращение</button>
         </div>
@@ -99,9 +99,9 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
           <div>Категория: <b>{SUPPORT_CATEGORY_LABELS[category]}</b></div>
           <div>Приоритет: <b>{SUPPORT_PRIORITY_LABELS[priority]}</b></div>
           <div>Ответственный: <b>{owner}</b></div>
-          <div>SLA: <b>{supportSlaHours(priority)} ч.</b></div>
+          <div>Срок реакции: <b>{supportSlaHours(priority)} ч.</b></div>
           <div>Деньги под риском: <b>{supportFormatRub(money)}</b></div>
-          <div style={{ color: objectReady ? 'var(--pc-text-muted, #64748b)' : 'var(--pc-danger, #B42318)', fontSize: 13, lineHeight: 1.5 }}>{objectReady ? 'Объект указан. Обращение можно создать.' : 'Нужен объект платформы: сделка, лот, рейс, документ, блокер или спор.'}</div>
+          <div style={{ color: objectReady ? 'var(--pc-text-muted, #64748b)' : 'var(--pc-danger, #B42318)', fontSize: 13, lineHeight: 1.5 }}>{objectReady ? 'Объект указан. Обращение можно создать.' : 'Нужен объект платформы: сделка, лот, рейс, документ, причина остановки или спор.'}</div>
         </aside>
       </section>
     </div>
