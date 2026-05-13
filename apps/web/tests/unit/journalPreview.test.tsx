@@ -129,6 +129,16 @@ describe('JournalPreview component', () => {
     }
   });
 
+  it('does not expose stale release or bid wording', () => {
+    for (const role of ['seller', 'buyer', 'bank'] as const) {
+      const entries = getJournalPreviewEntries(role, 10);
+      const text = entries.map((entry) => `${entry.id}\n${entry.action}\n${entry.message}\n${entry.error ?? ''}`).join('\n').toLowerCase();
+      expect(text).not.toContain('ставка');
+      expect(text).not.toContain('release');
+      expect(text).not.toContain('выплата остановлена');
+    }
+  });
+
   it('does not link to /platform-v7/demo/', () => {
     for (const role of ['seller', 'buyer', 'bank'] as const) {
       const { container } = render(<JournalPreview role={role} />);
