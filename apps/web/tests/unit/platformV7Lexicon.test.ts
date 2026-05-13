@@ -21,8 +21,8 @@ describe('platform-v7 lexicon', () => {
   it('keeps environment labels centralized and user-facing', () => {
     expect(PLATFORM_V7_LEXICON.env.pilot).toBe('Пилотный режим');
     expect(PLATFORM_V7_LEXICON.env.pilotContour).toBe('Пилотный контур');
-    expect(PLATFORM_V7_LEXICON.env.sandbox).toBe('Тестовый режим');
-    expect(platformV7EnvLabel('demo')).toBe('Данные тестового сценария');
+    expect(PLATFORM_V7_LEXICON.env.sandbox).toBe('Тестовый контур');
+    expect(platformV7EnvLabel('demo')).toBe('Данные проверочного сценария');
     expect(platformV7EnvLabel('callbacks')).toBe('Ответы банка');
     expect(platformV7EnvLabel('evidence')).toBe('Доказательный контур');
     expect(platformV7EnvLabel('rules')).toBe('Правила сделки');
@@ -33,8 +33,8 @@ describe('platform-v7 lexicon', () => {
     expect(platformV7ActionLabel('openBank')).toBe('Открыть банковскую проверку');
     expect(platformV7ActionLabel('openCommandPalette')).toBe('Открыть поиск и команды');
     expect(platformV7ActionLabel('requestReserve')).toBe('Запросить резерв');
-    expect(platformV7ActionLabel('releaseFunds')).toBe('Подтвердить выпуск денег');
-    expect(platformV7ActionLabel('requestRelease')).toBe('Запросить проверку выпуска');
+    expect(platformV7ActionLabel('releaseFunds')).toBe('Подтвердить банковское решение');
+    expect(platformV7ActionLabel('requestRelease')).toBe('Передать основание в банк');
   });
 
   it('keeps breadcrumb labels centralized', () => {
@@ -47,5 +47,12 @@ describe('platform-v7 lexicon', () => {
     const labels = collectLabelValues(PLATFORM_V7_LEXICON);
     expect(labels.length).toBeGreaterThan(20);
     expect(labels.every((label) => !/[A-Za-z]{3,}/.test(label))).toBe(true);
+  });
+
+  it('does not promise that the platform itself releases money', () => {
+    const labels = collectLabelValues(PLATFORM_V7_LEXICON).join('\n').toLowerCase();
+    expect(labels).not.toContain('подтвердить выпуск денег');
+    expect(labels).not.toContain('запросить проверку выпуска');
+    expect(labels).not.toContain('платформа сама выпускает деньги');
   });
 });
