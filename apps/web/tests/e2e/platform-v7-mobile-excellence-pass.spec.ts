@@ -29,6 +29,29 @@ const EXECUTION_MOBILE_ROUTES = [
   '/platform-v7/deals/grain-release',
 ] as const;
 
+const HEADER_ROLE_BOUNDARY_ROUTES = [
+  {
+    route: '/platform-v7/seller',
+    expectedLabels: ['Продавец', 'Покупатель', 'Логистика'],
+    forbiddenLabels: ['Банк', 'Арбитр', 'Комплаенс', 'Водитель', 'Сюрвейер', 'Элеватор', 'Лаборатория', 'Оператор', 'Руководитель'],
+  },
+  {
+    route: '/platform-v7/buyer',
+    expectedLabels: ['Продавец', 'Покупатель', 'Логистика'],
+    forbiddenLabels: ['Банк', 'Арбитр', 'Комплаенс', 'Водитель', 'Сюрвейер', 'Элеватор', 'Лаборатория', 'Оператор', 'Руководитель'],
+  },
+  {
+    route: '/platform-v7/logistics',
+    expectedLabels: ['Продавец', 'Покупатель', 'Логистика'],
+    forbiddenLabels: ['Банк', 'Арбитр', 'Комплаенс', 'Водитель', 'Сюрвейер', 'Элеватор', 'Лаборатория', 'Оператор', 'Руководитель'],
+  },
+  {
+    route: '/platform-v7/bank',
+    expectedLabels: ['Банк', 'Арбитр', 'Комплаенс'],
+    forbiddenLabels: ['Продавец', 'Покупатель', 'Логистика', 'Водитель', 'Сюрвейер', 'Элеватор', 'Лаборатория', 'Оператор', 'Руководитель'],
+  },
+] as const;
+
 const WORK_SURFACE_FORBIDDEN_COPY = [
   'оффер',
   'Оффер',
@@ -168,6 +191,30 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
     await assertNoHorizontalOverflow(page, '/platform-v7/seller');
     await assertGlobalForbiddenClaims(page, '/platform-v7/seller');
   });
+
+  for (const config of HEADER_ROLE_BOUNDARY_ROUTES) {
+    test(`${config.route} keeps mobile portal role selector scoped`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      const response = await page.goto(config.route, { waitUntil: 'networkidle' });
+      expect(response?.ok(), `${config.route} should return 2xx`).toBeTruthy();
+
+      const switcher = page.locator('[data-role-header-switcher="true"]');
+      await expect(switcher, `${config.route} should expose exactly one portal role selector`).toHaveCount(1);
+      await expect(switcher).toBeVisible();
+      await expect(page.locator('[data-role-header-label="true"]')).toHaveCount(0);
+      await expect(page.locator('.pc-v4-drawer')).toBeHidden();
+      await expect(page.locator('.pc-v4-top > button.pc-v4-iconbtn').first()).toBeHidden();
+
+      const labels = (await switcher.locator('option').allTextContents()).map((item) => item.trim());
+      expect(labels).toEqual(config.expectedLabels);
+      for (const forbiddenLabel of config.forbiddenLabels) {
+        expect(labels, `${config.route} should not expose ${forbiddenLabel} in role selector`).not.toContain(forbiddenLabel);
+      }
+
+      await assertNoHorizontalOverflow(page, config.route);
+      await assertGlobalForbiddenClaims(page, config.route);
+    });
+  }
 
   for (const route of CORE_ROUTES) {
     test(`${route} has clean work-surface copy and no mobile overflow`, async ({ page }) => {
