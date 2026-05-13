@@ -10,7 +10,7 @@ import { SUPPORT_CATEGORY_LABELS, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_LABELS
 const card: CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 };
 const muted: CSSProperties = { color: 'var(--pc-text-muted, #64748b)', fontSize: 13, lineHeight: 1.6 };
 const pill: CSSProperties = { display: 'inline-flex', padding: '6px 10px', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 12, fontWeight: 800, textDecoration: 'none', color: 'inherit' };
-const entityLabels: Record<SupportRelatedEntityType, string> = { deal: 'Сделка', lot: 'Лот', trip: 'Рейс', document: 'Документ', blocker: 'Блокер', dispute: 'Спор', money: 'Деньги', integration: 'Интеграция', other: 'Объект' };
+const entityLabels: Record<SupportRelatedEntityType, string> = { deal: 'Сделка', lot: 'Лот', trip: 'Рейс', document: 'Документ', blocker: 'Причина остановки', dispute: 'Спор', money: 'Деньги', integration: 'Интеграция', other: 'Объект' };
 
 function dt(value: string) { return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value)); }
 function q(key: string, value: string) { return `/platform-v7/support/operator?${key}=${value}`; }
@@ -41,7 +41,7 @@ export function SupportOperatorQueueClient() {
       <section style={{ ...card, display: 'grid', gap: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--pc-accent, #0A7A5F)' }}>Операторская очередь поддержки исполнения</div>
         <h1 style={{ margin: 0, fontSize: 28 }}>Очередь обращений</h1>
-        <p style={muted}>Оператор видит SLA, приоритет, категорию, роль, объект, сумму риска, блокер и следующий шаг. Действия оператора меняют состояние обращения и оставляют запись в журнале.</p>
+        <p style={muted}>Оператор видит срок реакции, приоритет, категорию, роль, объект, сумму риска, причину остановки и следующий шаг. Действия оператора меняют состояние обращения и оставляют запись в журнале.</p>
       </section>
 
       <section style={{ ...card, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -50,7 +50,7 @@ export function SupportOperatorQueueClient() {
         {(['money', 'documents', 'logistics', 'acceptance', 'quality', 'dispute', 'access', 'integration'] as SupportCategory[]).map((item) => <Link key={item} href={q('category', item)} style={pill}>{SUPPORT_CATEGORY_LABELS[item]}</Link>)}
         {(['deal', 'trip', 'document', 'blocker'] as SupportRelatedEntityType[]).map((item) => <Link key={item} href={q('entity', item)} style={pill}>{entityLabels[item]}</Link>)}
         <Link href={q('money', 'risk')} style={pill}>С деньгами под риском</Link>
-        <Link href={q('sla', 'today')} style={pill}>SLA сегодня</Link>
+        <Link href={q('sla', 'today')} style={pill}>Срок реакции сегодня</Link>
       </section>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>
@@ -64,10 +64,10 @@ export function SupportOperatorQueueClient() {
         <div style={{ ...card, display: 'grid', gap: 10 }}>
           {rows.map((item) => (
             <Link key={item.id} href={`/platform-v7/support/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 7, background: item.id === selected?.id ? 'var(--pc-accent-bg, rgba(10,122,95,0.08))' : 'var(--pc-bg-elevated, rgba(15,20,25,0.02))' }}>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><b>{item.id}</b><span>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span>{SUPPORT_CATEGORY_LABELS[item.category]}</span><span>{supportSlaLabel(item)}</span><span>SLA {dt(item.slaDueAt)}</span></div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><b>{item.id}</b><span>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span>{SUPPORT_CATEGORY_LABELS[item.category]}</span><span>{supportSlaLabel(item)}</span><span>Срок {dt(item.slaDueAt)}</span></div>
               <div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div>
               <div style={muted}>{supportObjectLabel(item)} · {supportFormatRub(item.moneyAtRiskRub)}</div>
-              <div style={muted}>Блокер: {item.blocker}</div>
+              <div style={muted}>Причина остановки: {item.blocker}</div>
             </Link>
           ))}
           {rows.length === 0 ? <div style={muted}>По выбранным фильтрам обращений нет.</div> : null}
@@ -80,7 +80,7 @@ export function SupportOperatorQueueClient() {
             <div><b>Связанный объект:</b> {supportObjectLabel(selected)}</div>
             {selectedExecutionHref ? <Link href={selectedExecutionHref} style={{ color: 'var(--pc-accent, #0A7A5F)', fontWeight: 900, textDecoration: 'none' }}>Открыть связанный контур исполнения</Link> : null}
             <div><b>Деньги под риском:</b> {supportFormatRub(selected.moneyAtRiskRub)}</div>
-            <div><b>Блокер:</b> {selected.blocker}</div>
+            <div><b>Причина остановки:</b> {selected.blocker}</div>
             <div><b>Следующий шаг:</b> {selected.nextAction}</div>
             <Link href={`/platform-v7/support/${selected.id}`} style={{ color: 'var(--pc-accent, #0A7A5F)', fontWeight: 900, textDecoration: 'none' }}>Открыть карточку</Link>
             <div style={{ borderTop: '1px solid var(--pc-border, #E4E6EA)', paddingTop: 12, display: 'grid', gap: 8 }}>
@@ -92,7 +92,7 @@ export function SupportOperatorQueueClient() {
             </div>
             <div style={{ borderTop: '1px solid var(--pc-border, #E4E6EA)', paddingTop: 12, display: 'grid', gap: 8 }}>
               <b>Шаблоны ответа</b>
-              <div style={muted}>Принято в работу. Проверяем объект и блокер.</div>
+              <div style={muted}>Принято в работу. Проверяем объект и причину остановки.</div>
               <div style={muted}>Нужны дополнительные данные по сделке.</div>
               <div style={muted}>Передано ответственному контуру.</div>
             </div>
