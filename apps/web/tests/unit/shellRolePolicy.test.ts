@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  OPERATOR_HEADER_ROLES,
   canShowDrawer,
   canShowGlobalSearch,
   canShowGlobalStatuses,
@@ -57,8 +58,11 @@ describe('shell role policy', () => {
     ['bank', '/platform-v7/bank'],
     ['arbitrator', '/platform-v7/arbitrator'],
     ['compliance', '/platform-v7/compliance'],
-  ] as Array<[PlatformRole, string]>)('allows one portal role switcher on %s compact header', (role, path) => {
+    ['operator', '/platform-v7/control-tower'],
+    ['executive', '/platform-v7/executive'],
+  ] as Array<[PlatformRole, string]>)('allows one portal role switcher on non-field %s route', (role, path) => {
     expect(canShowPortalRoleSwitcher(role, path)).toBe(true);
+    expect(getHeaderSelectableRoles(role, path)).toEqual(OPERATOR_HEADER_ROLES);
   });
 
   it.each([
@@ -68,24 +72,6 @@ describe('shell role policy', () => {
     ['lab', '/platform-v7/lab'],
   ] as Array<[PlatformRole, string]>)('keeps %s field header isolated from portal role switcher', (role, path) => {
     expect(canShowPortalRoleSwitcher(role, path)).toBe(false);
-  });
-
-  it.each([
-    ['operator', '/platform-v7/control-tower'],
-    ['executive', '/platform-v7/executive'],
-    ['seller', '/platform-v7/control-tower'],
-    ['driver', '/platform-v7/control-tower'],
-  ] as Array<[PlatformRole, string]>)('prevents duplicate portal role switcher on operator surfaces for %s', (role, path) => {
-    expect(canShowPortalRoleSwitcher(role, path)).toBe(false);
-  });
-
-  it.each([
-    ['/platform-v7/control-tower'],
-    ['/platform-v7/executive'],
-  ] as Array<[string]>)('keeps control route %s isolated from stale portal role switcher', (path) => {
-    for (const staleRole of ['seller', 'buyer', 'logistics', 'bank', 'driver', 'surveyor'] as PlatformRole[]) {
-      expect(canShowPortalRoleSwitcher(staleRole, path)).toBe(false);
-    }
   });
 
   it.each([
@@ -131,32 +117,17 @@ describe('shell role policy', () => {
     }
   });
 
-  it('limits commercial compact header switcher to commercial roles', () => {
-    expect(getHeaderSelectableRoles('seller', '/platform-v7/seller')).toEqual(['seller', 'buyer', 'logistics']);
-    expect(getHeaderSelectableRoles('buyer', '/platform-v7/buyer')).toEqual(['seller', 'buyer', 'logistics']);
-    expect(getHeaderSelectableRoles('logistics', '/platform-v7/logistics')).toEqual(['seller', 'buyer', 'logistics']);
-  });
-
-  it('keeps commercial compact header selector free of control and field roles', () => {
-    const forbiddenRoles: PlatformRole[] = ['bank', 'arbitrator', 'compliance', 'driver', 'surveyor', 'elevator', 'lab', 'operator', 'executive'];
-    for (const path of ['/platform-v7/seller', '/platform-v7/buyer', '/platform-v7/logistics']) {
-      const roles = getHeaderSelectableRoles('seller', path);
-      for (const forbiddenRole of forbiddenRoles) expect(roles).not.toContain(forbiddenRole);
-    }
-  });
-
-  it('limits control compact header switcher to bank, arbitrator and compliance', () => {
-    expect(getHeaderSelectableRoles('bank', '/platform-v7/bank')).toEqual(['bank', 'arbitrator', 'compliance']);
-    expect(getHeaderSelectableRoles('arbitrator', '/platform-v7/arbitrator')).toEqual(['bank', 'arbitrator', 'compliance']);
-    expect(getHeaderSelectableRoles('compliance', '/platform-v7/compliance')).toEqual(['bank', 'arbitrator', 'compliance']);
-  });
-
-  it('keeps control compact header selector free of commercial and field roles', () => {
-    const forbiddenRoles: PlatformRole[] = ['seller', 'buyer', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'operator', 'executive'];
-    for (const path of ['/platform-v7/bank', '/platform-v7/arbitrator', '/platform-v7/compliance']) {
-      const roles = getHeaderSelectableRoles('bank', path);
-      for (const forbiddenRole of forbiddenRoles) expect(roles).not.toContain(forbiddenRole);
-    }
+  it.each([
+    ['/platform-v7/seller'],
+    ['/platform-v7/buyer'],
+    ['/platform-v7/logistics'],
+    ['/platform-v7/bank'],
+    ['/platform-v7/arbitrator'],
+    ['/platform-v7/compliance'],
+    ['/platform-v7/control-tower'],
+    ['/platform-v7/executive'],
+  ] as Array<[string]>)('uses the same full header role set on non-field route %s', (path) => {
+    expect(getHeaderSelectableRoles('operator', path)).toEqual(OPERATOR_HEADER_ROLES);
   });
 
   it.each([
