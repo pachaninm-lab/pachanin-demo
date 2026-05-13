@@ -17,6 +17,23 @@ const coveredRoles: PlatformV7ExecutionRole[] = [
   'investor',
 ];
 
+const forbiddenExternalWording = [
+  'controlled-pilot',
+  'production-ready',
+  'fully live',
+  'fully integrated',
+  'live-integrated',
+  'claims',
+  'GMV',
+  'AI',
+  'Control Tower',
+  'runtime',
+  'sandbox',
+  'domain-core',
+  'requestReserve',
+  'evidence-first',
+];
+
 describe('platform-v7 role execution summary', () => {
   it('defines a summary for every fast-pass role', () => {
     expect(Object.keys(PLATFORM_V7_ROLE_EXECUTION_SUMMARIES).sort()).toEqual([...coveredRoles].sort());
@@ -35,6 +52,16 @@ describe('platform-v7 role execution summary', () => {
       expect(summary.next.length).toBeGreaterThan(3);
       expect(summary.cta).toMatch(/^(Открыть|Сделать|Зафиксировать|Загрузить|Запросить)/);
       expect(summary.href).toMatch(/^\/platform-v7/);
+    }
+  });
+
+  it('keeps external summary wording free from internal product jargon and overclaims', () => {
+    const text = Object.values(PLATFORM_V7_ROLE_EXECUTION_SUMMARIES)
+      .map((summary) => Object.values(summary).join(' '))
+      .join(' ');
+
+    for (const term of forbiddenExternalWording) {
+      expect(text).not.toContain(term);
     }
   });
 
