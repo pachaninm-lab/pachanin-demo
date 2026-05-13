@@ -72,9 +72,9 @@ function cleanCopy(value: string) {
   return value
     .replace(/\bGate\b/g, 'Проверка')
     .replace(/\bgate\b/g, 'проверка')
-    .replace(/\bblocker\b/g, 'препятствие')
+    .replace(/\bblocker\b/g, 'причина остановки')
     .replace(/\bcallback\b/g, 'событие банка')
-    .replace(/\brelease\b/g, 'выпуск денег')
+    .replace(/\brelease\b/g, 'банковская проверка выплаты')
     .replace(/\bsync\b/g, 'сверка')
     .replace(/\bfake-live\b/g, 'демо-событие')
     .replace(/\baudit\b/g, 'журнал');
@@ -106,9 +106,9 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
       objectId: item.id,
       action: 'remove-blocker',
       actor: 'Оператор платформы',
-      loadingMessage: `${item.id}: начато снятие препятствия.`,
-      successMessage: () => `${item.id}: препятствие снято, проверка пройдена.`,
-      errorMessage: (error) => `${item.id}: не удалось снять препятствие${error instanceof Error ? `: ${error.message}` : ''}.`,
+      loadingMessage: `${item.id}: начато закрытие причины остановки.`,
+      successMessage: () => `${item.id}: причина остановки закрыта, проверка пройдена.`,
+      errorMessage: (error) => `${item.id}: не удалось закрыть причину остановки${error instanceof Error ? `: ${error.message}` : ''}.`,
       run: async () => buildGatePassResult({ dealId: item.id, amount: item.releasableAmount }),
     });
 
@@ -138,9 +138,9 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
         objectId: item.id,
         action: 'bank-callback',
         actor: 'Оператор платформы',
-        loadingMessage: `${item.id}: запрошено банковское демо-событие.`,
-        successMessage: (data: { id: string; amountRub: number; ts: string }) => `${item.id}: банк подтвердил ${formatMoney(data.amountRub)}.`,
-        errorMessage: () => `${item.id}: подтверждение банка не получено.`,
+        loadingMessage: `${item.id}: запрошено тестовое событие банка.`,
+        successMessage: (data: { id: string; amountRub: number; ts: string }) => `${item.id}: банк отметил проверку ${formatMoney(data.amountRub)}.`,
+        errorMessage: () => `${item.id}: событие банка не получено.`,
         run: async () => {
           const res = await fetch('/api/sim/bank-callback', {
             method: 'POST',
@@ -166,7 +166,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
   return (
     <P7Card
       title='Операторские действия'
-      subtitle='Прямо из центра управления: снять препятствие, увидеть журнал и получить демо-событие банка по выпуску денег.'
+      subtitle='Прямо из центра управления: закрыть причину остановки, увидеть журнал и получить тестовое событие банка по проверке выплаты.'
       testId='control-tower-operator-panel'
       footer={<OperatorAudit audit={audit} />}
     >
@@ -220,10 +220,10 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-                  <InfoCell label='Причины' value={item.reasonCodes.length ? item.reasonCodes.map(translateReason).join(' · ') : '—'} />
+                  <InfoCell label='Причины остановки' value={item.reasonCodes.length ? item.reasonCodes.map(translateReason).join(' · ') : '—'} />
                   <InfoCell label='Следующий шаг' value={cleanCopy(item.nextStep ?? '—')} />
-                  <InfoCell label='Следующий владелец' value={item.nextOwner ? translateRole(item.nextOwner) : '—'} />
-                  <InfoCell label='К выпуску денег' value={formatCompactMoney(item.releasableAmount)} />
+                  <InfoCell label='Следующий ответственный' value={item.nextOwner ? translateRole(item.nextOwner) : '—'} />
+                  <InfoCell label='К банковской проверке' value={formatCompactMoney(item.releasableAmount)} />
                 </div>
 
                 <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap' }}>
@@ -231,11 +231,11 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
                     <P7ActionButton
                       onClick={() => unblock(item)}
                       state={busyId === item.id ? 'loading' : actionState}
-                      loadingLabel='Снимаю препятствие…'
-                      successLabel='Препятствие снято'
+                      loadingLabel='Закрываю причину…'
+                      successLabel='Причина закрыта'
                       errorLabel='Ошибка действия'
                     >
-                      Снять препятствие
+                      Закрыть причину остановки
                     </P7ActionButton>
                   ) : (
                     <P7Badge tone='success'>Проверка пройдена</P7Badge>
@@ -284,7 +284,7 @@ function OperatorAudit({ audit }: { audit: AuditRow[] }) {
           <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xxs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size, color: PLATFORM_V7_TOKENS.color.textMuted }}>{row.actor}</div>
           <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: row.status === 'error' ? PLATFORM_V7_TOKENS.color.danger : PLATFORM_V7_TOKENS.color.textMuted }}>{row.detail}</div>
         </div>
-      )) : <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: PLATFORM_V7_TOKENS.color.textMuted }}>Действий пока нет. Сними препятствие по одному из кейсов выше.</div>}
+      )) : <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: PLATFORM_V7_TOKENS.color.textMuted }}>Действий пока нет. Закрой причину остановки по одному из кейсов выше.</div>}
     </div>
   );
 }
