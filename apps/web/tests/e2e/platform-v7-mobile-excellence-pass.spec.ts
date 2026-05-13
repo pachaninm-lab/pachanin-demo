@@ -137,7 +137,7 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
     await assertGlobalForbiddenClaims(page, '/platform-v7/driver/field');
   });
 
-  test('operator burger labels and descriptions stay readable at 390px', async ({ page }) => {
+  test('operator burger labels, descriptions and active state stay readable at 390px', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/platform-v7/control-tower', { waitUntil: 'networkidle' });
     await page.locator('.pc-v4-iconbtn').first().click();
@@ -146,6 +146,10 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
     await expect(drawer).toBeVisible();
     await expect(drawer.locator('.pc-v4-nav-label').first()).toBeVisible();
     await expect(drawer.locator('.pc-v4-nav-note').first()).toBeVisible();
+
+    const activeItem = drawer.locator('.pc-v4-nav-item[data-active="true"]').first();
+    await expect(activeItem).toBeVisible();
+    await expect(activeItem).toContainText('Центр управления');
 
     const drawerText = await drawer.innerText();
     for (const glued of ['Центр управленияблокеры', 'Сделкиреестр', 'Лоты и запросыпредсделочный', 'Спорыудержания']) {
