@@ -12,7 +12,7 @@ const sellerHandoff: HandoffItem[] = [
   {
     direction: 'sends',
     role: 'продавец → покупатель',
-    requirement: 'публикует лот и ждёт встречного предложения от покупателя',
+    requirement: 'публикует лот и ждёт предложение от покупателя',
     entity: 'LOT-2403',
     href: '/platform-v7/lots/LOT-2403',
     documentImpact: true,
@@ -50,8 +50,8 @@ type MetricItem = { label: string; value: string; note: string; good?: boolean; 
 const sellerMetrics: MetricItem[] = [
   { label: 'Активные лоты', value: '2', note: 'связаны с партиями и документами', good: true },
   { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'готовность денег; это ещё не выплата', good: true },
-  { label: 'На проверку банку', value: '0 ₽', note: 'СДИЗ и ЭТрН блокируют передачу основания', danger: true },
-  { label: 'Следующий шаг', value: 'СДИЗ', note: 'закрыть документ перед банковской проверкой', warn: true },
+  { label: 'На проверку банку', value: '0 ₽', note: 'СДИЗ и ЭТрН блокируют основание', danger: true },
+  { label: 'Следующий шаг', value: 'СДИЗ', note: 'закрыть документ перед проверкой', warn: true },
 ];
 
 const sellerLots = [
@@ -67,7 +67,7 @@ const sellerLots = [
     id: 'LOT-2405',
     title: 'Пшеница 4 класса · 240 т · EXW',
     status: 'идут предложения',
-    money: 'лучшая ставка 16 120 ₽/т',
+    money: 'лучшее предложение 16 120 ₽/т',
     next: 'проверить рейтинг покупателя и условия резерва',
     href: '/platform-v7/lots/LOT-2405',
   },
@@ -75,9 +75,9 @@ const sellerLots = [
 
 const sellerPaths = [
   { title: 'Создать партию', href: '/platform-v7/seller/batches/new', note: 'культура, объём, качество, документы, ФГИС' },
-  { title: 'Опубликовать лот', href: '/platform-v7/seller/lots/new', note: 'управляемая публикация без раскрытия контактов' },
-  { title: 'Проверить запросы', href: '/platform-v7/seller/rfq', note: 'сравнение спроса, netback и рисков покупателя' },
-  { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, основание и банковская проверка' },
+  { title: 'Опубликовать лот', href: '/platform-v7/seller/lots/new', note: 'публикация без раскрытия контактов' },
+  { title: 'Проверить запросы', href: '/platform-v7/seller/rfq', note: 'спрос, чистая цена и риск покупателя' },
+  { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, основание и банк' },
 ] as const;
 
 export default function PlatformV7SellerPage() {
@@ -85,8 +85,8 @@ export default function PlatformV7SellerPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={hero}>
         <div style={badge}>Кабинет продавца</div>
-        <h1 style={h1}>Лоты, документы и банковская проверка</h1>
-        <p style={lead}>Продавец видит рабочий контур: партия → лот → предложение → черновик сделки → резерв → документы → рейс → приёмка → основание для банковской проверки. Выплату подтверждает банк, платформа показывает статус и причину остановки.</p>
+        <h1 style={h1}>Продажа зерна: лоты, документы, деньги</h1>
+        <p style={lead}>Продавец видит путь от партии до основания для банковской проверки: лот, предложение, резерв, документы, рейс, приёмка и причина остановки.</p>
         <div style={actions}>
           <Link href='/platform-v7/seller/batches/new' style={primaryBtn}>Создать партию</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть сделку</Link>
@@ -183,14 +183,14 @@ function Cell({ label, value, strong = false, warning = false }: { label: string
   return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div></div>;
 }
 
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
+const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 22, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
 const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(28px,7vw,42px)', lineHeight: 1.06, letterSpacing: '-0.04em', fontWeight: 950 } as const;
 const h2 = { margin: '4px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.6 } as const;
+const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.56 } as const;
 const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
-const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(10,122,95,0.18)' } as const;
+const primaryBtn = { textDecoration: 'none', minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 15px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(10,122,95,0.18)' } as const;
 const ghostBtn = { ...primaryBtn, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
 const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
 const metricCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, display: 'grid', gap: 8, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' } as const;
