@@ -42,12 +42,12 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     title: 'Продавец',
     tone: 'success',
     mode: 'commercial',
-    now: 'LOT-2403: победитель выбран, сделка DL-9106 создана, выпуск денег ещё закрыт',
+    now: 'лот LOT-2403: победитель выбран, сделка DL-9106 создана, выпуск денег ещё закрыт',
     blocked: 'выплату останавливают СДИЗ, транспортный пакет, приёмка, качество и спор',
     money: 'продавец видит резерв и к выплате, но не видит кредитную линию покупателя',
     documents: 'СДИЗ, ЭТрН, УПД, акт, КЭП и качество показываются как условия выплаты',
     execution: 'лот → ставка → сделка → логистика → рейс → приёмка → документы → деньги',
-    next: 'продавец закрывает документы, оператор ведёт блокер, логистика ведёт рейс',
+    next: 'продавец закрывает документы, оператор ведёт причину остановки, логистика ведёт рейс',
     cta: 'Открыть предложения',
     href: '/platform-v7/seller/offers',
     hidden: 'скрыто: кредит покупателя, чужие закрытые ставки, банковая внутренняя логика',
@@ -56,7 +56,7 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     title: 'Покупатель',
     tone: 'money',
     mode: 'commercial',
-    now: 'LOT-2403: собственная ставка принята, DL-9106 ждёт подтверждения резерва',
+    now: 'лот LOT-2403: собственная ставка принята, DL-9106 ждёт подтверждения резерва',
     blocked: 'резерв, СДИЗ, ЭТрН, приёмка и качество могут остановить выплату продавцу',
     money: 'покупатель видит свой резерв и кредитный сценарий, продавец видит только готовность денег',
     documents: 'видны документы сделки, влияющие на приёмку и закрытие расчёта',
@@ -70,8 +70,8 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     title: 'Логистика',
     tone: 'logistics',
     mode: 'field',
-    now: 'после выбора победителя заявка LOG-REQ-2403 пришла в диспетчерскую',
-    blocked: 'ETA, водитель, пломба, ЭТрН, ГИС ЭПД или инцидент рейса требуют реакции',
+    now: 'после выбора победителя заявка 2403 пришла в диспетчерскую',
+    blocked: 'срок прибытия, водитель, пломба, ЭТрН, ГИС ЭПД или инцидент рейса требуют реакции',
     money: 'цена зерна, ставки, резерв, банк и кредит не раскрываются логистике',
     documents: 'видны только документы рейса: ЭТрН, транспортный пакет, статус ГИС ЭПД',
     execution: 'заявка → машина → водитель → маршрут → прибытие → приёмка',
@@ -84,7 +84,7 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     title: 'Водитель',
     tone: 'logistics',
     mode: 'field',
-    now: 'TRIP-SIM-001: один активный рейс, маршрут и одно следующее действие',
+    now: 'TRIP-001: один активный рейс, маршрут и одно следующее действие',
     blocked: 'нет связи, не отправлены фото, пломба, прибытие, вес или проблема',
     money: 'деньги, ставки, банк, покупатель и кредит скрыты от водителя',
     documents: 'видны только документы своего рейса и транспортные подтверждения',
@@ -98,12 +98,12 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     title: 'Элеватор',
     tone: 'warning',
     mode: 'field',
-    now: 'TRIP-SIM-001 прибыл: фиксируются вес, качество, акт и отклонения',
+    now: 'TRIP-001 прибыл: фиксируются вес, качество, акт и отклонения',
     blocked: 'расхождение веса, качества, пломбы или акта создаёт удержание и спор',
     money: 'деньги, ставки, банк, резерв и кредит не управляются на экране приёмки',
     documents: 'акт приёмки, акт расхождения и протокол качества влияют на выплату',
     execution: 'рейс → вес → качество → акт → документы → основание для выплаты / удержания',
-    next: 'элеватор фиксирует факт, лаборатория закрывает качество, оператор ведёт блокер',
+    next: 'элеватор фиксирует факт, лаборатория закрывает качество, оператор ведёт причину остановки',
     cta: 'Зафиксировать вес',
     href: '/platform-v7/elevator',
     hidden: 'скрыто: ставки, цена, банк, резерв, кредит, чужая коммерческая аналитика',
@@ -162,15 +162,15 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     next: 'арбитр или сторона сделки',
     cta: 'Запросить доказательство',
     href: '/platform-v7/arbitrator',
-    hidden: 'скрыто: устное решение без evidence pack и журнала',
+    hidden: 'скрыто: устное решение без доказательного пакета и журнала',
   },
   compliance: {
     title: 'Комплаенс',
     tone: 'document',
     mode: 'audit',
     now: 'стороны проходят допуск, полномочия и документную проверку',
-    blocked: 'стоп-фактор без причины нельзя закрыть вручную',
-    money: 'комплаенс-стоп может блокировать выпуск денег',
+    blocked: 'остановку допуска без причины нельзя закрыть вручную',
+    money: 'комплаенс-проверка может блокировать выпуск денег',
     documents: 'учредительные документы, полномочия и реквизиты проверяются отдельно',
     execution: 'допуск связан с конкретными сделками',
     next: 'комплаенс или оператор',
@@ -183,7 +183,7 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     tone: 'dispute',
     mode: 'operations',
     now: 'очередь показывает сделки, которые требуют действия сейчас',
-    blocked: 'причина остановки, деньги, документы и SLA вынесены наверх',
+    blocked: 'причина остановки, деньги, документы и срок реакции вынесены наверх',
     money: 'к выпуску, под удержанием и под риском сверяются по сделкам',
     documents: 'видно, кто должен загрузить или подписать пакет',
     execution: 'транспорт, приёмка, спор и банк собраны в один контур',
@@ -196,29 +196,29 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     title: 'Руководитель',
     tone: 'info',
     mode: 'partner',
-    now: 'видна сводка по обороту, рискам, SLA и зрелости контура',
+    now: 'видна сводка по обороту, рискам, срокам реакции и зрелости контура',
     blocked: 'ручные действия и внешние подключения не скрываются',
     money: 'экономика и деньги под риском показаны отдельно',
-    documents: 'документные стопы входят в общий риск',
+    documents: 'документные остановки входят в общий риск',
     execution: 'операционная зрелость читается по всей цепочке сделки',
     next: 'оператор или владелец контура',
     cta: 'Открыть сводку',
     href: '/platform-v7/executive',
-    hidden: 'скрыто: неподтверждённые claims зрелости',
+    hidden: 'скрыто: неподтверждённые заявления о зрелости',
   },
   investor: {
     title: 'Инвестор',
     tone: 'info',
     mode: 'partner',
-    now: 'показаны зрелость, traction, риски и экономика пилотного контура',
+    now: 'показаны зрелость, оборот, риски и экономика пилотного контура',
     blocked: 'боевые подключения и ручные действия показаны честно',
-    money: 'GMV, unit economics и спорные суммы отделены от обещаний',
+    money: 'оборот, экономика сделки и спорные суммы отделены от обещаний',
     documents: 'готовность документов влияет на зрелость исполнения',
     execution: 'демо, пилот и внешние подключения не смешиваются',
     next: 'команда продукта',
     cta: 'Открыть инвесторский режим',
     href: '/platform-v7/investor',
-    hidden: 'скрыто: production-ready и live-integrated claims без подтверждения',
+    hidden: 'скрыто: неподтверждённые заявления о боевой готовности и активных интеграциях',
   },
 };
 
@@ -227,7 +227,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
   const tone = getPlatformV7ToneTokens(summary.tone);
   const rows = [
     ['Что происходит сейчас', summary.now],
-    ['Что заблокировано', summary.blocked],
+    ['Что остановило сделку', summary.blocked],
     ['Где деньги', summary.money],
     ['Где документы', summary.documents],
     ['Где груз / исполнение', summary.execution],
@@ -237,6 +237,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
   return (
     <section
       data-testid={`role-execution-summary-${role}`}
+      aria-label={`Рабочая сводка роли: ${summary.title}`}
       style={{
         background: PLATFORM_V7_TOKENS.color.surface,
         border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
@@ -252,7 +253,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
           <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap', alignItems: 'center' }}>
             <P7Badge tone={summary.tone}>{summary.title}</P7Badge>
             <P7Badge tone='neutral'>{modeLabel(summary.mode)}</P7Badge>
-            <P7Badge tone='warning'>controlled-pilot</P7Badge>
+            <P7Badge tone='warning'>пилотный контур</P7Badge>
           </div>
           <h1
             style={{
@@ -264,13 +265,13 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
               letterSpacing: PLATFORM_V7_TOKENS.typography.h1.letterSpacing,
             }}
           >
-            {summary.title}: деньги, документы, груз, блокер и следующий шаг
+            {summary.title}: деньги, документы, груз, причина остановки и следующий шаг
           </h1>
           <div style={{ color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: PLATFORM_V7_TOKENS.typography.body.size, lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight, maxWidth: 760 }}>
             {summary.hidden}
           </div>
         </div>
-        <Link href={summary.href} style={{ ...primaryActionStyle, background: tone.fg }}>
+        <Link href={summary.href} data-testid={`role-execution-primary-action-${role}`} style={{ ...primaryActionStyle, background: tone.fg }}>
           {summary.cta}
         </Link>
       </div>
@@ -279,7 +280,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
         <div style={{ fontSize: 13, lineHeight: 1.45, color: PLATFORM_V7_TOKENS.color.textPrimary, fontWeight: 760 }}>
           Рабочий экран роли: {summary.title}. Основное действие — {summary.cta.toLowerCase()}. Никаких лишних данных за пределами роли.
         </div>
-        <Link href={summary.href} style={secondaryActionStyle}>
+        <Link href={summary.href} data-testid={`role-execution-secondary-action-${role}`} style={secondaryActionStyle}>
           Открыть экран
         </Link>
       </div>
@@ -327,6 +328,7 @@ const primaryActionStyle = {
   color: PLATFORM_V7_TOKENS.color.surface,
   fontSize: 14,
   fontWeight: 850,
+  whiteSpace: 'nowrap',
 } as const;
 
 const secondaryActionStyle = {
@@ -342,4 +344,5 @@ const secondaryActionStyle = {
   border: `1px solid ${PLATFORM_V7_TOKENS.color.borderStrong}`,
   fontSize: 12,
   fontWeight: 850,
+  whiteSpace: 'nowrap',
 } as const;
