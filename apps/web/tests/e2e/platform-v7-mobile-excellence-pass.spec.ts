@@ -120,6 +120,23 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
     await assertGlobalForbiddenClaims(page, '/platform-v7/control-tower');
   });
 
+  test('field mobile header keeps role label visible and selector hidden', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/platform-v7/driver/field', { waitUntil: 'networkidle' });
+
+    await expect(page.locator('.pc-v4-header')).toHaveCount(1);
+    await expect(page.locator('.pc-v4-brand')).toBeVisible();
+    await expect(page.locator('[data-role-header-label="true"]')).toContainText('Водитель');
+    await expect(page.locator('[data-role-header-switcher="true"]')).toHaveCount(0);
+    await expect(page.locator('.pc-v4-drawer')).toBeHidden();
+    await expect(page.locator('.pc-v4-top > button.pc-v4-iconbtn').first()).toBeHidden();
+
+    const visibleIconCount = await page.locator('.pc-v4-actions .pc-v4-iconbtn:visible').count();
+    expect(visibleIconCount).toBeLessThanOrEqual(3);
+    await assertNoHorizontalOverflow(page, '/platform-v7/driver/field');
+    await assertGlobalForbiddenClaims(page, '/platform-v7/driver/field');
+  });
+
   test('operator burger labels and descriptions stay readable at 390px', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/platform-v7/control-tower', { waitUntil: 'networkidle' });
