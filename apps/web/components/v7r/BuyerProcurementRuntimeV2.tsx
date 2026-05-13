@@ -35,8 +35,8 @@ function draftStatusLabel(status: string) {
   if (status === 'reserve_pending') return 'Резерв на проверке';
   if (status === 'reserve_approved') return 'Резерв подтверждён';
   if (status === 'dispute_open') return 'Спор открыт';
-  if (status === 'release_ready') return 'Готово к выпуску';
-  if (status === 'released') return 'Деньги выпущены';
+  if (status === 'release_ready') return 'Готово к банковской проверке';
+  if (status === 'released') return 'Выплата отмечена банком';
   return status;
 }
 
@@ -77,10 +77,10 @@ export function BuyerProcurementRuntimeV2() {
         <div style={{ display:'flex', justifyContent:'space-between', gap:14, flexWrap:'wrap', alignItems:'flex-start' }}>
           <div>
             <div style={{ fontSize:28, lineHeight:1.15, fontWeight:800, color:'#0F1419' }}>Закупка и отбор вариантов</div>
-            <div style={{ fontSize:13, color:'#6B778C', lineHeight:1.7, marginTop:8, maxWidth:920 }}>Запросы закупки, отобранные варианты и черновики сделок сохраняются внутри устойчивого runtime-контура. После обновления страницы сценарий не теряется.</div>
+            <div style={{ fontSize:13, color:'#6B778C', lineHeight:1.7, marginTop:8, maxWidth:920 }}>Запросы закупки, отобранные варианты и черновики сделок сохраняются внутри устойчивого рабочего контура. После обновления страницы сценарий не теряется.</div>
           </div>
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            <Badge text='УСТОЙЧИВОЕ ХРАНЕНИЕ' />
+            <Badge text='СОХРАНЕНИЕ СЦЕНАРИЯ' />
             <Link href='/platform-v7/deals' style={{ textDecoration:'none', display:'inline-flex', alignItems:'center', justifyContent:'center', borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid #E4E6EA', color:'#0F1419', fontSize:13, fontWeight:700 }}>Открыть сделки</Link>
           </div>
         </div>
@@ -96,7 +96,7 @@ export function BuyerProcurementRuntimeV2() {
       <section style={{ background:'#fff', border:'1px solid #E4E6EA', borderRadius:18, padding:18, display:'grid', gap:12 }}>
         <div style={{ fontSize:18, fontWeight:800, color:'#0F1419' }}>Текущее действие</div>
         <div style={{ padding:14, borderRadius:14, background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', fontSize:14, color:'#0F1419', lineHeight:1.7 }}>
-          <strong>Следующий шаг:</strong> либо создать новый запрос закупки, либо выбрать рыночный вариант и перевести его в черновик сделки. После создания черновика следующий владелец шага — покупатель.
+          <strong>Следующий шаг:</strong> либо создать новый запрос закупки, либо выбрать рыночный вариант и перевести его в черновик сделки. После создания черновика следующий ответственный — покупатель.
         </div>
       </section>
 
