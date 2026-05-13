@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useToast } from '@/components/v7r/Toast';
 import { useFieldRuntimeStore } from '@/stores/useFieldRuntimeStore';
 import { trackEvent } from '@/lib/analytics/track';
@@ -47,15 +46,15 @@ export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps)
 
       <section id="driver-route-status" style={{ padding: '18px 20px', borderRadius: 18, background: arrived ? '#F0FDF4' : 'linear-gradient(135deg, #0A7A5F 0%, #0B6B9A 100%)', border: arrived ? '1px solid #BBF7D0' : 'none' }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: arrived ? '#15803D' : '#fff' }}>
-          {arrived ? `Прибытие зафиксировано в ${trip.arrivedAt}` : `В пути · ETA ${trip.eta} · Осталось ${trip.kmLeft} км`}
+          {arrived ? `Прибытие зафиксировано в ${trip.arrivedAt}` : `В пути · прибытие ${trip.eta} · осталось ${trip.kmLeft} км`}
         </div>
         <div style={{ fontSize: 13, color: arrived ? '#16A34A' : 'rgba(255,255,255,0.82)', marginTop: 6 }}>
-          Рейс {trip.id} · Сделка {trip.dealId}
+          Рейс {trip.id} · текущий маршрут
         </div>
       </section>
 
       <section id="driver-next-action" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Полевые действия</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Следующее полевое действие</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             disabled={arrived}
@@ -68,16 +67,6 @@ export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps)
           >
             {arrived ? 'Прибытие подтверждено' : 'Подтвердить прибытие'}
           </button>
-          {!compact ? (
-            <>
-              <Link href={`/platform-v7/deals/${trip.dealId}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 14, fontWeight: 700 }}>
-                Открыть сделку
-              </Link>
-              <Link href='/platform-v7/elevator' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 14, fontWeight: 700 }}>
-                Приёмка
-              </Link>
-            </>
-          ) : null}
         </div>
       </section>
 
