@@ -16,8 +16,28 @@ function FieldShellPolicy() {
         display: none !important;
       }
 
+      .pc-v4-header {
+        background: color-mix(in srgb, var(--pc-bg-header) 98%, transparent) !important;
+      }
+
+      .pc-v4-top {
+        grid-template-columns: auto minmax(0, 1fr) auto !important;
+      }
+
       .pc-v4-top > button.pc-v4-iconbtn:first-child {
         display: none !important;
+      }
+
+      .pc-v4-iconbtn,
+      [data-role-header-label='true'] {
+        color: var(--pc-text-primary) !important;
+        border-color: color-mix(in srgb, var(--pc-border) 88%, var(--pc-text-primary) 12%) !important;
+        background: var(--pc-bg-card) !important;
+      }
+
+      .pc-v4-iconbtn svg {
+        color: var(--pc-text-primary) !important;
+        stroke: currentColor !important;
       }
 
       .pc-v4-main {
@@ -25,6 +45,15 @@ function FieldShellPolicy() {
       }
 
       @media (max-width: 640px) {
+        .pc-shell-root-v4 {
+          --pc-header-offset: 72px !important;
+        }
+
+        .pc-v4-top {
+          grid-template-columns: auto minmax(0, 1fr) auto !important;
+          gap: 8px !important;
+        }
+
         .pc-v4-title,
         .pc-v4-subtitle {
           display: none !important;
@@ -34,8 +63,23 @@ function FieldShellPolicy() {
           max-width: 48px !important;
         }
 
+        .pc-v4-actions {
+          min-width: 0 !important;
+          gap: 6px !important;
+        }
+
+        [data-role-header-label='true'] {
+          max-width: 104px !important;
+          min-height: 40px !important;
+        }
+
+        .pc-v4-iconbtn {
+          min-width: 40px !important;
+          min-height: 40px !important;
+        }
+
         .pc-v4-main {
-          padding-top: calc(env(safe-area-inset-top) + 68px) !important;
+          padding-top: calc(env(safe-area-inset-top) + 66px) !important;
         }
       }
     `}</style>
