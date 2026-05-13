@@ -61,7 +61,7 @@ const bankQueue = [
     reserve: 'ожидает банковского подтверждения',
     releaseNow: '0 ₽',
     hold: '0 ₽',
-    decision: 'не передавать основание банку',
+    decision: 'не начинать проверку выплаты',
     next: mainDeal.nextAction,
     href: `/platform-v7/deals/${mainDeal.dealId}/clean`,
     state: 'stop' as Deal360State,
@@ -74,7 +74,7 @@ const bankQueue = [
     reserve: 'отмечен в пилотном контуре',
     releaseNow: '5,616 млн ₽',
     hold: '624 тыс. ₽',
-    decision: 'частичная передача основания после решения и банковского подтверждения',
+    decision: 'частичная проверка после решения и банковского подтверждения',
     next: disputeDeal.nextAction,
     href: `/platform-v7/deals/${disputeDeal.dealId}/clean`,
     state: 'manual' as Deal360State,
@@ -83,10 +83,10 @@ const bankQueue = [
 
 const releaseSummary = [
   { label: 'Что сейчас', value: 'DL-9106 · проверка выплаты остановлена', note: 'Сделка есть, но передача основания банку невозможна без закрытых условий.' },
-  { label: 'Где деньги', value: 'резерв ожидает банковского подтверждения · к передаче 0 ₽', note: 'Банк видит резерв, удержание и основание остановки, а не кнопку движения денег.' },
+  { label: 'Где деньги', value: 'резерв ожидает банковского подтверждения · к банковской проверке 0 ₽', note: 'Банк видит резерв, удержание и основание остановки, а не кнопку движения денег.' },
   { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Каждая причина остановки должна иметь источник, ответственного, статус и влияние на деньги.' },
   { label: 'Где груз', value: 'TRIP-SIM-001 · приёмка и качество в работе', note: 'Транспортный и приёмочный факты нужны как основание для банковской проверки.' },
-  { label: 'Решение банка', value: 'не передавать основание банку', note: 'В пилотном контуре нет заявления о боевой выплате или банковском событии.' },
+  { label: 'Решение банка', value: 'не начинать проверку выплаты', note: 'В пилотном контуре нет заявления о боевой выплате или банковском событии.' },
   { label: 'Кто следующий', value: 'оператор + ответственный за документ', note: 'Следующее действие фиксируется в сделке и журнале.' },
 ] as const;
 
@@ -117,7 +117,7 @@ export default function PlatformV7BankPage() {
       </section>
 
       <MoneyImpactSummaryStrip
-        amountContext='в резерве 15,89 млн ₽ · к передаче банку 0 ₽ · удержание 624 тыс. ₽'
+        amountContext='в резерве 15,89 млн ₽ · к банковской проверке 0 ₽ · удержание 624 тыс. ₽'
         pilotState='blocked'
         pilotStateLabel='пилотный контур · удержание до закрытия условий'
         responsible='банк · оператор'
@@ -146,7 +146,7 @@ export default function PlatformV7BankPage() {
 
       <section style={metricsGrid}>
         <Metric label='В резерве' value='15,89 млн ₽' />
-        <Metric label='К передаче банку сейчас' value='0 ₽' danger />
+        <Metric label='К банковской проверке сейчас' value='0 ₽' danger />
         <Metric label='Под удержанием' value='624 тыс. ₽' danger />
         <Metric label='Требуют проверки' value='2 сделки' />
       </section>
@@ -185,7 +185,7 @@ export default function PlatformV7BankPage() {
       </section>
 
       <section style={card}>
-        <div style={micro}>Денежная очередь</div>
+        <div style={micro}>Очередь банковской проверки</div>
         {bankQueue.map((deal) => (
           <Link key={deal.id} href={deal.href} style={{ textDecoration: 'none', color: 'inherit', background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${stateBorder(deal.state)}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
             <div style={rowHead}>
@@ -198,7 +198,7 @@ export default function PlatformV7BankPage() {
             </div>
             <div style={grid2}>
               <Cell label='Резерв' value={deal.reserve} strong={deal.reserve === 'отмечен в пилотном контуре'} />
-              <Cell label='К передаче банку' value={deal.releaseNow} danger={deal.releaseNow === '0 ₽'} />
+              <Cell label='К банковской проверке' value={deal.releaseNow} danger={deal.releaseNow === '0 ₽'} />
               <Cell label='Удержано' value={deal.hold} danger={deal.hold !== '0 ₽'} />
               <Cell label='Следующее действие' value={deal.next} strong />
             </div>
