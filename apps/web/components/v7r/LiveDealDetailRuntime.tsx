@@ -61,7 +61,7 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
       <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
         <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
           <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Сделка не найдена</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>Сделка {id} отсутствует в доменном контуре.</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>Сделка {id} отсутствует в рабочем контуре.</div>
           <Link href='/platform-v7/deals' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Все сделки</Link>
         </section>
       </div>
@@ -89,23 +89,23 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Badge tone={state.status === 'release_approved' || state.status === 'closed' ? 'success' : state.status === 'quality_disputed' || state.status === 'release_requested' ? 'danger' : 'warning'}>{statusLabel(state.status)}</Badge>
             <Badge tone={state.disputeState === 'open' ? 'danger' : state.disputeState === 'resolved' ? 'success' : 'neutral'}>{state.disputeState}</Badge>
-            {qualityRequiresReview ? <Badge tone='danger'>LAB REVIEW</Badge> : null}
+            {qualityRequiresReview ? <Badge tone='danger'>ручная проверка качества</Badge> : null}
           </div>
         </div>
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Резерв' value={formatMoney(reservedAmount)} note='Сумма под резервом по сделке.' />
-        <StatCard title='Удержание' value={formatMoney(recommendedHold)} note={qualityRequiresReview ? 'Лаборатория советует удержание до разбора качественной дельты.' : 'Сумма удержания из-за блокеров или спора.'} />
-        <StatCard title='К выпуску' value={formatMoney(releaseAmount)} note='Сумма, доступная к выпуску при закрытых блокерах.' />
-        <StatCard title='SLA' value={base.slaDeadline ?? '—'} note={state.nextStep} />
+        <StatCard title='Удержание' value={formatMoney(recommendedHold)} note={qualityRequiresReview ? 'Лаборатория советует удержание до разбора расхождения по качеству.' : 'Сумма удержания из-за причины остановки или спора.'} />
+        <StatCard title='К банковской проверке' value={formatMoney(releaseAmount)} note='Сумма может попасть на банковскую проверку только при закрытых причинах остановки.' />
+        <StatCard title='Срок реакции' value={base.slaDeadline ?? '—'} note={state.nextStep} />
       </div>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Control tower сделки</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Центр управления сделкой</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Логистика</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{trip ? `${trip.status} · ETA ${trip.eta}` : 'Нет активного рейса'}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>{trip ? `Км до точки: ${trip.kmLeft}` : '—'}</div></div>
-          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Приёмка</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{reception ? `${reception.status} · ${reception.weight || '—'} т` : 'Нет записи'}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>{reception ? `FGIS: ${reception.fgis ? 'да' : 'нет'} · СДИЗ: ${reception.sdiz || '—'}` : '—'}</div></div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Логистика</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{trip ? `${trip.status} · прибытие ${trip.eta}` : 'Нет активного рейса'}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>{trip ? `Км до точки: ${trip.kmLeft}` : '—'}</div></div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Приёмка</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{reception ? `${reception.status} · ${reception.weight || '—'} т` : 'Нет записи'}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>{reception ? `ФГИС: ${reception.fgis ? 'да' : 'нет'} · СДИЗ: ${reception.sdiz || '—'}` : '—'}</div></div>
           <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Лаборатория</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{labCase ? `${labCase.status} · ${labCase.result}` : 'Нет пробы'}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>{labCase ? `Белок ${labCase.protein || '—'} · Влажность ${labCase.moisture || '—'}` : '—'}</div></div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -119,11 +119,11 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
         <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Контур сделки</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Документы</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{state.docsState}</div></div>
-          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Резерв / выпуск</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{state.reserveState}</div></div>
-          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий владелец</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{state.nextOwner}</div></div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Резерв / проверка выплаты</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{state.reserveState}</div></div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}><div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий ответственный</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', marginTop: 8 }}>{state.nextOwner}</div></div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {state.blockers.length ? state.blockers.map((blocker) => <Badge key={blocker} tone={blockerTone(blocker)}>{blocker}</Badge>) : <Badge tone='success'>blockers cleared</Badge>}
+          {state.blockers.length ? state.blockers.map((blocker) => <Badge key={blocker} tone={blockerTone(blocker)}>{blocker}</Badge>) : <Badge tone='success'>причины остановки закрыты</Badge>}
         </div>
       </section>
 
@@ -133,7 +133,7 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Связанный спор</div>
             <Badge tone={state.disputeState === 'open' ? 'danger' : 'success'}>{state.disputeState}</Badge>
           </div>
-          <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.7 }}>{dispute.title} · {dispute.reasonCode} · evidence {dispute.evidence.uploaded}/{dispute.evidence.total}</div>
+          <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.7 }}>{dispute.title} · {dispute.reasonCode} · доказательства {dispute.evidence.uploaded}/{dispute.evidence.total}</div>
         </section>
       ) : null}
 
@@ -142,8 +142,8 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {state.docsState === 'missing' ? <button onClick={() => { startDocs(id); toast('Сбор документов по сделке запущен.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Начать сбор документов</button> : null}
           {state.docsState !== 'complete' ? <button onClick={() => { completeDocs(id); toast('Документный пакет сделки собран.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Документы собраны</button> : null}
-          {state.docsState === 'complete' && state.reserveState === 'reserved' && state.disputeState !== 'open' ? <button onClick={() => { requestRelease(id); toast('Запрос на выпуск денег по сделке создан.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Запросить выпуск денег</button> : null}
-          {state.reserveState === 'pending_release' ? <button onClick={() => { releaseFunds(id); toast('Деньги по сделке выпущены.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Выпустить деньги</button> : null}
+          {state.docsState === 'complete' && state.reserveState === 'reserved' && state.disputeState !== 'open' ? <button onClick={() => { requestRelease(id); toast('Основание для банковской проверки выплаты создано.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Подготовить основание банку</button> : null}
+          {state.reserveState === 'pending_release' ? <button onClick={() => { releaseFunds(id); toast('Банк отметил проверку выплаты по сделке.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Отметить банковскую проверку</button> : null}
           {state.disputeState !== 'open' && state.reserveState !== 'released' ? <button onClick={() => { openDispute(id); toast('Спор по сделке открыт.', 'warning'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Открыть спор</button> : null}
           {state.disputeState === 'open' ? <button onClick={() => { resolveDispute(id); toast('Спор по сделке закрыт.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Закрыть спор</button> : null}
           <Link href='/platform-v7/bank' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Банк</Link>
