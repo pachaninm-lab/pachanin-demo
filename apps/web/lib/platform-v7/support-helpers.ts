@@ -4,7 +4,7 @@ export { SUPPORT_MATURITY_LABEL } from './support-types';
 export const SUPPORT_CATEGORY_LABELS: Record<SupportCategory, string> = { money: 'Деньги', documents: 'Документы', logistics: 'Логистика', acceptance: 'Приёмка', quality: 'Качество', dispute: 'Спор', access: 'Доступ', integration: 'Интеграция', other: 'Другое' };
 export const SUPPORT_PRIORITY_LABELS: Record<SupportPriority, string> = { P0: 'Критично', P1: 'Высоко', P2: 'Обычно', P3: 'Справка' };
 export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = { created: 'Создано', accepted: 'Принято в работу', waiting_user: 'Нужны данные', waiting_external: 'Ожидается внешнее действие', assigned_operator: 'Назначен оператор', assigned_bank: 'Передано в банк', assigned_logistics: 'Передано в логистику', resolved: 'Решение подготовлено', closed: 'Закрыто', escalated: 'Эскалировано' };
-export const SUPPORT_ENTITY_LABELS: Record<SupportRelatedEntityType, string> = { deal: 'Сделка', lot: 'Лот', trip: 'Рейс', document: 'Документ', blocker: 'Блокер', dispute: 'Спор', money: 'Деньги', integration: 'Интеграция', other: 'Объект' };
+export const SUPPORT_ENTITY_LABELS: Record<SupportRelatedEntityType, string> = { deal: 'Сделка', lot: 'Лот', trip: 'Рейс', document: 'Документ', blocker: 'Причина остановки', dispute: 'Спор', money: 'Деньги', integration: 'Интеграция', other: 'Объект' };
 
 export function supportFormatRub(value: number): string { return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value) + ' ₽'; }
 export function supportSlaHours(priority: SupportPriority): number { return priority === 'P0' ? 2 : priority === 'P1' ? 8 : priority === 'P2' ? 24 : 72; }
@@ -33,10 +33,10 @@ export function supportSlaState(item: Pick<SupportCase, 'slaDueAt' | 'status'>, 
 }
 export function supportSlaLabel(item: Pick<SupportCase, 'slaDueAt' | 'status'>, now = '2026-05-05T12:00:00.000Z'): string {
   const state = supportSlaState(item, now);
-  if (state === 'closed') return 'SLA закрыт';
-  if (state === 'breached') return 'SLA просрочен';
-  if (state === 'due_soon') return 'SLA скоро истечёт';
-  return 'SLA в работе';
+  if (state === 'closed') return 'Срок реакции закрыт';
+  if (state === 'breached') return 'Срок реакции просрочен';
+  if (state === 'due_soon') return 'Срок реакции скоро истечёт';
+  return 'Срок реакции в работе';
 }
 export function supportSortCases(cases: SupportCase[]): SupportCase[] {
   const rank = { P0: 0, P1: 1, P2: 2, P3: 3 };
