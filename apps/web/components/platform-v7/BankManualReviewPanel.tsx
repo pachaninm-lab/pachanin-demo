@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { P7GuardedActionButton } from '@/components/platform-v7/P7GuardedActionButton';
 import { platformV7ActionTargetById } from '@/lib/platform-v7/action-targets';
 
-const MATURITY = 'sandbox';
+const MATURITY = 'тестовый режим';
 
 type ReviewStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'escalated';
 type ReviewReason = 'beneficiary_change' | 'large_amount' | 'compliance_flag' | 'duplicate_suspected' | 'gate_override_requested';
@@ -29,9 +29,9 @@ const REVIEW_QUEUE: ManualReviewItem[] = [
     amount: 4_464_000,
     status: 'pending',
     reason: 'beneficiary_change',
-    description: 'Sandbox beneficiary data changed shortly before payout. Repeat review is required.',
+    description: 'Данные получателя изменились незадолго до проверки выплаты. Нужна повторная ручная проверка.',
     requestedAt: '2026-04-27T09:15:00Z',
-    blockers: ['Repeat review is not completed', 'Compliance gate is not cleared'],
+    blockers: ['Повторная проверка не завершена', 'Комплаенс-проверка не закрыта'],
   },
   {
     id: 'mr-002',
@@ -39,9 +39,9 @@ const REVIEW_QUEUE: ManualReviewItem[] = [
     amount: 8_100_000,
     status: 'in_review',
     reason: 'large_amount',
-    description: 'Sandbox amount is above automatic limit. Manual review is required.',
+    description: 'Сумма выше порога автоматической проверки. Требуется ручной разбор основания.',
     requestedAt: '2026-04-26T16:00:00Z',
-    reviewer: 'Sandbox reviewer',
+    reviewer: 'Специалист проверки',
     blockers: [],
   },
   {
@@ -50,9 +50,9 @@ const REVIEW_QUEUE: ManualReviewItem[] = [
     amount: 2_976_000,
     status: 'approved',
     reason: 'compliance_flag',
-    description: 'Sandbox compliance warning was reviewed manually.',
+    description: 'Комплаенс-предупреждение проверено вручную.',
     requestedAt: '2026-04-25T11:30:00Z',
-    reviewer: 'Sandbox reviewer',
+    reviewer: 'Специалист проверки',
     blockers: [],
   },
 ];
@@ -91,9 +91,9 @@ function reasonLabel(reason: ReviewReason): string {
   const map: Record<ReviewReason, string> = {
     beneficiary_change: 'Смена получателя',
     large_amount: 'Крупная сумма',
-    compliance_flag: 'Compliance-флаг',
-    duplicate_suspected: 'Дубль',
-    gate_override_requested: 'Запрос обхода gate',
+    compliance_flag: 'Комплаенс-метка',
+    duplicate_suspected: 'Возможный дубль',
+    gate_override_requested: 'Запрос обхода проверки условий',
   };
   return map[reason];
 }
@@ -120,7 +120,7 @@ export function BankManualReviewPanel() {
         <div style={{ fontSize: 12, fontWeight: 800, color: M, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           Ручная проверка · <span style={{ color: WARN }}>{MATURITY}</span>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: T, marginTop: 4 }}>Очередь банкового разбора</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: T, marginTop: 4 }}>Очередь банковского разбора</div>
         {pending > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: WARN, fontWeight: 700 }}>{pending} требуют действия</div> : null}
       </div>
 
@@ -152,12 +152,12 @@ export function BankManualReviewPanel() {
 
               {hasBlockers ? (
                 <div style={{ marginTop: 10, background: ERR_BG, border: `1px solid ${ERR_BORDER}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ fontSize: 11, color: ERR, fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Блокеры</div>
+                  <div style={{ fontSize: 11, color: ERR, fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Причины остановки</div>
                   {item.blockers.map((blocker) => <div key={blocker} style={{ fontSize: 12, color: ERR }}>· {blocker}</div>)}
                 </div>
               ) : null}
 
-              {done ? <div style={{ marginTop: 10, fontSize: 12, color: BRAND, fontWeight: 800 }}>Sandbox action: {done}</div> : null}
+              {done ? <div style={{ marginTop: 10, fontSize: 12, color: BRAND, fontWeight: 800 }}>Тестовое действие: {done}</div> : null}
 
               {canAct && approveTarget && rejectTarget ? (
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -166,8 +166,8 @@ export function BankManualReviewPanel() {
                     activeActionId={activeActionId}
                     blocked={hasBlockers}
                     blockerLabels={item.blockers}
-                    blockedLabel='Блокеры не сняты'
-                    blockedReason='Нельзя одобрить до снятия блокеров.'
+                    blockedLabel='Причины остановки не закрыты'
+                    blockedReason='Нельзя одобрить до закрытия причин остановки.'
                     loadingLabel='Одобряется…'
                     onClick={() => simulate(approveTarget.actionId, item.id, 'approved')}
                   />
