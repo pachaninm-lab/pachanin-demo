@@ -24,8 +24,8 @@ export function statusLabel(status: string) {
     quality_approved: 'Качество подтверждено',
     quality_disputed: 'Спор по качеству',
     docs_complete: 'Документы готовы',
-    release_requested: 'Запрошена выплата',
-    release_approved: 'Выплата одобрена',
+    release_requested: 'Основание на проверке',
+    release_approved: 'Проверка выплаты отмечена',
     closed: 'Закрыта',
   };
   return map[status] ?? status;
@@ -50,7 +50,7 @@ export function macroPhase(status: string) {
     { id: 'logistics', label: 'Логистика', statuses: ['loading_scheduled', 'loading_started', 'loading_done', 'in_transit', 'arrived'] },
     { id: 'acceptance', label: 'Приёмка', statuses: ['unloading_started', 'unloading_done', 'quality_check', 'quality_approved', 'quality_disputed'] },
     { id: 'documents', label: 'Документы', statuses: ['docs_complete'] },
-    { id: 'settlement', label: 'Расчёт', statuses: ['release_requested', 'release_approved', 'closed'] },
+    { id: 'settlement', label: 'Проверка выплаты', statuses: ['release_requested', 'release_approved', 'closed'] },
   ];
   return groups.find((group) => group.statuses.includes(status))?.id ?? 'contract';
 }
