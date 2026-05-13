@@ -82,14 +82,9 @@ export function ComplianceRuntime() {
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
       <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: 'var(--pc-text-primary)' }}>Комплаенс</div>
-            <div style={{ fontSize: 13, color: 'var(--pc-text-muted)', lineHeight: 1.7, marginTop: 8 }}>KYB-проверка, верификация контрагентов, экспорт реестра.</div>
-          </div>
-          <button onClick={handleCsv} style={{ borderRadius: 12, padding: '10px 16px', background: 'var(--pc-accent)', border: '1px solid var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-            Выгрузить CSV
-          </button>
+        <div>
+          <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: 'var(--pc-text-primary)' }}>Комплаенс</div>
+          <div style={{ fontSize: 13, color: 'var(--pc-text-muted)', lineHeight: 1.7, marginTop: 8 }}>KYB-проверка, верификация контрагентов и контроль риск-статусов.</div>
         </div>
       </section>
 
@@ -113,13 +108,17 @@ export function ComplianceRuntime() {
             <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--pc-text-primary)' }}>Реестр контрагентов</div>
             <div style={{ fontSize: 12, color: 'var(--pc-text-muted)', marginTop: 4 }}>Показано {filtered.length} из {COUNTERPARTIES.length} записей.</div>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {(['all', 'review', 'blocked'] as const).map(f => (
-              <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${filter === f ? 'var(--pc-accent)' : 'var(--pc-border)'}`, background: filter === f ? 'var(--pc-accent-bg)' : 'transparent', color: filter === f ? 'var(--pc-accent)' : 'var(--pc-text-muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                {f === 'all' ? 'Все' : f === 'review' ? 'Проверка' : 'Заблокированы'}
-              </button>
-            ))}
-          </div>
+          <button onClick={handleCsv} style={{ borderRadius: 10, padding: '8px 12px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-muted)', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+            Экспорт CSV
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {(['all', 'review', 'blocked'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${filter === f ? 'var(--pc-accent)' : 'var(--pc-border)'}`, background: filter === f ? 'var(--pc-accent-bg)' : 'transparent', color: filter === f ? 'var(--pc-accent)' : 'var(--pc-text-muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              {f === 'all' ? 'Все' : f === 'review' ? 'Проверка' : 'Заблокированы'}
+            </button>
+          ))}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8 }}>
