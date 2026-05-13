@@ -1,0 +1,170 @@
+/* Platform v7 · role page visual polish
+   Scope: inner platform-v7 role pages only. No landing impact. */
+
+.pc-v4-main > main {
+  isolation: isolate;
+}
+
+.pc-v4-main > main > section:first-child {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--pc-border) 66%, transparent) !important;
+  box-shadow: 0 22px 58px rgba(4, 12, 10, 0.10) !important;
+}
+
+.pc-v4-main > main > section:first-child::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(125, 221, 181, 0.18), transparent 18rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.14), transparent 48%);
+  opacity: 0.88;
+  z-index: -1;
+}
+
+.pc-v4-main > main > section:first-child h1 {
+  max-width: 980px;
+}
+
+.pc-v4-main > main > section:first-child p {
+  max-width: 920px;
+}
+
+.pc-v4-main > main > section:first-child a {
+  min-height: 46px !important;
+  border-radius: 14px !important;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background-color 150ms ease !important;
+}
+
+.pc-v4-main > main > section:first-child a:hover {
+  transform: translateY(-1px);
+}
+
+.pc-v4-main > main > section:nth-child(2) > * {
+  min-height: 128px;
+}
+
+.pc-v4-main > main > section:nth-child(2) > div,
+.pc-v4-main > main > section:nth-child(2) article,
+.pc-v4-main > main > section:nth-child(2) aside {
+  border-color: color-mix(in srgb, var(--pc-border) 68%, transparent) !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pc-bg-card) 96%, transparent), color-mix(in srgb, var(--pc-bg-elevated) 76%, transparent)) !important;
+  box-shadow: 0 14px 34px rgba(4, 12, 10, 0.065) !important;
+}
+
+.pc-v4-main > main a[href] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pc-v4-main > main a[href][style*='box-shadow'] {
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background-color 150ms ease !important;
+}
+
+.pc-v4-main > main a[href][style*='box-shadow']:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 42px rgba(4, 12, 10, 0.10) !important;
+}
+
+.pc-v4-main > main :is(strong, h1, h2, h3)[style*='color: #0F1419'],
+.pc-v4-main > main :is(strong, h1, h2, h3)[style*='color:#0F1419'] {
+  color: var(--pc-text-primary) !important;
+}
+
+.pc-v4-main > main :is(p, span, div)[style*='color: #64748B'],
+.pc-v4-main > main :is(p, span, div)[style*='color:#64748B'],
+.pc-v4-main > main :is(p, span, div)[style*='color: #475569'],
+.pc-v4-main > main :is(p, span, div)[style*='color:#475569'] {
+  color: var(--pc-text-secondary) !important;
+}
+
+.pc-v4-main > main div[style*='text-transform: uppercase'],
+.pc-v4-main > main div[style*='textTransform: uppercase'] {
+  color: var(--pc-text-muted) !important;
+}
+
+.pc-v4-main > main :is(section, article, aside, a, div)[style*='background: #fff'],
+.pc-v4-main > main :is(section, article, aside, a, div)[style*='background:#fff'],
+.pc-v4-main > main :is(section, article, aside, a, div)[style*='background: linear-gradient'] {
+  border-color: color-mix(in srgb, var(--pc-border) 68%, transparent) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main > section:first-child {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--p7-color-surface) 96%, transparent), color-mix(in srgb, var(--p7-color-surface-muted) 88%, transparent)) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.30) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main > section:first-child::before {
+  background:
+    radial-gradient(circle at 88% 8%, rgba(125, 221, 181, 0.13), transparent 18rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 48%);
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main :is(section, article, aside, a, div)[style*='background: #fff'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main :is(section, article, aside, a, div)[style*='background:#fff'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main :is(section, article, aside, a, div)[style*='background: linear-gradient'] {
+  background: color-mix(in srgb, var(--p7-color-surface-muted) 88%, transparent) !important;
+  border-color: color-mix(in srgb, var(--p7-color-border) 78%, transparent) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main :is(strong, h1, h2, h3)[style*='color: #0F1419'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main :is(strong, h1, h2, h3)[style*='color:#0F1419'] {
+  color: var(--p7-color-text-primary) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main :is(p, span, div)[style*='color: #64748B'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main :is(p, span, div)[style*='color:#64748B'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main :is(p, span, div)[style*='color: #475569'],
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-v4-main > main :is(p, span, div)[style*='color:#475569'] {
+  color: var(--p7-color-text-secondary) !important;
+}
+
+@media (max-width: 768px) {
+  .pc-v4-main > main {
+    gap: 12px !important;
+  }
+
+  .pc-v4-main > main > section:first-child {
+    padding: 18px !important;
+  }
+
+  .pc-v4-main > main > section:nth-child(2) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .pc-v4-main > main > section:nth-child(2) > * {
+    min-height: 118px;
+  }
+}
+
+@media (max-width: 430px) {
+  .pc-v4-main > main > section:first-child {
+    border-radius: 22px !important;
+    padding: 16px !important;
+  }
+
+  .pc-v4-main > main > section:first-child h1 {
+    font-size: clamp(28px, 9vw, 38px) !important;
+  }
+
+  .pc-v4-main > main > section:first-child a {
+    width: 100%;
+  }
+
+  .pc-v4-main > main > section:nth-child(2) {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .pc-v4-main > main > section:nth-child(2) > * {
+    min-height: 112px;
+    padding: 12px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .pc-v4-main > main > section:nth-child(2) {
+    grid-template-columns: 1fr !important;
+  }
+}
