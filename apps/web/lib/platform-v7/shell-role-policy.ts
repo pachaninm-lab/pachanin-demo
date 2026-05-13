@@ -6,9 +6,9 @@ export const FIELD_SHELL_PATHS = ['/platform-v7/driver', '/platform-v7/surveyor'
 export const ROLE_SCOPED_SHELL_ROLES = ['buyer', 'seller', 'logistics', 'bank', 'arbitrator', 'compliance'] as const satisfies readonly PlatformRole[];
 export const ROLE_SCOPED_SHELL_PATHS = ['/platform-v7/buyer', '/platform-v7/seller', '/platform-v7/procurement', '/platform-v7/logistics', '/platform-v7/bank', '/platform-v7/arbitrator', '/platform-v7/compliance'] as const;
 
-export const COMMERCIAL_HEADER_ROLES = ['seller', 'buyer', 'logistics'] as const satisfies readonly PlatformRole[];
+export const COMMERCIAL_HEADER_ROLES = ['seller', 'buyer', 'logistics', 'driver'] as const satisfies readonly PlatformRole[];
 export const CONTROL_HEADER_ROLES = ['bank', 'arbitrator', 'compliance'] as const satisfies readonly PlatformRole[];
-export const OPERATOR_HEADER_ROLES = ['operator', 'executive', 'seller', 'buyer', 'logistics', 'bank', 'arbitrator', 'compliance'] as const satisfies readonly PlatformRole[];
+export const OPERATOR_HEADER_ROLES = ['operator', 'executive', 'seller', 'buyer', 'logistics', 'driver', 'bank', 'arbitrator', 'compliance'] as const satisfies readonly PlatformRole[];
 
 export type ShellPolicy = 'field' | 'role-scoped' | 'operator';
 
