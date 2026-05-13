@@ -110,6 +110,18 @@ describe('shell role policy', () => {
     }
   });
 
+  it.each([
+    ['/platform-v7/driver/field'],
+    ['/platform-v7/elevator'],
+    ['/platform-v7/lab'],
+    ['/platform-v7/surveyor'],
+  ] as Array<[string]>)('keeps field route %s isolated from stale role header options', (path) => {
+    for (const staleRole of ['operator', 'executive', 'seller', 'buyer', 'bank', 'logistics'] as PlatformRole[]) {
+      expect(getHeaderSelectableRoles(staleRole, path)).toEqual([]);
+      expect(canShowPortalRoleSwitcher(staleRole, path)).toBe(false);
+    }
+  });
+
   it('limits commercial compact header switcher to commercial roles', () => {
     expect(getHeaderSelectableRoles('seller', '/platform-v7/seller')).toEqual(['seller', 'buyer', 'logistics']);
     expect(getHeaderSelectableRoles('buyer', '/platform-v7/buyer')).toEqual(['seller', 'buyer', 'logistics']);
