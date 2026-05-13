@@ -43,16 +43,18 @@ export function SupportHeaderIcon() {
   const pathname = usePathname();
   const target = useHeaderActionsTarget();
   const active = pathname.startsWith('/platform-v7/support');
+  const label = 'Помощь по остановке сделки';
 
   if (!target) return null;
 
   return createPortal(
     <Link
       href='/platform-v7/support'
-      aria-label='Поддержка'
-      title='Поддержка'
+      aria-label={label}
+      title={label}
       className='pc-v4-iconbtn pc-shell-iconbtn'
       data-support-header-icon='true'
+      data-testid='platform-v7-support-header-action'
       data-active={active}
       style={{
         textDecoration: 'none',
