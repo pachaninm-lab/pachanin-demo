@@ -31,7 +31,7 @@ const SELLER_ENTRIES: readonly PlatformActionLogEntry[] = [
     action: 'await-sdiz',
     actor: 'ФГИС «Зерно»',
     at: '2026-05-10T15:10:00Z',
-    message: 'СДИЗ по DL-9106 ожидает закрытия — выплата остановлена до подтверждения.',
+    message: 'СДИЗ по DL-9106 ожидает закрытия — банковская проверка выплаты остановлена до подтверждения.',
   },
 ];
 
@@ -54,7 +54,7 @@ const BUYER_ENTRIES: readonly PlatformActionLogEntry[] = [
     action: 'accept-offer',
     actor: 'покупатель',
     at: '2026-05-10T14:30:00Z',
-    message: 'Ставка по LOT-2403 принята — ожидается банковское подтверждение резерва.',
+    message: 'Предложение по LOT-2403 принято — ожидается банковское подтверждение резерва.',
   },
   {
     id: 'DL-9106-reserve-wait',
@@ -84,17 +84,17 @@ const BANK_ENTRIES: readonly PlatformActionLogEntry[] = [
     scope: 'bank',
     status: 'started',
     objectId: 'DL-9106',
-    action: 'await-release-conditions',
+    action: 'await-payout-review-conditions',
     actor: 'оператор',
     at: '2026-05-10T15:15:00Z',
     message: 'Ожидается закрытие СДИЗ, ЭТрН и акта приёмки — передача на банковское событие остановлена.',
   },
   {
-    id: 'DL-9106-release-stop',
+    id: 'DL-9106-payout-review-stop',
     scope: 'bank',
     status: 'error',
     objectId: 'DL-9106',
-    action: 'check-release-readiness',
+    action: 'check-payout-review-readiness',
     actor: 'банк',
     at: '2026-05-10T15:20:00Z',
     message: 'Проверка выплаты по DL-9106 остановлена — условия сделки ещё не закрыты.',
