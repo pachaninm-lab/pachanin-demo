@@ -20,13 +20,13 @@ const { deal, logistics, money, documents, dispute } = PLATFORM_V7_EXECUTION_SOU
 const readinessScore = executionReadinessScore();
 const blockers = executionBlockers();
 const expectedDealAmount = expectedDealAmountRub();
-const firstBlocker = blockers[0] ?? 'активных блокеров нет';
+const firstBlocker = blockers[0] ?? 'активных причин остановки нет';
 
 const FIELD_COMMAND_CENTER_ROLES = new Set<PlatformRole>(['driver', 'surveyor', 'elevator', 'lab']);
 
 const DEAL_SPINE_STEPS: readonly P7DealSpineStep[] = [
   { label: 'лот', value: deal.lotId, tone: 'document' },
-  { label: 'ставка', value: 'выбрана', tone: 'success' },
+  { label: 'предложение', value: 'выбрано', tone: 'success' },
   { label: 'сделка', value: deal.id, tone: 'bank' },
   { label: 'резерв', value: formatRub(money.reservedRub), tone: 'money' },
   { label: 'рейс', value: logistics.tripId, tone: 'logistics' },
@@ -46,11 +46,11 @@ const FIELD_SPINE_STEPS: readonly P7DealSpineStep[] = [
 
 const FAST_ANSWERS = [
   { label: 'Сделка', value: `${deal.lotId} → ${deal.id}`, note: `${formatTons(deal.volumeTons)} · ${formatRub(expectedDealAmount)} · готовность ${readinessScore}%` },
-  { label: 'Деньги', value: `${formatRub(money.reservedRub)} в резерве`, note: `${formatRub(money.releaseCandidateRub)} можно передавать банку только после закрытия условий.` },
+  { label: 'Деньги', value: `${formatRub(money.reservedRub)} в резерве`, note: `${formatRub(money.releaseCandidateRub)} идёт на банковскую проверку только после закрытия условий.` },
   { label: 'Груз', value: logistics.currentLeg, note: `${logistics.pickupPoint} → ${logistics.deliveryPoint}. Срок: ${logistics.eta}.` },
   { label: 'Документы', value: `СДИЗ: ${documents.sdizStatus}`, note: `Не хватает: ${documents.missingDocuments.join(', ')}.` },
-  { label: 'Блокер', value: blockers.length > 0 ? `${blockers.length} активных` : 'нет критического стопа', note: firstBlocker },
-  { label: 'Следующий шаг', value: blockers.length > 0 ? 'закрыть блокер' : 'передать основание банку', note: 'Каждое действие должно оставлять запись в журнале.' },
+  { label: 'Причина остановки', value: blockers.length > 0 ? `${blockers.length} активных` : 'нет критического стопа', note: firstBlocker },
+  { label: 'Следующий шаг', value: blockers.length > 0 ? 'закрыть причину' : 'подготовить основание банку', note: 'Каждое действие должно оставлять запись в журнале.' },
 ] as const;
 
 const FIELD_FAST_ANSWERS = [
@@ -59,16 +59,16 @@ const FIELD_FAST_ANSWERS = [
   { label: 'Документы рейса', value: 'ЭТрН ждёт подписи', note: 'Водитель видит только транспортные документы своего рейса.' },
   { label: 'Пломба и фото', value: 'зафиксированы', note: 'Фото и номер пломбы сохраняются в журнале рейса.' },
   { label: 'Следующее действие', value: 'довезти груз', note: 'Подтвердить прибытие и передать документы на приёмке.' },
-  { label: 'Что скрыто', value: 'ставки, резерв, деньги, банк', note: 'Полевой экран не раскрывает коммерческие и банковские данные.' },
+  { label: 'Что скрыто', value: 'предложения, резерв, деньги, банк', note: 'Полевой экран не раскрывает коммерческие и банковские данные.' },
 ] as const;
 
 const ROLE_ENTRY_POINTS: readonly { label: string; href: string; role: PlatformRole; tone: string; text: string }[] = [
-  { label: 'Продавец', href: '/platform-v7/seller?as=seller', role: 'seller', tone: PLATFORM_V7_TOKENS.color.brand, text: 'партия, лот, оффер, документы, причина задержки денег' },
-  { label: 'Покупатель', href: '/platform-v7/buyer?as=buyer', role: 'buyer', tone: PLATFORM_V7_TOKENS.color.money, text: 'заявка, ставка, резерв, приёмка, следующий шаг' },
+  { label: 'Продавец', href: '/platform-v7/seller?as=seller', role: 'seller', tone: PLATFORM_V7_TOKENS.color.brand, text: 'партия, лот, предложение, документы, причина задержки денег' },
+  { label: 'Покупатель', href: '/platform-v7/buyer?as=buyer', role: 'buyer', tone: PLATFORM_V7_TOKENS.color.money, text: 'запрос, предложение, резерв, приёмка, следующий шаг' },
   { label: 'Логистика', href: '/platform-v7/logistics?as=logistics', role: 'logistics', tone: PLATFORM_V7_TOKENS.color.logistics, text: 'заявка, водитель, машина, срок, документы рейса' },
   { label: 'Водитель', href: '/platform-v7/driver?as=driver', role: 'driver', tone: PLATFORM_V7_TOKENS.color.textSecondary, text: 'один рейс, маршрут, фото, пломба, проблема' },
   { label: 'Банк', href: '/platform-v7/bank?as=bank', role: 'bank', tone: PLATFORM_V7_TOKENS.color.bank, text: 'резерв, удержание, условия выплаты, ручная проверка' },
-  { label: 'Оператор', href: '/platform-v7/control-tower?as=operator', role: 'operator', tone: PLATFORM_V7_TOKENS.color.dispute, text: 'очередь блокеров, ответственный, срок, журнал' },
+  { label: 'Оператор', href: '/platform-v7/control-tower?as=operator', role: 'operator', tone: PLATFORM_V7_TOKENS.color.dispute, text: 'очередь причин остановки, ответственный, срок, журнал' },
 ] as const;
 
 function FieldCommandCenterHub() {
@@ -133,7 +133,7 @@ export function PlatformCommandCenterHub() {
           </span>
         }
         title='Центр исполнения сделки'
-        subtitle='Один экран: деньги, груз, документы, блокер и следующий ответственный.'
+        subtitle='Один экран: деньги, груз, документы, причина остановки и следующий ответственный.'
         actions={
           <>
             <Link href='/platform-v7/control-tower/grain' style={primaryCta}>Открыть сделку</Link>
