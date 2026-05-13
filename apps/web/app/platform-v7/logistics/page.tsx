@@ -43,15 +43,15 @@ const orders = [
     driverLocation: '52.6671, 41.4479 · 62% маршрута',
     driverUpdated: '14:28',
     vehicle: 'Р***ТУ',
-    eta: '14:28',
+    arrivalTime: '14:28',
     progress: '62%',
     incidents: 'нет',
-    etrn: 'СБИС / Saby ЭТрН · ждёт подписи грузополучателя',
+    etrn: 'ЭТрН · ждёт подписи грузополучателя',
     gisEpd: 'ГИС ЭПД · ожидает передачи после подписи',
     fgis: 'ФГИС «Зерно» · СДИЗ ожидает подтверждения',
     docs: 'транспортный пакет на проверке',
     next: 'контроль прибытия и подписи ЭТрН',
-    href: '/platform-v7/driver',
+    href: '/platform-v7/driver/field',
   },
   {
     id: 'LOG-9102',
@@ -66,15 +66,15 @@ const orders = [
     driverLocation: 'Элеватор назначения · прибыл',
     driverUpdated: '14:28',
     vehicle: 'С***АА',
-    eta: 'прибыл 14:28',
+    arrivalTime: 'прибыл 14:28',
     progress: '100%',
     incidents: 'есть отклонение веса',
-    etrn: 'СБИС / Saby ЭТрН · подписана перевозчиком',
+    etrn: 'ЭТрН · подписана перевозчиком',
     gisEpd: 'ГИС ЭПД · принята в пилотном контуре',
     fgis: 'ФГИС «Зерно» · СДИЗ отмечен в пилотном контуре',
     docs: 'акт расхождения не подписан',
     next: 'закрыть инцидент и акт удержания',
-    href: '/platform-v7/driver',
+    href: '/platform-v7/driver/field',
   },
   {
     id: 'LOG-9103',
@@ -89,10 +89,10 @@ const orders = [
     driverLocation: '—',
     driverUpdated: '—',
     vehicle: '—',
-    eta: '7–14 дней',
+    arrivalTime: '7–14 дней',
     progress: '0%',
     incidents: 'нет',
-    etrn: 'СБИС / Saby ЭТрН · не создана',
+    etrn: 'ЭТрН · не создана',
     gisEpd: 'ГИС ЭПД · не отправлено',
     fgis: 'ФГИС «Зерно» · партия ожидает сверки',
     docs: 'не создан рейс',
@@ -102,10 +102,10 @@ const orders = [
 ] as const;
 
 const gates = [
-  { title: 'СБИС / Saby ЭТрН', value: '1 ждёт подписи · 1 подписана · 1 не создана', state: 'stop' },
+  { title: 'ЭТрН', value: '1 ждёт подписи · 1 подписана · 1 не создана', state: 'stop' },
   { title: 'ГИС ЭПД', value: 'передача после подписания ЭТрН', state: 'wait' },
   { title: 'ФГИС «Зерно»', value: 'СДИЗ влияет на проверку выплаты', state: 'stop' },
-  { title: 'Wialon', value: '2 водителя с текущим статусом', state: 'ok' },
+  { title: 'GPS-контур', value: '2 водителя в тестовом сценарии', state: 'ok' },
 ] as const;
 
 export default function LogisticsPage() {
@@ -119,10 +119,10 @@ export default function LogisticsPage() {
       <section style={hero}>
         <div style={badge}>Кабинет логистики</div>
         <h1 style={h1}>Заявки, водители, ЭТрН и маршрут</h1>
-        <p style={lead}>Логистика видит исполнение перевозки: заявку, сделку, водителя, машину, маршрут, ETA, ЭТрН, ГИС ЭПД, СДИЗ и инциденты. Деньги и ставки не раскрываются.</p>
+        <p style={lead}>Логистика видит исполнение перевозки: заявку, сделку, водителя, машину, маршрут, срок прибытия, ЭТрН, ГИС ЭПД, СДИЗ и инциденты. Деньги и предложения не раскрываются.</p>
         <div style={actions}>
           <Link href='/platform-v7/logistics/inbox' style={primaryBtn}>Входящие заявки</Link>
-          <Link href='/platform-v7/driver' style={ghostBtn}>Открыть рейс водителя</Link>
+          <Link href='/platform-v7/driver/field' style={ghostBtn}>Открыть рейс водителя</Link>
         </div>
       </section>
 
@@ -167,7 +167,7 @@ function Gate({ gate }: { gate: typeof gates[number] }) {
 function DriverCard({ order }: { order: typeof orders[number] }) {
   const hasIncident = order.incidents !== 'нет';
   return (
-    <Link href='/platform-v7/driver' style={{ textDecoration: 'none', color: 'inherit', background: order.status === 'Водитель назначен' ? 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)' : 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
+    <Link href='/platform-v7/driver/field' style={{ textDecoration: 'none', color: 'inherit', background: order.status === 'Водитель назначен' ? 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)' : 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.driver} · {order.vehicle}</div>
@@ -179,6 +179,7 @@ function DriverCard({ order }: { order: typeof orders[number] }) {
       <div style={twoColGrid}>
         <Cell label='Где водитель' value={order.driverLocation} strong={!hasIncident} />
         <Cell label='На каком заказе' value={`${order.id} · ${order.crop}`} />
+        <Cell label='Последнее событие' value={order.driverUpdated} />
         <Cell label='ЭТрН' value={order.etrn} danger={order.etrn.includes('ждёт') || order.etrn.includes('не создана')} />
         <Cell label='ГИС ЭПД' value={order.gisEpd} danger={order.gisEpd.includes('ожидает') || order.gisEpd.includes('не отправлено')} />
       </div>
@@ -208,7 +209,7 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
         <Cell label='Где водитель' value={order.driverLocation} strong={isActive} />
         <Cell label='Заказ' value={order.id} />
         <Cell label='Машина' value={order.vehicle} />
-        <Cell label='ETA' value={order.eta} strong={isActive} />
+        <Cell label='Срок прибытия' value={order.arrivalTime} strong={isActive} />
         <Cell label='Прогресс' value={order.progress} strong={isActive} />
         <Cell label='ЭТрН' value={order.etrn} danger={order.etrn.includes('ждёт') || order.etrn.includes('не создана')} />
         <Cell label='СДИЗ' value={order.fgis} danger={order.fgis.includes('ожидает')} />
