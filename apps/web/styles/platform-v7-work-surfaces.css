@@ -120,6 +120,118 @@
   color: inherit;
 }
 
+/* Premium work-surface polish: reduce visual noise inside role pages without touching domain logic. */
+.pc-main {
+  --p7-surface-radius: clamp(18px, 1.6vw, 26px);
+  --p7-surface-shadow: 0 18px 46px rgba(4, 12, 10, 0.075);
+  --p7-surface-border: color-mix(in srgb, var(--p7-color-border, var(--pc-border)) 72%, transparent);
+}
+
+.pc-main > :is(section, article, aside),
+.pc-main > div > :is(section, article, aside):first-child {
+  border-radius: var(--p7-surface-radius) !important;
+}
+
+.pc-main :is(section, article, aside)[style*='border'] {
+  border-color: var(--p7-surface-border) !important;
+}
+
+.pc-main :is(section, article, aside)[style*='background'] {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--pc-bg-card) 94%, transparent), color-mix(in srgb, var(--pc-bg-card) 86%, transparent)) !important;
+}
+
+.pc-main > :is(section, article, aside)[style*='box-shadow'],
+.pc-main > div > :is(section, article, aside)[style*='box-shadow'] {
+  box-shadow: var(--p7-surface-shadow) !important;
+}
+
+.pc-main :is(section, article, aside) :is(section, article, aside)[style*='background'] {
+  background: color-mix(in srgb, var(--pc-bg-elevated) 78%, transparent) !important;
+}
+
+.pc-main :is(h1, h2) {
+  letter-spacing: -0.04em;
+}
+
+.pc-main :is(h3, h4) {
+  letter-spacing: -0.025em;
+}
+
+.pc-main :is(p, li, dd) {
+  line-height: 1.62;
+}
+
+.pc-main :is(small, label, dt) {
+  letter-spacing: -0.005em;
+}
+
+.pc-main :is(button, a[role='button']) {
+  border-radius: 13px !important;
+  font-weight: 850;
+}
+
+.pc-main :is(button, a[role='button']):not(:disabled) {
+  transition: transform 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease !important;
+}
+
+.pc-main :is(button, a[role='button']):not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.pc-main :is(button:disabled, button[aria-disabled='true'], a[aria-disabled='true']) {
+  cursor: not-allowed !important;
+  opacity: 0.58 !important;
+}
+
+.pc-main :is(table, [role='table']) {
+  border-radius: 16px !important;
+  background: color-mix(in srgb, var(--pc-bg-card) 74%, transparent) !important;
+}
+
+.pc-main :is(thead, th) {
+  background: color-mix(in srgb, var(--pc-bg-elevated) 72%, transparent) !important;
+}
+
+.pc-main :is(th) {
+  font-size: 11px !important;
+  letter-spacing: 0.045em !important;
+  text-transform: uppercase !important;
+  color: var(--pc-text-muted) !important;
+}
+
+.pc-main :is(td) {
+  color: var(--pc-text-primary) !important;
+}
+
+.pc-main :is([data-status], [data-tone], [role='status']) {
+  border-radius: 999px !important;
+  font-weight: 850 !important;
+}
+
+.pc-main :is(input, select, textarea) {
+  border-radius: 13px !important;
+  border-color: color-mix(in srgb, var(--p7-color-border, var(--pc-border)) 72%, transparent) !important;
+  background: color-mix(in srgb, var(--pc-bg-card) 88%, transparent) !important;
+}
+
+:root[data-theme='light'] .pc-main :is(section, article, aside)[style*='background'] {
+  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(250,252,251,0.86)) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main {
+  --p7-surface-shadow: 0 18px 46px rgba(0, 0, 0, 0.22);
+  --p7-surface-border: color-mix(in srgb, var(--p7-color-border) 78%, transparent);
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main :is(section, article, aside)[style*='background'] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--p7-color-surface) 92%, transparent), color-mix(in srgb, var(--p7-color-surface-muted) 86%, transparent)) !important;
+}
+
+:root:not([data-theme='light']):not([data-theme='high-contrast']) .pc-main :is(section, article, aside) :is(section, article, aside)[style*='background'] {
+  background: color-mix(in srgb, var(--p7-color-surface-muted) 88%, transparent) !important;
+}
+
 @media (max-width: 768px) {
   .pc-main table {
     display: block !important;
@@ -139,6 +251,18 @@
   .pc-main :is(button, a[role='button']) {
     min-height: 44px;
   }
+
+  .pc-main :is(h1) {
+    font-size: clamp(25px, 8vw, 38px) !important;
+  }
+
+  .pc-main :is(h2) {
+    font-size: clamp(20px, 6vw, 30px) !important;
+  }
+
+  .pc-main :is(p, li, dd) {
+    line-height: 1.58;
+  }
 }
 
 @media (max-width: 390px) {
@@ -148,5 +272,9 @@
 
   .pc-main :is(th, td) {
     min-width: 116px;
+  }
+
+  .pc-main :is(button, a[role='button']) {
+    width: 100%;
   }
 }
