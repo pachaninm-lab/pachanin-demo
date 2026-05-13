@@ -80,6 +80,15 @@ describe('shell role policy', () => {
   });
 
   it.each([
+    ['/platform-v7/control-tower'],
+    ['/platform-v7/executive'],
+  ] as Array<[string]>)('keeps control route %s isolated from stale portal role switcher', (path) => {
+    for (const staleRole of ['seller', 'buyer', 'logistics', 'bank', 'driver', 'surveyor'] as PlatformRole[]) {
+      expect(canShowPortalRoleSwitcher(staleRole, path)).toBe(false);
+    }
+  });
+
+  it.each([
     ['/platform-v7/seller', 'seller'],
     ['/platform-v7/buyer', 'buyer'],
     ['/platform-v7/logistics', 'logistics'],
