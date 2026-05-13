@@ -70,24 +70,60 @@ function useHeaderActionsTarget() {
   return target;
 }
 
-function roleLabelStyle() {
+function roleControlStyle() {
   return {
     minHeight: 42,
-    maxWidth: 132,
+    maxWidth: 176,
     border: '1px solid var(--pc-border)',
     borderRadius: 13,
     background: 'var(--pc-bg-card)',
     color: 'var(--pc-text-primary)',
-    padding: '0 10px',
-    fontSize: 12,
-    fontWeight: 850,
+    padding: '6px 10px',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    boxShadow: 'var(--pc-shadow-sm)',
+  } as const;
+}
+
+function roleCaptionStyle() {
+  return {
+    color: 'var(--pc-text-secondary)',
+    fontSize: 10,
+    fontWeight: 850,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    lineHeight: 1,
+    whiteSpace: 'nowrap',
+  } as const;
+}
+
+function roleValueStyle() {
+  return {
+    minWidth: 0,
+    color: 'var(--pc-text-primary)',
+    fontSize: 12,
+    fontWeight: 850,
+    lineHeight: 1.15,
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    boxShadow: 'var(--pc-shadow-sm)',
+  } as const;
+}
+
+function roleSelectStyle() {
+  return {
+    minWidth: 104,
+    maxWidth: 124,
+    border: 0,
+    outline: 0,
+    background: 'transparent',
+    color: 'var(--pc-text-primary)',
+    fontSize: 12,
+    fontWeight: 850,
+    lineHeight: 1.15,
+    cursor: 'pointer',
   } as const;
 }
 
@@ -109,8 +145,9 @@ export function RoleHeaderSwitcher() {
 
   if (shellPolicy === 'field') {
     return createPortal(
-      <span aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}`} data-role-header-label='true' style={roleLabelStyle()}>
-        {ROLE_LABELS[routeRole]}
+      <span aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}`} data-role-header-label='true' data-testid='platform-v7-header-role-label' style={roleControlStyle()}>
+        <span style={roleCaptionStyle()}>Роль</span>
+        <strong style={roleValueStyle()}>{ROLE_LABELS[routeRole]}</strong>
       </span>,
       target,
     );
@@ -119,33 +156,28 @@ export function RoleHeaderSwitcher() {
   if (!canShowPortalRoleSwitcher(routeRole, pathname)) return null;
 
   return createPortal(
-    <select
-      aria-label='Выбор роли'
-      title='Выбор роли'
-      value={routeRole}
-      onChange={(event) => {
-        const nextRole = event.target.value as PlatformRole;
-        setRole(nextRole);
-        trackRoleSwitch(nextRole);
-        router.push(ROLE_ROUTES[nextRole]);
-      }}
-      data-role-header-switcher='true'
-      style={{
-        ...roleLabelStyle(),
-        display: undefined,
-        alignItems: undefined,
-        justifyContent: undefined,
-        whiteSpace: undefined,
-        overflow: undefined,
-        textOverflow: undefined,
-      }}
-    >
-      {selectableRoles.map((item) => (
-        <option key={item} value={item}>
-          {ROLE_LABELS[item]}
-        </option>
-      ))}
-    </select>,
+    <label aria-label='Выбор роли в шапке' data-role-header-switcher-wrap='true' data-testid='platform-v7-header-role-switcher' style={roleControlStyle()}>
+      <span style={roleCaptionStyle()}>Роль</span>
+      <select
+        aria-label='Выбор роли'
+        title='Выбор роли'
+        value={routeRole}
+        onChange={(event) => {
+          const nextRole = event.target.value as PlatformRole;
+          setRole(nextRole);
+          trackRoleSwitch(nextRole);
+          router.push(ROLE_ROUTES[nextRole]);
+        }}
+        data-role-header-switcher='true'
+        style={roleSelectStyle()}
+      >
+        {selectableRoles.map((item) => (
+          <option key={item} value={item}>
+            {ROLE_LABELS[item]}
+          </option>
+        ))}
+      </select>
+    </label>,
     target,
   );
 }
