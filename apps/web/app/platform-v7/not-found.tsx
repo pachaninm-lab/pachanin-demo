@@ -8,13 +8,13 @@ type QuickLink = {
 
 const QUICK_LINKS: QuickLink[] = [
   { href: '/platform-v7', title: 'Главная / выбор роли', note: 'Точка входа в платформу с переключением между ролями.' },
-  { href: '/platform-v7/marketplace', title: 'Витрина лотов', note: 'Все лоты: культура, регион, объём, цена, класс.' },
-  { href: '/platform-v7/deals', title: 'Все сделки', note: '20+ сделок со SLA-сортировкой и полями статуса.' },
-  { href: '/platform-v7/control-tower', title: 'Центр управления', note: 'KPI-дашборд оператора: резерв, удержания, споры и деньги к выпуску.' },
-  { href: '/platform-v7/logistics', title: 'Логистика', note: 'Маршруты, GPS-события, ETA и отклонения.' },
-  { href: '/platform-v7/disputes', title: 'Споры', note: 'Открытые споры, удержания, SLA и ответственный владелец.' },
-  { href: '/platform-v7/bank', title: 'Банк', note: 'Резервы, выпуск денег, входящие события и ручные проверки.' },
-  { href: '/platform-v7/integrations', title: 'Интеграции', note: 'ФГИС «Зерно», СберБизнес, СПАРК и лаборатории.' },
+  { href: '/platform-v7/marketplace', title: 'Лоты', note: 'Партии и лоты: культура, регион, объём, цена и класс.' },
+  { href: '/platform-v7/deals', title: 'Все сделки', note: 'Сделки со сроками реакции и понятными статусами исполнения.' },
+  { href: '/platform-v7/control-tower', title: 'Центр управления', note: 'Операторский контроль: резерв, удержания, споры и банковская проверка выплаты.' },
+  { href: '/platform-v7/logistics', title: 'Логистика', note: 'Маршруты, GPS-события, срок прибытия и отклонения.' },
+  { href: '/platform-v7/disputes', title: 'Споры', note: 'Открытые споры, удержания, срок реакции и ответственный.' },
+  { href: '/platform-v7/bank', title: 'Банк', note: 'Резервы, банковская проверка выплаты, входящие события и ручные проверки.' },
+  { href: '/platform-v7/integrations', title: 'Внешние подключения', note: 'ФГИС «Зерно», СберБизнес, СПАРК и лаборатории.' },
   { href: '/platform-v7/operator', title: 'Кабинет оператора', note: 'Очереди задач, входящие события и ручные действия.' },
 ];
 
@@ -31,7 +31,7 @@ export default function PlatformV7NotFound() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
             <Link href="/platform-v7" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 700 }}>На главную</Link>
             <Link href="/platform-v7/deals" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Все сделки</Link>
-            <Link href="/platform-v7/marketplace" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Витрина лотов</Link>
+            <Link href="/platform-v7/marketplace" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Лоты</Link>
           </div>
         </section>
 
