@@ -46,7 +46,7 @@ const orders = [
     eta: '14:28',
     progress: '62%',
     incidents: 'нет',
-    etrn: 'СБИС / Saby ЭТрН · ждёт подписи грузополучателя',
+    etrn: 'ЭТрН · ждёт подписи грузополучателя',
     gisEpd: 'ГИС ЭПД · ожидает передачи после подписи',
     fgis: 'ФГИС «Зерно» · СДИЗ ожидает подтверждения',
     docs: 'транспортный пакет на проверке',
@@ -69,7 +69,7 @@ const orders = [
     eta: 'прибыл 14:28',
     progress: '100%',
     incidents: 'есть отклонение веса',
-    etrn: 'СБИС / Saby ЭТрН · подписана перевозчиком',
+    etrn: 'ЭТрН · подписана перевозчиком',
     gisEpd: 'ГИС ЭПД · принята в пилотном контуре',
     fgis: 'ФГИС «Зерно» · СДИЗ отмечен в пилотном контуре',
     docs: 'акт расхождения не подписан',
@@ -92,7 +92,7 @@ const orders = [
     eta: '7–14 дней',
     progress: '0%',
     incidents: 'нет',
-    etrn: 'СБИС / Saby ЭТрН · не создана',
+    etrn: 'ЭТрН · не создана',
     gisEpd: 'ГИС ЭПД · не отправлено',
     fgis: 'ФГИС «Зерно» · партия ожидает сверки',
     docs: 'не создан рейс',
@@ -102,10 +102,10 @@ const orders = [
 ] as const;
 
 const gates = [
-  { title: 'СБИС / Saby ЭТрН', value: '1 ждёт подписи · 1 подписана · 1 не создана', state: 'stop' },
+  { title: 'ЭТрН', value: '1 ждёт подписи · 1 подписана · 1 не создана', state: 'stop' },
   { title: 'ГИС ЭПД', value: 'передача после подписания ЭТрН', state: 'wait' },
   { title: 'ФГИС «Зерно»', value: 'СДИЗ влияет на проверку выплаты', state: 'stop' },
-  { title: 'Wialon', value: '2 водителя с текущим статусом', state: 'ok' },
+  { title: 'GPS-контур', value: '2 водителя в тестовом сценарии', state: 'ok' },
 ] as const;
 
 export default function LogisticsPage() {
@@ -119,7 +119,7 @@ export default function LogisticsPage() {
       <section style={hero}>
         <div style={badge}>Кабинет логистики</div>
         <h1 style={h1}>Заявки, водители, ЭТрН и маршрут</h1>
-        <p style={lead}>Логистика видит исполнение перевозки: заявку, сделку, водителя, машину, маршрут, ETA, ЭТрН, ГИС ЭПД, СДИЗ и инциденты. Деньги и ставки не раскрываются.</p>
+        <p style={lead}>Логистика видит исполнение перевозки: заявку, сделку, водителя, машину, маршрут, срок прибытия, ЭТрН, ГИС ЭПД, СДИЗ и инциденты. Деньги и ставки не раскрываются.</p>
         <div style={actions}>
           <Link href='/platform-v7/logistics/inbox' style={primaryBtn}>Входящие заявки</Link>
           <Link href='/platform-v7/driver' style={ghostBtn}>Открыть рейс водителя</Link>
@@ -179,6 +179,7 @@ function DriverCard({ order }: { order: typeof orders[number] }) {
       <div style={twoColGrid}>
         <Cell label='Где водитель' value={order.driverLocation} strong={!hasIncident} />
         <Cell label='На каком заказе' value={`${order.id} · ${order.crop}`} />
+        <Cell label='Последнее событие' value={order.driverUpdated} />
         <Cell label='ЭТрН' value={order.etrn} danger={order.etrn.includes('ждёт') || order.etrn.includes('не создана')} />
         <Cell label='ГИС ЭПД' value={order.gisEpd} danger={order.gisEpd.includes('ожидает') || order.gisEpd.includes('не отправлено')} />
       </div>
@@ -208,7 +209,7 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
         <Cell label='Где водитель' value={order.driverLocation} strong={isActive} />
         <Cell label='Заказ' value={order.id} />
         <Cell label='Машина' value={order.vehicle} />
-        <Cell label='ETA' value={order.eta} strong={isActive} />
+        <Cell label='Срок прибытия' value={order.eta} strong={isActive} />
         <Cell label='Прогресс' value={order.progress} strong={isActive} />
         <Cell label='ЭТрН' value={order.etrn} danger={order.etrn.includes('ждёт') || order.etrn.includes('не создана')} />
         <Cell label='СДИЗ' value={order.fgis} danger={order.fgis.includes('ожидает')} />
