@@ -5,7 +5,9 @@ import {
   canShowGlobalStatuses,
   canShowPortalRoleSwitcher,
   canShowRoleSwitcher,
+  getHeaderSelectableRoles,
   getShellPolicy,
+  inferPlatformRoleFromPath,
 } from '@/lib/platform-v7/shell-role-policy';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -75,5 +77,40 @@ describe('shell role policy', () => {
     ['driver', '/platform-v7/control-tower'],
   ] as Array<[PlatformRole, string]>)('prevents duplicate portal role switcher on operator surfaces for %s', (role, path) => {
     expect(canShowPortalRoleSwitcher(role, path)).toBe(false);
+  });
+
+  it.each([
+    ['/platform-v7/seller', 'seller'],
+    ['/platform-v7/buyer', 'buyer'],
+    ['/platform-v7/logistics', 'logistics'],
+    ['/platform-v7/bank', 'bank'],
+    ['/platform-v7/arbitrator', 'arbitrator'],
+    ['/platform-v7/compliance', 'compliance'],
+    ['/platform-v7/driver/field', 'driver'],
+    ['/platform-v7/executive', 'executive'],
+    ['/platform-v7/control-tower', 'operator'],
+  ] as Array<[string, PlatformRole]>)('infers %s from route %s', (path, role) => {
+    expect(inferPlatformRoleFromPath(path, 'operator')).toBe(role);
+  });
+
+  it('limits commercial compact header switcher to commercial roles', () => {
+    expect(getHeaderSelectableRoles('seller', '/platform-v7/seller')).toEqual(['seller', 'buyer', 'logistics']);
+    expect(getHeaderSelectableRoles('buyer', '/platform-v7/buyer')).toEqual(['seller', 'buyer', 'logistics']);
+    expect(getHeaderSelectableRoles('logistics', '/platform-v7/logistics')).toEqual(['seller', 'buyer', 'logistics']);
+  });
+
+  it('limits control compact header switcher to bank, arbitrator and compliance', () => {
+    expect(getHeaderSelectableRoles('bank', '/platform-v7/bank')).toEqual(['bank', 'arbitrator', 'compliance']);
+    expect(getHeaderSelectableRoles('arbitrator', '/platform-v7/arbitrator')).toEqual(['bank', 'arbitrator', 'compliance']);
+    expect(getHeaderSelectableRoles('compliance', '/platform-v7/compliance')).toEqual(['bank', 'arbitrator', 'compliance']);
+  });
+
+  it.each([
+    ['driver', '/platform-v7/driver/field'],
+    ['surveyor', '/platform-v7/surveyor'],
+    ['elevator', '/platform-v7/elevator'],
+    ['lab', '/platform-v7/lab'],
+  ] as Array<[PlatformRole, string]>)('does not expose switch options for %s field shell', (role, path) => {
+    expect(getHeaderSelectableRoles(role, path)).toEqual([]);
   });
 });
