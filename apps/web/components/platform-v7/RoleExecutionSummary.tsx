@@ -204,21 +204,21 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     next: 'оператор или владелец контура',
     cta: 'Открыть сводку',
     href: '/platform-v7/executive',
-    hidden: 'скрыто: неподтверждённые claims зрелости',
+    hidden: 'скрыто: неподтверждённые заявления о зрелости',
   },
   investor: {
     title: 'Инвестор',
     tone: 'info',
     mode: 'partner',
-    now: 'показаны зрелость, traction, риски и экономика пилотного контура',
+    now: 'показаны зрелость, оборот, риски и экономика пилотного контура',
     blocked: 'боевые подключения и ручные действия показаны честно',
-    money: 'GMV, unit economics и спорные суммы отделены от обещаний',
+    money: 'оборот, экономика сделки и спорные суммы отделены от обещаний',
     documents: 'готовность документов влияет на зрелость исполнения',
     execution: 'демо, пилот и внешние подключения не смешиваются',
     next: 'команда продукта',
     cta: 'Открыть инвесторский режим',
     href: '/platform-v7/investor',
-    hidden: 'скрыто: production-ready и live-integrated claims без подтверждения',
+    hidden: 'скрыто: неподтверждённые заявления о боевой готовности и активных интеграциях',
   },
 };
 
@@ -237,6 +237,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
   return (
     <section
       data-testid={`role-execution-summary-${role}`}
+      aria-label={`Рабочая сводка роли: ${summary.title}`}
       style={{
         background: PLATFORM_V7_TOKENS.color.surface,
         border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
@@ -252,7 +253,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
           <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap', alignItems: 'center' }}>
             <P7Badge tone={summary.tone}>{summary.title}</P7Badge>
             <P7Badge tone='neutral'>{modeLabel(summary.mode)}</P7Badge>
-            <P7Badge tone='warning'>controlled-pilot</P7Badge>
+            <P7Badge tone='warning'>пилотный контур</P7Badge>
           </div>
           <h1
             style={{
@@ -270,7 +271,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
             {summary.hidden}
           </div>
         </div>
-        <Link href={summary.href} style={{ ...primaryActionStyle, background: tone.fg }}>
+        <Link href={summary.href} data-testid={`role-execution-primary-action-${role}`} style={{ ...primaryActionStyle, background: tone.fg }}>
           {summary.cta}
         </Link>
       </div>
@@ -279,7 +280,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
         <div style={{ fontSize: 13, lineHeight: 1.45, color: PLATFORM_V7_TOKENS.color.textPrimary, fontWeight: 760 }}>
           Рабочий экран роли: {summary.title}. Основное действие — {summary.cta.toLowerCase()}. Никаких лишних данных за пределами роли.
         </div>
-        <Link href={summary.href} style={secondaryActionStyle}>
+        <Link href={summary.href} data-testid={`role-execution-secondary-action-${role}`} style={secondaryActionStyle}>
           Открыть экран
         </Link>
       </div>
@@ -327,6 +328,7 @@ const primaryActionStyle = {
   color: PLATFORM_V7_TOKENS.color.surface,
   fontSize: 14,
   fontWeight: 850,
+  whiteSpace: 'nowrap',
 } as const;
 
 const secondaryActionStyle = {
@@ -342,4 +344,5 @@ const secondaryActionStyle = {
   border: `1px solid ${PLATFORM_V7_TOKENS.color.borderStrong}`,
   fontSize: 12,
   fontWeight: 850,
+  whiteSpace: 'nowrap',
 } as const;
