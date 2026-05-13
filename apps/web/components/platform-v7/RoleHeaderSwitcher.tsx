@@ -4,7 +4,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { trackRoleSwitch } from '@/lib/analytics/track';
-import { canShowPortalRoleSwitcher } from '@/lib/platform-v7/shell-role-policy';
+import { canShowPortalRoleSwitcher, getHeaderSelectableRoles, inferPlatformRoleFromPath } from '@/lib/platform-v7/shell-role-policy';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
@@ -74,16 +74,22 @@ export function RoleHeaderSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
   const target = useHeaderActionsTarget();
-  const role = usePlatformV7RStore((state) => state.role);
+  const storedRole = usePlatformV7RStore((state) => state.role);
   const setRole = usePlatformV7RStore((state) => state.setRole);
+  const routeRole = inferPlatformRoleFromPath(pathname, storedRole);
+  const selectableRoles = getHeaderSelectableRoles(routeRole, pathname);
 
-  if (!target || !canShowPortalRoleSwitcher(role, pathname)) return null;
+  React.useEffect(() => {
+    if (routeRole !== storedRole) setRole(routeRole);
+  }, [routeRole, storedRole, setRole]);
+
+  if (!target || !canShowPortalRoleSwitcher(routeRole, pathname)) return null;
 
   return createPortal(
     <select
       aria-label='Выбор роли'
       title='Выбор роли'
-      value={role}
+      value={routeRole}
       onChange={(event) => {
         const nextRole = event.target.value as PlatformRole;
         setRole(nextRole);
@@ -93,7 +99,7 @@ export function RoleHeaderSwitcher() {
       data-role-header-switcher='true'
       style={{
         minHeight: 42,
-        maxWidth: 124,
+        maxWidth: 132,
         border: '1px solid var(--pc-border)',
         borderRadius: 13,
         background: 'var(--pc-bg-card)',
@@ -104,7 +110,7 @@ export function RoleHeaderSwitcher() {
         boxShadow: 'var(--pc-shadow-sm)',
       }}
     >
-      {(Object.keys(ROLE_LABELS) as PlatformRole[]).map((item) => (
+      {selectableRoles.map((item) => (
         <option key={item} value={item}>
           {ROLE_LABELS[item]}
         </option>
