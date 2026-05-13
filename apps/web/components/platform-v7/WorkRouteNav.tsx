@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { getShellPolicy, inferPlatformRoleFromPath } from '@/lib/platform-v7/shell-role-policy';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const WORK_LINKS = [
@@ -20,28 +21,20 @@ const WORK_LINKS = [
 
 const BROAD_WORK_NAV_ROLES = new Set<PlatformRole>(['operator', 'executive']);
 
-const ROLE_SCOPED_WORK_NAV_PATHS = [
-  '/platform-v7/buyer',
-  '/platform-v7/seller',
-  '/platform-v7/procurement',
-  '/platform-v7/logistics',
-  '/platform-v7/driver',
-  '/platform-v7/surveyor',
-  '/platform-v7/elevator',
-  '/platform-v7/lab',
-  '/platform-v7/bank',
-  '/platform-v7/arbitrator',
-  '/platform-v7/compliance',
-] as const;
+export function canShowWorkRouteNav(storedRole: PlatformRole, pathname: string): boolean {
+  const routeRole = inferPlatformRoleFromPath(pathname, storedRole);
+  const shellPolicy = getShellPolicy(routeRole, pathname);
+
+  return shellPolicy === 'operator' && BROAD_WORK_NAV_ROLES.has(routeRole);
+}
 
 export function WorkRouteNav() {
   const pathname = usePathname();
   const role = usePlatformV7RStore((state) => state.role);
-  const roleScopedByPath = ROLE_SCOPED_WORK_NAV_PATHS.some((path) => pathname.startsWith(path));
-  if (roleScopedByPath || !BROAD_WORK_NAV_ROLES.has(role)) return null;
+  if (!canShowWorkRouteNav(role, pathname)) return null;
 
   return (
-    <nav aria-label='Рабочие разделы platform-v7' style={nav}>
+    <nav aria-label='Рабочие разделы platform-v7' data-testid='platform-v7-work-route-nav' style={nav}>
       {WORK_LINKS.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined} style={{ ...link, ...(active ? activeLink : null) }}>{item.label}</Link>;
