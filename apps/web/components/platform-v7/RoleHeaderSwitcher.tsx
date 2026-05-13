@@ -72,13 +72,14 @@ function useHeaderActionsTarget() {
 
 function roleControlStyle() {
   return {
-    minHeight: 42,
-    maxWidth: 176,
+    minHeight: 44,
+    minWidth: 170,
+    maxWidth: 210,
     border: '1px solid var(--pc-border)',
-    borderRadius: 13,
+    borderRadius: 14,
     background: 'var(--pc-bg-card)',
     color: 'var(--pc-text-primary)',
-    padding: '6px 10px',
+    padding: '5px 10px',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -103,8 +104,8 @@ function roleValueStyle() {
   return {
     minWidth: 0,
     color: 'var(--pc-text-primary)',
-    fontSize: 12,
-    fontWeight: 850,
+    fontSize: 14,
+    fontWeight: 900,
     lineHeight: 1.15,
     whiteSpace: 'nowrap',
     overflow: 'hidden',
@@ -114,14 +115,14 @@ function roleValueStyle() {
 
 function roleSelectStyle() {
   return {
-    minWidth: 104,
-    maxWidth: 124,
+    minWidth: 112,
+    maxWidth: 138,
     border: 0,
     outline: 0,
     background: 'transparent',
     color: 'var(--pc-text-primary)',
-    fontSize: 12,
-    fontWeight: 850,
+    fontSize: 14,
+    fontWeight: 900,
     lineHeight: 1.15,
     cursor: 'pointer',
   } as const;
@@ -145,8 +146,7 @@ export function RoleHeaderSwitcher() {
 
   if (shellPolicy === 'field') {
     return createPortal(
-      <span aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}`} data-role-header-label='true' data-testid='platform-v7-header-role-label' style={roleControlStyle()}>
-        <span style={roleCaptionStyle()}>Роль</span>
+      <span aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}`} data-role-header-label='true' data-testid='platform-v7-header-role-label' style={{ ...roleControlStyle(), minWidth: 112, maxWidth: 150 }}>
         <strong style={roleValueStyle()}>{ROLE_LABELS[routeRole]}</strong>
       </span>,
       target,
@@ -156,8 +156,8 @@ export function RoleHeaderSwitcher() {
   if (!canShowPortalRoleSwitcher(routeRole, pathname)) return null;
 
   return createPortal(
-    <label aria-label='Выбор роли в шапке' data-role-header-switcher-wrap='true' data-testid='platform-v7-header-role-switcher' style={roleControlStyle()}>
-      <span style={roleCaptionStyle()}>Роль</span>
+    <label aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}. Выбрать другую роль`} data-role-header-switcher-wrap='true' data-testid='platform-v7-header-role-switcher' style={roleControlStyle()}>
+      <span style={roleCaptionStyle()}>Выбрать</span>
       <select
         aria-label='Выбор роли'
         title='Выбор роли'
@@ -177,6 +177,7 @@ export function RoleHeaderSwitcher() {
           </option>
         ))}
       </select>
+      <span aria-hidden='true' style={{ color: 'var(--pc-text-secondary)', fontSize: 14, fontWeight: 900 }}>⌄</span>
     </label>,
     target,
   );
