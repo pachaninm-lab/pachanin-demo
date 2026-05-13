@@ -93,6 +93,23 @@ describe('shell role policy', () => {
     expect(inferPlatformRoleFromPath(path, 'operator')).toBe(role);
   });
 
+  it.each([
+    ['/platform-v7/seller', 'seller'],
+    ['/platform-v7/buyer', 'buyer'],
+    ['/platform-v7/logistics', 'logistics'],
+    ['/platform-v7/bank', 'bank'],
+    ['/platform-v7/arbitrator', 'arbitrator'],
+    ['/platform-v7/compliance', 'compliance'],
+    ['/platform-v7/driver/field', 'driver'],
+    ['/platform-v7/elevator', 'elevator'],
+    ['/platform-v7/lab', 'lab'],
+    ['/platform-v7/surveyor', 'surveyor'],
+  ] as Array<[string, PlatformRole]>)('route %s overrides stale persisted roles with %s', (path, expectedRole) => {
+    for (const staleRole of ['operator', 'executive', 'seller', 'buyer', 'bank', 'driver'] as PlatformRole[]) {
+      expect(inferPlatformRoleFromPath(path, staleRole)).toBe(expectedRole);
+    }
+  });
+
   it('limits commercial compact header switcher to commercial roles', () => {
     expect(getHeaderSelectableRoles('seller', '/platform-v7/seller')).toEqual(['seller', 'buyer', 'logistics']);
     expect(getHeaderSelectableRoles('buyer', '/platform-v7/buyer')).toEqual(['seller', 'buyer', 'logistics']);
