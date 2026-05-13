@@ -4,7 +4,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { trackRoleSwitch } from '@/lib/analytics/track';
-import { canShowPortalRoleSwitcher, getHeaderSelectableRoles, inferPlatformRoleFromPath } from '@/lib/platform-v7/shell-role-policy';
+import { canShowPortalRoleSwitcher, getHeaderSelectableRoles, getShellPolicy, inferPlatformRoleFromPath } from '@/lib/platform-v7/shell-role-policy';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
@@ -70,6 +70,27 @@ function useHeaderActionsTarget() {
   return target;
 }
 
+function roleLabelStyle() {
+  return {
+    minHeight: 42,
+    maxWidth: 132,
+    border: '1px solid var(--pc-border)',
+    borderRadius: 13,
+    background: 'var(--pc-bg-card)',
+    color: 'var(--pc-text-primary)',
+    padding: '0 10px',
+    fontSize: 12,
+    fontWeight: 850,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    boxShadow: 'var(--pc-shadow-sm)',
+  } as const;
+}
+
 export function RoleHeaderSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
@@ -78,12 +99,24 @@ export function RoleHeaderSwitcher() {
   const setRole = usePlatformV7RStore((state) => state.setRole);
   const routeRole = inferPlatformRoleFromPath(pathname, storedRole);
   const selectableRoles = getHeaderSelectableRoles(routeRole, pathname);
+  const shellPolicy = getShellPolicy(routeRole, pathname);
 
   React.useEffect(() => {
     if (routeRole !== storedRole) setRole(routeRole);
   }, [routeRole, storedRole, setRole]);
 
-  if (!target || !canShowPortalRoleSwitcher(routeRole, pathname)) return null;
+  if (!target) return null;
+
+  if (shellPolicy === 'field') {
+    return createPortal(
+      <span aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}`} data-role-header-label='true' style={roleLabelStyle()}>
+        {ROLE_LABELS[routeRole]}
+      </span>,
+      target,
+    );
+  }
+
+  if (!canShowPortalRoleSwitcher(routeRole, pathname)) return null;
 
   return createPortal(
     <select
@@ -98,16 +131,13 @@ export function RoleHeaderSwitcher() {
       }}
       data-role-header-switcher='true'
       style={{
-        minHeight: 42,
-        maxWidth: 132,
-        border: '1px solid var(--pc-border)',
-        borderRadius: 13,
-        background: 'var(--pc-bg-card)',
-        color: 'var(--pc-text-primary)',
-        padding: '0 10px',
-        fontSize: 12,
-        fontWeight: 850,
-        boxShadow: 'var(--pc-shadow-sm)',
+        ...roleLabelStyle(),
+        display: undefined,
+        alignItems: undefined,
+        justifyContent: undefined,
+        whiteSpace: undefined,
+        overflow: undefined,
+        textOverflow: undefined,
       }}
     >
       {selectableRoles.map((item) => (
