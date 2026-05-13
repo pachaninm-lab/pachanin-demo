@@ -32,6 +32,10 @@ const forbiddenExternalWording = [
   'domain-core',
   'requestReserve',
   'evidence-first',
+  'evidence pack',
+  'блокер',
+  'SLA',
+  'ETA',
 ];
 
 describe('platform-v7 role execution summary', () => {
