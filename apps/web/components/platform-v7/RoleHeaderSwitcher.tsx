@@ -22,6 +22,21 @@ const ROLE_LABELS: Record<PlatformRole, string> = {
   executive: 'Руководитель',
 };
 
+const HEADER_ROLE_LABELS: Record<PlatformRole, string> = {
+  operator: 'Оператор',
+  buyer: 'Покуп.',
+  seller: 'Продав.',
+  logistics: 'Логист.',
+  driver: 'Водитель',
+  surveyor: 'Сюрвейер',
+  elevator: 'Элеватор',
+  lab: 'Лаб.',
+  bank: 'Банк',
+  arbitrator: 'Арбитр',
+  compliance: 'Компл.',
+  executive: 'Рук.',
+};
+
 const ROLE_ROUTES: Record<PlatformRole, string> = {
   operator: '/platform-v7/control-tower',
   buyer: '/platform-v7/buyer',
@@ -73,19 +88,19 @@ function useHeaderActionsTarget() {
 function roleControlStyle() {
   return {
     minHeight: 44,
-    minWidth: 132,
-    maxWidth: 168,
+    minWidth: 116,
+    maxWidth: 144,
     border: '1px solid var(--pc-border)',
     borderRadius: 14,
     background: 'var(--pc-bg-card)',
     color: 'var(--pc-text-primary)',
-    padding: '5px 9px',
+    padding: '5px 8px',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     boxShadow: 'var(--pc-shadow-sm)',
-    flex: '0 1 168px',
+    flex: '0 0 116px',
   } as const;
 }
 
@@ -119,7 +134,7 @@ function roleSelectStyle() {
   return {
     minWidth: 0,
     width: '100%',
-    maxWidth: 132,
+    maxWidth: 104,
     border: 0,
     outline: 0,
     background: 'transparent',
@@ -151,8 +166,8 @@ export function RoleHeaderSwitcher() {
 
   if (shellPolicy === 'field') {
     return createPortal(
-      <span aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}`} data-role-header-label='true' data-testid='platform-v7-header-role-label' style={{ ...roleControlStyle(), minWidth: 104, maxWidth: 132, flexBasis: 132 }}>
-        <strong style={roleValueStyle()}>{ROLE_LABELS[routeRole]}</strong>
+      <span aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}`} title={ROLE_LABELS[routeRole]} data-role-header-label='true' data-testid='platform-v7-header-role-label' style={{ ...roleControlStyle(), minWidth: 104, maxWidth: 124, flexBasis: 104 }}>
+        <strong style={roleValueStyle()}>{HEADER_ROLE_LABELS[routeRole]}</strong>
       </span>,
       target,
     );
@@ -161,11 +176,11 @@ export function RoleHeaderSwitcher() {
   if (!canShowPortalRoleSwitcher(routeRole, pathname)) return null;
 
   return createPortal(
-    <label aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}. Выбрать другую роль`} data-role-header-switcher-wrap='true' data-testid='platform-v7-header-role-switcher' style={roleControlStyle()}>
+    <label aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}. Выбрать другую роль`} title={ROLE_LABELS[routeRole]} data-role-header-switcher-wrap='true' data-testid='platform-v7-header-role-switcher' style={roleControlStyle()}>
       <span style={roleCaptionStyle()}>Выбрать</span>
       <select
         aria-label='Выбор роли'
-        title='Выбор роли'
+        title={`Выбор роли: ${ROLE_LABELS[routeRole]}`}
         value={routeRole}
         onChange={(event) => {
           const nextRole = event.target.value as PlatformRole;
@@ -177,8 +192,8 @@ export function RoleHeaderSwitcher() {
         style={roleSelectStyle()}
       >
         {selectableRoles.map((item) => (
-          <option key={item} value={item}>
-            {ROLE_LABELS[item]}
+          <option key={item} value={item} aria-label={ROLE_LABELS[item]} title={ROLE_LABELS[item]}>
+            {HEADER_ROLE_LABELS[item]}
           </option>
         ))}
       </select>
