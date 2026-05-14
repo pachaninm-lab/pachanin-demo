@@ -29,7 +29,7 @@ export default function PlatformV7DealsPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ display: 'grid', gap: 8, maxWidth: 860 }}>
             <div style={{ display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>
-              Реестр исполнения · пилот
+              Реестр исполнения · сделки в работе
             </div>
             <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4.2vw, 44px)', lineHeight: 1.06, letterSpacing: '-0.04em', color: '#0F1419', fontWeight: 950 }}>
               Сделки: деньги, документы, рейс, спор
@@ -62,7 +62,7 @@ export default function PlatformV7DealsPage() {
                 </div>
               </div>
               {deal.cannotHappenReason && (
-                <p style={{ margin: 0, color: '#B91C1C', fontSize: 12, lineHeight: 1.4 }}>⛔ {deal.cannotHappenReason}</p>
+                <p style={{ margin: 0, color: '#B91C1C', fontSize: 12, lineHeight: 1.4 }}>Остановлено: {deal.cannotHappenReason}</p>
               )}
             </Link>
           ))}
