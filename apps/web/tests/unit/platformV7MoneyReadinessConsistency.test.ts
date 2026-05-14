@@ -62,4 +62,29 @@ describe('platform-v7 money readiness consistency', () => {
     expect(money.bankDecision).toBe('проверить');
     expect(canRequestMoneyRelease()).toBe(false);
   });
+
+  it('keeps bank decision as a release precondition, not a platform-side promise', () => {
+    const { readiness, money } = PLATFORM_V7_EXECUTION_SOURCE;
+    const summary = executionSummary();
+
+    expect(readiness.bank.blocker).toBe('резерв денег не подтверждён');
+    expect(readiness.bank.note).toContain('банк ещё не принял решение');
+    expect(money.bankDecision).toBe('проверить');
+    expect(summary.canRelease).toBe(false);
+    expect(summary.releaseCandidateRub).toBe(0);
+  });
+
+  it('keeps release blocked until bank, documents, logistics and dispute gates are all ready', () => {
+    const { readiness, money } = PLATFORM_V7_EXECUTION_SOURCE;
+    const requiredGateStatuses = [
+      readiness.bank.status,
+      readiness.documents.status,
+      readiness.logistics.status,
+      readiness.dispute.status,
+    ];
+
+    expect(requiredGateStatuses.includes('проверить')).toBe(true);
+    expect(money.holdRub).toBe(0);
+    expect(canRequestMoneyRelease()).toBe(false);
+  });
 });
