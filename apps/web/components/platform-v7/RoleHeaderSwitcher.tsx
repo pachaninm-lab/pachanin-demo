@@ -73,18 +73,19 @@ function useHeaderActionsTarget() {
 function roleControlStyle() {
   return {
     minHeight: 44,
-    minWidth: 170,
-    maxWidth: 210,
+    minWidth: 132,
+    maxWidth: 168,
     border: '1px solid var(--pc-border)',
     borderRadius: 14,
     background: 'var(--pc-bg-card)',
     color: 'var(--pc-text-primary)',
-    padding: '5px 10px',
+    padding: '5px 9px',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     boxShadow: 'var(--pc-shadow-sm)',
+    flex: '0 1 168px',
   } as const;
 }
 
@@ -97,6 +98,7 @@ function roleCaptionStyle() {
     textTransform: 'uppercase',
     lineHeight: 1,
     whiteSpace: 'nowrap',
+    display: 'none',
   } as const;
 }
 
@@ -115,8 +117,9 @@ function roleValueStyle() {
 
 function roleSelectStyle() {
   return {
-    minWidth: 112,
-    maxWidth: 138,
+    minWidth: 0,
+    width: '100%',
+    maxWidth: 132,
     border: 0,
     outline: 0,
     background: 'transparent',
@@ -125,6 +128,8 @@ function roleSelectStyle() {
     fontWeight: 900,
     lineHeight: 1.15,
     cursor: 'pointer',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   } as const;
 }
 
@@ -146,7 +151,7 @@ export function RoleHeaderSwitcher() {
 
   if (shellPolicy === 'field') {
     return createPortal(
-      <span aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}`} data-role-header-label='true' data-testid='platform-v7-header-role-label' style={{ ...roleControlStyle(), minWidth: 112, maxWidth: 150 }}>
+      <span aria-label={`Текущая роль: ${ROLE_LABELS[routeRole]}`} data-role-header-label='true' data-testid='platform-v7-header-role-label' style={{ ...roleControlStyle(), minWidth: 104, maxWidth: 132, flexBasis: 132 }}>
         <strong style={roleValueStyle()}>{ROLE_LABELS[routeRole]}</strong>
       </span>,
       target,
