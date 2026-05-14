@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
@@ -31,7 +32,7 @@ const bankHandoff: HandoffItem[] = [
   {
     direction: 'sends',
     role: 'банк → оператор',
-    requirement: 'банк направляет уведомление о готовности к проверке — пилотный контур требует ручной сверки оператором',
+    requirement: 'банк направляет статус проверки; оператор сверяет причину остановки и основание в сделке',
     moneyImpact: true,
   },
   {
@@ -71,7 +72,7 @@ const bankQueue = [
     lot: disputeDeal.lotId,
     buyer: 'Покупатель 2',
     amount: '6,24 млн ₽',
-    reserve: 'отмечен в пилотном контуре',
+    reserve: 'резерв отмечен',
     releaseNow: '5,616 млн ₽',
     hold: '624 тыс. ₽',
     decision: 'частичная передача основания после решения и банковского подтверждения',
@@ -82,11 +83,11 @@ const bankQueue = [
 ] as const;
 
 const releaseSummary = [
-  { label: 'Что сейчас', value: 'DL-9106 · проверка выплаты остановлена', note: 'Сделка есть, но передача основания банку невозможна без закрытых условий.' },
-  { label: 'Где деньги', value: 'резерв ожидает банковского подтверждения · к передаче 0 ₽', note: 'Банк видит резерв, удержание и основание остановки, а не кнопку движения денег.' },
-  { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Каждая причина остановки должна иметь источник, ответственного, статус и влияние на деньги.' },
-  { label: 'Где груз', value: 'TRIP-SIM-001 · приёмка и качество в работе', note: 'Транспортный и приёмочный факты нужны как основание для банковской проверки.' },
-  { label: 'Решение банка', value: 'не передавать основание банку', note: 'В пилотном контуре нет заявления о боевой выплате или банковском событии.' },
+  { label: 'Что сейчас', value: 'DL-9106 · проверка выплаты остановлена', note: 'Сделка есть, но основание банку не передаётся без закрытых условий.' },
+  { label: 'Где деньги', value: 'резерв ожидает банковского подтверждения · к передаче 0 ₽', note: 'Банк видит резерв, удержание и причину остановки, а не кнопку движения денег.' },
+  { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'У каждой причины есть источник, ответственный, статус и влияние на деньги.' },
+  { label: 'Где груз', value: `${mainDeal.tripId} · приёмка и качество в работе`, note: 'Транспортный и приёмочный факты нужны как основание для проверки.' },
+  { label: 'Решение банка', value: 'не передавать основание банку', note: 'Нет заявления о выплате без банковского подтверждения.' },
   { label: 'Кто следующий', value: 'оператор + ответственный за документ', note: 'Следующее действие фиксируется в сделке и журнале.' },
 ] as const;
 
@@ -97,8 +98,8 @@ export default function PlatformV7BankPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={hero}>
         <div style={badge}>Кабинет банка</div>
-        <h1 style={h1}>Основание передаётся банку только после закрытия условий</h1>
-        <p style={lead}>Банк видит резерв, удержание, документы, приёмку, качество и причину остановки. Здесь нет кнопки прямой выплаты: сначала проверка условий, потом банковская проверка или ручная сверка.</p>
+        <h1 style={h1}>Сначала основание, потом банковская проверка</h1>
+        <p style={lead}>Экран показывает только то, что важно для решения: сумма, стоп, причина, ответственный и следующее действие. Длинные детали скрыты ниже и раскрываются по необходимости.</p>
         <div style={actions}>
           <Link href='/platform-v7/bank/release-safety' style={primaryBtn}>Проверка выплаты</Link>
           <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Карточка сделки</Link>
@@ -107,19 +108,48 @@ export default function PlatformV7BankPage() {
 
       <section style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ ...micro, color: '#CBD5E1' }}>проверка выплаты</div>
-          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(23px,5.5vw,34px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что банк должен понять за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Передача основания банку не является ручной кнопкой платформы. Это результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
+          <div style={{ ...micro, color: '#CBD5E1' }}>5 секунд для банка</div>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(23px,5.5vw,34px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Деньги не двигаются, пока нет основания</h2>
+          <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Передача основания банку — результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {releaseSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
 
+      <section style={metricsGrid}>
+        <Metric label='В резерве' value='15,89 млн ₽' />
+        <Metric label='К передаче банку сейчас' value='0 ₽' danger />
+        <Metric label='Под удержанием' value='624 тыс. ₽' danger />
+        <Metric label='Требуют проверки' value='2 сделки' />
+      </section>
+
+      <section style={card}>
+        <div style={micro}>Денежная очередь</div>
+        {bankQueue.map((deal) => (
+          <Link key={deal.id} href={deal.href} style={{ textDecoration: 'none', color: 'inherit', background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${stateBorder(deal.state)}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
+            <div style={rowHead}>
+              <div>
+                <div style={idText}>{deal.id} · {deal.lot}</div>
+                <h2 style={h2}>{deal.amount}</h2>
+                <p style={muted}>{deal.buyer}</p>
+              </div>
+              <span style={{ ...pill, background: stateBg(deal.state), borderColor: stateBorder(deal.state), color: stateText(deal.state) }}>{deal.decision}</span>
+            </div>
+            <div style={grid2}>
+              <Cell label='Резерв' value={deal.reserve} strong={deal.reserve === 'резерв отмечен'} />
+              <Cell label='К передаче банку' value={deal.releaseNow} danger={deal.releaseNow === '0 ₽'} />
+              <Cell label='Удержано' value={deal.hold} danger={deal.hold !== '0 ₽'} />
+              <Cell label='Следующее действие' value={deal.next} strong />
+            </div>
+          </Link>
+        ))}
+      </section>
+
       <MoneyImpactSummaryStrip
         amountContext='в резерве 15,89 млн ₽ · к передаче банку 0 ₽ · удержание 624 тыс. ₽'
         pilotState='blocked'
-        pilotStateLabel='пилотный контур · удержание до закрытия условий'
+        pilotStateLabel='удержание до закрытия условий'
         responsible='банк · оператор'
         nextStep='ручная сверка после закрытия всех условий'
         stopReason='банковская проверка выплаты остановлена: СДИЗ, ЭТрН, акт приёмки и качество не закрыты'
@@ -140,86 +170,59 @@ export default function PlatformV7BankPage() {
         stopReason='удержание до закрытия условий'
       />
 
-      <DocumentsMatrix />
+      <DisclosureSection title='Документы и основания' meta='СДИЗ, ЭТрН, УПД, акт, качество · раскрыть детали'>
+        <DocumentsMatrix />
+        <DocumentsMatrixActions />
+        <DocumentReadinessMiniMatrix role='bank' />
+      </DisclosureSection>
 
-      <DocumentsMatrixActions />
-
-      <section style={metricsGrid}>
-        <Metric label='В резерве' value='15,89 млн ₽' />
-        <Metric label='К передаче банку сейчас' value='0 ₽' danger />
-        <Metric label='Под удержанием' value='624 тыс. ₽' danger />
-        <Metric label='Требуют проверки' value='2 сделки' />
-      </section>
-
-      <section style={card}>
-        <div style={micro}>Сбер · Безопасные сделки</div>
-        <h2 style={h2}>Проверка выплаты продавцу</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
-          {mainDeal.money.map((item) => (
-            <div key={item.title} style={{ background: stateBg(item.state), border: `1px solid ${stateBorder(item.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}>
-              <div style={{ ...micro, color: stateText(item.state) }}>{item.title}</div>
-              <div style={{ marginTop: 6, color: '#0F1419', fontSize: 20, fontWeight: 950 }}>{item.value}</div>
-              <div style={{ marginTop: 5, color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>{item.note}</div>
-            </div>
-          ))}
-        </div>
-        <div style={stopBox}>Передача основания банку по {mainDeal.dealId} остановлена до закрытия СДИЗ, ЭТрН, УПД, акта приёмки и протокола качества.</div>
-      </section>
-
-      <section style={card}>
-        <div style={micro}>Условия банковской проверки выплаты</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {gates.map((gate) => (
-            <article key={`${gate.provider}-${gate.object}`} style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 18, padding: 14, display: 'grid', gap: 6, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}>
-              <div style={rowHead}>
-                <div>
-                  <h3 style={{ margin: 0, color: '#0F1419', fontSize: 16, fontWeight: 950 }}>{gate.provider}</h3>
-                  <p style={muted}>{gate.object}</p>
+      <DisclosureSection title='Внешние контуры' meta='банк, ФГИС, ЭДО, ЭТрН, качество · показать статусы'>
+        <section style={cardInner}>
+          <div style={micro}>Условия банковской проверки выплаты</div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {gates.map((gate) => (
+              <article key={`${gate.provider}-${gate.object}`} style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 18, padding: 14, display: 'grid', gap: 6, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}>
+                <div style={rowHead}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#0F1419', fontSize: 16, fontWeight: 950 }}>{gate.provider}</h3>
+                    <p style={muted}>{gate.object}</p>
+                  </div>
+                  <span style={{ ...pill, color: stateText(gate.state), borderColor: stateBorder(gate.state), background: '#fff' }}>{gate.status}</span>
                 </div>
-                <span style={{ ...pill, color: stateText(gate.state), borderColor: stateBorder(gate.state), background: '#fff' }}>{gate.status}</span>
-              </div>
-              <div style={{ color: '#0F1419', fontSize: 13, lineHeight: 1.45, fontWeight: 800 }}>{gate.impact}</div>
-            </article>
-          ))}
-        </div>
-      </section>
+                <div style={{ color: '#0F1419', fontSize: 13, lineHeight: 1.45, fontWeight: 800 }}>{gate.impact}</div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </DisclosureSection>
 
-      <section style={card}>
-        <div style={micro}>Денежная очередь</div>
-        {bankQueue.map((deal) => (
-          <Link key={deal.id} href={deal.href} style={{ textDecoration: 'none', color: 'inherit', background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${stateBorder(deal.state)}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
-            <div style={rowHead}>
-              <div>
-                <div style={idText}>{deal.id} · {deal.lot}</div>
-                <h2 style={h2}>{deal.amount}</h2>
-                <p style={muted}>{deal.buyer}</p>
-              </div>
-              <span style={{ ...pill, background: stateBg(deal.state), borderColor: stateBorder(deal.state), color: stateText(deal.state) }}>{deal.decision}</span>
-            </div>
-            <div style={grid2}>
-              <Cell label='Резерв' value={deal.reserve} strong={deal.reserve === 'отмечен в пилотном контуре'} />
-              <Cell label='К передаче банку' value={deal.releaseNow} danger={deal.releaseNow === '0 ₽'} />
-              <Cell label='Удержано' value={deal.hold} danger={deal.hold !== '0 ₽'} />
-              <Cell label='Следующее действие' value={deal.next} strong />
-            </div>
-          </Link>
-        ))}
-      </section>
+      <DisclosureSection title='Рекомендации и доказательства' meta='пакет решения · факты · обратная связь'>
+        <DecisionRecommendationStrip context='bank' />
+        <DecisionPackMiniPanel context='bank_release_review' />
+        <EvidenceReadinessMiniMatrix context='bank' />
+        <ActionFeedbackPreviewStrip context='bank' />
+      </DisclosureSection>
 
-      <DecisionRecommendationStrip context='bank' />
-
-      <DecisionPackMiniPanel context='bank_release_review' />
-
-      <DocumentReadinessMiniMatrix role='bank' />
-
-      <EvidenceReadinessMiniMatrix context='bank' />
-
-      <ActionFeedbackPreviewStrip context='bank' />
-
-      <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
-
-      <JournalPreview role='bank' maxEntries={3} />
+      <DisclosureSection title='Передача между ролями и журнал' meta='кто ждёт · кто отправляет · что зафиксировано'>
+        <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
+        <JournalPreview role='bank' maxEntries={3} />
+      </DisclosureSection>
     </main>
+  );
+}
+
+function DisclosureSection({ title, meta, children }: { title: string; meta: string; children: ReactNode }) {
+  return (
+    <details style={detailsCard}>
+      <summary style={summaryRow}>
+        <span style={{ display: 'grid', gap: 4 }}>
+          <strong style={{ color: '#0F1419', fontSize: 18, lineHeight: 1.15 }}>{title}</strong>
+          <span style={{ color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>{meta}</span>
+        </span>
+        <span style={summaryPill}>раскрыть</span>
+      </summary>
+      <div style={detailsBody}>{children}</div>
+    </details>
   );
 }
 
@@ -256,7 +259,7 @@ function stateText(state: Deal360State) {
 
 const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
 const darkCard = { background: 'linear-gradient(135deg,#0F172A 0%,#111827 58%,#0B1220 100%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 14, boxShadow: '0 20px 50px rgba(15,23,42,0.22)' } as const;
-const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
+const cardInner = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 14, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(15,23,42,0.08)', border: '1px solid rgba(15,23,42,0.18)', color: '#0F172A', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(28px,7vw,46px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 } as const;
@@ -272,4 +275,7 @@ const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
 const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const pill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, border: '1px solid #E4E6EA', fontSize: 12, fontWeight: 900 } as const;
-const stopBox = { background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.18)', borderRadius: 16, padding: 13, color: '#B91C1C', fontSize: 13, lineHeight: 1.45, fontWeight: 900 } as const;
+const detailsCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 0, boxShadow: '0 14px 34px rgba(15,23,42,0.055)', overflow: 'hidden' } as const;
+const summaryRow = { cursor: 'pointer', listStyle: 'none', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 16 } as const;
+const summaryPill = { flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', borderRadius: 999, border: '1px solid #CBD5E1', background: '#fff', color: '#0F1419', padding: '7px 10px', fontSize: 12, fontWeight: 900 } as const;
+const detailsBody = { borderTop: '1px solid #E4E6EA', padding: 14, display: 'grid', gap: 12 } as const;
