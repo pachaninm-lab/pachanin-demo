@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const themeSync = () => readFileSync(path.join(process.cwd(), 'apps/web/components/v7r/PlatformThemeSync.tsx'), 'utf8');
+const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf8');
+const themeSync = () => read('apps/web/components/v7r/PlatformThemeSync.tsx');
 
 describe('platform-v7 theme default', () => {
   it('uses light theme when there is no explicit dark preference', () => {
@@ -40,5 +41,15 @@ describe('platform-v7 theme default', () => {
     expect(source).toContain('const bootedAt = Date.now();');
     expect(source).toContain("Date.now() - bootedAt < 2500");
     expect(source).toContain("applyPlatformTheme('light')");
+  });
+
+  it('keeps bank work surface light instead of using hardcoded dark cards', () => {
+    const bankPage = read('apps/web/app/platform-v7/bank/page.tsx');
+
+    expect(bankPage).toContain('const focusCard =');
+    expect(bankPage).toContain('Деньги не двигаются, пока нет основания');
+    expect(bankPage).not.toContain('const darkCard =');
+    expect(bankPage).not.toContain('background: \'linear-gradient(135deg,#0F172A 0%,#111827');
+    expect(bankPage).not.toContain("color: '#fff', borderRadius: 26");
   });
 });
