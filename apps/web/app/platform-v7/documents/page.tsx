@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ const documentSummary = [
   { label: 'Источник', value: 'ФГИС · ЭДО · ГИС ЭПД · КЭП · лаборатория', note: 'Внутренняя карточка не подменяет внешний контур.' },
   { label: 'Ответственный', value: 'продавец · логист · элеватор · подписант · оператор', note: 'У каждого документа должен быть владелец шага.' },
   { label: 'Деньги', value: 'к выплате 0 ₽', note: 'Влияние документа на деньги видно в каждой строке.' },
-  { label: 'Следующий шаг', value: 'закрыть СДИЗ и транспортный пакет', note: 'Действие должно попасть в Deal 360 и журнал.' },
+  { label: 'Следующий шаг', value: 'закрыть СДИЗ и транспортный пакет', note: 'Действие должно попасть в карточку сделки и журнал.' },
 ] as const;
 
 const requiredDocuments = [
@@ -58,7 +59,7 @@ export default function PlatformV7DocumentsPage() {
             <p style={lead}>Документы показаны не как архив файлов, а как условия сделки: кто должен закрыть документ, какой источник используется и блокирует ли документ выплату продавцу.</p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href={`/platform-v7/deals/${scenario.dealId}/clean`} style={primary}>Открыть Deal 360</Link>
+            <Link href={`/platform-v7/deals/${scenario.dealId}/clean`} style={primary}>Открыть карточку сделки</Link>
             <Link href='/platform-v7/bank/release-safety' style={secondary}>Проверка выплаты</Link>
           </div>
         </div>
@@ -110,29 +111,33 @@ export default function PlatformV7DocumentsPage() {
         </div>
       </section>
 
-      <section style={card}>
-        <div style={micro}>Именные контуры документов</div>
-        <div style={cardsGrid}>
-          <ProviderCard title='ФГИС «Зерно»' text='СДИЗ партии зерна и статус прослеживаемости.' />
-          <ProviderCard title='СБИС / Saby ЭТрН' text='Электронная транспортная накладная и подписи по перевозке.' />
-          <ProviderCard title='ГИС ЭПД' text='Государственный контур электронных перевозочных документов.' />
-          <ProviderCard title='Контур.Диадок' text='Договор, УПД, акт, подписи сторон.' />
-          <ProviderCard title='КриптоПро DSS' text='КЭП, сертификат и полномочия подписанта.' />
-          <ProviderCard title='ФГБУ ЦОК АПК' text='Протокол качества и основание для приёмки.' />
-        </div>
-      </section>
+      <P7HiddenDetails title='Именные контуры документов' meta='ФГИС, ЭДО, ЭПД, КЭП, лаборатория и назначение каждого контура'>
+        <section style={cardInner}>
+          <div style={micro}>Именные контуры документов</div>
+          <div style={cardsGrid}>
+            <ProviderCard title='ФГИС «Зерно»' text='СДИЗ партии зерна и статус прослеживаемости.' />
+            <ProviderCard title='СБИС / Saby ЭТрН' text='Электронная транспортная накладная и подписи по перевозке.' />
+            <ProviderCard title='ГИС ЭПД' text='Государственный контур электронных перевозочных документов.' />
+            <ProviderCard title='Контур.Диадок' text='Договор, УПД, акт, подписи сторон.' />
+            <ProviderCard title='КриптоПро DSS' text='КЭП, сертификат и полномочия подписанта.' />
+            <ProviderCard title='ФГБУ ЦОК АПК' text='Протокол качества и основание для приёмки.' />
+          </div>
+        </section>
+      </P7HiddenDetails>
 
-      <section style={card}>
-        <div style={micro}>Связанные сделки</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {history.map((item) => (
-            <Link key={item.id} href={item.href} style={historyRow}>
-              <strong style={{ color: '#0F1419' }}>{item.id}</strong>
-              <span style={{ color: '#64748B', fontSize: 13 }}>{item.status}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <P7HiddenDetails title='Связанные сделки' meta='сделки, где документный пакет влияет на деньги или спор'>
+        <section style={cardInner}>
+          <div style={micro}>Связанные сделки</div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {history.map((item) => (
+              <Link key={item.id} href={item.href} style={historyRow}>
+                <strong style={{ color: '#0F1419' }}>{item.id}</strong>
+                <span style={{ color: '#64748B', fontSize: 13 }}>{item.status}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </P7HiddenDetails>
     </main>
   );
 }
@@ -146,12 +151,13 @@ function Cell({ label, value, strong = false, danger = false }: { label: string;
 }
 
 function ProviderCard({ title, text }: { title: string; text: string }) {
-  return <div style={controlCard}><strong style={{ color: '#0F1419', fontSize: 15 }}>{title}</strong><span style={{ color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>{text}</span><span style={{ ...pill, background: 'rgba(217,119,6,0.08)', borderColor: 'rgba(217,119,6,0.18)', color: '#B45309' }}>controlled-pilot</span></div>;
+  return <div style={controlCard}><strong style={{ color: '#0F1419', fontSize: 15 }}>{title}</strong><span style={{ color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>{text}</span><span style={{ ...pill, background: 'rgba(217,119,6,0.08)', borderColor: 'rgba(217,119,6,0.18)', color: '#B45309' }}>требует внешнего подтверждения</span></div>;
 }
 
 const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 26, padding: 22, display: 'grid', gap: 16 } as const;
 const darkCard = { background: '#064E3B', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(6,78,59,0.16)' } as const;
 const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 22, padding: 18, display: 'grid', gap: 12 } as const;
+const cardInner = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 14, display: 'grid', gap: 12 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, fontSize: 'clamp(30px, 4.8vw, 52px)', lineHeight: 1.04, letterSpacing: '-0.045em', color: '#0F1419', fontWeight: 950 } as const;
 const h2 = { margin: 0, color: '#0F1419', fontSize: 18, lineHeight: 1.1, fontWeight: 950 } as const;
