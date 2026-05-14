@@ -7,6 +7,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 const visibleExecutionFiles = [
   'apps/web/app/platform-v7/deals/page.tsx',
   'apps/web/app/platform-v7/deals/[id]/clean/page.tsx',
+  'apps/web/app/platform-v7/bank/page.tsx',
   'apps/web/lib/platform-v7/deal360-source-of-truth.ts',
   'apps/web/lib/platform-v7/deal-execution-source-of-truth.ts',
 ];
@@ -27,5 +28,17 @@ describe('platform-v7 visible execution copy', () => {
     expect(source).toContain('документы');
     expect(source).toContain('подтверждения');
     expect(source).toContain('банк');
+  });
+
+  it('keeps overloaded bank details hidden behind disclosure sections', () => {
+    const bank = read('apps/web/app/platform-v7/bank/page.tsx');
+
+    expect(bank).toContain('function DisclosureSection');
+    expect(bank).toContain('<details style={detailsCard}>');
+    expect(bank).toContain('Документы и основания');
+    expect(bank).toContain('Внешние контуры');
+    expect(bank).toContain('Рекомендации и доказательства');
+    expect(bank).toContain('Передача между ролями и журнал');
+    expect(bank).toContain('Длинные детали скрыты ниже');
   });
 });
