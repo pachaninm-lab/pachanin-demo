@@ -71,7 +71,7 @@
 }
 
 .pc-v4-crumbs {
-  max-width: 58vw !important;
+  display: none !important;
 }
 
 .pc-v4-statuses {

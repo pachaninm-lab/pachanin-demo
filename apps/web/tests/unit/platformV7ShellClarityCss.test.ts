@@ -21,12 +21,14 @@ describe('platform-v7 shell clarity css', () => {
     expect(css).toContain('grid-template-columns: 1fr');
   });
 
-  it('hides shell maturity badges and legacy shell notes from visible surfaces', () => {
+  it('hides shell maturity badges, breadcrumbs and legacy shell notes from visible surfaces', () => {
     expect(css).toContain('.pc-v4-stage {');
+    expect(css).toContain('.pc-v4-crumbs {');
     expect(css).toContain('.pc-v4-pilot-note {');
     expect(css).toContain('.pc-v4-nav-note {');
     expect(css).toContain('display: none !important;');
     expect(css).not.toContain('.pc-v4-nav-note {\n  font-size: 10px !important;\n}');
+    expect(css).not.toContain('.pc-v4-crumbs {\n  max-width: 58vw !important;\n}');
   });
 
   it('contains mobile and dark-mode shell protections', () => {
