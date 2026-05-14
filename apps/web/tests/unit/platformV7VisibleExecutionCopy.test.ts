@@ -12,10 +12,22 @@ const visibleExecutionFiles = [
   'apps/web/lib/platform-v7/deal-execution-source-of-truth.ts',
 ];
 
+const visibleSummaryFiles = [
+  'apps/web/components/platform-v7/RoleExecutionSummary.tsx',
+  'apps/web/components/platform-v7/SystemRouteSummary.tsx',
+];
+
 describe('platform-v7 visible execution copy', () => {
   it('keeps visible deal screens out of demo and simulation language', () => {
     const source = visibleExecutionFiles.map(read).join('\n').toLowerCase();
     const forbidden = ['пилот', 'пилотный', 'тестовый режим', 'trip-sim', 'deal 360', 'симуляция'];
+
+    for (const word of forbidden) expect(source).not.toContain(word);
+  });
+
+  it('keeps visible summary surfaces out of service-mode language', () => {
+    const source = visibleSummaryFiles.map(read).join('\n').toLowerCase();
+    const forbidden = ['пилотный контур', 'пилотного контура', 'пилотный доступ', 'тестовый сценарий', 'тестовым сценарием', 'демо должно'];
 
     for (const word of forbidden) expect(source).not.toContain(word);
   });
