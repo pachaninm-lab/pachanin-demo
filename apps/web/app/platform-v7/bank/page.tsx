@@ -106,11 +106,11 @@ export default function PlatformV7BankPage() {
         </div>
       </section>
 
-      <section style={darkCard}>
+      <section style={focusCard}>
         <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ ...micro, color: '#CBD5E1' }}>5 секунд для банка</div>
-          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(23px,5.5vw,34px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Деньги не двигаются, пока нет основания</h2>
-          <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Передача основания банку — результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
+          <div style={micro}>5 секунд для банка</div>
+          <h2 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(23px,5.5vw,34px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Деньги не двигаются, пока нет основания</h2>
+          <p style={{ margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.55 }}>Передача основания банку — результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {releaseSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
@@ -227,7 +227,7 @@ function DisclosureSection({ title, meta, children }: { title: string; meta: str
 }
 
 function SummaryCard({ item }: { item: typeof releaseSummary[number] }) {
-  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#CBD5E1' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#CBD5E1', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+  return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 13, display: 'grid', gap: 7, boxShadow: '0 8px 20px rgba(15,23,42,0.045)' }}><div style={micro}>{item.label}</div><strong style={{ color: '#0F1419', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#64748B', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
 }
 
 function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
@@ -258,7 +258,7 @@ function stateText(state: Deal360State) {
 }
 
 const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
-const darkCard = { background: 'linear-gradient(135deg,#0F172A 0%,#111827 58%,#0B1220 100%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 14, boxShadow: '0 20px 50px rgba(15,23,42,0.22)' } as const;
+const focusCard = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 60%,#EEF6F3 100%)', color: '#0F1419', border: '1px solid #E4E6EA', borderRadius: 26, padding: 20, display: 'grid', gap: 14, boxShadow: '0 18px 42px rgba(15,23,42,0.075)' } as const;
 const cardInner = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 14, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(15,23,42,0.08)', border: '1px solid rgba(15,23,42,0.18)', color: '#0F172A', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(28px,7vw,46px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 } as const;
