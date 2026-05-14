@@ -110,4 +110,70 @@ describe('platform-v7 money readiness consistency', () => {
     expect(documents.kepStatus).toBe('не подписан');
     expect(canRequestMoneyRelease()).toBe(false);
   });
+
+  it('keeps dispute state and hold controls visible before money release', () => {
+    const { dispute, money, readiness } = PLATFORM_V7_EXECUTION_SOURCE;
+
+    expect(readiness.dispute.status).toBe('готово');
+    expect(readiness.dispute.note).toContain('Нет активных удержаний');
+    expect(dispute.status).toBe('готово');
+    expect(dispute.holdReason).toBe('');
+    expect(dispute.evidenceCount).toBe(0);
+    expect(dispute.arbitratorNeeded).toBe(false);
+    expect(money.holdRub).toBe(0);
+  });
+
+  it('blocks release when a dispute gate is stopped even if bank, documents and logistics are ready', () => {
+    const { readiness, money } = PLATFORM_V7_EXECUTION_SOURCE;
+    const original = {
+      bank: readiness.bank.status,
+      documents: readiness.documents.status,
+      logistics: readiness.logistics.status,
+      dispute: readiness.dispute.status,
+      holdRub: money.holdRub,
+    };
+
+    try {
+      readiness.bank.status = 'готово';
+      readiness.documents.status = 'готово';
+      readiness.logistics.status = 'готово';
+      readiness.dispute.status = 'стоп';
+      money.holdRub = 0;
+
+      expect(canRequestMoneyRelease()).toBe(false);
+    } finally {
+      readiness.bank.status = original.bank;
+      readiness.documents.status = original.documents;
+      readiness.logistics.status = original.logistics;
+      readiness.dispute.status = original.dispute;
+      money.holdRub = original.holdRub;
+    }
+  });
+
+  it('blocks release when held money exists even if all release gates are ready', () => {
+    const { readiness, money } = PLATFORM_V7_EXECUTION_SOURCE;
+    const original = {
+      bank: readiness.bank.status,
+      documents: readiness.documents.status,
+      logistics: readiness.logistics.status,
+      dispute: readiness.dispute.status,
+      holdRub: money.holdRub,
+    };
+
+    try {
+      readiness.bank.status = 'готово';
+      readiness.documents.status = 'готово';
+      readiness.logistics.status = 'готово';
+      readiness.dispute.status = 'готово';
+      money.holdRub = 1;
+
+      expect(canRequestMoneyRelease()).toBe(false);
+    } finally {
+      readiness.bank.status = original.bank;
+      readiness.documents.status = original.documents;
+      readiness.logistics.status = original.logistics;
+      readiness.dispute.status = original.dispute;
+      money.holdRub = original.holdRub;
+    }
+  });
 });
