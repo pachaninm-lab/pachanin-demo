@@ -23,6 +23,13 @@ describe('platform-v7 theme default', () => {
     expect(source).toContain("document.documentElement.setAttribute('data-theme', theme)");
   });
 
+  it('runs theme sync before AppShell effects can read storage', () => {
+    const source = themeSync();
+
+    expect(source).toContain('React.useLayoutEffect(() =>');
+    expect(source).not.toContain('React.useEffect(() => {\n    const bootedAt = Date.now();');
+  });
+
   it('migrates old dark storage to stored light unless the current theme version is present', () => {
     const source = themeSync();
 

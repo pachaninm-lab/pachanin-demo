@@ -67,7 +67,7 @@ function getDomTheme(): PlatformV7Theme {
 }
 
 export function PlatformThemeSync() {
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const bootedAt = Date.now();
     let lastTheme = readStoredTheme();
     let channel: BroadcastChannel | null = null;
