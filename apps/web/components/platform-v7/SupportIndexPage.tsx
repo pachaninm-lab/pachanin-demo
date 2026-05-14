@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
+import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
 import { useSupportCases } from '@/lib/platform-v7/support-client-store';
 import { SUPPORT_CATEGORY_LABELS, SUPPORT_MATURITY_LABEL, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_LABELS, supportFormatRub, supportLastMessage, supportObjectLabel, supportSortCases } from '@/lib/platform-v7/support-helpers';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
@@ -41,7 +42,7 @@ function supportIntro(role: PlatformRole) {
 
   return {
     title: 'Центр поддержки исполнения сделки',
-    text: 'Каждое обращение привязано к сделке, документу, рейсу, деньгам, спору или блокеру. Пользователь видит статус и следующий шаг. Оператор видит очередь, сумму риска и журнал действий.',
+    text: 'Каждое обращение привязано к сделке, документу, рейсу, деньгам, спору или блокеру. Сначала видны статус, риск и следующий шаг; детали раскрываются отдельно.',
     listTitle: 'Мои обращения',
     showOperatorMetrics: OPERATOR_SUPPORT_ROLES.has(role),
     showMoney: true,
@@ -81,14 +82,28 @@ export function SupportIndexPage() {
         </div>
         <div style={{ display: 'grid', gap: 10 }}>
           {sortedCases.map((item) => (
-            <Link key={item.id} href={`/platform-v7/support/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, background: 'var(--pc-bg-elevated, rgba(15,20,25,0.02))' }}>
-              <div style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><span style={pill}>{item.id}</span><span style={pill}>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span style={pill}>{SUPPORT_CATEGORY_LABELS[item.category]}</span></div><div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div><div style={muted}>{supportLastMessage(item.id, messages)}</div></div>
-              <div style={{ display: 'grid', gap: 6 }}><div style={muted}>Статус</div><b>{SUPPORT_STATUS_LABELS[item.status]}</b><div style={muted}>Следующий шаг: {item.nextAction}</div></div>
-              <div style={{ display: 'grid', gap: 6 }}><div style={muted}>{supportObjectLabel(item)}</div><b>SLA: {dt(item.slaDueAt)}</b>{intro.showMoney ? <b>{supportFormatRub(item.moneyAtRiskRub)}</b> : null}</div>
-            </Link>
+            <article key={item.id} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 10, background: 'var(--pc-bg-elevated, rgba(15,20,25,0.02))' }}>
+              <Link href={`/platform-v7/support/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
+                <div style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><span style={pill}>{item.id}</span><span style={pill}>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span style={pill}>{SUPPORT_CATEGORY_LABELS[item.category]}</span></div><div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div></div>
+                <div style={{ display: 'grid', gap: 6 }}><div style={muted}>Статус</div><b>{SUPPORT_STATUS_LABELS[item.status]}</b><div style={muted}>Следующий шаг: {item.nextAction}</div></div>
+                <div style={{ display: 'grid', gap: 6 }}><div style={muted}>{supportObjectLabel(item)}</div><b>SLA: {dt(item.slaDueAt)}</b>{intro.showMoney ? <b>{supportFormatRub(item.moneyAtRiskRub)}</b> : null}</div>
+              </Link>
+              <P7HiddenDetails title='Детали обращения' meta='последнее сообщение, объект, SLA и влияние на деньги'>
+                <p style={{ ...muted, margin: 0 }}>{supportLastMessage(item.id, messages)}</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
+                  <div style={miniCell}><span style={miniLabel}>Объект</span><b>{supportObjectLabel(item)}</b></div>
+                  <div style={miniCell}><span style={miniLabel}>SLA</span><b>{dt(item.slaDueAt)}</b></div>
+                  <div style={miniCell}><span style={miniLabel}>Ответственный</span><b>{item.owner}</b></div>
+                  {intro.showMoney ? <div style={miniCell}><span style={miniLabel}>Деньги под риском</span><b>{supportFormatRub(item.moneyAtRiskRub)}</b></div> : null}
+                </div>
+              </P7HiddenDetails>
+            </article>
           ))}
         </div>
       </section>
     </div>
   );
 }
+
+const miniCell: CSSProperties = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10, display: 'grid', gap: 4 };
+const miniLabel: CSSProperties = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' };

@@ -31,4 +31,4 @@ export type SupportMessage = { id: string; caseId: string; author: string; body:
 export type SupportInternalNote = { id: string; caseId: string; author: string; body: string; createdAt: string };
 export type SupportAuditEvent = { id: string; caseId: string; actor: string; action: string; description: string; before?: string; after?: string; createdAt: string };
 
-export const SUPPORT_MATURITY_LABEL = 'пилотный контур поддержки исполнения';
+export const SUPPORT_MATURITY_LABEL = 'контур поддержки исполнения';
