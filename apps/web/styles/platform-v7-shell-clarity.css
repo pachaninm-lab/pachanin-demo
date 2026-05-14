@@ -63,9 +63,7 @@
 }
 
 .pc-v4-stage {
-  min-height: 32px !important;
-  padding-inline: 10px !important;
-  font-size: 10px !important;
+  display: none !important;
 }
 
 .pc-v4-meta {
@@ -92,11 +90,7 @@
 }
 
 .pc-v4-pilot-note {
-  margin-bottom: 12px !important;
-  padding: 9px 12px !important;
-  border-radius: 14px !important;
-  font-size: 11px !important;
-  box-shadow: none !important;
+  display: none !important;
 }
 
 .pc-v4-drawer {
@@ -119,7 +113,7 @@
 }
 
 .pc-v4-nav-note {
-  font-size: 10px !important;
+  display: none !important;
 }
 
 .pc-v4-role-grid {
@@ -204,10 +198,6 @@
 
   .pc-v4-main {
     padding-inline: 10px !important;
-  }
-
-  .pc-v4-pilot-note {
-    display: none !important;
   }
 
   .pc-v4-drawer {
