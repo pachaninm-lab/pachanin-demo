@@ -22,7 +22,7 @@ function readStoredTheme(): PlatformV7Theme {
     const storedTheme = window.localStorage.getItem(PLATFORM_V7_THEME_STORAGE_KEY);
     const storedVersion = window.localStorage.getItem(PLATFORM_V7_THEME_VERSION_KEY);
     if (storedTheme === 'dark' && storedVersion !== PLATFORM_V7_LIGHT_DEFAULT_VERSION) {
-      window.localStorage.removeItem(PLATFORM_V7_THEME_STORAGE_KEY);
+      writeStoredTheme('light');
       return 'light';
     }
     return normalizeTheme(storedTheme);
@@ -112,6 +112,7 @@ export function PlatformThemeSync() {
       const isBootShellDarkWrite = nextTheme === 'dark' && !hasExplicitDarkPreference() && Date.now() - bootedAt < 2500;
       if (isBootShellDarkWrite) {
         lastTheme = 'light';
+        writeStoredTheme('light');
         applyPlatformTheme('light');
         return;
       }

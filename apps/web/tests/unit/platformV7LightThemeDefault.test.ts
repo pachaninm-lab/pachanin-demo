@@ -23,16 +23,17 @@ describe('platform-v7 theme default', () => {
     expect(source).toContain("document.documentElement.setAttribute('data-theme', theme)");
   });
 
-  it('migrates old dark storage to light unless the current theme version is present', () => {
+  it('migrates old dark storage to stored light unless the current theme version is present', () => {
     const source = themeSync();
 
     expect(source).toContain('PLATFORM_V7_THEME_VERSION_KEY');
     expect(source).toContain('PLATFORM_V7_LIGHT_DEFAULT_VERSION');
     expect(source).toContain("storedTheme === 'dark' && storedVersion !== PLATFORM_V7_LIGHT_DEFAULT_VERSION");
-    expect(source).toContain('window.localStorage.removeItem(PLATFORM_V7_THEME_STORAGE_KEY)');
+    expect(source).toContain("writeStoredTheme('light')");
+    expect(source).not.toContain('window.localStorage.removeItem(PLATFORM_V7_THEME_STORAGE_KEY)');
   });
 
-  it('forces boot-time dark DOM writes back to light unless dark is explicitly stored', () => {
+  it('forces boot-time dark DOM writes back to stored light unless dark is explicitly stored', () => {
     const source = themeSync();
 
     expect(source).toContain('function hasExplicitDarkPreference()');
@@ -40,6 +41,7 @@ describe('platform-v7 theme default', () => {
     expect(source).toContain("window.localStorage.getItem(PLATFORM_V7_THEME_VERSION_KEY) === PLATFORM_V7_LIGHT_DEFAULT_VERSION");
     expect(source).toContain('const bootedAt = Date.now();');
     expect(source).toContain("Date.now() - bootedAt < 2500");
+    expect(source).toContain("writeStoredTheme('light')");
     expect(source).toContain("applyPlatformTheme('light')");
   });
 
