@@ -114,12 +114,37 @@ function NextAction({ action }: { action: NextActionModel }) {
 }
 
 function MoneyRail({ deal }: { deal: DealViewModel }) {
-  const parts = [['К выпуску', deal.money.readyToReleaseRub], ['Удержано', deal.money.heldRub], ['Ждёт документы', deal.money.awaitingDocsRub], ['В споре', deal.money.disputedRub], ['Выпущено', deal.money.releasedRub]] as const;
-  return <section className={cx(styles.rail, styles.span12)} aria-label="Деньги по сделке"><div className={styles.railTop}><div className={styles.eyebrow}>деньги</div><strong>{formatPremiumRub(deal.money.reservedRub)}</strong><span>{isMoneyBalanced(deal.money) ? 'Резерв разложен без расхождений.' : 'Есть расхождение. Нужна сверка с основанием.'}</span></div><div className={styles.moneyParts}>{parts.map(([label, value]) => <div key={label} className={styles.moneyPart}><span>{label}</span><strong>{formatPremiumRubCompact(value)}</strong></div>)}</div></section>;
+  const blockedRub = deal.money.heldRub + deal.money.awaitingDocsRub + deal.money.disputedRub;
+  const parts = [
+    { label: 'К выпуску', value: deal.money.readyToReleaseRub, tone: 'success' as DealTone },
+    { label: 'Удержано', value: deal.money.heldRub, tone: 'warning' as DealTone },
+    { label: 'Ждёт документы', value: deal.money.awaitingDocsRub, tone: 'info' as DealTone },
+    { label: 'В споре', value: deal.money.disputedRub, tone: 'dispute' as DealTone },
+    { label: 'Выпущено', value: deal.money.releasedRub, tone: 'neutral' as DealTone },
+  ];
+  return (
+    <section className={cx(styles.rail, styles.span12)} aria-label="Деньги по сделке">
+      <div className={styles.railTop}>
+        <div className={styles.moneyHeader}>
+          <div><div className={styles.eyebrow}>деньги</div><strong>{formatPremiumRub(deal.money.reservedRub)}</strong></div>
+          <Badge tone={isMoneyBalanced(deal.money) ? 'success' : 'warning'}>{isMoneyBalanced(deal.money) ? 'сходится' : 'сверить'}</Badge>
+        </div>
+        <div className={styles.moneySummary}>
+          <span>К движению: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}</span>
+          <span>Остановлено: {formatPremiumRubCompact(blockedRub)}</span>
+          <span>Выпущено: {formatPremiumRubCompact(deal.money.releasedRub)}</span>
+        </div>
+      </div>
+      <div className={styles.moneyParts}>{parts.map((part) => <div key={part.label} className={cx(styles.moneyPart, styles[`tone_${part.tone}`])}><span>{part.label}</span><strong>{formatPremiumRubCompact(part.value)}</strong></div>)}</div>
+    </section>
+  );
 }
 
 function DocumentMatrix({ documents }: { documents: DealDocumentModel[] }) {
-  return <Card title="Матрица документов" eyebrow="документы" className={styles.span6}><div className={styles.list}>{documents.map((doc) => <article key={doc.id} className={styles.row}><strong>{limitPremiumText(doc.title, 70)}</strong><Badge tone={doc.status === 'ready' ? 'success' : doc.status === 'blocked' ? 'danger' : 'warning'}>{doc.status === 'ready' ? 'готово' : doc.status === 'blocked' ? 'стоп' : 'проверить'}</Badge><span>{limitPremiumText(doc.responsible, 52)}</span><span>{limitPremiumText(doc.blocks, 74)}</span></article>)}</div></Card>;
+  const readyCount = documents.filter((doc) => doc.status === 'ready').length;
+  const blockedCount = documents.filter((doc) => doc.status === 'blocked').length;
+  const reviewCount = documents.length - readyCount - blockedCount;
+  return <Card title="Матрица документов" eyebrow="документы" className={styles.span6}><div className={styles.docSummary} aria-label="Сводка документов"><span>{readyCount}/{documents.length} готовы</span><span>{reviewCount} проверить</span><span>{blockedCount} стоп</span></div><div className={styles.docMatrix}>{documents.map((doc) => <article key={doc.id} className={styles.docRow} data-status={doc.status}><div className={styles.docMain}><strong>{limitPremiumText(doc.title, 70)}</strong><span>{limitPremiumText(doc.blocks, 74)}</span></div><Badge tone={doc.status === 'ready' ? 'success' : doc.status === 'blocked' ? 'danger' : 'warning'}>{doc.status === 'ready' ? 'готово' : doc.status === 'blocked' ? 'стоп' : 'проверить'}</Badge><span className={styles.docOwner}>{limitPremiumText(doc.responsible, 52)}</span></article>)}</div></Card>;
 }
 
 function ExecutionChain({ steps }: { steps: ExecutionStepModel[] }) {
