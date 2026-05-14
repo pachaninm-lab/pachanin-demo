@@ -82,6 +82,35 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('.coreCell em { -webkit-line-clamp: 1; }');
   });
 
+  it('keeps money rail dense without changing controlled money buckets', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+
+    expect(ui).toContain('const blockedRub = deal.money.heldRub + deal.money.awaitingDocsRub + deal.money.disputedRub;');
+    expect(ui).toContain('К движению: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}');
+    expect(ui).toContain('Остановлено: {formatPremiumRubCompact(blockedRub)}');
+    expect(ui).toContain('Выпущено: {formatPremiumRubCompact(deal.money.releasedRub)}');
+    expect(ui).toContain("{ label: 'Ждёт документы', value: deal.money.awaitingDocsRub, tone: 'info' as DealTone }");
+    expect(css).toContain('.moneyHeader');
+    expect(css).toContain('.moneySummary');
+    expect(css).toContain('.moneyParts {\n  display: grid;\n  grid-template-columns: repeat(5, minmax(0, 1fr));');
+  });
+
+  it('keeps document matrix dense and mobile-card based', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+
+    expect(ui).toContain('const readyCount = documents.filter((doc) => doc.status === \'ready\').length;');
+    expect(ui).toContain('aria-label="Сводка документов"');
+    expect(ui).toContain('className={styles.docMatrix}');
+    expect(ui).toContain('className={styles.docRow} data-status={doc.status}');
+    expect(ui).toContain('className={styles.docOwner}');
+    expect(css).toContain('.docSummary');
+    expect(css).toContain('.docRow {');
+    expect(css).toContain(".docRow[data-status='blocked']");
+    expect(css).toContain('.row,\n  .docRow { grid-template-columns: 1fr; }');
+  });
+
   it('keeps money reconciliation as one reserved amount split into controlled buckets', () => {
     const money = read('apps/web/lib/platform-v7/premium/money.ts');
 
