@@ -96,7 +96,7 @@ export const PLATFORM_V7_EXECUTION_SOURCE: {
     buyerDisclosure: 'раскрыт только внутри черновика сделки',
     basis: 'самовывоз с элеватора',
     status: 'черновик сделки',
-    maturity: 'тестовый режим',
+    maturity: 'предынтеграционный контур',
   },
   readiness: {
     fgis: { status: 'готово', blocker: '', note: 'Партия ФГИС-68-2403-001 подтверждена, остаток достаточен' },
@@ -116,7 +116,7 @@ export const PLATFORM_V7_EXECUTION_SOURCE: {
   },
   logistics: {
     orderId: 'LOG-REQ-2403',
-    tripId: 'TRIP-SIM-001',
+    tripId: 'TRIP-2403-001',
     carrier: 'ТК «Южные маршруты»',
     driverAlias: 'Водитель А',
     vehicleMasked: 'Р***ТУ',
@@ -142,11 +142,11 @@ export const PLATFORM_V7_EXECUTION_SOURCE: {
     arbitratorNeeded: false,
   },
   audit: [
-    { time: '09:50', actor: 'Платформа', action: 'Создан черновик сделки', note: 'Условия из принятой ставки Покупателя 1 по LOT-2403', status: 'зафиксировано' },
+    { time: '09:50', actor: 'Оператор', action: 'Создан черновик сделки', note: 'Условия из принятой ставки Покупателя 1 по LOT-2403', status: 'зафиксировано' },
     { time: '09:52', actor: 'Оператор', action: 'Запущена проверка готовности', note: 'ФГИС, документы, логистика, банк, спор', status: 'зафиксировано' },
     { time: '10:05', actor: 'ФГИС', action: 'Партия подтверждена', note: 'ФГИС-68-2403-001 — остаток достаточен', status: 'готово' },
     { time: '10:12', actor: 'Банк', action: 'Запрос резерва денег', note: 'Покупатель 1 готов к резерву, решение банка ожидается', status: 'проверить' },
-    { time: '10:15', actor: 'Логистика', action: 'Перевозчик назначен', note: 'Создана заявка LOG-REQ-2403 и рейс TRIP-SIM-001', status: 'проверить' },
+    { time: '10:15', actor: 'Логистика', action: 'Перевозчик назначен', note: 'Создана заявка LOG-REQ-2403 и рейс TRIP-2403-001', status: 'проверить' },
   ],
 };
 
