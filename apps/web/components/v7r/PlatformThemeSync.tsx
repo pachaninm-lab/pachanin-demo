@@ -12,14 +12,14 @@ type ThemeMessage = {
 };
 
 function normalizeTheme(value: unknown): PlatformV7Theme {
-  return value === 'light' ? 'light' : 'dark';
+  return value === 'dark' ? 'dark' : 'light';
 }
 
 function readStoredTheme(): PlatformV7Theme {
   try {
     return normalizeTheme(window.localStorage.getItem(PLATFORM_V7_THEME_STORAGE_KEY));
   } catch {
-    return 'dark';
+    return 'light';
   }
 }
 
