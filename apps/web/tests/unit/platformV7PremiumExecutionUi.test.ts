@@ -57,6 +57,31 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('-webkit-line-clamp');
   });
 
+  it('keeps deal core above-fold focused on money documents blocker and action', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+
+    expect(ui).toContain('function DealCoreSnapshot');
+    expect(ui).toContain('aria-label="Главное по сделке"');
+    expect(ui).toContain('<DealCoreSnapshot deal={deal} />');
+    expect(ui).toContain('<span>Деньги</span>');
+    expect(ui).toContain('<span>Документы</span>');
+    expect(ui).toContain('<span>Главный блокер</span>');
+    expect(ui).toContain('<span>Действие</span>');
+    expect(css).toContain('.dealCore');
+    expect(css).toContain('.coreActionCell');
+    expect(css).toContain('.dealCore { grid-template-columns: repeat(4, minmax(0, 1fr)); }');
+  });
+
+  it('keeps deal core responsive without horizontal-scroll tables', () => {
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+
+    expect(css).toContain('.dealCore { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
+    expect(css).toContain('.statusBar,\n  .dealCore {');
+    expect(css).toContain('.dealCore { grid-template-columns: repeat(4, minmax(0, 1fr)); }');
+    expect(css).toContain('.coreCell em { -webkit-line-clamp: 1; }');
+  });
+
   it('keeps money reconciliation as one reserved amount split into controlled buckets', () => {
     const money = read('apps/web/lib/platform-v7/premium/money.ts');
 

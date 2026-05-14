@@ -64,6 +64,40 @@ function StatusBar({ deal, role }: { deal: DealViewModel; role: DealRole }) {
   );
 }
 
+function DealCoreSnapshot({ deal }: { deal: DealViewModel }) {
+  const readyDocuments = deal.documents.filter((doc) => doc.status === 'ready').length;
+  const mainBlocker = deal.blockers[0];
+  const documentsLabel = `${readyDocuments}/${deal.documents.length} готовы`;
+  const moneyLabel = `${formatPremiumRubCompact(deal.money.reservedRub)} резерв`;
+  const blockerLabel = mainBlocker ? mainBlocker.title : 'Остановок нет';
+  const blockerMeta = mainBlocker ? `${mainBlocker.responsible} · ${mainBlocker.impact}` : 'деньги, документы и груз идут по условиям';
+
+  return (
+    <section className={styles.dealCore} aria-label="Главное по сделке">
+      <article className={styles.coreCell}>
+        <span>Деньги</span>
+        <strong>{limitPremiumText(moneyLabel, 40)}</strong>
+        <em>{isMoneyBalanced(deal.money) ? 'резерв разложен' : 'нужна сверка'}</em>
+      </article>
+      <article className={styles.coreCell}>
+        <span>Документы</span>
+        <strong>{documentsLabel}</strong>
+        <em>{limitPremiumText(deal.documents.find((doc) => doc.status !== 'ready')?.title ?? 'нет блокера', 56)}</em>
+      </article>
+      <article className={styles.coreCell}>
+        <span>Главный блокер</span>
+        <strong>{limitPremiumText(blockerLabel, 56)}</strong>
+        <em>{limitPremiumText(blockerMeta, 84)}</em>
+      </article>
+      <article className={cx(styles.coreCell, styles.coreActionCell)}>
+        <span>Действие</span>
+        <strong>{limitPremiumText(deal.nextAction.label, premiumTextLimits.cta)}</strong>
+        <em>{limitPremiumText(deal.nextAction.responsible ?? deal.nextAction.reason ?? 'ответственный указан в действии', 72)}</em>
+      </article>
+    </section>
+  );
+}
+
 function Blocker({ item }: { item: BlockingReasonModel }) {
   return (
     <article className={cx(styles.blocker, styles[`tone_${item.tone ?? 'warning'}`])}>
@@ -118,5 +152,5 @@ export function PremiumDealShell({ deal, initialRole = 'buyer', roles = ['seller
 
   if (activeRole === 'driver' && deal.driverTask) return <DriverFieldShell task={deal.driverTask} theme={theme} />;
 
-  return <main className={styles.root} data-role={activeRole} data-theme={theme}><div className={styles.shell}><div className={styles.topChrome}><nav className={styles.mainNav} aria-label="Основная навигация"><strong>Прозрачная Цена</strong><a href="/platform-v7">Сделки</a><a href="/platform-v7/lots">Лоты и запросы</a><a href="/platform-v7/logistics">Логистика</a><a href="/platform-v7/documents">Документы</a><a href="/platform-v7/bank">Деньги</a><a href="/platform-v7/disputes">Споры</a><a href="/platform-v7/support">Поддержка</a></nav><select className={styles.roleSelect} value={activeRole} aria-label="Активная роль" onChange={(event) => { const nextRole = event.target.value as DealRole; setActiveRole(nextRole); onRoleChange?.(nextRole); }}>{roles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></div><StatusBar deal={deal} role={activeRole} /><section className={styles.aboveFold} aria-label="Главный контекст сделки"><div className={styles.blockerGrid}>{topBlockers.length > 0 ? topBlockers.map((item) => <Blocker key={item.id} item={item} />) : <Card title="Сделка идёт по условиям" eyebrow="активных остановок нет"><p>Следующее действие видно справа. Деньги, документы и груз сверяются по цепочке исполнения.</p></Card>}</div><NextAction action={deal.nextAction} /></section><section className={styles.contentGrid} aria-label="Рабочие блоки сделки">{visibleSections.includes('money') ? <MoneyRail deal={deal} /> : null}{visibleSections.includes('documents') ? <DocumentMatrix documents={deal.documents} /> : null}{visibleSections.includes('execution') ? <ExecutionChain steps={deal.execution} /> : null}{visibleSections.includes('evidence') ? <EvidencePack evidence={deal.evidence} /> : null}{visibleSections.includes('risk') ? <RiskHeatline risks={deal.risks} /> : null}{visibleSections.includes('timeline') ? <Timeline events={deal.timeline} /> : null}</section></div></main>;
+  return <main className={styles.root} data-role={activeRole} data-theme={theme}><div className={styles.shell}><div className={styles.topChrome}><nav className={styles.mainNav} aria-label="Основная навигация"><strong>Прозрачная Цена</strong><a href="/platform-v7">Сделки</a><a href="/platform-v7/lots">Лоты и запросы</a><a href="/platform-v7/logistics">Логистика</a><a href="/platform-v7/documents">Документы</a><a href="/platform-v7/bank">Деньги</a><a href="/platform-v7/disputes">Споры</a><a href="/platform-v7/support">Поддержка</a></nav><select className={styles.roleSelect} value={activeRole} aria-label="Активная роль" onChange={(event) => { const nextRole = event.target.value as DealRole; setActiveRole(nextRole); onRoleChange?.(nextRole); }}>{roles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></div><StatusBar deal={deal} role={activeRole} /><DealCoreSnapshot deal={deal} /><section className={styles.aboveFold} aria-label="Главный контекст сделки"><div className={styles.blockerGrid}>{topBlockers.length > 0 ? topBlockers.map((item) => <Blocker key={item.id} item={item} />) : <Card title="Сделка идёт по условиям" eyebrow="активных остановок нет"><p>Следующее действие видно справа. Деньги, документы и груз сверяются по цепочке исполнения.</p></Card>}</div><NextAction action={deal.nextAction} /></section><section className={styles.contentGrid} aria-label="Рабочие блоки сделки">{visibleSections.includes('money') ? <MoneyRail deal={deal} /> : null}{visibleSections.includes('documents') ? <DocumentMatrix documents={deal.documents} /> : null}{visibleSections.includes('execution') ? <ExecutionChain steps={deal.execution} /> : null}{visibleSections.includes('evidence') ? <EvidencePack evidence={deal.evidence} /> : null}{visibleSections.includes('risk') ? <RiskHeatline risks={deal.risks} /> : null}{visibleSections.includes('timeline') ? <Timeline events={deal.timeline} /> : null}</section></div></main>;
 }
