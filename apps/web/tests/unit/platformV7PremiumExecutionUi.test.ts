@@ -33,6 +33,30 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('overflow-x: clip');
   });
 
+  it('keeps premium visual foundation tokens scoped to platform-v7', () => {
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+
+    expect(css).toContain('--p7-page-bg: #080a0d');
+    expect(css).toContain('--p7-surface: #0e1116');
+    expect(css).toContain('--p7-accent: #c6a15b');
+    expect(css).toContain('--p7-shadow-floating');
+    expect(css).toContain('--p7-z-sticky-header: 30');
+    expect(css).toContain('--p7-ease-calm');
+    expect(css).toContain(".root[data-theme='light']");
+    expect(css).toContain('--p7-page-bg: #f7f4ee');
+  });
+
+  it('keeps visual foundation responsive, accessible and motion-safe', () => {
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+
+    expect(css).toContain('@media (max-width: 374px)');
+    expect(css).toContain('@media (max-height: 430px) and (orientation: landscape)');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).toContain('outline: 2px solid var(--p7-accent)');
+    expect(css).toContain('font-variant-numeric: tabular-nums');
+    expect(css).toContain('-webkit-line-clamp');
+  });
+
   it('keeps money reconciliation as one reserved amount split into controlled buckets', () => {
     const money = read('apps/web/lib/platform-v7/premium/money.ts');
 
