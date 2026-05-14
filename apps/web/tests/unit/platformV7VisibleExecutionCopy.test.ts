@@ -15,6 +15,13 @@ const visibleExecutionFiles = [
 const visibleSummaryFiles = [
   'apps/web/components/platform-v7/RoleExecutionSummary.tsx',
   'apps/web/components/platform-v7/SystemRouteSummary.tsx',
+  'apps/web/components/platform-v7/AuditSurfaceSummary.tsx',
+  'apps/web/components/platform-v7/ActionFeedbackPreviewStrip.tsx',
+  'apps/web/lib/platform-v7/action-feedback-preview.ts',
+  'apps/web/components/platform-v7/JournalPreview.tsx',
+  'apps/web/lib/platform-v7/journal-preview.ts',
+  'apps/web/app/platform-v7/driver/field/page.tsx',
+  'apps/web/app/platform-v7/driver/page.tsx',
 ];
 
 describe('platform-v7 visible execution copy', () => {
@@ -25,9 +32,25 @@ describe('platform-v7 visible execution copy', () => {
     for (const word of forbidden) expect(source).not.toContain(word);
   });
 
-  it('keeps visible summary surfaces out of service-mode language', () => {
+  it('keeps visible summary and action surfaces out of service-mode language', () => {
     const source = visibleSummaryFiles.map(read).join('\n').toLowerCase();
-    const forbidden = ['пилотный контур', 'пилотного контура', 'пилотный доступ', 'тестовый сценарий', 'тестовым сценарием', 'демо должно'];
+    const forbidden = [
+      'пилотный контур',
+      'пилотного контура',
+      'пилотном контуре',
+      'пилотная готовность',
+      'пилотный доступ',
+      'пилотный сценарий',
+      'тестовый сценарий',
+      'тестовым сценарием',
+      'controlled-pilot',
+      'simulation-grade',
+      'trip-sim',
+      'demo должно',
+      'ui журнал',
+      'domain audit',
+      'guard-правилом',
+    ];
 
     for (const word of forbidden) expect(source).not.toContain(word);
   });
@@ -52,5 +75,13 @@ describe('platform-v7 visible execution copy', () => {
     expect(bank).toContain('Рекомендации и доказательства');
     expect(bank).toContain('Передача между ролями и журнал');
     expect(bank).toContain('Длинные детали скрыты ниже');
+  });
+
+  it('routes the legacy driver page directly to the field shell', () => {
+    const driver = read('apps/web/app/platform-v7/driver/page.tsx');
+
+    expect(driver).toContain("redirect('/platform-v7/driver/field')");
+    expect(driver).not.toContain('TRIP-SIM');
+    expect(driver).not.toContain('darkCard');
   });
 });
