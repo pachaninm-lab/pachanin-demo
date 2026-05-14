@@ -168,15 +168,27 @@ describe('platform-v7 premium execution shell', () => {
       'apps/web/lib/platform-v7/premium/copy.ts',
     ];
 
-    const source = files.map(read).join('\n');
+    const source = files.map(read).join('\n').toLowerCase();
+    const forbiddenClaims = [
+      'production-ready',
+      'fully live',
+      'fully integrated',
+      'marketplace',
+      'sandbox',
+      'guarantee payment',
+      'risk-free deal',
+      'гарантируем оплату',
+      'гарантия оплаты',
+      'безрисковая сделка',
+      'полностью интегрировано',
+      'полностью готово',
+      'лучшая платформа',
+      'нет аналогов',
+      'революционный',
+      'уникальный',
+    ];
 
-    expect(source).not.toContain('production-ready');
-    expect(source).not.toContain('fully live');
-    expect(source).not.toContain('fully integrated');
-    expect(source).not.toContain('marketplace');
-    expect(source).not.toContain('sandbox');
-    expect(source).not.toContain('guarantee payment');
-    expect(source).not.toContain('risk-free deal');
+    for (const claim of forbiddenClaims) expect(source).not.toContain(claim);
   });
 
   it('keeps role adapter explicit between product roles and stored platform roles', () => {
