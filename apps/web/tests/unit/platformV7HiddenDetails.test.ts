@@ -35,15 +35,28 @@ describe('platform-v7 hidden details pattern', () => {
     expect(disputes).toContain('Здесь сверху видны только причина, сумма влияния, SLA, ответственный и следующий шаг.');
   });
 
-  it('keeps support and disputes visible copy out of pilot wording', () => {
+  it('keeps documents page focused by hiding secondary document details only', () => {
+    const documents = read('apps/web/app/platform-v7/documents/page.tsx');
+
+    expect(documents).toContain('P7HiddenDetails');
+    expect(documents).toContain("title='Именные контуры документов'");
+    expect(documents).toContain("title='Связанные сделки'");
+    expect(documents).toContain('Матрица документов сделки');
+    expect(documents).toContain('DL-9106 · документы, источники и влияние на деньги');
+    expect(documents).toContain('требует внешнего подтверждения');
+  });
+
+  it('keeps support disputes and documents visible copy out of pilot wording', () => {
     const files = [
       'apps/web/components/platform-v7/SupportIndexPage.tsx',
       'apps/web/lib/platform-v7/support-types.ts',
       'apps/web/app/platform-v7/disputes/page.tsx',
+      'apps/web/app/platform-v7/documents/page.tsx',
     ];
     const source = files.map(read).join('\n').toLowerCase();
 
     expect(source).not.toContain('пилотный');
     expect(source).not.toContain('тестовый режим');
+    expect(source).not.toContain('controlled-pilot');
   });
 });
