@@ -90,8 +90,8 @@ export function AuditSurfaceSummary({ surface }: { surface: AuditSurface }) {
         <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs, maxWidth: 850 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: PLATFORM_V7_TOKENS.spacing.xs }}>
             <P7Badge tone={config.tone}>{config.title}</P7Badge>
-            <P7Badge tone='warning'>controlled-pilot</P7Badge>
-            <P7Badge tone='neutral'>simulation-grade</P7Badge>
+            <P7Badge tone='neutral'>контур исполнения</P7Badge>
+            <P7Badge tone='neutral'>основания и журнал</P7Badge>
           </div>
           <h1
             style={{
