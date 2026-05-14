@@ -23,6 +23,14 @@ function readStoredTheme(): PlatformV7Theme {
   }
 }
 
+function hasExplicitDarkPreference(): boolean {
+  try {
+    return window.localStorage.getItem(PLATFORM_V7_THEME_STORAGE_KEY) === 'dark';
+  } catch {
+    return false;
+  }
+}
+
 function writeStoredTheme(theme: PlatformV7Theme) {
   try {
     window.localStorage.setItem(PLATFORM_V7_THEME_STORAGE_KEY, theme);
@@ -88,6 +96,11 @@ export function PlatformThemeSync() {
     const themeObserver = new MutationObserver(() => {
       const nextTheme = getDomTheme();
       if (nextTheme === lastTheme) return;
+      if (nextTheme === 'dark' && !hasExplicitDarkPreference()) {
+        lastTheme = 'light';
+        applyPlatformTheme('light');
+        return;
+      }
       lastTheme = nextTheme;
       publish(nextTheme);
     });

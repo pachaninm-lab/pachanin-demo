@@ -21,4 +21,13 @@ describe('platform-v7 theme default', () => {
     expect(source).toContain("theme === 'dark' ? '#06110f' : '#f8fafc'");
     expect(source).toContain("document.documentElement.setAttribute('data-theme', theme)");
   });
+
+  it('forces accidental dark DOM writes back to light unless dark is explicitly stored', () => {
+    const source = themeSync();
+
+    expect(source).toContain('function hasExplicitDarkPreference()');
+    expect(source).toContain("window.localStorage.getItem(PLATFORM_V7_THEME_STORAGE_KEY) === 'dark'");
+    expect(source).toContain("if (nextTheme === 'dark' && !hasExplicitDarkPreference())");
+    expect(source).toContain("applyPlatformTheme('light')");
+  });
 });
