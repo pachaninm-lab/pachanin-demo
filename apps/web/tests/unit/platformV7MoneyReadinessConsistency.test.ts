@@ -87,4 +87,27 @@ describe('platform-v7 money readiness consistency', () => {
     expect(money.holdRub).toBe(0);
     expect(canRequestMoneyRelease()).toBe(false);
   });
+
+  it('keeps SDIZ and transport documents as explicit money-release blockers', () => {
+    const { documents } = PLATFORM_V7_EXECUTION_SOURCE;
+    const blockers = executionBlockers();
+
+    expect(documents.sdizStatus).toBe('не оформлен');
+    expect(documents.transportPackStatus).toBe('не готов');
+    expect(documents.missingDocuments).toContain('СДИЗ');
+    expect(documents.missingDocuments).toContain('транспортный пакет');
+    expect(blockers).toContain('СДИЗ не оформлен');
+    expect(canRequestMoneyRelease()).toBe(false);
+  });
+
+  it('keeps document gate tied to a signed basis before money release can be requested', () => {
+    const { documents, readiness } = PLATFORM_V7_EXECUTION_SOURCE;
+
+    expect(readiness.documents.status).toBe('проверить');
+    expect(readiness.documents.note).toContain('Договор черновик');
+    expect(documents.contractStatus).toBe('черновик');
+    expect(documents.edoStatus).toBe('не запущен');
+    expect(documents.kepStatus).toBe('не подписан');
+    expect(canRequestMoneyRelease()).toBe(false);
+  });
 });
