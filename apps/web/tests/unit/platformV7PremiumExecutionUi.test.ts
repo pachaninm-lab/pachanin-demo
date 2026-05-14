@@ -65,4 +65,39 @@ describe('platform-v7 premium execution shell', () => {
     expect(hub).toContain("if (role === 'arbiter') return 'arbitrator';");
     expect(hub).toContain('onRoleChange={(nextRole) => setRole(denormalizeRole(nextRole))}');
   });
+
+  it('keeps every live execution role available from the top role selector', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const requiredRoles = [
+      'seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab',
+      'surveyor', 'bank', 'arbiter', 'compliance', 'operator', 'executive',
+    ];
+
+    for (const role of requiredRoles) expect(ui).toContain(`${role}:`);
+    expect(ui).toContain('aria-label="Активная роль"');
+    expect(ui).toContain('value={activeRole}');
+    expect(ui).toContain('roleLabels[role]');
+    expect(ui).toContain('onChange={(event) => { const nextRole = event.target.value as DealRole; setActiveRole(nextRole); onRoleChange?.(nextRole); }}');
+  });
+
+  it('keeps the selected role visible in page state and above-fold status', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+
+    expect(ui).toContain('<main className={styles.root} data-role={activeRole} data-theme={theme}>');
+    expect(ui).toContain('{roleLabels[role]} · {limitPremiumText(deal.stageLabel, 48)}');
+    expect(ui).toContain('<StatusBar deal={deal} role={activeRole} />');
+  });
+
+  it('keeps the driver shell isolated from desktop chrome and money surfaces', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const driverReturn = ui.indexOf("if (activeRole === 'driver' && deal.driverTask) return <DriverFieldShell task={deal.driverTask} theme={theme} />;");
+    const desktopChrome = ui.indexOf('styles.topChrome');
+
+    expect(driverReturn).toBeGreaterThan(-1);
+    expect(desktopChrome).toBeGreaterThan(driverReturn);
+    expect(ui).toContain('Офлайн-очередь: {task.offlineQueueCount}');
+    expect(css).toContain('min-height: 64px');
+    expect(css).toContain('min-height: 56px');
+  });
 });
