@@ -101,15 +101,16 @@ function DealCoreSnapshot({ deal }: { deal: DealViewModel }) {
 function Blocker({ item }: { item: BlockingReasonModel }) {
   return (
     <article className={cx(styles.blocker, styles[`tone_${item.tone ?? 'warning'}`])}>
-      <header className={styles.blockerHeader}><div><span>причина остановки</span><strong>{limitPremiumText(item.title, premiumTextLimits.title)}</strong></div><Badge tone={item.tone ?? 'warning'}>стоп</Badge></header>
+      <header><div><span className={styles.eyebrow}>причина остановки</span><strong>{limitPremiumText(item.title, premiumTextLimits.title)}</strong></div><Badge tone={item.tone ?? 'warning'}>стоп</Badge></header>
       <p>{limitPremiumText(item.reason, premiumTextLimits.description)}</p>
-      <div className={styles.blockerSignalGrid}><div><span>Влияние</span><strong>{limitPremiumText(item.impact, 96)}</strong></div><div><span>Ответственный</span><strong>{limitPremiumText(item.responsible, 64)}</strong></div><div><span>Действие</span><strong>{limitPremiumText(item.nextAction, premiumTextLimits.cta)}</strong></div></div>
+      <dl className={styles.compactFacts}><div><dt>Влияние</dt><dd>{limitPremiumText(item.impact, 96)}</dd></div><div><dt>Ответственный</dt><dd>{limitPremiumText(item.responsible, 64)}</dd></div></dl>
+      <div className={styles.inlineAction}>Действие: {limitPremiumText(item.nextAction, premiumTextLimits.cta)}</div>
     </article>
   );
 }
 
 function NextAction({ action }: { action: NextActionModel }) {
-  return <aside className={styles.nextAction} aria-label="Следующее действие"><div className={styles.nextActionTop}><div><div className={styles.eyebrow}>следующее действие</div><h2 className={styles.cardTitle}>{limitPremiumText(action.label, premiumTextLimits.title)}</h2></div>{action.responsible ? <Badge tone="info">{limitPremiumText(action.responsible, 48)}</Badge> : null}</div><div className={styles.nextActionGrid}>{action.reason ? <div><span>Почему сейчас</span><strong>{limitPremiumText(action.reason, premiumTextLimits.description)}</strong></div> : null}{action.disabledReason ? <div><span>Почему недоступно</span><strong>{limitPremiumText(action.disabledReason, premiumTextLimits.description)}</strong></div> : null}</div><button className={styles.primaryButton} type="button" disabled={Boolean(action.disabledReason)}>{limitPremiumText(action.label, premiumTextLimits.cta)}</button></aside>;
+  return <aside className={styles.nextAction} aria-label="Следующее действие"><div className={styles.eyebrow}>следующее действие</div><h2 className={styles.cardTitle}>{limitPremiumText(action.label, premiumTextLimits.title)}</h2>{action.reason ? <p>Почему сейчас: {limitPremiumText(action.reason, premiumTextLimits.description)}</p> : null}{action.responsible ? <Badge tone="info">{limitPremiumText(action.responsible, 48)}</Badge> : null}<button className={styles.primaryButton} type="button" disabled={Boolean(action.disabledReason)}>{limitPremiumText(action.label, premiumTextLimits.cta)}</button>{action.disabledReason ? <p>Почему недоступно: {limitPremiumText(action.disabledReason, premiumTextLimits.description)}</p> : null}</aside>;
 }
 
 function MoneyRail({ deal }: { deal: DealViewModel }) {
