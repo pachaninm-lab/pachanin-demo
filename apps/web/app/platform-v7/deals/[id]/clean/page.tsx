@@ -49,7 +49,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       <section style={card()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Deal 360 · пилотный контур — без активных боевых интеграций</p>
+            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Карточка сделки · контур исполнения</p>
             <h1 style={{ margin: '6px 0 0', fontSize: 28, color: text }}>{deal.id} · {scenario.lotId}</h1>
           </div>
           <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
@@ -82,7 +82,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       <section style={grid()}>
         <Cell label='Резерв денег' value={rub(deal.reservedAmount)} accent />
         <Cell label='Удержание' value={rub(deal.holdAmount)} danger={deal.holdAmount > 0} />
-        <Cell label='К выпуску по текущему guard' value={rub(releaseAmount)} accent={!hasBlockers} muted={hasBlockers} />
+        <Cell label='К выплате по текущим условиям' value={rub(releaseAmount)} accent={!hasBlockers} muted={hasBlockers} />
         <Cell label='Открытые споры' value={String(disputes.length)} danger={disputes.length > 0} />
       </section>
 
@@ -100,7 +100,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       </section>
 
       <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Интеграции в сделке · пилот</p>
+        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Внешние контуры и основания</p>
         <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
           {scenario.providerGates.map((gate) => (
             <div key={`${gate.provider}-${gate.object}`} style={{ border: `1px solid ${stateColor(gate.state, 'border')}`, background: stateColor(gate.state, 'bg'), borderRadius: 14, padding: 12, display: 'grid', gap: 5 }}>
