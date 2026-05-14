@@ -124,7 +124,7 @@ export default function PlatformV7BankPage() {
         <Metric label='Требуют проверки' value='2 сделки' />
       </section>
 
-      <section style={card}>
+      <section style={cardInner}>
         <div style={micro}>Денежная очередь</div>
         {bankQueue.map((deal) => (
           <Link key={deal.id} href={deal.href} style={{ textDecoration: 'none', color: 'inherit', background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${stateBorder(deal.state)}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
