@@ -57,6 +57,15 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('-webkit-line-clamp');
   });
 
+  it('keeps every referenced premium style class defined in css', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const referencedClasses = new Set<string>();
+
+    for (const match of ui.matchAll(/styles\.([A-Za-z0-9_]+)/g)) referencedClasses.add(match[1]);
+    for (const className of referencedClasses) expect(css).toContain(`.${className}`);
+  });
+
   it('keeps deal core above-fold focused on money documents blocker and action', () => {
     const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
     const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
