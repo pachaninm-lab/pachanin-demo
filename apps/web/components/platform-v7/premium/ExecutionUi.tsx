@@ -148,11 +148,13 @@ function DocumentMatrix({ documents }: { documents: DealDocumentModel[] }) {
 }
 
 function ExecutionChain({ steps }: { steps: ExecutionStepModel[] }) {
-  return <Card title="Цепочка исполнения" eyebrow="событие → статус → действие" className={styles.span6}><div className={styles.list}>{steps.map((step) => <article key={step.id} className={styles.step}><div className={styles.stepTop}><strong>{limitPremiumText(step.label, 68)}</strong><Badge tone={step.status === 'done' ? 'success' : step.status === 'blocked' ? 'danger' : step.status === 'active' ? 'info' : 'warning'}>{stepLabels[step.status]}</Badge></div><p>Ответственный: {limitPremiumText(step.responsible, 56)}</p>{step.blocks ? <p>Блокирует: {limitPremiumText(step.blocks, 76)}</p> : null}{step.moneyImpactRub ? <p>Влияние на деньги: {formatPremiumRubCompact(step.moneyImpactRub)}</p> : null}</article>)}</div></Card>;
+  return <Card title="Цепочка исполнения" eyebrow="этап · ответственный · влияние" className={styles.span6}><div className={styles.executionList}>{steps.map((step) => <article key={step.id} className={styles.executionStep} data-status={step.status}><div className={styles.executionMain}><strong>{limitPremiumText(step.label, 68)}</strong><span>{limitPremiumText(step.nextAction ?? step.blocks ?? 'следить за этапом', 76)}</span></div><Badge tone={step.status === 'done' ? 'success' : step.status === 'blocked' ? 'danger' : step.status === 'active' ? 'info' : 'warning'}>{stepLabels[step.status]}</Badge><div className={styles.executionMeta}><span>{limitPremiumText(step.responsible, 56)}</span>{step.moneyImpactRub ? <span>{formatPremiumRubCompact(step.moneyImpactRub)}</span> : null}</div></article>)}</div></Card>;
 }
 
 function EvidencePack({ evidence }: { evidence: EvidenceModel[] }) {
-  return <Card title="Пакет доказательств" eyebrow="фото · вес · время · документы" className={styles.span6}><div className={styles.list}>{evidence.map((item) => <article key={item.id} className={styles.row}><strong>{limitPremiumText(item.title, 70)}</strong><Badge tone={item.status === 'done' ? 'success' : item.status === 'blocked' ? 'danger' : 'warning'}>{stepLabels[item.status]}</Badge><span>{limitPremiumText(item.source, 52)}</span><span>{item.time}</span></article>)}</div></Card>;
+  const checkedCount = evidence.filter((item) => item.status === 'done').length;
+  const impactRub = evidence.reduce((sum, item) => sum + (item.moneyImpactRub ?? 0), 0);
+  return <Card title="Пакет доказательств" eyebrow="источник · роль · влияние" className={styles.span6}><div className={styles.evidenceSummary}><span>{checkedCount}/{evidence.length} проверены</span><span>Влияние: {formatPremiumRubCompact(impactRub)}</span></div><div className={styles.evidenceGrid}>{evidence.map((item) => <article key={item.id} className={styles.evidenceItem} data-status={item.status}><div className={styles.evidenceMain}><strong>{limitPremiumText(item.title, 70)}</strong><span>{limitPremiumText(item.relatedDocument ?? item.relatedTrip ?? item.type, 64)}</span></div><Badge tone={item.status === 'done' ? 'success' : item.status === 'blocked' ? 'danger' : 'warning'}>{stepLabels[item.status]}</Badge><div className={styles.evidenceMeta}><span>{limitPremiumText(item.source, 52)}</span><span>{limitPremiumText(item.role, 48)}</span><time>{item.time}</time></div></article>)}</div></Card>;
 }
 
 function RiskHeatline({ risks }: { risks: RiskItemModel[] }) {
@@ -161,7 +163,7 @@ function RiskHeatline({ risks }: { risks: RiskItemModel[] }) {
 }
 
 function Timeline({ events }: { events: TimelineEventModel[] }) {
-  return <Card title="Журнал сделки" eyebrow="кто · что · когда" className={styles.span6}><div className={styles.timeline}>{events.map((event) => <article key={event.id} className={styles.timelineItem}><time>{event.time}</time><div><strong>{limitPremiumText(event.title, 80)}</strong>{event.impact ? <p>{limitPremiumText(event.impact, 100)}</p> : null}</div></article>)}</div></Card>;
+  return <Card title="Журнал сделки" eyebrow="последовательность событий" className={styles.span6}><div className={styles.timeline}>{events.map((event) => <article key={event.id} className={styles.timelineItem}><time>{event.time}</time><div><strong>{limitPremiumText(event.title, 80)}</strong><p>{limitPremiumText(event.actor ?? event.impact ?? 'событие сделки', 100)}</p></div></article>)}</div></Card>;
 }
 
 export function DriverFieldShell({ task, theme = 'dark' }: { task: DriverTaskModel; theme?: 'dark' | 'light' }) {
