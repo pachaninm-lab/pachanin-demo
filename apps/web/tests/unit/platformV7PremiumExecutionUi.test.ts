@@ -191,6 +191,30 @@ describe('platform-v7 premium execution shell', () => {
     for (const claim of forbiddenClaims) expect(source).not.toContain(claim);
   });
 
+  it('keeps bank as the release confirmer instead of the platform', () => {
+    const files = [
+      'apps/web/components/platform-v7/premium/ExecutionUi.tsx',
+      'apps/web/components/v7r/PlatformCommandCenterHub.tsx',
+      'apps/web/lib/platform-v7/deal-execution-source-of-truth.ts',
+      'apps/web/lib/platform-v7/premium/copy.ts',
+    ];
+    const source = files.map(read).join('\n').toLowerCase();
+
+    const forbiddenReleaseClaims = [
+      'платформа выпускает деньги',
+      'платформа переводит деньги',
+      'платформа освобождает деньги',
+      'мы выпускаем деньги',
+      'мы переводим деньги',
+      'automatic money release',
+      'auto-release money',
+      'platform releases money',
+    ];
+
+    for (const claim of forbiddenReleaseClaims) expect(source).not.toContain(claim);
+    expect(source).toContain('подтверждение банка');
+  });
+
   it('keeps role adapter explicit between product roles and stored platform roles', () => {
     const hub = read('apps/web/components/v7r/PlatformCommandCenterHub.tsx');
 
