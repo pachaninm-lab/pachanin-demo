@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platform-v7/grain-execution/automation/evidence-pack-engine';
 import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/grain-execution/mock-data';
 import { formatRub } from '@/lib/platform-v7/grain-execution/format';
+import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceDecisionPanel } from '@/components/platform-v7/EvidenceDecisionPanel';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
@@ -20,7 +21,7 @@ const disputesHandoff: HandoffItem[] = [
   {
     direction: 'awaits',
     role: 'споры ← лабораторный контур качества',
-    requirement: 'пилотный протокол качества — основание для решения по спорной сумме',
+    requirement: 'протокол качества — основание для решения по спорной сумме',
     documentImpact: true,
   },
   {
@@ -71,7 +72,7 @@ const staticDisputes = [
     status: 'проверка выплаты остановлена',
     responsible: 'лаборатория',
     sla: 'до 18:00 сегодня',
-    next: 'получить пилотный протокол качества и закрыть акт приёмки',
+    next: 'получить протокол качества и закрыть акт приёмки',
     href: '/platform-v7/elevator',
     evidence: ['проба', 'показатели качества', 'акт приёмки', 'журнал элеватора'],
   },
@@ -112,7 +113,7 @@ export default function PlatformV7DisputesPage() {
       <section style={hero}>
         <div style={badge}>Споры и удержания</div>
         <h1 style={h1}>Спор объясняет, почему сумма остановлена</h1>
-        <p style={lead}>Здесь собраны причина удержания, сумма влияния, SLA, ответственный и доказательства. Спор не закрывается без решения, суммы и основания.</p>
+        <p style={lead}>Здесь сверху видны только причина, сумма влияния, SLA, ответственный и следующий шаг. Доказательства, правила и передача между ролями раскрываются отдельно.</p>
         <div style={actions}>
           <Link href='/platform-v7/operator' style={primaryBtn}>Центр управления</Link>
           <Link href='/platform-v7/bank' style={ghostBtn}>Банковская проверка</Link>
@@ -145,34 +146,38 @@ export default function PlatformV7DisputesPage() {
         </div>
       </section>
 
-      <section style={card}>
-        <div style={micro}>Проверка доказательного пакета</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {evidenceGateRows.map((item) => <EvidenceGateCard key={item.id} item={item} />)}
-        </div>
-      </section>
+      <P7HiddenDetails title='Проверка доказательного пакета' meta='готовность, недостающие доказательства, сумма спора и блокировка решения'>
+        <section style={cardInner}>
+          <div style={micro}>Проверка доказательного пакета</div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {evidenceGateRows.map((item) => <EvidenceGateCard key={item.id} item={item} />)}
+          </div>
+        </section>
+      </P7HiddenDetails>
 
-      <EvidenceDecisionPanel />
+      <P7HiddenDetails title='Решение и рекомендации' meta='панель решения, рекомендация, пакет решения и обратная связь'>
+        <EvidenceDecisionPanel />
+        <DecisionRecommendationStrip context='disputes' />
+        <DecisionPackMiniPanel context='dl9102_dispute_hold' />
+        <EvidenceReadinessMiniMatrix context='disputes' />
+        <ActionFeedbackPreviewStrip context='disputes' />
+      </P7HiddenDetails>
 
-      <DecisionRecommendationStrip context='disputes' />
+      <P7HiddenDetails title='Правила закрытия спора' meta='решение, сумма, основание и запись в журнал сделки'>
+        <section style={cardInner}>
+          <div style={micro}>Правила закрытия</div>
+          <div style={grid2}>
+            <Rule title='Решение' text='нужно указать: удержать, выплатить, пересчитать или вернуть' />
+            <Rule title='Сумма' text='спорная часть должна быть выражена в рублях' />
+            <Rule title='Основание' text='акт, протокол, весовая ведомость или документ ЭДО' />
+            <Rule title='Журнал' text='закрытие спора записывается в журнал сделки' />
+          </div>
+        </section>
+      </P7HiddenDetails>
 
-      <DecisionPackMiniPanel context='dl9102_dispute_hold' />
-
-      <EvidenceReadinessMiniMatrix context='disputes' />
-
-      <ActionFeedbackPreviewStrip context='disputes' />
-
-      <section style={card}>
-        <div style={micro}>Правила закрытия</div>
-        <div style={grid2}>
-          <Rule title='Решение' text='нужно указать: удержать, выплатить, пересчитать или вернуть' />
-          <Rule title='Сумма' text='спорная часть должна быть выражена в рублях' />
-          <Rule title='Основание' text='акт, протокол, весовая ведомость или документ ЭДО' />
-          <Rule title='Журнал' text='закрытие спора записывается в журнал сделки' />
-        </div>
-      </section>
-
-      <RoleExecutionHandoff items={disputesHandoff} title='исполнение: что споры отправляют и ожидают' />
+      <P7HiddenDetails title='Передача между ролями' meta='что споры ожидают, что отправляют и что блокирует деньги'>
+        <RoleExecutionHandoff items={disputesHandoff} title='исполнение: что споры отправляют и ожидают' />
+      </P7HiddenDetails>
     </main>
   );
 }
@@ -251,6 +256,7 @@ function Rule({ title, text }: { title: string; text: string }) {
 const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#FFF1F2 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(127,29,29,0.08)' } as const;
 const darkCard = { background: 'linear-gradient(135deg,#7F1D1D 0%,#991B1B 58%,#450A0A 120%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(127,29,29,0.2)' } as const;
 const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
+const cardInner = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 14, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
 const metric = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;

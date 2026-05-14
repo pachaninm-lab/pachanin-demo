@@ -24,10 +24,22 @@ describe('platform-v7 hidden details pattern', () => {
     expect(support).toContain('Сначала видны статус, риск и следующий шаг; детали раскрываются отдельно.');
   });
 
-  it('keeps support visible copy out of pilot wording', () => {
+  it('keeps disputes page compact by hiding evidence, decision and handoff details', () => {
+    const disputes = read('apps/web/app/platform-v7/disputes/page.tsx');
+
+    expect(disputes).toContain('P7HiddenDetails');
+    expect(disputes).toContain("title='Проверка доказательного пакета'");
+    expect(disputes).toContain("title='Решение и рекомендации'");
+    expect(disputes).toContain("title='Правила закрытия спора'");
+    expect(disputes).toContain("title='Передача между ролями'");
+    expect(disputes).toContain('Здесь сверху видны только причина, сумма влияния, SLA, ответственный и следующий шаг.');
+  });
+
+  it('keeps support and disputes visible copy out of pilot wording', () => {
     const files = [
       'apps/web/components/platform-v7/SupportIndexPage.tsx',
       'apps/web/lib/platform-v7/support-types.ts',
+      'apps/web/app/platform-v7/disputes/page.tsx',
     ];
     const source = files.map(read).join('\n').toLowerCase();
 
