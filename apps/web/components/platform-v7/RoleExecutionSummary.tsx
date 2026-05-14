@@ -210,11 +210,11 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     title: 'Инвестор',
     tone: 'info',
     mode: 'partner',
-    now: 'показаны зрелость, оборот, риски и экономика пилотного контура',
-    blocked: 'боевые подключения и ручные действия показаны честно',
+    now: 'показаны зрелость, оборот, риски и экономика контура исполнения',
+    blocked: 'внешние подключения и ручные действия показаны честно',
     money: 'оборот, экономика сделки и спорные суммы отделены от обещаний',
     documents: 'готовность документов влияет на зрелость исполнения',
-    execution: 'демо, пилот и внешние подключения не смешиваются',
+    execution: 'маршрут сделки и внешние подключения не смешиваются',
     next: 'команда продукта',
     cta: 'Открыть инвесторский режим',
     href: '/platform-v7/investor',
@@ -253,7 +253,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
           <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap', alignItems: 'center' }}>
             <P7Badge tone={summary.tone}>{summary.title}</P7Badge>
             <P7Badge tone='neutral'>{modeLabel(summary.mode)}</P7Badge>
-            <P7Badge tone='warning'>пилотный контур</P7Badge>
+            <P7Badge tone='neutral'>контур исполнения</P7Badge>
           </div>
           <h1
             style={{
