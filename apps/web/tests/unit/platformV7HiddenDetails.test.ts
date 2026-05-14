@@ -46,12 +46,22 @@ describe('platform-v7 hidden details pattern', () => {
     expect(documents).toContain('требует внешнего подтверждения');
   });
 
-  it('keeps support disputes and documents visible copy out of pilot wording', () => {
+  it('keeps operator queue compact by hiding blocker execution details', () => {
+    const operatorQueue = read('apps/web/components/platform-v7/OperatorExecutionQueue.tsx');
+
+    expect(operatorQueue).toContain('P7HiddenDetails');
+    expect(operatorQueue).toContain("title='Детали блокера'");
+    expect(operatorQueue).toContain('причина, требуемое действие, безопасный шаг и почему нельзя исполнить сейчас');
+    expect(operatorQueue).toContain('Каждый элемент показывает ответственного и деньги под риском. Причина блокировки, требуемое действие и безопасный следующий шаг раскрываются отдельно.');
+  });
+
+  it('keeps support disputes documents and operator queue visible copy out of pilot wording', () => {
     const files = [
       'apps/web/components/platform-v7/SupportIndexPage.tsx',
       'apps/web/lib/platform-v7/support-types.ts',
       'apps/web/app/platform-v7/disputes/page.tsx',
       'apps/web/app/platform-v7/documents/page.tsx',
+      'apps/web/components/platform-v7/OperatorExecutionQueue.tsx',
     ];
     const source = files.map(read).join('\n').toLowerCase();
 
