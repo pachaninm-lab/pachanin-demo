@@ -35,7 +35,7 @@ export function ActionFeedbackPreviewStrip({ context }: { context: ActionFeedbac
       style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, minWidth: 0 }}
     >
       <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-        <div style={micro}>предпросмотр действия · пилотный контур</div>
+        <div style={micro}>предпросмотр действия · контур исполнения</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
           <span style={{ color: '#0F1419', fontSize: 17, fontWeight: 950, lineHeight: 1.1, overflowWrap: 'anywhere' }}>
             {preview.actionLabel}
