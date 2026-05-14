@@ -111,6 +111,26 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('.row,\n  .docRow { grid-template-columns: 1fr; }');
   });
 
+  it('keeps execution evidence and timeline compact with mobile-card behavior', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+
+    expect(ui).toContain('className={styles.executionList}');
+    expect(ui).toContain('className={styles.executionStep} data-status={step.status}');
+    expect(ui).toContain('className={styles.executionMeta}');
+    expect(ui).toContain('className={styles.evidenceSummary}');
+    expect(ui).toContain('className={styles.evidenceGrid}');
+    expect(ui).toContain('className={styles.evidenceItem} data-status={item.status}');
+    expect(ui).toContain('className={styles.evidenceMeta}');
+    expect(ui).toContain('const impactRub = evidence.reduce((sum, item) => sum + (item.moneyImpactRub ?? 0), 0);');
+    expect(css).toContain('.executionList');
+    expect(css).toContain('.evidenceGrid');
+    expect(css).toContain('.executionStep,\n.evidenceItem {');
+    expect(css).toContain('.executionStep[data-status=\'blocked\']');
+    expect(css).toContain('.evidenceSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
+    expect(css).toContain('.executionStep,\n  .evidenceItem { grid-template-columns: 1fr; }');
+  });
+
   it('keeps money reconciliation as one reserved amount split into controlled buckets', () => {
     const money = read('apps/web/lib/platform-v7/premium/money.ts');
 
