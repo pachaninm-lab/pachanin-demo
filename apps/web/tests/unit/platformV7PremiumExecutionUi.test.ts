@@ -131,6 +131,20 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('.executionStep,\n  .evidenceItem { grid-template-columns: 1fr; }');
   });
 
+  it('keeps blocker and next action hierarchy clear without new css surfaces', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+
+    expect(ui).toContain('причина остановки');
+    expect(ui).toContain('<dt>Влияние</dt>');
+    expect(ui).toContain('<dt>Ответственный</dt>');
+    expect(ui).toContain('Действие: {limitPremiumText(item.nextAction, premiumTextLimits.cta)}');
+    expect(ui).toContain('Почему сейчас: {limitPremiumText(action.reason, premiumTextLimits.description)}');
+    expect(ui).toContain('Почему недоступно: {limitPremiumText(action.disabledReason, premiumTextLimits.description)}');
+    expect(ui).not.toContain('blockerSignalGrid');
+    expect(ui).not.toContain('nextActionGrid');
+    expect(ui).not.toContain('nextActionTop');
+  });
+
   it('keeps money reconciliation as one reserved amount split into controlled buckets', () => {
     const money = read('apps/web/lib/platform-v7/premium/money.ts');
 
