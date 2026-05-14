@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
 import { OPERATOR_QUEUE_ITEMS, getStopCount, type OperatorQueueItem, type QueuePriority } from '../../lib/platform-v7/operator-execution-queue';
 
 const microStyle = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.07em' } as const;
@@ -59,35 +60,37 @@ function QueueRow({ item }: { item: OperatorQueueItem }) {
         <Field label='ответственный' value={item.ownerRole} />
       </div>
 
-      <div
-        data-testid='platform-v7-operator-queue-blocker'
-        style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 6 }}
-      >
-        <div style={microStyle}>блокер</div>
-        <div style={{ color: '#0F1419', fontSize: 13, lineHeight: 1.4, fontWeight: 900 }}>{item.blocker}</div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
-        <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}>
-          <div style={microStyle}>требуемое действие</div>
-          <div style={{ color: '#0F1419', fontSize: 12, lineHeight: 1.45 }}>{item.requiredAction}</div>
-        </div>
+      <P7HiddenDetails title='Детали блокера' meta='причина, требуемое действие, безопасный шаг и почему нельзя исполнить сейчас'>
         <div
-          data-testid='platform-v7-operator-queue-safe-next'
-          style={{ background: '#fff', border: '1px solid rgba(10,122,95,0.2)', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}
+          data-testid='platform-v7-operator-queue-blocker'
+          style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 6 }}
         >
-          <div style={microStyle}>безопасный следующий шаг</div>
-          <div style={{ color: '#0F1419', fontSize: 12, lineHeight: 1.45 }}>{item.safeNextAction}</div>
+          <div style={microStyle}>блокер</div>
+          <div style={{ color: '#0F1419', fontSize: 13, lineHeight: 1.4, fontWeight: 900 }}>{item.blocker}</div>
         </div>
-      </div>
 
-      <div
-        data-testid='platform-v7-operator-queue-why-not'
-        style={{ background: 'rgba(185,28,28,0.04)', border: '1px solid rgba(185,28,28,0.1)', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}
-      >
-        <div style={microStyle}>почему сейчас не исполнимо</div>
-        <div style={{ color: '#64748B', fontSize: 12, lineHeight: 1.45 }}>{item.whyNotExecutable}</div>
-      </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
+          <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}>
+            <div style={microStyle}>требуемое действие</div>
+            <div style={{ color: '#0F1419', fontSize: 12, lineHeight: 1.45 }}>{item.requiredAction}</div>
+          </div>
+          <div
+            data-testid='platform-v7-operator-queue-safe-next'
+            style={{ background: '#fff', border: '1px solid rgba(10,122,95,0.2)', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}
+          >
+            <div style={microStyle}>безопасный следующий шаг</div>
+            <div style={{ color: '#0F1419', fontSize: 12, lineHeight: 1.45 }}>{item.safeNextAction}</div>
+          </div>
+        </div>
+
+        <div
+          data-testid='platform-v7-operator-queue-why-not'
+          style={{ background: 'rgba(185,28,28,0.04)', border: '1px solid rgba(185,28,28,0.1)', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}
+        >
+          <div style={microStyle}>почему сейчас не исполнимо</div>
+          <div style={{ color: '#64748B', fontSize: 12, lineHeight: 1.45 }}>{item.whyNotExecutable}</div>
+        </div>
+      </P7HiddenDetails>
 
       <Link
         href={item.href}
@@ -131,7 +134,7 @@ export function OperatorExecutionQueue() {
       style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}
     >
       <div style={{ display: 'grid', gap: 6 }}>
-        <div style={microStyle}>очередь исполнения · пилотный контур</div>
+        <div style={microStyle}>очередь исполнения</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ color: '#0F1419', fontSize: 20, fontWeight: 950, lineHeight: 1 }}>
             Очередь оператора
@@ -154,7 +157,7 @@ export function OperatorExecutionQueue() {
           </span>
         </div>
         <p style={{ margin: 0, color: '#64748B', fontSize: 13, lineHeight: 1.5 }}>
-          Пилотный контур · ручная проверка. Каждый элемент показывает ответственного, деньги под риском, причину блокировки и безопасный следующий шаг.
+          Каждый элемент показывает ответственного и деньги под риском. Причина блокировки, требуемое действие и безопасный следующий шаг раскрываются отдельно.
         </p>
       </div>
 
