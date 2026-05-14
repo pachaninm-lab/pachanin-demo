@@ -101,7 +101,7 @@ function DealCoreSnapshot({ deal }: { deal: DealViewModel }) {
 function Blocker({ item }: { item: BlockingReasonModel }) {
   return (
     <article className={cx(styles.blocker, styles[`tone_${item.tone ?? 'warning'}`])}>
-      <header><strong>{limitPremiumText(item.title, premiumTextLimits.title)}</strong><Badge tone={item.tone ?? 'warning'}>Причина остановки</Badge></header>
+      <header><div><span className={styles.eyebrow}>причина остановки</span><strong>{limitPremiumText(item.title, premiumTextLimits.title)}</strong></div><Badge tone={item.tone ?? 'warning'}>стоп</Badge></header>
       <p>{limitPremiumText(item.reason, premiumTextLimits.description)}</p>
       <dl className={styles.compactFacts}><div><dt>Влияние</dt><dd>{limitPremiumText(item.impact, 96)}</dd></div><div><dt>Ответственный</dt><dd>{limitPremiumText(item.responsible, 64)}</dd></div></dl>
       <div className={styles.inlineAction}>Действие: {limitPremiumText(item.nextAction, premiumTextLimits.cta)}</div>
@@ -110,7 +110,7 @@ function Blocker({ item }: { item: BlockingReasonModel }) {
 }
 
 function NextAction({ action }: { action: NextActionModel }) {
-  return <aside className={styles.nextAction} aria-label="Следующее действие"><div className={styles.eyebrow}>следующее действие</div><h2 className={styles.cardTitle}>{limitPremiumText(action.label, premiumTextLimits.title)}</h2>{action.reason ? <p>{limitPremiumText(action.reason, premiumTextLimits.description)}</p> : null}{action.responsible ? <Badge tone="info">{limitPremiumText(action.responsible, 48)}</Badge> : null}<button className={styles.primaryButton} type="button" disabled={Boolean(action.disabledReason)}>{limitPremiumText(action.label, premiumTextLimits.cta)}</button>{action.disabledReason ? <p>{limitPremiumText(action.disabledReason, premiumTextLimits.description)}</p> : null}</aside>;
+  return <aside className={styles.nextAction} aria-label="Следующее действие"><div className={styles.eyebrow}>следующее действие</div><h2 className={styles.cardTitle}>{limitPremiumText(action.label, premiumTextLimits.title)}</h2>{action.reason ? <p>Почему сейчас: {limitPremiumText(action.reason, premiumTextLimits.description)}</p> : null}{action.responsible ? <Badge tone="info">{limitPremiumText(action.responsible, 48)}</Badge> : null}<button className={styles.primaryButton} type="button" disabled={Boolean(action.disabledReason)}>{limitPremiumText(action.label, premiumTextLimits.cta)}</button>{action.disabledReason ? <p>Почему недоступно: {limitPremiumText(action.disabledReason, premiumTextLimits.description)}</p> : null}</aside>;
 }
 
 function MoneyRail({ deal }: { deal: DealViewModel }) {
