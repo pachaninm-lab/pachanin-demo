@@ -11,8 +11,15 @@ describe('platform-v7 public smoke audit', () => {
     expect(smoke).toContain('PLATFORM_V7_PUBLIC_URL');
     expect(smoke).toContain('pachanin-web.vercel.app');
     expect(smoke).toContain("'/platform-v7'");
+    expect(smoke).toContain("'/platform-v7/seller'");
+    expect(smoke).toContain("'/platform-v7/buyer'");
+    expect(smoke).toContain("'/platform-v7/logistics'");
     expect(smoke).toContain("'/platform-v7/bank'");
     expect(smoke).toContain("'/platform-v7/driver/field'");
+    expect(smoke).toContain("'/platform-v7/elevator'");
+    expect(smoke).toContain("'/platform-v7/lab'");
+    expect(smoke).toContain("'/platform-v7/surveyor'");
+    expect(smoke).toContain("'/platform-v7/executive'");
     expect(smoke).toContain("'/platform-v7/deals/grain-release'");
     expect(smoke).toContain("label: 'mobile-390', width: 390, height: 844");
     expect(smoke).toContain("label: 'desktop-1440', width: 1440, height: 900");
@@ -26,6 +33,8 @@ describe('platform-v7 public smoke audit', () => {
     expect(smoke).toContain('Application error');
     expect(smoke).toContain('document.documentElement.scrollWidth > document.documentElement.clientWidth');
     expect(smoke).toContain('unsafeCopy');
+    expect(smoke).toContain('платформа гарантирует оплату');
+    expect(smoke).toContain('платформа сама выпускает деньги');
     expect(smoke).toContain('Активная роль');
     expect(smoke).toContain('водитель|рейс|офлайн|действие');
     expect(smoke).toContain('деньг|документ|блокер|следующ');
