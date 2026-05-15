@@ -12,9 +12,6 @@ jobs:
   public-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: apps/web
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,9 +32,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
+        working-directory: apps/web
         run: pnpm exec playwright install chromium --with-deps
 
       - name: Run public platform-v7 smoke
+        working-directory: apps/web
         env:
           PLATFORM_V7_PUBLIC_URL: ${{ inputs.public_url }}
         run: pnpm exec playwright test tests/e2e/platform-v7-public-smoke.spec.ts --project=chromium --reporter=html,line
