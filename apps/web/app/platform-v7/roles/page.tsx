@@ -9,6 +9,7 @@ const ROLE_CARDS = [
     href: '/platform-v7/seller',
     tone: '#0A7A5F',
     surface: '#ECFDF5',
+    fieldMode: false,
   },
   {
     title: 'Покупатель',
@@ -18,6 +19,7 @@ const ROLE_CARDS = [
     href: '/platform-v7/buyer',
     tone: '#2563EB',
     surface: '#EFF6FF',
+    fieldMode: false,
   },
   {
     title: 'Логистика',
@@ -27,6 +29,7 @@ const ROLE_CARDS = [
     href: '/platform-v7/logistics',
     tone: '#7C3AED',
     surface: '#F5F3FF',
+    fieldMode: false,
   },
   {
     title: 'Водитель',
@@ -66,6 +69,7 @@ const ROLE_CARDS = [
     href: '/platform-v7/bank',
     tone: '#0F172A',
     surface: '#F8FAFC',
+    fieldMode: false,
   },
   {
     title: 'Споры',
@@ -75,6 +79,7 @@ const ROLE_CARDS = [
     href: '/platform-v7/disputes',
     tone: '#B42318',
     surface: '#FEF2F2',
+    fieldMode: false,
   },
   {
     title: 'Поддержка',
@@ -84,6 +89,7 @@ const ROLE_CARDS = [
     href: '/platform-v7/support/operator',
     tone: '#4F46E5',
     surface: '#EEF2FF',
+    fieldMode: false,
   },
   {
     title: 'Руководитель',
@@ -93,6 +99,7 @@ const ROLE_CARDS = [
     href: '/platform-v7/executive',
     tone: '#111827',
     surface: '#F3F4F6',
+    fieldMode: false,
   },
 ] as const;
 
