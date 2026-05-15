@@ -8,6 +8,18 @@ const viewports = [
   { label: 'desktop-1440', width: 1440, height: 900 },
 ] as const;
 
+const unsafeCopy = [
+  'production-ready',
+  'fully live',
+  'fully integrated',
+  'marketplace',
+  'sandbox',
+  'гарантия оплаты',
+  'безрисковая сделка',
+  'полностью готово',
+  'нет аналогов',
+] as const;
+
 test.describe('platform-v7 public smoke', () => {
   test.setTimeout(90_000);
 
@@ -23,6 +35,17 @@ test.describe('platform-v7 public smoke', () => {
         const bodyText = await page.locator('body').innerText({ timeout: 15_000 });
         expect(bodyText.length).toBeGreaterThan(200);
         expect(bodyText).toMatch(/Прозрачная Цена|сделк|деньг|документ|рейс|банк/i);
+
+        const normalizedText = bodyText.toLowerCase();
+        for (const claim of unsafeCopy) expect(normalizedText).not.toContain(claim);
+
+        if (!route.includes('/driver/field')) {
+          expect(bodyText).toMatch(/роль|Активная роль|Продавец|Покупатель|Банк/i);
+        }
+
+        if (route.includes('/bank')) expect(bodyText).toMatch(/банк|деньг|документ|основан/i);
+        if (route.includes('/driver/field')) expect(bodyText).toMatch(/водитель|рейс|офлайн|действие/i);
+        if (route.includes('/grain-release')) expect(bodyText).toMatch(/деньг|документ|блокер|следующ/i);
 
         const hasOverflowX = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
         expect(hasOverflowX).toBe(false);
