@@ -772,51 +772,77 @@
 
 @container (max-width: 640px) {
   .shell {
-    padding: 10px;
-    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+    gap: 9px;
+    padding: 8px;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
   }
 
   .topChrome {
     top: 6px;
-    min-height: 60px;
-    border-radius: 18px;
+    min-height: 52px;
+    border-radius: 16px;
+    padding: 8px 9px;
+    box-shadow: var(--p7-shadow-card);
   }
 
+  .mainNav { gap: 7px; }
   .mainNav a { display: none; }
 
   .mainNav strong {
-    max-width: 45vw;
+    max-width: 43vw;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: 13px;
   }
 
   .roleSelect {
-    max-width: 48vw;
-    min-height: 44px;
+    max-width: 50vw;
+    min-height: 40px;
+    border-radius: 12px;
+    padding: 0 9px;
+    font-size: 13px;
   }
 
   .statusBar,
   .dealCore {
     grid-template-columns: 1fr;
-    border-radius: 22px;
+    border-radius: 18px;
+    box-shadow: var(--p7-shadow-card);
   }
+
+  .statusBar { gap: 8px; padding: 12px; }
+
+  .statusTitle { gap: 4px; }
 
   .statusTitle h1 {
     max-width: none;
-    font-size: clamp(22px, 8vw, 30px);
+    font-size: clamp(21px, 7vw, 28px);
+    line-height: 1.02;
   }
 
-  .statusTitle p { -webkit-line-clamp: 1; }
-  .fact { padding: 10px; }
-  .coreCell { padding: 12px; }
-  .coreCell strong { font-size: 16px; }
-  .coreCell em { -webkit-line-clamp: 1; }
+  .statusTitle p { -webkit-line-clamp: 1; font-size: 13px; }
+  .eyebrow { font-size: 10px; line-height: 15px; letter-spacing: 0.1em; }
+  .fact { padding: 9px; border-radius: 14px; }
+  .fact:nth-of-type(n + 4) { display: none; }
+  .coreCell { padding: 10px 12px; }
+  .coreCell strong { font-size: 15px; }
+  .coreCell em { -webkit-line-clamp: 1; font-size: 11px; }
+  .aboveFold { gap: 9px; }
+  .card,
+  .blocker,
+  .nextAction,
+  .driverPanel { border-radius: 18px; padding: 14px; }
+  .card { gap: 10px; }
+  .cardTitle { font-size: 16px; line-height: 22px; }
+  .blocker { gap: 8px; }
   .compactFacts { grid-template-columns: 1fr; }
-  .contentGrid { grid-template-columns: 1fr; }
+  .contentGrid { grid-template-columns: 1fr; gap: 9px; }
+  .railTop { padding: 14px; }
+  .moneyHeader strong { font-size: 24px; line-height: 30px; }
   .row,
   .docRow,
   .executionStep,
-  .evidenceItem { grid-template-columns: 1fr; }
+  .evidenceItem { grid-template-columns: 1fr; gap: 7px; padding: 9px; border-radius: 14px; }
   .docOwner { text-align: left; }
   .executionMeta,
   .evidenceMeta { justify-items: start; }
@@ -824,19 +850,22 @@
   .moneySummary,
   .evidenceSummary { grid-template-columns: 1fr; }
   .moneyParts { grid-template-columns: 1fr; }
-  .moneyPart { border-right: 0; }
+  .moneyPart { border-right: 0; padding: 10px 12px; }
+  .timelineItem { grid-template-columns: 48px minmax(0, 1fr); padding: 9px; }
   .driverActions { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 374px) {
-  .shell { padding: 8px; }
-  .topChrome { gap: 8px; padding: 8px; }
-  .roleSelect { padding: 0 8px; font-size: 12px; }
+  .shell { gap: 8px; padding: 7px; }
+  .topChrome { gap: 7px; padding: 7px; min-height: 50px; }
+  .roleSelect { padding: 0 8px; font-size: 12px; min-height: 38px; }
+  .mainNav strong { max-width: 41vw; }
   .fact:nth-of-type(n + 3) { display: none; }
+  .statusBar { padding: 10px; }
   .card,
   .blocker,
   .nextAction,
-  .driverPanel { border-radius: 18px; padding: 14px; }
+  .driverPanel { border-radius: 16px; padding: 12px; }
 }
 
 @media (max-height: 430px) and (orientation: landscape) {
