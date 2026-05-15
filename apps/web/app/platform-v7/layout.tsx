@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { AppShellV4 } from '@/components/v7r/AppShellV4';
 import { ToastProvider } from '@/components/v7r/Toast';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
+import { PlatformV7VisualReset } from '@/components/v7r/PlatformV7VisualReset';
 import { AuditSurfaceSummaryGate } from '@/components/platform-v7/AuditSurfaceSummaryGate';
 import { RoleExecutionSummaryGate } from '@/components/platform-v7/RoleExecutionSummaryGate';
 import { RoleHeaderSwitcher } from '@/components/platform-v7/RoleHeaderSwitcher';
@@ -53,6 +54,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   return (
     <ToastProvider>
       <PlatformThemeSync />
+      <PlatformV7VisualReset />
       <AppShellV4 initialRole={initialRole}>
         <>
           <ScopedShellGuard />
