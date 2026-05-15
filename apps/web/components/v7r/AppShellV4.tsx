@@ -33,6 +33,7 @@ import { BrandMark } from '@/components/v7r/BrandMark';
 import { NOTIFICATIONS, NOTIFICATION_GROUPS, type NotificationGroup } from '@/lib/v7r/data';
 import { trackRoleSwitch } from '@/lib/analytics/track';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
+import { PLATFORM_V7_LIGHT_DEFAULT_VERSION, PLATFORM_V7_THEME_VERSION_KEY } from '@/components/v7r/PlatformThemeSync';
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
   operator: 'Оператор',
@@ -300,7 +301,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
-  const [theme, setTheme] = React.useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
 
   React.useEffect(() => {
     usePlatformV7RStore.persist.rehydrate();
@@ -309,8 +310,13 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
   React.useEffect(() => {
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem('pc-theme') : null;
-    const nextTheme: 'light' | 'dark' = stored === 'light' ? 'light' : 'dark';
+    const storedVersion = typeof window !== 'undefined' ? window.localStorage.getItem(PLATFORM_V7_THEME_VERSION_KEY) : null;
+    const nextTheme: 'light' | 'dark' = stored === 'dark' && storedVersion === PLATFORM_V7_LIGHT_DEFAULT_VERSION ? 'dark' : 'light';
     setTheme(nextTheme);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('pc-theme', nextTheme);
+      window.localStorage.setItem(PLATFORM_V7_THEME_VERSION_KEY, PLATFORM_V7_LIGHT_DEFAULT_VERSION);
+    }
     document.documentElement.setAttribute('data-theme', nextTheme);
   }, []);
 
@@ -348,7 +354,10 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const toggleTheme = React.useCallback(() => {
     setTheme((prev) => {
       const next = prev === 'dark' ? 'light' : 'dark';
-      if (typeof window !== 'undefined') window.localStorage.setItem('pc-theme', next);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('pc-theme', next);
+        window.localStorage.setItem(PLATFORM_V7_THEME_VERSION_KEY, PLATFORM_V7_LIGHT_DEFAULT_VERSION);
+      }
       document.documentElement.setAttribute('data-theme', next);
       return next;
     });
@@ -375,9 +384,9 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
       <style>{`
         html, body { overflow-x: hidden; max-width: 100%; }
         *, *::before, *::after { box-sizing: border-box; }
-        .pc-shell-root-v4 { --pc-header-offset: 116px; }
+        .pc-shell-root-v4 { --pc-header-offset: 98px; }
         .pc-v4-header { position: fixed; inset: 0 0 auto 0; z-index: 100; background: color-mix(in srgb, var(--pc-bg-header) 94%, transparent); backdrop-filter: blur(18px); border-bottom: 1px solid var(--pc-border); box-shadow: var(--pc-shadow-sm); }
-        .pc-v4-header-inner { max-width: 1440px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; display: grid; gap: 10px; }
+        .pc-v4-header-inner { max-width: 1440px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 8px) 16px 8px; display: grid; gap: 8px; }
         .pc-v4-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
         .pc-v4-brand { display: flex; align-items: center; gap: 12px; min-width: 0; text-decoration: none; color: inherit; }
         .pc-v4-title { font-size: 16px; font-weight: 950; color: var(--pc-text-primary); line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -393,7 +402,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         .pc-v4-crumbs { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
         .pc-v4-statuses { display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
         .pc-v4-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 999px; border: 1px solid var(--status-border); background: var(--status-bg); color: var(--status-color); font-size: 11px; font-weight: 850; white-space: nowrap; }
-        .pc-v4-main { max-width: 1440px; margin: 0 auto; padding: calc(var(--pc-header-offset) + 16px) 16px 24px; }
+        .pc-v4-main { max-width: 1440px; margin: 0 auto; padding: calc(var(--pc-header-offset) + 12px) 16px 24px; }
         .pc-v4-pilot-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 16px; background: var(--pc-bg-card); border: 1px solid var(--pc-border); color: var(--pc-text-secondary); font-size: 12px; line-height: 1.55; box-shadow: var(--pc-shadow-sm); }
         .pc-v4-drawer { position: fixed; top: 0; bottom: 0; left: 0; width: 360px; max-width: 88vw; z-index: 120; transform: translateX(-100%); transition: transform 0.2s ease; background: var(--pc-bg-card); border-right: 1px solid var(--pc-border); box-shadow: var(--pc-shadow-lg); display: flex; flex-direction: column; }
         .pc-v4-drawer[data-open='true'] { transform: translateX(0); }
@@ -410,7 +419,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         .pc-v4-notification { display: grid; gap: 4px; padding: 10px 11px; border-radius: 14px; border: 1px solid var(--pc-border); background: var(--pc-bg-elevated); text-decoration: none; }
         .pc-v4-mobile-role { display: none; }
         @media (max-width: 980px) {
-          .pc-shell-root-v4 { --pc-header-offset: 128px; }
+          .pc-shell-root-v4 { --pc-header-offset: 92px; }
           .pc-v4-search { min-width: 44px; padding: 0 12px; }
           .pc-v4-search strong, .pc-v4-search span { display: none; }
           .pc-v4-select, .pc-v4-stage { display: none; }
@@ -418,8 +427,8 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           .pc-v4-statuses { display: none; }
         }
         @media (max-width: 640px) {
-          .pc-shell-root-v4 { --pc-header-offset: 118px; }
-          .pc-v4-header-inner { padding: calc(env(safe-area-inset-top) + 8px) 10px 9px; }
+          .pc-shell-root-v4 { --pc-header-offset: 82px; }
+          .pc-v4-header-inner { padding: calc(env(safe-area-inset-top) + 7px) 10px 7px; gap: 6px; }
           .pc-v4-top { grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
           .pc-v4-brand { gap: 9px; }
           .pc-v4-subtitle, .pc-v4-crumbs { display: none; }
@@ -427,7 +436,8 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           .pc-v4-actions { gap: 6px; }
           .pc-v4-iconbtn, .pc-v4-search, .pc-v4-mobile-role { min-width: 42px; min-height: 42px; border-radius: 13px; }
           .pc-v4-mobile-role { max-width: 112px; }
-          .pc-v4-main { padding: calc(var(--pc-header-offset) + 12px) 10px 20px; }
+          .pc-v4-meta { display: none; }
+          .pc-v4-main { padding: calc(var(--pc-header-offset) + 10px) 10px 20px; }
           .pc-v4-pilot-note { font-size: 11px; padding: 9px 11px; }
           .pc-v4-alert-panel { position: fixed; left: 10px; right: 10px; top: calc(env(safe-area-inset-top) + 62px); width: auto; max-width: none; }
         }
