@@ -40,6 +40,21 @@ describe('platform-v7 premium execution shell', () => {
     expect(ui).not.toContain('<a href="/platform-v7/support">Поддержка</a>');
   });
 
+  it('keeps premium mobile density tight without hiding the active role', () => {
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+
+    expect(css).toContain('@container (max-width: 640px)');
+    expect(css).toContain('gap: 9px;');
+    expect(css).toContain('padding-bottom: calc(92px + env(safe-area-inset-bottom));');
+    expect(css).toContain('min-height: 52px;');
+    expect(css).toContain('min-height: 40px;');
+    expect(css).toContain('font-size: 13px;');
+    expect(css).toContain('.fact:nth-of-type(n + 4) { display: none; }');
+    expect(css).toContain('@media (max-width: 374px)');
+    expect(css).toContain('min-height: 38px;');
+    expect(css).toContain('.fact:nth-of-type(n + 3) { display: none; }');
+  });
+
   it('keeps driver role on the field shell path', () => {
     const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
 
