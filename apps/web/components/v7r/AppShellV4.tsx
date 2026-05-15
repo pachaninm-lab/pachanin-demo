@@ -132,7 +132,7 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; ico
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'реестр и статусы' },
     { href: '/platform-v7/lots', label: 'Лоты и запросы', icon: 'lots', note: 'предсделочный контур' },
     { href: '/platform-v7/logistics', label: 'Логистика', icon: 'logistics', note: 'рейсы и отклонения' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и выпуск' },
+    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и основания' },
     { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'удержания и доказательства' },
     { href: '/platform-v7/connectors', label: 'Подключения', icon: 'integrations', note: 'ФГИС, банк, ЭДО' },
     { href: '/platform-v7/executive', label: 'Сводка', icon: 'analytics', note: 'управленческий срез' },
@@ -141,11 +141,11 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; ico
     { href: '/platform-v7/buyer', label: 'Кабинет', icon: 'cabinet', note: 'мои заявки и сделки' },
     { href: '/platform-v7/procurement', label: 'Закупки', icon: 'procurement', note: 'потребности и предложения' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'исполнение и документы' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и условия выпуска' },
+    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и условия проверки' },
   ],
   seller: [
     { href: '/platform-v7/seller', label: 'Кабинет', icon: 'cabinet', note: 'мои партии и офферы' },
-    { href: '/platform-v7/lots', label: 'Лоты и запросы', icon: 'lots', note: 'рынок заявок' },
+    { href: '/platform-v7/lots', label: 'Лоты и запросы', icon: 'lots', note: 'заявки и партии' },
     { href: '/platform-v7/lots/create', label: 'Создать лот', icon: 'create', note: 'партия к продаже' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'исполнение и деньги' },
   ],
@@ -172,9 +172,9 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; ico
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'привязка к рейсам' },
   ],
   bank: [
-    { href: '/platform-v7/bank', label: 'Банковый контур', icon: 'bank', note: 'резерв, удержание, выпуск' },
-    { href: '/platform-v7/bank/factoring', label: 'Факторинг', icon: 'bank', note: 'предпилотный сценарий' },
-    { href: '/platform-v7/bank/escrow', label: 'Эскроу', icon: 'bank', note: 'безопасная оплата' },
+    { href: '/platform-v7/bank', label: 'Банковый контур', icon: 'bank', note: 'резерв, удержание, статус' },
+    { href: '/platform-v7/bank/factoring', label: 'Факторинг', icon: 'bank', note: 'заявка и статус' },
+    { href: '/platform-v7/bank/escrow', label: 'Эскроу', icon: 'bank', note: 'условия удержания' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'проверка условий' },
     { href: '/platform-v7/disputes', label: 'Удержания', icon: 'disputes', note: 'споры по деньгам' },
   ],
@@ -190,7 +190,7 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; ico
   executive: [
     { href: '/platform-v7/executive', label: 'Сводка', icon: 'analytics', note: 'деньги и риски' },
     { href: '/platform-v7/control-tower', label: 'Центр управления', icon: 'dashboard', note: 'операционная картина' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и выпуск' },
+    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и основания' },
   ],
 };
 
@@ -217,7 +217,7 @@ const CRUMB_LABELS: Record<string, string> = {
   arbitrator: 'Арбитр',
   connectors: 'Подключения',
   investor: 'Инвестор',
-  demo: 'Демо-сценарий',
+  demo: 'Сценарий сделки',
   market: 'Лоты и запросы',
   notifications: 'Уведомления',
 };
@@ -498,7 +498,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
             <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
               <Link href='/platform-v7/roles' style={drawerUtilityLink}>Все роли</Link>
               <Link href='/platform-v7/investor' style={drawerUtilityLink}>Инвесторский обзор</Link>
-              <Link href='/platform-v7/demo' style={drawerUtilityLink}>Демо-сценарий</Link>
+              <Link href='/platform-v7/execution-map' style={drawerUtilityLink}>Карта исполнения</Link>
             </div>
           </details>
         </div>
@@ -583,7 +583,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
       <main className='pc-v4-main' id='main-content'>
         {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
-          <p className='pc-v4-pilot-note'>Контролируемый пилот. Не промышленная эксплуатация. Боевые подключения требуют договоров, доступов и подтверждения на реальных сделках.</p>
+          <p className='pc-v4-pilot-note'>Внешние контуры требуют договоров, доступов и подтверждений. Экран показывает основания, документы, статус, удержание и причину остановки.</p>
         ) : null}
         {children}
       </main>

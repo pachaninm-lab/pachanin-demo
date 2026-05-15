@@ -8,12 +8,12 @@ type QuickLink = {
 
 const QUICK_LINKS: QuickLink[] = [
   { href: '/platform-v7', title: 'Главная / выбор роли', note: 'Точка входа в платформу с переключением между ролями.' },
-  { href: '/platform-v7/marketplace', title: 'Витрина лотов', note: 'Все лоты: культура, регион, объём, цена, класс.' },
-  { href: '/platform-v7/deals', title: 'Все сделки', note: '20+ сделок со SLA-сортировкой и полями статуса.' },
-  { href: '/platform-v7/control-tower', title: 'Центр управления', note: 'KPI-дашборд оператора: резерв, удержания, споры и деньги к выпуску.' },
-  { href: '/platform-v7/logistics', title: 'Логистика', note: 'Маршруты, GPS-события, ETA и отклонения.' },
-  { href: '/platform-v7/disputes', title: 'Споры', note: 'Открытые споры, удержания, SLA и ответственный владелец.' },
-  { href: '/platform-v7/bank', title: 'Банк', note: 'Резервы, выпуск денег, входящие события и ручные проверки.' },
+  { href: '/platform-v7/lots', title: 'Лоты исполнения', note: 'Партии, документы, регион, объём и качество.' },
+  { href: '/platform-v7/deals', title: 'Все сделки', note: 'Сделки с деньгами, документами, рейсами, сроками и статусами.' },
+  { href: '/platform-v7/control-tower', title: 'Центр управления', note: 'Сводка оператора: резерв, удержания, споры и основания к банковской проверке.' },
+  { href: '/platform-v7/logistics', title: 'Логистика', note: 'Маршруты, GPS-события, срок прибытия и отклонения.' },
+  { href: '/platform-v7/disputes', title: 'Споры', note: 'Открытые споры, удержания, срок и ответственный владелец.' },
+  { href: '/platform-v7/bank', title: 'Банк', note: 'Резервы, основания, удержания, входящие события и ручные проверки.' },
   { href: '/platform-v7/integrations', title: 'Интеграции', note: 'ФГИС «Зерно», СберБизнес, СПАРК и лаборатории.' },
   { href: '/platform-v7/operator', title: 'Кабинет оператора', note: 'Очереди задач, входящие события и ручные действия.' },
 ];
@@ -31,7 +31,7 @@ export default function PlatformV7NotFound() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
             <Link href="/platform-v7" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 700 }}>На главную</Link>
             <Link href="/platform-v7/deals" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Все сделки</Link>
-            <Link href="/platform-v7/marketplace" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Витрина лотов</Link>
+            <Link href="/platform-v7/lots" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Лоты исполнения</Link>
           </div>
         </section>
 
@@ -51,7 +51,7 @@ export default function PlatformV7NotFound() {
 
         <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>Ищете сделку по ID?</div>
-          <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 6 }}>ID сделок в демо имеют формат <code style={{ background: '#F5F7F8', padding: '1px 6px', borderRadius: 6, fontFamily: 'JetBrains Mono, monospace' }}>DL-9102…DL-9111</code>. Перейдите в список и откройте карточку нужной сделки.</div>
+          <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 6 }}>ID сделок в проверочном контуре имеют формат <code style={{ background: '#F5F7F8', padding: '1px 6px', borderRadius: 6, fontFamily: 'JetBrains Mono, monospace' }}>DL-9102…DL-9111</code>. Перейдите в список и откройте карточку нужной сделки.</div>
           <Link href="/platform-v7/deals" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, marginTop: 12 }}>Открыть список сделок →</Link>
         </section>
       </div>
