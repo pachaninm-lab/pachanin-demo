@@ -52,14 +52,15 @@ function Card({ title, eyebrow, children, className }: { title: string; eyebrow?
 }
 
 function StatusBar({ deal, role }: { deal: DealViewModel; role: DealRole }) {
-  const balanceLabel = isMoneyBalanced(deal.money) ? 'сходится' : 'требует сверки';
+  const balanceLabel = isMoneyBalanced(deal.money) ? 'деньги сходятся' : 'нужна сверка денег';
+  const mainDocument = deal.documents.find((doc) => doc.status !== 'ready');
   return (
     <section className={styles.statusBar} aria-label="Состояние сделки">
-      <div className={styles.statusTitle}><div className={styles.eyebrow}>{roleLabels[role]} · {limitPremiumText(deal.stageLabel, 48)}</div><h1>{limitPremiumText(deal.title, premiumTextLimits.title)}</h1><p>{limitPremiumText(deal.currentState, premiumTextLimits.description)}</p></div>
+      <div className={styles.statusTitle}><div className={styles.eyebrow}>{roleLabels[role]} · {balanceLabel}</div><h1>{limitPremiumText(deal.title, premiumTextLimits.title)}</h1><p>{limitPremiumText(deal.currentState, premiumTextLimits.description)}</p></div>
       <div className={styles.fact}><span>Сделка</span><strong>{deal.id}</strong></div>
-      <div className={styles.fact}><span>Базис</span><strong>{limitPremiumText(deal.basisLabel, 52)}</strong></div>
+      <div className={styles.fact}><span>Документ</span><strong>{limitPremiumText(mainDocument?.title ?? 'основания готовы', 52)}</strong></div>
       <div className={styles.fact}><span>Резерв</span><strong>{formatPremiumRubCompact(deal.money.reservedRub)}</strong></div>
-      <div className={styles.fact}><span>Деньги</span><strong>{balanceLabel}</strong></div>
+      <div className={styles.fact}><span>Действие</span><strong>{limitPremiumText(deal.nextAction.label, 52)}</strong></div>
     </section>
   );
 }
@@ -90,7 +91,7 @@ function DealCoreSnapshot({ deal }: { deal: DealViewModel }) {
         <em>{limitPremiumText(blockerMeta, 84)}</em>
       </article>
       <article className={cx(styles.coreCell, styles.coreActionCell)}>
-        <span>Действие</span>
+        <span>Следующий шаг</span>
         <strong>{limitPremiumText(deal.nextAction.label, premiumTextLimits.cta)}</strong>
         <em>{limitPremiumText(deal.nextAction.responsible ?? deal.nextAction.reason ?? 'ответственный указан в действии', 72)}</em>
       </article>
