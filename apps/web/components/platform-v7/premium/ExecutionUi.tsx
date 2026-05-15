@@ -166,6 +166,22 @@ function Timeline({ events }: { events: TimelineEventModel[] }) {
   return <Card title="Журнал сделки" eyebrow="последовательность событий" className={styles.span6}><div className={styles.timeline}>{events.map((event) => <article key={event.id} className={styles.timelineItem}><time>{event.time}</time><div><strong>{limitPremiumText(event.title, 80)}</strong><p>{limitPremiumText(event.actor ?? event.impact ?? 'событие сделки', 100)}</p></div></article>)}</div></Card>;
 }
 
+function PremiumTopChrome({ activeRole, roles, onSelectRole }: { activeRole: DealRole; roles: DealRole[]; onSelectRole: (role: DealRole) => void }) {
+  return (
+    <div className={styles.topChrome}>
+      <nav className={styles.mainNav} aria-label="Основная навигация">
+        <strong>Прозрачная Цена</strong>
+        <a href="/platform-v7">Сделки</a>
+        <a href="/platform-v7/lots">Лоты</a>
+        <a href="/platform-v7/bank">Деньги</a>
+      </nav>
+      <select className={styles.roleSelect} value={activeRole} aria-label="Активная роль" onChange={(event) => onSelectRole(event.target.value as DealRole)}>
+        {roles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
+      </select>
+    </div>
+  );
+}
+
 export function DriverFieldShell({ task, theme = 'dark' }: { task: DriverTaskModel; theme?: 'dark' | 'light' }) {
   return <main className={styles.driverRoot} data-theme={theme}><header className={styles.driverHeader}><div className={styles.eyebrow}>Прозрачная Цена · водитель</div><strong>Рейс {limitPremiumText(task.tripId, 32)}</strong><span>Следующее действие: {limitPremiumText(task.nextAction, premiumTextLimits.cta)}</span></header><section className={styles.driverPanel} aria-label="Текущий рейс"><p>{limitPremiumText(task.routeLabel, 96)}</p>{task.etaLabel ? <Badge tone="info">{limitPremiumText(task.etaLabel, 56)}</Badge> : null}<button className={styles.driverPrimaryButton} type="button">{limitPremiumText(task.nextAction, premiumTextLimits.cta)}</button><div className={styles.driverActions}>{task.secondaryActions.map((action) => <button key={action.id} className={styles.driverSecondaryButton} type="button">{limitPremiumText(action.label, premiumTextLimits.cta)}</button>)}</div><div className={styles.offlineQueue}>Офлайн-очередь: {task.offlineQueueCount}</div></section></main>;
 }
@@ -174,10 +190,11 @@ export function PremiumDealShell({ deal, initialRole = 'buyer', roles = ['seller
   const [activeRole, setActiveRole] = useState<DealRole>(initialRole);
   const visibleSections = useMemo(() => roleSections[activeRole], [activeRole]);
   const topBlockers = deal.blockers.slice(0, 2);
+  const handleRoleChange = (nextRole: DealRole) => { setActiveRole(nextRole); onRoleChange?.(nextRole); };
 
   useEffect(() => setActiveRole(initialRole), [initialRole]);
 
   if (activeRole === 'driver' && deal.driverTask) return <DriverFieldShell task={deal.driverTask} theme={theme} />;
 
-  return <main className={styles.root} data-role={activeRole} data-theme={theme}><div className={styles.shell}><div className={styles.topChrome}><nav className={styles.mainNav} aria-label="Основная навигация"><strong>Прозрачная Цена</strong><a href="/platform-v7">Сделки</a><a href="/platform-v7/lots">Лоты и запросы</a><a href="/platform-v7/logistics">Логистика</a><a href="/platform-v7/documents">Документы</a><a href="/platform-v7/bank">Деньги</a><a href="/platform-v7/disputes">Споры</a><a href="/platform-v7/support">Поддержка</a></nav><select className={styles.roleSelect} value={activeRole} aria-label="Активная роль" onChange={(event) => { const nextRole = event.target.value as DealRole; setActiveRole(nextRole); onRoleChange?.(nextRole); }}>{roles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></div><StatusBar deal={deal} role={activeRole} /><DealCoreSnapshot deal={deal} /><section className={styles.aboveFold} aria-label="Главный контекст сделки"><div className={styles.blockerGrid}>{topBlockers.length > 0 ? topBlockers.map((item) => <Blocker key={item.id} item={item} />) : <Card title="Сделка идёт по условиям" eyebrow="активных остановок нет"><p>Следующее действие видно справа. Деньги, документы и груз сверяются по цепочке исполнения.</p></Card>}</div><NextAction action={deal.nextAction} /></section><section className={styles.contentGrid} aria-label="Рабочие блоки сделки">{visibleSections.includes('money') ? <MoneyRail deal={deal} /> : null}{visibleSections.includes('documents') ? <DocumentMatrix documents={deal.documents} /> : null}{visibleSections.includes('execution') ? <ExecutionChain steps={deal.execution} /> : null}{visibleSections.includes('evidence') ? <EvidencePack evidence={deal.evidence} /> : null}{visibleSections.includes('risk') ? <RiskHeatline risks={deal.risks} /> : null}{visibleSections.includes('timeline') ? <Timeline events={deal.timeline} /> : null}</section></div></main>;
+  return <main className={styles.root} data-role={activeRole} data-theme={theme}><div className={styles.shell}><PremiumTopChrome activeRole={activeRole} roles={roles} onSelectRole={handleRoleChange} /><StatusBar deal={deal} role={activeRole} /><DealCoreSnapshot deal={deal} /><section className={styles.aboveFold} aria-label="Главный контекст сделки"><div className={styles.blockerGrid}>{topBlockers.length > 0 ? topBlockers.map((item) => <Blocker key={item.id} item={item} />) : <Card title="Сделка идёт по условиям" eyebrow="активных остановок нет"><p>Следующее действие видно справа. Деньги, документы и груз сверяются по цепочке исполнения.</p></Card>}</div><NextAction action={deal.nextAction} /></section><section className={styles.contentGrid} aria-label="Рабочие блоки сделки">{visibleSections.includes('money') ? <MoneyRail deal={deal} /> : null}{visibleSections.includes('documents') ? <DocumentMatrix documents={deal.documents} /> : null}{visibleSections.includes('execution') ? <ExecutionChain steps={deal.execution} /> : null}{visibleSections.includes('evidence') ? <EvidencePack evidence={deal.evidence} /> : null}{visibleSections.includes('risk') ? <RiskHeatline risks={deal.risks} /> : null}{visibleSections.includes('timeline') ? <Timeline events={deal.timeline} /> : null}</section></div></main>;
 }
