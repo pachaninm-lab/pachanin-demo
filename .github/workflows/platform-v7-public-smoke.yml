@@ -1,0 +1,59 @@
+name: Platform V7 Public Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      public_url:
+        description: Public base URL for platform-v7
+        required: false
+        default: https://pachanin-web.vercel.app
+
+jobs:
+  public-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Run public platform-v7 smoke
+        env:
+          PLATFORM_V7_PUBLIC_URL: ${{ inputs.public_url }}
+        run: pnpm exec playwright test tests/e2e/platform-v7-public-smoke.spec.ts --project=chromium --reporter=html,line
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-public-smoke-report
+          path: apps/web/playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-public-smoke-results
+          path: apps/web/test-results
+          if-no-files-found: ignore
