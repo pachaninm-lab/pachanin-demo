@@ -25,6 +25,21 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain(".driverRoot[data-theme='light']");
   });
 
+  it('keeps premium top navigation compact with role always visible', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+
+    expect(ui).toContain('function PremiumTopChrome');
+    expect(ui).toContain('<PremiumTopChrome activeRole={activeRole} roles={roles} onSelectRole={handleRoleChange} />');
+    expect(ui).toContain('<a href="/platform-v7">Сделки</a>');
+    expect(ui).toContain('<a href="/platform-v7/lots">Лоты</a>');
+    expect(ui).toContain('<a href="/platform-v7/bank">Деньги</a>');
+    expect(ui).toContain('aria-label="Активная роль"');
+    expect(ui).not.toContain('<a href="/platform-v7/logistics">Логистика</a>');
+    expect(ui).not.toContain('<a href="/platform-v7/documents">Документы</a>');
+    expect(ui).not.toContain('<a href="/platform-v7/disputes">Споры</a>');
+    expect(ui).not.toContain('<a href="/platform-v7/support">Поддержка</a>');
+  });
+
   it('keeps driver role on the field shell path', () => {
     const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
 
@@ -245,7 +260,7 @@ describe('platform-v7 premium execution shell', () => {
     expect(ui).toContain('aria-label="Активная роль"');
     expect(ui).toContain('value={activeRole}');
     expect(ui).toContain('roleLabels[role]');
-    expect(ui).toContain('onChange={(event) => { const nextRole = event.target.value as DealRole; setActiveRole(nextRole); onRoleChange?.(nextRole); }}');
+    expect(ui).toContain('onChange={(event) => onSelectRole(event.target.value as DealRole)}');
   });
 
   it('keeps the selected role visible in page state and above-fold status', () => {
