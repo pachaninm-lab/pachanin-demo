@@ -7,6 +7,8 @@ import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionR
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
+import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
+import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 
 const sellerHandoff: HandoffItem[] = [
   {
@@ -45,15 +47,6 @@ const sellerHandoff: HandoffItem[] = [
   },
 ];
 
-type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
-
-const sellerMetrics: MetricItem[] = [
-  { label: 'Активные лоты', value: '2', note: 'связаны с партиями и документами', good: true },
-  { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'готовность денег; это ещё не выплата', good: true },
-  { label: 'На проверку банку', value: '0 ₽', note: 'СДИЗ и ЭТрН блокируют передачу основания', danger: true },
-  { label: 'Следующий шаг', value: 'СДИЗ', note: 'закрыть документ перед банковской проверкой', warn: true },
-];
-
 const sellerLots = [
   {
     id: 'LOT-2403',
@@ -82,37 +75,7 @@ const sellerPaths = [
 
 export default function PlatformV7SellerPage() {
   return (
-    <main data-platform-v7-seller-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
-      <section style={hero}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-          <div style={{ display: 'grid', gap: 9, maxWidth: 780 }}>
-            <div style={badge}>Кабинет продавца · сделка → документы → деньги</div>
-            <h1 style={h1}>Закрыть документы, чтобы передать основание банку</h1>
-            <p style={lead}>Продавец видит не витрину лотов, а контур исполнения: партия, лот, резерв покупателя, СДИЗ, ЭТрН, приёмка и причина, почему деньги ещё не переданы на банковскую проверку.</p>
-          </div>
-          <div style={blockerCard}>
-            <div style={micro}>главный блокер</div>
-            <strong style={{ color: '#B45309', fontSize: 18, lineHeight: 1.2 }}>СДИЗ и ЭТрН не закрыты</strong>
-            <span style={{ color: '#64748B', fontSize: 12, lineHeight: 1.45 }}>на проверку банку сейчас 0 ₽</span>
-          </div>
-        </div>
-
-        <div style={sellerCockpitGrid} aria-label='Seller cockpit summary'>
-          <CockpitFact label='партия' value='600 т · пшеница 4 класса' />
-          <CockpitFact label='резерв' value='9,65 млн ₽ · не выплата' strong />
-          <CockpitFact label='документ' value='закрыть СДИЗ' warning />
-          <CockpitFact label='банк' value='ждёт основание' danger />
-        </div>
-
-        <div style={actions}>
-          <Link href='/platform-v7/deals/DL-9106/clean' style={primaryBtn}>Закрыть СДИЗ и ЭТрН</Link>
-          <Link href='/platform-v7/seller/batches/new' style={ghostBtn}>Создать новую партию</Link>
-        </div>
-      </section>
-
-      <section style={metricsGrid}>
-        {sellerMetrics.map((metric) => <Metric key={metric.label} metric={metric} />)}
-      </section>
+    <RoleExecutionCockpitPage cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.seller}>
 
       <MoneyImpactSummaryStrip
         amountContext='резерв 9,65 млн ₽ · на проверку банку 0 ₽'
@@ -182,17 +145,7 @@ export default function PlatformV7SellerPage() {
           ))}
         </div>
       </section>
-    </main>
-  );
-}
-
-function Metric({ metric }: { metric: MetricItem }) {
-  return (
-    <div style={metricCard}>
-      <div style={micro}>{metric.label}</div>
-      <div style={{ color: metric.danger ? '#B91C1C' : metric.warn ? '#B45309' : metric.good ? '#0A7A5F' : '#0F1419', fontSize: 29, lineHeight: 1, fontWeight: 950, letterSpacing: '-0.035em' }}>{metric.value}</div>
-      <p style={{ margin: 0, color: '#64748B', fontSize: 12, lineHeight: 1.5, fontWeight: 750 }}>{metric.note}</p>
-    </div>
+    </RoleExecutionCockpitPage>
   );
 }
 
@@ -200,29 +153,8 @@ function Cell({ label, value, strong = false, warning = false }: { label: string
   return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div></div>;
 }
 
-function CockpitFact({ label, value, strong = false, warning = false, danger = false }: { label: string; value: string; strong?: boolean; warning?: boolean; danger?: boolean }) {
-  return (
-    <div style={cockpitFact}>
-      <div style={micro}>{label}</div>
-      <strong style={{ color: danger ? '#B91C1C' : warning ? '#B45309' : strong ? '#0A7A5F' : '#0F1419', fontSize: 14, lineHeight: 1.3 }}>{value}</strong>
-    </div>
-  );
-}
-
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 14, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
 const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
-const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '4px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.6 } as const;
-const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
-const primaryBtn = { textDecoration: 'none', minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 15px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(10,122,95,0.18)' } as const;
-const ghostBtn = { ...primaryBtn, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
-const blockerCard = { display: 'grid', gap: 6, minWidth: 220, maxWidth: 280, padding: 14, borderRadius: 18, background: '#FFFBEB', border: '1px solid #FDE68A', boxShadow: '0 12px 28px rgba(180,83,9,0.08)' } as const;
-const sellerCockpitGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 } as const;
-const cockpitFact = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 12, display: 'grid', gap: 5, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
-const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
-const metricCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, display: 'grid', gap: 8, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' } as const;
 const pathGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 } as const;
 const pathCard = { textDecoration: 'none', minHeight: 132, display: 'grid', alignContent: 'start', gap: 8, padding: 14, borderRadius: 20, background: '#fff', border: '1px solid #E4E6EA', boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
 const lotRow = { textDecoration: 'none', color: 'inherit', background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' } as const;

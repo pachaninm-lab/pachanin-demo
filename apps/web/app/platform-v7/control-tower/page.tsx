@@ -12,6 +12,8 @@ import { ExecutionSimulationActionPanel } from '@/components/v7r/ExecutionSimula
 import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
 import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
 import { OperatorExecutionQueue } from '@/components/platform-v7/OperatorExecutionQueue';
+import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
+import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 
 function describeReason(code: string) {
   switch (code) {
@@ -136,6 +138,10 @@ export default function PlatformV7ControlTowerPage() {
         )}
         testId='platform-v7-control-tower-page'
       >
+        <P7Section title='Операторский 5-секундный срез' subtitle='Роль, деньги, документы, груз, качество, блокер и следующее действие в одной грамматике с остальными ролями.'>
+          <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.operator} />
+        </P7Section>
+
         <P7Section title='Деньги и риски' subtitle='KPI берутся из единого контура исполнения и ведут в соответствующие рабочие зоны.'>
           <DomainControlTowerSummary />
         </P7Section>

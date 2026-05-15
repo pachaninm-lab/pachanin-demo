@@ -10,10 +10,13 @@ describe('platform-v7 seller execution polish', () => {
   it('renders seller execution screen with bank-boundary money language', () => {
     render(<PlatformV7SellerPage />);
 
-    expect(screen.getByText('Кабинет продавца')).toBeInTheDocument();
-    expect(screen.getByText(/Лоты, предложения, документы и проверка выплаты/i)).toBeInTheDocument();
+    expect(screen.getByText('Продавец · партия → лот → документы → деньги')).toBeInTheDocument();
+    expect(screen.getByText(/Закрыть СДИЗ и приёмку, чтобы основание ушло банку/i)).toBeInTheDocument();
+    expect(screen.getByText(/СДИЗ и ЭТрН не закрыты по DL-9106/i)).toBeInTheDocument();
+    expect(screen.getByText(/Банк не получает основание до закрытых документов/i)).toBeInTheDocument();
     expect(screen.getByText('К передаче банку')).toBeInTheDocument();
     expect(screen.getByText(/к передаче банку 0 ₽/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Закрыть СДИЗ/i })).toHaveAttribute('href', '/platform-v7/deals/grain-sdiz');
     expect(screen.getByText(/закрыть СДИЗ и ЭТрН для передачи основания банку на проверку/i)).toBeInTheDocument();
     expect(screen.getByText(/сделка передаёт основание банку/i)).toBeInTheDocument();
   });
