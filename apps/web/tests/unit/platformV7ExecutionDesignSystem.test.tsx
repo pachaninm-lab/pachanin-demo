@@ -28,6 +28,7 @@ describe('ExecutionDesignSystem', () => {
     );
 
     expect(screen.getByTestId('execution-canvas')).toHaveAttribute('data-theme', 'light');
+    expect(screen.getByTestId('execution-canvas').tagName).toBe('SECTION');
     expect(screen.getByText(EXECUTION_ROLE_LABELS.operator)).toBeInTheDocument();
 
     rerender(

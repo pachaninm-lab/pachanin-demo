@@ -82,7 +82,7 @@ export function ExecutionCanvas({
   readonly testId?: string;
 }) {
   return (
-    <main className={styles.canvas} data-theme={theme} data-testid={testId}>
+    <section className={styles.canvas} data-theme={theme} data-testid={testId}>
       <div className={styles.frame}>
         {title ? (
           <header className={styles.header}>
@@ -96,7 +96,7 @@ export function ExecutionCanvas({
         ) : null}
         {children}
       </div>
-    </main>
+    </section>
   );
 }
 
