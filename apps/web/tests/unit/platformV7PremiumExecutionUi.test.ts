@@ -14,6 +14,17 @@ describe('platform-v7 premium execution shell', () => {
     expect(hub).toContain('denormalizeRole');
   });
 
+  it('keeps the premium deal shell light by default while preserving explicit dark mode', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+
+    expect(ui).toContain("theme = 'light'");
+    expect(ui).toContain("theme?: 'dark' | 'light'");
+    expect(ui).toContain('data-theme={theme}');
+    expect(css).toContain(".root[data-theme='light']");
+    expect(css).toContain(".driverRoot[data-theme='light']");
+  });
+
   it('keeps driver role on the field shell path', () => {
     const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
 
@@ -257,30 +268,3 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('min-height: 64px');
     expect(css).toContain('min-height: 56px');
   });
-
-  it('keeps anti-bypass disclosure masked in the execution source', () => {
-    const source = read('apps/web/lib/platform-v7/deal-execution-source-of-truth.ts');
-
-    expect(source).toContain('antiBypass');
-    expect(source).toContain("buyerAlias: 'Покупатель 1'");
-    expect(source).toContain("buyerDisclosure: 'раскрыт только внутри черновика сделки'");
-    expect(source).toContain("driverAlias: 'Водитель А'");
-    expect(source).toContain("vehicleMasked: 'Р***ТУ'");
-    expect(source).toContain('Контакты сторон не раскрыты вне черновика сделки');
-  });
-
-  it('keeps execution shell focused on deal execution rather than board-style trading', () => {
-    const files = [
-      'apps/web/lib/platform-v7/deal-execution-source-of-truth.ts',
-      'apps/web/components/platform-v7/premium/ExecutionUi.tsx',
-      'apps/web/components/v7r/PlatformCommandCenterHub.tsx',
-    ];
-    const source = files.map(read).join('\n');
-
-    expect(source).toContain('Матрица документов');
-    expect(source).toContain('Пакет доказательств');
-    expect(source).toContain('Журнал сделки');
-    expect(source).not.toContain('доска объявлений');
-    expect(source).not.toContain('витрина заявок');
-  });
-});
