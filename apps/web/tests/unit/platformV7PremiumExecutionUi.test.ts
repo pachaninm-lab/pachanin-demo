@@ -40,6 +40,20 @@ describe('platform-v7 premium execution shell', () => {
     expect(ui).not.toContain('<a href="/platform-v7/support">Поддержка</a>');
   });
 
+  it('keeps premium above fold focused on role money document reserve and next action', () => {
+    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+
+    expect(ui).toContain("const balanceLabel = isMoneyBalanced(deal.money) ? 'деньги сходятся' : 'нужна сверка денег';");
+    expect(ui).toContain("const mainDocument = deal.documents.find((doc) => doc.status !== 'ready');");
+    expect(ui).toContain('<span>Документ</span>');
+    expect(ui).toContain("{limitPremiumText(mainDocument?.title ?? 'основания готовы', 52)}");
+    expect(ui).toContain('<span>Резерв</span>');
+    expect(ui).toContain('<span>Действие</span>');
+    expect(ui).toContain('<span>Следующий шаг</span>');
+    expect(ui).not.toContain('<span>Базис</span>');
+    expect(ui).not.toContain('<span>Деньги</span><strong>{balanceLabel}</strong>');
+  });
+
   it('keeps premium mobile density tight without hiding the active role', () => {
     const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
 
@@ -117,7 +131,7 @@ describe('platform-v7 premium execution shell', () => {
     expect(ui).toContain('<span>Деньги</span>');
     expect(ui).toContain('<span>Документы</span>');
     expect(ui).toContain('<span>Главный блокер</span>');
-    expect(ui).toContain('<span>Действие</span>');
+    expect(ui).toContain('<span>Следующий шаг</span>');
     expect(css).toContain('.dealCore');
     expect(css).toContain('.coreActionCell');
     expect(css).toContain('.dealCore { grid-template-columns: repeat(4, minmax(0, 1fr)); }');
@@ -282,7 +296,7 @@ describe('platform-v7 premium execution shell', () => {
     const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain('<main className={styles.root} data-role={activeRole} data-theme={theme}>');
-    expect(ui).toContain('{roleLabels[role]} · {limitPremiumText(deal.stageLabel, 48)}');
+    expect(ui).toContain('{roleLabels[role]} · {balanceLabel}');
     expect(ui).toContain('<StatusBar deal={deal} role={activeRole} />');
   });
 
