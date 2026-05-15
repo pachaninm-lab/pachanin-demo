@@ -4,7 +4,7 @@ import * as React from 'react';
 
 export const PLATFORM_V7_THEME_STORAGE_KEY = 'pc-theme';
 export const PLATFORM_V7_THEME_VERSION_KEY = 'pc-theme-version';
-export const PLATFORM_V7_LIGHT_DEFAULT_VERSION = 'light-default-2026-05-14';
+export const PLATFORM_V7_LIGHT_DEFAULT_VERSION = 'light-default-2026-05-15-visual-reset';
 export const PLATFORM_V7_THEME_CHANNEL = 'platform-v7-theme';
 
 type PlatformV7Theme = 'light' | 'dark';
