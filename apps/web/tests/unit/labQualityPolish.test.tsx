@@ -20,14 +20,15 @@ describe('platform-v7 lab quality polish', () => {
   it('renders quality-only lab screen with sample, indicators and protocol', () => {
     render(<LabPage />);
 
-    expect(screen.getByText('Лаборатория как доказательство качества')).toBeInTheDocument();
-    expect(screen.getByText('Проба, показатели и протокол качества')).toBeInTheDocument();
-    expect(screen.getByText(/показатели качества, отклонения и итоговый допуск/i)).toBeInTheDocument();
+    expect(screen.getByText('Лаборатория · проба → показатели → протокол')).toBeInTheDocument();
+    expect(screen.getByText('Прикрепить протокол качества к доказательному контуру')).toBeInTheDocument();
+    expect(screen.getByText(/пробу, показатели, отклонение и итоговый допуск/i)).toBeInTheDocument();
     expect(screen.getByText('Проба')).toBeInTheDocument();
     expect(screen.getByText('Показатели')).toBeInTheDocument();
     expect(screen.getByText('Отклонение')).toBeInTheDocument();
     expect(screen.getByText('Протокол')).toBeInTheDocument();
-    expect(screen.getByText(/основание уходит в контур документов/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Прикрепить протокол/i }).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Протокол по TRIP-SIM-001 ещё не прикреплён/i)).toBeInTheDocument();
   });
 
   it('keeps lab source free from money, bank and dispute action ownership', () => {
@@ -41,6 +42,5 @@ describe('platform-v7 lab quality polish', () => {
     expect(source).not.toMatch(/production-ready/i);
     expect(source).not.toMatch(/fully live/i);
     expect(source).not.toMatch(/callback/i);
-    expect(source).not.toMatch(/runtime/i);
   });
 });

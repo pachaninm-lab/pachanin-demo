@@ -3,10 +3,10 @@ import { expect, test } from '@playwright/test';
 const routes = [
   { path: '/platform-v7', text: /Прозрачная Цена/i },
   { path: '/platform-v7/control-tower', text: /Центр управления/i },
-  { path: '/platform-v7/driver', text: /Полевой экран водителя/i },
-  { path: '/platform-v7/elevator', text: /Приёмка как доказательство сделки/i },
-  { path: '/platform-v7/lab', text: /Лаборатория как доказательство качества/i },
-  { path: '/platform-v7/surveyor', text: /Независимая фиксация на площадке/i },
+  { path: '/platform-v7/driver', text: /Водитель · один рейс · одно действие/i },
+  { path: '/platform-v7/elevator', text: /Элеватор · прибытие → вес → проба → акт/i },
+  { path: '/platform-v7/lab', text: /Лаборатория · проба → показатели → протокол/i },
+  { path: '/platform-v7/surveyor', text: /Сюрвейер · осмотр → фото → расхождение → заключение/i },
   { path: '/platform-v7/deals/DL-9102/clean', text: /Карточка сделки · пилотный контур/i },
   { path: '/platform-v7/bank/release-safety', text: /Проверка безопасности выпуска денег/i },
 ] as const;

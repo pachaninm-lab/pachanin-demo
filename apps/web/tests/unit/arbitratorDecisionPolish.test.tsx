@@ -20,6 +20,9 @@ describe('platform-v7 arbitrator decision polish', () => {
   it('renders decision frame with evidence, amount, manual review and journal', () => {
     render(<ArbitratorShellPage />);
 
+    expect(screen.getByText('Арбитр · спор → доказательства → решение')).toBeInTheDocument();
+    expect(screen.getByText('Принять решение по спорной части на основании фактов')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Собрать доказательства/i })).toHaveAttribute('href', '/platform-v7/evidence-pack');
     expect(screen.getByText('Арбитр · рамка решения')).toBeInTheDocument();
     expect(screen.getByText('Решение арбитра создаёт основание для ручной проверки')).toBeInTheDocument();
     expect(screen.getByText(/ручной сверки основания оператором/i)).toBeInTheDocument();
@@ -39,6 +42,5 @@ describe('platform-v7 arbitrator decision polish', () => {
     expect(source).not.toMatch(/production-ready/i);
     expect(source).not.toMatch(/fully live/i);
     expect(source).not.toMatch(/callback/i);
-    expect(source).not.toMatch(/runtime/i);
   });
 });

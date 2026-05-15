@@ -70,14 +70,14 @@ const mobileSmokeRoutes = [
 const visibleExecutionRoutes = [
   { route: '/platform-v7', text: 'Центр исполнения сделки' },
   { route: '/platform-v7/deals', text: 'Сделки: деньги, документы, рейс и спор в одном контуре' },
-  { route: '/platform-v7/logistics', text: 'Рейс, водитель, маршрут и инциденты связаны с деньгами' },
-  { route: '/platform-v7/driver', text: 'Водитель фиксирует события рейса без доступа к деньгам и лишним ролям' },
-  { route: '/platform-v7/bank', text: 'Деньги выпускаются только после доказанных условий' },
-  { route: '/platform-v7/buyer', text: 'Ставка должна сразу вести к сделке, резерву денег и логистике' },
-  { route: '/platform-v7/seller', text: 'Лот должен приводить к сделке, документам и получению денег' },
-  { route: '/platform-v7/elevator', text: 'Вес и качество должны сразу влиять на документы и деньги' },
-  { route: '/platform-v7/lab', text: 'Качество должно сразу показывать допуск, удержание и риск спора' },
-  { route: '/platform-v7/surveyor', text: 'Сюрвейер фиксирует расхождения как доказательства для спора и выплаты' },
+  { route: '/platform-v7/logistics', text: 'Логистика · рейс → водитель → ЭТрН → приёмка' },
+  { route: '/platform-v7/driver', text: 'Водитель · один рейс · одно действие' },
+  { route: '/platform-v7/bank', text: 'Банк · резерв → основание → подтверждение статуса' },
+  { route: '/platform-v7/buyer', text: 'Покупатель · RFQ → оффер → резерв → логистика' },
+  { route: '/platform-v7/seller', text: 'Продавец · партия → лот → документы → деньги' },
+  { route: '/platform-v7/elevator', text: 'Элеватор · прибытие → вес → проба → акт' },
+  { route: '/platform-v7/lab', text: 'Лаборатория · проба → показатели → протокол' },
+  { route: '/platform-v7/surveyor', text: 'Сюрвейер · осмотр → фото → расхождение → заключение' },
   { route: '/platform-v7/documents', text: 'Неполный пакет документов должен сразу останавливать деньги' },
 ] as const;
 

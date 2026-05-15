@@ -16,11 +16,11 @@ describe('PlatformV7 bank routes', () => {
   it('renders bank main page with controlled-pilot wording and no live payment claims', () => {
     render(<PlatformV7BankPage />);
 
-    expect(screen.getByText('Кабинет банка')).toBeInTheDocument();
-    expect(screen.getByText(/Основание передаётся банку только после условий сделки/)).toBeInTheDocument();
-    expect(screen.getByText(/Здесь нет кнопки прямой выплаты/)).toBeInTheDocument();
-    expect(screen.getByText(/Передача основания банку не является ручной кнопкой платформы/)).toBeInTheDocument();
-    expect(screen.getByText(/К передаче банку сейчас/)).toBeInTheDocument();
+    expect(screen.getByText('Банк · резерв → основание → подтверждение статуса')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Проверить основание, удержание и причину остановки/i })).toBeInTheDocument();
+    expect(screen.getByText(/Платформа не двигает деньги сама/i)).toBeInTheDocument();
+    expect(screen.getByText(/Банк подтверждает статус после проверки основания/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/К передаче банку/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Условия банковской проверки выплаты/)).toBeInTheDocument();
     expect(screen.getByTestId('platform-v7-money-impact-state')).toHaveTextContent(/пилотный контур/);
     expect(screen.getByTestId('platform-v7-money-impact-evidence')).toHaveTextContent(/закрытые документы|приёмка|качество/);

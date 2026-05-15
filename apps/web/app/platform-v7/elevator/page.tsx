@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
+import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
+import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 
 const elevatorHandoff: HandoffItem[] = [
   {
@@ -51,15 +53,6 @@ const receiving = {
   next: 'зафиксировать вес и качество',
 };
 
-const receivingSummary = [
-  { label: 'Что сейчас', value: 'TRIP-SIM-001 прибыл на приёмку', note: 'Приёмка фиксирует физический факт: вес, качество, акт и отклонения.' },
-  { label: 'Где груз', value: 'элеватор ВРЖ-08 · партия LOT-2403', note: 'Видна только партия и рейс, без коммерческой цены сделки.' },
-  { label: 'Вес', value: '600 т заявлено · 598,8 т принято', note: 'Отклонение -1,2 т создаёт основание для акта расхождения.' },
-  { label: 'Качество', value: 'сорная примесь выше допуска', note: 'Нужен протокол качества; это может изменить расчёт и открыть спор.' },
-  { label: 'Что скрыто', value: 'ставки, цена, банк, резерв, кредит', note: 'Приёмка не видит коммерческий и банковский контур сторон.' },
-  { label: 'Что дальше', value: 'акт приёмки → акт расхождения → протокол', note: 'Без этих оснований передача банку на проверку выплаты не продолжается.' },
-] as const;
-
 const quality = [
   { label: 'Влажность', value: '13,1%', limit: 'допуск до 14%', state: 'ok' },
   { label: 'Клейковина', value: '23%', limit: 'минимум 21%', state: 'ok' },
@@ -76,23 +69,7 @@ const gates = [
 
 export default function Page() {
   return (
-    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
-      <section style={card}>
-        <div style={badge}>Кабинет приёмки</div>
-        <h1 style={h1}>Вес, качество и основание для проверки выплаты</h1>
-        <p style={lead}>Приёмка видит только груз, рейс, вес, лабораторию, документы и отклонения. Деньги, ставки, резерв, кредит и покупательская аналитика не раскрываются.</p>
-      </section>
-
-      <section style={darkCard}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ ...micro, color: '#FED7AA' }}>контроль приёмки</div>
-          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что приёмка должна понять за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#FFEDD5', fontSize: 14, lineHeight: 1.55 }}>Экран работает как доказательный контур физического исполнения: вес, качество, акт, расхождение и основание для банковской проверки.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
-          {receivingSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
-        </div>
-      </section>
+    <RoleExecutionCockpitPage cockpit={OPERATIONAL_ROLE_EXECUTION_COCKPITS.elevator}>
 
       <section style={card}>
         <div style={micro}>Активная приёмка</div>
@@ -140,12 +117,8 @@ export default function Page() {
       <RoleExecutionHandoff items={elevatorHandoff} title='исполнение: что приёмка отправляет и ожидает' />
 
       <FieldElevatorRuntime />
-    </main>
+    </RoleExecutionCockpitPage>
   );
-}
-
-function SummaryCard({ item }: { item: typeof receivingSummary[number] }) {
-  return <div style={{ background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 20, padding: 14, display: 'grid', gap: 7, boxShadow: '0 12px 26px rgba(15,23,42,0.12)' }}><div style={{ ...micro, color: '#FED7AA' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#FFEDD5', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
 }
 
 function Gate({ gate }: { gate: typeof gates[number] }) {
@@ -179,11 +152,7 @@ function stateText(state: string) {
 }
 
 const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
-const darkCard = { background: 'linear-gradient(135deg,#7C2D12 0%,#9A3412 58%,#431407 120%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(124,45,18,0.2)' } as const;
-const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(180,83,9,0.08)', border: '1px solid rgba(180,83,9,0.18)', color: '#B45309', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.6 } as const;
 const muted = { margin: '6px 0 0', color: '#64748B', fontSize: 13 } as const;
 const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
 const idText = { color: '#B45309', fontSize: 13, fontWeight: 950 } as const;

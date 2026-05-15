@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
+import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 
 const logisticsHandoff: HandoffItem[] = [
   {
@@ -109,29 +111,10 @@ const gates = [
 ] as const;
 
 export default function LogisticsPage() {
-  const inTransit = orders.filter((order) => order.status === 'Водитель назначен').length;
-  const arrived = orders.filter((order) => order.status === 'Прибыл').length;
-  const incidents = orders.filter((order) => order.incidents !== 'нет').length;
   const assignedDrivers = orders.filter((order) => order.driver !== 'не назначен');
 
   return (
-    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
-      <section style={hero}>
-        <div style={badge}>Кабинет логистики</div>
-        <h1 style={h1}>Заявки, водители, ЭТрН и маршрут</h1>
-        <p style={lead}>Логистика видит исполнение перевозки: заявку, сделку, водителя, машину, маршрут, срок прибытия, ЭТрН, ГИС ЭПД, СДИЗ и инциденты. Деньги и предложения не раскрываются.</p>
-        <div style={actions}>
-          <Link href='/platform-v7/logistics/inbox' style={primaryBtn}>Входящие заявки</Link>
-          <Link href='/platform-v7/driver/field' style={ghostBtn}>Открыть рейс водителя</Link>
-        </div>
-      </section>
-
-      <section style={metricsGrid}>
-        <Metric label='В пути' value={String(inTransit)} />
-        <Metric label='Прибыли' value={String(arrived)} good />
-        <Metric label='Инцидентов' value={String(incidents)} danger={incidents > 0} />
-        <Metric label='Заказов' value={String(orders.length)} />
-      </section>
+    <RoleExecutionCockpitPage cockpit={OPERATIONAL_ROLE_EXECUTION_COCKPITS.logistics}>
 
       <RoleExecutionHandoff items={logisticsHandoff} title='исполнение: что логистика отправляет и ожидает' />
 
@@ -151,7 +134,7 @@ export default function LogisticsPage() {
         <div style={micro}>Текущая очередь заказов</div>
         {orders.map((order) => <OrderCard key={order.id} order={order} />)}
       </section>
-    </main>
+    </RoleExecutionCockpitPage>
   );
 }
 
@@ -224,15 +207,6 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
   );
 }
 
-function Metric({ label, value, good = false, danger = false }: { label: string; value: string; good?: boolean; danger?: boolean }) {
-  return (
-    <div style={metricCard}>
-      <div style={micro}>{label}</div>
-      <div style={{ marginTop: 8, color: danger ? '#B91C1C' : good ? '#0A7A5F' : '#0F1419', fontSize: 29, lineHeight: 1, fontWeight: 950, letterSpacing: '-0.035em' }}>{value}</div>
-    </div>
-  );
-}
-
 function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
   return (
     <div style={cell}>
@@ -258,21 +232,12 @@ function stateText(state: string) {
   return '#B45309';
 }
 
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
 const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.6 } as const;
-const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
-const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
-const metricCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' } as const;
 const gateGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 } as const;
 const twoColGrid = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
 const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
-const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
-const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(10,122,95,0.18)' } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
 const status = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const neutralStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 } as const;
 const dangerStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;

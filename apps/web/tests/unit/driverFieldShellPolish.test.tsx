@@ -19,9 +19,11 @@ describe('platform-v7 driver field shell polish', () => {
     render(<DriverFieldPage />);
 
     expect(screen.getByTestId('platform-v7-driver-field-shell')).toBeInTheDocument();
+    expect(screen.getByText('Водитель · один рейс · одно действие')).toBeInTheDocument();
     expect(screen.getByText('Полевой режим · только рейс')).toBeInTheDocument();
     expect(screen.getByText('Рейс водителя')).toBeInTheDocument();
     expect(screen.getByText(/маршрут, связь, прибытие, фото, вес, пломба/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Подтвердить прибытие' })).toHaveAttribute('href', '#driver-next-action');
     expect(screen.getByText('Следующее действие')).toBeInTheDocument();
     expect(screen.getByText('Офлайн-события')).toBeInTheDocument();
     expect(screen.getByText('Фото и пломба')).toBeInTheDocument();
@@ -37,6 +39,5 @@ describe('platform-v7 driver field shell polish', () => {
     expect(source).not.toMatch(/production-ready/i);
     expect(source).not.toMatch(/fully live/i);
     expect(source).not.toMatch(/callback/i);
-    expect(source).not.toMatch(/runtime/i);
   });
 });

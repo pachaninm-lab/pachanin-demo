@@ -22,7 +22,7 @@ export default function ElevatorGrainPage() {
         <h1 style={h1}>Машина, вес, проба, лаборатория и акт</h1>
         <p style={lead}>Элеватор видит только физическое исполнение приёмки: рейс, машину, водителя, очередь, вес, пробу, лабораторию, СДИЗ и акт расхождения. Цена сделки, ставки, маржа и банковские детали не показываются.</p>
         <div style={actions}>
-          <Link href='/platform-v7/elevator' style={primaryBtn}>Кабинет приёмки</Link>
+          <Link href='/platform-v7/elevator' style={primaryBtn}>Приёмка</Link>
           <Link href='/platform-v7/elevator/terminal' style={ghostBtn}>Терминал</Link>
           <Link href='/platform-v7/lab' style={ghostBtn}>Лаборатория</Link>
           <Link href='/platform-v7/deals/grain-weight' style={ghostBtn}>Вес</Link>

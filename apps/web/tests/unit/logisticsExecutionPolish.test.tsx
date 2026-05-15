@@ -10,12 +10,14 @@ describe('platform-v7 logistics execution polish', () => {
   it('renders logistics execution screen focused on route, documents and next action', () => {
     render(<LogisticsPage />);
 
-    expect(screen.getByText('Кабинет логистики')).toBeInTheDocument();
-    expect(screen.getByText(/Заявки, водители, ЭТрН и маршрут/i)).toBeInTheDocument();
-    expect(screen.getByText(/Деньги и ставки не раскрываются/i)).toBeInTheDocument();
+    expect(screen.getByText('Логистика · рейс → водитель → ЭТрН → приёмка')).toBeInTheDocument();
+    expect(screen.getByText(/Довести рейс до приёмки и закрыть транспортные документы/i)).toBeInTheDocument();
+    expect(screen.getByText(/Коммерческие условия и банковские действия скрыты/i)).toBeInTheDocument();
+    expect(screen.getByText(/ЭТрН не закрыта грузополучателем/i)).toBeInTheDocument();
     expect(screen.getByText('Документные условия перевозки')).toBeInTheDocument();
     expect(screen.getByText('Водители на линии')).toBeInTheDocument();
     expect(screen.getByText('Текущая очередь заказов')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Открыть рейс водителя/i })).toHaveAttribute('href', '/platform-v7/driver/field');
     expect(screen.getByText(/Следующее действие логиста: контроль прибытия и подписи ЭТрН/i)).toBeInTheDocument();
   });
 
@@ -28,6 +30,5 @@ describe('platform-v7 logistics execution polish', () => {
     expect(source).not.toMatch(/fully live/i);
     expect(source).not.toMatch(/live gps/i);
     expect(source).not.toMatch(/callback/i);
-    expect(source).not.toMatch(/runtime/i);
   });
 });

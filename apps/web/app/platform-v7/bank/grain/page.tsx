@@ -22,7 +22,7 @@ export default function BankGrainPage() {
         <h1 style={h1}>Резерв, удержание, условия выпуска и журнал</h1>
         <p style={lead}>Банк видит денежный статус сделки и основания остановки. Выплата продавцу возможна только после закрытия документов, приёмки, качества и спора.</p>
         <div style={actions}>
-          <Link href='/platform-v7/bank' style={primaryBtn}>Кабинет банка</Link>
+          <Link href='/platform-v7/bank' style={primaryBtn}>Банк</Link>
           <Link href='/platform-v7/bank/release-safety' style={ghostBtn}>Проверка выплаты</Link>
           <Link href='/platform-v7/operator/grain' style={ghostBtn}>Очередь условий</Link>
         </div>

@@ -1,6 +1,8 @@
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
+import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import ArbitratorPage from '@/app/platform-v7r/arbitrator/page';
+import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 
 const decisionGuardCards = [
   ['Сумма спора', 'решение должно иметь сумму и основание'],
@@ -11,7 +13,7 @@ const decisionGuardCards = [
 
 export default function Page() {
   return (
-    <div style={{ display: 'grid', gap: 18 }}>
+    <RoleExecutionCockpitPage cockpit={OPERATIONAL_ROLE_EXECUTION_COCKPITS.arbitrator}>
       <RoleExecutionSummary role="arbitrator" />
       <section data-testid="platform-v7-arbitrator-decision-guard" style={decisionGuard}>
         <div style={micro}>Арбитр · рамка решения</div>
@@ -30,7 +32,7 @@ export default function Page() {
       </section>
       <JournalPreview role="arbitrator" />
       <ArbitratorPage />
-    </div>
+    </RoleExecutionCockpitPage>
   );
 }
 

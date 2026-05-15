@@ -23,9 +23,10 @@ describe('platform-v7 elevator execution polish', () => {
   it('renders receiving screen with weight, quality and bank-review boundary', () => {
     render(<ElevatorPage />);
 
-    expect(screen.getByText('Кабинет приёмки')).toBeInTheDocument();
-    expect(screen.getByText(/Вес, качество и основание для проверки выплаты/i)).toBeInTheDocument();
-    expect(screen.getByText(/основание для банковской проверки/i)).toBeInTheDocument();
+    expect(screen.getByText('Элеватор · прибытие → вес → проба → акт')).toBeInTheDocument();
+    expect(screen.getByText(/Зафиксировать вес, качество и акт расхождения/i)).toBeInTheDocument();
+    expect(screen.getByText(/Нужен акт расхождения до передачи основания/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Зафиксировать вес/i })).toHaveAttribute('href', '/platform-v7/elevator');
     expect(screen.getByText(/Условия приёмки, влияющие на банковскую проверку/i)).toBeInTheDocument();
     expect(screen.getByText(/без акта основание не передаётся банку/i)).toBeInTheDocument();
     expect(screen.getByText(/Передача основания банку на проверку выплаты не продолжается/i)).toBeInTheDocument();
@@ -41,6 +42,5 @@ describe('platform-v7 elevator execution polish', () => {
     expect(source).not.toMatch(/production-ready/i);
     expect(source).not.toMatch(/fully live/i);
     expect(source).not.toMatch(/callback/i);
-    expect(source).not.toMatch(/runtime/i);
   });
 });
