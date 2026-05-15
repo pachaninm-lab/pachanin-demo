@@ -29,6 +29,25 @@ const EXECUTION_MOBILE_ROUTES = [
   '/platform-v7/deals/grain-release',
 ] as const;
 
+const REQUIRED_MOBILE_VIEWPORTS = [
+  { label: '390x844', width: 390, height: 844 },
+  { label: '430x932', width: 430, height: 932 },
+  { label: '375x812', width: 375, height: 812 },
+  { label: '360x800', width: 360, height: 800 },
+  { label: '812x375-landscape', width: 812, height: 375 },
+  { label: '1280x720-low-height', width: 1280, height: 720 },
+] as const;
+
+const REQUIRED_VIEWPORT_ROUTES = [
+  '/platform-v7/seller',
+  '/platform-v7/buyer',
+  '/platform-v7/logistics',
+  '/platform-v7/driver/field',
+  '/platform-v7/elevator',
+  '/platform-v7/bank',
+  '/platform-v7/executive',
+] as const;
+
 const HEADER_ROLE_BOUNDARY_ROUTES = [
   {
     route: '/platform-v7/seller',
@@ -112,6 +131,12 @@ async function assertMobileExecutionRoute(page: import('@playwright/test').Page,
 
   const bodyText = await page.locator('body').innerText();
   expect(bodyText.trim().length, `${route} should not render an empty mobile route`).toBeGreaterThan(30);
+}
+
+async function assertHeaderDoesNotDominateViewport(page: import('@playwright/test').Page, route: string, viewport: { readonly label: string; readonly height: number }) {
+  const headerBox = await page.locator('.pc-v4-header').boundingBox();
+  const maxHeaderHeight = Math.min(96, viewport.height * 0.24);
+  expect(headerBox?.height ?? 999, `${route} header should stay compact at ${viewport.label}`).toBeLessThanOrEqual(maxHeaderHeight);
 }
 
 test.describe('platform-v7 mobile excellence source-level pass', () => {
@@ -234,6 +259,32 @@ test.describe('platform-v7 mobile excellence source-level pass', () => {
     test(`${route} keeps execution mobile route stable at 390px`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 });
       await assertMobileExecutionRoute(page, route);
+    });
+  }
+
+  for (const viewport of REQUIRED_MOBILE_VIEWPORTS) {
+    for (const route of REQUIRED_VIEWPORT_ROUTES) {
+      test(`${route} has no horizontal overflow and compact header at ${viewport.label}`, async ({ page }) => {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        await assertMobileExecutionRoute(page, route);
+        await assertHeaderDoesNotDominateViewport(page, route, viewport);
+      });
+    }
+  }
+
+  for (const viewport of REQUIRED_MOBILE_VIEWPORTS) {
+    test(`driver primary action stays visible at ${viewport.label}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      const response = await page.goto('/platform-v7/driver/field', { waitUntil: 'networkidle' });
+      expect(response?.ok(), `driver field should return 2xx at ${viewport.label}`).toBeTruthy();
+
+      const action = page.getByRole('link', { name: 'Подтвердить прибытие' });
+      await expect(action).toBeVisible();
+      const actionBox = await action.boundingBox();
+      expect(actionBox?.y ?? 9999, `driver action should start inside viewport at ${viewport.label}`).toBeLessThan(viewport.height);
+      expect((actionBox?.y ?? 9999) + (actionBox?.height ?? 0), `driver action should be fully visible at ${viewport.label}`).toBeLessThanOrEqual(viewport.height);
+      await assertNoHorizontalOverflow(page, '/platform-v7/driver/field');
+      await assertGlobalForbiddenClaims(page, '/platform-v7/driver/field');
     });
   }
 
