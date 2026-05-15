@@ -12,7 +12,7 @@ const routes = [
   { path: '/platform-v7/lab', required: /Лаборатория · проба → показатели → протокол/i },
   { path: '/platform-v7/surveyor', required: /Сюрвейер · осмотр → фото → расхождение → заключение/i },
   { path: '/platform-v7/bank', required: /Банк · резерв → основание → подтверждение статуса/i },
-  { path: '/platform-v7/executive', required: /Руководитель · деньги → стопы → SLA → решение/i },
+  { path: '/platform-v7/executive', required: /Руководитель · деньги → стопы → сроки → решение/i },
   { path: '/platform-v7/deals/grain-release', required: /деньг|документ|блокер|следующ/i },
 ] as const;
 const viewports = [

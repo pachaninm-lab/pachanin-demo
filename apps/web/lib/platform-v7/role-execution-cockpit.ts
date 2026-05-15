@@ -143,7 +143,7 @@ export const PRIMARY_ROLE_EXECUTION_COCKPITS = {
         statusTone: 'danger',
         shortFact: 'DL-9106 не передаёт основание банку',
         blocker: 'СДИЗ, ЭТрН, акт и качество не закрыты',
-        nextStep: 'Назначить владельца каждого документа и проверить SLA',
+        nextStep: 'Назначить владельца каждого документа и проверить срок закрытия',
         action: { label: 'Открыть документы', href: '/platform-v7/deals/DL-9106/documents', tone: 'danger' },
       },
       {
@@ -453,19 +453,19 @@ export const OPERATIONAL_ROLE_EXECUTION_COCKPITS = {
   },
   executive: {
     role: 'executive',
-    eyebrow: 'Руководитель · деньги → стопы → SLA → решение',
+    eyebrow: 'Руководитель · деньги → стопы → сроки → решение',
     title: 'Видеть исполнение сделки без провала в операционные детали',
-    subtitle: 'Executive-экран показывает деньги в контуре, стопы, SLA, спорную часть, владельца блокера и следующий управленческий шаг.',
+    subtitle: 'Executive-экран показывает деньги в контуре, стопы, сроки, спорную часть, владельца блокера и следующий управленческий шаг.',
     statuses: [
       { label: 'Роль: руководитель', tone: 'success' },
       { label: 'есть стопы', tone: 'danger' },
-      { label: 'SLA под контролем', tone: 'info' },
+      { label: 'сроки под контролем', tone: 'info' },
     ],
     kpis: [
       { label: 'В резерве', value: '15,89 млн ₽', note: 'активные сделки', tone: 'money' },
       { label: 'Под риском', value: '624 тыс. ₽', note: 'спорная часть, не вся сделка', tone: 'warning' },
       { label: 'Стопы', value: '3', note: 'документы, качество, решение', tone: 'danger' },
-      { label: 'SLA', value: '2 окна', note: 'ожидают владельца', tone: 'info' },
+      { label: 'Сроки', value: '2 окна', note: 'ожидают владельца', tone: 'info' },
     ],
     operations: [
       {
@@ -474,7 +474,7 @@ export const OPERATIONAL_ROLE_EXECUTION_COCKPITS = {
         statusTone: 'danger',
         shortFact: 'DL-9106 остановлена на документах, качестве и спорной части',
         blocker: 'Нужен владелец решения и срок закрытия',
-        nextStep: 'Назначить владельца блокера и проверить SLA',
+        nextStep: 'Назначить владельца блокера и проверить срок закрытия',
         action: { label: 'Открыть контроль сделки', href: '/platform-v7/control-tower' },
       },
       {
