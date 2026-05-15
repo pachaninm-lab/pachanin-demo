@@ -9,10 +9,10 @@ const links = [
 export default function DemoRunPage() {
   return (
     <main style={{ display: 'grid', gap: 16 }}>
-      <section style={{ background: '#0F1419', color: '#fff', borderRadius: 24, padding: 22, display: 'grid', gap: 10 }}>
-        <p style={{ margin: 0, color: '#9FE3CC', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Пилотный сценарий</p>
-        <h1 style={{ margin: 0, fontSize: 'clamp(30px,7.5vw,52px)', lineHeight: 1.04, letterSpacing: '-0.045em' }}>Цикл: торги → логистика → рейс → контроль</h1>
-        <p style={{ margin: 0, color: '#CBD5E1', fontSize: 15, lineHeight: 1.55 }}>Показан один связанный сценарий без заявления боевых внешних подключений.</p>
+      <section style={{ background: '#fff', color: '#0F1419', border: '1px solid #E4E6EA', borderRadius: 20, padding: 22, display: 'grid', gap: 10 }}>
+        <p style={{ margin: 0, color: '#0A7A5F', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Маршрут исполнения</p>
+        <h1 style={{ margin: 0, fontSize: 'clamp(28px,7vw,44px)', lineHeight: 1.08 }}>Цикл: торги → логистика → рейс → контроль</h1>
+        <p style={{ margin: 0, color: '#5B6576', fontSize: 15, lineHeight: 1.55 }}>Показан один связанный маршрут сделки без заявления внешних подключений.</p>
       </section>
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
         {steps.map((step, index) => (

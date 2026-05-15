@@ -40,8 +40,8 @@ export const PLATFORM_V7_DEMO_TOUR_STEPS: PlatformV7DemoTourStep[] = [
     route: '/platform-v7/logistics',
     durationMs: 26000,
     title: 'Логистика и контроль',
-    narration: 'Маршрут, ETA, водитель, документы перевозки и отклонения видны оператору до приёмки.',
-    highlights: ['route-map', 'eta', 'transport-documents'],
+    narration: 'Маршрут, срок прибытия, водитель, документы перевозки и отклонения видны оператору до приёмки.',
+    highlights: ['route-map', 'arrival-window', 'transport-documents'],
   },
   {
     id: 'acceptance-quality',
@@ -58,8 +58,8 @@ export const PLATFORM_V7_DEMO_TOUR_STEPS: PlatformV7DemoTourStep[] = [
     route: '/platform-v7/bank',
     durationMs: 30000,
     title: 'Деньги и спорность',
-    narration: 'Деньги выпускаются только после закрытия документов, приёмки, качества, банковского события и отсутствия активного спора.',
-    highlights: ['reserve-ledger', 'hold-release', 'bank-callback'],
+    narration: 'Банк подтверждает основание только после закрытия документов, приёмки, качества, банковского события и отсутствия активного спора.',
+    highlights: ['reserve-ledger', 'hold-status', 'bank-event'],
   },
 ];
 

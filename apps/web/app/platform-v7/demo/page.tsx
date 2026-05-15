@@ -5,29 +5,29 @@ const FLOW_STEPS = [
   { title: 'Получить ставку', role: 'Покупатель', status: 'есть предложение по цене', blocker: 'предложение ещё не принято', impact: 'резерв ещё не открыт', href: '/platform-v7/buyer', cta: 'Открыть ставки' },
   { title: 'Принять предложение', role: 'Продавец', status: 'цена согласована', blocker: 'сделка ещё не создана', impact: 'можно переходить к резерву', href: '/platform-v7/seller', cta: 'Открыть предложения' },
   { title: 'Создать сделку', role: 'Оператор', status: 'сделка собрана', blocker: 'нужен запрос резерва', impact: 'деньги переходят в банковский контур', href: '/platform-v7/control-tower', cta: 'Открыть контроль сделки' },
-  { title: 'Запросить резерв', role: 'Банк', status: 'запрос отправлен', blocker: 'ответ банка ожидается', impact: 'выпуск денег ещё невозможен', href: '/platform-v7/bank', cta: 'Открыть банк' },
-  { title: 'Подтвердить резерв', role: 'Банк', status: 'резерв подтверждён в тестовом сценарии', blocker: 'требуются логистика и документы', impact: 'резерв виден как контейнер MoneyTree', href: '/platform-v7/bank', cta: 'Открыть MoneyTree' },
+  { title: 'Запросить резерв', role: 'Банк', status: 'запрос отправлен', blocker: 'ответ банка ожидается', impact: 'деньги остаются в статусе проверки', href: '/platform-v7/bank', cta: 'Открыть банк' },
+  { title: 'Подтвердить резерв', role: 'Банк', status: 'резерв отражён в банковском контуре', blocker: 'требуются логистика и документы', impact: 'резерв связан с документами сделки', href: '/platform-v7/bank', cta: 'Проверить резерв' },
   { title: 'Назначить логистику', role: 'Логистика', status: 'рейс назначен', blocker: 'нужны машина и водитель', impact: 'транспортный пакет ещё неполный', href: '/platform-v7/logistics', cta: 'Открыть рейс' },
-  { title: 'Закрыть рейс', role: 'Водитель', status: 'рейс проходит field-события', blocker: 'фото, GPS, пломба и вес должны быть отправлены', impact: 'без закрытия рейса выпуск денег блокируется', href: '/platform-v7/driver/field', cta: 'Открыть рейс водителя' },
+  { title: 'Закрыть рейс', role: 'Водитель', status: 'рейс проходит полевые события', blocker: 'фото, GPS, пломба и вес должны быть отправлены', impact: 'без закрытия рейса банк не видит основание', href: '/platform-v7/driver/field', cta: 'Открыть рейс водителя' },
   { title: 'Подтвердить приёмку', role: 'Элеватор', status: 'вес и пломба зафиксированы', blocker: 'расхождение веса создаёт остановку', impact: 'может появиться удержание', href: '/platform-v7/elevator', cta: 'Открыть приёмку' },
   { title: 'Загрузить лабораторию', role: 'Лаборатория', status: 'качество проверяется', blocker: 'протокол должен быть загружен', impact: 'отклонение качества влияет на спор и удержание', href: '/platform-v7/lab', cta: 'Открыть лабораторию' },
   { title: 'Проверить документы', role: 'Банк / оператор', status: 'пакет документов сверяется', blocker: 'нет подписи или внешнего ответа', impact: 'деньги остаются в резерве до основания', href: '/platform-v7/bank', cta: 'Проверить документы' },
-  { title: 'Выпуск или удержание', role: 'Банк', status: 'банк получил основание', blocker: 'спор или ручная проверка могут остановить выпуск', impact: 'банк подтверждает выпуск или удержание', href: '/platform-v7/bank', cta: 'Открыть проверку выпуска' },
+  { title: 'Основание или удержание', role: 'Банк', status: 'банк получил основание', blocker: 'спор или ручная проверка могут остановить подтверждение', impact: 'банк подтверждает основание или удержание', href: '/platform-v7/bank', cta: 'Открыть проверку основания' },
   { title: 'Открыть спор', role: 'Арбитр', status: 'сумма под риском выделена', blocker: 'нужны доказательства', impact: 'удержание остаётся до решения', href: '/platform-v7/disputes', cta: 'Открыть спор' },
-  { title: 'Закрыть по доказательствам', role: 'Арбитр / оператор', status: 'решение требует основания', blocker: 'без причины спор не закрывается', impact: 'решение объясняет влияние на удержание и выпуск', href: '/platform-v7/disputes', cta: 'Открыть доказательства' },
+  { title: 'Закрыть по доказательствам', role: 'Арбитр / оператор', status: 'решение требует основания', blocker: 'без причины спор не закрывается', impact: 'решение объясняет влияние на удержание и статус денег', href: '/platform-v7/disputes', cta: 'Открыть доказательства' },
 ] as const;
 
 export default function DemoModePage() {
   return (
     <div style={{ display: 'grid', gap: 20 }}>
       <section data-testid="platform-v7-demo-flow-hero" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 28, fontWeight: 900, color: '#0F1419' }}>Демо-сценарий исполнения сделки</div>
+        <div style={{ fontSize: 28, fontWeight: 900, color: '#0F1419' }}>Маршрут исполнения сделки</div>
         <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, maxWidth: 920 }}>
-          Отдельный тестовый сценарий на 3–5 минут. Он показывает весь путь зерновой сделки: лот, ставка, сделка, резерв, логистика, рейс, приёмка, лаборатория, документы, выпуск или удержание денег, спор, доказательства и решение. Сценарий не заявляет live-интеграции и не подменяет рабочие кабинеты.
+          Проверочный маршрут на 3–5 минут показывает путь зерновой сделки: лот, ставка, сделка, резерв, логистика, рейс, приёмка, лаборатория, документы, банковское основание, удержание, спор, доказательства и решение. Маршрут не заявляет внешние подключения и не подменяет рабочие контуры ролей.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Link href="/platform-v7/demo/deals/DL-9103" style={{ padding: '12px 16px', borderRadius: 12, background: '#0A7A5F', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>Запустить демо сделки</Link>
-          <Link href="/platform-v7/investor" style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', textDecoration: 'none', fontWeight: 700 }}>Открыть инвесторский режим</Link>
+          <Link href="/platform-v7/demo/deals/DL-9103" style={{ padding: '12px 16px', borderRadius: 12, background: '#0A7A5F', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>Открыть карточку сделки</Link>
+          <Link href="/platform-v7/execution-map" style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', textDecoration: 'none', fontWeight: 700 }}>Открыть карту исполнения</Link>
         </div>
       </section>
 

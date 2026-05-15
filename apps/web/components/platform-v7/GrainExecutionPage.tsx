@@ -201,7 +201,7 @@ function SummaryStrip({ role }: { readonly role: UserRole }) {
   return (
     <P7Section surface='card' eyebrow='Операционный статус' title='Цепочка партии до денег' subtitle={summary.currentState}>
       <div style={gridStyle}>
-        <MetricCard label='к выпуску через банк' value={summary.moneySummary ? formatMoney(summary.moneySummary.readyToReleaseAmount) : '—'} note='Только после закрытия документов, СДИЗ и ручных проверок.' tone='money' />
+        <MetricCard label='к подтверждению банком' value={summary.moneySummary ? formatMoney(summary.moneySummary.readyToReleaseAmount) : '—'} note='Только после закрытия документов, СДИЗ и ручных проверок.' tone='money' />
         <MetricCard label='под удержанием' value={summary.moneySummary ? formatMoney(summary.moneySummary.heldAmount) : '—'} note='Удерживается только спорная часть.' tone='warn' />
         <MetricCard label='документы' value={summary.documentSummary ? `${summary.documentSummary.ready}/${summary.documentSummary.total}` : '—'} note='Документы являются допуском действий и денег.' />
         <MetricCard label='поддержка' value={summary.supportSummary ? String(summary.supportSummary.openCases) : '—'} note={summary.supportSummary?.nextActionTitle ?? 'Автообращения создаются из причин остановки.'} tone={summary.supportSummary?.criticalCases ? 'bad' : 'neutral'} />
@@ -285,14 +285,14 @@ function NetbackPanel() {
 function SdizPanel() {
   const ctx = getGrainExecutionContext();
   return (
-    <P7Section surface='card' eyebrow='СДИЗ и ФГИС' title='СДИЗ как допуск действий' subtitle='Статусы показаны честно: тестовый контур или ручная проверка. Реального внешнего подключения не заявлено.'>
+    <P7Section surface='card' eyebrow='СДИЗ и ФГИС' title='СДИЗ как допуск действий' subtitle='Статусы показаны честно: ручная проверка или требуется внешнее подключение. Реального внешнего подключения не заявлено.'>
       <div style={gridStyle}>
         {ctx.sdizGates.map((gate) => (
           <div key={gate.id} style={cardStyle}>
             <Pill tone={['signed', 'sent', 'redeemed'].includes(gate.status) ? 'good' : gate.status === 'error' ? 'bad' : 'warn'}>{maturityLabel[gate.maturity]}</Pill>
             <p style={strongStyle}>{readableStatus(gate.operationType)}</p>
             <p style={microStyle}>Ответственный: {roleLabel[gate.responsibleRole]}. Статус: {readableStatus(gate.status)}.</p>
-            <p style={microStyle}>Блокирует: {gate.blockingShipment ? 'отгрузку, ' : ''}{gate.blockingAcceptance ? 'приёмку, ' : ''}{gate.blockingMoneyRelease ? 'выпуск денег' : 'нет критичной остановки'}.</p>
+            <p style={microStyle}>Блокирует: {gate.blockingShipment ? 'отгрузку, ' : ''}{gate.blockingAcceptance ? 'приёмку, ' : ''}{gate.blockingMoneyRelease ? 'статус денег' : 'нет критичной остановки'}.</p>
           </div>
         ))}
       </div>
@@ -352,15 +352,15 @@ function WeightQualityPanel({ mode }: { readonly mode: 'quality' | 'weight' | 'b
 function MoneyPanel() {
   const ctx = getGrainExecutionContext();
   return (
-    <P7Section surface='card' eyebrow='Деньги' title='Частичный выпуск и удержание только спорной части' subtitle='Платформа не заявляет самостоятельный выпуск денег. Показано основание для банковского подтверждения.'>
+    <P7Section surface='card' eyebrow='Деньги' title='Банковское основание и удержание спорной части' subtitle='Платформа показывает основание, документы, статус и удержание для банковского подтверждения.'>
       <div style={gridStyle}>
         <MetricCard label='сумма сделки' value={formatMoney(ctx.moneyProjection.grossDealAmount)} />
         <MetricCard label='зарезервировано' value={formatMoney(ctx.moneyProjection.reservedAmount)} tone='money' />
-        <MetricCard label='к выпуску через банк' value={formatMoney(ctx.moneyProjection.readyToReleaseAmount)} tone='money' />
+        <MetricCard label='к подтверждению банком' value={formatMoney(ctx.moneyProjection.readyToReleaseAmount)} tone='money' />
         <MetricCard label='под удержанием' value={formatMoney(ctx.moneyProjection.heldAmount)} tone='warn' />
         <MetricCard label='спорная часть' value={formatMoney(ctx.moneyProjection.disputedAmount)} tone='bad' />
       </div>
-      <div style={gridStyle}>{ctx.moneyProjection.adjustments.map((adjustment) => <div key={adjustment.id} style={cardStyle}><Pill tone={adjustment.status === 'disputed' ? 'bad' : 'warn'}>{readableStatus(adjustment.status)}</Pill><p style={strongStyle}>{adjustment.title}</p><p style={microStyle}>{formatMoney(adjustment.amount)}. Частичный выпуск: {adjustment.allowsPartialRelease ? 'доступен' : 'нет'}.</p></div>)}</div>
+      <div style={gridStyle}>{ctx.moneyProjection.adjustments.map((adjustment) => <div key={adjustment.id} style={cardStyle}><Pill tone={adjustment.status === 'disputed' ? 'bad' : 'warn'}>{readableStatus(adjustment.status)}</Pill><p style={strongStyle}>{adjustment.title}</p><p style={microStyle}>{formatMoney(adjustment.amount)}. Частичное подтверждение: {adjustment.allowsPartialRelease ? 'доступно' : 'нет'}.</p></div>)}</div>
       {ctx.moneyProjection.nextAction ? <ActionLink action={ctx.moneyProjection.nextAction} /> : null}
     </P7Section>
   );
@@ -408,9 +408,9 @@ function SupportAndAuditPanel() {
 }
 
 function DemoFlowPanel() {
-  const steps = ['Партия создана', 'Готовность рассчитана', 'Лот создан из партии', 'RFQ подобрал партию', 'Оффер принят', 'Деньги зарезервированы в тестовом статусе', 'СДИЗ поставлен как допуск', 'Логистика назначена', 'Водитель прибыл', 'Элеватор зафиксировал вес', 'Проба передана в лабораторию', 'Качество создало удержание', 'Спор открыт на конкретную сумму', 'Доказательства собраны', 'Банк видит основание частичного выпуска'];
+  const steps = ['Партия создана', 'Готовность рассчитана', 'Лот создан из партии', 'RFQ подобрал партию', 'Оффер принят', 'Резерв отражён в банковском контуре', 'СДИЗ поставлен как допуск', 'Логистика назначена', 'Водитель прибыл', 'Элеватор зафиксировал вес', 'Проба передана в лабораторию', 'Качество создало удержание', 'Спор открыт на конкретную сумму', 'Доказательства собраны', 'Банк видит основание частичного подтверждения'];
   return (
-    <P7Section surface='card' eyebrow='Демо 3–5 минут' title='Сквозной сценарий от партии до денег' subtitle='Показывает controlled-pilot логику без заявлений о боевых интеграциях.'>
+    <P7Section surface='card' eyebrow='Маршрут 3–5 минут' title='Сквозной сценарий от партии до денег' subtitle='Показывает логику исполнения без заявлений о внешних подключениях.'>
       <div style={gridStyle}>{steps.map((step, index) => <div key={step} style={cardStyle}><Pill>{String(index + 1).padStart(2, '0')}</Pill><p style={strongStyle}>{step}</p></div>)}</div>
     </P7Section>
   );
@@ -442,7 +442,7 @@ function pageTitle(mode: GrainExecutionPageMode): string {
     'deal-weight': 'Весовой баланс',
     'deal-sdiz': 'СДИЗ и ФГИС',
     'deal-release': 'Выпуск и удержание денег',
-    'demo-flow': 'Сквозной демо-сценарий',
+    'demo-flow': 'Сквозной маршрут сделки',
   };
   return titles[mode];
 }
