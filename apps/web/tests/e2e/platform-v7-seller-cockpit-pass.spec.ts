@@ -16,6 +16,6 @@ test.describe('platform-v7 seller cockpit entry', () => {
     await expect(page.locator('body')).toContainText('не выплата');
     await expect(page.locator('body')).toContainText('ждёт основание');
     await expect(page.locator('body')).toContainText('Закрыть СДИЗ и ЭТрН');
-    await expect(page.locator('body')).not.toContainText(/платформа гарантирует оплату|платформа сама выпускает деньги|production-ready|fully live/i);
+    await expect(page.locator('body')).not.toContainText(/платформа гарантирует оплату|платформа сама выпускает деньги|production-ready|fully live|fully integrated/i);
   });
 });
