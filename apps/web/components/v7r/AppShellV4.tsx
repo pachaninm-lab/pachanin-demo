@@ -51,14 +51,14 @@ const ROLE_LABELS: Record<PlatformRole, string> = {
 };
 
 const ROLE_STAGE: Record<PlatformRole, { label: string; tone: 'pilot' | 'test' | 'field' }> = {
-  operator: { label: 'Пилотный режим', tone: 'pilot' },
-  buyer: { label: 'Пилотный режим', tone: 'pilot' },
-  seller: { label: 'Пилотный режим', tone: 'pilot' },
-  logistics: { label: 'Пилотный режим', tone: 'pilot' },
-  executive: { label: 'Пилотный режим', tone: 'pilot' },
-  bank: { label: 'Тестовая среда', tone: 'test' },
-  arbitrator: { label: 'Тестовая среда', tone: 'test' },
-  compliance: { label: 'Тестовая среда', tone: 'test' },
+  operator: { label: 'Рабочий контур', tone: 'pilot' },
+  buyer: { label: 'Рабочий контур', tone: 'pilot' },
+  seller: { label: 'Рабочий контур', tone: 'pilot' },
+  logistics: { label: 'Рабочий контур', tone: 'pilot' },
+  executive: { label: 'Рабочий контур', tone: 'pilot' },
+  bank: { label: 'Контур проверки', tone: 'test' },
+  arbitrator: { label: 'Контур проверки', tone: 'test' },
+  compliance: { label: 'Контур проверки', tone: 'test' },
   driver: { label: 'Полевой режим', tone: 'field' },
   surveyor: { label: 'Полевой режим', tone: 'field' },
   elevator: { label: 'Полевой режим', tone: 'field' },
