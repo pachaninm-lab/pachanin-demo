@@ -1,10 +1,10 @@
 import { GrainActionFeedbackPanel } from '@/components/platform-v7/GrainActionFeedbackPanel';
-import { GrainExecutionPage } from '@/components/platform-v7/GrainExecutionPage';
+import { GrainReleaseCockpit } from '@/components/platform-v7/GrainReleaseCockpit';
 
 export default function PlatformV7DealReleasePage() {
   return (
     <>
-      <GrainExecutionPage mode='deal-release' role='bank' />
+      <GrainReleaseCockpit role='bank' />
       <GrainActionFeedbackPanel role='bank' />
     </>
   );
