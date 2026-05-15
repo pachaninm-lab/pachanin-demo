@@ -24,6 +24,21 @@ const roleLabels: Record<DealRole, string> = {
   seller: 'Продавец', buyer: 'Покупатель', logistics: 'Логистика', driver: 'Водитель', elevator: 'Элеватор', lab: 'Лаборатория', surveyor: 'Сюрвейер', bank: 'Банк', arbiter: 'Арбитр', compliance: 'Комплаенс', operator: 'Оператор', executive: 'Руководитель',
 };
 
+const roleFocusLabels: Record<DealRole, string> = {
+  seller: 'получение денег и документы',
+  buyer: 'резерв, качество и приёмка',
+  logistics: 'рейс, сроки и доказательства',
+  driver: 'текущий рейс',
+  elevator: 'вес, приёмка и акт',
+  lab: 'качество и протокол',
+  surveyor: 'доказательства и расхождения',
+  bank: 'основания для выпуска денег',
+  arbiter: 'спор и доказательства',
+  compliance: 'документы и риск допуска',
+  operator: 'снятие блокеров сделки',
+  executive: 'деньги под риском и контроль',
+};
+
 const stepLabels: Record<DealStepStatus, string> = { done: 'Выполнено', active: 'В работе', pending: 'Ожидает', blocked: 'Остановлено', review: 'Проверка' };
 
 const roleSections: Record<DealRole, Array<'money' | 'documents' | 'execution' | 'evidence' | 'timeline' | 'risk'>> = {
@@ -56,7 +71,7 @@ function StatusBar({ deal, role }: { deal: DealViewModel; role: DealRole }) {
   const mainDocument = deal.documents.find((doc) => doc.status !== 'ready');
   return (
     <section className={styles.statusBar} aria-label="Состояние сделки">
-      <div className={styles.statusTitle}><div className={styles.eyebrow}>{roleLabels[role]} · {balanceLabel}</div><h1>{limitPremiumText(deal.title, premiumTextLimits.title)}</h1><p>{limitPremiumText(deal.currentState, premiumTextLimits.description)}</p></div>
+      <div className={styles.statusTitle}><div className={styles.eyebrow}>{roleLabels[role]} · {roleFocusLabels[role]} · {balanceLabel}</div><h1>{limitPremiumText(deal.title, premiumTextLimits.title)}</h1><p>{limitPremiumText(deal.currentState, premiumTextLimits.description)}</p></div>
       <div className={styles.fact}><span>Сделка</span><strong>{deal.id}</strong></div>
       <div className={styles.fact}><span>Документ</span><strong>{limitPremiumText(mainDocument?.title ?? 'основания готовы', 52)}</strong></div>
       <div className={styles.fact}><span>Резерв</span><strong>{formatPremiumRubCompact(deal.money.reservedRub)}</strong></div>
