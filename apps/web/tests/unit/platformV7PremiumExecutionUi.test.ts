@@ -268,3 +268,4 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('min-height: 64px');
     expect(css).toContain('min-height: 56px');
   });
+});
