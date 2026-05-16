@@ -7,6 +7,8 @@ const webRoot = existsSync(join(process.cwd(), 'app/platform-v7')) ? process.cwd
 const read = (relativePath: string) => readFileSync(join(webRoot, relativePath), 'utf8');
 
 const guardedFiles = [
+  'app/platform-v7/ai/page.tsx',
+  'app/platform-v7/assistant/page.tsx',
   'app/platform-v7/auth/page.tsx',
   'app/platform-v7/bank/escrow/page.tsx',
   'app/platform-v7/bank/events/page.tsx',

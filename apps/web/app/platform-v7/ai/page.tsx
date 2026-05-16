@@ -64,7 +64,7 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
   operator: {
     title: 'AI-оператор исполнения',
     subtitle: 'Блокеры, владелец шага, документы, деньги под риском и ручные эскалации.',
-    promise: 'Даёт следующий подтверждённый ход по экрану без fake-live обещаний.',
+    promise: 'Даёт следующий подтверждённый ход по экрану без недостоверных обещаний.',
     icon: LayoutDashboard,
     questions: ['Почему выпуск заблокирован?', 'Кто держит следующий шаг?', 'Каких документов не хватает?', 'Куда идти дальше?'],
     actions: [
@@ -72,21 +72,21 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
       { label: 'Сделки', href: '/platform-v7/deals', note: 'Перейти в реестр сделок' },
       { label: 'Споры', href: '/platform-v7/disputes', note: 'Открыть спорный контур' },
     ],
-    scopes: ['owner / blocker / next action', 'docs completeness', 'hold / release / disputes'],
-    limits: ['не рисует live вместо sandbox', 'не выпускает деньги сам', 'не закрывает спор без регламента'],
+    scopes: ['owner / blocker / next action', 'docs completeness', 'hold / bank confirmation / disputes'],
+    limits: ['не заявляет внешнее подключение без подтверждения', 'не подменяет банк', 'не закрывает спор без регламента'],
   },
   buyer: {
     title: 'AI-помощник покупателя',
     subtitle: 'Качество, приёмка, резерв денег и путь до расчёта.',
-    promise: 'Сводит цену риска, качество партии и шаг до выпуска денег.',
+    promise: 'Сводит цену риска, качество партии и шаг до банковского подтверждения.',
     icon: Banknote,
     questions: ['Почему деньги стоят?', 'Что по качественной дельте?', 'Каких документов не хватает?', 'Куда идти дальше?'],
     actions: [
       { label: 'Кабинет покупателя', href: '/platform-v7/buyer', note: 'Открыть контекст покупателя' },
       { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки покупателя' },
-      { label: 'Банк', href: '/platform-v7/bank', note: 'Проверить резерв и release' },
+      { label: 'Банк', href: '/platform-v7/bank', note: 'Проверить резерв, удержание и основание' },
     ],
-    scopes: ['резерв / release', 'качество и приёмка', 'обязательные документы'],
+    scopes: ['резерв / удержание', 'качество и приёмка', 'обязательные документы'],
     limits: ['не меняет результат лаборатории', 'не подменяет банковое решение', 'не подтверждает чужие документы'],
   },
   seller: {
@@ -94,7 +94,7 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
     subtitle: 'Документы продавца, удержания, REVIEW и путь к выплате.',
     promise: 'Показывает, что мешает получить деньги и какой пакет закрыть первым.',
     icon: Wheat,
-    questions: ['Почему лот в REVIEW?', 'Каких документов не хватает?', 'Что нужно для выпуска денег?', 'Куда идти дальше?'],
+    questions: ['Почему лот в REVIEW?', 'Каких документов не хватает?', 'Что нужно для банковского подтверждения?', 'Куда идти дальше?'],
     actions: [
       { label: 'Кабинет продавца', href: '/platform-v7/seller', note: 'Открыть выплаты и пакет продавца' },
       { label: 'Лоты', href: '/platform-v7/lots', note: 'Открыть текущие лоты' },
@@ -114,8 +114,8 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
       { label: 'Водитель', href: '/platform-v7/driver', note: 'Перейти в маршрут водителя' },
       { label: 'Приёмка', href: '/platform-v7/elevator', note: 'Открыть окно разгрузки' },
     ],
-    scopes: ['маршрут / ETA / arrival', 'транспортные документы', 'связь с hold / release'],
-    limits: ['не рисует fake-live GPS', 'не закрывает приёмку без подтверждения', 'не выпускает деньги без downstream шагов'],
+    scopes: ['маршрут / ETA / arrival', 'транспортные документы', 'связь с hold / bank confirmation'],
+    limits: ['не заявляет внешний GPS без подтверждения', 'не закрывает приёмку без подтверждения', 'не передаёт банку основание без downstream шагов'],
   },
   driver: {
     title: 'AI-помощник водителя',
@@ -161,7 +161,7 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
   lab: {
     title: 'AI-помощник лаборатории',
     subtitle: 'Проба, протокол, повторный анализ и качественная дельта.',
-    promise: 'Связывает результат анализа со спором или выпуском денег.',
+    promise: 'Связывает результат анализа со спором или банковским подтверждением.',
     icon: FlaskConical,
     questions: ['Что по качественной дельте?', 'Нужен ли повторный анализ?', 'Что передать в спор?', 'Куда идти дальше?'],
     actions: [
@@ -170,21 +170,21 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
       { label: 'Споры', href: '/platform-v7/disputes', note: 'Перейти в спорный контур' },
     ],
     scopes: ['проба / протокол / версия', 'повторный анализ', 'влияние на расчёт'],
-    limits: ['не выпускает деньги сам', 'не закрывает спор без процедуры', 'не подменяет независимый осмотр'],
+    limits: ['не подменяет банк', 'не закрывает спор без процедуры', 'не подменяет независимый осмотр'],
   },
   bank: {
     title: 'AI-помощник банка',
-    subtitle: 'Резерв, hold, callbacks, release и конфликт статусов.',
+    subtitle: 'Резерв, hold, callbacks, банковское подтверждение и конфликт статусов.',
     promise: 'Показывает, какой банковый шаг допустим следующим.',
     icon: Landmark,
-    questions: ['Почему hold не снят?', 'Что нужно для release?', 'Есть ли конфликт callback?', 'Куда идти дальше?'],
+    questions: ['Почему hold не снят?', 'Что нужно для банковского подтверждения?', 'Есть ли конфликт callback?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Банковый контур', href: '/platform-v7/bank', note: 'Открыть reserve / hold / release' },
+      { label: 'Банковый контур', href: '/platform-v7/bank', note: 'Открыть reserve / hold / bank confirmation' },
       { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки с резервом' },
       { label: 'Удержания', href: '/platform-v7/disputes', note: 'Открыть спорные удержания' },
     ],
-    scopes: ['reserve / hold / release', 'callbacks и mismatch', 'документы для банка'],
-    limits: ['не подменяет банковую систему', 'не даёт фальшивый live-proof', 'не проводит платёж без правил'],
+    scopes: ['reserve / hold / bank confirmation', 'callbacks и mismatch', 'документы для банка'],
+    limits: ['не подменяет банковую систему', 'не заявляет банковский proof без ответа банка', 'не проводит платёж без правил'],
   },
   arbitrator: {
     title: 'AI-помощник арбитра',
@@ -212,20 +212,20 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
       { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки под контролем' },
     ],
     scopes: ['допуск и полномочия', 'обязательные документы', 'граница зрелости'],
-    limits: ['не выдаёт sandbox за live', 'не заменяет юриста по конкретному кейсу', 'не закрывает AML/KYC за банк'],
+    limits: ['не выдаёт проверочный режим за внешний контур', 'не заменяет юриста по конкретному кейсу', 'не закрывает AML/KYC за банк'],
   },
   executive: {
     title: 'AI-помощник руководителя',
-    subtitle: 'Деньги под риском, топ-блокеры, срыв пилота и прогресс контура.',
+    subtitle: 'Деньги под риском, топ-блокеры, срыв проверки и прогресс контура.',
     promise: 'Собирает управленческую картину без воды.',
     icon: Sparkles,
-    questions: ['Где главный риск пилота?', 'Какие деньги под риском?', 'Что мешает следующему шагу?', 'Куда идти дальше?'],
+    questions: ['Где главный риск проверки?', 'Какие деньги под риском?', 'Что мешает следующему шагу?', 'Куда идти дальше?'],
     actions: [
       { label: 'Сводка', href: '/platform-v7/executive', note: 'Открыть сводку руководителя' },
       { label: 'Control Tower', href: '/platform-v7/control-tower', note: 'Открыть операционный центр' },
       { label: 'Банк', href: '/platform-v7/bank', note: 'Открыть деньги и hold' },
     ],
-    scopes: ['pilot health', 'деньги под риском', 'следующий критический шаг'],
+    scopes: ['контур проверки', 'деньги под риском', 'следующий критический шаг'],
     limits: ['не скрывает незакрытые блокеры', 'не рисует proof без сделок', 'не завышает зрелость'],
   },
 };
@@ -290,7 +290,7 @@ function buildSuggestedActions(role: PlatformRole, question: string, from: strin
   if ((lower.includes('выпуск') || lower.includes('release') || lower.includes('деньг') || lower.includes('hold')) && dealId) {
     return [
       { label: `Сделка ${dealId}`, href: `/platform-v7/deals/${dealId}`, note: 'Открыть owner, blocker и денежный статус' },
-      { label: 'Банк', href: '/platform-v7/bank', note: 'Проверить reserve / hold / release' },
+      { label: 'Банк', href: '/platform-v7/bank', note: 'Проверить reserve / hold / bank confirmation' },
       { label: disputeId ? `Спор ${disputeId}` : 'Споры', href: disputeId ? `/platform-v7/disputes/${disputeId}` : '/platform-v7/disputes', note: 'Открыть спор или удержание' },
     ];
   }
@@ -321,7 +321,7 @@ function buildSuggestedActions(role: PlatformRole, question: string, from: strin
 
   if (from.includes('/bank') || role === 'bank') {
     return [
-      { label: 'Банк', href: '/platform-v7/bank', note: 'Открыть reserve / hold / release' },
+      { label: 'Банк', href: '/platform-v7/bank', note: 'Открыть reserve / hold / bank confirmation' },
       { label: 'Сделки', href: '/platform-v7/deals', note: 'Проверить сделки, влияющие на деньги' },
       { label: 'Споры', href: '/platform-v7/disputes', note: 'Проверить спорные удержания' },
     ];
@@ -347,9 +347,9 @@ function buildResponse(role: PlatformRole, question: string, from: string): Resp
   if (lower.includes('документ') || lower.includes('пакет')) {
     return {
       headline: 'Фокус на полноте пакета',
-      summary: `AI в роли «${roleLabel}» сначала проверяет обязательный пакет для экрана «${screen}», затем ищет, какой документ держит следующий переход и влияет ли это на деньги или спор.`,
+      summary: `AI в роли «${roleLabel}» сначала проверяет обязательный пакет для экрана «${screen}», затем ищет, какой документ держит следующий переход и влияет ли это на резерв, удержание или спор.`,
       sources: ['document completeness', 'owner / next action', 'bank / dispute dependency'],
-      steps: ['Открой обязательный пакет по объекту.', 'Сними разрыв: кто должен загрузить или подписать следующий документ.', 'Проверь, откроет ли это release или только снимет REVIEW.'],
+      steps: ['Открой обязательный пакет по объекту.', 'Сними разрыв: кто должен загрузить или подписать следующий документ.', 'Проверь, откроет ли это банковское подтверждение или только снимет REVIEW.'],
       actions,
     };
   }
@@ -357,8 +357,8 @@ function buildResponse(role: PlatformRole, question: string, from: string): Resp
   if (lower.includes('выпуск') || lower.includes('release') || lower.includes('деньг') || lower.includes('hold')) {
     return {
       headline: 'Фокус на деньгах и блокерах',
-      summary: `AI проверяет reserve / hold / release, затем спорность и полноту документов. На экране «${screen}» он не обещает выпуск, если контур ещё держит hold или manual review.`,
-      sources: ['reserve / hold / release', 'callback / mismatch', 'docs / quality / dispute'],
+      summary: `AI проверяет reserve / hold / bank confirmation, затем спорность и полноту документов. На экране «${screen}» он не обещает банковское подтверждение, если контур ещё держит hold или manual review.`,
+      sources: ['reserve / hold / bank confirmation', 'callback / mismatch', 'docs / quality / dispute'],
       steps: ['Проверь, есть ли hold или manual blocker.', 'Сверь, закрыт ли quality / dispute контур.', 'Переходи в банковый или спорный экран, который меняет статус, а не просто показывает его.'],
       actions,
     };
@@ -437,7 +437,7 @@ export default function PlatformV7AiPage() {
           <div style={{ background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Граница</div>
             <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary)' }}>Только подтверждённый контур</div>
-            <div style={{ fontSize: 12, color: 'var(--pc-text-secondary)', lineHeight: 1.55 }}>AI не рисует live там, где sandbox, не выпускает деньги сам и не подменяет юридический или банковый контур.</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-secondary)', lineHeight: 1.55 }}>AI не заявляет внешний контур там, где нужна ручная проверка, не подменяет банк и не заменяет юридический контур.</div>
           </div>
         </div>
       </section>
