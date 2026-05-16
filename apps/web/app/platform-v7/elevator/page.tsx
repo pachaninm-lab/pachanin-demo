@@ -17,7 +17,7 @@ const elevatorHandoff: HandoffItem[] = [
   {
     direction: 'sends',
     role: 'элеватор → лабораторный контур качества',
-    requirement: 'проба и показатели качества — в пилотный протокол качества',
+    requirement: 'проба и показатели качества — в протокол качества',
     documentImpact: true,
   },
   {
@@ -57,7 +57,7 @@ const quality = [
   { label: 'Влажность', value: '13,1%', limit: 'допуск до 14%', state: 'ok' },
   { label: 'Клейковина', value: '23%', limit: 'минимум 21%', state: 'ok' },
   { label: 'Сорная примесь', value: '2,4%', limit: 'допуск до 2%', state: 'stop' },
-  { label: 'Протокол', value: 'ожидается', limit: 'пилотный контур качества', state: 'wait' },
+  { label: 'Протокол', value: 'ожидается', limit: 'контур качества', state: 'wait' },
 ] as const;
 
 const gates = [

@@ -11,8 +11,8 @@ describe('AuditSurfaceSummary', () => {
     expect(screen.getByTestId('platform-v7-audit-surface-bank')).toBeInTheDocument();
     expect(screen.getAllByText('Банковский контур').length).toBeGreaterThan(0);
     expect(screen.getByText('нет фальшивой выплаты')).toBeInTheDocument();
-    expect(screen.getByText(/выпуск не разрешён без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Проверить условия выпуска' })).toHaveAttribute('href', '/platform-v7/bank');
+    expect(screen.getByText(/банковское подтверждение не разрешено без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Проверить условия подтверждения' })).toHaveAttribute('href', '/platform-v7/bank');
   });
 
   it('renders the documents audit surface as a payout gate', () => {

@@ -29,7 +29,7 @@ export const OPERATOR_QUEUE_ITEMS: readonly OperatorQueueItem[] = [
     slaLabel: 'блокирует выплату',
     requiredAction: 'продавец отправляет СДИЗ и дожидается подтверждения от ФГИС «Зерно»',
     safeNextAction: 'открыть карточку сделки и проверить статус СДИЗ',
-    whyNotExecutable: 'пилотный контур ожидает ручного подтверждения ФГИС «Зерно» — автоматическое закрытие не предусмотрено',
+    whyNotExecutable: 'контур исполнения ожидает ручного подтверждения ФГИС «Зерно» — автоматическое закрытие не предусмотрено',
     href: '/platform-v7/deals/DL-9106/clean',
   },
   {
@@ -43,7 +43,7 @@ export const OPERATOR_QUEUE_ITEMS: readonly OperatorQueueItem[] = [
     slaLabel: 'блокирует приёмку',
     requiredAction: 'грузополучатель подписывает ЭТрН в СБИС / Saby',
     safeNextAction: 'открыть логистику и уточнить статус подписи',
-    whyNotExecutable: 'пилотный контур — подпись ЭТрН требует действия грузополучателя, не оператора',
+    whyNotExecutable: 'контур исполнения — подпись ЭТрН требует действия грузополучателя, не оператора',
     href: '/platform-v7/logistics',
   },
   {
@@ -55,9 +55,9 @@ export const OPERATOR_QUEUE_ITEMS: readonly OperatorQueueItem[] = [
     ownerRole: 'лаборатория',
     priority: 'wait',
     slaLabel: 'ожидание результата',
-    requiredAction: 'лабораторный контур качества выдаёт пилотный протокол',
+    requiredAction: 'лабораторный контур качества выдаёт протокол',
     safeNextAction: 'проверить статус заявки в элеваторе',
-    whyNotExecutable: 'пилотный контур ожидает внешнего лабораторного события — оператор не может ускорить выдачу',
+    whyNotExecutable: 'контур исполнения ожидает внешнего лабораторного события — оператор не может ускорить выдачу',
     href: '/platform-v7/elevator',
   },
   {
@@ -71,7 +71,7 @@ export const OPERATOR_QUEUE_ITEMS: readonly OperatorQueueItem[] = [
     slaLabel: 'спор требует решения',
     requiredAction: 'оператор инициирует проверку акта расхождения и фиксирует решение',
     safeNextAction: 'открыть карточку сделки и запустить процедуру урегулирования спора',
-    whyNotExecutable: 'пилотный контур — урегулирование спора требует ручной проверки документов и решения ответственного',
+    whyNotExecutable: 'контур исполнения — урегулирование спора требует ручной проверки документов и решения ответственного',
     href: '/platform-v7/deals/DL-9102/clean',
   },
 ];

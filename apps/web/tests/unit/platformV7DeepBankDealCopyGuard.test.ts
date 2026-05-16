@@ -1,0 +1,63 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const webRoot = existsSync(join(process.cwd(), 'app/platform-v7')) ? process.cwd() : join(process.cwd(), 'apps/web');
+
+const read = (relativePath: string) => readFileSync(join(webRoot, relativePath), 'utf8');
+
+const guardedFiles = [
+  'app/platform-v7/bank/escrow/page.tsx',
+  'app/platform-v7/bank/events/page.tsx',
+  'app/platform-v7/bank/factoring/page.tsx',
+  'app/platform-v7/bank/release-safety/page.tsx',
+  'app/platform-v7/buyer/page.tsx',
+  'app/platform-v7/elevator/page.tsx',
+  'app/platform-v7/seller/page.tsx',
+  'components/platform-v7/AuditSurfaceSummary.tsx',
+  'components/platform-v7/BankSmartContractsPanel.tsx',
+  'components/platform-v7/DecisionPackMiniPanel.tsx',
+  'components/platform-v7/DecisionRecommendationStrip.tsx',
+  'components/platform-v7/DocumentReadinessMiniMatrix.tsx',
+  'components/platform-v7/DocumentsMatrix.tsx',
+  'components/platform-v7/EvidenceReadinessMiniMatrix.tsx',
+  'components/platform-v7/P7DealWorkspaceTabs.tsx',
+  'components/platform-v7/P7EvidenceProjectionPanel.tsx',
+  'components/platform-v7/P7MoneySafetyAuditStrip.tsx',
+  'components/platform-v7/P7PersistenceQueueStatus.tsx',
+  'components/platform-v7/TestModeSystemsPanel.tsx',
+  'lib/platform-v7/integrations/providerRegistry.ts',
+  'lib/platform-v7/operator-execution-queue.ts',
+];
+
+const forbiddenVisibleCopy = [
+  'тестовый контур',
+  'пилотный контур',
+  'тестовый сценарий',
+  'Пилотный банковый модуль',
+  'Тестовый лимит',
+  'Симуляция ответов',
+  'controlled pilot',
+  'Controlled pilot',
+  'Persistence queue status',
+  'Evidence projection',
+  'Append-only',
+  'idempotent',
+  'Manual reconciliation',
+  'Timeline events',
+  'Evidence score',
+  'Projected timeline',
+  'Журнал evidence',
+  'демонстрационная модель',
+  'выпуск денег',
+];
+
+describe('platform-v7 deep bank and deal copy guard', () => {
+  it('keeps deep bank, deal and evidence surfaces on execution-contour wording', () => {
+    const source = guardedFiles.map(read).join('\n');
+
+    for (const copy of forbiddenVisibleCopy) {
+      expect(source, `deep platform-v7 copy must not contain "${copy}"`).not.toContain(copy);
+    }
+  });
+});

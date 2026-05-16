@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-const MATURITY = 'sandbox';
+const MATURITY = 'контур проверки';
 
 type ContractStatus = 'draft' | 'active' | 'condition_met' | 'released' | 'disputed';
 
@@ -19,7 +19,7 @@ interface SmartContract {
   amount: number;
   status: ContractStatus;
   conditions: ReleaseCondition[];
-  provider: 'sandbox_safe_deals' | 'manual';
+  provider: 'safe_deals_check' | 'manual';
 }
 
 const CONTRACTS: SmartContract[] = [
@@ -28,7 +28,7 @@ const CONTRACTS: SmartContract[] = [
     dealId: 'DL-9101',
     amount: 2_976_000,
     status: 'active',
-    provider: 'sandbox_safe_deals',
+    provider: 'safe_deals_check',
     conditions: [
       { id: 'c1', description: 'Деньги зарезервированы', met: true, metAt: '2026-04-18' },
       { id: 'c2', description: 'Транспортный gate закрыт', met: false },
@@ -41,7 +41,7 @@ const CONTRACTS: SmartContract[] = [
     dealId: 'DL-9102',
     amount: 2_160_000,
     status: 'condition_met',
-    provider: 'sandbox_safe_deals',
+    provider: 'safe_deals_check',
     conditions: [
       { id: 'c1', description: 'Деньги зарезервированы', met: true, metAt: '2026-04-15' },
       { id: 'c2', description: 'Транспортный gate закрыт', met: true, metAt: '2026-04-22' },
@@ -74,7 +74,7 @@ function fmt(n: number) {
 }
 
 function statusTone(status: ContractStatus) {
-  if (status === 'released') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Выпущено' };
+  if (status === 'released') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Подтверждено' };
   if (status === 'condition_met') return { bg: MONEY_BG, border: MONEY_BORDER, color: MONEY, label: 'Условия закрыты' };
   if (status === 'active') return { bg: WARN_BG, border: WARN_BORDER, color: WARN, label: 'Активен' };
   if (status === 'disputed') return { bg: ERR_BG, border: ERR_BORDER, color: ERR, label: 'Спор' };
@@ -88,14 +88,14 @@ export function BankSmartContractsPanel() {
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: M, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Условия выпуска · <span style={{ color: WARN }}>{MATURITY}</span>
+          Условия подтверждения · <span style={{ color: WARN }}>{MATURITY}</span>
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: T, marginTop: 4 }}>Контракты безопасной сделки</div>
-        {readyToRelease > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: MONEY, fontWeight: 700 }}>{readyToRelease} готово к банковому выпуску после guard-проверки</div> : null}
+        {readyToRelease > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: MONEY, fontWeight: 700 }}>{readyToRelease} готово к банковскому подтверждению после контрольной проверки</div> : null}
       </div>
 
       <div style={{ marginBottom: 12, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 10, padding: 10, fontSize: 12, color: WARN }}>
-        Интеграция: sandbox. Это демонстрационная модель условий, а не боевой банковый смарт-контракт.
+        Интеграция не заявлена. Это модель условий проверки, а не внешний банковский смарт-контракт.
       </div>
 
       <div style={{ display: 'grid', gap: 12 }}>

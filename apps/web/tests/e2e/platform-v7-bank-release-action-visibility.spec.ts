@@ -4,7 +4,7 @@ test('platform-v7 bank release safety hides direct money release when blockers e
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/platform-v7/bank/release-safety');
 
-  await expect(page.getByText('Проверка безопасности выпуска денег')).toBeVisible();
+  await expect(page.getByText('Банковская проверка выплаты')).toBeVisible();
   await expect(page.getByText('Закрыть условия').first()).toBeVisible();
   await expect(page.getByText('Запрос на банковскую проверку скрыт до закрытия причин остановки.').first()).toBeVisible();
   await expect(page.getByText('Причины остановки').first()).toBeVisible();

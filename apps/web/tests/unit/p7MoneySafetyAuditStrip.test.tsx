@@ -10,7 +10,7 @@ describe('P7MoneySafetyAuditStrip', () => {
     expect(screen.getByTestId('money-safety-audit-strip')).toBeInTheDocument();
     expect(screen.getByText('Проверка денег перед запросом в банк')).toBeInTheDocument();
     expect(screen.getByText(/Это основание для проверки, а не платёжный механизм платформы/)).toBeInTheDocument();
-    expect(screen.getByText('тестовый контур · без движения денег')).toBeInTheDocument();
+    expect(screen.getByText('контур проверки · без движения денег')).toBeInTheDocument();
     expect(screen.getByTestId('money-safety-audit-row-safe')).toBeInTheDocument();
     expect(screen.getByTestId('money-safety-audit-row-blocked')).toBeInTheDocument();
     expect(screen.getByTestId('money-safety-audit-row-review')).toBeInTheDocument();

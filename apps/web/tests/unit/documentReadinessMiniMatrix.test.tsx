@@ -59,10 +59,10 @@ describe('DocumentReadinessMiniMatrix component', () => {
     expect(screen.getAllByText('ответственный').length).toBeGreaterThan(0);
   });
 
-  it('uses controlled-pilot wording in bank role', () => {
+  it('uses execution-contour wording in bank role', () => {
     const { container } = render(<DocumentReadinessMiniMatrix role='bank' />);
     expect(container.innerHTML).toContain('ручная сверка оператором');
-    expect(container.innerHTML).toContain('пилотный контур');
+    expect(container.innerHTML).toContain('контур исполнения');
     expectNoUnsafeCopy(container.innerHTML);
   });
 

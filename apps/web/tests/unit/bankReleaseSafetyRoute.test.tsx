@@ -31,7 +31,7 @@ describe('BankReleaseSafetyPage', () => {
     render(<BankReleaseSafetyPage />);
 
     expect(screen.getByText(/Запрос к банку допустим только после закрытия условий/)).toBeInTheDocument();
-    expect(screen.getByText(/резерв, сумма к выплате, отсутствие удержания, документы/)).toBeInTheDocument();
+    expect(screen.getByText(/резерв, сумма к банковскому подтверждению, отсутствие удержания, документы/)).toBeInTheDocument();
     expect(screen.getByText(/ФГИС\/СДИЗ, рейс, приёмка, качество/)).toBeInTheDocument();
     expect(screen.getAllByText('К запросу').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Причины остановки').length).toBeGreaterThan(0);

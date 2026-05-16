@@ -31,7 +31,7 @@ describe('platform-v7 operational panel copy boundary', () => {
 
     expect(screen.getByText('Проверка денег перед запросом в банк')).toBeInTheDocument();
     expect(screen.getByText(/Это основание для проверки, а не платёжный механизм платформы/)).toBeInTheDocument();
-    expect(screen.getByText('тестовый контур · без движения денег')).toBeInTheDocument();
+    expect(screen.getByText('контур проверки · без движения денег')).toBeInTheDocument();
     expect(screen.getAllByText('Ключ операции').length).toBeGreaterThan(0);
 
     for (const pattern of OLD_MONEY_AUDIT_COPY) {
@@ -50,8 +50,8 @@ describe('platform-v7 operational panel copy boundary', () => {
     const text = container.textContent || '';
 
     expect(screen.getByText('Действия по сделке')).toBeInTheDocument();
-    expect(screen.getByText(/Все действия ниже фиксируют состояние, журнал и возможность отката в пилотном контуре/)).toBeInTheDocument();
-    expect(screen.getByText(/Они не заявляют боевое подключение к ФГИС, банку, ЭДО, СберКорус или УКЭП/)).toBeInTheDocument();
+    expect(screen.getByText(/Все действия ниже фиксируют состояние, журнал и возможность отката в контуре исполнения/)).toBeInTheDocument();
+    expect(screen.getByText(/Они не заявляют внешнее подключение к ФГИС, банку, ЭДО, СберКорус или УКЭП/)).toBeInTheDocument();
     expect(screen.getByText('Журнал действий')).toBeInTheDocument();
 
     for (const pattern of OLD_ACTION_PANEL_COPY) {

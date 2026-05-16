@@ -35,7 +35,7 @@ const ROLE_CASES = [
     route: '/platform-v7/bank/release-safety',
     role: 'bank-release-safety',
     hiddenText: ['прямой выпуск', 'выпустить сейчас', 'немедленная выплата'],
-    visibleText: ['Проверка безопасности выпуска денег', 'Закрыть условия'],
+    visibleText: ['Банковская проверка выплаты', 'Закрыть условия'],
   },
   {
     route: '/platform-v7/operator',
@@ -47,7 +47,7 @@ const ROLE_CASES = [
     route: '/platform-v7/investor',
     role: 'investor',
     hiddenText: ['я прибыл', 'начать погрузку', 'подтвердить выпуск денег', 'операторская очередь', 'выпустить сейчас', 'создать лот'],
-    visibleText: ['Инвесторский режим', 'controlled-pilot'],
+    visibleText: ['Инвесторский режим', 'Рабочий контур'],
   },
 ] as const;
 

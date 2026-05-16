@@ -104,7 +104,7 @@ export function DecisionPackMiniPanel({ context }: { context: DecisionPackContex
       </div>
 
       <div data-testid='platform-v7-decision-pack-note' style={{ color: '#94A3B8', fontSize: 11, lineHeight: 1.4, overflowWrap: 'anywhere' }}>
-        контролируемый пилот · ручная проверка · требует внешнего подтверждения перед исполнением
+        контур исполнения · ручная проверка · требует внешнего подтверждения перед исполнением
       </div>
     </section>
   );

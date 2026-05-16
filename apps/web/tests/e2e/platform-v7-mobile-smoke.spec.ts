@@ -7,8 +7,8 @@ const routes = [
   { path: '/platform-v7/elevator', text: 'Элеватор · прибытие → вес → проба → акт' },
   { path: '/platform-v7/lab', text: 'Лаборатория · проба → показатели → протокол' },
   { path: '/platform-v7/surveyor', text: 'Сюрвейер · осмотр → фото → расхождение → заключение' },
-  { path: '/platform-v7/deals/DL-9102/clean', text: 'Карточка сделки · пилотный контур' },
-  { path: '/platform-v7/bank/release-safety', text: 'Проверка безопасности выпуска денег' },
+  { path: '/platform-v7/deals/DL-9102/clean', text: 'Карточка сделки · контур исполнения' },
+  { path: '/platform-v7/bank/release-safety', text: 'Банковская проверка выплаты' },
 ] as const;
 
 const staleMobileCopy = [

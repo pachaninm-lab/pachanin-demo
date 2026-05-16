@@ -49,7 +49,7 @@ test.describe('platform-v7 final execution positioning check', () => {
     await assertRouteClean(page, '/platform-v7/bank/release-safety');
 
     const text = await bodyText(page);
-    expect(text).toContain('Проверка безопасности выпуска денег');
+    expect(text).toContain('Банковская проверка выплаты');
     expect(text).toContain('Закрыть условия');
     expect(text).toContain('Запрос к банку');
     expect(text).not.toMatch(/выпустить сейчас|прямой выпуск/i);

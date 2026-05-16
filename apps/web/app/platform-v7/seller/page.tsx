@@ -80,7 +80,7 @@ export default function PlatformV7SellerPage() {
       <MoneyImpactSummaryStrip
         amountContext='резерв 9,65 млн ₽ · на проверку банку 0 ₽'
         pilotState='waiting'
-        pilotStateLabel='пилотный контур · ожидание документов'
+        pilotStateLabel='контур исполнения · ожидание документов'
         responsible='продавец · ФГИС «Зерно»'
         nextStep='закрыть СДИЗ и ЭТрН для передачи основания банку на проверку'
         stopReason='банковская проверка остановлена: СДИЗ и ЭТрН не закрыты'
@@ -91,14 +91,14 @@ export default function PlatformV7SellerPage() {
 
       <P7ActionStateChip
         status='waiting'
-        label='пилотный сценарий'
+        label='контур исполнения'
         nextActor='ФГИС «Зерно» и банк'
         blocker='СДИЗ и ЭТрН не закрыты'
         moneyEffect='банковская проверка остановлена'
       />
 
       <ConditionReasonStrip
-        condition='пилотный сценарий'
+        condition='контур исполнения'
         responsible='ФГИС «Зерно» и банк'
         documentState='СДИЗ и ЭТрН не закрыты'
         stopReason='банковская проверка остановлена'

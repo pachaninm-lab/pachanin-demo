@@ -78,9 +78,9 @@ describe('operator-execution-queue data', () => {
     expect(dl9102!.ownerRole).toBe('оператор');
   });
 
-  it('every whyNotExecutable references пилотный контур', () => {
+  it('every whyNotExecutable references the execution contour', () => {
     for (const item of OPERATOR_QUEUE_ITEMS) {
-      expect(item.whyNotExecutable.toLowerCase()).toContain('пилотный контур');
+      expect(item.whyNotExecutable.toLowerCase()).toContain('контур исполнения');
     }
   });
 
@@ -142,10 +142,10 @@ describe('OperatorExecutionQueue component', () => {
     expect(whyNot).toHaveLength(4);
   });
 
-  it('renders пилотный контур · ручная проверка label', () => {
+  it('renders execution contour and manual review label', () => {
     render(React.createElement(OperatorExecutionQueue));
     const container = screen.getByTestId('platform-v7-operator-execution-queue');
-    expect(container.textContent).toContain('пилотный контур');
+    expect(container.textContent).toContain('контур исполнения');
     expect(container.textContent).toContain('ручная проверка');
   });
 

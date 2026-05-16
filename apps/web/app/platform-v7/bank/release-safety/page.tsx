@@ -73,7 +73,7 @@ export default function BankReleaseSafetyPage() {
       <P7PanelShell>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · тестовый контур</div>
+            <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · контур проверки</div>
             <div style={{ marginTop: 6, fontSize: 26, lineHeight: 1.1, fontWeight: 900, color: T }}>Банковская проверка выплаты</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 860 }}>
               Экран показывает, почему запрос в банк не должен обходить резерв, документы, ФГИС/СДИЗ, рейс, приёмку, качество, спор и удержание. Это контрольный экран, а не платёжный механизм.
@@ -102,7 +102,7 @@ export default function BankReleaseSafetyPage() {
             <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Зерновой контур</div>
             <div style={{ marginTop: 6, fontSize: 20, lineHeight: 1.15, fontWeight: 900, color: T }}>Основание выплаты по зерновой сделке</div>
             <div style={{ marginTop: 8, fontSize: 13, color: M, maxWidth: 760 }}>
-              Отдельный экран показывает частичную выплату, удержание спорной части, документы, СДИЗ и основание банковского подтверждения без заявления о самостоятельном платёжном механизме.
+              Отдельный экран показывает сумму к банковскому подтверждению, удержание спорной части, документы, СДИЗ и основание банковского подтверждения без заявления о самостоятельном платёжном механизме.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -113,13 +113,13 @@ export default function BankReleaseSafetyPage() {
       </P7PanelShell>
 
       <P7Notice title='Правило' tone='amber'>
-        Запрос к банку допустим только после закрытия условий: резерв, сумма к выплате, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.
+        Запрос к банку допустим только после закрытия условий: резерв, сумма к банковскому подтверждению, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.
       </P7Notice>
 
       <P7ExecutionMachineReadOnlyStrip compact />
 
       <P7PanelShell>
-        <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и условия выплаты</div>
+        <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и условия банковского подтверждения</div>
         <div style={{ display: 'grid', gap: 10 }}>
           {rows.map((row) => {
             const actionState = payoutReviewState(row);
