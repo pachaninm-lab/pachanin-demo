@@ -11,7 +11,7 @@ const metrics = [
   { label: 'Сделка', value: 'DL-9106', tone: 'neutral' },
   { label: 'Статус', value: 'под контролем', tone: 'good' },
   { label: 'Блокеров', value: '4', tone: 'warn' },
-  { label: 'К выпуску', value: '0 ₽', tone: 'bad' },
+  { label: 'К подтверждению', value: '0 ₽', tone: 'bad' },
 ] as const;
 
 export default function GrainReportsPage() {
