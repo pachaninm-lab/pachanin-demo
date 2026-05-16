@@ -74,9 +74,9 @@ function cleanCopy(value: string) {
     .replace(/\bgate\b/g, 'проверка')
     .replace(/\bblocker\b/g, 'препятствие')
     .replace(/\bcallback\b/g, 'событие банка')
-    .replace(/\brelease\b/g, 'выпуск денег')
+    .replace(/\brelease\b/g, 'банковское подтверждение')
     .replace(/\bsync\b/g, 'сверка')
-    .replace(/\bfake-live\b/g, 'демо-событие')
+    .replace(/\bfake-live\b/g, 'операционное событие')
     .replace(/\baudit\b/g, 'журнал');
 }
 
@@ -138,7 +138,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
         objectId: item.id,
         action: 'bank-callback',
         actor: 'Оператор платформы',
-        loadingMessage: `${item.id}: запрошено банковское демо-событие.`,
+        loadingMessage: `${item.id}: запрошено банковское подтверждение основания.`,
         successMessage: (data: { id: string; amountRub: number; ts: string }) => `${item.id}: банк подтвердил ${formatMoney(data.amountRub)}.`,
         errorMessage: () => `${item.id}: подтверждение банка не получено.`,
         run: async () => {
@@ -166,7 +166,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
   return (
     <P7Card
       title='Операторские действия'
-      subtitle='Прямо из центра управления: снять препятствие, увидеть журнал и получить демо-событие банка по выпуску денег.'
+      subtitle='Прямо из центра управления: снять препятствие, увидеть журнал и получить банковское подтверждение по основанию сделки.'
       testId='control-tower-operator-panel'
       footer={<OperatorAudit audit={audit} />}
     >
@@ -223,7 +223,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
                   <InfoCell label='Причины' value={item.reasonCodes.length ? item.reasonCodes.map(translateReason).join(' · ') : '—'} />
                   <InfoCell label='Следующий шаг' value={cleanCopy(item.nextStep ?? '—')} />
                   <InfoCell label='Следующий владелец' value={item.nextOwner ? translateRole(item.nextOwner) : '—'} />
-                  <InfoCell label='К выпуску денег' value={formatCompactMoney(item.releasableAmount)} />
+                  <InfoCell label='К подтверждению банком' value={formatCompactMoney(item.releasableAmount)} />
                 </div>
 
                 <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap' }}>

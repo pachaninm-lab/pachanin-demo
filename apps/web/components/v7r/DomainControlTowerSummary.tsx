@@ -16,7 +16,7 @@ export function DomainControlTowerSummary() {
   const formula = (key: MetricKey) => formatKpiFormula(key, kpis[key]);
   const moneyAtRiskFormula = `Деньги под риском = удержание + резервная надбавка по сделкам со спором или удержанием: ${canonicalKpis.moneyAtRisk}`;
   const holdFormula = `Под удержанием = сумма удержаний по сделкам: ${canonicalKpis.totalHold}`;
-  const readyToReleaseFormula = `К выпуску = сделки без открытых причин остановки: ${canonicalKpis.readyToRelease}`;
+  const readyToReleaseFormula = `К подтверждению = сделки без открытых причин остановки: ${canonicalKpis.readyToRelease}`;
 
   return (
     <section style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md }} aria-label='Сводка центра управления'>
@@ -50,8 +50,8 @@ export function DomainControlTowerSummary() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.md }}>
-        <P7MetricLinkCard testId='kpi-readyToRelease' title='К выпуску' value={formatCompactMoney(canonicalKpis.readyToRelease)} note='Деньги, которые ближе всего к подтверждению банком.' formula={readyToReleaseFormula} href='/platform-v7/bank' tone='success' />
-        <P7MetricLinkCard testId='kpi-heldAmount' title='Под удержанием' value={formatCompactMoney(canonicalKpis.totalHold)} note='Сумма, которую нельзя выпускать до закрытия причины остановки.' formula={holdFormula} href='/platform-v7/disputes' tone='danger' />
+        <P7MetricLinkCard testId='kpi-readyToRelease' title='К подтверждению' value={formatCompactMoney(canonicalKpis.readyToRelease)} note='Сумма, которая ближе всего к подтверждению банком.' formula={readyToReleaseFormula} href='/platform-v7/bank' tone='success' />
+        <P7MetricLinkCard testId='kpi-heldAmount' title='Под удержанием' value={formatCompactMoney(canonicalKpis.totalHold)} note='Сумма, которую нельзя передавать банку до закрытия причины остановки.' formula={holdFormula} href='/platform-v7/disputes' tone='danger' />
         <P7MetricLinkCard testId='kpi-moneyAtRisk' title='Деньги под риском' value={formatCompactMoney(canonicalKpis.moneyAtRisk)} note='Сумма, где есть спор, удержание или риск по исполнению.' formula={moneyAtRiskFormula} href='/platform-v7/disputes' tone='danger' />
         <P7MetricLinkCard testId='kpi-slaCritical' title='SLA срочно' value={String(kpis.slaCritical.value)} note='Сделки, по которым нужно действовать быстрее остальных.' formula={formula('slaCritical')} href='/platform-v7/deals' tone='danger' />
       </div>
