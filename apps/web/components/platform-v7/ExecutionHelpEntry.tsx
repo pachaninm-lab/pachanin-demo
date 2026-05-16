@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+const SUPPORT_STRIP_HIDDEN_ROUTES = new Set(['/platform-v7', '/platform-v7/roles']);
+
 function supportContext(pathname: string) {
   const dealId = pathname.split('/platform-v7/deals/')[1]?.split('/')[0];
   if (dealId) return { label: 'Нужна помощь по сделке', href: `/platform-v7/support/new?context=deal&dealId=${dealId}&entity=deal&entityId=${dealId}` };
@@ -16,7 +18,7 @@ function supportContext(pathname: string) {
 
 export function ExecutionHelpEntry() {
   const pathname = usePathname();
-  if (pathname.startsWith('/platform-v7/support')) return null;
+  if (pathname.startsWith('/platform-v7/support') || SUPPORT_STRIP_HIDDEN_ROUTES.has(pathname)) return null;
   const context = supportContext(pathname);
 
   return (
