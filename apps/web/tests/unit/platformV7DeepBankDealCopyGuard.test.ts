@@ -53,6 +53,7 @@ const guardedFiles = [
   'components/v7r/LiveDealDetailRuntime.tsx',
   'components/v7r/LiveDealInvestorRuntime.tsx',
   'components/v7r/PlatformCommandCenterHub.tsx',
+  'components/v7r/PlatformRolesHub.tsx',
   'components/v7r/RoleContinuityPanel.tsx',
   'components/v7r/RoleEntry.tsx',
   'lib/platform-v7/action-feedback.ts',

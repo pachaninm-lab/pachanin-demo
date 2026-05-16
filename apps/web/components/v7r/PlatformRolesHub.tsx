@@ -45,7 +45,7 @@ const CONTROL_ANSWERS = [
   },
   {
     label: 'Где деньги',
-    value: `${formatRub(money.reservedRub)} · резервный контур; ${formatRub(money.releaseCandidateRub)} · к выпуску`,
+    value: `${formatRub(money.reservedRub)} · резервный контур; ${formatRub(money.releaseCandidateRub)} · к подтверждению`,
     note: `Решение банка: ${money.bankDecision}. Продавец не получает деньги сразу после ставки.`,
   },
   {
@@ -56,7 +56,7 @@ const CONTROL_ANSWERS = [
   {
     label: 'Где документы',
     value: `СДИЗ: ${documents.sdizStatus}; ЭДО: ${documents.edoStatus}; КЭП: ${documents.kepStatus}`,
-    note: `Не хватает: ${documents.missingDocuments.join(', ')}. Без полного пакета выпуск денег закрыт.`,
+    note: `Не хватает: ${documents.missingDocuments.join(', ')}. Без полного пакета банковское основание закрыто.`,
   },
   {
     label: 'Что заблокировано',
@@ -86,7 +86,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     href: `/platform-v7/deals/${deal.id}/clean`,
     actor: 'единая карточка сделки',
     answer: `${deal.id} связывает лот, ставку, резервный контур, логистику, документы, деньги и спор.`,
-    guard: `Статус: ${deal.maturity}. Это controlled-pilot / simulation-grade, не live-integrated контур.`,
+    guard: `Статус: ${deal.maturity}. Это управляемый контур исполнения; внешние подтверждения требуют договоров и доступов.`,
   },
   {
     step: '03',
@@ -94,8 +94,8 @@ const GUIDED_ROUTE: RouteStep[] = [
     href: '/platform-v7/bank',
     role: 'bank',
     actor: 'финансовый партнёр',
-    answer: `Сумма сделки: ${formatRub(expectedDealAmount)}. Резервный контур: ${formatRub(money.reservedRub)}. К выпуску сейчас: ${formatRub(money.releaseCandidateRub)}.`,
-    guard: 'Нет фальшивой кнопки выплаты: выпуск денег невозможен без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора.',
+    answer: `Сумма сделки: ${formatRub(expectedDealAmount)}. Резервный контур: ${formatRub(money.reservedRub)}. К подтверждению сейчас: ${formatRub(money.releaseCandidateRub)}.`,
+    guard: 'Нет фальшивой кнопки выплаты: банковское подтверждение невозможно без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора.',
   },
   {
     step: '04',
@@ -247,7 +247,7 @@ const DOCUMENT_FLOW = [
     source: 'ФГИС «Зерно»',
     owner: 'продавец + оператор',
     status: documents.sdizStatus,
-    impact: 'блокирует финальный выпуск денег',
+    impact: 'блокирует банковское подтверждение',
   },
   {
     name: 'ЭТрН / транспортный пакет',
@@ -372,9 +372,9 @@ export function PlatformRolesHub() {
       <section style={{ background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 30, padding: 22, display: 'grid', gap: 18, boxShadow: '0 18px 55px rgba(15,20,25,0.06)' }}>
         <div style={{ display: 'grid', gap: 12, maxWidth: 940 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span style={statusPill}>controlled-pilot</span>
-            <span style={statusPill}>simulation-grade</span>
-            <span style={statusPill}>не production-ready</span>
+            <span style={statusPill}>контур исполнения</span>
+            <span style={statusPill}>роль-за-ролью</span>
+            <span style={statusPill}>банковское подтверждение</span>
           </div>
           <h1 style={{ margin: 0, fontSize: 'clamp(34px, 8.5vw, 64px)', lineHeight: 1.01, letterSpacing: '-0.058em', fontWeight: 950, color: '#0F1419' }}>
             Маршрут сделки за 3 минуты
@@ -397,7 +397,7 @@ export function PlatformRolesHub() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/seller?as=seller' onClick={() => setRole('seller')} style={darkButton}>Начать с продавца</Link>
             <Link href={`/platform-v7/deals/${deal.id}/clean`} style={lightButton}>Открыть Deal 360</Link>
-            <Link href='/platform-v7/bank?as=bank' onClick={() => setRole('bank')} style={lightButton}>Условия выпуска</Link>
+            <Link href='/platform-v7/bank?as=bank' onClick={() => setRole('bank')} style={lightButton}>Условия банка</Link>
             <Link href='/platform-v7/driver?as=driver' onClick={() => setRole('driver')} style={lightButton}>Рейс водителя</Link>
           </div>
         </div>
@@ -424,7 +424,7 @@ export function PlatformRolesHub() {
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={microLabel}>маршрут показа</div>
           <h2 style={sectionTitle}>Одна сделка, девять рабочих поверхностей</h2>
-          <p style={sectionText}>Путь ведёт пользователя по исполнению сделки, а не по меню. Каждый шаг показывает: что видит роль, что скрыто и почему выпуск денег не происходит без доказательств.</p>
+          <p style={sectionText}>Путь ведёт пользователя по исполнению сделки, а не по меню. Каждый шаг показывает: что видит роль, что скрыто и почему банковское подтверждение не проходит без доказательств.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
           {GUIDED_ROUTE.map((route) => <RouteStepCard key={route.step} route={route} />)}
@@ -492,7 +492,7 @@ export function PlatformRolesHub() {
       <section style={{ border: '1px solid #E4E6EA', borderRadius: 24, padding: 16, background: '#F8FAFB', display: 'grid', gap: 6 }}>
         <div style={microLabel}>честная граница показа</div>
         <p style={{ margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.6 }}>
-          Это сильный controlled-pilot маршрут и единый контур исполнения. Он не заявляет production-ready, live-integrated или полностью боевой статус внешних систем. ФГИС, ЭДО, ГИС ЭПД, КЭП и банковый контур показаны как управляемые маршруты и адаптеры, требующие договоров, доступов и подтверждения на реальных сделках.
+          Это единый контур исполнения с честной границей внешних систем. ФГИС, ЭДО, ГИС ЭПД, КЭП и банковый контур показаны как управляемые маршруты и адаптеры, требующие договоров, доступов и подтверждения на реальных сделках.
         </p>
       </section>
     </main>
