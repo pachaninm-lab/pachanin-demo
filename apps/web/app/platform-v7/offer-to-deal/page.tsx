@@ -30,7 +30,7 @@ const dealBridgeInitialState = {
 const dealBridgeActionItems = [
   {
     title: 'Создать черновик сделки',
-    description: 'Переносит принятую ставку в Deal Workspace как controlled-pilot черновик без выпуска денег.',
+    description: 'Переносит принятую ставку в Deal Workspace как черновик контура исполнения без передачи основания банку.',
     targetId: 'e4-create-draft-deal',
     actionId: 'createDraftDealFromOffer',
     actorRole: 'operator',
@@ -39,7 +39,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Запросить резерв денег',
-    description: 'Создаёт только намерение резерва. Это не выпуск денег и не live bank adapter.',
+    description: 'Создаёт только намерение резерва. Это не банковское подтверждение и не внешний банковский адаптер.',
     targetId: 'e4-request-money-reserve',
     actionId: 'requestMoneyReserve',
     actorRole: 'buyer',
@@ -48,7 +48,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Назначить логистику',
-    description: 'Связывает сделку с логистическим заказом в ручном controlled-pilot режиме без Driver PWA и live tracking.',
+    description: 'Связывает сделку с логистическим заказом в ручном режиме без Driver PWA и внешнего отслеживания.',
     targetId: 'e4-assign-logistics',
     actionId: 'assignLogistics',
     actorRole: 'operator',
@@ -66,7 +66,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Зафиксировать полевое событие',
-    description: 'Добавляет ручное полевое событие как evidence. Это не GPS/photo live capture.',
+    description: 'Добавляет ручное полевое событие как evidence. Это не GPS/photo capture внешнего сервиса.',
     targetId: 'e4-record-field-event',
     actionId: 'recordFieldEvent',
     actorRole: 'operator',
@@ -75,7 +75,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Открыть спор',
-    description: 'Создаёт спор по сделке с money effect pending и rollback. Полной dispute room здесь ещё нет.',
+    description: 'Создаёт спор по сделке с удержанием, журналом и откатом. Полной dispute room здесь ещё нет.',
     targetId: 'e4-open-dispute',
     actionId: 'openDispute',
     actorRole: 'operator',
@@ -134,7 +134,7 @@ export default function PlatformV7OfferToDealPage() {
       <section style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 14, padding: 14 }}>
         <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Правило</div>
         <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
-          Черновик сделки не выпускает деньги и не создаёт обязательство автоматически. Он фиксирует источник условий и показывает, какие проверки должны пройти до договора и резерва денег.
+          Черновик сделки не передаёт основание банку и не создаёт обязательство автоматически. Он фиксирует источник условий и показывает, какие проверки должны пройти до договора и резерва денег.
         </div>
       </section>
 
@@ -147,7 +147,7 @@ export default function PlatformV7OfferToDealPage() {
 
       <P7ExecutionActionsPanel
         title='Сквозные действия сделки'
-        subtitle='Здесь закрыт первый bridge: draft deal, money reserve intent, logistics, internal document, field event и dispute. Все действия имеют guard, toast, action log и rollback.'
+        subtitle='Здесь закрыт первый контур: черновик сделки, намерение резерва, логистика, внутренний документ, полевое событие и спор. Все действия имеют проверку, уведомление, журнал и откат.'
         items={dealBridgeActionItems}
         initialState={dealBridgeInitialState}
       />

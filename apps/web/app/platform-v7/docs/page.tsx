@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
 const ENDPOINTS = [
-  { method: 'GET', path: '/api/sim/bank-callback', note: 'Проверка mock callback контура банка' },
-  { method: 'POST', path: '/api/sim/bank-callback', note: 'Имитация выпуска денег по сделке' },
+  { method: 'GET', path: '/api/sim/bank-callback', note: 'Проверка callback контура банка' },
+  { method: 'POST', path: '/api/sim/bank-callback', note: 'Фиксация банковского статуса по сделке' },
   { method: 'GET', path: '/platform-v7/deals/[id]/documents', note: 'Документный контур сделки' },
   { method: 'GET', path: '/platform-v7/status', note: 'Статус внешних сервисов и интеграций' },
 ];
@@ -10,11 +10,11 @@ const ENDPOINTS = [
 const SECTIONS = [
   {
     title: 'Что это за docs',
-    body: 'Это не финальный публичный SDK-портал, а рабочая страница для пилота и интеграций. Она показывает основные точки входа и то, как сейчас устроен демо-контур.',
+    body: 'Это не финальный публичный SDK-портал, а рабочая страница для интеграций. Она показывает основные точки входа и то, как сейчас устроен проверочный контур.',
   },
   {
     title: 'Главный принцип',
-    body: 'Интеграции должны служить исполнению сделки: документы, маршрут, приёмка, банк, спор. Если контур ещё в mock или sandbox, это должно быть видно честно.',
+    body: 'Интеграции должны служить исполнению сделки: документы, маршрут, приёмка, банк, спор. Если контур требует ручной проверки или внешнего подтверждения, это должно быть видно честно.',
   },
   {
     title: 'Что подключается первым',
@@ -30,7 +30,7 @@ const MODULE_REFERENCES = [
   },
   {
     title: 'Банковые модули',
-    note: 'Факторинг, эскроу и release-контур уже встроены в банковую поверхность.',
+    note: 'Факторинг, эскроу и контур банковского подтверждения встроены в банковую поверхность.',
     href: '/platform-v7/bank',
   },
   {
@@ -51,7 +51,7 @@ export default function DocsPage() {
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Developer Docs</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
-          Рабочая документация по демо- и пилотному контуру. Без притворства, что это уже финальный production SDK-портал.
+          Рабочая документация по контуру исполнения и проверочным интеграциям. Без притворства, что это уже финальный SDK-портал.
         </div>
       </section>
 

@@ -18,10 +18,12 @@ const guardedFiles = [
   'app/platform-v7/deals/[id]/documents/page.tsx',
   'app/platform-v7/deals/[id]/evidence-pack/page.tsx',
   'app/platform-v7/deals/[id]/transport-documents/page.tsx',
+  'app/platform-v7/docs/page.tsx',
   'app/platform-v7/documents/page.tsx',
   'app/platform-v7/elevator/page.tsx',
   'app/platform-v7/money/page.tsx',
   'app/platform-v7/operator/grain/page.tsx',
+  'app/platform-v7/offer-to-deal/page.tsx',
   'app/platform-v7/privacy/page.tsx',
   'app/platform-v7/reports/regulator/page.tsx',
   'app/platform-v7/reports/grain/page.tsx',
@@ -93,6 +95,7 @@ const forbiddenVisibleCopy = [
   'демонстрационная модель',
   'выпуск денег',
   'выпуска денег',
+  'выпускает деньги',
   'Запрос на выпуск денег',
   'Action feedback',
   'Evidence readiness audit',
@@ -114,8 +117,11 @@ const forbiddenVisibleCopy = [
   'fully live',
   'production-ready',
   'демо-контур',
+  'демо-',
   'демо-контура',
   'демо-контуре',
+  'live bank adapter',
+  'live tracking',
 ];
 
 describe('platform-v7 deep bank and deal copy guard', () => {
