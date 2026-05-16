@@ -38,7 +38,7 @@ const readinessRows = [
   { id: 'logistics', label: 'Логистика и рейс', gate: readiness.logistics, responsible: 'Логистика', block: 'вывоз и срок' },
   { id: 'documents', label: 'Документы и СДИЗ', gate: readiness.documents, responsible: 'Продавец', block: 'отгрузку и выплату' },
   { id: 'bank', label: 'Резерв и банк', gate: readiness.bank, responsible: 'Покупатель · банк', block: 'проверку выплаты' },
-  { id: 'dispute', label: 'Спор и удержание', gate: readiness.dispute, responsible: 'Оператор', block: 'выпуск денег' },
+  { id: 'dispute', label: 'Спор и удержание', gate: readiness.dispute, responsible: 'Оператор', block: 'удержание и банковскую проверку' },
   { id: 'antiBypass', label: 'Контакты и обход', gate: readiness.antiBypass, responsible: 'Платформа', block: 'удержание сделки в контуре' },
 ] as const;
 
@@ -114,7 +114,7 @@ const premiumDeal: DealViewModel = {
       title: 'СДИЗ',
       status: documents.sdizStatus === 'не оформлен' ? 'blocked' : 'ready',
       responsible: 'Продавец',
-      blocks: 'отгрузку и выпуск денег',
+      blocks: 'отгрузку и банковское основание',
       source: 'ФГИС Зерно',
       actionLabel: 'Оформить СДИЗ',
       reason: documents.sdizStatus,
@@ -207,7 +207,7 @@ export function PlatformCommandCenterHub() {
       deal={premiumDeal}
       initialRole={normalizeRole(role)}
       roles={roles}
-      theme="dark"
+      theme="light"
       onRoleChange={(nextRole) => setRole(denormalizeRole(nextRole))}
     />
   );

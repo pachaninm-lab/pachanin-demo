@@ -151,9 +151,9 @@ describe('platform-v7 premium execution shell', () => {
     const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(ui).toContain('const blockedRub = deal.money.heldRub + deal.money.awaitingDocsRub + deal.money.disputedRub;');
-    expect(ui).toContain('К движению: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}');
+    expect(ui).toContain('К подтверждению: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}');
     expect(ui).toContain('Остановлено: {formatPremiumRubCompact(blockedRub)}');
-    expect(ui).toContain('Выпущено: {formatPremiumRubCompact(deal.money.releasedRub)}');
+    expect(ui).toContain('Банк подтвердил: {formatPremiumRubCompact(deal.money.releasedRub)}');
     expect(ui).toContain("{ label: 'Ждёт документы', value: deal.money.awaitingDocsRub, tone: 'info' as DealTone }");
     expect(css).toContain('.moneyHeader');
     expect(css).toContain('.moneySummary');
