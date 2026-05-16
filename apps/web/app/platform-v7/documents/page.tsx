@@ -5,7 +5,7 @@ import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
 
 export const metadata: Metadata = {
   title: 'Документы',
-  description: 'Документный слой сделки: документы, подписи, споры и влияние на выпуск денег.',
+  description: 'Документный слой сделки: документы, подписи, споры и влияние на банковское подтверждение.',
 };
 
 const scenario = getDeal360Scenario('DL-9106');
@@ -14,20 +14,20 @@ const controlCards = [
   { label: 'Сделка', value: scenario.dealId, href: `/platform-v7/deals/${scenario.dealId}/clean` },
   { label: 'Лот', value: scenario.lotId, href: `/platform-v7/lots/${scenario.lotId}` },
   { label: 'ЭТрН', value: 'ждёт подписи', href: `/platform-v7/deals/${scenario.dealId}/clean` },
-  { label: 'Выплата', value: 'остановлена', href: '/platform-v7/bank/release-safety' },
+  { label: 'Банк', value: 'ждёт основание', href: '/platform-v7/bank/release-safety' },
 ] as const;
 
 const documentSummary = [
-  { label: 'Что сейчас', value: 'DL-9106 · неполный пакет', note: 'Документы показаны как условия выплаты, а не как архив файлов.' },
-  { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Без полного пакета выпуск денег продавцу закрыт.' },
+  { label: 'Что сейчас', value: 'DL-9106 · неполный пакет', note: 'Документы показаны как условия банковского основания, а не как архив файлов.' },
+  { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Без полного пакета банк не подтверждает основание выплаты.' },
   { label: 'Источник', value: 'ФГИС · ЭДО · ГИС ЭПД · КЭП · лаборатория', note: 'Внутренняя карточка не подменяет внешний контур.' },
   { label: 'Ответственный', value: 'продавец · логист · элеватор · подписант · оператор', note: 'У каждого документа должен быть владелец шага.' },
-  { label: 'Деньги', value: 'к выплате 0 ₽', note: 'Влияние документа на деньги видно в каждой строке.' },
+  { label: 'Деньги', value: 'к подтверждению 0 ₽', note: 'Влияние документа на резерв и удержание видно в каждой строке.' },
   { label: 'Следующий шаг', value: 'закрыть СДИЗ и транспортный пакет', note: 'Действие должно попасть в карточку сделки и журнал.' },
 ] as const;
 
 const requiredDocuments = [
-  { title: 'СДИЗ', source: 'ФГИС «Зерно»', responsible: 'продавец + оператор', status: 'не оформлен', impact: 'останавливает финальный выпуск денег' },
+  { title: 'СДИЗ', source: 'ФГИС «Зерно»', responsible: 'продавец + оператор', status: 'не оформлен', impact: 'останавливает банковское подтверждение' },
   { title: 'ЭТрН', source: 'СБИС / Saby ЭТрН', responsible: 'логист + перевозчик', status: 'ждёт подписи', impact: 'останавливает закрытие рейса' },
   { title: 'ГИС ЭПД', source: 'государственный контур ЭПД', responsible: 'логист + перевозчик', status: 'ожидает ЭТрН', impact: 'останавливает транспортное основание' },
   { title: 'УПД', source: 'Контур.Диадок', responsible: 'продавец + покупатель', status: 'не запущен', impact: 'останавливает расчётное закрытие' },
@@ -54,13 +54,13 @@ export default function PlatformV7DocumentsPage() {
       <section style={hero}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ display: 'grid', gap: 9, maxWidth: 760 }}>
-            <div style={badge}>Документы как условие выплаты</div>
+            <div style={badge}>Документы как банковское основание</div>
             <h1 style={h1}>Матрица документов сделки</h1>
-            <p style={lead}>Документы показаны не как архив файлов, а как условия сделки: кто должен закрыть документ, какой источник используется и блокирует ли документ выплату продавцу.</p>
+            <p style={lead}>Документы показаны не как архив файлов, а как условия сделки: кто должен закрыть документ, какой источник используется и блокирует ли документ банковское подтверждение.</p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href={`/platform-v7/deals/${scenario.dealId}/clean`} style={primary}>Открыть карточку сделки</Link>
-            <Link href='/platform-v7/bank/release-safety' style={secondary}>Проверка выплаты</Link>
+            <Link href='/platform-v7/bank/release-safety' style={secondary}>Проверка основания</Link>
           </div>
         </div>
 
@@ -78,7 +78,7 @@ export default function PlatformV7DocumentsPage() {
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ ...micro, color: '#A7F3D0' }}>документный контроль</div>
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Документ — это не вложение. Это источник, ответственный, статус и прямое влияние на деньги.</p>
+          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Документ — это не вложение. Это источник, ответственный, статус и влияние на резерв, удержание и банковское основание.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {documentSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
@@ -125,7 +125,7 @@ export default function PlatformV7DocumentsPage() {
         </section>
       </P7HiddenDetails>
 
-      <P7HiddenDetails title='Связанные сделки' meta='сделки, где документный пакет влияет на деньги или спор'>
+      <P7HiddenDetails title='Связанные сделки' meta='сделки, где документный пакет влияет на резерв, удержание или спор'>
         <section style={cardInner}>
           <div style={micro}>Связанные сделки</div>
           <div style={{ display: 'grid', gap: 8 }}>

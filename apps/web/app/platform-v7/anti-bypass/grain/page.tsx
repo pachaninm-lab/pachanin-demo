@@ -3,14 +3,14 @@ import Link from 'next/link';
 const risks = [
   { title: 'Контакт вне сделки', value: 'риск высокий', note: 'Попытка перенести договорённость в мессенджер или звонок должна фиксироваться как событие риска.', href: '/platform-v7/support', tone: 'stop' },
   { title: 'Смена реквизитов', value: 'требует проверки', note: 'Новые реквизиты не принимаются без повторной проверки контрагента и полномочий.', href: '/platform-v7/compliance/grain', tone: 'warn' },
-  { title: 'Ручной выпуск', value: 'закрыт', note: 'Выпуск денег невозможен без документов, приёмки, качества и банковского основания.', href: '/platform-v7/settlement/grain', tone: 'stop' },
+  { title: 'Ручное основание', value: 'закрыто', note: 'Банк не подтверждает выплату без документов, приёмки, качества и проверенного основания.', href: '/platform-v7/settlement/grain', tone: 'stop' },
   { title: 'Обход логистики', value: 'остановка сделки', note: 'Рейс без заявки, водителя, контрольного номера и документов не закрывает исполнение.', href: '/platform-v7/logistics/grain', tone: 'stop' },
 ] as const;
 
 const metrics = [
   { label: 'Сделка', value: 'DL-9106', tone: 'neutral' },
   { label: 'Риск обхода', value: 'высокий', tone: 'bad' },
-  { label: 'Деньги', value: 'выпуск закрыт', tone: 'bad' },
+  { label: 'Деньги', value: 'основание закрыто', tone: 'bad' },
   { label: 'Следующий шаг', value: 'комплаенс', tone: 'good' },
 ] as const;
 
@@ -19,8 +19,8 @@ export default function GrainAntiBypassPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={card}>
         <div style={badge}>Антиобход зерновой сделки</div>
-        <h1 style={h1}>Контакт вне сделки, реквизиты, ручной выпуск и обход логистики</h1>
-        <p style={lead}>Контур антиобхода показывает действия, которые могут вывести сделку из платформы: прямой контакт, смена реквизитов, ручная выплата, рейс без основания или документ вне сделки.</p>
+        <h1 style={h1}>Контакт вне сделки, реквизиты, ручное основание и обход логистики</h1>
+        <p style={lead}>Контур антиобхода показывает действия, которые могут вывести сделку из платформы: прямой контакт, смена реквизитов, выплата вне проверенного основания, рейс без основания или документ вне сделки.</p>
         <div style={actions}>
           <Link href='/platform-v7/anti-bypass' style={primaryBtn}>Антиобход</Link>
           <Link href='/platform-v7/compliance/grain' style={ghostBtn}>Комплаенс</Link>
@@ -38,7 +38,7 @@ export default function GrainAntiBypassPage() {
       <section style={darkCard}>
         <div style={{ ...micro, color: '#FECACA' }}>Правило антиобхода</div>
         <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Сделка закрывается только внутри доказательного контура</h2>
-        <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Если участник пытается вывести оплату, документы, логистику или спор за пределы платформы, выпуск денег остаётся закрытым, а событие уходит в журнал риска.</p>
+        <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Если участник пытается вывести оплату, документы, логистику или спор за пределы платформы, банковское подтверждение остаётся закрытым, а событие уходит в журнал риска.</p>
       </section>
     </main>
   );
