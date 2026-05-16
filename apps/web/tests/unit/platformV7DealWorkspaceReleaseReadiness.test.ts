@@ -35,7 +35,7 @@ describe('platform-v7 deal release readiness', () => {
     expect(model.canRelease).toBe(true);
     expect(model.gateStatus).toBe('pass');
     expect(model.blockerCount).toBe(0);
-    expect(model.nextAction).toBe('Выпустить деньги');
+    expect(model.nextAction).toBe('Передать основание банку');
     expect(platformV7DealReleaseReadinessTone(model)).toBe('success');
   });
 

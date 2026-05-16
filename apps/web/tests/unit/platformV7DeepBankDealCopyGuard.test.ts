@@ -54,8 +54,12 @@ const guardedFiles = [
   'components/v7r/RoleContinuityPanel.tsx',
   'components/v7r/RoleEntry.tsx',
   'lib/platform-v7/action-feedback.ts',
+  'lib/platform-v7/deal-workspace-actions.ts',
+  'lib/platform-v7/deal-workspace-release-readiness.ts',
   'lib/platform-v7/domain/money.ts',
+  'lib/platform-v7/execution-command-contracts.ts',
   'lib/platform-v7/integrations/providerRegistry.ts',
+  'lib/platform-v7/logistics-receiving-gate.ts',
   'lib/platform-v7/operator-execution-queue.ts',
 ];
 

@@ -88,7 +88,7 @@ const RELEASE_GATES: PlatformV7DealWorkspaceGateId[] = [
 export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[] = [
   {
     id: 'request-release',
-    label: 'Запросить выпуск денег',
+    label: 'Запросить банковскую проверку',
     kind: 'primary',
     tone: 'success',
     requiredGates: ['money', 'documents', 'transport', 'fgis', 'degradation'],
@@ -103,7 +103,7 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
   },
   {
     id: 'release-funds',
-    label: 'Выпустить деньги',
+    label: 'Передать основание банку',
     kind: 'primary',
     tone: 'success',
     requiredGates: RELEASE_GATES,
@@ -114,7 +114,7 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
     ],
     maturityMode: 'controlled-pilot',
     irreversible: true,
-    rollback: 'Запретить прямой rollback; только банковая сверка, refund/dispute flow и ручное исключение с audit event.',
+    rollback: 'Запретить прямой rollback; только банковая сверка, refund/dispute flow и ручное исключение с событием журнала.',
   },
   {
     id: 'start-documents',

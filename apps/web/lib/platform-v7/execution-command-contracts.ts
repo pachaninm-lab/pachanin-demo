@@ -141,7 +141,7 @@ export const PLATFORM_V7_EXECUTION_COMMANDS: readonly PlatformV7ExecutionCommand
     requiresIdempotencyKey: true,
     affectsMoney: true,
     persistenceEntity: 'money_record',
-    summary: 'Reserve request is money-sensitive and must be deal-bound and idempotent.',
+    summary: 'Reserve request is money-sensitive and must be deal-bound and repeat-safe.',
   },
   {
     id: 'confirm_money_reserved',
@@ -280,7 +280,7 @@ export const PLATFORM_V7_EXECUTION_COMMANDS: readonly PlatformV7ExecutionCommand
   },
   {
     id: 'mark_money_ready_to_release',
-    label: 'Передать на выпуск денег',
+    label: 'Передать основание банку',
     actorRoles: ['bank', 'operator'],
     entity: 'money',
     from: 'reserved',
@@ -291,11 +291,11 @@ export const PLATFORM_V7_EXECUTION_COMMANDS: readonly PlatformV7ExecutionCommand
     requiresIdempotencyKey: true,
     affectsMoney: true,
     persistenceEntity: 'money_record',
-    summary: 'Money can become ready to release only after document and acceptance evidence boundaries.',
+    summary: 'Money basis can move to bank confirmation only after document and acceptance evidence boundaries.',
   },
   {
     id: 'confirm_money_released',
-    label: 'Подтвердить выпуск денег',
+    label: 'Подтвердить банковское решение',
     actorRoles: ['bank'],
     entity: 'money',
     from: 'ready_to_release',
@@ -306,7 +306,7 @@ export const PLATFORM_V7_EXECUTION_COMMANDS: readonly PlatformV7ExecutionCommand
     requiresIdempotencyKey: true,
     affectsMoney: true,
     persistenceEntity: 'money_record',
-    summary: 'Money release requires bank confirmation; platform only records the confirmed boundary.',
+    summary: 'Bank confirmation is required; platform only records the confirmed boundary.',
   },
 ];
 

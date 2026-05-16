@@ -85,6 +85,6 @@ describe('platform-v7 logistics receiving gate', () => {
     expect(platformV7ReceivingGateStatus([], [])).toBe('ready');
     expect(platformV7ReceivingMoneyImpact('ready', acceptedReceiving)).toBe('release_allowed');
     expect(platformV7ReceivingGateTone('blocked')).toBe('danger');
-    expect(platformV7ReceivingGateNextAction('ready', [], [])).toBe('Приёмка подтверждена, можно продолжать выпуск денег.');
+    expect(platformV7ReceivingGateNextAction('ready', [], [])).toBe('Приёмка подтверждена, можно продолжать банковское основание.');
   });
 });
