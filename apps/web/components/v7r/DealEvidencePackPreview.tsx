@@ -15,13 +15,13 @@ export function DealEvidencePackPreview({ dealId }: { dealId: string }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            P0-06 · deal-level evidence pack · sandbox
+            P0-06 · доказательства сделки · контур проверки
           </div>
           <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.15, fontWeight: 900, color: T }}>
-            Evidence pack preview по сделке {dealId}
+            Пакет доказательств по сделке {dealId}
           </div>
           <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 860 }}>
-            Один и тот же доказательный контур должен читаться из сделки, спора и банка. Этот блок показывает preview-ready связку сделки с evidence/dispute/money контуром без live PDF, ЭДО или КЭП-экспорта.
+            Один и тот же доказательный контур должен читаться из сделки, спора и банка. Этот блок показывает связку сделки, спора и денежного основания без заявления внешнего PDF, ЭДО или КЭП-экспорта.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

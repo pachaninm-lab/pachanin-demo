@@ -70,7 +70,7 @@ export default function DealTransportDocumentsPage({ params }: { params: { id: s
           <div style={{ display: 'grid', gap: 8 }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Перевозочные документы · {deal.id}</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
-              Внешний юридически значимый контур рейса через СберКорус. Здесь платформа показывает не внутренние события, а состояние пакета перевозочных документов, подписей, webhooks и влияние на выпуск денег.
+              Внешний юридически значимый контур рейса через СберКорус. Здесь платформа показывает состояние пакета перевозочных документов, подписей, внешнего обмена и влияние на банковское основание.
             </div>
           </div>
           <SberKorusBadge subtitle='Юридически значимый транспортный контур' />
@@ -108,7 +108,7 @@ export default function DealTransportDocumentsPage({ params }: { params: { id: s
         </section>
 
         <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Текущий сценарий по деньгам</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Текущее банковское основание</div>
           {scenario && currentStep ? (
             <>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{scenario.headline}</div>
@@ -120,7 +120,7 @@ export default function DealTransportDocumentsPage({ params }: { params: { id: s
                 <div style={{ fontSize: 12, color: tone(currentStep.releaseState).color, fontWeight: 800 }}>{transportReleaseStateLabel(currentStep.releaseState)} · {currentStep.releaseReason}</div>
               </div>
               <Link href={`/platform-v7/deals/${deal.id}/transport-documents/simulation`} style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, justifySelf: 'start' }}>
-                Открыть полную симуляцию СберКорус
+                Открыть сценарий СберКорус
               </Link>
             </>
           ) : null}
@@ -130,7 +130,7 @@ export default function DealTransportDocumentsPage({ params }: { params: { id: s
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Документы пакета</div>
-          {pack.driverActionUrl ? <span style={{ fontSize: 12, color: '#6B778C' }}>Для водителя доступен отдельный mobile-flow провайдера</span> : null}
+          {pack.driverActionUrl ? <span style={{ fontSize: 12, color: '#6B778C' }}>Для водителя доступен отдельный мобильный поток провайдера</span> : null}
         </div>
         <div style={{ display: 'grid', gap: 12 }}>
           {pack.documents.map((document) => {

@@ -7,7 +7,7 @@ const ACTIONS = [
     actor: 'Оператор',
     label: 'Проверить документы',
     testMode: true,
-    nextStep: 'Открыть проверку выпуска денег.',
+    nextStep: 'Открыть проверку банковского основания.',
     timestamp: '2026-05-02T10:00:00.000Z',
   }),
   createPlatformV7ActionResult({
@@ -39,9 +39,9 @@ export function P7ActionFeedbackStrip() {
   return (
     <section data-testid="platform-v7-action-feedback-strip" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
-        <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Action feedback · тестовый режим</div>
+        <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Действия · контур исполнения</div>
         <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: '#0F1419' }}>Результат действия и следующий шаг</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: '#64748B', lineHeight: 1.55 }}>Каждое действие должно показывать понятный результат, следующий шаг и запись для журнала. Ниже — единый контракт для старых и новых кнопок.</div>
+        <div style={{ marginTop: 6, fontSize: 13, color: '#64748B', lineHeight: 1.55 }}>Каждое действие должно показывать понятный результат, следующий шаг и запись для журнала. Ниже — единый контракт для рабочих кнопок.</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
@@ -52,7 +52,7 @@ export function P7ActionFeedbackStrip() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 900, color: '#0A7A5F' }}>{item.feedback.entityId}</div>
-                  <div style={{ marginTop: 3, fontSize: 14, fontWeight: 900, color: '#0F1419' }}>{item.feedback.actionId}</div>
+                  <div style={{ marginTop: 3, fontSize: 14, fontWeight: 900, color: '#0F1419' }}>{item.journal.actor}</div>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 7px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 900 }}>{tone.label}</span>
               </div>

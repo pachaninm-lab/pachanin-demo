@@ -63,13 +63,13 @@ describe('platform-v7 action feedback', () => {
       actor: 'Оператор',
       label: 'Проверить документы',
       testMode: true,
-      nextStep: 'Открыть проверку выпуска денег.',
+      nextStep: 'Открыть проверку банковского основания.',
       timestamp: '2026-04-25T07:50:00.000Z',
     });
 
     expect(result.feedback.status).toBe('success');
-    expect(result.feedback.message).toContain('тестовый результат');
-    expect(result.nextStep).toBe('Открыть проверку выпуска денег.');
+    expect(result.feedback.message).toContain('результат зафиксирован в журнале');
+    expect(result.nextStep).toBe('Открыть проверку банковского основания.');
     expect(result.testMode).toBe(true);
     expect(result.journal).toMatchObject({
       actionId: 'checkDocs',

@@ -69,7 +69,7 @@ export function createPlatformV7ActionResult(args: {
     message: isStopped
       ? `${args.label}: действие остановлено. Причина: ${args.stopReason}`
       : args.testMode
-        ? `${args.label}: тестовый результат зафиксирован.`
+        ? `${args.label}: результат зафиксирован в журнале.`
         : `${args.label}: действие выполнено.`,
   });
 

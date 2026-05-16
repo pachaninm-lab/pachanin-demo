@@ -11,7 +11,7 @@ const LIVE_SMOKE_ROUTES = [
   { route: '/platform-v7/logistics', expected: /логист|рейс|маршрут/i },
   { route: '/platform-v7/elevator', expected: /элеватор|вес|пломб|приём/i },
   { route: '/platform-v7/lab', expected: /лаборатор|качество|протокол/i },
-  { route: '/platform-v7/connectors', expected: /подключ|тестов|внешн/i },
+  { route: '/platform-v7/connectors', expected: /подключ|контур|внешн/i },
   { route: '/platform-v7/investor', expected: /инвестор|эконом|риски|traction/i },
 ] as const;
 
