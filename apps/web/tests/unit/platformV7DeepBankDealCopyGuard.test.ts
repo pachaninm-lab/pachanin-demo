@@ -49,6 +49,7 @@ const guardedFiles = [
   'components/v7r/DomainControlTowerSummary.tsx',
   'components/v7r/DomainDealsSummary.tsx',
   'components/v7r/DomainMoneySummary.tsx',
+  'components/v7r/ExecutionSimulationActionPanel.tsx',
   'components/v7r/LiveDealDetailRuntime.tsx',
   'components/v7r/LiveDealInvestorRuntime.tsx',
   'components/v7r/PlatformCommandCenterHub.tsx',
