@@ -10,20 +10,20 @@ export interface PlatformV7InvestorStoryBlock {
 export const PLATFORM_V7_INVESTOR_STORY: PlatformV7InvestorStoryBlock[] = [
   {
     id: 'execution-rail',
-    title: 'Не витрина, а контур исполнения сделки',
+    title: 'Не каталог, а контур исполнения сделки',
     body: 'Платформа показывает не только цену и лот, а весь путь сделки: допуск, документы, логистика, приёмка, качество, деньги и спор.',
     metricIds: ['gmv', 'cycleDays'],
   },
   {
     id: 'money-control',
-    title: 'Деньги выпускаются по событиям, а не по обещаниям',
-    body: 'Демо-логика строится вокруг reserve, hold и release: выпуск денег возможен только после закрытия проверяемых условий.',
+    title: 'Деньги отражаются по основаниям, а не по обещаниям',
+    body: 'Денежная логика строится вокруг резерва, удержания и банковского подтверждения: статус денег меняется только после закрытия проверяемых условий.',
     metricIds: ['releaseAutomation', 'disputeRate'],
   },
   {
-    id: 'controlled-pilot',
-    title: 'Пилотный контур без завышения зрелости',
-    body: 'Investor-mode должен показывать controlled pilot: сильная предпилотная сборка, но без заявления production-ready до боевых подключений.',
+    id: 'execution-boundary',
+    title: 'Рабочий контур без завышения зрелости',
+    body: 'Инвесторский режим показывает сильную сборку исполнения, но отделяет рабочие UX-слои от внешних подключений, договоров и подтверждений.',
     metricIds: ['controlledPilots', 'activeCompanies'],
   },
 ];

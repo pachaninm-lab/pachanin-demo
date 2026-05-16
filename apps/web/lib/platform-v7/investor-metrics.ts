@@ -1,4 +1,4 @@
-export type PlatformV7InvestorMetricUnit = 'млн ₽/мес' | 'компаний' | '%' | 'дней' | 'пилотов';
+export type PlatformV7InvestorMetricUnit = 'млн ₽/мес' | 'компаний' | '%' | 'дней' | 'контуров';
 export type PlatformV7InvestorMetricTone = 'growth' | 'risk' | 'neutral';
 
 export interface PlatformV7InvestorMetric {
@@ -14,12 +14,12 @@ export interface PlatformV7InvestorMetric {
 export const PLATFORM_V7_INVESTOR_METRICS: PlatformV7InvestorMetric[] = [
   {
     id: 'gmv',
-    title: 'GMV',
+    title: 'Оборот',
     value: 182,
     unit: 'млн ₽/мес',
     trend: [42, 61, 88, 112, 145, 182],
     tone: 'growth',
-    note: 'ГИПОТЕЗА для демо: месячный оборот по controlled pilot-сценарию.',
+    note: 'ГИПОТЕЗА: месячный оборот по проверочному сценарию.',
   },
   {
     id: 'activeCompanies',
@@ -28,7 +28,7 @@ export const PLATFORM_V7_INVESTOR_METRICS: PlatformV7InvestorMetric[] = [
     unit: 'компаний',
     trend: [12, 28, 45, 61, 73, 87],
     tone: 'growth',
-    note: 'ГИПОТЕЗА для демо: продавцы, покупатели и сервисные роли.',
+    note: 'ГИПОТЕЗА: продавцы, покупатели и сервисные роли.',
   },
   {
     id: 'disputeRate',
@@ -37,7 +37,7 @@ export const PLATFORM_V7_INVESTOR_METRICS: PlatformV7InvestorMetric[] = [
     unit: '%',
     trend: [18, 15, 14, 12, 10, 8],
     tone: 'risk',
-    note: 'ГИПОТЕЗА для демо: снижение спорности через evidence-first контур.',
+    note: 'ГИПОТЕЗА: снижение спорности через доказательный контур.',
   },
   {
     id: 'cycleDays',
@@ -46,25 +46,25 @@ export const PLATFORM_V7_INVESTOR_METRICS: PlatformV7InvestorMetric[] = [
     unit: 'дней',
     trend: [14, 12, 11, 10, 9, 8.3],
     tone: 'growth',
-    note: 'ГИПОТЕЗА для демо: лот → документы → приёмка → выпуск денег.',
+    note: 'ГИПОТЕЗА: лот → документы → приёмка → банковское подтверждение.',
   },
   {
     id: 'controlledPilots',
-    title: 'Пилотные контуры',
+    title: 'Рабочие контуры',
     value: 3,
-    unit: 'пилотов',
+    unit: 'контуров',
     trend: [1, 1, 2, 2, 3, 3],
     tone: 'neutral',
-    note: 'ГИПОТЕЗА для демо: банк, регион, якорные участники.',
+    note: 'ГИПОТЕЗА: банк, регион, якорные участники.',
   },
   {
     id: 'releaseAutomation',
-    title: 'Автоматизация выпуска',
+    title: 'Готовность банковского основания',
     value: 64,
     unit: '%',
     trend: [22, 31, 39, 48, 57, 64],
     tone: 'growth',
-    note: 'ГИПОТЕЗА для демо: доля сделок без ручного денежного стопа.',
+    note: 'ГИПОТЕЗА: доля сделок без ручного денежного стопа.',
   },
 ];
 

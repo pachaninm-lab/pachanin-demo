@@ -15,7 +15,7 @@ const SERVICES = [
     status: 'degraded',
     uptime: '97.8%',
     note: 'Часть операций может уходить на ручную проверку.',
-    incidents: ['2026-04-18 · ручная проверка выпуска по 2 сделкам', '2026-04-09 · задержка события банка до 14 мин'],
+    incidents: ['2026-04-18 · ручная проверка основания по 2 сделкам', '2026-04-09 · задержка события банка до 14 мин'],
   },
   {
     id: 'spark',
@@ -29,9 +29,9 @@ const SERVICES = [
     id: 'labs',
     name: 'Лаборатории / протоколы',
     status: 'test_mode',
-    uptime: 'Пилот',
-    note: 'Тестовый режим. Часть протоколов ещё загружается вручную.',
-    incidents: ['2026-04-15 · ручной ввод протокола по тестовой сделке'],
+    uptime: 'Ручной',
+    note: 'Часть протоколов ещё загружается вручную.',
+    incidents: ['2026-04-15 · ручной ввод протокола по проверочной сделке'],
   },
 ];
 
@@ -44,7 +44,7 @@ const MODULES = [
   },
   {
     title: 'Онбординг компании',
-    readiness: 'Пилотный интерфейс',
+    readiness: 'Рабочий интерфейс',
     note: 'Есть 6-шаговый вход от компании до первого лота.',
     href: '/platform-v7/onboarding',
   },
@@ -65,7 +65,7 @@ const MODULES = [
 function serviceTone(status: string) {
   if (status === 'ok') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ОК' };
   if (status === 'degraded') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Нестабильно' };
-  return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB', label: 'Тестовый режим' };
+  return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB', label: 'Ручная проверка' };
 }
 
 export default function StatusPage() {
@@ -74,15 +74,15 @@ export default function StatusPage() {
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Статус сервисов</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
-          Операционный статус интеграций и внешних контуров. Здесь видно: где всё ок, где есть деградация и что ещё работает в тестовом режиме.
+          Операционный статус интеграций и внешних контуров. Здесь видно: где всё ок, где есть деградация и что ещё работает с ручным сопровождением.
         </div>
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <Metric title='ОК' value='2' note='ФГИС и СПАРК проходят штатно.' />
         <Metric title='Нестабильно' value='1' note='Банк иногда уводит кейсы в ручную проверку.' />
-        <Metric title='Тестовый режим' value='1' note='Лабораторный контур требует ручного сопровождения.' />
-        <Metric title='Режим' value='Пилот' note='Честная стадия: пилотный контур с сопровождением.' />
+        <Metric title='Ручная проверка' value='1' note='Лабораторный контур требует ручного сопровождения.' />
+        <Metric title='Режим' value='Рабочий контур' note='Внешние подключения требуют договоров, доступов и подтверждений.' />
       </div>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>

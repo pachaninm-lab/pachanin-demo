@@ -99,7 +99,7 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
           <div>Категория: <b>{SUPPORT_CATEGORY_LABELS[category]}</b></div>
           <div>Приоритет: <b>{SUPPORT_PRIORITY_LABELS[priority]}</b></div>
           <div>Ответственный: <b>{owner}</b></div>
-          <div>SLA: <b>{supportSlaHours(priority)} ч.</b></div>
+          <div>Срок реакции: <b>{supportSlaHours(priority)} ч.</b></div>
           <div>Деньги под риском: <b>{supportFormatRub(money)}</b></div>
           <div style={{ color: objectReady ? 'var(--pc-text-muted, #64748b)' : 'var(--pc-danger, #B42318)', fontSize: 13, lineHeight: 1.5 }}>{objectReady ? 'Объект указан. Обращение можно создать.' : 'Нужен объект платформы: сделка, лот, рейс, документ, блокер или спор.'}</div>
         </aside>

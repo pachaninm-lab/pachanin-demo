@@ -18,7 +18,7 @@ export function platformV7InvestorDashboardModel(): PlatformV7InvestorDashboardM
   return {
     title: 'Прозрачная Цена — контур исполнения зерновой сделки',
     subtitle: 'Обзор показывает механику сделки: цена и допуск → логистика → приёмка → документы → деньги → спор и доказательства.',
-    disclosure: 'Данные обзора являются гипотезами пилотного сценария.',
+    disclosure: 'Данные обзора являются гипотезами проверочного сценария.',
     metrics: platformV7InvestorMetrics(),
     story: platformV7InvestorStory(),
     roadmap: platformV7InvestorRoadmap(),
@@ -29,7 +29,7 @@ export function platformV7InvestorDashboardModel(): PlatformV7InvestorDashboardM
 }
 
 export function platformV7InvestorDashboardIsHonest(model = platformV7InvestorDashboardModel()): boolean {
-  const hasDisclosure = model.disclosure.includes('гипотезами') && model.disclosure.includes('пилотного сценария');
+  const hasDisclosure = model.disclosure.includes('гипотезами') && model.disclosure.includes('проверочного сценария');
   const metricsAreMarked = model.metrics.every((metric) => metric.note.startsWith('ГИПОТЕЗА'));
   const roadmapHasRisks = model.roadmap.every((item) => item.risk.length > 0 && item.evidence.length > 0);
   return hasDisclosure && metricsAreMarked && roadmapHasRisks;

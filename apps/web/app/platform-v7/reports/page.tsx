@@ -1,14 +1,14 @@
 import Link from 'next/link';
 
-const rows = ['Сводка сделки', 'Пакет доказательств', 'Журнал действий', 'События банка', 'Отчёт пилота'] as const;
+const rows = ['Сводка сделки', 'Пакет доказательств', 'Журнал действий', 'События банка', 'Отчёт исполнения'] as const;
 
 export default function PlatformV7ReportsPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={{ border: '1px solid #E4E6EA', borderRadius: 20, padding: 22, background: '#fff', display: 'grid', gap: 14 }}>
-        <div style={{ display: 'inline-flex', width: 'fit-content', padding: '6px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 }}>Отчёты · тестовый сценарий</div>
+        <div style={{ display: 'inline-flex', width: 'fit-content', padding: '6px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 }}>Отчёты исполнения</div>
         <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.12, color: '#0F1419' }}>Центр отчётов</h1>
-        <p style={{ margin: 0, maxWidth: 840, fontSize: 14, lineHeight: 1.7, color: '#5B6576' }}>Артефакты для банка, пилота, спора и операционного разбора. Материалы не подменяют внешние юридически значимые документы.</p>
+        <p style={{ margin: 0, maxWidth: 840, fontSize: 14, lineHeight: 1.7, color: '#5B6576' }}>Артефакты для банка, спора и операционного разбора. Материалы не подменяют внешние юридически значимые документы.</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Link href="/platform-v7/trust" style={primaryLink}>Центр доверия</Link>
           <Link href="/platform-v7/bank/events" style={secondaryLink}>События банка</Link>

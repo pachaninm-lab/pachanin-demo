@@ -33,10 +33,10 @@ export function supportSlaState(item: Pick<SupportCase, 'slaDueAt' | 'status'>, 
 }
 export function supportSlaLabel(item: Pick<SupportCase, 'slaDueAt' | 'status'>, now = '2026-05-05T12:00:00.000Z'): string {
   const state = supportSlaState(item, now);
-  if (state === 'closed') return 'SLA закрыт';
-  if (state === 'breached') return 'SLA просрочен';
-  if (state === 'due_soon') return 'SLA скоро истечёт';
-  return 'SLA в работе';
+  if (state === 'closed') return 'Срок закрыт';
+  if (state === 'breached') return 'Срок просрочен';
+  if (state === 'due_soon') return 'Срок скоро истечёт';
+  return 'Срок в работе';
 }
 export function supportSortCases(cases: SupportCase[]): SupportCase[] {
   const rank = { P0: 0, P1: 1, P2: 2, P3: 3 };

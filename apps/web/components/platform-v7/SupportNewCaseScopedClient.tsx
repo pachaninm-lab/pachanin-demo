@@ -85,7 +85,7 @@ function FieldSupportNewCase({ defaults, activeRole }: { defaults: Partial<Suppo
           <div style={{ fontWeight: 900 }}>Предварительная оценка</div>
           <div>Категория: <b>{SUPPORT_CATEGORY_LABELS[category]}</b></div>
           <div>Приоритет: <b>{SUPPORT_PRIORITY_LABELS[priority]}</b></div>
-          <div>SLA: <b>{supportSlaHours(priority)} ч.</b></div>
+          <div>Срок реакции: <b>{supportSlaHours(priority)} ч.</b></div>
           <div style={{ color: objectReady ? 'var(--pc-text-muted, #64748b)' : 'var(--pc-danger, #B42318)', fontSize: 13, lineHeight: 1.5 }}>{objectReady ? 'Объект указан. Обращение можно создать.' : 'Нужен рейс, документ, блокер или другой объект.'}</div>
         </aside>
       </section>

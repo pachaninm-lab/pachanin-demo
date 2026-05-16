@@ -41,7 +41,7 @@ export function SupportOperatorQueueClient() {
       <section style={{ ...card, display: 'grid', gap: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--pc-accent, #0A7A5F)' }}>Операторская очередь поддержки исполнения</div>
         <h1 style={{ margin: 0, fontSize: 28 }}>Очередь обращений</h1>
-        <p style={muted}>Оператор видит SLA, приоритет, категорию, роль, объект, сумму риска, блокер и следующий шаг. Действия оператора меняют состояние обращения и оставляют запись в журнале.</p>
+        <p style={muted}>Оператор видит срок, приоритет, категорию, роль, объект, сумму риска, блокер и следующий шаг. Действия оператора меняют состояние обращения и оставляют запись в журнале.</p>
       </section>
 
       <section style={{ ...card, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -50,7 +50,7 @@ export function SupportOperatorQueueClient() {
         {(['money', 'documents', 'logistics', 'acceptance', 'quality', 'dispute', 'access', 'integration'] as SupportCategory[]).map((item) => <Link key={item} href={q('category', item)} style={pill}>{SUPPORT_CATEGORY_LABELS[item]}</Link>)}
         {(['deal', 'trip', 'document', 'blocker'] as SupportRelatedEntityType[]).map((item) => <Link key={item} href={q('entity', item)} style={pill}>{entityLabels[item]}</Link>)}
         <Link href={q('money', 'risk')} style={pill}>С деньгами под риском</Link>
-        <Link href={q('sla', 'today')} style={pill}>SLA сегодня</Link>
+        <Link href={q('sla', 'today')} style={pill}>Срок сегодня</Link>
       </section>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>
@@ -64,7 +64,7 @@ export function SupportOperatorQueueClient() {
         <div style={{ ...card, display: 'grid', gap: 10 }}>
           {rows.map((item) => (
             <Link key={item.id} href={`/platform-v7/support/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 7, background: item.id === selected?.id ? 'var(--pc-accent-bg, rgba(10,122,95,0.08))' : 'var(--pc-bg-elevated, rgba(15,20,25,0.02))' }}>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><b>{item.id}</b><span>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span>{SUPPORT_CATEGORY_LABELS[item.category]}</span><span>{supportSlaLabel(item)}</span><span>SLA {dt(item.slaDueAt)}</span></div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><b>{item.id}</b><span>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span>{SUPPORT_CATEGORY_LABELS[item.category]}</span><span>{supportSlaLabel(item)}</span><span>Срок {dt(item.slaDueAt)}</span></div>
               <div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div>
               <div style={muted}>{supportObjectLabel(item)} · {supportFormatRub(item.moneyAtRiskRub)}</div>
               <div style={muted}>Блокер: {item.blocker}</div>

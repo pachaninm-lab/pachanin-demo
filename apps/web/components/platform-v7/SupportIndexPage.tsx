@@ -86,13 +86,13 @@ export function SupportIndexPage() {
               <Link href={`/platform-v7/support/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
                 <div style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><span style={pill}>{item.id}</span><span style={pill}>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span style={pill}>{SUPPORT_CATEGORY_LABELS[item.category]}</span></div><div style={{ fontSize: 16, fontWeight: 900 }}>{item.title}</div></div>
                 <div style={{ display: 'grid', gap: 6 }}><div style={muted}>Статус</div><b>{SUPPORT_STATUS_LABELS[item.status]}</b><div style={muted}>Следующий шаг: {item.nextAction}</div></div>
-                <div style={{ display: 'grid', gap: 6 }}><div style={muted}>{supportObjectLabel(item)}</div><b>SLA: {dt(item.slaDueAt)}</b>{intro.showMoney ? <b>{supportFormatRub(item.moneyAtRiskRub)}</b> : null}</div>
+                <div style={{ display: 'grid', gap: 6 }}><div style={muted}>{supportObjectLabel(item)}</div><b>Срок: {dt(item.slaDueAt)}</b>{intro.showMoney ? <b>{supportFormatRub(item.moneyAtRiskRub)}</b> : null}</div>
               </Link>
-              <P7HiddenDetails title='Детали обращения' meta='последнее сообщение, объект, SLA и влияние на деньги'>
+              <P7HiddenDetails title='Детали обращения' meta='последнее сообщение, объект, срок и влияние на деньги'>
                 <p style={{ ...muted, margin: 0 }}>{supportLastMessage(item.id, messages)}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
                   <div style={miniCell}><span style={miniLabel}>Объект</span><b>{supportObjectLabel(item)}</b></div>
-                  <div style={miniCell}><span style={miniLabel}>SLA</span><b>{dt(item.slaDueAt)}</b></div>
+                  <div style={miniCell}><span style={miniLabel}>Срок</span><b>{dt(item.slaDueAt)}</b></div>
                   <div style={miniCell}><span style={miniLabel}>Ответственный</span><b>{item.owner}</b></div>
                   {intro.showMoney ? <div style={miniCell}><span style={miniLabel}>Деньги под риском</span><b>{supportFormatRub(item.moneyAtRiskRub)}</b></div> : null}
                 </div>

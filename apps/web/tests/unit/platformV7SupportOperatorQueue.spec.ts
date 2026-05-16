@@ -27,7 +27,7 @@ function supportCase(overrides: Partial<SupportCase>): SupportCase {
 }
 
 describe('platform-v7 support operator queue helpers', () => {
-  it('sorts operator queue by breached SLA, then priority, due time and money at risk', () => {
+  it('sorts operator queue by breached deadline, then priority, due time and money at risk', () => {
     const openHighMoney = supportCase({ id: 'SUP-OPEN-HIGH-MONEY', priority: 'P1', moneyAtRiskRub: 900_000, slaDueAt: '2026-05-05T18:00:00.000Z' });
     const breachedLow = supportCase({ id: 'SUP-BREACHED-LOW', priority: 'P3', slaDueAt: '2026-05-05T08:00:00.000Z' });
     const dueSoonP1 = supportCase({ id: 'SUP-DUE-SOON-P1', priority: 'P1', slaDueAt: '2026-05-05T13:00:00.000Z' });
@@ -43,10 +43,10 @@ describe('platform-v7 support operator queue helpers', () => {
     ]);
   });
 
-  it('labels SLA state without hiding breached or closed cases', () => {
+  it('labels deadline state without hiding breached or closed cases', () => {
     expect(supportSlaState(supportCase({ slaDueAt: '2026-05-05T11:00:00.000Z' }))).toBe('breached');
-    expect(supportSlaLabel(supportCase({ slaDueAt: '2026-05-05T13:00:00.000Z' }))).toBe('SLA скоро истечёт');
-    expect(supportSlaLabel(supportCase({ status: 'closed', slaDueAt: '2026-05-05T09:00:00.000Z' }))).toBe('SLA закрыт');
+    expect(supportSlaLabel(supportCase({ slaDueAt: '2026-05-05T13:00:00.000Z' }))).toBe('Срок скоро истечёт');
+    expect(supportSlaLabel(supportCase({ status: 'closed', slaDueAt: '2026-05-05T09:00:00.000Z' }))).toBe('Срок закрыт');
   });
 
   it('builds linked execution routes from explicit related object type first', () => {

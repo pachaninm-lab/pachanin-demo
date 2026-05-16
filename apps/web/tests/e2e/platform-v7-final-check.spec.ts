@@ -26,7 +26,7 @@ async function assertRouteClean(page: import('@playwright/test').Page, route: st
   expect(text.trim().length, `${route} should render useful content`).toBeGreaterThan(80);
 }
 
-test.describe('platform-v7 final controlled pilot check', () => {
+test.describe('platform-v7 final execution positioning check', () => {
   for (const route of ROUTES) {
     test(`${route} renders without crash or overclaim`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 });
@@ -34,14 +34,14 @@ test.describe('platform-v7 final controlled pilot check', () => {
     });
   }
 
-  test('status and investor routes keep honest maturity wording', async ({ page }) => {
+  test('status and investor routes keep honest external-boundary wording', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     await assertRouteClean(page, '/platform-v7/status');
-    await expect(page.locator('body')).toContainText(/Пилот|Тестовый режим|ручн/i);
+    await expect(page.locator('body')).toContainText(/Рабочий контур|ручн|внешн/i);
 
     await assertRouteClean(page, '/platform-v7/investor');
-    await expect(page.locator('body')).toContainText(/controlled-pilot|тестов|пилот/i);
+    await expect(page.locator('body')).toContainText(/проверочн|сценарн|внешн/i);
   });
 
   test('bank route keeps release as check flow rather than direct payment action', async ({ page }) => {
@@ -62,6 +62,6 @@ test.describe('platform-v7 final controlled pilot check', () => {
     await expect(page.locator('body')).toContainText(/доказательств|доказательного пакета|спор/i);
 
     await assertRouteClean(page, '/platform-v7/support/operator');
-    await expect(page.locator('body')).toContainText(/SLA|оператор|обращ/i);
+    await expect(page.locator('body')).toContainText(/срок|оператор|обращ/i);
   });
 });
