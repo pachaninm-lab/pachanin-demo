@@ -259,23 +259,27 @@ function statusPalette(tone: 'ok' | 'review' | 'risk') {
 }
 
 function systemStatus(pathname: string) {
+  const isConnectorsRoute = pathname.startsWith('/platform-v7/connectors');
+  const isBankRoute = pathname.startsWith('/platform-v7/bank');
+  const isDisputesRoute = pathname.startsWith('/platform-v7/disputes');
+
   return [
     {
       label: 'ФГИС',
-      detail: pathname.startsWith('/platform-v7/connectors') ? 'нужна проверка' : 'связь отражена',
-      tone: pathname.startsWith('/platform-v7/connectors') ? 'review' as const : 'ok' as const,
+      detail: isConnectorsRoute ? 'требует сверки' : 'ждёт сверки',
+      tone: 'review' as const,
       icon: ShieldCheck,
     },
     {
       label: 'Банк',
-      detail: pathname.startsWith('/platform-v7/bank') ? 'ручная проверка' : 'события получены',
-      tone: pathname.startsWith('/platform-v7/bank') ? 'review' as const : 'ok' as const,
+      detail: isBankRoute ? 'ручная проверка' : 'ждёт подтверждения',
+      tone: 'review' as const,
       icon: Landmark,
     },
     {
       label: 'Споры',
-      detail: pathname.startsWith('/platform-v7/disputes') ? 'в работе' : 'без критического стопа',
-      tone: pathname.startsWith('/platform-v7/disputes') ? 'risk' as const : 'ok' as const,
+      detail: isDisputesRoute ? 'в работе' : 'критичных нет в сценарии',
+      tone: isDisputesRoute ? 'risk' as const : 'ok' as const,
       icon: AlertTriangle,
     },
   ];
