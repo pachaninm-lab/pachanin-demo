@@ -33,12 +33,12 @@ function statusToTone(status: 'готово' | 'проверить' | 'стоп'
 }
 
 const readinessRows = [
-  { id: 'fgis', label: 'ФГИС и партия', gate: readiness.fgis, responsible: 'Продавец', block: 'допуск партии' },
+  { id: 'fgis', label: 'ФГИС: сверка партии', gate: readiness.fgis, responsible: 'Продавец', block: 'допуск партии' },
   { id: 'quality', label: 'Качество и лаборатория', gate: readiness.quality, responsible: 'Лаборатория', block: 'приёмку и цену' },
   { id: 'logistics', label: 'Логистика и рейс', gate: readiness.logistics, responsible: 'Логистика', block: 'вывоз и срок' },
-  { id: 'documents', label: 'Документы и СДИЗ', gate: readiness.documents, responsible: 'Продавец', block: 'отгрузку и выплату' },
+  { id: 'documents', label: 'Документы и СДИЗ', gate: readiness.documents, responsible: 'Продавец', block: 'отгрузку и основание выплаты' },
   { id: 'bank', label: 'Резерв и банк', gate: readiness.bank, responsible: 'Покупатель · банк', block: 'проверку выплаты' },
-  { id: 'dispute', label: 'Спор и удержание', gate: readiness.dispute, responsible: 'Оператор', block: 'выпуск денег' },
+  { id: 'dispute', label: 'Спор и удержание', gate: readiness.dispute, responsible: 'Оператор', block: 'выпуск денег банком' },
   { id: 'antiBypass', label: 'Контакты и обход', gate: readiness.antiBypass, responsible: 'Платформа', block: 'удержание сделки в контуре' },
 ] as const;
 
@@ -50,7 +50,7 @@ const blockers = readinessRows
     reason: row.gate.note,
     impact: row.block,
     responsible: row.responsible,
-    nextAction: row.id === 'bank' ? 'Передать основание банку' : 'Закрыть условие',
+    nextAction: row.id === 'fgis' ? 'Запросить сверку ФГИС' : row.id === 'bank' ? 'Передать основание банку' : 'Закрыть условие',
     tone: statusToTone(row.gate.status),
   }));
 
@@ -64,8 +64,8 @@ const premiumDeal: DealViewModel = {
   title: `${deal.crop} · ${deal.lotId}`,
   stageLabel: deal.status,
   currentState: firstBlocker
-    ? `${blockers.length} причин остановки: ${firstBlocker.title}`
-    : 'Деньги, документы, груз и качество идут по условиям сделки.',
+    ? `${blockers.length} условий требуют проверки: ${firstBlocker.title}`
+    : 'Условия сделки закрыты; можно передать пакет на банковскую проверку.',
   basisLabel: deal.basis,
   money: {
     totalRub: expectedDealAmountRub(),
@@ -96,7 +96,7 @@ const premiumDeal: DealViewModel = {
     responsible: row.responsible,
     blocks: row.gate.blocker || undefined,
     moneyImpactRub: row.id === 'bank' || row.id === 'documents' ? money.reservedRub : undefined,
-    nextAction: row.gate.blocker ? 'Закрыть условие' : undefined,
+    nextAction: row.id === 'fgis' && row.gate.blocker ? 'Запросить сверку ФГИС' : row.gate.blocker ? 'Закрыть условие' : undefined,
   })),
   documents: [
     {
@@ -114,7 +114,7 @@ const premiumDeal: DealViewModel = {
       title: 'СДИЗ',
       status: documents.sdizStatus === 'не оформлен' ? 'blocked' : 'ready',
       responsible: 'Продавец',
-      blocks: 'отгрузку и выпуск денег',
+      blocks: 'отгрузку и основание выплаты',
       source: 'ФГИС Зерно',
       actionLabel: 'Оформить СДИЗ',
       reason: documents.sdizStatus,
