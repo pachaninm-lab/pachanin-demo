@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { getShellPolicy, inferPlatformRoleFromPath } from '@/lib/platform-v7/shell-role-policy';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
-const WORK_LINKS = [
+export const WORK_LINKS = [
   { href: '/platform-v7/control-tower', label: 'Центр', note: 'блокеры' },
   { href: '/platform-v7/deals', label: 'Сделки', note: 'исполнение' },
   { href: '/platform-v7/lots', label: 'Лоты/RFQ', note: 'запросы' },
