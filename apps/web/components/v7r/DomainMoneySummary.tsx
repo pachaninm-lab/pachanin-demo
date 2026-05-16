@@ -26,7 +26,7 @@ export function DomainMoneySummary() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='В резерве' value={formatCompactMoney(totals.reserveTotal)} note={`${reservedDeals} активных сделок с зарезервированной суммой.`} />
         <StatCard title='Под удержанием' value={formatCompactMoney(totals.heldTotal)} note={`${heldDeals} активных сделок с удержанием.`} />
-        <StatCard title='К выпуску' value={formatCompactMoney(totals.readyToReleaseTotal)} note={`${readyDeals} сделок близки к выпуску денег.`} />
+        <StatCard title='К подтверждению' value={formatCompactMoney(totals.readyToReleaseTotal)} note={`${readyDeals} сделок близки к банковскому подтверждению.`} />
       </div>
     </section>
   );
