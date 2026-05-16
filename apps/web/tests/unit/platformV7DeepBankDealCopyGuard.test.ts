@@ -7,6 +7,7 @@ const webRoot = existsSync(join(process.cwd(), 'app/platform-v7')) ? process.cwd
 const read = (relativePath: string) => readFileSync(join(webRoot, relativePath), 'utf8');
 
 const guardedFiles = [
+  'app/platform-v7/auth/page.tsx',
   'app/platform-v7/bank/escrow/page.tsx',
   'app/platform-v7/bank/events/page.tsx',
   'app/platform-v7/bank/factoring/page.tsx',
@@ -21,6 +22,7 @@ const guardedFiles = [
   'app/platform-v7/docs/page.tsx',
   'app/platform-v7/documents/page.tsx',
   'app/platform-v7/elevator/page.tsx',
+  'app/platform-v7/login/page.tsx',
   'app/platform-v7/money/page.tsx',
   'app/platform-v7/operator/grain/page.tsx',
   'app/platform-v7/offer-to-deal/page.tsx',
@@ -118,6 +120,7 @@ const forbiddenVisibleCopy = [
   'live-integrated',
   'fully live',
   'production-ready',
+  'pilot-ready',
   'демо-контур',
   'демо-',
   'демо-контура',
@@ -125,6 +128,7 @@ const forbiddenVisibleCopy = [
   'демо-данных',
   'демо-портфелю',
   'демо-статусы',
+  'тестового контура',
   'live bank adapter',
   'live tracking',
 ];
