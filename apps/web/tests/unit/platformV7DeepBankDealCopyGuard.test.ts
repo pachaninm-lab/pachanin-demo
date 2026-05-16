@@ -41,6 +41,7 @@ const guardedFiles = [
   'components/platform-v7/premium/ExecutionUi.tsx',
   'components/v7r/BankRuntime.tsx',
   'components/v7r/ControlTowerOperatorPanel.tsx',
+  'components/v7r/DealDetailRuntime.tsx',
   'components/v7r/DealDraftDetailRuntime.tsx',
   'components/v7r/DealDraftDetailRuntimeV2.tsx',
   'components/v7r/DealEvidencePackPreview.tsx',
