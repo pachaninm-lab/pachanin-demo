@@ -22,9 +22,11 @@ const guardedFiles = [
   'app/platform-v7/elevator/page.tsx',
   'app/platform-v7/money/page.tsx',
   'app/platform-v7/operator/grain/page.tsx',
+  'app/platform-v7/privacy/page.tsx',
   'app/platform-v7/reports/grain/page.tsx',
   'app/platform-v7/seller/page.tsx',
   'app/platform-v7/settlement/grain/page.tsx',
+  'app/platform-v7/terms/page.tsx',
   'components/platform-v7/AuditSurfaceSummary.tsx',
   'components/platform-v7/BankSmartContractsPanel.tsx',
   'components/platform-v7/DecisionPackMiniPanel.tsx',
@@ -106,6 +108,9 @@ const forbiddenVisibleCopy = [
   'webhooks',
   'simulation-grade',
   'live-integrated',
+  'production-ready',
+  'демо-контура',
+  'демо-контуре',
 ];
 
 describe('platform-v7 deep bank and deal copy guard', () => {
