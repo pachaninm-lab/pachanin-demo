@@ -207,7 +207,7 @@ export function PlatformCommandCenterHub() {
       deal={premiumDeal}
       initialRole={normalizeRole(role)}
       roles={roles}
-      theme="dark"
+      theme="light"
       onRoleChange={(nextRole) => setRole(denormalizeRole(nextRole))}
     />
   );
