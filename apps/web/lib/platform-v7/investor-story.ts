@@ -17,13 +17,13 @@ export const PLATFORM_V7_INVESTOR_STORY: PlatformV7InvestorStoryBlock[] = [
   {
     id: 'money-control',
     title: 'Деньги выпускаются по событиям, а не по обещаниям',
-    body: 'Демо-логика строится вокруг reserve, hold и release: выпуск денег возможен только после закрытия проверяемых условий.',
+    body: 'Демо-логика строится вокруг резерва, удержания и выпуска денег: выпуск возможен только после закрытия проверяемых условий.',
     metricIds: ['releaseAutomation', 'disputeRate'],
   },
   {
     id: 'controlled-pilot',
     title: 'Пилотный контур без завышения зрелости',
-    body: 'Investor-mode должен показывать controlled pilot: сильная предпилотная сборка, но без заявления production-ready до боевых подключений.',
+    body: 'Investor-mode должен показывать controlled pilot: сильная предпилотная сборка, но без заявления боевой готовности до подтверждённых подключений.',
     metricIds: ['controlledPilots', 'activeCompanies'],
   },
 ];
