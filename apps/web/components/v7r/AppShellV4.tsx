@@ -50,18 +50,18 @@ const ROLE_LABELS: Record<PlatformRole, string> = {
 };
 
 const ROLE_STAGE: Record<PlatformRole, { label: string; tone: 'pilot' | 'test' | 'field' }> = {
-  operator: { label: 'Пилотный режим', tone: 'pilot' },
-  buyer: { label: 'Пилотный режим', tone: 'pilot' },
-  seller: { label: 'Пилотный режим', tone: 'pilot' },
-  logistics: { label: 'Пилотный режим', tone: 'pilot' },
-  executive: { label: 'Пилотный режим', tone: 'pilot' },
-  bank: { label: 'Тестовая среда', tone: 'test' },
-  arbitrator: { label: 'Тестовая среда', tone: 'test' },
-  compliance: { label: 'Тестовая среда', tone: 'test' },
-  driver: { label: 'Полевой режим', tone: 'field' },
-  surveyor: { label: 'Полевой режим', tone: 'field' },
-  elevator: { label: 'Полевой режим', tone: 'field' },
-  lab: { label: 'Полевой режим', tone: 'field' },
+  operator: { label: 'Контур сделки', tone: 'pilot' },
+  buyer: { label: 'Контур сделки', tone: 'pilot' },
+  seller: { label: 'Контур сделки', tone: 'pilot' },
+  logistics: { label: 'Контур сделки', tone: 'pilot' },
+  executive: { label: 'Контур сделки', tone: 'pilot' },
+  bank: { label: 'Проверка условий', tone: 'test' },
+  arbitrator: { label: 'Проверка условий', tone: 'test' },
+  compliance: { label: 'Проверка условий', tone: 'test' },
+  driver: { label: 'Полевой контур', tone: 'field' },
+  surveyor: { label: 'Полевой контур', tone: 'field' },
+  elevator: { label: 'Полевой контур', tone: 'field' },
+  lab: { label: 'Полевой контур', tone: 'field' },
 };
 
 const ROLE_ROUTES: Record<PlatformRole, string> = {
@@ -216,7 +216,7 @@ const CRUMB_LABELS: Record<string, string> = {
   arbitrator: 'Арбитр',
   connectors: 'Подключения',
   investor: 'Инвестор',
-  demo: 'Демо-сценарий',
+  demo: 'Сценарий сделки',
   market: 'Лоты и запросы',
   notifications: 'Уведомления',
 };
@@ -300,7 +300,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
-  const [theme, setTheme] = React.useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
 
   React.useEffect(() => {
     usePlatformV7RStore.persist.rehydrate();
@@ -309,7 +309,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
   React.useEffect(() => {
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem('pc-theme') : null;
-    const nextTheme: 'light' | 'dark' = stored === 'light' ? 'light' : 'dark';
+    const nextTheme: 'light' | 'dark' = stored === 'dark' ? 'dark' : 'light';
     setTheme(nextTheme);
     document.documentElement.setAttribute('data-theme', nextTheme);
   }, []);
@@ -453,7 +453,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--pc-text-primary)', fontSize: 14, fontWeight: 950 }}><RoleIcon size={17} />{ROLE_LABELS[displayRole]}</span>
               <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
             </div>
-            <p style={{ margin: 0, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Боевой контур не заявляется без подтверждённых подключений и реальных сделок.</p>
+            <p style={{ margin: 0, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Подключения и банковские события требуют договоров, доступов и подтверждения на реальных сделках.</p>
           </div>
         </div>
 
@@ -488,7 +488,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
             <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
               <Link href='/platform-v7/roles' style={drawerUtilityLink}>Все роли</Link>
               <Link href='/platform-v7/investor' style={drawerUtilityLink}>Инвесторский обзор</Link>
-              <Link href='/platform-v7/demo' style={drawerUtilityLink}>Демо-сценарий</Link>
+              <Link href='/platform-v7/demo' style={drawerUtilityLink}>Сценарий сделки</Link>
             </div>
           </details>
         </div>
@@ -573,7 +573,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
       <main className='pc-v4-main' id='main-content'>
         {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
-          <p className='pc-v4-pilot-note'>Контролируемый пилот. Не промышленная эксплуатация. Боевые подключения требуют договоров, доступов и подтверждения на реальных сделках.</p>
+          <p className='pc-v4-pilot-note'>Подключения и банковские события требуют договоров, доступов и подтверждения на реальных сделках.</p>
         ) : null}
         {children}
       </main>
