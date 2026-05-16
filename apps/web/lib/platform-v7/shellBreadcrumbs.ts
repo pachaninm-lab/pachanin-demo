@@ -26,7 +26,7 @@ export const PLATFORM_V7_SHELL_BREADCRUMB_LABELS: Record<string, string> = {
   logistics: 'Логистика',
   field: 'Поле и приёмка',
   bank: 'Банк',
-  'release-safety': 'Проверка выпуска денег',
+  'release-safety': 'Проверка банковского основания',
   'data-room': 'Пакет проверки',
   disputes: 'Споры',
   compliance: 'Комплаенс',

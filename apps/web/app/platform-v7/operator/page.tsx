@@ -13,7 +13,7 @@ const blockers = [
 ] as const;
 
 const quickLinks = [
-  { title: 'Проверка выплаты', href: '/platform-v7/bank/release-safety', note: 'условия выпуска денег' },
+  { title: 'Проверка основания', href: '/platform-v7/bank/release-safety', note: 'резерв, удержания и банковское подтверждение' },
   { title: 'Документы', href: '/platform-v7/documents', note: 'УПД, ЭТрН, СДИЗ, акт, протокол' },
   { title: 'Логистика', href: '/platform-v7/logistics', note: 'водители, ЭТрН, ГИС ЭПД' },
   { title: 'Приёмка', href: '/platform-v7/elevator', note: 'вес, качество, акт' },
@@ -28,7 +28,7 @@ export default function PlatformV7OperatorAliasPage() {
       <section style={hero}>
         <div style={badge}>Центр управления оператора</div>
         <h1 style={h1}>Блокеры, деньги и следующий ответственный</h1>
-        <p style={lead}>Оператор видит не технические интеграции, а сделки, которые остановили деньги: причина, источник, сумма влияния, ответственный и следующее действие.</p>
+        <p style={lead}>Оператор видит не технические интеграции, а сделки, которые держат резерв или удержание: причина, источник, сумма влияния, ответственный и следующее действие.</p>
         <div style={actions}>
           <Link href={`/platform-v7/deals/${deal9106.dealId}/clean`} style={primaryBtn}>Открыть Deal 360</Link>
           <Link href='/platform-v7/documents' style={ghostBtn}>Матрица документов</Link>
@@ -39,7 +39,7 @@ export default function PlatformV7OperatorAliasPage() {
         <Metric label='Сделок под контролем' value='2' />
         <Metric label='Стоп-блокеров' value={String(stopCount)} danger />
         <Metric label='Деньги под влиянием' value='15,89 млн ₽' danger />
-        <Metric label='К выплате сейчас' value='0 ₽' danger />
+        <Metric label='К подтверждению сейчас' value='0 ₽' danger />
       </section>
 
       <section style={card}>
@@ -76,7 +76,7 @@ function BlockerRow({ item }: { item: typeof blockers[number] }) {
           <h2 style={h2}>{item.reason}</h2>
           <p style={muted}>{item.source}</p>
         </div>
-        <span style={{ ...pill, color: stop ? '#B91C1C' : '#B45309', borderColor: stop ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)', background: '#fff' }}>{stop ? 'останавливает деньги' : 'ждёт подтверждения'}</span>
+        <span style={{ ...pill, color: stop ? '#B91C1C' : '#B45309', borderColor: stop ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)', background: '#fff' }}>{stop ? 'держит банковское основание' : 'ждёт подтверждения'}</span>
       </div>
       <div style={grid2}>
         <Cell label='Сумма влияния' value={item.amount} danger={stop} />
