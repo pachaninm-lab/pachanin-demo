@@ -288,7 +288,15 @@ export function applyPlatformV7ExecutionAction(
     at: timestamp,
   });
 
-  const appliedWithoutRuntime: Omit<PlatformV7ExecutionActionApplied, 'runtimeEvent' | 'runtimeEventBridgeStatus'> = {
+  const runtimeBridge = buildRuntimeEventFromExecutionAction({
+    actionId: request.actionId,
+    actorRole: request.actorRole,
+    entityId: request.entityId,
+    auditCopy,
+    timestamp,
+  });
+
+  return {
     status: 'success',
     actionId: request.actionId,
     entityType: spec.entityType,
@@ -302,11 +310,6 @@ export function applyPlatformV7ExecutionAction(
     toastCopy: `${request.entityId}: ${messages.success}`,
     auditCopy,
     logEntry,
-  };
-  const runtimeBridge = buildRuntimeEventFromExecutionAction(appliedWithoutRuntime as PlatformV7ExecutionActionApplied);
-
-  return {
-    ...appliedWithoutRuntime,
     runtimeEvent: runtimeBridge.runtimeEvent,
     runtimeEventBridgeStatus: runtimeBridge.status,
   };
