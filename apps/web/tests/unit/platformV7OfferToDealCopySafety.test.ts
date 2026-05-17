@@ -26,6 +26,11 @@ describe('platform-v7 offer-to-deal copy safety', () => {
     expect(pageSource).toContain('Проверить банковское основание');
   });
 
+  it('keeps FGIS gate wording honest before external reconciliation', () => {
+    expect(pageSource).toContain('партия требует сверки по партии и остатку');
+    expect(pageSource).not.toContain('партия подтверждена, остаток достаточен');
+  });
+
   it('does not imply platform-side payment release', () => {
     expect(pageSource).not.toContain('К выпуску');
     expect(pageSource).not.toContain('Выпущено');
