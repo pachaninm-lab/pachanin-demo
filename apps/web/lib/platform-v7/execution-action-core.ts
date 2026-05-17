@@ -1,5 +1,7 @@
 import { createActionLogEntry, type PlatformActionLogEntry, type PlatformActionScope } from './action-log';
 import { platformV7ActionMessages, type PlatformV7ActionMessageId } from './action-messages';
+import { buildRuntimeEventFromExecutionAction } from './execution-runtime-event-bridge';
+import type { PlatformV7RuntimeActionEventResult } from './runtime-action-events';
 
 export type PlatformV7ExecutionMode = 'sandbox' | 'manual' | 'controlled-pilot' | 'live';
 export type PlatformV7ExecutionRole = 'seller' | 'buyer' | 'operator' | 'logistics' | 'driver' | 'elevator' | 'lab';
@@ -62,6 +64,8 @@ export interface PlatformV7ExecutionActionApplied {
   readonly toastCopy: string;
   readonly auditCopy: string;
   readonly logEntry: PlatformActionLogEntry;
+  readonly runtimeEvent: PlatformV7RuntimeActionEventResult | null;
+  readonly runtimeEventBridgeStatus: 'mapped' | 'not_mapped';
 }
 
 export type PlatformV7ExecutionActionResult = PlatformV7ExecutionActionBlocked | PlatformV7ExecutionActionApplied;
@@ -284,7 +288,7 @@ export function applyPlatformV7ExecutionAction(
     at: timestamp,
   });
 
-  return {
+  const appliedWithoutRuntime: Omit<PlatformV7ExecutionActionApplied, 'runtimeEvent' | 'runtimeEventBridgeStatus'> = {
     status: 'success',
     actionId: request.actionId,
     entityType: spec.entityType,
@@ -298,6 +302,13 @@ export function applyPlatformV7ExecutionAction(
     toastCopy: `${request.entityId}: ${messages.success}`,
     auditCopy,
     logEntry,
+  };
+  const runtimeBridge = buildRuntimeEventFromExecutionAction(appliedWithoutRuntime as PlatformV7ExecutionActionApplied);
+
+  return {
+    ...appliedWithoutRuntime,
+    runtimeEvent: runtimeBridge.runtimeEvent,
+    runtimeEventBridgeStatus: runtimeBridge.status,
   };
 }
 
