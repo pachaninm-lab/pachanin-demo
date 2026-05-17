@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import path from 'node:path';
 
-const root = process.cwd();
-const shellSource = readFileSync(join(root, 'components/v7r/AppShellV4.tsx'), 'utf8');
+const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf8');
 
 describe('platform-v7 shell bank navigation copy', () => {
+  const shellSource = read('apps/web/components/v7r/AppShellV4.tsx');
+
   it('does not imply that the platform releases money from the shell navigation', () => {
     expect(shellSource).not.toContain("note: 'резерв и выпуск'");
     expect(shellSource).not.toContain("note: 'резерв и условия выпуска'");
