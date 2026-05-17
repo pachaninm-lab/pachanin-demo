@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, type PlatformV7ExecutionActionState } from '@/lib/platform-v7/execution-action-core';
 import {
-  PLATFORM_V7_BANK_ROUTE,
   PLATFORM_V7_DEALS_ROUTE,
   PLATFORM_V7_LOGISTICS_ROUTE,
   PLATFORM_V7_READINESS_ROUTE,
