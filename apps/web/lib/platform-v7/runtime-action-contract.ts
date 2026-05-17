@@ -1,4 +1,5 @@
 import type { PlatformActionScope } from './action-log';
+import type { PlatformV7ActionMessageId } from './action-messages';
 import type { PlatformV7ExecutionRole } from './execution-action-core';
 
 export type PlatformV7RuntimeExternalSystem = 'fgis' | 'bank' | 'edo' | 'lab' | 'elevator' | 'none';
@@ -156,8 +157,22 @@ export const PLATFORM_V7_RUNTIME_ACTION_CONTRACTS: readonly PlatformV7RuntimeAct
   },
 ] as const;
 
+export const PLATFORM_V7_ACTION_MESSAGE_TO_RUNTIME_CONTRACT: Partial<Record<PlatformV7ActionMessageId, PlatformV7RuntimeActionId>> = {
+  createDraftDealFromOffer: 'create_draft_deal',
+  requestMoneyReserve: 'request_bank_reserve_review',
+  releaseFunds: 'request_bank_payment_basis_review',
+  attachDocument: 'attach_internal_document',
+  openDispute: 'open_dispute_case',
+  recordFieldEvent: 'record_field_evidence',
+};
+
 export function platformV7RuntimeActionContract(id: PlatformV7RuntimeActionId): PlatformV7RuntimeActionContract | null {
   return PLATFORM_V7_RUNTIME_ACTION_CONTRACTS.find((contract) => contract.id === id) ?? null;
+}
+
+export function platformV7RuntimeActionForMessage(actionId: PlatformV7ActionMessageId): PlatformV7RuntimeActionContract | null {
+  const runtimeActionId = PLATFORM_V7_ACTION_MESSAGE_TO_RUNTIME_CONTRACT[actionId];
+  return runtimeActionId ? platformV7RuntimeActionContract(runtimeActionId) : null;
 }
 
 export function platformV7RuntimeActionsForRole(role: PlatformV7ExecutionRole): readonly PlatformV7RuntimeActionContract[] {
