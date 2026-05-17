@@ -38,6 +38,8 @@ describe('platform-v7 execution action core', () => {
       scope: 'lot',
       status: 'success',
     }));
+    expect(first.runtimeEventBridgeStatus).toBe('not_mapped');
+    expect(first.runtimeEvent).toBeNull();
 
     const duplicate = applyPlatformV7ExecutionAction(first.nextStateRef, {
       actionId: 'submitSellerOffer',
@@ -145,6 +147,82 @@ describe('platform-v7 execution action core', () => {
       status: 'blocked',
       disabledReason: 'По этой сделке уже открыт спор.',
     }));
+  });
+
+  it('returns runtime event for bank reserve without confirming bank or moving money', () => {
+    const accepted = applyPlatformV7ExecutionAction(PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, {
+      actionId: 'acceptOffer',
+      actorRole: 'buyer',
+      entityId: 'OFFER-2403-A',
+    }, now);
+    if (accepted.status !== 'success') throw new Error('Expected accepted offer');
+
+    const draft = applyPlatformV7ExecutionAction(accepted.nextStateRef, {
+      actionId: 'createDraftDealFromOffer',
+      actorRole: 'operator',
+      entityId: 'DL-DRAFT-2403',
+    }, now);
+    if (draft.status !== 'success') throw new Error('Expected draft deal');
+
+    const reserve = applyPlatformV7ExecutionAction(draft.nextStateRef, {
+      actionId: 'requestMoneyReserve',
+      actorRole: 'buyer',
+      entityId: 'RESERVE-DL-DRAFT-2403',
+    }, now);
+
+    expect(reserve.status).toBe('success');
+    if (reserve.status !== 'success') throw new Error('Expected reserve intent');
+
+    expect(reserve.runtimeEventBridgeStatus).toBe('mapped');
+    expect(reserve.runtimeEvent?.status).toBe('created');
+    if (!reserve.runtimeEvent || reserve.runtimeEvent.status !== 'created') throw new Error('Expected runtime event');
+
+    expect(reserve.runtimeEvent).toEqual(expect.objectContaining({
+      actionId: 'request_bank_reserve_review',
+      externalSystem: 'bank',
+      externalConfirmationStatus: 'requested',
+      resultingState: 'pending_bank_review',
+      doesNotConfirmExternally: true,
+    }));
+    expect(reserve.runtimeEvent.logEntry).toEqual(expect.objectContaining({
+      scope: 'bank',
+      status: 'started',
+      action: 'bank_reserve_review_requested',
+      actor: 'buyer',
+    }));
+    expect(reserve.runtimeEvent.logEntry.message).toContain('Не подтверждает резерв');
+    expect(reserve.runtimeEvent.logEntry.message).toContain('Ожидается подтверждение внешней системы: bank.');
+    expect(reserve.runtimeEvent.logEntry.message).not.toContain('Выпущено');
+    expect(reserve.runtimeEvent.logEntry.message).not.toContain('К выпуску');
+    expect(reserve.runtimeEvent.logEntry.message).not.toContain('платформа выпускает деньги');
+  });
+
+  it('returns runtime event for internal document without treating it as EDO or UKEP', () => {
+    const state: PlatformV7ExecutionActionState = {
+      ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
+      acceptedOfferId: 'OFFER-2403-A',
+      draftDealId: 'DL-DRAFT-2403',
+      dealId: 'DL-DRAFT-2403',
+    };
+
+    const document = applyPlatformV7ExecutionAction(state, {
+      actionId: 'attachDocument',
+      actorRole: 'operator',
+      entityId: 'DOC-2403-1',
+    }, now);
+
+    expect(document.status).toBe('success');
+    if (document.status !== 'success') throw new Error('Expected document action');
+
+    expect(document.runtimeEventBridgeStatus).toBe('mapped');
+    expect(document.runtimeEvent?.status).toBe('created');
+    if (!document.runtimeEvent || document.runtimeEvent.status !== 'created') throw new Error('Expected runtime event');
+
+    expect(document.runtimeEvent.externalSystem).toBe('none');
+    expect(document.runtimeEvent.externalConfirmationStatus).toBe('not_required');
+    expect(document.runtimeEvent.logEntry.status).toBe('success');
+    expect(document.runtimeEvent.logEntry.action).toBe('internal_document_attached');
+    expect(document.runtimeEvent.logEntry.message).toContain('Не является ЭДО, УКЭП или внешним подтверждением.');
   });
 
   it('blocks field event without assigned logistics', () => {
