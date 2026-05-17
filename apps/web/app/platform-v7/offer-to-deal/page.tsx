@@ -30,25 +30,25 @@ const dealBridgeInitialState = {
 const dealBridgeActionItems = [
   {
     title: 'Создать черновик сделки',
-    description: 'Переносит принятую ставку в Deal Workspace как controlled-pilot черновик без выпуска денег.',
+    description: 'Переносит принятую ставку в карточку сделки как черновик без банковского решения и без движения денег.',
     targetId: 'e4-create-draft-deal',
     actionId: 'createDraftDealFromOffer',
     actorRole: 'operator',
     entityId: 'DL-DRAFT-2403',
-    mode: 'controlled-pilot',
+    mode: 'manual',
   },
   {
     title: 'Запросить резерв денег',
-    description: 'Создаёт только намерение резерва. Это не выпуск денег и не live bank adapter.',
+    description: 'Создаёт только запрос на резерв. Банк должен отдельно подтвердить резерв и дальнейшее решение.',
     targetId: 'e4-request-money-reserve',
     actionId: 'requestMoneyReserve',
     actorRole: 'buyer',
     entityId: 'RESERVE-DL-DRAFT-2403',
-    mode: 'controlled-pilot',
+    mode: 'manual',
   },
   {
     title: 'Назначить логистику',
-    description: 'Связывает сделку с логистическим заказом в ручном controlled-pilot режиме без Driver PWA и live tracking.',
+    description: 'Связывает сделку с логистическим заказом в ручном режиме без заявления о подключённом приложении водителя и внешнем трекинге.',
     targetId: 'e4-assign-logistics',
     actionId: 'assignLogistics',
     actorRole: 'operator',
@@ -57,7 +57,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Приложить документ',
-    description: 'Фиксирует внутренний документ как gate/evidence. Это не ЭДО, не УКЭП и не СберКорус.',
+    description: 'Фиксирует внутренний документ как условие сделки и доказательство. Это не ЭДО, не УКЭП и не СберКорус.',
     targetId: 'e4-attach-document',
     actionId: 'attachDocument',
     actorRole: 'operator',
@@ -66,7 +66,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Зафиксировать полевое событие',
-    description: 'Добавляет ручное полевое событие как evidence. Это не GPS/photo live capture.',
+    description: 'Добавляет ручное полевое событие в доказательный контур. Это не автоматическая GPS/фотофиксация.',
     targetId: 'e4-record-field-event',
     actionId: 'recordFieldEvent',
     actorRole: 'operator',
@@ -75,12 +75,12 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Открыть спор',
-    description: 'Создаёт спор по сделке с money effect pending и rollback. Полной dispute room здесь ещё нет.',
+    description: 'Создаёт спор по сделке с ожидающим влиянием на деньги и возможностью отмены действия. Полного кабинета спора здесь ещё нет.',
     targetId: 'e4-open-dispute',
     actionId: 'openDispute',
     actorRole: 'operator',
     entityId: 'DISPUTE-DL-DRAFT-2403',
-    mode: 'controlled-pilot',
+    mode: 'manual',
   },
 ] satisfies readonly PlatformV7ExecutionActionUiItem[];
 
@@ -134,7 +134,7 @@ export default function PlatformV7OfferToDealPage() {
       <section style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 14, padding: 14 }}>
         <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Правило</div>
         <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
-          Черновик сделки не выпускает деньги и не создаёт обязательство автоматически. Он фиксирует источник условий и показывает, какие проверки должны пройти до договора и резерва денег.
+          Черновик сделки не запускает банковское решение и не создаёт платёжное обязательство автоматически. Он фиксирует источник условий и показывает, какие проверки должны пройти до договора и резерва денег.
         </div>
       </section>
 
@@ -147,7 +147,7 @@ export default function PlatformV7OfferToDealPage() {
 
       <P7ExecutionActionsPanel
         title='Сквозные действия сделки'
-        subtitle='Здесь закрыт первый bridge: draft deal, money reserve intent, logistics, internal document, field event и dispute. Все действия имеют guard, toast, action log и rollback.'
+        subtitle='Здесь закрыт первый переход от принятой ставки к черновику сделки: запрос резерва, логистика, внутренний документ, полевое событие и спор. Все действия имеют проверку условий, уведомление, журнал действий и отмену последнего шага.'
         items={dealBridgeActionItems}
         initialState={dealBridgeInitialState}
       />
@@ -186,7 +186,7 @@ export default function PlatformV7OfferToDealPage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
           <Link href={PLATFORM_V7_READINESS_ROUTE} style={btn('primary')}>Проверить готовность</Link>
           <Link href={PLATFORM_V7_LOGISTICS_ROUTE} style={btn()}>Назначить логистику</Link>
-          <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверить деньги</Link>
+          <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверить банковское основание</Link>
           <Link href={PLATFORM_V7_DEALS_ROUTE} style={btn()}>Реестр сделок</Link>
         </div>
       </section>
