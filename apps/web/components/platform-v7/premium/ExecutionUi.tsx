@@ -32,7 +32,7 @@ const roleFocusLabels: Record<DealRole, string> = {
   elevator: 'вес, приёмка и акт',
   lab: 'качество и протокол',
   surveyor: 'доказательства и расхождения',
-  bank: 'основания для выпуска денег',
+  bank: 'основания для банковской проверки',
   arbiter: 'спор и доказательства',
   compliance: 'документы и риск допуска',
   operator: 'снятие блокеров сделки',
@@ -132,11 +132,11 @@ function NextAction({ action }: { action: NextActionModel }) {
 function MoneyRail({ deal }: { deal: DealViewModel }) {
   const blockedRub = deal.money.heldRub + deal.money.awaitingDocsRub + deal.money.disputedRub;
   const parts = [
-    { label: 'К выпуску', value: deal.money.readyToReleaseRub, tone: 'success' as DealTone },
+    { label: 'На банковскую проверку', value: deal.money.readyToReleaseRub, tone: 'success' as DealTone },
     { label: 'Удержано', value: deal.money.heldRub, tone: 'warning' as DealTone },
     { label: 'Ждёт документы', value: deal.money.awaitingDocsRub, tone: 'info' as DealTone },
     { label: 'В споре', value: deal.money.disputedRub, tone: 'dispute' as DealTone },
-    { label: 'Выпущено', value: deal.money.releasedRub, tone: 'neutral' as DealTone },
+    { label: 'Подтверждено банком', value: deal.money.releasedRub, tone: 'neutral' as DealTone },
   ];
   return (
     <section className={cx(styles.rail, styles.span12)} aria-label="Деньги по сделке">
@@ -146,9 +146,9 @@ function MoneyRail({ deal }: { deal: DealViewModel }) {
           <Badge tone={isMoneyBalanced(deal.money) ? 'success' : 'warning'}>{isMoneyBalanced(deal.money) ? 'сходится' : 'сверить'}</Badge>
         </div>
         <div className={styles.moneySummary}>
-          <span>К движению: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}</span>
+          <span>На проверку: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}</span>
           <span>Остановлено: {formatPremiumRubCompact(blockedRub)}</span>
-          <span>Выпущено: {formatPremiumRubCompact(deal.money.releasedRub)}</span>
+          <span>Банк подтвердил: {formatPremiumRubCompact(deal.money.releasedRub)}</span>
         </div>
       </div>
       <div className={styles.moneyParts}>{parts.map((part) => <div key={part.label} className={cx(styles.moneyPart, styles[`tone_${part.tone}`])}><span>{part.label}</span><strong>{formatPremiumRubCompact(part.value)}</strong></div>)}</div>
