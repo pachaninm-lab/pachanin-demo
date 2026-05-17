@@ -3,7 +3,7 @@ import Link from 'next/link';
 const moneyRows = [
   ['Сумма сделки', '9 648 000 ₽', 'исходная сумма DL-9106'],
   ['Зарезервировано', '9 648 000 ₽', 'ожидается подтверждение банка'],
-  ['К выпуску', '0 ₽', 'закрыто до документов и приёмки'],
+  ['На банковскую проверку', '0 ₽', 'закрыто до документов и приёмки'],
   ['Удержано', '203 000 ₽', 'спор по весу и качеству'],
   ['Ручная проверка', '50 034 ₽', 'логистическое отклонение'],
   ['Сверка', 'требует проверки', 'нет автоматического платежного обещания'],
@@ -14,11 +14,11 @@ export default function PlatformV7MoneyPage() {
     <main style={{ display: 'grid', gap: 16 }}>
       <section style={hero}>
         <div style={badge}>Деньги</div>
-        <h1 style={h1}>MoneyTree сделки</h1>
+        <h1 style={h1}>Денежный контур сделки</h1>
         <p style={lead}>Денежный экран показывает резерв, удержание, спор, ручную проверку и основание следующего запроса в банк. Платформа не подменяет банк.</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/bank' style={primary}>Открыть банк</Link>
-          <Link href='/platform-v7/bank/release-safety' style={secondary}>Проверка выплаты</Link>
+          <Link href='/platform-v7/bank/release-safety' style={secondary}>Проверка основания банком</Link>
         </div>
       </section>
 
