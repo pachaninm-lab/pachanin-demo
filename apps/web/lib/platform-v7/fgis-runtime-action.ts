@@ -32,7 +32,7 @@ export function buildPlatformV7FgisCheckRuntimeAction(input: PlatformV7FgisCheck
       partyId,
       event,
       uiStatusLabel: 'сверка ФГИС не создана',
-      uiSafetyNote: event.reason,
+      uiSafetyNote: event.disabledReason,
     };
   }
 
