@@ -19,6 +19,8 @@ import {
   type PlatformV7ExecutionRole,
 } from '@/lib/platform-v7/execution-action-core';
 import type { PlatformV7ActionMessageId } from '@/lib/platform-v7/action-messages';
+import type { PlatformV7RuntimeActionEventCreated } from '@/lib/platform-v7/runtime-action-events';
+import type { PlatformV7RuntimeExternalSystem, PlatformV7RuntimeResultState } from '@/lib/platform-v7/runtime-action-contract';
 
 export interface PlatformV7ExecutionActionUiItem {
   readonly title: string;
@@ -52,12 +54,58 @@ const MODE_COPY: Record<PlatformV7ExecutionMode, string> = {
   live: 'Боевой контур допустим только после подтверждённых договоров и внешних подключений.',
 };
 
+const RUNTIME_STATE_LABELS: Record<PlatformV7RuntimeResultState, string> = {
+  draft_created: 'черновик создан',
+  internal_record_created: 'внутренняя запись создана',
+  pending_external_confirmation: 'ожидает внешнего подтверждения',
+  pending_bank_review: 'ожидает банковской проверки',
+  manual_review_required: 'нужна ручная проверка',
+  dispute_opened: 'спор открыт',
+};
+
+const EXTERNAL_SYSTEM_LABELS: Record<PlatformV7RuntimeExternalSystem, string> = {
+  bank: 'банка',
+  fgis: 'ФГИС',
+  edo: 'ЭДО',
+  lab: 'лаборатории',
+  elevator: 'элеватора',
+  none: 'внутреннего контура',
+};
+
+function isRuntimeEventCreated(event: PlatformV7ExecutionActionApplied['runtimeEvent']): event is PlatformV7RuntimeActionEventCreated {
+  return event?.status === 'created';
+}
+
+function runtimeLogEntries(result: PlatformV7ExecutionActionApplied): PlatformActionLogEntry[] {
+  if (isRuntimeEventCreated(result.runtimeEvent)) return [result.runtimeEvent.logEntry, result.logEntry];
+  return [result.logEntry];
+}
+
+function runtimeToast(result: PlatformV7ExecutionActionApplied): { type: 'success' | 'warning'; message: string } {
+  if (!isRuntimeEventCreated(result.runtimeEvent)) return { type: 'success', message: result.toastCopy };
+
+  if (result.runtimeEvent.externalConfirmationStatus === 'requested') {
+    return {
+      type: 'warning',
+      message: `${result.entityId}: запрос создан, ждём подтверждение ${EXTERNAL_SYSTEM_LABELS[result.runtimeEvent.externalSystem]}`,
+    };
+  }
+
+  return {
+    type: 'success',
+    message: `${result.entityId}: действие зафиксировано во внутреннем контуре`,
+  };
+}
+
 export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, initialLog = [] }: P7ExecutionActionsPanelProps) {
   const [state, setState] = useState<PlatformV7ExecutionActionState>(initialState ?? PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE);
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const [log, setLog] = useState<PlatformActionLogEntry[]>([...initialLog]);
   const [toasts, setToasts] = useState<{ id: string; type: 'success' | 'error' | 'warning'; message: string }[]>([]);
   const [lastApplied, setLastApplied] = useState<PlatformV7ExecutionActionApplied | null>(null);
+
+  const runtimeEventCandidate = lastApplied?.runtimeEvent ?? null;
+  const lastRuntimeEvent: PlatformV7RuntimeActionEventCreated | null = isRuntimeEventCreated(runtimeEventCandidate) ? runtimeEventCandidate : null;
 
   const rows = useMemo(() => items.map((item) => {
     const target = platformV7ActionTargetById(item.targetId);
@@ -83,10 +131,11 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
       return;
     }
 
+    const toast = runtimeToast(result);
     setState(result.nextStateRef);
-    setLog((current) => [result.logEntry, ...current]);
+    setLog((current) => [...runtimeLogEntries(result), ...current]);
     setLastApplied(result);
-    pushToast('success', result.toastCopy);
+    pushToast(toast.type, toast.message);
   }
 
   function rollbackLastAction() {
@@ -123,6 +172,20 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
       <div style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 12, padding: 12, color: PLATFORM_V7_TOKENS.color.text, fontSize: 12, lineHeight: 1.55 }}>
         Все действия ниже фиксируют состояние, журнал и возможность отката в пилотном контуре. Они не заявляют боевое подключение к ФГИС, банку, ЭДО, СберКорус или УКЭП.
       </div>
+
+      {lastRuntimeEvent ? (
+        <div data-testid='p7-runtime-event-status' style={{ background: lastRuntimeEvent.externalConfirmationStatus === 'requested' ? 'rgba(217,119,6,0.08)' : 'rgba(10,122,95,0.08)', border: `1px solid ${lastRuntimeEvent.externalConfirmationStatus === 'requested' ? 'rgba(217,119,6,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 12, padding: 12, display: 'grid', gap: 6 }}>
+          <div style={{ fontSize: 11, color: PLATFORM_V7_TOKENS.color.textSubtle, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Статус последнего действия</div>
+          <div style={{ fontSize: 13, color: PLATFORM_V7_TOKENS.color.text, fontWeight: 900 }}>
+            {RUNTIME_STATE_LABELS[lastRuntimeEvent.resultingState]}
+          </div>
+          <div style={{ fontSize: 12, color: PLATFORM_V7_TOKENS.color.textMuted, lineHeight: 1.5 }}>
+            {lastRuntimeEvent.externalConfirmationStatus === 'requested'
+              ? `Создан запрос. Платформа ждёт подтверждение ${EXTERNAL_SYSTEM_LABELS[lastRuntimeEvent.externalSystem]} и не считает действие внешне подтверждённым.`
+              : 'Действие зафиксировано как внутренняя запись. Внешнее подтверждение для него не требуется.'}
+          </div>
+        </div>
+      ) : null}
 
       {toasts.length ? (
         <div aria-live='polite' style={{ display: 'grid', gap: 8 }}>
