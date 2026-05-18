@@ -104,7 +104,8 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
   const [toasts, setToasts] = useState<{ id: string; type: 'success' | 'error' | 'warning'; message: string }[]>([]);
   const [lastApplied, setLastApplied] = useState<PlatformV7ExecutionActionApplied | null>(null);
 
-  const lastRuntimeEvent = isRuntimeEventCreated(lastApplied?.runtimeEvent ?? null) ? lastApplied.runtimeEvent : null;
+  const runtimeEventCandidate = lastApplied?.runtimeEvent ?? null;
+  const lastRuntimeEvent: PlatformV7RuntimeActionEventCreated | null = isRuntimeEventCreated(runtimeEventCandidate) ? runtimeEventCandidate : null;
 
   const rows = useMemo(() => items.map((item) => {
     const target = platformV7ActionTargetById(item.targetId);
