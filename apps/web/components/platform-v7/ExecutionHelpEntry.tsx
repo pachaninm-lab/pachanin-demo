@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const SUPPORT_STRIP_HIDDEN_ROUTES = new Set(['/platform-v7', '/platform-v7/roles']);
+const SUPPORT_STRIP_HIDDEN_ROUTES = new Set(['/platform-v7', '/platform-v7/roles', '/platform-v7/offer-to-deal']);
 
 function supportContext(pathname: string) {
   const dealId = pathname.split('/platform-v7/deals/')[1]?.split('/')[0];
