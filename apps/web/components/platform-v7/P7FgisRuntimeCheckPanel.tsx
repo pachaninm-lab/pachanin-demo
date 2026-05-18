@@ -37,7 +37,8 @@ export function P7FgisRuntimeCheckPanel({
     setResult(next);
 
     if (isRuntimeEventCreated(next.event)) {
-      setLog((current) => [next.event.logEntry, ...current]);
+      const entry = next.event.logEntry;
+      setLog((current) => [entry, ...current]);
     }
   }
 
