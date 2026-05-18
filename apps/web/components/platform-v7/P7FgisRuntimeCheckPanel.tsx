@@ -5,12 +5,17 @@ import { P7ActionLog } from './P7ActionLog';
 import { buildPlatformV7FgisCheckRuntimeAction, type PlatformV7FgisCheckRuntimeResult } from '@/lib/platform-v7/fgis-runtime-action';
 import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
 import type { PlatformV7ExecutionRole } from '@/lib/platform-v7/execution-action-core';
+import type { PlatformV7RuntimeActionEventCreated, PlatformV7RuntimeActionEventResult } from '@/lib/platform-v7/runtime-action-events';
 
 export interface P7FgisRuntimeCheckPanelProps {
   readonly partyId: string;
   readonly actorRole?: PlatformV7ExecutionRole;
   readonly title?: string;
   readonly description?: string;
+}
+
+function isRuntimeEventCreated(event: PlatformV7RuntimeActionEventResult): event is PlatformV7RuntimeActionEventCreated {
+  return event.status === 'created';
 }
 
 export function P7FgisRuntimeCheckPanel({
@@ -31,12 +36,12 @@ export function P7FgisRuntimeCheckPanel({
 
     setResult(next);
 
-    if (next.event.status === 'created') {
+    if (isRuntimeEventCreated(next.event)) {
       setLog((current) => [next.event.logEntry, ...current]);
     }
   }
 
-  const created = result?.status === 'created' && result.event.status === 'created';
+  const created = result?.status === 'created' && isRuntimeEventCreated(result.event);
   const blocked = result?.status === 'blocked';
 
   return (
