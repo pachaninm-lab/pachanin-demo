@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 type BankSectionLink = {
   href: string;
@@ -12,38 +12,15 @@ type BankSectionNavProps = {
   links: readonly BankSectionLink[];
 };
 
-function readCurrentPathname() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  return window.location.pathname;
-}
-
 export function BankSectionNav({ links }: BankSectionNavProps) {
-  const [pathname, setPathname] = useState(readCurrentPathname);
-
-  useEffect(() => {
-    const syncPathname = () => setPathname(readCurrentPathname());
-
-    syncPathname();
-    window.addEventListener('popstate', syncPathname);
-
-    return () => window.removeEventListener('popstate', syncPathname);
-  }, []);
-
-  const activeHref = useMemo(() => {
-    const exactMatch = links.find((link) => link.href === pathname);
-
-    if (exactMatch) {
-      return exactMatch.href;
-    }
-
-    return links
+  const pathname = usePathname() ?? '';
+  const exactMatch = links.find((link) => link.href === pathname);
+  const activeHref =
+    exactMatch?.href ??
+    links
       .filter((link) => link.href !== '/platform-v7/bank')
       .sort((left, right) => right.href.length - left.href.length)
       .find((link) => pathname.startsWith(link.href))?.href;
-  }, [links, pathname]);
 
   return (
     <nav aria-label='Банковские действия' className='p7-bank-section-nav'>
@@ -57,7 +34,6 @@ export function BankSectionNav({ links }: BankSectionNavProps) {
             className='p7-bank-section-nav__link'
             data-active={isActive ? 'true' : 'false'}
             href={link.href}
-            onClick={() => setPathname(link.href)}
           >
             {link.label}
           </Link>
