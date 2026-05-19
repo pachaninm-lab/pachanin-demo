@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { BankSectionNav } from '@/components/platform-v7/BankSectionNav';
 import {
   PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE,
   PLATFORM_V7_BANK_ROUTE,
@@ -15,13 +15,7 @@ const bankLinks = [
 export default function BankLayout({ children }: { children: ReactNode }) {
   return (
     <div style={{ display: 'grid', gap: 14 }}>
-      <nav aria-label='Банковские действия' style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        {bankLinks.map((link) => (
-          <Link key={link.href} href={link.href} style={{ minHeight: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', background: 'var(--pc-bg-card, #fff)', color: 'var(--pc-text-primary, #0F1419)', padding: '8px 12px', textDecoration: 'none', fontSize: 12, fontWeight: 900 }}>
-            {link.label}
-          </Link>
-        ))}
-      </nav>
+      <BankSectionNav links={bankLinks} />
       {children}
     </div>
   );
