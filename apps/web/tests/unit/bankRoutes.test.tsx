@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import PlatformV7BankPage from '@/app/platform-v7/bank/page';
+import BankLayout from '@/app/platform-v7/bank/layout';
 import BankFactoringPage from '@/app/platform-v7/bank/factoring/page';
 import BankEscrowPage from '@/app/platform-v7/bank/escrow/page';
 import {
@@ -31,6 +32,23 @@ describe('PlatformV7 bank routes', () => {
     expect(screen.queryByText(/Можно выплатить сейчас/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Условия выплаты денег/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Выплата продавцу не является ручной кнопкой платформы/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps payment-basis reachable from the bank module navigation', () => {
+    render(
+      <BankLayout>
+        <section data-testid='bank-layout-child'>Банковский экран</section>
+      </BankLayout>,
+    );
+
+    expect(screen.getByRole('navigation', { name: 'Банковские действия' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Банковый контур' })).toHaveAttribute('href', '/platform-v7/bank');
+    expect(screen.getByRole('link', { name: 'Проверка выплаты' })).toHaveAttribute('href', '/platform-v7/bank/release-safety');
+    expect(screen.getByRole('link', { name: 'Передать основание банку' })).toHaveAttribute(
+      'href',
+      '/platform-v7/bank/payment-basis',
+    );
+    expect(screen.getByTestId('bank-layout-child')).toBeInTheDocument();
   });
 
   it('registers factoring and escrow in command, shell and execution route surfaces', () => {
