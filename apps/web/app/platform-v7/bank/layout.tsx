@@ -1,10 +1,15 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import {
+  PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE,
+  PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_RELEASE_SAFETY_ROUTE,
+} from '@/lib/platform-v7/routes';
 
 const bankLinks = [
-  { href: '/platform-v7/bank', label: 'Банковый контур' },
-  { href: '/platform-v7/bank/release-safety', label: 'Проверка выплаты' },
-  { href: '/platform-v7/bank/payment-basis', label: 'Передать основание банку' },
+  { href: PLATFORM_V7_BANK_ROUTE, label: 'Банковый контур' },
+  { href: PLATFORM_V7_RELEASE_SAFETY_ROUTE, label: 'Проверка выплаты' },
+  { href: PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, label: 'Передать основание банку' },
 ] as const;
 
 export default function BankLayout({ children }: { children: ReactNode }) {
