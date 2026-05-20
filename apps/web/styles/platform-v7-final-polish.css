@@ -153,6 +153,33 @@ button[aria-label='Сменить тему'] {
   }
 }
 
+/* ─── §D-18: Focus-visible — 2px offset ring on all interactive elements ─── */
+:focus-visible {
+  outline: 2px solid var(--pc-accent, #0A7A5F) !important;
+  outline-offset: 2px !important;
+  border-radius: 4px;
+}
+
+/* Suppress outline on mouse/touch (show only on keyboard) */
+:focus:not(:focus-visible) {
+  outline: none !important;
+}
+
+/* Elevated focus ring for role switcher and nav items */
+.pc-v4-nav-item:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="menu"] button:focus-visible {
+  outline: 2px solid var(--pc-accent, #0A7A5F) !important;
+  outline-offset: 2px !important;
+  z-index: 1;
+}
+
+/* Summary (accordion) keyboard focus */
+details > summary:focus-visible {
+  outline: 2px solid var(--pc-accent, #0A7A5F) !important;
+  outline-offset: 2px !important;
+}
+
 /* ─── §B-10: Tabular numerals for numeric data ─── */
 /* Applied to value displays (KPIs, amounts, IDs) so columns align */
 .pc-v4-main strong,
