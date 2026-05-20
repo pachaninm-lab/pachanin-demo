@@ -5,8 +5,6 @@ import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RS
 import { DEALS, DISPUTES } from '@/lib/v7r/data';
 
 const HIDDEN_ROLES = new Set<PlatformRole>(['driver', 'elevator', 'lab', 'surveyor']);
-
-// Mock 7-point trend: reserve amounts over past weeks (normalized to [0,1] scale)
 const RESERVE_TREND = [0.55, 0.62, 0.71, 0.68, 0.78, 0.85, 1.0];
 
 function Sparkline({ values, width = 56, height = 20 }: { values: number[]; width?: number; height?: number }) {
@@ -21,16 +19,8 @@ function Sparkline({ values, width = 56, height = 20 }: { values: number[]; widt
   });
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden style={{ flexShrink: 0 }}>
-      <polyline
-        points={pts.join(' ')}
-        fill="none"
-        stroke="var(--pc-accent, #0A7A5F)"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.7"
-      />
-      <circle cx={pts[pts.length - 1].split(',')[0]} cy={pts[pts.length - 1].split(',')[1]} r="2.5" fill="var(--pc-accent, #0A7A5F)" />
+      <polyline points={pts.join(' ')} fill='none' stroke='var(--pc-accent, #0A7A5F)' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' opacity='0.7' />
+      <circle cx={pts[pts.length - 1].split(',')[0]} cy={pts[pts.length - 1].split(',')[1]} r='2.5' fill='var(--pc-accent, #0A7A5F)' />
     </svg>
   );
 }
@@ -53,10 +43,7 @@ export function MoneySpineStrip() {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
-  if (!mounted) {
-    // Reserve space before hydration to avoid CLS
-    return <div style={{ height: 34, marginBottom: 10 }} aria-hidden />;
-  }
+  if (!mounted) return <div className='p7-money-spine-spacer' style={{ height: 34, marginBottom: 10 }} aria-hidden />;
   if (HIDDEN_ROLES.has(role)) return null;
 
   const items =
@@ -75,7 +62,8 @@ export function MoneySpineStrip() {
           ];
 
   return (
-    <div style={shell} role="status" aria-label="Денежная позиция">
+    <div className='p7-money-spine-strip' style={shell} role='status' aria-label='Денежная позиция'>
+      <style>{`@media(max-width:767px){.p7-money-spine-strip,.p7-money-spine-spacer{display:none!important;height:0!important;margin:0!important;padding:0!important;border:0!important}}`}</style>
       <Sparkline values={RESERVE_TREND} />
       <span style={spineLabel}>₽</span>
       {items.map((it, i) => (
@@ -91,47 +79,9 @@ export function MoneySpineStrip() {
   );
 }
 
-const shell = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  padding: '5px 14px',
-  borderRadius: 10,
-  background: 'var(--pc-bg-card)',
-  border: '1px solid var(--pc-border)',
-  marginBottom: 10,
-  flexWrap: 'wrap' as const,
-  fontSize: 12,
-} as const;
-
-const spineLabel = {
-  color: 'var(--pc-accent, #0A7A5F)',
-  fontWeight: 900,
-  fontSize: 13,
-  flexShrink: 0,
-} as const;
-
-const sep = {
-  color: 'var(--pc-text-muted)',
-  userSelect: 'none' as const,
-} as const;
-
-const itemRow = {
-  display: 'inline-flex',
-  alignItems: 'baseline',
-  gap: 4,
-} as const;
-
-const metaLabel = {
-  color: 'var(--pc-text-muted)',
-  fontSize: 10,
-  fontWeight: 850,
-  textTransform: 'uppercase' as const,
-  letterSpacing: '0.06em',
-} as const;
-
-const val = {
-  fontWeight: 800,
-  fontVariantNumeric: 'tabular-nums',
-  fontSize: 12,
-} as const;
+const shell = { display: 'flex', alignItems: 'center', gap: 10, padding: '5px 14px', borderRadius: 10, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', marginBottom: 10, flexWrap: 'wrap' as const, fontSize: 12 } as const;
+const spineLabel = { color: 'var(--pc-accent, #0A7A5F)', fontWeight: 900, fontSize: 13, flexShrink: 0 } as const;
+const sep = { color: 'var(--pc-text-muted)', userSelect: 'none' as const } as const;
+const itemRow = { display: 'inline-flex', alignItems: 'baseline', gap: 4 } as const;
+const metaLabel = { color: 'var(--pc-text-muted)', fontSize: 10, fontWeight: 850, textTransform: 'uppercase' as const, letterSpacing: '0.06em' } as const;
+const val = { fontWeight: 800, fontVariantNumeric: 'tabular-nums', fontSize: 12 } as const;
