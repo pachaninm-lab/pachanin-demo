@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DealStatusEdge } from '@/components/platform-v7/visual/DealStatusEdge';
 
 type QuickLink = {
   href: string;
@@ -22,7 +23,8 @@ export default function PlatformV7NotFound() {
   return (
     <div style={{ minHeight: '60vh', padding: 24, display: 'grid', placeItems: 'start center' }}>
       <div style={{ maxWidth: 820, width: '100%', display: 'grid', gap: 16 }}>
-        <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 24 }}>
+        <section style={{ position: 'relative', overflow: 'hidden', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 24 }}>
+          <DealStatusEdge status='idle' position='left' thickness={3} />
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', color: '#B45309', textTransform: 'uppercase' }}>404 · Страница не найдена</div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0F1419', margin: '8px 0 10px' }}>Нужный экран сделки, лота или модуля недоступен</h1>
           <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.7, margin: 0 }}>

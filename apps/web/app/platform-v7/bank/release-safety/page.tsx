@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
 import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import { ReleasePipelineStrip } from '@/components/platform-v7/ReleasePipelineStrip';
@@ -98,6 +99,13 @@ export default function BankReleaseSafetyPage() {
         <P7MetricCard title='Остановлено' value={String(stoppedRows.length)} tone={stoppedRows.length > 0 ? 'red' : 'green'} />
         <P7MetricCard title='На проверке' value={formatCompactMoney(moneyUnderCheck)} tone={moneyUnderCheck > 0 ? 'red' : 'green'} />
       </P7Grid>
+
+      <SmartSectionSummary
+        label='Проверка выплаты'
+        moneyFact={`к запросу ${formatCompactMoney(payoutCandidate)}`}
+        blockers={stoppedRows.slice(0, 3).map((row) => `${row.id} · ${reasonLabels[row.reasons[0]] ?? row.reasons[0] ?? 'условия не выполнены'}`)}
+        facts={[`${rows.length} сделок`, `${stoppedRows.length} остановлено`]}
+      />
 
       <P7PanelShell>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
