@@ -1,6 +1,9 @@
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { FieldLabRuntime } from '@/components/v7r/FieldLabRuntime';
 import { RoleContinuityPanel } from '@/components/v7r/RoleContinuityPanel';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 
 const labSteps = [
   { label: 'Проба', value: 'отбор и фиксация', note: 'кто взял, когда, по какому рейсу' },
@@ -12,6 +15,11 @@ const labSteps = [
 export default function Page() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
+      <QuietIntelligenceHint
+        problem='Сорная примесь 2,4% превышает допуск 2% — протокол качества не закрыт.'
+        action='Зафиксировать показатели и выдать протокол с допуском или отказом.'
+        outcome='Протокол уйдёт в контур документов как основание для банковской проверки.'
+      />
       <section style={hero}>
         <div style={{ display: 'grid', gap: 9, maxWidth: 840 }}>
           <div style={badge}>
@@ -35,6 +43,15 @@ export default function Page() {
           ))}
         </div>
       </section>
+
+      <CauseLine
+        cause={{ text: 'Протокол качества не выдан', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'Расчёт и банковская проверка заблокированы', tone: 'blocked' }}
+        moneyAmount='9,65 млн ₽'
+        moneyTone='hold'
+      />
+      <TrustDot state='test' size='sm' label='Тестовый контур · ФГБУ ЦОК АПК требует договора' />
 
       <RoleExecutionSummary role="lab" />
       <RoleContinuityPanel role="lab" compact />

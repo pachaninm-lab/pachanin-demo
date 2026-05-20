@@ -7,6 +7,11 @@ import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionR
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
+import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
 
 const sellerHandoff: HandoffItem[] = [
   {
@@ -83,6 +88,14 @@ const sellerPaths = [
 export default function PlatformV7SellerPage() {
   return (
     <main data-platform-v7-seller-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+
+      {/* ── VIL: Quiet hint — главный блокер в одну строку ── */}
+      <QuietIntelligenceHint
+        problem='СДИЗ и ЭТрН не закрыты — деньги стоят на проверке банка.'
+        action='Закройте СДИЗ и ЭТрН, затем передайте основание банку.'
+        outcome='После закрытия документов банк получит основание для проверки выплаты.'
+      />
+
       <section style={hero}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ display: 'grid', gap: 9, maxWidth: 780 }}>
@@ -102,6 +115,11 @@ export default function PlatformV7SellerPage() {
           <CockpitFact label='резерв' value='9,65 млн ₽ · не выплата' strong />
           <CockpitFact label='документ' value='закрыть СДИЗ' warning />
           <CockpitFact label='банк' value='ждёт основание' danger />
+        </div>
+
+        {/* VIL: TrustDot рядом с суммой */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <TrustDot state='test' size='sm' label='Тестовый контур · Внешние подключения требуют договоров' />
         </div>
 
         <div style={actions}>
@@ -141,6 +159,31 @@ export default function PlatformV7SellerPage() {
         stopReason='банковская проверка остановлена'
       />
 
+      {/* VIL: Cause → Money цепочка */}
+      <CauseLine
+        cause={{ text: 'СДИЗ не закрыт', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'передача основания банку', tone: 'money' }}
+        moneyAmount='9,65 млн ₽'
+        moneyTone='blocked'
+      />
+      <CauseLine
+        cause={{ text: 'ЭТрН не подписан', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'банковская проверка выплаты', tone: 'money' }}
+        moneyTone='blocked'
+      />
+
+      {/* VIL: Путь разблокировки */}
+      <UnlockPath
+        title='Чтобы деньги поступили на проверку банку:'
+        steps={[
+          { id: '1', label: 'Закрыть СДИЗ в ФГИС «Зерно»', status: 'current' },
+          { id: '2', label: 'Подписать ЭТрН', status: 'upcoming' },
+          { id: '3', label: 'Передать основание банку', status: 'upcoming' },
+        ]}
+      />
+
       <DocumentReadinessMiniMatrix role='seller' />
 
       <WorkflowActionPanel context='seller' />
@@ -149,6 +192,11 @@ export default function PlatformV7SellerPage() {
 
       <RoleExecutionHandoff items={sellerHandoff} title='исполнение: что продавец отправляет и ожидает' />
 
+      {/* VIL: Section summary перед журналом */}
+      <SmartSectionSummary
+        label='Журнал'
+        facts={['3 последних события · СДИЗ и ЭТрН не закрыты']}
+      />
       <JournalPreview role='seller' maxEntries={3} />
 
       <section style={card}>

@@ -3,6 +3,10 @@ import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 
 const elevatorHandoff: HandoffItem[] = [
   {
@@ -77,6 +81,11 @@ const gates = [
 export default function Page() {
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <QuietIntelligenceHint
+        problem='Отклонение веса -1,2 т и превышение по сорной примеси — акт расхождения не подписан.'
+        action='Зафиксировать вес, подписать акт приёмки и акт расхождения, передать пробу в лабораторию.'
+        outcome='После закрытия актов основание уйдёт в контур документов и банку на проверку выплаты.'
+      />
       <section style={card}>
         <div style={badge}>Кабинет приёмки</div>
         <h1 style={h1}>Вес, качество и основание для проверки выплаты</h1>
@@ -132,6 +141,28 @@ export default function Page() {
         </div>
         <div style={notice}>При отклонении веса или качества платформа должна создать акт расхождения, удержание и задачу оператору. Передача основания банку на проверку выплаты не продолжается до закрытия акта и протокола.</div>
       </section>
+
+      <CauseLine
+        cause={{ text: 'Акт расхождения по весу не подписан', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'Основание не передаётся банку', tone: 'blocked' }}
+        moneyAmount='9,65 млн ₽'
+        moneyTone='hold'
+      />
+      <CauseLine
+        cause={{ text: 'Превышение по сорной примеси (2,4% > 2%)', tone: 'warning' }}
+        relation='requires'
+        effect={{ text: 'Протокол качества до расчёта', tone: 'warning' }}
+      />
+      <TrustDot state='test' size='sm' label='Тестовый контур · Физические данные требуют реальных приёмок' />
+
+      <SmartSectionSummary
+        label='Статус приёмки'
+        items={[
+          { text: 'TRIP-SIM-001 · Вес 598,8 т · Отклонение -1,2 т · Акт готовится', tone: 'warn' },
+          { text: 'Сорная примесь 2,4% — выше допуска 2% · Протокол ожидается', tone: 'warn' },
+        ]}
+      />
 
       <DecisionRecommendationStrip context='elevator' />
 

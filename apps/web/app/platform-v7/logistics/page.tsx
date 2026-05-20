@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 
 const logisticsHandoff: HandoffItem[] = [
   {
@@ -116,6 +120,11 @@ export default function LogisticsPage() {
 
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <QuietIntelligenceHint
+        problem='ЭТрН по LOG-REQ-2403 ожидает подписи грузополучателя — пакет не передаётся в ГИС ЭПД.'
+        action='Проконтролировать прибытие и инициировать подпись ЭТрН на элеваторе.'
+        outcome='После подписи ЭТрН пакет уйдёт в ГИС ЭПД и деньги продолжат движение.'
+      />
       <section style={hero}>
         <div style={badge}>Кабинет логистики</div>
         <h1 style={h1}>Заявки, водители, ЭТрН и маршрут</h1>
@@ -124,6 +133,7 @@ export default function LogisticsPage() {
           <Link href='/platform-v7/logistics/inbox' style={primaryBtn}>Входящие заявки</Link>
           <Link href='/platform-v7/driver/field' style={ghostBtn}>Открыть рейс водителя</Link>
         </div>
+        <TrustDot state='test' size='sm' label='Тестовый контур · ЭТрН и ГИС ЭПД требуют договоров' />
       </section>
 
       <section style={metricsGrid}>
@@ -132,6 +142,29 @@ export default function LogisticsPage() {
         <Metric label='Инцидентов' value={String(incidents)} danger={incidents > 0} />
         <Metric label='Заказов' value={String(orders.length)} />
       </section>
+
+      <CauseLine
+        cause={{ text: 'ЭТрН не подписан грузополучателем', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'Пакет не уходит в ГИС ЭПД', tone: 'blocked' }}
+        moneyAmount='9,65 млн ₽'
+        moneyTone='hold'
+      />
+      <CauseLine
+        cause={{ text: 'СДИЗ ожидает подтверждения ФГИС «Зерно»', tone: 'warning' }}
+        relation='blocks'
+        effect={{ text: 'Денежная проверка приостановлена', tone: 'warning' }}
+        moneyAmount='9,65 млн ₽'
+        moneyTone='hold'
+      />
+
+      <SmartSectionSummary
+        label='Статус рейсов'
+        items={[
+          { text: 'LOG-REQ-2403 · Водитель в пути (62%) · ЭТрН ждёт подписи', tone: 'warn' },
+          { text: 'LOG-9102 · Прибыл · Акт расхождения не подписан', tone: 'warn' },
+        ]}
+      />
 
       <RoleExecutionHandoff items={logisticsHandoff} title='исполнение: что логистика отправляет и ожидает' />
 

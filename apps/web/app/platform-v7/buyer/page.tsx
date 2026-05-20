@@ -7,6 +7,11 @@ import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionR
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
+import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
 
 const buyerHandoff: HandoffItem[] = [
   {
@@ -85,6 +90,11 @@ const buyerPaths = [
 export default function PlatformV7BuyerPage() {
   return (
     <main data-platform-v7-buyer-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <QuietIntelligenceHint
+        problem='Резерв 9,65 млн ₽ ждёт банковского подтверждения — логистика не стартует.'
+        action='Запросить подтверждение резерва через сделку DL-9106.'
+        outcome='После подтверждения банка сделка перейдёт к логистике.'
+      />
       <section style={hero}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ display: 'grid', gap: 9, maxWidth: 780 }}>
@@ -110,6 +120,7 @@ export default function PlatformV7BuyerPage() {
           <Link href='/platform-v7/deals/DL-9106/money' style={primaryBtn}>Запросить подтверждение резерва</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть сделку</Link>
         </div>
+        <TrustDot state='test' size='sm' label='Тестовый контур · Внешние подключения требуют договоров' />
       </section>
 
       <section style={metricsGrid}>
@@ -141,6 +152,30 @@ export default function PlatformV7BuyerPage() {
         documentState='ожидает банковского подтверждения'
       />
 
+      <CauseLine
+        cause={{ text: 'Банк не подтвердил резерв', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'Логистика не стартует', tone: 'blocked' }}
+        moneyAmount='9,65 млн ₽'
+        moneyTone='hold'
+      />
+      <CauseLine
+        cause={{ text: 'Вес расходится с актом', tone: 'warning' }}
+        relation='affects'
+        effect={{ text: 'Удержание на спорную часть', tone: 'warning' }}
+        moneyAmount='624 тыс. ₽'
+        moneyTone='hold'
+      />
+
+      <UnlockPath
+        title='Чтобы открыть движение денег покупателя:'
+        steps={[
+          { id: '1', label: 'Запросить банковское подтверждение резерва', status: 'current', detail: 'DL-9106 · 9,65 млн ₽' },
+          { id: '2', label: 'Дождаться статуса банка', status: 'upcoming', detail: 'без этого логистика не стартует' },
+          { id: '3', label: 'Закрыть расхождение веса через акт', status: 'upcoming', detail: 'снимет удержание 624 тыс. ₽' },
+        ]}
+      />
+
       <DocumentReadinessMiniMatrix role='buyer' />
 
       <WorkflowActionPanel context='buyer' />
@@ -149,6 +184,13 @@ export default function PlatformV7BuyerPage() {
 
       <RoleExecutionHandoff items={buyerHandoff} title='исполнение: что покупатель отправляет и ожидает' />
 
+      <SmartSectionSummary
+        label='Журнал'
+        items={[
+          { text: 'Резерв 9,65 млн ₽ зарезервирован · ожидает банковского подтверждения', tone: 'warn' },
+          { text: 'Удержание 624 тыс. ₽ · расхождение веса по LOT-2403', tone: 'warn' },
+        ]}
+      />
       <JournalPreview role='buyer' maxEntries={3} />
 
       <section style={card}>

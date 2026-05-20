@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { CauseLine, CauseLineList } from './CauseLine';
+import { CauseLineList } from './CauseLine';
 import { MoneyLockHalo } from './MoneyLockHalo';
 import { UnlockPath } from './UnlockPath';
 import { DealMiniMap } from './DealMiniMap';
@@ -13,7 +13,6 @@ import { SmartSectionSummary } from './SmartSectionSummary';
 import { ProofRibbon } from './ProofRibbon';
 import { TrustDot } from './TrustDot';
 import { QuietIntelligenceHint } from './QuietIntelligenceHint';
-import { DealStatusEdge } from './DealStatusEdge';
 import { ExecutionHeader } from './ExecutionHeader';
 import { MobileExecutionHeader } from './MobileExecutionHeader';
 import type { FocusMode } from './FocusDetailMode';
@@ -25,11 +24,11 @@ import type { ProofRibbonItems } from './ProofRibbon';
 import type { ExecutionZoneItem, ExecutionHeaderBlocker } from './ExecutionHeader';
 
 /**
- * DealWorkspaceVisualLayer — клиентский компонент, добавляющий
- * Visual Intelligence Layer поверх существующего Deal Workspace.
+ * DealWorkspaceVisualLayer — клиентский компонент Visual Intelligence Layer.
  *
- * Presentational: данные через props, не fetches сам.
- * Не меняет бизнес-логику, не трогает MoneyTree, не ломает data-testid.
+ * Первый viewport: только ExecutionHeader + QuietIntelligenceHint (если есть блокер).
+ * CauseLines / UnlockPath / MoneyLockHalo — только в режиме «Детали» или по раскрытию.
+ * Presentational: данные через props, не fetch-ит сам.
  */
 
 export interface DealWorkspaceVLProps {
@@ -51,7 +50,6 @@ export interface DealWorkspaceVLProps {
   readonly tripSummary?: string;
   readonly qualitySummary?: string;
   readonly disputeSummary?: string;
-  /** Optional execution header zones (desktop/mobile) */
   readonly execZones?: {
     money?: ExecutionZoneItem;
     documents?: ExecutionZoneItem;
@@ -68,8 +66,6 @@ export function DealWorkspaceVisualLayer({
   totalMoney,
   lockState,
   lockReason,
-  primaryBlocker,
-  primaryBlockerMoney,
   causeLines = [],
   unlockSteps = [],
   proofItems,
@@ -88,10 +84,9 @@ export function DealWorkspaceVisualLayer({
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [receiptVisible, setReceiptVisible] = React.useState(false);
   const [actionLoading, setActionLoading] = React.useState(false);
+  const [causesOpen, setCausesOpen] = React.useState(false);
 
-  const edgeStatus = dealStatus === 'moving' ? 'moving'
-    : dealStatus === 'waiting' ? 'waiting'
-    : 'blocked';
+  const isBlocked = dealStatus === 'blocked' || lockState === 'blocked-docs' || lockState === 'blocked-dispute' || lockState === 'hold';
 
   function handlePrimaryAction() {
     if (!primaryAction) return;
@@ -108,13 +103,11 @@ export function DealWorkspaceVisualLayer({
     }, 1000);
   }
 
-
   return (
     <>
-      {/* ── Execution header (desktop / mobile) ── */}
+      {/* ── ABOVE FOLD: ExecutionHeader (compact 5-zone panel) ── */}
       {execZones && (
         <>
-          {/* Desktop */}
           <div className='p7-exec-header-desktop'>
             <ExecutionHeader
               money={execZones.money}
@@ -126,7 +119,6 @@ export function DealWorkspaceVisualLayer({
               trustState='test'
             />
           </div>
-          {/* Mobile */}
           <div className='p7-exec-header-mobile'>
             <MobileExecutionHeader
               money={execZones.money ? { label: 'Деньги', value: execZones.money.value, tone: execZones.money.tone ?? 'neutral', href: execZones.money.href } : undefined}
@@ -139,103 +131,103 @@ export function DealWorkspaceVisualLayer({
         </>
       )}
 
-      {/* ── Visual status edge on the hero card ── */}
+      {/* ── ABOVE FOLD: Quiet hint (one line, only if blocked) ── */}
+      {hintProblem && (
+        <QuietIntelligenceHint
+          problem={hintProblem}
+          action={hintAction}
+          outcome={hintOutcome}
+        />
+      )}
+
+      {/* ── ABOVE FOLD: Focus/Detail toggle + TrustDot (compact row) ── */}
       <div
         data-testid='p7-vil-deal-workspace-vl'
-        style={{
-          display: 'grid',
-          gap: 14,
-          marginBottom: 16,
-        }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}
       >
-        {/* Quiet hint */}
-        {hintProblem && (
-          <QuietIntelligenceHint
-            problem={hintProblem}
-            action={hintAction}
-            outcome={hintOutcome}
-          />
-        )}
-
-        {/* Focus / Detail toggle + Trust */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <FocusDetailMode mode={focusMode} onChange={setFocusMode} />
-          <TrustDot state='test' size='sm' label='Тестовый контур · Внешние подключения требуют договоров' />
-        </div>
-
-        {/* ── MoneyLockHalo ── */}
-        <div id='deal-money'>
-          <MoneyLockHalo
-            amount={totalMoney}
-            lockState={lockState}
-            reason={lockReason}
-            trustState='test'
-          />
-        </div>
-
-        {/* ── CauseLines ── */}
-        {causeLines.length > 0 && (
-          <div>
-            <SmartSectionSummary
-              label='Причины блокировки'
-              facts={[`${causeLines.length} цепочки`]}
-            />
-            <div style={{ marginTop: 8 }}>
-              <CauseLineList
-                items={causeLines}
-                compact={typeof window !== 'undefined' && window.innerWidth < 640}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* ── Unlock path ── */}
-        {unlockSteps.length > 0 && (
-          <UnlockPath
-            title='Чтобы открыть движение денег:'
-            steps={unlockSteps}
-          />
-        )}
-
-        {/* ── Section summaries (focus mode) ── */}
-        {focusMode === 'focus' && (
-          <div style={{ display: 'grid', gap: 6 }}>
-            {docSummary && (
-              <SmartSectionSummary
-                label='Документы'
-                items={[{ text: docSummary, tone: docSummary.includes('блокир') ? 'block' : 'neutral' }]}
-              />
-            )}
-            {tripSummary && (
-              <SmartSectionSummary
-                label='Рейс'
-                items={[{ text: tripSummary, tone: 'neutral' }]}
-              />
-            )}
-            {qualitySummary && (
-              <SmartSectionSummary
-                label='Качество'
-                items={[{ text: qualitySummary, tone: qualitySummary.includes('удерж') ? 'warn' : 'neutral' }]}
-              />
-            )}
-            {disputeSummary && (
-              <SmartSectionSummary
-                label='Спор'
-                items={[{ text: disputeSummary, tone: disputeSummary.includes('открыт') ? 'block' : 'ok' }]}
-              />
-            )}
-          </div>
-        )}
-
-        {/* ── ProofRibbon (detail mode) ── */}
-        {focusMode === 'detail' && proofItems && (
-          <div id='deal-evidence'>
-            <ProofRibbon items={proofItems} />
-          </div>
-        )}
+        <FocusDetailMode mode={focusMode} onChange={setFocusMode} />
+        <TrustDot state='test' size='sm' label='Тестовый контур · Внешние подключения требуют договоров' />
       </div>
 
-      {/* ── DealMiniMap (horizontal pills) ── */}
+      {/* ── IN-CONTENT: section summaries (focus mode — compact, after deal header) ── */}
+      {focusMode === 'focus' && (docSummary || tripSummary || qualitySummary || disputeSummary) && (
+        <div style={{ display: 'grid', gap: 6, marginBottom: 4 }}>
+          {docSummary && (
+            <SmartSectionSummary
+              label='Документы'
+              items={[{ text: docSummary, tone: docSummary.includes('блокир') ? 'block' : 'neutral' }]}
+            />
+          )}
+          {tripSummary && (
+            <SmartSectionSummary
+              label='Рейс'
+              items={[{ text: tripSummary, tone: 'neutral' }]}
+            />
+          )}
+          {qualitySummary && (
+            <SmartSectionSummary
+              label='Качество'
+              items={[{ text: qualitySummary, tone: qualitySummary.includes('удерж') ? 'warn' : 'neutral' }]}
+            />
+          )}
+          {disputeSummary && (
+            <SmartSectionSummary
+              label='Спор'
+              items={[{ text: disputeSummary, tone: disputeSummary.includes('открыт') ? 'block' : 'ok' }]}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── DETAIL MODE: CauseLines + UnlockPath + MoneyLockHalo (reveal on demand) ── */}
+      {focusMode === 'detail' && (
+        <div style={{ display: 'grid', gap: 10, marginBottom: 8 }}>
+          {isBlocked && causeLines.length > 0 && (
+            <div>
+              <button
+                type='button'
+                onClick={() => setCausesOpen((v) => !v)}
+                style={{
+                  all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                  color: '#475569', fontSize: 12, fontWeight: 900, textTransform: 'uppercase',
+                  letterSpacing: '0.06em', marginBottom: causesOpen ? 8 : 0,
+                }}
+                aria-expanded={causesOpen}
+              >
+                <span style={{ transform: causesOpen ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 120ms' }}>▶</span>
+                Причины блокировки ({causeLines.length})
+              </button>
+              {causesOpen && (
+                <CauseLineList
+                  items={causeLines}
+                  compact={typeof window !== 'undefined' && window.innerWidth < 640}
+                />
+              )}
+            </div>
+          )}
+
+          {isBlocked && unlockSteps.length > 0 && (
+            <UnlockPath title='Чтобы открыть движение денег:' steps={unlockSteps} />
+          )}
+
+          <div id='deal-money'>
+            <MoneyLockHalo
+              amount={totalMoney}
+              lockState={lockState}
+              reason={lockReason}
+              trustState='test'
+            />
+          </div>
+
+          {proofItems && (
+            <div id='deal-evidence'>
+              <ProofRibbon items={proofItems} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── STICKY: DealMiniMap ── */}
       <div
         style={{
           position: 'sticky',

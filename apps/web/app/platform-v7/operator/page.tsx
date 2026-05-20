@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
 import { OperatorExecutionQueue } from '../../../components/platform-v7/OperatorExecutionQueue';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 
 const deal9106 = getDeal360Scenario('DL-9106');
 const deal9102 = getDeal360Scenario('DL-9102');
@@ -25,6 +29,11 @@ export default function PlatformV7OperatorAliasPage() {
 
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <QuietIntelligenceHint
+        problem={`${stopCount} стоп-блокера держат 15,89 млн ₽ — СДИЗ, ЭТрН и отклонение веса.`}
+        action='Устранить блокеры по очереди: СДИЗ → ЭТрН → акт расхождения.'
+        outcome='После закрытия всех блокеров деньги продолжат движение к выплате.'
+      />
       <section style={hero}>
         <div style={badge}>Центр управления оператора</div>
         <h1 style={h1}>Блокеры, деньги и следующий ответственный</h1>
@@ -48,6 +57,30 @@ export default function PlatformV7OperatorAliasPage() {
           {blockers.map((item) => <BlockerRow key={`${item.deal}-${item.reason}`} item={item} />)}
         </div>
       </section>
+
+      <CauseLine
+        cause={{ text: 'СДИЗ не подтверждён ФГИС «Зерно»', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'Движение денег остановлено', tone: 'blocked' }}
+        moneyAmount='9,65 млн ₽'
+        moneyTone='hold'
+      />
+      <CauseLine
+        cause={{ text: 'Отклонение веса · акт расхождения не закрыт', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'Удержание не снимается', tone: 'blocked' }}
+        moneyAmount='624 тыс. ₽'
+        moneyTone='hold'
+      />
+
+      <SmartSectionSummary
+        label='Сводка по блокерам'
+        items={[
+          { text: 'DL-9106 · 3 стоп-блокера · СДИЗ, ЭТрН, протокол качества · 9,65 млн ₽ заблокировано', tone: 'block' },
+          { text: 'DL-9102 · Удержание 624 тыс. ₽ · Акт расхождения не подписан', tone: 'block' },
+        ]}
+      />
+      <TrustDot state='test' size='sm' label='Тестовый контур · Реальные интеграции требуют договоров' />
 
       <OperatorExecutionQueue />
 
