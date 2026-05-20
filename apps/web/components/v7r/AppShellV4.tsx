@@ -18,10 +18,8 @@ import {
   Landmark,
   LayoutDashboard,
   Menu,
-  Moon,
   Search,
   ShieldCheck,
-  Sun,
   Truck,
   User,
   Wheat,
@@ -30,6 +28,7 @@ import {
 } from 'lucide-react';
 import { CommandPalette } from '@/components/v7r/CommandPalette';
 import { BrandMark } from '@/components/v7r/BrandMark';
+import { IdentityControl } from '@/components/v9/layout/IdentityControl';
 import { NOTIFICATIONS, NOTIFICATION_GROUPS, type NotificationGroup } from '@/lib/v7r/data';
 import { trackRoleSwitch } from '@/lib/analytics/track';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
@@ -375,7 +374,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const RoleIcon = ROLE_ICONS[displayRole];
 
   return (
-    <div className='pc-shell-root-v4' style={{ minHeight: '100dvh', background: 'var(--pc-bg)', overflowX: 'hidden' }}>
+    <div className='pc-shell-root-v4' data-role={displayRole} style={{ minHeight: '100dvh', background: 'var(--pc-bg)', overflowX: 'hidden' }}>
       <style>{`
         html, body { overflow-x: hidden; max-width: 100%; }
         *, *::before, *::after { box-sizing: border-box; }
@@ -512,19 +511,13 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
             </Link>
 
             <div className='pc-v4-actions'>
-              <button className='pc-v4-search' onClick={() => setPaletteOpen(true)} aria-label='Открыть поиск'>
+              <button className='pc-v4-search' onClick={() => setPaletteOpen(true)} aria-label='Открыть поиск (⌘K)'>
                 <Search size={17} />
                 <strong>Поиск</strong>
                 <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>⌘K</span>
               </button>
-              <select className='pc-v4-select' value={displayRole} onChange={(event) => switchRole(event.target.value as PlatformRole)} aria-label='Сменить роль'>
-                {(Object.keys(ROLE_LABELS) as PlatformRole[]).map((item) => <option key={item} value={item}>{ROLE_LABELS[item]}</option>)}
-              </select>
-              <button className='pc-v4-mobile-role' onClick={() => setSidebarOpen(true)} aria-label='Открыть роли'>{ROLE_LABELS[displayRole]}</button>
-              <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
-              <button className='pc-v4-iconbtn' onClick={toggleTheme} aria-label='Сменить тему'>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
               <div style={{ position: 'relative' }}>
-                <button className='pc-v4-iconbtn' onClick={() => setAlertsOpen((value) => !value)} aria-label='Открыть уведомления'>
+                <button className='pc-v4-iconbtn' onClick={() => setAlertsOpen((value) => !value)} aria-label='Уведомления'>
                   <Bell size={17} />
                   <span style={{ position: 'absolute', right: 7, top: 7, width: 8, height: 8, borderRadius: 999, background: '#FF8B90', border: '2px solid var(--pc-bg-card)' }} />
                 </button>
@@ -548,6 +541,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
                   </div>
                 ) : null}
               </div>
+              <IdentityControl />
             </div>
           </div>
 
