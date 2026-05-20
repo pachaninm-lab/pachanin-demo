@@ -33,15 +33,19 @@ export function WorkRouteNav() {
     <nav aria-label='Рабочие разделы исполнения сделки' data-testid='platform-v7-work-route-nav' style={nav}>
       <div style={railHeader} aria-hidden='true'>
         <span style={railTitle}>Контур</span>
-        <span style={railCaption}>действия · деньги · документы</span>
       </div>
-      <div style={linksRow}>
+      <div className='pc-v4-work-route-links-wrap' style={linksRow}>
         {WORK_LINKS.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
-            <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined} style={{ ...link, ...(active ? activeLink : null) }}>
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              title={item.note}
+              style={{ ...link, ...(active ? activeLink : null) }}
+            >
               <span style={linkLabel}>{item.label}</span>
-              <span style={linkNote}>{item.note}</span>
             </Link>
           );
         })}
