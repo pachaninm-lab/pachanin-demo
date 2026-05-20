@@ -1,5 +1,5 @@
+import Link from 'next/link';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
-import SurveyorPage from '@/app/platform-v7r/surveyor/page';
 
 const surveyorSteps = [
   { label: 'Осмотр', value: 'фото и состояние', note: 'что видно на площадке без пересказа сторон' },
@@ -36,7 +36,22 @@ export default function Page() {
       </section>
 
       <RoleExecutionSummary role="surveyor" />
-      <SurveyorPage />
+
+      <section style={{ background: 'var(--pc-bg-card, #fff)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={micro}>Назначения</div>
+        {ASSIGNMENTS.map((a) => (
+          <Link key={a.id} href={`/platform-v7/surveyor/acts/${a.id}`} style={assignmentCard}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{a.id}</div>
+                <div style={{ marginTop: 4, fontSize: 13, color: '#0F1419', fontWeight: 700 }}>{a.cargo} · {a.location}</div>
+                <div style={{ marginTop: 2, fontSize: 12, color: '#64748B' }}>{a.deal} · {a.time}</div>
+              </div>
+              <span style={{ padding: '5px 10px', borderRadius: 999, border: '1px solid rgba(217,119,6,0.24)', background: 'rgba(217,119,6,0.07)', color: '#B45309', fontSize: 11, fontWeight: 900 }}>{a.status}</span>
+            </div>
+          </Link>
+        ))}
+      </section>
     </div>
   );
 }
@@ -81,3 +96,9 @@ const stepCard = {
   boxShadow: '0 12px 28px rgba(15,23,42,0.055)',
 } as const;
 const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const assignmentCard = { textDecoration: 'none', color: 'inherit', background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'block' } as const;
+
+const ASSIGNMENTS = [
+  { id: 'QC-DL-9102', deal: 'DL-9102', cargo: 'Пшеница 4 кл.', location: 'Элеватор Тамбов', time: '11:00', status: 'Требует акта' },
+  { id: 'QC-DL-9108', deal: 'DL-9108', cargo: 'Ячмень 3 кл.', location: 'Склад Курск', time: '14:30', status: 'Ожидает' },
+];

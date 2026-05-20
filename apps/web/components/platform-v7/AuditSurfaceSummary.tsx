@@ -32,7 +32,7 @@ export const PLATFORM_V7_AUDIT_SURFACES: Record<AuditSurface, AuditSurfaceConfig
     next: 'банк или оператор подтверждает условие выпуска только после закрытия всех оснований',
     hidden: 'скрыто: кнопка выплаты без условий, имитация live-платежа, ручной обход без журнала',
     cta: 'Проверить условия выпуска',
-    href: '/platform-v7/bank',
+    href: '/platform-v7/bank/release-safety',
   },
   documents: {
     title: 'Документный контур',
