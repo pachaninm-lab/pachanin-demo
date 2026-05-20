@@ -153,6 +153,48 @@ button[aria-label='Сменить тему'] {
   }
 }
 
+/* ─── §E-26: Motion spec — 120/200/240ms, single easing ─── */
+:root {
+  --pc-dur-instant: 80ms;
+  --pc-dur-fast: 120ms;
+  --pc-dur-base: 200ms;
+  --pc-dur-slow: 240ms;
+  --pc-ease: cubic-bezier(0.25, 0, 0.1, 1);
+}
+
+/* Apply to interactive elements */
+button,
+a,
+[role="button"],
+[role="menuitem"],
+.pc-v4-nav-item,
+.pc-v4-iconbtn,
+details > summary {
+  transition: background var(--pc-dur-fast) var(--pc-ease),
+              color var(--pc-dur-fast) var(--pc-ease),
+              border-color var(--pc-dur-fast) var(--pc-ease),
+              box-shadow var(--pc-dur-fast) var(--pc-ease),
+              opacity var(--pc-dur-fast) var(--pc-ease);
+}
+
+/* Money amounts: instant update + highlight flash */
+[data-money-highlight] {
+  transition: color var(--pc-dur-instant) var(--pc-ease),
+              background var(--pc-dur-instant) var(--pc-ease);
+}
+
+/* Respect prefers-reduced-motion — disable all transitions */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ─── §D-18: Focus-visible — 2px offset ring on all interactive elements ─── */
 :focus-visible {
   outline: 2px solid var(--pc-accent, #0A7A5F) !important;

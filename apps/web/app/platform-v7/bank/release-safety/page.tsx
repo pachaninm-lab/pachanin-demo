@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
 import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
+import { ReleasePipelineStrip } from '@/components/platform-v7/ReleasePipelineStrip';
 import { P7Grid, P7LinkButton, P7MetricCard, P7Notice, P7PanelShell } from '@/components/platform-v7/P7UiPrimitives';
 import { canonicalDomainDeals } from '@/lib/domain/selectors';
 import { evaluateReleaseGuard, type ReleaseGuardBlocker } from '@/lib/platform-v7/domain/release-guard';
@@ -87,6 +88,8 @@ export default function BankReleaseSafetyPage() {
           </div>
         </div>
       </P7PanelShell>
+
+      <ReleasePipelineStrip dealId="DL-9106" />
 
       <DecisionPackMiniPanel context='dl9106_payout_review' />
 
