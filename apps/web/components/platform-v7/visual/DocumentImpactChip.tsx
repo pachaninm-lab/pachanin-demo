@@ -1,6 +1,7 @@
 'use client';
 
 import { Banknote, Truck, Gavel, Shield, Minus } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * DocumentImpactChip — impact-chip у документа.
@@ -35,7 +36,7 @@ const IMPACT_CONFIG: Record<DocumentImpact, {
   color: string;
   bg: string;
   border: string;
-  Icon: React.ComponentType<{ size: number; strokeWidth?: number }>;
+  Icon: LucideIcon;
 }> = {
   'blocks-money': {
     defaultLabel: 'блокирует деньги',

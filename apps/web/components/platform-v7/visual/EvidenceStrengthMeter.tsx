@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { MapPin, Camera, Scale, Lock, FlaskConical, FileCheck } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * EvidenceStrengthMeter — технический индекс полноты доказательной базы.
@@ -39,7 +40,7 @@ export interface EvidenceStrengthMeterProps {
   readonly 'data-testid'?: string;
 }
 
-const FACTOR_ICONS: Record<string, React.ComponentType<{ size: number; strokeWidth?: number }>> = {
+const FACTOR_ICONS: Record<string, LucideIcon> = {
   gps:    MapPin,
   photo:  Camera,
   weight: Scale,

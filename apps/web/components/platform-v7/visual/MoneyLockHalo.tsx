@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Lock, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { TrustDot } from './TrustDot';
 import type { TrustDotState } from './TrustDot';
 
@@ -39,7 +40,7 @@ export interface MoneyLockHaloProps {
 }
 
 const LOCK_CONFIG: Record<MoneyLockState, {
-  Icon: React.ComponentType<{ size: number; strokeWidth?: number }>;
+  Icon: LucideIcon;
   color: string;
   bg: string;
   border: string;

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Banknote, FileText, Truck, Gavel } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * MobileExecutionHeader — компактная execution zone для mobile (390×844).
@@ -51,7 +52,7 @@ function MobilePill({
   Icon,
 }: {
   item: MobileExecutionHeaderItem;
-  Icon: React.ComponentType<{ size: number; strokeWidth?: number }>;
+  Icon: LucideIcon;
 }) {
   const tone = item.tone ?? 'neutral';
   const c = TONE_COLORS[tone];
@@ -106,7 +107,7 @@ export function MobileExecutionHeader({
 }: MobileExecutionHeaderProps) {
   const pills: Array<{
     item: MobileExecutionHeaderItem | undefined;
-    Icon: React.ComponentType<{ size: number; strokeWidth?: number }>;
+    Icon: LucideIcon;
   }> = [
     { item: money,     Icon: Banknote },
     { item: documents, Icon: FileText },

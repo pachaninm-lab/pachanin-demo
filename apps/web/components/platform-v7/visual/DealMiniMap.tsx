@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Activity, Banknote, FileText, Truck, FlaskConical, Shield, Gavel, BookOpen } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * DealMiniMap — навигация по карточке сделки.
@@ -50,7 +51,7 @@ const DEFAULT_SECTIONS: DealMiniMapSection[] = [
   { id: 'journal',   label: 'Журнал',       shortLabel: 'Журнал',  anchorId: 'deal-journal' },
 ];
 
-const SECTION_ICONS: Record<DealMiniMapSectionId, React.ComponentType<{ size: number; strokeWidth?: number }>> = {
+const SECTION_ICONS: Record<DealMiniMapSectionId, LucideIcon> = {
   pulse:     Activity,
   money:     Banknote,
   documents: FileText,

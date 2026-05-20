@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Banknote, FileText, Truck, FlaskConical, Gavel, AlertTriangle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { TrustDot } from './TrustDot';
 import type { TrustDotState } from './TrustDot';
 
@@ -63,7 +64,7 @@ function ZoneItem({
   Icon,
   compact,
 }: ExecutionZoneItem & {
-  Icon: React.ComponentType<{ size: number; strokeWidth?: number }>;
+  Icon: LucideIcon;
   compact: boolean;
 }) {
   const c = TONE_COLORS[tone];
@@ -125,7 +126,7 @@ export function ExecutionHeader({
 }: ExecutionHeaderProps) {
   const zones: Array<{
     item: ExecutionZoneItem | undefined;
-    Icon: React.ComponentType<{ size: number; strokeWidth?: number }>;
+    Icon: LucideIcon;
   }> = [
     { item: money,     Icon: Banknote },
     { item: documents, Icon: FileText },

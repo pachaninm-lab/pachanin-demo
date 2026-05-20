@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { MapPin, Camera, Scale, Lock, FlaskConical, FileCheck } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * ProofRibbon — лента доказательств.
@@ -43,7 +44,7 @@ const PROOF_DEFS: Array<{
   key: keyof ProofRibbonItems;
   label: string;
   shortLabel: string;
-  Icon: React.ComponentType<{ size: number; strokeWidth?: number }>;
+  Icon: LucideIcon;
 }> = [
   { key: 'gps',    label: 'GPS',        shortLabel: 'GPS',   Icon: MapPin },
   { key: 'photo',  label: 'Фото',       shortLabel: 'Фото',  Icon: Camera },

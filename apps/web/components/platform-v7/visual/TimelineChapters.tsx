@@ -5,6 +5,7 @@ import {
   PlusCircle, DollarSign, Truck, Package, FileText,
   Gavel, Landmark, CheckCircle2, Circle, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * TimelineChapters — журнал, сгруппированный по главам сделки.
@@ -48,7 +49,7 @@ export interface TimelineChaptersProps {
   readonly 'data-testid'?: string;
 }
 
-const CHAPTER_ICONS: Record<TimelineChapterId, React.ComponentType<{ size: number; strokeWidth?: number }>> = {
+const CHAPTER_ICONS: Record<TimelineChapterId, LucideIcon> = {
   creation:   PlusCircle,
   reserve:    DollarSign,
   trip:       Truck,

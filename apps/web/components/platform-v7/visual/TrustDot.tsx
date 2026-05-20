@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { CheckCircle2, Clock, AlertTriangle, Wrench } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * TrustDot — мини-индикатор источника и статуса верификации.
@@ -35,7 +36,7 @@ const STATE_CONFIG: Record<TrustDotState, {
   border: string;
   defaultTooltip: string;
   defaultLabel: string;
-  Icon: React.ComponentType<{ size: number; strokeWidth?: number }>;
+  Icon: LucideIcon;
 }> = {
   confirmed: {
     color: 'var(--p7-color-success, #027A48)',
