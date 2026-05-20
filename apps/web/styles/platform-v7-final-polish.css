@@ -153,6 +153,23 @@ button[aria-label='Сменить тему'] {
   }
 }
 
+/* ─── §B-8: Quiet UI — one accent per screen ─── */
+/* Hero sections: ensure background never exceeds card-level elevation.
+   Components that use .pc-hero-quiet opt into a flat, neutral background. */
+.pc-hero-quiet {
+  background: var(--pc-bg-card) !important;
+  background-image: none !important;
+  box-shadow: var(--pc-shadow-sm, 0 1px 4px rgba(15,23,42,0.06)) !important;
+}
+
+/* Limit accent colors to one per screen by requiring explicit .pc-accent-primary */
+/* All colored badge backgrounds default to neutral in quiet mode */
+[data-density='compact'] .pc-badge-accent {
+  background: var(--pc-bg-elevated) !important;
+  color: var(--pc-text-secondary) !important;
+  border-color: var(--pc-border) !important;
+}
+
 /* ─── §E-22: Density toggle — Компактно / Свободно ─── */
 :root {
   --pc-density-gap: 18px;

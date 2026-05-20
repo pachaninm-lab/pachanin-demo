@@ -6,6 +6,35 @@ import { DEALS, DISPUTES } from '@/lib/v7r/data';
 
 const HIDDEN_ROLES = new Set<PlatformRole>(['driver', 'elevator', 'lab', 'surveyor']);
 
+// Mock 7-point trend: reserve amounts over past weeks (normalized to [0,1] scale)
+const RESERVE_TREND = [0.55, 0.62, 0.71, 0.68, 0.78, 0.85, 1.0];
+
+function Sparkline({ values, width = 56, height = 20 }: { values: number[]; width?: number; height?: number }) {
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * width;
+    const y = height - ((v - min) / range) * height;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden style={{ flexShrink: 0 }}>
+      <polyline
+        points={pts.join(' ')}
+        fill="none"
+        stroke="var(--pc-accent, #0A7A5F)"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity="0.7"
+      />
+      <circle cx={pts[pts.length - 1].split(',')[0]} cy={pts[pts.length - 1].split(',')[1]} r="2.5" fill="var(--pc-accent, #0A7A5F)" />
+    </svg>
+  );
+}
+
 function rub(n: number) {
   if (n === 0) return '0 ₽';
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace('.', ',')} млн ₽`;
@@ -47,6 +76,7 @@ export function MoneySpineStrip() {
 
   return (
     <div style={shell} role="status" aria-label="Денежная позиция">
+      <Sparkline values={RESERVE_TREND} />
       <span style={spineLabel}>₽</span>
       {items.map((it, i) => (
         <span key={it.label} style={{ display: 'contents' }}>
