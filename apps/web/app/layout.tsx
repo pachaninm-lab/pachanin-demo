@@ -52,6 +52,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         {/* Must be first in <head> to run before CSS is applied */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* D-20: preconnect to Google Fonts for faster font load */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body>
         {children}

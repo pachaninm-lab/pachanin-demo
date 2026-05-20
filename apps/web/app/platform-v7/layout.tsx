@@ -11,6 +11,7 @@ import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { SystemRouteSummaryGate } from '@/components/platform-v7/SystemRouteSummaryGate';
 import { WorkRouteNav } from '@/components/platform-v7/WorkRouteNav';
+import { MoneySpineStrip } from '@/components/platform-v7/MoneySpineStrip';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -63,6 +64,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <AuditSurfaceSummaryGate />
           <SystemRouteSummaryGate />
           <WorkRouteNav />
+          <MoneySpineStrip />
           {children}
         </>
       </AppShellV4>
