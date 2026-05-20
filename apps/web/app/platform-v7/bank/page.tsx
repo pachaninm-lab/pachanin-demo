@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
+import { BankCleanView } from '@/components/platform-v7/visual/BankCleanView';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { BatonStrip } from '@/components/platform-v7/BatonStrip';
 import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
@@ -130,6 +131,32 @@ export default function PlatformV7BankPage() {
         <Metric label='Под удержанием' value='624 тыс. ₽' danger />
         <Metric label='Требуют проверки' value='2 сделки' />
       </section>
+
+      <BankCleanView
+        dealId={mainDeal.dealId}
+        amount='9,65 млн ₽'
+        lockState='blocked-docs'
+        trustState='test'
+        basis='Основание для банковской проверки выплаты не сформировано — документы не закрыты'
+        documents={[
+          { id: 'sdiz',    label: 'СДИЗ',              status: 'missing',  impact: 'блокирует' },
+          { id: 'etrn',    label: 'ЭТрН',              status: 'missing',  impact: 'блокирует' },
+          { id: 'upd',     label: 'УПД',               status: 'pending',  impact: 'ожидает'   },
+          { id: 'act',     label: 'Акт приёмки',       status: 'missing',  impact: 'блокирует' },
+          { id: 'quality', label: 'Протокол качества', status: 'pending',  impact: 'в работе'  },
+        ]}
+        risks={[
+          { id: 'sdiz-risk',    text: 'СДИЗ не закрыт — основание для банка не сформировано',    severity: 'high'   },
+          { id: 'dispute-risk', text: 'Спор по DL-9102 · 624 тыс. ₽ под удержанием',            severity: 'medium' },
+        ]}
+        unlockSteps={[
+          { id: '1', label: 'Закрыть СДИЗ',       status: 'current'  },
+          { id: '2', label: 'Подписать ЭТрН',     status: 'upcoming' },
+          { id: '3', label: 'Закрыть акт приёмки', status: 'upcoming' },
+        ]}
+        journalHref={`/platform-v7/deals/${mainDeal.dealId}/audit`}
+        manualReviewNote='Выпуск денег требует подтверждения банка. Платформа формирует основание при закрытых условиях.'
+      />
 
       <section style={cardInner}>
         <div style={micro}>Денежная очередь</div>

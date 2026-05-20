@@ -5,6 +5,7 @@ import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels';
 import { getDeal360Scenario, type Deal360State, type Deal360Cockpit } from '@/lib/platform-v7/deal360-source-of-truth';
 import { DealSeal } from '@/components/platform-v7/DealSeal';
+import { DealWorkspaceVisualLayer } from '@/components/platform-v7/visual/DealWorkspaceVisualLayer';
 
 const border = '#E4E6EA';
 const text = '#0F1419';
@@ -45,8 +46,58 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
   const releaseReasons = releaseCheck?.blockers ?? [];
   const hasBlockers = releaseReasons.length > 0 || deal.blockers.length > 0 || deal.holdAmount > 0 || disputes.length > 0 || !scenario.releaseAllowed;
 
+  // ── Visual Intelligence Layer props ──
+  const vilLockState = hasBlockers
+    ? (deal.holdAmount > 0 ? 'hold' : disputes.length > 0 ? 'blocked-dispute' : 'blocked-docs')
+    : (releaseAmount > 0 ? 'ready' : 'released');
+
+  const vilUnlockSteps = releaseReasons.slice(0, 3).map((reason, index) => ({
+    id: String(index),
+    label: moneyStopReasonText([reason]).split('·')[0].trim(),
+    status: (index === 0 ? 'current' : 'upcoming') as 'current' | 'upcoming',
+  }));
+
+  const vilCauseLines = releaseReasons.slice(0, 2).map((reason) => ({
+    cause: { text: moneyStopReasonText([reason]).split('→')[0].trim(), tone: 'blocked' as const },
+    relation: 'blocks' as const,
+    effect: { text: 'выпуск денег', tone: 'money' as const },
+    moneyAmount: rub(deal.holdAmount > 0 ? deal.holdAmount : releaseAmountRaw),
+    moneyTone: (deal.holdAmount > 0 ? 'hold' : 'blocked') as 'hold' | 'blocked',
+  }));
+
   return (
     <main style={{ display: 'grid', gap: 16 }}>
+      {/* ── Visual Intelligence Layer ── */}
+      <DealWorkspaceVisualLayer
+        dealId={deal.id}
+        dealStatus={hasBlockers ? 'blocked' : 'moving'}
+        totalMoney={rub(deal.reservedAmount)}
+        lockState={vilLockState}
+        lockReason={hasBlockers ? 'требует подтверждения банка' : undefined}
+        causeLines={vilCauseLines}
+        unlockSteps={vilUnlockSteps}
+        proofItems={{
+          gps: 'present',
+          photo: 'present',
+          weight: 'present',
+          seal: 'pending',
+          lab: hasBlockers ? 'pending' : 'present',
+          act: deal.holdAmount > 0 ? 'disputed' : 'present',
+        }}
+        primaryAction={hasBlockers ? {
+          label: scenario.nextAction.split('.')[0].trim(),
+          onClick: () => {},
+          tone: 'primary',
+          consequence: 'Будет записано в журнал',
+        } : null}
+        hintProblem={hasBlockers ? `Деньги стоят${releaseReasons.length > 0 ? ' из-за ' + moneyStopReasonText(releaseReasons.slice(0, 1)) : ''}.` : undefined}
+        hintAction={hasBlockers ? scenario.nextAction : undefined}
+        docSummary={`${scenario.documents.filter((d) => !d.blocksMoney).length}/${scenario.documents.length} готовы · ${scenario.documents.filter((d) => d.blocksMoney).length} блокируют деньги`}
+        tripSummary={scenario.cockpit.tripStatus.label}
+        qualitySummary={scenario.cockpit.qualityStatus.label}
+        disputeSummary={disputes.length > 0 ? `${disputes.length} открытых · удержание` : 'Нет активных споров'}
+      />
+
       <section style={card()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>

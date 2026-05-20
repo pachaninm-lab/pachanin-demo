@@ -12,6 +12,8 @@ import { ExecutionSimulationActionPanel } from '@/components/v7r/ExecutionSimula
 import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
 import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
 import { OperatorExecutionQueue } from '@/components/platform-v7/OperatorExecutionQueue';
+import { OperatorRadarIsland } from '@/components/platform-v7/visual/OperatorRadarIsland';
+import type { RadarZoneData, RadarItemData } from '@/components/platform-v7/visual/OperatorRadarIsland';
 
 function describeReason(code: string) {
   switch (code) {
@@ -104,6 +106,71 @@ export default function PlatformV7ControlTowerPage() {
     .sort((a, b) => b.severity - a.severity || b.amountAtRisk - a.amountAtRisk || b.deal.riskScore - a.deal.riskScore)
     .slice(0, 8);
 
+  // ── Operator Radar zone data ──────────────────────────────────────────────
+  const radarMoneyItems: RadarItemData[] = queue
+    .filter((item) => item.releaseStopped || item.deal.holdAmount > 0)
+    .slice(0, 3)
+    .map((item) => ({
+      id: item.deal.id,
+      title: `${item.deal.id} · ${item.deal.grain}`,
+      detail: item.reason.slice(0, 60),
+      money: formatCompactMoney(item.amountAtRisk),
+      status: (item.severity === 3 ? 'blocked' : item.severity === 2 ? 'waiting' : 'money') as RadarItemData['status'],
+      href: item.primaryAction.href,
+      actionLabel: item.primaryAction.label,
+    }));
+
+  const radarDocItems: RadarItemData[] = queue
+    .filter((item) => item.integration.reasonCodes.includes('DOCS_MISSING') || item.deal.blockers.includes('docs'))
+    .slice(0, 3)
+    .map((item) => ({
+      id: `doc-${item.deal.id}`,
+      title: `${item.deal.id} · документы`,
+      detail: 'Не хватает документов для передачи основания',
+      status: 'blocked' as const,
+      href: `/platform-v7/deals/${item.deal.id}/documents`,
+      actionLabel: 'Открыть документы',
+    }));
+
+  const radarTripItems: RadarItemData[] = transportHotlist.map((item) => ({
+    id: item.id,
+    title: item.title,
+    detail: item.note.slice(0, 60),
+    status: (item.moneyImpactStatus === 'blocks_release' ? 'blocked' : 'waiting') as RadarItemData['status'],
+    href: item.primaryHref,
+    actionLabel: 'Открыть пакет',
+  }));
+
+  const radarDisputeItems: RadarItemData[] = disputes.slice(0, 3).map((d) => ({
+    id: d.id,
+    title: `Спор ${d.id}`,
+    detail: 'Открыт · удержание активно',
+    status: 'blocked' as const,
+    href: `/platform-v7/disputes/${d.id}`,
+    actionLabel: 'Открыть спор',
+  }));
+
+  const radarRiskItems: RadarItemData[] = queue
+    .filter((item) => item.integration.gateState === 'FAIL')
+    .slice(0, 3)
+    .map((item) => ({
+      id: `risk-${item.deal.id}`,
+      title: `${item.deal.id} · интеграция`,
+      detail: describeReason(item.integration.reasonCodes[0] ?? 'unknown'),
+      money: formatCompactMoney(item.amountAtRisk),
+      status: 'blocked' as const,
+      href: '/platform-v7/connectors',
+      actionLabel: 'Открыть интеграции',
+    }));
+
+  const radarZones: RadarZoneData[] = [
+    { id: 'money',     label: 'Деньги',    items: radarMoneyItems,   allClearMessage: 'Деньги движутся' },
+    { id: 'documents', label: 'Документы', items: radarDocItems,     allClearMessage: 'Документы закрыты' },
+    { id: 'trips',     label: 'Рейсы',     items: radarTripItems,    allClearMessage: 'Рейсы в порядке' },
+    { id: 'disputes',  label: 'Споры',     items: radarDisputeItems, allClearMessage: 'Споров нет' },
+    { id: 'risks',     label: 'Риски',     items: radarRiskItems,    allClearMessage: 'Рисков нет' },
+  ];
+
   return (
     <>
       <style>{`
@@ -138,6 +205,10 @@ export default function PlatformV7ControlTowerPage() {
       >
         <P7Section title='Деньги и риски' subtitle='KPI берутся из единого контура исполнения и ведут в соответствующие рабочие зоны.'>
           <DomainControlTowerSummary />
+        </P7Section>
+
+        <P7Section title='Радар оператора' subtitle='Деньги · Документы · Рейсы · Споры · Риски — по одному взгляду на каждую зону.'>
+          <OperatorRadarIsland zones={radarZones} mode='operator' />
         </P7Section>
 
         <P7Section

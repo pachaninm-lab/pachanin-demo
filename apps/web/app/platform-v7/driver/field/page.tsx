@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
+import { DriverBigTileIsland } from '@/components/platform-v7/visual/DriverBigTileIsland';
 
 export default function DriverFieldPage() {
   return (
@@ -69,6 +70,8 @@ export default function DriverFieldPage() {
           <strong style={miniValue}>только свой рейс</strong>
         </div>
       </section>
+
+      <DriverBigTileIsland />
 
       <RoleRouteHint role="driver" route="/platform-v7/driver/field" />
       <FieldDriverRuntime compact />

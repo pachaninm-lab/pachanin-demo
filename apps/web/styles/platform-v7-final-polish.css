@@ -313,6 +313,91 @@ details > summary:focus-visible {
   color: var(--pc-text-secondary);
 }
 
+/* ─── §VIL: Visual Intelligence Layer ─── */
+
+/* MagneticActionDock: ensure bottom dock clears safe area on iOS */
+[data-testid='p7-vil-magnetic-action-dock'] {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+/* DealMiniMap horizontal scroll: hide scrollbar cross-browser */
+[data-testid='p7-vil-deal-mini-map'] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[data-testid='p7-vil-deal-mini-map']::-webkit-scrollbar {
+  display: none;
+}
+
+/* CauseLine horizontal scroll: hide scrollbar */
+[data-testid^='p7-vil-cause-line'] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[data-testid^='p7-vil-cause-line']::-webkit-scrollbar {
+  display: none;
+}
+
+/* ProgressiveDetailCard expand toggle hover (desktop only) */
+@media (hover: hover) and (pointer: fine) {
+  [data-testid='p7-vil-progressive-detail-card'] button[aria-expanded]:hover {
+    background: var(--p7-color-surface-muted, #F2F6F0);
+    border-color: var(--p7-color-brand, #0A7A5F);
+    color: var(--p7-color-brand, #0A7A5F);
+  }
+}
+
+/* ObjectFocusHover: smooth hover appearance */
+@media (hover: hover) and (pointer: fine) {
+  [data-testid='p7-vil-object-focus-hover'] > div[role='tooltip'] {
+    animation: p7-tooltip-in var(--pc-dur-fast, 120ms) var(--pc-ease, ease) forwards;
+  }
+}
+
+@keyframes p7-tooltip-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* AfterActionReceipt slide-in animation */
+@keyframes p7-receipt-in {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+[data-testid='p7-vil-after-action-receipt'] {
+  animation: p7-receipt-in var(--pc-dur-base, 200ms) var(--pc-ease, ease) forwards;
+}
+
+/* MagneticActionDock spinner */
+@keyframes p7-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* VIL: mobile overflow guard — prevent horizontal scroll on 390px viewport */
+@media (max-width: 430px) {
+  [data-testid='p7-vil-deal-workspace-vl'],
+  [data-testid='p7-vil-bank-clean-view'],
+  [data-testid='p7-vil-driver-big-tile-mode'],
+  [data-testid='p7-vil-operator-radar'] {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* MobileExecutionHeader: pill row should not overflow */
+  [data-testid='p7-vil-mobile-execution-header'] {
+    max-width: calc(100vw - 32px);
+    overflow-x: auto;
+  }
+}
+
+/* VIL: reduced motion — disable all p7-* animations */
+@media (prefers-reduced-motion: reduce) {
+  [data-testid^='p7-vil-'] {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* ─── §C: Print styles for Deal Seal ─── */
 @media print {
   /* Hide all navigation and chrome */
