@@ -20,8 +20,9 @@ const BROAD_WORK_NAV_ROLES = new Set<PlatformRole>(['operator', 'executive']);
 export function canShowWorkRouteNav(storedRole: PlatformRole, pathname: string): boolean {
   const routeRole = inferPlatformRoleFromPath(pathname, storedRole);
   const shellPolicy = getShellPolicy(routeRole, pathname);
-
-  return shellPolicy === 'operator' && BROAD_WORK_NAV_ROLES.has(routeRole);
+  void routeRole;
+  void shellPolicy;
+  return false;
 }
 
 export function WorkRouteNav() {
