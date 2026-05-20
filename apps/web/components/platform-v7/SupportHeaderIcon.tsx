@@ -26,8 +26,9 @@ export function SupportHeaderIcon() {
       <style>{`
         .p7-header-utilities{display:none}
         @media(max-width:767px){
-          .pc-v4-actions > button[aria-label='Уведомления']{display:none!important}
-          .pc-v4-actions > div:first-of-type{display:block!important}
+          .pc-v4-actions button[aria-label='Уведомления'],
+          .pc-v4-actions > div:has(button[aria-label='Уведомления']){display:none!important}
+          .pc-v4-actions > div:first-of-type:not(:has(button[aria-label='Уведомления'])){display:block!important}
           .pc-shell-root-v4 > div[aria-hidden='true']{background:rgba(15,23,42,.08)!important;backdrop-filter:none!important}
           .pc-v4-drawer{width:min(352px,84vw)!important;max-width:84vw!important;border-top-right-radius:24px!important;border-bottom-right-radius:24px!important;overflow:hidden!important}
           .p7-header-utilities{position:fixed;top:calc(env(safe-area-inset-top) + 7px);right:138px;z-index:105;display:flex;gap:6px;pointer-events:auto}
