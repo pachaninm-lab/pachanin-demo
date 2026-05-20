@@ -23,7 +23,6 @@ import type { UnlockStep } from './UnlockPath';
 import type { CauseLineProps } from './CauseLine';
 import type { ProofRibbonItems } from './ProofRibbon';
 import type { ExecutionZoneItem, ExecutionHeaderBlocker } from './ExecutionHeader';
-import type { MobileExecutionHeaderItem } from './MobileExecutionHeader';
 
 /**
  * DealWorkspaceVisualLayer — клиентский компонент, добавляющий
@@ -109,16 +108,6 @@ export function DealWorkspaceVisualLayer({
     }, 1000);
   }
 
-  // Build mobile header items from execZones
-  const mobileItems: MobileExecutionHeaderItem[] = execZones
-    ? ([
-        execZones.money     ? { id: 'money',     label: 'Деньги',    value: execZones.money.value,     tone: execZones.money.tone     ?? 'neutral', href: execZones.money.href     } : null,
-        execZones.documents ? { id: 'documents', label: 'Документы', value: execZones.documents.value, tone: execZones.documents.tone ?? 'neutral', href: execZones.documents.href } : null,
-        execZones.trip      ? { id: 'trip',      label: 'Рейс',      value: execZones.trip.value,      tone: execZones.trip.tone      ?? 'neutral', href: execZones.trip.href      } : null,
-        execZones.quality   ? { id: 'quality',   label: 'Качество',  value: execZones.quality.value,   tone: execZones.quality.tone   ?? 'neutral', href: execZones.quality.href   } : null,
-        execZones.dispute   ? { id: 'dispute',   label: 'Спор',      value: execZones.dispute.value,   tone: execZones.dispute.tone   ?? 'neutral', href: execZones.dispute.href   } : null,
-      ].filter(Boolean) as MobileExecutionHeaderItem[])
-    : [];
 
   return (
     <>
@@ -140,7 +129,10 @@ export function DealWorkspaceVisualLayer({
           {/* Mobile */}
           <div className='p7-exec-header-mobile'>
             <MobileExecutionHeader
-              items={mobileItems}
+              money={execZones.money ? { label: 'Деньги', value: execZones.money.value, tone: execZones.money.tone ?? 'neutral', href: execZones.money.href } : undefined}
+              documents={execZones.documents ? { label: 'Документы', value: execZones.documents.value, tone: execZones.documents.tone ?? 'neutral', href: execZones.documents.href } : undefined}
+              trip={execZones.trip ? { label: 'Рейс', value: execZones.trip.value, tone: execZones.trip.tone ?? 'neutral', href: execZones.trip.href } : undefined}
+              dispute={execZones.dispute ? { label: 'Спор', value: execZones.dispute.value, tone: execZones.dispute.tone ?? 'neutral', href: execZones.dispute.href } : undefined}
               blocker={execZones.blocker ? { text: execZones.blocker.text, moneyAmount: execZones.blocker.moneyAmount } : undefined}
             />
           </div>
