@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { DisputeDetailRuntime } from '@/components/v7r/DisputeDetailRuntime';
 import { selectDisputeById } from '@/lib/domain/selectors';
 import { PLATFORM_V7_DISPUTES_ROUTE } from '@/lib/platform-v7/routes';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
 
 export function generateMetadata({ params }: { params: { id: string } }): Metadata {
   const dispute = selectDisputeById(params.id);
@@ -19,6 +20,13 @@ export default function PlatformV7DisputeDetailPage({ params }: { params: { id: 
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
+      {dispute && (
+        <QuietIntelligenceHint
+          problem={`Спор ${dispute.id}: удержание активно — решение требует закрытия доказательного пакета`}
+          action='Проверить документы и сформировать пакет решения'
+          outcome='После закрытия спора удержание снимается и деньги движутся'
+        />
+      )}
       <DisputeDetailRuntime disputeId={params.id} />
       <section style={{ maxWidth: 860, margin: '0 auto', width: '100%', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Отдельный расчёт удержания</div>

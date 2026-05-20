@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platform-v7/grain-execution/automation/evidence-pack-engine';
 import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/grain-execution/mock-data';
 import { formatRub } from '@/lib/platform-v7/grain-execution/format';
@@ -138,6 +139,14 @@ export default function PlatformV7DisputesPage() {
         <Metric label='Готово к решению' value={String(readyDisputeCount)} />
         <Metric label='Закрыто доказательствами' value={String(blockedDisputeCount)} danger />
       </section>
+
+      <SmartSectionSummary
+        label='Споры'
+        moneyFact='15,89 млн ₽ под влиянием'
+        blockers={['624 тыс. ₽ · активное удержание', 'DSP-9102-WEIGHT · акт расхождения не закрыт']}
+        warnings={['DSP-9106-QUALITY · ожидает протокол качества']}
+        facts={['2 открытых спора', `${readyDisputeCount} готово к решению`]}
+      />
 
       <section style={card}>
         <div style={micro}>Очередь споров</div>

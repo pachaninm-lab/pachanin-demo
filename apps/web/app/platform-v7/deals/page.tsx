@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { DEAL360_SCENARIOS } from '@/lib/platform-v7/deal360-source-of-truth';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 
 const dealSnapshots = Object.values(DEAL360_SCENARIOS).map((s) => ({
   id: s.dealId,
@@ -38,6 +39,13 @@ export default function PlatformV7DealsPage() {
             <Link href='/platform-v7/control-tower' style={secondary}>Центр управления</Link>
           </div>
         </div>
+
+        <SmartSectionSummary
+          label='Реестр сделок'
+          moneyFact='15,89 млн ₽ в работе'
+          blockers={dealSnapshots.filter((d) => d.cannotHappenReason || d.money.state === 'stop').map((d) => `${d.id} · ${d.money.label}`)}
+          facts={[`${dealSnapshots.length} сделок`, `${dealSnapshots.filter((d) => d.dispute.state !== 'ok').length} спора`]}
+        />
 
         <div style={{ display: 'grid', gap: 10 }}>
           {dealSnapshots.map((deal) => (

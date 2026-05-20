@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 
 const METRICS = [
   { label: 'Оборот в тестовом срезе', value: '118 млн ₽', sub: 'Данные сценария, не подтверждённый GMV' },
@@ -90,13 +91,16 @@ export default function InvestorPage() {
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
-      <div>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', margin: 0, borderLeft: '4px solid #0A7A5F', paddingLeft: 12 }}>
-          Инвесторский режим
-        </h1>
-        <p style={{ fontSize: 13, color: '#6B778C', marginTop: 4, paddingLeft: 16 }}>
-          Зрелость · экономика · риски · ручная нагрузка · roadmap
-        </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', margin: 0, borderLeft: '4px solid #0A7A5F', paddingLeft: 12 }}>
+            Инвесторский режим
+          </h1>
+          <p style={{ fontSize: 13, color: '#6B778C', marginTop: 4, paddingLeft: 16 }}>
+            Зрелость · экономика · риски · ручная нагрузка · roadmap
+          </p>
+        </div>
+        <TrustDot state='test' size='sm' label='Тестовый контур · данные сценария, не подтверждённый GMV' />
       </div>
 
       <div data-testid="platform-v7-investor-truth-banner" style={{ padding: '14px 16px', borderRadius: 16, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#0F1419', fontSize: 13, lineHeight: 1.6 }}>
