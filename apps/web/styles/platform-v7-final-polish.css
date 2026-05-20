@@ -153,6 +153,61 @@ button[aria-label='Сменить тему'] {
   }
 }
 
+/* ─── §B-10: Tabular numerals for numeric data ─── */
+/* Applied to value displays (KPIs, amounts, IDs) so columns align */
+.pc-v4-main strong,
+.pc-v4-main [style*="font-size: 24"],
+.pc-v4-main [style*="font-size: 28"],
+.pc-v4-main [style*="fontSize: 24"],
+.pc-v4-main [style*="fontSize: 28"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Monospace IDs always tabular */
+[style*="JetBrains Mono"],
+[style*="monospace"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ─── §B-11: Consistent vertical rhythm and page padding ─── */
+.pc-v4-main {
+  padding-bottom: env(safe-area-inset-bottom, 32px) !important;
+}
+
+/* Uniform page top padding so hero sections breathe */
+@media (min-width: 768px) {
+  .pc-v4-main > main,
+  .pc-v4-main > div {
+    padding-top: 0;
+  }
+}
+
+/* Empty state — used when a section has no data */
+.pc-empty-state {
+  display: grid;
+  gap: 8px;
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--pc-text-muted);
+  border: 1px dashed var(--pc-border);
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pc-empty-state__icon {
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0.45;
+}
+
+.pc-empty-state__title {
+  font-size: 15px;
+  font-weight: 850;
+  color: var(--pc-text-secondary);
+}
+
 /* ─── §C: Print styles for Deal Seal ─── */
 @media print {
   /* Hide all navigation and chrome */

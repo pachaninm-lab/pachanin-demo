@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
+import { BatonStrip } from '@/components/platform-v7/BatonStrip';
 
 const surveyorSteps = [
   { label: 'Осмотр', value: 'фото и состояние', note: 'что видно на площадке без пересказа сторон' },
@@ -35,6 +36,12 @@ export default function Page() {
         </div>
       </section>
 
+      <BatonStrip
+        from="логистика — рейс и груз"
+        mine="осмотр, фото, расхождение, акт"
+        to="оператор — доказательный контур"
+        toHref="/platform-v7/disputes"
+      />
       <RoleExecutionSummary role="surveyor" />
 
       <section style={{ background: 'var(--pc-bg-card, #fff)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
