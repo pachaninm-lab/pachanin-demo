@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { DEALS, DISPUTES } from '@/lib/v7r/data';
 
@@ -20,6 +21,13 @@ const openDisputes = DISPUTES.filter((d) => d.status === 'open').length;
 
 export function MoneySpineStrip() {
   const role = usePlatformV7RStore((s) => s.role);
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    // Reserve space before hydration to avoid CLS
+    return <div style={{ height: 34, marginBottom: 10 }} aria-hidden />;
+  }
   if (HIDDEN_ROLES.has(role)) return null;
 
   const items =
