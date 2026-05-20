@@ -6,6 +6,7 @@ import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels'
 import { getDeal360Scenario, type Deal360State, type Deal360Cockpit } from '@/lib/platform-v7/deal360-source-of-truth';
 import { DealSeal } from '@/components/platform-v7/DealSeal';
 import { DealWorkspaceVisualLayer } from '@/components/platform-v7/visual/DealWorkspaceVisualLayer';
+import { MobileDealActionLens } from '@/components/platform-v7/MobileDealActionLens';
 
 const border = '#E4E6EA';
 const text = '#0F1419';
@@ -46,6 +47,12 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
   const releaseReasons = releaseCheck?.blockers ?? [];
   const hasBlockers = releaseReasons.length > 0 || deal.blockers.length > 0 || deal.holdAmount > 0 || disputes.length > 0 || !scenario.releaseAllowed;
 
+  const primaryReason = releaseReasons.length > 0
+    ? moneyStopReasonText(releaseReasons.slice(0, 1))
+    : deal.blockers.length > 0
+      ? deal.blockers[0]
+      : scenario.cockpit.cannotHappenReason ?? 'требуется закрыть условия сделки';
+
   // ── Visual Intelligence Layer props ──
   const vilLockState = hasBlockers
     ? (deal.holdAmount > 0 ? 'hold' : disputes.length > 0 ? 'blocked-dispute' : 'blocked-docs')
@@ -67,133 +74,169 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
 
   return (
     <main style={{ display: 'grid', gap: 16 }}>
-      {/* ── Visual Intelligence Layer ── */}
-      <DealWorkspaceVisualLayer
+      <style>{`
+        @media(max-width:767px){
+          .p7-clean-desktop-layer{display:none!important}
+          .p7-clean-mobile-details{display:block}
+          .pc-v4-main{padding-top:calc(var(--pc-header-offset) + 8px)!important}
+        }
+        @media(min-width:768px){
+          .p7-clean-mobile-details{display:none!important}
+        }
+      `}</style>
+
+      <MobileDealActionLens
         dealId={deal.id}
-        dealStatus={hasBlockers ? 'blocked' : 'moving'}
-        totalMoney={rub(deal.reservedAmount)}
-        lockState={vilLockState}
-        lockReason={hasBlockers ? 'требует подтверждения банка' : undefined}
-        causeLines={vilCauseLines}
-        unlockSteps={vilUnlockSteps}
-        proofItems={{
-          gps: 'present',
-          photo: 'present',
-          weight: 'present',
-          seal: 'pending',
-          lab: hasBlockers ? 'pending' : 'present',
-          act: deal.holdAmount > 0 ? 'disputed' : 'present',
-        }}
-        primaryAction={hasBlockers ? {
-          label: scenario.nextAction.split('.')[0].trim(),
-          tone: 'primary',
-          consequence: 'Будет записано в журнал',
-        } : null}
-        hintProblem={hasBlockers ? `Деньги стоят${releaseReasons.length > 0 ? ' из-за ' + moneyStopReasonText(releaseReasons.slice(0, 1)) : ''}.` : undefined}
-        hintAction={hasBlockers ? scenario.nextAction : undefined}
-        docSummary={`${scenario.documents.filter((d) => !d.blocksMoney).length}/${scenario.documents.length} готовы · ${scenario.documents.filter((d) => d.blocksMoney).length} блокируют деньги`}
-        tripSummary={scenario.cockpit.tripStatus.label}
-        qualitySummary={scenario.cockpit.qualityStatus.label}
-        disputeSummary={disputes.length > 0 ? `${disputes.length} открытых · удержание` : 'Нет активных споров'}
-        execZones={{
-          money:     { label: 'Деньги',    value: rub(deal.reservedAmount),      tone: hasBlockers ? 'blocked' : 'money',   href: '#deal-money' },
-          documents: { label: 'Документы', value: `${scenario.documents.filter((d) => !d.blocksMoney).length}/${scenario.documents.length}`, tone: scenario.documents.some((d) => d.blocksMoney) ? 'blocked' : 'ok', href: '#deal-documents' },
-          trip:      { label: 'Рейс',      value: scenario.cockpit.tripStatus.label.split('·')[0].trim(), tone: 'neutral' },
-          quality:   { label: 'Качество',  value: scenario.cockpit.qualityStatus.label.split('·')[0].trim(), tone: deal.holdAmount > 0 ? 'warn' : 'neutral' },
-          dispute:   { label: 'Спор',      value: disputes.length > 0 ? `${disputes.length} активных` : 'Нет', tone: disputes.length > 0 ? 'blocked' : 'ok' },
-          blocker:   hasBlockers ? { text: moneyStopReasonText(releaseReasons.slice(0, 1)), moneyAmount: rub(releaseAmountRaw) } : null,
-        }}
+        lotId={scenario.lotId}
+        money={rub(deal.holdAmount > 0 ? deal.holdAmount : releaseAmountRaw)}
+        blocker={primaryReason}
+        owner={scenario.cockpit.nextActor}
+        primaryAction={scenario.nextAction.split('.')[0].trim()}
+        primaryHref={`/platform-v7/deals/${deal.id}/documents`}
+        docs={`${scenario.documents.filter((d) => !d.blocksMoney).length}/${scenario.documents.length}`}
+        trip={scenario.cockpit.tripStatus.label.split('·')[0].trim()}
+        quality={scenario.cockpit.qualityStatus.label.split('·')[0].trim()}
+        dispute={disputes.length > 0 ? `${disputes.length} активный` : 'нет'}
       />
 
-      <section style={card()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Карточка сделки · контур исполнения</p>
-            <h1 style={{ margin: '6px 0 0', fontSize: 28, color: text }}>{deal.id} · {scenario.lotId}</h1>
+      <div className='p7-clean-desktop-layer'>
+        {/* ── Visual Intelligence Layer ── */}
+        <DealWorkspaceVisualLayer
+          dealId={deal.id}
+          dealStatus={hasBlockers ? 'blocked' : 'moving'}
+          totalMoney={rub(deal.reservedAmount)}
+          lockState={vilLockState}
+          lockReason={hasBlockers ? 'требует подтверждения банка' : undefined}
+          causeLines={vilCauseLines}
+          unlockSteps={vilUnlockSteps}
+          proofItems={{
+            gps: 'present',
+            photo: 'present',
+            weight: 'present',
+            seal: 'pending',
+            lab: hasBlockers ? 'pending' : 'present',
+            act: deal.holdAmount > 0 ? 'disputed' : 'present',
+          }}
+          primaryAction={hasBlockers ? {
+            label: scenario.nextAction.split('.')[0].trim(),
+            tone: 'primary',
+            consequence: 'Будет записано в журнал',
+          } : null}
+          hintProblem={hasBlockers ? `Деньги стоят${releaseReasons.length > 0 ? ' из-за ' + moneyStopReasonText(releaseReasons.slice(0, 1)) : ''}.` : undefined}
+          hintAction={hasBlockers ? scenario.nextAction : undefined}
+          docSummary={`${scenario.documents.filter((d) => !d.blocksMoney).length}/${scenario.documents.length} готовы · ${scenario.documents.filter((d) => d.blocksMoney).length} блокируют деньги`}
+          tripSummary={scenario.cockpit.tripStatus.label}
+          qualitySummary={scenario.cockpit.qualityStatus.label}
+          disputeSummary={disputes.length > 0 ? `${disputes.length} открытых · удержание` : 'Нет активных споров'}
+          execZones={{
+            money:     { label: 'Деньги',    value: rub(deal.reservedAmount),      tone: hasBlockers ? 'blocked' : 'money',   href: '#deal-money' },
+            documents: { label: 'Документы', value: `${scenario.documents.filter((d) => !d.blocksMoney).length}/${scenario.documents.length}`, tone: scenario.documents.some((d) => d.blocksMoney) ? 'blocked' : 'ok', href: '#deal-documents' },
+            trip:      { label: 'Рейс',      value: scenario.cockpit.tripStatus.label.split('·')[0].trim(), tone: 'neutral' },
+            quality:   { label: 'Качество',  value: scenario.cockpit.qualityStatus.label.split('·')[0].trim(), tone: deal.holdAmount > 0 ? 'warn' : 'neutral' },
+            dispute:   { label: 'Спор',      value: disputes.length > 0 ? `${disputes.length} активных` : 'Нет', tone: disputes.length > 0 ? 'blocked' : 'ok' },
+            blocker:   hasBlockers ? { text: moneyStopReasonText(releaseReasons.slice(0, 1)), moneyAmount: rub(releaseAmountRaw) } : null,
+          }}
+        />
+      </div>
+
+      <details className='p7-clean-mobile-details'>
+        <summary style={{ listStyle: 'none', border: '1px solid #E4E6EA', borderRadius: 18, background: '#fff', padding: '15px 16px', color: text, fontSize: 14, fontWeight: 950, cursor: 'pointer' }}>Открыть полную карточку сделки ↓</summary>
+        <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
+          <CompactMobileDealDetails scenario={scenario} deal={deal} releaseAmount={releaseAmount} disputesCount={disputes.length} hasBlockers={hasBlockers} />
+        </div>
+      </details>
+
+      <div className='p7-clean-desktop-layer'>
+        <section style={card()}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div>
+              <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Карточка сделки · контур исполнения</p>
+              <h1 style={{ margin: '6px 0 0', fontSize: 28, color: text }}>{deal.id} · {scenario.lotId}</h1>
+            </div>
+            <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
+              {hasBlockers ? 'выплата остановлена' : 'готово к выплате'}
+            </span>
           </div>
-          <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
-            {hasBlockers ? 'выплата остановлена' : 'готово к выплате'}
-          </span>
-        </div>
-      </section>
-
-      <Cockpit cockpit={scenario.cockpit} />
-
-      <section style={grid()}>
-        <Cell label='Культура' value={deal.grain} />
-        <Cell label='Объём' value={`${deal.quantity} ${deal.unit}`} />
-        <Cell label='Принятая ставка' value={scenario.acceptedBid} />
-        <Cell label='Маршрут' value={scenario.route} />
-      </section>
-
-      <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Сквозная цепочка исполнения</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(128px,1fr))', gap: 10, marginTop: 12 }}>
-          {scenario.chain.map((item, index) => (
-            <div key={`${item.title}-${index}`} style={{ border: `1px solid ${stateColor(item.state, 'border')}`, background: stateColor(item.state, 'bg'), borderRadius: 14, padding: 12 }}>
-              <div style={{ color: stateColor(item.state, 'text'), fontSize: 11, fontWeight: 950 }}>{String(index + 1).padStart(2, '0')} · {item.title}</div>
-              <div style={{ marginTop: 6, color: text, fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{item.value}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={grid()}>
-        <Cell label='Резерв денег' value={rub(deal.reservedAmount)} accent />
-        <Cell label='Удержание' value={rub(deal.holdAmount)} danger={deal.holdAmount > 0} />
-        <Cell label='К выплате по текущим условиям' value={rub(releaseAmount)} accent={!hasBlockers} muted={hasBlockers} />
-        <Cell label='Открытые споры' value={String(disputes.length)} danger={disputes.length > 0} />
-      </section>
-
-      <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Когда продавец получает деньги</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginTop: 12 }}>
-          {scenario.money.map((item) => (
-            <div key={item.title} style={{ border: `1px solid ${stateColor(item.state, 'border')}`, background: stateColor(item.state, 'bg'), borderRadius: 14, padding: 12 }}>
-              <div style={{ color: stateColor(item.state, 'text'), fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.title}</div>
-              <div style={{ marginTop: 6, color: text, fontSize: 18, fontWeight: 950 }}>{item.value}</div>
-              <div style={{ marginTop: 5, color: muted, fontSize: 12, lineHeight: 1.35 }}>{item.note}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Внешние контуры и основания</p>
-        <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-          {scenario.providerGates.map((gate) => (
-            <div key={`${gate.provider}-${gate.object}`} style={{ border: `1px solid ${stateColor(gate.state, 'border')}`, background: stateColor(gate.state, 'bg'), borderRadius: 14, padding: 12, display: 'grid', gap: 5 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                <strong style={{ color: text, fontSize: 14 }}>{gate.provider}</strong>
-                <span style={{ color: stateColor(gate.state, 'text'), fontSize: 12, fontWeight: 900 }}>{gate.status}</span>
-              </div>
-              <div style={{ color: muted, fontSize: 12 }}>{gate.object}</div>
-              <div style={{ color: text, fontSize: 13, fontWeight: 800 }}>{gate.impact}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица документов</p>
-        <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-          {scenario.documents.map((doc) => (
-            <div key={`${doc.title}-${doc.source}`} style={{ border: `1px solid ${doc.blocksMoney ? 'rgba(220,38,38,0.18)' : border}`, background: doc.blocksMoney ? redBg : '#fff', borderRadius: 14, padding: 12, display: 'grid', gridTemplateColumns: 'minmax(130px,1fr) minmax(130px,1fr)', gap: 8 }}>
-              <CellInline label={doc.title} value={doc.source} />
-              <CellInline label={doc.responsible} value={doc.status} danger={doc.blocksMoney} />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {hasBlockers ? (
-        <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
-          <p style={{ margin: 0, color: red, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</p>
-          <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>
-            {scenario.nextAction}. {releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : deal.blockers.length > 0 ? deal.blockers.join(' · ') : ''}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}
-          </p>
         </section>
-      ) : null}
+
+        <Cockpit cockpit={scenario.cockpit} />
+
+        <section style={grid()}>
+          <Cell label='Культура' value={deal.grain} />
+          <Cell label='Объём' value={`${deal.quantity} ${deal.unit}`} />
+          <Cell label='Принятая ставка' value={scenario.acceptedBid} />
+          <Cell label='Маршрут' value={scenario.route} />
+        </section>
+
+        <section style={card()}>
+          <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Сквозная цепочка исполнения</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(128px,1fr))', gap: 10, marginTop: 12 }}>
+            {scenario.chain.map((item, index) => (
+              <div key={`${item.title}-${index}`} style={{ border: `1px solid ${stateColor(item.state, 'border')}`, background: stateColor(item.state, 'bg'), borderRadius: 14, padding: 12 }}>
+                <div style={{ color: stateColor(item.state, 'text'), fontSize: 11, fontWeight: 950 }}>{String(index + 1).padStart(2, '0')} · {item.title}</div>
+                <div style={{ marginTop: 6, color: text, fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={grid()}>
+          <Cell label='Резерв денег' value={rub(deal.reservedAmount)} accent />
+          <Cell label='Удержание' value={rub(deal.holdAmount)} danger={deal.holdAmount > 0} />
+          <Cell label='К выплате по текущим условиям' value={rub(releaseAmount)} accent={!hasBlockers} muted={hasBlockers} />
+          <Cell label='Открытые споры' value={String(disputes.length)} danger={disputes.length > 0} />
+        </section>
+
+        <section style={card()}>
+          <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Когда продавец получает деньги</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginTop: 12 }}>
+            {scenario.money.map((item) => (
+              <div key={item.title} style={{ border: `1px solid ${stateColor(item.state, 'border')}`, background: stateColor(item.state, 'bg'), borderRadius: 14, padding: 12 }}>
+                <div style={{ color: stateColor(item.state, 'text'), fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.title}</div>
+                <div style={{ marginTop: 6, color: text, fontSize: 18, fontWeight: 950 }}>{item.value}</div>
+                <div style={{ marginTop: 5, color: muted, fontSize: 12, lineHeight: 1.35 }}>{item.note}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={card()}>
+          <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Внешние контуры и основания</p>
+          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+            {scenario.providerGates.map((gate) => (
+              <div key={`${gate.provider}-${gate.object}`} style={{ border: `1px solid ${stateColor(gate.state, 'border')}`, background: stateColor(gate.state, 'bg'), borderRadius: 14, padding: 12, display: 'grid', gap: 5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <strong style={{ color: text, fontSize: 14 }}>{gate.provider}</strong>
+                  <span style={{ color: stateColor(gate.state, 'text'), fontSize: 12, fontWeight: 900 }}>{gate.status}</span>
+                </div>
+                <div style={{ color: muted, fontSize: 12 }}>{gate.object}</div>
+                <div style={{ color: text, fontSize: 13, fontWeight: 800 }}>{gate.impact}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={card()}>
+          <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица документов</p>
+          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+            {scenario.documents.map((doc) => (
+              <div key={`${doc.title}-${doc.source}`} style={{ border: `1px solid ${doc.blocksMoney ? 'rgba(220,38,38,0.18)' : border}`, background: doc.blocksMoney ? redBg : '#fff', borderRadius: 14, padding: 12, display: 'grid', gridTemplateColumns: 'minmax(130px,1fr) minmax(130px,1fr)', gap: 8 }}>
+                <CellInline label={doc.title} value={doc.source} />
+                <CellInline label={doc.responsible} value={doc.status} danger={doc.blocksMoney} />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {hasBlockers ? (
+          <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
+            <p style={{ margin: 0, color: red, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</p>
+            <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>
+              {scenario.nextAction}. {releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : deal.blockers.length > 0 ? deal.blockers.join(' · ') : ''}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}
+            </p>
+          </section>
+        ) : null}
+      </div>
 
       <P7DealWorkspaceTabs deal={deal} />
 
@@ -211,13 +254,25 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         />
       )}
 
-      <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <section className='p7-clean-desktop-layer' style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <Link href='/platform-v7/deals' style={linkStyle()}>Все сделки</Link>
         <Link href='/platform-v7/bank/release-safety' style={linkStyle()}>Проверка денег</Link>
         <Link href={`/platform-v7/deals/${deal.id}/documents`} style={linkStyle()}>Документы сделки</Link>
         <Link href='/platform-v7/disputes' style={linkStyle('danger')}>Споры</Link>
       </section>
     </main>
+  );
+}
+
+function CompactMobileDealDetails({ scenario, deal, releaseAmount, disputesCount, hasBlockers }: { scenario: any; deal: any; releaseAmount: number; disputesCount: number; hasBlockers: boolean }) {
+  return (
+    <section style={{ display: 'grid', gap: 8 }}>
+      <Cell label='Культура' value={deal.grain} />
+      <Cell label='Объём' value={`${deal.quantity} ${deal.unit}`} />
+      <Cell label='Маршрут' value={scenario.route} />
+      <Cell label='К выплате' value={rub(releaseAmount)} muted={hasBlockers} />
+      <Cell label='Споры' value={String(disputesCount)} danger={disputesCount > 0} />
+    </section>
   );
 }
 
