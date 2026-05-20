@@ -53,7 +53,6 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       ? deal.blockers[0]
       : scenario.cockpit.cannotHappenReason ?? 'требуется закрыть условия сделки';
 
-  // ── Visual Intelligence Layer props ──
   const vilLockState = hasBlockers
     ? (deal.holdAmount > 0 ? 'hold' : disputes.length > 0 ? 'blocked-dispute' : 'blocked-docs')
     : (releaseAmount > 0 ? 'ready' : 'released');
@@ -100,7 +99,6 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       />
 
       <div className='p7-clean-desktop-layer'>
-        {/* ── Visual Intelligence Layer ── */}
         <DealWorkspaceVisualLayer
           dealId={deal.id}
           dealStatus={hasBlockers ? 'blocked' : 'moving'}
@@ -109,19 +107,8 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
           lockReason={hasBlockers ? 'требует подтверждения банка' : undefined}
           causeLines={vilCauseLines}
           unlockSteps={vilUnlockSteps}
-          proofItems={{
-            gps: 'present',
-            photo: 'present',
-            weight: 'present',
-            seal: 'pending',
-            lab: hasBlockers ? 'pending' : 'present',
-            act: deal.holdAmount > 0 ? 'disputed' : 'present',
-          }}
-          primaryAction={hasBlockers ? {
-            label: scenario.nextAction.split('.')[0].trim(),
-            tone: 'primary',
-            consequence: 'Будет записано в журнал',
-          } : null}
+          proofItems={{ gps: 'present', photo: 'present', weight: 'present', seal: 'pending', lab: hasBlockers ? 'pending' : 'present', act: deal.holdAmount > 0 ? 'disputed' : 'present' }}
+          primaryAction={hasBlockers ? { label: scenario.nextAction.split('.')[0].trim(), tone: 'primary', consequence: 'Будет записано в журнал' } : null}
           hintProblem={hasBlockers ? `Деньги стоят${releaseReasons.length > 0 ? ' из-за ' + moneyStopReasonText(releaseReasons.slice(0, 1)) : ''}.` : undefined}
           hintAction={hasBlockers ? scenario.nextAction : undefined}
           docSummary={`${scenario.documents.filter((d) => !d.blocksMoney).length}/${scenario.documents.length} готовы · ${scenario.documents.filter((d) => d.blocksMoney).length} блокируют деньги`}
@@ -129,18 +116,18 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
           qualitySummary={scenario.cockpit.qualityStatus.label}
           disputeSummary={disputes.length > 0 ? `${disputes.length} открытых · удержание` : 'Нет активных споров'}
           execZones={{
-            money:     { label: 'Деньги',    value: rub(deal.reservedAmount),      tone: hasBlockers ? 'blocked' : 'money',   href: '#deal-money' },
+            money: { label: 'Деньги', value: rub(deal.reservedAmount), tone: hasBlockers ? 'blocked' : 'money', href: '#deal-money' },
             documents: { label: 'Документы', value: `${scenario.documents.filter((d) => !d.blocksMoney).length}/${scenario.documents.length}`, tone: scenario.documents.some((d) => d.blocksMoney) ? 'blocked' : 'ok', href: '#deal-documents' },
-            trip:      { label: 'Рейс',      value: scenario.cockpit.tripStatus.label.split('·')[0].trim(), tone: 'neutral' },
-            quality:   { label: 'Качество',  value: scenario.cockpit.qualityStatus.label.split('·')[0].trim(), tone: deal.holdAmount > 0 ? 'warn' : 'neutral' },
-            dispute:   { label: 'Спор',      value: disputes.length > 0 ? `${disputes.length} активных` : 'Нет', tone: disputes.length > 0 ? 'blocked' : 'ok' },
-            blocker:   hasBlockers ? { text: moneyStopReasonText(releaseReasons.slice(0, 1)), moneyAmount: rub(releaseAmountRaw) } : null,
+            trip: { label: 'Рейс', value: scenario.cockpit.tripStatus.label.split('·')[0].trim(), tone: 'neutral' },
+            quality: { label: 'Качество', value: scenario.cockpit.qualityStatus.label.split('·')[0].trim(), tone: deal.holdAmount > 0 ? 'warn' : 'neutral' },
+            dispute: { label: 'Спор', value: disputes.length > 0 ? `${disputes.length} активных` : 'Нет', tone: disputes.length > 0 ? 'blocked' : 'ok' },
+            blocker: hasBlockers ? { text: moneyStopReasonText(releaseReasons.slice(0, 1)), moneyAmount: rub(releaseAmountRaw) } : null,
           }}
         />
       </div>
 
       <details className='p7-clean-mobile-details'>
-        <summary style={{ listStyle: 'none', border: '1px solid #E4E6EA', borderRadius: 18, background: '#fff', padding: '15px 16px', color: text, fontSize: 14, fontWeight: 950, cursor: 'pointer' }}>Открыть полную карточку сделки ↓</summary>
+        <summary style={{ listStyle: 'none', border: '1px solid #E4E6EA', borderRadius: 18, background: '#fff', padding: '15px 16px', color: text, fontSize: 14, fontWeight: 950, cursor: 'pointer' }}>Открыть детали сделки ↓</summary>
         <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
           <CompactMobileDealDetails scenario={scenario} deal={deal} releaseAmount={releaseAmount} disputesCount={disputes.length} hasBlockers={hasBlockers} />
         </div>
@@ -153,9 +140,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
               <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Карточка сделки · контур исполнения</p>
               <h1 style={{ margin: '6px 0 0', fontSize: 28, color: text }}>{deal.id} · {scenario.lotId}</h1>
             </div>
-            <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
-              {hasBlockers ? 'выплата остановлена' : 'готово к выплате'}
-            </span>
+            <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>{hasBlockers ? 'выплата остановлена' : 'готово к выплате'}</span>
           </div>
         </section>
 
@@ -231,35 +216,33 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         {hasBlockers ? (
           <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
             <p style={{ margin: 0, color: red, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</p>
-            <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>
-              {scenario.nextAction}. {releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : deal.blockers.length > 0 ? deal.blockers.join(' · ') : ''}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}
-            </p>
+            <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>{scenario.nextAction}. {releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : deal.blockers.length > 0 ? deal.blockers.join(' · ') : ''}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}</p>
           </section>
         ) : null}
+
+        <P7DealWorkspaceTabs deal={deal} />
+
+        {!hasBlockers && (
+          <DealSeal
+            dealId={deal.id}
+            lotId={scenario.lotId}
+            grain={deal.grain}
+            quantity={deal.quantity}
+            unit={deal.unit}
+            reservedAmount={deal.reservedAmount}
+            releaseAmount={releaseAmount}
+            seller={deal.seller.name}
+            buyer={deal.buyer.name}
+          />
+        )}
+
+        <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Link href='/platform-v7/deals' style={linkStyle()}>Все сделки</Link>
+          <Link href='/platform-v7/bank/release-safety' style={linkStyle()}>Проверка денег</Link>
+          <Link href={`/platform-v7/deals/${deal.id}/documents`} style={linkStyle()}>Документы сделки</Link>
+          <Link href='/platform-v7/disputes' style={linkStyle('danger')}>Споры</Link>
+        </section>
       </div>
-
-      <P7DealWorkspaceTabs deal={deal} />
-
-      {!hasBlockers && (
-        <DealSeal
-          dealId={deal.id}
-          lotId={scenario.lotId}
-          grain={deal.grain}
-          quantity={deal.quantity}
-          unit={deal.unit}
-          reservedAmount={deal.reservedAmount}
-          releaseAmount={releaseAmount}
-          seller={deal.seller.name}
-          buyer={deal.buyer.name}
-        />
-      )}
-
-      <section className='p7-clean-desktop-layer' style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7/deals' style={linkStyle()}>Все сделки</Link>
-        <Link href='/platform-v7/bank/release-safety' style={linkStyle()}>Проверка денег</Link>
-        <Link href={`/platform-v7/deals/${deal.id}/documents`} style={linkStyle()}>Документы сделки</Link>
-        <Link href='/platform-v7/disputes' style={linkStyle('danger')}>Споры</Link>
-      </section>
     </main>
   );
 }
