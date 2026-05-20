@@ -14,12 +14,16 @@ import { ProofRibbon } from './ProofRibbon';
 import { TrustDot } from './TrustDot';
 import { QuietIntelligenceHint } from './QuietIntelligenceHint';
 import { DealStatusEdge } from './DealStatusEdge';
+import { ExecutionHeader } from './ExecutionHeader';
+import { MobileExecutionHeader } from './MobileExecutionHeader';
 import type { FocusMode } from './FocusDetailMode';
 import type { DealMiniMapSectionId } from './DealMiniMap';
 import type { MagneticAction } from './MagneticActionDock';
 import type { UnlockStep } from './UnlockPath';
 import type { CauseLineProps } from './CauseLine';
 import type { ProofRibbonItems } from './ProofRibbon';
+import type { ExecutionZoneItem, ExecutionHeaderBlocker } from './ExecutionHeader';
+import type { MobileExecutionHeaderItem } from './MobileExecutionHeader';
 
 /**
  * DealWorkspaceVisualLayer — клиентский компонент, добавляющий
@@ -48,6 +52,15 @@ export interface DealWorkspaceVLProps {
   readonly tripSummary?: string;
   readonly qualitySummary?: string;
   readonly disputeSummary?: string;
+  /** Optional execution header zones (desktop/mobile) */
+  readonly execZones?: {
+    money?: ExecutionZoneItem;
+    documents?: ExecutionZoneItem;
+    trip?: ExecutionZoneItem;
+    quality?: ExecutionZoneItem;
+    dispute?: ExecutionZoneItem;
+    blocker?: ExecutionHeaderBlocker | null;
+  };
 }
 
 export function DealWorkspaceVisualLayer({
@@ -69,6 +82,7 @@ export function DealWorkspaceVisualLayer({
   tripSummary,
   qualitySummary,
   disputeSummary,
+  execZones,
 }: DealWorkspaceVLProps) {
   const [focusMode, setFocusMode] = React.useState<FocusMode>('focus');
   const [activeSection, setActiveSection] = React.useState<DealMiniMapSectionId>('pulse');
@@ -95,8 +109,44 @@ export function DealWorkspaceVisualLayer({
     }, 1000);
   }
 
+  // Build mobile header items from execZones
+  const mobileItems: MobileExecutionHeaderItem[] = execZones
+    ? ([
+        execZones.money     ? { id: 'money',     label: 'Деньги',    value: execZones.money.value,     tone: execZones.money.tone     ?? 'neutral', href: execZones.money.href     } : null,
+        execZones.documents ? { id: 'documents', label: 'Документы', value: execZones.documents.value, tone: execZones.documents.tone ?? 'neutral', href: execZones.documents.href } : null,
+        execZones.trip      ? { id: 'trip',      label: 'Рейс',      value: execZones.trip.value,      tone: execZones.trip.tone      ?? 'neutral', href: execZones.trip.href      } : null,
+        execZones.quality   ? { id: 'quality',   label: 'Качество',  value: execZones.quality.value,   tone: execZones.quality.tone   ?? 'neutral', href: execZones.quality.href   } : null,
+        execZones.dispute   ? { id: 'dispute',   label: 'Спор',      value: execZones.dispute.value,   tone: execZones.dispute.tone   ?? 'neutral', href: execZones.dispute.href   } : null,
+      ].filter(Boolean) as MobileExecutionHeaderItem[])
+    : [];
+
   return (
     <>
+      {/* ── Execution header (desktop / mobile) ── */}
+      {execZones && (
+        <>
+          {/* Desktop */}
+          <div className='p7-exec-header-desktop'>
+            <ExecutionHeader
+              money={execZones.money}
+              documents={execZones.documents}
+              trip={execZones.trip}
+              quality={execZones.quality}
+              dispute={execZones.dispute}
+              blocker={execZones.blocker}
+              trustState='test'
+            />
+          </div>
+          {/* Mobile */}
+          <div className='p7-exec-header-mobile'>
+            <MobileExecutionHeader
+              items={mobileItems}
+              blocker={execZones.blocker ? { text: execZones.blocker.text, moneyAmount: execZones.blocker.moneyAmount } : undefined}
+            />
+          </div>
+        </>
+      )}
+
       {/* ── Visual status edge on the hero card ── */}
       <div
         data-testid='p7-vil-deal-workspace-vl'

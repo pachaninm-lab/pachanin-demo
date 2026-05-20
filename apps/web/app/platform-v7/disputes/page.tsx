@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+import { EvidenceStrengthMeter } from '@/components/platform-v7/visual/EvidenceStrengthMeter';
 import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platform-v7/grain-execution/automation/evidence-pack-engine';
 import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/grain-execution/mock-data';
 import { formatRub } from '@/lib/platform-v7/grain-execution/format';
@@ -154,6 +155,19 @@ export default function PlatformV7DisputesPage() {
           {staticDisputes.map((item) => <DisputeCard key={item.id} item={item} />)}
         </div>
       </section>
+
+      <EvidenceStrengthMeter
+        score={readyDisputeCount * 20}
+        maxScore={40}
+        factors={[
+          { id: 'gps',    label: 'GPS-трек рейса',       points: 5,  earned: 5,  status: 'present'  },
+          { id: 'photo',  label: 'Фото приёмки',         points: 10, earned: readyDisputeCount >= 1 ? 10 : 0, status: readyDisputeCount >= 1 ? 'present' : 'absent' },
+          { id: 'weight', label: 'Акт расхождения веса', points: 10, earned: 0,  status: 'absent'   },
+          { id: 'lab',    label: 'Протокол качества',    points: 10, earned: 0,  status: 'pending'  },
+          { id: 'act',    label: 'Акт приёмки',          points: 5,  earned: 5,  status: 'present'  },
+        ]}
+        compact
+      />
 
       <P7HiddenDetails title='Проверка доказательного пакета' meta='готовность, недостающие доказательства, сумма спора и блокировка решения'>
         <section style={cardInner}>

@@ -96,6 +96,14 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         tripSummary={scenario.cockpit.tripStatus.label}
         qualitySummary={scenario.cockpit.qualityStatus.label}
         disputeSummary={disputes.length > 0 ? `${disputes.length} открытых · удержание` : 'Нет активных споров'}
+        execZones={{
+          money:     { label: 'Деньги',    value: rub(deal.reservedAmount),      tone: hasBlockers ? 'blocked' : 'money',   href: '#deal-money' },
+          documents: { label: 'Документы', value: `${scenario.documents.filter((d) => !d.blocksMoney).length}/${scenario.documents.length}`, tone: scenario.documents.some((d) => d.blocksMoney) ? 'blocked' : 'ok', href: '#deal-documents' },
+          trip:      { label: 'Рейс',      value: scenario.cockpit.tripStatus.label.split('·')[0].trim(), tone: 'neutral' },
+          quality:   { label: 'Качество',  value: scenario.cockpit.qualityStatus.label.split('·')[0].trim(), tone: deal.holdAmount > 0 ? 'warn' : 'neutral' },
+          dispute:   { label: 'Спор',      value: disputes.length > 0 ? `${disputes.length} активных` : 'Нет', tone: disputes.length > 0 ? 'blocked' : 'ok' },
+          blocker:   hasBlockers ? { text: moneyStopReasonText(releaseReasons.slice(0, 1)), moneyAmount: rub(releaseAmountRaw) } : null,
+        }}
       />
 
       <section style={card()}>

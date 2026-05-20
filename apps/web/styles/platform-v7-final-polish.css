@@ -398,6 +398,15 @@ details > summary:focus-visible {
   }
 }
 
+/* ExecutionHeader: desktop/mobile responsive visibility */
+.p7-exec-header-desktop { display: block; }
+.p7-exec-header-mobile  { display: none;  }
+
+@media (max-width: 639px) {
+  .p7-exec-header-desktop { display: none;  }
+  .p7-exec-header-mobile  { display: block; }
+}
+
 /* ─── §C: Print styles for Deal Seal ─── */
 @media print {
   /* Hide all navigation and chrome */
