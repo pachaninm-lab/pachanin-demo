@@ -33,7 +33,7 @@ export interface DealMiniMapSection {
 }
 
 export interface DealMiniMapProps {
-  readonly sections: DealMiniMapSection[];
+  readonly sections?: DealMiniMapSection[];
   readonly activeSection?: DealMiniMapSectionId;
   readonly onSectionClick?: (id: DealMiniMapSectionId) => void;
   readonly mobile?: boolean;
