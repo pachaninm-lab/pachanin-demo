@@ -43,7 +43,7 @@ export function MoneySpineStrip() {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
-  if (!mounted) return <div className='p7-money-spine-spacer' style={{ height: 34, marginBottom: 10 }} aria-hidden />;
+  if (!mounted) return null;
   if (HIDDEN_ROLES.has(role)) return null;
 
   const items =
@@ -63,7 +63,7 @@ export function MoneySpineStrip() {
 
   return (
     <div className='p7-money-spine-strip' style={shell} role='status' aria-label='Денежная позиция'>
-      <style>{`@media(max-width:767px){.p7-money-spine-strip,.p7-money-spine-spacer{display:none!important;height:0!important;margin:0!important;padding:0!important;border:0!important}}`}</style>
+      <style>{`@media(max-width:767px){.p7-money-spine-strip{display:none!important;height:0!important;margin:0!important;padding:0!important;border:0!important}}`}</style>
       <Sparkline values={RESERVE_TREND} />
       <span style={spineLabel}>₽</span>
       {items.map((it, i) => (
