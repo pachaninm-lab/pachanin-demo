@@ -153,6 +153,25 @@ button[aria-label='Сменить тему'] {
   }
 }
 
+/* ─── §E-22: Density toggle — Компактно / Свободно ─── */
+:root {
+  --pc-density-gap: 18px;
+  --pc-density-pad: 22px;
+  --pc-density-radius: 24px;
+}
+
+[data-density='compact'] {
+  --pc-density-gap: 10px;
+  --pc-density-pad: 14px;
+  --pc-density-radius: 16px;
+}
+
+/* Apply density to platform-v7 main content grids */
+.pc-v4-main > div,
+.pc-v4-main > main {
+  gap: var(--pc-density-gap) !important;
+}
+
 /* ─── §E-26: Motion spec — 120/200/240ms, single easing ─── */
 :root {
   --pc-dur-instant: 80ms;
