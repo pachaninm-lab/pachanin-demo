@@ -4,15 +4,86 @@ import { usePathname } from 'next/navigation';
 import { getShellPolicy } from '@/lib/platform-v7/shell-role-policy';
 import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
 
+const clarityCss = `
+  .pc-v4-pilot-note,
+  .pc-v4-statuses,
+  .pc-v4-stage,
+  .pc-v4-mobile-role,
+  .pc-v4-select,
+  [data-role-header-switcher-wrap='true'],
+  [data-role-header-label='true'] {
+    display: none !important;
+  }
+
+  .pc-v4-meta {
+    display: none !important;
+  }
+
+  .pc-v4-subtitle {
+    display: none !important;
+  }
+
+  nav[data-testid='platform-v7-work-route-nav'] {
+    margin: 0 0 8px !important;
+    padding: 4px !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+  }
+
+  nav[data-testid='platform-v7-work-route-nav'] > div:first-child {
+    display: none !important;
+  }
+
+  nav[data-testid='platform-v7-work-route-nav'] a {
+    min-height: 34px !important;
+    padding: 0 10px !important;
+  }
+
+  @media (max-width: 640px) {
+    .pc-shell-root-v4 {
+      --pc-header-offset: 52px !important;
+    }
+
+    .pc-v4-header-inner {
+      height: 52px !important;
+      padding: calc(env(safe-area-inset-top) + 6px) 10px 6px !important;
+    }
+
+    .pc-v4-title,
+    .pc-v4-subtitle {
+      display: none !important;
+    }
+
+    .pc-v4-search {
+      min-width: 42px !important;
+      max-width: 42px !important;
+      flex: 0 0 42px !important;
+    }
+
+    .pc-v4-main {
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+
+    nav[data-testid='platform-v7-work-route-nav'] a {
+      min-height: 32px !important;
+      padding: 0 9px !important;
+    }
+  }
+`;
+
 function FieldShellPolicy() {
   return (
     <style>{`
+      ${clarityCss}
+
       .pc-v4-search,
       .pc-v4-select,
       .pc-v4-mobile-role,
       .pc-v4-stage,
       .pc-v4-meta,
-      .pc-v4-drawer {
+      .pc-v4-drawer,
+      nav[data-testid='platform-v7-work-route-nav'] {
         display: none !important;
       }
 
@@ -28,8 +99,7 @@ function FieldShellPolicy() {
         display: none !important;
       }
 
-      .pc-v4-iconbtn,
-      [data-role-header-label='true'] {
+      .pc-v4-iconbtn {
         color: var(--pc-text-primary) !important;
         border-color: color-mix(in srgb, var(--pc-border) 88%, var(--pc-text-primary) 12%) !important;
         background: var(--pc-bg-card) !important;
@@ -46,17 +116,12 @@ function FieldShellPolicy() {
 
       @media (max-width: 640px) {
         .pc-shell-root-v4 {
-          --pc-header-offset: 72px !important;
+          --pc-header-offset: 64px !important;
         }
 
         .pc-v4-top {
           grid-template-columns: auto minmax(0, 1fr) auto !important;
           gap: 8px !important;
-        }
-
-        .pc-v4-title,
-        .pc-v4-subtitle {
-          display: none !important;
         }
 
         .pc-v4-brand {
@@ -68,18 +133,13 @@ function FieldShellPolicy() {
           gap: 6px !important;
         }
 
-        [data-role-header-label='true'] {
-          max-width: 104px !important;
-          min-height: 40px !important;
-        }
-
         .pc-v4-iconbtn {
           min-width: 40px !important;
           min-height: 40px !important;
         }
 
         .pc-v4-main {
-          padding-top: calc(env(safe-area-inset-top) + 66px) !important;
+          padding-top: calc(env(safe-area-inset-top) + 62px) !important;
         }
       }
     `}</style>
@@ -89,13 +149,12 @@ function FieldShellPolicy() {
 function RoleScopedShellPolicy() {
   return (
     <style>{`
-      .pc-v4-select,
-      .pc-v4-mobile-role,
+      ${clarityCss}
+
       .pc-v4-search,
       .pc-v4-role-grid,
-      .pc-v4-statuses,
       .pc-v4-drawer,
-      .pc-v4-pilot-note {
+      nav[data-testid='platform-v7-work-route-nav'] {
         display: none !important;
       }
 
@@ -109,17 +168,12 @@ function RoleScopedShellPolicy() {
 
       @media (max-width: 640px) {
         .pc-shell-root-v4 {
-          --pc-header-offset: 76px !important;
+          --pc-header-offset: 64px !important;
         }
 
         .pc-v4-top {
           grid-template-columns: auto minmax(0, 1fr) !important;
           gap: 8px !important;
-        }
-
-        .pc-v4-title,
-        .pc-v4-subtitle {
-          display: none !important;
         }
 
         .pc-v4-brand {
@@ -131,7 +185,7 @@ function RoleScopedShellPolicy() {
         }
 
         .pc-v4-main {
-          padding-top: calc(var(--pc-header-offset) + 10px) !important;
+          padding-top: calc(var(--pc-header-offset) + 8px) !important;
         }
 
         .pc-v4-main h1 {
@@ -147,25 +201,7 @@ function RoleScopedShellPolicy() {
 function OperatorShellPolicy() {
   return (
     <style>{`
-      @media (max-width: 980px) {
-        .pc-v4-mobile-role {
-          display: none !important;
-        }
-
-        .pc-v4-select {
-          display: inline-block !important;
-          min-width: 136px !important;
-          max-width: 152px !important;
-        }
-      }
-
-      @media (max-width: 640px) {
-        .pc-v4-select {
-          min-width: 112px !important;
-          max-width: 128px !important;
-          padding-inline: 10px !important;
-        }
-      }
+      ${clarityCss}
     `}</style>
   );
 }
