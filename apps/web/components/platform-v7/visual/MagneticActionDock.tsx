@@ -27,7 +27,7 @@ export type MagneticActionDockPosition = 'right' | 'bottom';
 
 export interface MagneticAction {
   readonly label: string;
-  readonly onClick: () => void;
+  readonly onClick?: () => void;
   readonly tone?: MagneticActionTone;
   /** Описание что изменится — показывается под кнопкой */
   readonly consequence?: string;

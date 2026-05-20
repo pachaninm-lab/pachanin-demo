@@ -86,7 +86,6 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         }}
         primaryAction={hasBlockers ? {
           label: scenario.nextAction.split('.')[0].trim(),
-          onClick: () => {},
           tone: 'primary',
           consequence: 'Будет записано в журнал',
         } : null}
