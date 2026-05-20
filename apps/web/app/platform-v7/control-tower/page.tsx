@@ -1,17 +1,12 @@
 import Link from 'next/link';
-import { ManualActionReasonsStrip } from '@/components/platform-v7/ManualActionReasonsStrip';
 import { P7Page } from '@/components/platform-v7/P7Page';
 import { P7Section } from '@/components/platform-v7/P7Section';
 import { P7Toolbar } from '@/components/platform-v7/P7Toolbar';
-import { canonicalDomainDeals, selectRuntimeCallbacks, selectRuntimeDeals, selectRuntimeDisputes, selectDealIntegrationState } from '@/lib/domain/selectors';
+import { canonicalDomainDeals, selectRuntimeDeals, selectRuntimeDisputes, selectDealIntegrationState } from '@/lib/domain/selectors';
 import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { primaryMoneyStopReason } from '@/lib/platform-v7/domain/money-stop-labels';
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
-import { DomainControlTowerSummary } from '@/components/v7r/DomainControlTowerSummary';
-import { ExecutionSimulationActionPanel } from '@/components/v7r/ExecutionSimulationActionPanel';
-import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
 import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
-import { OperatorExecutionQueue } from '@/components/platform-v7/OperatorExecutionQueue';
 import { OperatorRadarIsland } from '@/components/platform-v7/visual/OperatorRadarIsland';
 import type { RadarZoneData, RadarItemData } from '@/components/platform-v7/visual/OperatorRadarIsland';
 
@@ -43,7 +38,7 @@ function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?
     return { href: `/platform-v7/deals/${args.dealId}/documents`, label: 'Открыть документы' };
   }
   if (reasons.includes('FGIS_GATE_FAIL') || reasons.includes('ESIA_LINK_MISSING') || reasons.includes('ESIA_REAUTH_REQUIRED') || reasons.includes('SYNC_CONFIRM_REQUIRED')) {
-    return { href: '/platform-v7/connectors', label: 'Открыть интеграции' };
+    return { href: '/platform-v7/connectors', label: 'Открыть подключение' };
   }
   if (args.releaseStopped || args.status === 'release_requested' || reasons.includes('BANK_REVIEW_PENDING') || reasons.includes('bank_confirm')) {
     return { href: '/platform-v7/bank/release-safety', label: 'Проверить деньги' };
@@ -54,22 +49,11 @@ function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?
 export default function PlatformV7ControlTowerPage() {
   const today = new Date('2026-04-19T12:00:00Z');
   const deals = selectRuntimeDeals();
-  const callbacks = selectRuntimeCallbacks();
   const disputes = selectRuntimeDisputes();
   const activeDeals = deals.filter((d) => d.status !== 'closed');
   const integratedDeals = activeDeals.map((deal) => ({ deal, integration: selectDealIntegrationState(deal) }));
   const totalReserved = activeDeals.reduce((sum, d) => sum + d.reservedAmount, 0);
   const totalHold = activeDeals.reduce((sum, d) => sum + d.holdAmount, 0);
-  const totalRelease = integratedDeals.reduce((sum, item) => {
-    const canonicalDeal = canonicalDomainDeals.find((deal) => deal.id === item.deal.id);
-    const releaseCheck = canonicalDeal ? evaluateReleaseGuard(canonicalDeal) : null;
-    const canRequestRelease = releaseCheck ? releaseCheck.canRequestRelease : item.integration.gateState !== 'FAIL';
-    const releaseAmount = item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0);
-    return sum + (canRequestRelease ? releaseAmount : 0);
-  }, 0);
-  const blockedByIntegration = integratedDeals.filter((item) => item.integration.gateState === 'FAIL');
-  const reviewByIntegration = integratedDeals.filter((item) => item.integration.gateState === 'REVIEW');
-  const integrationBlockedAmount = blockedByIntegration.reduce((sum, item) => sum + (item.deal.releaseAmount ?? Math.max(item.deal.reservedAmount - item.deal.holdAmount, 0)), 0);
   const transportBlocked = countTransportBlockedPacks();
   const transportAwaiting = countTransportAwaitingSignatures();
   const transportCompleted = countTransportCompleted();
@@ -103,10 +87,13 @@ export default function PlatformV7ControlTowerPage() {
       const slaState = deal.slaDeadline ? (new Date(deal.slaDeadline) < today ? 'Просрочено' : (new Date(deal.slaDeadline).getTime() - today.getTime() <= 24 * 60 * 60 * 1000 ? 'Менее 24 часов' : deal.slaDeadline)) : '—';
       return { deal, integration, amountAtRisk, reason, owner, primaryAction, severity, slaState, releaseStopped };
     })
-    .sort((a, b) => b.severity - a.severity || b.amountAtRisk - a.amountAtRisk || b.deal.riskScore - a.deal.riskScore)
-    .slice(0, 8);
+    .sort((a, b) => b.severity - a.severity || b.amountAtRisk - a.amountAtRisk || b.deal.riskScore - a.deal.riskScore);
 
-  // ── Operator Radar zone data ──────────────────────────────────────────────
+  const topBlocker = queue.find((item) => item.severity === 3) ?? queue[0];
+  const urgentSla = queue.find((item) => String(item.slaState).includes('Просрочено') || String(item.slaState).includes('24')) ?? queue[0];
+  const disputeBlocker = queue.find((item) => item.deal.dispute || item.deal.holdAmount > 0) ?? queue[0];
+  const stoppedMoney = queue.reduce((sum, item) => sum + item.amountAtRisk, 0);
+
   const radarMoneyItems: RadarItemData[] = queue
     .filter((item) => item.releaseStopped || item.deal.holdAmount > 0)
     .slice(0, 3)
@@ -155,12 +142,12 @@ export default function PlatformV7ControlTowerPage() {
     .slice(0, 3)
     .map((item) => ({
       id: `risk-${item.deal.id}`,
-      title: `${item.deal.id} · интеграция`,
+      title: `${item.deal.id} · подключение`,
       detail: describeReason(item.integration.reasonCodes[0] ?? 'unknown'),
       money: formatCompactMoney(item.amountAtRisk),
       status: 'blocked' as const,
       href: '/platform-v7/connectors',
-      actionLabel: 'Открыть интеграции',
+      actionLabel: 'Открыть подключение',
     }));
 
   const radarZones: RadarZoneData[] = [
@@ -175,73 +162,88 @@ export default function PlatformV7ControlTowerPage() {
     <>
       <style>{`
         .ct-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
-        .ct-metric{background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%);border:1px solid #E4E6EA;border-radius:22px;padding:18px;display:block;text-decoration:none;color:inherit;box-shadow:0 14px 34px rgba(15,23,42,.055)}
+        .ct-priority{background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%);border:1px solid #D7DEE3;border-radius:26px;padding:20px;display:grid;gap:16px;box-shadow:0 18px 44px rgba(15,23,42,.07)}
+        .ct-priority-main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:16px;align-items:stretch}
+        .ct-priority-panel{border:1px solid #E4E6EA;border-radius:22px;background:#fff;padding:16px;display:grid;gap:10px;box-shadow:0 10px 26px rgba(15,23,42,.045)}
+        .ct-metric{background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%);border:1px solid #E4E6EA;border-radius:20px;padding:16px;display:block;text-decoration:none;color:inherit;box-shadow:0 12px 28px rgba(15,23,42,.05)}
         .ct-metric-title{font-size:11px;color:#6B778C;font-weight:850;text-transform:uppercase;letter-spacing:.07em}
-        .ct-metric-value{margin-top:8px;font-size:29px;line-height:1.05;font-weight:950;color:#0F1419;letter-spacing:-.035em}
+        .ct-metric-value{margin-top:8px;font-size:28px;line-height:1.05;font-weight:950;color:#0F1419;letter-spacing:-.035em}
         .ct-metric-note{margin-top:9px;font-size:12px;color:#6B778C;line-height:1.5}
-        .ct-queue{background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%);border:1px solid #E4E6EA;border-radius:24px;padding:18px;display:grid;gap:12px;box-shadow:0 16px 38px rgba(15,23,42,.06)}
-        .ct-queue-item{border:1px solid #E4E6EA;border-radius:20px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFD 100%);box-shadow:0 10px 26px rgba(15,23,42,.045)}
+        .ct-queue{background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%);border:1px solid #E4E6EA;border-radius:24px;padding:16px;display:grid;gap:10px;box-shadow:0 14px 34px rgba(15,23,42,.055)}
+        .ct-queue-item{border:1px solid #E4E6EA;border-radius:18px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.04)}
         .ct-queue-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
         .ct-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
         .ct-title{font-size:19px;font-weight:900;color:#0F1419;letter-spacing:-.02em}
         .ct-sub{font-size:13px;color:#6B778C;line-height:1.5}
         .ct-badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:850;box-shadow:0 1px 0 rgba(15,23,42,.03)}
         .ct-two{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
-        @media (max-width:1100px){.ct-two{grid-template-columns:1fr}}
-        @media (max-width:768px){.ct-queue-item{grid-template-columns:1fr}.ct-queue-actions{justify-content:flex-start}.ct-metric-value{font-size:26px}}
+        @media (max-width:1100px){.ct-two,.ct-priority-main{grid-template-columns:1fr}}
+        @media (max-width:768px){.ct-queue-item{grid-template-columns:1fr}.ct-queue-actions{justify-content:flex-start}.ct-metric-value{font-size:25px}.ct-priority{padding:14px;border-radius:22px}.ct-priority-panel{padding:13px;border-radius:18px}}
       `}</style>
       <P7Page
         title='Центр управления'
-        subtitle='Операторский экран: деньги, причины остановки, транспортные документы, следующий владелец и одно правильное действие по каждой сделке.'
+        subtitle='Операторский экран: деньги, главный блокер, ответственный и одно действие.'
         actions={(
           <P7Toolbar testId='control-tower-toolbar'>
-            <Badge tone='red'>Проблемы</Badge>
-            <Badge tone='amber'>К проверке</Badge>
-            <Badge tone='blue'>Ручная сверка</Badge>
-            <Link href='/platform-v7/control-tower/grain' style={btn('primary')}>Зерновой контур</Link>
+            <Badge tone='red'>Деньги остановлены</Badge>
+            <Badge tone='amber'>Есть ручная проверка</Badge>
+            <Link href={topBlocker?.primaryAction.href ?? '/platform-v7/deals'} style={btn('primary')}>Открыть главный блокер</Link>
           </P7Toolbar>
         )}
         testId='platform-v7-control-tower-page'
       >
-        <P7Section title='Деньги и риски' subtitle='KPI берутся из единого контура исполнения и ведут в соответствующие рабочие зоны.'>
-          <DomainControlTowerSummary />
-        </P7Section>
+        <section className='ct-priority' aria-label='Главный приоритет оператора'>
+          <div className='ct-priority-main'>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <div style={micro}>главный приоритет</div>
+                <h2 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(28px,5vw,46px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 }}>
+                  Остановлено {formatCompactMoney(stoppedMoney)}
+                </h2>
+                <p style={{ margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.55 }}>
+                  Сначала снимайте самый дорогой стоп-фактор. Остальные очереди уходят ниже, чтобы первый экран не превращался в админку.
+                </p>
+              </div>
+              {topBlocker ? (
+                <div className='ct-priority-panel'>
+                  <div className='ct-row'>
+                    <Badge tone='red'>#{topBlocker.deal.id}</Badge>
+                    <Badge tone='blue'>{statusLabel(topBlocker.deal.status)}</Badge>
+                  </div>
+                  <div className='ct-title'>{topBlocker.deal.grain} · {formatCompactMoney(topBlocker.amountAtRisk)}</div>
+                  <div className='ct-sub'>{topBlocker.reason}</div>
+                  <div className='ct-row'>
+                    <span style={fact}>Ответственный: <strong>{topBlocker.owner}</strong></span>
+                    <span style={fact}>SLA: <strong>{topBlocker.slaState}</strong></span>
+                  </div>
+                  <div className='ct-row'>
+                    <Link href={`/platform-v7/deals/${topBlocker.deal.id}`} style={btn()}>Открыть сделку</Link>
+                    <Link href={topBlocker.primaryAction.href} style={btn('danger')}>{topBlocker.primaryAction.label}</Link>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <PriorityCard label='Самый срочный SLA' item={urgentSla} />
+              <PriorityCard label='Спор / удержание' item={disputeBlocker} />
+              <Metric title='Транспорт держит деньги' value={String(transportBlocked)} note={`${transportAwaiting} ждут подписи · ${transportCompleted} закрыты`} href='/platform-v7/control-tower/hotlist' tone={transportBlocked > 0 ? 'red' : 'green'} />
+            </div>
+          </div>
+        </section>
 
-        <P7Section title='Радар оператора' subtitle='Деньги · Документы · Рейсы · Споры · Риски — по одному взгляду на каждую зону.'>
+        <P7Section title='Радар оператора' subtitle='Деньги · Документы · Рейсы · Споры · Риски. В каждой зоне — только критичные объекты.'>
           <OperatorRadarIsland zones={radarZones} mode='operator' />
         </P7Section>
 
-        <P7Section
-          title='Зерновой контур исполнения'
-          subtitle='Отдельный операторский вход в цепочку: партия, закупочный запрос, качество, вес, СДИЗ, документы, удержание, спор и основание для банковской проверки выплаты.'
-          actions={<Link href='/platform-v7/control-tower/grain' style={btn('primary')}>Открыть контур</Link>}
-        >
+        <P7Section title='Очередь исполнения' subtitle='Полный список ниже: деньги под риском, причина, владелец и одно безопасное действие.'>
           <section className='ct-queue'>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12 }}>
-              <Metric title='Рабочие зоны' value='7' note='Партия, запрос, качество, вес, СДИЗ, деньги и сквозной сценарий.' href='/platform-v7/control-tower/grain' tone='green' />
-              <Metric title='Денежный фокус' value='удержание / проверка' note='Проверка оснований удержания и передачи основания банку.' href='/platform-v7/deals/grain-release' tone='default' />
-              <Metric title='Пилотная цепочка' value='3–5 мин' note='Пилотный сценарий. Внешние интеграции не подключены, деньги не движутся.' href='/platform-v7/control-tower/grain' tone='default' />
-            </div>
-          </section>
-        </P7Section>
-
-        <P7Section title='Контур исполнения (пилот)' subtitle='Состояние каждой сделки, проверка условий, журнал и следующее действие. Пилотный режим: внешние подтверждения не активны.'>
-          <ExecutionSimulationActionPanel />
-        </P7Section>
-
-        <P7Section title='Ручные действия' subtitle='Любое ручное вмешательство должно иметь причину и запись в журнале.'>
-          <ManualActionReasonsStrip />
-        </P7Section>
-
-        <P7Section title='Очередь проблем и действий' subtitle='Каждая строка — это деньги, причина, владелец и одно правильное действие.'>
-          <section className='ct-queue'>
-            {queue.map((item) => (
+            {queue.slice(0, 8).map((item) => (
               <div key={item.deal.id} className='ct-queue-item'>
                 <div style={{ display:'grid',gap:8 }}>
                   <div className='ct-row'>
                     <span style={{ fontFamily:'JetBrains Mono, monospace', fontWeight:800, fontSize:13, color:'#0A7A5F' }}>{item.deal.id}</span>
                     <Badge tone={item.severity === 3 ? 'red' : item.severity === 2 ? 'amber' : 'blue'}>{statusLabel(item.deal.status)}</Badge>
-                    <Badge tone={item.integration.gateState === 'FAIL' || item.releaseStopped ? 'red' : item.integration.gateState === 'REVIEW' ? 'amber' : 'green'}>{item.integration.gateState === 'FAIL' || item.releaseStopped ? 'Деньги остановлены' : item.integration.gateState === 'REVIEW' ? 'Проверка вручную' : 'Проверено'}</Badge>
+                    <Badge tone={item.integration.gateState === 'FAIL' || item.releaseStopped ? 'red' : item.integration.gateState === 'REVIEW' ? 'amber' : 'green'}>{item.integration.gateState === 'FAIL' || item.releaseStopped ? 'Деньги остановлены' : item.integration.gateState === 'REVIEW' ? 'Ручная проверка' : 'Проверено'}</Badge>
                     <Badge tone={String(item.slaState).includes('Просрочено') ? 'red' : String(item.slaState).includes('24') ? 'amber' : 'blue'}>{item.slaState}</Badge>
                   </div>
                   <div style={{ fontSize:15, fontWeight:850, color:'#0F1419' }}>{item.deal.grain} · {item.deal.quantity} {item.deal.unit}</div>
@@ -260,68 +262,42 @@ export default function PlatformV7ControlTowerPage() {
           </section>
         </P7Section>
 
-        <P7Section title='Очередь исполнения оператора' subtitle='Пилотный контур · ручная проверка. Каждый элемент — ответственный, деньги под риском и безопасный следующий шаг.'>
-          <OperatorExecutionQueue />
-        </P7Section>
-
-        <P7Section
-          title='Транспортный контур СберКорус'
-          subtitle='Пока этот контур не закрыт, банк не должен считать основание выплаты чистым.'
-          actions={<SberKorusBadge subtitle='Контроль перевозочных документов' compact />}
-        >
-          <section className='ct-queue'>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12 }}>
-              <Metric title='Красный стоп' value={String(transportBlocked)} note='Пакеты, которые прямо держат деньги.' href='/platform-v7/control-tower/hotlist' tone='red' />
-              <Metric title='Ждём подписи' value={String(transportAwaiting)} note='Сделки, где не собрана полная цепочка подписей.' href='/platform-v7/control-tower/hotlist' tone='default' />
-              <Metric title='Зелёный контур' value={String(transportCompleted)} note='Пакеты, которые больше не спорят с банковской проверкой выплаты.' href='/platform-v7/bank' tone='green' />
-            </div>
-            <div style={{ display:'grid', gap:10 }}>
-              {transportHotlist.map((item) => (
-                <div key={item.id} style={{ border:'1px solid #E4E6EA', borderRadius:18, padding:14, background:'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', display:'grid', gap:8, boxShadow:'0 10px 24px rgba(15,23,42,.045)' }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', alignItems:'center' }}>
-                    <div>
-                      <div style={{ fontSize:14, fontWeight:850, color:'#0F1419' }}>{item.title}</div>
-                      <div style={{ marginTop:4, fontSize:12, color:'#6B778C' }}>{item.providerLabel}</div>
-                    </div>
-                    <Badge tone={item.moneyImpactStatus === 'blocks_release' ? 'red' : 'amber'}>{item.moneyImpactStatus === 'blocks_release' ? 'Блокирует проверку' : 'Частично блокирует'}</Badge>
-                  </div>
-                  <div style={{ fontSize:12, color:'#334155', lineHeight:1.6 }}>{item.note}</div>
-                  <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                    <Link href={item.primaryHref} style={btn()}>Открыть пакет</Link>
-                    <Link href={item.simulationHref} style={btn('primary')}>Пилотный сценарий</Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </P7Section>
-
-        <P7Section title='Финансовый контур и системные сигналы' subtitle='Резерв, удержание, банковская проверка выплаты и связанные рабочие зоны.'>
+        <P7Section title='Деньги по стадиям' subtitle='Резерв, удержание и блокеры, которые влияют на банковскую проверку.'>
           <section className='ct-two'>
             <section className='ct-queue'>
-              <div className='ct-title'>Деньги по стадиям</div>
+              <div className='ct-title'>Финансовая картина</div>
               <div style={{ display:'grid', gap:12 }}>
-                <MoneyBar label='Резерв' value={totalReserved} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='blue' />
-                <MoneyBar label='Удержание' value={totalHold} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='red' />
-                <MoneyBar label='К проверке банком' value={totalRelease} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='green' />
-                <MoneyBar label='Заблокировано интеграцией' value={integrationBlockedAmount} max={totalReserved + totalHold + totalRelease + integrationBlockedAmount} tone='red' />
+                <MoneyBar label='Резерв' value={totalReserved} max={totalReserved + totalHold + stoppedMoney} tone='blue' />
+                <MoneyBar label='Удержание' value={totalHold} max={totalReserved + totalHold + stoppedMoney} tone='red' />
+                <MoneyBar label='Остановлено блокерами' value={stoppedMoney} max={totalReserved + totalHold + stoppedMoney} tone='red' />
               </div>
             </section>
 
             <section className='ct-queue'>
-              <div className='ct-title'>Сигналы системы</div>
+              <div className='ct-title'>Транспорт и документы</div>
               <div style={{ display:'grid', gap:10 }}>
-                <Signal title='Банк' detail={`${callbacks.length} события уже в контуре.`} href='/platform-v7/bank' />
-                <Signal title='Проверка выплаты' detail='Блокеры, удержания и основания для банковской проверки.' href='/platform-v7/bank/release-safety' />
-                <Signal title='Споры' detail={`${disputes.length} активных кейса под удержанием.`} href='/platform-v7/disputes' />
-                <Signal title='Проверка' detail={`${reviewByIntegration.length} сделки ждут ручной проверки.`} href='/platform-v7/connectors' />
-                <Signal title='СберКорус' detail={`${transportBlocked + transportAwaiting} транспортных кейсов требуют действий.`} href='/platform-v7/control-tower/hotlist' />
+                {transportHotlist.map((item) => (
+                  <Signal key={item.id} title={item.title} detail={item.note} href={item.primaryHref} />
+                ))}
+                <Signal title='Подключения' detail='ФГИС, банк, ЭДО и ЭПД требуют договоров и доступов для боевого обмена.' href='/platform-v7/connectors' />
               </div>
             </section>
           </section>
         </P7Section>
       </P7Page>
     </>
+  );
+}
+
+function PriorityCard({ label, item }: { label: string; item?: ReturnType<typeof PlatformV7ControlTowerPage> extends never ? never : any }) {
+  if (!item) return null;
+  return (
+    <div className='ct-priority-panel'>
+      <div style={micro}>{label}</div>
+      <div className='ct-title'>{item.deal.id} · {formatCompactMoney(item.amountAtRisk)}</div>
+      <div className='ct-sub'>{item.reason}</div>
+      <Link href={item.primaryAction.href} style={btn(item.severity === 3 ? 'danger' : 'primary')}>{item.primaryAction.label}</Link>
+    </div>
   );
 }
 
@@ -353,7 +329,7 @@ function MoneyBar({ label, value, max, tone }: { label: string; value: number; m
 }
 
 function Signal({ title, detail, href }: { title: string; detail: string; href: string }) {
-  return <Link href={href} style={{ textDecoration:'none', borderRadius:16, padding:14, background:'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border:'1px solid #E4E6EA', display:'grid', gap:6, boxShadow:'0 8px 20px rgba(15,23,42,.04)' }}><div style={{ fontSize:14, fontWeight:900, color:'#0F1419' }}>{title}</div><div style={{ fontSize:12, color:'#6B778C', lineHeight:1.45 }}>{detail}</div></Link>;
+  return <Link href={href} style={{ textDecoration:'none', borderRadius:16, padding:14, background:'#fff', border:'1px solid #E4E6EA', display:'grid', gap:6, boxShadow:'0 8px 20px rgba(15,23,42,.04)' }}><div style={{ fontSize:14, fontWeight:900, color:'#0F1419' }}>{title}</div><div style={{ fontSize:12, color:'#6B778C', lineHeight:1.45 }}>{detail}</div></Link>;
 }
 
 function btn(kind: 'default' | 'primary' | 'danger' = 'default') {
@@ -361,3 +337,6 @@ function btn(kind: 'default' | 'primary' | 'danger' = 'default') {
   if (kind === 'danger') return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'rgba(220,38,38,0.08)', border:'1px solid rgba(220,38,38,0.18)', color:'#B91C1C', fontWeight:800, fontSize:12 };
   return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'#fff', border:'1px solid #E4E6EA', color:'#0F1419', fontWeight:800, fontSize:12, boxShadow:'0 8px 18px rgba(15,23,42,.04)' };
 }
+
+const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const fact = { fontSize: 12, color: '#6B778C' } as const;
