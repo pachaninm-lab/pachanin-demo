@@ -39,6 +39,19 @@ export function SupportHeaderIcon() {
           .p7-header-utilities{position:fixed;top:calc(env(safe-area-inset-top) + 7px);right:58px;z-index:105;display:flex;gap:6px;pointer-events:auto}
           .p7-header-utilities__button{width:42px;height:42px;border-radius:13px;border:1px solid var(--pc-border,#e4e6ea);background:var(--pc-bg-card,#fff);color:var(--pc-text-primary,#0f1419);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 8px 18px rgba(15,23,42,.06);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
           .p7-header-utilities__button:active{transform:translateY(1px)}
+
+          main[data-testid='platform-v7-control-tower-page']{gap:12px!important}
+          main[data-testid='platform-v7-control-tower-page'] > header{display:none!important}
+          main[data-testid='platform-v7-control-tower-page'] > section:not(.ct-priority){display:none!important}
+          main[data-testid='platform-v7-control-tower-page'] .ct-priority{padding:16px!important;border-radius:24px!important;gap:12px!important}
+          main[data-testid='platform-v7-control-tower-page'] .ct-priority-main{grid-template-columns:1fr!important;gap:12px!important}
+          main[data-testid='platform-v7-control-tower-page'] .ct-priority-main > div:nth-child(2){display:none!important}
+          main[data-testid='platform-v7-control-tower-page'] .ct-priority h2{font-size:clamp(30px,8vw,42px)!important;line-height:1.04!important}
+          main[data-testid='platform-v7-control-tower-page'] .ct-priority p{font-size:13px!important;line-height:1.45!important}
+          main[data-testid='platform-v7-control-tower-page'] .ct-priority-panel{padding:14px!important;border-radius:19px!important;gap:9px!important}
+          main[data-testid='platform-v7-control-tower-page'] .ct-priority-panel .ct-row:last-child{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+          main[data-testid='platform-v7-control-tower-page'] .ct-priority-panel .ct-row:last-child a:first-child{display:none!important}
+          main[data-testid='platform-v7-control-tower-page'] .ct-priority-panel .ct-row:last-child a{min-height:52px!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:14px!important;border-radius:16px!important}
         }
         @media(max-width:374px){
           .p7-header-utilities{right:56px;gap:5px}
