@@ -1,6 +1,4 @@
 import Link from 'next/link';
-import { DomainDealsSummary } from '@/components/v7r/DomainDealsSummary';
-import { DealsOverviewRuntime } from '@/components/v7r/DealsOverviewRuntime';
 import { DEAL360_SCENARIOS } from '@/lib/platform-v7/deal360-source-of-truth';
 
 const dealSnapshots = Object.values(DEAL360_SCENARIOS).map((s) => ({
@@ -69,8 +67,6 @@ export default function PlatformV7DealsPage() {
         </div>
       </section>
 
-      <DomainDealsSummary />
-      <DealsOverviewRuntime />
     </div>
   );
 }

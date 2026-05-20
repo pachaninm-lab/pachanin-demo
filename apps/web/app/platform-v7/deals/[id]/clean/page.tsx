@@ -4,6 +4,7 @@ import { canonicalDomainDeals, selectDealById, selectDisputesByDealId } from '@/
 import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels';
 import { getDeal360Scenario, type Deal360State, type Deal360Cockpit } from '@/lib/platform-v7/deal360-source-of-truth';
+import { DealSeal } from '@/components/platform-v7/DealSeal';
 
 const border = '#E4E6EA';
 const text = '#0F1419';
@@ -137,6 +138,20 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       ) : null}
 
       <P7DealWorkspaceTabs deal={deal} />
+
+      {!hasBlockers && (
+        <DealSeal
+          dealId={deal.id}
+          lotId={scenario.lotId}
+          grain={deal.grain}
+          quantity={deal.quantity}
+          unit={deal.unit}
+          reservedAmount={deal.reservedAmount}
+          releaseAmount={releaseAmount}
+          seller={deal.seller.name}
+          buyer={deal.buyer.name}
+        />
+      )}
 
       <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <Link href='/platform-v7/deals' style={linkStyle()}>Все сделки</Link>

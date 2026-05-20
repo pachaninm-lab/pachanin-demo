@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/v7r/Toast';
 import { trackEvent } from '@/lib/analytics/track';
+import { ProvenanceStamp } from '@/components/platform-v7/ProvenanceStamp';
 
 const DEFAULT_FORM = {
   moisture: '12.4',
@@ -21,6 +22,7 @@ const DEFAULT_FORM = {
 export default function SurveyorActPage({ params }: { params: { id: string } }) {
   const toast = useToast();
   const [form, setForm] = React.useState(DEFAULT_FORM);
+  const [signedAt, setSignedAt] = React.useState<Date | null>(null);
 
   function patch<K extends keyof typeof DEFAULT_FORM>(key: K, value: (typeof DEFAULT_FORM)[K]) {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -28,6 +30,7 @@ export default function SurveyorActPage({ params }: { params: { id: string } }) 
 
   function signAct() {
     patch('signed', true);
+    setSignedAt(new Date());
     trackEvent('surveyor_act_signed', { actId: params.id });
     toast('Акт сюрвейера подписан', 'success');
   }
@@ -87,6 +90,15 @@ export default function SurveyorActPage({ params }: { params: { id: string } }) 
         </button>
         <Link href='/platform-v7/surveyor' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-card)', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 700 }}>← Кабинет сюрвейера</Link>
       </div>
+
+      {form.signed && signedAt && (
+        <ProvenanceStamp
+          entityId={`ACT-${params.id}`}
+          action="акт подписан"
+          actor="сюрвейер"
+          timestamp={signedAt}
+        />
+      )}
     </div>
   );
 }

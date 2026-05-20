@@ -153,6 +153,166 @@ button[aria-label='Сменить тему'] {
   }
 }
 
+/* ─── §B-8: Quiet UI — one accent per screen ─── */
+/* Hero sections: ensure background never exceeds card-level elevation.
+   Components that use .pc-hero-quiet opt into a flat, neutral background. */
+.pc-hero-quiet {
+  background: var(--pc-bg-card) !important;
+  background-image: none !important;
+  box-shadow: var(--pc-shadow-sm, 0 1px 4px rgba(15,23,42,0.06)) !important;
+}
+
+/* Limit accent colors to one per screen by requiring explicit .pc-accent-primary */
+/* All colored badge backgrounds default to neutral in quiet mode */
+[data-density='compact'] .pc-badge-accent {
+  background: var(--pc-bg-elevated) !important;
+  color: var(--pc-text-secondary) !important;
+  border-color: var(--pc-border) !important;
+}
+
+/* ─── §E-22: Density toggle — Компактно / Свободно ─── */
+:root {
+  --pc-density-gap: 18px;
+  --pc-density-pad: 22px;
+  --pc-density-radius: 24px;
+}
+
+[data-density='compact'] {
+  --pc-density-gap: 10px;
+  --pc-density-pad: 14px;
+  --pc-density-radius: 16px;
+}
+
+/* Apply density to platform-v7 main content grids */
+.pc-v4-main > div,
+.pc-v4-main > main {
+  gap: var(--pc-density-gap) !important;
+}
+
+/* ─── §E-26: Motion spec — 120/200/240ms, single easing ─── */
+:root {
+  --pc-dur-instant: 80ms;
+  --pc-dur-fast: 120ms;
+  --pc-dur-base: 200ms;
+  --pc-dur-slow: 240ms;
+  --pc-ease: cubic-bezier(0.25, 0, 0.1, 1);
+}
+
+/* Apply to interactive elements */
+button,
+a,
+[role="button"],
+[role="menuitem"],
+.pc-v4-nav-item,
+.pc-v4-iconbtn,
+details > summary {
+  transition: background var(--pc-dur-fast) var(--pc-ease),
+              color var(--pc-dur-fast) var(--pc-ease),
+              border-color var(--pc-dur-fast) var(--pc-ease),
+              box-shadow var(--pc-dur-fast) var(--pc-ease),
+              opacity var(--pc-dur-fast) var(--pc-ease);
+}
+
+/* Money amounts: instant update + highlight flash */
+[data-money-highlight] {
+  transition: color var(--pc-dur-instant) var(--pc-ease),
+              background var(--pc-dur-instant) var(--pc-ease);
+}
+
+/* Respect prefers-reduced-motion — disable all transitions */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── §D-18: Focus-visible — 2px offset ring on all interactive elements ─── */
+:focus-visible {
+  outline: 2px solid var(--pc-accent, #0A7A5F) !important;
+  outline-offset: 2px !important;
+  border-radius: 4px;
+}
+
+/* Suppress outline on mouse/touch (show only on keyboard) */
+:focus:not(:focus-visible) {
+  outline: none !important;
+}
+
+/* Elevated focus ring for role switcher and nav items */
+.pc-v4-nav-item:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="menu"] button:focus-visible {
+  outline: 2px solid var(--pc-accent, #0A7A5F) !important;
+  outline-offset: 2px !important;
+  z-index: 1;
+}
+
+/* Summary (accordion) keyboard focus */
+details > summary:focus-visible {
+  outline: 2px solid var(--pc-accent, #0A7A5F) !important;
+  outline-offset: 2px !important;
+}
+
+/* ─── §B-10: Tabular numerals for numeric data ─── */
+/* Applied to value displays (KPIs, amounts, IDs) so columns align */
+.pc-v4-main strong,
+.pc-v4-main [style*="font-size: 24"],
+.pc-v4-main [style*="font-size: 28"],
+.pc-v4-main [style*="fontSize: 24"],
+.pc-v4-main [style*="fontSize: 28"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Monospace IDs always tabular */
+[style*="JetBrains Mono"],
+[style*="monospace"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ─── §B-11: Consistent vertical rhythm and page padding ─── */
+.pc-v4-main {
+  padding-bottom: env(safe-area-inset-bottom, 32px) !important;
+}
+
+/* Uniform page top padding so hero sections breathe */
+@media (min-width: 768px) {
+  .pc-v4-main > main,
+  .pc-v4-main > div {
+    padding-top: 0;
+  }
+}
+
+/* Empty state — used when a section has no data */
+.pc-empty-state {
+  display: grid;
+  gap: 8px;
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--pc-text-muted);
+  border: 1px dashed var(--pc-border);
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pc-empty-state__icon {
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0.45;
+}
+
+.pc-empty-state__title {
+  font-size: 15px;
+  font-weight: 850;
+  color: var(--pc-text-secondary);
+}
+
 /* ─── §C: Print styles for Deal Seal ─── */
 @media print {
   /* Hide all navigation and chrome */

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+import { BatonStrip } from '@/components/platform-v7/BatonStrip';
 import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '@/components/platform-v7/ConditionReasonStrip';
@@ -96,6 +97,12 @@ const gates = mainDeal.providerGates.filter((gate) => ['Сбер · Безопа
 export default function PlatformV7BankPage() {
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <BatonStrip
+        from="оператор и ответственный за документ"
+        mine="проверка основания выплаты"
+        to="оператор — подтверждение"
+        toHref="/platform-v7/control-tower"
+      />
       <section style={hero}>
         <div style={badge}>Кабинет банка</div>
         <h1 style={h1}>Сначала основание, потом банковская проверка</h1>

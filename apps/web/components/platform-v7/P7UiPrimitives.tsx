@@ -82,3 +82,90 @@ export function P7LinkButton({ href, children, kind = 'default' }: { href: strin
 export function P7Grid({ children, min = 200, gap = 14 }: { children: ReactNode; min?: number; gap?: number }) {
   return <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit,minmax(${min}px,1fr))`, gap }}>{children}</div>;
 }
+
+export function P7Button({
+  children,
+  onClick,
+  disabled,
+  kind = 'default',
+  type = 'button',
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  kind?: 'default' | 'primary' | 'danger';
+  type?: 'button' | 'submit';
+}) {
+  const base: CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 42,
+    padding: '10px 16px',
+    borderRadius: 14,
+    border: '1px solid var(--pc-border)',
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+    transition: 'background 120ms ease, border-color 120ms ease',
+  };
+  const variants: Record<string, CSSProperties> = {
+    default: { background: 'var(--pc-bg-elevated)', color: 'var(--pc-text-primary)' },
+    primary: { background: 'var(--pc-accent)', borderColor: 'transparent', color: '#fff' },
+    danger: { background: 'rgba(220,38,38,0.08)', borderColor: 'rgba(220,38,38,0.22)', color: '#B91C1C' },
+  };
+  return (
+    <button type={type} onClick={onClick} disabled={disabled} style={{ ...base, ...variants[kind] }}>
+      {children}
+    </button>
+  );
+}
+
+export function P7Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: 'text' | 'number' | 'email';
+}) {
+  return (
+    <label style={{ display: 'grid', gap: 6 }}>
+      <span style={{ fontSize: 11, fontWeight: 850, color: 'var(--pc-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          padding: '10px 12px',
+          borderRadius: 10,
+          border: '1px solid var(--pc-border)',
+          background: 'var(--pc-bg-subtle, var(--pc-bg-elevated))',
+          color: 'var(--pc-text-primary)',
+          fontSize: 13,
+          fontWeight: 700,
+          outline: 'none',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      />
+    </label>
+  );
+}
+
+export function P7EmptyState({ title, message }: { title: string; message?: string }) {
+  return (
+    <div className="pc-empty-state">
+      <span className="pc-empty-state__icon">○</span>
+      <strong className="pc-empty-state__title">{title}</strong>
+      {message && <p style={{ margin: 0 }}>{message}</p>}
+    </div>
+  );
+}

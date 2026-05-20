@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Sun, Moon, HelpCircle, Check } from 'lucide-react';
+import { ChevronDown, Sun, Moon, HelpCircle, Check, Rows2, AlignJustify } from 'lucide-react';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { trackRoleSwitch } from '@/lib/analytics/track';
 
@@ -100,6 +100,7 @@ export function IdentityControl() {
   const { role, setRole } = usePlatformV7RStore();
   const [open, setOpen] = React.useState(false);
   const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
+  const [density, setDensity] = React.useState<'spacious' | 'compact'>('spacious');
   const [isDesktop, setIsDesktop] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -108,6 +109,11 @@ export function IdentityControl() {
     const next: 'light' | 'dark' = stored === 'dark' ? 'dark' : 'light';
     setTheme(next);
     document.documentElement.setAttribute('data-theme', next);
+
+    const storedDensity = window.localStorage.getItem('pc-density');
+    const nextDensity: 'spacious' | 'compact' = storedDensity === 'compact' ? 'compact' : 'spacious';
+    setDensity(nextDensity);
+    document.documentElement.setAttribute('data-density', nextDensity);
   }, []);
 
   React.useEffect(() => {
@@ -269,6 +275,35 @@ export function IdentityControl() {
           >
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             <span>{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</span>
+          </button>
+
+          <button
+            role="menuitem"
+            onClick={() => {
+              const next = density === 'compact' ? 'spacious' : 'compact';
+              setDensity(next);
+              window.localStorage.setItem('pc-density', next);
+              document.documentElement.setAttribute('data-density', next);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              width: '100%',
+              padding: '7px 12px',
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              textAlign: 'left',
+              color: 'var(--pc-text-primary)',
+              fontSize: 13,
+              fontWeight: 700,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--pc-bg-elevated)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            {density === 'compact' ? <AlignJustify size={15} /> : <Rows2 size={15} />}
+            <span>{density === 'compact' ? 'Свободный вид' : 'Компактный вид'}</span>
           </button>
 
           {isDesktop && (
