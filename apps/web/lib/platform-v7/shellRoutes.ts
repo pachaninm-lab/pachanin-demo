@@ -31,19 +31,26 @@ export interface PlatformV7ShellNavItem {
   label: string;
 }
 
+const PLATFORM_V7_DRIVER_FIELD_CANONICAL_ROUTE = '/platform-v7/driver/field' as PlatformV7ShellRouteSurface;
+const PLATFORM_V7_SURVEYOR_CANONICAL_ROUTE = '/platform-v7/surveyor' as PlatformV7ShellRouteSurface;
+const PLATFORM_V7_ELEVATOR_CANONICAL_ROUTE = '/platform-v7/elevator' as PlatformV7ShellRouteSurface;
+const PLATFORM_V7_LAB_CANONICAL_ROUTE = '/platform-v7/lab' as PlatformV7ShellRouteSurface;
+const PLATFORM_V7_ARBITRATOR_CANONICAL_ROUTE = '/platform-v7/arbitrator' as PlatformV7ShellRouteSurface;
+const PLATFORM_V7_EXECUTIVE_CANONICAL_ROUTE = '/platform-v7/executive' as PlatformV7ShellRouteSurface;
+
 export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, PlatformV7ShellRouteSurface> = {
   operator: PLATFORM_V7_CONTROL_TOWER_ROUTE,
   buyer: PLATFORM_V7_BUYER_ROUTE,
   seller: PLATFORM_V7_SELLER_ROUTE,
   logistics: PLATFORM_V7_LOGISTICS_ROUTE,
-  driver: PLATFORM_V7R_DRIVER_ROUTE,
-  surveyor: PLATFORM_V7R_SURVEYOR_ROUTE,
-  elevator: PLATFORM_V7R_ELEVATOR_ROUTE,
-  lab: PLATFORM_V7R_LAB_ROUTE,
+  driver: PLATFORM_V7_DRIVER_FIELD_CANONICAL_ROUTE,
+  surveyor: PLATFORM_V7_SURVEYOR_CANONICAL_ROUTE,
+  elevator: PLATFORM_V7_ELEVATOR_CANONICAL_ROUTE,
+  lab: PLATFORM_V7_LAB_CANONICAL_ROUTE,
   bank: PLATFORM_V7_BANK_CLEAN_ROUTE,
-  arbitrator: PLATFORM_V7R_ARBITRATOR_ROUTE,
+  arbitrator: PLATFORM_V7_ARBITRATOR_CANONICAL_ROUTE,
   compliance: PLATFORM_V7_COMPLIANCE_ROUTE,
-  executive: PLATFORM_V7R_ANALYTICS_ROUTE,
+  executive: PLATFORM_V7_EXECUTIVE_CANONICAL_ROUTE,
 };
 
 export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavItem[]> = {
@@ -58,7 +65,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     { href: PLATFORM_V7_TRUST_ROUTE, label: 'Центр доверия' },
     { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
     { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Комплаенс' },
-    { href: PLATFORM_V7R_ANALYTICS_ROUTE, label: 'Сводка' },
+    { href: PLATFORM_V7_EXECUTIVE_CANONICAL_ROUTE, label: 'Сводка' },
   ],
   buyer: [
     { href: PLATFORM_V7_BUYER_ROUTE, label: 'Кабинет покупателя' },
@@ -80,22 +87,20 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Инциденты' },
   ],
   driver: [
-    { href: PLATFORM_V7R_DRIVER_ROUTE, label: 'Мой маршрут' },
-    { href: `${PLATFORM_V7_DEALS_ROUTE}/DL-9103`, label: 'Текущая сделка' },
-    { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Диспетчерская' },
+    { href: PLATFORM_V7_DRIVER_FIELD_CANONICAL_ROUTE, label: 'Мой маршрут' },
   ],
   surveyor: [
-    { href: PLATFORM_V7R_SURVEYOR_ROUTE, label: 'Мои назначения' },
+    { href: PLATFORM_V7_SURVEYOR_CANONICAL_ROUTE, label: 'Мои назначения' },
     { href: `${PLATFORM_V7_DEALS_ROUTE}/DL-9102`, label: 'Текущая сделка' },
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
   ],
   elevator: [
-    { href: PLATFORM_V7R_ELEVATOR_ROUTE, label: 'Приёмка' },
+    { href: PLATFORM_V7_ELEVATOR_CANONICAL_ROUTE, label: 'Приёмка' },
     { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Диспетчерская' },
     { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
   ],
   lab: [
-    { href: PLATFORM_V7R_LAB_ROUTE, label: 'Пробы и протоколы' },
+    { href: PLATFORM_V7_LAB_CANONICAL_ROUTE, label: 'Пробы и протоколы' },
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
     { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
   ],
@@ -106,10 +111,10 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
     { href: PLATFORM_V7_TRUST_ROUTE, label: 'Центр доверия' },
     { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
-    { href: PLATFORM_V7R_ANALYTICS_ROUTE, label: 'Сводка' },
+    { href: PLATFORM_V7_EXECUTIVE_CANONICAL_ROUTE, label: 'Сводка' },
   ],
   arbitrator: [
-    { href: PLATFORM_V7R_ARBITRATOR_ROUTE, label: 'Комнаты разбора' },
+    { href: PLATFORM_V7_ARBITRATOR_CANONICAL_ROUTE, label: 'Комнаты разбора' },
     { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
     { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Журнал действий' },
     { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
@@ -120,10 +125,10 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
     { href: PLATFORM_V7_TRUST_ROUTE, label: 'Центр доверия' },
     { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
-    { href: PLATFORM_V7R_ANALYTICS_ROUTE, label: 'Сводка' },
+    { href: PLATFORM_V7_EXECUTIVE_CANONICAL_ROUTE, label: 'Сводка' },
   ],
   executive: [
-    { href: PLATFORM_V7R_ANALYTICS_ROUTE, label: 'Сводка' },
+    { href: PLATFORM_V7_EXECUTIVE_CANONICAL_ROUTE, label: 'Сводка' },
     { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр управления' },
     { href: PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, label: 'Путь сделки' },
     { href: PLATFORM_V7_SIMULATOR_ROUTE, label: 'Симулятор' },
