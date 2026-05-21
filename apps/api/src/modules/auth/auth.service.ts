@@ -17,6 +17,7 @@ interface StoredUser {
   role: Role;
   orgId: string;
   fullName: string;
+  inn?: string;
 }
 
 interface RefreshTokenRecord {
@@ -28,16 +29,16 @@ interface RefreshTokenRecord {
 const DEMO_ORG_ID = 'org-demo-001';
 
 const demoUsers: StoredUser[] = [
-  { id: 'user-farmer-001', email: 'farmer@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.FARMER, orgId: 'org-farmer-001', fullName: 'Demo Farmer' },
-  { id: 'user-buyer-001', email: 'buyer@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.BUYER, orgId: 'org-buyer-001', fullName: 'Demo Buyer' },
-  { id: 'user-logistician-001', email: 'logistician@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.LOGISTICIAN, orgId: 'org-logistics-001', fullName: 'Demo Logistician' },
-  { id: 'user-driver-001', email: 'driver@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.DRIVER, orgId: 'org-logistics-001', fullName: 'Demo Driver' },
-  { id: 'user-lab-001', email: 'lab@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.LAB, orgId: 'org-lab-001', fullName: 'Demo Lab' },
-  { id: 'user-elevator-001', email: 'elevator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ELEVATOR, orgId: 'org-elevator-001', fullName: 'Demo Elevator' },
-  { id: 'user-accounting-001', email: 'accounting@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ACCOUNTING, orgId: 'org-farmer-001', fullName: 'Demo Accounting' },
-  { id: 'user-executive-001', email: 'executive@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.EXECUTIVE, orgId: DEMO_ORG_ID, fullName: 'Demo Executive' },
-  { id: 'user-operator-001', email: 'operator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.SUPPORT_MANAGER, orgId: DEMO_ORG_ID, fullName: 'Demo Operator' },
-  { id: 'user-admin-001', email: 'admin@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ADMIN, orgId: DEMO_ORG_ID, fullName: 'Demo Admin' },
+  { id: 'user-farmer-001', email: 'farmer@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.FARMER, orgId: 'org-farmer-001', fullName: 'Demo Farmer', inn: '771234567890' },
+  { id: 'user-buyer-001', email: 'buyer@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.BUYER, orgId: 'org-buyer-001', fullName: 'Demo Buyer', inn: '773456789012' },
+  { id: 'user-logistician-001', email: 'logistician@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.LOGISTICIAN, orgId: 'org-logistics-001', fullName: 'Demo Logistician', inn: '550123456789' },
+  { id: 'user-driver-001', email: 'driver@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.DRIVER, orgId: 'org-logistics-001', fullName: 'Demo Driver', inn: '667890123456' },
+  { id: 'user-lab-001', email: 'lab@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.LAB, orgId: 'org-lab-001', fullName: 'Demo Lab', inn: '501234567890' },
+  { id: 'user-elevator-001', email: 'elevator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ELEVATOR, orgId: 'org-elevator-001', fullName: 'Demo Elevator', inn: '502345678901' },
+  { id: 'user-accounting-001', email: 'accounting@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ACCOUNTING, orgId: 'org-farmer-001', fullName: 'Demo Accounting', inn: '772345678901' },
+  { id: 'user-executive-001', email: 'executive@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.EXECUTIVE, orgId: DEMO_ORG_ID, fullName: 'Demo Executive', inn: '770000000001' },
+  { id: 'user-operator-001', email: 'operator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.SUPPORT_MANAGER, orgId: DEMO_ORG_ID, fullName: 'Demo Operator', inn: '770000000002' },
+  { id: 'user-admin-001', email: 'admin@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ADMIN, orgId: DEMO_ORG_ID, fullName: 'Demo Admin', inn: '770000000003' },
 ];
 
 const usersStore: StoredUser[] = [...demoUsers];
@@ -173,5 +174,17 @@ export class AuthService {
       url: null,
       message: 'No OIDC provider configured',
     };
+  }
+
+  lookupByInn(inn: string, fullName: string): { id: string; role: Role; fullName: string; orgId: string } | null {
+    const normInn = inn.trim().replace(/\s+/g, '');
+    const normName = fullName.trim().replace(/\s+/g, ' ').toLowerCase();
+    const user = usersStore.find((u) => {
+      if (!u.inn) return false;
+      if (u.inn !== normInn) return false;
+      return u.fullName.trim().replace(/\s+/g, ' ').toLowerCase() === normName;
+    });
+    if (!user) return null;
+    return { id: user.id, role: user.role, fullName: user.fullName, orgId: user.orgId };
   }
 }

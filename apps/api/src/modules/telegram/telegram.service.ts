@@ -1,4 +1,5 @@
-import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown, Optional } from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
 import * as https from 'https';
 import * as http from 'http';
 
@@ -15,6 +16,9 @@ interface UserSettings {
   pending: boolean;
   role?: PlatformRole;
   linkedUserId?: string;
+  linkedFullName?: string;
+  awaitingInput?: 'inn' | 'fullName';
+  pendingInn?: string;
   muted: boolean;
   mutedTypes: Set<string>;
   dailyReport: boolean;
@@ -123,7 +127,7 @@ const FAQ_LIST = [
   { q: 'Как создать лот?', a: 'В личном кабинете: Лоты → Создать лот. Укажите культуру, объём, цену и базис поставки.' },
   { q: 'Как работает оплата?', a: 'Деньги резервируются банком-эскроу и переходят продавцу после подтверждения качества и доставки.' },
   { q: 'Что делать при споре?', a: 'Используйте /dispute open <ID>. Менеджер рассмотрит в течение 48 часов.' },
-  { q: 'Как привязать Telegram к аккаунту?', a: 'Введите /id, скопируйте Chat ID и вставьте в настройках профиля на сайте.' },
+  { q: 'Как привязать Telegram к аккаунту?', a: 'Напишите /link — бот попросит ввести ваш ИНН, затем ФИО. Система автоматически найдёт ваш аккаунт и назначит роль.' },
   { q: 'Какие культуры торгуются?', a: 'Пшеница, ячмень, кукуруза, подсолнечник, соя, рапс, рожь, горох и другие.' },
   { q: 'Есть ли мобильное приложение?', a: 'В разработке. Пока доступен веб-сайт и этот Telegram-бот.' },
   { q: 'Как связаться с поддержкой?', a: 'Напишите /support Ваш вопрос — мы ответим в течение 2 часов.' },
@@ -140,6 +144,8 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
   private schedulerInterval?: ReturnType<typeof setInterval>;
   private uptimeInterval?: ReturnType<typeof setInterval>;
   private lastApiStatus = true;
+
+  constructor(@Optional() private readonly authService?: AuthService) {}
 
   onApplicationBootstrap() {
     if (!this.token) {
@@ -207,11 +213,22 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
       return void this.sendMessage(chatId, `⛔️ Для доступа к боту напишите /start`);
     }
 
+    // ввод ИНН/ФИО в процессе привязки — перехватываем до парсинга команд
+    if (user.awaitingInput && !cmd.startsWith('/')) {
+      if (user.awaitingInput === 'inn') return void this.handleInnInput(chatId, msg.text.trim());
+      if (user.awaitingInput === 'fullName') return void this.handleFullNameInput(chatId, msg.text.trim());
+    }
+    // любая команда сбрасывает незавершённый ввод
+    if (cmd.startsWith('/') && user.awaitingInput) {
+      user.awaitingInput = undefined;
+      user.pendingInn = undefined;
+    }
+
     // одобрен, но не привязал аккаунт — только базовые команды
     const freeCommands = ['/help', '/about', '/link', '/status', '/ping', '/id', '/support', '/faq'];
     if (!user.linkedUserId && !freeCommands.includes(cmd) && chatId !== ADMIN_CHAT_ID) {
       return void this.sendMessage(chatId,
-        `🔗 Для доступа к командам привяжите аккаунт платформы:\n\n<code>/link ВАШ-КОД</code>\n\nКод находится в личном кабинете → Настройки → Telegram.`
+        `🔗 Для доступа к командам нужно привязать аккаунт платформы.\n\nНапишите /link и следуйте инструкции.`
       );
     }
 
@@ -434,12 +451,12 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     if (!user.linkedUserId && chatId !== ADMIN_CHAT_ID) {
       return void this.sendMessage(chatId,
         `<b>Доступные команды:</b>\n\n` +
-        `/link &lt;код&gt; — привязать аккаунт платформы\n` +
+        `/link — привязать аккаунт платформы по ИНН и ФИО\n` +
         `/about — о платформе\n` +
         `/status — статус сервиса\n` +
         `/support — написать в поддержку\n` +
         `/faq — частые вопросы\n\n` +
-        `Для полного доступа привяжите аккаунт:\n<code>/link ВАШ-КОД</code>`
+        `Для полного доступа привяжите аккаунт командой /link`
       );
     }
 
@@ -499,7 +516,8 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     await this.sendMessage(chatId,
       `<b>Ваш профиль:</b>\n\n` +
       `Chat ID: <code>${chatId}</code>\n` +
-      `Аккаунт: ${u.linkedUserId ? `привязан (${u.linkedUserId})` : 'не привязан'}\n` +
+      `Аккаунт: ${u.linkedUserId ? `✅ ${u.linkedFullName || u.linkedUserId}` : '❌ не привязан — /link'}\n` +
+      `Роль: ${u.role ? ROLE_LABELS[u.role] : '—'}\n` +
       `Уведомления: ${u.muted ? '🔕 отключены' : '🔔 включены'}\n` +
       `Ежедневный отчёт: ${u.dailyReport ? '✅' : '❌'}\n` +
       `Еженедельный отчёт: ${u.weeklyReport ? '✅' : '❌'}\n` +
@@ -510,29 +528,80 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     );
   }
 
-  private async cmdLink(chatId: number, code: string) {
-    if (!code) {
-      return void this.sendMessage(chatId,
-        `Укажите код из личного кабинета:\n<code>/link ВАШ-КОД</code>\n\n` +
-        `Найти код: Настройки → Telegram → Код привязки`);
-    }
+  private async cmdLink(chatId: number, _arg: string) {
     const user = this.getOrCreateUser(chatId);
-    user.linkedUserId = code;
+    if (user.linkedUserId) {
+      return void this.sendMessage(chatId,
+        `✅ Ваш аккаунт уже привязан.\n\nРоль: <b>${user.role ? ROLE_LABELS[user.role] : '—'}</b>\nПользователь: <b>${user.linkedFullName || user.linkedUserId}</b>\n\nЧтобы отвязать: /unlink`
+      );
+    }
+    user.awaitingInput = 'inn';
+    user.pendingInn = undefined;
     await this.sendMessage(chatId,
-      `✅ Код <code>${code}</code> принят.\n\n⏳ Ожидайте — администратор подтвердит вашу роль на платформе.`
+      `🔗 <b>Привязка аккаунта платформы</b>\n\n` +
+      `Для идентификации введите ваш <b>ИНН</b>:\n` +
+      `(10 цифр для организаций, 12 цифр для физических лиц)\n\n` +
+      `Пример: <code>771234567890</code>`
     );
-    // уведомляем админа с выбором роли
+  }
+
+  private async handleInnInput(chatId: number, text: string) {
+    const user = this.getOrCreateUser(chatId);
+    const inn = text.replace(/\D/g, '');
+    if (inn.length !== 10 && inn.length !== 12) {
+      return void this.sendMessage(chatId,
+        `❌ Неверный формат ИНН.\n\nИНН должен содержать <b>10 или 12 цифр</b>.\n\nВведите ИНН ещё раз:`
+      );
+    }
+    user.pendingInn = inn;
+    user.awaitingInput = 'fullName';
+    await this.sendMessage(chatId,
+      `✅ ИНН <code>${inn}</code> принят.\n\nТеперь введите ваше <b>ФИО полностью</b>, как оно указано при регистрации на платформе:\n\nПример: <code>Иванов Иван Иванович</code>`
+    );
+  }
+
+  private async handleFullNameInput(chatId: number, fullName: string) {
+    const user = this.getOrCreateUser(chatId);
+    user.awaitingInput = undefined;
+
+    if (!this.authService) {
+      return void this.sendMessage(chatId, `⚠️ Сервис проверки временно недоступен. Обратитесь в поддержку: /support`);
+    }
+
+    const found = this.authService.lookupByInn(user.pendingInn!, fullName);
+    user.pendingInn = undefined;
+
+    if (!found) {
+      return void this.sendMessage(chatId,
+        `❌ <b>Пользователь не найден</b>\n\n` +
+        `Введённый ИНН и ФИО не совпадают ни с одним аккаунтом в системе.\n\n` +
+        `Проверьте:\n` +
+        `• ИНН — точно 10 или 12 цифр\n` +
+        `• ФИО — как при регистрации (например: <i>Иванов Иван Иванович</i>)\n\n` +
+        `Попробовать снова: /link\n` +
+        `Обратиться в поддержку: /support`
+      );
+    }
+
+    user.linkedUserId = found.id;
+    user.linkedFullName = found.fullName;
+    user.role = found.role as PlatformRole;
+
+    await this.sendMessage(chatId,
+      `✅ <b>Аккаунт успешно привязан!</b>\n\n` +
+      `Пользователь: <b>${found.fullName}</b>\n` +
+      `Роль: <b>${ROLE_LABELS[user.role] ?? user.role}</b>\n\n` +
+      `Теперь вам доступны команды вашей роли. Напишите /help чтобы увидеть список.`
+    );
+
     if (ADMIN_CHAT_ID) {
-      const name = user.firstName || String(chatId);
-      const roleButtons = (Object.keys(ROLE_LABELS) as PlatformRole[]).map(r => ([{
-        text: ROLE_LABELS[r], callback_data: `setrole:${chatId}:${r}`,
-      }]));
+      const tgName = user.firstName || String(chatId);
       await this.sendMessage(ADMIN_CHAT_ID,
-        `🔗 <b>Запрос на привязку аккаунта</b>\n\n` +
-        `Пользователь: <b>${name}</b> (<code>${chatId}</code>)\n` +
-        `Код: <code>${code}</code>\n\n` +
-        `Выберите роль:`,
-        { reply_markup: { inline_keyboard: roleButtons } }
+        `🔗 <b>Новая привязка аккаунта</b>\n\n` +
+        `Telegram: <b>${tgName}</b> (<code>${chatId}</code>)\n` +
+        `Платформа: <b>${found.fullName}</b>\n` +
+        `Роль: <b>${ROLE_LABELS[user.role]}</b>\n` +
+        `ID: <code>${found.id}</code>`
       );
     }
   }
