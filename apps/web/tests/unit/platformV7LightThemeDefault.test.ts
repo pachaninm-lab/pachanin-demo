@@ -23,6 +23,27 @@ describe('platform-v7 theme default', () => {
     expect(source).toContain("document.documentElement.setAttribute('data-theme', theme)");
   });
 
+  it('keeps AppShellV4 light-first and persists dark only with the current theme version', () => {
+    const appShell = read('apps/web/components/v7r/AppShellV4.tsx');
+
+    expect(appShell).toContain("React.useState<'light' | 'dark'>('light')");
+    expect(appShell).toContain("stored === 'dark' && storedVersion === PLATFORM_V7_LIGHT_DEFAULT_VERSION ? 'dark' : 'light'");
+    expect(appShell).toContain("window.localStorage.setItem(PLATFORM_V7_THEME_VERSION_KEY, PLATFORM_V7_LIGHT_DEFAULT_VERSION)");
+    expect(appShell).not.toContain("React.useState<'light' | 'dark'>('dark')");
+    expect(appShell).not.toContain("stored === 'light' ? 'light' : 'dark'");
+  });
+
+  it('keeps AppShellV4 compact on mobile and low-height screens', () => {
+    const appShell = read('apps/web/components/v7r/AppShellV4.tsx');
+
+    expect(appShell).toContain(".pc-shell-root-v4 { --pc-header-offset: 98px; }");
+    expect(appShell).toContain(".pc-shell-root-v4 { --pc-header-offset: 92px; }");
+    expect(appShell).toContain(".pc-shell-root-v4 { --pc-header-offset: 82px; }");
+    expect(appShell).toContain('.pc-v4-meta { display: none; }');
+    expect(appShell).not.toContain("--pc-header-offset: 128px");
+    expect(appShell).not.toContain("--pc-header-offset: 118px");
+  });
+
   it('runs theme sync before AppShell effects can read storage', () => {
     const source = themeSync();
 

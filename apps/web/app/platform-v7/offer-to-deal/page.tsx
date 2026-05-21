@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
-import { P7FgisRuntimeCheckPanel } from '@/components/platform-v7/P7FgisRuntimeCheckPanel';
 import { PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, type PlatformV7ExecutionActionState } from '@/lib/platform-v7/execution-action-core';
 import {
+  PLATFORM_V7_BANK_ROUTE,
   PLATFORM_V7_DEALS_ROUTE,
   PLATFORM_V7_LOGISTICS_ROUTE,
   PLATFORM_V7_READINESS_ROUTE,
@@ -30,25 +30,25 @@ const dealBridgeInitialState = {
 const dealBridgeActionItems = [
   {
     title: 'Создать черновик сделки',
-    description: 'Переносит принятую ставку в карточку сделки как черновик без банковского решения и без движения денег.',
+    description: 'Переносит принятую ставку в Deal Workspace как черновик контура исполнения без передачи основания банку.',
     targetId: 'e4-create-draft-deal',
     actionId: 'createDraftDealFromOffer',
     actorRole: 'operator',
     entityId: 'DL-DRAFT-2403',
-    mode: 'manual',
+    mode: 'controlled-pilot',
   },
   {
     title: 'Запросить резерв денег',
-    description: 'Создаёт только запрос на резерв. Банк должен отдельно подтвердить резерв и дальнейшее решение.',
+    description: 'Создаёт только намерение резерва. Это не банковское подтверждение и не внешний банковский адаптер.',
     targetId: 'e4-request-money-reserve',
     actionId: 'requestMoneyReserve',
     actorRole: 'buyer',
     entityId: 'RESERVE-DL-DRAFT-2403',
-    mode: 'manual',
+    mode: 'controlled-pilot',
   },
   {
     title: 'Назначить логистику',
-    description: 'Связывает сделку с логистическим заказом в ручном режиме без заявления о подключённом приложении водителя и внешнем трекинге.',
+    description: 'Связывает сделку с логистическим заказом в ручном режиме без Driver PWA и внешнего отслеживания.',
     targetId: 'e4-assign-logistics',
     actionId: 'assignLogistics',
     actorRole: 'operator',
@@ -57,7 +57,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Приложить документ',
-    description: 'Фиксирует внутренний документ как условие сделки и доказательство. Это не ЭДО, не УКЭП и не СберКорус.',
+    description: 'Фиксирует внутренний документ как gate/evidence. Это не ЭДО, не УКЭП и не СберКорус.',
     targetId: 'e4-attach-document',
     actionId: 'attachDocument',
     actorRole: 'operator',
@@ -66,7 +66,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Зафиксировать полевое событие',
-    description: 'Добавляет ручное полевое событие в доказательный контур. Это не автоматическая GPS/фотофиксация.',
+    description: 'Добавляет ручное полевое событие как evidence. Это не GPS/photo capture внешнего сервиса.',
     targetId: 'e4-record-field-event',
     actionId: 'recordFieldEvent',
     actorRole: 'operator',
@@ -75,12 +75,12 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Открыть спор',
-    description: 'Создаёт спор по сделке с ожидающим влиянием на деньги и возможностью отмены действия. Полного кабинета спора здесь ещё нет.',
+    description: 'Создаёт спор по сделке с удержанием, журналом и откатом. Полной dispute room здесь ещё нет.',
     targetId: 'e4-open-dispute',
     actionId: 'openDispute',
     actorRole: 'operator',
     entityId: 'DISPUTE-DL-DRAFT-2403',
-    mode: 'manual',
+    mode: 'controlled-pilot',
   },
 ] satisfies readonly PlatformV7ExecutionActionUiItem[];
 
@@ -96,7 +96,7 @@ const transfer = [
 ];
 
 const gates = [
-  ['ФГИС', 'партия требует сверки по партии и остатку', 'проверить'],
+  ['ФГИС', 'партия подтверждена, остаток достаточен', 'готово'],
   ['Качество', 'показатели заполнены, но лаборатория нужна на приёмке', 'проверить'],
   ['Логистика', 'нужен слот вывоза и водитель', 'проверить'],
   ['Документы', 'нужен договор, СДИЗ и транспортный пакет', 'проверить'],
@@ -114,34 +114,7 @@ function tone(status: string) {
 
 export default function PlatformV7OfferToDealPage() {
   return (
-    <div data-testid="platform-v7-offer-to-deal-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <style>{`
-        @media(max-width:767px){
-          [data-testid='platform-v7-offer-to-deal-page']{gap:10px!important;padding:0!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(1) > div{display:grid!important;gap:10px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(1) > div > div:first-child > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(1) > div > div:first-child > div:nth-child(3){display:none!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(1) a{width:100%!important;min-height:54px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(1) a:first-child{display:none!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(2){padding:12px!important;border-radius:16px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(2) > div:nth-child(2){font-size:12px!important;line-height:1.45!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > div:nth-of-type(1){grid-template-columns:1fr 1fr!important;gap:8px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > div:nth-of-type(1) > div{padding:12px!important;border-radius:16px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > div:nth-of-type(1) > div:nth-child(n+4){display:none!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(3){padding:14px!important;border-radius:20px!important;gap:9px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(3) > div:nth-child(2) > div{grid-template-columns:1fr!important;gap:5px!important;padding:12px!important;border-radius:16px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(3) > div:nth-child(2) > div:nth-child(n+5){display:none!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(3) > div:nth-child(2) > div > div:nth-child(3){display:none!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(4){padding:14px!important;border-radius:20px!important;gap:9px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(4) > div:not(:first-child){display:grid!important;gap:8px!important;padding:12px!important;border-radius:16px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(4) > div:not(:first-child) > div > div:nth-child(2){display:none!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(5){padding:14px!important;border-radius:20px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(5) > div:nth-child(2){display:grid!important;grid-template-columns:1fr!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(5) a{width:100%!important;min-height:52px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important}
-          [data-testid='platform-v7-offer-to-deal-page'] > section:nth-of-type(5) a:nth-child(n+3){display:none!important}
-        }
-      `}</style>
+    <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
@@ -161,7 +134,7 @@ export default function PlatformV7OfferToDealPage() {
       <section style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 14, padding: 14 }}>
         <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Правило</div>
         <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
-          Черновик сделки не запускает банковское решение и не создаёт платёжное обязательство автоматически. Он фиксирует источник условий и показывает, какие проверки должны пройти до договора и резерва денег.
+          Черновик сделки не передаёт основание банку и не создаёт обязательство автоматически. Он фиксирует источник условий и показывает, какие проверки должны пройти до договора и резерва денег.
         </div>
       </section>
 
@@ -172,11 +145,9 @@ export default function PlatformV7OfferToDealPage() {
         <Metric label='Блокеры' value={String(blockers)} tone='bad' />
       </div>
 
-      <P7FgisRuntimeCheckPanel partyId={lot.fgisPartyId} actorRole='operator' />
-
       <P7ExecutionActionsPanel
         title='Сквозные действия сделки'
-        subtitle='Здесь закрыт первый переход от принятой ставки к черновику сделки: запрос резерва, логистика, внутренний документ, полевое событие и спор. Все действия имеют проверку условий, уведомление, журнал действий и отмену последнего шага.'
+        subtitle='Здесь закрыт первый контур: черновик сделки, намерение резерва, логистика, внутренний документ, полевое событие и спор. Все действия имеют проверку, уведомление, журнал и откат.'
         items={dealBridgeActionItems}
         initialState={dealBridgeInitialState}
       />
@@ -215,7 +186,7 @@ export default function PlatformV7OfferToDealPage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
           <Link href={PLATFORM_V7_READINESS_ROUTE} style={btn('primary')}>Проверить готовность</Link>
           <Link href={PLATFORM_V7_LOGISTICS_ROUTE} style={btn()}>Назначить логистику</Link>
-          <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверить банковское основание</Link>
+          <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверить деньги</Link>
           <Link href={PLATFORM_V7_DEALS_ROUTE} style={btn()}>Реестр сделок</Link>
         </div>
       </section>

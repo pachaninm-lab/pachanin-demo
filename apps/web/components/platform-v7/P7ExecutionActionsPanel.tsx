@@ -12,6 +12,7 @@ import {
   applyPlatformV7ExecutionAction,
   executionActionStateLabel,
   guardPlatformV7ExecutionAction,
+  previewPlatformV7ExecutionAction,
   rollbackPlatformV7ExecutionAction,
   type PlatformV7ExecutionActionApplied,
   type PlatformV7ExecutionActionState,
@@ -19,8 +20,6 @@ import {
   type PlatformV7ExecutionRole,
 } from '@/lib/platform-v7/execution-action-core';
 import type { PlatformV7ActionMessageId } from '@/lib/platform-v7/action-messages';
-import type { PlatformV7RuntimeActionEventCreated } from '@/lib/platform-v7/runtime-action-events';
-import type { PlatformV7RuntimeExternalSystem, PlatformV7RuntimeResultState } from '@/lib/platform-v7/runtime-action-contract';
 
 export interface PlatformV7ExecutionActionUiItem {
   readonly title: string;
@@ -28,6 +27,7 @@ export interface PlatformV7ExecutionActionUiItem {
   readonly targetId: string;
   readonly actionId: PlatformV7ActionMessageId;
   readonly actorRole: PlatformV7ExecutionRole;
+  readonly actorId?: string;
   readonly entityId: string;
   readonly mode?: PlatformV7ExecutionMode;
 }
@@ -41,61 +41,18 @@ export interface P7ExecutionActionsPanelProps {
 }
 
 const MODE_LABELS: Record<PlatformV7ExecutionMode, string> = {
-  sandbox: 'тестовый режим',
+  sandbox: 'контур проверки',
   manual: 'ручная проверка',
-  'controlled-pilot': 'пилотный контур',
+  'controlled-pilot': 'контур исполнения',
   live: 'боевой контур требует подтверждения',
 };
 
 const MODE_COPY: Record<PlatformV7ExecutionMode, string> = {
-  sandbox: 'Действие фиксируется в тестовом сценарии. Внешние системы не вызываются.',
+  sandbox: 'Действие фиксируется в рабочем журнале. Внешние системы не вызываются.',
   manual: 'Действие требует ручной проверки. Внешнее подключение не заявлено.',
-  'controlled-pilot': 'Действие фиксирует состояние, журнал и возможность отката без заявления о боевой интеграции.',
+  'controlled-pilot': 'Действие фиксирует состояние, журнал и возможность отката без заявления о внешней интеграции.',
   live: 'Боевой контур допустим только после подтверждённых договоров и внешних подключений.',
 };
-
-const RUNTIME_STATE_LABELS: Record<PlatformV7RuntimeResultState, string> = {
-  draft_created: 'черновик создан',
-  internal_record_created: 'внутренняя запись создана',
-  pending_external_confirmation: 'ожидает внешнего подтверждения',
-  pending_bank_review: 'ожидает банковской проверки',
-  manual_review_required: 'нужна ручная проверка',
-  dispute_opened: 'спор открыт',
-};
-
-const EXTERNAL_SYSTEM_LABELS: Record<PlatformV7RuntimeExternalSystem, string> = {
-  bank: 'банка',
-  fgis: 'ФГИС',
-  edo: 'ЭДО',
-  lab: 'лаборатории',
-  elevator: 'элеватора',
-  none: 'внутреннего контура',
-};
-
-function isRuntimeEventCreated(event: PlatformV7ExecutionActionApplied['runtimeEvent']): event is PlatformV7RuntimeActionEventCreated {
-  return event?.status === 'created';
-}
-
-function runtimeLogEntries(result: PlatformV7ExecutionActionApplied): PlatformActionLogEntry[] {
-  if (isRuntimeEventCreated(result.runtimeEvent)) return [result.runtimeEvent.logEntry, result.logEntry];
-  return [result.logEntry];
-}
-
-function runtimeToast(result: PlatformV7ExecutionActionApplied): { type: 'success' | 'warning'; message: string } {
-  if (!isRuntimeEventCreated(result.runtimeEvent)) return { type: 'success', message: result.toastCopy };
-
-  if (result.runtimeEvent.externalConfirmationStatus === 'requested') {
-    return {
-      type: 'warning',
-      message: `${result.entityId}: запрос создан, ждём подтверждение ${EXTERNAL_SYSTEM_LABELS[result.runtimeEvent.externalSystem]}`,
-    };
-  }
-
-  return {
-    type: 'success',
-    message: `${result.entityId}: действие зафиксировано во внутреннем контуре`,
-  };
-}
 
 export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, initialLog = [] }: P7ExecutionActionsPanelProps) {
   const [state, setState] = useState<PlatformV7ExecutionActionState>(initialState ?? PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE);
@@ -104,13 +61,11 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
   const [toasts, setToasts] = useState<{ id: string; type: 'success' | 'error' | 'warning'; message: string }[]>([]);
   const [lastApplied, setLastApplied] = useState<PlatformV7ExecutionActionApplied | null>(null);
 
-  const runtimeEventCandidate = lastApplied?.runtimeEvent ?? null;
-  const lastRuntimeEvent: PlatformV7RuntimeActionEventCreated | null = isRuntimeEventCreated(runtimeEventCandidate) ? runtimeEventCandidate : null;
-
   const rows = useMemo(() => items.map((item) => {
     const target = platformV7ActionTargetById(item.targetId);
     const guard = guardPlatformV7ExecutionAction(state, item);
-    return { item, target, guard };
+    const preview = previewPlatformV7ExecutionAction(state, item);
+    return { item, target, guard, preview };
   }), [items, state]);
 
   function pushToast(type: 'success' | 'error' | 'warning', message: string) {
@@ -131,11 +86,10 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
       return;
     }
 
-    const toast = runtimeToast(result);
     setState(result.nextStateRef);
-    setLog((current) => [...runtimeLogEntries(result), ...current]);
+    setLog((current) => [result.logEntry, ...current]);
     setLastApplied(result);
-    pushToast(toast.type, toast.message);
+    pushToast('success', result.toastCopy);
   }
 
   function rollbackLastAction() {
@@ -170,22 +124,8 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
       </div>
 
       <div style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 12, padding: 12, color: PLATFORM_V7_TOKENS.color.text, fontSize: 12, lineHeight: 1.55 }}>
-        Все действия ниже фиксируют состояние, журнал и возможность отката в пилотном контуре. Они не заявляют боевое подключение к ФГИС, банку, ЭДО, СберКорус или УКЭП.
+        Все действия ниже фиксируют состояние, журнал и возможность отката в контуре исполнения. Они не заявляют внешнее подключение к ФГИС, банку, ЭДО, СберКорус или УКЭП.
       </div>
-
-      {lastRuntimeEvent ? (
-        <div data-testid='p7-runtime-event-status' style={{ background: lastRuntimeEvent.externalConfirmationStatus === 'requested' ? 'rgba(217,119,6,0.08)' : 'rgba(10,122,95,0.08)', border: `1px solid ${lastRuntimeEvent.externalConfirmationStatus === 'requested' ? 'rgba(217,119,6,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 12, padding: 12, display: 'grid', gap: 6 }}>
-          <div style={{ fontSize: 11, color: PLATFORM_V7_TOKENS.color.textSubtle, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Статус последнего действия</div>
-          <div style={{ fontSize: 13, color: PLATFORM_V7_TOKENS.color.text, fontWeight: 900 }}>
-            {RUNTIME_STATE_LABELS[lastRuntimeEvent.resultingState]}
-          </div>
-          <div style={{ fontSize: 12, color: PLATFORM_V7_TOKENS.color.textMuted, lineHeight: 1.5 }}>
-            {lastRuntimeEvent.externalConfirmationStatus === 'requested'
-              ? `Создан запрос. Платформа ждёт подтверждение ${EXTERNAL_SYSTEM_LABELS[lastRuntimeEvent.externalSystem]} и не считает действие внешне подтверждённым.`
-              : 'Действие зафиксировано как внутренняя запись. Внешнее подтверждение для него не требуется.'}
-          </div>
-        </div>
-      ) : null}
 
       {toasts.length ? (
         <div aria-live='polite' style={{ display: 'grid', gap: 8 }}>
@@ -197,8 +137,21 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
         </div>
       ) : null}
 
+      {lastApplied ? (
+        <div data-testid='execution-action-receipt' style={{ display: 'grid', gap: 8, border: '1px solid rgba(10,122,95,0.18)', background: 'rgba(10,122,95,0.07)', borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 12, color: PLATFORM_V7_TOKENS.color.brand, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Квитанция действия</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, fontSize: 12, color: PLATFORM_V7_TOKENS.color.text }}>
+            <ReceiptItem label='Кто' value={`${lastApplied.receipt.actorId} · ${lastApplied.receipt.actorRole}`} />
+            <ReceiptItem label='Когда' value={lastApplied.receipt.changedAt} />
+            <ReceiptItem label='Что изменилось' value={lastApplied.receipt.changed} />
+            <ReceiptItem label='Что ждём дальше' value={lastApplied.receipt.waitingFor} />
+            <ReceiptItem label='Контур' value={lastApplied.receipt.externalContour} />
+          </div>
+        </div>
+      ) : null}
+
       <div style={{ display: 'grid', gap: 10 }}>
-        {rows.map(({ item, target, guard }) => {
+        {rows.map(({ item, target, guard, preview }) => {
           if (!target) {
             return (
               <div key={item.targetId} style={{ border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: 14, padding: 12 }}>
@@ -214,6 +167,14 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
                 <div style={{ fontSize: 14, fontWeight: 900, color: PLATFORM_V7_TOKENS.color.text }}>{item.title}</div>
                 <div style={{ marginTop: 4, fontSize: 12, color: PLATFORM_V7_TOKENS.color.textMuted, lineHeight: 1.45 }}>{item.description}</div>
                 <div style={{ marginTop: 8, fontSize: 11, color: PLATFORM_V7_TOKENS.color.textSubtle }}>{MODE_COPY[mode]}</div>
+                {preview ? (
+                  <div style={{ marginTop: 8, display: 'grid', gap: 4, fontSize: 11, color: PLATFORM_V7_TOKENS.color.textMuted, lineHeight: 1.45 }}>
+                    <div><strong style={{ color: PLATFORM_V7_TOKENS.color.text }}>Изменится:</strong> {preview.statusBefore} → {preview.statusAfter}</div>
+                    {preview.moneyImpact ? <div><strong style={{ color: PLATFORM_V7_TOKENS.color.text }}>Деньги:</strong> {preview.moneyImpact}</div> : null}
+                    {preview.documentImpact ? <div><strong style={{ color: PLATFORM_V7_TOKENS.color.text }}>Документ:</strong> {preview.documentImpact}</div> : null}
+                    {preview.nextRoleTask ? <div><strong style={{ color: PLATFORM_V7_TOKENS.color.text }}>Дальше:</strong> {preview.nextRoleTask}</div> : null}
+                  </div>
+                ) : null}
               </div>
               <div style={{ display: 'grid', gap: 6 }}>
                 <span style={{ justifySelf: 'start', borderRadius: 999, padding: '4px 8px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: PLATFORM_V7_TOKENS.color.brand, fontSize: 11, fontWeight: 900 }}>{MODE_LABELS[mode]}</span>
@@ -236,5 +197,14 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
 
       <P7ActionLog title='Журнал действий' entries={log} emptyLabel='Действия ещё не выполнялись.' maxEntries={12} />
     </section>
+  );
+}
+
+function ReceiptItem({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div style={{ display: 'grid', gap: 3 }}>
+      <div style={{ fontSize: 10, color: PLATFORM_V7_TOKENS.color.textSubtle, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+      <div style={{ fontSize: 12, color: PLATFORM_V7_TOKENS.color.text, lineHeight: 1.45 }}>{value}</div>
+    </div>
   );
 }

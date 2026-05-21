@@ -1,385 +1,514 @@
-# Platform-v7 · Visual Wow Core — Baseline Inventory
-
-> PR-0: код не меняется. Только фиксация реального состояния.
-> Дата: 2026-05-20
-
----
-
-## 1. Routes (фактические)
-
-### Root layout
-- `apps/web/app/platform-v7/layout.tsx` — `AppShellV4` + `ToastProvider` + `PlatformThemeSync`
-  - Импортирует 11 CSS файлов платформы
-  - Читает роль из заголовка `x-pc-role`, fallback → `operator`
-  - Инжектирует: `ScopedShellGuard`, `SupportHeaderIcon`, `RoleHeaderSwitcher`, `RoleExecutionSummaryGate`, `AuditSurfaceSummaryGate`, `SystemRouteSummaryGate`, `WorkRouteNav`, `MoneySpineStrip`, `CommandPalette`
-
-### Core execution routes
-| Route | Page file | Назначение |
-|---|---|---|
-| `/platform-v7` | `page.tsx` | Главный вход |
-| `/platform-v7/deals` | `deals/page.tsx` | Реестр сделок |
-| `/platform-v7/deals/[id]` | `deals/[id]/page.tsx` | **Главный экран — Deal Workspace** |
-| `/platform-v7/deals/[id]/documents` | page.tsx | Документы сделки |
-| `/platform-v7/deals/[id]/money` | page.tsx | Деньги сделки |
-| `/platform-v7/deals/[id]/disputes` | page.tsx | Споры сделки |
-| `/platform-v7/deals/[id]/logistics` | page.tsx | Логистика сделки |
-| `/platform-v7/deals/[id]/quality` | page.tsx | Качество |
-| `/platform-v7/deals/[id]/evidence-pack` | page.tsx | Пакет доказательств |
-| `/platform-v7/deals/[id]/audit` | page.tsx | Журнал |
-| `/platform-v7/lots` | `lots/page.tsx` | Реестр лотов |
-| `/platform-v7/lots/[lotId]` | page.tsx | Карточка лота |
-| `/platform-v7/lots/create` | page.tsx | Создание лота |
-| `/platform-v7/disputes` | `disputes/page.tsx` | Споры |
-| `/platform-v7/disputes/[id]` | page.tsx | Карточка спора |
-| `/platform-v7/control-tower` | page.tsx | Центр управления (operator) |
-| `/platform-v7/connectors` | page.tsx | Внешние подключения |
-| `/platform-v7/audit-log` | ⚠️ **НЕТ** отдельного route — есть `/deals/[id]/audit` | — |
-| `/platform-v7/investor` | page.tsx | Инвесторский обзор |
-| `/platform-v7/help` | `help/page.tsx` | Помощь |
-| `/platform-v7/profile` | `profile/page.tsx` | Профиль |
-| `/platform-v7/not-found` | `not-found.tsx` | 404 |
-
-### Role cockpit routes (12 ролей)
-| Роль | Root route | Sub-routes |
-|---|---|---|
-| operator | `/platform-v7/control-tower` | anti-bypass, bypass-risk, canonical-reconciliation, grain, hotlist |
-| buyer | `/platform-v7/buyer` | deals, lots, matches, offers, financing, reputation, rfq/* |
-| seller | `/platform-v7/seller` | deals, lots, lots/new, batches, matches, offers, reputation, rfq, quick-sale, fgis-parties |
-| bank | `/platform-v7/bank` | escrow, clean, factoring, payment-basis, release-safety, events/[id], grain |
-| logistics | `/platform-v7/logistics` | inbox, [routeId], grain |
-| driver | `/platform-v7/driver` | field, grain |
-| surveyor | `/platform-v7/surveyor` | acts/[id], grain |
-| elevator | `/platform-v7/elevator` | grain, terminal, terminal/[operationId] |
-| lab | `/platform-v7/lab` | grain |
-| arbitrator | `/platform-v7/arbitrator` | grain |
-| compliance | `/platform-v7/compliance` | grain |
-| executive | `/platform-v7/executive` | grain |
-
----
-
-## 2. AppShell — фактическое состояние
-
-**Файл:** `apps/web/components/v7r/AppShellV4.tsx` (594 строки)
-
-### Структура шапки сейчас:
-```
-[☰] [BrandMark] Прозрачная Цена          [🔍 Поиск ⌘K] [🔔] [User]
-     Сделка · логистика · документы · деньги
-──────────────────────────────────────────────────────────────────
-[breadcrumbs]                       [ФГИС: статус] [Банк: статус] [Споры: статус]
-```
-
-### Что есть:
-- sticky header с `backdrop-filter: blur(18px)`
-- BrandMark, название, breadcrumbs
-- Роль: скрытый `<select>` на desktop, `pc-v4-mobile-role` кнопка на mobile
-- Stage badge: `Контур сделки / Проверка условий / Полевой контур`
-- System statuses: ФГИС, Банк, Споры (захардкоженные, без реальных данных)
-- Notifications panel (статичные)
-- Sidebar drawer с навигацией по роли
-- Role-switcher через `<details>` в drawer
-
-### Что отсутствует (для Visual Wow Core):
-- Execution zone (деньги · документы · рейс · качество · спор) в шапке
-- Active blocker в шапке
-- TrustDot
-- Header shrink on scroll
-- Compact deal pulse
-- MobileExecutionHeader (отдельный компонент)
-- Role в шапке явно на desktop (сейчас только select/badge)
-
-### Mobile breakpoints:
-- `≤ 980px`: скрываются search текст, role select, stage badge, statuses
-- `≤ 640px`: скрываются subtitle, breadcrumbs; title уменьшается до 14px
-- Header offset: 116px (desktop), 128px (≤980), 118px (≤640)
-
----
-
-## 3. P7 Components — фактические (platform-v7)
-
-### Core primitives (SAFE TO USE):
-| Компонент | Файл | testId support | Что делает |
-|---|---|---|---|
-| `P7Card` | P7Card.tsx | ✅ `testId` prop | Карточка с title/subtitle/footer |
-| `P7Section` | P7Section.tsx | ✅ `testId` prop | Секция с title/subtitle/eyebrow/actions, surface: plain/card/muted |
-| `P7ActionLog` | P7ActionLog.tsx | — | Лог действий (PlatformActionLogEntry[]) |
-| `P7Badge` | P7Badge.tsx | — | Badge с tone |
-| `P7ActionButton` | P7ActionButton.tsx | — | Кнопка действия |
-| `P7MetricCard` | P7MetricCard.tsx | — | Метрика |
-| `P7Hero` | P7Hero.tsx | — | Hero section |
-| `P7Toolbar` | P7Toolbar.tsx | — | Toolbar |
-| `P7HiddenDetails` | P7HiddenDetails.tsx | — | Collapsible |
-
-### Money components (НЕ МЕНЯТЬ логику):
-| Компонент | Что делает |
-|---|---|
-| `MoneyTreeStrip` | Визуализация денежного дерева, `data-testid="platform-v7-money-tree-strip"` |
-| `MoneySpineStrip` | Spine деньги |
-| `MoneyGateCard` | Gate для денежных операций |
-| `MoneyImpactSummaryStrip` | Summary влияния на деньги |
-
-### Evidence & Document components (НЕ МЕНЯТЬ):
-| Компонент | Что делает |
-|---|---|
-| `EvidencePack` | Пакет доказательств |
-| `DocumentsMatrix` | Матрица документов |
-| `DocumentGateCard` | Gate документов |
-
-### Action feedback (НЕ МЕНЯТЬ):
-| Компонент | Что делает |
-|---|---|
-| `P7ActionFeedbackStrip` | Feedback strip |
-| `ActionFeedbackPreviewStrip` | Preview feedback |
-
----
-
-## 4. Lib domain — ключевые типы
-
-### Money buckets (`domain/money.ts`):
-```ts
-// MoneyTree buckets:
-reserved | readyToRelease | held | blockedByDispute | blockedByDocuments | manualReview | notReady
-
-// MoneyEvents:
-RESERVE_REQUESTED | RESERVE_CONFIRMED | HOLD_CREATED | HOLD_UPDATED |
-RELEASE_REQUESTED | PARTIAL_RELEASE_EXECUTED | FINAL_RELEASE_EXECUTED |
-REFUND_REQUESTED | REFUND_EXECUTED | BANK_REJECTED | MANUAL_REVIEW |
-RECONCILIATION_MISMATCH | COMMISSION_ACCRUED
-```
-
-### PlatformRole (`stores/usePlatformV7RStore`):
-```ts
-operator | buyer | seller | logistics | driver | surveyor | elevator | lab | bank | arbitrator | compliance | executive
-```
-
-### PlatformV7Tone (`design/tokens.ts`):
-```ts
-neutral | success | warning | danger | info | money | evidence | integration | bank | logistics | document | dispute
-```
-
----
-
-## 5. CSS файлы — фактические
-
-| Файл | Назначение |
-|---|---|
-| `platform-v7-final-polish.css` | Финальная полировка — **основной target для Visual Wow** |
-| `platform-v7-mobile-excellence.css` | Mobile оптимизация |
-| `platform-v7-premium-visual-polish.css` | Premium visual polish |
-| `platform-v7-shell-clarity.css` | Шапка/shell clarity |
-| `platform-v7-work-surfaces.css` | Рабочие поверхности |
-| `platform-v7-dark-role-fixes.css` | Dark mode исправления |
-| `platform-v7-premium-rhythm.css` | (не в layout.tsx — не загружается) |
-| `platform-v7-mobile-notification-safe.css` | (не в layout.tsx) |
-
----
-
-## 6. CSS design tokens — фактические
-
-### Цветовая система (CSS vars, light mode):
-```
---p7-color-background: #F7F9F5
---p7-color-surface: #FFFFFF
---p7-color-border: #D7DEE3
---p7-color-brand: #0A7A5F        // зелёный — основной brand
---p7-color-accent: #B68A35       // золотой — акцент
---p7-color-money: #155EEF        // синий — деньги
---p7-color-success: #027A48      // зелёный — подтверждено
---p7-color-warning: #B54708      // оранжевый — ожидание
---p7-color-danger: #B42318       // красный — стоп
---p7-color-document: #0369A1     // синий — документ
---p7-color-dispute: #9F1239      // малиновый — спор
---p7-color-logistics: #5B21B6   // фиолетовый — логистика
---p7-color-evidence: #6941C6    // фиолетовый — доказательства
---p7-color-bank: #1E293B        // тёмно-синий — банк
-```
-
-### Существующие shell CSS vars:
-```
---pc-bg, --pc-bg-card, --pc-bg-elevated, --pc-bg-header
---pc-text-primary, --pc-text-secondary, --pc-text-muted
---pc-border, --pc-border-light
---pc-accent, --pc-accent-bg, --pc-accent-border, --pc-accent-strong
---pc-shadow-sm, --pc-shadow-md, --pc-shadow-lg
---pc-header-offset: 116px (desktop) / 128px (≤980) / 118px (≤640)
-```
-
----
-
-## 7. data-testid — СОХРАНЯТЬ
-
-| testId | Компонент | Где используется |
-|---|---|---|
-| `platform-v7-money-tree-strip` | MoneyTreeStrip | E2E: money-tree.spec.ts |
-| P7Card testId | P7Card (через testId prop) | E2E: множество тестов |
-| P7Section testId | P7Section (через testId prop) | E2E: множество тестов |
-
-**Правило**: добавлять новые data-testid только с префиксом `p7-vil-` (Visual Intelligence Layer).
-
----
-
-## 8. E2E Tests — существующие (НЕ ЛОМАТЬ)
-
-Все 50+ тестов в `apps/web/tests/e2e/platform-v7-*.spec.ts`.
-
-Критические тесты, которые затрагивает Visual Wow Core:
-- `platform-v7-mobile-overflow-gate.spec.ts` — горизонтальный overflow
-- `platform-v7-forbidden-copy-gate.spec.ts` — запрещённые слова
-- `platform-v7-role-leakage-deep.spec.ts` — утечка данных ролей
-- `platform-v7-driver-field-shell.spec.ts` — изоляция водителя
-- `platform-v7-bank-release-action-visibility.spec.ts` — банковский язык
-- `platform-v7-mobile-compact-shell.spec.ts` — компактная шапка
-- `platform-v7-visual-smoke.spec.ts` — визуальный smoke
-
----
-
-## 9. Grain Execution — ключевые компоненты
-
-**Runtime:** `GrainExecutionPage`, `GrainExecutionPageFixed`, `GrainReleaseCockpit`, `GrainWorkflowPage`
-
-**Automation engines** (`lib/platform-v7/grain-execution/automation/`):
-- `next-action-engine.ts` — предсказание следующего действия ← **источник для SmartNextAction**
-- `money-release-engine.ts` — логика выпуска денег ← **источник для MoneyLockHalo/UnlockPath**
-- `sdiz-gate-engine.ts` — СДИЗ blocking ← **источник для CauseLine**
-- `evidence-pack-engine.ts` — evidence completeness ← **источник для EvidenceStrengthMeter**
-- `document-requirement-engine.ts` — требования к документам ← **источник для DocumentImpactChip**
-- `readiness-engine.ts` — готовность к сделке
-- `quality-delta-engine.ts` — расхождения по качеству
-
----
-
-## 10. Role Visibility — что кому доступно (domain/rbac.ts)
-
-### ЗАПРЕЩЕНО смешивать:
-| Роль | НЕ должна видеть |
-|---|---|
-| driver | bank, investor, general money aggregates, control tower, RoleLens |
-| seller/buyer | чужие агрегаты, bank internal view |
-| bank | лишняя полевая операционка без влияния на основание |
-| executive | персональные операционные детали |
-
----
-
-## 11. Forbidden copy — что нельзя в UI
-
-Запрещено в видимом UI:
-- `production-ready`, `fully live`, `fully integrated`
-- `platform guarantees`, `платформа гарантирует`
-- `Sandbox`, `mock`, `seed`
-- `runtime`, `callback`
-- `createLabProtocol` (технический термин)
-- `fully connected`
-
-Корректно:
-- `Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.`
-- `Тестовый контур внешних подключений`
-- `Controlled-pilot contour`
-
----
-
-## 12. Visual Intelligence Layer — целевые пути
-
-```
-apps/web/components/platform-v7/visual/
-  ExecutionHeader.tsx
-  MobileExecutionHeader.tsx
-  DealStatusEdge.tsx
-  CauseLine.tsx
-  MoneyLockHalo.tsx
-  UnlockPath.tsx
-  DealMiniMap.tsx
-  FocusDetailMode.tsx
-  SmartSectionSummary.tsx
-  ProgressiveDetailCard.tsx
-  DocumentImpactChip.tsx
-  ProofRibbon.tsx
-  EvidenceStrengthMeter.tsx
-  TimelineChapters.tsx
-  TimelineWithImpact.tsx
-  MagneticActionDock.tsx
-  ActionPreview.tsx
-  AfterActionReceipt.tsx
-  TrustDot.tsx
-  ObjectFocusHover.tsx
-  RoleLens.tsx
-  OperatorRadar.tsx
-  BankCleanView.tsx
-  DriverBigTileMode.tsx
-  QuietIntelligenceHint.tsx
-```
-
----
-
-## 13. Риски при внедрении
-
-### Mobile overflow risk:
-- AppShellV4 имеет `overflowX: hidden` на root, но не на header/main
-- CauseLine horizontal может вызвать overflow на узких экранах
-- DealMiniMap (sticky right) требует тщательного позиционирования
-- MagneticActionDock (bottom) должен учитывать `safe-area-inset-bottom`
-
-### Z-index конфликты:
-```
-AppShellV4 header: z-index 100
-AppShellV4 drawer: z-index 120
-Drawer overlay: z-index 110
-CommandPalette: высокий (нужно проверить)
-MagneticActionDock: должен быть < 100 на desktop, ~90 на mobile
-ActionPreview panel: ~95
-```
-
-### Existing P7 imports:
-Все новые компоненты должны импортировать только из:
-- `@/lib/platform-v7/design/tokens` — токены
-- `@/components/platform-v7/p7Theme` — CSS vars
-- Lucide icons — иконки
-- НЕ импортировать из `@/components/v7r/*` напрямую
-
-### data-testid strategy:
-Новые компоненты используют `data-testid="p7-vil-{компонент}"`, не перекрывают существующие.
-
----
-
-## 14. Safe edit zones
-
-### ✅ МОЖНО безопасно менять:
-- `apps/web/components/platform-v7/visual/*` (новые файлы)
-- `apps/web/styles/platform-v7-final-polish.css` (только platform-v7 стили)
-- `apps/web/app/platform-v7/*/page.tsx` — добавлять Visual Intelligence компоненты
-- `apps/web/components/v7r/AppShellV4.tsx` — добавлять execution zone в шапку (осторожно)
-
-### ⛔ НЕ ТРОГАТЬ:
-- `apps/landing/*`
-- `apps/web/lib/platform-v7/domain/money.ts` — MoneyTree логика
-- `apps/web/lib/platform-v7/execution-state-machine.ts`
-- `apps/web/lib/platform-v7/grain-execution/automation/*`
-- `apps/web/stores/usePlatformV7RStore.ts`
-- Существующие `data-testid` атрибуты
-- `apps/web/tests/e2e/*`
-
----
-
-## 15. Definition of Done — чеклист
-
-- [ ] Шапка показывает execution state (деньги/документы/рейс/блокер)
-- [ ] Mobile-шапка компактна, не overflow
-- [ ] Сделка понятна за 10 секунд (статус + деньги + блокер + действие)
-- [ ] CauseLine: документ → блокер → деньги → ответственный → действие
-- [ ] MoneyLockHalo на заблокированных суммах
-- [ ] UnlockPath — путь разблокировки
-- [ ] DocumentImpactChip у каждого документа
-- [ ] ProofRibbon: GPS/Фото/Вес/Пломба/Лаборатория/Акт
-- [ ] EvidenceStrengthMeter (технический индекс полноты)
-- [ ] TimelineWithImpact — события с последствиями
-- [ ] MagneticActionDock — один primary CTA
-- [ ] ActionPreview — что изменится
-- [ ] AfterActionReceipt — квитанция результата
-- [ ] TrustDot — вместо повторяющихся дисклеймеров
-- [ ] Mobile 390×844 без overflow
-- [ ] Водитель: DriverBigTileMode, без bank/investor data
-- [ ] Банк: BankCleanView, без полевого хаоса
-- [ ] apps/landing не изменён
-- [ ] MoneyTree не сломан
-- [ ] data-testid сохранены
-- [ ] Нет forbidden copy
-- [ ] Нет fake-live claims
+# Platform-v7 Visual Wow Core Baseline
+
+Дата: 2026-05-20
+Статус прохода: PR-0 / inventory only
+Стадия продукта для дальнейших работ: controlled-pilot / pre-integration / тестовый контур внешних подключений
+
+Этот документ фиксирует фактическое состояние `platform-v7` перед внедрением Visual Intelligence Layer. В PR-0 код, UI, маршруты, данные, бизнес-логика, MoneyTree, release/hold/reserve и `data-testid` не меняются.
+
+## Scope
+
+Разрешённые зоны следующей работы:
+
+- `apps/web/app/platform-v7`
+- `apps/web/components/platform-v7`
+- `apps/web/components/v7r`
+- `apps/web/lib/platform-v7`
+- `apps/web/lib/domain`
+- `apps/web/tests`
+- `docs`
+- точечно: scoped CSS-файлы `apps/web/styles/platform-v7-*.css`
+
+Защищённые зоны:
+
+- `apps/landing` не трогать.
+- AppShell не переписывать с нуля.
+- MoneyTree, reserve, hold, release и банковские guardrails не менять без отдельного money PR.
+- `data-testid` сохранять.
+- backend, DB, migrations, auth/RBAC core и live-интеграции не добавлять.
+
+## Реальная карта маршрутов
+
+Факт по файловой системе:
+
+- `apps/web/app/platform-v7` содержит 173 `page.tsx`.
+- Есть root layout: `apps/web/app/platform-v7/layout.tsx`.
+- Есть catch-all route: `apps/web/app/platform-v7/[...slug]/page.tsx`.
+- Есть зрелый not-found экран: `apps/web/app/platform-v7/not-found.tsx`.
+- Есть route aliases в `apps/web/lib/platform-v7/route-canonicalization.ts`.
+
+Ключевые пользовательские маршруты, уже покрытые smoke или route-map:
+
+- `/platform-v7`
+- `/platform-v7/control-tower`
+- `/platform-v7/deals`
+- `/platform-v7/deals/DL-9102`
+- `/platform-v7/deals/DL-9106/clean`
+- `/platform-v7/lots`
+- `/platform-v7/lots/create`
+- `/platform-v7/bank`
+- `/platform-v7/bank/release-safety`
+- `/platform-v7/buyer`
+- `/platform-v7/seller`
+- `/platform-v7/logistics`
+- `/platform-v7/driver/field`
+- `/platform-v7/elevator`
+- `/platform-v7/lab`
+- `/platform-v7/surveyor`
+- `/platform-v7/disputes`
+- `/platform-v7/disputes/DK-2024-89`
+- `/platform-v7/arbitrator`
+- `/platform-v7/compliance`
+- `/platform-v7/executive`
+- `/platform-v7/investor`
+- `/platform-v7/connectors`
+- `/platform-v7/documents`
+- `/platform-v7/support`
+
+Маршрутные факты и gaps:
+
+- `/platform-v7/deals/[id]` сейчас редиректит на `/platform-v7/deals/[id]/clean`.
+- `/platform-v7/deals/[id]/clean` является фактическим deal workspace.
+- `/platform-v7/integrations` редиректит на `/platform-v7/connectors`.
+- `/platform-v7/marketplace`, `/platform-v7/market`, `/platform-v7/field` канонизируются в существующие рабочие маршруты.
+- `/platform-v7/lots/new` отсутствует; есть `/platform-v7/lots/create` и `/platform-v7/seller/lots/new`.
+- `/platform-v7/audit-log` отсутствует как отдельная страница; журнал есть в сделке, support и `deals/[id]/audit`.
+- `/platform-v7/integrations/[provider]` отсутствует; есть общий alias на connectors и `/platform-v7/integrations/grain`.
+
+## Role pages
+
+Фактические роли platform-v7:
+
+- seller: `/platform-v7/seller`
+- buyer: `/platform-v7/buyer`
+- logistics: `/platform-v7/logistics`
+- driver: `/platform-v7/driver` и основной field-route `/platform-v7/driver/field`
+- elevator: `/platform-v7/elevator`
+- lab: `/platform-v7/lab`
+- surveyor: `/platform-v7/surveyor`
+- bank: `/platform-v7/bank`
+- operator: `/platform-v7/control-tower` и `/platform-v7/operator`
+- arbitrator: `/platform-v7/arbitrator`
+- compliance: `/platform-v7/compliance`
+- executive: `/platform-v7/executive`
+- investor: `/platform-v7/investor`
+
+Основная модель ролей и доступов:
+
+- `apps/web/lib/platform-v7/role-access.ts`
+- `apps/web/lib/platform-v7/security-rbac.ts`
+- `apps/web/lib/platform-v7/security-contracts.ts`
+- `apps/web/lib/platform-v7/grain-execution/automation/role-visibility-engine.ts`
+
+Ограничения, уже зафиксированные в коде:
+
+- driver закрыт от bank, investor, buyer, seller, connectors, role switch route и control tower.
+- bank закрыт от driver field route, lots create, connectors и driver action surface.
+- investor/executive имеют отдельные ограничения по полям и surface.
+- operator имеет самый широкий доступ.
+
+## Shell / header
+
+Фактическая оболочка:
+
+- `apps/web/app/platform-v7/layout.tsx` использует `AppShellV4`.
+- В layout также монтируются `ScopedShellGuard`, `SupportHeaderIcon`, `RoleHeaderSwitcher`, `RoleExecutionSummaryGate`, `AuditSurfaceSummaryGate`, `SystemRouteSummaryGate`, `WorkRouteNav`.
+- `AppShellV4` находится в `apps/web/components/v7r/AppShellV4.tsx`.
+
+Что уже есть:
+
+- фиксированная верхняя шапка;
+- brand zone: `Прозрачная Цена`;
+- subtitle: `Сделка · логистика · документы · деньги`;
+- command/search button;
+- role select на desktop;
+- mobile role button через drawer;
+- notification bell;
+- system status chips для ФГИС, банка и споров;
+- main content offset и `overflow-x: hidden`;
+- desktop/mobile media rules в inline CSS.
+
+Чего ещё нет относительно Living Execution Header:
+
+- нет Cause-to-Money execution zone `Деньги · Документы · Рейс · Качество · Спор`;
+- нет compact deal pulse в header;
+- нет TrustDot рядом с важными суммами/статусами;
+- нет shrink-on-scroll;
+- mobile role switch сейчас через drawer, не bottom sheet;
+- actionable alert model смешан с общими уведомлениями;
+- header не показывает главный blocker конкретной сделки без page-level props.
+
+Безопасная точка для PR-2:
+
+- не переписывать `AppShellV4` целиком;
+- добавить presentational header layer рядом с ним или постепенно выделить header content;
+- оставить `RoleHeaderSwitcher`, `SupportHeaderIcon`, `WorkRouteNav` и существующие `data-testid`.
+
+## P7 / existing UI layers
+
+Фактический UI слой:
+
+- `apps/web/components/platform-v7` содержит 91 файла.
+- `apps/web/components/v7r` содержит 59 файлов.
+- Основные P7 primitives:
+  - `P7Card.tsx`
+  - `P7Section.tsx`
+  - `P7Page.tsx`
+  - `P7Toolbar.tsx`
+  - `P7ActionLog.tsx`
+  - `P7ActionButton.tsx`
+  - `P7GuardedActionButton.tsx`
+  - `P7UiPrimitives.tsx`
+  - `p7Theme.ts`
+- Execution design layer:
+  - `ExecutionDesignSystem.tsx`
+  - `ExecutionDesignSystem.module.css`
+  - `lib/platform-v7/design/tokens.ts`
+  - `lib/platform-v7/design/execution-cockpit.ts`
+- Premium root experience:
+  - `components/platform-v7/premium/ExecutionUi.tsx`
+  - `components/platform-v7/premium/ExecutionUi.module.css`
+  - root `/platform-v7` renders `PlatformCommandCenterHub`.
+
+Вывод:
+
+- Вторую дизайн-систему создавать нельзя.
+- Visual Intelligence Layer нужно строить как presentational-first layer поверх P7 primitives, `p7Theme` и existing execution tokens.
+- Новый путь `apps/web/components/platform-v7/visual` сейчас отсутствует и безопасен для PR-1/PR-2 как additive layer.
+
+## Money surfaces
+
+Фактические деньги/банк/hold/release поверхности:
+
+- `apps/web/app/platform-v7/bank/page.tsx`
+- `apps/web/app/platform-v7/bank/release-safety/page.tsx`
+- `apps/web/app/platform-v7/deals/[id]/clean/page.tsx`
+- `apps/web/app/platform-v7/deals/[id]/money/page.tsx`
+- `apps/web/app/platform-v7/deals/grain-release/page.tsx`
+- `apps/web/app/platform-v7/control-tower/page.tsx`
+- `apps/web/components/platform-v7/MoneyImpactSummaryStrip.tsx`
+- `apps/web/components/platform-v7/MoneyGateCard.tsx`
+- `apps/web/components/platform-v7/MoneyTreeStrip.tsx`
+- `apps/web/components/platform-v7/P7MoneySafetyAuditStrip.tsx`
+- `apps/web/lib/platform-v7/domain/release-guard.ts`
+- `apps/web/lib/platform-v7/money-safety.ts`
+- `apps/web/lib/platform-v7/bank-release-decision.ts`
+- `apps/web/lib/domain/kpi/controlTower.ts`
+
+Текущая сильная сторона:
+
+- UI уже формулирует деньги через резерв, удержание, основание и банковскую проверку.
+- Есть release guard и отдельные bank/money tests.
+
+Риск:
+
+- В старых runtime surfaces ещё встречается словарь `hold/release/callback` как видимый или почти видимый технический язык.
+- Есть несколько CTA на некоторых экранах; для Visual Wow Core нужен один primary CTA в первом viewport.
+
+Безопасный следующий слой:
+
+- MoneyLockHalo должен быть purely presentational и принимать props: amount, state, source, blocker, nextStep.
+- Нельзя менять `evaluateReleaseGuard`, MoneyTree, release decision и bank operation logic.
+
+## Documents surfaces
+
+Фактические document surfaces:
+
+- `apps/web/app/platform-v7/documents/page.tsx`
+- `apps/web/app/platform-v7/deals/[id]/documents/page.tsx`
+- `apps/web/app/platform-v7/deals/[id]/transport-documents/page.tsx`
+- `apps/web/app/platform-v7/deals/grain-sdiz/page.tsx`
+- `apps/web/components/platform-v7/DocumentsMatrix.tsx`
+- `apps/web/components/platform-v7/DocumentsMatrixActions.tsx`
+- `apps/web/components/platform-v7/DocumentReadinessMiniMatrix.tsx`
+- `apps/web/components/platform-v7/DocumentGateCard.tsx`
+- `apps/web/components/platform-v7/DocumentPreviewGate.tsx`
+- `apps/web/lib/platform-v7/deal-workspace-documents.ts`
+- `apps/web/lib/platform-v7/document-access-control.ts`
+- `apps/web/lib/platform-v7/document-money-decision-pack.ts`
+- `apps/web/lib/platform-v7/server-document-gate.ts`
+
+Текущая сильная сторона:
+
+- DocumentsMatrix уже показывает source, status, owner, missing state и влияние на банковское основание.
+
+Gap для PR-1:
+
+- Нет унифицированного `DocumentImpactChip`.
+- Влияние документа на деньги/рейс/спор пока размазано по локальным labels.
+
+## Evidence / dispute surfaces
+
+Фактические evidence/dispute surfaces:
+
+- `apps/web/app/platform-v7/disputes/page.tsx`
+- `apps/web/app/platform-v7/disputes/[id]/page.tsx`
+- `apps/web/app/platform-v7/evidence-pack/page.tsx`
+- `apps/web/app/platform-v7/deals/[id]/evidence-pack/page.tsx`
+- `apps/web/components/platform-v7/EvidencePack.tsx`
+- `apps/web/components/platform-v7/EvidenceReadinessMiniMatrix.tsx`
+- `apps/web/components/platform-v7/P7EvidenceReadinessAuditStrip.tsx`
+- `apps/web/components/platform-v7/EvidenceDecisionPanel.tsx`
+- `apps/web/components/v7r/DealEvidencePackPreview.tsx`
+- `apps/web/components/v7r/EvidenceDisputeContinuityPanel.tsx`
+- `apps/web/lib/platform-v7/evidence-model.ts`
+- `apps/web/lib/platform-v7/evidence-pack.ts`
+- `apps/web/lib/platform-v7/evidence-readiness-matrix.ts`
+- `apps/web/lib/platform-v7/dispute-evidence-pack.ts`
+- `apps/web/lib/platform-v7/grain-execution/automation/evidence-pack-engine.ts`
+
+Текущая сильная сторона:
+
+- disputes page уже показывает причину, сумму влияния, SLA, ответственного, следующий шаг и доказательства.
+
+Gap для PR-1/PR-4:
+
+- Нет общего `ProofRibbon`.
+- Нет общего `EvidenceStrengthMeter`.
+- Timeline events ещё не в едином `TimelineWithImpact`.
+
+## Journal / audit surfaces
+
+Фактические journal/audit surfaces:
+
+- `apps/web/components/platform-v7/P7ActionLog.tsx`
+- `apps/web/components/platform-v7/JournalPreview.tsx`
+- `apps/web/app/platform-v7/deals/[id]/audit/page.tsx`
+- `apps/web/lib/platform-v7/action-log.ts`
+- `apps/web/lib/platform-v7/action-log-feedback.ts`
+- `apps/web/lib/platform-v7/audit-event-helper.ts`
+- `apps/web/lib/platform-v7/audit-events.ts`
+- `apps/web/lib/platform-v7/audit-trail.ts`
+- `apps/web/lib/platform-v7/deal-workspace-timeline.ts`
+- `apps/web/lib/platform-v7/journal-preview.ts`
+
+Gap:
+
+- Нет отдельного `/platform-v7/audit-log`.
+- Нет общего `TimelineChapters`.
+- Журнал местами показывает событие, но не всегда явно показывает последствие для денег, документа, рейса, качества или спора.
+
+## Deal workspace
+
+Фактический главный deal workspace:
+
+- `/platform-v7/deals/[id]` -> redirect to `/platform-v7/deals/[id]/clean`
+- implementation: `apps/web/app/platform-v7/deals/[id]/clean/page.tsx`
+- tabs: `apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx`
+- source: `apps/web/lib/platform-v7/deal360-source-of-truth.ts`
+- selectors: `apps/web/lib/domain/selectors.ts`
+
+Что уже отвечает ТЗ:
+
+- ID сделки, лот, статус, деньги, документы, маршрут и blockers видны.
+- Есть next action block.
+- Деньги уже связаны с release guard.
+
+Что нужно усилить в PR-3/PR-4:
+
+- CauseLine между blocker и money.
+- MoneyLockHalo вокруг ключевой суммы.
+- UnlockPath с текущим шагом.
+- DealMiniMap вместо длинной прокрутки.
+- FocusDetailMode `Главное / Детали`.
+- TimelineWithImpact для событий с последствиями.
+- MagneticActionDock с одним primary CTA.
+
+## Bank view
+
+Фактическая bank page:
+
+- `apps/web/app/platform-v7/bank/page.tsx`
+- использует `RoleExecutionCockpitPage` и bank cockpit model.
+- показывает очередь денег, reserve/release/hold, документы, внешние контуры, доказательства, action feedback и журнал.
+
+Сильная сторона:
+
+- Текст в текущей bank model уже фиксирует, что банк подтверждает статус, а платформа показывает основание.
+
+Gap:
+
+- Нет отдельного `BankCleanView`.
+- Страница ещё содержит много операционных блоков; для bank role нужен чистый срез: основание, сумма, документы, риски, ручная проверка, журнал.
+
+## Driver / field view
+
+Фактический driver field route:
+
+- `apps/web/app/platform-v7/driver/field/page.tsx`
+- `data-testid="platform-v7-driver-field-shell"`
+- использует `FieldDriverRuntime compact`.
+- есть dedicated mobile-focused smoke tests.
+
+Сильная сторона:
+
+- Driver field route уже отделён от общего банковского/инвесторского контекста.
+- В коде есть role leakage restrictions.
+
+Gap:
+
+- Нет `DriverBigTileMode` как общего presentational component.
+- Primary action есть в hero, но нет bottom action dock.
+- Не хватает унифицированной receipt after action.
+
+## Control Tower
+
+Фактический operator center:
+
+- `apps/web/app/platform-v7/control-tower/page.tsx`
+- использует `P7Page`, `P7Section`, `RoleExecutionCockpitContent`, `DomainControlTowerSummary`, `OperatorExecutionQueue`, `ExecutionSimulationActionPanel`, transport hotlist.
+
+Сильная сторона:
+
+- Очередь уже сортируется по severity, amount at risk и risk score.
+- Каждая строка имеет reason, owner, amount at risk и action.
+
+Gap:
+
+- Нет `OperatorRadar`.
+- В первом viewport может быть больше двух сильных visual blocks.
+- Нужна строгая группировка: Деньги / Документы / Рейсы / Споры / Риски.
+
+## Data layer and E01 queue facts
+
+Прямые импорты `@/lib/v7r/data` всё ещё есть в runtime и selector слоях:
+
+- `apps/web/components/v7r/DealsOverviewRuntime.tsx`
+- `apps/web/components/v7r/BankRuntime.tsx`
+- `apps/web/components/v7r/AppShellV4.tsx`
+- `apps/web/components/v7r/AppShellV3.tsx`
+- `apps/web/components/v7r/DealDetailRuntime.tsx`
+- `apps/web/components/v7r/CatchAllPage.tsx`
+- `apps/web/lib/domain/fixtureSource.ts`
+- `apps/web/lib/domain/selectors.ts`
+- `apps/web/lib/domain/adapters.ts` as type import
+
+PR-0 не меняет это. Для E01 после Visual Wow PRs безопасный порядок остаётся:
+
+1. маленькие stores/selectors;
+2. runtime files до 300 строк;
+3. средние runtime files;
+4. `CatchAllPage` только частями.
+
+## Mobile risks
+
+Проверочные стандарты уже частично есть:
+
+- `platform-v7-mobile-overflow-gate.spec.ts` проверяет 375/390/414/768/1440.
+- `platform-v7-route-map-smoke.spec.ts` проверяет route rendering и horizontal overflow.
+- `platform-v7-driver-field-mobile-pass.spec.ts` и related specs защищают driver route.
+- `PLATFORM_V7_QA_VIEWPORTS` в `visual-qa-guardrails.ts` содержит 360, 375, 430, 768, 1024 и desktop widths.
+
+Фактические mobile risks:
+
+- AppShellV4 mobile header сжимает desktop controls, но не является отдельным `MobileExecutionHeader`.
+- Role switch на mobile через side drawer, не через bottom sheet.
+- Search через command overlay есть, но не оформлен как mobile command layer из ТЗ.
+- `/platform-v7/deals` включает legacy runtime list below custom cards; нужно проверить single CTA и первый viewport после PR-1/PR-3.
+- Некоторые legacy surfaces всё ещё имеют таблицы или dense grids; smoke tests ловят overflow, но не ловят cognitive overload.
+- `prefers-reduced-motion: reduce` есть в premium UI CSS и exhibition CSS, но не в едином platform-v7 final polish layer.
+
+## Existing QA gates
+
+Факты:
+
+- `apps/web/tests` содержит 525 файлов.
+- E2E platform-v7 specs покрывают route smoke, mobile overflow, forbidden copy, role leakage, driver field, bank release action, documents matrix/actions, action feedback, visual smoke.
+- Unit tests покрывают role access, shell model, navigation, money safety, release guard, evidence, documents, bank, driver isolation, visual QA guardrails.
+
+Ключевые уже существующие gates:
+
+- `apps/web/tests/e2e/platform-v7-route-map-smoke.spec.ts`
+- `apps/web/tests/e2e/platform-v7-mobile-overflow-gate.spec.ts`
+- `apps/web/tests/e2e/platform-v7-forbidden-copy-gate.spec.ts`
+- `apps/web/tests/e2e/platform-v7-role-leakage-deep.spec.ts`
+- `apps/web/tests/e2e/platform-v7-driver-field-mobile-pass.spec.ts`
+- `apps/web/tests/e2e/platform-v7-bank-release-action-visibility.spec.ts`
+- `apps/web/tests/e2e/platform-v7-action-feedback-gate.spec.ts`
+- `apps/web/tests/unit/platformV7VisualQaGuardrails.test.ts`
+- `apps/web/tests/unit/platformV7MoneyReleaseBankConfirmation.spec.ts`
+- `apps/web/tests/unit/platformV7DriverRoleIsolation.test.ts`
+
+PR-10 should extend, not replace, these gates.
+
+## Forbidden / risky copy inventory
+
+Maturity overclaim class:
+
+- App code search did not show direct positive claims of industrial readiness, complete live integration, payment guarantee, no-risk or no-analogue messaging in active `platform-v7` UI.
+- Guardrail files and historical docs intentionally contain banned phrases as negative examples; keep them out of visible UI and new PR descriptions unless a test specifically requires them.
+
+Visible technical/dev-language candidates to clean later:
+
+- `apps/web/app/platform-v7/buyer/financing/page.tsx`
+- `apps/web/app/platform-v7/evidence-pack/page.tsx`
+- `apps/web/app/platform-v7/market-rfq/page.tsx`
+- `apps/web/app/platform-v7/seller/fgis-parties/page.tsx`
+- `apps/web/components/platform-v7/BankManualReviewPanel.tsx`
+- `apps/web/components/platform-v7/BankBeneficiariesPanel.tsx`
+- `apps/web/components/v7r/RoleActionDispatchBridge.tsx`
+- `apps/web/components/v7r/ExecutionSimulationActionPanel.tsx`
+- `apps/web/components/v7r/BankRuntime.tsx`
+- `apps/web/components/v7r/CatchAllPage.tsx`
+- `apps/web/app/platform-v7/[...slug]/page.tsx`
+
+Rule for future copy PR:
+
+- Replace technical/test lexicon with trust-layer wording.
+- Keep the honest boundary: external connections require contracts, access and confirmation on real deals.
+- Do not repeat disclaimers on every card; use `TrustDot`.
+
+## Safe edit zones for PR-1
+
+Best next additive files:
+
+- `apps/web/components/platform-v7/visual/DealStatusEdge.tsx`
+- `apps/web/components/platform-v7/visual/TrustDot.tsx`
+- `apps/web/components/platform-v7/visual/SmartSectionSummary.tsx`
+- `apps/web/components/platform-v7/visual/DocumentImpactChip.tsx`
+- `apps/web/components/platform-v7/visual/ProofRibbon.tsx`
+
+Preferred implementation constraints:
+
+- presentational-first props only;
+- no data fetch;
+- no domain model changes;
+- no new business statuses;
+- no MoneyTree/release/hold/reserve changes;
+- no `data-testid` deletion;
+- CSS scoped through component classes or platform-v7 CSS variables;
+- use existing P7 tone/tokens where possible;
+- mobile safe by default;
+- no animation without reduced-motion fallback.
+
+Safe minimal integration candidates after primitives exist:
+
+- `/platform-v7/deals` cards: DealStatusEdge, TrustDot, compact ProofRibbon, SmartSectionSummary.
+- `/platform-v7/deals/[id]/clean`: only additive visual wrappers around existing money/docs/cockpit blocks.
+- `/platform-v7/control-tower`: one OperatorRadar-light summary only after PR-1 primitives.
+
+Do not touch in PR-1:
+
+- `apps/landing`
+- Money release logic
+- bank guard logic
+- data fixtures
+- route canonicalization
+- AppShellV4 rewrite
+- role access matrices
+- package files
+
+## PR-0 conclusion
+
+Platform-v7 already has a strong controlled-pilot execution backbone: role cockpit models, money guardrails, document matrix, evidence/dispute surfaces, action feedback strips, driver field shell, route and mobile gates.
+
+The main visual gap is not missing business logic. The gap is a unified Visual Intelligence Layer that makes the existing execution logic readable in 5-10 seconds:
+
+- one blocker;
+- one money impact;
+- one responsible owner;
+- one primary action;
+- clear consequence in the journal;
+- trust/source indicator without repeated disclaimers.
+
+Next safe step: PR-1 Visual primitives as additive presentational components, then minimal mounting on one or two low-risk surfaces.

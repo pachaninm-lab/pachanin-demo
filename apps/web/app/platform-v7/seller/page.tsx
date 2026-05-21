@@ -135,7 +135,7 @@ export default function PlatformV7SellerPage() {
       <MoneyImpactSummaryStrip
         amountContext='резерв 9,65 млн ₽ · на проверку банку 0 ₽'
         pilotState='waiting'
-        pilotStateLabel='пилотный контур · ожидание документов'
+        pilotStateLabel='контур исполнения · ожидание документов'
         responsible='продавец · ФГИС «Зерно»'
         nextStep='закрыть СДИЗ и ЭТрН для передачи основания банку на проверку'
         stopReason='банковская проверка остановлена: СДИЗ и ЭТрН не закрыты'

@@ -37,6 +37,12 @@ const readinessRows = [
   { id: 'documents', label: 'Документы и СДИЗ', gate: readiness.documents, responsible: 'Продавец', block: 'отгрузку и основание выплаты' },
   { id: 'bank', label: 'Резерв и банк', gate: readiness.bank, responsible: 'Покупатель · банк', block: 'проверку выплаты' },
   { id: 'dispute', label: 'Спор и удержание', gate: readiness.dispute, responsible: 'Оператор', block: 'выпуск денег банком' },
+  { id: 'fgis', label: 'ФГИС и партия', gate: readiness.fgis, responsible: 'Продавец', block: 'допуск партии' },
+  { id: 'quality', label: 'Качество и лаборатория', gate: readiness.quality, responsible: 'Лаборатория', block: 'приёмку и цену' },
+  { id: 'logistics', label: 'Логистика и рейс', gate: readiness.logistics, responsible: 'Логистика', block: 'вывоз и срок' },
+  { id: 'documents', label: 'Документы и СДИЗ', gate: readiness.documents, responsible: 'Продавец', block: 'отгрузку и выплату' },
+  { id: 'bank', label: 'Резерв и банк', gate: readiness.bank, responsible: 'Покупатель · банк', block: 'проверку выплаты' },
+  { id: 'dispute', label: 'Спор и удержание', gate: readiness.dispute, responsible: 'Оператор', block: 'удержание и банковскую проверку' },
   { id: 'antiBypass', label: 'Контакты и обход', gate: readiness.antiBypass, responsible: 'Платформа', block: 'удержание сделки в контуре' },
 ] as const;
 

@@ -15,6 +15,9 @@ import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSum
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
 import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
 import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedbackPreviewStrip';
+import { BankCompliancePilotPanel } from '@/components/platform-v7/BankCompliancePilotPanel';
+import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
+import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -203,6 +206,8 @@ export default function PlatformV7BankPage() {
         documentState='СДИЗ, ЭТрН, УПД, приёмка, качество'
         stopReason='удержание до закрытия условий'
       />
+
+      <BankCompliancePilotPanel mode='bank' />
 
       <DisclosureSection title='Документы и основания' meta='СДИЗ, ЭТрН, УПД, акт, качество · раскрыть детали'>
         <DocumentsMatrix />

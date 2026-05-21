@@ -42,6 +42,7 @@ const BASE_PROPS = {
   amountContext: 'резерв 9,65 млн ₽ · к выплате 0 ₽',
   pilotState: 'waiting' as const,
   pilotStateLabel: 'пилотный контур · ожидание',
+  pilotStateLabel: 'контур исполнения · ожидание',
   responsible: 'продавец · ФГИС «Зерно»',
   nextStep: 'закрыть СДИЗ и ЭТрН',
 };
@@ -93,6 +94,7 @@ describe('MoneyImpactSummaryStrip component', () => {
         amountContext='в резерве 15,89 млн ₽'
         pilotState='blocked'
         pilotStateLabel='пилотный контур · удержание до закрытия условий'
+        pilotStateLabel='контур исполнения · удержание до закрытия условий'
         responsible='банк · оператор'
         nextStep='ручная сверка после закрытия условий'
         stopReason='банковская проверка выплаты остановлена'
@@ -109,6 +111,7 @@ describe('MoneyImpactSummaryStrip component', () => {
         amountContext='в резерве 15,89 млн ₽ · к выплате 0 ₽'
         pilotState='blocked'
         pilotStateLabel='пилотный контур · удержание до закрытия условий'
+        pilotStateLabel='контур исполнения · удержание до закрытия условий'
         responsible='банк · оператор'
         nextStep='ручная сверка после закрытия условий'
         stopReason='банковская проверка выплаты остановлена'
@@ -128,6 +131,7 @@ describe('MoneyImpactSummaryStrip component', () => {
         amountContext='резерв 9,65 млн ₽ · удержание 624 тыс. ₽'
         pilotState='waiting'
         pilotStateLabel='пилотный контур · ожидание подтверждения'
+        pilotStateLabel='контур исполнения · ожидание подтверждения'
         responsible='покупатель · банк'
         nextStep='ожидать банковского подтверждения резерва'
         stopReason='сделка не переходит к логистике до банковского подтверждения'
@@ -154,6 +158,7 @@ describe('MoneyImpactSummaryStrip component', () => {
         amountContext='резерв 9,65 млн ₽'
         pilotState='waiting'
         pilotStateLabel='пилотный контур · ожидание'
+        pilotStateLabel='контур исполнения · ожидание'
         responsible='банк · оператор'
         nextStep='ручная сверка'
         stopReason='проверка выплаты остановлена'

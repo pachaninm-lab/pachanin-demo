@@ -1,4 +1,5 @@
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
+import { BankCompliancePilotPanel } from '@/components/platform-v7/BankCompliancePilotPanel';
 import { ComplianceRuntime } from '@/components/v7r/ComplianceRuntime';
 
 export default function CompliancePage() {
@@ -11,6 +12,7 @@ export default function CompliancePage() {
         }
       `}</style>
       <div className="p7-compliance-summary"><RoleExecutionSummary role="compliance" /></div>
+      <BankCompliancePilotPanel mode="compliance" />
       <ComplianceRuntime />
     </div>
   );

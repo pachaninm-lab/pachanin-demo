@@ -44,7 +44,7 @@ const MODULES = [
   },
   {
     title: 'Онбординг компании',
-    readiness: 'Пилотный интерфейс',
+    readiness: 'Рабочий интерфейс',
     note: 'Есть 6-шаговый вход от компании до первого лота.',
     href: '/platform-v7/onboarding',
   },
