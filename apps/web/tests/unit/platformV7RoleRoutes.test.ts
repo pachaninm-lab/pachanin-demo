@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import {
   PLATFORM_V7_BUYER_ROUTE,
   PLATFORM_V7_COMMAND_ROUTE_SURFACE,
@@ -15,6 +16,25 @@ import {
   PLATFORM_V7R_ROLES_ROUTE,
   PLATFORM_V7R_SURVEYOR_ROUTE,
 } from '@/lib/platform-v7/routes';
+import {
+  platformV7NavByRole,
+  platformV7RoleRoute,
+} from '@/lib/platform-v7/shellRoutes';
+
+const canonicalShellRoleRoutes: Record<PlatformRole, string | null> = {
+  operator: null,
+  buyer: null,
+  seller: null,
+  logistics: null,
+  driver: '/platform-v7/driver/field',
+  surveyor: '/platform-v7/surveyor',
+  elevator: '/platform-v7/elevator',
+  lab: '/platform-v7/lab',
+  bank: null,
+  arbitrator: '/platform-v7/arbitrator',
+  compliance: null,
+  executive: '/platform-v7/executive',
+};
 
 describe('platform-v7 role route registry', () => {
   it('keeps role hub and operator routes in the command surface', () => {
@@ -63,5 +83,23 @@ describe('platform-v7 role route registry', () => {
       expect(route.includes('/platform-v4')).toBe(false);
       expect(route.includes('/platform-v9')).toBe(false);
     }
+  });
+
+  it('keeps key shell role switches on canonical platform-v7 pages', () => {
+    for (const [role, expectedRoute] of Object.entries(canonicalShellRoleRoutes) as Array<[PlatformRole, string | null]>) {
+      if (!expectedRoute) continue;
+
+      expect(platformV7RoleRoute(role)).toBe(expectedRoute);
+      expect(platformV7RoleRoute(role).startsWith('/platform-v7/')).toBe(true);
+      expect(platformV7RoleRoute(role).startsWith('/platform-v7r/')).toBe(false);
+    }
+  });
+
+  it('keeps driver shell navigation isolated to the own field route', () => {
+    const driverNav = platformV7NavByRole('driver');
+
+    expect(driverNav).toEqual([{ href: '/platform-v7/driver/field', label: 'Мой маршрут' }]);
+    expect(driverNav.map((item) => item.href).join(' ')).not.toContain('/platform-v7/deals');
+    expect(driverNav.map((item) => item.href).join(' ')).not.toContain('/platform-v7/logistics');
   });
 });
