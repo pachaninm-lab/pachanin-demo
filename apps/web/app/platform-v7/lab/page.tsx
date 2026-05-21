@@ -8,22 +8,37 @@ import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 const labSteps = [
   { label: 'Проба', value: 'отбор и фиксация', note: 'кто взял, когда, по какому рейсу' },
   { label: 'Показатели', value: 'влага, сорность, клейковина', note: 'цифры должны быть видны без спора о словах' },
-  { label: 'Отклонение', value: 'причина и комментарий', note: 'что не прошло допуск и почему' },
-  { label: 'Протокол', value: 'допуск или не допущено', note: 'основание уходит в контур документов' },
+  { label: 'Отклонение', value: 'сорная примесь 2,4%', note: 'допуск до 2% — нужен протокол' },
+  { label: 'Протокол', value: 'ожидает решения', note: 'допуск или отказ уходит в документы' },
 ] as const;
 
 export default function Page() {
   return (
-    <div style={{ display: 'grid', gap: 18 }}>
-      <QuietIntelligenceHint
-        problem='Сорная примесь 2,4% превышает допуск 2% — протокол качества не закрыт.'
-        action='Зафиксировать показатели и выдать протокол с допуском или отказом.'
-        outcome='Протокол уйдёт в контур документов как основание для банковской проверки.'
-      />
-      <section style={hero}>
+    <div data-testid="platform-v7-lab-page" style={{ display: 'grid', gap: 18 }}>
+      <style>{`
+        @media(max-width:767px){
+          [data-testid='platform-v7-lab-page']{gap:10px!important}
+          .p7-lab-intel,.p7-lab-proof,.p7-lab-trust,.p7-lab-summary,.p7-lab-continuity{display:none!important}
+          .p7-lab-hero{padding:16px!important;border-radius:24px!important;gap:10px!important}
+          .p7-lab-hero h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}
+          .p7-lab-hero p{display:none!important}
+          .p7-lab-steps{grid-template-columns:1fr 1fr!important;gap:8px!important}
+          .p7-lab-steps > div:nth-child(1),.p7-lab-steps > div:nth-child(2){display:none!important}
+          .p7-lab-step{padding:13px!important;border-radius:16px!important;gap:5px!important}
+          .p7-lab-step strong{font-size:14px!important;line-height:1.25!important}
+        }
+      `}</style>
+      <div className="p7-lab-intel">
+        <QuietIntelligenceHint
+          problem="Сорная примесь 2,4% превышает допуск 2% — протокол качества не закрыт."
+          action="Зафиксировать показатели и выдать протокол с допуском или отказом."
+          outcome="Протокол уйдёт в контур документов как основание для дальнейшей проверки."
+        />
+      </div>
+      <section className="p7-lab-hero" style={hero}>
         <div style={{ display: 'grid', gap: 9, maxWidth: 840 }}>
           <div style={badge}>
-            Лаборатория как доказательство качества
+            Лаборатория · качество и протокол
           </div>
           <h1 style={h1}>
             Проба, показатели и протокол качества
@@ -33,9 +48,9 @@ export default function Page() {
           </p>
         </div>
 
-        <div style={stepsGrid}>
+        <div className="p7-lab-steps" style={stepsGrid}>
           {labSteps.map((item) => (
-            <div key={item.label} style={stepCard}>
+            <div key={item.label} className="p7-lab-step" style={stepCard}>
               <span style={micro}>{item.label}</span>
               <strong style={{ color: '#0F1419', fontSize: 15, lineHeight: 1.35 }}>{item.value}</strong>
               <span style={{ color: '#64748B', fontSize: 12, lineHeight: 1.4 }}>{item.note}</span>
@@ -44,17 +59,19 @@ export default function Page() {
         </div>
       </section>
 
-      <CauseLine
-        cause={{ text: 'Протокол качества не выдан', tone: 'blocked' }}
-        relation='blocks'
-        effect={{ text: 'Расчёт и банковская проверка заблокированы', tone: 'blocked' }}
-        moneyAmount='9,65 млн ₽'
-        moneyTone='hold'
-      />
-      <TrustDot state='test' size='sm' label='Тестовый контур · ФГБУ ЦОК АПК требует договора' />
+      <div className="p7-lab-proof">
+        <CauseLine
+          cause={{ text: 'Протокол качества не выдан', tone: 'blocked' }}
+          relation="blocks"
+          effect={{ text: 'Пакет документов по качеству не закрыт', tone: 'blocked' }}
+        />
+      </div>
+      <div className="p7-lab-trust">
+        <TrustDot state="test" size="sm" label="Тестовый контур · ФГБУ ЦОК АПК требует договора" />
+      </div>
 
-      <RoleExecutionSummary role="lab" />
-      <RoleContinuityPanel role="lab" compact />
+      <div className="p7-lab-summary"><RoleExecutionSummary role="lab" /></div>
+      <div className="p7-lab-continuity"><RoleContinuityPanel role="lab" compact /></div>
       <FieldLabRuntime />
     </div>
   );
