@@ -2,26 +2,99 @@ import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } fro
 import * as https from 'https';
 import * as http from 'http';
 
+type PlatformRole =
+  | 'FARMER' | 'BUYER' | 'LOGISTICIAN' | 'DRIVER'
+  | 'ACCOUNTING' | 'BANK' | 'SUPPORT_MANAGER'
+  | 'LAB' | 'ELEVATOR' | 'EXECUTIVE' | 'ADMIN';
+
 interface UserSettings {
   chatId: number;
   firstName?: string;
   username?: string;
   approved: boolean;
   pending: boolean;
+  role?: PlatformRole;
+  linkedUserId?: string;
   muted: boolean;
   mutedTypes: Set<string>;
   dailyReport: boolean;
   weeklyReport: boolean;
   banned: boolean;
-  linkedUserId?: string;
   referralCode: string;
-  referredBy?: number;
   joinedAt: string;
   priceAlerts: Map<string, number>;
   blacklist: string[];
   supportMode: boolean;
   lang: 'ru';
 }
+
+const ROLE_LABELS: Record<PlatformRole, string> = {
+  FARMER:          'Фермер / Продавец',
+  BUYER:           'Покупатель',
+  LOGISTICIAN:     'Логист',
+  DRIVER:          'Водитель',
+  ACCOUNTING:      'Бухгалтер',
+  BANK:            'Банк',
+  SUPPORT_MANAGER: 'Менеджер поддержки',
+  LAB:             'Лаборатория',
+  ELEVATOR:        'Элеватор',
+  EXECUTIVE:       'Руководитель',
+  ADMIN:           'Администратор',
+};
+
+// Команды доступные каждой роли
+const ROLE_COMMANDS: Record<PlatformRole, string[]> = {
+  FARMER: [
+    '/lots', '/lot', '/deals', '/deal',
+    '/docs', '/shipments', '/shipment', '/track',
+    '/price', '/prices', '/chart', '/alert', '/alerts',
+    '/calculator', '/support', '/faq',
+    '/mute', '/unmute', '/settings', '/report', '/remind', '/reminders',
+  ],
+  BUYER: [
+    '/search', '/lots', '/lot', '/deals', '/deal',
+    '/docs', '/payments', '/balance', '/disputes', '/dispute',
+    '/price', '/prices', '/chart', '/alert', '/alerts',
+    '/calculator', '/support', '/faq',
+    '/mute', '/unmute', '/settings', '/report', '/remind', '/reminders',
+  ],
+  LOGISTICIAN: [
+    '/shipments', '/shipment', '/track', '/deals', '/deal',
+    '/support', '/faq', '/settings', '/mute', '/unmute',
+  ],
+  DRIVER: [
+    '/shipments', '/shipment', '/track',
+    '/support', '/faq', '/settings',
+  ],
+  ACCOUNTING: [
+    '/payments', '/balance', '/export', '/deals', '/deal',
+    '/support', '/faq', '/settings', '/mute', '/unmute',
+  ],
+  BANK: [
+    '/payments', '/balance', '/deals', '/deal',
+    '/support', '/faq', '/settings',
+  ],
+  SUPPORT_MANAGER: [
+    '/disputes', '/dispute', '/deals', '/deal',
+    '/lots', '/lot', '/docs', '/shipments', '/shipment',
+    '/support', '/faq', '/settings', '/mute', '/unmute',
+  ],
+  LAB: [
+    '/deals', '/deal', '/docs',
+    '/support', '/faq', '/settings',
+  ],
+  ELEVATOR: [
+    '/shipments', '/shipment', '/track',
+    '/support', '/faq', '/settings',
+  ],
+  EXECUTIVE: [
+    '/deals', '/deal', '/lots', '/lot',
+    '/payments', '/balance', '/export',
+    '/price', '/prices', '/chart',
+    '/support', '/faq', '/settings', '/mute', '/unmute',
+  ],
+  ADMIN: [], // проверяется отдельно — всё разрешено
+};
 
 interface ReminderEntry {
   id: string;
@@ -134,6 +207,24 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
       return void this.sendMessage(chatId, `⛔️ Для доступа к боту напишите /start`);
     }
 
+    // одобрен, но не привязал аккаунт — только базовые команды
+    const freeCommands = ['/help', '/about', '/link', '/status', '/ping', '/id', '/support', '/faq'];
+    if (!user.linkedUserId && !freeCommands.includes(cmd) && chatId !== ADMIN_CHAT_ID) {
+      return void this.sendMessage(chatId,
+        `🔗 Для доступа к командам привяжите аккаунт платформы:\n\n<code>/link ВАШ-КОД</code>\n\nКод находится в личном кабинете → Настройки → Telegram.`
+      );
+    }
+
+    // проверка роли — админ бота и ADMIN роль получают всё
+    if (user.linkedUserId && user.role && chatId !== ADMIN_CHAT_ID && user.role !== 'ADMIN') {
+      const allowed = ROLE_COMMANDS[user.role] || [];
+      if (!allowed.includes(cmd)) {
+        return void this.sendMessage(chatId,
+          `⛔️ Команда <code>${cmd}</code> недоступна для роли <b>${ROLE_LABELS[user.role]}</b>.\n\n/help — ваши команды`
+        );
+      }
+    }
+
     // режим поддержки — пересылаем в админ
     if (user.supportMode && !msg.text.startsWith('/')) {
       void this.forwardToAdmin(chatId, msg.text, msg.from);
@@ -211,6 +302,22 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     const chatId: number = query.message.chat.id;
     const data: string = query.data;
     await this.callApi('answerCallbackQuery', { callback_query_id: query.id });
+
+    if (data.startsWith('setrole:')) {
+      const [, targetId, role] = data.split(':');
+      const u = this.users.get(Number(targetId));
+      if (u) {
+        u.role = role as PlatformRole;
+        const label = ROLE_LABELS[role as PlatformRole];
+        await this.sendMessage(Number(targetId),
+          `✅ <b>Роль подтверждена: ${label}</b>\n\n` +
+          `Теперь у вас есть доступ к функциям платформы.\n\n/help — ваши команды`,
+          { reply_markup: this.mainMenuKeyboard() }
+        );
+        return void this.sendMessage(chatId, `✅ Роль <b>${label}</b> назначена пользователю ${targetId}.`);
+      }
+      return void this.sendMessage(chatId, `Пользователь не найден.`);
+    }
 
     if (data.startsWith('approve:')) {
       const targetId = Number(data.slice(8));
@@ -321,21 +428,45 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
   }
 
   private async cmdHelp(chatId: number) {
+    const user = this.getOrCreateUser(chatId);
+
+    // не привязан — только базовые команды
+    if (!user.linkedUserId && chatId !== ADMIN_CHAT_ID) {
+      return void this.sendMessage(chatId,
+        `<b>Доступные команды:</b>\n\n` +
+        `/link &lt;код&gt; — привязать аккаунт платформы\n` +
+        `/about — о платформе\n` +
+        `/status — статус сервиса\n` +
+        `/support — написать в поддержку\n` +
+        `/faq — частые вопросы\n\n` +
+        `Для полного доступа привяжите аккаунт:\n<code>/link ВАШ-КОД</code>`
+      );
+    }
+
+    // админ видит всё
+    if (chatId === ADMIN_CHAT_ID || user.role === 'ADMIN') {
+      return void this.sendMessage(chatId,
+        `<b>Все команды (Администратор):</b>\n\n` +
+        `<b>Пользователи</b>\n/pending /approve /reject /users /ban /unban\n\n` +
+        `<b>Сделки и лоты</b>\n/deals /deal /lots /lot /search /docs /payments /balance\n` +
+        `/disputes /dispute /shipments /shipment /track\n\n` +
+        `<b>Цены</b>\n/prices /price /chart /alert /alerts\n\n` +
+        `<b>Инструменты</b>\n/calculator /export /stats /broadcast\n\n` +
+        `<b>Прочее</b>\n/weather /currency /news /demo /settings /support /faq`
+      );
+    }
+
+    // команды по роли
+    const role = user.role;
+    if (!role) {
+      return void this.sendMessage(chatId,
+        `Аккаунт привязан, ожидайте подтверждения роли администратором.`
+      );
+    }
+    const cmds = ROLE_COMMANDS[role].join(' ');
     await this.sendMessage(chatId,
-      `<b>Все команды:</b>\n\n` +
-      `<b>Основные</b>\n/start /help /menu /id /about /profile\n/link /unlink\n\n` +
-      `<b>Мониторинг</b>\n/status /ping /health /uptime\n\n` +
-      `<b>Сделки и лоты</b>\n/deals /deal &lt;ID&gt; /lots /lot &lt;ID&gt;\n/search &lt;запрос&gt; /docs /payments /balance\n` +
-      `/disputes /dispute /shipments /shipment /track\n\n` +
-      `<b>Цены</b>\n/price &lt;культура&gt; /prices /chart &lt;культура&gt;\n` +
-      `/alert &lt;культура&gt; &lt;цена&gt; /alerts\n\n` +
-      `<b>Уведомления</b>\n/mute /unmute /settings /report /export\n\n` +
-      `<b>Напоминания</b>\n/remind &lt;текст&gt; &lt;1h/24h/7d&gt; /reminders\n\n` +
-      `<b>Поддержка</b>\n/support /faq /feedback\n\n` +
-      `<b>Информация</b>\n/features /roadmap /news /weather /currency\n\n` +
-      `<b>Инструменты</b>\n/calculator /invite /rating /blacklist\n\n` +
-      `<b>Демо</b>\n/demo /demo deal/lot/dispute/payment/doc/logistics/auction\n\n` +
-      `<b>Админ</b>\n/broadcast /stats /users /ban /unban`
+      `<b>Ваши команды</b> (${ROLE_LABELS[role]}):\n\n${cmds}\n\n` +
+      `/about — о платформе\n/status — статус\n/profile — профиль`
     );
   }
 
@@ -379,14 +510,31 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     );
   }
 
-  private async cmdLink(chatId: number, userId: string) {
-    if (!userId) {
+  private async cmdLink(chatId: number, code: string) {
+    if (!code) {
       return void this.sendMessage(chatId,
         `Укажите код из личного кабинета:\n<code>/link ВАШ-КОД</code>\n\n` +
         `Найти код: Настройки → Telegram → Код привязки`);
     }
-    this.getOrCreateUser(chatId).linkedUserId = userId;
-    await this.sendMessage(chatId, `✅ Аккаунт <code>${userId}</code> привязан к этому чату.\nТеперь вы будете получать персональные уведомления.`);
+    const user = this.getOrCreateUser(chatId);
+    user.linkedUserId = code;
+    await this.sendMessage(chatId,
+      `✅ Код <code>${code}</code> принят.\n\n⏳ Ожидайте — администратор подтвердит вашу роль на платформе.`
+    );
+    // уведомляем админа с выбором роли
+    if (ADMIN_CHAT_ID) {
+      const name = user.firstName || String(chatId);
+      const roleButtons = (Object.keys(ROLE_LABELS) as PlatformRole[]).map(r => ([{
+        text: ROLE_LABELS[r], callback_data: `setrole:${chatId}:${r}`,
+      }]));
+      await this.sendMessage(ADMIN_CHAT_ID,
+        `🔗 <b>Запрос на привязку аккаунта</b>\n\n` +
+        `Пользователь: <b>${name}</b> (<code>${chatId}</code>)\n` +
+        `Код: <code>${code}</code>\n\n` +
+        `Выберите роль:`,
+        { reply_markup: { inline_keyboard: roleButtons } }
+      );
+    }
   }
 
   private async cmdUnlink(chatId: number) {
