@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { TelegramService } from '../telegram/telegram.service';
 
 export interface Notification {
   id: string;
@@ -11,9 +12,19 @@ export interface Notification {
 
 const MAX_NOTIFICATIONS = 200;
 
+const TYPE_EMOJI: Record<string, string> = {
+  DEAL: '🤝',
+  LOT: '📦',
+  DOCUMENT: '📄',
+  DISPUTE: '⚖️',
+  PAYMENT: '💳',
+};
+
 @Injectable()
 export class NotificationsService {
   private readonly notifications: Notification[] = [];
+
+  constructor(@Optional() private readonly telegram?: TelegramService) {}
 
   send(to: string, message: string, type: string) {
     const notification: Notification = {
@@ -28,6 +39,10 @@ export class NotificationsService {
     if (this.notifications.length > MAX_NOTIFICATIONS) {
       this.notifications.splice(0, this.notifications.length - MAX_NOTIFICATIONS);
     }
+
+    const emoji = TYPE_EMOJI[type] ?? '🔔';
+    void this.telegram?.broadcast(`${emoji} <b>${type}</b>\n\n${message}`);
+
     return notification;
   }
 

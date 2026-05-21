@@ -7,6 +7,7 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
   private readonly token = process.env.TELEGRAM_BOT_TOKEN;
   private polling = false;
   private offset = 0;
+  private readonly registeredChats = new Set<number>();
 
   onApplicationBootstrap() {
     if (!this.token) {
@@ -31,19 +32,51 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     }
   }
 
+  async broadcast(text: string): Promise<void> {
+    for (const chatId of this.registeredChats) {
+      await this.sendMessage(chatId, text);
+    }
+  }
+
   handleUpdate(update: any): void {
     const msg = update?.message;
     if (!msg?.text) return;
-    const chatId = msg.chat.id;
+    const chatId: number = msg.chat.id;
     const text = (msg.text as string).trim();
 
     if (text === '/start') {
+      this.registeredChats.add(chatId);
       void this.sendMessage(
         chatId,
-        `Добро пожаловать в <b>Прозрачная Цена</b>!\n\nЭтот бот отправляет уведомления о ваших сделках и лотах.\n\nВаш Chat ID: <code>${chatId}</code>`,
+        `Добро пожаловать в <b>Прозрачная Цена</b>!\n\nЭтот бот отправляет уведомления о ваших сделках и лотах.\n\nВаш Chat ID: <code>${chatId}</code>\n\nНапишите /help чтобы узнать что я умею.`,
       );
     } else if (text === '/id') {
+      this.registeredChats.add(chatId);
       void this.sendMessage(chatId, `Ваш Chat ID: <code>${chatId}</code>`);
+    } else if (text === '/help') {
+      void this.sendMessage(
+        chatId,
+        `<b>Что я умею:</b>\n\n` +
+        `/start — регистрация и приветствие\n` +
+        `/id — показать ваш Chat ID\n` +
+        `/help — список команд\n` +
+        `/status — статус платформы\n\n` +
+        `После регистрации (/start) буду присылать уведомления о:\n` +
+        `• новых сделках\n` +
+        `• изменении статуса лотов\n` +
+        `• новых документах\n` +
+        `• спорах`,
+      );
+    } else if (text === '/status') {
+      void this.sendMessage(
+        chatId,
+        `<b>Статус платформы:</b> ✅ работает\n\nAPI: <code>http://localhost:4000</code>`,
+      );
+    } else {
+      void this.sendMessage(
+        chatId,
+        `Я не понимаю эту команду.\n\nНапишите /help — список того, что я умею.`,
+      );
     }
   }
 
@@ -93,11 +126,7 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
           let data = '';
           res.on('data', (chunk) => { data += chunk; });
           res.on('end', () => {
-            try {
-              resolve(JSON.parse(data));
-            } catch {
-              resolve(data);
-            }
+            try { resolve(JSON.parse(data)); } catch { resolve(data); }
           });
         },
       );
