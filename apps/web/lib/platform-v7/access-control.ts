@@ -92,6 +92,7 @@ const ACCESS_RULES: readonly PlatformV7AccessRule[] = [
   { role: 'supportAgent', resources: ['deal', 'trip', 'document', 'dispute', 'evidence', 'auditLog'], actions: ['read', 'update', 'request', 'preview'], scope: 'platform' },
   { role: 'seller', resources: ['grainBatch', 'lot'], actions: ['create', 'read', 'update', 'submit'], scope: 'ownOrg' },
   { role: 'seller', resources: ['offer', 'deal', 'document', 'dispute', 'evidence'], actions: ['create', 'read', 'update', 'submit', 'accept', 'request'], scope: 'sellerOrg' },
+  { role: 'seller', resources: ['money'], actions: ['read', 'request'], scope: 'sellerOrg' },
   { role: 'buyer', resources: ['rfq', 'offer'], actions: ['create', 'read', 'update', 'submit', 'accept'], scope: 'ownOrg' },
   { role: 'buyer', resources: ['deal', 'money', 'document', 'dispute', 'evidence'], actions: ['create', 'read', 'update', 'request'], scope: 'buyerOrg' },
   { role: 'logisticsManager', resources: ['trip', 'evidence'], actions: ['create', 'read', 'update', 'assign', 'confirm', 'request'], scope: 'carrierOrg' },
