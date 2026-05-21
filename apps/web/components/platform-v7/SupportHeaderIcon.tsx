@@ -90,11 +90,15 @@ export function SupportHeaderIcon() {
   return (
     <>
       <style>{`
-        .pc-shell-root-v4 > div[aria-hidden='true']{background:rgba(15,23,42,.04)!important;backdrop-filter:none!important}
+        .pc-shell-root-v4 > div[aria-hidden='true']{background:rgba(15,23,42,.015)!important;box-shadow:none!important;backdrop-filter:none!important}
+        .pc-v4-drawer:not([data-open='true']){box-shadow:none!important;border-right:0!important;visibility:hidden!important;pointer-events:none!important}
         .p7-role-support{display:inline-flex!important;flex:0 0 auto!important}
+        .pc-v4-header .pc-v4-actions{justify-self:end!important;margin-left:auto!important;justify-content:flex-end!important}
         @media(max-width:767px){
           .pc-v4-search{display:none!important}
-          .pc-v4-actions{gap:6px!important}
+          .pc-v4-top{grid-template-columns:auto auto minmax(0,1fr)!important;gap:8px!important}
+          .pc-v4-actions{gap:6px!important;justify-self:end!important;margin-left:auto!important;margin-right:max(8px,env(safe-area-inset-right))!important;justify-content:flex-end!important}
+          .pc-v4-brand{max-width:52px!important;justify-self:start!important}
           .pc-v4-actions > div,
           .pc-v4-actions > a{flex:0 0 auto!important}
           .pc-v4-actions button[aria-label='Уведомления']{display:inline-flex!important}
@@ -104,6 +108,7 @@ export function SupportHeaderIcon() {
           .pc-v4-actions button[aria-label='Идентификация и настройки'] > svg{display:none!important}
           .pc-v4-actions button[aria-label='Идентификация и настройки'] > span:first-child{width:28px!important;height:28px!important;font-size:9px!important}
           .pc-v4-drawer{width:min(344px,84vw)!important;max-width:84vw!important;border-top-right-radius:24px!important;border-bottom-right-radius:24px!important;overflow:hidden!important}
+          .pc-v4-drawer[data-open='true']{box-shadow:18px 0 48px rgba(15,23,42,.10)!important}
           .p7-role-support.pc-v4-iconbtn{width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;min-height:42px!important;border-radius:13px!important}
           .p7-role-support:active{transform:translateY(1px)}
 
@@ -121,7 +126,7 @@ export function SupportHeaderIcon() {
           main[data-testid='platform-v7-control-tower-page'] .ct-priority-panel .ct-row:last-child a{min-height:52px!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:14px!important;border-radius:16px!important}
         }
         @media(max-width:374px){
-          .pc-v4-actions{gap:5px!important}
+          .pc-v4-actions{gap:5px!important;margin-right:6px!important}
           .p7-role-support.pc-v4-iconbtn,
           .pc-v4-actions button[aria-label='Идентификация и настройки']{width:40px!important;min-width:40px!important;max-width:40px!important;height:40px!important;min-height:40px!important}
         }
