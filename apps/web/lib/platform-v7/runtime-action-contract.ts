@@ -13,7 +13,10 @@ export type PlatformV7RuntimeActionId =
   | 'upload_lab_protocol'
   | 'attach_internal_document'
   | 'open_dispute_case'
-  | 'record_field_evidence';
+  | 'record_field_evidence'
+  | 'redeem_sdiz_manual_review'
+  | 'refuse_sdiz_redemption'
+  | 'send_sdiz_manual_review';
 
 export type PlatformV7RuntimeResultState =
   | 'draft_created'
@@ -87,7 +90,7 @@ export const PLATFORM_V7_RUNTIME_ACTION_CONTRACTS: readonly PlatformV7RuntimeAct
     requiresExternalConfirmation: true,
     resultingState: 'pending_bank_review',
     auditEventType: 'bank_payment_basis_review_requested',
-    copySafetyNote: 'Передаёт основание на банковскую проверку. Не выпускает деньги и не подтверждает выплату силами платформы.',
+    copySafetyNote: 'Передаёт основание на банковскую проверку. Дальнейшее движение денег возможно только после ответа банка.',
     doesNotConfirmExternally: true,
   },
   {
@@ -155,6 +158,45 @@ export const PLATFORM_V7_RUNTIME_ACTION_CONTRACTS: readonly PlatformV7RuntimeAct
     copySafetyNote: 'Создаёт внутреннее доказательство. Не заявляет GPS, фото или пломбу как внешне подтверждённые без источника.',
     doesNotConfirmExternally: true,
   },
+  {
+    id: 'redeem_sdiz_manual_review',
+    label: 'Погасить СДИЗ',
+    targetKind: 'document',
+    scope: 'deal',
+    allowedRoles: ['operator', 'buyer'],
+    externalSystem: 'fgis',
+    requiresExternalConfirmation: true,
+    resultingState: 'pending_external_confirmation',
+    auditEventType: 'sdiz_redemption_recorded_manual_review',
+    copySafetyNote: 'Фиксирует отметку покупателя о погашении СДИЗ. Не подтверждает погашение во ФГИС без внешнего события.',
+    doesNotConfirmExternally: true,
+  },
+  {
+    id: 'refuse_sdiz_redemption',
+    label: 'Зафиксировать отказ от погашения СДИЗ',
+    targetKind: 'document',
+    scope: 'deal',
+    allowedRoles: ['operator', 'buyer'],
+    externalSystem: 'none',
+    requiresExternalConfirmation: false,
+    resultingState: 'manual_review_required',
+    auditEventType: 'sdiz_redemption_refusal_recorded',
+    copySafetyNote: 'Фиксирует отказ покупателя как внутренний блокер сделки. Не принимает решение по спору и не меняет деньги без процедуры.',
+    doesNotConfirmExternally: true,
+  },
+  {
+    id: 'send_sdiz_manual_review',
+    label: 'Отправить СДИЗ на ручную проверку',
+    targetKind: 'document',
+    scope: 'deal',
+    allowedRoles: ['operator', 'buyer'],
+    externalSystem: 'fgis',
+    requiresExternalConfirmation: true,
+    resultingState: 'manual_review_required',
+    auditEventType: 'sdiz_manual_review_requested',
+    copySafetyNote: 'Создаёт задачу ручной сверки СДИЗ. Не подтверждает статус ФГИС без доступа, события или документа.',
+    doesNotConfirmExternally: true,
+  },
 ] as const;
 
 export const PLATFORM_V7_ACTION_MESSAGE_TO_RUNTIME_CONTRACT: Partial<Record<PlatformV7ActionMessageId, PlatformV7RuntimeActionId>> = {
@@ -164,6 +206,9 @@ export const PLATFORM_V7_ACTION_MESSAGE_TO_RUNTIME_CONTRACT: Partial<Record<Plat
   attachDocument: 'attach_internal_document',
   openDispute: 'open_dispute_case',
   recordFieldEvent: 'record_field_evidence',
+  redeemSdiz: 'redeem_sdiz_manual_review',
+  refuseSdizRedemption: 'refuse_sdiz_redemption',
+  sendSdizManualReview: 'send_sdiz_manual_review',
 };
 
 export function platformV7RuntimeActionContract(id: PlatformV7RuntimeActionId): PlatformV7RuntimeActionContract | null {
