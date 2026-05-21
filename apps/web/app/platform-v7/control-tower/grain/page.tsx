@@ -58,6 +58,17 @@ export default function PlatformV7GrainControlTowerPage() {
         .grain-control-title{margin:0;color:#0F1419;font-size:18px;line-height:1.2;font-weight:900}
         .grain-control-detail{margin:0;color:#6B778C;font-size:13px;line-height:1.5}
         .grain-control-note{display:grid;gap:8px;padding:16px;border:1px solid #E4E6EA;border-radius:18px;background:#F8FAFB;color:#334155;font-size:13px;line-height:1.55}
+        @media(max-width:767px){
+          [data-testid='platform-v7-control-tower-grain-page']{gap:10px!important}
+          .grain-control-grid{grid-template-columns:1fr!important;gap:8px!important}
+          .grain-control-card{min-height:auto!important;padding:12px!important;border-radius:16px!important;gap:7px!important}
+          .grain-control-card:nth-child(n+6){display:none!important}
+          .grain-control-step{font-size:10px!important;padding:3px 7px!important}
+          .grain-control-title{font-size:16px!important;line-height:1.12!important}
+          .grain-control-detail{font-size:12px!important;line-height:1.35!important}
+          .grain-control-note{padding:12px!important;border-radius:16px!important;gap:6px!important;font-size:12px!important;line-height:1.4!important}
+          .grain-control-note div:nth-child(n+4){display:none!important}
+        }
       `}</style>
       <P7Page
         title='Зерновой контур исполнения'
