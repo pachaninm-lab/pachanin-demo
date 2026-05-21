@@ -50,7 +50,27 @@ function badgeTone(state: string, blocks = false) {
 
 export default function PlatformV7DocumentsPage() {
   return (
-    <main style={{ display: 'grid', gap: 14, maxWidth: 1120, margin: '0 auto' }}>
+    <main data-testid="platform-v7-documents-page" style={{ display: 'grid', gap: 14, maxWidth: 1120, margin: '0 auto' }}>
+      <style>{`
+        @media(max-width:767px){
+          [data-testid='platform-v7-documents-page']{gap:10px!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:10px!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) p{display:none!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.03!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) a{min-height:54px!important;border-radius:16px!important;justify-content:center!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:first-child > div:last-child{display:grid!important;grid-template-columns:1fr!important;width:100%!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:first-child > div:last-child a:nth-of-type(2){display:none!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3) a{padding:11px!important;border-radius:15px!important;min-height:auto!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3) a:nth-of-type(n+3){display:none!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(2){display:none!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3){padding:14px!important;border-radius:20px!important;gap:9px!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article{padding:12px!important;border-radius:16px!important;gap:8px!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article h2{font-size:16px!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article > div:nth-child(2){grid-template-columns:1fr!important;gap:7px!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article > div:nth-child(2) > div:nth-child(-n+2){display:none!important}
+        }
+      `}</style>
       <section style={hero}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ display: 'grid', gap: 9, maxWidth: 760 }}>
