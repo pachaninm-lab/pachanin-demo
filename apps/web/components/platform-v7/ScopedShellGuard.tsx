@@ -37,6 +37,24 @@ const surveyorMobile = `
   }
 `;
 
+const arbitratorMobile = `
+  @media(max-width:767px){
+    .pc-v4-main > div[style*='gap: 18px']{gap:10px!important}
+    .pc-v4-main > div[style*='gap: 18px'] > div:first-child,
+    .pc-v4-main > div[style*='gap: 18px'] > div:nth-child(2),
+    .pc-v4-main > div[style*='gap: 18px'] > div:nth-child(6),
+    .pc-v4-main > div[style*='gap: 18px'] > div:nth-child(7),
+    .pc-v4-main > div[style*='gap: 18px'] > div:nth-child(8){display:none!important}
+    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard']{padding:16px!important;border-radius:24px!important;gap:10px!important}
+    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.04!important}
+    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(3){display:none!important}
+    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(4){grid-template-columns:1fr 1fr!important;gap:8px!important}
+    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(4) > div:nth-child(n+3){display:none!important}
+    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(4) > div{padding:12px!important;border-radius:16px!important}
+    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] + div{margin-top:0!important}
+  }
+`;
+
 const bankMobile = `
   @media(max-width:767px){
     .pc-v4-main > main{gap:10px!important;padding-top:0!important}
@@ -72,5 +90,6 @@ export function ScopedShellGuard(){
   const shellPolicy = getShellPolicy(role, pathname);
   if(shellPolicy==='field') return <FieldShellPolicy/>;
   if(shellPolicy==='role-scoped') return <RoleScopedShellPolicy extra={pathname.startsWith('/platform-v7/surveyor') ? surveyorMobile : ''}/>;
+  if(pathname.startsWith('/platform-v7/arbitrator')) return <OperatorShellPolicy extra={arbitratorMobile}/>;
   return <OperatorShellPolicy extra={pathname.startsWith('/platform-v7/bank') ? bankMobile : ''}/>;
 }
