@@ -1,0 +1,9 @@
+[build]
+buildCommand = "pnpm install --frozen-lockfile && pnpm --filter @pc/api build"
+
+[deploy]
+startCommand = "node apps/api/dist/apps/api/src/main.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
