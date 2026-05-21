@@ -37,9 +37,34 @@ const surveyorMobile = `
   }
 `;
 
+const bankMobile = `
+  @media(max-width:767px){
+    .pc-v4-main > main{gap:10px!important;padding-top:0!important}
+    .pc-v4-main > main > div:first-child,
+    .pc-v4-main > main > section:nth-child(3),
+    .pc-v4-main > main > section:nth-child(9),
+    .pc-v4-main > main > div:nth-child(n+10),
+    .pc-v4-main > main > details{display:none!important}
+    .pc-v4-main > main > section:nth-child(2){padding:16px!important;border-radius:24px!important;gap:10px!important}
+    .pc-v4-main > main > section:nth-child(2) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}
+    .pc-v4-main > main > section:nth-child(2) p{display:none!important}
+    .pc-v4-main > main > section:nth-child(2) > div:last-child{display:grid!important;grid-template-columns:1fr!important}
+    .pc-v4-main > main > section:nth-child(2) > div:last-child a:nth-child(2){display:none!important}
+    .pc-v4-main > main > section:nth-child(2) > div:last-child a{min-height:52px!important;width:100%!important}
+    .pc-v4-main > main > section:nth-child(4){grid-template-columns:1fr 1fr!important;gap:8px!important}
+    .pc-v4-main > main > section:nth-child(4) > div{padding:12px!important;border-radius:16px!important}
+    .pc-v4-main > main > section:nth-child(4) > div:nth-child(n+3){display:none!important}
+    .pc-v4-main > main > section:nth-child(6){padding:14px!important;border-radius:22px!important;gap:10px!important}
+    .pc-v4-main > main > section:nth-child(6) > a{padding:13px!important;border-radius:16px!important}
+    .pc-v4-main > main > section:nth-child(6) > a:nth-child(n+3){display:none!important}
+    .pc-v4-main > main > section:nth-child(6) div[style*='grid-template-columns']{grid-template-columns:1fr 1fr!important;gap:8px!important}
+    .pc-v4-main > main > section:nth-child(6) div[style*='grid-template-columns'] > div:nth-child(n+3){display:none!important}
+  }
+`;
+
 function FieldShellPolicy(){return <style>{`${base}.pc-v4-search,.pc-v4-select,.pc-v4-mobile-role,.pc-v4-stage,.pc-v4-meta,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(env(safe-area-inset-top) + 66px)!important}`}</style>}
 function RoleScopedShellPolicy({extra=''}:{extra?:string}){return <style>{`${base}${extra}.pc-v4-search,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(var(--pc-header-offset) + 8px)!important}`}</style>}
-function OperatorShellPolicy(){return <style>{base}</style>}
+function OperatorShellPolicy({extra=''}:{extra?:string}){return <style>{`${base}${extra}`}</style>}
 
 export function ScopedShellGuard(){
   const pathname = usePathname();
@@ -47,5 +72,5 @@ export function ScopedShellGuard(){
   const shellPolicy = getShellPolicy(role, pathname);
   if(shellPolicy==='field') return <FieldShellPolicy/>;
   if(shellPolicy==='role-scoped') return <RoleScopedShellPolicy extra={pathname.startsWith('/platform-v7/surveyor') ? surveyorMobile : ''}/>;
-  return <OperatorShellPolicy/>;
+  return <OperatorShellPolicy extra={pathname.startsWith('/platform-v7/bank') ? bankMobile : ''}/>;
 }
