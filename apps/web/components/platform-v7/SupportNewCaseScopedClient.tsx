@@ -75,7 +75,8 @@ function FieldSupportNewCase({ defaults, activeRole }: { defaults: Partial<Suppo
           .p7-support-new-grid{grid-template-columns:1fr!important;gap:10px!important}
           .p7-support-new-preview{display:none!important}
           .p7-support-new-fields{padding:14px!important;border-radius:18px!important}
-          .p7-support-new-optional{display:none!important}
+          .p7-support-new-object{grid-template-columns:1fr!important}
+          .p7-support-new-object-type,.p7-support-new-object-extra{display:none!important}
           .p7-support-new-submit{min-height:54px!important;border-radius:16px!important}
         }
       `}</style>
@@ -89,10 +90,10 @@ function FieldSupportNewCase({ defaults, activeRole }: { defaults: Partial<Suppo
         <div className='p7-support-new-fields' style={{ ...card, display: 'grid', gap: 12 }}>
           <label>Тема<input value={title} onChange={(event) => setTitle(event.target.value)} style={inputStyle} /></label>
           <label>Описание<textarea value={description} onChange={(event) => setDescription(event.target.value)} style={{ ...inputStyle, minHeight: 110 }} /></label>
-          <div className='p7-support-new-optional' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>
-            <label>Тип объекта<select value={relatedEntityType} onChange={(event) => setRelatedEntityType(event.target.value as SupportRelatedEntityType)} style={inputStyle}>{fieldEntityTypes.map((type) => <option key={type} value={type}>{entityLabels[type]}</option>)}</select></label>
-            <label>ID объекта<input value={relatedEntityId} onChange={(event) => setRelatedEntityId(event.target.value)} style={inputStyle} /></label>
-            <label>ID рейса<input value={tripId} onChange={(event) => setTripId(event.target.value)} style={inputStyle} /></label>
+          <div className='p7-support-new-object' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>
+            <label className='p7-support-new-object-type'>Тип объекта<select value={relatedEntityType} onChange={(event) => setRelatedEntityType(event.target.value as SupportRelatedEntityType)} style={inputStyle}>{fieldEntityTypes.map((type) => <option key={type} value={type}>{entityLabels[type]}</option>)}</select></label>
+            <label>ID рейса / объекта<input value={relatedEntityId} onChange={(event) => setRelatedEntityId(event.target.value)} style={inputStyle} /></label>
+            <label className='p7-support-new-object-extra'>ID рейса<input value={tripId} onChange={(event) => setTripId(event.target.value)} style={inputStyle} /></label>
           </div>
           <label>Блокер<textarea value={blocker} onChange={(event) => setBlocker(event.target.value)} style={{ ...inputStyle, minHeight: 90 }} /></label>
           {error ? <div style={{ color: 'var(--pc-danger, #B42318)', fontSize: 13, fontWeight: 800 }}>{error}</div> : null}
