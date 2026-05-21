@@ -62,8 +62,32 @@ export default function PlatformV7ReadinessPage() {
   const hold = rows.reduce((sum, row) => sum + row.deal.holdAmount, 0);
 
   return (
-    <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
+    <div data-testid="platform-v7-readiness-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+      <style>{`
+        @media(max-width:767px){
+          [data-testid='platform-v7-readiness-page']{gap:10px!important;padding:0!important}
+          [data-testid='platform-v7-readiness-hero']{padding:16px!important;border-radius:24px!important}
+          [data-testid='platform-v7-readiness-hero'] > div{display:grid!important;gap:10px!important}
+          [data-testid='platform-v7-readiness-hero'] > div > div:first-child > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
+          [data-testid='platform-v7-readiness-hero'] > div > div:first-child > div:nth-child(3){display:none!important}
+          [data-testid='platform-v7-readiness-hero'] a{width:100%!important;min-height:54px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important}
+          [data-testid='platform-v7-readiness-hero'] a:nth-of-type(2){display:none!important}
+          [data-testid='platform-v7-readiness-metrics']{grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-testid='platform-v7-readiness-metrics'] > div{padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-readiness-metrics'] > div:nth-child(3){display:none!important}
+          [data-testid='platform-v7-readiness-demo']{padding:14px!important;border-radius:20px!important;gap:10px!important}
+          [data-testid='platform-v7-readiness-demo'] > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:7px!important}
+          [data-testid='platform-v7-readiness-demo'] > div:nth-child(2) > div:nth-child(n+5){display:none!important}
+          [data-testid='platform-v7-readiness-demo'] > div:nth-child(3){gap:8px!important;font-size:11px!important}
+          [data-testid='platform-v7-readiness-list']{padding:14px!important;border-radius:20px!important;gap:9px!important}
+          [data-testid='platform-v7-readiness-list'] > div:nth-of-type(n+5){display:none!important}
+          [data-testid='platform-v7-readiness-list'] > div:not(:first-child){padding:12px!important;border-radius:16px!important;gap:8px!important}
+          [data-testid='platform-v7-readiness-list'] > div:not(:first-child) > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:7px!important}
+          [data-testid='platform-v7-readiness-list'] > div:not(:first-child) > div:nth-child(2) > div:nth-child(n+4){display:none!important}
+          [data-testid='platform-v7-readiness-list'] > div:not(:first-child) > div:nth-child(3){font-size:11px!important;line-height:1.35!important}
+        }
+      `}</style>
+      <section data-testid="platform-v7-readiness-hero" style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица готовности · песочница</div>
@@ -81,7 +105,7 @@ export default function PlatformV7ReadinessPage() {
 
       <P7ExecutionMachineReadOnlyStrip />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
+      <div data-testid="platform-v7-readiness-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
         <Metric label='Готовы полностью' value={String(readyToRelease)} tone='good' />
         <Metric label='С блокерами' value={String(blocked)} tone={blocked > 0 ? 'bad' : 'good'} />
         <Metric label='Под удержанием' value={formatCompactMoney(hold)} tone={hold > 0 ? 'bad' : 'good'} />
@@ -89,7 +113,7 @@ export default function PlatformV7ReadinessPage() {
 
       <DL9102ReadinessCard />
 
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <section data-testid="platform-v7-readiness-list" style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Сделки по готовности</div>
         {rows.map(({ deal, gates, score, blocked: isBlocked }) => (
           <div key={deal.id} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14, display: 'grid', gap: 12 }}>
@@ -134,7 +158,7 @@ function DL9102ReadinessCard() {
   const gates = Object.entries(readiness) as [string, typeof readiness.fgis][];
 
   return (
-    <section style={{ background: S, border: `1px solid ${BRAND}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+    <section data-testid="platform-v7-readiness-demo" style={{ background: S, border: `1px solid ${BRAND}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Демо-сделка · {deal.maturity}</div>
