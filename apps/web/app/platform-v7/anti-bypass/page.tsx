@@ -35,7 +35,30 @@ function tone(status: string) {
 
 export default function PlatformV7AntiBypassPage() {
   return (
-    <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+    <div data-testid="platform-v7-anti-bypass-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+      <style>{`
+        @media(max-width:767px){
+          [data-testid='platform-v7-anti-bypass-page']{gap:10px!important;padding:0!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) > div{display:grid!important;gap:10px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) > div > div:first-child > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) > div > div:first-child > div:nth-child(3){display:none!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) a{width:100%!important;min-height:54px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) a:first-child{display:none!important}
+          [data-testid='platform-v7-anti-bypass-page'] > div:nth-of-type(1){grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > div:nth-of-type(1) > div{padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > div:nth-of-type(1) > div:nth-child(1){display:none!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(2){padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(2) > div:nth-child(2){font-size:12px!important;line-height:1.45!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(3){padding:14px!important;border-radius:20px!important;gap:9px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(3) > div:not(:first-child){display:grid!important;gap:8px!important;padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(3) > div:not(:first-child) > div > div:nth-child(2){display:none!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(4){padding:14px!important;border-radius:20px!important;gap:9px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(4) > div:nth-child(2) > div{grid-template-columns:1fr!important;gap:5px!important;padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(4) > div:nth-child(2) > div:nth-child(n+4){display:none!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(5){display:none!important}
+        }
+      `}</style>
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
