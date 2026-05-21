@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import * as https from 'https';
+import * as http from 'http';
 
 @Injectable()
 export class TelegramService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -42,42 +43,216 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     const msg = update?.message;
     if (!msg?.text) return;
     const chatId: number = msg.chat.id;
-    const text = (msg.text as string).trim();
+    const raw = (msg.text as string).trim();
+    const [cmd, ...argParts] = raw.split(/\s+/);
+    const arg = argParts.join(' ').toLowerCase();
 
-    if (text === '/start') {
-      this.registeredChats.add(chatId);
-      void this.sendMessage(
-        chatId,
-        `Добро пожаловать в <b>Прозрачная Цена</b>!\n\nЭтот бот отправляет уведомления о ваших сделках и лотах.\n\nВаш Chat ID: <code>${chatId}</code>\n\nНапишите /help чтобы узнать что я умею.`,
-      );
-    } else if (text === '/id') {
-      this.registeredChats.add(chatId);
-      void this.sendMessage(chatId, `Ваш Chat ID: <code>${chatId}</code>`);
-    } else if (text === '/help') {
-      void this.sendMessage(
-        chatId,
-        `<b>Что я умею:</b>\n\n` +
-        `/start — регистрация и приветствие\n` +
-        `/id — показать ваш Chat ID\n` +
-        `/help — список команд\n` +
-        `/status — статус платформы\n\n` +
-        `После регистрации (/start) буду присылать уведомления о:\n` +
-        `• новых сделках\n` +
-        `• изменении статуса лотов\n` +
-        `• новых документах\n` +
-        `• спорах`,
-      );
-    } else if (text === '/status') {
-      void this.sendMessage(
-        chatId,
-        `<b>Статус платформы:</b> ✅ работает\n\nAPI: <code>http://localhost:4000</code>`,
-      );
+    switch (cmd) {
+      case '/start':   return void this.cmdStart(chatId);
+      case '/help':    return void this.cmdHelp(chatId);
+      case '/id':      return void this.cmdId(chatId);
+      case '/about':   return void this.cmdAbout(chatId);
+      case '/status':  return void this.cmdStatus(chatId);
+      case '/ping':    return void this.cmdPing(chatId);
+      case '/demo':    return void this.cmdDemo(chatId, arg);
+      case '/features':return void this.cmdFeatures(chatId);
+      case '/roadmap': return void this.cmdRoadmap(chatId);
+      default:
+        void this.sendMessage(chatId,
+          `Не понимаю команду <code>${cmd}</code>.\n\nНапишите /help — список всех команд.`);
+    }
+  }
+
+  // ── команды ────────────────────────────────────────────────
+
+  private async cmdStart(chatId: number) {
+    this.registeredChats.add(chatId);
+    await this.sendMessage(chatId,
+      `👋 Добро пожаловать в <b>Прозрачная Цена</b>!\n\n` +
+      `Это бот платформы для прозрачной торговли зерном.\n\n` +
+      `✅ Вы зарегистрированы — будете получать уведомления о сделках, лотах и документах.\n\n` +
+      `Ваш Chat ID: <code>${chatId}</code>\n\n` +
+      `Напишите /help — список всех команд.`
+    );
+  }
+
+  private async cmdHelp(chatId: number) {
+    await this.sendMessage(chatId,
+      `<b>Все команды:</b>\n\n` +
+      `<b>Основные</b>\n` +
+      `/start — регистрация и приветствие\n` +
+      `/help — этот список\n` +
+      `/id — ваш Chat ID\n` +
+      `/about — о платформе\n\n` +
+      `<b>Мониторинг</b>\n` +
+      `/status — статус всех сервисов\n` +
+      `/ping — проверить скорость ответа API\n\n` +
+      `<b>Демо</b>\n` +
+      `/demo — запустить все демо-события\n` +
+      `/demo deal — новая сделка\n` +
+      `/demo lot — новый лот\n` +
+      `/demo dispute — спор по сделке\n` +
+      `/demo payment — платёж\n` +
+      `/demo doc — новый документ\n\n` +
+      `<b>Платформа</b>\n` +
+      `/features — возможности платформы\n` +
+      `/roadmap — что в планах`
+    );
+  }
+
+  private async cmdId(chatId: number) {
+    this.registeredChats.add(chatId);
+    await this.sendMessage(chatId, `Ваш Chat ID: <code>${chatId}</code>`);
+  }
+
+  private async cmdAbout(chatId: number) {
+    await this.sendMessage(chatId,
+      `<b>Прозрачная Цена</b> — платформа для прозрачной торговли зерном.\n\n` +
+      `<b>Для кого:</b>\n` +
+      `• Продавцы зерна (фермеры, агрохолдинги)\n` +
+      `• Покупатели зерна (трейдеры, переработчики)\n` +
+      `• Банки (контроль расчётов)\n` +
+      `• Логисты (отслеживание поставок)\n\n` +
+      `<b>Что делает:</b>\n` +
+      `Сводит стороны сделки, контролирует документы, расчёты и логистику в одном месте.\n\n` +
+      `<b>Статус:</b> разработка 🚧`
+    );
+  }
+
+  private async cmdStatus(chatId: number) {
+    const start = Date.now();
+    const apiOk = await this.pingApi();
+    const ms = Date.now() - start;
+    await this.sendMessage(chatId,
+      `<b>Статус платформы</b>\n\n` +
+      `API: ${apiOk ? '✅ работает' : '❌ недоступен'} ${apiOk ? `(${ms}мс)` : ''}\n` +
+      `Telegram бот: ✅ работает\n` +
+      `Режим: 🔧 разработка\n\n` +
+      `Зарегистрировано чатов: ${this.registeredChats.size}`
+    );
+  }
+
+  private async cmdPing(chatId: number) {
+    const start = Date.now();
+    const ok = await this.pingApi();
+    const ms = Date.now() - start;
+    if (ok) {
+      await this.sendMessage(chatId, `🏓 Понг! API отвечает за <b>${ms}мс</b>`);
     } else {
-      void this.sendMessage(
-        chatId,
-        `Я не понимаю эту команду.\n\nНапишите /help — список того, что я умею.`,
+      await this.sendMessage(chatId, `❌ API не отвечает`);
+    }
+  }
+
+  private async cmdDemo(chatId: number, arg: string) {
+    const all = !arg || arg === 'all';
+
+    if (all || arg === 'deal') {
+      await this.sendMessage(chatId,
+        `🤝 <b>DEAL · Новая сделка</b>\n\n` +
+        `Сделка <code>DL-9102</code> создана\n` +
+        `Продавец: ООО Агро-Юг\n` +
+        `Покупатель: ТД Зернотрейд\n` +
+        `Культура: Пшеница 3 класс\n` +
+        `Объём: 500 т · Цена: 18 500 ₽/т\n` +
+        `Сумма: <b>9 250 000 ₽</b>\n` +
+        `Статус: DRAFT → ожидает подтверждения`
       );
     }
+
+    if (all || arg === 'lot') {
+      await this.sendMessage(chatId,
+        `📦 <b>LOT · Новый лот</b>\n\n` +
+        `Лот <code>LT-0441</code> опубликован\n` +
+        `Продавец: КФХ Иванов\n` +
+        `Культура: Ячмень кормовой\n` +
+        `Объём: 200 т\n` +
+        `Цена: 14 200 ₽/т\n` +
+        `Базис: EXW Краснодарский край\n` +
+        `Действует до: 28.05.2026`
+      );
+    }
+
+    if (all || arg === 'dispute') {
+      await this.sendMessage(chatId,
+        `⚖️ <b>DISPUTE · Открыт спор</b>\n\n` +
+        `Спор <code>DS-0088</code> по сделке <code>DL-8901</code>\n` +
+        `Инициатор: Покупатель\n` +
+        `Причина: Несоответствие качества зерна\n` +
+        `Заявленный ущерб: 320 000 ₽\n` +
+        `Статус: ожидает рассмотрения ⏳`
+      );
+    }
+
+    if (all || arg === 'payment') {
+      await this.sendMessage(chatId,
+        `💳 <b>PAYMENT · Платёж</b>\n\n` +
+        `Платёж по сделке <code>DL-9102</code>\n` +
+        `Сумма: <b>9 250 000 ₽</b>\n` +
+        `Тип: Авансовый платёж (50%)\n` +
+        `Банк: СберБизнес\n` +
+        `Статус: CONFIRMED ✅`
+      );
+    }
+
+    if (all || arg === 'doc') {
+      await this.sendMessage(chatId,
+        `📄 <b>DOCUMENT · Новый документ</b>\n\n` +
+        `Документ по сделке <code>DL-9102</code>\n` +
+        `Тип: Товарно-транспортная накладная\n` +
+        `Номер: ТТН-2026-04412\n` +
+        `Загружен: ООО Агро-Юг\n` +
+        `Статус: ожидает подписания ✍️`
+      );
+    }
+
+    if (arg && !['deal', 'lot', 'dispute', 'payment', 'doc', 'all'].includes(arg)) {
+      await this.sendMessage(chatId,
+        `Неизвестный тип демо: <code>${arg}</code>\n\n` +
+        `Доступные: deal, lot, dispute, payment, doc\n` +
+        `Или просто /demo — запустить все сразу`
+      );
+    }
+  }
+
+  private async cmdFeatures(chatId: number) {
+    await this.sendMessage(chatId,
+      `<b>Возможности платформы:</b>\n\n` +
+      `📦 <b>Лоты</b> — публикация и поиск предложений на зерно\n` +
+      `🤝 <b>Сделки</b> — заключение и ведение сделок\n` +
+      `💳 <b>Расчёты</b> — безопасные платежи через банк\n` +
+      `📄 <b>Документы</b> — ЭДО, накладные, договоры\n` +
+      `🚛 <b>Логистика</b> — отслеживание поставок и GPS\n` +
+      `🧪 <b>Лаборатория</b> — анализ качества зерна\n` +
+      `⚖️ <b>Споры</b> — разбор конфликтов между сторонами\n` +
+      `🏦 <b>Банк</b> — интеграция со СберБизнес\n` +
+      `📊 <b>Аналитика</b> — отчёты и мониторинг`
+    );
+  }
+
+  private async cmdRoadmap(chatId: number) {
+    await this.sendMessage(chatId,
+      `<b>Что в планах:</b>\n\n` +
+      `✅ Telegram-уведомления (готово)\n` +
+      `🔜 Мобильное приложение\n` +
+      `🔜 Привязка аккаунта платформы к Telegram\n` +
+      `🔜 Управление сделками через бота\n` +
+      `🔜 Интеграция с ФГИС Зерно\n` +
+      `🔜 Онлайн-торги в реальном времени\n` +
+      `🔜 Электронная цифровая подпись\n` +
+      `🔜 Мультиязычность (EN, KZ, UA)`
+    );
+  }
+
+  // ── вспомогательные ────────────────────────────────────────
+
+  private pingApi(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const req = http.get('http://localhost:4000/health', (res) => {
+        resolve(res.statusCode === 200);
+      });
+      req.on('error', () => resolve(false));
+      req.setTimeout(3000, () => { req.destroy(); resolve(false); });
+    });
   }
 
   private async poll(): Promise<void> {
