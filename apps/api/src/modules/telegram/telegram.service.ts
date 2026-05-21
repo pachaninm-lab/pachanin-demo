@@ -464,12 +464,16 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     if (chatId === ADMIN_CHAT_ID || user.role === 'ADMIN') {
       return void this.sendMessage(chatId,
         `<b>Все команды (Администратор):</b>\n\n` +
-        `<b>Пользователи</b>\n/pending /approve /reject /users /ban /unban\n\n` +
-        `<b>Сделки и лоты</b>\n/deals /deal /lots /lot /search /docs /payments /balance\n` +
-        `/disputes /dispute /shipments /shipment /track\n\n` +
-        `<b>Цены</b>\n/prices /price /chart /alert /alerts\n\n` +
-        `<b>Инструменты</b>\n/calculator /export /stats /broadcast\n\n` +
-        `<b>Прочее</b>\n/weather /currency /news /demo /settings /support /faq`
+        `<b>Управление пользователями</b>\n/pending /approve /reject /users /ban /unban\n\n` +
+        `<b>Сделки и лоты</b>\n/deals /deal /lots /lot /search /docs\n` +
+        `/payments /balance /disputes /dispute\n\n` +
+        `<b>Логистика</b>\n/shipments /shipment /track\n\n` +
+        `<b>Цены и аналитика</b>\n/prices /price /chart /alert /alerts\n\n` +
+        `<b>Финансы</b>\n/calculator /balance /export /report\n\n` +
+        `<b>Уведомления</b>\n/mute /unmute /broadcast /remind /reminders\n\n` +
+        `<b>Профиль</b>\n/profile /link /unlink /id /settings\n\n` +
+        `<b>Система</b>\n/status /ping /health /uptime /stats\n\n` +
+        `<b>Прочее</b>\n/weather /currency /news /demo /support /faq /about`
       );
     }
 
