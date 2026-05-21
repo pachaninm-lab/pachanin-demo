@@ -16,7 +16,20 @@ export default function DriverFieldPage() {
         padding: '6px 0 24px',
       }}
     >
+      <style>{`
+        [data-testid='platform-v7-role-route-hint']{display:none!important}
+        @media(max-width:767px){
+          [data-testid='platform-v7-driver-field-shell']{gap:10px!important;padding-top:0!important}
+          .driver-field-hero{padding:16px!important;border-radius:24px!important;gap:10px!important}
+          .driver-field-hero p{display:none!important}
+          .driver-field-quick-links{grid-template-columns:1fr!important}
+          .driver-field-quick-links a:nth-child(n+2){display:none!important}
+          .driver-field-status-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+          .driver-field-status-grid > div:nth-child(3){display:none!important}
+        }
+      `}</style>
       <section
+        className="driver-field-hero"
         style={{
           background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)',
           border: '1px solid #E4E6EA',
@@ -37,7 +50,7 @@ export default function DriverFieldPage() {
             </h1>
           </div>
           <div style={{ border: '1px solid #CBD5E1', borderRadius: 999, background: '#fff', color: '#475569', padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>
-            field mode
+            Полевой режим
           </div>
         </div>
 
@@ -49,14 +62,14 @@ export default function DriverFieldPage() {
           Подтвердить следующее действие по рейсу
         </Link>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(128px,1fr))', gap: 8 }}>
+        <div className="driver-field-quick-links" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(128px,1fr))', gap: 8 }}>
           <a href="#driver-offline-events" style={secondaryChip}>Связь / очередь</a>
           <a href="#driver-photo-seal" style={secondaryChip}>Фото / пломба</a>
           <a href="#driver-route-status" style={secondaryChip}>Статус рейса</a>
         </div>
       </section>
 
-      <section aria-label="Полевой статус рейса" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
+      <section className="driver-field-status-grid" aria-label="Полевой статус рейса" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
         <div style={miniStatusCard}>
           <span style={miniLabel}>следующее</span>
           <strong style={miniValue}>прибытие</strong>
