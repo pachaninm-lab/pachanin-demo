@@ -4,6 +4,10 @@ import * as http from 'http';
 
 interface UserSettings {
   chatId: number;
+  firstName?: string;
+  username?: string;
+  approved: boolean;
+  pending: boolean;
   muted: boolean;
   mutedTypes: Set<string>;
   dailyReport: boolean;
@@ -111,21 +115,32 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
 
   private handleMessage(msg: any): void {
     const chatId: number = msg.chat.id;
-    const user = this.getOrCreateUser(chatId);
+    const user = this.getOrCreateUser(chatId, msg.from);
     if (user.banned) return;
-
-    // режим поддержки — пересылаем в админ
-    if (user.supportMode && msg.text && !msg.text.startsWith('/')) {
-      void this.forwardToAdmin(chatId, msg.text, msg.from);
-      void this.sendMessage(chatId, '✅ Сообщение отправлено в поддержку. Ответим в течение 2 часов.');
-      user.supportMode = false;
-      return;
-    }
 
     if (!msg.text) return;
     const [rawCmd, ...argParts] = msg.text.trim().split(/\s+/);
     const cmd = rawCmd.toLowerCase();
     const arg = argParts.join(' ');
+
+    // /start доступен всем — отправляет запрос на одобрение
+    if (cmd === '/start') return void this.cmdStart(chatId, msg.from);
+
+    // неодобренные пользователи не получают доступ к командам
+    if (!user.approved) {
+      if (user.pending) {
+        return void this.sendMessage(chatId, `⏳ Ваш запрос на доступ уже отправлен. Ожидайте одобрения администратора.`);
+      }
+      return void this.sendMessage(chatId, `⛔️ Для доступа к боту напишите /start`);
+    }
+
+    // режим поддержки — пересылаем в админ
+    if (user.supportMode && !msg.text.startsWith('/')) {
+      void this.forwardToAdmin(chatId, msg.text, msg.from);
+      void this.sendMessage(chatId, '✅ Сообщение отправлено в поддержку. Ответим в течение 2 часов.');
+      user.supportMode = false;
+      return;
+    }
 
     switch (cmd) {
       case '/start':      return void this.cmdStart(chatId, msg.from);
@@ -165,6 +180,9 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
       case '/export':     return void this.cmdExport(chatId, arg);
       case '/remind':     return void this.cmdRemind(chatId, arg);
       case '/reminders':  return void this.cmdReminders(chatId);
+      case '/approve':    return void this.cmdApprove(chatId, arg);
+      case '/reject':     return void this.cmdReject(chatId, arg);
+      case '/pending':    return void this.cmdPending(chatId);
       case '/broadcast':  return void this.cmdBroadcast(chatId, arg);
       case '/stats':      return void this.cmdStats(chatId);
       case '/users':      return void this.cmdUsers(chatId);
@@ -194,6 +212,36 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     const data: string = query.data;
     await this.callApi('answerCallbackQuery', { callback_query_id: query.id });
 
+    if (data.startsWith('approve:')) {
+      const targetId = Number(data.slice(8));
+      const u = this.users.get(targetId);
+      if (u) {
+        u.approved = true;
+        u.pending = false;
+        const name = u.firstName || String(targetId);
+        await this.sendMessage(targetId,
+          `✅ <b>Доступ одобрен!</b>\n\nДобро пожаловать в <b>Прозрачная Цена</b>.\n\nИспользуйте /menu или /help.`,
+          { reply_markup: this.mainMenuKeyboard() }
+        );
+        return void this.sendMessage(chatId, `✅ Пользователь <b>${name}</b> одобрен.`);
+      }
+      return void this.sendMessage(chatId, `Пользователь не найден.`);
+    }
+
+    if (data.startsWith('reject:')) {
+      const targetId = Number(data.slice(7));
+      const u = this.users.get(targetId);
+      if (u) {
+        u.pending = false;
+        const name = u.firstName || String(targetId);
+        await this.sendMessage(targetId,
+          `❌ Ваш запрос на доступ отклонён.\n\nЕсли считаете это ошибкой — свяжитесь с администратором.`
+        );
+        return void this.sendMessage(chatId, `❌ Пользователь <b>${name}</b> отклонён.`);
+      }
+      return void this.sendMessage(chatId, `Пользователь не найден.`);
+    }
+
     if (data.startsWith('demo:')) return void this.cmdDemo(chatId, data.slice(5));
     if (data === 'menu:prices') return void this.cmdPrices(chatId);
     if (data === 'menu:status') return void this.cmdStatus(chatId);
@@ -216,17 +264,60 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
   // ── команды: основные ───────────────────────────────────────
 
   private async cmdStart(chatId: number, from: any) {
-    const user = this.getOrCreateUser(chatId);
+    const user = this.getOrCreateUser(chatId, from);
     const name = from?.first_name || 'Пользователь';
+
+    // админ всегда одобрен
+    if (chatId === ADMIN_CHAT_ID) {
+      user.approved = true;
+      return void this.sendMessage(chatId,
+        `👋 Привет, <b>${name}</b>! Вы администратор.\n\n` +
+        `Используйте /menu или /help.`,
+        { reply_markup: this.mainMenuKeyboard() }
+      );
+    }
+
+    // уже одобрен
+    if (user.approved) {
+      return void this.sendMessage(chatId,
+        `👋 Привет, <b>${name}</b>!\n\nВы уже авторизованы.\n\nИспользуйте /menu или /help.`,
+        { reply_markup: this.mainMenuKeyboard() }
+      );
+    }
+
+    // запрос уже отправлен
+    if (user.pending) {
+      return void this.sendMessage(chatId,
+        `⏳ Ваш запрос на доступ уже отправлен.\nОжидайте одобрения администратора.`
+      );
+    }
+
+    // новый запрос
+    user.pending = true;
+    const username = from?.username ? `@${from.username}` : '—';
     await this.sendMessage(chatId,
       `👋 Привет, <b>${name}</b>!\n\n` +
-      `Добро пожаловать в <b>Прозрачная Цена</b> — платформу для прозрачной торговли зерном.\n\n` +
-      `✅ Вы зарегистрированы. Будете получать уведомления о сделках, лотах и документах.\n\n` +
-      `Ваш Chat ID: <code>${chatId}</code>\n` +
-      `Реферальный код: <code>${user.referralCode}</code>\n\n` +
-      `Используйте /menu для навигации или /help для списка команд.`,
-      { reply_markup: this.mainMenuKeyboard() }
+      `Это закрытый бот платформы <b>Прозрачная Цена</b>.\n\n` +
+      `⏳ Ваш запрос на доступ отправлен администратору.\nМы сообщим когда вас одобрят.`
     );
+
+    // уведомляем админа
+    if (ADMIN_CHAT_ID) {
+      await this.sendMessage(ADMIN_CHAT_ID,
+        `🔔 <b>Новый запрос на доступ</b>\n\n` +
+        `Имя: <b>${name}</b>\n` +
+        `Username: ${username}\n` +
+        `Chat ID: <code>${chatId}</code>`,
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '✅ Одобрить', callback_data: `approve:${chatId}` },
+              { text: '❌ Отклонить', callback_data: `reject:${chatId}` },
+            ]],
+          },
+        }
+      );
+    }
   }
 
   private async cmdHelp(chatId: number) {
@@ -893,6 +984,42 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     return ADMIN_CHAT_ID > 0 && chatId === ADMIN_CHAT_ID;
   }
 
+  private async cmdApprove(chatId: number, target: string) {
+    if (!this.isAdmin(chatId)) return void this.sendMessage(chatId, `❌ Нет доступа.`);
+    const id = Number(target);
+    if (isNaN(id)) return void this.sendMessage(chatId, `Укажите Chat ID: /approve 123456789`);
+    const u = this.users.get(id);
+    if (!u) return void this.sendMessage(chatId, `Пользователь не найден.`);
+    u.approved = true;
+    u.pending = false;
+    await this.sendMessage(id, `✅ <b>Доступ одобрен!</b>\n\nДобро пожаловать в <b>Прозрачная Цена</b>.\n\nИспользуйте /menu или /help.`, { reply_markup: this.mainMenuKeyboard() });
+    await this.sendMessage(chatId, `✅ Пользователь ${id} одобрен.`);
+  }
+
+  private async cmdReject(chatId: number, target: string) {
+    if (!this.isAdmin(chatId)) return void this.sendMessage(chatId, `❌ Нет доступа.`);
+    const id = Number(target);
+    if (isNaN(id)) return void this.sendMessage(chatId, `Укажите Chat ID: /reject 123456789`);
+    const u = this.users.get(id);
+    if (!u) return void this.sendMessage(chatId, `Пользователь не найден.`);
+    u.pending = false;
+    await this.sendMessage(id, `❌ Ваш запрос на доступ отклонён.`);
+    await this.sendMessage(chatId, `❌ Пользователь ${id} отклонён.`);
+  }
+
+  private async cmdPending(chatId: number) {
+    if (!this.isAdmin(chatId)) return void this.sendMessage(chatId, `❌ Нет доступа.`);
+    const pending = [...this.users.values()].filter(u => u.pending);
+    if (!pending.length) return void this.sendMessage(chatId, `Нет ожидающих одобрения.`);
+    const lines = pending.map(u =>
+      `• ${u.firstName || '—'} (${u.username ? '@' + u.username : '—'}) — <code>${u.chatId}</code>`
+    ).join('\n');
+    await this.sendMessage(chatId,
+      `<b>Ожидают одобрения (${pending.length}):</b>\n\n${lines}\n\n` +
+      `Одобрить: /approve &lt;chatId&gt;\nОтклонить: /reject &lt;chatId&gt;`
+    );
+  }
+
   private async cmdBroadcast(chatId: number, text: string) {
     if (!this.isAdmin(chatId)) return void this.sendMessage(chatId, `❌ Нет доступа.`);
     if (!text) return void this.sendMessage(chatId, `Формат: <code>/broadcast Текст сообщения</code>`);
@@ -1061,10 +1188,14 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
 
   // ── вспомогательные ──────────────────────────────────────────
 
-  private getOrCreateUser(chatId: number): UserSettings {
+  private getOrCreateUser(chatId: number, from?: any): UserSettings {
     if (!this.users.has(chatId)) {
       this.users.set(chatId, {
         chatId,
+        firstName: from?.first_name,
+        username: from?.username,
+        approved: chatId === ADMIN_CHAT_ID,
+        pending: false,
         muted: false,
         mutedTypes: new Set(),
         dailyReport: false,
