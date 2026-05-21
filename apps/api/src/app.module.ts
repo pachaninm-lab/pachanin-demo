@@ -19,6 +19,7 @@ import { AntiFraudModule } from './modules/anti-fraud/anti-fraud.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { BusinessReputationModule } from './modules/business-reputation/business-reputation.module';
 import { RuntimeCoreModule } from './modules/runtime-core/runtime-core.module';
+import { TelegramModule } from './modules/telegram/telegram.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { RuntimeCoreModule } from './modules/runtime-core/runtime-core.module';
     AntiFraudModule,
     LedgerModule,
     BusinessReputationModule,
+    TelegramModule,
   ],
   providers: [
     {
