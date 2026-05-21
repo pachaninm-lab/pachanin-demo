@@ -23,6 +23,7 @@ const stateColor = {
 
 export default function PlatformV7DealsPage() {
   const stoppedDeals = dealSnapshots.filter((d) => d.cannotHappenReason || d.money.state === 'stop');
+  const primaryDeal = stoppedDeals.find((deal) => deal.id === 'DL-9106') ?? stoppedDeals[0] ?? dealSnapshots[0];
 
   return (
     <div data-testid='platform-v7-deals-page' style={{ display: 'grid', gap: 18 }}>
@@ -55,7 +56,7 @@ export default function PlatformV7DealsPage() {
             </h1>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/deals/DL-9102/clean' className='pc-deals-primary-cta' style={primary}>Открыть DL-9102</Link>
+            <Link href={primaryDeal.href} className='pc-deals-primary-cta' style={primary}>Открыть {primaryDeal.id}</Link>
             <Link href='/platform-v7/control-tower' className='pc-deals-secondary-cta' style={secondary}>Центр управления</Link>
           </div>
         </div>
