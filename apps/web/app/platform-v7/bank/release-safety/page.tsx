@@ -71,34 +71,63 @@ export default function BankReleaseSafetyPage() {
   const moneyUnderCheck = stoppedRows.reduce((sum, row) => sum + Math.max(row.hold, row.release), 0);
 
   return (
-    <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <P7PanelShell>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · тестовый контур</div>
-            <div style={{ marginTop: 6, fontSize: 26, lineHeight: 1.1, fontWeight: 900, color: T }}>Банковская проверка выплаты</div>
-            <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 860 }}>
-              Экран показывает, почему запрос в банк не должен обходить резерв, документы, ФГИС/СДИЗ, рейс, приёмку, качество, спор и удержание. Это контрольный экран, а не платёжный механизм.
+    <div data-testid="platform-v7-bank-release-safety-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+      <style>{`
+        @media(max-width:767px){
+          [data-testid='platform-v7-bank-release-safety-page']{gap:10px!important;padding:0!important}
+          [data-testid='bank-release-hero'] > section{padding:16px!important;border-radius:24px!important}
+          [data-testid='bank-release-hero'] > section > div{display:grid!important;gap:10px!important}
+          [data-testid='bank-release-hero'] > section > div > div:first-child > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
+          [data-testid='bank-release-hero'] > section > div > div:first-child > div:nth-child(3){display:none!important}
+          [data-testid='bank-release-hero'] a{width:100%!important;min-height:54px!important;border-radius:16px!important}
+          [data-testid='bank-release-hero'] a:nth-of-type(n+3){display:none!important}
+          [data-testid='bank-release-metrics'] > div{grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-testid='bank-release-metrics'] section{padding:12px!important;border-radius:16px!important}
+          [data-testid='bank-release-metrics'] section:nth-child(3){display:none!important}
+          [data-testid='bank-release-grain'] > section{padding:14px!important;border-radius:20px!important}
+          [data-testid='bank-release-grain'] > section > div{display:grid!important;gap:10px!important}
+          [data-testid='bank-release-grain'] > section > div > div:first-child > div:nth-child(3){display:none!important}
+          [data-testid='bank-release-grain'] a{width:100%!important;min-height:52px!important;border-radius:16px!important}
+          [data-testid='bank-release-grain'] a:nth-of-type(2){display:none!important}
+          [data-testid='bank-release-rows'] > section{padding:14px!important;border-radius:20px!important}
+          [data-testid='bank-release-rows'] > section > div:nth-child(2){gap:8px!important}
+          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div{padding:12px!important;border-radius:16px!important}
+          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div:nth-child(n+7){display:none!important}
+          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:7px!important}
+          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div > div:nth-child(2) > div:nth-child(n+4){display:none!important}
+        }
+      `}</style>
+      <div data-testid="bank-release-hero">
+        <P7PanelShell>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · тестовый контур</div>
+              <div style={{ marginTop: 6, fontSize: 26, lineHeight: 1.1, fontWeight: 900, color: T }}>Банковская проверка выплаты</div>
+              <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 860 }}>
+                Экран показывает, почему запрос в банк не должен обходить резерв, документы, ФГИС/СДИЗ, рейс, приёмку, качество, спор и удержание. Это контрольный экран, а не платёжный механизм.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <P7LinkButton href={PLATFORM_V7_BANK_ROUTE}>← Банк</P7LinkButton>
+              <P7LinkButton href={PLATFORM_V7_OPERATOR_ROUTE}>Оператор</P7LinkButton>
+              <P7LinkButton href={PLATFORM_V7_CONTROL_TOWER_ROUTE}>Центр управления</P7LinkButton>
+              <P7LinkButton href='/platform-v7/deals/grain-release'>Основание выплаты</P7LinkButton>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <P7LinkButton href={PLATFORM_V7_BANK_ROUTE}>← Банк</P7LinkButton>
-            <P7LinkButton href={PLATFORM_V7_OPERATOR_ROUTE}>Оператор</P7LinkButton>
-            <P7LinkButton href={PLATFORM_V7_CONTROL_TOWER_ROUTE}>Центр управления</P7LinkButton>
-            <P7LinkButton href='/platform-v7/deals/grain-release'>Основание выплаты</P7LinkButton>
-          </div>
-        </div>
-      </P7PanelShell>
+        </P7PanelShell>
+      </div>
 
       <ReleasePipelineStrip dealId="DL-9106" />
 
       <DecisionPackMiniPanel context='dl9106_payout_review' />
 
-      <P7Grid min={200} gap={14}>
-        <P7MetricCard title='К запросу после проверки' value={formatCompactMoney(payoutCandidate)} tone='green' />
-        <P7MetricCard title='Остановлено' value={String(stoppedRows.length)} tone={stoppedRows.length > 0 ? 'red' : 'green'} />
-        <P7MetricCard title='На проверке' value={formatCompactMoney(moneyUnderCheck)} tone={moneyUnderCheck > 0 ? 'red' : 'green'} />
-      </P7Grid>
+      <div data-testid="bank-release-metrics">
+        <P7Grid min={200} gap={14}>
+          <P7MetricCard title='К запросу после проверки' value={formatCompactMoney(payoutCandidate)} tone='green' />
+          <P7MetricCard title='Остановлено' value={String(stoppedRows.length)} tone={stoppedRows.length > 0 ? 'red' : 'green'} />
+          <P7MetricCard title='На проверке' value={formatCompactMoney(moneyUnderCheck)} tone={moneyUnderCheck > 0 ? 'red' : 'green'} />
+        </P7Grid>
+      </div>
 
       <SmartSectionSummary
         label='Проверка выплаты'
@@ -107,21 +136,23 @@ export default function BankReleaseSafetyPage() {
         facts={[`${rows.length} сделок`, `${stoppedRows.length} остановлено`]}
       />
 
-      <P7PanelShell>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Зерновой контур</div>
-            <div style={{ marginTop: 6, fontSize: 20, lineHeight: 1.15, fontWeight: 900, color: T }}>Основание выплаты по зерновой сделке</div>
-            <div style={{ marginTop: 8, fontSize: 13, color: M, maxWidth: 760 }}>
-              Отдельный экран показывает частичную выплату, удержание спорной части, документы, СДИЗ и основание банковского подтверждения без заявления о самостоятельном платёжном механизме.
+      <div data-testid="bank-release-grain">
+        <P7PanelShell>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Зерновой контур</div>
+              <div style={{ marginTop: 6, fontSize: 20, lineHeight: 1.15, fontWeight: 900, color: T }}>Основание выплаты по зерновой сделке</div>
+              <div style={{ marginTop: 8, fontSize: 13, color: M, maxWidth: 760 }}>
+                Отдельный экран показывает частичную выплату, удержание спорной части, документы, СДИЗ и основание банковского подтверждения без заявления о самостоятельном платёжном механизме.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <P7LinkButton href='/platform-v7/deals/grain-release'>Открыть основание выплаты</P7LinkButton>
+              <P7LinkButton href='/platform-v7/control-tower/grain'>Открыть зерновой контур</P7LinkButton>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <P7LinkButton href='/platform-v7/deals/grain-release'>Открыть основание выплаты</P7LinkButton>
-            <P7LinkButton href='/platform-v7/control-tower/grain'>Открыть зерновой контур</P7LinkButton>
-          </div>
-        </div>
-      </P7PanelShell>
+        </P7PanelShell>
+      </div>
 
       <P7Notice title='Правило' tone='amber'>
         Запрос к банку допустим только после закрытия условий: резерв, сумма к выплате, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.
@@ -129,32 +160,34 @@ export default function BankReleaseSafetyPage() {
 
       <P7ExecutionMachineReadOnlyStrip compact />
 
-      <P7PanelShell>
-        <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и условия выплаты</div>
-        <div style={{ display: 'grid', gap: 10 }}>
-          {rows.map((row) => {
-            const actionState = payoutReviewState(row);
-            return (
-              <div key={row.id} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <div>
-                    <Link href={`/platform-v7/deals/${row.id}`} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND, textDecoration: 'none' }}>{row.id}</Link>
-                    <span style={{ marginLeft: 8, fontSize: 13, color: M }}>{row.grain}</span>
+      <div data-testid="bank-release-rows">
+        <P7PanelShell>
+          <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и условия выплаты</div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {rows.map((row) => {
+              const actionState = payoutReviewState(row);
+              return (
+                <div key={row.id} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div>
+                      <Link href={`/platform-v7/deals/${row.id}`} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND, textDecoration: 'none' }}>{row.id}</Link>
+                      <span style={{ marginLeft: 8, fontSize: 13, color: M }}>{row.grain}</span>
+                    </div>
+                    <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: actionState.bg, border: `1px solid ${actionState.border}`, color: actionState.color }}>{actionState.label}</span>
                   </div>
-                  <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: actionState.bg, border: `1px solid ${actionState.border}`, color: actionState.color }}>{actionState.label}</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 12 }}>
+                    <Cell label='Резерв' value={formatCompactMoney(row.reserved)} />
+                    <Cell label='Удержано' value={formatCompactMoney(row.hold)} danger={row.hold > 0} />
+                    <Cell label='К запросу' value={formatCompactMoney(row.release)} />
+                    <Cell label='Причины остановки' value={reasonText(row.reasons)} danger={row.reasons.length > 0} />
+                    <Cell label='Доступное действие' value={actionState.note} danger={row.stopped} />
+                  </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 12 }}>
-                  <Cell label='Резерв' value={formatCompactMoney(row.reserved)} />
-                  <Cell label='Удержано' value={formatCompactMoney(row.hold)} danger={row.hold > 0} />
-                  <Cell label='К запросу' value={formatCompactMoney(row.release)} />
-                  <Cell label='Причины остановки' value={reasonText(row.reasons)} danger={row.reasons.length > 0} />
-                  <Cell label='Доступное действие' value={actionState.note} danger={row.stopped} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </P7PanelShell>
+              );
+            })}
+          </div>
+        </P7PanelShell>
+      </div>
     </div>
   );
 }
