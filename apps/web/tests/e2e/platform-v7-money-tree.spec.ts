@@ -8,7 +8,7 @@ test.describe('platform-v7 MoneyTree strip', () => {
     expect(response?.ok()).toBeTruthy();
     await expect(page.getByTestId('platform-v7-money-tree-strip')).toBeVisible();
     await expect(page.getByText('Всего в резерве', { exact: false })).toBeVisible();
-    await expect(page.getByText('К подтверждению')).toBeVisible();
+    await expect(page.getByText('К выпуску')).toBeVisible();
     await expect(page.getByText('Удержано')).toBeVisible();
     await expect(page.getByText('Заблокировано спором')).toBeVisible();
     await expect(page.getByText('Суммы сходятся')).toBeVisible();

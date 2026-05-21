@@ -40,7 +40,7 @@ describe('platform-v7 provider registry', () => {
 
   it('returns public source labels for deal facts', () => {
     expect(getProviderPublicFactLabel('fgis_grain')).toBe('ФГИС · ручная проверка');
-    expect(getProviderPublicFactLabel('sber_safe_deals')).toBe('Сбер · контур проверки');
+    expect(getProviderPublicFactLabel('sber_safe_deals')).toBe('Сбер · тестовый контур');
   });
 
   it('keeps money release blocked while provider money event is not successful', () => {

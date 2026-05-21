@@ -1,12 +1,9 @@
 import Link from 'next/link';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
-import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
+import { DriverBigTileIsland } from '@/components/platform-v7/visual/DriverBigTileIsland';
 
 export default function DriverFieldPage() {
-  const cockpit = OPERATIONAL_ROLE_EXECUTION_COCKPITS.driver;
-  const mainAction = cockpit.operations[0].action;
-
   return (
     <main
       data-testid="platform-v7-driver-field-shell"
@@ -19,7 +16,20 @@ export default function DriverFieldPage() {
         padding: '6px 0 24px',
       }}
     >
+      <style>{`
+        [data-testid='platform-v7-role-route-hint']{display:none!important}
+        @media(max-width:767px){
+          [data-testid='platform-v7-driver-field-shell']{gap:10px!important;padding-top:0!important}
+          .driver-field-hero{padding:16px!important;border-radius:24px!important;gap:10px!important}
+          .driver-field-hero p{display:none!important}
+          .driver-field-quick-links{grid-template-columns:1fr!important}
+          .driver-field-quick-links a:nth-child(n+2){display:none!important}
+          .driver-field-status-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+          .driver-field-status-grid > div:nth-child(3){display:none!important}
+        }
+      `}</style>
       <section
+        className="driver-field-hero"
         style={{
           background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)',
           border: '1px solid #E4E6EA',
@@ -33,46 +43,48 @@ export default function DriverFieldPage() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ display: 'grid', gap: 7, minWidth: 0 }}>
             <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              {cockpit.eyebrow}
+              Водитель · один рейс · одно действие
             </div>
-            <h1 style={{ margin: 0, fontSize: 'clamp(30px,8vw,40px)', lineHeight: 1.04, letterSpacing: 0, fontWeight: 950, color: '#0F1419' }}>
-              {cockpit.title}
+            <h1 style={{ margin: 0, fontSize: 'clamp(30px,8vw,40px)', lineHeight: 1.04, letterSpacing: '-0.04em', fontWeight: 950, color: '#0F1419' }}>
+              Текущий рейс
             </h1>
           </div>
           <div style={{ border: '1px solid #CBD5E1', borderRadius: 999, background: '#fff', color: '#475569', padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>
-            Полевой режим · только рейс
+            Полевой режим
           </div>
         </div>
 
         <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: '#475569' }}>
-          {cockpit.subtitle}
+          На экране только маршрут, связь, прибытие, фото, пломба и отклонение. Денежный, банковый и чужой контекст скрыт.
         </p>
 
         <Link href="#driver-next-action" style={primaryAction}>
-          {mainAction.label}
+          Подтвердить следующее действие по рейсу
         </Link>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(128px,1fr))', gap: 8 }}>
-          <a href="#driver-offline-events" style={secondaryChip}>Офлайн-события</a>
-          <a href="#driver-photo-seal" style={secondaryChip}>Фото и пломба</a>
-          <a href="#driver-route-status" style={secondaryChip}>GPS / вес</a>
+        <div className="driver-field-quick-links" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(128px,1fr))', gap: 8 }}>
+          <a href="#driver-offline-events" style={secondaryChip}>Связь / очередь</a>
+          <a href="#driver-photo-seal" style={secondaryChip}>Фото / пломба</a>
+          <a href="#driver-route-status" style={secondaryChip}>Статус рейса</a>
         </div>
       </section>
 
-      <section aria-label="Только текущий рейс" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
+      <section className="driver-field-status-grid" aria-label="Полевой статус рейса" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
         <div style={miniStatusCard}>
-          <span style={miniLabel}>Следующее действие</span>
+          <span style={miniLabel}>следующее</span>
           <strong style={miniValue}>прибытие</strong>
-          <span style={miniNote}>только свой рейс</span>
         </div>
-        {cockpit.kpis.slice(1).map((kpi) => (
-          <div key={kpi.label} style={miniStatusCard}>
-            <span style={miniLabel}>{kpi.label}</span>
-            <strong style={miniValue}>{kpi.value}</strong>
-            <span style={miniNote}>{kpi.note}</span>
-          </div>
-        ))}
+        <div style={miniStatusCard}>
+          <span style={miniLabel}>очередь</span>
+          <strong style={miniValue}>локально сохранится</strong>
+        </div>
+        <div style={miniStatusCard}>
+          <span style={miniLabel}>доступ</span>
+          <strong style={miniValue}>только свой рейс</strong>
+        </div>
       </section>
+
+      <DriverBigTileIsland />
 
       <RoleRouteHint role="driver" route="/platform-v7/driver/field" />
       <FieldDriverRuntime compact />
@@ -136,11 +148,4 @@ const miniValue = {
   fontSize: 15,
   lineHeight: 1.25,
   fontWeight: 950,
-} as const;
-
-const miniNote = {
-  color: '#64748B',
-  fontSize: 12,
-  lineHeight: 1.35,
-  fontWeight: 760,
 } as const;

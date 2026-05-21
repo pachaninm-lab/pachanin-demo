@@ -549,3 +549,84 @@
   flex-wrap: wrap;
   align-items: center;
 }
+
+/* ─── §B: Breakpoint design tokens ─── */
+:root {
+  --bp-xs: 360px;
+  --bp-sm: 480px;
+  --bp-md: 640px;
+  --bp-lg: 768px;
+  --bp-xl: 1024px;
+  --bp-2xl: 1280px;
+  --bp-3xl: 1536px;
+}
+
+/* ─── §B: Fluid typography with clamp() ─── */
+.v9-root {
+  --fs-display: clamp(24px, 2.2vw + 14px, 30px);
+  --fs-h1:      clamp(20px, 1.1vw + 14px, 22px);
+  --fs-h2:      clamp(17px, 0.6vw + 13px, 18px);
+  --fs-body:    clamp(14px, 0.3vw + 12px, 15px);
+  --fs-small:   clamp(12px, 0.2vw + 11px, 13px);
+  --fs-mono:    clamp(12px, 0.2vw + 11px, 13px);
+}
+
+/* ─── §B: Hover-only interactions (no sticky-hover on touch) ─── */
+@media (hover: hover) and (pointer: fine) {
+  .v9-nav-item:hover {
+    background: var(--color-bg-muted);
+    color: var(--color-text-primary);
+    border-color: color-mix(in srgb, var(--color-border) 75%, transparent 25%);
+  }
+  .v9-table tr:hover td {
+    background: color-mix(in srgb, var(--color-bg-muted) 72%, white 28%);
+    cursor: pointer;
+  }
+  .v9-btn-primary:hover { background: var(--color-brand); }
+  .v9-btn-secondary:hover { background: var(--color-bg-muted); }
+  .v9-btn-ghost:hover { background: var(--color-bg-muted); }
+}
+
+/* Remove static hover declarations so they only apply above (touch gets nothing) */
+/* ─── §B: Touch targets 48px on coarse pointer ─── */
+@media (hover: none) and (pointer: coarse) {
+  .v9-btn, button, [role="button"], a[href] {
+    min-height: 48px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .v9-nav-item {
+    min-height: 48px;
+  }
+}
+
+/* ─── §B: Landscape phone — keep header compact ─── */
+@media (max-height: 480px) and (orientation: landscape) {
+  .v9-header {
+    height: 48px !important;
+  }
+}
+
+/* ─── §B: Zoom 200% — no horizontal overflow ─── */
+.v9-root {
+  overflow-x: hidden;
+}
+@media (min-resolution: 2dppx) {
+  .v9-main {
+    max-width: 100%;
+  }
+}
+
+/* ─── §B: Container queries for cards ─── */
+.v9-card, .v9-bento > * {
+  container-type: inline-size;
+}
+
+@container (max-width: 280px) {
+  .v9-card {
+    padding: 12px;
+  }
+}
+
+/* ─── §B: font-display swap + preload hints via CSS ─── */
+/* (actual preload tags go in layout.tsx head) */

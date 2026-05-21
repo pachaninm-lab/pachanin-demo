@@ -8,14 +8,14 @@ test.describe('platform-v7 buyer cockpit entry', () => {
     const response = await page.goto(ROUTE, { waitUntil: 'networkidle' });
 
     expect(response?.ok(), 'buyer route should load').toBeTruthy();
-    await expect(page.getByTestId('platform-v7-buyer-execution-cockpit')).toBeVisible();
-    await expect(page.locator('body')).toContainText('Покупатель · RFQ → оффер → резерв → логистика');
-    await expect(page.locator('body')).toContainText('Подтвердить резерв и условия, чтобы сделка пошла в исполнение');
-    await expect(page.locator('body')).toContainText('Блокер / причина');
-    await expect(page.locator('body')).toContainText('Резерв ещё не подтверждён банком');
-    await expect(page.locator('body')).toContainText('Сделка не переходит к логистике до банковского статуса');
-    await expect(page.locator('body')).toContainText('9,65 млн ₽');
-    await expect(page.locator('body')).toContainText('624 тыс. ₽');
+    await expect(page.locator('[data-platform-v7-buyer-cockpit-pass="true"]')).toBeVisible();
+    await expect(page.locator('body')).toContainText('Кабинет покупателя · запрос → резерв → логистика');
+    await expect(page.locator('body')).toContainText('Подтвердить резерв, чтобы сделка пошла в исполнение');
+    await expect(page.locator('body')).toContainText('главный блокер');
+    await expect(page.locator('body')).toContainText('резерв ждёт подтверждение банка');
+    await expect(page.locator('body')).toContainText('логистика не стартует до статуса банка');
+    await expect(page.locator('body')).toContainText('9,65 млн ₽ · ждёт банк');
+    await expect(page.locator('body')).toContainText('624 тыс. ₽ · вес');
     await expect(page.locator('body')).toContainText('Запросить подтверждение резерва');
     await expect(page.locator('body')).not.toContainText(/платформа гарантирует оплату|платформа сама выпускает деньги|production-ready|fully live|fully integrated/i);
   });

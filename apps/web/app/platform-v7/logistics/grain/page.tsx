@@ -22,7 +22,7 @@ export default function LogisticsGrainPage() {
         <h1 style={h1}>От заявки до закрытого рейса</h1>
         <p style={lead}>Этот экран показывает только то, что нужно логистике: заявку, водителя, машину, маршрут, элеватор, ЭТрН, СДИЗ, ГИС ЭПД и инциденты. Коммерческие ставки, кредит и банковские детали не раскрываются.</p>
         <div style={actions}>
-          <Link href='/platform-v7/logistics' style={primaryBtn}>Логистика</Link>
+          <Link href='/platform-v7/logistics' style={primaryBtn}>Кабинет логистики</Link>
           <Link href='/platform-v7/logistics/inbox' style={ghostBtn}>Входящие заявки</Link>
           <Link href='/platform-v7/driver' style={ghostBtn}>Рейс водителя</Link>
           <Link href='/platform-v7/elevator/terminal' style={ghostBtn}>Элеватор</Link>

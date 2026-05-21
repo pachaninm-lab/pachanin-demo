@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 const gates = [
   { title: 'Резерв', value: 'ожидает подтверждения', note: 'Деньги не считаются доступными к выплате, пока резерв не подтверждён банком.', href: '/platform-v7/bank/release-safety', tone: 'warn' },
-  { title: 'СДИЗ', value: 'не закрыт', note: 'Документальное основание партии должно быть подтверждено до банковского решения.', href: '/platform-v7/deals/grain-sdiz', tone: 'stop' },
+  { title: 'СДИЗ', value: 'не закрыт', note: 'Документальное основание партии должно быть подтверждено до выпуска продавцу.', href: '/platform-v7/deals/grain-sdiz', tone: 'stop' },
   { title: 'ЭТрН', value: 'ждёт подписи', note: 'Транспортное условие закрывается после подписи грузополучателя.', href: '/platform-v7/deals/DL-9106/transport-documents', tone: 'warn' },
   { title: 'Качество', value: 'протокол ожидается', note: 'Протокол качества влияет на удержание, спор и финальный расчёт.', href: '/platform-v7/deals/grain-quality', tone: 'warn' },
 ] as const;
@@ -10,7 +10,7 @@ const gates = [
 const metrics = [
   { label: 'Сделка', value: 'DL-9106', tone: 'neutral' },
   { label: 'Резерв', value: '9,65 млн ₽', tone: 'good' },
-  { label: 'К подтверждению', value: '0 ₽', tone: 'bad' },
+  { label: 'К выпуску сейчас', value: '0 ₽', tone: 'bad' },
   { label: 'Под проверкой', value: '4 условия', tone: 'warn' },
 ] as const;
 
@@ -19,10 +19,10 @@ export default function BankGrainPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={card}>
         <div style={badge}>Банковский контур сделки</div>
-        <h1 style={h1}>Резерв, удержание, условия подтверждения и журнал</h1>
+        <h1 style={h1}>Резерв, удержание, условия выпуска и журнал</h1>
         <p style={lead}>Банк видит денежный статус сделки и основания остановки. Выплата продавцу возможна только после закрытия документов, приёмки, качества и спора.</p>
         <div style={actions}>
-          <Link href='/platform-v7/bank' style={primaryBtn}>Банк</Link>
+          <Link href='/platform-v7/bank' style={primaryBtn}>Кабинет банка</Link>
           <Link href='/platform-v7/bank/release-safety' style={ghostBtn}>Проверка выплаты</Link>
           <Link href='/platform-v7/operator/grain' style={ghostBtn}>Очередь условий</Link>
         </div>
@@ -31,14 +31,14 @@ export default function BankGrainPage() {
       <section style={grid}>{metrics.map((item) => <Metric key={item.label} item={item} />)}</section>
 
       <section style={card}>
-        <div style={micro}>Условия перед подтверждением</div>
+        <div style={micro}>Условия перед выпуском</div>
         <div style={stepGrid}>{gates.map((gate, index) => <Gate key={gate.title} gate={gate} index={index} />)}</div>
       </section>
 
       <section style={darkCard}>
         <div style={{ ...micro, color: '#CBD5E1' }}>Правило банка</div>
         <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Выплата не является ручной кнопкой</h2>
-        <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Любое денежное действие должно иметь закрытые условия, ответственного, документальное основание и след в журнале. Если хотя бы одно условие открыто, банковское подтверждение остаётся закрытым.</p>
+        <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Любое денежное действие должно иметь закрытые условия, ответственного, документальное основание и след в журнале. Если хотя бы одно условие открыто, выпуск остаётся закрытым.</p>
       </section>
     </main>
   );

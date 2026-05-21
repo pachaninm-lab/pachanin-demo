@@ -1,26 +1,26 @@
 import Link from 'next/link';
 
 const integrations = [
-  { name: 'Сбер · Безопасные сделки', role: 'резерв и банковское подтверждение', status: 'условия на проверке', screen: '/platform-v7/bank', state: 'wait', mode: 'контур проверки', live: 'внешнее банковское подтверждение не заявлено' },
-  { name: 'Сбер · Оплата в кредит', role: 'кредитный лимит покупателя', status: 'сценарий покупателя', screen: '/platform-v7/buyer', state: 'ok', mode: 'контур проверки', live: 'требуется банковский договор и доступ' },
-  { name: 'ФГИС «Зерно»', role: 'СДИЗ и партия зерна', status: 'СДИЗ блокирует основание', screen: '/platform-v7/documents', state: 'stop', mode: 'адаптер требует доступа', live: 'внешний API не подтверждён' },
-  { name: 'Контур.Диадок', role: 'договор, УПД, акт', status: 'УПД ждёт подписи', screen: '/platform-v7/documents', state: 'stop', mode: 'контур проверки', live: 'внешнее ЭДО не заявлено' },
-  { name: 'СБИС / Saby ЭТрН', role: 'электронная транспортная накладная', status: 'ждёт подписи грузополучателя', screen: '/platform-v7/logistics', state: 'stop', mode: 'контур проверки', live: 'внешний ЭТрН-контур не заявлен' },
-  { name: 'ГИС ЭПД', role: 'передача перевозочного документа', status: 'ожидает закрытия ЭТрН', screen: '/platform-v7/logistics', state: 'wait', mode: 'адаптер требует доступа', live: 'внешний обмен не подтверждён' },
-  { name: 'КриптоПро DSS', role: 'КЭП и полномочия подписи', status: 'сертификат на проверке', screen: '/platform-v7/documents', state: 'ok', mode: 'контур проверки', live: 'внешнее подписание не заявлено' },
-  { name: 'ATI.SU', role: 'расчёт перевозчика', status: 'перевозчик выбран в сценарии', screen: '/platform-v7/logistics', state: 'ok', mode: 'контур проверки', live: 'внешний подбор не заявлен' },
-  { name: 'Wialon', role: 'телематика и GPS-события', status: 'точка водителя 62% пути', screen: '/platform-v7/driver', state: 'ok', mode: 'контур проверки', live: 'внешний GPS не подключён' },
-  { name: 'Яндекс.Карты', role: 'визуальная карта маршрута', status: 'карта рейса', screen: '/platform-v7/driver', state: 'ok', mode: 'контур проверки', live: 'визуальный маршрут без внешнего трекинга' },
-  { name: 'ФГБУ ЦОК АПК', role: 'протокол качества', status: 'протокол ожидается', screen: '/platform-v7/elevator', state: 'wait', mode: 'контур проверки', live: 'внешний лабораторный обмен не заявлен' },
+  { name: 'Сбер · Безопасные сделки', role: 'резерв и выплата денег', status: 'условия выплаты проверяются', screen: '/platform-v7/bank', state: 'wait', mode: 'проверочный контур', live: 'выпуск денег требует подтверждения банка' },
+  { name: 'Сбер · Оплата в кредит', role: 'кредитный лимит покупателя', status: 'сценарий покупателя', screen: '/platform-v7/buyer', state: 'ok', mode: 'предынтеграционный контур', live: 'требуются договор и доступы' },
+  { name: 'ФГИС «Зерно»', role: 'СДИЗ и партия зерна', status: 'СДИЗ блокирует выплату', screen: '/platform-v7/documents', state: 'stop', mode: 'требует доступа', live: 'боевой API требует подтверждения' },
+  { name: 'Контур.Диадок', role: 'договор, УПД, акт', status: 'УПД ждёт подписи', screen: '/platform-v7/documents', state: 'stop', mode: 'проверочный контур', live: 'боевое ЭДО требует договора' },
+  { name: 'СБИС / Saby ЭТрН', role: 'электронная транспортная накладная', status: 'ждёт подписи грузополучателя', screen: '/platform-v7/logistics', state: 'stop', mode: 'проверочный контур', live: 'боевой ЭТрН-контур требует договора' },
+  { name: 'ГИС ЭПД', role: 'передача перевозочного документа', status: 'ожидает закрытия ЭТрН', screen: '/platform-v7/logistics', state: 'wait', mode: 'требует доступа', live: 'боевой обмен требует подтверждения' },
+  { name: 'КриптоПро DSS', role: 'КЭП и полномочия подписи', status: 'сертификат проверяется', screen: '/platform-v7/documents', state: 'ok', mode: 'проверочный контур', live: 'боевое подписание требует договора' },
+  { name: 'ATI.SU', role: 'расчёт перевозчика', status: 'перевозчик выбран в проверочном сценарии', screen: '/platform-v7/logistics', state: 'ok', mode: 'предынтеграционный контур', live: 'боевой подбор требует договора' },
+  { name: 'Wialon', role: 'телематика и GPS-события', status: 'точка водителя 62% пути', screen: '/platform-v7/driver', state: 'ok', mode: 'проверочный контур', live: 'боевой GPS требует подключения' },
+  { name: 'Яндекс.Карты', role: 'визуальная карта маршрута', status: 'маршрут рейса показан', screen: '/platform-v7/driver', state: 'ok', mode: 'проверочный контур', live: 'боевой трекинг не заявляется' },
+  { name: 'ФГБУ ЦОК АПК', role: 'протокол качества', status: 'протокол ожидается', screen: '/platform-v7/elevator', state: 'wait', mode: 'проверочный контур', live: 'боевой лабораторный обмен требует договора' },
 ] as const;
 
 const connectorSummary = [
-  { label: 'Что сейчас', value: '11 именных контуров', note: 'Это управляемые маршруты интеграции, а не заявление о внешнем подключении.' },
-  { label: 'Что блокирует', value: 'ФГИС, ЭТрН, УПД', note: 'Эти контуры напрямую останавливают банковское основание.' },
-  { label: 'Где деньги', value: 'банк · резерв · проверка основания', note: 'Банковый контур показывает основание, статус и причину остановки.' },
-  { label: 'Где груз', value: 'логистика · водитель · карта', note: 'GPS и маршрут показаны как факты рейса без заявления внешнего трекинга.' },
-  { label: 'Что нельзя обещать', value: 'готовность без подтверждений', note: 'Внешние подключения требуют договоров, доступов, сертификатов и проверок.' },
-  { label: 'Следующий шаг', value: 'закрыть доступы и контуры проверки', note: 'После проверки — подтверждать на реальных сделках и документах.' },
+  { label: 'Что сейчас', value: '11 именных контуров', note: 'Это управляемые маршруты подключения, а не заявление о боевом статусе.' },
+  { label: 'Что блокирует', value: 'ФГИС, ЭТрН, УПД', note: 'Эти контуры напрямую останавливают выпуск денег продавцу.' },
+  { label: 'Где деньги', value: 'банк · резерв · проверка выплаты', note: 'Банковый контур формирует основание и ждёт подтверждение банка.' },
+  { label: 'Где груз', value: 'логистика · водитель · карта', note: 'GPS и маршрут показаны как проверочный контур, не как боевой трекинг.' },
+  { label: 'Что нельзя обещать', value: 'боевой статус без подтверждения', note: 'Подключения требуют договоров, доступов, сертификатов и проверок.' },
+  { label: 'Следующий шаг', value: 'закрыть договоры и доступы', note: 'После пилота — подтверждать на реальных сделках и документах.' },
 ] as const;
 
 export default function PlatformV7ConnectorsPage() {
@@ -29,13 +29,34 @@ export default function PlatformV7ConnectorsPage() {
   const wait = integrations.filter((item) => item.state === 'wait').length;
 
   return (
-    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+    <main data-testid="platform-v7-connectors-page" style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <style>{`
+        @media(max-width:767px){
+          [data-testid='platform-v7-connectors-page']{gap:10px!important;padding:0 0 16px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:9px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.03!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) p{display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) a{width:100%!important;min-height:54px!important;border-radius:16px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) a:nth-of-type(n+2){display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(2){display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3) > div{padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3) > div:nth-child(n+4){display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4){padding:14px!important;border-radius:20px!important;gap:9px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a{padding:12px!important;border-radius:16px!important;gap:8px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a:nth-of-type(n+7){display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a h2{font-size:16px!important;line-height:1.12!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a p{display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a > div:nth-child(2){grid-template-columns:1fr!important;gap:7px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a > div:nth-child(2) > div:nth-child(3){display:none!important}
+        }
+      `}</style>
       <section style={hero}>
         <div style={badge}>Реестр интеграций</div>
         <h1 style={h1}>Именные контуры сделки</h1>
-        <p style={lead}>Интеграции показаны как контуры проверки по логике реального подключения. Пользователь видит влияние на сделку: деньги, документы, рейс и качество, без заявления внешнего интеграционного статуса.</p>
+        <p style={lead}>Экран показывает, какие внешние контуры влияют на сделку: деньги, документы, рейс и качество. Боевой статус не заявляется без договора, доступа и подтверждения на реальных операциях.</p>
         <div style={actions}>
-          <Link href='/platform-v7/deals/DL-9106/clean' style={primaryBtn}>Открыть сделку</Link>
+          <Link href='/platform-v7/deals/DL-9106/clean' style={primaryBtn}>Сделка DL-9106</Link>
           <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
           <Link href='/platform-v7/bank' style={ghostBtn}>Деньги</Link>
         </div>
@@ -43,9 +64,9 @@ export default function PlatformV7ConnectorsPage() {
 
       <section style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ ...micro, color: '#0A7A5F' }}>статус подключений</div>
-          <h2 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.55 }}>Экран отделяет рабочие статусы, ручную проверку, адаптеры с недостающими доступами и внешние подключения, которые пока нельзя заявлять.</p>
+          <div style={{ ...micro, color: '#A7F3D0' }}>статус подключений</div>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
+          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Экран честно отделяет проверочный контур, предынтеграционную готовность и боевое подключение, которое требует договоров и доступа.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {connectorSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
@@ -54,9 +75,9 @@ export default function PlatformV7ConnectorsPage() {
 
       <section style={metricsGrid}>
         <Metric label='Контуров' value={String(integrations.length)} />
-        <Metric label='Останавливают основание' value={String(stop)} danger />
+        <Metric label='Останавливают выплату' value={String(stop)} danger />
         <Metric label='Ждут подтверждения' value={String(wait)} warn />
-        <Metric label='Статус закрыт' value={String(ok)} good />
+        <Metric label='Сценарий закрыт' value={String(ok)} good />
       </section>
 
       <section style={card}>
@@ -70,7 +91,7 @@ export default function PlatformV7ConnectorsPage() {
 }
 
 function SummaryCard({ item }: { item: typeof connectorSummary[number] }) {
-  return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#0A7A5F' }}>{item.label}</div><strong style={{ color: '#0F1419', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#475569', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#A7F3D0' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#D1FAE5', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
 }
 
 function IntegrationRow({ item }: { item: typeof integrations[number] }) {
@@ -84,7 +105,7 @@ function IntegrationRow({ item }: { item: typeof integrations[number] }) {
         <span style={{ ...pill, color: stateText(item.state), borderColor: stateBorder(item.state), background: '#fff' }}>{item.status}</span>
       </div>
       <div style={detailGrid}>
-        <Small label='Режим' value={item.mode} />
+        <Small label='Состояние' value={item.mode} />
         <Small label='Граница обещания' value={item.live} warning />
         <Small label='Экран влияния' value={item.screen.replace('/platform-v7/', '') || 'platform-v7'} />
       </div>
@@ -105,7 +126,7 @@ function stateBorder(state: string) { return state === 'ok' ? 'rgba(10,122,95,0.
 function stateText(state: string) { return state === 'ok' ? '#0A7A5F' : state === 'stop' ? '#B91C1C' : '#B45309'; }
 
 const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 26, padding: 22, display: 'grid', gap: 12 } as const;
-const darkCard = { background: '#F8FAFB', color: '#0F1419', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(15,23,42,0.06)' } as const;
+const darkCard = { background: '#064E3B', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(6,78,59,0.16)' } as const;
 const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
 const metric = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;

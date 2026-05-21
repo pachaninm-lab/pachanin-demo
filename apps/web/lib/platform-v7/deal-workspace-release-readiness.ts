@@ -52,7 +52,7 @@ export function platformV7DealReleaseReadinessModel(
       label: 'Логистика',
       status: input.logistics.blocksRelease ? 'fail' : 'pass',
       reason: input.logistics.blocksRelease
-        ? `Логистика блокирует банковское основание: ${input.logistics.blockers.join(', ') || input.logistics.statusLabel}.`
+        ? `Логистика блокирует выпуск: ${input.logistics.blockers.join(', ') || input.logistics.statusLabel}.`
         : 'Рейс и приёмка закрыты.',
     },
     {
@@ -60,8 +60,8 @@ export function platformV7DealReleaseReadinessModel(
       label: 'Деньги',
       status: input.financialTerms.releaseAmount > 0 ? 'pass' : 'fail',
       reason: input.financialTerms.releaseAmount > 0
-        ? `К подтверждению ${input.financialTerms.releaseAmount}.`
-        : 'Нет положительной суммы к банковскому подтверждению.',
+        ? `К выпуску ${input.financialTerms.releaseAmount}.`
+        : 'Нет положительной суммы к выпуску.',
     },
     {
       id: 'bank',
@@ -86,7 +86,7 @@ export function platformV7DealReleaseReadinessModel(
     gateStatus: status,
     releaseAmount: input.financialTerms.releaseAmount,
     blockerCount,
-    nextAction: status === 'pass' ? 'Передать основание банку' : gates.find((gate) => gate.status !== 'pass')?.label ?? 'Проверить сделку',
+    nextAction: status === 'pass' ? 'Выпустить деньги' : gates.find((gate) => gate.status !== 'pass')?.label ?? 'Проверить сделку',
   };
 }
 

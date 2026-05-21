@@ -18,12 +18,12 @@ export default function PlatformV7DemoExecutionFlowPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={{ border: '1px solid #E4E6EA', borderRadius: 20, padding: 22, background: '#fff', display: 'grid', gap: 14 }}>
-        <div style={{ display: 'inline-flex', width: 'fit-content', padding: '6px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 }}>Маршрут исполнения</div>
+        <div style={{ display: 'inline-flex', width: 'fit-content', padding: '6px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 }}>Демо-путь · controlled pilot</div>
         <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.12, color: '#0F1419' }}>Сквозной путь сделки</h1>
-        <p style={{ margin: 0, maxWidth: 860, fontSize: 14, lineHeight: 1.7, color: '#5B6576' }}>Маршрут показывает основные этапы сделки без заявлений о внешних подключениях.</p>
+        <p style={{ margin: 0, maxWidth: 860, fontSize: 14, lineHeight: 1.7, color: '#5B6576' }}>Тестовый маршрут показывает основные этапы сделки без заявлений о боевых внешних подключениях.</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Link href="/platform-v7/control-tower" style={primaryLink}>Центр управления</Link>
-          <Link href="/platform-v7/execution-map" style={secondaryLink}>Карта исполнения</Link>
+          <Link href="/platform-v7/simulator" style={secondaryLink}>Симулятор</Link>
           <Link href="/platform-v7/bank/events" style={secondaryLink}>События банка</Link>
         </div>
       </section>

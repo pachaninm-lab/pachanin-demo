@@ -38,7 +38,7 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
   buyer: {
     label: 'Покупатель',
     headline: 'Связка закупки: сделка → приёмка → документы → деньги',
-    nextAction: 'Проверить, что держит банковское подтверждение: документы, приёмка, качество или спор.',
+    nextAction: 'Проверить, что держит выпуск денег: документы, приёмка, качество или спор.',
     evidenceFocus: 'Качество, вес, лаборатория, документы покупателя, банковый статус.',
   },
   seller: {
@@ -49,14 +49,14 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
   },
   bank: {
     label: 'Банк',
-    headline: 'Связка денег: резерв → удержание → подтверждение банка → журнал',
-    nextAction: 'Проверить допустимость следующего банкового события и повторную обработку.',
-    evidenceFocus: 'Документы, статус спора, событие банка, резерв, удержание, подтверждение.',
+    headline: 'Связка денег: reserve → hold → release → audit',
+    nextAction: 'Проверить допустимость следующего банкового события и idempotency-контроль.',
+    evidenceFocus: 'Документы, dispute status, callback, reserve/hold/release, audit event.',
   },
   logistics: {
     label: 'Логистика',
     headline: 'Связка рейса: назначение → погрузка → прибытие → транспортный gate',
-    nextAction: 'Закрыть событие рейса, которое держит приёмку или банковское основание.',
+    nextAction: 'Закрыть событие рейса, которое держит приёмку или банковый выпуск.',
     evidenceFocus: 'Маршрут, водитель, прибытие, GPS/photo evidence, транспортные документы.',
   },
   driver: {
@@ -67,7 +67,7 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
   },
   lab: {
     label: 'Лаборатория',
-    headline: 'Связка качества: проба → протокол → приёмка → спор/банк',
+    headline: 'Связка качества: проба → протокол → приёмка → спор/выпуск',
     nextAction: 'Довести лабораторный результат до статуса, который открывает приёмку или спор.',
     evidenceFocus: 'Протокол, влажность, клейковина, белок, версия анализа, спорность.',
   },
@@ -80,7 +80,7 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
     ownerRole: 'buyer',
     route: '/platform-v7/bank',
     availableWhen: ['SIGNED', 'DOCUMENTS_READY', 'ACCEPTED'],
-    readyLabel: 'Покупатель может запросить банковский шаг или спор через подтверждённый контур.',
+    readyLabel: 'Покупатель может двигать деньги или спор через подтверждённый контур.',
     blockedLabel: 'Покупатель ждёт подписания, документов, приёмки или лабораторного результата.',
   },
   seller: {
@@ -93,13 +93,13 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
     blockedLabel: 'Продавец не является владельцем следующего подтверждаемого шага.',
   },
   bank: {
-    label: 'Подтвердить резерв / основание',
+    label: 'Подтвердить резерв / выпуск',
     actionType: 'confirmReserve',
     ownerRole: 'bank',
     route: '/platform-v7/bank',
     availableWhen: ['RESERVE_REQUESTED', 'PAYMENT_RELEASE_REQUESTED', 'DOCUMENTS_READY'],
     readyLabel: 'Банк может подтвердить допустимое денежное событие только после guard-проверок.',
-    blockedLabel: 'Банк ждёт запрос резерва, документы, отсутствие спора или готовность основания.',
+    blockedLabel: 'Банк ждёт reserve request, документы, отсутствие спора или готовность к release.',
   },
   logistics: {
     label: 'Назначить водителя / закрыть рейс',
@@ -145,7 +145,7 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
     label: role,
     headline: 'Связка роли с контуром исполнения сделки',
     nextAction: 'Проверить следующий owner, blocker и допустимое действие.',
-    evidenceFocus: 'Сделка, доказательства, журнал и последовательность событий.',
+    evidenceFocus: 'Сделка, доказательства, audit, timeline.',
   };
   const deal = selectRoleDeal(state, role);
   const handoff = buildRoleActionHandoff(role, deal);
@@ -165,7 +165,7 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
           </div>
           <div style={{ marginTop: 6, fontSize: compact ? 18 : 22, lineHeight: 1.15, fontWeight: 900, color: T }}>{copy.headline}</div>
           <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 860 }}>
-            Единый контур роли показывает не отдельный кабинет, а связку: текущая сделка, допустимое действие, доказательства, журнал и последовательность событий. Это операционный слой без заявления боевых интеграций.
+            Единый контур роли показывает не отдельный кабинет, а связку: текущая сделка, допустимое действие, доказательства, audit и timeline. Это simulation-only слой, без заявления боевых интеграций.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -193,9 +193,9 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
       <RoleActionDispatchBridge role={role} dealId={deal.id} actionType={handoff.actionType} canRun={handoff.canRun} disabledReason={handoff.disabledReason} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
-        <ListBlock title='Доказательства' empty='Нет доказательств по выбранной сделке.' rows={evidence.map((item) => ({ id: item.id, kicker: item.type, text: item.title }))} />
-        <ListBlock title='Журнал' empty='Нет событий журнала по выбранной сделке.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${item.actionType} · ${item.entityId}` }))} />
-        <ListBlock title='Ход сделки' empty='Нет событий по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
+        <ListBlock title='Evidence' empty='Нет evidence по выбранной сделке.' rows={evidence.map((item) => ({ id: item.id, kicker: item.type, text: item.title }))} />
+        <ListBlock title='Audit' empty='Нет audit events по выбранной сделке.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${item.actionType} · ${item.entityId}` }))} />
+        <ListBlock title='Timeline' empty='Нет timeline events по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
       </div>
     </section>
   );

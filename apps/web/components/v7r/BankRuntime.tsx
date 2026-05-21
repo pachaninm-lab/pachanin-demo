@@ -155,7 +155,7 @@ function QueueCard({
                 <div style={{ fontSize: 18, fontWeight: 800, color: row.hold > 0 ? '#991B1B' : '#0F1419', marginTop: 6 }}>{formatCompactMoney(row.hold)}</div>
               </div>
               <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
-                <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>К подтверждению</div>
+                <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>К выпуску</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419', marginTop: 6 }}>{formatCompactMoney(row.releasable)}</div>
               </div>
             </div>
@@ -246,7 +246,7 @@ export function BankRuntime() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {brandPill('sberBusinessId')}
             {brandPill('sberApi')}
-            <div data-execution="bank-runtime" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>Операционные данные</div>
+            <div data-demo="true" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>Демо-данные</div>
           </div>
         </div>
       </section>
@@ -254,7 +254,7 @@ export function BankRuntime() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <Card title='В резерве' value={formatCompactMoney(totalReserved)} note='Деньги подтверждены и заведены в контур.' />
         <Card title='Под удержанием' value={formatCompactMoney(totalHold)} note='Споры, документы и ручные проверки.' danger={totalHold > 0} />
-        <Card title='К подтверждению' value={formatCompactMoney(totalRelease)} note='Сумма для банковского подтверждения после закрытия блокеров.' />
+        <Card title='К выпуску' value={formatCompactMoney(totalRelease)} note='Сумма, которая может уйти после закрытия блокеров.' />
         <Card title='Требуют внимания' value={String(mismatchCount + pendingCount)} note='События банка, которые ещё не доведены до конца.' danger={mismatchCount + pendingCount > 0} />
       </div>
 
@@ -286,8 +286,8 @@ export function BankRuntime() {
 
       <section style={{ display: 'grid', gap: 14 }}>
         <QueueCard
-          title='Очередь банковского подтверждения'
-          note='Сделки, где основание уже близко к подтверждению, но ещё может застрять на банке, документах или финальной сверке.'
+          title='Очередь на выпуск денег'
+          note='Сделки, где деньги уже близко к release, но ещё могут застрять на банке, документах или финальной сверке.'
           accent={{ bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' }}
           rows={releaseQueue}
         />

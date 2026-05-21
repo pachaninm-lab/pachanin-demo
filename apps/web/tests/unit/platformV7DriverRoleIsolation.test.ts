@@ -11,7 +11,8 @@ describe('platform-v7 driver role isolation', () => {
 
     const content = readFileSync(driverPagePath, 'utf8');
 
-    expect(content).toContain("redirect('/platform-v7/driver/field')");
+    expect(content).toContain('Полевой экран водителя');
+    expect(content).toContain('Водитель фиксирует события рейса');
     expect(content).not.toContain("from 'next/link'");
     expect(content).not.toContain("href='/platform-v7/logistics'");
     expect(content).not.toContain("href='/platform-v7/elevator'");

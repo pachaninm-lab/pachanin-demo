@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
+import { BankCleanView } from '@/components/platform-v7/visual/BankCleanView';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+import { BatonStrip } from '@/components/platform-v7/BatonStrip';
 import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '@/components/platform-v7/ConditionReasonStrip';
@@ -85,11 +87,79 @@ const bankQueue = [
   },
 ] as const;
 
+const releaseSummary = [
+  { label: 'Что сейчас', value: 'DL-9106 · проверка выплаты остановлена', note: 'Сделка есть, но основание банку не передаётся без закрытых условий.' },
+  { label: 'Где деньги', value: 'резерв ожидает банковского подтверждения · к передаче 0 ₽', note: 'Банк видит резерв, удержание и причину остановки, а не кнопку движения денег.' },
+  { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'У каждой причины есть источник, ответственный, статус и влияние на деньги.' },
+  { label: 'Где груз', value: `${mainDeal.tripId} · приёмка и качество в работе`, note: 'Транспортный и приёмочный факты нужны как основание для проверки.' },
+  { label: 'Решение банка', value: 'не передавать основание банку', note: 'Нет заявления о выплате без банковского подтверждения.' },
+  { label: 'Кто следующий', value: 'оператор + ответственный за документ', note: 'Следующее действие фиксируется в сделке и журнале.' },
+] as const;
+
 const gates = mainDeal.providerGates.filter((gate) => ['Сбер · Безопасные сделки', 'Сбер · Оплата в кредит', 'ФГИС «Зерно»', 'Контур.Диадок', 'СБИС / Saby ЭТрН', 'Лабораторный контур качества'].includes(gate.provider));
 
 export default function PlatformV7BankPage() {
   return (
-    <RoleExecutionCockpitPage cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.bank}>
+    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <BatonStrip
+        from="оператор и ответственный за документ"
+        mine="проверка основания выплаты"
+        to="оператор — подтверждение"
+        toHref="/platform-v7/control-tower"
+      />
+      <section style={hero}>
+        <div style={badge}>Кабинет банка</div>
+        <h1 style={h1}>Сначала основание, потом банковская проверка</h1>
+        <p style={lead}>Экран показывает только то, что важно для решения: сумма, стоп, причина, ответственный и следующее действие. Длинные детали скрыты ниже и раскрываются по необходимости.</p>
+        <div style={actions}>
+          <Link href='/platform-v7/bank/release-safety' style={primaryBtn}>Проверка выплаты</Link>
+          <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Карточка сделки</Link>
+        </div>
+      </section>
+
+      <section style={focusCard}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={micro}>5 секунд для банка</div>
+          <h2 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(23px,5.5vw,34px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Деньги не двигаются, пока нет основания</h2>
+          <p style={{ margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.55 }}>Передача основания банку — результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+          {releaseSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
+        </div>
+      </section>
+
+      <section style={metricsGrid}>
+        <Metric label='В резерве' value='15,89 млн ₽' />
+        <Metric label='К передаче банку сейчас' value='0 ₽' danger />
+        <Metric label='Под удержанием' value='624 тыс. ₽' danger />
+        <Metric label='Требуют проверки' value='2 сделки' />
+      </section>
+
+      <BankCleanView
+        dealId={mainDeal.dealId}
+        amount='9,65 млн ₽'
+        lockState='blocked-docs'
+        trustState='test'
+        basis='Основание для банковской проверки выплаты не сформировано — документы не закрыты'
+        documents={[
+          { id: 'sdiz',    label: 'СДИЗ',              status: 'missing',  impact: 'блокирует' },
+          { id: 'etrn',    label: 'ЭТрН',              status: 'missing',  impact: 'блокирует' },
+          { id: 'upd',     label: 'УПД',               status: 'pending',  impact: 'ожидает'   },
+          { id: 'act',     label: 'Акт приёмки',       status: 'missing',  impact: 'блокирует' },
+          { id: 'quality', label: 'Протокол качества', status: 'pending',  impact: 'в работе'  },
+        ]}
+        risks={[
+          { id: 'sdiz-risk',    text: 'СДИЗ не закрыт — основание для банка не сформировано',    severity: 'high'   },
+          { id: 'dispute-risk', text: 'Спор по DL-9102 · 624 тыс. ₽ под удержанием',            severity: 'medium' },
+        ]}
+        unlockSteps={[
+          { id: '1', label: 'Закрыть СДИЗ',       status: 'current'  },
+          { id: '2', label: 'Подписать ЭТрН',     status: 'upcoming' },
+          { id: '3', label: 'Закрыть акт приёмки', status: 'upcoming' },
+        ]}
+        journalHref={`/platform-v7/deals/${mainDeal.dealId}/audit`}
+        manualReviewNote='Выпуск денег требует подтверждения банка. Платформа формирует основание при закрытых условиях.'
+      />
 
       <section style={cardInner}>
         <div style={micro}>Денежная очередь</div>
@@ -176,7 +246,7 @@ export default function PlatformV7BankPage() {
         <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
         <JournalPreview role='bank' maxEntries={3} />
       </DisclosureSection>
-    </RoleExecutionCockpitPage>
+    </main>
   );
 }
 
@@ -193,6 +263,14 @@ function DisclosureSection({ title, meta, children }: { title: string; meta: str
       <div style={detailsBody}>{children}</div>
     </details>
   );
+}
+
+function SummaryCard({ item }: { item: typeof releaseSummary[number] }) {
+  return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 13, display: 'grid', gap: 7, boxShadow: '0 8px 20px rgba(15,23,42,0.045)' }}><div style={micro}>{item.label}</div><strong style={{ color: '#0F1419', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#64748B', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+}
+
+function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+  return <div style={{ background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' }}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : '#0F1419', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div></div>;
 }
 
 function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
@@ -218,9 +296,18 @@ function stateText(state: Deal360State) {
   return '#475569';
 }
 
+const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
+const focusCard = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 60%,#EEF6F3 100%)', color: '#0F1419', border: '1px solid #E4E6EA', borderRadius: 26, padding: 20, display: 'grid', gap: 14, boxShadow: '0 18px 42px rgba(15,23,42,0.075)' } as const;
 const cardInner = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 14, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
+const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(15,23,42,0.08)', border: '1px solid rgba(15,23,42,0.18)', color: '#0F172A', fontSize: 12, fontWeight: 900 } as const;
+const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(28px,7vw,46px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 } as const;
+const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 } as const;
 const muted = { margin: '6px 0 0', color: '#64748B', fontSize: 13 } as const;
+const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
+const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0F172A', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(15,23,42,0.18)' } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
+const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
 const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
 const idText = { color: '#0F172A', fontSize: 13, fontWeight: 950 } as const;
 const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;

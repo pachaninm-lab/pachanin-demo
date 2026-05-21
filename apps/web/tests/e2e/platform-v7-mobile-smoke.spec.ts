@@ -3,12 +3,12 @@ import { expect, test } from '@playwright/test';
 const routes = [
   { path: '/platform-v7', text: 'Прозрачная Цена' },
   { path: '/platform-v7/control-tower', text: 'Центр управления' },
-  { path: '/platform-v7/driver', text: 'Водитель · один рейс · одно действие' },
-  { path: '/platform-v7/elevator', text: 'Элеватор · прибытие → вес → проба → акт' },
-  { path: '/platform-v7/lab', text: 'Лаборатория · проба → показатели → протокол' },
-  { path: '/platform-v7/surveyor', text: 'Сюрвейер · осмотр → фото → расхождение → заключение' },
-  { path: '/platform-v7/deals/DL-9102/clean', text: 'Карточка сделки · контур исполнения' },
-  { path: '/platform-v7/bank/release-safety', text: 'Банковская проверка выплаты' },
+  { path: '/platform-v7/driver', text: 'Полевой экран водителя' },
+  { path: '/platform-v7/elevator', text: 'Приёмка как доказательство сделки' },
+  { path: '/platform-v7/lab', text: 'Лаборатория как доказательство качества' },
+  { path: '/platform-v7/surveyor', text: 'Независимая фиксация на площадке' },
+  { path: '/platform-v7/deals/DL-9102/clean', text: 'Карточка сделки · пилотный контур' },
+  { path: '/platform-v7/bank/release-safety', text: 'Проверка безопасности выпуска денег' },
 ] as const;
 
 const staleMobileCopy = [

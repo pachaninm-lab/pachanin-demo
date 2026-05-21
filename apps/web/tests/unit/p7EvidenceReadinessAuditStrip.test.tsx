@@ -8,8 +8,8 @@ describe('P7EvidenceReadinessAuditStrip', () => {
     render(<P7EvidenceReadinessAuditStrip />);
 
     expect(screen.getByTestId('evidence-readiness-audit-strip')).toBeInTheDocument();
-    expect(screen.getByText('Проверка доказательств')).toBeInTheDocument();
-    expect(screen.getByText('Контур исполнения · без внешней загрузки')).toBeInTheDocument();
+    expect(screen.getByText('Evidence readiness audit')).toBeInTheDocument();
+    expect(screen.getByText('Controlled pilot · no live upload')).toBeInTheDocument();
   });
 
   it('renders ready and incomplete evidence rows', () => {
@@ -19,7 +19,7 @@ describe('P7EvidenceReadinessAuditStrip', () => {
     expect(within(ready).getByText('DK-2024-89')).toBeInTheDocument();
     expect(within(ready).getByText('Готов к разбору')).toBeInTheDocument();
     expect(within(ready).getByText('100% · 3/3 required')).toBeInTheDocument();
-    expect(within(ready).getByText('Блокеров нет')).toBeInTheDocument();
+    expect(within(ready).getByText('Нет blockers')).toBeInTheDocument();
 
     const incomplete = screen.getByTestId('evidence-readiness-audit-row-incomplete');
     expect(within(incomplete).getByText('DK-2024-91')).toBeInTheDocument();

@@ -41,6 +41,7 @@ function expectNoUnsafeCopy(html: string) {
 const BASE_PROPS = {
   amountContext: 'резерв 9,65 млн ₽ · к выплате 0 ₽',
   pilotState: 'waiting' as const,
+  pilotStateLabel: 'пилотный контур · ожидание',
   pilotStateLabel: 'контур исполнения · ожидание',
   responsible: 'продавец · ФГИС «Зерно»',
   nextStep: 'закрыть СДИЗ и ЭТрН',
@@ -57,9 +58,9 @@ describe('MoneyImpactSummaryStrip component', () => {
     expect(screen.getByTestId('platform-v7-money-impact-amount')).toHaveTextContent('резерв 9,65 млн ₽ · к выплате 0 ₽');
   });
 
-  it('renders execution state badge', () => {
+  it('renders pilot state badge', () => {
     render(<MoneyImpactSummaryStrip {...BASE_PROPS} />);
-    expect(screen.getByTestId('platform-v7-money-impact-state')).toHaveTextContent('контур исполнения · ожидание');
+    expect(screen.getByTestId('platform-v7-money-impact-state')).toHaveTextContent('пилотный контур · ожидание');
   });
 
   it('renders responsible slot', () => {
@@ -92,13 +93,14 @@ describe('MoneyImpactSummaryStrip component', () => {
       <MoneyImpactSummaryStrip
         amountContext='в резерве 15,89 млн ₽'
         pilotState='blocked'
+        pilotStateLabel='пилотный контур · удержание до закрытия условий'
         pilotStateLabel='контур исполнения · удержание до закрытия условий'
         responsible='банк · оператор'
         nextStep='ручная сверка после закрытия условий'
         stopReason='банковская проверка выплаты остановлена'
       />,
     );
-    expect(screen.getByTestId('platform-v7-money-impact-state')).toHaveTextContent('контур исполнения · удержание до закрытия условий');
+    expect(screen.getByTestId('platform-v7-money-impact-state')).toHaveTextContent('пилотный контур · удержание до закрытия условий');
     expect(screen.getByTestId('platform-v7-money-impact-responsible')).toHaveTextContent('банк · оператор');
     expect(screen.getByTestId('platform-v7-money-impact-stop')).toBeInTheDocument();
   });
@@ -108,6 +110,7 @@ describe('MoneyImpactSummaryStrip component', () => {
       <MoneyImpactSummaryStrip
         amountContext='в резерве 15,89 млн ₽ · к выплате 0 ₽'
         pilotState='blocked'
+        pilotStateLabel='пилотный контур · удержание до закрытия условий'
         pilotStateLabel='контур исполнения · удержание до закрытия условий'
         responsible='банк · оператор'
         nextStep='ручная сверка после закрытия условий'
@@ -127,6 +130,7 @@ describe('MoneyImpactSummaryStrip component', () => {
       <MoneyImpactSummaryStrip
         amountContext='резерв 9,65 млн ₽ · удержание 624 тыс. ₽'
         pilotState='waiting'
+        pilotStateLabel='пилотный контур · ожидание подтверждения'
         pilotStateLabel='контур исполнения · ожидание подтверждения'
         responsible='покупатель · банк'
         nextStep='ожидать банковского подтверждения резерва'
@@ -148,11 +152,12 @@ describe('MoneyImpactSummaryStrip component', () => {
     expect(screen.queryByTestId('platform-v7-money-impact-resolution')).toBeNull();
   });
 
-  it('uses execution-contour wording only', () => {
+  it('uses controlled-pilot wording only', () => {
     const { container } = render(
       <MoneyImpactSummaryStrip
         amountContext='резерв 9,65 млн ₽'
         pilotState='waiting'
+        pilotStateLabel='пилотный контур · ожидание'
         pilotStateLabel='контур исполнения · ожидание'
         responsible='банк · оператор'
         nextStep='ручная сверка'
@@ -181,9 +186,9 @@ describe('MoneyImpactSummaryStrip page placement', () => {
     expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent('банк подтверждает проверку');
   });
 
-  it('seller page strip shows execution contour label', () => {
+  it('seller page strip shows pilot label', () => {
     render(<SellerPage />);
-    expect(screen.getByTestId('platform-v7-money-impact-state').textContent).toMatch(/контур исполнения/);
+    expect(screen.getByTestId('platform-v7-money-impact-state').textContent).toMatch(/пилотный контур/);
   });
 
   it('buyer page renders money impact strip', () => {

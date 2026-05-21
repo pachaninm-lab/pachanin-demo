@@ -48,7 +48,7 @@ export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', borderBottom: `1px solid ${B}`, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: 12, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Рабочая зона сделки · контур исполнения</div>
+          <div style={{ fontSize: 12, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Рабочая зона сделки · тестовый контур</div>
           <div style={{ marginTop: 4, fontSize: 18, fontWeight: 900, color: T }}>Сделка как единый контур исполнения</div>
         </div>
         <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: blockers > 0 ? ERR_BG : BRAND_BG, border: `1px solid ${blockers > 0 ? ERR_BORDER : BRAND_BORDER}`, color: blockers > 0 ? ERR : BRAND }}>
@@ -80,7 +80,7 @@ export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
 function Overview({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
-      <p style={{ margin: 0, fontSize: 13, color: M, lineHeight: 1.6 }}>Один объект сделки связывает цену, логистику, приёмку, документы, деньги, спор и доказательства. Экран показывает рабочие факты, основания и источники подтверждений без заявления внешней интеграции.</p>
+      <p style={{ margin: 0, fontSize: 13, color: M, lineHeight: 1.6 }}>Один объект сделки связывает цену, логистику, приёмку, документы, деньги, спор и доказательства. Боевые подключения не заявлены: экран показывает тестовый контур и источники фактов.</p>
       <FactRail items={['sber_safe_deals', 'fgis_grain', 'logistics_sphere']} />
       <Grid>
         <Cell label='Сделка' value={deal.id} mono />
@@ -106,14 +106,14 @@ function Money({ deal }: { deal: DomainDeal }) {
       <Grid>
         <Cell label='Зарезервировано' value={money(deal.reservedAmount)} color={MONEY} />
         <Cell label='Удержано' value={money(deal.holdAmount)} danger={deal.holdAmount > 0} />
-        <Cell label='К подтверждению' value={money(deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0))} color={releaseBlocked ? M : BRAND} />
+        <Cell label='К выпуску' value={money(deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0))} color={releaseBlocked ? M : BRAND} />
       </Grid>
-      <Notice danger={releaseBlocked} title={releaseBlocked ? 'Банковское подтверждение остановлено' : 'Основание готово к проверке'}>
-        {releaseBlocked ? 'Есть блокеры или удержание. Банк не видит закрытое основание.' : 'Статус денег остаётся под проверкой: резерв, документы, приёмка, качество, рейс и спор.'}
+      <Notice danger={releaseBlocked} title={releaseBlocked ? 'Выпуск заблокирован' : 'Выпуск возможен только после проверки'}>
+        {releaseBlocked ? 'Есть блокеры или удержание. Прямой выпуск денег невозможен.' : 'Выпуск денег остаётся под проверкой: резерв, документы, приёмка, качество, рейс и спор.'}
       </Notice>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {requestTarget ? <P7GuardedActionButton target={requestTarget} activeActionId={null} blocked={releaseBlocked} blockerLabels={blockerLabels} blockedLabel='Запрос заблокирован' blockedReason='Сначала снимите блокеры сделки.' /> : null}
-        {releaseTarget ? <P7GuardedActionButton target={releaseTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Подтверждение под контролем' blockedReason='Банковское подтверждение доступно только после полной контрольной проверки.' /> : null}
+        {releaseTarget ? <P7GuardedActionButton target={releaseTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Выпуск под контролем' blockedReason='Выпуск денег доступен только после полной контрольной проверки.' /> : null}
         <Link href='/platform-v7/bank' style={linkButton()}>Банковый контур →</Link>
       </div>
     </Stack>
@@ -123,7 +123,7 @@ function Money({ deal }: { deal: DomainDeal }) {
 function Logistics({ deal }: { deal: DomainDeal }) {
   const order = SANDBOX_LOGISTICS_ORDERS.find((item) => item.dealId === deal.id) ?? null;
   const incidents = order ? SANDBOX_INCIDENTS.filter((item) => item.logisticsOrderId === order.id && (item.status === 'open' || item.status === 'under_review')) : [];
-  if (!order) return <Empty text={`Для ${deal.id} нет логистического заказа.`} href='/platform-v7/logistics' />;
+  if (!order) return <Empty text={`Для ${deal.id} нет тестового логистического заказа.`} href='/platform-v7/logistics' />;
 
   return (
     <Stack>
@@ -145,11 +145,11 @@ function Documents({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
       <FactRail items={['edo_saby', 'fgis_grain']} />
-      <Notice danger={missing} title={missing ? 'Документы блокируют основание' : 'Критичных пробелов нет'}>{missing ? 'Недостающие документы блокируют банковское основание.' : 'Документный слой не красный для текущего этапа.'}</Notice>
+      <Notice danger={missing} title={missing ? 'Документы блокируют деньги' : 'Критичных пробелов нет'}>{missing ? 'Недостающие документы блокируют выпуск денег.' : 'Документный слой не красный для текущего этапа.'}</Notice>
       <Grid>
-        <Cell label='Договор' value='подписан' color={BRAND} />
-        <Cell label='СДИЗ' value={deal.blockers.includes('fgis') ? 'ручная проверка' : 'связан'} danger={deal.blockers.includes('fgis')} />
-        <Cell label='ЭТрН' value={deal.blockers.includes('transport') ? 'требуется документ' : 'подписан'} danger={deal.blockers.includes('transport')} />
+        <Cell label='Договор' value='тест: подписан' color={BRAND} />
+        <Cell label='СДИЗ' value={deal.blockers.includes('fgis') ? 'ручная проверка' : 'тест: связан'} danger={deal.blockers.includes('fgis')} />
+        <Cell label='ЭТрН' value={deal.blockers.includes('transport') ? 'требуется документ' : 'тест: подписан'} danger={deal.blockers.includes('transport')} />
       </Grid>
       <Link href={`/platform-v7/deals/${deal.id}/documents`} style={linkButton()}>Документы сделки →</Link>
     </Stack>
@@ -161,7 +161,7 @@ function Fgis({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
       <FactRail items={['fgis_grain']} />
-      <Notice danger={blocked} title='ФГИС ЗЕРНО'>{blocked ? 'Синхронизация партии требует проверки. Внешний контур ФГИС требует подтверждений.' : 'Партия связана с контуром сделки. Внешний контур ФГИС требует подтверждений.'}</Notice>
+      <Notice danger={blocked} title='ФГИС ЗЕРНО'>{blocked ? 'Синхронизация партии требует проверки. Боевой контур ФГИС не заявлен.' : 'Партия связана с контуром сделки в тестовом режиме. Боевой контур ФГИС не заявлен.'}</Notice>
     </Stack>
   );
 }
@@ -171,11 +171,11 @@ function Evidence({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
       <FactRail items={['gps_wialon', 'fgis_grain', 'sber_safe_deals']} />
-      <Notice danger={weak} title='Пакет доказательств'>{weak ? 'Пакет доказательств требует усиления перед спором или банковским подтверждением.' : 'Пакет доказательств достаточен для текущего сценария.'}</Notice>
+      <Notice danger={weak} title='Пакет доказательств'>{weak ? 'Пакет доказательств требует усиления перед спором или выпуском денег.' : 'Пакет доказательств достаточен для тестового сценария.'}</Notice>
       <Grid>
-        <Cell label='Фото' value='3 файла' color={EVIDENCE} />
-        <Cell label='Качество' value='протокол' color={EVIDENCE} />
-        <Cell label='Банк' value='событие банка' color={EVIDENCE} />
+        <Cell label='Фото' value='тест: 3 файла' color={EVIDENCE} />
+        <Cell label='Качество' value='тест: протокол' color={EVIDENCE} />
+        <Cell label='Банк' value='тестовое событие' color={EVIDENCE} />
       </Grid>
     </Stack>
   );

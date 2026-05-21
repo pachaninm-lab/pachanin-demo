@@ -22,7 +22,7 @@ describe('PlatformV7 deals routes', () => {
     expect(screen.getByText('Операционный обзор сделок')).toBeInTheDocument();
     expect(screen.getByText('Сделки в домене')).toBeInTheDocument();
     expect(screen.getByText('Под удержанием')).toBeInTheDocument();
-    expect(screen.getByText('К подтверждению')).toBeInTheDocument();
+    expect(screen.getByText('К выпуску')).toBeInTheDocument();
     expect(screen.getByText('Высокий риск')).toBeInTheDocument();
     expect(screen.getAllByRole('link').some((link) => link.getAttribute('href') === '/platform-v7/deals/DL-9102')).toBe(true);
   });

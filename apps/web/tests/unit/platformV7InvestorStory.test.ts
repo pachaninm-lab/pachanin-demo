@@ -12,7 +12,7 @@ describe('platform-v7 investor story', () => {
     expect(PLATFORM_V7_INVESTOR_STORY.map((block) => block.id)).toEqual([
       'execution-rail',
       'money-control',
-      'execution-boundary',
+      'controlled-pilot',
     ]);
   });
 

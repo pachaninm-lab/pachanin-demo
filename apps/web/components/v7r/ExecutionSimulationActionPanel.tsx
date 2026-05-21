@@ -101,13 +101,13 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
   const createLot: ActionCard = {
     id: 'createLot',
     title: '1. Создать лот',
-    description: 'Создаёт новый рабочий лот с объёмом и ценой, чтобы дальше провести его до сделки.',
+    description: 'Создаёт новый sandbox-лот с объёмом и ценой, чтобы дальше провести его до сделки.',
     command: flowLot ? null : {
       type: 'createLot',
       actor: seller,
       payload: { lotId: flowLotId, volumeTonnes: 240, pricePerTonneRub: 16140, basis: 'EXW Тамбовская область', qualityClass: '3 класс' },
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     },
     disabledReason: flowLot ? 'Лот уже создан' : undefined
   };
@@ -121,7 +121,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       actor: seller,
       payload: { lotId: flowLotId },
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     } : null,
     disabledReason: !flowLot ? 'Сначала создай лот' : flowLot.status !== 'draft' ? 'Лот уже опубликован или ушёл дальше' : undefined
   };
@@ -135,7 +135,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       actor: buyer,
       payload: { lotId: flowLotId },
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     } : null,
     disabledReason: !flowLot ? 'Сначала создай и опубликуй лот' : flowLot.status !== 'published' ? 'Оффер доступен только после публикации' : undefined
   };
@@ -149,7 +149,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       actor: operator,
       payload: { lotId: flowLotId, buyerId: buyer.counterpartyId, dealId: 'DL-UI-001' },
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     } : null,
     disabledReason: !flowLot ? 'Сначала проведи лот до оффера' : flowLot.status !== 'offer_accepted' ? 'Сделка создаётся только после акцепта оффера' : undefined
   };
@@ -164,7 +164,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       payload: { dealId: flowDealId },
       idempotencyKey: `ui-reserve-request-${flowDeal.status}`,
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     } : null,
     disabledReason: !flowDeal ? 'Нет сделки для резерва' : flowDeal.status !== 'SIGNED' ? 'Резерв можно запросить только после подписания' : undefined
   };
@@ -179,7 +179,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       payload: { dealId: flowDealId },
       idempotencyKey: `ui-reserve-confirm-${flowDeal.status}`,
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     } : null,
     disabledReason: !flowDeal ? 'Нет сделки для подтверждения' : flowDeal.status !== 'RESERVE_REQUESTED' ? 'Банк подтверждает только запрошенный резерв' : undefined
   };
@@ -193,7 +193,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       actor: operator,
       payload: { dealId: flowDealId, driverId: driver.id, carrierId: 'CP-C-001', vehicleNumber: 'А777ВС68' },
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     } : null,
     disabledReason: !flowDeal ? 'Нет сделки для логистики' : flowDeal.status !== 'RESERVE_CONFIRMED' ? 'Водитель назначается после подтверждения резерва' : undefined
   };
@@ -207,7 +207,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       actor: driver,
       payload: { dealId: flowDealId },
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     } : null,
     disabledReason: !flowDeal ? 'Нет сделки для рейса' : !['DRIVER_ASSIGNED', 'LOADING_CONFIRMED', 'LOADED', 'IN_TRANSIT', 'ARRIVED'].includes(flowDeal.status) ? 'Рейс доступен только после назначения водителя' : undefined
   };
@@ -221,7 +221,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       actor: lab,
       payload: { dealId: flowDealId, protocolId: 'LAB-UI-001', humidityPct: 12.4, glutenPct: 24.8, proteinPct: 12.1, natureGramPerLiter: 752 },
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     } : null,
     disabledReason: !flowDeal ? 'Нет сделки для лаборатории' : !['WEIGHING_CONFIRMED', 'LAB_SAMPLING', 'LAB_PROTOCOL_CREATED', 'ACCEPTED', 'DOCUMENTS_PENDING'].includes(flowDeal.status) ? 'Лаборатория доступна после подтверждения веса' : undefined
   };
@@ -229,13 +229,13 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
   const openDispute: ActionCard = {
     id: 'openDispute',
     title: '10. Открыть спор',
-    description: 'Блокирует банковское подтверждение и создаёт доказательный контур спора.',
+    description: 'Блокирует финальный выпуск денег и создаёт доказательный контур спора.',
     command: flowDeal ? {
       type: 'openDispute',
       actor: buyer,
       payload: { dealId: flowDealId, reason: 'quality_delta', amountImpactRub: 125000, evidenceIds: ['EV-001'] },
       now,
-      runtimeLabel: 'manual'
+      runtimeLabel: 'sandbox'
     } : null,
     disabledReason: !flowDeal ? 'Нет сделки для спора' : !['LAB_PROTOCOL_CREATED', 'ACCEPTED'].includes(flowDeal.status) ? 'Спор открывается после лаборатории или приёмки' : undefined
   };
@@ -284,14 +284,14 @@ export function ExecutionSimulationActionPanel() {
 
   return (
     <P7Card
-      title='Операционные действия сделки'
-      subtitle='Действия меняют состояние сделки, пишут журнал, показывают недоступность и результат без заявления внешних интеграций.'
+      title='Simulation-grade действия сделки'
+      subtitle='Новый domain-core уже подключён к интерфейсу: действия меняют состояние, пишут audit/timeline, показывают disabled/error/success и не трогают live-интеграции.'
       testId='execution-simulation-action-panel'
     >
       <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-          <Metric label='GMV сделки' value={compactRub(kpis.totalGmvRub)} />
-          <Metric label='К подтверждению' value={compactRub(kpis.readyForReleaseRub)} />
+          <Metric label='GMV sandbox' value={compactRub(kpis.totalGmvRub)} />
+          <Metric label='К выпуску' value={compactRub(kpis.readyForReleaseRub)} />
           <Metric label='Открытых споров' value={String(kpis.openDisputes)} />
           <Metric label='Текущий статус' value={statusLabel(flowDeal?.status)} />
         </div>

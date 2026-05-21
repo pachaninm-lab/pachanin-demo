@@ -28,9 +28,9 @@ describe('P7DealWorkspaceTabs', () => {
   it('shows Russian deal workspace and fact sources', () => {
     render(<P7DealWorkspaceTabs deal={deal} />);
 
-    expect(screen.getByText('Рабочая зона сделки · контур исполнения')).toBeInTheDocument();
+    expect(screen.getByText('Рабочая зона сделки · тестовый контур')).toBeInTheDocument();
     expect(screen.getByText('Доказательства')).toBeInTheDocument();
-    expect(screen.getByText(/Источник: Сбер · контур проверки/)).toBeInTheDocument();
+    expect(screen.getByText(/Источник: Сбер · тестовый контур/)).toBeInTheDocument();
     expect(screen.getByText(/Источник: ФГИС · ручная проверка/)).toBeInTheDocument();
     expect(screen.getByText(/Источник: Сфера Перевозки · модель ЭПД/)).toBeInTheDocument();
   });

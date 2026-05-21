@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
 import { OperatorExecutionQueue } from '../../../components/platform-v7/OperatorExecutionQueue';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 
 const deal9106 = getDeal360Scenario('DL-9106');
 const deal9102 = getDeal360Scenario('DL-9102');
@@ -13,7 +17,7 @@ const blockers = [
 ] as const;
 
 const quickLinks = [
-  { title: 'Проверка основания', href: '/platform-v7/bank/release-safety', note: 'резерв, удержания и банковское подтверждение' },
+  { title: 'Проверка выплаты', href: '/platform-v7/bank/release-safety', note: 'условия выпуска денег' },
   { title: 'Документы', href: '/platform-v7/documents', note: 'УПД, ЭТрН, СДИЗ, акт, протокол' },
   { title: 'Логистика', href: '/platform-v7/logistics', note: 'водители, ЭТрН, ГИС ЭПД' },
   { title: 'Приёмка', href: '/platform-v7/elevator', note: 'вес, качество, акт' },
@@ -25,10 +29,15 @@ export default function PlatformV7OperatorAliasPage() {
 
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <QuietIntelligenceHint
+        problem={`${stopCount} стоп-блокера держат 15,89 млн ₽ — СДИЗ, ЭТрН и отклонение веса.`}
+        action='Устранить блокеры по очереди: СДИЗ → ЭТрН → акт расхождения.'
+        outcome='После закрытия всех блокеров деньги продолжат движение к выплате.'
+      />
       <section style={hero}>
         <div style={badge}>Центр управления оператора</div>
         <h1 style={h1}>Блокеры, деньги и следующий ответственный</h1>
-        <p style={lead}>Оператор видит не технические интеграции, а сделки, которые держат резерв или удержание: причина, источник, сумма влияния, ответственный и следующее действие.</p>
+        <p style={lead}>Оператор видит не технические интеграции, а сделки, которые остановили деньги: причина, источник, сумма влияния, ответственный и следующее действие.</p>
         <div style={actions}>
           <Link href={`/platform-v7/deals/${deal9106.dealId}/clean`} style={primaryBtn}>Открыть Deal 360</Link>
           <Link href='/platform-v7/documents' style={ghostBtn}>Матрица документов</Link>
@@ -39,7 +48,7 @@ export default function PlatformV7OperatorAliasPage() {
         <Metric label='Сделок под контролем' value='2' />
         <Metric label='Стоп-блокеров' value={String(stopCount)} danger />
         <Metric label='Деньги под влиянием' value='15,89 млн ₽' danger />
-        <Metric label='К подтверждению сейчас' value='0 ₽' danger />
+        <Metric label='К выплате сейчас' value='0 ₽' danger />
       </section>
 
       <section style={card}>
@@ -48,6 +57,30 @@ export default function PlatformV7OperatorAliasPage() {
           {blockers.map((item) => <BlockerRow key={`${item.deal}-${item.reason}`} item={item} />)}
         </div>
       </section>
+
+      <CauseLine
+        cause={{ text: 'СДИЗ не подтверждён ФГИС «Зерно»', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'Движение денег остановлено', tone: 'blocked' }}
+        moneyAmount='9,65 млн ₽'
+        moneyTone='hold'
+      />
+      <CauseLine
+        cause={{ text: 'Отклонение веса · акт расхождения не закрыт', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'Удержание не снимается', tone: 'blocked' }}
+        moneyAmount='624 тыс. ₽'
+        moneyTone='hold'
+      />
+
+      <SmartSectionSummary
+        label='Сводка по блокерам'
+        items={[
+          { text: 'DL-9106 · 3 стоп-блокера · СДИЗ, ЭТрН, протокол качества · 9,65 млн ₽ заблокировано', tone: 'block' },
+          { text: 'DL-9102 · Удержание 624 тыс. ₽ · Акт расхождения не подписан', tone: 'block' },
+        ]}
+      />
+      <TrustDot state='test' size='sm' label='Тестовый контур · Реальные интеграции требуют договоров' />
 
       <OperatorExecutionQueue />
 
@@ -76,7 +109,7 @@ function BlockerRow({ item }: { item: typeof blockers[number] }) {
           <h2 style={h2}>{item.reason}</h2>
           <p style={muted}>{item.source}</p>
         </div>
-        <span style={{ ...pill, color: stop ? '#B91C1C' : '#B45309', borderColor: stop ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)', background: '#fff' }}>{stop ? 'держит банковское основание' : 'ждёт подтверждения'}</span>
+        <span style={{ ...pill, color: stop ? '#B91C1C' : '#B45309', borderColor: stop ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)', background: '#fff' }}>{stop ? 'останавливает деньги' : 'ждёт подтверждения'}</span>
       </div>
       <div style={grid2}>
         <Cell label='Сумма влияния' value={item.amount} danger={stop} />

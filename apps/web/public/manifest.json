@@ -9,6 +9,19 @@
   "theme_color": "#0E6E60",
   "background_color": "#F5F2EB",
   "lang": "ru",
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Маршрут (Водитель)",
+      "url": "/platform-v7/driver",
+      "description": "Рейс, фото, GPS"
+    },
+    {
+      "name": "Центр управления",
+      "url": "/platform-v7/control-tower",
+      "description": "Блокеры и следующий шаг"
+    }
+  ],
   "icons": [
     {
       "src": "/icon",

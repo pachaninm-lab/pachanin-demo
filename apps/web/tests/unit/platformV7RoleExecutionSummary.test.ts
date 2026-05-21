@@ -77,7 +77,7 @@ describe('platform-v7 role execution summary', () => {
   it('keeps bank wording tied to confirmation and checks, not platform guarantees', () => {
     const bankText = Object.values(PLATFORM_V7_ROLE_EXECUTION_SUMMARIES.bank).join(' ');
 
-    expect(bankText).toContain('банковское подтверждение');
+    expect(bankText).toContain('подтверждение выпуска');
     expect(bankText).not.toContain('платформа выпускает');
     expect(bankText).not.toContain('гарантирует оплату');
   });

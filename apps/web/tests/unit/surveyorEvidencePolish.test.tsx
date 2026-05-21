@@ -17,14 +17,14 @@ describe('platform-v7 surveyor evidence polish', () => {
   it('renders independent evidence-focused surveyor screen', () => {
     render(<SurveyorShellPage />);
 
-    expect(screen.getByText('Сюрвейер · осмотр → фото → расхождение → заключение')).toBeInTheDocument();
-    expect(screen.getByText('Собрать независимые доказательства на площадке')).toBeInTheDocument();
-    expect(screen.getByText(/осмотр, фото, состояние груза, расхождения, замечания и заключение/i)).toBeInTheDocument();
+    expect(screen.getByText('Независимая фиксация на площадке')).toBeInTheDocument();
+    expect(screen.getByText('Осмотр, фото, расхождение и заключение')).toBeInTheDocument();
+    expect(screen.getByText(/фото, состояние груза, расхождения, замечания по приёмке/i)).toBeInTheDocument();
     expect(screen.getByText('Осмотр')).toBeInTheDocument();
     expect(screen.getByText('Расхождение')).toBeInTheDocument();
+    expect(screen.getByText('Замечание')).toBeInTheDocument();
     expect(screen.getByText('Заключение')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Собрать доказательства/i })).toHaveAttribute('href', '/platform-v7/evidence-pack');
-    expect(screen.getByText(/Доказательства неполные без фото и заключения/i)).toBeInTheDocument();
+    expect(screen.getByText(/основание уходит в доказательный контур/i)).toBeInTheDocument();
   });
 
   it('keeps surveyor source free from money, bank and dispute decision ownership', () => {
@@ -38,5 +38,6 @@ describe('platform-v7 surveyor evidence polish', () => {
     expect(source).not.toMatch(/production-ready/i);
     expect(source).not.toMatch(/fully live/i);
     expect(source).not.toMatch(/callback/i);
+    expect(source).not.toMatch(/runtime/i);
   });
 });

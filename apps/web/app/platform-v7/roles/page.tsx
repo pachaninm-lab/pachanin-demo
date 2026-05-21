@@ -151,7 +151,7 @@ export default function PlatformV7RolesPage() {
           </div>
           <div style={{ display: 'grid', gap: 8, minWidth: 210 }}>
             <MiniFact label='активная логика' value='роль → блокер → действие' />
-            <MiniFact label='полевой режим' value='водитель / элеватор / лаборатория' />
+            <MiniFact label='field mode' value='водитель / элеватор / лаборатория' />
           </div>
         </div>
       </section>

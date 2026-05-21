@@ -20,7 +20,7 @@ const groups: Array<{ title: string; description: string; cards: RoleCard[] }> =
     description: 'Кто запускает, ведёт и закрывает сделку.',
     cards: [
       { role: 'operator', title: 'Оператор', description: 'Центр управления: сделки, блокировки, деньги, сроки, разбор инцидентов.', href: '/platform-v7/control-tower', tone: '#0A7A5F', mark: 'ОП' },
-      { role: 'buyer', title: 'Покупатель', description: 'Закупка, отбор предложений, качество партии, банковское подтверждение после закрытия условий.', href: '/platform-v7/buyer', tone: '#0B6B9A', mark: 'ПК' },
+      { role: 'buyer', title: 'Покупатель', description: 'Закупка, отбор предложений, качество партии, выпуск денег после подтверждений.', href: '/platform-v7/buyer', tone: '#0B6B9A', mark: 'ПК' },
       { role: 'seller', title: 'Продавец', description: 'Что загружено, что мешает выплате, сколько денег к получению.', href: '/platform-v7/seller', tone: '#A16207', mark: 'ПР' },
       { role: 'logistics', title: 'Логист', description: 'Рейсы, очередь машин, отклонения маршрута, прибытие, приёмка.', href: '/platform-v7/logistics', tone: '#374151', mark: 'ЛГ' },
     ],
@@ -32,14 +32,14 @@ const groups: Array<{ title: string; description: string; cards: RoleCard[] }> =
       { role: 'driver', title: 'Водитель', description: 'Маршрут, прибытие, очередь офлайн, подтверждение рейса.', href: '/platform-v7/field', tone: '#0A7A5F', mark: 'ВД' },
       { role: 'surveyor', title: 'Сюрвейер', description: 'Взвешивание, фотофиксация, пломбы, первичное подтверждение факта.', href: '/platform-v7/field', tone: '#7C3AED', mark: 'СЮ' },
       { role: 'elevator', title: 'Элеватор', description: 'Приёмка, разгрузка, очередь, подтверждение допусков и времени.', href: '/platform-v7/field', tone: '#B45309', mark: 'ЭЛ' },
-      { role: 'lab', title: 'Лаборатория', description: 'Протокол качества, расхождения, основание для удержания или банковской проверки.', href: '/platform-v7/field', tone: '#BE123C', mark: 'ЛБ' },
+      { role: 'lab', title: 'Лаборатория', description: 'Протокол качества, расхождения, основание для удержания или выпуска.', href: '/platform-v7/field', tone: '#BE123C', mark: 'ЛБ' },
     ],
   },
   {
     title: 'Деньги, контроль и решение',
-    description: 'Кто отвечает за банковское основание, спорность и прозрачность.',
+    description: 'Кто отвечает за выпуск денег, спорность и прозрачность.',
     cards: [
-      { role: 'bank', title: 'Банк', description: 'Резерв, удержание, подтверждение, ручная проверка расхождений.', href: '/platform-v7/bank', tone: '#0B6B9A', mark: 'БН' },
+      { role: 'bank', title: 'Банк', description: 'Резерв, удержание, выпуск, ручная проверка расхождений.', href: '/platform-v7/bank', tone: '#0B6B9A', mark: 'БН' },
       { role: 'arbitrator', title: 'Арбитр', description: 'Комната разбора, пакет доказательств, у кого мяч и сколько под удержанием.', href: '/platform-v7/disputes', tone: '#9333EA', mark: 'АР' },
       { role: 'compliance', title: 'Комплаенс', description: 'Журнал действий, выгрузка, фильтры по актору и дате.', href: '/platform-v7/compliance', tone: '#475569', mark: 'КМ' },
       { role: 'executive', title: 'Руководитель', description: 'Короткая сводка: оборот, спорность, скорость закрытия, деньги в контуре.', href: '/platform-v7/analytics', tone: '#111827', mark: 'РК' },

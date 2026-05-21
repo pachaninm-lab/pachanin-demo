@@ -53,7 +53,7 @@ function buildDocumentRows(deal: ReturnType<typeof selectRuntimeDeals>[number]):
       name: 'СДИЗ',
       status: docsComplete ? 'ready' : docsBlocked ? 'missing' : 'review',
       owner: 'Продавец / оператор',
-      blocks: 'Банковское основание и закрытие сделки',
+      blocks: 'Выпуск денег и закрытие сделки',
       moneyImpact: true,
       nextStep: docsComplete ? 'Документ принят' : 'Проверить или загрузить СДИЗ',
     },
@@ -98,9 +98,9 @@ function buildDocumentRows(deal: ReturnType<typeof selectRuntimeDeals>[number]):
       name: 'Основание для банка',
       status: bankBlocked ? 'review' : docsComplete ? 'ready' : 'missing',
       owner: 'Банк / оператор',
-      blocks: 'Банковское подтверждение статуса денег',
+      blocks: 'Подтверждение выпуска денег',
       moneyImpact: true,
-      nextStep: bankBlocked ? 'Дождаться ручной проверки' : docsComplete ? 'Открыть проверку основания' : 'Дособрать документы',
+      nextStep: bankBlocked ? 'Дождаться ручной проверки' : docsComplete ? 'Открыть проверку выпуска' : 'Дособрать документы',
     },
   ];
 }
@@ -127,7 +127,7 @@ export function DocumentsMatrix() {
             {primaryDeal ? `${primaryDeal.id} · документы и деньги` : 'Документы'}
           </div>
           <div style={{ marginTop: 6, fontSize: 13, color: '#64748B', lineHeight: 1.55 }}>
-            Матрица показывает, чего не хватает, кто следующий и влияет ли документ на банковское основание.
+            Матрица показывает, чего не хватает, кто следующий и влияет ли документ на выпуск денег.
           </div>
         </div>
         <span style={{ display: 'inline-flex', alignItems: 'center', padding: '7px 10px', borderRadius: 999, border: missingCount || reviewCount ? '1px solid rgba(217,119,6,0.18)' : '1px solid rgba(10,122,95,0.18)', background: missingCount || reviewCount ? 'rgba(217,119,6,0.08)' : 'rgba(10,122,95,0.08)', color: missingCount || reviewCount ? '#B45309' : '#0A7A5F', fontSize: 12, fontWeight: 900 }}>

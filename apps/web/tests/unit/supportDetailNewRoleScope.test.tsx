@@ -53,7 +53,7 @@ vi.mock('@/lib/platform-v7/support-helpers', () => ({
   supportPriority: () => 'P1',
   supportSlaDueAt: () => '2026-05-12T16:00:00.000Z',
   supportSlaHours: () => 4,
-  supportSlaLabel: () => 'Срок 4 ч.',
+  supportSlaLabel: () => 'SLA 4 ч.',
   supportSortedAuditEvents: (events: unknown[]) => events,
   supportStatusByOwner: () => 'open',
 }));

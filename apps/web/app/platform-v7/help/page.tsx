@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 
 const FAQ = [
   {
@@ -49,7 +50,10 @@ export default function HelpPage() {
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Справочный центр</div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Справочный центр</div>
+          <TrustDot state='test' size='sm' label='Тестовый контур · Внешние интеграции и боевые сценарии требуют отдельных договоров' />
+        </div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
           Короткие ответы по ролям, деньгам, документам, спорам и рабочим разделам. Без обещаний автоматической выплаты и без скрытия причин остановки.
         </div>

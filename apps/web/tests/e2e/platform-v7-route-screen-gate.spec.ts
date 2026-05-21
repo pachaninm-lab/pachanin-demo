@@ -11,7 +11,7 @@ const PRIORITY_ROUTES = [
   { route: '/platform-v7/bank', title: /банк|банков/i },
   { route: '/platform-v7/control-tower', title: /центр управления/i },
   { route: '/platform-v7/disputes', title: /спор|доказатель/i },
-  { route: '/platform-v7/connectors', title: /подключ|контур|внешн/i },
+  { route: '/platform-v7/connectors', title: /подключ|тестов|симуляц/i },
   { route: '/platform-v7/investor', title: /инвестор|traction|эконом/i },
 ] as const;
 

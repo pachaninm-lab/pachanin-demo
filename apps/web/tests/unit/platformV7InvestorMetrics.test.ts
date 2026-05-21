@@ -17,7 +17,7 @@ describe('platform-v7 investor metrics', () => {
 
   it('finds metrics by id', () => {
     expect(platformV7InvestorMetricById('gmv')).toMatchObject({
-      title: 'Оборот',
+      title: 'GMV',
       value: 182,
       unit: 'млн ₽/мес',
     });

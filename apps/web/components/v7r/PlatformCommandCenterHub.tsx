@@ -1,23 +1,21 @@
 'use client';
 
 import { PremiumDealShell } from '@/components/platform-v7/premium/ExecutionUi';
-import {
-  PLATFORM_V7_EXECUTION_SOURCE,
-  expectedDealAmountRub,
-} from '@/lib/platform-v7/deal-execution-source-of-truth';
+import { PLATFORM_V7_EXECUTION_SOURCE, expectedDealAmountRub } from '@/lib/platform-v7/deal-execution-source-of-truth';
 import type { DealRole, DealStepStatus, DealTone, DealViewModel } from '@/lib/platform-v7/premium/types';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const { deal, readiness, money, logistics, documents, dispute, audit } = PLATFORM_V7_EXECUTION_SOURCE;
-
 const roles: DealRole[] = ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'arbiter', 'compliance', 'operator', 'executive'];
 
 function normalizeRole(role: PlatformRole): DealRole {
-  return role === 'arbitrator' ? 'arbiter' : role;
+  if (role === 'arbitrator') return 'arbiter';
+  return role;
 }
 
 function denormalizeRole(role: DealRole): PlatformRole {
-  return role === 'arbiter' ? 'arbitrator' : role;
+  if (role === 'arbiter') return 'arbitrator';
+  return role;
 }
 
 function statusToStep(status: 'готово' | 'проверить' | 'стоп'): DealStepStatus {
@@ -33,6 +31,12 @@ function statusToTone(status: 'готово' | 'проверить' | 'стоп'
 }
 
 const readinessRows = [
+  { id: 'fgis', label: 'ФГИС: сверка партии', gate: readiness.fgis, responsible: 'Продавец', block: 'допуск партии' },
+  { id: 'quality', label: 'Качество и лаборатория', gate: readiness.quality, responsible: 'Лаборатория', block: 'приёмку и цену' },
+  { id: 'logistics', label: 'Логистика и рейс', gate: readiness.logistics, responsible: 'Логистика', block: 'вывоз и срок' },
+  { id: 'documents', label: 'Документы и СДИЗ', gate: readiness.documents, responsible: 'Продавец', block: 'отгрузку и основание выплаты' },
+  { id: 'bank', label: 'Резерв и банк', gate: readiness.bank, responsible: 'Покупатель · банк', block: 'проверку выплаты' },
+  { id: 'dispute', label: 'Спор и удержание', gate: readiness.dispute, responsible: 'Оператор', block: 'выпуск денег банком' },
   { id: 'fgis', label: 'ФГИС и партия', gate: readiness.fgis, responsible: 'Продавец', block: 'допуск партии' },
   { id: 'quality', label: 'Качество и лаборатория', gate: readiness.quality, responsible: 'Лаборатория', block: 'приёмку и цену' },
   { id: 'logistics', label: 'Логистика и рейс', gate: readiness.logistics, responsible: 'Логистика', block: 'вывоз и срок' },
@@ -50,7 +54,7 @@ const blockers = readinessRows
     reason: row.gate.note,
     impact: row.block,
     responsible: row.responsible,
-    nextAction: row.id === 'bank' ? 'Передать основание банку' : 'Закрыть условие',
+    nextAction: row.id === 'fgis' ? 'Запросить сверку ФГИС' : row.id === 'bank' ? 'Передать основание банку' : 'Закрыть условие',
     tone: statusToTone(row.gate.status),
   }));
 
@@ -64,8 +68,8 @@ const premiumDeal: DealViewModel = {
   title: `${deal.crop} · ${deal.lotId}`,
   stageLabel: deal.status,
   currentState: firstBlocker
-    ? `${blockers.length} причин остановки: ${firstBlocker.title}`
-    : 'Деньги, документы, груз и качество идут по условиям сделки.',
+    ? `${blockers.length} условий требуют проверки: ${firstBlocker.title}`
+    : 'Условия сделки закрыты; можно передать пакет на банковскую проверку.',
   basisLabel: deal.basis,
   money: {
     totalRub: expectedDealAmountRub(),
@@ -96,7 +100,7 @@ const premiumDeal: DealViewModel = {
     responsible: row.responsible,
     blocks: row.gate.blocker || undefined,
     moneyImpactRub: row.id === 'bank' || row.id === 'documents' ? money.reservedRub : undefined,
-    nextAction: row.gate.blocker ? 'Закрыть условие' : undefined,
+    nextAction: row.id === 'fgis' && row.gate.blocker ? 'Запросить сверку ФГИС' : row.gate.blocker ? 'Закрыть условие' : undefined,
   })),
   documents: [
     {
@@ -114,7 +118,7 @@ const premiumDeal: DealViewModel = {
       title: 'СДИЗ',
       status: documents.sdizStatus === 'не оформлен' ? 'blocked' : 'ready',
       responsible: 'Продавец',
-      blocks: 'отгрузку и банковское основание',
+      blocks: 'отгрузку и основание выплаты',
       source: 'ФГИС Зерно',
       actionLabel: 'Оформить СДИЗ',
       reason: documents.sdizStatus,
@@ -141,48 +145,14 @@ const premiumDeal: DealViewModel = {
     },
   ],
   evidence: [
-    {
-      id: 'trip-route',
-      title: 'Маршрут рейса',
-      type: 'гео',
-      source: logistics.vehicleMasked,
-      time: logistics.eta,
-      role: 'Логистика',
-      relatedTrip: logistics.tripId,
-      status: statusToStep(logistics.gateStatus),
-    },
-    {
-      id: 'seal-photo',
-      title: 'Фото пломбы',
-      type: 'фото',
-      source: logistics.driverAlias,
-      time: 'при погрузке',
-      role: 'Водитель',
-      relatedTrip: logistics.tripId,
-      status: 'pending',
-    },
-    {
-      id: 'acceptance-weight',
-      title: 'Вес при приёмке',
-      type: 'вес',
-      source: 'Элеватор',
-      time: 'при прибытии',
-      role: 'Элеватор',
-      relatedTrip: logistics.tripId,
-      moneyImpactRub: money.reservedRub,
-      status: 'pending',
-    },
+    { id: 'trip-route', title: 'Маршрут рейса', type: 'гео', source: logistics.vehicleMasked, time: logistics.eta, role: 'Логистика', relatedTrip: logistics.tripId, status: statusToStep(logistics.gateStatus) },
+    { id: 'seal-photo', title: 'Фото пломбы', type: 'фото', source: logistics.driverAlias, time: 'при погрузке', role: 'Водитель', relatedTrip: logistics.tripId, status: 'pending' },
+    { id: 'acceptance-weight', title: 'Вес при приёмке', type: 'вес', source: 'Элеватор', time: 'при прибытии', role: 'Элеватор', relatedTrip: logistics.tripId, moneyImpactRub: money.reservedRub, status: 'pending' },
   ],
   risks: readinessRows
     .filter((row) => row.gate.status !== 'готово')
     .map((row) => ({ id: row.id, label: row.label, detail: row.gate.note, tone: statusToTone(row.gate.status) })),
-  timeline: audit.map((event, index) => ({
-    id: `${event.time}-${index}`,
-    time: event.time,
-    title: event.action,
-    actor: event.actor,
-    impact: event.note,
-  })),
+  timeline: audit.map((event, index) => ({ id: `${event.time}-${index}`, time: event.time, title: event.action, actor: event.actor, impact: event.note })),
   driverTask: {
     id: 'driver-current-trip',
     tripId: logistics.tripId,

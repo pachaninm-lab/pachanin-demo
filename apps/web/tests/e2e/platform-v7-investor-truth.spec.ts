@@ -14,7 +14,7 @@ const FORBIDDEN_INVESTOR_CLAIMS = [
 ] as const;
 
 test.describe('platform-v7 investor truth pass', () => {
-  test('/platform-v7/investor separates working contour, scenario data, external needs, and risks', async ({ page }) => {
+  test('/platform-v7/investor separates pilot, test data, live needs, and risks', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const response = await page.goto('/platform-v7/investor', { waitUntil: 'networkidle' });
 
@@ -22,9 +22,9 @@ test.describe('platform-v7 investor truth pass', () => {
     await expect(page.locator('body')).not.toContainText(/404|Application error|Unhandled Runtime Error/i);
     await expect(page.getByTestId('platform-v7-investor-truth-banner')).toBeVisible();
     await expect(page.getByTestId('platform-v7-investor-truth-grid')).toContainText(/что доказано/i);
-    await expect(page.getByTestId('platform-v7-investor-truth-grid')).toContainText(/рабочем контуре/i);
-    await expect(page.getByTestId('platform-v7-investor-truth-grid')).toContainText(/требует проверки/i);
-    await expect(page.getByTestId('platform-v7-investor-truth-grid')).toContainText(/внешних подключений/i);
+    await expect(page.getByTestId('platform-v7-investor-truth-grid')).toContainText(/пилотном контуре/i);
+    await expect(page.getByTestId('platform-v7-investor-truth-grid')).toContainText(/тестовым/i);
+    await expect(page.getByTestId('platform-v7-investor-truth-grid')).toContainText(/live-подключений/i);
     await expect(page.getByTestId('platform-v7-investor-risks')).toContainText(/ручная нагрузка/i);
     await expect(page.getByTestId('platform-v7-investor-risks')).toContainText(/банк/i);
 

@@ -121,7 +121,7 @@ export function platformV7ReceivingGateNextAction(
   blockers: string[],
   reviewReasons: string[],
 ): string {
-  if (status === 'ready') return 'Приёмка подтверждена, можно продолжать банковское основание.';
+  if (status === 'ready') return 'Приёмка подтверждена, можно продолжать выпуск денег.';
   if (status === 'blocked') return blockers[0] ? `Остановить приёмку: ${blockers[0]}.` : 'Остановить приёмку до снятия блокеров.';
   return reviewReasons[0] ? `Передать приёмку на проверку: ${reviewReasons[0]}.` : 'Передать приёмку на проверку оператора.';
 }

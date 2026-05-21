@@ -1,8 +1,10 @@
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
-import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import ArbitratorPage from '@/app/platform-v7r/arbitrator/page';
-import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
+import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
+import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 
 const decisionGuardCards = [
   ['Сумма спора', 'решение должно иметь сумму и основание'],
@@ -13,7 +15,12 @@ const decisionGuardCards = [
 
 export default function Page() {
   return (
-    <RoleExecutionCockpitPage cockpit={OPERATIONAL_ROLE_EXECUTION_COCKPITS.arbitrator}>
+    <div style={{ display: 'grid', gap: 18 }}>
+      <QuietIntelligenceHint
+        problem='Открытый спор по DL-9102 · удержание 624 тыс. ₽ · акт расхождения не закрыт.'
+        action='Рассмотреть доказательства и зафиксировать решение с суммой и основанием.'
+        outcome='Решение уходит оператору на ручную проверку и фиксируется в журнале сделки.'
+      />
       <RoleExecutionSummary role="arbitrator" />
       <section data-testid="platform-v7-arbitrator-decision-guard" style={decisionGuard}>
         <div style={micro}>Арбитр · рамка решения</div>
@@ -30,9 +37,24 @@ export default function Page() {
           ))}
         </div>
       </section>
+      <CauseLine
+        cause={{ text: 'Акт расхождения DL-9102 не закрыт', tone: 'blocked' }}
+        relation='blocks'
+        effect={{ text: 'Удержание не снимается', tone: 'blocked' }}
+        moneyAmount='624 тыс. ₽'
+        moneyTone='hold'
+      />
+      <TrustDot state='test' size='sm' label='Тестовый контур · Арбитраж требует реальных договоров' />
+      <SmartSectionSummary
+        label='Активные споры'
+        items={[
+          { text: 'DL-9102 · Отклонение веса · Удержание 624 тыс. ₽ · Акт расхождения не подписан', tone: 'block' },
+        ]}
+      />
+
       <JournalPreview role="arbitrator" />
       <ArbitratorPage />
-    </RoleExecutionCockpitPage>
+    </div>
   );
 }
 

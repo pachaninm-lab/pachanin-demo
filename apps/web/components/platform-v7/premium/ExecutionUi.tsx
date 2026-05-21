@@ -32,7 +32,7 @@ const roleFocusLabels: Record<DealRole, string> = {
   elevator: 'вес, приёмка и акт',
   lab: 'качество и протокол',
   surveyor: 'доказательства и расхождения',
-  bank: 'основания для банковского подтверждения',
+  bank: 'основания для банковской проверки',
   arbiter: 'спор и доказательства',
   compliance: 'документы и риск допуска',
   operator: 'снятие блокеров сделки',
@@ -132,11 +132,11 @@ function NextAction({ action }: { action: NextActionModel }) {
 function MoneyRail({ deal }: { deal: DealViewModel }) {
   const blockedRub = deal.money.heldRub + deal.money.awaitingDocsRub + deal.money.disputedRub;
   const parts = [
-    { label: 'К подтверждению', value: deal.money.readyToReleaseRub, tone: 'success' as DealTone },
+    { label: 'На банковскую проверку', value: deal.money.readyToReleaseRub, tone: 'success' as DealTone },
     { label: 'Удержано', value: deal.money.heldRub, tone: 'warning' as DealTone },
     { label: 'Ждёт документы', value: deal.money.awaitingDocsRub, tone: 'info' as DealTone },
     { label: 'В споре', value: deal.money.disputedRub, tone: 'dispute' as DealTone },
-    { label: 'Подтверждено', value: deal.money.releasedRub, tone: 'neutral' as DealTone },
+    { label: 'Подтверждено банком', value: deal.money.releasedRub, tone: 'neutral' as DealTone },
   ];
   return (
     <section className={cx(styles.rail, styles.span12)} aria-label="Деньги по сделке">
@@ -146,7 +146,7 @@ function MoneyRail({ deal }: { deal: DealViewModel }) {
           <Badge tone={isMoneyBalanced(deal.money) ? 'success' : 'warning'}>{isMoneyBalanced(deal.money) ? 'сходится' : 'сверить'}</Badge>
         </div>
         <div className={styles.moneySummary}>
-          <span>К подтверждению: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}</span>
+          <span>На проверку: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}</span>
           <span>Остановлено: {formatPremiumRubCompact(blockedRub)}</span>
           <span>Банк подтвердил: {formatPremiumRubCompact(deal.money.releasedRub)}</span>
         </div>
@@ -178,8 +178,8 @@ function RiskHeatline({ risks }: { risks: RiskItemModel[] }) {
   return <Card title="Риски исполнения" eyebrow="что может остановить сделку" className={styles.span6}><div className={styles.list}>{risks.map((risk) => <article key={risk.id} className={styles.step}><div className={styles.stepTop}><strong>{limitPremiumText(risk.label, 64)}</strong><Badge tone={risk.tone}>риск</Badge></div><p>{limitPremiumText(risk.detail, premiumTextLimits.description)}</p></article>)}</div></Card>;
 }
 
-function DealEventLog({ items }: { items: TimelineEventModel[] }) {
-  return <Card title="Журнал сделки" eyebrow="последовательность событий" className={styles.span6}><div className={styles.timeline}>{items.map((event) => <article key={event.id} className={styles.timelineItem}><time>{event.time}</time><div><strong>{limitPremiumText(event.title, 80)}</strong><p>{limitPremiumText(event.actor ?? event.impact ?? 'событие сделки', 100)}</p></div></article>)}</div></Card>;
+function Timeline({ events }: { events: TimelineEventModel[] }) {
+  return <Card title="Журнал сделки" eyebrow="последовательность событий" className={styles.span6}><div className={styles.timeline}>{events.map((event) => <article key={event.id} className={styles.timelineItem}><time>{event.time}</time><div><strong>{limitPremiumText(event.title, 80)}</strong><p>{limitPremiumText(event.actor ?? event.impact ?? 'событие сделки', 100)}</p></div></article>)}</div></Card>;
 }
 
 function PremiumTopChrome({ activeRole, roles, onSelectRole }: { activeRole: DealRole; roles: DealRole[]; onSelectRole: (role: DealRole) => void }) {
@@ -202,7 +202,7 @@ export function DriverFieldShell({ task, theme = 'dark' }: { task: DriverTaskMod
   return <main className={styles.driverRoot} data-theme={theme}><header className={styles.driverHeader}><div className={styles.eyebrow}>Прозрачная Цена · водитель</div><strong>Рейс {limitPremiumText(task.tripId, 32)}</strong><span>Следующее действие: {limitPremiumText(task.nextAction, premiumTextLimits.cta)}</span></header><section className={styles.driverPanel} aria-label="Текущий рейс"><p>{limitPremiumText(task.routeLabel, 96)}</p>{task.etaLabel ? <Badge tone="info">{limitPremiumText(task.etaLabel, 56)}</Badge> : null}<button className={styles.driverPrimaryButton} type="button">{limitPremiumText(task.nextAction, premiumTextLimits.cta)}</button><div className={styles.driverActions}>{task.secondaryActions.map((action) => <button key={action.id} className={styles.driverSecondaryButton} type="button">{limitPremiumText(action.label, premiumTextLimits.cta)}</button>)}</div><div className={styles.offlineQueue}>Офлайн-очередь: {task.offlineQueueCount}</div></section></main>;
 }
 
-export function PremiumDealShell({ deal, initialRole = 'buyer', roles = ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'arbiter', 'compliance', 'operator', 'executive'], theme = 'light', onRoleChange }: { deal: DealViewModel; initialRole?: DealRole; roles?: DealRole[]; theme?: 'dark' | 'light'; onRoleChange?: (role: DealRole) => void }) {
+export function PremiumDealShell({ deal, initialRole = 'buyer', roles = ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'arbiter', 'compliance', 'operator', 'executive'], theme = 'light', showTopChrome = false, onRoleChange }: { deal: DealViewModel; initialRole?: DealRole; roles?: DealRole[]; theme?: 'dark' | 'light'; showTopChrome?: boolean; onRoleChange?: (role: DealRole) => void }) {
   const [activeRole, setActiveRole] = useState<DealRole>(initialRole);
   const visibleSections = useMemo(() => roleSections[activeRole], [activeRole]);
   const topBlockers = deal.blockers.slice(0, 2);
@@ -212,5 +212,5 @@ export function PremiumDealShell({ deal, initialRole = 'buyer', roles = ['seller
 
   if (activeRole === 'driver' && deal.driverTask) return <DriverFieldShell task={deal.driverTask} theme={theme} />;
 
-  return <main className={styles.root} data-role={activeRole} data-theme={theme}><div className={styles.shell}><PremiumTopChrome activeRole={activeRole} roles={roles} onSelectRole={handleRoleChange} /><StatusBar deal={deal} role={activeRole} /><DealCoreSnapshot deal={deal} /><section className={styles.aboveFold} aria-label="Главный контекст сделки"><div className={styles.blockerGrid}>{topBlockers.length > 0 ? topBlockers.map((item) => <Blocker key={item.id} item={item} />) : <Card title="Сделка идёт по условиям" eyebrow="активных остановок нет"><p>Следующее действие видно справа. Деньги, документы и груз сверяются по цепочке исполнения.</p></Card>}</div><NextAction action={deal.nextAction} /></section><section className={styles.contentGrid} aria-label="Рабочие блоки сделки">{visibleSections.includes('money') ? <MoneyRail deal={deal} /> : null}{visibleSections.includes('documents') ? <DocumentMatrix documents={deal.documents} /> : null}{visibleSections.includes('execution') ? <ExecutionChain steps={deal.execution} /> : null}{visibleSections.includes('evidence') ? <EvidencePack evidence={deal.evidence} /> : null}{visibleSections.includes('risk') ? <RiskHeatline risks={deal.risks} /> : null}{visibleSections.includes('timeline') ? <DealEventLog items={deal.timeline} /> : null}</section></div></main>;
+  return <main className={styles.root} data-role={activeRole} data-theme={theme}><div className={styles.shell}>{showTopChrome ? <PremiumTopChrome activeRole={activeRole} roles={roles} onSelectRole={handleRoleChange} /> : null}<StatusBar deal={deal} role={activeRole} /><DealCoreSnapshot deal={deal} /><section className={styles.aboveFold} aria-label="Главный контекст сделки"><div className={styles.blockerGrid}>{topBlockers.length > 0 ? topBlockers.map((item) => <Blocker key={item.id} item={item} />) : <Card title="Сделка идёт по условиям" eyebrow="активных остановок нет"><p>Следующее действие видно справа. Деньги, документы и груз сверяются по цепочке исполнения.</p></Card>}</div><NextAction action={deal.nextAction} /></section><section className={styles.contentGrid} aria-label="Рабочие блоки сделки">{visibleSections.includes('money') ? <MoneyRail deal={deal} /> : null}{visibleSections.includes('documents') ? <DocumentMatrix documents={deal.documents} /> : null}{visibleSections.includes('execution') ? <ExecutionChain steps={deal.execution} /> : null}{visibleSections.includes('evidence') ? <EvidencePack evidence={deal.evidence} /> : null}{visibleSections.includes('risk') ? <RiskHeatline risks={deal.risks} /> : null}{visibleSections.includes('timeline') ? <Timeline events={deal.timeline} /> : null}</section></div></main>;
 }

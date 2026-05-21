@@ -8,14 +8,14 @@ test.describe('platform-v7 seller cockpit entry', () => {
     const response = await page.goto(ROUTE, { waitUntil: 'networkidle' });
 
     expect(response?.ok(), 'seller route should load').toBeTruthy();
-    await expect(page.getByTestId('platform-v7-seller-execution-cockpit')).toBeVisible();
-    await expect(page.locator('body')).toContainText('Продавец · партия → лот → документы → деньги');
-    await expect(page.locator('body')).toContainText('Блокер / причина');
+    await expect(page.locator('[data-platform-v7-seller-cockpit-pass="true"]')).toBeVisible();
+    await expect(page.locator('body')).toContainText('Кабинет продавца · сделка → документы → деньги');
+    await expect(page.locator('body')).toContainText('главный блокер');
     await expect(page.locator('body')).toContainText('СДИЗ и ЭТрН не закрыты');
     await expect(page.locator('body')).toContainText('резерв');
     await expect(page.locator('body')).toContainText('не выплата');
-    await expect(page.locator('body')).toContainText('Банк не получает основание');
-    await expect(page.locator('body')).toContainText('Закрыть СДИЗ');
+    await expect(page.locator('body')).toContainText('ждёт основание');
+    await expect(page.locator('body')).toContainText('Закрыть СДИЗ и ЭТрН');
     await expect(page.locator('body')).not.toContainText(/платформа гарантирует оплату|платформа сама выпускает деньги|production-ready|fully live|fully integrated/i);
   });
 });

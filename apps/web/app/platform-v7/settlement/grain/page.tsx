@@ -1,15 +1,15 @@
 import Link from 'next/link';
 
 const gates = [
-  { title: 'Резерв', value: 'подтверждён', note: 'Деньги зарезервированы, но не доступны к банковскому подтверждению без закрытых условий.', href: '/platform-v7/bank/grain', tone: 'good' },
+  { title: 'Резерв', value: 'подтверждён', note: 'Деньги зарезервированы, но не доступны к выпуску без закрытых условий.', href: '/platform-v7/bank/grain', tone: 'good' },
   { title: 'Удержание', value: '624 тыс. ₽', note: 'Спорная часть удерживается до решения по весу и качеству.', href: '/platform-v7/arbitrator/grain', tone: 'warn' },
   { title: 'Документы', value: 'не все закрыты', note: 'СДИЗ, ЭТрН, УПД, акт и протокол должны иметь основание и статус.', href: '/platform-v7/documents', tone: 'stop' },
-  { title: 'Банк', value: 'закрыт', note: 'Ручная передача основания запрещена до выполнения условий сделки.', href: '/platform-v7/deals/grain-release', tone: 'stop' },
+  { title: 'Выпуск', value: 'закрыт', note: 'Ручной выпуск денег запрещён до выполнения условий сделки.', href: '/platform-v7/deals/grain-release', tone: 'stop' },
 ] as const;
 
 const metrics = [
   { label: 'Резерв', value: '9,65 млн ₽', tone: 'good' },
-  { label: 'К подтверждению', value: '0 ₽', tone: 'bad' },
+  { label: 'К выпуску', value: '0 ₽', tone: 'bad' },
   { label: 'Удержано', value: '624 тыс. ₽', tone: 'warn' },
   { label: 'Открытых условий', value: '4', tone: 'bad' },
 ] as const;
@@ -19,8 +19,8 @@ export default function SettlementGrainPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={card}>
         <div style={badge}>Расчёт зерновой сделки</div>
-        <h1 style={h1}>Резерв, удержание, условия подтверждения и журнал</h1>
-        <p style={lead}>Расчёт показывает, почему банковское основание ещё не закрыто: какие условия выполнены, какие удерживают сумму и какое действие должно быть следующим.</p>
+        <h1 style={h1}>Резерв, удержание, условия выпуска и журнал</h1>
+        <p style={lead}>Расчёт показывает, почему деньги ещё не выпускаются: какие условия закрыты, какие удерживают сумму и какое действие должно быть следующим.</p>
         <div style={actions}>
           <Link href='/platform-v7/bank/grain' style={primaryBtn}>Банк</Link>
           <Link href='/platform-v7/operator/grain' style={ghostBtn}>Очередь условий</Link>
@@ -38,7 +38,7 @@ export default function SettlementGrainPage() {
       <section style={darkCard}>
         <div style={{ ...micro, color: '#CBD5E1' }}>Правило расчёта</div>
         <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Расчёт не может обойти доказательства</h2>
-        <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Любое банковское подтверждение или удержание должны ссылаться на документ, событие рейса, акт, протокол или решение. Без основания действие не проводится и фиксируется как заблокированное.</p>
+        <p style={{ margin: 0, color: '#CBD5E1', fontSize: 14, lineHeight: 1.55 }}>Любой выпуск или удержание должны ссылаться на документ, событие рейса, акт, протокол или решение. Без основания действие не проводится и фиксируется как заблокированное.</p>
       </section>
     </main>
   );

@@ -9,7 +9,7 @@ describe('platform-v7 demo dashboard model', () => {
     const model = platformV7DemoDashboardModel();
 
     expect(model.steps).toHaveLength(5);
-    expect(model.title).toBe('Маршрут исполнения сделки');
+    expect(model.title).toBe('Демо-сценарий исполнения сделки');
     expect(model.initialView.activeStepId).toBe('lot-readiness');
     expect(model.controls).toEqual(['Старт', 'Пауза', 'Назад', 'Вперёд', 'Перейти к шагу']);
   });

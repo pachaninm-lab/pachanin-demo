@@ -5,27 +5,27 @@ import Link from 'next/link';
 
 type InboxItem = {
   id: string;
-  type: 'critical' | 'deadline' | 'bank' | 'logistics' | 'deal';
+  type: 'critical' | 'sla' | 'bank' | 'logistics' | 'deal';
   title: string;
   note: string;
   action: string;
-  bucket: 'Критичные' | 'Сроки' | 'Сделки' | 'Банк' | 'Логистика';
+  bucket: 'Критичные' | 'SLA' | 'Сделки' | 'Банк' | 'Логистика';
 };
 
 const INITIAL_ITEMS: InboxItem[] = [
-  { id: 'N-101', type: 'critical', title: 'DL-9102: банковское основание остановлено', note: 'Открыт спор по качеству и не хватает пакета доказательств.', action: '/platform-v7/disputes/DSP-104', bucket: 'Критичные' },
-  { id: 'N-102', type: 'deadline', title: 'DL-9107: срок оператора истекает', note: 'До контрольного срока осталось менее 4 часов.', action: '/platform-v7/control-tower', bucket: 'Сроки' },
-  { id: 'N-103', type: 'bank', title: 'BE-441: банк подтвердил основание', note: 'Статус денег по сделке готов к финальному отражению.', action: '/platform-v7/bank/events/BE-441', bucket: 'Банк' },
+  { id: 'N-101', type: 'critical', title: 'DL-9102: выпуск денег заблокирован', note: 'Открыт спор по качеству и не хватает пакета доказательств.', action: '/platform-v7/disputes/DSP-104', bucket: 'Критичные' },
+  { id: 'N-102', type: 'sla', title: 'DL-9107: истекает SLA оператора', note: 'До дедлайна осталось менее 4 часов.', action: '/platform-v7/control-tower', bucket: 'SLA' },
+  { id: 'N-103', type: 'bank', title: 'CB-441: банк подтвердил release', note: 'Деньги по сделке готовы к финальному отражению.', action: '/platform-v7/bank/events/CB-441', bucket: 'Банк' },
   { id: 'N-104', type: 'logistics', title: 'ТМБ-14: водитель подтвердил прибытие', note: 'Можно переходить к приёмке и акту.', action: '/platform-v7/logistics/%D0%A2%D0%9C%D0%91-14', bucket: 'Логистика' },
-  { id: 'N-105', type: 'deal', title: 'LOT-2403: лот прошёл проверку', note: 'Документы и источник фактов прошли сверку.', action: '/platform-v7/lots/LOT-2403', bucket: 'Сделки' },
+  { id: 'N-105', type: 'deal', title: 'LOT-2403: лот переведён в PASS', note: 'Документы и source reference прошли проверку.', action: '/platform-v7/lots/LOT-2403', bucket: 'Сделки' },
 ];
 
-const FILTERS = ['Все', 'Критичные', 'Сроки', 'Сделки', 'Банк', 'Логистика'] as const;
+const FILTERS = ['Все', 'Критичные', 'SLA', 'Сделки', 'Банк', 'Логистика'] as const;
 type FilterValue = (typeof FILTERS)[number];
 
 function tone(type: InboxItem['type']) {
   if (type === 'critical') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C', label: 'Критично' };
-  if (type === 'deadline') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Срок' };
+  if (type === 'sla') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'SLA' };
   if (type === 'bank') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'Банк' };
   if (type === 'logistics') return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB', label: 'Логистика' };
   return { bg: '#F8FAFB', border: '#E4E6EA', color: '#475569', label: 'Сделка' };
@@ -87,7 +87,7 @@ export default function NotificationsPage() {
 
   function toggleSnooze(id: string) {
     setSnoozed((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-    setToast(`Пауза обновлена: ${id}`);
+    setToast(`Snooze обновлён: ${id}`);
   }
 
   function archiveItem(id: string) {
@@ -100,7 +100,7 @@ export default function NotificationsPage() {
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Уведомления</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
-          Единый inbox по критичным событиям: сделки, банк, логистика, сроки и контур документов. Это рабочий центр внимания, а не декоративный список.
+          Единый inbox по критичным событиям: сделки, банк, логистика, SLA и контур документов. Это рабочий центр внимания, а не декоративный список.
         </div>
       </section>
 
@@ -122,7 +122,7 @@ export default function NotificationsPage() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder='Поиск: DL-9102, BE-441, логистика…'
+            placeholder='Поиск: DL-9102, CB-441, логистика…'
             aria-label='Поиск по уведомлениям'
             style={{ flex: '1 1 280px', minWidth: 220, padding: '10px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', fontSize: 13 }}
           />
@@ -158,8 +158,8 @@ export default function NotificationsPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <ActionCard title='Архивировать прочитанные' note='Очистить шум и оставить только активные сигналы.' onClick={archiveRead} />
-          <ActionCard title='Закрепить критичные' note='Закрепить верхние блокеры до снятия риска.' onClick={pinCritical} />
-          <ActionCard title='Пауза на 1 час' note='Отложить неключевые события без потери контекста.' onClick={snoozeHour} />
+          <ActionCard title='Pin критичные' note='Закрепить верхние блокеры до снятия риска.' onClick={pinCritical} />
+          <ActionCard title='Snooze на 1 час' note='Отложить неключевые события без потери контекста.' onClick={snoozeHour} />
         </div>
       </section>
 
@@ -181,8 +181,8 @@ export default function NotificationsPage() {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>{item.id}</div>
                     <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 800 }}>{item.bucket}</span>
-                    {isPinned ? <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>Закреплено</span> : null}
-                    {isSnoozed ? <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#B45309', fontSize: 11, fontWeight: 800 }}>Пауза</span> : null}
+                    {isPinned ? <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>Pin</span> : null}
+                    {isSnoozed ? <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#B45309', fontSize: 11, fontWeight: 800 }}>Snooze</span> : null}
                   </div>
                   <div style={{ marginTop: 6, fontSize: 16, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
                 </div>
@@ -196,10 +196,10 @@ export default function NotificationsPage() {
                   Открыть
                 </Link>
                 <button onClick={() => togglePin(item.id)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: isPinned ? '#0A7A5F' : '#475569', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  {isPinned ? 'Снять закрепление' : 'Закрепить'}
+                  {isPinned ? 'Снять pin' : 'Pin'}
                 </button>
                 <button onClick={() => toggleSnooze(item.id)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: isSnoozed ? '#B45309' : '#475569', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  {isSnoozed ? 'Снять паузу' : 'Пауза'}
+                  {isSnoozed ? 'Снять snooze' : 'Snooze'}
                 </button>
                 <button onClick={() => archiveItem(item.id)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#475569', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                   В архив

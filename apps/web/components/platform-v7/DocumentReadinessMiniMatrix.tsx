@@ -62,7 +62,7 @@ export function DocumentReadinessMiniMatrix({ role }: { role: RoleContext }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            контур исполнения · документы
+            пилотный контур · документы
           </div>
           <div style={{ marginTop: 4, fontSize: 15, fontWeight: 950, color: '#0F1419', lineHeight: 1.2 }}>
             Готовность документов — {ROLE_LABEL[role]}

@@ -24,7 +24,7 @@ const ERR = '#B91C1C';
 
 const links = [
   { title: 'Банк', href: PLATFORM_V7_BANK_ROUTE },
-  { title: 'Проверка банковского основания', href: PLATFORM_V7_RELEASE_SAFETY_ROUTE },
+  { title: 'Проверка выпуска денег', href: PLATFORM_V7_RELEASE_SAFETY_ROUTE },
   { title: 'Рынок и заявки', href: PLATFORM_V7_MARKET_RFQ_ROUTE },
   { title: 'Центр управления', href: PLATFORM_V7_CONTROL_TOWER_ROUTE },
   { title: 'Инвестор', href: '/platform-v7/investor' },
@@ -35,12 +35,12 @@ const groups = [
     title: 'Что уже собрано',
     items: [
       ['Рынок и заявки', 'ready'],
-      ['Проверка банковского основания', 'ready'],
-      ['Банковый контур на ручной проверке', 'partial'],
+      ['Проверка выпуска денег', 'ready'],
+      ['Банковый контур в песочнице', 'partial'],
       ['Рабочее место сделки', 'partial'],
-      ['Партии ФГИС на ручной проверке', 'partial'],
-      ['Финансирование покупателя на ручной проверке', 'partial'],
-      ['Логистика на ручной проверке', 'partial'],
+      ['Партии ФГИС в песочнице', 'partial'],
+      ['Финансирование покупателя в песочнице', 'partial'],
+      ['Логистика в песочнице', 'partial'],
     ],
   },
   {
@@ -61,7 +61,7 @@ const groups = [
       ['Защита от обхода платформы не проверена', 'missing'],
       ['Экономика сделки не подтверждена', 'missing'],
       ['Юридические документы требуют проверки', 'partial'],
-      ['Банковский контур требует проверочного запуска', 'partial'],
+      ['Банковский контур требует управляемого пилота', 'partial'],
     ],
   },
 ];
@@ -78,10 +78,10 @@ export default function PlatformV7DataRoomPage() {
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Пакет проверки · проверочный запуск</div>
+            <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Пакет проверки · управляемый пилот</div>
             <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Проверочный пакет для банка и инвестора</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 880 }}>
-              Честная карта состояния platform-v7: что уже собрано в проверочном контуре, что требует внешнего подтверждения и что нельзя заявлять как полностью готовое.
+              Честная карта состояния platform-v7: что уже собрано в песочнице, что требует управляемого пилота и что нельзя заявлять как полностью готовое.
             </div>
           </div>
           <Link href='/platform-v7/investor' style={btn()}>Инвестор</Link>

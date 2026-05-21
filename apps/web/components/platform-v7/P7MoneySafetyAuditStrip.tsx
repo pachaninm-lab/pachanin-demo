@@ -53,7 +53,7 @@ export function P7MoneySafetyAuditStrip() {
             </div>
           </div>
           <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 900 }}>
-            контур проверки · без движения денег
+            тестовый контур · без движения денег
           </span>
         </div>
 

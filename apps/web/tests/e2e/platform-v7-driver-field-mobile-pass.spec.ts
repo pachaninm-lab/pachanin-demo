@@ -10,8 +10,8 @@ test.describe('platform-v7 driver field mobile shell', () => {
     expect(response?.ok(), 'driver field route should load').toBeTruthy();
     await expect(page.locator('[data-platform-v7-driver-mobile-pass="true"]')).toBeVisible();
     await expect(page.locator('body')).toContainText('Водитель · один рейс · одно действие');
-    await expect(page.locator('body')).toContainText('Полевой режим · только рейс');
-    await expect(page.locator('body')).toContainText('Подтвердить прибытие');
+    await expect(page.locator('body')).toContainText('field mode');
+    await expect(page.locator('body')).toContainText('Подтвердить следующее действие по рейсу');
     await expect(page.locator('body')).toContainText('только свой рейс');
     await expect(page.locator('body')).toContainText(/Связь|очередь/i);
     await expect(page.locator('body')).not.toContainText(/банк|инвестор|деньги под риском|другие сделки|Money Gate/i);

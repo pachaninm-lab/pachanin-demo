@@ -3,8 +3,8 @@ import Link from 'next/link';
 const gates = [
   { title: 'Контрагент', value: 'ИНН / ОГРН / санкции', note: 'Проверка контрагента должна закрыть базовый допуск до сделки.', href: '/platform-v7/companies', tone: 'warn' },
   { title: 'Полномочия', value: 'КЭП + МЧД', note: 'Подписант должен иметь подтверждённые полномочия на сделку и документы.', href: '/platform-v7/documents/grain', tone: 'stop' },
-  { title: 'Документы', value: 'СДИЗ / ЭТрН / УПД', note: 'Неполный документный пакет не создаёт основание для банковского подтверждения.', href: '/platform-v7/documents/grain', tone: 'stop' },
-  { title: 'Обход', value: 'ручное основание закрыто', note: 'Действия без основания фиксируются как риск и не проходят в расчёт.', href: '/platform-v7/anti-bypass', tone: 'stop' },
+  { title: 'Документы', value: 'СДИЗ / ЭТрН / УПД', note: 'Неполный документный пакет не создаёт основание для выпуска денег.', href: '/platform-v7/documents/grain', tone: 'stop' },
+  { title: 'Обход', value: 'ручной выпуск закрыт', note: 'Действия без основания фиксируются как риск и не проходят в расчёт.', href: '/platform-v7/anti-bypass', tone: 'stop' },
 ] as const;
 
 const metrics = [
@@ -38,7 +38,7 @@ export default function ComplianceGrainPage() {
       <section style={darkCard}>
         <div style={{ ...micro, color: '#FDE68A' }}>Правило допуска</div>
         <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Допуск создаётся только по основанию</h2>
-        <p style={{ margin: 0, color: '#FEF3C7', fontSize: 14, lineHeight: 1.55 }}>Если нет подтверждённого контрагента, полномочий, документов или журнала основания, сделка не проходит к банковскому подтверждению. Ручной обход должен оставаться закрытым.</p>
+        <p style={{ margin: 0, color: '#FEF3C7', fontSize: 14, lineHeight: 1.55 }}>Если нет подтверждённого контрагента, полномочий, документов или журнала основания, сделка не проходит в выпуск денег. Ручной обход должен оставаться закрытым.</p>
       </section>
     </main>
   );

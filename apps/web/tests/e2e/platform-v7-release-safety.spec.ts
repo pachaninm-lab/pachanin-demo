@@ -5,8 +5,8 @@ test.describe('platform-v7 release safety', () => {
     const response = await page.goto('/platform-v7/bank/release-safety', { waitUntil: 'domcontentloaded' });
     expect(response?.ok()).toBeTruthy();
 
-    await expect(page.locator('body')).toContainText('Банковская проверка выплаты', { timeout: 15000 });
-    await expect(page.locator('body')).toContainText('Запрос к банку допустим только после закрытия условий');
+    await expect(page.locator('body')).toContainText('Проверка безопасности выпуска денег', { timeout: 15000 });
+    await expect(page.locator('body')).toContainText('Выплата допустима только после закрытия условий');
     await expect(page.locator('body')).toContainText('Причины остановки');
     await expect(page.locator('body')).toContainText('Остановлено');
     await expect(page.locator('body')).toContainText(/ФГИС|СДИЗ|документы|удержание|приёмка|качество|спор/);

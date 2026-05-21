@@ -42,9 +42,20 @@ export const viewport: Viewport = {
 
 const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
 
+// S-3: Blocking theme script — runs synchronously before CSS paints
+const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ru">
+      {/* eslint-disable-next-line @next/next/no-head-element */}
+      <head>
+        {/* Must be first in <head> to run before CSS is applied */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* D-20: preconnect to Google Fonts for faster font load */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
       <body>
         {children}
         {YM_ID ? (

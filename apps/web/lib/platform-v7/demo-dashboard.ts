@@ -13,9 +13,9 @@ export interface PlatformV7DemoDashboardModel {
 
 export function platformV7DemoDashboardModel(): PlatformV7DemoDashboardModel {
   return {
-    title: 'Маршрут исполнения сделки',
+    title: 'Демо-сценарий исполнения сделки',
     subtitle: 'Показ за 2–3 минуты: лот → RFQ → логистика → приёмка → качество → деньги.',
-    disclosure: 'Маршрут показывает механику исполнения и не является подтверждением внешних подключений без договоров, доступов и проверки на реальных сделках.',
+    disclosure: 'Демо-сценарий показывает механику controlled pilot и не является подтверждением боевого исполнения без реальных интеграций.',
     durationMs: platformV7DemoTourDurationMs(),
     steps: platformV7DemoTourSteps(),
     initialView: platformV7DemoTourView(PLATFORM_V7_DEMO_TOUR_INITIAL_STATE),
@@ -29,6 +29,6 @@ export function platformV7DemoDashboardIsReady(model = platformV7DemoDashboardMo
     model.durationMs <= 180000 &&
     model.steps.length === 5 &&
     model.controls.includes('Пауза') &&
-    model.disclosure.includes('внешних подключений')
+    model.disclosure.includes('controlled pilot')
   );
 }

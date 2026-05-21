@@ -20,7 +20,7 @@ export default function ArbitratorGrainPage() {
       <section style={card}>
         <div style={badge}>Арбитраж зернового спора</div>
         <h1 style={h1}>Доказательства, акт, протокол, удержание и решение</h1>
-        <p style={lead}>Арбитр видит только доказательный пакет: акт осмотра, протокол качества, вес, документы, комментарии сторон и рекомендуемое решение. Ручное банковское основание недоступно.</p>
+        <p style={lead}>Арбитр видит только доказательный пакет: акт осмотра, протокол качества, вес, документы, комментарии сторон и рекомендуемое решение. Ручной выпуск денег недоступен.</p>
         <div style={actions}>
           <Link href='/platform-v7/arbitrator' style={primaryBtn}>Кабинет арбитра</Link>
           <Link href='/platform-v7/deals/DL-9106/evidence-pack' style={ghostBtn}>Доказательства</Link>

@@ -27,9 +27,9 @@ export function DomainDealsSummary() {
         <StatCard title='Активные сделки' value={String(activeDeals.length)} note='Без закрытых архивных кейсов.' />
         <StatCard title='В резерве' value={formatCompactMoney(totals.reserveTotal)} note='Сумма резерва по активным сделкам.' />
         <StatCard title='Под удержанием' value={formatCompactMoney(totals.heldTotal)} note='Сумма денег под спором или проверкой.' />
-        <StatCard title='К подтверждению' value={formatCompactMoney(totals.readyToReleaseTotal)} note='Сумма, ближайшая к банковскому подтверждению.' />
+        <StatCard title='К выпуску' value={formatCompactMoney(totals.readyToReleaseTotal)} note='Сумма, ближайшая к выпуску денег.' />
         <StatCard title='Высокий риск' value={String(highRisk)} note='Сделки с risk ≥ 70.' />
-        <StatCard title='Ожидают банк' value={String(releaseRequested)} note='Сделки в статусе запроса банковской проверки.' />
+        <StatCard title='Ожидают выпуск' value={String(releaseRequested)} note='Сделки в статусе запроса выпуска.' />
       </div>
     </section>
   );

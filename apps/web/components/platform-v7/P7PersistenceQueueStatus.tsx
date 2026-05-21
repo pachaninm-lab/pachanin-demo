@@ -1,10 +1,10 @@
 import { buildStableV7rPersistenceSummary } from '@/lib/v7r/persistence-queue';
 
 const metricLabels = [
-  { key: 'totalLedgerEntries', label: 'Записи журнала' },
-  { key: 'totalQueueItems', label: 'Элементы очереди' },
-  { key: 'manualReviewItems', label: 'Ручная сверка' },
-  { key: 'timelineEvents', label: 'События сделки' },
+  { key: 'totalLedgerEntries', label: 'Ledger entries' },
+  { key: 'totalQueueItems', label: 'Queue items' },
+  { key: 'manualReviewItems', label: 'Manual review' },
+  { key: 'timelineEvents', label: 'Timeline events' },
 ] as const;
 
 export function P7PersistenceQueueStatus() {
@@ -24,13 +24,13 @@ export function P7PersistenceQueueStatus() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Статус очереди подтверждений</div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Persistence queue status</div>
           <div style={{ marginTop: 8, maxWidth: 840, fontSize: 13, lineHeight: 1.65, color: '#5B6576' }}>
-            Единая неизменяемая очередь для банковской сверки и событий сделки. Это операционный журнал статусов, а не банковская интеграция и не платёжный механизм.
+            E8 foundation: единая append-only очередь для bank runtime, reconciliation и deal timeline projection. Это controlled pilot data layer, не production-БД и не live-интеграция банка.
           </div>
         </div>
         <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 900 }}>
-          Журнал · без удаления
+          Append-only · idempotent
         </span>
       </div>
 
@@ -44,7 +44,7 @@ export function P7PersistenceQueueStatus() {
       </div>
 
       <div style={{ display: 'grid', gap: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 900, color: '#0F1419' }}>Очередь ручной сверки</div>
+        <div style={{ fontSize: 13, fontWeight: 900, color: '#0F1419' }}>Manual reconciliation queue</div>
         {summary.manualQueue.length === 0 ? (
           <div style={{ padding: 12, borderRadius: 12, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', fontSize: 12, lineHeight: 1.5, color: '#0A7A5F', fontWeight: 800 }}>
             Очередь ручной сверки пустая.

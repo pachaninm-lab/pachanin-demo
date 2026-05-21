@@ -65,11 +65,11 @@ export function platformV7BankReleaseDecisionModel(
   }
 
   if (!input.documentPackReady) {
-    reasons.push('Неполный документный пакет блокирует банковское основание.');
+    reasons.push('Неполный документный пакет блокирует выпуск денег.');
   }
 
   if (input.disputeOpen) {
-    reasons.push('Открытый спор блокирует банковское подтверждение.');
+    reasons.push('Открытый спор блокирует финальный выпуск денег.');
   }
 
   if (!reconciliationAllowsRelease) {
@@ -124,8 +124,8 @@ export function platformV7BankReleaseDecisionNextAction(
   status: PlatformV7BankReleaseDecisionStatus,
   reasons: string[],
 ): string {
-  if (status === 'release_allowed') return 'Основание можно передать банку.';
-  if (status === 'blocked') return reasons[0] ?? 'Остановить банковское подтверждение до восстановления контура.';
+  if (status === 'release_allowed') return 'Выпуск денег разрешён.';
+  if (status === 'blocked') return reasons[0] ?? 'Остановить release до восстановления банкового контура.';
   if (status === 'manual_review') return 'Передать кейс в ручную банковскую проверку.';
   return reasons[0] ?? 'Удержать деньги до закрытия блокеров.';
 }

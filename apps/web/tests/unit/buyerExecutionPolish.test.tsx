@@ -10,13 +10,10 @@ describe('platform-v7 buyer execution polish', () => {
   it('renders buyer execution screen with reserve and hold focus', () => {
     render(<PlatformV7BuyerPage />);
 
-    expect(screen.getByText('Покупатель · RFQ → оффер → резерв → логистика')).toBeInTheDocument();
-    expect(screen.getByText(/Подтвердить резерв и условия, чтобы сделка пошла в исполнение/i)).toBeInTheDocument();
-    expect(screen.getByText(/Резерв ещё не подтверждён банком/i)).toBeInTheDocument();
-    expect(screen.getByText(/Сделка не переходит к логистике до банковского статуса/i)).toBeInTheDocument();
+    expect(screen.getByText('Кабинет покупателя')).toBeInTheDocument();
+    expect(screen.getByText(/Запросы, партии, предложения и резерв денег/i)).toBeInTheDocument();
     expect(screen.getByText('Мой резерв')).toBeInTheDocument();
-    expect(screen.getByText('Удержание')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Запросить подтверждение резерва/i })).toHaveAttribute('href', '/platform-v7/deals/DL-9106/money');
+    expect(screen.getByText('Под удержанием')).toBeInTheDocument();
     expect(screen.getByText(/ожидать банковского подтверждения резерва/i)).toBeInTheDocument();
     expect(screen.getByText(/готовность денег без преждевременного движения денег/i)).toBeInTheDocument();
   });

@@ -56,21 +56,21 @@ export interface MoneyTree {
 type MoneyTreeBucketKey = Exclude<MoneyTreeNode['key'], 'reserved'>;
 
 const MONEY_TREE_LABELS: Record<MoneyTreeBucketKey, string> = {
-  readyToRelease: 'К подтверждению',
+  readyToRelease: 'К выпуску',
   held: 'Удержано',
   blockedByDispute: 'Заблокировано спором',
   blockedByDocuments: 'Заблокировано документами',
   manualReview: 'На ручной проверке банка',
-  notReady: 'Недоступно к подтверждению',
+  notReady: 'Недоступно к выпуску',
 };
 
 const MONEY_TREE_FORMULAS: Record<MoneyTreeBucketKey, string> = {
-  readyToRelease: 'К подтверждению = часть резерва по сделкам без удержаний, споров и причин остановки',
+  readyToRelease: 'К выпуску = часть резерва по сделкам без удержаний, споров и причин остановки',
   held: 'Удержано = часть резерва по сделкам с удержанием',
   blockedByDispute: 'Заблокировано спором = часть резерва по сделкам со спором',
-  blockedByDocuments: 'Заблокировано документами = часть резерва по сделкам с документами, блокирующими банковское основание',
+  blockedByDocuments: 'Заблокировано документами = часть резерва по сделкам с документами, блокирующими выпуск денег',
   manualReview: 'На ручной проверке банка = часть резерва по сделкам с банковской ручной проверкой',
-  notReady: 'Недоступно к подтверждению = остаток резерва, который ещё не готов к банковскому подтверждению',
+  notReady: 'Недоступно к выпуску = остаток резерва, который ещё не готов к выпуску',
 };
 
 export function calculateDealMoneyAtRisk(deal: Pick<CanonicalDeal, 'money' | 'dispute' | 'blockers' | 'status'>): MoneyAmount {

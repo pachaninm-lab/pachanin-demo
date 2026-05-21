@@ -7,7 +7,7 @@ describe('DealEvidencePackPage', () => {
   it('renders deal evidence pack preview route', () => {
     render(<DealEvidencePackPage params={{ id: 'DL-9113' }} />);
 
-    expect(screen.getByText('Пакет доказательств · DL-9113')).toBeInTheDocument();
+    expect(screen.getByText('Evidence pack preview · DL-9113')).toBeInTheDocument();
     expect(screen.getByTestId('deal-evidence-pack-preview')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-dispute-continuity-panel')).toBeInTheDocument();
   });

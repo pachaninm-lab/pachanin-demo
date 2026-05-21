@@ -1,13 +1,12 @@
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
-import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
 import ExecutivePage from '@/app/platform-v7r/analytics/page';
-import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 
 export default function Page() {
   return (
-    <RoleExecutionCockpitPage cockpit={OPERATIONAL_ROLE_EXECUTION_COCKPITS.executive}>
-      <RoleExecutionSummary role="executive" />
+    <div data-testid="platform-v7-executive-page" style={{ display: 'grid', gap: 18 }}>
+      <style>{`@media(max-width:767px){[data-testid='platform-v7-executive-page']{gap:10px!important}[data-testid='platform-v7-executive-page'] > div:first-child{display:none!important}}`}</style>
+      <div><RoleExecutionSummary role="executive" /></div>
       <ExecutivePage />
-    </RoleExecutionCockpitPage>
+    </div>
   );
 }
