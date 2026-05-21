@@ -1,17 +1,25 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import * as https from 'https';
 
 @Injectable()
-export class TelegramService implements OnApplicationBootstrap {
+export class TelegramService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(TelegramService.name);
   private readonly token = process.env.TELEGRAM_BOT_TOKEN;
+  private polling = false;
+  private offset = 0;
 
   onApplicationBootstrap() {
     if (!this.token) {
       this.logger.warn('TELEGRAM_BOT_TOKEN not set — Telegram notifications disabled');
-    } else {
-      this.logger.log('Telegram bot ready');
+      return;
     }
+    this.logger.log('Telegram bot started (long polling)');
+    this.polling = true;
+    void this.poll();
+  }
+
+  onApplicationShutdown() {
+    this.polling = false;
   }
 
   async sendMessage(chatId: string | number, text: string): Promise<void> {
@@ -39,6 +47,34 @@ export class TelegramService implements OnApplicationBootstrap {
     }
   }
 
+  private async poll(): Promise<void> {
+    while (this.polling) {
+      try {
+        const result = await this.callApi('getUpdates', {
+          offset: this.offset,
+          timeout: 30,
+          allowed_updates: ['message'],
+        }) as { ok: boolean; result: any[] };
+
+        if (result.ok && result.result.length > 0) {
+          for (const update of result.result) {
+            this.handleUpdate(update);
+            this.offset = update.update_id + 1;
+          }
+        }
+      } catch (err) {
+        if (this.polling) {
+          this.logger.error(`Polling error: ${err}`);
+          await this.sleep(5000);
+        }
+      }
+    }
+  }
+
+  private sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   private callApi(method: string, params: Record<string, unknown>): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const body = JSON.stringify(params);
@@ -51,6 +87,7 @@ export class TelegramService implements OnApplicationBootstrap {
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(body),
           },
+          timeout: 35000,
         },
         (res) => {
           let data = '';
@@ -65,6 +102,7 @@ export class TelegramService implements OnApplicationBootstrap {
         },
       );
       req.on('error', reject);
+      req.on('timeout', () => req.destroy(new Error('Request timeout')));
       req.write(body);
       req.end();
     });
