@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { LifeBuoy } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const SUPPORT_BY_ROLE: Record<PlatformRole, { href: string; label: string }> = {
@@ -60,16 +61,37 @@ function useRoleAwareNotifications(role: PlatformRole) {
   }, [role]);
 }
 
+function useHeaderActionsMount() {
+  const [mount, setMount] = useState<Element | null>(null);
+
+  useEffect(() => {
+    const syncMount = () => setMount(document.querySelector('.pc-v4-actions'));
+    syncMount();
+    const observer = new MutationObserver(syncMount);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return mount;
+}
+
 export function SupportHeaderIcon() {
   const role = usePlatformV7RStore((state) => state.role) || 'operator';
   const support = SUPPORT_BY_ROLE[role];
+  const headerActions = useHeaderActionsMount();
   useRoleAwareNotifications(role);
+
+  const button = (
+    <Link href={support.href} className='p7-role-support pc-v4-iconbtn' aria-label={support.label} title={support.label}>
+      <LifeBuoy size={17} />
+    </Link>
+  );
 
   return (
     <>
       <style>{`
-        .pc-shell-root-v4 > div[aria-hidden='true']{background:rgba(15,23,42,.08)!important;backdrop-filter:none!important}
-        .p7-role-support{display:none}
+        .pc-shell-root-v4 > div[aria-hidden='true']{background:rgba(15,23,42,.04)!important;backdrop-filter:none!important}
+        .p7-role-support{display:inline-flex!important;flex:0 0 auto!important}
         @media(max-width:767px){
           .pc-v4-search{display:none!important}
           .pc-v4-actions{gap:6px!important}
@@ -82,7 +104,7 @@ export function SupportHeaderIcon() {
           .pc-v4-actions button[aria-label='Идентификация и настройки'] > svg{display:none!important}
           .pc-v4-actions button[aria-label='Идентификация и настройки'] > span:first-child{width:28px!important;height:28px!important;font-size:9px!important}
           .pc-v4-drawer{width:min(344px,84vw)!important;max-width:84vw!important;border-top-right-radius:24px!important;border-bottom-right-radius:24px!important;overflow:hidden!important}
-          .p7-role-support{position:fixed;top:calc(env(safe-area-inset-top) + 7px);right:106px;z-index:106;width:42px;height:42px;border-radius:13px;border:1px solid var(--pc-border,#e4e6ea);background:var(--pc-bg-card,#fff);color:var(--pc-text-primary,#0f1419);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 8px 18px rgba(15,23,42,.06);-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+          .p7-role-support.pc-v4-iconbtn{width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;min-height:42px!important;border-radius:13px!important}
           .p7-role-support:active{transform:translateY(1px)}
 
           main[data-testid='platform-v7-control-tower-page']{gap:12px!important}
@@ -100,13 +122,11 @@ export function SupportHeaderIcon() {
         }
         @media(max-width:374px){
           .pc-v4-actions{gap:5px!important}
-          .p7-role-support{right:101px;width:40px;height:40px}
+          .p7-role-support.pc-v4-iconbtn,
           .pc-v4-actions button[aria-label='Идентификация и настройки']{width:40px!important;min-width:40px!important;max-width:40px!important;height:40px!important;min-height:40px!important}
         }
       `}</style>
-      <Link href={support.href} className='p7-role-support' aria-label={support.label} title={support.label}>
-        <LifeBuoy size={18} />
-      </Link>
+      {headerActions ? createPortal(button, headerActions) : null}
     </>
   );
 }
