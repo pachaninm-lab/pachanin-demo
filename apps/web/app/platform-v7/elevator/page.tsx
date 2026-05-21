@@ -9,51 +9,14 @@ import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 
 const elevatorHandoff: HandoffItem[] = [
-  {
-    direction: 'sends',
-    role: 'элеватор → контур документов',
-    requirement: 'акт приёмки и акт расхождения в контур документов',
-    documentImpact: true,
-    moneyImpact: true,
-  },
-  {
-    direction: 'sends',
-    role: 'элеватор → лабораторный контур качества',
-    requirement: 'проба и показатели качества — в пилотный протокол качества',
-    documentImpact: true,
-  },
-  {
-    direction: 'awaits',
-    role: 'от логистики',
-    requirement: 'рейс с ЭТрН и данными водителя перед началом приёмки',
-    documentImpact: true,
-  },
-  {
-    direction: 'blockedBy',
-    requirement: 'отклонение веса -1,2 т — нужен акт расхождения до банковской проверки',
-    documentImpact: true,
-    moneyImpact: true,
-  },
-  {
-    direction: 'next',
-    requirement: 'зафиксировать вес, подписать акт приёмки и передать пробу в лабораторный контур качества',
-    entity: 'TRIP-SIM-001',
-    documentImpact: true,
-  },
+  { direction: 'sends', role: 'элеватор → контур документов', requirement: 'акт приёмки и акт расхождения в контур документов', documentImpact: true, moneyImpact: true },
+  { direction: 'sends', role: 'элеватор → лабораторный контур качества', requirement: 'проба и показатели качества — в пилотный протокол качества', documentImpact: true },
+  { direction: 'awaits', role: 'от логистики', requirement: 'рейс с ЭТрН и данными водителя перед началом приёмки', documentImpact: true },
+  { direction: 'blockedBy', requirement: 'отклонение веса -1,2 т — нужен акт расхождения до банковской проверки', documentImpact: true, moneyImpact: true },
+  { direction: 'next', requirement: 'зафиксировать вес, подписать акт приёмки и передать пробу в лабораторный контур качества', entity: 'TRIP-SIM-001', documentImpact: true },
 ];
 
-const receiving = {
-  tripId: 'TRIP-SIM-001',
-  dealId: 'DL-9106',
-  lotId: 'LOT-2403',
-  crop: 'Пшеница 4 класса',
-  declaredWeight: '600 т',
-  arrivedWeight: '598,8 т',
-  deviation: '-1,2 т',
-  lab: 'проба отобрана',
-  docs: 'акт приёмки готовится',
-  next: 'зафиксировать вес и качество',
-};
+const receiving = { tripId: 'TRIP-SIM-001', dealId: 'DL-9106', lotId: 'LOT-2403', crop: 'Пшеница 4 класса', declaredWeight: '600 т', arrivedWeight: '598,8 т', deviation: '-1,2 т', lab: 'проба отобрана', docs: 'акт приёмки готовится', next: 'зафиксировать вес и качество' };
 
 const receivingSummary = [
   { label: 'Что сейчас', value: 'TRIP-SIM-001 прибыл на приёмку', note: 'Приёмка фиксирует физический факт: вес, качество, акт и отклонения.' },
@@ -80,19 +43,37 @@ const gates = [
 
 export default function Page() {
   return (
-    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
-      <QuietIntelligenceHint
-        problem='Отклонение веса -1,2 т и превышение по сорной примеси — акт расхождения не подписан.'
-        action='Зафиксировать вес, подписать акт приёмки и акт расхождения, передать пробу в лабораторию.'
-        outcome='После закрытия актов основание уйдёт в контур документов и банку на проверку выплаты.'
-      />
-      <section style={card}>
+    <main data-testid='platform-v7-elevator-page' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <style>{`
+        @media(max-width:767px){
+          [data-testid='platform-v7-elevator-page']{gap:10px!important;padding-top:0!important}
+          .p7-elevator-intel,.p7-elevator-explainer,.p7-elevator-secondary,.p7-elevator-proof,.p7-elevator-decision,.p7-elevator-evidence,.p7-elevator-handoff{display:none!important}
+          .p7-elevator-hero{padding:16px!important;border-radius:24px!important;gap:8px!important}
+          .p7-elevator-hero h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}
+          .p7-elevator-hero p{display:none!important}
+          .p7-elevator-active{padding:14px!important;border-radius:22px!important;gap:10px!important}
+          .p7-elevator-active h2{font-size:20px!important;line-height:1.1!important}
+          .p7-elevator-active-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+          .p7-elevator-active-grid > div:nth-child(4),.p7-elevator-active-grid > div:nth-child(5){display:none!important}
+          .p7-elevator-active-actions{display:grid!important;grid-template-columns:1fr!important}
+          .p7-elevator-active-actions a:first-child{display:none!important}
+          .p7-elevator-active-actions a{width:100%!important;min-height:54px!important}
+          .p7-elevator-quality{padding:14px!important;border-radius:22px!important;gap:10px!important}
+          .p7-elevator-quality-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+          .p7-elevator-quality-grid > div:nth-child(1),.p7-elevator-quality-grid > div:nth-child(2){display:none!important}
+          .p7-elevator-quality .p7-elevator-notice{font-size:12px!important;line-height:1.4!important}
+        }
+      `}</style>
+      <div className='p7-elevator-intel'>
+        <QuietIntelligenceHint problem='Отклонение веса -1,2 т и превышение по сорной примеси — акт расхождения не подписан.' action='Зафиксировать вес, подписать акт приёмки и акт расхождения, передать пробу в лабораторию.' outcome='После закрытия актов основание уйдёт в контур документов и банку на проверку выплаты.' />
+      </div>
+      <section className='p7-elevator-hero' style={card}>
         <div style={badge}>Кабинет приёмки</div>
         <h1 style={h1}>Вес, качество и основание для проверки выплаты</h1>
         <p style={lead}>Приёмка видит только груз, рейс, вес, лабораторию, документы и отклонения. Деньги, ставки, резерв, кредит и покупательская аналитика не раскрываются.</p>
       </section>
 
-      <section style={darkCard}>
+      <section className='p7-elevator-explainer' style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ ...micro, color: '#FED7AA' }}>контроль приёмки</div>
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что приёмка должна понять за 5 секунд</h2>
@@ -103,7 +84,7 @@ export default function Page() {
         </div>
       </section>
 
-      <section style={card}>
+      <section className='p7-elevator-active' style={card}>
         <div style={micro}>Активная приёмка</div>
         <div style={rowHead}>
           <div>
@@ -113,7 +94,7 @@ export default function Page() {
           </div>
           <span style={statusPill}>в работе</span>
         </div>
-        <div style={grid2}>
+        <div className='p7-elevator-active-grid' style={grid2}>
           <Cell label='Заявлено' value={receiving.declaredWeight} />
           <Cell label='На приёмке' value={receiving.arrivedWeight} strong />
           <Cell label='Отклонение' value={receiving.deviation} danger />
@@ -121,54 +102,33 @@ export default function Page() {
           <Cell label='Документы' value={receiving.docs} />
           <Cell label='Следующее действие' value={receiving.next} strong />
         </div>
-        <div style={actions}>
+        <div className='p7-elevator-active-actions' style={actions}>
           <Link href={`/platform-v7/deals/${receiving.dealId}/clean`} style={primaryBtn}>Открыть Deal 360</Link>
           <Link href='/platform-v7/lab' style={ghostBtn}>Лаборатория</Link>
         </div>
       </section>
 
-      <section style={card}>
+      <section className='p7-elevator-secondary' style={card}>
         <div style={micro}>Условия приёмки, влияющие на банковскую проверку</div>
-        <div style={grid2}>
-          {gates.map((gate) => <Gate key={`${gate.title}-${gate.value}`} gate={gate} />)}
-        </div>
+        <div style={grid2}>{gates.map((gate) => <Gate key={`${gate.title}-${gate.value}`} gate={gate} />)}</div>
       </section>
 
-      <section style={card}>
+      <section className='p7-elevator-quality' style={card}>
         <div style={micro}>Качество партии · пилотный протокол качества</div>
-        <div style={grid2}>
-          {quality.map((item) => <QualityCell key={item.label} item={item} />)}
-        </div>
-        <div style={notice}>При отклонении веса или качества платформа должна создать акт расхождения, удержание и задачу оператору. Передача основания банку на проверку выплаты не продолжается до закрытия акта и протокола.</div>
+        <div className='p7-elevator-quality-grid' style={grid2}>{quality.map((item) => <QualityCell key={item.label} item={item} />)}</div>
+        <div className='p7-elevator-notice' style={notice}>При отклонении веса или качества платформа должна создать акт расхождения, удержание и задачу оператору. Передача основания банку на проверку выплаты не продолжается до закрытия акта и протокола.</div>
       </section>
 
-      <CauseLine
-        cause={{ text: 'Акт расхождения по весу не подписан', tone: 'blocked' }}
-        relation='blocks'
-        effect={{ text: 'Основание не передаётся банку', tone: 'blocked' }}
-        moneyAmount='9,65 млн ₽'
-        moneyTone='hold'
-      />
-      <CauseLine
-        cause={{ text: 'Превышение по сорной примеси (2,4% > 2%)', tone: 'warning' }}
-        relation='requires'
-        effect={{ text: 'Протокол качества до расчёта', tone: 'warning' }}
-      />
-      <TrustDot state='test' size='sm' label='Тестовый контур · Физические данные требуют реальных приёмок' />
+      <div className='p7-elevator-proof' style={{ display: 'grid', gap: 10 }}>
+        <CauseLine cause={{ text: 'Акт расхождения по весу не подписан', tone: 'blocked' }} relation='blocks' effect={{ text: 'Основание не передаётся банку', tone: 'blocked' }} moneyAmount='9,65 млн ₽' moneyTone='hold' />
+        <CauseLine cause={{ text: 'Превышение по сорной примеси (2,4% > 2%)', tone: 'warning' }} relation='requires' effect={{ text: 'Протокол качества до расчёта', tone: 'warning' }} />
+        <TrustDot state='test' size='sm' label='Тестовый контур · Физические данные требуют реальных приёмок' />
+        <SmartSectionSummary label='Статус приёмки' items={[{ text: 'TRIP-SIM-001 · Вес 598,8 т · Отклонение -1,2 т · Акт готовится', tone: 'warn' }, { text: 'Сорная примесь 2,4% — выше допуска 2% · Протокол ожидается', tone: 'warn' }]} />
+      </div>
 
-      <SmartSectionSummary
-        label='Статус приёмки'
-        items={[
-          { text: 'TRIP-SIM-001 · Вес 598,8 т · Отклонение -1,2 т · Акт готовится', tone: 'warn' },
-          { text: 'Сорная примесь 2,4% — выше допуска 2% · Протокол ожидается', tone: 'warn' },
-        ]}
-      />
-
-      <DecisionRecommendationStrip context='elevator' />
-
-      <EvidenceReadinessMiniMatrix context='elevator' />
-
-      <RoleExecutionHandoff items={elevatorHandoff} title='исполнение: что приёмка отправляет и ожидает' />
+      <div className='p7-elevator-decision'><DecisionRecommendationStrip context='elevator' /></div>
+      <div className='p7-elevator-evidence'><EvidenceReadinessMiniMatrix context='elevator' /></div>
+      <div className='p7-elevator-handoff'><RoleExecutionHandoff items={elevatorHandoff} title='исполнение: что приёмка отправляет и ожидает' /></div>
 
       <FieldElevatorRuntime />
     </main>
@@ -178,36 +138,12 @@ export default function Page() {
 function SummaryCard({ item }: { item: typeof receivingSummary[number] }) {
   return <div style={{ background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 20, padding: 14, display: 'grid', gap: 7, boxShadow: '0 12px 26px rgba(15,23,42,0.12)' }}><div style={{ ...micro, color: '#FED7AA' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#FFEDD5', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
 }
-
-function Gate({ gate }: { gate: typeof gates[number] }) {
-  return <div style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}><div style={{ ...micro, color: stateText(gate.state) }}>{gate.title}</div><div style={{ marginTop: 5, color: '#0F1419', fontSize: 14, fontWeight: 900 }}>{gate.value}</div><div style={{ marginTop: 4, color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>{gate.impact}</div></div>;
-}
-
-function QualityCell({ item }: { item: typeof quality[number] }) {
-  const bad = item.state === 'stop';
-  const wait = item.state === 'wait';
-  return <div style={{ background: stateBg(item.state), border: `1px solid ${stateBorder(item.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}><div style={{ ...micro, color: stateText(item.state) }}>{item.label}</div><div style={{ marginTop: 5, color: bad ? '#B91C1C' : '#0F1419', fontSize: 16, fontWeight: 950 }}>{item.value}</div><div style={{ marginTop: 4, color: wait ? '#B45309' : '#64748B', fontSize: 12 }}>{item.limit}</div></div>;
-}
-
-function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.3, fontWeight: 900 }}>{value}</div></div>;
-}
-
-function stateBg(state: string) {
-  if (state === 'ok') return 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)';
-  if (state === 'stop') return 'linear-gradient(180deg,#FFFFFF 0%,#FEF2F2 100%)';
-  return 'linear-gradient(180deg,#FFFFFF 0%,#FFFBEB 100%)';
-}
-function stateBorder(state: string) {
-  if (state === 'ok') return 'rgba(10,122,95,0.18)';
-  if (state === 'stop') return 'rgba(220,38,38,0.18)';
-  return 'rgba(217,119,6,0.18)';
-}
-function stateText(state: string) {
-  if (state === 'ok') return '#0A7A5F';
-  if (state === 'stop') return '#B91C1C';
-  return '#B45309';
-}
+function Gate({ gate }: { gate: typeof gates[number] }) { return <div style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}><div style={{ ...micro, color: stateText(gate.state) }}>{gate.title}</div><div style={{ marginTop: 5, color: '#0F1419', fontSize: 14, fontWeight: 900 }}>{gate.value}</div><div style={{ marginTop: 4, color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>{gate.impact}</div></div>; }
+function QualityCell({ item }: { item: typeof quality[number] }) { const bad = item.state === 'stop'; const wait = item.state === 'wait'; return <div style={{ background: stateBg(item.state), border: `1px solid ${stateBorder(item.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}><div style={{ ...micro, color: stateText(item.state) }}>{item.label}</div><div style={{ marginTop: 5, color: bad ? '#B91C1C' : '#0F1419', fontSize: 16, fontWeight: 950 }}>{item.value}</div><div style={{ marginTop: 4, color: wait ? '#B45309' : '#64748B', fontSize: 12 }}>{item.limit}</div></div>; }
+function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) { return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.3, fontWeight: 900 }}>{value}</div></div>; }
+function stateBg(state: string) { if (state === 'ok') return 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)'; if (state === 'stop') return 'linear-gradient(180deg,#FFFFFF 0%,#FEF2F2 100%)'; return 'linear-gradient(180deg,#FFFFFF 0%,#FFFBEB 100%)'; }
+function stateBorder(state: string) { if (state === 'ok') return 'rgba(10,122,95,0.18)'; if (state === 'stop') return 'rgba(220,38,38,0.18)'; return 'rgba(217,119,6,0.18)'; }
+function stateText(state: string) { if (state === 'ok') return '#0A7A5F'; if (state === 'stop') return '#B91C1C'; return '#B45309'; }
 
 const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
 const darkCard = { background: 'linear-gradient(135deg,#7C2D12 0%,#9A3412 58%,#431407 120%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(124,45,18,0.2)' } as const;
