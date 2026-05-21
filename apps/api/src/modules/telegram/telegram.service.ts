@@ -225,7 +225,7 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     }
 
     // одобрен, но не привязал аккаунт — только базовые команды
-    const freeCommands = ['/help', '/about', '/link', '/status', '/ping', '/id', '/support', '/faq'];
+    const freeCommands = ['/help', '/about', '/link', '/status', '/ping', '/id', '/support', '/faq', '/demotest'];
     if (!user.linkedUserId && !freeCommands.includes(cmd) && chatId !== ADMIN_CHAT_ID) {
       return void this.sendMessage(chatId,
         `🔗 Для доступа к командам нужно привязать аккаунт платформы.\n\nНапишите /link и следуйте инструкции.`
@@ -309,6 +309,7 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
       case '/rating':     return void this.cmdRating(chatId, arg);
       case '/blacklist':  return void this.cmdBlacklist(chatId, arg);
       case '/demo':       return void this.cmdDemo(chatId, arg.toLowerCase());
+      case '/demotest':   return void this.cmdDemoTest(chatId);
       default:
         void this.sendMessage(chatId,
           `Не понимаю <code>${rawCmd}</code>.\n\nНапишите /help или /menu.`);
@@ -473,7 +474,8 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
         `<b>Уведомления</b>\n/mute /unmute /broadcast /remind /reminders\n\n` +
         `<b>Профиль</b>\n/profile /link /unlink /id /settings\n\n` +
         `<b>Система</b>\n/status /ping /health /uptime /stats\n\n` +
-        `<b>Прочее</b>\n/weather /currency /news /demo /support /faq /about`
+        `<b>Прочее</b>\n/weather /currency /news /demo /support /faq /about\n\n` +
+        `<b>Тестирование</b>\n/demotest — тестовые пары ИНН+ФИО для /link`
       );
     }
 
@@ -1165,6 +1167,39 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
   }
 
   // ── демо ────────────────────────────────────────────────────
+
+  private async cmdDemoTest(chatId: number) {
+    await this.sendMessage(chatId,
+      `🧪 <b>Демо-тест: привязка аккаунта по ИНН</b>\n\n` +
+      `Напишите /link и используйте одну из тестовых пар:\n\n` +
+      `<b>Фермер / Продавец</b>\n` +
+      `ИНН: <code>771234567890</code>\n` +
+      `ФИО: <code>Demo Farmer</code>\n\n` +
+      `<b>Покупатель</b>\n` +
+      `ИНН: <code>773456789012</code>\n` +
+      `ФИО: <code>Demo Buyer</code>\n\n` +
+      `<b>Логист</b>\n` +
+      `ИНН: <code>550123456789</code>\n` +
+      `ФИО: <code>Demo Logistician</code>\n\n` +
+      `<b>Водитель</b>\n` +
+      `ИНН: <code>667890123456</code>\n` +
+      `ФИО: <code>Demo Driver</code>\n\n` +
+      `<b>Бухгалтер</b>\n` +
+      `ИНН: <code>772345678901</code>\n` +
+      `ФИО: <code>Demo Accounting</code>\n\n` +
+      `<b>Лаборатория</b>\n` +
+      `ИНН: <code>501234567890</code>\n` +
+      `ФИО: <code>Demo Lab</code>\n\n` +
+      `<b>Элеватор</b>\n` +
+      `ИНН: <code>502345678901</code>\n` +
+      `ФИО: <code>Demo Elevator</code>\n\n` +
+      `<b>Руководитель</b>\n` +
+      `ИНН: <code>770000000001</code>\n` +
+      `ФИО: <code>Demo Executive</code>\n\n` +
+      `После привязки напишите /help — увидите только команды своей роли.\n` +
+      `Для сброса: /unlink`
+    );
+  }
 
   private async cmdDemo(chatId: number, arg: string) {
     const all = !arg || arg === 'all';
