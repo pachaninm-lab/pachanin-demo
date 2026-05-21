@@ -291,33 +291,63 @@ export function GrainReleaseCockpit({ role = 'bank' }: { readonly role?: UserRol
   const summary = ctx.summaryForRole(role);
 
   return (
-    <main data-platform-v7-grain-release-cockpit='true' style={shellStyle}>
-      <section style={{ ...cardStyle, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md, background: P7_THEME_CSS.surface.premium }}>
-        <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.md, flexWrap: 'wrap' }}>
-          <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-            <StatusPill tone='warn'>{maturityLabel[summary.maturity]}</StatusPill>
-            <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.08, letterSpacing: '-0.03em' }}>Сделка GR-2048 · выпуск и удержание денег</h1>
-            <p style={{ ...mutedTextStyle, maxWidth: 720 }}>Контур показывает груз, документы, основание для банка и спорную часть без заявления о самостоятельном выпуске денег платформой.</p>
+    <>
+      <style>{`
+        @media(max-width:767px){
+          [data-platform-v7-grain-release-cockpit='true']{gap:10px!important}
+          [data-platform-v7-grain-release-cockpit='true'] > section{padding:14px!important;border-radius:20px!important;gap:10px!important}
+          [data-platform-v7-grain-release-cockpit='true'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important}
+          [data-platform-v7-grain-release-cockpit='true'] h1{font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
+          [data-platform-v7-grain-release-cockpit='true'] h2{font-size:18px!important;line-height:1.12!important}
+          [data-platform-v7-grain-release-cockpit='true'] > section:nth-of-type(1) > div:first-child > div:first-child > p{display:none!important}
+          [data-platform-v7-grain-release-cockpit='true'] section[aria-label='Пульс сделки']{grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-platform-v7-grain-release-cockpit='true'] section[aria-label='Пульс сделки'] > div{padding:10px!important;border-radius:14px!important}
+          [data-platform-v7-grain-release-cockpit='true'] section[aria-label='Пульс сделки'] > div:nth-child(n+5){display:none!important}
+          [data-platform-v7-grain-release-cockpit='true'] > section:nth-of-type(2) > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-platform-v7-grain-release-cockpit='true'] > section:nth-of-type(2) > div:nth-child(2) > div{min-height:auto!important;padding:10px!important;border-radius:14px!important}
+          [data-platform-v7-grain-release-cockpit='true'] > section:nth-of-type(2) > div:nth-child(2) > div:nth-child(n+7){display:none!important}
+          [data-platform-v7-grain-release-cockpit='true'] > div{grid-template-columns:1fr!important;gap:10px!important}
+          [data-platform-v7-grain-release-cockpit='true'] > div section,
+          [data-platform-v7-grain-release-cockpit='true'] aside{padding:14px!important;border-radius:20px!important;gap:10px!important}
+          [data-platform-v7-grain-release-cockpit='true'] > div section:first-child > div:nth-child(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-platform-v7-grain-release-cockpit='true'] > div section:first-child > div:nth-child(3) > div:nth-child(3){display:none!important}
+          [data-platform-v7-grain-release-cockpit='true'] > div section:nth-child(2) > div:nth-child(2) > div:nth-child(n+4){display:none!important}
+          [data-platform-v7-grain-release-cockpit='true'] aside > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-platform-v7-grain-release-cockpit='true'] aside > div:nth-child(2) > div:nth-child(n+4){display:none!important}
+          [data-platform-v7-grain-release-cockpit='true'] aside > div:nth-child(3){display:none!important}
+          [data-platform-v7-grain-release-cockpit='true'] section[aria-label='Следующие действия'] > div{grid-template-columns:1fr!important}
+          [data-platform-v7-grain-release-cockpit='true'] section[aria-label='Следующие действия'] a{min-height:54px!important;border-radius:16px!important}
+          [data-platform-v7-grain-release-cockpit='true'] section[aria-label='Следующие действия'] a:nth-child(n+2){display:none!important}
+        }
+      `}</style>
+      <main data-platform-v7-grain-release-cockpit='true' style={shellStyle}>
+        <section style={{ ...cardStyle, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md, background: P7_THEME_CSS.surface.premium }}>
+          <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.md, flexWrap: 'wrap' }}>
+            <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
+              <StatusPill tone='warn'>{maturityLabel[summary.maturity]}</StatusPill>
+              <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.08, letterSpacing: '-0.03em' }}>Сделка GR-2048 · выпуск и удержание денег</h1>
+              <p style={{ ...mutedTextStyle, maxWidth: 720 }}>Контур показывает груз, документы, основание для банка и спорную часть без заявления о самостоятельном выпуске денег платформой.</p>
+            </div>
+            <div style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>
+              <p style={smallLabelStyle}>активная роль</p>
+              <StatusPill tone='info'>{roleLabel[role]}</StatusPill>
+            </div>
           </div>
-          <div style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>
-            <p style={smallLabelStyle}>активная роль</p>
-            <StatusPill tone='info'>{roleLabel[role]}</StatusPill>
+          <DealPulse role={role} />
+        </section>
+
+        <ExecutionRail />
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(300px, 0.8fr)', gap: PLATFORM_V7_TOKENS.spacing.md, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md, minWidth: 0 }}>
+            <MoneyGate />
+            <DocumentControl />
           </div>
+          <SmartInspector role={role} />
         </div>
-        <DealPulse role={role} />
-      </section>
 
-      <ExecutionRail />
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(300px, 0.8fr)', gap: PLATFORM_V7_TOKENS.spacing.md, alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md, minWidth: 0 }}>
-          <MoneyGate />
-          <DocumentControl />
-        </div>
-        <SmartInspector role={role} />
-      </div>
-
-      <ActionDock role={role} />
-    </main>
+        <ActionDock role={role} />
+      </main>
+    </>
   );
 }
