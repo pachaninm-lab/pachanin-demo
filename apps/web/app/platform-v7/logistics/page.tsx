@@ -111,6 +111,14 @@ const gates = [
   { title: 'GPS-контур', value: '2 водителя в тестовом сценарии', state: 'ok' },
 ] as const;
 
+type GateState = 'ok' | 'wait' | 'stop';
+
+interface GateItem {
+  readonly title: string;
+  readonly value: string;
+  readonly state: GateState;
+}
+
 export default function LogisticsPage() {
   const assignedDrivers = orders.filter((order) => order.driver !== 'не назначен');
   const tripPlan = selectDealLogisticsTripPlan('DL-9106');
@@ -166,7 +174,7 @@ export default function LogisticsPage() {
   );
 }
 
-function Gate({ gate }: { gate: typeof gates[number] }) {
+function Gate({ gate }: { gate: GateItem }) {
   return (
     <div style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}>
       <div style={{ ...micro, color: stateText(gate.state) }}>{gate.title}</div>
@@ -265,6 +273,7 @@ const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08
 const gateGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 } as const;
 const tripGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8 } as const;
 const tripCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 18, padding: 14, display: 'grid', gap: 10, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
+const idText = { color: '#0A7A5F', fontSize: 12, fontWeight: 950 } as const;
 const twoColGrid = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
 const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;

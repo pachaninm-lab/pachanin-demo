@@ -27,6 +27,7 @@ export interface PlatformV7ExecutionActionUiItem {
   readonly targetId: string;
   readonly actionId: PlatformV7ActionMessageId;
   readonly actorRole: PlatformV7ExecutionRole;
+  readonly actorId?: string;
   readonly entityId: string;
   readonly mode?: PlatformV7ExecutionMode;
 }
