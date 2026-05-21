@@ -64,6 +64,34 @@ const buyerMobile = `
   }
 `;
 
+const sellerMobile = `
+  @media(max-width:767px){
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true']{gap:10px!important;padding-top:0!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > div:first-child,
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(n+6):not(:last-child),
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > div:nth-child(n+5){display:none!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2){padding:16px!important;border-radius:24px!important;gap:10px!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) p,
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:first-child > div:nth-child(2),
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(3){display:none!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:8px!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(2) > div:nth-child(n+3){display:none!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(2) > div{padding:12px!important;border-radius:16px!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:last-child{display:grid!important;grid-template-columns:1fr!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:last-child a:nth-child(2){display:none!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:last-child a{width:100%!important;min-height:54px!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(3) > div{padding:12px!important;border-radius:16px!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(3) > div:nth-child(n+3){display:none!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child{padding:14px!important;border-radius:22px!important;gap:10px!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child a{padding:13px!important;border-radius:16px!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child a:nth-child(n+2){display:none!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child div[style*='grid-template-columns']{grid-template-columns:1fr 1fr!important;gap:8px!important}
+    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child div[style*='grid-template-columns'] > div:nth-child(n+3){display:none!important}
+  }
+`;
+
 const arbitratorMobile = `
   @media(max-width:767px){
     .pc-v4-main > div[style*='gap: 18px']{gap:10px!important}
@@ -119,5 +147,6 @@ export function ScopedShellGuard(){
   if(shellPolicy==='role-scoped') return <RoleScopedShellPolicy extra={pathname.startsWith('/platform-v7/surveyor') ? surveyorMobile : ''}/>;
   if(pathname.startsWith('/platform-v7/arbitrator')) return <OperatorShellPolicy extra={arbitratorMobile}/>;
   if(pathname.startsWith('/platform-v7/buyer')) return <OperatorShellPolicy extra={buyerMobile}/>;
+  if(pathname.startsWith('/platform-v7/seller')) return <OperatorShellPolicy extra={sellerMobile}/>;
   return <OperatorShellPolicy extra={pathname.startsWith('/platform-v7/bank') ? bankMobile : ''}/>;
 }
