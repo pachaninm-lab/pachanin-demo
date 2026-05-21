@@ -11,11 +11,22 @@ export interface RuntimeFixtureSource {
   readonly disputes: readonly DomainDispute[];
 }
 
+function alignDealScenarioBlockers(deals: DomainDeal[]): DomainDeal[] {
+  return deals.map((deal) => {
+    if (deal.id !== 'DL-9106') return deal;
+
+    return {
+      ...deal,
+      blockers: Array.from(new Set([...deal.blockers, 'docs', 'fgis', 'transport', 'lab_result'])),
+    };
+  });
+}
+
 export function buildRuntimeFixtureSource(): RuntimeFixtureSource {
   return {
     id: 'v7r-data',
     generatedFrom: 'apps/web/lib/v7r/data',
-    deals: toDomainDeals(DEALS),
+    deals: alignDealScenarioBlockers(toDomainDeals(DEALS)),
     disputes: toDomainDisputes(DISPUTES),
   };
 }
