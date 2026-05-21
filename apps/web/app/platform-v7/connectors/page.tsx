@@ -29,7 +29,28 @@ export default function PlatformV7ConnectorsPage() {
   const wait = integrations.filter((item) => item.state === 'wait').length;
 
   return (
-    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+    <main data-testid="platform-v7-connectors-page" style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <style>{`
+        @media(max-width:767px){
+          [data-testid='platform-v7-connectors-page']{gap:10px!important;padding:0 0 16px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:9px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.03!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) p{display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) a{width:100%!important;min-height:54px!important;border-radius:16px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) a:nth-of-type(n+2){display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(2){display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3) > div{padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3) > div:nth-child(n+4){display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4){padding:14px!important;border-radius:20px!important;gap:9px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a{padding:12px!important;border-radius:16px!important;gap:8px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a:nth-of-type(n+7){display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a h2{font-size:16px!important;line-height:1.12!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a p{display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a > div:nth-child(2){grid-template-columns:1fr!important;gap:7px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a > div:nth-child(2) > div:nth-child(3){display:none!important}
+        }
+      `}</style>
       <section style={hero}>
         <div style={badge}>Реестр интеграций</div>
         <h1 style={h1}>Именные контуры сделки</h1>
