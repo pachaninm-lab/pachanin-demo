@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
 import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
+import { formatTons, selectDealLogisticsTripPlan } from '@/lib/platform-v7/deal-execution-source-of-truth';
 
 const logisticsHandoff: HandoffItem[] = [
   {
@@ -112,11 +113,38 @@ const gates = [
 
 export default function LogisticsPage() {
   const assignedDrivers = orders.filter((order) => order.driver !== 'не назначен');
+  const tripPlan = selectDealLogisticsTripPlan('DL-9106');
 
   return (
     <RoleExecutionCockpitPage cockpit={OPERATIONAL_ROLE_EXECUTION_COCKPITS.logistics}>
 
       <RoleExecutionHandoff items={logisticsHandoff} title='исполнение: что логистика отправляет и ожидает' />
+
+      <section style={card}>
+        <div style={micro}>План перевозки DL-9106</div>
+        <div style={gateGrid}>
+          <Gate gate={{ title: 'Заявка', value: tripPlan.logisticsOrderId, state: 'wait' }} />
+          <Gate gate={{ title: 'Машины', value: `${tripPlan.vehicleCount} машины / ${tripPlan.tripIds.length} рейса`, state: tripPlan.isCompletePlan ? 'ok' : 'stop' }} />
+          <Gate gate={{ title: 'Плановый объём', value: `${formatTons(tripPlan.plannedTons)} из ${formatTons(tripPlan.declaredTons)}`, state: tripPlan.isCompletePlan ? 'ok' : 'stop' }} />
+          <Gate gate={{ title: 'ГИС ЭПД', value: tripPlan.epdPackage?.gisEpdTransferStatus ?? 'нет статуса', state: 'wait' }} />
+        </div>
+        <div style={tripGrid}>
+          {tripPlan.trips.map((trip) => (
+            <article key={trip.tripId} style={tripCard}>
+              <div style={idText}>{trip.tripId} · {formatTons(trip.plannedLoadTons ?? 0)}</div>
+              <h2 style={h2}>{trip.driverAlias} · {trip.vehicleMasked}</h2>
+              <div style={twoColGrid}>
+                <Cell label='Статус' value={trip.status ?? trip.currentLeg} strong={trip.tripId === 'TRIP-SIM-001'} />
+                <Cell label='Пломба' value={trip.sealStatus ?? 'ожидает'} danger={(trip.sealStatus ?? '').includes('не')} />
+                <Cell label='Погрузка' value={trip.pickupPoint} />
+                <Cell label='Выгрузка' value={trip.deliveryPoint} />
+                <Cell label='ETA' value={trip.eta} />
+                <Cell label='ЭТрН титул' value={trip.epdTitleId ?? 'ожидает'} danger />
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section style={card}>
         <div style={micro}>Документные условия перевозки</div>
@@ -235,6 +263,8 @@ function stateText(state: string) {
 const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
 const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
 const gateGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 } as const;
+const tripGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8 } as const;
+const tripCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 18, padding: 14, display: 'grid', gap: 10, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
 const twoColGrid = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
 const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;

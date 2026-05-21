@@ -58,6 +58,9 @@ export const PLATFORM_V7_ACTION_TARGETS: PlatformV7ActionTarget[] = [
   { id: 'e4-attach-document', surface: 'offer-to-deal', actionId: 'attachDocument', scope: 'deal', label: 'Приложить документ', requiresFeedback: true },
   { id: 'e4-record-field-event', surface: 'execution-map', actionId: 'recordFieldEvent', scope: 'logistics', label: 'Зафиксировать полевое событие', requiresFeedback: true },
   { id: 'e4-open-dispute', surface: 'offer-to-deal', actionId: 'openDispute', scope: 'dispute', label: 'Открыть спор', requiresFeedback: true },
+  { id: 'e4-redeem-sdiz', surface: 'buyer-lot', actionId: 'redeemSdiz', scope: 'deal', label: 'Погасить СДИЗ', requiresFeedback: true },
+  { id: 'e4-refuse-sdiz-redemption', surface: 'buyer-lot', actionId: 'refuseSdizRedemption', scope: 'deal', label: 'Зафиксировать отказ от погашения', requiresFeedback: true },
+  { id: 'e4-send-sdiz-manual-review', surface: 'buyer-lot', actionId: 'sendSdizManualReview', scope: 'deal', label: 'Отправить СДИЗ на ручную проверку', requiresFeedback: true },
 ];
 
 export function platformV7ActionTargets(surface?: PlatformV7ActionSurface): PlatformV7ActionTarget[] {

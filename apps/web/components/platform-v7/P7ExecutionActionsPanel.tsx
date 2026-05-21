@@ -12,6 +12,7 @@ import {
   applyPlatformV7ExecutionAction,
   executionActionStateLabel,
   guardPlatformV7ExecutionAction,
+  previewPlatformV7ExecutionAction,
   rollbackPlatformV7ExecutionAction,
   type PlatformV7ExecutionActionApplied,
   type PlatformV7ExecutionActionState,
@@ -62,7 +63,8 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
   const rows = useMemo(() => items.map((item) => {
     const target = platformV7ActionTargetById(item.targetId);
     const guard = guardPlatformV7ExecutionAction(state, item);
-    return { item, target, guard };
+    const preview = previewPlatformV7ExecutionAction(state, item);
+    return { item, target, guard, preview };
   }), [items, state]);
 
   function pushToast(type: 'success' | 'error' | 'warning', message: string) {
@@ -134,8 +136,21 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
         </div>
       ) : null}
 
+      {lastApplied ? (
+        <div data-testid='execution-action-receipt' style={{ display: 'grid', gap: 8, border: '1px solid rgba(10,122,95,0.18)', background: 'rgba(10,122,95,0.07)', borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 12, color: PLATFORM_V7_TOKENS.color.brand, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Квитанция действия</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, fontSize: 12, color: PLATFORM_V7_TOKENS.color.text }}>
+            <ReceiptItem label='Кто' value={`${lastApplied.receipt.actorId} · ${lastApplied.receipt.actorRole}`} />
+            <ReceiptItem label='Когда' value={lastApplied.receipt.changedAt} />
+            <ReceiptItem label='Что изменилось' value={lastApplied.receipt.changed} />
+            <ReceiptItem label='Что ждём дальше' value={lastApplied.receipt.waitingFor} />
+            <ReceiptItem label='Контур' value={lastApplied.receipt.externalContour} />
+          </div>
+        </div>
+      ) : null}
+
       <div style={{ display: 'grid', gap: 10 }}>
-        {rows.map(({ item, target, guard }) => {
+        {rows.map(({ item, target, guard, preview }) => {
           if (!target) {
             return (
               <div key={item.targetId} style={{ border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: 14, padding: 12 }}>
@@ -151,6 +166,14 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
                 <div style={{ fontSize: 14, fontWeight: 900, color: PLATFORM_V7_TOKENS.color.text }}>{item.title}</div>
                 <div style={{ marginTop: 4, fontSize: 12, color: PLATFORM_V7_TOKENS.color.textMuted, lineHeight: 1.45 }}>{item.description}</div>
                 <div style={{ marginTop: 8, fontSize: 11, color: PLATFORM_V7_TOKENS.color.textSubtle }}>{MODE_COPY[mode]}</div>
+                {preview ? (
+                  <div style={{ marginTop: 8, display: 'grid', gap: 4, fontSize: 11, color: PLATFORM_V7_TOKENS.color.textMuted, lineHeight: 1.45 }}>
+                    <div><strong style={{ color: PLATFORM_V7_TOKENS.color.text }}>Изменится:</strong> {preview.statusBefore} → {preview.statusAfter}</div>
+                    {preview.moneyImpact ? <div><strong style={{ color: PLATFORM_V7_TOKENS.color.text }}>Деньги:</strong> {preview.moneyImpact}</div> : null}
+                    {preview.documentImpact ? <div><strong style={{ color: PLATFORM_V7_TOKENS.color.text }}>Документ:</strong> {preview.documentImpact}</div> : null}
+                    {preview.nextRoleTask ? <div><strong style={{ color: PLATFORM_V7_TOKENS.color.text }}>Дальше:</strong> {preview.nextRoleTask}</div> : null}
+                  </div>
+                ) : null}
               </div>
               <div style={{ display: 'grid', gap: 6 }}>
                 <span style={{ justifySelf: 'start', borderRadius: 999, padding: '4px 8px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: PLATFORM_V7_TOKENS.color.brand, fontSize: 11, fontWeight: 900 }}>{MODE_LABELS[mode]}</span>
@@ -173,5 +196,14 @@ export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, 
 
       <P7ActionLog title='Журнал действий' entries={log} emptyLabel='Действия ещё не выполнялись.' maxEntries={12} />
     </section>
+  );
+}
+
+function ReceiptItem({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div style={{ display: 'grid', gap: 3 }}>
+      <div style={{ fontSize: 10, color: PLATFORM_V7_TOKENS.color.textSubtle, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+      <div style={{ fontSize: 12, color: PLATFORM_V7_TOKENS.color.text, lineHeight: 1.45 }}>{value}</div>
+    </div>
   );
 }

@@ -7,6 +7,8 @@ import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionR
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
+import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
+import { PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, type PlatformV7ExecutionActionState } from '@/lib/platform-v7/execution-action-core';
 import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 
@@ -75,6 +77,45 @@ const buyerPaths = [
   { title: 'Резерв денег', href: '/platform-v7/deals/DL-9106/money', note: 'готовность денег без преждевременного движения денег' },
 ] as const;
 
+const buyerSdizInitialState = {
+  ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
+  dealId: 'DL-9106',
+  draftDealId: 'DL-9106',
+} satisfies PlatformV7ExecutionActionState;
+
+const buyerSdizActionItems = [
+  {
+    title: 'Отправить СДИЗ на ручную проверку',
+    description: 'Создаёт задачу оператору проверить статус СДИЗ во ФГИС или по документу пилота. Это не внешнее подтверждение ФГИС.',
+    targetId: 'e4-send-sdiz-manual-review',
+    actionId: 'sendSdizManualReview',
+    actorRole: 'buyer',
+    actorId: 'buyer-user-1',
+    entityId: 'SDIZ-DL-9106',
+    mode: 'manual',
+  },
+  {
+    title: 'Погасить СДИЗ',
+    description: 'Доступно только после оформления, подписи и передачи СДИЗ покупателю; результат остаётся ручной проверкой до внешнего подтверждения.',
+    targetId: 'e4-redeem-sdiz',
+    actionId: 'redeemSdiz',
+    actorRole: 'buyer',
+    actorId: 'buyer-user-1',
+    entityId: 'SDIZ-DL-9106',
+    mode: 'manual',
+  },
+  {
+    title: 'Зафиксировать отказ от погашения',
+    description: 'Блокирует выпуск и передаёт задачу поддержке/комплаенсу для обработки основания отказа.',
+    targetId: 'e4-refuse-sdiz-redemption',
+    actionId: 'refuseSdizRedemption',
+    actorRole: 'buyer',
+    actorId: 'buyer-user-1',
+    entityId: 'SDIZ-DL-9106',
+    mode: 'manual',
+  },
+] satisfies readonly PlatformV7ExecutionActionUiItem[];
+
 export default function PlatformV7BuyerPage() {
   return (
     <RoleExecutionCockpitPage cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.buyer}>
@@ -105,6 +146,13 @@ export default function PlatformV7BuyerPage() {
       />
 
       <DocumentReadinessMiniMatrix role='buyer' />
+
+      <P7ExecutionActionsPanel
+        title='СДИЗ покупателя'
+        subtitle='Покупатель видит три честных действия: погасить СДИЗ, зафиксировать отказ или отправить статус на ручную проверку. Банк получает только основание для проверки, не сигнал выплаты.'
+        items={buyerSdizActionItems}
+        initialState={buyerSdizInitialState}
+      />
 
       <WorkflowActionPanel context='buyer' />
 

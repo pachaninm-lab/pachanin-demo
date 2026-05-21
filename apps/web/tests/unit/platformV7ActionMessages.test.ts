@@ -6,15 +6,15 @@ import {
 } from '@/lib/platform-v7/action-messages';
 
 describe('platform-v7 action messages', () => {
-  it('keeps terminal action messages centralized', () => {
+  it('keeps bank-basis action messages honest', () => {
     expect(platformV7ActionMessages('releaseFunds')).toEqual({
-      loading: 'Запускаем выпуск денег.',
-      success: 'Деньги по сделке выпущены.',
-      error: 'Не удалось выпустить деньги.',
+      loading: 'Передаём основание на банковскую проверку.',
+      success: 'Основание передано на банковскую проверку.',
+      error: 'Не удалось передать основание на банковскую проверку.',
     });
   });
 
-  it('covers core E03 actions', () => {
+  it('covers core E03 and E4 actions', () => {
     expect(platformV7ActionMessageIds()).toEqual([
       'startDocs',
       'completeDocs',
@@ -24,6 +24,18 @@ describe('platform-v7 action messages', () => {
       'resolveDispute',
       'manualReview',
       'retryWebhook',
+      'submitSellerOffer',
+      'acceptOffer',
+      'rejectOffer',
+      'sendCounterOffer',
+      'createDraftDealFromOffer',
+      'requestMoneyReserve',
+      'assignLogistics',
+      'attachDocument',
+      'recordFieldEvent',
+      'redeemSdiz',
+      'refuseSdizRedemption',
+      'sendSdizManualReview',
     ]);
   });
 

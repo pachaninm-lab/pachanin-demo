@@ -4,6 +4,7 @@ import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecution
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
+import { QualityWeightPilotPanel } from '@/components/platform-v7/QualityWeightPilotPanel';
 import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 
 const elevatorHandoff: HandoffItem[] = [
@@ -101,6 +102,8 @@ export default function Page() {
           {gates.map((gate) => <Gate key={`${gate.title}-${gate.value}`} gate={gate} />)}
         </div>
       </section>
+
+      <QualityWeightPilotPanel mode='elevator' />
 
       <section style={card}>
         <div style={micro}>Качество партии · пилотный протокол качества</div>

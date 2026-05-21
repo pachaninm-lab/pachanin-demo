@@ -3,6 +3,7 @@ import {
   PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
   applyPlatformV7ExecutionAction,
   guardPlatformV7ExecutionAction,
+  previewPlatformV7ExecutionAction,
   rollbackPlatformV7ExecutionAction,
   type PlatformV7ExecutionActionState,
 } from '@/lib/platform-v7/execution-action-core';
@@ -165,5 +166,97 @@ describe('platform-v7 execution action core', () => {
       status: 'blocked',
       disabledReason: 'Полевое событие требует назначенной логистики.',
     }));
+  });
+
+  it('previews and applies buyer SDIZ redemption as manual external check', () => {
+    const sdizReadyState: PlatformV7ExecutionActionState = {
+      ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
+      dealId: 'DL-9106',
+      draftDealId: 'DL-9106',
+      sdizIssuedStatus: 'issued_manual_check',
+      sdizSignedStatus: 'signed_manual_check',
+      sdizTransferredStatus: 'transferred_manual_check',
+    };
+
+    const request = {
+      actionId: 'redeemSdiz',
+      actorRole: 'buyer',
+      actorId: 'buyer-user-1',
+      entityId: 'SDIZ-DL-9106',
+      mode: 'manual',
+    } as const;
+
+    const preview = previewPlatformV7ExecutionAction(sdizReadyState, request);
+    expect(preview).toEqual(expect.objectContaining({
+      actionLabelRu: 'Погасить СДИЗ',
+      targetType: 'document',
+      targetId: 'SDIZ-DL-9106',
+      statusAfter: 'СДИЗ погашен покупателем · ожидает внешнее подтверждение ФГИС',
+    }));
+    expect(preview?.moneyImpact).toContain('Деньги не готовы к выплате');
+
+    const result = applyPlatformV7ExecutionAction(sdizReadyState, request, now);
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') throw new Error('Expected SDIZ redemption success');
+    expect(result.nextStateRef.sdizRedeemedStatus).toBe('redeemed_awaiting_fgis_confirmation');
+    expect(result.nextStateRef.sdizManualReviewStatus).toBe('requested');
+    expect(result.nextStateRef.documentIds).toContain('SDIZ-DL-9106:sdiz-redeemed-manual-check');
+    expect(result.nextStateRef.roleNotificationIds).toContain('bank:DL-9106:sdiz-redeemed-check');
+    expect(result.receipt).toEqual(expect.objectContaining({
+      actorId: 'buyer-user-1',
+      externalContour: 'ручная проверка / ожидает внешнее подтверждение',
+      waitingFor: 'Банк проверяет документный пакет и ждёт подтверждение ФГИС/ручную отметку оператора.',
+    }));
+    expect(result.auditCopy).toContain('Погасить СДИЗ');
+  });
+
+  it('blocks SDIZ redemption before the seller signs and transfers SDIZ', () => {
+    const dealState: PlatformV7ExecutionActionState = {
+      ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
+      dealId: 'DL-9106',
+      draftDealId: 'DL-9106',
+      sdizIssuedStatus: 'issued_manual_check',
+    };
+
+    const result = applyPlatformV7ExecutionAction(dealState, {
+      actionId: 'redeemSdiz',
+      actorRole: 'buyer',
+      entityId: 'SDIZ-DL-9106',
+      mode: 'manual',
+    }, now);
+
+    expect(result).toEqual(expect.objectContaining({
+      status: 'blocked',
+      disabledReason: 'СДИЗ ещё не подписан продавцом.',
+    }));
+  });
+
+  it('records SDIZ refusal and routes the next task to support and compliance', () => {
+    const sdizReadyState: PlatformV7ExecutionActionState = {
+      ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
+      dealId: 'DL-9106',
+      draftDealId: 'DL-9106',
+      sdizIssuedStatus: 'issued_manual_check',
+      sdizSignedStatus: 'signed_manual_check',
+      sdizTransferredStatus: 'transferred_manual_check',
+    };
+
+    const result = applyPlatformV7ExecutionAction(sdizReadyState, {
+      actionId: 'refuseSdizRedemption',
+      actorRole: 'buyer',
+      entityId: 'SDIZ-DL-9106',
+      mode: 'manual',
+    }, now);
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') throw new Error('Expected SDIZ refusal success');
+    expect(result.nextStateRef.sdizRedeemedStatus).toBe('refused_manual_check');
+    expect(result.nextStateRef.sdizRefusalStatus).toBe('refusal_recorded_manual_check');
+    expect(result.nextStateRef.roleNotificationIds).toEqual(expect.arrayContaining([
+      'support:DL-9106:sdiz-refusal',
+      'compliance:DL-9106:sdiz-refusal',
+    ]));
+    expect(result.receipt.nextRoleTask).toContain('Поддержка снимает блокер');
   });
 });

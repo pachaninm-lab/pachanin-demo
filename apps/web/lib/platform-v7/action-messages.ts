@@ -15,7 +15,10 @@ export type PlatformV7ActionMessageId =
   | 'requestMoneyReserve'
   | 'assignLogistics'
   | 'attachDocument'
-  | 'recordFieldEvent';
+  | 'recordFieldEvent'
+  | 'redeemSdiz'
+  | 'refuseSdizRedemption'
+  | 'sendSdizManualReview';
 
 export interface PlatformV7ActionMessages {
   loading: string;
@@ -108,6 +111,21 @@ export const PLATFORM_V7_ACTION_MESSAGES: Record<PlatformV7ActionMessageId, Plat
     loading: 'Фиксируем полевое событие.',
     success: 'Полевое событие зафиксировано.',
     error: 'Не удалось зафиксировать полевое событие.',
+  },
+  redeemSdiz: {
+    loading: 'Фиксируем погашение СДИЗ покупателем.',
+    success: 'Погашение СДИЗ зафиксировано как ручная проверка ФГИС.',
+    error: 'Не удалось зафиксировать погашение СДИЗ.',
+  },
+  refuseSdizRedemption: {
+    loading: 'Фиксируем отказ от погашения СДИЗ.',
+    success: 'Отказ от погашения СДИЗ зафиксирован для ручной проверки.',
+    error: 'Не удалось зафиксировать отказ от погашения СДИЗ.',
+  },
+  sendSdizManualReview: {
+    loading: 'Отправляем СДИЗ на ручную проверку.',
+    success: 'СДИЗ отправлен на ручную проверку.',
+    error: 'Не удалось отправить СДИЗ на ручную проверку.',
   },
 };
 

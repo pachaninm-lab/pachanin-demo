@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   OPERATOR_HEADER_ROLES,
+  COMMERCIAL_HEADER_ROLES,
+  CONTROL_HEADER_ROLES,
   canShowDrawer,
   canShowGlobalSearch,
   canShowGlobalStatuses,
@@ -52,17 +54,17 @@ describe('shell role policy', () => {
   });
 
   it.each([
-    ['seller', '/platform-v7/seller'],
-    ['buyer', '/platform-v7/buyer'],
-    ['logistics', '/platform-v7/logistics'],
-    ['bank', '/platform-v7/bank'],
-    ['arbitrator', '/platform-v7/arbitrator'],
-    ['compliance', '/platform-v7/compliance'],
-    ['operator', '/platform-v7/control-tower'],
-    ['executive', '/platform-v7/executive'],
-  ] as Array<[PlatformRole, string]>)('allows one portal role switcher on non-field %s route', (role, path) => {
+    ['seller', '/platform-v7/seller', COMMERCIAL_HEADER_ROLES],
+    ['buyer', '/platform-v7/buyer', COMMERCIAL_HEADER_ROLES],
+    ['logistics', '/platform-v7/logistics', COMMERCIAL_HEADER_ROLES],
+    ['bank', '/platform-v7/bank', CONTROL_HEADER_ROLES],
+    ['arbitrator', '/platform-v7/arbitrator', CONTROL_HEADER_ROLES],
+    ['compliance', '/platform-v7/compliance', CONTROL_HEADER_ROLES],
+    ['operator', '/platform-v7/control-tower', OPERATOR_HEADER_ROLES],
+    ['executive', '/platform-v7/executive', OPERATOR_HEADER_ROLES],
+  ] as Array<[PlatformRole, string, readonly PlatformRole[]]>)('allows one portal role switcher on non-field %s route', (role, path, expectedRoles) => {
     expect(canShowPortalRoleSwitcher(role, path)).toBe(true);
-    expect(getHeaderSelectableRoles(role, path)).toEqual(OPERATOR_HEADER_ROLES);
+    expect(getHeaderSelectableRoles(role, path)).toEqual(expectedRoles);
   });
 
   it.each([
@@ -118,16 +120,16 @@ describe('shell role policy', () => {
   });
 
   it.each([
-    ['/platform-v7/seller'],
-    ['/platform-v7/buyer'],
-    ['/platform-v7/logistics'],
-    ['/platform-v7/bank'],
-    ['/platform-v7/arbitrator'],
-    ['/platform-v7/compliance'],
-    ['/platform-v7/control-tower'],
-    ['/platform-v7/executive'],
-  ] as Array<[string]>)('uses the same full header role set on non-field route %s', (path) => {
-    expect(getHeaderSelectableRoles('operator', path)).toEqual(OPERATOR_HEADER_ROLES);
+    ['/platform-v7/seller', COMMERCIAL_HEADER_ROLES],
+    ['/platform-v7/buyer', COMMERCIAL_HEADER_ROLES],
+    ['/platform-v7/logistics', COMMERCIAL_HEADER_ROLES],
+    ['/platform-v7/bank', CONTROL_HEADER_ROLES],
+    ['/platform-v7/arbitrator', CONTROL_HEADER_ROLES],
+    ['/platform-v7/compliance', CONTROL_HEADER_ROLES],
+    ['/platform-v7/control-tower', OPERATOR_HEADER_ROLES],
+    ['/platform-v7/executive', OPERATOR_HEADER_ROLES],
+  ] as Array<[string, readonly PlatformRole[]]>)('uses the route-scoped header role set on non-field route %s', (path, expectedRoles) => {
+    expect(getHeaderSelectableRoles('operator', path)).toEqual(expectedRoles);
   });
 
   it.each([
