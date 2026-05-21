@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { calculateMoneyTree } from '@/lib/platform-v7/domain/money';
 import type { CanonicalDeal } from '@/lib/platform-v7/domain/types';
+import {
+  platformV7ReleaseGate,
+  platformV7SplitDisputedMoney,
+  platformV7ValidateMoneyTree,
+  type PlatformV7MoneyTree,
+} from '@/lib/platform-v7/money-tree';
 
 function deal(overrides: Partial<CanonicalDeal>): CanonicalDeal {
   return {
@@ -23,6 +29,20 @@ function deal(overrides: Partial<CanonicalDeal>): CanonicalDeal {
     ...overrides,
   };
 }
+
+const balancedTree: PlatformV7MoneyTree = {
+  dealId: 'deal-1',
+  currency: 'RUB',
+  reservedAmount: 1000,
+  readyToReleaseAmount: 400,
+  heldAmount: 200,
+  manualReviewAmount: 100,
+  releasedAmount: 200,
+  refundedAmount: 100,
+  platformFee: 10,
+  bankFee: 5,
+  status: 'reserved',
+};
 
 describe('platform-v7 MoneyTree', () => {
   it('treats reserved money as the container and parts as a balanced breakdown', () => {
@@ -76,5 +96,97 @@ describe('platform-v7 MoneyTree', () => {
     expect(tree.parts.find((part) => part.key === 'blockedByDocuments')?.dealIds).toContain('doc-stop');
     expect(tree.parts.find((part) => part.key === 'manualReview')?.dealIds).toContain('bank-review');
     expect(tree.isBalanced).toBe(true);
+  });
+
+  it('validates the reserved amount invariant', () => {
+    expect(platformV7ValidateMoneyTree(balancedTree)).toEqual(expect.objectContaining({
+      valid: true,
+      expectedReservedAmount: 1000,
+      actualReservedAmount: 1000,
+    }));
+  });
+
+  it('rejects unbalanced buckets to prevent double counting', () => {
+    const result = platformV7ValidateMoneyTree({ ...balancedTree, heldAmount: 300 });
+
+    expect(result.valid).toBe(false);
+    expect(result.expectedReservedAmount).toBe(1100);
+    expect(result.actualReservedAmount).toBe(1000);
+  });
+
+  it('allows release basis only when every required condition is satisfied', () => {
+    expect(platformV7ReleaseGate({
+      dealStatus: 'release_basis_ready',
+      moneyStatus: 'reserved',
+      requiredDocumentsConfirmed: true,
+      tripStatus: 'completed',
+      acceptanceStatus: 'confirmed',
+      disputeStatus: 'none',
+      bankReviewStatus: 'clear',
+    })).toEqual({
+      allowed: true,
+      reason: 'Release basis is ready for bank review request.',
+      nextStatus: 'release_ready',
+    });
+  });
+
+  it('blocks release when documents, trip, dispute or bank review are not ready', () => {
+    expect(platformV7ReleaseGate({
+      dealStatus: 'release_basis_ready',
+      moneyStatus: 'reserved',
+      requiredDocumentsConfirmed: false,
+      tripStatus: 'completed',
+      acceptanceStatus: 'confirmed',
+      disputeStatus: 'none',
+      bankReviewStatus: 'clear',
+    }).allowed).toBe(false);
+
+    expect(platformV7ReleaseGate({
+      dealStatus: 'release_basis_ready',
+      moneyStatus: 'reserved',
+      requiredDocumentsConfirmed: true,
+      tripStatus: 'in_transit',
+      acceptanceStatus: 'confirmed',
+      disputeStatus: 'none',
+      bankReviewStatus: 'clear',
+    }).allowed).toBe(false);
+
+    expect(platformV7ReleaseGate({
+      dealStatus: 'release_basis_ready',
+      moneyStatus: 'reserved',
+      requiredDocumentsConfirmed: true,
+      tripStatus: 'completed',
+      acceptanceStatus: 'confirmed',
+      disputeStatus: 'under_review',
+      bankReviewStatus: 'clear',
+    }).allowed).toBe(false);
+
+    expect(platformV7ReleaseGate({
+      dealStatus: 'release_basis_ready',
+      moneyStatus: 'reserved',
+      requiredDocumentsConfirmed: true,
+      tripStatus: 'completed',
+      acceptanceStatus: 'confirmed',
+      disputeStatus: 'resolved',
+      bankReviewStatus: 'blocked',
+    }).allowed).toBe(false);
+  });
+
+  it('splits disputed money into releasable and held buckets without exceeding reserve', () => {
+    expect(platformV7SplitDisputedMoney(1000, 250)).toEqual({
+      readyToReleaseAmount: 750,
+      heldAmount: 250,
+      manualReviewAmount: 0,
+      releasedAmount: 0,
+      refundedAmount: 0,
+    });
+
+    expect(platformV7SplitDisputedMoney(1000, 1500)).toEqual({
+      readyToReleaseAmount: 0,
+      heldAmount: 1000,
+      manualReviewAmount: 0,
+      releasedAmount: 0,
+      refundedAmount: 0,
+    });
   });
 });
