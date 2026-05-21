@@ -64,7 +64,7 @@ export function SupportNewCaseClient({ defaults }: { defaults: Partial<SupportCa
       updatedAt: now,
     };
     createCase(supportCase, description || supportCase.description);
-    router.push(`/platform-v7/support/${supportCase.id}`);
+    router.push(`/platform-v7/support/detail?id=${encodeURIComponent(supportCase.id)}&role=${requesterRole}`);
   }
 
   return (
