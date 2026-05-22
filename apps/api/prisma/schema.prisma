@@ -1,6 +1,4 @@
-// Pachanin Demo — SQLite persistence layer
-// Covers: outbox, disputes, evidence files, audit events
-// Deal/shipment simulation still lives in RuntimeCoreService (in-memory)
+// Pachanin Demo — full SQLite persistence layer
 
 generator client {
   provider = "prisma-client-js"
@@ -11,13 +9,169 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Deals ─────────────────────────────────────────────────────────────────────
+
+model Deal {
+  id            String   @id
+  lotId         String?
+  status        String   @default("DRAFT")
+  sellerOrgId   String
+  buyerOrgId    String
+  volumeTons    Float?
+  pricePerTon   Float?
+  totalRub      Float?
+  currency      String   @default("RUB")
+  culture       String?
+  region        String?
+  fundingChoice String?
+  owner         String?
+  nextAction    String?
+  slaAt         DateTime?
+  signedAt      DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  meta          String?  // JSON for paymentTerms etc.
+
+  shipments     Shipment[]
+  documents     DealDocument[]
+  payments      Payment[]
+
+  @@index([sellerOrgId])
+  @@index([buyerOrgId])
+  @@index([status])
+  @@map("deals")
+}
+
+// ── Shipments ─────────────────────────────────────────────────────────────────
+
+model Shipment {
+  id            String   @id
+  dealId        String
+  status        String   @default("PENDING")
+  driverUserId  String?
+  driverName    String?
+  vehicleNumber String?
+  carrierOrgId  String?
+  carrierName   String?
+  routeFrom     String?
+  routeTo       String?
+  etaHours      Float?
+  loadedTons    Float?
+  pinVerified   Boolean  @default(false)
+  nextAction    String?
+  blockers      String?  // JSON array
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  deal          Deal     @relation(fields: [dealId], references: [id])
+  checkpoints   Checkpoint[]
+
+  @@index([dealId])
+  @@index([driverUserId])
+  @@index([status])
+  @@map("shipments")
+}
+
+model Checkpoint {
+  id          String   @id @default(cuid())
+  shipmentId  String
+  type        String
+  completedAt DateTime?
+  lat         Float?
+  lng         Float?
+  note        String?
+
+  shipment    Shipment @relation(fields: [shipmentId], references: [id])
+  @@index([shipmentId])
+  @@map("checkpoints")
+}
+
+// ── Documents ─────────────────────────────────────────────────────────────────
+
+model DealDocument {
+  id               String   @id
+  dealId           String
+  type             String
+  status           String   @default("DRAFT")
+  name             String
+  mimeType         String?
+  uploadedAt       DateTime @default(now())
+  uploadedByUserId String?
+  signedAt         DateTime?
+  bankRequired     Boolean  @default(false)
+  releaseRequired  Boolean  @default(false)
+  bankAcceptance   String   @default("PENDING")
+  version          Int      @default(1)
+
+  deal             Deal     @relation(fields: [dealId], references: [id])
+  @@index([dealId])
+  @@index([type])
+  @@map("deal_documents")
+}
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+
+model Payment {
+  id              String   @id @default(cuid())
+  dealId          String
+  status          String   @default("PENDING")
+  amountRub       Float?
+  reservedAt      DateTime?
+  releasedAt      DateTime?
+  holdAmountRub   Float?
+  callbackState   String   @default("NONE")
+  bankRef         String?
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  deal            Deal     @relation(fields: [dealId], references: [id])
+  @@index([dealId])
+  @@map("payments")
+}
+
+// ── Lab Samples ───────────────────────────────────────────────────────────────
+
+model LabSample {
+  id           String   @id
+  dealId       String
+  shipmentId   String?
+  status       String   @default("PENDING")
+  culture      String?
+  protocol     String?
+  labId        String?
+  collectedAt  DateTime?
+  finalizedAt  DateTime?
+  moneyDeltaRub Float?
+  createdAt    DateTime @default(now())
+
+  tests        LabTest[]
+  @@index([dealId])
+  @@map("lab_samples")
+}
+
+model LabTest {
+  id         String   @id @default(cuid())
+  sampleId   String
+  parameter  String
+  value      Float
+  unit       String?
+  norm       String?
+  passed     Boolean  @default(true)
+  recordedAt DateTime @default(now())
+
+  sample     LabSample @relation(fields: [sampleId], references: [id])
+  @@index([sampleId])
+  @@map("lab_tests")
+}
+
 // ── Outbox ────────────────────────────────────────────────────────────────────
 
 model OutboxEntry {
   id          String   @id @default(cuid())
   type        String
   dealId      String?
-  payload     String   // JSON string
+  payload     String
   status      String   @default("PENDING")
   retryCount  Int      @default(0)
   lastError   String?
@@ -34,21 +188,21 @@ model OutboxEntry {
 // ── Disputes ──────────────────────────────────────────────────────────────────
 
 model Dispute {
-  id              String     @id @default(cuid())
+  id              String   @id @default(cuid())
   dealId          String
   shipmentId      String?
   type            String
-  status          String     @default("OPEN")
+  status          String   @default("OPEN")
   description     String
   initiatorOrgId  String
   respondentOrgId String?
   claimAmountRub  Float?
-  severity        String     @default("MEDIUM")
+  severity        String   @default("MEDIUM")
   slaMinutes      Int?
   outcome         String?
   resolvedAt      DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   moneyHold       DisputeMoneyHold?
   evidence        DisputeEvidence[]
@@ -93,15 +247,15 @@ model EvidenceFile {
   dealId      String
   shipmentId  String?
   disputeId   String?
-  type        String   // photo | gps_track | weight_ticket | lab_protocol | signature
+  type        String
   filename    String
   mimeType    String
   sizeBytes   Int
-  hash        String   // SHA-256 of content — immutable chain
-  prevHash    String?  // hash of previous entry in chain for this deal
+  hash        String
+  prevHash    String?
   uploadedBy  String
   uploadedAt  DateTime @default(now())
-  metadata    String?  // JSON: GPS coords, device id, timestamp from device
+  metadata    String?
 
   @@index([dealId])
   @@index([disputeId])
@@ -119,9 +273,9 @@ model AuditEvent {
   disputeId   String?
   objectType  String?
   objectId    String?
-  outcome     String   // ALLOWED | DENIED | ERROR
+  outcome     String
   reason      String?
-  metadata    String?  // JSON
+  metadata    String?
   createdAt   DateTime @default(now())
 
   dispute     Dispute? @relation(fields: [disputeId], references: [id])
