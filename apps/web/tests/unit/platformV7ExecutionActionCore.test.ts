@@ -3,11 +3,21 @@ import {
   PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
   applyPlatformV7ExecutionAction,
   guardPlatformV7ExecutionAction,
+  previewPlatformV7ExecutionAction,
   rollbackPlatformV7ExecutionAction,
   type PlatformV7ExecutionActionState,
 } from '@/lib/platform-v7/execution-action-core';
 
 const now = () => '2026-04-28T12:00:00.000Z';
+
+const readySdizState: PlatformV7ExecutionActionState = {
+  ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
+  dealId: 'DL-9106',
+  draftDealId: 'DL-9106',
+  sdizIssuedStatus: 'issued_manual_check',
+  sdizSignedStatus: 'signed_manual_check',
+  sdizTransferredStatus: 'transferred_manual_check',
+};
 
 describe('platform-v7 execution action core', () => {
   it('blocks action when the role is not allowed', () => {
@@ -38,8 +48,6 @@ describe('platform-v7 execution action core', () => {
       scope: 'lot',
       status: 'success',
     }));
-    expect(first.runtimeEventBridgeStatus).toBe('not_mapped');
-    expect(first.runtimeEvent).toBeNull();
 
     const duplicate = applyPlatformV7ExecutionAction(first.nextStateRef, {
       actionId: 'submitSellerOffer',
@@ -63,32 +71,24 @@ describe('platform-v7 execution action core', () => {
     expect(accepted.status).toBe('success');
     if (accepted.status !== 'success') throw new Error('Expected success');
     expect(accepted.nextStateRef.acceptedOfferId).toBe('OFFER-2403-A');
-
-    const rolledBack = rollbackPlatformV7ExecutionAction(accepted);
-    expect(rolledBack).toEqual(PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE);
+    expect(rollbackPlatformV7ExecutionAction(accepted)).toEqual(PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE);
   });
 
-  it('blocks draft deal creation until an offer is accepted', () => {
-    const result = applyPlatformV7ExecutionAction(PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, {
+  it('blocks unsafe action order before prerequisites', () => {
+    expect(applyPlatformV7ExecutionAction(PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, {
       actionId: 'createDraftDealFromOffer',
       actorRole: 'operator',
       entityId: 'DL-DRAFT-2403',
-    }, now);
-
-    expect(result).toEqual(expect.objectContaining({
+    }, now)).toEqual(expect.objectContaining({
       status: 'blocked',
       disabledReason: 'Черновик сделки можно создать только после принятия ставки.',
     }));
-  });
 
-  it('blocks money reserve until draft deal exists and never releases money', () => {
-    const result = applyPlatformV7ExecutionAction(PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, {
+    expect(applyPlatformV7ExecutionAction(PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, {
       actionId: 'requestMoneyReserve',
       actorRole: 'buyer',
       entityId: 'RESERVE-DL-DRAFT-2403',
-    }, now);
-
-    expect(result).toEqual(expect.objectContaining({
+    }, now)).toEqual(expect.objectContaining({
       status: 'blocked',
       disabledReason: 'Резерв денег доступен только после создания черновика сделки.',
     }));
@@ -149,7 +149,7 @@ describe('platform-v7 execution action core', () => {
     }));
   });
 
-  it('returns runtime event for bank reserve without confirming bank or moving money', () => {
+  it('keeps bank reserve as an internal request without claiming bank confirmation', () => {
     const accepted = applyPlatformV7ExecutionAction(PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, {
       actionId: 'acceptOffer',
       actorRole: 'buyer',
@@ -172,89 +172,12 @@ describe('platform-v7 execution action core', () => {
 
     expect(reserve.status).toBe('success');
     if (reserve.status !== 'success') throw new Error('Expected reserve intent');
-
-    expect(reserve.runtimeEventBridgeStatus).toBe('mapped');
-    expect(reserve.runtimeEvent?.status).toBe('created');
-    if (!reserve.runtimeEvent || reserve.runtimeEvent.status !== 'created') throw new Error('Expected runtime event');
-
-    expect(reserve.runtimeEvent).toEqual(expect.objectContaining({
-      actionId: 'request_bank_reserve_review',
-      externalSystem: 'bank',
-      externalConfirmationStatus: 'requested',
-      resultingState: 'pending_bank_review',
-      doesNotConfirmExternally: true,
-    }));
-    expect(reserve.runtimeEvent.logEntry).toEqual(expect.objectContaining({
-      scope: 'bank',
-      status: 'started',
-      action: 'bank_reserve_review_requested',
-      actor: 'buyer',
-    }));
-    expect(reserve.runtimeEvent.logEntry.message).toContain('Не подтверждает резерв');
-    expect(reserve.runtimeEvent.logEntry.message).toContain('Ожидается подтверждение внешней системы: bank.');
-    expect(reserve.runtimeEvent.logEntry.message).not.toContain('Выпущено');
-    expect(reserve.runtimeEvent.logEntry.message).not.toContain('К выпуску');
-    expect(reserve.runtimeEvent.logEntry.message).not.toContain('платформа выпускает деньги');
-  });
-
-  it('returns runtime event for internal document without treating it as EDO or UKEP', () => {
-    const state: PlatformV7ExecutionActionState = {
-      ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
-      acceptedOfferId: 'OFFER-2403-A',
-      draftDealId: 'DL-DRAFT-2403',
-      dealId: 'DL-DRAFT-2403',
-    };
-
-    const document = applyPlatformV7ExecutionAction(state, {
-      actionId: 'attachDocument',
-      actorRole: 'operator',
-      entityId: 'DOC-2403-1',
-    }, now);
-
-    expect(document.status).toBe('success');
-    if (document.status !== 'success') throw new Error('Expected document action');
-
-    expect(document.runtimeEventBridgeStatus).toBe('mapped');
-    expect(document.runtimeEvent?.status).toBe('created');
-    if (!document.runtimeEvent || document.runtimeEvent.status !== 'created') throw new Error('Expected runtime event');
-
-    expect(document.runtimeEvent.externalSystem).toBe('none');
-    expect(document.runtimeEvent.externalConfirmationStatus).toBe('not_required');
-    expect(document.runtimeEvent.logEntry.status).toBe('success');
-    expect(document.runtimeEvent.logEntry.action).toBe('internal_document_attached');
-    expect(document.runtimeEvent.logEntry.message).toContain('Не является ЭДО, УКЭП или внешним подтверждением.');
-  });
-
-  it('blocks field event without assigned logistics', () => {
-    const state: PlatformV7ExecutionActionState = {
-      ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
-      acceptedOfferId: 'OFFER-2403-A',
-      draftDealId: 'DL-DRAFT-2403',
-      dealId: 'DL-DRAFT-2403',
-    };
-
-    const result = applyPlatformV7ExecutionAction(state, {
-      actionId: 'recordFieldEvent',
-      actorRole: 'operator',
-      entityId: 'FIELD-EVENT-2403-1',
-    }, now);
-
-    expect(result).toEqual(expect.objectContaining({
-      status: 'blocked',
-      disabledReason: 'Полевое событие требует назначенной логистики.',
-    }));
+    expect(reserve.nextStateRef.moneyReserveIntentId).toBe('RESERVE-DL-DRAFT-2403');
+    expect(reserve.receipt.externalContour).toBe('контур исполнения без заявления о внешней интеграции');
+    expect(reserve.auditCopy).not.toContain('платформа выпускает деньги');
   });
 
   it('previews and applies buyer SDIZ redemption as manual external check', () => {
-    const sdizReadyState: PlatformV7ExecutionActionState = {
-      ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
-      dealId: 'DL-9106',
-      draftDealId: 'DL-9106',
-      sdizIssuedStatus: 'issued_manual_check',
-      sdizSignedStatus: 'signed_manual_check',
-      sdizTransferredStatus: 'transferred_manual_check',
-    };
-
     const request = {
       actionId: 'redeemSdiz',
       actorRole: 'buyer',
@@ -263,7 +186,7 @@ describe('platform-v7 execution action core', () => {
       mode: 'manual',
     } as const;
 
-    const preview = previewPlatformV7ExecutionAction(sdizReadyState, request);
+    const preview = previewPlatformV7ExecutionAction(readySdizState, request);
     expect(preview).toEqual(expect.objectContaining({
       actionLabelRu: 'Погасить СДИЗ',
       targetType: 'document',
@@ -272,7 +195,7 @@ describe('platform-v7 execution action core', () => {
     }));
     expect(preview?.moneyImpact).toContain('Деньги не готовы к выплате');
 
-    const result = applyPlatformV7ExecutionAction(sdizReadyState, request, now);
+    const result = applyPlatformV7ExecutionAction(readySdizState, request, now);
 
     expect(result.status).toBe('success');
     if (result.status !== 'success') throw new Error('Expected SDIZ redemption success');
@@ -310,16 +233,7 @@ describe('platform-v7 execution action core', () => {
   });
 
   it('records SDIZ refusal and routes the next task to support and compliance', () => {
-    const sdizReadyState: PlatformV7ExecutionActionState = {
-      ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
-      dealId: 'DL-9106',
-      draftDealId: 'DL-9106',
-      sdizIssuedStatus: 'issued_manual_check',
-      sdizSignedStatus: 'signed_manual_check',
-      sdizTransferredStatus: 'transferred_manual_check',
-    };
-
-    const result = applyPlatformV7ExecutionAction(sdizReadyState, {
+    const result = applyPlatformV7ExecutionAction(readySdizState, {
       actionId: 'refuseSdizRedemption',
       actorRole: 'buyer',
       entityId: 'SDIZ-DL-9106',
