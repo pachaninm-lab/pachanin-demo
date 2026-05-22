@@ -99,7 +99,7 @@ export function LiveApiStatusBar({
           }}
         />
         <span style={{ fontWeight: 800, color: apiOnline ? '#15803D' : '#C2410C', fontSize: 11 }}>
-          {apiOnline ? 'API онлайн · данные актуальны' : 'API недоступен · показаны демо-данные'}
+          {apiOnline ? 'API-контур доступен · данные текущего сценария' : 'API-контур недоступен · показан локальный сценарий'}
         </span>
         {role && (
           <span style={{ color: '#64748B', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
