@@ -1,0 +1,133 @@
+// Pachanin Demo — SQLite persistence layer
+// Covers: outbox, disputes, evidence files, audit events
+// Deal/shipment simulation still lives in RuntimeCoreService (in-memory)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── Outbox ────────────────────────────────────────────────────────────────────
+
+model OutboxEntry {
+  id          String   @id @default(cuid())
+  type        String
+  dealId      String?
+  payload     String   // JSON string
+  status      String   @default("PENDING")
+  retryCount  Int      @default(0)
+  lastError   String?
+  createdAt   DateTime @default(now())
+  sentAt      DateTime?
+  confirmedAt DateTime?
+  failedAt    DateTime?
+
+  @@index([status])
+  @@index([dealId])
+  @@map("outbox_entries")
+}
+
+// ── Disputes ──────────────────────────────────────────────────────────────────
+
+model Dispute {
+  id              String     @id @default(cuid())
+  dealId          String
+  shipmentId      String?
+  type            String
+  status          String     @default("OPEN")
+  description     String
+  initiatorOrgId  String
+  respondentOrgId String?
+  claimAmountRub  Float?
+  severity        String     @default("MEDIUM")
+  slaMinutes      Int?
+  outcome         String?
+  resolvedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  moneyHold       DisputeMoneyHold?
+  evidence        DisputeEvidence[]
+  auditEvents     AuditEvent[]
+
+  @@index([dealId])
+  @@index([status])
+  @@map("disputes")
+}
+
+model DisputeMoneyHold {
+  id         String   @id @default(cuid())
+  disputeId  String   @unique
+  amountRub  Float
+  reason     String
+  heldAt     DateTime @default(now())
+
+  dispute    Dispute  @relation(fields: [disputeId], references: [id])
+  @@map("dispute_money_holds")
+}
+
+model DisputeEvidence {
+  id          String   @id @default(cuid())
+  disputeId   String
+  fileId      String?
+  type        String
+  description String
+  trusted     Boolean  @default(false)
+  submittedBy String
+  submittedAt DateTime @default(now())
+  hash        String?
+
+  dispute     Dispute  @relation(fields: [disputeId], references: [id])
+  @@index([disputeId])
+  @@map("dispute_evidence")
+}
+
+// ── Evidence Pack ─────────────────────────────────────────────────────────────
+
+model EvidenceFile {
+  id          String   @id @default(cuid())
+  dealId      String
+  shipmentId  String?
+  disputeId   String?
+  type        String   // photo | gps_track | weight_ticket | lab_protocol | signature
+  filename    String
+  mimeType    String
+  sizeBytes   Int
+  hash        String   // SHA-256 of content — immutable chain
+  prevHash    String?  // hash of previous entry in chain for this deal
+  uploadedBy  String
+  uploadedAt  DateTime @default(now())
+  metadata    String?  // JSON: GPS coords, device id, timestamp from device
+
+  @@index([dealId])
+  @@index([disputeId])
+  @@map("evidence_files")
+}
+
+// ── Audit Events ──────────────────────────────────────────────────────────────
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  action      String
+  actorUserId String
+  actorRole   String
+  dealId      String?
+  disputeId   String?
+  objectType  String?
+  objectId    String?
+  outcome     String   // ALLOWED | DENIED | ERROR
+  reason      String?
+  metadata    String?  // JSON
+  createdAt   DateTime @default(now())
+
+  dispute     Dispute? @relation(fields: [disputeId], references: [id])
+
+  @@index([dealId])
+  @@index([actorUserId])
+  @@index([action])
+  @@map("audit_events")
+}

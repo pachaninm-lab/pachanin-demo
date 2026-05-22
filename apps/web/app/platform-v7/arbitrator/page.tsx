@@ -3,6 +3,8 @@ import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import ArbitratorPage from '@/app/platform-v7r/arbitrator/page';
 import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 
@@ -13,9 +15,34 @@ const decisionGuardCards = [
   ['Журнал', 'решение и причина фиксируются в истории сделки'],
 ] as const;
 
-export default function Page() {
+export default async function Page() {
+  const disputes = await getDisputes();
+  const disputeCount = openDisputeCount(disputes);
+  const heldRub = disputeTotalHeldRub(disputes);
+
+  const liveBlockers = disputes
+    .filter((d) => d.status === 'OPEN' || d.status === 'UNDER_REVIEW')
+    .map((d) => ({
+      id: d.id,
+      label: `Спор ${d.id}: ${d.description.slice(0, 60)}`,
+      severity: (d.severity === 'HIGH' || d.severity === 'CRITICAL' ? 'stop' : 'warn') as 'stop' | 'warn',
+      responsibleRole: 'ARBITRATOR',
+      nextAction: d.status === 'OPEN' ? 'Взять в работу' : 'Продолжить расследование',
+    }));
+
   return (
     <div style={{ display: 'grid', gap: 18 }}>
+      <LiveApiStatusBar
+        apiOnline={disputeCount > 0}
+        blockers={liveBlockers}
+        openDisputes={disputeCount}
+        role="ARBITRATOR · Арбитраж"
+        summary={
+          disputeCount > 0
+            ? `${disputeCount} открытых споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'без удержания'}`
+            : 'Открытых споров нет'
+        }
+      />
       <QuietIntelligenceHint
         problem='Открытый спор по DL-9102 · удержание 624 тыс. ₽ · акт расхождения не закрыт.'
         action='Рассмотреть доказательства и зафиксировать решение с суммой и основанием.'

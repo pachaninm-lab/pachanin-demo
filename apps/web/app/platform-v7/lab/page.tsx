@@ -3,6 +3,8 @@ import { FieldLabRuntime } from '@/components/v7r/FieldLabRuntime';
 import { RoleContinuityPanel } from '@/components/v7r/RoleContinuityPanel';
 import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { getLabSamples, pendingProtocols, labMoneyImpactRub } from '@/lib/labs-server';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 
 const labSteps = [
@@ -12,9 +14,32 @@ const labSteps = [
   { label: 'Протокол', value: 'ожидает решения', note: 'допуск или отказ уходит в документы' },
 ] as const;
 
-export default function Page() {
+export default async function Page() {
+  const samples = await getLabSamples();
+  const pending = pendingProtocols(samples);
+  const moneyImpact = labMoneyImpactRub(samples);
+  const apiOnline = samples.some((s) => !s.id.startsWith('SAMPLE-00'));
+
+  const liveBlockers = pending.map((s) => ({
+    id: s.id,
+    label: `Проба ${s.id}: ${s.status} · ${s.culture ?? 'культура не указана'}`,
+    severity: 'warn' as const,
+    responsibleRole: 'LAB',
+    nextAction: 'Провести анализ и финализировать протокол',
+  }));
+
   return (
     <div data-testid="platform-v7-lab-page" style={{ display: 'grid', gap: 18 }}>
+      <LiveApiStatusBar
+        apiOnline={apiOnline}
+        blockers={liveBlockers}
+        role="LAB · Лабораторный контур"
+        summary={
+          apiOnline
+            ? `${samples.length} проб · ${pending.length} ожидают финализации · ${moneyImpact !== 0 ? (moneyImpact / 1_000_000).toFixed(2) + ' млн ₽ влияние' : 'нет денежного влияния'}`
+            : 'Данные статичные — API недоступен'
+        }
+      />
       <style>{`
         @media(max-width:767px){
           [data-testid='platform-v7-lab-page']{gap:10px!important}

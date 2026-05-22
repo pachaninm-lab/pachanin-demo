@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AppAuthGuard } from './common/guards/auth.guard';
+import { PrismaModule } from './common/prisma/prisma.module';
+import { EvidencePackModule } from './modules/evidence-pack/evidence-pack.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { LotsModule } from './modules/lots/lots.module';
 import { DealsModule } from './modules/deals/deals.module';
@@ -22,6 +24,8 @@ import { RuntimeCoreModule } from './modules/runtime-core/runtime-core.module';
 
 @Module({
   imports: [
+    PrismaModule,
+    EvidencePackModule,
     RuntimeCoreModule,
     AuthModule,
     LotsModule,

@@ -2,8 +2,21 @@ import Link from 'next/link';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
 import { DriverBigTileIsland } from '@/components/platform-v7/visual/DriverBigTileIsland';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 
-export default function DriverFieldPage() {
+export default async function DriverFieldPage() {
+  const shipments = await getShipments();
+  const shipmentCount = activeShipmentCount(shipments);
+  const blockedShipments = shipmentsWithBlockers(shipments);
+  const apiOnline = shipments.some((s) => !s.id.includes('MOCK') && !s.id.includes('STATIC'));
+  const liveBlockers = blockedShipments.map((s) => ({
+    id: s.id,
+    label: `Рейс ${s.id}: ${(s.blockers ?? [])[0] ?? 'блокер'}`,
+    severity: 'warn' as const,
+    responsibleRole: 'DRIVER',
+    nextAction: s.nextAction ?? 'Устранить блокер рейса',
+  }));
   return (
     <main
       data-testid="platform-v7-driver-field-shell"
@@ -16,6 +29,13 @@ export default function DriverFieldPage() {
         padding: '6px 0 24px',
       }}
     >
+      <LiveApiStatusBar
+        apiOnline={apiOnline}
+        blockers={liveBlockers}
+        activeShipments={shipmentCount}
+        role="DRIVER · Полевой режим"
+        summary={`${shipmentCount} активных рейсов · ${blockedShipments.length} с блокерами`}
+      />
       <style>{`
         [data-testid='platform-v7-role-route-hint']{display:none!important}
         @media(max-width:767px){

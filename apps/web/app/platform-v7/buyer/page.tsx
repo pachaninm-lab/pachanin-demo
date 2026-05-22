@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { getDealsCanonical } from '@/lib/deals-server';
+import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
 import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
@@ -128,9 +131,24 @@ const buyerSdizActionItems = [
   },
 ] satisfies readonly PlatformV7ExecutionActionUiItem[];
 
-export default function PlatformV7BuyerPage() {
+export default async function PlatformV7BuyerPage() {
+  const [deals, disputes] = await Promise.all([getDealsCanonical(), getDisputes()]);
+  const apiOnline = deals.length > 0;
+  const disputeCount = openDisputeCount(disputes);
+  const heldRub = disputeTotalHeldRub(disputes);
+
   return (
     <main data-platform-v7-buyer-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <LiveApiStatusBar
+        apiOnline={apiOnline}
+        openDisputes={disputeCount}
+        role="BUYER · Кабинет покупателя"
+        summary={
+          apiOnline
+            ? `${deals.length} сделок · ${disputeCount} споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`
+            : 'Данные статичные — API недоступен'
+        }
+      />
       <QuietIntelligenceHint
         problem='Резерв 9,65 млн ₽ ждёт банковского подтверждения — логистика не стартует.'
         action='Запросить подтверждение резерва через сделку DL-9106.'

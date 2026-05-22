@@ -12,3 +12,6 @@ var/runtime/
 var/tmp/
 .DS_Store
 package-lock.json
+*.db
+*.db-journal
+apps/api/prisma/migrations/
