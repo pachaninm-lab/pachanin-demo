@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   PLATFORM_V7_DRIVER_FORBIDDEN_ENTITIES,
+  PLATFORM_V7_SECURITY_RULES,
   PLATFORM_V7_SENSITIVE_PERMISSIONS,
   canPlatformV7Role,
 } from '@/lib/platform-v7/security-contracts';
+import { PLATFORM_V7_CANONICAL_ROLES } from '@/lib/platform-v7/role-canonical';
+
+const SHORT_ALIASES = ['bank', 'logistics', 'elevator', 'lab', 'executive', 'compliance'];
 
 describe('platform-v7 security contracts', () => {
   it('keeps driver field scope away from money and commercial entities', () => {
@@ -34,7 +38,7 @@ describe('platform-v7 security contracts', () => {
   it('keeps sensitive permissions auditable', () => {
     expect(PLATFORM_V7_SENSITIVE_PERMISSIONS).toContain('request_bank_action');
     expect(PLATFORM_V7_SENSITIVE_PERMISSIONS).toContain('resolve_dispute');
-    expect(canPlatformV7Role('bank', 'money', 'request_bank_action')).toMatchObject({
+    expect(canPlatformV7Role('bank_officer', 'money', 'request_bank_action')).toMatchObject({
       allowed: true,
       requiresAudit: true,
     });
@@ -54,7 +58,7 @@ describe('platform-v7 security contracts', () => {
     });
   });
 
-  it('lets support work support cases but not money', () => {
+  it('lets support_agent work support cases but not money', () => {
     expect(canPlatformV7Role('support_agent', 'support_case', 'update')).toMatchObject({
       allowed: true,
     });
@@ -62,5 +66,12 @@ describe('platform-v7 security contracts', () => {
       allowed: false,
       requiresAudit: true,
     });
+  });
+
+  it('uses only canonical role names — no short aliases in rules', () => {
+    for (const rule of PLATFORM_V7_SECURITY_RULES) {
+      expect(SHORT_ALIASES).not.toContain(rule.role);
+      expect(PLATFORM_V7_CANONICAL_ROLES).toContain(rule.role);
+    }
   });
 });
