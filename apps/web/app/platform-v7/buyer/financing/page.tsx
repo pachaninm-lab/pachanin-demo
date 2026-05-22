@@ -79,11 +79,11 @@ export default function BuyerFinancingPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Покупатель · Финансирование · <span style={{ color: WARN }}>sandbox</span>
+              Покупатель · Финансирование · <span style={{ color: WARN }}>проверочный контур</span>
             </div>
             <div style={{ fontSize: 26, fontWeight: 900, color: T, marginTop: 8, lineHeight: 1.1 }}>Финансирование закупки</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 740 }}>
-              Buyer-only sandbox экран для проверки сценария заявки на финансирование закупки. Боевой банковый скоринг, выдача кредита и резерв денег здесь не заявляются.
+              Экран покупателя для проверки сценария заявки на финансирование закупки. Боевой банковый скоринг, выдача кредита и резерв денег здесь не заявляются.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -96,14 +96,14 @@ export default function BuyerFinancingPage() {
       </section>
 
       <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Режим: sandbox</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Режим: проверочный контур</div>
         <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.5 }}>
           Данные демонстрационные. Реальных запросов в банк, кредитных решений, списаний или резервирования средств нет. Экран показывает будущий UX, а не боевую банковую интеграцию.
         </div>
       </section>
 
       <section style={{ background: CREDIT_BG, border: `1px solid ${CREDIT_BORDER}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: CREDIT, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sandbox-лимит</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: CREDIT, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверочный контур-лимит</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginTop: 14 }}>
           <MetricCell label='Общий лимит' value={fmt(CREDIT_LIMITS.total)} color={CREDIT} />
           <MetricCell label='Использовано' value={fmt(CREDIT_LIMITS.used)} color={WARN} />
@@ -119,7 +119,7 @@ export default function BuyerFinancingPage() {
 
       {showForm ? (
         <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: T, marginBottom: 14 }}>Новая sandbox-заявка</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: T, marginBottom: 14 }}>Новая заявка</div>
           <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
             <FormField label='Сделка'>
               <input value={formDeal} onChange={(event) => setFormDeal(event.target.value)} placeholder='DL-9101' style={inputStyle()} />
@@ -138,7 +138,7 @@ export default function BuyerFinancingPage() {
             </FormField>
             <div style={{ fontSize: 12, color: M }}>Ставка и лимит здесь демонстрационные. Боевое решение требует банковского подключения и проверки.</div>
             <div>
-              <button type='submit' style={btn('primary')}>Подать заявку sandbox</button>
+              <button type='submit' style={btn('primary')}>Подать заявку</button>
             </div>
           </form>
         </section>
@@ -146,13 +146,13 @@ export default function BuyerFinancingPage() {
 
       {submitted ? (
         <section style={{ background: BRAND_BG, border: `1px solid ${BRAND_BORDER}`, borderRadius: 14, padding: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: BRAND }}>Заявка создана в sandbox</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: BRAND }}>Заявка создана в проверочном контуре</div>
           <div style={{ fontSize: 13, color: T, marginTop: 6 }}>Это локальное UI-состояние. Боевой банковый workflow не запускался.</div>
         </section>
       ) : null}
 
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: T, marginBottom: 14 }}>Sandbox-заявки</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: T, marginBottom: 14 }}>Проверочный контур-заявки</div>
         <div style={{ display: 'grid', gap: 10 }}>
           {SANDBOX_APPLICATIONS.map((application) => {
             const tone = statusTone(application.status);

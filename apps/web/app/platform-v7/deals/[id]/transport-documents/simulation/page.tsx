@@ -53,7 +53,7 @@ export default function TransportSimulationPage({ params }: { params: { id: stri
       <section className='transport-sim-card transport-sim-hero'>
         <div className='transport-sim-head'>
           <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419', lineHeight: 1.15, wordBreak: 'break-word' }}>Симуляция контура СберКорус · {deal.id}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419', lineHeight: 1.15, wordBreak: 'break-word' }}>Проверочный сценарий контура СберКорус · {deal.id}</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, wordBreak: 'break-word' }}>
               Полная логическая имитация: как внешний транспортный документный провайдер двигает сделку от пакета документов до банкового решения по выпуску денег.
             </div>

@@ -32,7 +32,7 @@ const ACTIONS = [
 
 function statusTone(status: string) {
   if (status === 'success') return { label: 'Результат есть', bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  return { label: 'Нужна проверка', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
+  return { label: 'Ожидает сверки', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
 }
 
 export function P7ActionFeedbackStrip() {

@@ -88,14 +88,14 @@ export function BankSmartContractsPanel() {
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: M, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Условия выпуска · <span style={{ color: WARN }}>{MATURITY}</span>
+          Условия выпуска · <span style={{ color: WARN }}>{MATURITY === 'sandbox' ? 'проверочный контур' : MATURITY}</span>
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: T, marginTop: 4 }}>Контракты безопасной сделки</div>
-        {readyToRelease > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: MONEY, fontWeight: 700 }}>{readyToRelease} готово к банковому выпуску после guard-проверки</div> : null}
+        {readyToRelease > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: MONEY, fontWeight: 700 }}>{readyToRelease} готово к банковому выпуску после проверки условий</div> : null}
       </div>
 
       <div style={{ marginBottom: 12, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 10, padding: 10, fontSize: 12, color: WARN }}>
-        Интеграция: sandbox. Это демонстрационная модель условий, а не боевой банковый смарт-контракт.
+        Интеграция: проверочный контур. Это модель условий, а не подтверждённый банковый смарт-контракт.
       </div>
 
       <div style={{ display: 'grid', gap: 12 }}>

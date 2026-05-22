@@ -36,46 +36,46 @@ export function EvidenceExportReadinessSummary() {
     : 0;
   const isReady = readiness >= 80;
   const states: ReadinessState[] = [
-    { label: 'Ready for preview', value: String(Math.min(dealsWithEvidence, dealsWithAudit, dealsWithTimeline)), ok: isReady, href: '/platform-v7/evidence-pack?decision=Can%20release', action: 'Открыть готовые' },
-    { label: 'Needs evidence', value: String(missingEvidence), ok: missingEvidence === 0, href: '/platform-v7/evidence-pack?decision=Review', action: 'Открыть review' },
-    { label: 'Needs audit', value: String(missingAudit), ok: missingAudit === 0, href: '/platform-v7/evidence-pack?decision=Review', action: 'Открыть review' },
-    { label: 'Needs timeline', value: String(missingTimeline), ok: missingTimeline === 0, href: '/platform-v7/evidence-pack?decision=Review', action: 'Открыть review' },
+    { label: 'Готовы к просмотру', value: String(Math.min(dealsWithEvidence, dealsWithAudit, dealsWithTimeline)), ok: isReady, href: '/platform-v7/evidence-pack?decision=Can%20release', action: 'Открыть готовые' },
+    { label: 'Нужны доказательства', value: String(missingEvidence), ok: missingEvidence === 0, href: '/platform-v7/evidence-pack?decision=Review', action: 'Открыть проверку' },
+    { label: 'Нужны записи журнала', value: String(missingAudit), ok: missingAudit === 0, href: '/platform-v7/evidence-pack?decision=Review', action: 'Открыть проверку' },
+    { label: 'Нужна линия событий', value: String(missingTimeline), ok: missingTimeline === 0, href: '/platform-v7/evidence-pack?decision=Review', action: 'Открыть проверку' },
   ];
 
   return (
     <section data-testid='evidence-export-readiness-summary' style={{ background: S, border: `1px solid ${isReady ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
         <div style={{ fontSize: 11, color: isReady ? BRAND : WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Evidence export readiness · sandbox preview
+          Готовность доказательств · проверочный контур
         </div>
         <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.15, fontWeight: 900, color: T }}>
-          Готовность доказательных пакетов к preview-export
+          Готовность доказательных пакетов к просмотру
         </div>
         <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 880 }}>
-          Блок показывает операционную готовность к sandbox-preview. Это не live PDF, не ЭДО, не КЭП, не банковская и не ФГИС-интеграция.
+          Блок показывает операционную готовность пакета к проверке. Это не внешний PDF, не ЭДО, не КЭП, не банковская и не ФГИС-интеграция.
         </div>
       </div>
 
       <div style={{ background: isReady ? BRAND_BG : WARN_BG, border: `1px solid ${isReady ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
-        <div style={{ fontSize: 12, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Readiness score</div>
+        <div style={{ fontSize: 12, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Готовность</div>
         <div style={{ marginTop: 4, fontSize: 28, fontWeight: 900, color: isReady ? BRAND : WARN }}>{readiness}%</div>
         <div style={{ marginTop: 4, fontSize: 12, color: M, lineHeight: 1.5 }}>
-          {isReady ? 'Пакеты можно показывать как sandbox-preview.' : 'Пакеты требуют усиления evidence, audit или timeline связки.'}
+          {isReady ? 'Пакеты можно показывать в проверочном контуре.' : 'Пакеты требуют усиления доказательств, журнала или линии событий.'}
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
         <Metric label='Сделок' value={String(totalDeals)} />
-        <Metric label='Evidence linked' value={String(dealsWithEvidence)} />
-        <Metric label='Audit linked' value={String(dealsWithAudit)} />
-        <Metric label='Timeline linked' value={String(dealsWithTimeline)} />
-        <Metric label='Dispute markers' value={String(disputedDeals)} />
+        <Metric label='Доказательства' value={String(dealsWithEvidence)} />
+        <Metric label='Журнал' value={String(dealsWithAudit)} />
+        <Metric label='Линия событий' value={String(dealsWithTimeline)} />
+        <Metric label='Споры' value={String(disputedDeals)} />
       </div>
 
       <div data-testid='export-readiness-states' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>
         {states.map((item) => (
           <div key={item.label} style={{ background: item.ok ? BRAND_BG : WARN_BG, border: `1px solid ${item.ok ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 12, padding: 12, display: 'grid', gap: 6 }}>
-            <div style={{ fontSize: 10, color: item.ok ? BRAND : WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.ok ? 'OK' : 'Need'}</div>
+            <div style={{ fontSize: 10, color: item.ok ? BRAND : WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.ok ? 'готово' : 'нужно'}</div>
             <div style={{ fontSize: 13, fontWeight: 900, color: T }}>{item.label}</div>
             <div style={{ fontSize: 18, fontWeight: 900, color: item.ok ? BRAND : WARN }}>{item.value}</div>
             <Link href={item.href} style={{ textDecoration: 'none', color: item.ok ? BRAND : WARN, fontSize: 12, fontWeight: 900 }}>{item.action} →</Link>
@@ -84,7 +84,7 @@ export function EvidenceExportReadinessSummary() {
       </div>
 
       <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>
-        Export boundary: sandbox preview only. Реальный PDF/ЭДО/КЭП экспорт требует отдельной реализации, подписей, прав доступа и интеграционных договоров.
+        Граница просмотра: проверочный контур. Реальный PDF/ЭДО/КЭП экспорт требует отдельной реализации, подписей, прав доступа и интеграционных договоров.
       </div>
     </section>
   );

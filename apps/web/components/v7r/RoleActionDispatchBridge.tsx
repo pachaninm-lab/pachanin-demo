@@ -61,7 +61,7 @@ export function RoleActionDispatchBridge({
     const actor = state.users.find((item) => item.role === actorRoleForAction(role, actionType));
 
     if (!deal || !actor) {
-      const message = !deal ? `Сделка не найдена: ${dealId}` : `Нет sandbox-актора для роли ${role}`;
+      const message = !deal ? `Сделка не найдена: ${dealId}` : `Нет тестового участника для роли ${role}`;
       const failedResult: PlatformActionResult = {
         ok: false,
         state,
@@ -84,20 +84,20 @@ export function RoleActionDispatchBridge({
       ok: next.ok,
       message: next.toast.message,
       statusAfter,
-      audit: next.auditEvent ? `${next.auditEvent.actionType} · ${next.auditEvent.entityId}` : undefined,
+      audit: next.auditEvent ? `${actionLabel(next.auditEvent.actionType)} · ${next.auditEvent.entityId}` : undefined,
       timeline: next.timelineEvent?.title,
     });
   }
 
   const tone = result?.ok ? 'success' : result ? 'danger' : canRun ? 'ready' : 'disabled';
-  const message = result?.toast.message ?? disabledReason ?? 'Sandbox dispatch доступен для проверки action feedback.';
+  const message = result?.toast.message ?? disabledReason ?? 'Действие доступно для проверки результата перед внешним подтверждением.';
 
   return (
     <div data-testid='role-dispatch-bridge' style={{ background: tone === 'danger' ? DANGER_BG : SURFACE, border: `1px solid ${tone === 'danger' ? DANGER_BORDER : B}`, borderRadius: 14, padding: 12, display: 'grid', gap: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'grid', gap: 4 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, color: tone === 'danger' ? DANGER : BRAND, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sandbox dispatch</div>
-          <div style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>Проверяет действие через domain-core, audit/timeline и guard-ошибки. Боевые интеграции не вызываются.</div>
+          <div style={{ fontSize: 11, fontWeight: 900, color: tone === 'danger' ? DANGER : BRAND, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка действия</div>
+          <div style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>Проверяет допустимость шага, фиксирует журнал и показывает результат. Боевые интеграции не вызываются.</div>
         </div>
         <button
           type='button'
@@ -114,13 +114,13 @@ export function RoleActionDispatchBridge({
             cursor: canRun ? 'pointer' : 'not-allowed',
           }}
         >
-          Выполнить sandbox
+          Проверить действие
         </button>
       </div>
       <div style={{ fontSize: 12, color: tone === 'danger' ? DANGER : tone === 'success' ? BRAND : M, lineHeight: 1.5, fontWeight: 800 }}>{message}</div>
-      {lastStatus ? <div style={{ fontSize: 12, color: T, fontWeight: 900 }}>Текущий статус после dispatch: {lastStatus}</div> : null}
-      {result?.auditEvent ? <div style={{ fontSize: 12, color: M }}>Audit: {result.auditEvent.actionType} · {result.auditEvent.entityId}</div> : null}
-      {result?.timelineEvent ? <div style={{ fontSize: 12, color: M }}>Timeline: {result.timelineEvent.title}</div> : null}
+      {lastStatus ? <div style={{ fontSize: 12, color: T, fontWeight: 900 }}>Текущий статус после проверки: {lastStatus}</div> : null}
+      {result?.auditEvent ? <div style={{ fontSize: 12, color: M }}>Журнал: {actionLabel(result.auditEvent.actionType)} · {result.auditEvent.entityId}</div> : null}
+      {result?.timelineEvent ? <div style={{ fontSize: 12, color: M }}>Событие: {result.timelineEvent.title}</div> : null}
       <RoleActionJournal rows={journal} />
     </div>
   );
@@ -129,16 +129,16 @@ export function RoleActionDispatchBridge({
 function RoleActionJournal({ rows }: { rows: JournalEntry[] }) {
   return (
     <div data-testid='role-action-journal' style={{ borderTop: `1px solid ${B}`, paddingTop: 10, display: 'grid', gap: 8 }}>
-      <div style={{ fontSize: 11, fontWeight: 900, color: T, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Role action journal</div>
+      <div style={{ fontSize: 11, fontWeight: 900, color: T, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Журнал действия</div>
       {rows.length ? rows.map((row) => (
         <div key={row.id} style={{ display: 'grid', gap: 3, background: row.ok ? BRAND_BG : DANGER_BG, border: `1px solid ${row.ok ? BRAND_BORDER : DANGER_BORDER}`, borderRadius: 10, padding: 10 }}>
-          <div style={{ fontSize: 12, color: row.ok ? BRAND : DANGER, fontWeight: 900 }}>{row.actionType} · {row.ok ? 'success' : 'error'}</div>
+          <div style={{ fontSize: 12, color: row.ok ? BRAND : DANGER, fontWeight: 900 }}>{actionLabel(row.actionType)} · {row.ok ? 'готово' : 'ошибка'}</div>
           <div style={{ fontSize: 12, color: M }}>{row.message}</div>
-          {row.statusAfter ? <div style={{ fontSize: 11, color: M }}>status: {row.statusAfter}</div> : null}
-          {row.audit ? <div style={{ fontSize: 11, color: M }}>audit: {row.audit}</div> : null}
-          {row.timeline ? <div style={{ fontSize: 11, color: M }}>timeline: {row.timeline}</div> : null}
+          {row.statusAfter ? <div style={{ fontSize: 11, color: M }}>статус: {row.statusAfter}</div> : null}
+          {row.audit ? <div style={{ fontSize: 11, color: M }}>журнал: {row.audit}</div> : null}
+          {row.timeline ? <div style={{ fontSize: 11, color: M }}>событие: {row.timeline}</div> : null}
         </div>
-      )) : <div style={{ fontSize: 12, color: M }}>Журнал появится после sandbox-действия.</div>}
+      )) : <div style={{ fontSize: 12, color: M }}>Журнал появится после проверки действия.</div>}
     </div>
   );
 }
@@ -166,4 +166,17 @@ function buildCommand(actionType: PlatformActionType, actor: User, deal: Deal): 
   if (actionType === 'openDispute') return { ...common, payload: { dealId: deal.id, reason: 'other', amountImpactRub: 0, evidenceIds: [] } };
 
   return { ...common, payload: { dealId: deal.id } };
+}
+
+function actionLabel(actionType: PlatformActionType | string) {
+  const labels: Partial<Record<PlatformActionType, string>> = {
+    publishLot: 'Опубликовать партию',
+    requestReserve: 'Запросить банковское основание',
+    confirmReserve: 'Подтвердить основание',
+    assignDriver: 'Назначить водителя',
+    confirmArrival: 'Подтвердить прибытие',
+    createLabProtocol: 'Создать лабораторный протокол',
+    openDispute: 'Открыть спор',
+  };
+  return labels[actionType as PlatformActionType] || String(actionType).replace(/_/g, ' ');
 }

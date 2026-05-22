@@ -229,7 +229,7 @@ export function SellerLotsRuntimeV2() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/lots/create' style={actionButton('primary')}>Создать лот</Link>
             {devMode && manualLots.length ? (
-              <button onClick={() => { if (window.confirm(`Удалить ${manualLots.length} ручных лотов из витрины?`)) clearManualLots(); }} aria-label='Очистить ручные лоты' style={actionButton('warning')}>DEV · Очистить ручные ({manualLots.length})</button>
+              <button onClick={() => { if (window.confirm(`Удалить ${manualLots.length} ручных лотов из рабочего реестра?`)) clearManualLots(); }} aria-label='Очистить ручные лоты' style={actionButton('warning')}>Очистить ручные ({manualLots.length})</button>
             ) : null}
           </div>
         </div>
@@ -238,7 +238,7 @@ export function SellerLotsRuntimeV2() {
       <div className='seller-lots-metrics'>
         <MetricCard title='Всего лотов' value={String(mergedLots.length)} note='Все видимые лоты текущего контура.' active={stateFilter === 'ALL'} onClick={() => setStateFilter('ALL')} />
         <MetricCard title='Готовы к движению' value={String(passCount)} note='Можно идти дальше без ручного стопа.' active={stateFilter === 'PASS'} onClick={() => setStateFilter('PASS')} />
-        <MetricCard title='Нужна проверка' value={String(reviewCount)} note='Есть документные или ручные блокеры.' active={stateFilter === 'REVIEW'} onClick={() => setStateFilter('REVIEW')} />
+        <MetricCard title='Ожидает сверки' value={String(reviewCount)} note='Есть документные или ручные блокеры.' active={stateFilter === 'REVIEW'} onClick={() => setStateFilter('REVIEW')} />
         <MetricCard title='Жёсткий стоп' value={String(failCount)} note='Движение запрещено до снятия стоп-фактора.' active={stateFilter === 'FAIL'} onClick={() => setStateFilter('FAIL')} />
       </div>
 
@@ -253,7 +253,7 @@ export function SellerLotsRuntimeV2() {
           {[
             { id: 'all', label: 'Все лоты' },
             { id: 'ready', label: 'Готовы к движению' },
-            { id: 'review', label: 'Нужна проверка' },
+            { id: 'review', label: 'Ожидает сверки' },
             { id: 'fgis', label: 'Только ФГИС' },
           ].map((preset) => (
             <button key={preset.id} onClick={() => setViewPreset(preset.id as ViewPreset)} style={pillStyle(viewPreset === preset.id, 'accent')}>{preset.label}</button>

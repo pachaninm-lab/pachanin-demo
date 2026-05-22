@@ -83,7 +83,7 @@ const ROLE_CARDS = [
   },
   {
     title: 'Поддержка',
-    focus: 'Операционные блокеры, SLA, ответственные, снятие остановок.',
+    focus: 'Операционные блокеры, срок реакции, ответственные, снятие остановок.',
     blocker: 'ответственный не выполнил действие',
     action: 'Открыть центр поддержки',
     href: '/platform-v7/support/operator',
@@ -93,7 +93,7 @@ const ROLE_CARDS = [
   },
   {
     title: 'Руководитель',
-    focus: 'Деньги под риском, блокеры, сделки, SLA и зрелость пилота.',
+    focus: 'Деньги под риском, блокеры, сделки, срок реакции и зрелость пилота.',
     blocker: 'критический блокер держит деньги',
     action: 'Открыть карту контроля',
     href: '/platform-v7/executive',
@@ -108,8 +108,8 @@ const CONTROL_LINKS = [
   { title: 'Сюрвейер', href: '/platform-v7/surveyor' },
   { title: 'Арбитр', href: '/platform-v7/arbitrator' },
   { title: 'Комплаенс', href: '/platform-v7/compliance' },
-  { title: 'Денежный шлюз', href: '/platform-v7/bank/release-safety' },
-  { title: 'Сделка GR-2048', href: '/platform-v7/deals/grain-release' },
+  { title: 'Денежный шлюз', href: '/platform-v7/bank/выпуск-safety' },
+  { title: 'Сделка GR-2048', href: '/platform-v7/deals/grain-выпуск' },
 ] as const;
 
 const shell = {

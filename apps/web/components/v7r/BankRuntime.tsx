@@ -241,7 +241,7 @@ export function BankRuntime() {
               <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419', wordBreak: 'break-word' }}>Банковый контур</div>
               <SberDemoLogo />
             </div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920, wordBreak: 'break-word' }}>Теперь это не витрина банковых модулей, а единый runtime-хаб: здесь видны деньги, блокеры, владелец следующего шага и прямой переход в нужный контур сделки.</div>
+            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920, wordBreak: 'break-word' }}>Теперь это не витрина банковых модулей, а единый хаб исполнения: здесь видны деньги, блокеры, владелец следующего шага и прямой переход в нужный контур сделки.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {brandPill('sberBusinessId')}
@@ -269,9 +269,9 @@ export function BankRuntime() {
 
         <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Эскроу</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>Контур удержания и раскрытия по спору, качеству, документам и callback банка.</div>
+          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>Контур удержания и раскрытия по спору, качеству, документам и событию банка.</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>{escrowCount}</div>
-          <div style={{ fontSize: 12, color: '#6B778C' }}>Сделок сейчас прямо завязаны на режим hold или спорный кейс.</div>
+          <div style={{ fontSize: 12, color: '#6B778C' }}>Сделок сейчас прямо завязаны на удержание или спорный кейс.</div>
           <Link href='/platform-v7/bank/escrow' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 13, fontWeight: 800 }}>Открыть эскроу</Link>
         </section>
 
@@ -332,7 +332,7 @@ export function BankRuntime() {
             <div style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 800 }}>{transportReleaseStateLabel(transportCurrentStep.releaseState)} · {transportCurrentStep.releaseReason}</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Link href='/platform-v7/deals/DL-9109/transport-documents' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 700 }}>Открыть пакет СберКорус</Link>
-              <Link href='/platform-v7/deals/DL-9109/transport-documents/simulation' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Открыть симуляцию</Link>
+              <Link href='/platform-v7/deals/DL-9109/transport-documents/simulation' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Открыть проверочный сценарий</Link>
             </div>
           </section>
         ) : null}
@@ -350,7 +350,7 @@ export function BankRuntime() {
               <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.6 }}>{item.note}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Link href={item.primaryHref} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700 }}>Пакет</Link>
-                <Link href={item.simulationHref} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700 }}>Симуляция</Link>
+                <Link href={item.simulationHref} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700 }}>Проверочный сценарий</Link>
               </div>
             </div>
           ))}

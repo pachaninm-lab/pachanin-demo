@@ -24,7 +24,7 @@ export default function SettlementGrainPage() {
         <div style={actions}>
           <Link href='/platform-v7/bank/grain' style={primaryBtn}>Банк</Link>
           <Link href='/platform-v7/operator/grain' style={ghostBtn}>Очередь условий</Link>
-          <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Deal 360</Link>
+          <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Сделка</Link>
         </div>
       </section>
 

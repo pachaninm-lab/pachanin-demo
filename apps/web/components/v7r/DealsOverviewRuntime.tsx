@@ -82,7 +82,7 @@ function MobileDealCard({ item, selected, onToggle, onCompare }: { item: Deal; s
       </Link>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'}{item.routeEta ? ` · ETA ${item.routeEta}` : ''}</div>
+        <div style={{ fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'}{item.routeEta ? ` · прибытие ${item.routeEta}` : ''}</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={onCompare} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
           <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', color: '#fff', fontSize: 12, fontWeight: 800 }}>Открыть сделку</Link>
@@ -327,7 +327,7 @@ export function DealsOverviewRuntime() {
                   </td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ fontWeight: 700, color: '#0F1419' }}>{item.routeId ?? '—'}</div>
-                    <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'} {item.routeEta ? `· ETA ${item.routeEta}` : ''}</div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.routeState ?? 'Маршрут не назначен'} {item.routeEta ? `· прибытие ${item.routeEta}` : ''}</div>
                   </td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ fontSize: 13, color: '#0F1419', fontWeight: 700 }}>{item.buyer.name}</div>

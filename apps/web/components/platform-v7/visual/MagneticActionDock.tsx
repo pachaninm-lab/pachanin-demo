@@ -114,6 +114,7 @@ export function MagneticActionDock({
       <div style={position === 'bottom' ? { maxWidth: 500, margin: '0 auto' } : {}}>
         <button
           type='button'
+          data-primary-cta={tone === 'primary' ? 'true' : undefined}
           onClick={isDisabled ? undefined : action.onClick}
           disabled={isDisabled}
           onMouseEnter={() => setHovered(true)}

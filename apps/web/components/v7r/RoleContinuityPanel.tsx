@@ -44,20 +44,20 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
   seller: {
     label: 'Продавец',
     headline: 'Связка выплаты: лот → сделка → документы → снятие удержания',
-    nextAction: 'Закрыть документный или спорный blocker, который мешает выплате.',
-    evidenceFocus: 'ФГИС/партия, документы продавца, акт, удержание, причина REVIEW.',
+    nextAction: 'Закрыть документный или спорный блокер, который мешает выплате.',
+    evidenceFocus: 'ФГИС/партия, документы продавца, акт, удержание, причина проверки.',
   },
   bank: {
     label: 'Банк',
-    headline: 'Связка денег: reserve → hold → release → audit',
-    nextAction: 'Проверить допустимость следующего банкового события и idempotency-контроль.',
-    evidenceFocus: 'Документы, dispute status, callback, reserve/hold/release, audit event.',
+    headline: 'Связка денег: основание → удержание → подтверждение банка → журнал',
+    nextAction: 'Проверить допустимость следующего банкового события и техническую сверку.',
+    evidenceFocus: 'Документы, спорный статус, событие банка, удержание, выпуск, запись журнала.',
   },
   logistics: {
     label: 'Логистика',
-    headline: 'Связка рейса: назначение → погрузка → прибытие → транспортный gate',
+    headline: 'Связка рейса: назначение → погрузка → прибытие → транспортное основание',
     nextAction: 'Закрыть событие рейса, которое держит приёмку или банковый выпуск.',
-    evidenceFocus: 'Маршрут, водитель, прибытие, GPS/photo evidence, транспортные документы.',
+    evidenceFocus: 'Маршрут, водитель, прибытие, GPS, фото, транспортные документы.',
   },
   driver: {
     label: 'Водитель',
@@ -75,16 +75,16 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
 
 const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
   buyer: {
-    label: 'Запросить резерв или открыть спор',
+    label: 'Запросить банковское основание или открыть спор',
     actionType: 'requestReserve',
     ownerRole: 'buyer',
     route: '/platform-v7/bank',
     availableWhen: ['SIGNED', 'DOCUMENTS_READY', 'ACCEPTED'],
-    readyLabel: 'Покупатель может двигать деньги или спор через подтверждённый контур.',
+    readyLabel: 'Покупатель может передать основание или спор через подтверждаемый контур.',
     blockedLabel: 'Покупатель ждёт подписания, документов, приёмки или лабораторного результата.',
   },
   seller: {
-    label: 'Закрыть выплатный blocker',
+    label: 'Закрыть выплатный блокер',
     actionType: 'publishLot',
     ownerRole: 'seller',
     route: '/platform-v7/lots/create',
@@ -93,13 +93,13 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
     blockedLabel: 'Продавец не является владельцем следующего подтверждаемого шага.',
   },
   bank: {
-    label: 'Подтвердить резерв / выпуск',
+    label: 'Подтвердить основание / выпуск',
     actionType: 'confirmReserve',
     ownerRole: 'bank',
     route: '/platform-v7/bank',
     availableWhen: ['RESERVE_REQUESTED', 'PAYMENT_RELEASE_REQUESTED', 'DOCUMENTS_READY'],
-    readyLabel: 'Банк может подтвердить допустимое денежное событие только после guard-проверок.',
-    blockedLabel: 'Банк ждёт reserve request, документы, отсутствие спора или готовность к release.',
+    readyLabel: 'Банк может подтвердить допустимое денежное событие только после проверок сделки.',
+    blockedLabel: 'Банк ждёт запрос на основание, документы, отсутствие спора или готовность к выпуску.',
   },
   logistics: {
     label: 'Назначить водителя / закрыть рейс',
@@ -108,7 +108,7 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
     route: '/platform-v7/logistics',
     availableWhen: ['RESERVE_CONFIRMED', 'DRIVER_ASSIGNED', 'LOADING_CONFIRMED', 'LOADED', 'IN_TRANSIT', 'ARRIVED'],
     readyLabel: 'Логистика должна перевести сделку через транспортный gate до приёмки.',
-    blockedLabel: 'Логистика ждёт подтверждения резерва или передачи owner на транспортный шаг.',
+    blockedLabel: 'Логистика ждёт подтверждения основания или передачи ответственного на транспортный шаг.',
   },
   driver: {
     label: 'Подтвердить прибытие / событие рейса',
@@ -126,7 +126,7 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
     route: '/platform-v7/lab',
     availableWhen: ['WEIGHING_CONFIRMED', 'LAB_SAMPLING', 'LAB_PROTOCOL_CREATED', 'ACCEPTED', 'DOCUMENTS_PENDING'],
     readyLabel: 'Лаборатория должна довести качество до протокола, приёмки или документной готовности.',
-    blockedLabel: 'Лаборатория ждёт подтверждения веса или передачи owner на лабораторный шаг.',
+    blockedLabel: 'Лаборатория ждёт подтверждения веса или передачи ответственного на лабораторный шаг.',
   },
 };
 
@@ -144,8 +144,8 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
   const copy = ROLE_COPY[role] || {
     label: role,
     headline: 'Связка роли с контуром исполнения сделки',
-    nextAction: 'Проверить следующий owner, blocker и допустимое действие.',
-    evidenceFocus: 'Сделка, доказательства, audit, timeline.',
+    nextAction: 'Проверить следующего ответственного, блокер и допустимое действие.',
+    evidenceFocus: 'Сделка, доказательства, журнал, линия событий.',
   };
   const deal = selectRoleDeal(state, role);
   const handoff = buildRoleActionHandoff(role, deal);
@@ -161,11 +161,11 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            P0-04 · continuity · {copy.label}
+            Ролевой контур · {copy.label}
           </div>
           <div style={{ marginTop: 6, fontSize: compact ? 18 : 22, lineHeight: 1.15, fontWeight: 900, color: T }}>{copy.headline}</div>
           <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 860 }}>
-            Единый контур роли показывает не отдельный кабинет, а связку: текущая сделка, допустимое действие, доказательства, audit и timeline. Это simulation-only слой, без заявления боевых интеграций.
+            Единый контур роли показывает не отдельный кабинет, а связку: текущая сделка, допустимое действие, доказательства, журнал и линию событий. Внешние подключения не заявляются как подтверждённые.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -178,24 +178,24 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
         <Cell label='Сделка' value={deal.id} mono />
         <Cell label='Статус' value={humanStatus(deal.status)} tone={deal.status === 'DISPUTE_OPEN' ? 'danger' : 'default'} />
         <Cell label='Сумма сделки' value={compactRub(amount)} />
-        <Cell label='Owner' value={roleLabel(deal.ownerRole)} tone={deal.ownerRole === role ? 'accent' : 'default'} />
-        <Cell label='Деньги' value={moneyBlocked ? 'Есть blocker' : 'Без blocker'} tone={moneyBlocked ? 'danger' : 'accent'} />
+        <Cell label='Ответственный' value={roleLabel(deal.ownerRole)} tone={deal.ownerRole === role ? 'accent' : 'default'} />
+        <Cell label='Деньги' value={moneyBlocked ? 'Есть блокер' : 'Без блокера'} tone={moneyBlocked ? 'danger' : 'accent'} />
       </div>
 
       <div style={{ background: moneyBlocked ? DANGER_BG : BRAND_BG, border: `1px solid ${moneyBlocked ? DANGER_BORDER : BRAND_BORDER}`, borderRadius: 14, padding: 14, display: 'grid', gap: 6 }}>
         <div style={{ fontSize: 12, fontWeight: 900, color: moneyBlocked ? DANGER : BRAND, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</div>
         <div style={{ fontSize: 14, lineHeight: 1.6, color: T, fontWeight: 800 }}>{copy.nextAction}</div>
         <div style={{ fontSize: 12, lineHeight: 1.6, color: M }}>Доказательный фокус: {copy.evidenceFocus}</div>
-        {deal.blocker ? <div style={{ fontSize: 12, color: DANGER, fontWeight: 800 }}>Blocker: {deal.blocker}</div> : null}
+        {deal.blocker ? <div style={{ fontSize: 12, color: DANGER, fontWeight: 800 }}>Блокер: {deal.blocker}</div> : null}
       </div>
 
       <ActionHandoffBlock handoff={handoff} />
       <RoleActionDispatchBridge role={role} dealId={deal.id} actionType={handoff.actionType} canRun={handoff.canRun} disabledReason={handoff.disabledReason} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
-        <ListBlock title='Evidence' empty='Нет evidence по выбранной сделке.' rows={evidence.map((item) => ({ id: item.id, kicker: item.type, text: item.title }))} />
-        <ListBlock title='Audit' empty='Нет audit events по выбранной сделке.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${item.actionType} · ${item.entityId}` }))} />
-        <ListBlock title='Timeline' empty='Нет timeline events по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
+        <ListBlock title='Доказательства' empty='Нет доказательств по выбранной сделке.' rows={evidence.map((item) => ({ id: item.id, kicker: item.type, text: item.title }))} />
+        <ListBlock title='Журнал' empty='Нет записей журнала по выбранной сделке.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${actionLabel(item.actionType)} · ${item.entityId}` }))} />
+        <ListBlock title='Линия событий' empty='Нет событий по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
       </div>
     </section>
   );
@@ -212,7 +212,7 @@ function buildRoleActionHandoff(role: PlatformRole, deal: Deal) {
     : isBlockedByDispute
       ? 'Открыт спор: действие заблокировано до решения или арбитражного маршрута.'
       : !isOwner
-        ? `Следующий owner: ${roleLabel(deal.ownerRole)}. Роль ${roleLabel(role)} не должна выполнять этот шаг.`
+        ? `Следующий ответственный: ${roleLabel(deal.ownerRole)}. Роль ${roleLabel(role)} не должна выполнять этот шаг.`
         : handoff.blockedLabel;
 
   return { ...handoff, canRun, disabledReason };
@@ -223,14 +223,14 @@ function ActionHandoffBlock({ handoff }: { handoff: RoleActionHandoff & { canRun
     <div data-testid='role-action-handoff' style={{ background: handoff.canRun ? BRAND_BG : WARN_BG, border: `1px solid ${handoff.canRun ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div style={{ display: 'grid', gap: 4 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: handoff.canRun ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Action handoff</div>
+          <div style={{ fontSize: 12, fontWeight: 900, color: handoff.canRun ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</div>
           <div style={{ fontSize: 15, lineHeight: 1.35, color: T, fontWeight: 900 }}>{handoff.label}</div>
         </div>
         <Link href={handoff.route} style={btn(handoff.canRun ? 'primary' : 'default')}>Открыть действие</Link>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
-        <Cell label='Action type' value={handoff.actionType} mono />
-        <Cell label='Owner действия' value={roleLabel(handoff.ownerRole)} tone='accent' />
+        <Cell label='Действие' value={actionLabel(handoff.actionType)} />
+        <Cell label='Ответственный' value={roleLabel(handoff.ownerRole)} tone='accent' />
         <Cell label='Статус' value={handoff.canRun ? 'Доступно' : 'Заблокировано'} tone={handoff.canRun ? 'accent' : 'danger'} />
       </div>
       <div style={{ fontSize: 12, lineHeight: 1.6, color: handoff.canRun ? BRAND : WARN, fontWeight: 800 }}>
@@ -282,6 +282,19 @@ function roleLabel(role: PlatformRole) {
     seller: 'Продавец', buyer: 'Покупатель', operator: 'Оператор', bank: 'Банк', logistics: 'Логистика', driver: 'Водитель', elevator: 'Элеватор', lab: 'Лаборатория', surveyor: 'Сюрвейер', arbitrator: 'Арбитр', compliance: 'Комплаенс', admin: 'Админ',
   };
   return labels[role] || role;
+}
+
+function actionLabel(actionType: PlatformActionType | string) {
+  const labels: Partial<Record<PlatformActionType, string>> = {
+    publishLot: 'Опубликовать партию',
+    requestReserve: 'Запросить банковское основание',
+    confirmReserve: 'Подтвердить основание',
+    assignDriver: 'Назначить водителя',
+    confirmArrival: 'Подтвердить прибытие',
+    createLabProtocol: 'Создать лабораторный протокол',
+    openDispute: 'Открыть спор',
+  };
+  return labels[actionType as PlatformActionType] || String(actionType).replace(/_/g, ' ');
 }
 
 function compactRub(value: number) {

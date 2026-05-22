@@ -254,7 +254,7 @@ export function BankCleanView({
 
       {/* Trust note */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <TrustDot state={trustState} size='sm' label='Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.' />
+        <TrustDot state={trustState} size='sm' label={trustState === 'test' ? 'тестовый контур' : undefined} />
       </div>
 
       {/* Journal link */}

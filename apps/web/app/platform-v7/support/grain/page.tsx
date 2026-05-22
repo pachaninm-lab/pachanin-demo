@@ -2,14 +2,14 @@ import Link from 'next/link';
 
 const cases = [
   { title: 'Обращение', value: 'SUP-9106', note: 'Покупатель сообщил расхождение по партии. Обращение связано со сделкой, рейсом и документами.', href: '/platform-v7/support', tone: 'warn' },
-  { title: 'SLA', value: '2ч 15м осталось', note: 'Срок реакции привязан к деньгам, спору и блокирующим документам.', href: '/platform-v7/operator/grain', tone: 'warn' },
+  { title: 'срок реакции', value: '2ч 15м осталось', note: 'Срок реакции привязан к деньгам, спору и блокирующим документам.', href: '/platform-v7/operator/grain', tone: 'warn' },
   { title: 'Ответственный', value: 'оператор сделки', note: 'Ответственный собирает акт, протокол, фото и комментарии сторон.', href: '/platform-v7/operator/grain', tone: 'good' },
   { title: 'Доказательства', value: '18 файлов', note: 'Файлы прикреплены к сделке и доступны в доказательном пакете.', href: '/platform-v7/deals/DL-9106/evidence-pack', tone: 'good' },
 ] as const;
 
 const metrics = [
   { label: 'Статус', value: 'в работе', tone: 'warn' },
-  { label: 'SLA', value: '2ч 15м', tone: 'warn' },
+  { label: 'срок реакции', value: '2ч 15м', tone: 'warn' },
   { label: 'Деньги', value: 'выпуск закрыт', tone: 'bad' },
   { label: 'Следующий шаг', value: 'собрать акт', tone: 'good' },
 ] as const;
@@ -19,7 +19,7 @@ export default function GrainSupportPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={card}>
         <div style={badge}>Поддержка зерновой сделки</div>
-        <h1 style={h1}>Обращение, SLA, ответственный, доказательства и блокировка денег</h1>
+        <h1 style={h1}>Обращение, срок реакции, ответственный, доказательства и блокировка денег</h1>
         <p style={lead}>Поддержка работает не как общий чат, а как контур исполнения: обращение связано со сделкой, рейсом, документами, доказательствами, деньгами и ответственным действием.</p>
         <div style={actions}>
           <Link href='/platform-v7/support' style={primaryBtn}>Центр поддержки</Link>

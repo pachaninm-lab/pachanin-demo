@@ -99,11 +99,11 @@ export default function MarketRfqPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Market / RFQ · <span style={{ color: WARN }}>sandbox</span>
+              Market / RFQ · <span style={{ color: WARN }}>проверочный контур</span>
             </div>
             <div style={{ fontSize: 26, fontWeight: 900, color: T, marginTop: 8, lineHeight: 1.1 }}>Лоты, заявки и оферты</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 800 }}>
-              Предсделочный контур: лот или RFQ не равны сделке. Сделка создаётся только после acceptance и последующей проверки gates. Live-торги здесь не заявляются.
+              Предсделочный контур: лот или RFQ не равны сделке. Сделка создаётся только после принятия предложения и последующей проверки условий. Боевые торги здесь не заявляются.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -114,7 +114,7 @@ export default function MarketRfqPage() {
       </section>
 
       <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
-        <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sandbox rule</div>
+        <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверочный контур rule</div>
         <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
           Это витрина предсделочного спроса/предложения. Здесь нет боевых торгов, биржевой функции, автоматического заключения договора или списания денег.
         </div>
@@ -123,7 +123,7 @@ export default function MarketRfqPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14 }}>
         <Metric label='Лоты' value={String(SANDBOX_MARKET_LOTS.length)} note={fmt(totalLotsValue)} color={BRAND} />
         <Metric label='RFQ' value={String(SANDBOX_RFQS.length)} note={`${totalRfqVolume} т спроса`} color={INFO} />
-        <Metric label='Оферты' value={String(SANDBOX_OFFERS.length)} note={`${acceptableOffers} можно принять sandbox`} color={WARN} />
+        <Metric label='Предложения' value={String(SANDBOX_OFFERS.length)} note={`${acceptableOffers} можно принять после проверки`} color={WARN} />
       </div>
 
       <div style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, overflow: 'hidden' }}>
@@ -213,7 +213,7 @@ function OffersTable() {
             <Grid>
               <Small label='Цена/т' value={fmt(offer.pricePerTon)} color={BRAND} />
               <Small label='Сумма' value={fmt(offer.pricePerTon * offer.volumeTons)} />
-              <Small label='Можно принять' value={canAccept ? 'sandbox yes' : 'no'} color={canAccept ? BRAND : M} />
+              <Small label='Можно принять' value={canAccept ? 'да' : 'нет'} color={canAccept ? BRAND : M} />
               <Small label='Тип' value={offer.type} />
             </Grid>
             {canAccept ? (

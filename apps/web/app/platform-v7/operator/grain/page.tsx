@@ -23,7 +23,7 @@ export default function OperatorGrainPage() {
         <p style={lead}>Оператор видит, что именно удерживает сделку: документ, акт, протокол, ответственный и следующее действие. Ручное решение по деньгам не доступно без закрытия условий.</p>
         <div style={actions}>
           <Link href='/platform-v7/operator' style={primaryBtn}>Центр оператора</Link>
-          <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Deal 360</Link>
+          <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Сделка</Link>
           <Link href='/platform-v7/deals/grain-release' style={ghostBtn}>Выпуск денег</Link>
         </div>
       </section>

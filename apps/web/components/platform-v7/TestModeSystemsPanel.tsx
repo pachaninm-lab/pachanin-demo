@@ -18,7 +18,7 @@ export function TestModeSystemsPanel() {
     <section data-testid="platform-v7-test-mode-systems" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
         <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Внешние подключения · тестовый режим</div>
-        <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: '#0F1419' }}>Симуляция ответов</div>
+        <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: '#0F1419' }}>Проверочные ответы</div>
         <div style={{ marginTop: 6, fontSize: 13, color: '#64748B', lineHeight: 1.55 }}>Боевые подключения здесь не используются. Экран показывает тестовые ответы и следующий шаг по сделке.</div>
       </div>
 

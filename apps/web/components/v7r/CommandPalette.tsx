@@ -48,7 +48,7 @@ function buildIndex(): CommandItem[] {
     id: `dispute-${dispute.id}`,
     group: 'Споры' as const,
     title: `${dispute.id} · ${dispute.title}`,
-    subtitle: `Сделка ${dispute.dealId} · ответственный ${dispute.ballAt} · SLA ${dispute.slaDaysLeft} дн.`,
+    subtitle: `Сделка ${dispute.dealId} · ответственный ${dispute.ballAt} · срок реакции ${dispute.slaDaysLeft} дн.`,
     href: `/platform-v7/disputes/${dispute.id}`,
     keywords: `${dispute.id} ${dispute.title} ${dispute.dealId} ${dispute.reasonCode}`.toLowerCase(),
   }));

@@ -81,7 +81,7 @@ export function ActionFeedbackPreviewStrip({ context }: { context: ActionFeedbac
           <div style={{ color: '#0F1419', fontSize: 13, fontWeight: 900, overflowWrap: 'anywhere' }}>{preview.responsibleRole}</div>
         </div>
         <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 5, minWidth: 0 }}>
-          <div style={micro}>идемпотентность</div>
+          <div style={micro}>техническая сверка</div>
           <div style={{ color: idempotencyColor, fontSize: 13, fontWeight: 900, overflowWrap: 'anywhere' }}>{preview.idempotencyLabel}</div>
         </div>
       </div>

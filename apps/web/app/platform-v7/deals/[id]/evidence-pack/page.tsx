@@ -8,13 +8,13 @@ export default function DealEvidencePackPage({ params }: { params: { id: string 
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 11, color: '#0A7A5F', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          P0-06 · отдельный preview-маршрут · sandbox
+          отдельный маршрут пакета · проверочный контур
         </div>
         <h1 style={{ margin: 0, fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
-          Evidence pack preview · {dealId}
+          Доказательный пакет · {dealId}
         </h1>
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#6B778C', maxWidth: 860 }}>
-          Безопасный deal-level preview доказательного пакета. Маршрут не меняет основную страницу сделки и не заявляет live PDF, ЭДО, КЭП, банковую или ФГИС-интеграцию.
+          Безопасный просмотр доказательного пакета на уровне сделки. Маршрут не меняет основную страницу сделки и не заявляет внешний PDF, ЭДО, КЭП, банковую или ФГИС-интеграцию.
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href={`/platform-v7/deals/${dealId}`} style={btn('primary')}>Назад к сделке</Link>

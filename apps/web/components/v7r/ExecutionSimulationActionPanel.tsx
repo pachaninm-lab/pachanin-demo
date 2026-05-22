@@ -101,7 +101,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
   const createLot: ActionCard = {
     id: 'createLot',
     title: '1. Создать лот',
-    description: 'Создаёт новый sandbox-лот с объёмом и ценой, чтобы дальше провести его до сделки.',
+    description: 'Создаёт новый лот с объёмом и ценой, чтобы дальше провести его до сделки.',
     command: flowLot ? null : {
       type: 'createLot',
       actor: seller,
@@ -128,7 +128,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
 
   const acceptOffer: ActionCard = {
     id: 'acceptOffer',
-    title: '3. Акцептовать оффер',
+    title: '3. Принять предложение',
     description: 'Показывает переход от лота к будущей сделке без обхода платформы.',
     command: flowLot ? {
       type: 'acceptOffer',
@@ -137,13 +137,13 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       now,
       runtimeLabel: 'sandbox'
     } : null,
-    disabledReason: !flowLot ? 'Сначала создай и опубликуй лот' : flowLot.status !== 'published' ? 'Оффер доступен только после публикации' : undefined
+    disabledReason: !flowLot ? 'Сначала создай и опубликуй лот' : flowLot.status !== 'published' ? 'Предложение доступно только после публикации' : undefined
   };
 
   const createDeal: ActionCard = {
     id: 'createDeal',
     title: '4. Создать сделку',
-    description: 'Формирует deal object — центр дальнейшего исполнения, денег, документов и спора.',
+    description: 'Формирует сделку — центр дальнейшего исполнения, денег, документов и спора.',
     command: flowLot ? {
       type: 'createDeal',
       actor: operator,
@@ -151,13 +151,13 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
       now,
       runtimeLabel: 'sandbox'
     } : null,
-    disabledReason: !flowLot ? 'Сначала проведи лот до оффера' : flowLot.status !== 'offer_accepted' ? 'Сделка создаётся только после акцепта оффера' : undefined
+    disabledReason: !flowLot ? 'Сначала проведи лот до принятого предложения' : flowLot.status !== 'offer_accepted' ? 'Сделка создаётся только после принятого предложения' : undefined
   };
 
   const reserveRequest: ActionCard = {
     id: 'requestReserve',
     title: '5. Запросить резерв',
-    description: 'Проверяет банковое idempotency-правило и создаёт money event по сделке.',
+    description: 'Проверяет банковское правило повторной отправки и создаёт денежное событие по сделке.',
     command: flowDeal ? {
       type: 'requestReserve',
       actor: buyer,
@@ -284,13 +284,13 @@ export function ExecutionSimulationActionPanel() {
 
   return (
     <P7Card
-      title='Simulation-grade действия сделки'
-      subtitle='Новый domain-core уже подключён к интерфейсу: действия меняют состояние, пишут audit/timeline, показывают disabled/error/success и не трогают live-интеграции.'
+      title='Проверочные действия сделки'
+      subtitle='Правила сделки подключены к интерфейсу: действия меняют состояние, пишут журнал и показывают доступность без вызова внешних систем.'
       testId='execution-simulation-action-panel'
     >
       <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-          <Metric label='GMV sandbox' value={compactRub(kpis.totalGmvRub)} />
+          <Metric label='Оборот сценария' value={compactRub(kpis.totalGmvRub)} />
           <Metric label='К выпуску' value={compactRub(kpis.readyForReleaseRub)} />
           <Metric label='Открытых споров' value={String(kpis.openDisputes)} />
           <Metric label='Текущий статус' value={statusLabel(flowDeal?.status)} />

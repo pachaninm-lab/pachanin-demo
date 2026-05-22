@@ -51,7 +51,7 @@ export default function RouteDetailPage({ params }: { params: { routeId: string 
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
         {[
-          { label: 'ETA',       value: route.eta    },
+          { label: 'Прибытие',  value: route.eta    },
           { label: 'Осталось',  value: route.km > 0 ? `${route.km} км` : 'Прибыл' },
           { label: 'Сделка',    value: route.dealId },
           { label: 'Водитель',  value: route.driver },

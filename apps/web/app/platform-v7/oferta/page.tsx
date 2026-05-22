@@ -27,7 +27,7 @@ const MODULE_LINKS = [
   },
   {
     title: 'Банковый контур',
-    note: 'Release, callbacks, factor/escrow и transport gate оформлены в отдельную поверхность.',
+    note: 'Release, события банка, factor/escrow и transport gate оформлены в отдельную поверхность.',
     href: '/platform-v7/bank',
   },
   {

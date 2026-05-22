@@ -4,7 +4,7 @@ const DISPUTE_IDS = ['DK-2024-89', 'DK-2024-91'];
 
 function toneToken(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   if (tone === 'success') return { label: 'Готов к разбору', background: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  if (tone === 'warning') return { label: 'Нужна проверка', background: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
+  if (tone === 'warning') return { label: 'Ожидает сверки', background: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
   if (tone === 'danger') return { label: 'Неполный пакет', background: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
   return { label: 'Зафиксирован', background: '#F8FAFB', border: '#E4E6EA', color: '#475569' };
 }
@@ -16,13 +16,13 @@ export function P7EvidenceReadinessAuditStrip() {
     <section data-testid="evidence-readiness-audit-strip" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Evidence readiness audit</div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Готовность доказательств</div>
           <div style={{ marginTop: 8, maxWidth: 820, fontSize: 13, lineHeight: 1.65, color: '#5B6576' }}>
-            E9 guard layer: пакет доказательств проверяется как набор evidence objects, а не как ручной счётчик документов.
+            Пакет доказательств проверяется как связанный набор фактов, а не как ручной счётчик документов.
           </div>
         </div>
         <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 900 }}>
-          Controlled pilot · no live upload
+          controlled-pilot · внешняя загрузка не заявлена
         </span>
       </div>
 
@@ -44,8 +44,8 @@ export function P7EvidenceReadinessAuditStrip() {
               <div style={{ fontSize: 12, lineHeight: 1.45, color: '#475569' }}>{row.totalLabel}</div>
 
               <div style={{ display: 'grid', gap: 6 }}>
-                {(row.blockers.length ? row.blockers : ['Нет blockers']).slice(0, 4).map((label) => (
-                  <div key={label} style={{ fontSize: 12, lineHeight: 1.45, color: '#475569' }}>• {label}</div>
+                {(row.blockers.length ? row.blockers : ['Нет блокеров']).slice(0, 4).map((label) => (
+                  <div key={label} style={{ fontSize: 12, lineHeight: 1.45, color: '#475569' }}>• {label.replace(/\bblockers\b/gi, 'блокеров').replace(/\bblocker\b/gi, 'блокер')}</div>
                 ))}
               </div>
             </article>

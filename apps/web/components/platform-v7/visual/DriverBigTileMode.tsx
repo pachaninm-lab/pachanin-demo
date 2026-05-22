@@ -112,7 +112,7 @@ export function DriverBigTileMode({
             </span>
             {eta && (
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--p7-color-success, #027A48)' }}>
-                ETA {eta}
+                Прибытие {eta}
               </span>
             )}
           </div>

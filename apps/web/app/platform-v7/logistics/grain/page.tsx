@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 const steps = [
   { title: 'Заявка', value: 'LOG-REQ-2403', note: 'Создана после принятого оффера и сделки DL-9106.', href: '/platform-v7/logistics/inbox' },
-  { title: 'Водитель', value: 'Водитель А · Р***ТУ', note: 'Рейс в пути, 62% маршрута, ETA 14:28.', href: '/platform-v7/driver' },
+  { title: 'Водитель', value: 'Водитель А · Р***ТУ', note: 'Рейс в пути, 62% маршрута, прибытие 14:28.', href: '/platform-v7/driver' },
   { title: 'Элеватор', value: 'ВРЖ-08', note: 'Ожидается прибытие, взвешивание, проба и приёмка.', href: '/platform-v7/elevator/terminal' },
   { title: 'Документы', value: 'ЭТрН · СДИЗ · ГИС ЭПД', note: 'Пакет перевозки должен быть закрыт до финального исполнения.', href: '/platform-v7/deals/grain-sdiz' },
 ] as const;

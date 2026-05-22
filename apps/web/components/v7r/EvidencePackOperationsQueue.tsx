@@ -55,28 +55,28 @@ export function EvidencePackOperationsQueue({ decision = 'all', missing = 'all' 
     <section data-testid='evidence-pack-operations-queue' style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
         <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Evidence queue · missing filter parsing · sandbox
+          Очередь доказательств · проверочный контур
         </div>
         <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.15, fontWeight: 900, color: T }}>
           Очередь доказательных пакетов
         </div>
         <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 880 }}>
-          Операционная очередь показывает, какие сделки готовы к sandbox-preview, какие требуют review, а какие удерживают деньги из-за спора. Это не live PDF/ЭДО/КЭП export и не банковская интеграция.
+          Операционная очередь показывает, какие сделки готовы к просмотру, какие требуют проверки, а какие удерживают деньги из-за спора. Это не внешний PDF/ЭДО/КЭП экспорт и не банковская интеграция.
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
         <Metric label='Средняя готовность' value={`${avgScore}%`} tone={avgScore >= 80 ? 'accent' : 'default'} />
-        <Metric label='Hold' value={String(holdCount)} tone={holdCount > 0 ? 'danger' : 'accent'} />
-        <Metric label='Review' value={String(reviewCount)} tone={reviewCount > 0 ? 'default' : 'accent'} />
-        <Metric label='Can release' value={String(readyCount)} tone='accent' />
+        <Metric label='Удержано' value={String(holdCount)} tone={holdCount > 0 ? 'danger' : 'accent'} />
+        <Metric label='На проверке' value={String(reviewCount)} tone={reviewCount > 0 ? 'default' : 'accent'} />
+        <Metric label='К выпуску' value={String(readyCount)} tone='accent' />
       </div>
 
       <DecisionControls active={decision} />
 
       {missing !== 'all' ? (
         <div data-testid='active-missing-filter' style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 12, padding: 10, fontSize: 12, color: WARN, fontWeight: 900 }}>
-          Missing filter: {missing}
+          Фильтр недостающих данных: {missingLabel(missing)}
         </div>
       ) : null}
 
@@ -97,9 +97,9 @@ export function EvidencePackOperationsQueue({ decision = 'all', missing = 'all' 
 function DecisionControls({ active }: { active: DecisionFilter }) {
   const items: Array<{ label: string; value: DecisionFilter; href: string }> = [
     { label: 'Все', value: 'all', href: '/platform-v7/evidence-pack' },
-    { label: 'Hold', value: 'Hold', href: '/platform-v7/evidence-pack?decision=Hold' },
-    { label: 'Review', value: 'Review', href: '/platform-v7/evidence-pack?decision=Review' },
-    { label: 'Can release', value: 'Can release', href: '/platform-v7/evidence-pack?decision=Can%20release' },
+    { label: 'Удержано', value: 'Hold', href: '/platform-v7/evidence-pack?decision=Hold' },
+    { label: 'На проверке', value: 'Review', href: '/platform-v7/evidence-pack?decision=Review' },
+    { label: 'К выпуску', value: 'Can release', href: '/platform-v7/evidence-pack?decision=Can%20release' },
   ];
 
   return (
@@ -130,7 +130,7 @@ function QueueCard({ row }: { row: QueueRow }) {
           <div style={{ color: M, fontSize: 12, lineHeight: 1.5 }}>{row.blocker}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Link href={`/platform-v7/deals/${row.deal.id}/evidence-pack`} style={btn('primary')}>Preview</Link>
+          <Link href={`/platform-v7/deals/${row.deal.id}/evidence-pack`} style={btn('primary')}>Открыть пакет</Link>
           <Link href={`/platform-v7/deals/${row.deal.id}`} style={btn()}>Сделка</Link>
         </div>
       </div>
@@ -138,11 +138,11 @@ function QueueCard({ row }: { row: QueueRow }) {
       <MissingHints row={row} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8 }}>
-        <Metric label='Readiness' value={`${row.score}%`} tone={row.score >= 80 ? 'accent' : 'default'} compact />
-        <Metric label='Decision' value={row.decision} tone={decisionTone} compact />
-        <Metric label='Evidence' value={String(row.evidenceCount)} compact />
-        <Metric label='Audit' value={String(row.auditCount)} compact />
-        <Metric label='Timeline' value={String(row.timelineCount)} compact />
+        <Metric label='Готовность' value={`${row.score}%`} tone={row.score >= 80 ? 'accent' : 'default'} compact />
+        <Metric label='Решение' value={decisionLabel(row.decision)} tone={decisionTone} compact />
+        <Metric label='Доказательства' value={String(row.evidenceCount)} compact />
+        <Metric label='Журнал' value={String(row.auditCount)} compact />
+        <Metric label='Линия событий' value={String(row.timelineCount)} compact />
       </div>
     </div>
   );
@@ -156,7 +156,7 @@ function MissingHints({ row }: { row: QueueRow }) {
         const ok = hint === 'none';
         return (
           <Link key={hint} href={ok ? `/platform-v7/deals/${row.deal.id}/evidence-pack` : `/platform-v7/evidence-pack?decision=Review&missing=${hint}`} style={{ textDecoration: 'none', borderRadius: 999, padding: '6px 9px', background: ok ? BRAND_BG : WARN_BG, border: `1px solid ${ok ? BRAND_BORDER : WARN_BORDER}`, color: ok ? BRAND : WARN, fontSize: 11, fontWeight: 900 }}>
-            {ok ? 'No missing data' : `Needs ${hint}`}
+            {ok ? 'Данные полные' : `Нужно: ${missingLabel(hint)}`}
           </Link>
         );
       })}
@@ -181,10 +181,10 @@ function buildRows(state: DomainExecutionState): QueueRow[] {
     const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
     const decision: QueueRow['decision'] = hasDispute ? 'Hold' : score >= 80 ? 'Can release' : 'Review';
     const blocker = hasDispute
-      ? 'Активный спор или dispute marker: выпуск денег требует review/арбитражного маршрута.'
+      ? 'Активный спор: выпуск денег требует проверки или арбитражного маршрута.'
       : score >= 80
-        ? 'Пакет готов к sandbox-preview: evidence, audit, timeline и документы связаны.'
-        : 'Пакет требует данных: не хватает evidence, audit, timeline или документной готовности.';
+        ? 'Пакет готов к просмотру: доказательства, журнал, линия событий и документы связаны.'
+        : 'Пакет требует данных: не хватает доказательств, журнала, линии событий или документной готовности.';
 
     return { deal, dispute, evidenceCount, auditCount, timelineCount, score, decision, blocker, missingHints };
   });
@@ -208,6 +208,24 @@ function compactRub(value: number) {
 
 function human(value: string) {
   return value.replace(/_/g, ' ').toLowerCase().replace(/^./, (char) => char.toUpperCase());
+}
+
+function decisionLabel(value: QueueRow['decision']) {
+  if (value === 'Hold') return 'Удержано';
+  if (value === 'Can release') return 'К выпуску';
+  return 'На проверке';
+}
+
+function missingLabel(value: MissingFilter | MissingHint) {
+  const labels: Record<string, string> = {
+    evidence: 'доказательства',
+    audit: 'журнал',
+    timeline: 'линия событий',
+    documents: 'документы',
+    none: 'нет пропусков',
+    all: 'все',
+  };
+  return labels[value] || value;
 }
 
 function btn(kind: 'default' | 'primary' = 'default') {

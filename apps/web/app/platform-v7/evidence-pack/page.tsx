@@ -17,13 +17,13 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 11, color: '#0A7A5F', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Evidence export readiness · sandbox
+          Готовность доказательств · проверочный контур
         </div>
         <h1 style={{ margin: 0, fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
-          Evidence pack operations
+          Операции с доказательными пакетами
         </h1>
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#6B778C', maxWidth: 860 }}>
-          Операционный индекс доказательных пакетов. Это sandbox-навигация: она не запускает live PDF, ЭДО, КЭП, банк, ФГИС или СберКорус.
+          Операционный индекс доказательных пакетов. Навигация не запускает внешний PDF, ЭДО, КЭП, банк, ФГИС или СберКорус.
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/deals' style={btn('primary')}>Сделки</Link>
@@ -36,7 +36,7 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
       <EvidencePackOperationsQueue decision={decision} missing={missing} />
 
       <section data-testid='evidence-pack-index' style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Доступные preview-пакеты</div>
+        <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Доступные пакеты для просмотра</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
           {SAMPLE_DEALS.map((dealId) => (
             <Link
@@ -45,8 +45,8 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
               style={{ textDecoration: 'none', border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, background: '#F8FAFB', display: 'grid', gap: 6 }}
             >
               <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#0A7A5F', fontWeight: 900, fontSize: 13 }}>{dealId}</span>
-              <span style={{ color: '#0F1419', fontWeight: 800, fontSize: 14 }}>Открыть evidence pack preview</span>
-              <span style={{ color: '#6B778C', fontSize: 12, lineHeight: 1.5 }}>Sandbox preview доказательств, спора, денег, audit и timeline.</span>
+              <span style={{ color: '#0F1419', fontWeight: 800, fontSize: 14 }}>Открыть доказательный пакет</span>
+              <span style={{ color: '#6B778C', fontSize: 12, lineHeight: 1.5 }}>Проверочный просмотр доказательств, спора, денег, журнала и линии событий.</span>
             </Link>
           ))}
         </div>

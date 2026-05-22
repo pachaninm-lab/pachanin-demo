@@ -444,7 +444,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
               );
             })}
           </div>
-          {deal.routeState ? <div style={{ marginTop: 10, fontSize: 12, color: '#6B778C', wordBreak: 'break-word' }}>Маршрут: {deal.routeState}{deal.routeEta ? ` · ETA ${deal.routeEta}` : ''}</div> : null}
+          {deal.routeState ? <div style={{ marginTop: 10, fontSize: 12, color: '#6B778C', wordBreak: 'break-word' }}>Маршрут: {deal.routeState}{deal.routeEta ? ` · прибытие ${deal.routeEta}` : ''}</div> : null}
         </section>
 
         <DocumentsDropzone dealId={deal.id} />

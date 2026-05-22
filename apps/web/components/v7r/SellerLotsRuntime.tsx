@@ -69,7 +69,7 @@ export function SellerLotsRuntime() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Всего лотов' value={String(mergedLots.length)} note='Все видимые лоты текущего контура.' />
         <StatCard title='Готовы к движению' value={String(passCount)} note='Можно идти в переговоры без ручного gate.' />
-        <StatCard title='Нужна проверка' value={String(reviewCount)} note='Есть manual- или документные блокеры.' />
+        <StatCard title='Ожидает сверки' value={String(reviewCount)} note='Есть ручные или документные блокеры.' />
         <StatCard title='Жёсткий стоп' value={String(failCount)} note='Gate FAIL, движение дальше запрещено.' />
       </div>
 

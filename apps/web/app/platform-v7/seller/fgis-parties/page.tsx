@@ -51,11 +51,11 @@ export default function SellerFgisPartiesPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              ФГИС ЗЕРНО · <span style={{ color: WARN }}>sandbox</span>
+              ФГИС ЗЕРНО · <span style={{ color: WARN }}>проверочный контур</span>
             </div>
             <div style={{ fontSize: 26, fontWeight: 900, color: T, marginTop: 8, lineHeight: 1.1 }}>Мои партии ФГИС</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 760 }}>
-              Sandbox-экран показывает, как продавец будет начинать создание лота от подтверждённой партии. Реальных запросов к внешним системам здесь нет.
+              Проверочный контур-экран показывает, как продавец будет начинать создание лота от подтверждённой партии. Реальных запросов к внешним системам здесь нет.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -68,7 +68,7 @@ export default function SellerFgisPartiesPage() {
           <Chip label={`${parties.length} организации`} />
           <Chip label={`${parties.reduce((sum, party) => sum + party.batches.length, 0)} партий`} />
           <Chip label={`${lotPassportCount} паспортов лотов`} />
-          <Chip label='Интеграция: sandbox' tone='warn' />
+          <Chip label='Интеграция: проверочный контур' tone='warn' />
         </div>
       </section>
 
@@ -89,7 +89,7 @@ export default function SellerFgisPartiesPage() {
 function SandboxNotice() {
   return (
     <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
-      <div style={{ fontSize: 12, fontWeight: 800, color: WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Режим: sandbox</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Режим: проверочный контур</div>
       <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.5 }}>
         Данные демонстрационные. Они нужны для предпилотного сценария: партия → паспорт лота → лот → сделка. Боевой доступ, подпись, внешний реестр и проверка СДИЗ здесь не заявляются.
       </div>
@@ -125,7 +125,7 @@ function PartyCard({ party, isExpanded, onToggle }: { party: FGISParty; isExpand
           <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color }}>
             {tone.label}
           </span>
-          {party.lastSyncAt ? <span style={{ fontSize: 11, color: M }}>Sandbox sync: {new Date(party.lastSyncAt).toLocaleDateString('ru-RU')}</span> : null}
+          {party.lastSyncAt ? <span style={{ fontSize: 11, color: M }}>Проверочный контур sync: {new Date(party.lastSyncAt).toLocaleDateString('ru-RU')}</span> : null}
           <span style={{ fontSize: 18, color: M, userSelect: 'none' }}>{isExpanded ? '▲' : '▼'}</span>
         </div>
       </button>
@@ -170,7 +170,7 @@ function BatchRow({ batch }: { batch: FGISPartyBatch }) {
         </span>
       </div>
       {batch.sdizNumber ? <div style={{ fontSize: 12, color: M }}>СДИЗ: <span style={{ fontFamily: 'monospace', color: T }}>{batch.sdizNumber}</span></div> : null}
-      {batch.fgisRecordId ? <div style={{ fontSize: 12, color: M }}>FGIS sandbox ID: <span style={{ fontFamily: 'monospace', color: T }}>{batch.fgisRecordId}</span></div> : null}
+      {batch.fgisRecordId ? <div style={{ fontSize: 12, color: M }}>ID записи ФГИС в проверочном контуре: <span style={{ fontFamily: 'monospace', color: T }}>{batch.fgisRecordId}</span></div> : null}
     </div>
   );
 }

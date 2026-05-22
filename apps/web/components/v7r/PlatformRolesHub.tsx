@@ -28,7 +28,7 @@ type RouteStep = {
   role?: PlatformRole;
   actor: string;
   answer: string;
-  guard: string;
+  boundary: string;
 };
 
 const { deal, logistics, money, documents, readiness, dispute } = PLATFORM_V7_EXECUTION_SOURCE;
@@ -51,7 +51,7 @@ const CONTROL_ANSWERS = [
   {
     label: 'Где груз',
     value: `${logistics.orderId} / ${logistics.tripId} · ${logistics.currentLeg}`,
-    note: `${logistics.pickupPoint} → ${logistics.deliveryPoint}. ETA: ${logistics.eta}.`,
+    note: `${logistics.pickupPoint} → ${logistics.deliveryPoint}. Ожидаемое прибытие: ${logistics.eta}.`,
   },
   {
     label: 'Где документы',
@@ -78,15 +78,15 @@ const GUIDED_ROUTE: RouteStep[] = [
     role: 'seller',
     actor: 'КФХ / хозяйство',
     answer: `${deal.seller} публикует ${deal.lotId}: ${deal.crop}, ${formatTons(deal.volumeTons)}, базис — ${deal.basis}.`,
-    guard: 'Покупатели обезличены, виден числовой рейтинг. Кредитная линия продавцу не показывается.',
+    boundary: 'Покупатели обезличены, виден числовой рейтинг. Кредитная линия продавцу не показывается.',
   },
   {
     step: '02',
-    title: 'Deal 360',
+    title: 'Сделка',
     href: `/platform-v7/deals/${deal.id}/clean`,
     actor: 'единая карточка сделки',
     answer: `${deal.id} связывает лот, ставку, резервный контур, логистику, документы, деньги и спор.`,
-    guard: `Статус: ${deal.maturity}. Это controlled-pilot / simulation-grade, не live-integrated контур.`,
+    boundary: 'Статус: controlled-pilot / pre-integration. Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.',
   },
   {
     step: '03',
@@ -95,7 +95,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     role: 'bank',
     actor: 'финансовый партнёр',
     answer: `Сумма сделки: ${formatRub(expectedDealAmount)}. Резервный контур: ${formatRub(money.reservedRub)}. К выпуску сейчас: ${formatRub(money.releaseCandidateRub)}.`,
-    guard: 'Нет фальшивой кнопки выплаты: выпуск денег невозможен без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора.',
+    boundary: 'Нет фальшивой кнопки выплаты: выпуск денег невозможен без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора.',
   },
   {
     step: '04',
@@ -103,7 +103,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     href: '/platform-v7/documents',
     actor: 'ЭДО / ФГИС / КЭП',
     answer: `Договор: ${documents.contractStatus}; СДИЗ: ${documents.sdizStatus}; транспортный пакет: ${documents.transportPackStatus}.`,
-    guard: 'У каждого документа должен быть источник, ответственный, статус и влияние на выплату.',
+    boundary: 'У каждого документа должен быть источник, ответственный, статус и влияние на выплату.',
   },
   {
     step: '05',
@@ -112,7 +112,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     role: 'logistics',
     actor: 'перевозчик / диспетчер',
     answer: `${logistics.orderId}: перевозчик назначен, ${logistics.driverAlias}, машина ${logistics.vehicleMasked}, статус — ${logistics.currentLeg}.`,
-    guard: 'Логист видит рейс, маршрут, окна и инциденты. Ставки, цену зерна, банк, резерв и кредит не видит.',
+    boundary: 'Логист видит рейс, маршрут, окна и инциденты. Ставки, цену зерна, банк, резерв и кредит не видит.',
   },
   {
     step: '06',
@@ -121,7 +121,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     role: 'driver',
     actor: 'полевой мобильный контур',
     answer: `${logistics.tripId}: один рейс, маршрут, обязательные шаги, фотофиксация, проблема и офлайн-очередь.`,
-    guard: 'Водитель не видит деньги, ставки, банк, покупателя и кредит. Только исполнение своего рейса.',
+    boundary: 'Водитель видит только маршрут, шаги рейса, фотофиксацию и инциденты по своему заданию.',
   },
   {
     step: '07',
@@ -130,7 +130,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     role: 'elevator',
     actor: 'элеватор / лаборатория',
     answer: 'Вес, акт приёмки, качество и протокол формируют расчётную базу и возможную качественную дельту.',
-    guard: 'Приёмка не видит ставки, цену, банк, резерв и кредит. Только факт, вес, качество, акт и отклонения.',
+    boundary: 'Приёмка видит только факт, вес, качество, акт и отклонения.',
   },
   {
     step: '08',
@@ -138,7 +138,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     href: '/platform-v7/disputes',
     actor: 'стороны / арбитр / оператор',
     answer: `Статус спора: ${dispute.status}. Доказательств в пакете: ${dispute.evidenceCount}.`,
-    guard: 'Спор имеет причину, сумму влияния, SLA, владельца и пакет доказательств. Он не решается устной перепиской.',
+    boundary: 'Спор имеет причину, сумму влияния, срок, владельца и пакет доказательств. Он не решается устной перепиской.',
   },
   {
     step: '09',
@@ -147,7 +147,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     role: 'operator',
     actor: 'центр исполнения',
     answer: `Готовность контура: ${readinessScore}%. Первый блокер: ${firstBlocker}.`,
-    guard: 'Оператор видит блокер, сумму влияния, ответственного и следующий шаг. Без тихого ручного обхода.',
+    boundary: 'Оператор видит блокер, сумму влияния, ответственного и следующий шаг. Без тихого ручного обхода.',
   },
 ];
 
@@ -158,7 +158,7 @@ const ROLE_CARDS: RoleCard[] = [
     role: 'seller',
     accent: '#0A7A5F',
     focus: 'продать зерно и дойти до денег без ручного хаоса',
-    sees: `${deal.lotId}, обезличенные офферы, рейтинг покупателей, свои документы, рейсы, расчётный лист`,
+    sees: `${deal.lotId}, обезличенные предложения, рейтинг покупателей, свои документы, рейсы, расчётный лист`,
     hidden: 'кредитная линия покупателя, чужие ставки закрытого режима, банковая внутренняя логика',
   },
   {
@@ -167,7 +167,7 @@ const ROLE_CARDS: RoleCard[] = [
     role: 'buyer',
     accent: '#2563EB',
     focus: 'закупить объём с контролем качества, маршрута, документов и денег',
-    sees: 'доступные лоты, свою ставку, свой резервный контур, Сбер · Оплата в кредит, приёмку и документы',
+    sees: 'доступные партии, свою ставку, свой расчётный контур, банковское основание, приёмку и документы',
     hidden: 'чужие закрытые ставки и внутренние данные продавца вне допуска',
   },
   {
@@ -211,12 +211,12 @@ const ROLE_CARDS: RoleCard[] = [
     href: '/platform-v7/control-tower',
     role: 'operator',
     accent: '#991B1B',
-    focus: 'снимать узкие места и вести сделку по SLA',
+    focus: 'снимать узкие места и вести сделку по срокам',
     sees: 'блокер, сумму влияния, владельца шага, следующий ответственный шаг, журнал действий',
     hidden: 'тихое редактирование первичных фактов и ручной обход без следа',
   },
   {
-    title: 'Deal 360',
+    title: 'Сделка',
     href: `/platform-v7/deals/${deal.id}/clean`,
     accent: '#334155',
     focus: 'единая правда по сделке',
@@ -251,7 +251,7 @@ const DOCUMENT_FLOW = [
   },
   {
     name: 'ЭТрН / транспортный пакет',
-    source: 'СБИС / Saby + ГИС ЭПД',
+    source: 'ЭДО-провайдер + ГИС ЭПД',
     owner: 'логист + перевозчик',
     status: documents.transportPackStatus,
     impact: 'блокирует закрытие рейса и транспортное основание',
@@ -359,7 +359,7 @@ function RouteStepCard({ route }: { route: RouteStep }) {
         <span style={openPill}>открыть</span>
       </div>
       <p style={{ margin: 0, color: '#334155', fontSize: 14, lineHeight: 1.55 }}>{route.answer}</p>
-      <p style={{ margin: 0, borderRadius: 16, border: '1px solid #E4E6EA', background: '#F8FAFB', padding: 12, color: '#64748B', fontSize: 13, lineHeight: 1.5 }}>{route.guard}</p>
+      <p style={{ margin: 0, borderRadius: 16, border: '1px solid #E4E6EA', background: '#F8FAFB', padding: 12, color: '#64748B', fontSize: 13, lineHeight: 1.5 }}>{route.boundary}</p>
     </Link>
   );
 }
@@ -373,14 +373,14 @@ export function PlatformRolesHub() {
         <div style={{ display: 'grid', gap: 12, maxWidth: 940 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <span style={statusPill}>controlled-pilot</span>
-            <span style={statusPill}>simulation-grade</span>
-            <span style={statusPill}>не production-ready</span>
+            <span style={statusPill}>pre-integration</span>
+            <span style={statusPill}>внешние статусы ожидаются</span>
           </div>
           <h1 style={{ margin: 0, fontSize: 'clamp(34px, 8.5vw, 64px)', lineHeight: 1.01, letterSpacing: '-0.058em', fontWeight: 950, color: '#0F1419' }}>
             Маршрут сделки за 3 минуты
           </h1>
           <p style={{ margin: 0, fontSize: 17, lineHeight: 1.62, color: '#475569', maxWidth: 780 }}>
-            Главная страница показывает не «одинаковую платформу для всех», а один понятный контур исполнения: продавец → Deal 360 → банк → документы → логистика → водитель → приёмка → спор → оператор.
+            Главная страница показывает не «одинаковую платформу для всех», а один понятный контур исполнения: продавец → сделка → банк → документы → логистика → водитель → приёмка → спор → оператор.
           </p>
         </div>
 
@@ -396,7 +396,7 @@ export function PlatformRolesHub() {
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/seller?as=seller' onClick={() => setRole('seller')} style={darkButton}>Начать с продавца</Link>
-            <Link href={`/platform-v7/deals/${deal.id}/clean`} style={lightButton}>Открыть Deal 360</Link>
+            <Link href={`/platform-v7/deals/${deal.id}/clean`} style={lightButton}>Открыть сделку</Link>
             <Link href='/platform-v7/bank?as=bank' onClick={() => setRole('bank')} style={lightButton}>Условия выпуска</Link>
             <Link href='/platform-v7/driver?as=driver' onClick={() => setRole('driver')} style={lightButton}>Рейс водителя</Link>
           </div>
@@ -492,7 +492,7 @@ export function PlatformRolesHub() {
       <section style={{ border: '1px solid #E4E6EA', borderRadius: 24, padding: 16, background: '#F8FAFB', display: 'grid', gap: 6 }}>
         <div style={microLabel}>честная граница показа</div>
         <p style={{ margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.6 }}>
-          Это сильный controlled-pilot маршрут и единый контур исполнения. Он не заявляет production-ready, live-integrated или полностью боевой статус внешних систем. ФГИС, ЭДО, ГИС ЭПД, КЭП и банковый контур показаны как управляемые маршруты и адаптеры, требующие договоров, доступов и подтверждения на реальных сделках.
+          Это сильный controlled-pilot маршрут и единый контур исполнения. Он не заявляет подтверждённый боевой статус внешних систем. ФГИС, ЭДО, ГИС ЭПД, КЭП и банковый контур показаны как управляемые маршруты и адаптеры, требующие договоров, доступов и подтверждения на реальных сделках.
         </p>
       </section>
     </main>

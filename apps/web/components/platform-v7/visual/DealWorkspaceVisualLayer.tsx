@@ -87,6 +87,13 @@ export function DealWorkspaceVisualLayer({
   const [causesOpen, setCausesOpen] = React.useState(false);
 
   const isBlocked = dealStatus === 'blocked' || lockState === 'blocked-docs' || lockState === 'blocked-dispute' || lockState === 'hold';
+  const primaryCause = causeLines[0];
+  const moneyPressure =
+    lockState === 'hold' || lockState === 'blocked-dispute'
+      ? { label: 'Давление: высокое', tone: '#B91C1C', bg: 'var(--p7-color-danger-soft, #FEF3F2)' }
+      : lockState === 'blocked-docs' || lockState === 'manual-review'
+        ? { label: 'Давление: среднее', tone: '#B54708', bg: 'var(--p7-color-warning-soft, #FFFAEB)' }
+        : { label: 'Давление: низкое', tone: '#027A48', bg: 'var(--p7-color-success-soft, #ECFDF3)' };
 
   function handlePrimaryAction() {
     if (!primaryAction) return;
@@ -146,8 +153,48 @@ export function DealWorkspaceVisualLayer({
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}
       >
         <FocusDetailMode mode={focusMode} onChange={setFocusMode} />
-        <TrustDot state='test' size='sm' label='Тестовый контур · Внешние подключения требуют договоров' />
+        <TrustDot state='test' size='sm' label='тестовый контур' />
       </div>
+
+      {/* ── ABOVE FOLD: money pressure + cause-to-money line ── */}
+      <div
+        data-testid='p7-vil-money-pressure'
+        style={{
+          display: 'grid',
+          gap: 8,
+          padding: '12px 14px',
+          borderRadius: 16,
+          border: '1px solid color-mix(in srgb, var(--p7-color-money, #155EEF) 24%, transparent)',
+          background: 'linear-gradient(180deg, var(--pc-bg-card, #FFFFFF) 0%, var(--p7-color-money-soft, #EFF4FF) 100%)',
+          marginBottom: 6,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gap: 3, minWidth: 0 }}>
+            <span style={{ color: 'var(--p7-color-text-muted, #667085)', fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Деньги под давлением
+            </span>
+            <strong style={{ color: 'var(--p7-color-money, #155EEF)', fontSize: 22, lineHeight: 1.08, fontWeight: 950 }}>
+              {totalMoney} {isBlocked ? 'стоят' : 'готовы к движению'}
+            </strong>
+          </div>
+          <span style={{ borderRadius: 999, padding: '5px 9px', background: moneyPressure.bg, color: moneyPressure.tone, fontSize: 11, fontWeight: 900 }}>
+            {moneyPressure.label}
+          </span>
+        </div>
+        <div style={{ color: 'var(--p7-color-text-secondary, #475569)', fontSize: 12, lineHeight: 1.45, fontWeight: 650 }}>
+          Причина: {lockReason ?? hintProblem ?? (isBlocked ? 'условия сделки не закрыты' : 'критичных блокеров нет')}
+        </div>
+        {primaryCause ? (
+          <CauseLine {...primaryCause} compact data-testid='p7-vil-primary-cause-to-money' />
+        ) : null}
+      </div>
+
+      {proofItems ? (
+        <div style={{ marginBottom: 4 }}>
+          <ProofRibbon items={proofItems} compact data-testid='p7-vil-evidence-ribbon' />
+        </div>
+      ) : null}
 
       {/* ── IN-CONTENT: section summaries (focus mode — compact, after deal header) ── */}
       {focusMode === 'focus' && (docSummary || tripSummary || qualitySummary || disputeSummary) && (
@@ -254,8 +301,9 @@ export function DealWorkspaceVisualLayer({
         onConfirm={handleConfirmAction}
         title={primaryAction ? `Вы выполняете: ${primaryAction.label}.` : ''}
         changes={[
+          { area: 'документы', before: isBlocked ? 'блокируют' : undefined, after: 'уйдут в проверку основания', tone: 'neutral' },
+          { area: 'деньги', before: isBlocked ? 'стоят' : undefined, after: 'ожидают подтверждения банка', tone: 'money' },
           { area: 'журнал', after: 'будет создана запись', tone: 'neutral' },
-          { area: 'деньги', after: 'изменится статус', tone: 'money' },
         ]}
         loading={actionLoading}
         mobile={typeof window !== 'undefined' && window.innerWidth < 768}
@@ -266,8 +314,8 @@ export function DealWorkspaceVisualLayer({
         visible={receiptVisible}
         onClose={() => setReceiptVisible(false)}
         title={`${primaryAction?.label ?? 'Действие'} выполнено.`}
-        notes={['Журнал обновлён.']}
-        nextAction='Проверьте статус следующего блокера.'
+        notes={['Журнал обновлён.', 'Основание и деньги перешли в следующий статус проверки.']}
+        nextAction='Дождаться подтверждения банка или закрыть следующий блокер.'
         journalHref={`/platform-v7/deals/${dealId}/audit`}
         tone='ok'
       />

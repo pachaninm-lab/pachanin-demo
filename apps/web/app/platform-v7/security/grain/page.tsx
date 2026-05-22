@@ -3,7 +3,7 @@ import Link from 'next/link';
 const signals = [
   { title: 'Аномалия доступа', value: 'новое устройство', note: 'Вход в роль с нового устройства требует подтверждения и записи в журнал.', href: '/platform-v7/profile/team', tone: 'warn' },
   { title: 'Ручное исключение', value: 'запрещено', note: 'Исключение по документу или выплате не проходит без основания и ответственного.', href: '/platform-v7/documents/grain', tone: 'stop' },
-  { title: 'Маршрут риска', value: 'расхождение ETA', note: 'Отклонение рейса от маршрута связывается с логистикой, документами и доказательствами.', href: '/platform-v7/logistics/grain', tone: 'warn' },
+  { title: 'Маршрут риска', value: 'расхождение ожидаемое прибытие', note: 'Отклонение рейса от маршрута связывается с логистикой, документами и доказательствами.', href: '/platform-v7/logistics/grain', tone: 'warn' },
   { title: 'Финансовый сигнал', value: 'выпуск закрыт', note: 'Любая попытка выпуска без условий отправляется в антиобход и комплаенс.', href: '/platform-v7/settlement/grain', tone: 'stop' },
 ] as const;
 

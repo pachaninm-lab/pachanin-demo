@@ -56,6 +56,14 @@ function Badge({ tone, children }: { tone: Tone; children: React.ReactNode }) {
   );
 }
 
+function bankEventLabel(value: string) {
+  return value
+    .replace(/\bcallback\b/gi, 'событие банка')
+    .replace(/\brelease\b/gi, 'выпуск')
+    .replace(/\bhold\b/gi, 'удержание')
+    .replace(/\breserve\b/gi, 'основание');
+}
+
 function Card({ title, value, subtitle, href }: { title: string; value: string; subtitle: string; href?: string }) {
   const body = (
     <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, minHeight: 116 }}>
@@ -356,15 +364,15 @@ export function CatchAllPage() {
             <Card title="Машины в рейсе" value="12" subtitle="Активный парк по открытым сделкам" />
             <Card title="Ожидают приёмку" value="3" subtitle="Очередь на элеваторе и разгрузке" />
             <Card title="Отклонения маршрута" value="1" subtitle="Требует внимания диспетчера" />
-            <Card title="Средний ETA" value="1 ч 24 мин" subtitle="До ближайшей точки прибытия" />
+            <Card title="Среднее прибытие" value="1 ч 24 мин" subtitle="До ближайшей точки прибытия" />
           </div>
-          <Panel title="Логистика" subtitle="Диспетчерская по рейсам, очередям, ETA и проблемным точкам.">
+          <Panel title="Логистика" subtitle="Диспетчерская по рейсам, очередям, ожидаемому прибытию и проблемным точкам.">
             <div style={{ display: 'grid', gap: 10 }}>
               {[{ route: 'Маршрут ТМБ-14', status: 'Прибыл · расхождение по качеству', eta: '14:28', note: 'Требуется разбор лабораторной пробы, машина на элеваторе', href: '/platform-v7/deals/DL-9102' }, { route: 'Маршрут ВРЖ-08', status: 'Ожидание погрузки', eta: '16:10', note: 'Требуется подтверждение склада', href: '/platform-v7/deals/DL-9106' }, { route: 'Маршрут КРС-03', status: 'На приёмке', eta: 'сейчас', note: 'Идёт разгрузка на элеваторе', href: '/platform-v7/deals/DL-9103' }].map((row) => (
                 <div key={row.route} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, alignItems: 'center' }}>
                   <div><div style={{ fontSize: 15, fontWeight: 800 }}>{row.route}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{row.note}</div></div>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{row.status}</div>
-                  <div style={{ fontSize: 13, color: '#0F1419' }}>ETA: {row.eta}</div>
+                  <div style={{ fontSize: 13, color: '#0F1419' }}>Прибытие: {row.eta}</div>
                   <Btn label="Открыть связанную сделку" href={row.href} />
                 </div>
               ))}
@@ -383,7 +391,7 @@ export function CatchAllPage() {
             </div>
           </Panel>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-            <Panel title="Маршрут" subtitle="Короткая логика движения, текущая точка и ожидаемое прибытие."><div style={{ display: 'grid', gap: 10 }}><div style={{ fontSize: 13 }}>Хозяйство Ковалёв · старт погрузки</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0A7A5F' }}>Текущая точка · 51.2934, 37.2185</div><div style={{ fontSize: 13, color: '#475569' }}>Элеватор Чернозёмный · ETA 14:30</div></div></Panel>
+            <Panel title="Маршрут" subtitle="Короткая логика движения, текущая точка и ожидаемое прибытие."><div style={{ display: 'grid', gap: 10 }}><div style={{ fontSize: 13 }}>Хозяйство Ковалёв · старт погрузки</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0A7A5F' }}>Текущая точка · 51.2934, 37.2185</div><div style={{ fontSize: 13, color: '#475569' }}>Элеватор Чернозёмный · прибытие 14:30</div></div></Panel>
             <Panel title="Следующее действие" subtitle="Система показывает один ожидаемый шаг."><div style={{ padding: 16, borderRadius: 16, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.14)' }}><div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.25 }}>{fieldAction}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>Подтверждение уходит в контур сделки и становится основанием для следующего этапа.</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}><Btn label="Выполнить шаг" onClick={() => pushField(fieldAction)} tone="success" /><Btn label={isOnline ? 'Перейти офлайн' : 'Вернуться онлайн'} onClick={() => setIsOnline((p) => !p)} /></div></div></Panel>
           </div>
           <Panel title="Офлайн-очередь" subtitle="Если сеть пропала, события не теряются и ждут отправки.">
@@ -407,14 +415,14 @@ export function CatchAllPage() {
               <div>12.04.2026 09:15 — Резерв 6 240 000 ₽ подтверждён по DL-9102 <span style={{ color: '#16A34A' }}>✅</span></div>
               <div>12.04.2026 10:05 — Удержание 624 000 ₽ активировано (спор DK-2024-89) <span style={{ color: '#D97706' }}>⚠️</span></div>
               <div>12.04.2026 14:00 — Ожидание ручной проверки CB-442 (4 дня) <span style={{ color: '#DC2626' }}>❌</span></div>
-              <div>12.04.2026 15:30 — Запрос release по DL-9109 поступил на проверку <span style={{ color: '#0B6B9A' }}>ℹ️</span></div>
+              <div>12.04.2026 15:30 — Запрос выпуска по DL-9109 поступил на проверку <span style={{ color: '#0B6B9A' }}>ℹ️</span></div>
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
               {CALLBACKS.map((callback) => (
                 <div key={callback.id} style={{ background: callback.status === 'mismatch' ? 'rgba(220,38,38,0.04)' : '#fff', border: `1px solid ${callback.status === 'mismatch' ? 'rgba(220,38,38,0.16)' : '#E4E6EA'}`, borderRadius: 16, padding: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                     <div>
-                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13 }}>{callback.id} · {callback.type} · {callback.dealId}</div>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13 }}>{callback.id} · {bankEventLabel(callback.type)} · {callback.dealId}</div>
                       <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{callback.note}</div>
                       {callback.daysOpen ? <div style={{ fontSize: 11, color: '#DC2626', marginTop: 4 }}>Открыто {callback.daysOpen} дн.</div> : null}
                     </div>
@@ -474,7 +482,7 @@ export function CatchAllPage() {
                       <div><Badge tone="warning">{item.reasonCode}</Badge></div>
                       <div style={{ fontWeight: 700, color: '#B91C1C', fontSize: 13 }}>{formatCompactMoney(item.holdAmount)}</div>
                       <div style={{ fontSize: 12, color: '#0F1419' }}>Мяч у: <strong>{BALL_AT_LABELS[item.ballAt] ?? item.ballAt}</strong></div>
-                      <div style={{ fontSize: 12, color: '#6B778C' }}>SLA: {item.slaDaysLeft} дн.</div>
+                      <div style={{ fontSize: 12, color: '#6B778C' }}>Срок: {item.slaDaysLeft} дн.</div>
                     </div>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>

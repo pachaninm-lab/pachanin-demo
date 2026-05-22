@@ -9,23 +9,23 @@ type InboxItem = {
   title: string;
   note: string;
   action: string;
-  bucket: 'Критичные' | 'SLA' | 'Сделки' | 'Банк' | 'Логистика';
+  bucket: 'Критичные' | 'срок реакции' | 'Сделки' | 'Банк' | 'Логистика';
 };
 
 const INITIAL_ITEMS: InboxItem[] = [
   { id: 'N-101', type: 'critical', title: 'DL-9102: выпуск денег заблокирован', note: 'Открыт спор по качеству и не хватает пакета доказательств.', action: '/platform-v7/disputes/DSP-104', bucket: 'Критичные' },
-  { id: 'N-102', type: 'sla', title: 'DL-9107: истекает SLA оператора', note: 'До дедлайна осталось менее 4 часов.', action: '/platform-v7/control-tower', bucket: 'SLA' },
+  { id: 'N-102', type: 'sla', title: 'DL-9107: истекает срок реакции оператора', note: 'До дедлайна осталось менее 4 часов.', action: '/platform-v7/control-tower', bucket: 'срок реакции' },
   { id: 'N-103', type: 'bank', title: 'CB-441: банк подтвердил release', note: 'Деньги по сделке готовы к финальному отражению.', action: '/platform-v7/bank/events/CB-441', bucket: 'Банк' },
   { id: 'N-104', type: 'logistics', title: 'ТМБ-14: водитель подтвердил прибытие', note: 'Можно переходить к приёмке и акту.', action: '/platform-v7/logistics/%D0%A2%D0%9C%D0%91-14', bucket: 'Логистика' },
   { id: 'N-105', type: 'deal', title: 'LOT-2403: лот переведён в PASS', note: 'Документы и source reference прошли проверку.', action: '/platform-v7/lots/LOT-2403', bucket: 'Сделки' },
 ];
 
-const FILTERS = ['Все', 'Критичные', 'SLA', 'Сделки', 'Банк', 'Логистика'] as const;
+const FILTERS = ['Все', 'Критичные', 'срок реакции', 'Сделки', 'Банк', 'Логистика'] as const;
 type FilterValue = (typeof FILTERS)[number];
 
 function tone(type: InboxItem['type']) {
   if (type === 'critical') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C', label: 'Критично' };
-  if (type === 'sla') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'SLA' };
+  if (type === 'sla') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'срок реакции' };
   if (type === 'bank') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'Банк' };
   if (type === 'logistics') return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB', label: 'Логистика' };
   return { bg: '#F8FAFB', border: '#E4E6EA', color: '#475569', label: 'Сделка' };
@@ -100,7 +100,7 @@ export default function NotificationsPage() {
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Уведомления</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
-          Единый inbox по критичным событиям: сделки, банк, логистика, SLA и контур документов. Это рабочий центр внимания, а не декоративный список.
+          Единый inbox по критичным событиям: сделки, банк, логистика, срок реакции и контур документов. Это рабочий центр внимания, а не декоративный список.
         </div>
       </section>
 

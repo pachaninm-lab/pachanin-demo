@@ -81,7 +81,7 @@ function DisputeCard({
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
         <InfoCell label='Удержание' value={hold} />
-        <InfoCell label='SLA' value={sla} />
+        <InfoCell label='Срок' value={sla} />
         <InfoCell label='Доказательства' value={evidence} />
       </div>
 
@@ -157,7 +157,7 @@ export function DisputesRuntime() {
             <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Споры и доказательства</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Экран перестроен под действие: кто держит следующий шаг, сколько денег под риском, каких доказательств не хватает и куда идти дальше.</div>
           </div>
-          <Badge tone='warning'>DISPUTE RUNTIME</Badge>
+          <Badge tone='warning'>Спор в работе</Badge>
         </div>
       </section>
 
@@ -165,13 +165,13 @@ export function DisputesRuntime() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Доменные споры' value={String(disputes.length)} note='Базовый статический спорный контур.' />
-        <StatCard title='Draft-споры' value={String(draftDisputes.filter((item) => item.disputeState === 'open').length)} note='Открыты внутри persistent runtime.' />
-        <StatCard title='Закрытые draft-споры' value={String(draftDisputes.filter((item) => item.disputeState === 'resolved').length)} note='Спор закрыт, но карточка остаётся в истории.' />
-        <StatCard title='Удержано в draft' value={formatMoney(draftDisputes.length * 250000)} note='Модельная сумма денег под draft-спорами.' />
+        <StatCard title='Черновые споры' value={String(draftDisputes.filter((item) => item.disputeState === 'open').length)} note='Открыты внутри проверочного контура.' />
+        <StatCard title='Закрытые черновые споры' value={String(draftDisputes.filter((item) => item.disputeState === 'resolved').length)} note='Спор закрыт, но карточка остаётся в истории.' />
+        <StatCard title='Удержано в черновиках' value={formatMoney(draftDisputes.length * 250000)} note='Модельная сумма денег под черновыми спорами.' />
       </div>
 
       <section style={{ display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Draft-сделки со спором</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Черновые сделки со спором</div>
         {draftDisputes.length === 0 ? (
           <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA', fontSize: 13, color: '#6B778C' }}>Пока нет draft-споров.</div>
         ) : draftDisputes.map((item) => (

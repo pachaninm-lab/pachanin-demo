@@ -26,7 +26,7 @@ export default function PlatformV7LotsPage() {
         }
       `}</style>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <TrustDot state='test' size='sm' label='Тестовый контур · Внешние подключения требуют договоров' />
+        <TrustDot state='test' size='sm' label='тестовый контур' />
       </div>
       <SellerLotsRuntimeV2 />
     </div>

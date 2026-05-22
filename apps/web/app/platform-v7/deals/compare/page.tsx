@@ -30,7 +30,7 @@ export default function DealsComparePage({ searchParams }: { searchParams?: { id
     { label: 'Риск', get: (item: DomainDeal) => String(item.riskScore) },
     { label: 'Покупатель', get: (item: DomainDeal) => item.buyer.name },
     { label: 'Продавец', get: (item: DomainDeal) => item.seller.name },
-    { label: 'ETA', get: (item: DomainDeal) => item.routeEta ?? '—' },
+    { label: 'ожидаемое прибытие', get: (item: DomainDeal) => item.routeEta ?? '—' },
     { label: 'Блокеры', get: (item: DomainDeal) => item.blockers.length ? item.blockers.join(' · ') : 'Нет' },
   ];
 

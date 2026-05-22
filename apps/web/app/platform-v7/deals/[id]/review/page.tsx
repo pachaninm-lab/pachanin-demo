@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 
 const scoreBlocks = [
-  { title: 'SLA', value: '4.8', note: 'Соблюдение сроков и предсказуемость исполнения' },
+  { title: 'срок реакции', value: '4.8', note: 'Соблюдение сроков и предсказуемость исполнения' },
   { title: 'Качество', value: '4.6', note: 'Соответствие факта заявленным параметрам' },
   { title: 'Коммуникация', value: '4.7', note: 'Скорость реакции и прозрачность действий' },
 ];
@@ -43,7 +43,7 @@ export default function DealReviewPage({ params }: { params: { id: string } }) {
             </div>
             <div style={{ fontSize: 30, lineHeight: 1.08, fontWeight: 800, color: '#0F1419', marginTop: 10 }}>{params.id}</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 760 }}>
-              Финальная оценка исполнения: SLA, качество, коммуникация и готовность повторить сделку. Это P1-слой доверия и накопления истории по контрагентам.
+              Финальная оценка исполнения: срок реакции, качество, коммуникация и готовность повторить сделку. Это P1-слой доверия и накопления истории по контрагентам.
             </div>
           </div>
           <div style={{ display: 'grid', gap: 6 }}>
@@ -119,7 +119,7 @@ export default function DealReviewPage({ params }: { params: { id: string } }) {
       </section>
 
       {toast ? (
-        <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 12, color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>
+        <div role='status' aria-подтверждённый внешний контур='polite' style={{ padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 12, color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>
           {toast}
         </div>
       ) : null}

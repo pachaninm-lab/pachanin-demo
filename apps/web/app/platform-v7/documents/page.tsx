@@ -28,7 +28,7 @@ const documentSummary = [
 
 const requiredDocuments = [
   { title: 'СДИЗ', source: 'ФГИС «Зерно»', responsible: 'продавец + оператор', status: 'не оформлен', impact: 'останавливает финальный выпуск денег' },
-  { title: 'ЭТрН', source: 'СБИС / Saby ЭТрН', responsible: 'логист + перевозчик', status: 'ждёт подписи', impact: 'останавливает закрытие рейса' },
+  { title: 'ЭТрН', source: 'ЭДО-провайдер ЭТрН', responsible: 'логист + перевозчик', status: 'ждёт подписи', impact: 'останавливает закрытие рейса' },
   { title: 'ГИС ЭПД', source: 'государственный контур ЭПД', responsible: 'логист + перевозчик', status: 'ожидает ЭТрН', impact: 'останавливает транспортное основание' },
   { title: 'УПД', source: 'Контур.Диадок', responsible: 'продавец + покупатель', status: 'не запущен', impact: 'останавливает расчётное закрытие' },
   { title: 'КЭП / МЧД', source: 'КриптоПро DSS', responsible: 'уполномоченный подписант', status: 'не подписано', impact: 'останавливает юридически значимое подписание' },
@@ -136,7 +136,7 @@ export default function PlatformV7DocumentsPage() {
           <div style={micro}>Именные контуры документов</div>
           <div style={cardsGrid}>
             <ProviderCard title='ФГИС «Зерно»' text='СДИЗ партии зерна и статус прослеживаемости.' />
-            <ProviderCard title='СБИС / Saby ЭТрН' text='Электронная транспортная накладная и подписи по перевозке.' />
+            <ProviderCard title='ЭДО-провайдер ЭТрН' text='Электронная транспортная накладная и подписи по перевозке.' />
             <ProviderCard title='ГИС ЭПД' text='Государственный контур электронных перевозочных документов.' />
             <ProviderCard title='Контур.Диадок' text='Договор, УПД, акт, подписи сторон.' />
             <ProviderCard title='КриптоПро DSS' text='КЭП, сертификат и полномочия подписанта.' />

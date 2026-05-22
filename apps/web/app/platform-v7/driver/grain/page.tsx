@@ -8,10 +8,10 @@ const steps = [
 ] as const;
 
 const checks = [
-  { label: 'Деньги и ставки', value: 'скрыты', tone: 'neutral' },
+  { label: 'Коммерция', value: 'не показывается', tone: 'neutral' },
   { label: 'Погрузка', value: 'закрыта', tone: 'good' },
   { label: 'Связь', value: 'очередь событий', tone: 'warn' },
-  { label: 'ETA', value: '14:28', tone: 'good' },
+  { label: 'Прибытие', value: '14:28', tone: 'good' },
 ] as const;
 
 export default function DriverGrainPage() {
@@ -20,7 +20,7 @@ export default function DriverGrainPage() {
       <section style={card}>
         <div style={badge}>Полевой рейс зерна</div>
         <h1 style={h1}>Погрузка, маршрут, документы и прибытие</h1>
-        <p style={lead}>Водитель видит только свой рейс, маршрут, транспортные документы и ближайшее действие. Цена, ставки, банк, резерв и расчёты сторон не показываются.</p>
+        <p style={lead}>Водитель видит только свой рейс, маршрут, транспортные документы и ближайшее действие. Цена, ставки и расчёты сторон не показываются.</p>
         <div style={actions}>
           <Link href='/platform-v7/driver' style={primaryBtn}>Кабинет водителя</Link>
           <Link href='/platform-v7/logistics/grain' style={ghostBtn}>Маршрут</Link>

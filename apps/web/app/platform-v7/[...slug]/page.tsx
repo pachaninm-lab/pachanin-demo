@@ -53,7 +53,7 @@ type RoleAiConfig = {
 
 const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
   operator: {
-    title: 'AI-оператор исполнения',
+    title: 'Помощник оператора исполнения',
     subtitle: 'Очереди, блокеры, владелец шага, деньги под риском и ручные эскалации.',
     promise: 'Помогает довести сделку до следующего подтверждённого шага без потери управляемости.',
     icon: LayoutDashboard,
@@ -63,11 +63,11 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
       { label: 'Сделки', href: '/platform-v7/deals' },
       { label: 'Споры', href: '/platform-v7/disputes' },
     ],
-    scopes: ['owner / SLA / next action', 'docs completeness', 'bank / hold / release', 'risk / dispute / callbacks'],
-    limits: ['не обещает live-интеграцию там, где sandbox', 'не выпускает деньги сам', 'не закрывает спор без регламента'],
+    scopes: ['ответственный / срок реакции / следующий шаг', 'полнота документов', 'банк / удержание / выпуск', 'риск / спор / события банка'],
+    limits: ['не обещает подтверждённый внешний контур-интеграцию там, где проверочный контур', 'не выпускает деньги сам', 'не закрывает спор без регламента'],
   },
   buyer: {
-    title: 'AI-помощник покупателя',
+    title: 'Помощник покупателя',
     subtitle: 'Качество, приёмка, резерв денег, окно разгрузки и пакет покупателя.',
     promise: 'Сводит в один ответ цену риска, качество партии и шаг до выпуска денег.',
     icon: Banknote,
@@ -77,11 +77,11 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
       { label: 'Сделки', href: '/platform-v7/deals' },
       { label: 'Банк', href: '/platform-v7/bank' },
     ],
-    scopes: ['резерв и release', 'приёмка / лаборатория', 'документы стороны покупателя', 'маршрут до расчёта'],
+    scopes: ['резерв и выпуск', 'приёмка / лаборатория', 'документы стороны покупателя', 'маршрут до расчёта'],
     limits: ['не меняет результат лаборатории', 'не подменяет банковое решение', 'не подтверждает чужие документы'],
   },
   seller: {
-    title: 'AI-помощник продавца',
+    title: 'Помощник продавца',
     subtitle: 'Цена, документы продавца, удержания, причины REVIEW и путь к выплате.',
     promise: 'Показывает, что мешает получить деньги и какой пакет надо закрыть первым.',
     icon: Wheat,
@@ -95,21 +95,21 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
     limits: ['не обещает моментальную оплату', 'не меняет коммерческие условия задним числом', 'не заменяет ЭДО и КЭП'],
   },
   logistics: {
-    title: 'AI-диспетчер логистики',
-    subtitle: 'Рейс, ETA, отклонения маршрута, окно разгрузки и транспортные документы.',
+    title: 'Помощник диспетчера логистики',
+    subtitle: 'Рейс, ожидаемое прибытие, отклонения маршрута, окно разгрузки и транспортные документы.',
     promise: 'Собирает картину рейса и подсказывает, где риск для сделки и денег.',
     icon: Truck,
-    questions: ['Где сейчас главный логистический риск?', 'Что по ETA и окну приёмки?', 'Какие транспортные документы обязательны?', 'Куда идти дальше по рейсу?'],
+    questions: ['Где сейчас главный логистический риск?', 'Что по ожидаемое прибытие и окну приёмки?', 'Какие транспортные документы обязательны?', 'Куда идти дальше по рейсу?'],
     actions: [
       { label: 'Логистика', href: '/platform-v7/logistics' },
       { label: 'Водитель', href: '/platform-v7/driver' },
       { label: 'Приёмка', href: '/platform-v7/elevator' },
     ],
-    scopes: ['маршрут и отклонения', 'ETA / checkpoint / arrival', 'перевозочные документы', 'связь рейса с деньгами'],
-    limits: ['не рисует fake-live GPS', 'не закрывает приёмку без подтверждения', 'не выпускает деньги без downstream шагов'],
+    scopes: ['маршрут и отклонения', 'ожидаемое прибытие / checkpoint / arrival', 'перевозочные документы', 'связь рейса с деньгами'],
+    limits: ['не рисует неподтверждённых внешних GPS', 'не закрывает приёмку без подтверждения', 'не выпускает деньги без следующих шагов'],
   },
   driver: {
-    title: 'AI-помощник водителя',
+    title: 'Помощник водителя',
     subtitle: 'Маршрут, прибытие, инциденты, фотофиксация и офлайн-очередь событий.',
     promise: 'Даёт только следующий понятный шаг по текущему рейсу без перегруза интерфейса.',
     icon: User,
@@ -123,7 +123,7 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
     limits: ['не требует лишних полей', 'не меняет рейс без подтверждения', 'не даёт финансовых обещаний'],
   },
   surveyor: {
-    title: 'AI-помощник сюрвейера',
+    title: 'Помощник сюрвейера',
     subtitle: 'Назначение, пакет доказательств, фото, акт осмотра и спорный контур.',
     promise: 'Подсказывает, какой материал обязателен, чтобы спор не рассыпался.',
     icon: Search,
@@ -136,7 +136,7 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
     limits: ['не решает спор вместо арбитра', 'не меняет цену сам', 'не редактирует чужие факты'],
   },
   elevator: {
-    title: 'AI-помощник приёмки',
+    title: 'Помощник приёмки',
     subtitle: 'Окна разгрузки, очередь, вес, акт приёмки и готовность к лаборатории.',
     promise: 'Подсказывает, какой факт должен быть зафиксирован сейчас, чтобы не сломать расчёт.',
     icon: Compass,
@@ -149,7 +149,7 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
     limits: ['не подтверждает деньги', 'не меняет коммерческие условия', 'не скрывает расхождения по весу'],
   },
   lab: {
-    title: 'AI-помощник лаборатории',
+    title: 'Помощник лаборатории',
     subtitle: 'Проба, протокол, повторный анализ, качественная дельта и спорность результата.',
     promise: 'Сводит путь от результата анализа к спору или выпуску денег.',
     icon: FlaskConical,
@@ -159,26 +159,26 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
       { label: 'Сделки', href: '/platform-v7/deals' },
       { label: 'Споры', href: '/platform-v7/disputes' },
     ],
-    scopes: ['проба / протокол / версия', 'повторный анализ', 'влияние на расчёт', 'переход в спор или release'],
+    scopes: ['проба / протокол / версия', 'повторный анализ', 'влияние на расчёт', 'переход в спор или выпуск'],
     limits: ['не выпускает деньги сам', 'не закрывает спор без процедуры', 'не подменяет независимый осмотр'],
   },
   bank: {
-    title: 'AI-помощник банка',
-    subtitle: 'Резерв, hold, callbacks, release, возврат и конфликт статусов.',
+    title: 'Помощник банка',
+    subtitle: 'Резерв, удержание, события банка, выпуск, возврат и конфликт статусов.',
     promise: 'Показывает, какой банковый шаг допустим следующим и что его блокирует.',
     icon: Landmark,
-    questions: ['Почему hold не снят?', 'Что нужно для release?', 'Есть ли конфликт callback?', 'Кто держит следующий шаг по деньгам?'],
+    questions: ['Почему удержание не снят?', 'Что нужно для выпуск?', 'Есть ли конфликт событие банка?', 'Кто держит следующий шаг по деньгам?'],
     actions: [
       { label: 'Банковый контур', href: '/platform-v7/bank' },
       { label: 'Сделки', href: '/platform-v7/deals' },
       { label: 'Удержания', href: '/platform-v7/disputes' },
     ],
-    scopes: ['reserve / hold / release', 'callbacks и mismatch', 'документы для банка', 'денежный owner'],
-    limits: ['не подменяет банковую систему', 'не даёт фальшивый live-proof', 'не проводит платёж без правил'],
+    scopes: ['основание / удержание / выпуск', 'события банка и mismatch', 'документы для банка', 'денежный ответственный'],
+    limits: ['не подменяет банковую систему', 'не даёт фальшивый подтверждённый внешний контур-proof', 'не проводит платёж без правил'],
   },
   arbitrator: {
-    title: 'AI-помощник арбитра',
-    subtitle: 'Основание спора, пакет доказательств, сумма влияния и следующий owner.',
+    title: 'Помощник арбитра',
+    subtitle: 'Основание спора, пакет доказательств, сумма влияния и следующий ответственный.',
     promise: 'Собирает dispute pack в одну картину и подсказывает, чего не хватает до решения.',
     icon: Gavel,
     questions: ['Что входит в dispute pack?', 'Каких доказательств не хватает?', 'Кто владелец спора?', 'Что нужно для закрытия спора?'],
@@ -187,13 +187,13 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
       { label: 'Споры', href: '/platform-v7/disputes' },
       { label: 'Сделки', href: '/platform-v7/deals' },
     ],
-    scopes: ['основание и сумма спора', 'evidence chain', 'следующий owner / SLA', 'влияние на деньги'],
+    scopes: ['основание и сумма спора', 'цепочка доказательств', 'следующий ответственный / срок реакции', 'влияние на деньги'],
     limits: ['не обещает автоматическое решение', 'не меняет документы задним числом', 'не скрывает открытые блокеры'],
   },
   compliance: {
-    title: 'AI-помощник комплаенса',
+    title: 'Помощник комплаенса',
     subtitle: 'Допуск, реквизиты, полномочия, stop-флаги и readiness обязательного пакета.',
-    promise: 'Помогает не открыть риск раньше времени и не перепутать sandbox с legal-ready.',
+    promise: 'Помогает не открыть риск раньше времени и не перепутать проверочный контур с готовность к юридическому запуску.',
     icon: ShieldCheck,
     questions: ['Что мешает допуску?', 'Каких полномочий не хватает?', 'Где юридический стоп-флаг?', 'Что нужно для controlled pilot?'],
     actions: [
@@ -202,10 +202,10 @@ const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
       { label: 'Сделки', href: '/platform-v7/deals' },
     ],
     scopes: ['допуск и полномочия', 'обязательные документы', 'стоп-факторы', 'граница зрелости'],
-    limits: ['не выдаёт sandbox за live', 'не заменяет юриста по конкретному кейсу', 'не закрывает AML/KYC за банк'],
+    limits: ['не выдаёт проверочный контур за подтверждённый внешний контур', 'не заменяет юриста по конкретному кейсу', 'не закрывает AML/KYC за банк'],
   },
   executive: {
-    title: 'AI-помощник руководителя',
+    title: 'Помощник руководителя',
     subtitle: 'Деньги под риском, топ-блокеры, срыв пилота, сервисный слой и прогресс контура.',
     promise: 'Собирает управленческую картину без воды: где риск, где деньги, что делать сейчас.',
     icon: Sparkles,
@@ -261,44 +261,44 @@ function buildResponse(role: PlatformRole, question: string, from: string) {
   if (lower.includes('документ')) {
     return {
       headline: 'Фокус на полноте пакета',
-      summary: `AI в роли «${roleLabel}» сначала проверяет обязательный пакет для экрана «${screen}», затем ищет, какой документ держит следующий переход и влияет ли это на деньги или спор.`,
-      sources: ['document completeness', 'owner / next action', 'bank / dispute dependency'],
-      steps: ['Открой список обязательных документов по объекту.', 'Сними разрыв: кто должен загрузить / подписать следующий документ.', 'Проверь, откроет ли это release или только снимет REVIEW.'],
+      summary: `Помощник в роли «${roleLabel}» сначала проверяет обязательный пакет для экрана «${screen}», затем ищет, какой документ держит следующий переход и влияет ли это на деньги или спор.`,
+      sources: ['document completeness', 'ответственный / следующий шаг', 'bank / dispute dependency'],
+      steps: ['Открой список обязательных документов по объекту.', 'Сними разрыв: кто должен загрузить / подписать следующий документ.', 'Проверь, откроет ли это выпуск или только снимет REVIEW.'],
     };
   }
 
-  if (lower.includes('выпуск') || lower.includes('release') || lower.includes('деньг')) {
+  if (lower.includes('выпуск') || lower.includes('выпуск') || lower.includes('деньг')) {
     return {
       headline: 'Фокус на деньгах и блокерах',
-      summary: `AI проверяет три слоя: reserve / hold / release, затем спорность и полноту документов, и только после этого называет следующий допустимый шаг. На экране «${screen}» он не обещает выпуск, если контур ещё держит hold или manual review.`,
-      sources: ['reserve / hold / release', 'callback / mismatch', 'docs / quality / dispute'],
-      steps: ['Проверь, есть ли hold или manual blocker.', 'Сверь, закрыт ли quality / dispute контур.', 'Попроси AI назвать owner следующего подтверждения до release.'],
+      summary: `Помощник проверяет три слоя: основание / удержание / выпуск, затем спорность и полноту документов, и только после этого называет следующий допустимый шаг. На экране «${screen}» он не обещает выпуск, если контур ещё держит удержание или ручная проверка.`,
+      sources: ['основание / удержание / выпуск', 'событие банка / mismatch', 'docs / качества / спора'],
+      steps: ['Проверь, есть ли удержание или ручной блокер.', 'Сверь, закрыт ли качества / спора контур.', 'Попроси помощника назвать ответственный следующего подтверждения до выпуск.'],
     };
   }
 
   if (lower.includes('кто ') || lower.includes('владел')) {
     return {
-      headline: 'Фокус на owner и SLA',
-      summary: `AI в роли «${roleLabel}» отвечает не абстрактно, а через owner текущего шага: кто держит переход, почему именно он, и что должно произойти до передачи следующему владельцу.`,
-      sources: ['owner / SLA / ballAt', 'current blocker', 'next action'],
-      steps: ['Сначала спроси owner шага.', 'Потом спроси, что именно он должен подтвердить.', 'Только после этого переходи к деньгам, спору или документам.'],
+      headline: 'Фокус на ответственный и срок реакции',
+      summary: `Помощник в роли «${roleLabel}» отвечает не абстрактно, а через ответственный текущего шага: кто держит переход, почему именно он, и что должно произойти до передачи следующему владельцу.`,
+      sources: ['ответственный / срок реакции / ballAt', 'current блокер', 'следующий шаг'],
+      steps: ['Сначала спроси ответственный шага.', 'Потом спроси, что именно он должен подтвердить.', 'Только после этого переходи к деньгам, спору или документам.'],
     };
   }
 
   if (lower.includes('куда') || lower.includes('дальше') || lower.includes('что делать')) {
     return {
       headline: 'Фокус на следующем ходе',
-      summary: `AI строит ответ как маршрут: что у роли «${roleLabel}» открыто на экране «${screen}», какой шаг следующий, и какой экран надо открыть сразу после него.`,
-      sources: ['current screen context', 'next action', 'allowed route by role'],
-      steps: ['Открой самый близкий к money / dispute / docs экран.', 'Сними первый подтверждаемый blocker.', 'Вернись в сделку и проверь, изменился ли owner следующего шага.'],
+      summary: `Помощник строит ответ как маршрут: что у роли «${roleLabel}» открыто на экране «${screen}», какой шаг следующий, и какой экран надо открыть сразу после него.`,
+      sources: ['current screen context', 'следующий шаг', 'allowed route by role'],
+      steps: ['Открой самый близкий к money / dispute / docs экран.', 'Сними первый подтверждаемый блокер.', 'Вернись в сделку и проверь, изменился ли ответственный следующего шага.'],
     };
   }
 
   return {
     headline: 'Фокус на текущем экране и роли',
-    summary: `AI даёт ответ только в контексте роли «${roleLabel}» и экрана «${screen}»: что видно сейчас, какой blocker главный, и какой следующий шаг даст движение без потери доказательности.`,
-    sources: ['screen context', 'role scope', 'blocker / next action / money impact'],
-    steps: ['Уточни главный blocker.', 'Спроси, кто следующий owner.', 'Открой экран, который меняет статус, а не просто показывает его.'],
+    summary: `Помощник даёт ответ только в контексте роли «${roleLabel}» и экрана «${screen}»: что видно сейчас, какой блокер главный, и какой следующий шаг даст движение без потери доказательности.`,
+    sources: ['screen context', 'role scope', 'блокер / следующий шаг / money impact'],
+    steps: ['Уточни главный блокер.', 'Спроси, кто следующий ответственный.', 'Открой экран, который меняет статус, а не просто показывает его.'],
   };
 }
 
@@ -327,14 +327,14 @@ function AiWorkspace() {
             </div>
             <div style={{ display: 'grid', gap: 6 }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 999, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-secondary)', fontSize: 11, fontWeight: 800, width: 'fit-content' }}>
-                <Sparkles size={14} strokeWidth={2.1} /> AI-контур по роли
+                <Sparkles size={14} strokeWidth={2.1} /> Помощник по роли
               </div>
               <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--pc-text-primary)' }}>{config.title}</div>
               <div style={{ fontSize: 13, color: 'var(--pc-text-secondary)', lineHeight: 1.6, maxWidth: 920 }}>{config.subtitle}</div>
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, background: 'var(--pc-accent-bg)', border: '1px solid var(--pc-accent-border)', color: 'var(--pc-accent-strong)', fontSize: 12, fontWeight: 800 }}>
-            Симуляция по роли · {ROLE_LABELS[role]}
+            Проверочный сценарий по роли · {ROLE_LABELS[role]}
           </div>
         </div>
 
@@ -347,7 +347,7 @@ function AiWorkspace() {
           <div style={{ background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Граница</div>
             <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary)' }}>Только подтверждённый контур</div>
-            <div style={{ fontSize: 12, color: 'var(--pc-text-secondary)', lineHeight: 1.55 }}>AI не рисует live там, где sandbox, не выпускает деньги сам и не подменяет юридический или банковый контур.</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-secondary)', lineHeight: 1.55 }}>Помощник не рисует подтверждённый внешний контур там, где проверочный контур, не выпускает деньги сам и не подменяет юридический или банковый контур.</div>
           </div>
         </div>
       </section>
@@ -378,7 +378,7 @@ function AiWorkspace() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
         <section style={{ background: 'var(--pc-shell-surface)', border: '1px solid var(--pc-border)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Что AI реально делает</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Что помощник реально делает</div>
           <div style={{ display: 'grid', gap: 8 }}>
             {config.scopes.map((item) => (
               <div key={item} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 14, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)' }}>
@@ -390,7 +390,7 @@ function AiWorkspace() {
         </section>
 
         <section style={{ background: 'var(--pc-shell-surface)', border: '1px solid var(--pc-border)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Что AI не обещает</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Что помощник не обещает</div>
           <div style={{ display: 'grid', gap: 8 }}>
             {config.limits.map((item) => (
               <div key={item} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 14, background: 'rgba(255,139,144,0.08)', border: '1px solid rgba(255,139,144,0.18)' }}>

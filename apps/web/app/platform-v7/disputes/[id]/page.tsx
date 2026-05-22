@@ -10,8 +10,8 @@ export function generateMetadata({ params }: { params: { id: string } }): Metada
   return {
     title: dispute ? `Спор ${dispute.id}` : `Спор ${params.id}`,
     description: dispute
-      ? `${dispute.title}: удержание, доказательства, SLA и следующий владелец действия.`
-      : `Карточка спора ${params.id}: удержание, доказательства, SLA и следующий владелец действия.`,
+      ? `${dispute.title}: удержание, доказательства, срок реакции и следующий владелец действия.`
+      : `Карточка спора ${params.id}: удержание, доказательства, срок реакции и следующий владелец действия.`,
   };
 }
 

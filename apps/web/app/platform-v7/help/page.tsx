@@ -52,7 +52,7 @@ export default function HelpPage() {
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Справочный центр</div>
-          <TrustDot state='test' size='sm' label='Тестовый контур · Внешние интеграции и боевые сценарии требуют отдельных договоров' />
+          <TrustDot state='test' size='sm' label='тестовый контур' />
         </div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
           Короткие ответы по ролям, деньгам, документам, спорам и рабочим разделам. Без обещаний автоматической выплаты и без скрытия причин остановки.

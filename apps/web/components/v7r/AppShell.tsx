@@ -152,7 +152,7 @@ const breadcrumbLabels: Record<string, string> = {
 };
 
 const NOTIFICATIONS_DATA = [
-  { id: 1, text: 'SLA alert: DK-2024-89 — ответ продавца просрочен', type: 'warning' as const, time: '14 мин назад', href: '/platform-v7r/arbitrator' },
+  { id: 1, text: 'Срок реакции: DK-2024-89 — ответ продавца просрочен', type: 'warning' as const, time: '14 мин назад', href: '/platform-v7r/arbitrator' },
   { id: 2, text: 'Спор DK-2024-91 открыт по весу', type: 'error' as const, time: '1 ч назад', href: '/platform-v7r/arbitrator' },
   { id: 3, text: 'Лаб. протокол ЛАБ-2851 подписан', type: 'success' as const, time: '2 ч назад', href: '/platform-v7r/lab' },
 ];

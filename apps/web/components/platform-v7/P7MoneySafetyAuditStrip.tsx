@@ -89,10 +89,10 @@ export function P7MoneySafetyAuditStrip() {
                   ))}
                 </div>
 
-                <div style={{ display: 'grid', gap: 4, paddingTop: 4 }}>
-                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, color: '#64748B' }}>Ключ операции</div>
-                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, lineHeight: 1.5, color: '#334155', wordBreak: 'break-all' }}>{row.idempotencyKey}</div>
-                </div>
+                <details style={{ display: 'grid', gap: 4, paddingTop: 4 }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, color: '#64748B' }}>Техническая сверка</summary>
+                  <div style={{ marginTop: 6, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, lineHeight: 1.5, color: '#334155', wordBreak: 'break-all' }}>{row.idempotencyKey}</div>
+                </details>
               </article>
             );
           })}

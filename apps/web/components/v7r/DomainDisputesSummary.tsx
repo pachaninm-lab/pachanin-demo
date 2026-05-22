@@ -23,7 +23,7 @@ export function DomainDisputesSummary() {
     <section style={{ display: 'grid', gap: 14 }} aria-label='Доменная сводка споров'>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Споры в домене' value={String(disputes.length)} note='Сводка из единого доменного представления.' />
-        <StatCard title='Открытые' value={String(openDisputes.length)} note='Споры, которые ещё влияют на деньги и SLA.' />
+        <StatCard title='Открытые' value={String(openDisputes.length)} note='Споры, которые ещё влияют на деньги и срок реакции.' />
         <StatCard title='Удержано' value={formatMoney(totalHold)} note='Суммарные деньги под доменными спорами.' />
         <StatCard title='Не хватает доказательств' value={String(missingEvidence)} note='Сколько доказательств нужно дозагрузить.' />
       </div>

@@ -36,7 +36,7 @@ const FACTORS: Array<{ title: string; weight: string; detail: string }> = [
   { title: 'Финансы контрагента', weight: '35%', detail: 'СПАРК-рейтинг, история резервов и просрочек по сделкам.' },
   { title: 'Документы и качество', weight: '25%', detail: 'Полнота пакета, статус ФГИС, расхождения лабораторных протоколов.' },
   { title: 'Логистика', weight: '20%', detail: 'Отклонения GPS, задержки на приёмке, история водителя.' },
-  { title: 'История споров', weight: '20%', detail: 'Открытые/закрытые DK-кейсы, средний SLA, ballAt.' },
+  { title: 'История споров', weight: '20%', detail: 'Открытые/закрытые DK-кейсы, средний срок реакции, ballAt.' },
 ];
 
 function RiskDialogContent({ score, label, onClose }: { score: number; label: string; onClose: () => void }) {

@@ -10,7 +10,7 @@ const inboxSummary = [
 const assignmentChecks = [
   { label: 'Водитель', value: 'Водитель А · 12 км до точки погрузки' },
   { label: 'Машина', value: 'Р***ТУ · допуск к зерновому рейсу' },
-  { label: 'ETA', value: 'прибытие через 18 минут' },
+  { label: 'Прибытие', value: 'через 18 минут' },
   { label: 'Рейс', value: 'TRIP-SIM-001 · controlled-pilot' },
 ] as const;
 

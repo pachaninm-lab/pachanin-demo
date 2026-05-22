@@ -86,13 +86,13 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     mode: 'field',
     now: 'TRIP-001: один активный рейс, маршрут и одно следующее действие',
     blocked: 'нет связи, не отправлены фото, пломба, прибытие, вес или проблема',
-    money: 'деньги, ставки, банк, покупатель и кредит скрыты от водителя',
+    money: 'коммерческие условия, ставки, покупатель и кредит не показываются водителю',
     documents: 'видны только документы своего рейса и транспортные подтверждения',
     execution: 'маршрут, GPS, фото, пломба, проблема и офлайн-очередь связаны с рейсом',
     next: 'водитель подтверждает ближайшее полевое действие',
     cta: 'Открыть рейс водителя',
     href: '/platform-v7/driver/field',
-    hidden: 'скрыто: деньги, ставки, банк, покупатель, кредит, чужие рейсы',
+    hidden: 'не показывается: коммерческие условия, ставки, покупатель, кредит, чужие рейсы',
   },
   elevator: {
     title: 'Элеватор',
@@ -225,14 +225,26 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
 export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }) {
   const summary = PLATFORM_V7_ROLE_EXECUTION_SUMMARIES[role];
   const tone = getPlatformV7ToneTokens(summary.tone);
-  const rows = [
-    ['Что происходит сейчас', summary.now],
-    ['Что остановило сделку', summary.blocked],
-    ['Где деньги', summary.money],
-    ['Где документы', summary.documents],
-    ['Где груз / исполнение', summary.execution],
-    ['Кто следующий', summary.next],
-  ];
+  const rows = role === 'driver'
+    ? [
+        ['Что происходит сейчас', summary.now],
+        ['Что остановило рейс', summary.blocked],
+        ['Коммерческий контекст', summary.money],
+        ['Где документы рейса', summary.documents],
+        ['Где исполнение', summary.execution],
+        ['Что нажать сейчас', summary.next],
+      ]
+    : [
+        ['Что происходит сейчас', summary.now],
+        ['Что остановило сделку', summary.blocked],
+        ['Где деньги', summary.money],
+        ['Где документы', summary.documents],
+        ['Где груз / исполнение', summary.execution],
+        ['Кто следующий', summary.next],
+      ];
+  const headline = role === 'driver'
+    ? `${summary.title}: маршрут, документы рейса, событие и следующий шаг`
+    : `${summary.title}: деньги, документы, груз, причина остановки и следующий шаг`;
 
   return (
     <section
@@ -265,7 +277,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
               letterSpacing: PLATFORM_V7_TOKENS.typography.h1.letterSpacing,
             }}
           >
-            {summary.title}: деньги, документы, груз, причина остановки и следующий шаг
+            {headline}
           </h1>
           <div style={{ color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: PLATFORM_V7_TOKENS.typography.body.size, lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight, maxWidth: 760 }}>
             {summary.hidden}
