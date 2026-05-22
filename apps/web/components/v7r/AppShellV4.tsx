@@ -263,14 +263,14 @@ function systemStatus(pathname: string) {
   return [
     {
       label: 'ФГИС',
-      detail: pathname.startsWith('/platform-v7/connectors') ? 'нужна проверка' : 'связь отражена',
-      tone: pathname.startsWith('/platform-v7/connectors') ? 'review' as const : 'ok' as const,
+      detail: pathname.startsWith('/platform-v7/connectors') ? 'требует проверки' : 'контур проверки',
+      tone: 'review' as const,
       icon: ShieldCheck,
     },
     {
       label: 'Банк',
-      detail: pathname.startsWith('/platform-v7/bank') ? 'ручная проверка' : 'события получены',
-      tone: pathname.startsWith('/platform-v7/bank') ? 'review' as const : 'ok' as const,
+      detail: pathname.startsWith('/platform-v7/bank') ? 'ручная проверка' : 'ожидает подтверждение',
+      tone: 'review' as const,
       icon: Landmark,
     },
     {
