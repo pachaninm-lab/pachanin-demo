@@ -1,11 +1,23 @@
 import Link from 'next/link';
 import { DealEvidencePackPreview } from '@/components/v7r/DealEvidencePackPreview';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { getEvidencePack } from '@/lib/evidence-server';
 
-export default function DealEvidencePackPage({ params }: { params: { id: string } }) {
+export default async function DealEvidencePackPage({ params }: { params: { id: string } }) {
   const dealId = decodeURIComponent(params.id);
+  const { files, chainVerified } = await getEvidencePack(dealId);
 
   return (
     <div style={{ display: 'grid', gap: 18 }}>
+      <LiveApiStatusBar
+        apiOnline={files.length > 0}
+        role="EVIDENCE PACK · Доказательный пакет"
+        summary={
+          files.length > 0
+            ? `${files.length} файлов · цепочка хэшей ${chainVerified ? '✓ верна' : 'не проверена'}`
+            : 'Доказательных файлов нет — API недоступен или пакет пуст'
+        }
+      />
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 11, color: '#0A7A5F', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           отдельный маршрут пакета · проверочный контур
