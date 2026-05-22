@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 export type OutboxStatus = 'PENDING' | 'SENT' | 'CONFIRMED' | 'FAILED' | 'MANUAL_REVIEW';
 
@@ -20,8 +21,11 @@ const MAX_AUTO_RETRIES = 3;
 
 @Injectable()
 export class OutboxService {
+  private readonly logger = new Logger(OutboxService.name);
   private readonly entries: OutboxEntry[] = [];
   private counter = 0;
+
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
 
   enqueue(params: {
     type: string;
@@ -40,6 +44,15 @@ export class OutboxService {
       retryCount: 0,
     };
     this.entries.push(entry);
+    this.prisma?.outboxEntry.create({
+      data: {
+        id: entry.id,
+        type: entry.type,
+        dealId: entry.dealId,
+        payload: JSON.stringify(entry.payload),
+        status: entry.status,
+      },
+    }).catch((e) => this.logger.debug(`Outbox DB write skipped: ${e.message}`));
     return entry;
   }
 
@@ -54,6 +67,8 @@ export class OutboxService {
     const entry = this.findOrThrow(id);
     entry.status = 'CONFIRMED';
     entry.confirmedAt = new Date().toISOString();
+    this.prisma?.outboxEntry.update({ where: { id }, data: { status: 'CONFIRMED', confirmedAt: new Date() } })
+      .catch((e) => this.logger.debug(`Outbox confirm DB skipped: ${e.message}`));
     return entry;
   }
 

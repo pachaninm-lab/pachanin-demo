@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger, Optional } from '@nestjs/common';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { DecideDisputeDto } from './dto/decide-dispute.dto';
 import { RequestUser, Role } from '../../common/types/request-user';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type DisputeStatus =
   | 'OPEN'
@@ -63,10 +64,11 @@ const INITIATE_ROLES: Set<Role> = new Set([Role.BUYER, Role.FARMER, Role.LAB, Ro
 
 @Injectable()
 export class DisputesService {
+  private readonly logger = new Logger(DisputesService.name);
   private readonly store: Dispute[] = [];
   private counter = 10;
 
-  constructor() {
+  constructor(@Optional() private readonly prisma?: PrismaService) {
     this.store.push(
       {
         id: 'DISPUTE-001',
@@ -160,7 +162,35 @@ export class DisputesService {
         : undefined,
     };
     this.store.push(dispute);
+    this.persistCreate(dispute).catch((e) => this.logger.debug(`Dispute DB write skipped: ${e.message}`));
     return dispute;
+  }
+
+  private async persistCreate(dispute: Dispute) {
+    if (!this.prisma) return;
+    await this.prisma.dispute.create({
+      data: {
+        id: dispute.id,
+        dealId: dispute.dealId,
+        shipmentId: dispute.shipmentId,
+        type: dispute.type,
+        status: dispute.status,
+        description: dispute.description,
+        initiatorOrgId: dispute.initiatorOrgId,
+        claimAmountRub: dispute.claimAmountRub,
+        severity: dispute.severity,
+        slaMinutes: dispute.slaMinutes,
+        moneyHold: dispute.moneyHold
+          ? {
+              create: {
+                amountRub: dispute.moneyHold.amountRub,
+                reason: dispute.moneyHold.reason,
+                heldAt: new Date(dispute.moneyHold.heldAt),
+              },
+            }
+          : undefined,
+      },
+    });
   }
 
   triage(id: string, user: RequestUser): Dispute {
@@ -216,6 +246,11 @@ export class DisputesService {
     dispute.bankBasisDocumentId = `BANK-BASIS-${dispute.id}`;
 
     const moneyInstruction = this.buildMoneyInstruction(dispute, dto);
+
+    this.prisma?.dispute.update({
+      where: { id: dispute.id },
+      data: { status: 'RESOLVED', outcome: dispute.outcome, resolvedAt: new Date(), updatedAt: new Date() },
+    }).catch((e) => this.logger.debug(`Dispute resolve DB write skipped: ${e.message}`));
 
     return { ...dispute, moneyInstruction };
   }
