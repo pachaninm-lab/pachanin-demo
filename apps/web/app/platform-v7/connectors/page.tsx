@@ -1,4 +1,16 @@
 import Link from 'next/link';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { serverApiUrl, serverAuthHeaders } from '@/lib/server-api';
+
+async function getIntegrationHealth() {
+  try {
+    const res = await fetch(serverApiUrl('/integrations/health'), { cache: 'no-store', headers: serverAuthHeaders() });
+    if (!res.ok) throw new Error(`integrations ${res.status}`);
+    return res.json() as Promise<{ status: string; connectors: Array<{ name: string; status: string; callbacks?: number }> }>;
+  } catch {
+    return { status: 'UNKNOWN', connectors: [] };
+  }
+}
 
 const integrations = [
   { name: 'Сбер · Безопасные сделки', role: 'резерв и выплата денег', status: 'условия выплаты проверяются', screen: '/platform-v7/bank', state: 'wait', mode: 'проверочный контур', live: 'выпуск денег требует подтверждения банка' },
@@ -23,13 +35,27 @@ const connectorSummary = [
   { label: 'Следующий шаг', value: 'закрыть договоры и доступы', note: 'После пилота — подтверждать на реальных сделках и документах.' },
 ] as const;
 
-export default function PlatformV7ConnectorsPage() {
+export default async function PlatformV7ConnectorsPage() {
+  const health = await getIntegrationHealth();
+  const apiOnline = health.status !== 'UNKNOWN';
+  const sandboxCount = health.connectors.filter((c) => c.status === 'SANDBOX_ONLY').length;
+  const liveCount = health.connectors.filter((c) => c.status === 'LIVE').length;
+
   const stop = integrations.filter((item) => item.state === 'stop').length;
   const ok = integrations.filter((item) => item.state === 'ok').length;
   const wait = integrations.filter((item) => item.state === 'wait').length;
 
   return (
     <main data-testid="platform-v7-connectors-page" style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <LiveApiStatusBar
+        apiOnline={apiOnline}
+        role="INTEGRATIONS · Адаптеры"
+        summary={
+          apiOnline
+            ? `${health.connectors.length} адаптеров · ${liveCount} live · ${sandboxCount} sandbox · состояние: ${health.status}`
+            : `${stop} стоп · ${ok} ок · ${wait} ожидание — данные статичные`
+        }
+      />
       <style>{`
         @media(max-width:767px){
           [data-testid='platform-v7-connectors-page']{gap:10px!important;padding:0 0 16px!important}
