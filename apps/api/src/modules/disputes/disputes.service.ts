@@ -112,7 +112,22 @@ export class DisputesService {
     );
   }
 
-  list(user: RequestUser): Dispute[] {
+  async list(user: RequestUser): Promise<Dispute[]> {
+    if (this.prisma) {
+      try {
+        const rows = await this.prisma.dispute.findMany({
+          include: { evidence: true, moneyHold: true },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (rows.length > 0) {
+          const mapped = rows.map((r) => this.prismaRowToDispute(r));
+          if (user.role === Role.BUYER || user.role === Role.FARMER) {
+            return mapped.filter((d) => d.initiatorOrgId === user.orgId);
+          }
+          return mapped;
+        }
+      } catch { /* fall through to in-memory */ }
+    }
     if (user.role === Role.SUPPORT_MANAGER || user.role === Role.ADMIN) {
       return [...this.store];
     }
@@ -120,6 +135,36 @@ export class DisputesService {
       return this.store.filter((d) => d.initiatorOrgId === user.orgId);
     }
     return [...this.store];
+  }
+
+  private prismaRowToDispute(r: any): Dispute {
+    return {
+      id: r.id,
+      dealId: r.dealId,
+      shipmentId: r.shipmentId ?? undefined,
+      status: r.status as DisputeStatus,
+      type: r.type,
+      claimAmountRub: r.claimAmountRub ?? undefined,
+      description: r.description,
+      initiatorOrgId: r.initiatorOrgId,
+      severity: (r.severity ?? 'MEDIUM') as any,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt?.toISOString(),
+      resolvedAt: r.resolvedAt?.toISOString(),
+      outcome: r.outcome as DisputeOutcome | undefined,
+      evidence: (r.evidence ?? []).map((e: any) => ({
+        id: e.id,
+        type: e.type as any,
+        description: e.description,
+        source: e.submittedBy,
+        uploadedAt: e.submittedAt.toISOString(),
+        uploadedBy: e.submittedBy,
+        trusted: e.trusted,
+      })),
+      moneyHold: r.moneyHold
+        ? { amountRub: r.moneyHold.amountRub, reason: r.moneyHold.reason, heldAt: r.moneyHold.heldAt.toISOString() }
+        : undefined,
+    };
   }
 
   getOne(id: string, user: RequestUser): Dispute {

@@ -19,15 +19,15 @@ describe('DisputesService — access control', () => {
     svc = new DisputesService();
   });
 
-  it('BUYER can only see own org disputes', () => {
+  it('BUYER can only see own org disputes', async () => {
     const buyer = makeUser(Role.BUYER, { orgId: 'org-buyer-1' });
-    const list = svc.list(buyer);
+    const list = await svc.list(buyer);
     expect(list.every((d) => d.initiatorOrgId === 'org-buyer-1')).toBe(true);
   });
 
-  it('SUPPORT_MANAGER sees all disputes', () => {
+  it('SUPPORT_MANAGER sees all disputes', async () => {
     const operator = makeUser(Role.SUPPORT_MANAGER);
-    expect(svc.list(operator)).toHaveLength(2);
+    expect(await svc.list(operator)).toHaveLength(2);
   });
 
   it('DRIVER cannot create dispute', () => {

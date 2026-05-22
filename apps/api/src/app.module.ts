@@ -22,11 +22,13 @@ import { LedgerModule } from './modules/ledger/ledger.module';
 import { BusinessReputationModule } from './modules/business-reputation/business-reputation.module';
 import { RuntimeCoreModule } from './modules/runtime-core/runtime-core.module';
 import { DatabaseModule } from './common/database/database.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
     PrismaModule,
     DatabaseModule,
+    AdminModule,
     EvidencePackModule,
     RuntimeCoreModule,
     AuthModule,

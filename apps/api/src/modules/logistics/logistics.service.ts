@@ -78,7 +78,22 @@ export class LogisticsService {
   recordCheckpoint(id: string, body: any, user: RequestUser) {
     const shipment = this.runtime.getShipment(id);
     this.assertShipmentAccess(shipment, user);
-    return this.runtime.recordCheckpoint(id, body, user);
+    const result = this.runtime.recordCheckpoint(id, body, user);
+    const cp = result?.checkpoint;
+    if (this.prisma && cp?.id) {
+      this.prisma.checkpoint.create({
+        data: {
+          id: cp.id,
+          shipmentId: id,
+          type: body.type ?? cp.type ?? 'GPS',
+          completedAt: cp.completedAt ? new Date(cp.completedAt) : new Date(),
+          lat: body.lat ?? null,
+          lng: body.lng ?? null,
+          note: body.note ?? body.comment ?? null,
+        },
+      }).catch(() => { /* fire-and-forget */ });
+    }
+    return result;
   }
 
   verifyPin(id: string, pin: string, user: RequestUser) {

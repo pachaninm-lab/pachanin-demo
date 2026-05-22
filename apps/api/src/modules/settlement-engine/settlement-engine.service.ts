@@ -1,7 +1,8 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, Optional } from '@nestjs/common';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 
 const MONEY_MUTATION_ROLES: Set<Role> = new Set([
@@ -12,10 +13,13 @@ const MONEY_MUTATION_ROLES: Set<Role> = new Set([
 
 @Injectable()
 export class SettlementEngineService {
+  private readonly logger = new Logger(SettlementEngineService.name);
+
   constructor(
     private readonly runtime: RuntimeCoreService,
     private readonly executor: ActionExecutorService,
     private readonly outbox: OutboxService,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   worksheet(dealId: string) {
@@ -85,6 +89,8 @@ export class SettlementEngineService {
       fn: () => this.runtime.reservePrepayment(dealId, user),
     });
     const outboxEntries = this.outbox.getByDeal(dealId);
+    const ws2 = this.runtime.worksheet(dealId);
+    this.upsertPayment(dealId, ws2.payment).catch((e) => this.logger.debug(`Payment DB write skipped: ${e.message}`));
     return { ...result, outboxStatus: 'PENDING', outboxId: outboxEntries.at(-1)?.id };
   }
 
@@ -179,14 +185,49 @@ export class SettlementEngineService {
         this.outbox.markFailed(pending.id, payload?.errorMessage ?? 'callback_failure');
       }
     }
-    return this.runtime.registerSafeDealsCallback(payload);
+    const result = this.runtime.registerSafeDealsCallback(payload);
+    if (payload?.dealId) {
+      const ws = this.runtime.worksheet(payload.dealId);
+      this.upsertPayment(payload.dealId, ws.payment).catch((e) =>
+        this.logger.debug(`Payment DB callback write skipped: ${e.message}`),
+      );
+    }
+    return result;
   }
 
   getOutboxStatus(dealId?: string) {
     return {
+      totalPending: dealId ? this.outbox.getByDeal(dealId).length : this.outbox.listPending().length,
       pending: dealId ? this.outbox.getByDeal(dealId) : this.outbox.listPending(),
       manualReview: this.outbox.listManualReview(),
     };
+  }
+
+  private async upsertPayment(dealId: string, payment: any) {
+    if (!this.prisma || !payment?.id) return;
+    await this.prisma.payment.upsert({
+      where: { id: payment.id },
+      update: {
+        status: payment.status,
+        amountRub: payment.amountRub,
+        reservedAt: payment.reserveConfirmedAt ? new Date(payment.reserveConfirmedAt) : null,
+        releasedAt: payment.releasedAt ? new Date(payment.releasedAt) : null,
+        holdAmountRub: payment.holdAmountRub ?? null,
+        callbackState: payment.callbackState ?? 'NONE',
+        bankRef: payment.bankEventId ?? null,
+      },
+      create: {
+        id: payment.id,
+        dealId,
+        status: payment.status ?? 'PENDING',
+        amountRub: payment.amountRub,
+        reservedAt: payment.reserveConfirmedAt ? new Date(payment.reserveConfirmedAt) : null,
+        releasedAt: payment.releasedAt ? new Date(payment.releasedAt) : null,
+        holdAmountRub: payment.holdAmountRub ?? null,
+        callbackState: payment.callbackState ?? 'NONE',
+        bankRef: payment.bankEventId ?? null,
+      },
+    });
   }
 
   private assertMoneyMutationRole(user: RequestUser): void {

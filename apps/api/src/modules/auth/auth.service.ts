@@ -174,4 +174,28 @@ export class AuthService {
       message: 'No OIDC provider configured',
     };
   }
+
+  listUsers() {
+    return usersStore.map((u) => ({
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      orgId: u.orgId,
+      fullName: u.fullName,
+    }));
+  }
+
+  updateUserRole(userId: string, role: Role): { id: string; role: Role } {
+    const user = usersStore.find((u) => u.id === userId);
+    if (!user) throw new Error(`User ${userId} not found`);
+    user.role = role;
+    return { id: user.id, role: user.role };
+  }
+
+  updateUserOrg(userId: string, orgId: string): { id: string; orgId: string } {
+    const user = usersStore.find((u) => u.id === userId);
+    if (!user) throw new Error(`User ${userId} not found`);
+    user.orgId = orgId;
+    return { id: user.id, orgId: user.orgId };
+  }
 }
