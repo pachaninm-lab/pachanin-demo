@@ -6,13 +6,17 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { DocumentsService } from './documents.service';
+import { DocumentMatrixService } from './document-matrix.service';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 
 @UseGuards(RolesGuard)
-@Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER', 'ACCOUNTING')
+@Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER', 'ACCOUNTING', 'LAB', 'LOGISTICIAN', 'EXECUTIVE', 'ADMIN')
 @Controller('documents')
 export class DocumentsController {
-  constructor(private readonly documents: DocumentsService) {}
+  constructor(
+    private readonly documents: DocumentsService,
+    private readonly matrix: DocumentMatrixService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: any) {
@@ -65,5 +69,17 @@ export class DocumentsController {
   @Get(':id/correction')
   correction(@Param('id') id: string, @CurrentUser() user: any) {
     return this.documents.getCorrectionPlan(id, user);
+  }
+
+  /** Returns all doc requirements for a given action */
+  @Get('matrix/:action')
+  matrixForAction(@Param('action') action: string) {
+    return this.matrix.getRequirementsForAction(action as any);
+  }
+
+  /** Full release readiness gate check for a deal */
+  @Get('gate/release/:dealId')
+  releaseGate(@Param('dealId') dealId: string, @CurrentUser() user: any) {
+    return this.documents.getReleaseGate(dealId, user);
   }
 }

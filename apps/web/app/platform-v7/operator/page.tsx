@@ -5,16 +5,21 @@ import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietInte
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { getDealsCanonical } from '@/lib/deals-server';
+import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
+import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
+import { getOutboxStatus } from '@/lib/outbox-server';
 
 const deal9106 = getDeal360Scenario('DL-9106');
 const deal9102 = getDeal360Scenario('DL-9102');
 
-const blockers = [
-  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'СДИЗ не подтверждён', source: 'ФГИС «Зерно»', amount: '9,65 млн ₽', owner: 'продавец', next: 'отправить СДИЗ и дождаться подтверждения', href: '/platform-v7/deals/DL-9106/clean', severity: 'stop' },
-  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'ЭТрН ждёт подписи грузополучателя', source: 'СБИС / Saby ЭТрН', amount: '9,65 млн ₽', owner: 'грузополучатель', next: 'закрыть подпись ЭТрН и передачу в ГИС ЭПД', href: '/platform-v7/logistics', severity: 'stop' },
-  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'Протокол качества ожидается', source: 'ФГБУ ЦОК АПК', amount: '9,65 млн ₽', owner: 'лаборатория', next: 'получить протокол качества', href: '/platform-v7/elevator', severity: 'wait' },
-  { deal: 'DL-9102', lot: 'LOT-2402', reason: 'Отклонение веса', source: 'приёмка', amount: '624 тыс. ₽', owner: 'оператор', next: deal9102.nextAction, href: '/platform-v7/deals/DL-9102/clean', severity: 'stop' },
-] as const;
+const STATIC_BLOCKERS = [
+  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'СДИЗ не подтверждён', source: 'ФГИС «Зерно»', amount: '9,65 млн ₽', owner: 'продавец', next: 'отправить СДИЗ и дождаться подтверждения', href: '/platform-v7/deals/DL-9106/clean', severity: 'stop' as const },
+  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'ЭТрН ждёт подписи грузополучателя', source: 'СБИС / Saby ЭТрН', amount: '9,65 млн ₽', owner: 'грузополучатель', next: 'закрыть подпись ЭТрН и передачу в ГИС ЭПД', href: '/platform-v7/logistics', severity: 'stop' as const },
+  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'Протокол качества ожидается', source: 'ФГБУ ЦОК АПК', amount: '9,65 млн ₽', owner: 'лаборатория', next: 'получить протокол качества', href: '/platform-v7/elevator', severity: 'wait' as const },
+  { deal: 'DL-9102', lot: 'LOT-2402', reason: 'Отклонение веса', source: 'приёмка', amount: '624 тыс. ₽', owner: 'оператор', next: deal9102.nextAction, href: '/platform-v7/deals/DL-9102/clean', severity: 'stop' as const },
+];
 
 const quickLinks = [
   { title: 'Проверка выплаты', href: '/platform-v7/bank/release-safety', note: 'условия выпуска денег' },
@@ -24,11 +29,70 @@ const quickLinks = [
   { title: 'Споры', href: '/platform-v7/disputes', note: 'удержания и доказательства' },
 ] as const;
 
-export default function PlatformV7OperatorAliasPage() {
+function formatMoney(rub: number): string {
+  if (rub >= 1_000_000) return `${(rub / 1_000_000).toFixed(2)} млн ₽`;
+  if (rub >= 1_000) return `${(rub / 1_000).toFixed(0)} тыс. ₽`;
+  return `${rub} ₽`;
+}
+
+export default async function PlatformV7OperatorPage() {
+  const [deals, disputes, shipments, outbox] = await Promise.all([
+    getDealsCanonical(),
+    getDisputes(),
+    getShipments(),
+    getOutboxStatus(),
+  ]);
+
+  const apiOnline = outbox.isApiAvailable;
+  const blockers = STATIC_BLOCKERS;
   const stopCount = blockers.filter((item) => item.severity === 'stop').length;
+
+  const heldRub = disputeTotalHeldRub(disputes);
+  const disputeCount = openDisputeCount(disputes);
+  const shipmentCount = activeShipmentCount(shipments);
+  const blockedShipments = shipmentsWithBlockers(shipments);
+
+  const liveBlockers = [
+    ...disputes
+      .filter((d) => d.status === 'OPEN' || d.status === 'UNDER_REVIEW')
+      .map((d) => ({
+        id: d.id,
+        label: `Спор ${d.id}: ${d.description.slice(0, 60)}`,
+        severity: 'stop' as const,
+        responsibleRole: 'SUPPORT_MANAGER',
+        nextAction: d.status === 'OPEN' ? 'Взять в работу (triage)' : 'Продолжить расследование',
+      })),
+    ...blockedShipments.map((s) => ({
+      id: s.id,
+      label: `Рейс ${s.id}: ${(s.blockers ?? [])[0] ?? 'блокер'}`,
+      severity: 'warn' as const,
+      responsibleRole: 'LOGISTICIAN',
+      nextAction: s.nextAction ?? 'Устранить блокер рейса',
+    })),
+    ...(outbox.totalPending > 0
+      ? [{ id: 'bank-ops', label: `${outbox.totalPending} банковских операций в ожидании`, severity: 'warn' as const, responsibleRole: 'ACCOUNTING', nextAction: 'Проверить статус в bank-workspace' }]
+      : []),
+    ...(outbox.hasManualReview
+      ? [{ id: 'manual-review', label: 'Есть операции требующие ручной проверки', severity: 'stop' as const, responsibleRole: 'OPERATOR', nextAction: 'Открыть outbox ручной проверки' }]
+      : []),
+  ];
 
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <LiveApiStatusBar
+        apiOnline={apiOnline}
+        blockers={liveBlockers}
+        pendingBankOps={outbox.totalPending}
+        openDisputes={disputeCount}
+        activeShipments={shipmentCount}
+        role="SUPPORT_MANAGER · Центр управления"
+        summary={
+          apiOnline
+            ? `${deals.length} сделок · ${disputeCount} открытых споров · ${formatMoney(heldRub)} удержано · ${shipmentCount} активных рейсов`
+            : 'Данные статичные — API недоступен'
+        }
+      />
+
       <QuietIntelligenceHint
         problem={`${stopCount} стоп-блокера держат 15,89 млн ₽ — СДИЗ, ЭТрН и отклонение веса.`}
         action='Устранить блокеры по очереди: СДИЗ → ЭТрН → акт расхождения.'
@@ -39,16 +103,16 @@ export default function PlatformV7OperatorAliasPage() {
         <h1 style={h1}>Блокеры, деньги и следующий ответственный</h1>
         <p style={lead}>Оператор видит не технические интеграции, а сделки, которые остановили деньги: причина, источник, сумма влияния, ответственный и следующее действие.</p>
         <div style={actions}>
-          <Link href={`/platform-v7/deals/${deal9106.dealId}/clean`} style={primaryBtn}>Открыть Deal 360</Link>
+          <Link href={`/platform-v7/deals/${deal9106.dealId}/clean`} style={primaryBtn}>Открыть сделку</Link>
           <Link href='/platform-v7/documents' style={ghostBtn}>Матрица документов</Link>
         </div>
       </section>
 
       <section style={metricsGrid}>
-        <Metric label='Сделок под контролем' value='2' />
-        <Metric label='Стоп-блокеров' value={String(stopCount)} danger />
-        <Metric label='Деньги под влиянием' value='15,89 млн ₽' danger />
-        <Metric label='К выплате сейчас' value='0 ₽' danger />
+        <Metric label='Сделок под контролем' value={apiOnline ? String(deals.length) : '2'} />
+        <Metric label='Стоп-блокеров' value={String(apiOnline ? liveBlockers.filter((b) => b.severity === 'stop').length : stopCount)} danger />
+        <Metric label='Удержано по спорам' value={apiOnline ? formatMoney(heldRub) : '15,89 млн ₽'} danger={heldRub > 0} />
+        <Metric label='Банк-операций в очереди' value={apiOnline ? String(outbox.totalPending) : '—'} danger={outbox.totalPending > 0} />
       </section>
 
       <section style={card}>
@@ -99,7 +163,7 @@ export default function PlatformV7OperatorAliasPage() {
   );
 }
 
-function BlockerRow({ item }: { item: typeof blockers[number] }) {
+function BlockerRow({ item }: { item: typeof STATIC_BLOCKERS[number] }) {
   const stop = item.severity === 'stop';
   return (
     <Link href={item.href} style={{ textDecoration: 'none', color: 'inherit', background: stop ? 'rgba(220,38,38,0.06)' : 'rgba(217,119,6,0.06)', border: `1px solid ${stop ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)'}`, borderRadius: 18, padding: 14, display: 'grid', gap: 10 }}>

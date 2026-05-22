@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { getDealsCanonical } from '@/lib/deals-server';
+import { getDisputes, openDisputeCount } from '@/lib/disputes-server';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
 import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
@@ -85,9 +88,23 @@ const sellerPaths = [
   { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, основание и банковская проверка' },
 ] as const;
 
-export default function PlatformV7SellerPage() {
+export default async function PlatformV7SellerPage() {
+  const [deals, disputes] = await Promise.all([getDealsCanonical(), getDisputes()]);
+  const apiOnline = deals.length > 0;
+  const disputeCount = openDisputeCount(disputes);
+
   return (
     <main data-platform-v7-seller-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <LiveApiStatusBar
+        apiOnline={apiOnline}
+        openDisputes={disputeCount}
+        role="FARMER · Кабинет продавца"
+        summary={
+          apiOnline
+            ? `${deals.length} сделок · ${disputeCount} открытых споров`
+            : 'Данные статичные — API недоступен'
+        }
+      />
 
       {/* ── VIL: Quiet hint — главный блокер в одну строку ── */}
       <QuietIntelligenceHint

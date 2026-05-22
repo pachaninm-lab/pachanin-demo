@@ -1,36 +1,95 @@
 import { Injectable } from '@nestjs/common';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
+import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
+import { RequestUser } from '../../common/types/request-user';
 
 @Injectable()
 export class DealsService {
-  constructor(private readonly runtime: RuntimeCoreService) {}
+  constructor(
+    private readonly runtime: RuntimeCoreService,
+    private readonly executor: ActionExecutorService,
+  ) {}
 
-  list(user: any) {
+  list(user: RequestUser) {
     return this.runtime.listDeals(user);
   }
 
-  getOne(id: string, _user: any) {
-    return this.runtime.getDeal(id);
+  getOne(id: string, user: RequestUser) {
+    const deal = this.runtime.getDeal(id);
+    this.executor.assertObjectScope(user, 'deal.view', {
+      objectType: 'deal',
+      objectId: id,
+      ownerOrgId: deal.sellerOrgId,
+      counterpartyOrgId: deal.buyerOrgId,
+    });
+    return deal;
   }
 
-  workspace(id: string, _user: any) {
-    return this.runtime.dealWorkspace(id);
+  workspace(id: string, user: RequestUser) {
+    this.executor.assertPermission(user, 'deal.view');
+    const ws = this.runtime.dealWorkspace(id);
+    this.executor.assertObjectScope(user, 'deal.view', {
+      objectType: 'deal',
+      objectId: id,
+      ownerOrgId: ws.sellerOrgId,
+      counterpartyOrgId: ws.buyerOrgId,
+    });
+    return ws;
   }
 
-  passport(id: string, _user: any) {
+  passport(id: string, user: RequestUser) {
     return this.runtime.dealPassport(id);
   }
 
-  timeline(id: string, _user: any) {
+  timeline(id: string, user: RequestUser) {
     return this.runtime.dealTimeline(id);
   }
 
-  create(dto: CreateDealDto, user: any) {
-    return this.runtime.createDeal(dto, user);
+  async create(dto: CreateDealDto, user: RequestUser) {
+    const { result } = await this.executor.execute({
+      user,
+      action: 'deal.create',
+      scope: { objectType: 'deal', objectId: 'new', ownerOrgId: user.orgId },
+      fn: () => this.runtime.createDeal(dto, user),
+    });
+    return result;
   }
 
-  transition(id: string, dto: { nextState: string; comment?: string }, user: any) {
-    return this.runtime.transitionDeal(id, dto.nextState, user, dto.comment);
+  async transition(
+    id: string,
+    dto: { nextState: string; comment?: string },
+    user: RequestUser,
+  ) {
+    const deal = this.runtime.getDeal(id);
+
+    // Determine state gates based on target state
+    const gates: import('../../common/action-executor/action-executor.service').StateGates = {
+      dealStatus: deal.status,
+    };
+
+    // Release actions require documents + no dispute + reserve confirmed
+    if (dto.nextState === 'SETTLED' || dto.nextState === 'FINAL_PAYMENT') {
+      const ws = this.runtime.dealWorkspace(id);
+      gates.documentsComplete = ws.completeness?.isComplete ?? false;
+      gates.disputeOpen = deal.status === 'DISPUTE_OPEN';
+      gates.reserveConfirmed =
+        ws.payment?.status !== 'PENDING' && ws.payment?.status !== 'RESERVE_PENDING';
+    }
+
+    const { result, auditId } = await this.executor.execute({
+      user,
+      action: 'deal.transition',
+      scope: {
+        objectType: 'deal',
+        objectId: id,
+        ownerOrgId: deal.sellerOrgId,
+        counterpartyOrgId: deal.buyerOrgId,
+      },
+      gates,
+      fn: () => this.runtime.transitionDeal(id, dto.nextState, user, dto.comment),
+    });
+
+    return { ...result, auditId };
   }
 }

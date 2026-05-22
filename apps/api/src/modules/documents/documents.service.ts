@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
+import { DocumentMatrixService } from './document-matrix.service';
 
 @Injectable()
 export class DocumentsService {
-  constructor(private readonly runtime: RuntimeCoreService) {}
+  constructor(
+    private readonly runtime: RuntimeCoreService,
+    private readonly matrix: DocumentMatrixService,
+  ) {}
 
   list(_user: any) {
     return this.runtime.listDocuments();
@@ -65,6 +69,18 @@ export class DocumentsService {
       name: doc.name,
       previewUrl: `${doc.url}?preview=true`,
       mimeType: doc.mimeType,
+    };
+  }
+
+  getReleaseGate(dealId: string, _user: any) {
+    const docs = this.runtime.listDocuments().filter((d: any) => d.dealId === dealId);
+    const presentDocs = this.matrix.toPresentDocs(docs);
+    const gate = this.matrix.releaseReadiness(presentDocs);
+    return {
+      dealId,
+      canRelease: gate.canProceed,
+      blocking: gate.blocking,
+      summary: this.matrix.releaseBlockerSummary(docs),
     };
   }
 

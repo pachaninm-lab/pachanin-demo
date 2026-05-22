@@ -5,13 +5,14 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
 import { LedgerModule } from '../ledger/ledger.module';
+import { ActionExecutorModule } from '../../common/action-executor/action-executor.module';
 import { DealsController } from './deals.controller';
 import { DealsService } from './deals.service';
 
 @Module({
-  imports: [AuditModule, AntiFraudModule, NotificationsModule, IntegrationsModule, LedgerModule],
+  imports: [AuditModule, AntiFraudModule, NotificationsModule, IntegrationsModule, LedgerModule, ActionExecutorModule],
   controllers: [DealsController],
   providers: [DealsService, AccessScopeService],
-  exports: [DealsService]
+  exports: [DealsService],
 })
 export class DealsModule {}

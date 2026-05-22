@@ -18,6 +18,9 @@ import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedb
 import { BankCompliancePilotPanel } from '@/components/platform-v7/BankCompliancePilotPanel';
 import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { getOutboxStatus } from '@/lib/outbox-server';
+import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -96,11 +99,51 @@ const releaseSummary = [
   { label: 'Кто следующий', value: 'оператор + ответственный за документ', note: 'Следующее действие фиксируется в сделке и журнале.' },
 ] as const;
 
-const gates = mainDeal.providerGates.filter((gate) => ['Сбер · Безопасные сделки', 'Сбер · Оплата в кредит', 'ФГИС «Зерно»', 'Контур.Диадок', 'СБИС / Saby ЭТрН', 'Лабораторный контур качества'].includes(gate.provider));
+const gates = mainDeal.providerGates
+  .filter((gate) => ['Сбер · Безопасные сделки', 'Сбер · Оплата в кредит', 'ФГИС «Зерно»', 'Контур.Диадок', 'ЭДО-провайдер ЭТрН', 'Лабораторный контур качества'].includes(bankProviderLabel(gate.provider)))
+  .map((gate) => ({ ...gate, provider: bankProviderLabel(gate.provider) }));
 
-export default function PlatformV7BankPage() {
+function bankProviderLabel(provider: string) {
+  if (provider.includes('Saby') || provider.includes('СБИС')) return 'ЭДО-провайдер ЭТрН';
+  return provider;
+}
+
+export default async function PlatformV7BankPage() {
+  const [outbox, disputes] = await Promise.all([getOutboxStatus(), getDisputes()]);
+  const apiOnline = outbox.isApiAvailable;
+  const heldRub = disputeTotalHeldRub(disputes);
+  const disputeCount = openDisputeCount(disputes);
+
+  const liveBlockers = [
+    ...(outbox.totalPending > 0
+      ? [{ id: 'bank-ops', label: `${outbox.totalPending} банковских операций в очереди`, severity: 'warn' as const, responsibleRole: 'ACCOUNTING', nextAction: 'Проверить статус в bank-workspace' }]
+      : []),
+    ...(outbox.hasManualReview
+      ? [{ id: 'manual', label: 'Операции требуют ручной проверки', severity: 'stop' as const, responsibleRole: 'OPERATOR', nextAction: 'Открыть outbox ручной проверки' }]
+      : []),
+    ...disputes.filter((d) => d.status === 'OPEN' || d.status === 'UNDER_REVIEW').map((d) => ({
+      id: d.id,
+      label: `Спор ${d.id}: удержание ${d.claimAmountRub ? (d.claimAmountRub / 1_000_000).toFixed(2) + ' млн ₽' : 'активно'}`,
+      severity: 'stop' as const,
+      responsibleRole: 'ARBITRATOR',
+      nextAction: 'Закрыть спор до выпуска денег',
+    })),
+  ];
+
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <LiveApiStatusBar
+        apiOnline={apiOnline}
+        blockers={liveBlockers}
+        pendingBankOps={outbox.totalPending}
+        openDisputes={disputeCount}
+        role="BANK · Проверка выплаты"
+        summary={
+          apiOnline
+            ? `${outbox.totalPending} операций в очереди · ${disputeCount} открытых споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`
+            : 'Данные статичные — API недоступен'
+        }
+      />
       <BatonStrip
         from="оператор и ответственный за документ"
         mine="проверка основания выплаты"
@@ -110,7 +153,7 @@ export default function PlatformV7BankPage() {
       <section style={hero}>
         <div style={badge}>Кабинет банка</div>
         <h1 style={h1}>Сначала основание, потом банковская проверка</h1>
-        <p style={lead}>Экран показывает только то, что важно для решения: сумма, стоп, причина, ответственный и следующее действие. Длинные детали скрыты ниже и раскрываются по необходимости.</p>
+        <p style={lead}>Деньги выпускаются только после условий сделки и подтверждения банка. Экран показывает только то, что важно для решения: сумма, стоп, причина, ответственный и следующее действие.</p>
         <div style={actions}>
           <Link href='/platform-v7/bank/release-safety' style={primaryBtn}>Проверка выплаты</Link>
           <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Карточка сделки</Link>
@@ -151,6 +194,22 @@ export default function PlatformV7BankPage() {
         risks={[
           { id: 'sdiz-risk',    text: 'СДИЗ не закрыт — основание для банка не сформировано',    severity: 'high'   },
           { id: 'dispute-risk', text: 'Спор по DL-9102 · 624 тыс. ₽ под удержанием',            severity: 'medium' },
+        ]}
+        causeLines={[
+          {
+            cause: { text: 'СДИЗ не закрыт', tone: 'blocked' },
+            relation: 'blocks',
+            effect: { text: 'основание банку', tone: 'money' },
+            moneyAmount: '9,65 млн ₽',
+            moneyTone: 'blocked',
+          },
+          {
+            cause: { text: 'ЭТрН не подписана', tone: 'warning' },
+            relation: 'requires',
+            effect: { text: 'ручная проверка', tone: 'money' },
+            moneyAmount: '0 ₽ к передаче',
+            moneyTone: 'hold',
+          },
         ]}
         unlockSteps={[
           { id: '1', label: 'Закрыть СДИЗ',       status: 'current'  },

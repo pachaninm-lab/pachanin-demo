@@ -11,6 +11,8 @@ import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceRe
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
 import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
 import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedbackPreviewStrip';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 
 const disputesHandoff: HandoffItem[] = [
   {
@@ -104,18 +106,44 @@ const disputeSummary = [
   { label: 'Что сейчас', value: '2 открытых спора', note: 'Каждый спор объясняет, почему сумма остановлена или удержана.' },
   { label: 'Сумма влияния', value: '15,89 млн ₽', note: 'Включает активное удержание и сделку, где проверка выплаты остановлена до качества.' },
   { label: 'Удержание', value: '624 тыс. ₽', note: 'Удержание нельзя снять без решения, суммы и основания.' },
-  { label: 'SLA', value: '4 часа / до 18:00', note: 'Очередь должна сортироваться по срочности и влиянию на деньги.' },
+  { label: 'Срок', value: '4 часа / до 18:00', note: 'Очередь должна сортироваться по срочности и влиянию на деньги.' },
   { label: 'Владельцы', value: 'оператор · лаборатория · элеватор', note: 'У каждого спора есть ответственный за следующий шаг.' },
   { label: 'Доказательства', value: 'акт · вес · фото · протокол · журнал', note: 'Спор не закрывается устной перепиской или ручным обходом.' },
 ] as const;
 
-export default function PlatformV7DisputesPage() {
+export default async function PlatformV7DisputesPage() {
+  const liveDisputes = await getDisputes();
+  const apiOnline = liveDisputes.length > 0 || true;
+  const heldRub = disputeTotalHeldRub(liveDisputes);
+  const disputeCount = openDisputeCount(liveDisputes);
+
+  const liveBlockers = liveDisputes
+    .filter((d) => d.status === 'OPEN' || d.status === 'UNDER_REVIEW')
+    .map((d) => ({
+      id: d.id,
+      label: `Спор ${d.id}: ${d.description.slice(0, 60)}`,
+      severity: 'stop' as const,
+      responsibleRole: 'ARBITRATOR',
+      nextAction: d.status === 'OPEN' ? 'Взять в работу (triage)' : 'Продолжить расследование',
+    }));
+
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <LiveApiStatusBar
+        apiOnline={liveDisputes.some((d) => d.id.startsWith('DSP') && !d.id.includes('MOCK'))}
+        blockers={liveBlockers}
+        openDisputes={disputeCount}
+        role="ARBITRATOR · Управление спорами"
+        summary={
+          disputeCount > 0
+            ? `${disputeCount} открытых споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`
+            : 'Открытых споров нет'
+        }
+      />
       <section style={hero}>
         <div style={badge}>Споры и удержания</div>
         <h1 style={h1}>Спор объясняет, почему сумма остановлена</h1>
-        <p style={lead}>Здесь сверху видны только причина, сумма влияния, SLA, ответственный и следующий шаг. Доказательства, правила и передача между ролями раскрываются отдельно.</p>
+        <p style={lead}>Здесь сверху видны только причина, сумма влияния, срок, ответственный и следующий шаг. Доказательства, правила и передача между ролями раскрываются отдельно.</p>
         <div style={actions}>
           <Link href='/platform-v7/operator' style={primaryBtn}>Центр управления</Link>
           <Link href='/platform-v7/bank' style={ghostBtn}>Банковская проверка</Link>
@@ -126,7 +154,7 @@ export default function PlatformV7DisputesPage() {
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ ...micro, color: '#FECACA' }}>контроль спора</div>
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Спор — это сумма влияния, причина, SLA, ответственный, доказательства и решение по деньгам.</p>
+          <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Спор — это сумма влияния, причина, срок, ответственный, доказательства и решение по деньгам.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {disputeSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
@@ -222,7 +250,7 @@ function DisputeCard({ item }: { item: typeof staticDisputes[number] }) {
       </div>
       <div style={grid2}>
         <Cell label='Сумма влияния' value={item.amount} danger />
-        <Cell label='SLA' value={item.sla} danger />
+        <Cell label='Срок' value={item.sla} danger />
         <Cell label='Ответственный' value={item.responsible} />
         <Cell label='Следующее действие' value={item.next} strong />
       </div>

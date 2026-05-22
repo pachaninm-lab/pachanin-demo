@@ -1,13 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { TransitionShipmentDto } from './dto/transition-shipment.dto';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
+import { RequestUser, Role } from '../../common/types/request-user';
 
 @Injectable()
 export class LogisticsService {
   constructor(private readonly runtime: RuntimeCoreService) {}
 
-  summary(_user: any) {
+  summary(_user: RequestUser) {
     const shipments = this.runtime.listShipments();
     return {
       total: shipments.length,
@@ -19,31 +20,62 @@ export class LogisticsService {
     };
   }
 
-  list(_user: any) {
-    return this.runtime.listShipments();
+  list(user: RequestUser) {
+    const all = this.runtime.listShipments();
+    // Driver sees only their own shipment
+    if (user.role === Role.DRIVER) {
+      return all.filter((s: any) => s.driverUserId === user.id);
+    }
+    return all;
   }
 
-  getOne(id: string, _user: any) {
-    return this.runtime.getShipment(id);
+  getOne(id: string, user: RequestUser) {
+    const shipment = this.runtime.getShipment(id);
+    this.assertShipmentAccess(shipment, user);
+    return shipment;
   }
 
-  workspace(id: string, _user: any) {
+  workspace(id: string, user: RequestUser) {
+    const shipment = this.runtime.getShipment(id);
+    this.assertShipmentAccess(shipment, user);
     return this.runtime.shipmentWorkspace(id);
   }
 
-  create(dto: CreateShipmentDto, user: any) {
+  create(dto: CreateShipmentDto, user: RequestUser) {
+    if (user.role === Role.DRIVER) {
+      throw new ForbiddenException('Drivers cannot create shipments');
+    }
     return this.runtime.createShipment(dto, user);
   }
 
-  transition(id: string, dto: TransitionShipmentDto, user: any) {
+  transition(id: string, dto: TransitionShipmentDto, user: RequestUser) {
+    const shipment = this.runtime.getShipment(id);
+    this.assertShipmentAccess(shipment, user);
     return this.runtime.transitionShipment(id, dto, user);
   }
 
-  recordCheckpoint(id: string, body: any, user: any) {
+  recordCheckpoint(id: string, body: any, user: RequestUser) {
+    const shipment = this.runtime.getShipment(id);
+    this.assertShipmentAccess(shipment, user);
     return this.runtime.recordCheckpoint(id, body, user);
   }
 
-  verifyPin(id: string, pin: string, _user: any) {
+  verifyPin(id: string, pin: string, user: RequestUser) {
+    const shipment = this.runtime.getShipment(id);
+    this.assertShipmentAccess(shipment, user);
     return this.runtime.verifyPin(id, pin);
+  }
+
+  private assertShipmentAccess(shipment: any, user: RequestUser): void {
+    // ADMIN / SUPPORT_MANAGER see everything
+    if (user.role === Role.ADMIN || user.role === Role.SUPPORT_MANAGER) return;
+    // Driver: can only access their own assigned shipment
+    if (user.role === Role.DRIVER) {
+      if (shipment.driverUserId && shipment.driverUserId !== user.id) {
+        throw new ForbiddenException('Driver can only access own assigned shipment');
+      }
+      return;
+    }
+    // EXECUTIVE: read access allowed, enforced by controller if needed
   }
 }
