@@ -7,10 +7,10 @@
     "test": "jest --passWithNoTests",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma": "prisma",
-    "start": "node dist/main.js",
+    "start": "node dist/apps/api/src/main.js",
     "seed": "ts-node prisma/seed.ts",
     "seed:federal-catalog": "ts-node prisma/federal-counterparties.seed.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "pnpm prisma generate && tsc -p tsconfig.json --noEmit",
     "seed:service-providers": "ts-node prisma/service-providers.seed.ts"
   },
   "prisma": {
