@@ -1,17 +1,5 @@
-export type PlatformV7SecurityRole =
-  | 'seller'
-  | 'buyer'
-  | 'logistics'
-  | 'driver'
-  | 'elevator'
-  | 'lab'
-  | 'surveyor'
-  | 'bank'
-  | 'arbitrator'
-  | 'compliance'
-  | 'operator'
-  | 'executive'
-  | 'investor';
+export type { PlatformV7CanonicalRole as PlatformV7SecurityRole } from './role-canonical';
+import type { PlatformV7CanonicalRole } from './role-canonical';
 
 export type PlatformV7EntityType =
   | 'batch'
@@ -26,7 +14,9 @@ export type PlatformV7EntityType =
   | 'dispute'
   | 'audit_event'
   | 'rating'
-  | 'connector';
+  | 'connector'
+  | 'bank'
+  | 'aggregate_report';
 
 export type PlatformV7Permission =
   | 'read'
@@ -48,7 +38,7 @@ export type PlatformV7GuardDecision = {
 };
 
 export type PlatformV7SecurityRule = {
-  readonly role: PlatformV7SecurityRole;
+  readonly role: PlatformV7CanonicalRole;
   readonly entity: PlatformV7EntityType;
   readonly permissions: readonly PlatformV7Permission[];
 };
@@ -66,20 +56,20 @@ export const PLATFORM_V7_SECURITY_RULES: readonly PlatformV7SecurityRule[] = [
   { role: 'buyer', entity: 'deal', permissions: ['read'] },
   { role: 'buyer', entity: 'money', permissions: ['read', 'view_money', 'request_bank_action'] },
   { role: 'buyer', entity: 'document', permissions: ['read', 'view_documents'] },
-  { role: 'logistics', entity: 'trip', permissions: ['read', 'create', 'update'] },
-  { role: 'logistics', entity: 'document', permissions: ['read', 'create', 'update', 'view_documents'] },
+  { role: 'logistics_manager', entity: 'trip', permissions: ['read', 'create', 'update'] },
+  { role: 'logistics_manager', entity: 'document', permissions: ['read', 'create', 'update', 'view_documents'] },
   { role: 'driver', entity: 'trip', permissions: ['read', 'update'] },
   { role: 'driver', entity: 'document', permissions: ['read', 'create'] },
-  { role: 'elevator', entity: 'trip', permissions: ['read', 'update'] },
-  { role: 'elevator', entity: 'document', permissions: ['read', 'create', 'update', 'view_documents'] },
-  { role: 'lab', entity: 'document', permissions: ['read', 'create', 'update', 'view_documents'] },
+  { role: 'elevator_operator', entity: 'trip', permissions: ['read', 'update'] },
+  { role: 'elevator_operator', entity: 'document', permissions: ['read', 'create', 'update', 'view_documents'] },
+  { role: 'lab_specialist', entity: 'document', permissions: ['read', 'create', 'update', 'view_documents'] },
   { role: 'surveyor', entity: 'document', permissions: ['read', 'create', 'update', 'view_documents'] },
-  { role: 'bank', entity: 'money', permissions: ['read', 'view_money', 'request_bank_action', 'approve'] },
-  { role: 'bank', entity: 'document', permissions: ['read', 'view_documents'] },
+  { role: 'bank_officer', entity: 'money', permissions: ['read', 'view_money', 'request_bank_action', 'approve'] },
+  { role: 'bank_officer', entity: 'document', permissions: ['read', 'view_documents'] },
   { role: 'arbitrator', entity: 'dispute', permissions: ['read', 'update', 'resolve_dispute'] },
   { role: 'arbitrator', entity: 'document', permissions: ['read', 'view_documents'] },
-  { role: 'compliance', entity: 'connector', permissions: ['read', 'request_external_check'] },
-  { role: 'compliance', entity: 'document', permissions: ['read', 'view_documents', 'request_external_check'] },
+  { role: 'compliance_officer', entity: 'connector', permissions: ['read', 'request_external_check'] },
+  { role: 'compliance_officer', entity: 'document', permissions: ['read', 'view_documents', 'request_external_check'] },
   { role: 'operator', entity: 'batch', permissions: ['read', 'update', 'view_internal_audit'] },
   { role: 'operator', entity: 'lot', permissions: ['read', 'update', 'view_internal_audit'] },
   { role: 'operator', entity: 'rfq', permissions: ['read', 'update', 'view_internal_audit'] },
@@ -88,9 +78,10 @@ export const PLATFORM_V7_SECURITY_RULES: readonly PlatformV7SecurityRule[] = [
   { role: 'operator', entity: 'money', permissions: ['read', 'view_money', 'request_bank_action', 'view_internal_audit'] },
   { role: 'operator', entity: 'document', permissions: ['read', 'update', 'view_documents', 'view_internal_audit'] },
   { role: 'operator', entity: 'support_case', permissions: ['read', 'create', 'update', 'view_internal_audit'] },
-  { role: 'executive', entity: 'audit_event', permissions: ['read'] },
-  { role: 'executive', entity: 'money', permissions: ['read', 'view_money'] },
-  { role: 'investor', entity: 'audit_event', permissions: ['read'] },
+  { role: 'support_agent', entity: 'deal', permissions: ['read'] },
+  { role: 'support_agent', entity: 'support_case', permissions: ['read', 'create', 'update'] },
+  { role: 'executive_viewer', entity: 'aggregate_report', permissions: ['read'] },
+  { role: 'investor', entity: 'aggregate_report', permissions: ['read'] },
   { role: 'investor', entity: 'rating', permissions: ['read'] },
 ];
 
@@ -101,6 +92,9 @@ export const PLATFORM_V7_DRIVER_FORBIDDEN_ENTITIES: readonly PlatformV7EntityTyp
   'rating',
   'connector',
   'audit_event',
+  'deal',
+  'bank',
+  'support_case',
 ];
 
 export const PLATFORM_V7_SENSITIVE_PERMISSIONS: readonly PlatformV7Permission[] = [
@@ -114,7 +108,7 @@ export const PLATFORM_V7_SENSITIVE_PERMISSIONS: readonly PlatformV7Permission[] 
 ];
 
 export function canPlatformV7Role(
-  role: PlatformV7SecurityRole,
+  role: PlatformV7CanonicalRole,
   entity: PlatformV7EntityType,
   permission: PlatformV7Permission,
 ): PlatformV7GuardDecision {

@@ -12,6 +12,11 @@ export type PlatformRole =
   | 'driver'
   | 'elevator'
   | 'lab'
+  | 'surveyor'
+  | 'arbitrator'
+  | 'compliance'
+  | 'support_agent'
+  | 'executive'
   | 'investor';
 
 export type MaturityStatus = 'simulation' | 'manual' | 'controlled-pilot' | 'live';

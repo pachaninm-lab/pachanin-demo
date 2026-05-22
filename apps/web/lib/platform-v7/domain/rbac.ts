@@ -2,7 +2,7 @@ import type { CriticalAction } from './canonical';
 import type { ParticipantRole } from './types';
 
 export type PermissionVerb = 'create' | 'read' | 'update' | 'delete' | 'approve' | 'sign' | 'export' | 'override';
-export type PermissionScope = 'deal' | 'lot' | 'rfq' | 'offer' | 'document' | 'money' | 'dispute' | 'evidence' | 'counterparty' | 'integration' | 'audit' | 'settings';
+export type PermissionScope = 'deal' | 'lot' | 'rfq' | 'offer' | 'document' | 'money' | 'dispute' | 'evidence' | 'counterparty' | 'integration' | 'audit' | 'settings' | 'support_case';
 
 export interface Permission {
   readonly scope: PermissionScope;
@@ -91,7 +91,12 @@ export const BASE_ROLE_PERMISSIONS: Record<ParticipantRole, readonly Permission[
     { scope: 'dispute', verb: 'read' },
     { scope: 'dispute', verb: 'approve' },
     { scope: 'evidence', verb: 'read' },
-    { scope: 'money', verb: 'approve' },
+  ],
+  support_agent: [
+    { scope: 'deal', verb: 'read' },
+    { scope: 'support_case', verb: 'create' },
+    { scope: 'support_case', verb: 'read' },
+    { scope: 'support_case', verb: 'update' },
   ],
   admin: [
     { scope: 'settings', verb: 'update' },
@@ -120,6 +125,9 @@ export const CRITICAL_ACTION_ROLES: Record<CriticalAction, readonly ParticipantR
   EXECUTE_RELEASE: ['bank'],
   REQUEST_REFUND: ['operator', 'buyer', 'arbitrator'],
   EXECUTE_REFUND: ['bank'],
+  CONFIRM_BANK_RESERVE: ['bank'],
+  CONFIRM_BANK_RELEASE: ['bank'],
+  CONFIRM_BANK_REFUND: ['bank'],
   SIGN_DOCUMENT: ['seller', 'buyer', 'driver', 'carrier', 'elevator', 'lab', 'surveyor'],
   REPLACE_SIGNED_DOCUMENT: ['operator', 'admin'],
   CHANGE_BANK_DETAILS: ['seller', 'buyer', 'admin'],
@@ -136,7 +144,15 @@ export function hasPermission(role: ParticipantRole, permission: Permission): bo
 
 export function canPerformCriticalAction(role: ParticipantRole, action: CriticalAction): AccessDecision {
   const allowed = CRITICAL_ACTION_ROLES[action].includes(role);
-  const requiresSecondFactor = ['EXECUTE_RELEASE', 'EXECUTE_REFUND', 'CHANGE_BANK_DETAILS', 'APPROVE_DISPUTE_DECISION'].includes(action);
+  const requiresSecondFactor = [
+    'EXECUTE_RELEASE',
+    'EXECUTE_REFUND',
+    'CONFIRM_BANK_RESERVE',
+    'CONFIRM_BANK_RELEASE',
+    'CONFIRM_BANK_REFUND',
+    'CHANGE_BANK_DETAILS',
+    'APPROVE_DISPUTE_DECISION',
+  ].includes(action);
 
   return {
     allowed,
