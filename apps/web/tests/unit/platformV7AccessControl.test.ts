@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { platformV7AccessDecision, platformV7Can, type PlatformV7AccessActor } from '@/lib/platform-v7/access-control';
+import {
+  PlatformV7PermissionError,
+  assertPermission,
+  auditDeniedAccess,
+  canAccessResource,
+  canPerformAction,
+  getEffectivePermissions,
+  platformV7AccessDecision,
+  platformV7Can,
+  type PlatformV7AccessActor,
+} from '@/lib/platform-v7/access-control';
 
 const actor = (activeRole: PlatformV7AccessActor['activeRole'], organizationId = 'org-1', userId = 'user-1'): PlatformV7AccessActor => ({
   userId,
@@ -123,5 +133,70 @@ describe('platform-v7 access control foundation', () => {
       action: 'read',
       resource: { resourceType: 'deal', resourceId: 'deal-1' },
     })).toBe(false);
+  });
+
+  it('exposes the production-like RBAC facade names over the same deny-by-default policy', () => {
+    const bank = actor('bankOfficer', 'bank-a');
+
+    expect(canAccessResource(bank, { resourceType: 'deal', resourceId: 'deal-1', bankOrganizationId: 'bank-a' })).toMatchObject({
+      allowed: true,
+      auditCode: 'ALLOW_BY_POLICY',
+    });
+
+    expect(canPerformAction({
+      actor: actor('supportAgent', 'support-a'),
+      action: 'release',
+      resource: { resourceType: 'money', resourceId: 'money-1', bankOrganizationId: 'bank-a' },
+    })).toMatchObject({
+      allowed: false,
+      auditCode: 'DENY_BY_DEFAULT',
+    });
+  });
+
+  it('returns effective permissions only inside the object scope of the active role', () => {
+    expect(getEffectivePermissions(
+      actor('driver', 'carrier-a', 'driver-1'),
+      { resourceType: 'trip', resourceId: 'trip-1', assignedDriverUserId: 'driver-1' },
+    ).map((permission) => permission.action)).toEqual(['read', 'update', 'confirm']);
+
+    expect(getEffectivePermissions(
+      actor('driver', 'carrier-a', 'driver-1'),
+      { resourceType: 'money', resourceId: 'money-1', assignedDriverUserId: 'driver-1' },
+    )).toEqual([]);
+
+    expect(getEffectivePermissions(
+      actor('platformAdmin'),
+      { resourceType: 'money', resourceId: 'money-1', bankOrganizationId: 'bank-a' },
+    )).toEqual([]);
+  });
+
+  it('throws and emits audit payloads for denied access without granting the action', () => {
+    const request = {
+      actor: actor('arbitrator'),
+      action: 'release' as const,
+      resource: { resourceType: 'money' as const, resourceId: 'money-1', bankOrganizationId: 'bank-a' },
+      correlationId: 'corr-1',
+      auditId: 'audit-1',
+    };
+
+    expect(() => assertPermission(request)).toThrow(PlatformV7PermissionError);
+
+    expect(auditDeniedAccess(request)).toMatchObject({
+      eventType: 'access.denied',
+      auditCode: 'DENY_BY_DEFAULT',
+      actorId: 'user-1',
+      role: 'arbitrator',
+      action: 'release',
+      resourceType: 'money',
+      resourceId: 'money-1',
+      correlationId: 'corr-1',
+      auditId: 'audit-1',
+    });
+
+    expect(auditDeniedAccess({
+      actor: actor('bankOfficer', 'bank-a'),
+      action: 'release',
+      resource: { resourceType: 'money', resourceId: 'money-2', bankOrganizationId: 'bank-a' },
+    })).toBeNull();
   });
 });

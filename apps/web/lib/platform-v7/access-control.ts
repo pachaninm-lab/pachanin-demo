@@ -71,6 +71,8 @@ export interface PlatformV7AccessRequest {
   readonly actor: PlatformV7AccessActor;
   readonly action: PlatformV7Action;
   readonly resource: PlatformV7ResourceScope;
+  readonly correlationId?: string;
+  readonly auditId?: string;
 }
 
 export interface PlatformV7AccessDecision {
@@ -85,6 +87,42 @@ type PlatformV7AccessRule = {
   readonly actions: readonly PlatformV7Action[];
   readonly scope: 'platform' | 'ownOrg' | 'buyerOrg' | 'sellerOrg' | 'carrierOrg' | 'assignedDriver' | 'assignedLab' | 'assignedElevator' | 'assignedSurveyor' | 'bankOrg' | 'readOnlyAggregate';
 };
+
+export type PlatformV7AccessPolicy = PlatformV7AccessRule;
+
+export interface PlatformV7EffectivePermission {
+  readonly role: PlatformV7AccessRole;
+  readonly resourceType: PlatformV7ResourceType;
+  readonly action: PlatformV7Action;
+  readonly scope: PlatformV7AccessPolicy['scope'];
+}
+
+export interface PlatformV7DeniedAccessAuditEvent {
+  readonly eventType: 'access.denied';
+  readonly auditCode: string;
+  readonly actorId: string;
+  readonly organizationId: string;
+  readonly role: PlatformV7AccessRole;
+  readonly action: PlatformV7Action;
+  readonly resourceType: PlatformV7ResourceType;
+  readonly resourceId: string;
+  readonly reason: string;
+  readonly correlationId?: string;
+  readonly auditId?: string;
+  readonly createdAt: string;
+}
+
+export class PlatformV7PermissionError extends Error {
+  readonly decision: PlatformV7AccessDecision;
+  readonly request: PlatformV7AccessRequest;
+
+  constructor(decision: PlatformV7AccessDecision, request: PlatformV7AccessRequest) {
+    super(decision.reason);
+    this.name = 'PlatformV7PermissionError';
+    this.decision = decision;
+    this.request = request;
+  }
+}
 
 const ACCESS_RULES: readonly PlatformV7AccessRule[] = [
   { role: 'platformAdmin', resources: ['auditLog'], actions: ['read', 'export'], scope: 'platform' },
@@ -161,4 +199,69 @@ export function platformV7AccessDecision(request: PlatformV7AccessRequest): Plat
 
 export function platformV7Can(request: PlatformV7AccessRequest): boolean {
   return platformV7AccessDecision(request).allowed;
+}
+
+export function canPerformAction(request: PlatformV7AccessRequest): PlatformV7AccessDecision {
+  return platformV7AccessDecision(request);
+}
+
+export function canAccessResource(
+  actor: PlatformV7AccessActor,
+  resource: PlatformV7ResourceScope,
+  action: PlatformV7Action = 'read',
+): PlatformV7AccessDecision {
+  return canPerformAction({ actor, resource, action });
+}
+
+export function getEffectivePermissions(
+  actor: PlatformV7AccessActor,
+  resource?: PlatformV7ResourceScope,
+): PlatformV7EffectivePermission[] {
+  if (!actor.roles.includes(actor.activeRole)) return [];
+
+  return ACCESS_RULES
+    .filter((rule) => rule.role === actor.activeRole)
+    .flatMap((rule) =>
+      rule.resources.flatMap((resourceType) =>
+        rule.actions.flatMap((action) => {
+          if (resource && resource.resourceType !== resourceType) return [];
+          if (resource && !matchesScope(rule, { actor, resource, action })) return [];
+
+          return [{
+            role: rule.role,
+            resourceType,
+            action,
+            scope: rule.scope,
+          }];
+        }),
+      ),
+    );
+}
+
+export function assertPermission(request: PlatformV7AccessRequest): PlatformV7AccessDecision {
+  const decision = canPerformAction(request);
+  if (!decision.allowed) throw new PlatformV7PermissionError(decision, request);
+  return decision;
+}
+
+export function auditDeniedAccess(
+  request: PlatformV7AccessRequest,
+  decision: PlatformV7AccessDecision = canPerformAction(request),
+): PlatformV7DeniedAccessAuditEvent | null {
+  if (decision.allowed) return null;
+
+  return {
+    eventType: 'access.denied',
+    auditCode: decision.auditCode,
+    actorId: request.actor.userId,
+    organizationId: request.actor.organizationId,
+    role: request.actor.activeRole,
+    action: request.action,
+    resourceType: request.resource.resourceType,
+    resourceId: request.resource.resourceId,
+    reason: decision.reason,
+    correlationId: request.correlationId,
+    auditId: request.auditId,
+    createdAt: new Date().toISOString(),
+  };
 }
