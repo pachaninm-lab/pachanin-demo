@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
 import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
@@ -119,12 +121,36 @@ interface GateItem {
   readonly state: GateState;
 }
 
-export default function LogisticsPage() {
+export default async function LogisticsPage() {
+  const shipments = await getShipments();
+  const shipmentCount = activeShipmentCount(shipments);
+  const blockedShipments = shipmentsWithBlockers(shipments);
+  const apiOnline = shipments.some((s) => !s.id.startsWith('SHIP-00'));
+
+  const liveBlockers = blockedShipments.slice(0, 3).map((s) => ({
+    id: s.id,
+    label: `Рейс ${s.id}: ${(s.blockers ?? [])[0] ?? 'блокер'}`,
+    severity: 'warn' as const,
+    responsibleRole: 'LOGISTICIAN',
+    nextAction: s.nextAction ?? 'Устранить блокер',
+  }));
+
   const assignedDrivers = orders.filter((order) => order.driver !== 'не назначен');
   const tripPlan = selectDealLogisticsTripPlan('DL-9106');
 
   return (
     <RoleExecutionCockpitPage cockpit={OPERATIONAL_ROLE_EXECUTION_COCKPITS.logistics}>
+      <LiveApiStatusBar
+        apiOnline={apiOnline}
+        blockers={liveBlockers}
+        activeShipments={shipmentCount}
+        role="LOGISTICIAN · Логистика"
+        summary={
+          apiOnline
+            ? `${shipmentCount} активных рейсов · ${blockedShipments.length} с блокерами`
+            : 'Данные статичные — API недоступен'
+        }
+      />
 
       <RoleExecutionHandoff items={logisticsHandoff} title='исполнение: что логистика отправляет и ожидает' />
 

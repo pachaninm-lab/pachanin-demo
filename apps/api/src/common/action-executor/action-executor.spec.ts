@@ -15,8 +15,16 @@ function makeUser(role: Role, extra?: Partial<RequestUser>): RequestUser {
   };
 }
 
+function makeAuditService() {
+  // PrismaService mock — always throws so audit falls back to in-memory
+  const prismaMock: any = {
+    auditEvent: { create: jest.fn().mockRejectedValue(new Error('DB mock')) },
+  };
+  return new AuditService(prismaMock);
+}
+
 function makeExecutor() {
-  const audit = new AuditService();
+  const audit = makeAuditService();
   const outbox = new OutboxService();
   const executor = new ActionExecutorService(audit, outbox);
   return { executor, audit, outbox };

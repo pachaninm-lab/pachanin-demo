@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { getLabSamples, pendingProtocols } from '@/lib/labs-server';
+import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
+import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { FieldElevatorRuntime } from '@/components/v7r/FieldElevatorRuntime';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
@@ -41,9 +44,33 @@ const gates = [
   { title: 'Качество', value: 'протокол ожидается', impact: 'качество влияет на расчёт и спор', state: 'wait' },
 ] as const;
 
-export default function Page() {
+export default async function Page() {
+  const [samples, shipments] = await Promise.all([getLabSamples(), getShipments()]);
+  const pendingSamples = pendingProtocols(samples);
+  const shipmentCount = activeShipmentCount(shipments);
+  const apiOnline = samples.some((s) => !s.id.startsWith('SAMPLE-00'));
+
+  const liveBlockers = pendingSamples.slice(0, 3).map((s) => ({
+    id: s.id,
+    label: `Проба ${s.id}: протокол качества ожидается`,
+    severity: 'warn' as const,
+    responsibleRole: 'ELEVATOR',
+    nextAction: 'Передать пробу в лабораторию',
+  }));
+
   return (
     <main data-testid='platform-v7-elevator-page' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <LiveApiStatusBar
+        apiOnline={apiOnline}
+        blockers={liveBlockers}
+        activeShipments={shipmentCount}
+        role="ELEVATOR · Приёмка"
+        summary={
+          apiOnline
+            ? `${shipmentCount} рейсов на приёмке · ${pendingSamples.length} проб ожидают протокола`
+            : 'Данные статичные — API недоступен'
+        }
+      />
       <style>{`
         @media(max-width:767px){
           [data-testid='platform-v7-elevator-page']{gap:10px!important;padding-top:0!important}
