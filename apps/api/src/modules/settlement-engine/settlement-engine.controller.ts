@@ -1,11 +1,15 @@
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UseGuards } from '@nestjs/common';
+import { Headers, HttpCode, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import * as crypto from 'crypto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { SettlementEngineService } from './settlement-engine.service';
 import { RequestUser } from '../../common/types/request-user';
+
+const BANK_HMAC_SECRET = process.env.BANK_HMAC_SECRET ?? 'pachanin-demo-bank-secret-dev';
 
 @UseGuards(RolesGuard)
 @Roles('ACCOUNTING', 'SUPPORT_MANAGER', 'ADMIN', 'EXECUTIVE')
@@ -93,5 +97,26 @@ export class SettlementEngineController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.settlementEngine.importBankStatement(body.content, body.format, user);
+  }
+
+  /**
+   * Bank callback — the ONLY path to confirm or fail a reserve/release.
+   * Authenticated via HMAC-SHA256 signature, not JWT.
+   * Body: { dealId, status: 'SUCCESS'|'FAILED', outboxId?, errorMessage? }
+   * Header: X-Bank-Signature: hmac-sha256=<hex>
+   */
+  @Public()
+  @Post('bank-callback')
+  @HttpCode(200)
+  async bankCallback(
+    @Body() body: Record<string, unknown>,
+    @Headers('x-bank-signature') sig: string | undefined,
+  ) {
+    const bodyStr = JSON.stringify(body);
+    const expected = 'hmac-sha256=' + crypto.createHmac('sha256', BANK_HMAC_SECRET).update(bodyStr).digest('hex');
+    if (!sig || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      throw new UnauthorizedException('Invalid bank signature');
+    }
+    return this.settlementEngine.registerSafeDealsCallback(body);
   }
 }
