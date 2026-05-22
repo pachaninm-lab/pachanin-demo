@@ -10,6 +10,7 @@ export type PlatformV7SecurityRole =
   | 'arbitrator'
   | 'compliance'
   | 'operator'
+  | 'support_agent'
   | 'executive'
   | 'investor';
 
@@ -26,7 +27,9 @@ export type PlatformV7EntityType =
   | 'dispute'
   | 'audit_event'
   | 'rating'
-  | 'connector';
+  | 'connector'
+  | 'bank'
+  | 'aggregate_report';
 
 export type PlatformV7Permission =
   | 'read'
@@ -88,9 +91,10 @@ export const PLATFORM_V7_SECURITY_RULES: readonly PlatformV7SecurityRule[] = [
   { role: 'operator', entity: 'money', permissions: ['read', 'view_money', 'request_bank_action', 'view_internal_audit'] },
   { role: 'operator', entity: 'document', permissions: ['read', 'update', 'view_documents', 'view_internal_audit'] },
   { role: 'operator', entity: 'support_case', permissions: ['read', 'create', 'update', 'view_internal_audit'] },
-  { role: 'executive', entity: 'audit_event', permissions: ['read'] },
-  { role: 'executive', entity: 'money', permissions: ['read', 'view_money'] },
-  { role: 'investor', entity: 'audit_event', permissions: ['read'] },
+  { role: 'support_agent', entity: 'deal', permissions: ['read'] },
+  { role: 'support_agent', entity: 'support_case', permissions: ['read', 'create', 'update'] },
+  { role: 'executive', entity: 'aggregate_report', permissions: ['read'] },
+  { role: 'investor', entity: 'aggregate_report', permissions: ['read'] },
   { role: 'investor', entity: 'rating', permissions: ['read'] },
 ];
 
@@ -101,6 +105,9 @@ export const PLATFORM_V7_DRIVER_FORBIDDEN_ENTITIES: readonly PlatformV7EntityTyp
   'rating',
   'connector',
   'audit_event',
+  'deal',
+  'bank',
+  'support_case',
 ];
 
 export const PLATFORM_V7_SENSITIVE_PERMISSIONS: readonly PlatformV7Permission[] = [

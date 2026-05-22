@@ -14,6 +14,9 @@ describe('platform-v7 security contracts', () => {
       'rating',
       'connector',
       'audit_event',
+      'deal',
+      'bank',
+      'support_case',
     ]);
 
     expect(canPlatformV7Role('driver', 'money', 'view_money')).toMatchObject({
@@ -46,8 +49,18 @@ describe('platform-v7 security contracts', () => {
       allowed: false,
       requiresAudit: true,
     });
-    expect(canPlatformV7Role('investor', 'rating', 'read')).toMatchObject({
+    expect(canPlatformV7Role('investor', 'aggregate_report', 'read')).toMatchObject({
       allowed: true,
+    });
+  });
+
+  it('lets support work support cases but not money', () => {
+    expect(canPlatformV7Role('support_agent', 'support_case', 'update')).toMatchObject({
+      allowed: true,
+    });
+    expect(canPlatformV7Role('support_agent', 'money', 'request_bank_action')).toMatchObject({
+      allowed: false,
+      requiresAudit: true,
     });
   });
 });

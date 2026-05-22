@@ -122,8 +122,18 @@ describe('platform-v7 canonical domain', () => {
   it('guards critical action access by role', () => {
     expect(hasPermission('seller', { scope: 'lot', verb: 'create' })).toBe(true);
     expect(hasPermission('seller', { scope: 'money', verb: 'approve' })).toBe(false);
+    expect(hasPermission('support_agent', { scope: 'support_case', verb: 'update' })).toBe(true);
+    expect(hasPermission('support_agent', { scope: 'money', verb: 'approve' })).toBe(false);
+    expect(hasPermission('arbitrator', { scope: 'money', verb: 'approve' })).toBe(false);
     expect(canPerformCriticalAction('bank', 'EXECUTE_RELEASE')).toMatchObject({ allowed: true, requiresSecondFactor: true, requiresAudit: true });
     expect(canPerformCriticalAction('seller', 'EXECUTE_RELEASE')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
+    expect(canPerformCriticalAction('arbitrator', 'EXECUTE_RELEASE')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
+    expect(canPerformCriticalAction('arbitrator', 'EXECUTE_REFUND')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
+    expect(canPerformCriticalAction('arbitrator', 'CONFIRM_BANK_RELEASE')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
+    expect(canPerformCriticalAction('arbitrator', 'APPROVE_DISPUTE_DECISION')).toMatchObject({ allowed: true, requiresSecondFactor: true, requiresAudit: true });
+    expect(canPerformCriticalAction('seller', 'CONFIRM_BANK_RESERVE').allowed).toBe(false);
+    expect(canPerformCriticalAction('buyer', 'CONFIRM_BANK_RELEASE').allowed).toBe(false);
+    expect(canPerformCriticalAction('buyer', 'CONFIRM_BANK_REFUND').allowed).toBe(false);
   });
 
   it('creates audit events for money-impacting critical actions', () => {

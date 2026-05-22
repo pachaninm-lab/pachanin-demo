@@ -52,6 +52,9 @@ export type CriticalAction =
   | 'EXECUTE_RELEASE'
   | 'REQUEST_REFUND'
   | 'EXECUTE_REFUND'
+  | 'CONFIRM_BANK_RESERVE'
+  | 'CONFIRM_BANK_RELEASE'
+  | 'CONFIRM_BANK_REFUND'
   | 'SIGN_DOCUMENT'
   | 'REPLACE_SIGNED_DOCUMENT'
   | 'CHANGE_BANK_DETAILS'
@@ -134,6 +137,9 @@ export const CRITICAL_ACTION_REQUIREMENTS: Record<CriticalAction, readonly strin
   EXECUTE_RELEASE: ['authority', 'audit-event', '2fa', 'document-gates', 'open-dispute-check', 'bank-reconciliation', 'idempotency-key'],
   REQUEST_REFUND: ['authority', 'audit-event', 'dispute-decision', 'idempotency-key'],
   EXECUTE_REFUND: ['authority', 'audit-event', '2fa', 'bank-reconciliation', 'idempotency-key'],
+  CONFIRM_BANK_RESERVE: ['authority', 'audit-event', '2fa', 'bank-reconciliation', 'idempotency-key'],
+  CONFIRM_BANK_RELEASE: ['authority', 'audit-event', '2fa', 'document-gates', 'bank-reconciliation', 'idempotency-key'],
+  CONFIRM_BANK_REFUND: ['authority', 'audit-event', '2fa', 'dispute-decision', 'bank-reconciliation', 'idempotency-key'],
   SIGN_DOCUMENT: ['authority', 'audit-event', 'signature-context'],
   REPLACE_SIGNED_DOCUMENT: ['authority', 'audit-event', 'correction-event', 'reason-required'],
   CHANGE_BANK_DETAILS: ['authority', 'audit-event', '2fa', 'counterparty-freeze'],

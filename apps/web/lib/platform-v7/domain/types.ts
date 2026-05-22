@@ -20,6 +20,7 @@ export type ParticipantRole =
   | 'bank'
   | 'compliance'
   | 'arbitrator'
+  | 'support_agent'
   | 'admin'
   | 'investor_readonly'
   | 'region_readonly'

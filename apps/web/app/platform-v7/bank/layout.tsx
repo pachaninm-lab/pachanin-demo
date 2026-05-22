@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { BankSectionNav } from '@/components/platform-v7/BankSectionNav';
+import { RbacGuard } from '@/components/platform-v7/RbacGuard';
 import {
   PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE,
   PLATFORM_V7_BANK_ROUTE,
@@ -14,9 +15,11 @@ const bankLinks = [
 
 export default function BankLayout({ children }: { children: ReactNode }) {
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
-      <BankSectionNav links={bankLinks} />
-      {children}
-    </div>
+    <RbacGuard surface="bank_workspace">
+      <div style={{ display: 'grid', gap: 14 }}>
+        <BankSectionNav links={bankLinks} />
+        {children}
+      </div>
+    </RbacGuard>
   );
 }

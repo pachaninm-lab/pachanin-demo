@@ -181,6 +181,11 @@ function roleLabel(role: PlatformRole): string {
     driver: 'водитель',
     elevator: 'элеватор',
     lab: 'лаборатория',
+    surveyor: 'сюрвейер',
+    arbitrator: 'арбитр',
+    compliance: 'комплаенс',
+    support_agent: 'поддержка',
+    executive: 'руководитель',
     investor: 'наблюдатель',
   };
   return map[role];
