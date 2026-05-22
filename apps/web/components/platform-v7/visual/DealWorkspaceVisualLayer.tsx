@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { CauseLineList } from './CauseLine';
+import { CauseLine, CauseLineList } from './CauseLine';
 import { MoneyLockHalo } from './MoneyLockHalo';
 import { UnlockPath } from './UnlockPath';
 import { DealMiniMap } from './DealMiniMap';

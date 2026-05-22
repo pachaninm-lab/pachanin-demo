@@ -119,7 +119,7 @@ export default function DealReviewPage({ params }: { params: { id: string } }) {
       </section>
 
       {toast ? (
-        <div role='status' aria-подтверждённый внешний контур='polite' style={{ padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 12, color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>
+        <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 12, color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>
           {toast}
         </div>
       ) : null}

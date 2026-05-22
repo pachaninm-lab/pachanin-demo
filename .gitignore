@@ -14,4 +14,4 @@ var/tmp/
 package-lock.json
 *.db
 *.db-journal
-apps/api/prisma/migrations/
+# migrations tracked in git for Railway prisma migrate deploy
