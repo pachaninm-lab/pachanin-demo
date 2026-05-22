@@ -1,15 +1,19 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { TransitionShipmentDto } from './dto/transition-shipment.dto';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 
 @Injectable()
 export class LogisticsService {
-  constructor(private readonly runtime: RuntimeCoreService) {}
+  constructor(
+    private readonly runtime: RuntimeCoreService,
+    @Optional() private readonly prisma?: PrismaService,
+  ) {}
 
-  summary(_user: RequestUser) {
-    const shipments = this.runtime.listShipments();
+  async summary(_user: RequestUser) {
+    const shipments = await this.getAllShipments();
     return {
       total: shipments.length,
       inTransit: shipments.filter((s: any) => s.status === 'IN_TRANSIT').length,
@@ -20,8 +24,8 @@ export class LogisticsService {
     };
   }
 
-  list(user: RequestUser) {
-    const all = this.runtime.listShipments();
+  async list(user: RequestUser) {
+    const all = await this.getAllShipments();
     // Driver sees only their own shipment
     if (user.role === Role.DRIVER) {
       return all.filter((s: any) => s.driverUserId === user.id);
@@ -29,10 +33,27 @@ export class LogisticsService {
     return all;
   }
 
-  getOne(id: string, user: RequestUser) {
-    const shipment = this.runtime.getShipment(id);
+  async getOne(id: string, user: RequestUser) {
+    let shipment: any;
+    if (this.prisma) {
+      try {
+        const row = await this.prisma.shipment.findUnique({ where: { id } });
+        if (row) shipment = row;
+      } catch { /* fall through */ }
+    }
+    if (!shipment) shipment = this.runtime.getShipment(id);
     this.assertShipmentAccess(shipment, user);
     return shipment;
+  }
+
+  private async getAllShipments(): Promise<any[]> {
+    if (this.prisma) {
+      try {
+        const rows = await this.prisma.shipment.findMany({ orderBy: { createdAt: 'desc' } });
+        if (rows.length > 0) return rows;
+      } catch { /* fall through */ }
+    }
+    return this.runtime.listShipments();
   }
 
   workspace(id: string, user: RequestUser) {

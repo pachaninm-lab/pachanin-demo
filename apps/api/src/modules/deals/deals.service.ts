@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser } from '../../common/types/request-user';
 
 @Injectable()
@@ -9,14 +10,32 @@ export class DealsService {
   constructor(
     private readonly runtime: RuntimeCoreService,
     private readonly executor: ActionExecutorService,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
-  list(user: RequestUser) {
+  async list(user: RequestUser) {
+    if (this.prisma) {
+      try {
+        const rows = await this.prisma.deal.findMany({ orderBy: { createdAt: 'desc' } });
+        if (rows.length > 0) return rows;
+      } catch {
+        // fall through to in-memory
+      }
+    }
     return this.runtime.listDeals(user);
   }
 
-  getOne(id: string, user: RequestUser) {
-    const deal = this.runtime.getDeal(id);
+  async getOne(id: string, user: RequestUser) {
+    let deal: any;
+    if (this.prisma) {
+      try {
+        const row = await this.prisma.deal.findUnique({ where: { id } });
+        if (row) deal = row;
+      } catch {
+        // fall through
+      }
+    }
+    if (!deal) deal = this.runtime.getDeal(id);
     this.executor.assertObjectScope(user, 'deal.view', {
       objectType: 'deal',
       objectId: id,
