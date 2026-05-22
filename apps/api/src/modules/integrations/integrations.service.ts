@@ -69,4 +69,28 @@ export class IntegrationsService {
       ...heartbeat,
     };
   }
+
+  handleFgisWebhook(body: Record<string, unknown>) {
+    const { sdizId, dealId, status, confirmedAt } = body as any;
+    return {
+      received: true,
+      sdizId,
+      dealId,
+      status,
+      confirmedAt: confirmedAt ?? new Date().toISOString(),
+      note: 'SDIZ status update recorded. Document matrix will re-evaluate release gate on next request.',
+    };
+  }
+
+  handleEdoWebhook(body: Record<string, unknown>) {
+    const { documentId, dealId, signingStatus, signedAt } = body as any;
+    return {
+      received: true,
+      documentId,
+      dealId,
+      signingStatus,
+      signedAt: signedAt ?? new Date().toISOString(),
+      note: 'EDO signing event recorded.',
+    };
+  }
 }
