@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { p7BuildBankBasis, p7MarkBankBasisSent } from '@/lib/platform-v7/bank-basis';
 import type { PlatformV7ReleaseGateDecision } from '@/lib/platform-v7/money-tree';
-import type { PlatformV7DocumentRequirement } from '@/lib/platform-v7/document-matrix';
+import type { PlatformV7DocumentRequirement, PlatformV7DocumentSource, PlatformV7DocumentStatus } from '@/lib/platform-v7/document-matrix';
+import type { PlatformV7CanonicalRole } from '@/lib/platform-v7/role-canonical';
 
 const releaseGate: PlatformV7ReleaseGateDecision = {
   allowed: true,
@@ -9,10 +10,36 @@ const releaseGate: PlatformV7ReleaseGateDecision = {
   nextStatus: 'release_requested',
 };
 
+function doc(
+  documentId: string,
+  title: string,
+  ownerRole: PlatformV7CanonicalRole,
+  status: PlatformV7DocumentStatus,
+  source: PlatformV7DocumentSource,
+): PlatformV7DocumentRequirement {
+  return {
+    documentId,
+    dealId: 'deal-1',
+    type: documentId,
+    title,
+    ownerRole,
+    responsibleRole: ownerRole,
+    status,
+    blockStages: ['release'],
+    affectsMoney: true,
+    source,
+    deadline: null,
+    signatureStatus: 'not_required',
+    nextAction: 'ok',
+    createdAt: '',
+    updatedAt: '',
+  };
+}
+
 const docs: PlatformV7DocumentRequirement[] = [
-  { documentId: 'sdiz', title: 'СДИЗ', responsibleRole: 'seller', status: 'confirmed', blockStages: ['release'], affectsMoney: true, source: 'fgis', nextAction: 'ok' },
-  { documentId: 'acceptance_act', title: 'Акт', responsibleRole: 'elevator', status: 'signed', blockStages: ['release'], affectsMoney: true, source: 'elevator', nextAction: 'ok' },
-  { documentId: 'bank_basis', title: 'Банк', responsibleRole: 'operator', status: 'confirmed', blockStages: ['release'], affectsMoney: true, source: 'bank', nextAction: 'ok' },
+  doc('sdiz', 'СДИЗ', 'seller', 'confirmed', 'fgis'),
+  doc('acceptance_act', 'Акт', 'elevator_operator', 'signed', 'elevator'),
+  doc('bank_basis', 'Банк', 'operator', 'confirmed', 'bank'),
 ];
 
 describe('platform-v7 bank basis foundation', () => {
