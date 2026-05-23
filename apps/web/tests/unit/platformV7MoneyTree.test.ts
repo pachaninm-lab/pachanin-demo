@@ -10,6 +10,7 @@ import {
   platformV7ValidateMoneyOperation,
   platformV7ValidateMoneyTree,
   type PlatformV7MoneyOperation,
+  type PlatformV7MoneyOperationValidationContext,
   type PlatformV7MoneyTree,
 } from '@/lib/platform-v7/money-tree';
 
@@ -88,7 +89,15 @@ const releaseGateReady = {
   bankReviewStatus: 'clear',
 };
 
+const explicitBankConfirmationGuard: PlatformV7MoneyOperationValidationContext extends {
+  readonly bankConfirmationExists: boolean;
+} ? true : never = true;
+
 describe('platform-v7 MoneyTree', () => {
+  it('requires every money operation validation call to pass bankConfirmationExists explicitly', () => {
+    expect(explicitBankConfirmationGuard).toBe(true);
+  });
+
   it('treats reserved money as the container and parts as a balanced breakdown', () => {
     const tree = calculateMoneyTree([
       deal({ id: 'ready', money: { totalAmount: 100, reservedAmount: 100, holdAmount: 0, releaseAmount: 100 } }),
@@ -282,6 +291,7 @@ describe('platform-v7 MoneyTree', () => {
       tree: balancedTree,
       operation: operation({ type: 'release_requested', amount: 250 }),
       releaseGate: releaseGateReady,
+      bankConfirmationExists: false,
     });
 
     expect(result).toMatchObject({
@@ -345,6 +355,7 @@ describe('platform-v7 MoneyTree', () => {
       tree: balancedTree,
       operation: operation({ type: 'release_requested', amount: 401 }),
       releaseGate: releaseGateReady,
+      bankConfirmationExists: false,
     })).toMatchObject({
       valid: false,
       code: 'AMOUNT_EXCEEDS_READY_TO_RELEASE',
@@ -354,6 +365,7 @@ describe('platform-v7 MoneyTree', () => {
       tree: balancedTree,
       operation: operation({ type: 'release_requested', amount: 100 }),
       releaseGate: { ...releaseGateReady, requiredDocumentsConfirmed: false },
+      bankConfirmationExists: false,
     })).toMatchObject({
       valid: false,
       code: 'RELEASE_GATE_BLOCKED',
@@ -364,6 +376,7 @@ describe('platform-v7 MoneyTree', () => {
     expect(platformV7ValidateMoneyOperation({
       tree: balancedTree,
       operation: operation({ type: 'hold_created', amount: -1 }),
+      bankConfirmationExists: false,
     })).toMatchObject({
       valid: false,
       code: 'NEGATIVE_AMOUNT',
@@ -372,6 +385,7 @@ describe('platform-v7 MoneyTree', () => {
     expect(platformV7ValidateMoneyOperation({
       tree: balancedTree,
       operation: operation({ type: 'reserve_confirmed', amount: 1 }),
+      bankConfirmationExists: false,
     })).toMatchObject({
       valid: false,
       code: 'OVER_RESERVED',
@@ -380,6 +394,7 @@ describe('platform-v7 MoneyTree', () => {
     expect(platformV7ValidateMoneyOperation({
       tree: balancedTree,
       operation: operation({ operationId: 'op-existing' }),
+      bankConfirmationExists: false,
       existingOperationIds: ['op-existing'],
     })).toMatchObject({
       valid: false,
@@ -391,6 +406,7 @@ describe('platform-v7 MoneyTree', () => {
     expect(platformV7ValidateMoneyOperation({
       tree: balancedTree,
       operation: operation({ idempotencyKey: '   ' }),
+      bankConfirmationExists: false,
     })).toMatchObject({
       valid: false,
       code: 'MISSING_IDEMPOTENCY_KEY',
@@ -399,6 +415,7 @@ describe('platform-v7 MoneyTree', () => {
     expect(platformV7ValidateMoneyOperation({
       tree: balancedTree,
       operation: operation({ idempotencyKey: 'not-a-platform-key' }),
+      bankConfirmationExists: false,
     })).toMatchObject({
       valid: false,
       code: 'INVALID_IDEMPOTENCY_KEY',
@@ -417,6 +434,7 @@ describe('platform-v7 MoneyTree', () => {
     expect(platformV7ValidateMoneyOperation({
       tree: balancedTree,
       operation: operation({ operationId: 'used', idempotencyKey: usedKey }),
+      bankConfirmationExists: false,
       usedIdempotencyKeys: [usedKey],
     })).toMatchObject({
       valid: false,

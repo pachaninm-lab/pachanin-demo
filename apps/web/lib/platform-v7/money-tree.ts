@@ -115,7 +115,7 @@ export interface PlatformV7MoneyOperationValidationContext {
   readonly tree: PlatformV7MoneyTree;
   readonly operation: PlatformV7MoneyOperation;
   readonly releaseGate?: PlatformV7ReleaseGateInput;
-  readonly bankConfirmationExists?: boolean;
+  readonly bankConfirmationExists: boolean;
   readonly existingOperationIds?: readonly string[];
   readonly usedIdempotencyKeys?: readonly string[];
 }
@@ -280,7 +280,7 @@ export function platformV7ValidateMoneyOperation({
   tree,
   operation,
   releaseGate,
-  bankConfirmationExists = false,
+  bankConfirmationExists,
   existingOperationIds = [],
   usedIdempotencyKeys = [],
 }: PlatformV7MoneyOperationValidationContext): PlatformV7MoneyOperationDecision {
