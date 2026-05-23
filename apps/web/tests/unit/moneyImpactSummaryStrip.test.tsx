@@ -56,9 +56,9 @@ describe('MoneyImpactSummaryStrip component', () => {
 });
 
 describe('MoneyImpactSummaryStrip page placement', () => {
-  it('seller, buyer and bank pages render the strip', () => {
+  it('seller, buyer and bank pages render the strip', async () => {
     for (const Page of [SellerPage, BuyerPage, BankPage]) {
-      const { unmount } = render(<Page />);
+      const { unmount } = render(await Page());
       expect(screen.getByTestId('platform-v7-money-impact-strip')).toBeInTheDocument();
       unmount();
     }

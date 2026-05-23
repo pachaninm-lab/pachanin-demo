@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import PlatformV7BankPage from '@/app/platform-v7/bank/page';
 import BankLayout from '@/app/platform-v7/bank/layout';
@@ -13,17 +13,21 @@ import {
   PLATFORM_V7_SHELL_ROUTE_SURFACE,
 } from '@/lib/platform-v7/routes';
 
+vi.mock('next/headers', () => ({
+  cookies: () => ({ get: () => undefined }),
+}));
+
 describe('PlatformV7 bank routes', () => {
-  it('renders bank main page with controlled-pilot wording and no live payment claims', () => {
-    render(<PlatformV7BankPage />);
+  it('renders bank main page with controlled-pilot wording and no live payment claims', async () => {
+    render(await PlatformV7BankPage());
 
     expect(screen.getByText('Кабинет банка')).toBeInTheDocument();
-    expect(screen.getByText(/Основание передаётся банку только после условий сделки/)).toBeInTheDocument();
-    expect(screen.getByText(/Здесь нет кнопки прямой выплаты/)).toBeInTheDocument();
-    expect(screen.getByText(/Передача основания банку не является ручной кнопкой платформы/)).toBeInTheDocument();
+    expect(screen.getByText(/Сначала основание, потом банковская проверка/)).toBeInTheDocument();
+    expect(screen.getByText(/Деньги не двигаются, пока нет основания/)).toBeInTheDocument();
+    expect(screen.getByText(/Передача основания банку — результат закрытых документов/)).toBeInTheDocument();
     expect(screen.getByText(/К передаче банку сейчас/)).toBeInTheDocument();
     expect(screen.getByText(/Условия банковской проверки выплаты/)).toBeInTheDocument();
-    expect(screen.getByTestId('platform-v7-money-impact-state')).toHaveTextContent(/пилотный контур/);
+    expect(screen.getByTestId('platform-v7-money-impact-state')).toHaveTextContent(/удержание до закрытия условий/);
     expect(screen.getByTestId('platform-v7-money-impact-evidence')).toHaveTextContent(/закрытые документы|приёмка|качество/);
     expect(screen.getByTestId('platform-v7-money-impact-bank-boundary')).toHaveTextContent(/банк подтверждает проверку денег/);
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
