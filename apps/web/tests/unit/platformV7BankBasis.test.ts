@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { p7BuildBankBasis, p7ConfirmBankRelease, p7MarkBankBasisSent, type P7BankConfirmationEvent, type P7BankConfirmationPath } from '@/lib/platform-v7/bank-basis';
+import {
+  p7BuildBankBasis,
+  p7BuildBankManualReviewResolvedAuditPayload,
+  p7BuildBankBasisPayload,
+  p7ConfirmBankHold,
+  p7ConfirmBankRefund,
+  p7ConfirmBankRelease,
+  p7MarkBankBasisSent,
+  p7RejectBankRelease,
+  p7StartBankManualReview,
+  p7ValidateBankBasisBeforeSend,
+  type P7BankConfirmationEvent,
+  type P7BankConfirmationOperationType,
+  type P7BankConfirmationPath,
+} from '@/lib/platform-v7/bank-basis';
 import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key-helper';
 import type { PlatformV7MoneyTree, PlatformV7ReleaseGateDecision } from '@/lib/platform-v7/money-tree';
 import type { PlatformV7DocumentRequirement, PlatformV7DocumentSource, PlatformV7DocumentStatus } from '@/lib/platform-v7/document-matrix';
@@ -9,6 +23,14 @@ const releaseGate: PlatformV7ReleaseGateDecision = {
   allowed: true,
   reason: 'ready',
   nextStatus: 'release_requested',
+};
+
+const operationTypeByPath: Record<P7BankConfirmationPath, P7BankConfirmationOperationType> = {
+  release: 'release_confirmed',
+  refund: 'refund_confirmed',
+  hold: 'hold_created',
+  reject: 'release_failed',
+  manual_review: 'manual_review_started',
 };
 
 function doc(
@@ -61,8 +83,8 @@ const releaseRequestedTree: PlatformV7MoneyTree = {
   status: 'release_requested',
 };
 
-function readySentBasis() {
-  const ready = p7BuildBankBasis({
+function readyBasis() {
+  return p7BuildBankBasis({
     dealId: 'deal-1',
     releaseGate,
     documents: docs,
@@ -72,11 +94,23 @@ function readySentBasis() {
     correlationId: 'corr-1',
     auditId: 'audit-1',
   });
-
-  return p7MarkBankBasisSent(ready);
 }
 
-function confirmation(path: P7BankConfirmationPath, overrides: Partial<P7BankConfirmationEvent> = {}): P7BankConfirmationEvent {
+function readySentBasis() {
+  return p7MarkBankBasisSent({
+    decision: readyBasis(),
+    moneyTree: releaseRequestedTree,
+    actorId: 'operator-1',
+    actorRole: 'operator',
+    organizationId: 'org-operator',
+    createdAt: '2026-05-23T07:50:00.000Z',
+  }).decision;
+}
+
+function confirmation<Path extends P7BankConfirmationPath>(
+  path: Path,
+  overrides: Partial<P7BankConfirmationEvent<Path>> = {},
+): P7BankConfirmationEvent<Path> {
   const amount = overrides.amount ?? (path === 'reject' ? 0 : 300);
   const bankEventId = overrides.bankEventId ?? `bank-event-${path}`;
 
@@ -92,9 +126,11 @@ function confirmation(path: P7BankConfirmationPath, overrides: Partial<P7BankCon
       attemptId: bankEventId,
     }),
     path,
+    operationType: operationTypeByPath[path] as P7BankConfirmationOperationType<Path>,
     amount,
     actorId: overrides.actorId ?? 'bank-1',
     actorRole: overrides.actorRole ?? 'bank_officer',
+    organizationId: overrides.organizationId ?? 'org-bank',
     bankReference: overrides.bankReference ?? `BR-${path}`,
     confirmedAt: overrides.confirmedAt ?? '2026-05-23T08:00:00.000Z',
     auditId: overrides.auditId ?? 'audit-bank-1',
@@ -155,20 +191,55 @@ describe('platform-v7 bank basis foundation', () => {
     expect(decision.blockerCodes).toContain('TRACE_REQUIRED');
   });
 
-  it('marks ready basis as sent without claiming bank confirmation', () => {
-    const ready = p7BuildBankBasis({
+  it('builds and validates bank basis payload before send', () => {
+    const input = {
+      decision: readyBasis(),
+      moneyTree: releaseRequestedTree,
+      actorId: 'operator-1',
+      actorRole: 'operator' as const,
+      organizationId: 'org-operator',
+      createdAt: '2026-05-23T07:50:00.000Z',
+    };
+
+    expect(p7BuildBankBasisPayload(input)).toMatchObject({
       dealId: 'deal-1',
-      releaseGate,
-      documents: docs,
-      disputeResolved: true,
-      amount: 1000,
-      currency: 'RUB',
-      correlationId: 'corr-1',
-      auditId: 'audit-1',
+      status: 'ready_for_bank_review',
+      actorId: 'operator-1',
+      organizationId: 'org-operator',
+    });
+    expect(p7ValidateBankBasisBeforeSend(input)).toMatchObject({
+      valid: true,
+      code: 'OK',
+      auditPayload: {
+        action: 'bank_basis_sent',
+        outcome: 'allowed',
+        beforeMoneyTree: releaseRequestedTree,
+        afterMoneyTree: releaseRequestedTree,
+        moneyOperationId: 'bank_basis:deal-1:audit-1',
+        bankEventId: null,
+      },
+    });
+    expect(p7ValidateBankBasisBeforeSend(input).auditPayloads.map((payload) => payload.action)).toEqual([
+      'bank_basis_sent',
+      'arbitration_decision_used_as_basis',
+    ]);
+  });
+
+  it('marks ready basis as sent without moving MoneyTree buckets', () => {
+    const result = p7MarkBankBasisSent({
+      decision: readyBasis(),
+      moneyTree: releaseRequestedTree,
+      actorId: 'operator-1',
+      actorRole: 'operator',
+      organizationId: 'org-operator',
+      createdAt: '2026-05-23T07:50:00.000Z',
     });
 
-    expect(p7MarkBankBasisSent(ready).status).toBe('sent_to_bank');
-    expect(p7MarkBankBasisSent(ready).canSendToBank).toBe(false);
+    expect(result.decision.status).toBe('sent_to_bank');
+    expect(result.decision.canSendToBank).toBe(false);
+    expect(result.auditPayload.action).toBe('bank_basis_sent');
+    expect(result.auditPayload.beforeMoneyTree).toBe(releaseRequestedTree);
+    expect(result.auditPayload.afterMoneyTree).toBe(releaseRequestedTree);
   });
 
   it('keeps sent_to_bank separate from bank_confirmed until a bank event arrives', () => {
@@ -195,6 +266,13 @@ describe('platform-v7 bank basis foundation', () => {
         confirmationPath: 'release',
         confirmedByRole: 'bank_officer',
       },
+      auditPayload: {
+        action: 'bank_release_confirmed',
+        outcome: 'allowed',
+        bankEventId: 'bank-event-release',
+        actorRole: 'bank_officer',
+        organizationId: 'org-bank',
+      },
       moneyResult: {
         valid: true,
         code: 'OK',
@@ -209,36 +287,81 @@ describe('platform-v7 bank basis foundation', () => {
     });
   });
 
-  it.each([
-    ['refund', 'refund_confirmed', 'refunded'],
-    ['hold', 'hold_created', 'hold_created'],
-    ['reject', 'release_failed', 'release_failed'],
-    ['manual_review', 'manual_review_started', 'manual_review'],
-  ] as const)('applies %s bank confirmation path through MoneyTree %s', (path, operationType, moneyStatus) => {
-    const result = p7ConfirmBankRelease({
+  it('uses explicit first-class functions for refund, hold, reject and manual-review paths', () => {
+    const refund = p7ConfirmBankRefund({
       decision: readySentBasis(),
       moneyTree: releaseRequestedTree,
-      confirmation: confirmation(path, { amount: path === 'reject' ? 0 : 200 }),
+      confirmation: confirmation('refund', { amount: 200 }),
+    });
+    const hold = p7ConfirmBankHold({
+      decision: readySentBasis(),
+      moneyTree: releaseRequestedTree,
+      confirmation: confirmation('hold', { amount: 200 }),
+    });
+    const reject = p7RejectBankRelease({
+      decision: readySentBasis(),
+      moneyTree: releaseRequestedTree,
+      confirmation: confirmation('reject', { amount: 0 }),
+    });
+    const manualReview = p7StartBankManualReview({
+      decision: readySentBasis(),
+      moneyTree: releaseRequestedTree,
+      confirmation: confirmation('manual_review', { amount: 200 }),
     });
 
-    expect(result.valid).toBe(true);
-    expect(result.moneyOperation?.type).toBe(operationType);
-    expect(result.moneyTree.status).toBe(moneyStatus);
-    expect(result.decision.status).toBe(path === 'reject' ? 'bank_rejected' : path === 'manual_review' ? 'manual_review' : 'bank_confirmed');
+    expect(refund.moneyOperation?.type).toBe('refund_confirmed');
+    expect(refund.moneyTree).toMatchObject({ refundedAmount: 300, releasedAmount: 100, status: 'refunded' });
+    expect(refund.auditPayload.action).toBe('bank_refund_confirmed');
+
+    expect(hold.moneyOperation?.type).toBe('hold_created');
+    expect(hold.moneyTree).toMatchObject({ heldAmount: 300, releasedAmount: 100, status: 'hold_created' });
+    expect(hold.auditPayload.action).toBe('bank_hold_confirmed');
+
+    expect(reject.moneyOperation?.type).toBe('release_failed');
+    expect(reject.moneyTree).toMatchObject({ releasedAmount: 100, refundedAmount: 100, status: 'release_failed' });
+    expect(reject.decision.status).toBe('bank_rejected');
+    expect(reject.auditPayload.action).toBe('bank_release_rejected');
+
+    expect(manualReview.moneyOperation?.type).toBe('manual_review_started');
+    expect(manualReview.moneyTree).toMatchObject({ manualReviewAmount: 200, releasedAmount: 100, status: 'manual_review' });
+    expect(manualReview.auditPayload.action).toBe('bank_manual_review_started');
   });
 
-  it('blocks bank confirmation before basis is sent', () => {
+  it('builds typed audit payload for bank manual review resolution', () => {
+    const afterMoneyTree = {
+      ...releaseRequestedTree,
+      readyToReleaseAmount: 800,
+      manualReviewAmount: 0,
+      status: 'reserved' as const,
+    };
+    const auditPayload = p7BuildBankManualReviewResolvedAuditPayload({
+      decision: readySentBasis(),
+      actorId: 'bank-1',
+      actorRole: 'bank_officer',
+      organizationId: 'org-bank',
+      auditId: 'audit-manual-review-resolved',
+      correlationId: 'corr-manual-review-resolved',
+      moneyOperationId: 'bank:manual-review-resolved-1',
+      bankEventId: 'bank-event-manual-review-resolved',
+      beforeMoneyTree: releaseRequestedTree,
+      afterMoneyTree,
+      createdAt: '2026-05-23T08:30:00.000Z',
+      reason: 'Bank manual review was resolved.',
+    });
+
+    expect(auditPayload).toMatchObject({
+      action: 'bank_manual_review_resolved',
+      outcome: 'allowed',
+      actorRole: 'bank_officer',
+      beforeMoneyTree: releaseRequestedTree,
+      afterMoneyTree,
+      bankEventId: 'bank-event-manual-review-resolved',
+    });
+  });
+
+  it('blocks bank confirmation before basis is sent with blocked audit payload', () => {
     const result = p7ConfirmBankRelease({
-      decision: p7BuildBankBasis({
-        dealId: 'deal-1',
-        releaseGate,
-        documents: docs,
-        disputeResolved: true,
-        amount: 300,
-        currency: 'RUB',
-        correlationId: 'corr-1',
-        auditId: 'audit-1',
-      }),
+      decision: readyBasis(),
       moneyTree: releaseRequestedTree,
       confirmation: confirmation('release'),
     });
@@ -248,6 +371,12 @@ describe('platform-v7 bank basis foundation', () => {
       code: 'CANNOT_CONFIRM_UNSENT_BASIS',
       decision: { status: 'manual_review' },
       moneyTree: releaseRequestedTree,
+      auditPayload: {
+        action: 'bank_release_confirmed',
+        outcome: 'blocked',
+        beforeMoneyTree: releaseRequestedTree,
+        afterMoneyTree: releaseRequestedTree,
+      },
     });
   });
 
@@ -267,6 +396,39 @@ describe('platform-v7 bank basis foundation', () => {
       code: 'BANK_OFFICER_REQUIRED',
       decision: { status: 'manual_review' },
       moneyTree: releaseRequestedTree,
+      auditPayload: {
+        action: 'bank_release_confirmed',
+        outcome: 'denied',
+        actorRole: 'arbitrator',
+      },
+    });
+  });
+
+  it.each([
+    'seller',
+    'buyer',
+    'operator',
+    'arbitrator',
+    'support_agent',
+    'executive_viewer',
+  ] as const)('denies %s bank movement confirmation without mutating MoneyTree', (actorRole) => {
+    const result = p7ConfirmBankRelease({
+      decision: readySentBasis(),
+      moneyTree: releaseRequestedTree,
+      confirmation: confirmation('release', { actorRole, actorId: `${actorRole}-1` }),
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.code).toBe('BANK_OFFICER_REQUIRED');
+    expect(result.moneyTree).toBe(releaseRequestedTree);
+    expect(result.moneyTree.releasedAmount).toBe(releaseRequestedTree.releasedAmount);
+    expect(result.moneyTree.refundedAmount).toBe(releaseRequestedTree.refundedAmount);
+    expect(result.auditPayload).toMatchObject({
+      action: 'bank_release_confirmed',
+      outcome: 'denied',
+      actorRole,
+      beforeMoneyTree: releaseRequestedTree,
+      afterMoneyTree: releaseRequestedTree,
     });
   });
 
@@ -291,11 +453,36 @@ describe('platform-v7 bank basis foundation', () => {
       valid: false,
       code: 'DUPLICATE_BANK_EVENT',
       moneyTree: releaseRequestedTree,
+      auditPayload: {
+        action: 'bank_release_confirmed',
+        outcome: 'blocked',
+        beforeMoneyTree: releaseRequestedTree,
+        afterMoneyTree: releaseRequestedTree,
+      },
     });
     expect(duplicateIdempotency).toMatchObject({
       valid: false,
       code: 'DUPLICATE_IDEMPOTENCY_KEY',
       moneyTree: releaseRequestedTree,
+      auditPayload: {
+        action: 'bank_release_confirmed',
+        outcome: 'blocked',
+        beforeMoneyTree: releaseRequestedTree,
+        afterMoneyTree: releaseRequestedTree,
+      },
     });
+  });
+
+  it('keeps forbidden maturity and payment claims out of bank basis runtime notes', () => {
+    const text = [
+      readyBasis().note,
+      p7ConfirmBankRelease({
+        decision: readySentBasis(),
+        moneyTree: releaseRequestedTree,
+        confirmation: confirmation('release'),
+      }).reason,
+    ].join(' ');
+
+    expect(text).not.toMatch(/production-ready|fully live|fully integrated|платформа гарантирует оплату|платформа сама выпускает деньги/i);
   });
 });
