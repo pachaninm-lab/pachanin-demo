@@ -14,6 +14,8 @@ const baseRequest: P7UsecaseRequest = {
     resource: { resourceType: 'money', resourceId: 'money-1', sellerOrganizationId: 'seller-1' },
   },
   releaseGate: {
+    operationType: 'release_requested',
+    bankConfirmationExists: false,
     dealStatus: 'release_basis_ready',
     moneyStatus: 'reserved',
     requiredDocumentsConfirmed: true,
