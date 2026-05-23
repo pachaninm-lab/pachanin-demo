@@ -131,12 +131,20 @@ function confirmation<Path extends P7BankConfirmationPath>(
     actorId: overrides.actorId ?? 'bank-1',
     actorRole: overrides.actorRole ?? 'bank_officer',
     organizationId: overrides.organizationId ?? 'org-bank',
+    bankOrganizationId: overrides.bankOrganizationId ?? 'bank-org-1',
     bankReference: overrides.bankReference ?? `BR-${path}`,
     confirmedAt: overrides.confirmedAt ?? '2026-05-23T08:00:00.000Z',
     auditId: overrides.auditId ?? 'audit-bank-1',
     correlationId: overrides.correlationId ?? 'corr-bank-1',
   };
 }
+
+// Caller must always supply dedup context — omitting would silently skip checks.
+const noHistory = {
+  existingBankEventIds: [] as readonly string[],
+  usedIdempotencyKeys: [] as readonly string[],
+  existingOperationIds: [] as readonly string[],
+} as const;
 
 describe('platform-v7 bank basis foundation', () => {
   it('builds ready bank basis only from satisfied release and document conditions', () => {
@@ -255,6 +263,7 @@ describe('platform-v7 bank basis foundation', () => {
       decision: readySentBasis(),
       moneyTree: releaseRequestedTree,
       confirmation: confirmation('release'),
+      ...noHistory,
     });
 
     expect(result).toMatchObject({
@@ -292,21 +301,25 @@ describe('platform-v7 bank basis foundation', () => {
       decision: readySentBasis(),
       moneyTree: releaseRequestedTree,
       confirmation: confirmation('refund', { amount: 200 }),
+      ...noHistory,
     });
     const hold = p7ConfirmBankHold({
       decision: readySentBasis(),
       moneyTree: releaseRequestedTree,
       confirmation: confirmation('hold', { amount: 200 }),
+      ...noHistory,
     });
     const reject = p7RejectBankRelease({
       decision: readySentBasis(),
       moneyTree: releaseRequestedTree,
       confirmation: confirmation('reject', { amount: 0 }),
+      ...noHistory,
     });
     const manualReview = p7StartBankManualReview({
       decision: readySentBasis(),
       moneyTree: releaseRequestedTree,
       confirmation: confirmation('manual_review', { amount: 200 }),
+      ...noHistory,
     });
 
     expect(refund.moneyOperation?.type).toBe('refund_confirmed');
@@ -364,6 +377,7 @@ describe('platform-v7 bank basis foundation', () => {
       decision: readyBasis(),
       moneyTree: releaseRequestedTree,
       confirmation: confirmation('release'),
+      ...noHistory,
     });
 
     expect(result).toMatchObject({
@@ -389,6 +403,7 @@ describe('platform-v7 bank basis foundation', () => {
       decision: sent,
       moneyTree: releaseRequestedTree,
       confirmation: confirmation('release', { actorRole: 'arbitrator', actorId: 'arb-1' }),
+      ...noHistory,
     });
 
     expect(result).toMatchObject({
@@ -416,6 +431,7 @@ describe('platform-v7 bank basis foundation', () => {
       decision: readySentBasis(),
       moneyTree: releaseRequestedTree,
       confirmation: confirmation('release', { actorRole, actorId: `${actorRole}-1` }),
+      ...noHistory,
     });
 
     expect(result.valid).toBe(false);
@@ -441,12 +457,16 @@ describe('platform-v7 bank basis foundation', () => {
       moneyTree: releaseRequestedTree,
       confirmation: first,
       existingBankEventIds: [first.bankEventId],
+      usedIdempotencyKeys: [],
+      existingOperationIds: [],
     });
     const duplicateIdempotency = p7ConfirmBankRelease({
       decision: sent,
       moneyTree: releaseRequestedTree,
       confirmation: first,
+      existingBankEventIds: [],
       usedIdempotencyKeys: [first.idempotencyKey],
+      existingOperationIds: [],
     });
 
     expect(duplicateEvent).toMatchObject({
@@ -480,6 +500,7 @@ describe('platform-v7 bank basis foundation', () => {
         decision: readySentBasis(),
         moneyTree: releaseRequestedTree,
         confirmation: confirmation('release'),
+        ...noHistory,
       }).reason,
     ].join(' ');
 
