@@ -1,16 +1,42 @@
+import { toPlatformV7CanonicalRole } from './role-canonical';
+import type { PlatformV7CanonicalRole } from './role-canonical';
+
+export type { PlatformV7CanonicalRole as PlatformV7DocumentRole } from './role-canonical';
+
 export type PlatformV7DocumentStatus = 'missing' | 'draft' | 'uploaded' | 'signed' | 'sent' | 'confirmed' | 'rejected' | 'expired' | 'manual_review' | 'conditional';
 export type PlatformV7DocumentBlockStage = 'deal_creation' | 'shipment' | 'acceptance' | 'release' | 'dispute' | 'none';
-export type PlatformV7DocumentRole = 'seller' | 'buyer' | 'logistics' | 'driver' | 'elevator' | 'lab' | 'surveyor' | 'bank' | 'arbitrator' | 'operator';
+export type PlatformV7DocumentSource = 'manual' | 'edo' | 'fgis' | 'epd' | 'bank' | 'lab' | 'elevator' | 'arbitration';
+export type PlatformV7DocumentSignatureStatus = 'not_required' | 'pending' | 'signed' | 'rejected';
+
+export interface DocumentConditionalContext {
+  readonly disputeStatus: 'none' | 'open' | 'decision_issued' | 'resolved';
+  readonly hasWeightDiscrepancy: boolean;
+  readonly hasQualityDiscrepancy: boolean;
+  readonly arbitrationDecisionHasBankEffect: boolean;
+}
+
+export interface BankBasisReadinessContext {
+  readonly releaseGateAllowed: boolean;
+  readonly disputeResolved: boolean;
+  readonly conditionalContext?: DocumentConditionalContext;
+}
 
 export interface PlatformV7DocumentRequirement {
   readonly documentId: string;
+  readonly dealId: string;
+  readonly type: string;
   readonly title: string;
-  readonly responsibleRole: PlatformV7DocumentRole;
+  readonly ownerRole: PlatformV7CanonicalRole;
+  readonly responsibleRole: PlatformV7CanonicalRole;
   readonly status: PlatformV7DocumentStatus;
+  readonly source: PlatformV7DocumentSource;
+  readonly deadline: string | null;
+  readonly signatureStatus: PlatformV7DocumentSignatureStatus;
   readonly blockStages: readonly PlatformV7DocumentBlockStage[];
   readonly affectsMoney: boolean;
-  readonly source: 'manual' | 'edo' | 'fgis' | 'epd' | 'bank' | 'lab' | 'elevator' | 'arbitration';
   readonly nextAction: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
 }
 
 export interface PlatformV7DocumentMatrix {
@@ -26,28 +52,135 @@ export interface PlatformV7DocumentMatrixReadiness {
   readonly moneyBlockingCount: number;
 }
 
-export const PLATFORM_V7_STANDARD_DOCUMENTS: readonly PlatformV7DocumentRequirement[] = [
-  { documentId: 'contract', title: 'Договор', responsibleRole: 'seller', status: 'missing', blockStages: ['deal_creation'], affectsMoney: true, source: 'edo', nextAction: 'Подписать договор' },
-  { documentId: 'specification', title: 'Спецификация', responsibleRole: 'seller', status: 'missing', blockStages: ['shipment'], affectsMoney: true, source: 'edo', nextAction: 'Подписать спецификацию' },
-  { documentId: 'sdiz', title: 'СДИЗ', responsibleRole: 'seller', status: 'missing', blockStages: ['shipment', 'release'], affectsMoney: true, source: 'fgis', nextAction: 'Получить статус СДИЗ' },
-  { documentId: 'epd', title: 'ЭПД/ТН', responsibleRole: 'logistics', status: 'missing', blockStages: ['acceptance', 'release'], affectsMoney: true, source: 'epd', nextAction: 'Подписать перевозочный документ' },
-  { documentId: 'acceptance_act', title: 'Акт приёмки', responsibleRole: 'elevator', status: 'missing', blockStages: ['release'], affectsMoney: true, source: 'elevator', nextAction: 'Подтвердить приёмку' },
-  { documentId: 'lab_protocol', title: 'Протокол лаборатории', responsibleRole: 'lab', status: 'missing', blockStages: ['release', 'dispute'], affectsMoney: true, source: 'lab', nextAction: 'Приложить протокол' },
-  { documentId: 'discrepancy_act', title: 'Акт расхождений', responsibleRole: 'elevator', status: 'conditional', blockStages: ['release', 'dispute'], affectsMoney: true, source: 'elevator', nextAction: 'Проверить расхождения' },
-  { documentId: 'arbitration_decision', title: 'Решение арбитра', responsibleRole: 'arbitrator', status: 'conditional', blockStages: ['release'], affectsMoney: true, source: 'arbitration', nextAction: 'Передать основание банку' },
-  { documentId: 'bank_basis', title: 'Основание для банка', responsibleRole: 'operator', status: 'missing', blockStages: ['release'], affectsMoney: true, source: 'bank', nextAction: 'Сформировать банковское основание' },
-] as const;
-
-export function platformV7CreateDocumentMatrix(dealId: string, documents: readonly PlatformV7DocumentRequirement[] = PLATFORM_V7_STANDARD_DOCUMENTS): PlatformV7DocumentMatrix {
-  return { dealId, documents };
+function standardDocument(
+  documentId: string,
+  title: string,
+  ownerRole: PlatformV7CanonicalRole,
+  status: PlatformV7DocumentStatus,
+  blockStages: readonly PlatformV7DocumentBlockStage[],
+  source: PlatformV7DocumentSource,
+  nextAction: string,
+): PlatformV7DocumentRequirement {
+  return {
+    documentId,
+    dealId: '',
+    type: documentId,
+    title,
+    ownerRole,
+    responsibleRole: ownerRole,
+    status,
+    source,
+    deadline: null,
+    signatureStatus: 'not_required',
+    blockStages,
+    affectsMoney: true,
+    nextAction,
+    createdAt: '',
+    updatedAt: '',
+  };
 }
 
-export function platformV7DocumentMatrixReadiness(matrix: PlatformV7DocumentMatrix): PlatformV7DocumentMatrixReadiness {
-  const releaseDocs = matrix.documents.filter((document) => document.blockStages.includes('release') && document.affectsMoney);
-  const missingForRelease = releaseDocs.filter((document) => document.status === 'missing' || document.status === 'draft' || document.status === 'uploaded' || document.status === 'sent');
-  const manualReview = releaseDocs.filter((document) => document.status === 'manual_review');
-  const rejected = releaseDocs.filter((document) => document.status === 'rejected' || document.status === 'expired');
-  const moneyBlockingCount = missingForRelease.length + manualReview.length + rejected.length;
+export const PLATFORM_V7_STANDARD_DOCUMENTS: readonly PlatformV7DocumentRequirement[] = [
+  standardDocument('contract', 'Договор', 'seller', 'missing', ['deal_creation', 'release'], 'edo', 'Подписать договор'),
+  standardDocument('specification', 'Спецификация', 'seller', 'missing', ['shipment', 'release'], 'edo', 'Подписать спецификацию'),
+  standardDocument('sdiz', 'СДИЗ', 'seller', 'missing', ['shipment', 'release'], 'fgis', 'Получить статус СДИЗ'),
+  standardDocument('epd_transport_document', 'ЭПД/ТН', 'logistics_manager', 'missing', ['acceptance', 'release'], 'epd', 'Подписать перевозочный документ'),
+  standardDocument('acceptance_act', 'Акт приёмки', 'elevator_operator', 'missing', ['release'], 'elevator', 'Подтвердить приёмку'),
+  standardDocument('lab_protocol', 'Протокол лаборатории', 'lab_specialist', 'missing', ['release', 'dispute'], 'lab', 'Приложить протокол'),
+  standardDocument('discrepancy_act', 'Акт расхождений', 'elevator_operator', 'conditional', ['release', 'dispute'], 'elevator', 'Проверить расхождения'),
+  standardDocument('arbitration_decision', 'Решение арбитра', 'arbitrator', 'conditional', ['release'], 'arbitration', 'Передать основание банку'),
+  standardDocument('bank_basis', 'Основание для банка', 'operator', 'missing', ['release'], 'bank', 'Сформировать банковское основание'),
+] as const;
+
+export function normalizeDocumentOwnerRole(role: string): PlatformV7CanonicalRole | null {
+  return toPlatformV7CanonicalRole(role);
+}
+
+export function platformV7CreateDocumentMatrix(
+  dealId: string,
+  documents: readonly PlatformV7DocumentRequirement[] = PLATFORM_V7_STANDARD_DOCUMENTS,
+): PlatformV7DocumentMatrix {
+  return {
+    dealId,
+    documents: documents.map((document) => ({
+      ...document,
+      dealId: document.dealId || dealId,
+      type: document.type || document.documentId,
+      ownerRole: document.ownerRole,
+      responsibleRole: document.responsibleRole,
+    })),
+  };
+}
+
+function conditionalDocumentReadyForRelease(
+  document: PlatformV7DocumentRequirement,
+  context?: DocumentConditionalContext,
+): boolean {
+  if (!context) return false;
+
+  if (document.documentId === 'discrepancy_act') {
+    const hasDiscrepancy = context.hasWeightDiscrepancy || context.hasQualityDiscrepancy;
+    if (!hasDiscrepancy) return true;
+    return context.disputeStatus === 'resolved';
+  }
+
+  if (document.documentId === 'arbitration_decision') {
+    return context.disputeStatus === 'none'
+      || context.disputeStatus === 'decision_issued'
+      || context.disputeStatus === 'resolved';
+  }
+
+  return false;
+}
+
+export function isDocumentReadyForStage(
+  document: PlatformV7DocumentRequirement,
+  stage: PlatformV7DocumentBlockStage,
+  context?: DocumentConditionalContext,
+): boolean {
+  if (stage === 'none' || !document.blockStages.includes(stage)) return true;
+
+  if (document.status === 'confirmed' || document.status === 'signed') return true;
+
+  if (stage === 'shipment' || stage === 'acceptance') {
+    return document.status === 'sent';
+  }
+
+  if (stage === 'dispute') {
+    return document.status === 'conditional';
+  }
+
+  if (stage === 'release' && document.status === 'conditional') {
+    return conditionalDocumentReadyForRelease(document, context);
+  }
+
+  return false;
+}
+
+export function getMoneyBlockingDocuments(
+  matrix: PlatformV7DocumentMatrix,
+  context?: DocumentConditionalContext,
+): readonly PlatformV7DocumentRequirement[] {
+  return matrix.documents.filter((document) =>
+    document.affectsMoney && !isDocumentReadyForStage(document, 'release', context)
+  );
+}
+
+export function platformV7DocumentMatrixReadiness(
+  matrix: PlatformV7DocumentMatrix,
+  context?: DocumentConditionalContext,
+): PlatformV7DocumentMatrixReadiness {
+  const moneyBlockingDocuments = getMoneyBlockingDocuments(matrix, context);
+  const missingForRelease = moneyBlockingDocuments.filter((document) =>
+    document.status === 'missing'
+    || document.status === 'draft'
+    || document.status === 'uploaded'
+    || document.status === 'sent'
+    || document.status === 'conditional'
+  );
+  const manualReview = moneyBlockingDocuments.filter((document) => document.status === 'manual_review');
+  const rejected = moneyBlockingDocuments.filter((document) => document.status === 'rejected' || document.status === 'expired');
+  const moneyBlockingCount = moneyBlockingDocuments.length;
 
   return {
     releaseReady: moneyBlockingCount === 0,
@@ -58,11 +191,23 @@ export function platformV7DocumentMatrixReadiness(matrix: PlatformV7DocumentMatr
   };
 }
 
-export function platformV7DocumentsBlockingStage(matrix: PlatformV7DocumentMatrix, stage: PlatformV7DocumentBlockStage): readonly PlatformV7DocumentRequirement[] {
+export function platformV7DocumentsBlockingStage(
+  matrix: PlatformV7DocumentMatrix,
+  stage: PlatformV7DocumentBlockStage,
+  context?: DocumentConditionalContext,
+): readonly PlatformV7DocumentRequirement[] {
   return matrix.documents.filter((document) =>
-    document.blockStages.includes(stage)
-    && document.status !== 'confirmed'
-    && document.status !== 'signed'
-    && document.status !== 'conditional'
+    document.blockStages.includes(stage) && !isDocumentReadyForStage(document, stage, context)
   );
+}
+
+export function isBankBasisReady(
+  matrix: PlatformV7DocumentMatrix,
+  context: BankBasisReadinessContext,
+): boolean {
+  if (!context.releaseGateAllowed || !context.disputeResolved) return false;
+
+  return getMoneyBlockingDocuments(matrix, context.conditionalContext)
+    .filter((document) => document.documentId !== 'bank_basis')
+    .length === 0;
 }

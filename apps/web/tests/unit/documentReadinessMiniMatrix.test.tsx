@@ -85,20 +85,20 @@ describe('DocumentReadinessMiniMatrix component', () => {
 });
 
 describe('DocumentReadinessMiniMatrix page placement', () => {
-  it('seller page renders mini matrix', () => {
-    const { container } = render(<SellerPage />);
+  it('seller page renders mini matrix', async () => {
+    const { container } = render(await SellerPage());
     expect(screen.getByTestId('platform-v7-readiness-mini-matrix')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });
 
-  it('buyer page renders mini matrix', () => {
-    const { container } = render(<BuyerPage />);
+  it('buyer page renders mini matrix', async () => {
+    const { container } = render(await BuyerPage());
     expect(screen.getByTestId('platform-v7-readiness-mini-matrix')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });
 
-  it('bank page renders mini matrix', () => {
-    const { container } = render(<BankPage />);
+  it('bank page renders mini matrix', async () => {
+    const { container } = render(await BankPage());
     expect(screen.getByTestId('platform-v7-readiness-mini-matrix')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });
