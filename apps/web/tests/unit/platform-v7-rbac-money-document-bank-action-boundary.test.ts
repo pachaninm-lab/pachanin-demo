@@ -21,6 +21,7 @@ import type { PlatformV7CanonicalRole } from '@/lib/platform-v7/role-canonical';
 const emptyContext: P7ActionIdempotencyContext = {
   processedKeys: [],
   processedBankEventIds: [],
+  processedOperationIds: [],
 };
 
 const operationTypeByPath: Record<P7BankConfirmationPath, P7BankConfirmationOperationType> = {
@@ -544,7 +545,7 @@ describe('platform-v7 RBAC audit idempotency action boundary', () => {
         operation: moneyOperation('release_confirmed', releaseKey, { actorId: 'bank-1', actorRole: 'bank_officer' }),
         bankConfirmationExists: true,
       },
-      idempotencyContext: { processedKeys: [releaseKey], processedBankEventIds: [] },
+      idempotencyContext: { processedKeys: [releaseKey], processedBankEventIds: [], processedOperationIds: [] },
       idempotencyKey: releaseKey,
       correlationId: 'corr-dup-release',
       auditId: 'audit-dup-release',
@@ -559,7 +560,7 @@ describe('platform-v7 RBAC audit idempotency action boundary', () => {
         operation: moneyOperation('refund_confirmed', refundKey, { actorId: 'bank-1', actorRole: 'bank_officer' }),
         bankConfirmationExists: true,
       },
-      idempotencyContext: { processedKeys: [refundKey], processedBankEventIds: [] },
+      idempotencyContext: { processedKeys: [refundKey], processedBankEventIds: [], processedOperationIds: [] },
       idempotencyKey: refundKey,
       correlationId: 'corr-dup-refund',
       auditId: 'audit-dup-refund',
@@ -570,7 +571,7 @@ describe('platform-v7 RBAC audit idempotency action boundary', () => {
       resource: moneyResource,
       action: 'bank_release_confirmed',
       payload: { decision: sentBankBasis(), moneyTree: releaseRequestedTree, confirmation: duplicateBankEvent },
-      idempotencyContext: { processedKeys: [], processedBankEventIds: [duplicateBankEvent.bankEventId] },
+      idempotencyContext: { processedKeys: [], processedBankEventIds: [duplicateBankEvent.bankEventId], processedOperationIds: [] },
       idempotencyKey: duplicateBankEvent.idempotencyKey,
       correlationId: 'corr-dup-bank',
       auditId: 'audit-dup-bank',
@@ -583,6 +584,68 @@ describe('platform-v7 RBAC audit idempotency action boundary', () => {
       expect(result.beforeState).toBe(releaseRequestedTree);
       expect(result.afterState).toBe(releaseRequestedTree);
     }
+  });
+
+  it('requires processedOperationIds in context and blocks duplicate money operation ids with a new idempotency key', () => {
+    expect(emptyContext.processedOperationIds).toEqual([]);
+
+    const freshKey = key('confirm_money_released', 'duplicate-operation-new-key', 'bank-1');
+    const duplicateOperationId = 'op-release-confirmed-already-applied';
+    const result = executePlatformV7MoneyAction({
+      actor: actor('bank_officer', 'org-bank'),
+      resource: moneyResource,
+      action: 'release_confirmed',
+      payload: {
+        beforeMoneyTree: releaseRequestedTree,
+        operation: moneyOperation('release_confirmed', freshKey, {
+          operationId: duplicateOperationId,
+          actorId: 'bank-1',
+          actorRole: 'bank_officer',
+        }),
+        bankConfirmationExists: true,
+      },
+      idempotencyContext: {
+        processedKeys: [],
+        processedBankEventIds: [],
+        processedOperationIds: [duplicateOperationId],
+      },
+      idempotencyKey: freshKey,
+      correlationId: 'corr-dup-operation-money',
+      auditId: 'audit-dup-operation-money',
+      reason: 'Duplicate operation id blocks money mutation.',
+    });
+
+    expect(result.status).toBe('duplicate');
+    expect(result.code).toBe('DUPLICATE_OPERATION');
+    expect(result.auditPayload.duplicate).toBe(true);
+    expect(result.beforeState).toBe(releaseRequestedTree);
+    expect(result.afterState).toBe(releaseRequestedTree);
+  });
+
+  it('blocks duplicate bank operation ids before bank action money mutation', () => {
+    const bankEvent = confirmation('release', { bankEventId: 'bank-event-operation-dup' });
+    const result = executePlatformV7BankBasisAction({
+      actor: actor('bank_officer', 'org-bank'),
+      resource: moneyResource,
+      action: 'bank_release_confirmed',
+      payload: { decision: sentBankBasis(), moneyTree: releaseRequestedTree, confirmation: bankEvent },
+      idempotencyContext: {
+        processedKeys: [],
+        processedBankEventIds: [],
+        processedOperationIds: [`bank:${bankEvent.bankEventId}`],
+      },
+      idempotencyKey: bankEvent.idempotencyKey,
+      correlationId: 'corr-dup-operation-bank',
+      auditId: 'audit-dup-operation-bank',
+      reason: 'Duplicate bank operation id blocks bank mutation.',
+    });
+
+    expect(result.status).toBe('duplicate');
+    expect(result.code).toBe('DUPLICATE_OPERATION');
+    expect(result.auditPayload.duplicate).toBe(true);
+    expect(result.beforeState).toBe(releaseRequestedTree);
+    expect(result.afterState).toBe(releaseRequestedTree);
+    expect(result.afterState.releasedAmount).toBe(releaseRequestedTree.releasedAmount);
   });
 
   it('blocks invalid idempotency and denied permission before mutation', () => {

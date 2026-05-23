@@ -1,5 +1,4 @@
 import {
-  assertPermission,
   auditDeniedAccess,
   platformV7AccessDecision,
   type PlatformV7AccessActor,
@@ -41,6 +40,7 @@ import { toPlatformV7CanonicalRole, type PlatformV7CanonicalRole } from './role-
 export type P7ActionIdempotencyContext = {
   readonly processedKeys: readonly string[];
   readonly processedBankEventIds: readonly string[];
+  readonly processedOperationIds: readonly string[];
 };
 
 export type PlatformV7DocumentAction =
@@ -303,6 +303,7 @@ function validateKeyAndDuplicates<TState>(
   options: {
     readonly moneyOnly: boolean;
     readonly bankEventId?: string;
+    readonly operationId?: string;
   },
 ): PlatformV7ActionBoundaryResult<TState> | null {
   const invalidReason = validateIdempotencyKey(input, options.moneyOnly);
@@ -314,6 +315,10 @@ function validateKeyAndDuplicates<TState>(
 
   if (options.bankEventId && input.idempotencyContext.processedBankEventIds.includes(options.bankEventId)) {
     return duplicateResult(input, beforeState, 'DUPLICATE_BANK_EVENT', 'Bank event was already processed.');
+  }
+
+  if (options.operationId && input.idempotencyContext.processedOperationIds.includes(options.operationId)) {
+    return duplicateResult(input, beforeState, 'DUPLICATE_OPERATION', 'Money operation was already applied.');
   }
 
   return null;
@@ -333,7 +338,6 @@ function assertBoundaryPermission<TState>(
   const decision = platformV7AccessDecision(request);
   if (!decision.allowed) return deniedResult(input, beforeState, decision);
 
-  assertPermission(request);
   return null;
 }
 
@@ -387,7 +391,10 @@ export function executePlatformV7MoneyAction(
   input: PlatformV7MoneyActionInput,
 ): PlatformV7ActionBoundaryResult<PlatformV7MoneyTree, PlatformV7MoneyOperationApplyResult> {
   const beforeState = input.payload.beforeMoneyTree;
-  const keyBlock = validateKeyAndDuplicates(input, beforeState, { moneyOnly: true });
+  const keyBlock = validateKeyAndDuplicates(input, beforeState, {
+    moneyOnly: true,
+    operationId: input.payload.operation.operationId,
+  });
   if (keyBlock) return keyBlock as PlatformV7ActionBoundaryResult<PlatformV7MoneyTree, PlatformV7MoneyOperationApplyResult>;
 
   const denied = assertBoundaryPermission(input, beforeState);
@@ -402,7 +409,7 @@ export function executePlatformV7MoneyAction(
     operation: input.payload.operation,
     releaseGate: input.payload.releaseGate,
     bankConfirmationExists: input.payload.bankConfirmationExists,
-    existingOperationIds: [],
+    existingOperationIds: input.idempotencyContext.processedOperationIds,
     usedIdempotencyKeys: input.idempotencyContext.processedKeys,
   });
 
@@ -452,6 +459,12 @@ function bankEventIdFor(input: PlatformV7BankBasisActionInput): string | undefin
   return undefined;
 }
 
+function bankOperationIdFor(input: PlatformV7BankBasisActionInput): string | undefined {
+  if ('confirmation' in input.payload) return `bank:${input.payload.confirmation.bankEventId}`;
+  if ('bankEventId' in input.payload) return `bank:${input.payload.bankEventId}`;
+  return undefined;
+}
+
 function executeBankDomainAction(input: PlatformV7BankBasisActionInput): P7BankBasisSendResult | P7BankConfirmationResult {
   if (input.action === 'bank_basis_sent') {
     return p7MarkBankBasisSent({
@@ -471,7 +484,7 @@ function executeBankDomainAction(input: PlatformV7BankBasisActionInput): P7BankB
       confirmation: input.payload.confirmation,
       existingBankEventIds: input.idempotencyContext.processedBankEventIds,
       usedIdempotencyKeys: input.idempotencyContext.processedKeys,
-      existingOperationIds: [],
+      existingOperationIds: input.idempotencyContext.processedOperationIds,
     });
   }
 
@@ -482,7 +495,7 @@ function executeBankDomainAction(input: PlatformV7BankBasisActionInput): P7BankB
       confirmation: input.payload.confirmation,
       existingBankEventIds: input.idempotencyContext.processedBankEventIds,
       usedIdempotencyKeys: input.idempotencyContext.processedKeys,
-      existingOperationIds: [],
+      existingOperationIds: input.idempotencyContext.processedOperationIds,
     });
   }
 
@@ -493,7 +506,7 @@ function executeBankDomainAction(input: PlatformV7BankBasisActionInput): P7BankB
       confirmation: input.payload.confirmation,
       existingBankEventIds: input.idempotencyContext.processedBankEventIds,
       usedIdempotencyKeys: input.idempotencyContext.processedKeys,
-      existingOperationIds: [],
+      existingOperationIds: input.idempotencyContext.processedOperationIds,
     });
   }
 
@@ -504,7 +517,7 @@ function executeBankDomainAction(input: PlatformV7BankBasisActionInput): P7BankB
       confirmation: input.payload.confirmation,
       existingBankEventIds: input.idempotencyContext.processedBankEventIds,
       usedIdempotencyKeys: input.idempotencyContext.processedKeys,
-      existingOperationIds: [],
+      existingOperationIds: input.idempotencyContext.processedOperationIds,
     });
   }
 
@@ -515,7 +528,7 @@ function executeBankDomainAction(input: PlatformV7BankBasisActionInput): P7BankB
       confirmation: input.payload.confirmation,
       existingBankEventIds: input.idempotencyContext.processedBankEventIds,
       usedIdempotencyKeys: input.idempotencyContext.processedKeys,
-      existingOperationIds: [],
+      existingOperationIds: input.idempotencyContext.processedOperationIds,
     });
   }
 
@@ -553,7 +566,11 @@ export function executePlatformV7BankBasisAction(
   const beforeState = input.action === 'bank_manual_review_resolved'
     ? input.payload.beforeMoneyTree
     : input.payload.moneyTree;
-  const keyBlock = validateKeyAndDuplicates(input, beforeState, { moneyOnly: true, bankEventId: bankEventIdFor(input) });
+  const keyBlock = validateKeyAndDuplicates(input, beforeState, {
+    moneyOnly: true,
+    bankEventId: bankEventIdFor(input),
+    operationId: bankOperationIdFor(input),
+  });
   if (keyBlock) return keyBlock as PlatformV7ActionBoundaryResult<PlatformV7MoneyTree, P7BankBasisSendResult | P7BankConfirmationResult>;
 
   const denied = assertBoundaryPermission(input, beforeState);
