@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { calculateMoneyTree } from '@/lib/platform-v7/domain/money';
 import type { CanonicalDeal } from '@/lib/platform-v7/domain/types';
+import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key-helper';
 import {
   platformV7ApplyMoneyOperation,
   platformV7ReleaseGate,
   platformV7SplitDisputedMoney,
+  platformV7ValidateMoneyOperationIdempotency,
   platformV7ValidateMoneyOperation,
   platformV7ValidateMoneyTree,
   type PlatformV7MoneyOperation,
@@ -49,23 +51,34 @@ const balancedTree: PlatformV7MoneyTree = {
 };
 
 function operation(overrides: Partial<PlatformV7MoneyOperation>): PlatformV7MoneyOperation {
+  const amount = overrides.amount ?? 100;
   return {
     operationId: overrides.operationId ?? 'op-1',
     dealId: overrides.dealId ?? 'deal-1',
     type: overrides.type ?? 'release_requested',
-    amount: overrides.amount ?? 100,
+    amount,
     currency: 'RUB',
     basisDocumentIds: overrides.basisDocumentIds ?? ['basis-1'],
     actorId: overrides.actorId ?? 'actor-1',
     actorRole: overrides.actorRole ?? 'operator',
     occurredAt: overrides.occurredAt ?? '2026-05-23T10:00:00.000Z',
-    idempotencyKey: overrides.idempotencyKey ?? 'idem-1',
+    idempotencyKey: overrides.idempotencyKey ?? buildPlatformV7IdempotencyKey({
+      boundaryId: overrides.type === 'release_confirmed' ? 'confirm_money_released' : 'mark_money_ready_to_release',
+      actorId: overrides.actorId ?? 'actor-1',
+      entityId: overrides.dealId ?? 'deal-1',
+      dealId: overrides.dealId ?? 'deal-1',
+      amountMinor: amount,
+      currency: 'RUB',
+      attemptId: overrides.operationId ?? 'op-1',
+    }),
     correlationId: overrides.correlationId ?? 'corr-1',
     auditId: overrides.auditId ?? 'audit-1',
   };
 }
 
 const releaseGateReady = {
+  operationType: 'release_requested' as const,
+  bankConfirmationExists: false,
   dealStatus: 'release_basis_ready',
   moneyStatus: 'reserved' as const,
   requiredDocumentsConfirmed: true,
@@ -159,23 +172,50 @@ describe('platform-v7 MoneyTree', () => {
   });
 
   it('allows release basis only when every required condition is satisfied', () => {
-    expect(platformV7ReleaseGate({
-      dealStatus: 'release_basis_ready',
-      moneyStatus: 'reserved',
-      requiredDocumentsConfirmed: true,
-      tripStatus: 'completed',
-      acceptanceStatus: 'confirmed',
-      disputeStatus: 'none',
-      bankReviewStatus: 'clear',
-    })).toEqual({
+    expect(platformV7ReleaseGate(releaseGateReady)).toEqual({
       allowed: true,
-      reason: 'Release basis is ready for bank review request.',
-      nextStatus: 'release_ready',
+      reason: 'Release request can be recorded before bank confirmation.',
+      nextStatus: 'release_requested',
+    });
+  });
+
+  it('allows release_requested without bank confirmation and never returns released', () => {
+    const decision = platformV7ReleaseGate({
+      ...releaseGateReady,
+      operationType: 'release_requested',
+      bankConfirmationExists: false,
+    });
+
+    expect(decision.allowed).toBe(true);
+    expect(decision.nextStatus).toBe('release_requested');
+    expect(decision.nextStatus).not.toBe('released');
+  });
+
+  it('blocks release_confirmed without bank confirmation and releases only when confirmation exists', () => {
+    expect(platformV7ReleaseGate({
+      ...releaseGateReady,
+      operationType: 'release_confirmed',
+      bankConfirmationExists: false,
+    })).toMatchObject({
+      allowed: false,
+      nextStatus: 'blocked',
+      reason: 'Bank confirmation is required before release can be confirmed.',
+    });
+
+    expect(platformV7ReleaseGate({
+      ...releaseGateReady,
+      operationType: 'release_confirmed',
+      bankConfirmationExists: true,
+    })).toMatchObject({
+      allowed: true,
+      nextStatus: 'released',
+      reason: 'Bank-confirmed release can move money to released status.',
     });
   });
 
   it('blocks release when documents, trip, dispute or bank review are not ready', () => {
     expect(platformV7ReleaseGate({
+      ...releaseGateReady,
       dealStatus: 'release_basis_ready',
       moneyStatus: 'reserved',
       requiredDocumentsConfirmed: false,
@@ -186,6 +226,7 @@ describe('platform-v7 MoneyTree', () => {
     }).allowed).toBe(false);
 
     expect(platformV7ReleaseGate({
+      ...releaseGateReady,
       dealStatus: 'release_basis_ready',
       moneyStatus: 'reserved',
       requiredDocumentsConfirmed: true,
@@ -196,6 +237,7 @@ describe('platform-v7 MoneyTree', () => {
     }).allowed).toBe(false);
 
     expect(platformV7ReleaseGate({
+      ...releaseGateReady,
       dealStatus: 'release_basis_ready',
       moneyStatus: 'reserved',
       requiredDocumentsConfirmed: true,
@@ -206,6 +248,7 @@ describe('platform-v7 MoneyTree', () => {
     }).allowed).toBe(false);
 
     expect(platformV7ReleaseGate({
+      ...releaseGateReady,
       dealStatus: 'release_basis_ready',
       moneyStatus: 'reserved',
       requiredDocumentsConfirmed: true,
@@ -355,11 +398,61 @@ describe('platform-v7 MoneyTree', () => {
 
     expect(platformV7ValidateMoneyOperation({
       tree: balancedTree,
-      operation: operation({ idempotencyKey: 'idem-used' }),
-      usedIdempotencyKeys: ['idem-used'],
+      operation: operation({ idempotencyKey: 'not-a-platform-key' }),
+    })).toMatchObject({
+      valid: false,
+      code: 'INVALID_IDEMPOTENCY_KEY',
+    });
+
+    const usedKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'confirm_money_released',
+      actorId: 'actor-1',
+      entityId: 'deal-1',
+      dealId: 'deal-1',
+      amountMinor: 100,
+      currency: 'RUB',
+      attemptId: 'used',
+    });
+
+    expect(platformV7ValidateMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ operationId: 'used', idempotencyKey: usedKey }),
+      usedIdempotencyKeys: [usedKey],
     })).toMatchObject({
       valid: false,
       code: 'DUPLICATE_IDEMPOTENCY_KEY',
+    });
+  });
+
+  it('exports money operation idempotency validation through shared helpers', () => {
+    const moneyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'confirm_money_released',
+      actorId: 'bank-1',
+      entityId: 'money-1',
+      dealId: 'deal-1',
+      amountMinor: 100,
+      currency: 'RUB',
+      attemptId: 'first',
+    });
+    const nonMoneyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'assign_driver',
+      actorId: 'logistics-1',
+      entityId: 'trip-1',
+      dealId: 'deal-1',
+    });
+
+    expect(platformV7ValidateMoneyOperationIdempotency(moneyKey)).toEqual({
+      valid: true,
+      reason: 'Money operation idempotency key is valid.',
+      issues: [],
+    });
+    expect(platformV7ValidateMoneyOperationIdempotency(nonMoneyKey)).toMatchObject({
+      valid: false,
+      reason: 'Idempotency key is valid but not scoped to a money operation.',
+    });
+    expect(platformV7ValidateMoneyOperationIdempotency('bad-key')).toMatchObject({
+      valid: false,
+      reason: 'Money operation idempotency key is malformed.',
     });
   });
 });

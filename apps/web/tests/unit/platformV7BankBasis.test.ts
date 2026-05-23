@@ -6,7 +6,7 @@ import type { PlatformV7DocumentRequirement } from '@/lib/platform-v7/document-m
 const releaseGate: PlatformV7ReleaseGateDecision = {
   allowed: true,
   reason: 'ready',
-  nextStatus: 'release_ready',
+  nextStatus: 'release_requested',
 };
 
 const docs: PlatformV7DocumentRequirement[] = [

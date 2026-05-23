@@ -1,3 +1,5 @@
+import { isPlatformV7MoneyIdempotencyKey, validatePlatformV7IdempotencyKey } from './idempotency-key-helper';
+
 export type PlatformV7MoneyOperationType =
   | 'reserve_requested'
   | 'reserve_confirmed'
@@ -74,6 +76,7 @@ export type PlatformV7MoneyValidationCode =
   | 'OVER_RESERVED'
   | 'INVARIANT_MISMATCH'
   | 'MISSING_IDEMPOTENCY_KEY'
+  | 'INVALID_IDEMPOTENCY_KEY'
   | 'DUPLICATE_OPERATION'
   | 'DUPLICATE_IDEMPOTENCY_KEY'
   | 'AMOUNT_EXCEEDS_READY_TO_RELEASE'
@@ -85,6 +88,8 @@ export type PlatformV7MoneyValidationCode =
   | 'UNSUPPORTED_OPERATION';
 
 export interface PlatformV7ReleaseGateInput {
+  readonly operationType: 'release_requested' | 'release_confirmed';
+  readonly bankConfirmationExists: boolean;
   readonly dealStatus: string;
   readonly moneyStatus: PlatformV7MoneyStatus;
   readonly requiredDocumentsConfirmed: boolean;
@@ -97,7 +102,13 @@ export interface PlatformV7ReleaseGateInput {
 export interface PlatformV7ReleaseGateDecision {
   readonly allowed: boolean;
   readonly reason: string;
-  readonly nextStatus: 'release_ready' | 'blocked';
+  readonly nextStatus: 'release_requested' | 'released' | 'blocked';
+}
+
+export interface PlatformV7MoneyOperationIdempotencyValidation {
+  readonly valid: boolean;
+  readonly reason: string;
+  readonly issues: readonly string[];
 }
 
 export interface PlatformV7MoneyOperationValidationContext {
@@ -211,7 +222,15 @@ export function platformV7ReleaseGate(input: PlatformV7ReleaseGateInput): Platfo
     return { allowed: false, reason: 'Bank review is blocked.', nextStatus: 'blocked' };
   }
 
-  return { allowed: true, reason: 'Release basis is ready for bank review request.', nextStatus: 'release_ready' };
+  if (input.operationType === 'release_requested') {
+    return { allowed: true, reason: 'Release request can be recorded before bank confirmation.', nextStatus: 'release_requested' };
+  }
+
+  if (!input.bankConfirmationExists) {
+    return { allowed: false, reason: 'Bank confirmation is required before release can be confirmed.', nextStatus: 'blocked' };
+  }
+
+  return { allowed: true, reason: 'Bank-confirmed release can move money to released status.', nextStatus: 'released' };
 }
 
 export function platformV7SplitDisputedMoney(reservedAmount: number, disputedAmount: number): Pick<PlatformV7MoneyTree, 'readyToReleaseAmount' | 'heldAmount' | 'manualReviewAmount' | 'releasedAmount' | 'refundedAmount'> {
@@ -236,6 +255,27 @@ function validMoneyOperation(reason: string): PlatformV7MoneyOperationDecision {
   return { valid: true, code: 'OK', reason };
 }
 
+export function platformV7ValidateMoneyOperationIdempotency(key: string): PlatformV7MoneyOperationIdempotencyValidation {
+  const baseValidation = validatePlatformV7IdempotencyKey(key);
+  if (!baseValidation.ok) {
+    return {
+      valid: false,
+      reason: 'Money operation idempotency key is malformed.',
+      issues: baseValidation.issues,
+    };
+  }
+
+  if (!isPlatformV7MoneyIdempotencyKey(key)) {
+    return {
+      valid: false,
+      reason: 'Idempotency key is valid but not scoped to a money operation.',
+      issues: ['Idempotency key must include concrete amount and currency segments.'],
+    };
+  }
+
+  return { valid: true, reason: 'Money operation idempotency key is valid.', issues: [] };
+}
+
 export function platformV7ValidateMoneyOperation({
   tree,
   operation,
@@ -255,6 +295,11 @@ export function platformV7ValidateMoneyOperation({
 
   if (!operation.idempotencyKey.trim()) {
     return invalidMoneyOperation('MISSING_IDEMPOTENCY_KEY', 'Money operation requires an idempotency key.');
+  }
+
+  const idempotencyValidation = platformV7ValidateMoneyOperationIdempotency(operation.idempotencyKey);
+  if (!idempotencyValidation.valid) {
+    return invalidMoneyOperation('INVALID_IDEMPOTENCY_KEY', idempotencyValidation.reason);
   }
 
   if (existingOperationIds.includes(operation.operationId)) {
