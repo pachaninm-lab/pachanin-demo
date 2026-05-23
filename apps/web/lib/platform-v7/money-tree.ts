@@ -33,6 +33,7 @@ export type PlatformV7MoneyStatus =
 export interface PlatformV7MoneyTree {
   readonly dealId: string;
   readonly currency: 'RUB';
+  readonly totalDealAmount?: number;
   readonly reservedAmount: number;
   readonly readyToReleaseAmount: number;
   readonly heldAmount: number;
@@ -62,9 +63,26 @@ export interface PlatformV7MoneyOperation {
 export interface PlatformV7MoneyTreeValidation {
   readonly valid: boolean;
   readonly reason: string;
+  readonly code?: PlatformV7MoneyValidationCode;
   readonly expectedReservedAmount: number;
   readonly actualReservedAmount: number;
 }
+
+export type PlatformV7MoneyValidationCode =
+  | 'OK'
+  | 'NEGATIVE_AMOUNT'
+  | 'OVER_RESERVED'
+  | 'INVARIANT_MISMATCH'
+  | 'MISSING_IDEMPOTENCY_KEY'
+  | 'DUPLICATE_OPERATION'
+  | 'DUPLICATE_IDEMPOTENCY_KEY'
+  | 'AMOUNT_EXCEEDS_READY_TO_RELEASE'
+  | 'AMOUNT_EXCEEDS_HELD'
+  | 'AMOUNT_EXCEEDS_MANUAL_REVIEW'
+  | 'RELEASE_GATE_BLOCKED'
+  | 'BANK_CONFIRMATION_REQUIRED'
+  | 'RELEASE_REQUEST_REQUIRED'
+  | 'UNSUPPORTED_OPERATION';
 
 export interface PlatformV7ReleaseGateInput {
   readonly dealStatus: string;
@@ -82,6 +100,37 @@ export interface PlatformV7ReleaseGateDecision {
   readonly nextStatus: 'release_ready' | 'blocked';
 }
 
+export interface PlatformV7MoneyOperationValidationContext {
+  readonly tree: PlatformV7MoneyTree;
+  readonly operation: PlatformV7MoneyOperation;
+  readonly releaseGate?: PlatformV7ReleaseGateInput;
+  readonly bankConfirmationExists?: boolean;
+  readonly existingOperationIds?: readonly string[];
+  readonly usedIdempotencyKeys?: readonly string[];
+}
+
+export interface PlatformV7MoneyOperationDecision {
+  readonly valid: boolean;
+  readonly code: PlatformV7MoneyValidationCode;
+  readonly reason: string;
+}
+
+export interface PlatformV7MoneyOperationApplyResult extends PlatformV7MoneyOperationDecision {
+  readonly tree: PlatformV7MoneyTree;
+}
+
+const MONEY_TREE_AMOUNT_FIELDS = [
+  'totalDealAmount',
+  'reservedAmount',
+  'readyToReleaseAmount',
+  'heldAmount',
+  'manualReviewAmount',
+  'releasedAmount',
+  'refundedAmount',
+  'platformFee',
+  'bankFee',
+] as const satisfies readonly (keyof PlatformV7MoneyTree)[];
+
 export function platformV7ValidateMoneyTree(tree: PlatformV7MoneyTree): PlatformV7MoneyTreeValidation {
   const expectedReservedAmount = tree.readyToReleaseAmount
     + tree.heldAmount
@@ -89,9 +138,35 @@ export function platformV7ValidateMoneyTree(tree: PlatformV7MoneyTree): Platform
     + tree.releasedAmount
     + tree.refundedAmount;
 
+  const negativeField = MONEY_TREE_AMOUNT_FIELDS.find((field) => {
+    const value = tree[field];
+    return typeof value === 'number' && (!Number.isFinite(value) || value < 0);
+  });
+
+  if (negativeField) {
+    return {
+      valid: false,
+      code: 'NEGATIVE_AMOUNT',
+      reason: `${negativeField} must be a finite amount greater than or equal to zero.`,
+      expectedReservedAmount,
+      actualReservedAmount: tree.reservedAmount,
+    };
+  }
+
+  if (typeof tree.totalDealAmount === 'number' && tree.reservedAmount > tree.totalDealAmount) {
+    return {
+      valid: false,
+      code: 'OVER_RESERVED',
+      reason: 'Reserved amount cannot exceed total deal amount.',
+      expectedReservedAmount,
+      actualReservedAmount: tree.reservedAmount,
+    };
+  }
+
   if (tree.reservedAmount !== expectedReservedAmount) {
     return {
       valid: false,
+      code: 'INVARIANT_MISMATCH',
       reason: 'Reserved amount must equal ready, held, manual-review, released and refunded buckets.',
       expectedReservedAmount,
       actualReservedAmount: tree.reservedAmount,
@@ -100,6 +175,7 @@ export function platformV7ValidateMoneyTree(tree: PlatformV7MoneyTree): Platform
 
   return {
     valid: true,
+    code: 'OK',
     reason: 'Money tree invariant is balanced.',
     expectedReservedAmount,
     actualReservedAmount: tree.reservedAmount,
@@ -147,4 +223,195 @@ export function platformV7SplitDisputedMoney(reservedAmount: number, disputedAmo
     releasedAmount: 0,
     refundedAmount: 0,
   };
+}
+
+function invalidMoneyOperation(
+  code: PlatformV7MoneyValidationCode,
+  reason: string,
+): PlatformV7MoneyOperationDecision {
+  return { valid: false, code, reason };
+}
+
+function validMoneyOperation(reason: string): PlatformV7MoneyOperationDecision {
+  return { valid: true, code: 'OK', reason };
+}
+
+export function platformV7ValidateMoneyOperation({
+  tree,
+  operation,
+  releaseGate,
+  bankConfirmationExists = false,
+  existingOperationIds = [],
+  usedIdempotencyKeys = [],
+}: PlatformV7MoneyOperationValidationContext): PlatformV7MoneyOperationDecision {
+  const treeValidation = platformV7ValidateMoneyTree(tree);
+  if (!treeValidation.valid) {
+    return invalidMoneyOperation(treeValidation.code ?? 'INVARIANT_MISMATCH', treeValidation.reason);
+  }
+
+  if (!Number.isFinite(operation.amount) || operation.amount < 0) {
+    return invalidMoneyOperation('NEGATIVE_AMOUNT', 'Money operation amount must be a finite amount greater than or equal to zero.');
+  }
+
+  if (!operation.idempotencyKey.trim()) {
+    return invalidMoneyOperation('MISSING_IDEMPOTENCY_KEY', 'Money operation requires an idempotency key.');
+  }
+
+  if (existingOperationIds.includes(operation.operationId)) {
+    return invalidMoneyOperation('DUPLICATE_OPERATION', 'Money operation was already applied.');
+  }
+
+  if (usedIdempotencyKeys.includes(operation.idempotencyKey)) {
+    return invalidMoneyOperation('DUPLICATE_IDEMPOTENCY_KEY', 'Money operation idempotency key was already used.');
+  }
+
+  if ((operation.type === 'reserve_confirmed' || operation.type === 'reserve_requested')
+    && typeof tree.totalDealAmount === 'number'
+    && tree.reservedAmount + operation.amount > tree.totalDealAmount) {
+    return invalidMoneyOperation('OVER_RESERVED', 'Reserve operation would exceed total deal amount.');
+  }
+
+  if (operation.type === 'release_requested') {
+    if (operation.amount > tree.readyToReleaseAmount) {
+      return invalidMoneyOperation('AMOUNT_EXCEEDS_READY_TO_RELEASE', 'Release request amount exceeds ready-to-release amount.');
+    }
+
+    if (releaseGate && !platformV7ReleaseGate(releaseGate).allowed) {
+      return invalidMoneyOperation('RELEASE_GATE_BLOCKED', 'Release request is blocked by release gate conditions.');
+    }
+
+    return validMoneyOperation('Release request is valid and does not move money without bank confirmation.');
+  }
+
+  if (operation.type === 'release_confirmed') {
+    if (!bankConfirmationExists) {
+      return invalidMoneyOperation('BANK_CONFIRMATION_REQUIRED', 'Bank confirmation is required before release can be confirmed.');
+    }
+
+    if (!(tree.status === 'release_requested' || tree.status === 'release_pending')) {
+      return invalidMoneyOperation('RELEASE_REQUEST_REQUIRED', 'Release confirmation requires a prior release request state.');
+    }
+
+    if (operation.amount > tree.readyToReleaseAmount) {
+      return invalidMoneyOperation('AMOUNT_EXCEEDS_READY_TO_RELEASE', 'Confirmed release amount exceeds ready-to-release amount.');
+    }
+
+    return validMoneyOperation('Release confirmation can move ready money to released money.');
+  }
+
+  if (operation.type === 'hold_created' || operation.type === 'refund_confirmed' || operation.type === 'manual_review_started') {
+    if (operation.amount > tree.readyToReleaseAmount) {
+      return invalidMoneyOperation('AMOUNT_EXCEEDS_READY_TO_RELEASE', 'Operation amount exceeds ready-to-release amount.');
+    }
+  }
+
+  if (operation.type === 'hold_released' && operation.amount > tree.heldAmount) {
+    return invalidMoneyOperation('AMOUNT_EXCEEDS_HELD', 'Hold release amount exceeds held amount.');
+  }
+
+  if (operation.type === 'manual_review_resolved' && operation.amount > tree.manualReviewAmount) {
+    return invalidMoneyOperation('AMOUNT_EXCEEDS_MANUAL_REVIEW', 'Manual review resolution amount exceeds manual review amount.');
+  }
+
+  return validMoneyOperation('Money operation is valid.');
+}
+
+export function platformV7ApplyMoneyOperation(context: PlatformV7MoneyOperationValidationContext): PlatformV7MoneyOperationApplyResult {
+  const decision = platformV7ValidateMoneyOperation(context);
+  if (!decision.valid) return { ...decision, tree: context.tree };
+
+  const { tree, operation } = context;
+  const amount = operation.amount;
+
+  switch (operation.type) {
+    case 'reserve_requested':
+      return { ...decision, tree: { ...tree, status: 'reserve_requested' } };
+    case 'reserve_confirmed':
+      return {
+        ...decision,
+        tree: {
+          ...tree,
+          reservedAmount: tree.reservedAmount + amount,
+          readyToReleaseAmount: tree.readyToReleaseAmount + amount,
+          status: 'reserved',
+        },
+      };
+    case 'hold_created':
+      return {
+        ...decision,
+        tree: {
+          ...tree,
+          readyToReleaseAmount: tree.readyToReleaseAmount - amount,
+          heldAmount: tree.heldAmount + amount,
+          status: 'hold_created',
+        },
+      };
+    case 'hold_released':
+      return {
+        ...decision,
+        tree: {
+          ...tree,
+          readyToReleaseAmount: tree.readyToReleaseAmount + amount,
+          heldAmount: tree.heldAmount - amount,
+          status: 'reserved',
+        },
+      };
+    case 'release_requested':
+      return { ...decision, tree: { ...tree, status: 'release_requested' } };
+    case 'release_confirmed':
+      return {
+        ...decision,
+        tree: {
+          ...tree,
+          readyToReleaseAmount: tree.readyToReleaseAmount - amount,
+          releasedAmount: tree.releasedAmount + amount,
+          status: 'released',
+        },
+      };
+    case 'refund_confirmed':
+      return {
+        ...decision,
+        tree: {
+          ...tree,
+          readyToReleaseAmount: tree.readyToReleaseAmount - amount,
+          refundedAmount: tree.refundedAmount + amount,
+          status: 'refunded',
+        },
+      };
+    case 'manual_review_started':
+      return {
+        ...decision,
+        tree: {
+          ...tree,
+          readyToReleaseAmount: tree.readyToReleaseAmount - amount,
+          manualReviewAmount: tree.manualReviewAmount + amount,
+          status: 'manual_review',
+        },
+      };
+    case 'manual_review_resolved':
+      return {
+        ...decision,
+        tree: {
+          ...tree,
+          readyToReleaseAmount: tree.readyToReleaseAmount + amount,
+          manualReviewAmount: tree.manualReviewAmount - amount,
+          status: 'reserved',
+        },
+      };
+    case 'reserve_failed':
+      return { ...decision, tree: { ...tree, status: 'reserve_failed' } };
+    case 'release_failed':
+      return { ...decision, tree: { ...tree, status: 'release_failed' } };
+    case 'refund_requested':
+      return { ...decision, tree: { ...tree, status: 'refund_requested' } };
+    case 'reconciliation_failed':
+      return { ...decision, tree: { ...tree, status: 'reconciliation_failed' } };
+    default:
+      return {
+        valid: false,
+        code: 'UNSUPPORTED_OPERATION',
+        reason: 'Money operation type is not supported by MoneyTree runtime.',
+        tree,
+      };
+  }
 }

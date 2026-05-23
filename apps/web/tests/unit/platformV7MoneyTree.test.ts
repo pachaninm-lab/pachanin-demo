@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { calculateMoneyTree } from '@/lib/platform-v7/domain/money';
 import type { CanonicalDeal } from '@/lib/platform-v7/domain/types';
 import {
+  platformV7ApplyMoneyOperation,
   platformV7ReleaseGate,
   platformV7SplitDisputedMoney,
+  platformV7ValidateMoneyOperation,
   platformV7ValidateMoneyTree,
+  type PlatformV7MoneyOperation,
   type PlatformV7MoneyTree,
 } from '@/lib/platform-v7/money-tree';
 
@@ -33,6 +36,7 @@ function deal(overrides: Partial<CanonicalDeal>): CanonicalDeal {
 const balancedTree: PlatformV7MoneyTree = {
   dealId: 'deal-1',
   currency: 'RUB',
+  totalDealAmount: 1000,
   reservedAmount: 1000,
   readyToReleaseAmount: 400,
   heldAmount: 200,
@@ -42,6 +46,33 @@ const balancedTree: PlatformV7MoneyTree = {
   platformFee: 10,
   bankFee: 5,
   status: 'reserved',
+};
+
+function operation(overrides: Partial<PlatformV7MoneyOperation>): PlatformV7MoneyOperation {
+  return {
+    operationId: overrides.operationId ?? 'op-1',
+    dealId: overrides.dealId ?? 'deal-1',
+    type: overrides.type ?? 'release_requested',
+    amount: overrides.amount ?? 100,
+    currency: 'RUB',
+    basisDocumentIds: overrides.basisDocumentIds ?? ['basis-1'],
+    actorId: overrides.actorId ?? 'actor-1',
+    actorRole: overrides.actorRole ?? 'operator',
+    occurredAt: overrides.occurredAt ?? '2026-05-23T10:00:00.000Z',
+    idempotencyKey: overrides.idempotencyKey ?? 'idem-1',
+    correlationId: overrides.correlationId ?? 'corr-1',
+    auditId: overrides.auditId ?? 'audit-1',
+  };
+}
+
+const releaseGateReady = {
+  dealStatus: 'release_basis_ready',
+  moneyStatus: 'reserved' as const,
+  requiredDocumentsConfirmed: true,
+  tripStatus: 'completed',
+  acceptanceStatus: 'confirmed',
+  disputeStatus: 'none',
+  bankReviewStatus: 'clear',
 };
 
 describe('platform-v7 MoneyTree', () => {
@@ -110,8 +141,21 @@ describe('platform-v7 MoneyTree', () => {
     const result = platformV7ValidateMoneyTree({ ...balancedTree, heldAmount: 300 });
 
     expect(result.valid).toBe(false);
+    expect(result.code).toBe('INVARIANT_MISMATCH');
     expect(result.expectedReservedAmount).toBe(1100);
     expect(result.actualReservedAmount).toBe(1000);
+  });
+
+  it('rejects negative tree buckets and over-reserved totals before release checks', () => {
+    expect(platformV7ValidateMoneyTree({ ...balancedTree, heldAmount: -1 })).toMatchObject({
+      valid: false,
+      code: 'NEGATIVE_AMOUNT',
+    });
+
+    expect(platformV7ValidateMoneyTree({ ...balancedTree, totalDealAmount: 900 })).toMatchObject({
+      valid: false,
+      code: 'OVER_RESERVED',
+    });
   });
 
   it('allows release basis only when every required condition is satisfied', () => {
@@ -187,6 +231,135 @@ describe('platform-v7 MoneyTree', () => {
       manualReviewAmount: 0,
       releasedAmount: 0,
       refundedAmount: 0,
+    });
+  });
+
+  it('keeps release_requested as a request state without moving money buckets', () => {
+    const result = platformV7ApplyMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ type: 'release_requested', amount: 250 }),
+      releaseGate: releaseGateReady,
+    });
+
+    expect(result).toMatchObject({
+      valid: true,
+      code: 'OK',
+      reason: 'Release request is valid and does not move money without bank confirmation.',
+    });
+    expect(result.tree).toMatchObject({
+      status: 'release_requested',
+      readyToReleaseAmount: 400,
+      releasedAmount: 200,
+      reservedAmount: 1000,
+    });
+    expect(platformV7ValidateMoneyTree(result.tree)).toMatchObject({ valid: true });
+  });
+
+  it('requires bank confirmation before release_confirmed can move money', () => {
+    const requestedTree: PlatformV7MoneyTree = { ...balancedTree, status: 'release_requested' };
+
+    expect(platformV7ValidateMoneyOperation({
+      tree: requestedTree,
+      operation: operation({ type: 'release_confirmed', amount: 250 }),
+      bankConfirmationExists: false,
+    })).toMatchObject({
+      valid: false,
+      code: 'BANK_CONFIRMATION_REQUIRED',
+    });
+
+    const result = platformV7ApplyMoneyOperation({
+      tree: requestedTree,
+      operation: operation({ type: 'release_confirmed', amount: 250 }),
+      bankConfirmationExists: true,
+    });
+
+    expect(result).toMatchObject({
+      valid: true,
+      code: 'OK',
+    });
+    expect(result.tree).toMatchObject({
+      status: 'released',
+      readyToReleaseAmount: 150,
+      releasedAmount: 450,
+      reservedAmount: 1000,
+    });
+    expect(platformV7ValidateMoneyTree(result.tree)).toMatchObject({ valid: true });
+  });
+
+  it('rejects release_confirmed without a prior release request state', () => {
+    expect(platformV7ValidateMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ type: 'release_confirmed', amount: 100 }),
+      bankConfirmationExists: true,
+    })).toMatchObject({
+      valid: false,
+      code: 'RELEASE_REQUEST_REQUIRED',
+    });
+  });
+
+  it('blocks release requests when release gate is not ready or amount exceeds ready bucket', () => {
+    expect(platformV7ValidateMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ type: 'release_requested', amount: 401 }),
+      releaseGate: releaseGateReady,
+    })).toMatchObject({
+      valid: false,
+      code: 'AMOUNT_EXCEEDS_READY_TO_RELEASE',
+    });
+
+    expect(platformV7ValidateMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ type: 'release_requested', amount: 100 }),
+      releaseGate: { ...releaseGateReady, requiredDocumentsConfirmed: false },
+    })).toMatchObject({
+      valid: false,
+      code: 'RELEASE_GATE_BLOCKED',
+    });
+  });
+
+  it('rejects negative, over-reserved and double-counted money operations', () => {
+    expect(platformV7ValidateMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ type: 'hold_created', amount: -1 }),
+    })).toMatchObject({
+      valid: false,
+      code: 'NEGATIVE_AMOUNT',
+    });
+
+    expect(platformV7ValidateMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ type: 'reserve_confirmed', amount: 1 }),
+    })).toMatchObject({
+      valid: false,
+      code: 'OVER_RESERVED',
+    });
+
+    expect(platformV7ValidateMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ operationId: 'op-existing' }),
+      existingOperationIds: ['op-existing'],
+    })).toMatchObject({
+      valid: false,
+      code: 'DUPLICATE_OPERATION',
+    });
+  });
+
+  it('validates idempotency keys before applying money operations', () => {
+    expect(platformV7ValidateMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ idempotencyKey: '   ' }),
+    })).toMatchObject({
+      valid: false,
+      code: 'MISSING_IDEMPOTENCY_KEY',
+    });
+
+    expect(platformV7ValidateMoneyOperation({
+      tree: balancedTree,
+      operation: operation({ idempotencyKey: 'idem-used' }),
+      usedIdempotencyKeys: ['idem-used'],
+    })).toMatchObject({
+      valid: false,
+      code: 'DUPLICATE_IDEMPOTENCY_KEY',
     });
   });
 });
