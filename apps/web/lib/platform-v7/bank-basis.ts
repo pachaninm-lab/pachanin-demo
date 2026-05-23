@@ -490,17 +490,8 @@ function p7ConfirmBankMovement<Path extends P7BankConfirmationPath>(
     );
   }
 
-  if (input.confirmation.actorRole !== 'bank_officer') {
-    return p7BlockedBankConfirmationResult(
-      input,
-      action,
-      'BANK_OFFICER_REQUIRED',
-      'Only BankOfficer can confirm a bank money event.',
-      'denied',
-      { ...input.decision, status: 'manual_review', canSendToBank: false, blockerCodes: [...input.decision.blockerCodes, 'BANK_OFFICER_REQUIRED'] },
-    );
-  }
-
+  // bankOrganizationId must be present before any RBAC checks — it is a prerequisite
+  // for the org-scope RBAC gate wired in PR 4.4. Without it, role checks have no scope.
   if (!input.confirmation.bankOrganizationId) {
     return p7BlockedBankConfirmationResult(
       input,
@@ -509,6 +500,17 @@ function p7ConfirmBankMovement<Path extends P7BankConfirmationPath>(
       'Bank organization id is required for org-scope RBAC check (PR 4.4).',
       'denied',
       { ...input.decision, status: 'manual_review', canSendToBank: false, blockerCodes: [...input.decision.blockerCodes, 'BANK_ORG_REQUIRED'] },
+    );
+  }
+
+  if (input.confirmation.actorRole !== 'bank_officer') {
+    return p7BlockedBankConfirmationResult(
+      input,
+      action,
+      'BANK_OFFICER_REQUIRED',
+      'Only BankOfficer can confirm a bank money event.',
+      'denied',
+      { ...input.decision, status: 'manual_review', canSendToBank: false, blockerCodes: [...input.decision.blockerCodes, 'BANK_OFFICER_REQUIRED'] },
     );
   }
 
