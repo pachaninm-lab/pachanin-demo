@@ -11,10 +11,12 @@ import type {
   P7BankConfirmationRecord,
   P7PersistedRecord,
   P7ResourceVersion,
+  P7RuntimeError,
   P7SettlementSplitRecord,
 } from '@/lib/platform-v7/runtime/persistence-ports';
 
 const now = '2026-05-24T12:00:00.000Z';
+const transactionError: P7RuntimeError = { code: 'transaction_error', message: 'rollback' };
 
 function version(resourceType: string, resourceId: string, value = 'v1'): P7ResourceVersion {
   return { resourceType, resourceId, version: value, updatedAt: now };
@@ -273,12 +275,12 @@ describe('createP7MockRuntimeStore', () => {
     const store = createP7MockRuntimeStore({ now, moneyTrees: [moneyRecord()] });
     const result = await store.runInTransaction(async (ports) => {
       const loaded = await ports.moneyTree.loadByDealId('deal-1');
-      if (!loaded.ok) return { ok: false, error: loaded.error };
+      if (!loaded.ok) return { ok: false, error: transactionError };
       const saved = await ports.moneyTree.saveMoneyTree(
         { ...loaded.value, value: { ...loaded.value.value, heldAmount: 200 } },
         { ...saveOptions, transaction: ports.transaction, expectedVersion: loaded.value.version.version },
       );
-      if (!saved.ok) return { ok: false, error: saved.error };
+      if (!saved.ok) return { ok: false, error: transactionError };
       return { ok: true, value: saved.value.value.heldAmount };
     });
     const loaded = await store.moneyTree.loadByDealId('deal-1');
@@ -293,12 +295,12 @@ describe('createP7MockRuntimeStore', () => {
     const store = createP7MockRuntimeStore({ now, moneyTrees: [moneyRecord()] });
     const result = await store.runInTransaction(async (ports) => {
       const loaded = await ports.moneyTree.loadByDealId('deal-1');
-      if (!loaded.ok) return { ok: false, error: loaded.error };
+      if (!loaded.ok) return { ok: false, error: transactionError };
       await ports.moneyTree.saveMoneyTree(
         { ...loaded.value, value: { ...loaded.value.value, heldAmount: 300 } },
         { ...saveOptions, transaction: ports.transaction, expectedVersion: loaded.value.version.version },
       );
-      return { ok: false, error: { code: 'transaction_error', message: 'rollback' } };
+      return { ok: false, error: transactionError };
     });
     const loaded = await store.moneyTree.loadByDealId('deal-1');
 
