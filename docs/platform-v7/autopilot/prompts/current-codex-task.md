@@ -1,6 +1,6 @@
-# Codex current task — PR 5.5 Mock Persistence Adapter
+# Codex current task — PR 5.2 Server Action Wrappers
 
-Current step: PR 5.5 Mock Persistence Adapter.
+Current step: PR 5.2 — Server Action Wrappers.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -9,73 +9,95 @@ Human review is required before merge.
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 - docs/platform-v7/autopilot/progress.json
+- apps/web/lib/platform-v7/runtime/application-service.ts
+- apps/web/lib/platform-v7/runtime/application-service-types.ts
+- apps/web/lib/platform-v7/runtime/mock-persistence-adapter.ts
+- apps/web/lib/platform-v7/runtime/dto-schemas.ts
+- apps/web/lib/platform-v7/runtime/persistence-ports.ts
 
 ## Objective
 
-Create a runtime persistence adapter without a database. It must be an explicit adapter instance that can later be replaced by a database adapter without rewriting application services.
+Create narrow server action wrappers for the platform-v7 runtime application services. The wrappers must expose typed action entrypoints for controlled-pilot runtime execution while keeping all business mutations inside DTO validation, application services, persistence ports, action boundary, idempotency and audit paths.
+
+This PR must not introduce UI changes or live integrations. It only creates the server-side wrapper layer that later UI and integration steps can call.
 
 ## Allowed files
 
-- apps/web/lib/platform-v7/runtime/mock-persistence-adapter.ts
-- apps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts
+- apps/web/app/platform-v7/actions/runtime-actions.ts
+- apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
 
 ## Forbidden zones
 
 - apps/landing
-- apps/web/app/platform-v7
 - apps/web/components/platform-v7
 - apps/web/components/v7r
 - apps/web/lib/platform-v7/adapters
 - apps/web/lib/platform-v7/ai
 - apps/web/app/api
 - package-lock.json
+- UI routes/components other than the allowed server action file
+- DTO schemas
+- persistence ports
+- application service files
+- mock persistence adapter
+- theme
+- onboarding
 
 ## Implement
 
-- createP7MockRuntimeStore(seed)
-- P7MoneyTreeRepository
-- P7DocumentMatrixRepository
-- P7BankBasisRepository
-- P7DisputeSettlementRepository
-- P7ActionExecutionRepository
-- P7ExternalCallRepository
-- P7IdempotencyStore
-- P7AuditEventSink
-- P7RuntimeUnitOfWork
+Create `apps/web/app/platform-v7/actions/runtime-actions.ts` with server action wrappers around existing PR 5.1 application services and PR 5.5 mock persistence adapter.
 
-Support:
+Required wrapper responsibilities:
 
-- load/save MoneyTree
-- load/save Document Matrix
-- load/save Bank Basis
-- load/save Dispute state
-- load/save Action Execution
-- load/save External Calls
-- idempotency reserve and result replay
-- audit append and appendMany
-- conflict, not_found and duplicate event scenarios
-- expectedVersion conflict
-- seeded scenarios
-- controlled reset only on explicit store instance
+- import `server-only` or use a server-safe module boundary if already used in the repo
+- instantiate an explicit controlled-pilot mock runtime store per action call or via an injected test factory; do not create hidden global runtime state
+- validate DTOs through existing DTO/schema layer where available
+- call application service factories/methods instead of direct domain mutations
+- return typed serializable action results
+- include deterministic error shape for validation, authorization/denied, duplicate/idempotency, persistence conflict and unknown errors
+- do not call bank, FGIS, EDO or any live external service
+- do not claim live integration status
+- do not update React/UI state directly
+- do not bypass action-boundary, idempotency or audit
 
-## Restrictions
+Expected exported actions should cover the current runtime service surface, at minimum:
 
-Do not use module-level Map, module-level Set, global arrays, hidden singleton store, UI persistence, component state persistence or random runtime state.
+- money action wrapper
+- document action wrapper
+- bank basis action wrapper
+- release workflow wrapper
+- dispute settlement wrapper
 
-Allowed: state inside explicit adapter instance, version tokens, seeded scenarios, controlled reset on the explicit adapter instance.
+Use names that fit existing runtime service naming. Keep implementation small and reviewable.
 
 ## Tests
 
-Create:
+Create `apps/web/tests/unit/platformV7RuntimeServerActions.test.ts`.
 
-- apps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts
+Cover:
 
-Cover isolated stores, load/save, version update, expectedVersion conflict, document matrix, bank basis, idempotency replay, duplicate bank event, audit append/appendMany, unitOfWork transaction, no shared state between instances, source scan for hidden global persistence.
+- wrappers return serializable results
+- wrappers use application services rather than direct domain mutations where testable
+- validation/invalid DTO path returns deterministic error
+- successful money action goes through persistence and audit
+- duplicate idempotency result is replayed
+- expectedVersion conflict returns deterministic conflict error
+- document action wrapper persists Document Matrix changes
+- bank basis wrapper persists basis decision but does not call a live bank
+- release workflow wrapper does not claim platform releases money itself
+- dispute settlement wrapper does not move money directly unless service contract explicitly allows it
+- no module-level hidden runtime store
+- no apps/landing or UI imports
 
 ## Checks
 
-Run node scripts/p7-autopilot-dispatcher.mjs, bash scripts/p7-autopilot-guard.sh, pnpm typecheck and pnpm test.
+Run:
+
+- node scripts/p7-autopilot-dispatcher.mjs
+- bash scripts/p7-autopilot-guard.sh
+- pnpm typecheck
+- pnpm test
 
 ## PR title
 
-feat(platform-v7): add mock persistence adapter
+feat(platform-v7): add runtime server action wrappers
