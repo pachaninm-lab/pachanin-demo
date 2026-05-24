@@ -21,7 +21,7 @@ if printf '%s\n' "$DIFF_FILES" | grep -E "$FORBIDDEN_PATHS"; then
   exit 1
 fi
 
-ALLOWED='^(apps/web/lib/platform-v7/runtime/application-service\.ts|apps/web/lib/platform-v7/runtime/application-service-types\.ts|apps/web/tests/unit/platformV7RuntimeApplicationServices\.test\.ts|docs/platform-v7/execution-queue\.md|docs/platform-v7/autopilot/.*|scripts/p7-autopilot-guard\.sh|\.github/workflows/platform-v7-autopilot-guard\.yml)$'
+ALLOWED='^(apps/web/lib/platform-v7/runtime/application-service\.ts|apps/web/lib/platform-v7/runtime/application-service-types\.ts|apps/web/tests/unit/platformV7RuntimeApplicationServices\.test\.ts|docs/platform-v7/execution-queue\.md|docs/platform-v7/autopilot/.*|scripts/p7-autopilot-guard\.sh|scripts/p7-agent-runner\.sh|scripts/p7-autopilot-dispatcher\.mjs|\.github/workflows/platform-v7-autopilot-guard\.yml|\.github/workflows/platform-v7-agent-runner\.yml|\.github/ISSUE_TEMPLATE/platform-v7-agent-run\.md)$'
 
 DISALLOWED=$(printf '%s\n' "$DIFF_FILES" | grep -Ev "$ALLOWED" || true)
 if [ -n "$DISALLOWED" ]; then

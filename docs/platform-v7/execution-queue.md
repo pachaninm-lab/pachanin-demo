@@ -29,5 +29,14 @@ ACTIVE RULES:
 - One PR = one narrow, reviewable layer.
 
 NEXT AUTOPILOT STEP:
-- Use docs/platform-v7/autopilot/prompts/codex-pr-5.1.md as the implementation prompt.
-- Use docs/platform-v7/autopilot/prompts/claude-review-pr-5.1.md as the review prompt.
+- Run `node scripts/p7-autopilot-dispatcher.mjs`.
+- Use `docs/platform-v7/autopilot/prompts/current-codex-task.md` as the implementation prompt.
+- Use `docs/platform-v7/autopilot/prompts/current-review-task.md` as the review prompt.
+- Do not advance from PR 5.1 until PR #1391 is green, reviewed and manually merged.
+
+AUTOPILOT STATE RULES:
+- The dispatcher may generate prompts and progress from state/queue.
+- The dispatcher must not mark locked work as current while the current step is not green/closed/mergeable.
+- The dispatcher must not update readiness percent as if work merged.
+- The dispatcher must not remove forbidden zones.
+- The dispatcher must not auto-merge.

@@ -2,7 +2,14 @@
   "project": "platform-v7 / Прозрачная Цена",
   "mode": "variant-b",
   "status": "active",
+  "currentStatus": "open_pr",
   "current": "PR 5.1 — Application Service Layer",
+  "openPr": {
+    "number": 1391,
+    "url": "https://github.com/pachaninm-lab/pachanin-demo/pull/1391",
+    "branch": "p7-pr-5-1-application-service",
+    "status": "open_review_required"
+  },
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
     "Stage 4 — MoneyTree / Document Matrix / Bank Basis / Action Boundary / Final QA",
