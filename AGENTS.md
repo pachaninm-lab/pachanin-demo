@@ -1,78 +1,81 @@
-# AGENTS.md
+# Agent Operating Instructions
 
-## Цель
-Ускорить доработку `platform-v7` без потери качества: каждый агент работает только в своём коридоре, маленькими PR, без широкого рефакторинга и без изменения поведения вне задачи.
+## Purpose
 
-## Главные правила
-1. Read before write: перед изменением сначала прочитать файл и соседние зависимости.
-2. Один PR — один небольшой результат: 1–3 файла, максимум один слой ответственности.
-3. Не менять UI, тексты, маршруты и данные, если задача не про них.
-4. Не переписывать большие компоненты целиком.
-5. Не мержить PR без зелёных web/API/API-ovdc checks.
-6. Не скрывать pending/failure статусы.
-7. Если изменение может задеть деньги, документы, споры, роли или доступы — отдельный PR и отдельная проверка.
+Accelerate platform-v7 without losing engineering discipline. Agents must follow repository state, not chat memory.
 
-## Agent 01 — Data Layer
-Задача: убрать прямое чтение `@/lib/v7r/data` из runtime-компонентов и store-слоя.
+## Source of truth
 
-Разрешено:
-- добавлять selector facade в `apps/web/lib/domain/selectors.ts`;
-- переводить 1 runtime-файл за PR на selectors;
-- добавлять маленькие unit-тесты selector-слоя.
+Read these files before any change:
 
-Запрещено:
-- переписывать mock/data-файл целиком;
-- менять форму данных без отдельного PR;
-- менять UI.
+- `docs/platform-v7/autopilot/autopilot-state.json`
+- `docs/platform-v7/execution-queue.md`
+- `docs/platform-v7/autopilot/progress.json`
+- `docs/platform-v7/autopilot/prompts/current-codex-task.md`
+- `docs/platform-v7/autopilot/prompts/current-review-task.md`
 
-Acceptance:
-- прямых импортов из `@/lib/v7r/data` становится меньше;
-- поведение экрана не меняется;
-- Vercel checks зелёные.
+## Hard rules
 
-## Agent 02 — Runtime QA
-Задача: проверять, что после каждого PR не ломается рабочий маршрут.
+- Work only inside the current `allowedCurrentScope` from `autopilot-state.json`.
+- One PR equals one narrow current step.
+- Do not rewrite platform-v7 from scratch.
+- Do not touch `apps/landing`.
+- Do not touch platform-v7 UI, visual, theme, onboarding, adapters, server actions, AI gateway, DB/migrations or lockfiles unless the current step explicitly allows it.
+- Do not commit secrets.
+- Keep maturity wording at controlled-pilot / pre-integration unless live contracts, credentials, deployments and real transaction evidence are confirmed.
 
-Минимальный smoke:
-- `/platform-v7/control-tower`
-- `/platform-v7/deals`
-- `/platform-v7/deals/DL-9102`
-- `/platform-v7/bank`
-- `/platform-v7/buyer`
+## Forbidden claims
 
-Acceptance:
-- нет 404;
-- нет зависания при клике по основным ссылкам;
-- header/logo/nav не деградировали;
-- мобильная ширина 375px без явного переполнения.
+Do not introduce these claims in UI, docs, PR body, tests or code comments:
 
-## Agent 03 — PR Gatekeeper
-Задача: не давать мержить рискованные изменения.
+- production-ready
+- fully live
+- fully integrated
+- platform guarantees payment
+- платформа гарантирует оплату
+- платформа сама выпускает деньги
+- банк подключён
+- ФГИС подключён
+- ЭДО подключён
 
-Блокировать мерж, если:
-- PR больше 5 файлов без необходимости;
-- есть изменение больших компонентов без описания риска;
-- есть изменение денег/банка/споров без проверки сценария;
-- web/API/API-ovdc не success;
-- есть признаки случайного удаления логики.
+## Engineering rules
 
-## Agent 04 — E01 Queue Manager
-Задача: вести очередь безопасных E01-переходов.
+- Use explicit boundaries.
+- Use dependency injection.
+- Use typed results.
+- Keep changes reviewable.
+- Add or update tests for every implementation step.
+- Do not use hidden singleton runtime state.
+- Do not use module-level persistence state unless the current step explicitly permits it. For PR 5.5, persistence state must live only inside an explicit adapter instance.
+- Do not bypass RBAC, idempotency, audit or action-boundary rules.
 
-Порядок:
-1. stores с маленьким импортом data;
-2. runtime-компоненты до 300 строк;
-3. средние runtime-компоненты;
-4. `CatchAllPage` только частями;
-5. после каждого прохода обновлять процент выполнения.
+## Required checks
 
-## Agent 05 — Release Reporter
-Задача: после каждого прохода давать короткий отчёт.
+Run the closest available checks and document results in PR body:
 
-Формат:
-- PR / commit;
-- что изменено;
-- deploy/check status;
-- риск;
-- сделано % / осталось %;
-- следующий безопасный шаг.
+- `node scripts/p7-autopilot-dispatcher.mjs`
+- `bash scripts/p7-autopilot-guard.sh`
+- `pnpm typecheck`
+- `pnpm test`
+
+## PR body minimum
+
+Include:
+
+- Scope
+- Changed files
+- Guards
+- Checks
+- Known limitations
+
+## Codex role
+
+Codex writes implementation PRs only for the current allowed step.
+
+## Claude role
+
+Claude should be used as reviewer, architect and risk auditor. Claude should not write competing implementation PRs for the same current step.
+
+## Review rule
+
+Review the diff, not the agent report. If changed files exceed allowed scope, block merge.
