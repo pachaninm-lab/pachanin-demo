@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key-helper';
-import type { P7ActionIdempotencyContext } from '@/lib/platform-v7/action-boundary';
+import type {
+  P7ActionIdempotencyContext,
+  PlatformV7ActionBoundaryResult,
+} from '@/lib/platform-v7/action-boundary';
 import type { P7BankBasisDecision } from '@/lib/platform-v7/bank-basis';
 import type { PlatformV7DocumentMatrix, PlatformV7DocumentRequirement } from '@/lib/platform-v7/document-matrix';
 import type { PlatformV7MoneyTree } from '@/lib/platform-v7/money-tree';
@@ -186,6 +189,7 @@ function matrixRecord(document: PlatformV7DocumentRequirement): P7PersistedRecor
 
 type Calls = {
   readonly loadContext: string[];
+  readonly loadDuplicateResult: string[];
   readonly reserveKey: string[];
   readonly recordResult: string[];
   readonly auditPayloads: P7AuditPayload[];
@@ -202,9 +206,11 @@ function createHarness(options: {
   readonly decision?: P7BankBasisDecision;
   readonly document?: PlatformV7DocumentRequirement;
   readonly context?: P7ActionIdempotencyContext;
+  readonly duplicateResult?: PlatformV7ActionBoundaryResult;
 } = {}): { readonly unitOfWork: P7RuntimeUnitOfWork; readonly calls: Calls } {
   const calls: Calls = {
     loadContext: [],
+    loadDuplicateResult: [],
     reserveKey: [],
     recordResult: [],
     auditPayloads: [],
@@ -300,7 +306,18 @@ function createHarness(options: {
         updatedAt: now,
       });
     },
-    async loadDuplicateResult() {
+    async loadDuplicateResult(key) {
+      calls.loadDuplicateResult.push(key);
+      if (options.duplicateResult) {
+        return okRepo({
+          recordId: key,
+          value: options.duplicateResult,
+          version: version('idempotency_result', key),
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
       return { ok: false, status: 'not_found', error: { code: 'not_found', message: 'No duplicate result recorded.' } };
     },
   };
@@ -493,6 +510,34 @@ function arbitrationDto(): P7ArbitrationBasisRequestDto {
   };
 }
 
+function previousReleaseBoundary(idempotencyKey: string): PlatformV7ActionBoundaryResult<PlatformV7MoneyTree> {
+  return {
+    ok: true,
+    status: 'applied',
+    code: 'OK',
+    reason: 'Previous release request result.',
+    beforeState: releaseReadyMoneyTree,
+    afterState: releaseRequestedMoneyTree,
+    auditPayload: {
+      auditId: 'audit-previous',
+      correlationId: 'corr-previous',
+      actorId: sellerActor.actorId,
+      actorRole: sellerActor.actorRole,
+      organizationId: sellerActor.organizationId,
+      resourceType: 'money',
+      resourceId: moneyResource.resourceId,
+      action: 'release_requested',
+      beforeState: releaseReadyMoneyTree,
+      afterState: releaseRequestedMoneyTree,
+      reason: 'Previous release request result.',
+      idempotencyKey,
+      createdAt: now,
+      duplicate: false,
+      auditCode: 'OK',
+    },
+  };
+}
+
 describe('platform-v7 runtime application services', () => {
   it('money service happy path saves after action and appends audit', async () => {
     const harness = createHarness();
@@ -551,19 +596,26 @@ describe('platform-v7 runtime application services', () => {
     expect(harness.calls.auditPayloads.some((payload) => payload.action === 'bank_basis_sent')).toBe(true);
   });
 
-  it('duplicate idempotency returns typed duplicate and does not mutate twice', async () => {
+  it('duplicate idempotency replays previous stored result without mutating or recording again', async () => {
     const dto = releaseDto();
+    const previous = previousReleaseBoundary(dto.idempotency.idempotencyKey);
     const harness = createHarness({
       context: { processedKeys: [dto.idempotency.idempotencyKey], processedBankEventIds: [], processedOperationIds: [] },
+      duplicateResult: previous,
     });
     const service = createP7MoneyExecutionService({ unitOfWork: harness.unitOfWork, now: () => now });
 
     const result = await service.requestRelease(dto);
 
-    expect(result.ok).toBe(false);
-    expect(result.status).toBe('duplicate');
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe('persisted');
+    expect(result.boundaryResult).toBe(previous);
+    expect(result.ok && result.value).toBe(previous.afterState);
+    expect(harness.calls.loadDuplicateResult).toEqual([dto.idempotency.idempotencyKey]);
+    expect(harness.calls.reserveKey).toEqual([]);
+    expect(harness.calls.recordResult).toEqual([]);
     expect(harness.calls.saveMoneyExpectedVersions).toEqual([]);
-    expect(harness.calls.auditPayloads.some((payload) => 'duplicate' in payload && payload.duplicate === true)).toBe(true);
+    expect(harness.calls.auditPayloads).toEqual([]);
   });
 
   it('denied role/action returns typed denial and writes audit without saving money', async () => {

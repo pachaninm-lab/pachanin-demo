@@ -288,6 +288,23 @@ async function loadContext(ports: P7RuntimeTransactionalPorts, dto: P7RuntimeReq
   return ports.idempotency.loadContext(idempotencyScope(dto));
 }
 
+async function replayProcessedKey<T>(
+  ports: P7RuntimeTransactionalPorts,
+  dto: P7RuntimeRequestBaseDto,
+  context: P7ActionIdempotencyContext,
+): Promise<P7ApplicationServiceResult<T> | null> {
+  if (!context.processedKeys.includes(dto.idempotency.idempotencyKey)) return null;
+
+  const duplicate = await ports.idempotency.loadDuplicateResult(dto.idempotency.idempotencyKey);
+  if (!duplicate.ok) return repositoryFailure(duplicate);
+
+  const boundary = duplicate.value.value;
+  const auditPayloads = auditPayloadsFromBoundary(boundary);
+  if (!boundary.ok) return boundaryFailure(boundary, auditPayloads);
+
+  return persisted(boundary.afterState as T, boundary, auditPayloads);
+}
+
 function bankConfirmationEvent<Path extends 'release' | 'refund' | 'hold' | 'reject' | 'manual_review'>(
   dto: P7BankConfirmationRequestDto,
   path: Path,
@@ -447,6 +464,9 @@ export function createP7MoneyExecutionService(deps: P7ApplicationServiceDependen
         if (!money.ok) return repositoryFailure(money);
 
         const context = await loadContext(ports, dto);
+        const replay = await replayProcessedKey<PlatformV7MoneyTree>(ports, dto, context);
+        if (replay) return replay;
+
         const reserved = await reserveIdempotency(ports, dto, idempotencyScope(dto));
         if (reserved) return reserved;
 
@@ -507,6 +527,9 @@ export function createP7DocumentExecutionService(deps: P7ApplicationServiceDepen
       }
 
       const context = await loadContext(ports, nextDto);
+      const replay = await replayProcessedKey<PlatformV7DocumentMatrix>(ports, nextDto, context);
+      if (replay) return replay;
+
       const reserved = await reserveIdempotency(ports, nextDto, idempotencyScope(nextDto));
       if (reserved) return reserved;
 
@@ -562,6 +585,9 @@ export function createP7BankBasisExecutionService(deps: P7ApplicationServiceDepe
       if (!decision.ok) return repositoryFailure(decision);
 
       const context = await loadContext(ports, dto);
+      const replay = await replayProcessedKey<P7BankBasisDecision>(ports, dto, context);
+      if (replay) return replay;
+
       const reserved = await reserveIdempotency(ports, dto, idempotencyScope(dto));
       if (reserved) return reserved;
 
@@ -605,6 +631,9 @@ export function createP7BankBasisExecutionService(deps: P7ApplicationServiceDepe
       if (!decision.ok) return repositoryFailure(decision);
 
       const context = await loadContext(ports, dto);
+      const replay = await replayProcessedKey<PlatformV7MoneyTree>(ports, dto, context);
+      if (replay) return replay;
+
       const reserved = await reserveIdempotency(ports, dto, idempotencyScope(dto));
       if (reserved) return reserved;
 
