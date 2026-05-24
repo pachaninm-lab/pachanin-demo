@@ -1,19 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 0,
-  "currentStep": "PR 5.1 — Application Service Layer",
-  "lastCompletedStep": "Stage 5.4 — DTO / Validation Schemas",
-  "openPr": {
-    "number": 1391,
-    "url": "https://github.com/pachaninm-lab/pachanin-demo/pull/1391",
-    "branch": "p7-pr-5-1-application-service",
-    "status": "open_review_required"
-  },
-  "blockedBy": [
-    "PR 5.1 — Application Service Layer is not green/closed/mergeable. Dispatcher will not advance to PR 5.5 — Mock Persistence Adapter."
-  ],
-  "nextStep": "PR 5.1 — Application Service Layer",
-  "updatedAt": "2026-05-24T14:48:44.834Z",
+  "currentStep": "PR 5.5 — Mock Persistence Adapter",
+  "lastCompletedStep": "PR 5.1 — Application Service Layer",
+  "openPr": null,
+  "blockedBy": [],
+  "nextStep": "PR 5.5 — Mock Persistence Adapter",
+  "updatedAt": "2026-05-24T15:05:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
