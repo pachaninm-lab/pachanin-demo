@@ -1,0 +1,73 @@
+name: platform-v7 agent runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Agent command. Use: run-current'
+        required: true
+        default: 'run-current'
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run-agent:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && github.event.label.name == 'agent:run') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/agent run current'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run platform-v7 agent runner
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/p7-agent-runner.sh
+
+      - name: Create pull request
+        if: success()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: 'feat(platform-v7): add application service layer'
+          body: |
+            Scope
+            - Automated platform-v7 current step run.
+            - Source prompt: docs/platform-v7/autopilot/prompts/codex-pr-5.1.md
+            - Review prompt: docs/platform-v7/autopilot/prompts/review-pr-5.1.md
+
+            Guards
+            - apps/landing diff must be 0.
+            - UI diff must be 0.
+            - adapters/server-actions/AI/theme diff must be 0.
+            - Checks must be green before merge.
+          branch: p7-agent/pr-5-1-application-service
+          base: main
+          commit-message: 'feat(platform-v7): add application service layer'
+          labels: |
+            platform-v7
+            agent-generated
+            needs-review
