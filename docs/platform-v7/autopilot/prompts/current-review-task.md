@@ -1,4 +1,4 @@
-# Review current task — PR 5.5 Mock Persistence Adapter
+# Review current task — PR 5.2 Server Action Wrappers
 
 Maturity: controlled-pilot / pre-integration.
 Review the diff, not the agent report.
@@ -8,50 +8,55 @@ Human review and green checks are required before merge.
 
 Allowed files only:
 
-- apps/web/lib/platform-v7/runtime/mock-persistence-adapter.ts
-- apps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts
+- apps/web/app/platform-v7/actions/runtime-actions.ts
+- apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
 
 Reject if the PR changes:
 
 - apps/landing
-- apps/web/app/platform-v7
 - apps/web/components/platform-v7
 - apps/web/components/v7r
 - apps/web/lib/platform-v7/adapters
 - apps/web/lib/platform-v7/ai
 - apps/web/app/api
 - package-lock.json
+- DTO schemas
+- persistence ports
+- application service files
+- mock persistence adapter
+- theme
+- onboarding
 
 ## Architecture checks
 
 Confirm:
 
-- adapter state lives only inside explicit store instance
-- no module-level Map or Set
-- no global arrays
-- no hidden singleton store
-- repositories implement persistence ports
-- unitOfWork exposes transactional ports
-- expectedVersion conflict is enforced
-- idempotency reserve works
-- duplicate result replay works
-- duplicate bank event protection works
-- audit append and appendMany work
-- separate store instances do not share state
+- wrappers call runtime application services, not direct domain mutation functions
+- DTO validation is used before service execution where available
+- runtime store is explicit and not hidden module-level global state
+- wrappers return typed serializable results
+- idempotency and audit paths are preserved
+- expectedVersion conflict is surfaced deterministically
+- duplicate idempotency replay is surfaced deterministically
+- bank basis wrapper does not call live bank services
+- release workflow wrapper does not claim the platform releases money itself
+- dispute settlement wrapper does not directly move money outside the service contract
+- no UI imports or React/client component state
+- no apps/landing imports
 
 ## Tests required
 
-- isolated stores from separate seeds
-- load/save MoneyTree
-- expectedVersion conflict
-- Document Matrix load/save
-- Bank Basis load/save
-- idempotency result replay
-- duplicate bank event
-- audit append/appendMany
-- unitOfWork transaction
-- no shared state between instances
-- source scan for hidden global persistence
+- wrapper result is serializable
+- invalid DTO path returns deterministic validation error
+- successful money action goes through persistence and audit
+- duplicate idempotency result replay works
+- expectedVersion conflict returns deterministic conflict error
+- document action persists Document Matrix changes
+- bank basis action persists basis decision without live bank call
+- release workflow action does not claim platform releases money itself
+- dispute settlement action does not bypass service/action boundary
+- source scan: no module-level hidden runtime store
+- source scan: no apps/landing or UI imports
 
 ## Required output
 

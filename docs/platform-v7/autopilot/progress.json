@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 0,
-  "currentStep": "PR 5.5 — Mock Persistence Adapter",
-  "lastCompletedStep": "PR 5.1 — Application Service Layer",
+  "fullTzReadinessPercent": 40,
+  "currentStep": "PR 5.2 — Server Action Wrappers",
+  "lastCompletedStep": "PR 5.5 — Mock Persistence Adapter",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "PR 5.5 — Mock Persistence Adapter",
-  "updatedAt": "2026-05-24T15:05:00.000Z",
+  "nextStep": "PR 5.2 — Server Action Wrappers",
+  "updatedAt": "2026-05-24T18:55:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
