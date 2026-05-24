@@ -6,8 +6,10 @@ PROMPT_FILE="docs/platform-v7/autopilot/prompts/current-codex-task.md"
 REVIEW_FILE="docs/platform-v7/autopilot/prompts/current-review-task.md"
 PROGRESS_FILE="docs/platform-v7/autopilot/progress.json"
 BRANCH_PREFIX="p7-agent"
+AGENT_MODEL="${OPENAI_MODEL:-gpt-4o}"
 
 echo "platform-v7 agent runner"
+echo "agent model: ${AGENT_MODEL}"
 
 if [ -z "${OPENAI_API_KEY:-}" ]; then
   echo "ERROR: OPENAI_API_KEY is not set. Add it to GitHub Actions secrets before running the agent."
@@ -49,6 +51,20 @@ const slug = String(progress.currentStep || 'current-step')
 console.log(slug || 'current-step');
 JS
 )
+PR_TITLE=$(node - <<'JS'
+const fs = require('fs');
+const progress = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/progress.json', 'utf8'));
+const current = String(progress.currentStep || 'current autopilot step');
+const normalized = current
+  .replace(/^PR\s+5\.2\s+[—-]\s*/i, 'add ')
+  .replace(/^PR\s+5\.6\s+[—-]\s*/i, 'add ')
+  .replace(/^PR\s+5\.7\s+[—-]\s*/i, 'finalize ')
+  .replace(/^PR\s+/i, '')
+  .trim()
+  .toLowerCase();
+console.log(`feat(platform-v7): ${normalized || 'apply current autopilot step'}`);
+JS
+)
 RUN_ID="${GITHUB_RUN_ID:-local}"
 BRANCH_NAME="${BRANCH_PREFIX}/${RUN_ID}-${STEP_SLUG}"
 
@@ -56,11 +72,12 @@ echo "current step: ${CURRENT_STEP}"
 echo "prompt: ${PROMPT_FILE}"
 echo "review: ${REVIEW_FILE}"
 echo "branch: ${BRANCH_NAME}"
+echo "pr title: ${PR_TITLE}"
 
 if [ -n "${GITHUB_ENV:-}" ]; then
   {
     echo "P7_AGENT_BRANCH=${BRANCH_NAME}"
-    echo "P7_AGENT_PR_TITLE=feat(platform-v7): add application service layer"
+    echo "P7_AGENT_PR_TITLE=${PR_TITLE}"
   } >> "$GITHUB_ENV"
 fi
 
@@ -70,7 +87,7 @@ git checkout -B "$BRANCH_NAME"
 
 cat > /tmp/p7-agent-request.json <<JSON
 {
-  "model": "gpt-5.1-codex-max",
+  "model": "${AGENT_MODEL}",
   "input": [
     {
       "role": "system",
@@ -94,8 +111,22 @@ node <<'JS'
 const fs = require('fs');
 const path = require('path');
 
-const response = JSON.parse(fs.readFileSync('/tmp/p7-agent-response.json', 'utf8'));
+const raw = fs.readFileSync('/tmp/p7-agent-response.json', 'utf8');
+let response;
+try {
+  response = JSON.parse(raw);
+} catch (error) {
+  console.error('ERROR: OpenAI response was not valid JSON.');
+  console.error(raw.slice(0, 2000));
+  process.exit(1);
+}
 fs.writeFileSync('docs/platform-v7/autopilot/last-agent-response.json', `${JSON.stringify(response, null, 2)}\n`);
+
+if (response.error) {
+  const code = response.error.code || response.error.type || 'openai_error';
+  const message = response.error.message || JSON.stringify(response.error);
+  throw new Error(`OpenAI API error (${code}): ${message}`);
+}
 
 function collectText(value) {
   if (typeof value === 'string') return value;
@@ -105,13 +136,27 @@ function collectText(value) {
   return Object.values(value).map(collectText).join('\n');
 }
 
+function extractJsonObject(text) {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return '';
+  const fenceStripped = trimmed.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  if (fenceStripped.startsWith('{')) return fenceStripped;
+  const first = fenceStripped.indexOf('{');
+  const last = fenceStripped.lastIndexOf('}');
+  if (first >= 0 && last > first) return fenceStripped.slice(first, last + 1);
+  return '';
+}
+
 const output = response.output_text || collectText(response.output);
-const trimmed = String(output || '').trim().replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
-if (!trimmed) {
+const jsonText = extractJsonObject(output);
+if (!jsonText) {
+  console.error('ERROR: Agent response did not include JSON file replacements.');
+  console.error('Response preview:');
+  console.error(String(output || '').slice(0, 2000));
   throw new Error('Agent response did not include JSON file replacements.');
 }
 
-const parsed = JSON.parse(trimmed);
+const parsed = JSON.parse(jsonText);
 if (!Array.isArray(parsed.files)) {
   throw new Error('Agent response JSON must contain files array.');
 }
