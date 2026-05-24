@@ -262,6 +262,54 @@ describe('platform-v7 runtime DTO schemas', () => {
     expect(invalid.errors.some((error) => error.field === 'amount')).toBe(true);
   });
 
+  it('rejects fractional positive amount for release DTO', () => {
+    const result = validateP7ReleaseRequestDto({
+      actor,
+      resource,
+      audit,
+      idempotency: idempotency('fractional-amount'),
+      amount: 1.5,
+      currency: 'RUB',
+    });
+
+    const invalid = expectInvalid(result);
+
+    expect(invalid.errors).toContainEqual({
+      code: 'INVALID_AMOUNT',
+      field: 'amount',
+      message: 'amount must be a finite positive integer.',
+    });
+  });
+
+  it('rejects fractional arbitration split amount without enforcing business balance', () => {
+    const result = validateP7ArbitrationBasisRequestDto({
+      actor: { ...actor, actorRole: 'arbitrator' },
+      resource: { ...resource, resourceType: 'dispute', resourceId: 'dispute-1' },
+      audit,
+      idempotency: idempotency('fractional-arbitration'),
+      arbitrationDecisionId: 'arb-1',
+      basisDocumentIds: ['arbitration_decision'],
+      uncontestedAmount: 100,
+      disputedAmount: 1000,
+      releaseAmount: 1.5,
+      refundAmount: 2,
+      heldAmount: 3,
+      feeAmount: 0,
+      penaltyAmount: 0,
+      currency: 'RUB',
+    });
+
+    const invalid = expectInvalid(result);
+
+    expect(invalid.errors).toEqual([
+      {
+        code: 'INVALID_AMOUNT',
+        field: 'releaseAmount',
+        message: 'releaseAmount must be a finite non-negative integer.',
+      },
+    ]);
+  });
+
   it('missing bankEventId and bankOrganizationId are rejected for bank confirmation', () => {
     const result = validateP7BankConfirmationRequestDto(bankConfirmation({
       idempotency: {

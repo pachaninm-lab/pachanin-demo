@@ -206,21 +206,21 @@ function addRequiredStringError(errors: P7ValidationError[], field: string, valu
 }
 
 function addPositiveAmountError(errors: P7ValidationError[], field: string, value: number): void {
-  if (!Number.isFinite(value) || value <= 0) {
+  if (!Number.isFinite(value) || value <= 0 || !Number.isInteger(value)) {
     errors.push({
       code: 'INVALID_AMOUNT',
       field,
-      message: `${field} must be a finite positive amount.`,
+      message: `${field} must be a finite positive integer.`,
     });
   }
 }
 
 function addNonNegativeAmountError(errors: P7ValidationError[], field: string, value: number): void {
-  if (!Number.isFinite(value) || value < 0) {
+  if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
     errors.push({
       code: 'INVALID_AMOUNT',
       field,
-      message: `${field} must be a finite amount greater than or equal to zero.`,
+      message: `${field} must be a finite non-negative integer.`,
     });
   }
 }
