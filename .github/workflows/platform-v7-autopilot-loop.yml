@@ -1,0 +1,95 @@
+name: platform-v7 autopilot loop
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Loop command. Use: run-loop'
+        required: true
+        default: 'run-loop'
+  schedule:
+    - cron: '*/30 * * * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: platform-v7-autopilot-loop
+  cancel-in-progress: false
+
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Inspect autopilot state
+        id: state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          current=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.current || '')")
+          current_status=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.currentStatus || '')")
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "current_status=$current_status" >> "$GITHUB_OUTPUT"
+
+          open_prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number --jq 'length')
+          echo "open_agent_prs=$open_prs" >> "$GITHUB_OUTPUT"
+          echo "current step: $current"
+          echo "current status: $current_status"
+          echo "open agent PRs: $open_prs"
+
+      - name: Trigger current step when idle
+        if: steps.state.outputs.open_agent_prs == '0' && steps.state.outputs.current_status == 'ready'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="platform-v7 autopilot: ${ { steps.state.outputs.current } }"
+          title="platform-v7 autopilot: ${{ steps.state.outputs.current }}"
+          existing=$(gh issue list --repo "$REPO" --state open --label agent:run --search "$title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Existing trigger issue: #$existing"
+            gh issue comment "$existing" --repo "$REPO" --body "/agent run current"
+          else
+            gh issue create --repo "$REPO" --title "$title" --label platform-v7 --label agent:run --body "## Command
+
+\`\`\`text
+/agent run current
+\`\`\`
+
+## Current step
+
+\`\`\`text
+${{ steps.state.outputs.current }}
+\`\`\`
+
+## Source of truth
+
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/execution-queue.md
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+
+Merge remains guarded by CI, scope checks and human/automation safety rules."
+          fi
+
+      - name: Skip when agent PR exists
+        if: steps.state.outputs.open_agent_prs != '0'
+        run: echo "Open agent-generated platform-v7 PR exists. Loop will not start another implementation PR."
+
+      - name: Skip when current step not ready
+        if: steps.state.outputs.current_status != 'ready'
+        run: echo "Autopilot current step is not ready. Loop will not trigger implementation."
