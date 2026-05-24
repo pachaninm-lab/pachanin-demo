@@ -5,14 +5,27 @@ import type { P7ActionIdempotencyContext, PlatformV7ActionBoundaryAuditPayload }
 import type { P7BankAuditPayload, P7BankBasisDecision } from '@/lib/platform-v7/bank-basis';
 import type { PlatformV7MoneyTree } from '@/lib/platform-v7/money-tree';
 import type {
+  P7ActionExecutionRecord,
+  P7ActionExecutionRepository,
   P7AuditEventSink,
   P7AuditPayload,
+  P7BankConfirmationRecord,
+  P7BankBasisRepository,
+  P7DisputeSettlementRepository,
+  P7DocumentMatrixRepository,
+  P7ExternalCallEnvelope,
+  P7ExternalCallRepository,
   P7IdempotencyStore,
+  P7MoneyTreeRepository,
   P7PersistedRecord,
   P7RepositoryResult,
+  P7ResourceVersion,
   P7RuntimeResult,
   P7RuntimeUnitOfWork,
+  P7SaveOptions,
+  P7SettlementSplitRecord,
 } from '@/lib/platform-v7/runtime/persistence-ports';
+import type { PlatformV7DocumentMatrix, PlatformV7DocumentRequirement } from '@/lib/platform-v7/document-matrix';
 
 function version(resourceType: string, resourceId: string) {
   return {
@@ -208,6 +221,48 @@ describe('platform-v7 runtime persistence ports', () => {
       'conflict',
       'error',
     ]);
+  });
+
+  it('requires save options with concurrency token for document requirement updates', () => {
+    expectTypeOf<P7DocumentMatrixRepository['saveDocumentRequirement']>().parameters.toEqualTypeOf<[
+      string,
+      PlatformV7DocumentRequirement,
+      P7SaveOptions,
+    ]>();
+    expectTypeOf<P7DocumentMatrixRepository['saveDocumentRequirement']>().parameter(2).toEqualTypeOf<P7SaveOptions>();
+    expectTypeOf<P7SaveOptions['expectedVersion']>().toEqualTypeOf<string | undefined>();
+  });
+
+  it('keeps every save port wired to explicit save options for conflict detection', () => {
+    type SaveOperation =
+      | P7MoneyTreeRepository['saveMoneyTree']
+      | P7DocumentMatrixRepository['saveDocumentMatrix']
+      | P7DocumentMatrixRepository['saveDocumentRequirement']
+      | P7BankBasisRepository['saveBankBasisDecision']
+      | P7BankBasisRepository['saveBankConfirmation']
+      | P7DisputeSettlementRepository['saveArbitrationDecision']
+      | P7DisputeSettlementRepository['saveSettlementSplit']
+      | P7ActionExecutionRepository['saveActionExecution']
+      | P7ExternalCallRepository['saveExternalCallEnvelope'];
+
+    type LastParameter<T> = T extends (...args: infer Args) => unknown
+      ? Args extends readonly [...unknown[], infer Last]
+        ? Last
+        : never
+      : never;
+
+    type SaveOperationOptions = LastParameter<SaveOperation>;
+
+    expectTypeOf<SaveOperationOptions>().toEqualTypeOf<P7SaveOptions>();
+    expectTypeOf<P7SaveOptions>().toMatchTypeOf<{
+      readonly expectedVersion?: string;
+      readonly correlationId: string;
+    }>();
+    expectTypeOf<P7ActionExecutionRecord['idempotencyKey']>().toEqualTypeOf<string>();
+    expectTypeOf<P7PersistedRecord<PlatformV7DocumentMatrix>['version']>().toEqualTypeOf<P7ResourceVersion>();
+    expectTypeOf<P7PersistedRecord<P7BankConfirmationRecord>['version']>().toEqualTypeOf<P7ResourceVersion>();
+    expectTypeOf<P7PersistedRecord<P7SettlementSplitRecord>['version']>().toEqualTypeOf<P7ResourceVersion>();
+    expectTypeOf<P7PersistedRecord<P7ExternalCallEnvelope>['version']>().toEqualTypeOf<P7ResourceVersion>();
   });
 
   it('does not introduce module-level persistence state in runtime persistence ports', () => {

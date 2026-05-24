@@ -173,6 +173,7 @@ export interface P7DocumentMatrixRepository {
   saveDocumentRequirement(
     dealId: string,
     document: PlatformV7DocumentRequirement,
+    options: P7SaveOptions,
   ): Promise<P7RepositoryResult<P7PersistedRecord<PlatformV7DocumentRequirement>>>;
 }
 
