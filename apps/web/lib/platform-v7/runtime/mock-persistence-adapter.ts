@@ -27,7 +27,6 @@ import type {
   P7RuntimeTransactionContext,
   P7RuntimeTransactionalPorts,
   P7RuntimeUnitOfWork,
-  P7SaveOptions,
   P7SettlementSplitRecord,
   P7VersionToken,
 } from './persistence-ports';
@@ -157,6 +156,10 @@ function withStoredVersion<T>(
   return stamped;
 }
 
+function auditPayloadRecord(payload: P7AuditPayload): Record<string, unknown> {
+  return payload as unknown as Record<string, unknown>;
+}
+
 function consumeForcedFailure<T>(state: MockState, resourceType: string): P7RepositoryResult<T> | null {
   if (state.nextNotFoundResourceType === resourceType || state.nextNotFoundResourceType === '*') {
     state.nextNotFoundResourceType = undefined;
@@ -223,7 +226,7 @@ function createState(seed: P7MockRuntimeStoreSeed = {}): MockState {
   for (const record of seed.settlementSplits ?? []) state.settlementSplits[record.dealId ?? record.recordId] = clone(record);
   for (const record of seed.actionExecutions ?? []) state.actionExecutions[record.value.actionId] = clone(record);
   for (const record of seed.externalCalls ?? []) state.externalCalls[record.value.externalCallId] = clone(record);
-  state.auditEvents = clone(seed.auditEvents ?? []);
+  state.auditEvents = [...(seed.auditEvents ?? []).map((record) => clone(record))];
 
   return state;
 }
@@ -477,7 +480,7 @@ function createRepositories(getState: () => MockState): P7RuntimeUnitOfWork {
   const audit: P7AuditEventSink = {
     async append(payload) {
       const state = getState();
-      const payloadRecord = payload as Record<string, unknown>;
+      const payloadRecord = auditPayloadRecord(payload);
       const record: P7PersistedRecord<P7AuditPayload> = {
         recordId: String(payloadRecord.auditId ?? `audit:${state.auditEvents.length + 1}`),
         dealId: typeof payloadRecord.dealId === 'string' ? payloadRecord.dealId : undefined,
@@ -493,21 +496,24 @@ function createRepositories(getState: () => MockState): P7RuntimeUnitOfWork {
       const results: P7PersistedRecord<P7AuditPayload>[] = [];
       for (const payload of payloads) {
         const appended = await audit.append(payload);
-        if (!appended.ok) return failRuntime('persistence_error', appended.error.message, appended.error.details);
-        results.push(appended.value);
+        if (appended.ok) {
+          results.push(appended.value);
+        } else {
+          return failRuntime('persistence_error', 'Failed to append audit payload.');
+        }
       }
       return okRuntime(results);
     },
     async listByCorrelationId(correlationId) {
       const records = getState().auditEvents.filter((record) => {
-        const payload = record.value as Record<string, unknown>;
+        const payload = auditPayloadRecord(record.value);
         return payload.correlationId === correlationId;
       });
       return okRepo(records);
     },
     async listByResource(resourceType, resourceId) {
       const records = getState().auditEvents.filter((record) => {
-        const payload = record.value as Record<string, unknown>;
+        const payload = auditPayloadRecord(record.value);
         return payload.resourceType === resourceType && payload.resourceId === resourceId;
       });
       return okRepo(records);
