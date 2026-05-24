@@ -40,16 +40,19 @@ jobs:
           current=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.current || '')")
           current_status=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.currentStatus || '')")
           open_prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number --jq 'length')
+          runner_active=$(gh run list --repo "$REPO" --workflow platform-v7-agent-runner.yml --json status --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length')
 
           echo "current=$current" >> "$GITHUB_OUTPUT"
           echo "current_status=$current_status" >> "$GITHUB_OUTPUT"
           echo "open_agent_prs=$open_prs" >> "$GITHUB_OUTPUT"
+          echo "runner_active=$runner_active" >> "$GITHUB_OUTPUT"
           echo "current step: $current"
           echo "current status: $current_status"
           echo "open agent PRs: $open_prs"
+          echo "active agent runner runs: $runner_active"
 
       - name: Trigger current step when idle
-        if: steps.state.outputs.open_agent_prs == '0' && steps.state.outputs.current_status == 'ready'
+        if: steps.state.outputs.open_agent_prs == '0' && steps.state.outputs.runner_active == '0' && steps.state.outputs.current_status == 'ready'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,7 +60,7 @@ jobs:
           CURRENT_STEP: ${{ steps.state.outputs.current }}
         run: |
           set -euo pipefail
-          echo "No open agent PR. Triggering platform-v7 agent runner for: $CURRENT_STEP"
+          echo "No open agent PR and no active runner. Triggering platform-v7 agent runner for: $CURRENT_STEP"
           if gh workflow run platform-v7-agent-runner.yml --repo "$REPO" -f command=run-current; then
             echo "platform-v7 agent runner dispatched"
             exit 0
@@ -97,6 +100,10 @@ Merge remains guarded by CI and scope checks."
         if: steps.state.outputs.open_agent_prs != '0'
         run: echo "Open agent-generated platform-v7 PR exists. Loop will not start another implementation PR."
 
+      - name: Skip when agent runner is active
+        if: steps.state.outputs.open_agent_prs == '0' && steps.state.outputs.runner_active != '0'
+        run: echo "platform-v7 agent runner is already queued or in progress. Loop will not dispatch a duplicate runner."
+
       - name: Skip when current step not ready
-        if: steps.state.outputs.current_status != 'ready'
+        if: steps.state.outputs.open_agent_prs == '0' && steps.state.outputs.runner_active == '0' && steps.state.outputs.current_status != 'ready'
         run: echo "Autopilot current step is not ready. Loop will not trigger implementation."
