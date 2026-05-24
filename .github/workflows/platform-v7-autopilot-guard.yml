@@ -1,0 +1,42 @@
+name: platform-v7 autopilot guard
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/web/lib/platform-v7/**'
+      - 'apps/web/tests/**'
+      - 'docs/platform-v7/**'
+      - 'scripts/p7-autopilot-guard.sh'
+      - 'scripts/p7-autopilot.sh'
+      - '.github/workflows/platform-v7-autopilot-guard.yml'
+
+jobs:
+  autopilot-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run scope guard
+        run: bash scripts/p7-autopilot-guard.sh
+
+      - name: Run typecheck
+        run: pnpm run typecheck
+
+      - name: Run tests
+        run: pnpm test
