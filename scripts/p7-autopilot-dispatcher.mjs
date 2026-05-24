@@ -9,6 +9,7 @@ const QUEUE_PATH = 'docs/platform-v7/execution-queue.md';
 const PROGRESS_PATH = 'docs/platform-v7/autopilot/progress.json';
 const CURRENT_CODEX_PROMPT_PATH = 'docs/platform-v7/autopilot/prompts/current-codex-task.md';
 const CURRENT_REVIEW_PROMPT_PATH = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+const LOOP_WORKFLOW_PATH = '.github/workflows/platform-v7-autopilot-loop.yml';
 
 const FORBIDDEN_CLAIMS = [
   'production-ready',
@@ -119,6 +120,7 @@ function buildCurrentPrompt(input) {
     `- State: \`${STATE_PATH}\``,
     `- Queue: \`${QUEUE_PATH}\``,
     `- Progress: \`${PROGRESS_PATH}\``,
+    `- Loop workflow: \`${LOOP_WORKFLOW_PATH}\``,
     '',
     '## Current step',
     '',
@@ -269,6 +271,7 @@ async function main() {
   console.log(`platform-v7 dispatcher prompt: ${CURRENT_CODEX_PROMPT_PATH}`);
   console.log(`platform-v7 dispatcher review: ${CURRENT_REVIEW_PROMPT_PATH}`);
   console.log(`platform-v7 dispatcher progress: ${PROGRESS_PATH}`);
+  console.log(`platform-v7 dispatcher loop workflow: ${LOOP_WORKFLOW_PATH}`);
   console.log(`platform-v7 dispatcher branch slug: ${stepSlug(current)}`);
   if (blockedBy.length > 0) {
     console.log(`platform-v7 dispatcher blocked: ${blockedBy.join(' | ')}`);

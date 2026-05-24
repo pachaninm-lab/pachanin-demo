@@ -3,6 +3,17 @@
 ## Цель
 Ускорить доработку `platform-v7` без потери качества: каждый агент работает только в своём коридоре, маленькими PR, без широкого рефакторинга и без изменения поведения вне задачи.
 
+## Постоянные правила platform-v7 autopilot
+1. Работать только в стадии controlled-pilot / pre-integration; не завышать зрелость проекта.
+2. Не менять `apps/landing`.
+3. Не писать fake-live claims и не утверждать, что внешние интеграции уже live.
+4. Один PR — один узкий шаг из очереди.
+5. Всегда соблюдать `docs/platform-v7/autopilot/autopilot-state.json` и `allowedCurrentScope`.
+6. Не трогать UI, adapters, server actions, AI gateway, theme или onboarding, если текущий шаг явно этого не разрешает.
+7. Запускать `bash scripts/p7-autopilot-guard.sh`, `pnpm typecheck` и `pnpm test` перед отчётом.
+8. Agent code не должен auto-merge PR.
+9. Не коммитить secrets, tokens, credentials или временные auth-файлы.
+
 ## Главные правила
 1. Read before write: перед изменением сначала прочитать файл и соседние зависимости.
 2. Один PR — один небольшой результат: 1–3 файла, максимум один слой ответственности.

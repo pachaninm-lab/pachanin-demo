@@ -1,0 +1,93 @@
+name: platform-v7 autopilot loop
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: platform-v7-autopilot-loop
+  cancel-in-progress: false
+
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Inspect platform-v7 autopilot state
+        id: state
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          echo "Reading autopilot state."
+          node scripts/p7-autopilot-dispatcher.mjs
+
+          CURRENT_STATUS="$(node -e "const s=require('./docs/platform-v7/autopilot/autopilot-state.json'); console.log(String(s.currentStatus || s.status || ''))")"
+          CURRENT_STEP="$(node -e "const s=require('./docs/platform-v7/autopilot/autopilot-state.json'); console.log(String(s.current || ''))")"
+          echo "currentStatus=$CURRENT_STATUS" >> "$GITHUB_OUTPUT"
+          echo "currentStep=$CURRENT_STEP" >> "$GITHUB_OUTPUT"
+          echo "Current step: $CURRENT_STEP"
+          echo "Current status: $CURRENT_STATUS"
+
+          OPEN_AGENT_PRS="$(gh pr list \
+            --repo "$REPO" \
+            --state open \
+            --label platform-v7 \
+            --label agent-generated \
+            --json number,url,headRefName \
+            --jq 'length')"
+          echo "openAgentPrs=$OPEN_AGENT_PRS" >> "$GITHUB_OUTPUT"
+          echo "Open platform-v7 agent-generated PRs: $OPEN_AGENT_PRS"
+
+          if [ "$OPEN_AGENT_PRS" != "0" ]; then
+            echo "Open agent-generated PR exists; loop will not start another implementation PR."
+            echo "shouldRun=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$CURRENT_STATUS" != "ready" ]; then
+            echo "Current status is not ready; loop will not start the runner."
+            echo "shouldRun=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "No open agent PR and currentStatus=ready; loop may trigger the runner."
+          echo "shouldRun=true" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger platform-v7 agent runner
+        if: steps.state.outputs.shouldRun == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "Triggering platform-v7 agent runner workflow with command=run-current."
+          gh workflow run platform-v7-agent-runner.yml \
+            --repo "$REPO" \
+            -f command=run-current
+
+      - name: Stop because another agent PR is open
+        if: steps.state.outputs.openAgentPrs != '0'
+        run: echo "No action taken: open platform-v7 agent-generated PR already exists."
+
+      - name: Stop because state is not ready
+        if: steps.state.outputs.openAgentPrs == '0' && steps.state.outputs.currentStatus != 'ready'
+        run: echo "No action taken: current autopilot state is not ready."

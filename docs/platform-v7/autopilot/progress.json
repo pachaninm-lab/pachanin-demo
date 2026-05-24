@@ -4,9 +4,11 @@
   "currentStep": "PR 5.5 — Mock Persistence Adapter",
   "lastCompletedStep": "PR 5.1 — Application Service Layer",
   "openPr": null,
-  "blockedBy": [],
+  "blockedBy": [
+    "PR 5.5 — Mock Persistence Adapter is not green/closed/mergeable. Dispatcher will not advance to PR 5.2 — Server Action Wrappers."
+  ],
   "nextStep": "PR 5.5 — Mock Persistence Adapter",
-  "updatedAt": "2026-05-24T15:05:00.000Z",
+  "updatedAt": "2026-05-24T16:45:31.016Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

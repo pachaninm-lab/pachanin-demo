@@ -17,15 +17,15 @@ printf '%s\n' "$DIFF_FILES"
 FORBIDDEN_PATHS='^(apps/landing/|apps/web/app/platform-v7/|apps/web/components/platform-v7/|apps/web/components/v7r/|apps/web/lib/platform-v7/adapters/|apps/web/lib/platform-v7/ai/|package-lock\.json$)'
 
 if printf '%s\n' "$DIFF_FILES" | grep -E "$FORBIDDEN_PATHS"; then
-  echo "Forbidden path changed for PR 5.1 autopilot scope."
+  echo "Forbidden path changed for platform-v7 autopilot scope."
   exit 1
 fi
 
-ALLOWED='^(apps/web/lib/platform-v7/runtime/application-service\.ts|apps/web/lib/platform-v7/runtime/application-service-types\.ts|apps/web/tests/unit/platformV7RuntimeApplicationServices\.test\.ts|docs/platform-v7/execution-queue\.md|docs/platform-v7/autopilot/.*|scripts/p7-autopilot-guard\.sh|scripts/p7-agent-runner\.sh|scripts/p7-autopilot-dispatcher\.mjs|\.github/workflows/platform-v7-autopilot-guard\.yml|\.github/workflows/platform-v7-agent-runner\.yml|\.github/ISSUE_TEMPLATE/platform-v7-agent-run\.md)$'
+ALLOWED='^(AGENTS\.md|apps/web/lib/platform-v7/runtime/application-service\.ts|apps/web/lib/platform-v7/runtime/application-service-types\.ts|apps/web/tests/unit/platformV7RuntimeApplicationServices\.test\.ts|docs/platform-v7/execution-queue\.md|docs/platform-v7/autopilot/.*|scripts/p7-autopilot-guard\.sh|scripts/p7-agent-runner\.sh|scripts/p7-autopilot-dispatcher\.mjs|\.github/workflows/platform-v7-autopilot-guard\.yml|\.github/workflows/platform-v7-agent-runner\.yml|\.github/workflows/platform-v7-autopilot-loop\.yml|\.github/ISSUE_TEMPLATE/platform-v7-agent-run\.md)$'
 
 DISALLOWED=$(printf '%s\n' "$DIFF_FILES" | grep -Ev "$ALLOWED" || true)
 if [ -n "$DISALLOWED" ]; then
-  echo "Files outside PR 5.1 autopilot scope:"
+  echo "Files outside platform-v7 autopilot scope:"
   printf '%s\n' "$DISALLOWED"
   exit 1
 fi

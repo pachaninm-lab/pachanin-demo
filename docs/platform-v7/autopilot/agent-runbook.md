@@ -38,6 +38,34 @@ Use one of these entry points:
 10. A reviewer checks the PR.
 11. Merge happens only by a human after green checks.
 
+## Autonomous Loop
+
+The optional `platform-v7 autopilot loop` workflow runs every 30 minutes and can also be started manually.
+
+Loop behavior:
+
+- It runs the dispatcher and reads `autopilot-state.json`.
+- If an open `platform-v7` + `agent-generated` PR already exists, it stops and logs the PR gate.
+- If `currentStatus` is not `ready`, it stops and logs the state gate.
+- If no agent PR is open and `currentStatus=ready`, it triggers `platform-v7 agent runner` with `command=run-current`.
+- It never merges a PR directly.
+
+## Agent Roles
+
+Codex implementation role:
+
+- Read the generated `current-codex-task.md`.
+- Change only files allowed by `allowedCurrentScope`.
+- Run the guard, typecheck and tests.
+- Create a narrow PR and leave merge to a human.
+
+Claude review role:
+
+- Read the generated `current-review-task.md`.
+- Review the diff, not the agent report.
+- Return PASS or BLOCKED.
+- Require explicit fixes for scope drift, fake-live claims, missing checks or hidden mutation paths.
+
 ## Transition Rules
 
 - The dispatcher must not advance to the next queue item while the current step is not green, closed, mergeable or merged.
@@ -47,6 +75,19 @@ Use one of these entry points:
 - The runner must not commit secrets.
 - The runner must not merge PRs.
 - The workflow must not auto-merge PRs.
+
+## Hard Stop Conditions
+
+Stop the autonomous loop and require human review if any of these happen:
+
+- `apps/landing` changes.
+- UI, visual, theme, onboarding, adapters, server actions or AI gateway changes appear before the current step allows them.
+- A PR claims maturity above controlled-pilot / pre-integration.
+- A PR claims live bank, FGIS, EDO or payment guarantees.
+- A workflow attempts auto-merge behavior.
+- A runner output includes secrets or credentials.
+- GitHub checks are pending, failed or hidden.
+- The dispatcher tries to skip the current queue item.
 
 ## Current Step
 
