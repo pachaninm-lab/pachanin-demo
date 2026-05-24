@@ -39,10 +39,10 @@ jobs:
           set -euo pipefail
           current=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.current || '')")
           current_status=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.currentStatus || '')")
+          open_prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number --jq 'length')
+
           echo "current=$current" >> "$GITHUB_OUTPUT"
           echo "current_status=$current_status" >> "$GITHUB_OUTPUT"
-
-          open_prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number --jq 'length')
           echo "open_agent_prs=$open_prs" >> "$GITHUB_OUTPUT"
           echo "current step: $current"
           echo "current status: $current_status"
@@ -54,10 +54,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          CURRENT_STEP: ${{ steps.state.outputs.current }}
         run: |
           set -euo pipefail
-          title="platform-v7 autopilot: ${ { steps.state.outputs.current } }"
-          title="platform-v7 autopilot: ${{ steps.state.outputs.current }}"
+          echo "No open agent PR. Triggering platform-v7 agent runner for: $CURRENT_STEP"
+          if gh workflow run platform-v7-agent-runner.yml --repo "$REPO" -f command=run-current; then
+            echo "platform-v7 agent runner dispatched"
+            exit 0
+          fi
+
+          echo "workflow dispatch failed; falling back to issue trigger"
+          title="platform-v7 autopilot: $CURRENT_STEP"
           existing=$(gh issue list --repo "$REPO" --state open --label agent:run --search "$title" --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
             echo "Existing trigger issue: #$existing"
@@ -72,7 +79,7 @@ jobs:
 ## Current step
 
 \`\`\`text
-${{ steps.state.outputs.current }}
+$CURRENT_STEP
 \`\`\`
 
 ## Source of truth
@@ -83,7 +90,7 @@ ${{ steps.state.outputs.current }}
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
 
-Merge remains guarded by CI, scope checks and human/automation safety rules."
+Merge remains guarded by CI and scope checks."
           fi
 
       - name: Skip when agent PR exists
