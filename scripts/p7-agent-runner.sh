@@ -2,56 +2,71 @@
 set -euo pipefail
 
 STATE_FILE="docs/platform-v7/autopilot/autopilot-state.json"
-PROMPT_FILE="docs/platform-v7/autopilot/prompts/codex-pr-5.1.md"
-REVIEW_FILE="docs/platform-v7/autopilot/prompts/review-pr-5.1.md"
+PROMPT_FILE="docs/platform-v7/autopilot/prompts/current-codex-task.md"
+REVIEW_FILE="docs/platform-v7/autopilot/prompts/current-review-task.md"
+PROGRESS_FILE="docs/platform-v7/autopilot/progress.json"
 BRANCH_PREFIX="p7-agent"
 
+echo "platform-v7 agent runner"
+
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+  echo "ERROR: OPENAI_API_KEY is not set. Add it to GitHub Actions secrets before running the agent."
+  exit 2
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "ERROR: node is required."
+  exit 1
+fi
+
+if ! command -v git >/dev/null 2>&1; then
+  echo "ERROR: git is required."
+  exit 1
+fi
+
+node scripts/p7-autopilot-dispatcher.mjs
+
 if [ ! -f "$STATE_FILE" ]; then
-  echo "Missing autopilot state: $STATE_FILE"
+  echo "ERROR: Missing autopilot state: $STATE_FILE"
   exit 1
 fi
 
 if [ ! -f "$PROMPT_FILE" ]; then
-  echo "Missing current implementation prompt: $PROMPT_FILE"
+  echo "ERROR: Missing generated implementation prompt: $PROMPT_FILE"
   exit 1
 fi
 
-echo "platform-v7 agent runner"
-echo "state: $STATE_FILE"
-echo "prompt: $PROMPT_FILE"
-echo "review: $REVIEW_FILE"
-
-CURRENT_STEP=$(python - <<'PY'
-import json
-with open('docs/platform-v7/autopilot/autopilot-state.json', 'r', encoding='utf-8') as f:
-    data = json.load(f)
-print(data.get('current', 'unknown'))
-PY
+CURRENT_STEP=$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('$PROGRESS_FILE','utf8')); console.log(p.currentStep || 'current-step');")
+STEP_SLUG=$(node - <<'JS'
+const fs = require('fs');
+const progress = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/progress.json', 'utf8'));
+const slug = String(progress.currentStep || 'current-step')
+  .toLowerCase()
+  .replace(/—/g, '-')
+  .replace(/[^a-z0-9а-яё]+/gi, '-')
+  .replace(/-+/g, '-')
+  .replace(/^-|-$/g, '');
+console.log(slug || 'current-step');
+JS
 )
-
 RUN_ID="${GITHUB_RUN_ID:-local}"
-BRANCH_NAME="${BRANCH_PREFIX}/${RUN_ID}-pr-5-1-application-service"
+BRANCH_NAME="${BRANCH_PREFIX}/${RUN_ID}-${STEP_SLUG}"
 
 echo "current step: ${CURRENT_STEP}"
+echo "prompt: ${PROMPT_FILE}"
+echo "review: ${REVIEW_FILE}"
 echo "branch: ${BRANCH_NAME}"
 
-if [ -z "${OPENAI_API_KEY:-}" ]; then
-  echo "OPENAI_API_KEY is not set. Add it in GitHub repository secrets before running autonomous implementation."
-  echo "This runner stops before code generation. Existing guard and prompts remain usable."
-  exit 2
-fi
-
-if ! command -v git >/dev/null 2>&1; then
-  echo "git is required"
-  exit 1
+if [ -n "${GITHUB_ENV:-}" ]; then
+  {
+    echo "P7_AGENT_BRANCH=${BRANCH_NAME}"
+    echo "P7_AGENT_PR_TITLE=feat(platform-v7): add application service layer"
+  } >> "$GITHUB_ENV"
 fi
 
 git config user.name "platform-v7-agent"
 git config user.email "platform-v7-agent@users.noreply.github.com"
-
 git checkout -B "$BRANCH_NAME"
-
-AGENT_PROMPT=$(cat "$PROMPT_FILE")
 
 cat > /tmp/p7-agent-request.json <<JSON
 {
@@ -59,16 +74,11 @@ cat > /tmp/p7-agent-request.json <<JSON
   "input": [
     {
       "role": "system",
-      "content": "You are a coding agent working inside a GitHub Actions checkout. Follow the repository prompt exactly. Do not expand scope. Return only patch-ready implementation guidance if direct file editing is unavailable."
+      "content": "You are a coding agent working inside a GitHub Actions checkout. Follow the repository prompt exactly. Return strict JSON only: {\\\"summary\\\":string,\\\"files\\\":[{\\\"path\\\":string,\\\"content\\\":string}]}. Include only complete UTF-8 file replacements for paths allowed by the prompt. Do not include secrets. Do not merge."
     },
     {
       "role": "user",
-      "content": $(python - <<'PY'
-import json
-from pathlib import Path
-print(json.dumps(Path('docs/platform-v7/autopilot/prompts/codex-pr-5.1.md').read_text(encoding='utf-8')))
-PY
-)
+      "content": $(node -e "console.log(JSON.stringify(require('fs').readFileSync('$PROMPT_FILE','utf8')))")
     }
   ]
 }
@@ -80,36 +90,65 @@ curl -sS https://api.openai.com/v1/responses \
   -d @/tmp/p7-agent-request.json \
   > /tmp/p7-agent-response.json
 
-python - <<'PY'
-import json
-from pathlib import Path
-response = json.loads(Path('/tmp/p7-agent-response.json').read_text(encoding='utf-8'))
-Path('docs/platform-v7/autopilot/last-agent-response.json').write_text(json.dumps(response, ensure_ascii=False, indent=2), encoding='utf-8')
-print('agent response saved: docs/platform-v7/autopilot/last-agent-response.json')
-PY
+node <<'JS'
+const fs = require('fs');
+const path = require('path');
+
+const response = JSON.parse(fs.readFileSync('/tmp/p7-agent-response.json', 'utf8'));
+fs.writeFileSync('docs/platform-v7/autopilot/last-agent-response.json', `${JSON.stringify(response, null, 2)}\n`);
+
+function collectText(value) {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.map(collectText).join('\n');
+  if (!value || typeof value !== 'object') return '';
+  if (value.type === 'output_text' && typeof value.text === 'string') return value.text;
+  return Object.values(value).map(collectText).join('\n');
+}
+
+const output = response.output_text || collectText(response.output);
+const trimmed = String(output || '').trim().replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+if (!trimmed) {
+  throw new Error('Agent response did not include JSON file replacements.');
+}
+
+const parsed = JSON.parse(trimmed);
+if (!Array.isArray(parsed.files)) {
+  throw new Error('Agent response JSON must contain files array.');
+}
+
+const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+const allowed = new Set(state.allowedCurrentScope || []);
+const changed = [];
+for (const file of parsed.files) {
+  if (!file || typeof file.path !== 'string' || typeof file.content !== 'string') {
+    throw new Error('Each agent file replacement must include path and content.');
+  }
+  if (!allowed.has(file.path)) {
+    throw new Error(`Agent attempted to write outside allowed current scope: ${file.path}`);
+  }
+  const absolute = path.resolve(file.path);
+  if (!absolute.startsWith(process.cwd())) {
+    throw new Error(`Agent attempted to write outside repository: ${file.path}`);
+  }
+  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  fs.writeFileSync(absolute, file.content, 'utf8');
+  changed.push(file.path);
+}
+
+console.log(`agent response saved: docs/platform-v7/autopilot/last-agent-response.json`);
+console.log(`agent files applied: ${changed.join(', ') || 'none'}`);
+if (changed.length === 0) {
+  throw new Error('Agent returned no file replacements.');
+}
+JS
 
 bash scripts/p7-autopilot-guard.sh
-
-if command -v pnpm >/dev/null 2>&1; then
-  pnpm run typecheck
-  pnpm test
-else
-  npm run typecheck
-  npm test
-fi
+pnpm typecheck
+pnpm test
 
 if git diff --quiet; then
-  echo "No repository changes produced by agent."
-  exit 0
+  echo "ERROR: No repository changes produced by agent."
+  exit 3
 fi
 
-git add \
-  apps/web/lib/platform-v7/runtime/application-service.ts \
-  apps/web/lib/platform-v7/runtime/application-service-types.ts \
-  apps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts \
-  docs/platform-v7/autopilot/last-agent-response.json
-
-git commit -m "feat(platform-v7): apply agent step for application service layer"
-git push origin "$BRANCH_NAME"
-
-echo "Agent branch pushed: $BRANCH_NAME"
+echo "Agent run complete. GitHub Actions create-pull-request will commit and open the PR."

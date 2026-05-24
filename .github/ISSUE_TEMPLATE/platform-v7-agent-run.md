@@ -12,10 +12,11 @@ assignees: ''
 /agent run current
 ```
 
-## Expected current step
+## Expected current step source
 
 ```text
-PR 5.1 — Application Service Layer
+docs/platform-v7/autopilot/autopilot-state.json
+docs/platform-v7/execution-queue.md
 ```
 
 ## Required checks before merge
@@ -28,11 +29,14 @@ PR 5.1 — Application Service Layer
 - Typecheck passes.
 - Tests pass.
 - Review prompt result is mergeable.
+- Merge is manual only.
 
 ## Notes
 
 The agent must use repository state as the source of truth:
 
 - `docs/platform-v7/autopilot/autopilot-state.json`
-- `docs/platform-v7/autopilot/prompts/codex-pr-5.1.md`
-- `docs/platform-v7/autopilot/prompts/review-pr-5.1.md`
+- `docs/platform-v7/execution-queue.md`
+- `docs/platform-v7/autopilot/progress.json`
+- `docs/platform-v7/autopilot/prompts/current-codex-task.md`
+- `docs/platform-v7/autopilot/prompts/current-review-task.md`

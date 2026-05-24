@@ -9,8 +9,11 @@ on:
       - 'apps/web/tests/**'
       - 'docs/platform-v7/**'
       - 'scripts/p7-autopilot-guard.sh'
-      - 'scripts/p7-autopilot.sh'
+      - 'scripts/p7-autopilot-dispatcher.mjs'
+      - 'scripts/p7-agent-runner.sh'
+      - '.github/ISSUE_TEMPLATE/platform-v7-agent-run.md'
       - '.github/workflows/platform-v7-autopilot-guard.yml'
+      - '.github/workflows/platform-v7-agent-runner.yml'
 
 jobs:
   autopilot-guard:

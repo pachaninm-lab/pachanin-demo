@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate current platform-v7 task
+        run: node scripts/p7-autopilot-dispatcher.mjs
+
       - name: Run platform-v7 agent runner
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -52,21 +55,24 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          title: 'feat(platform-v7): add application service layer'
+          title: ${{ env.P7_AGENT_PR_TITLE }}
           body: |
             Scope
-            - Automated platform-v7 current step run.
-            - Source prompt: docs/platform-v7/autopilot/prompts/codex-pr-5.1.md
-            - Review prompt: docs/platform-v7/autopilot/prompts/review-pr-5.1.md
+            - Automated platform-v7 current-step run.
+            - Source prompt: docs/platform-v7/autopilot/prompts/current-codex-task.md
+            - Review prompt: docs/platform-v7/autopilot/prompts/current-review-task.md
+            - Progress: docs/platform-v7/autopilot/progress.json
 
             Guards
             - apps/landing diff must be 0.
             - UI diff must be 0.
             - adapters/server-actions/AI/theme diff must be 0.
+            - no auto-merge.
+            - no fake-live claims.
             - Checks must be green before merge.
-          branch: p7-agent/pr-5-1-application-service
+          branch: ${{ env.P7_AGENT_BRANCH }}
           base: main
-          commit-message: 'feat(platform-v7): add application service layer'
+          commit-message: 'feat(platform-v7): apply current autopilot step'
           labels: |
             platform-v7
             agent-generated
