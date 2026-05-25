@@ -16,6 +16,7 @@ import type {
   P7DocumentActionRequestDto,
   P7ReleaseRequestDto,
   P7ResourceScopeDto,
+  P7RuntimeRequestBaseDto,
 } from '@/lib/platform-v7/runtime/dto-schemas';
 import {
   createP7RuntimeServerActions,
@@ -260,6 +261,14 @@ function arbitrationDto(): P7ArbitrationBasisRequestDto {
   };
 }
 
+function malformedBaseDto(): P7RuntimeRequestBaseDto {
+  return {
+    actor: sellerActor,
+    resource: moneyResource,
+    audit,
+  } as unknown as P7RuntimeRequestBaseDto;
+}
+
 function seededStore(overrides: { readonly money?: PlatformV7MoneyTree; readonly decision?: P7BankBasisDecision } = {}) {
   return createP7MockRuntimeStore({
     now,
@@ -300,6 +309,32 @@ describe('platform-v7 runtime server actions', () => {
     if (result.ok === false) {
       expect(result.validationErrors?.some((error) => error.field === 'amount')).toBe(true);
     }
+    expect(store.snapshot()).toEqual(before);
+  });
+
+  it('returns validation_error for malformed read-only runtime DTOs before store access', async () => {
+    const store = seededStore();
+    const before = store.snapshot();
+    const actions = createP7RuntimeServerActions({ store, now: () => now });
+
+    const results = [
+      await actions.releaseWorkflow({ action: 'get_release_status', dto: malformedBaseDto() }),
+      await actions.disputeSettlement({ action: 'open_dispute', dto: malformedBaseDto() }),
+      await actions.disputeSettlement({ action: 'attach_evidence', dto: malformedBaseDto() }),
+      await actions.disputeSettlement({ action: 'get_dispute_money_impact', dto: malformedBaseDto() }),
+    ];
+
+    results.forEach((result) => {
+      expect(result).toMatchObject({
+        ok: false,
+        status: 'validation_error',
+        error: { code: 'VALIDATION_ERROR' },
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok === false) {
+        expect(result.validationErrors?.some((error) => error.field === 'idempotency')).toBe(true);
+      }
+    });
     expect(store.snapshot()).toEqual(before);
   });
 
