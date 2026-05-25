@@ -1,6 +1,6 @@
-# Codex current task — PR 5.2 Server Action Wrappers
+# Codex current task — PR 5.8 Stage 5 Stability Wiring
 
-Current step: PR 5.2 — Server Action Wrappers.
+Current step: PR 5.8 — Stage 5 Stability Wiring.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -9,95 +9,73 @@ Human review is required before merge.
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 - docs/platform-v7/autopilot/progress.json
-- apps/web/lib/platform-v7/runtime/application-service.ts
-- apps/web/lib/platform-v7/runtime/application-service-types.ts
-- apps/web/lib/platform-v7/runtime/mock-persistence-adapter.ts
-- apps/web/lib/platform-v7/runtime/dto-schemas.ts
-- apps/web/lib/platform-v7/runtime/persistence-ports.ts
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- scripts/p7-autopilot-guard.sh
+- apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
+- apps/web/tests/unit/platformV7RuntimeIntegration.test.ts
+- apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts
 
 ## Objective
 
-Create narrow server action wrappers for the platform-v7 runtime application services. The wrappers must expose typed action entrypoints for controlled-pilot runtime execution while keeping all business mutations inside DTO validation, application services, persistence ports, action boundary, idempotency and audit paths.
+Finalize Stage 5 runtime stability before PR 6.x starts.
 
-This PR must not introduce UI changes or live integrations. It only creates the server-side wrapper layer that later UI and integration steps can call.
+This step does not add product features. It only ensures the Stage 5 runtime QA suite is actually executed by the required autopilot guard path and that autopilot state does not advance to PR 6.x before this stability wiring is green and merged.
 
 ## Allowed files
 
-- apps/web/app/platform-v7/actions/runtime-actions.ts
-- apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
+- scripts/p7-autopilot-guard.sh
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
 
 ## Forbidden zones
 
 - apps/landing
+- apps/web/app/platform-v7
 - apps/web/components/platform-v7
 - apps/web/components/v7r
 - apps/web/lib/platform-v7/adapters
 - apps/web/lib/platform-v7/ai
 - apps/web/app/api
+- apps/web/lib/platform-v7/runtime implementation files
+- apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
+- apps/web/tests/unit/platformV7RuntimeIntegration.test.ts
+- apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts
 - package-lock.json
-- UI routes/components other than the allowed server action file
-- DTO schemas
-- persistence ports
-- application service files
-- mock persistence adapter
+- pnpm-lock.yaml
 - theme
 - onboarding
+- UI components/routes
 
 ## Implement
 
-Create `apps/web/app/platform-v7/actions/runtime-actions.ts` with server action wrappers around existing PR 5.1 application services and PR 5.5 mock persistence adapter.
+Keep the existing Stage 5 runtime implementation untouched.
 
-Required wrapper responsibilities:
+Required changes:
 
-- import `server-only` or use a server-safe module boundary if already used in the repo
-- instantiate an explicit controlled-pilot mock runtime store per action call or via an injected test factory; do not create hidden global runtime state
-- validate DTOs through existing DTO/schema layer where available
-- call application service factories/methods instead of direct domain mutations
-- return typed serializable action results
-- include deterministic error shape for validation, authorization/denied, duplicate/idempotency, persistence conflict and unknown errors
-- do not call bank, FGIS, EDO or any live external service
-- do not claim live integration status
-- do not update React/UI state directly
-- do not bypass action-boundary, idempotency or audit
+- Ensure `scripts/p7-autopilot-guard.sh` runs the Stage 5 runtime test suite when those files exist:
+  - tests/unit/platformV7RuntimeServerActions.test.ts
+  - tests/unit/platformV7RuntimeIntegration.test.ts
+  - tests/unit/platformV7RuntimeFinalQa.test.ts
+- Keep `pnpm test` behavior unchanged; do not edit root package.json or lockfiles.
+- Keep PR 5.8 as the current autopilot step until this PR is green and merged.
+- Do not mark PR 5.8 as lastClosed before merge.
+- Keep PR 6.x locked until PR 5.8 is green and merged.
+- Keep all maturity language at controlled-pilot / pre-integration.
+- Do not introduce any live bank, FGIS, EDO or production-ready claims.
 
-Expected exported actions should cover the current runtime service surface, at minimum:
-
-- money action wrapper
-- document action wrapper
-- bank basis action wrapper
-- release workflow wrapper
-- dispute settlement wrapper
-
-Use names that fit existing runtime service naming. Keep implementation small and reviewable.
-
-## Tests
-
-Create `apps/web/tests/unit/platformV7RuntimeServerActions.test.ts`.
-
-Cover:
-
-- wrappers return serializable results
-- wrappers use application services rather than direct domain mutations where testable
-- validation/invalid DTO path returns deterministic error
-- successful money action goes through persistence and audit
-- duplicate idempotency result is replayed
-- expectedVersion conflict returns deterministic conflict error
-- document action wrapper persists Document Matrix changes
-- bank basis wrapper persists basis decision but does not call a live bank
-- release workflow wrapper does not claim platform releases money itself
-- dispute settlement wrapper does not move money directly unless service contract explicitly allows it
-- no module-level hidden runtime store
-- no apps/landing or UI imports
-
-## Checks
+## Tests / checks
 
 Run:
 
-- node scripts/p7-autopilot-dispatcher.mjs
 - bash scripts/p7-autopilot-guard.sh
 - pnpm typecheck
 - pnpm test
 
+The guard itself must execute the Stage 5 runtime tests so they cannot be optional local-only coverage.
+
 ## PR title
 
-feat(platform-v7): add runtime server action wrappers
+ci(platform-v7): wire stage 5 runtime qa into guard
