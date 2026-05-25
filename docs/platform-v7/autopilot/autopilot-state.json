@@ -34,6 +34,7 @@
     "docs/platform-v7/autopilot/progress.json",
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
+    "docs/platform-v7/autopilot/stage-6-adapter-emulator-contracts.md",
     "docs/platform-v7/execution-queue.md"
   ],
   "forbiddenZones": [
