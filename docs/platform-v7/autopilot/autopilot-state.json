@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 5.6 — Runtime Integration Tests",
+  "current": "PR 5.7 — Final Stage 5 QA",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -13,10 +13,10 @@
     "Stage 5.4 — DTO / Validation Schemas",
     "PR 5.1 — Application Service Layer",
     "PR 5.5 — Mock Persistence Adapter",
-    "PR 5.2 — Server Action Wrappers"
+    "PR 5.2 — Server Action Wrappers",
+    "PR 5.6 — Runtime Integration Tests"
   ],
   "lockedUntilCurrentGreen": [
-    "PR 5.7 — Final Stage 5 QA",
     "PR 6.x — External Adapter Emulators",
     "External Adapter Emulators",
     "AI Gateway",
@@ -25,7 +25,7 @@
     "Role Cockpit / UX"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7RuntimeIntegration.test.ts"
+    "apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
