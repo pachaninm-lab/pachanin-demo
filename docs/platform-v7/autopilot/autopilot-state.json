@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 5.7 — Final Stage 5 QA",
+  "current": "PR 5.8 — Stage 5 Stability Wiring",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -14,7 +14,8 @@
     "PR 5.1 — Application Service Layer",
     "PR 5.5 — Mock Persistence Adapter",
     "PR 5.2 — Server Action Wrappers",
-    "PR 5.6 — Runtime Integration Tests"
+    "PR 5.6 — Runtime Integration Tests",
+    "PR 5.7 — Final Stage 5 QA"
   ],
   "lockedUntilCurrentGreen": [
     "PR 6.x — External Adapter Emulators",
@@ -25,7 +26,13 @@
     "Role Cockpit / UX"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts"
+    "scripts/p7-autopilot-guard.sh",
+    "apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/progress.json",
+    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md",
+    "docs/platform-v7/execution-queue.md"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -41,5 +48,16 @@
     "controlled-pilot",
     "pre-integration",
     "requires external credentials and agreements for live integrations"
+  ],
+  "forbiddenClaims": [
+    "production-ready",
+    "fully live",
+    "fully integrated",
+    "platform guarantees payment",
+    "платформа гарантирует оплату",
+    "платформа сама выпускает деньги",
+    "банк подключён",
+    "ФГИС подключён",
+    "ЭДО подключён"
   ]
 }

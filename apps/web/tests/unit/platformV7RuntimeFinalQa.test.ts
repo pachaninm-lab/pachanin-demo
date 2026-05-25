@@ -74,7 +74,8 @@ describe('platform-v7 Stage 5 final runtime QA', () => {
     const service = readWebFile('lib/platform-v7/runtime/application-service.ts');
     const types = readWebFile('lib/platform-v7/runtime/application-service-types.ts');
 
-    expect(service).toContain('P7RuntimeUnitOfWork');
+    expect(service).toContain('P7RuntimeTransactionalPorts');
+    expect(service).toContain('unitOfWork');
     expect(service).toContain('idempotency');
     expect(service).toContain('audit');
     expect(service).toContain('expectedVersion');
@@ -96,7 +97,7 @@ describe('platform-v7 Stage 5 final runtime QA', () => {
     expect(mockStore).toContain('simulateNextConflict');
     expect(integrationTest).toContain('server wrapper');
     expect(integrationTest).toContain('application service');
-    expect(integrationTest).toContain('mock persistence');
+    expect(integrationTest).toContain('mock-persistence-adapter');
     expect(integrationTest).toContain('validation_error');
     expect(integrationTest).toContain('duplicate');
     expect(integrationTest).toContain('conflict');
