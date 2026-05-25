@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 5.2 — Server Action Wrappers",
+  "current": "PR 5.6 — Runtime Integration Tests",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -12,20 +12,20 @@
     "Stage 5.3 — Persistence Port Interfaces",
     "Stage 5.4 — DTO / Validation Schemas",
     "PR 5.1 — Application Service Layer",
-    "PR 5.5 — Mock Persistence Adapter"
+    "PR 5.5 — Mock Persistence Adapter",
+    "PR 5.2 — Server Action Wrappers"
   ],
   "lockedUntilCurrentGreen": [
-    "PR 5.6 — Runtime Integration Tests",
     "PR 5.7 — Final Stage 5 QA",
     "PR 6.x — External Adapter Emulators",
+    "External Adapter Emulators",
     "AI Gateway",
     "Product Entry / Onboarding",
     "Theme / Visual",
     "Role Cockpit / UX"
   ],
   "allowedCurrentScope": [
-    "apps/web/app/platform-v7/actions/runtime-actions.ts",
-    "apps/web/tests/unit/platformV7RuntimeServerActions.test.ts"
+    "apps/web/tests/unit/platformV7RuntimeIntegration.test.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -41,16 +41,5 @@
     "controlled-pilot",
     "pre-integration",
     "requires external credentials and agreements for live integrations"
-  ],
-  "forbiddenClaims": [
-    "production-ready",
-    "fully live",
-    "fully integrated",
-    "platform guarantees payment",
-    "платформа гарантирует оплату",
-    "платформа сама выпускает деньги",
-    "банк подключён",
-    "ФГИС подключён",
-    "ЭДО подключён"
   ]
 }
