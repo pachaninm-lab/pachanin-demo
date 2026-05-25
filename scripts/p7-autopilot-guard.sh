@@ -65,3 +65,21 @@ if [ -n "$DISALLOWED" ]; then
 fi
 
 echo "Scope guard passed."
+
+STAGE5_TESTS=(
+  "tests/unit/platformV7RuntimeServerActions.test.ts"
+  "tests/unit/platformV7RuntimeIntegration.test.ts"
+  "tests/unit/platformV7RuntimeFinalQa.test.ts"
+)
+
+SHOULD_RUN_STAGE5_QA=false
+for test_file in "${STAGE5_TESTS[@]}"; do
+  if [ -f "apps/web/${test_file}" ]; then
+    SHOULD_RUN_STAGE5_QA=true
+  fi
+done
+
+if [ "$SHOULD_RUN_STAGE5_QA" = "true" ]; then
+  echo "Running platform-v7 Stage 5 runtime QA tests from autopilot guard."
+  pnpm --filter @pc/web exec vitest run "${STAGE5_TESTS[@]}"
+fi
