@@ -1,14 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 52,
-  "currentStep": "PR 6.0 — Stage 6 Bootstrap",
+  "fullTzReadinessPercent": 48,
+  "currentStep": "PR 6.1 — External Adapter Emulator Contracts",
   "lastCompletedStep": "PR 5.8 — Stage 5 Stability Wiring",
   "openPr": null,
-  "blockedBy": [
-    "Stage 6 bootstrap PR must open a fresh runner chain and keep scope limited to autopilot/docs before Stage 6 implementation starts"
-  ],
+  "blockedBy": [],
   "nextStep": "PR 6.1 — External Adapter Emulator Contracts",
-  "updatedAt": "2026-05-25T18:20:00.000Z",
+  "updatedAt": "2026-05-26T00:00:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
