@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 5.7 — Final Stage 5 QA",
+  "current": "PR 6.1 — External Adapter Contract Types",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -14,25 +14,28 @@
     "PR 5.1 — Application Service Layer",
     "PR 5.5 — Mock Persistence Adapter",
     "PR 5.2 — Server Action Wrappers",
-    "PR 5.6 — Runtime Integration Tests"
+    "PR 5.6 — Runtime Integration Tests",
+    "PR 5.7 — Final Stage 5 QA"
   ],
   "lockedUntilCurrentGreen": [
-    "PR 6.x — External Adapter Emulators",
-    "External Adapter Emulators",
+    "PR 6.2 — External Adapter Provider Health",
+    "PR 6.3 — External Adapter Event Envelope",
+    "PR 6.4 — External Adapter Emulator Fixtures",
+    "PR 6.5 — External Adapter QA Guards",
     "AI Gateway",
     "Product Entry / Onboarding",
     "Theme / Visual",
     "Role Cockpit / UX"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts"
+    "apps/web/lib/platform-v7/adapters/external-adapter-contracts.ts",
+    "apps/web/tests/unit/platformV7ExternalAdapterContracts.test.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
     "apps/web/app/platform-v7",
     "apps/web/components/platform-v7",
     "apps/web/components/v7r",
-    "apps/web/lib/platform-v7/adapters",
     "apps/web/lib/platform-v7/ai",
     "apps/web/app/api",
     "package-lock.json"
