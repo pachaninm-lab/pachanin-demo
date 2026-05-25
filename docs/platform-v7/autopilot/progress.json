@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 46,
-  "currentStep": "PR 5.7 — Final Stage 5 QA",
-  "lastCompletedStep": "PR 5.6 — Runtime Integration Tests",
+  "fullTzReadinessPercent": 48,
+  "currentStep": "PR 6.x — External Adapter Emulators",
+  "lastCompletedStep": "PR 5.7 — Final Stage 5 QA",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "PR 5.7 — Final Stage 5 QA",
-  "updatedAt": "2026-05-25T07:15:00.000Z",
+  "nextStep": "PR 6.x — External Adapter Emulators",
+  "updatedAt": "2026-05-25T10:30:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
