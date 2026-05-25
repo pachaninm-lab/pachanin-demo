@@ -1,6 +1,6 @@
-# Codex current task — PR 5.8 Stage 5 Stability Wiring
+# Codex current task — PR 6.1 External Adapter Emulator Contracts
 
-Current step: PR 5.8 — Stage 5 Stability Wiring.
+Current step: PR 6.1 — External Adapter Emulator Contracts.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -10,20 +10,15 @@ Human review is required before merge.
 - docs/platform-v7/execution-queue.md
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-review-task.md
-- scripts/p7-autopilot-guard.sh
-- apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
-- apps/web/tests/unit/platformV7RuntimeIntegration.test.ts
-- apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts
 
 ## Objective
 
-Finalize Stage 5 runtime stability before PR 6.x starts.
+Prepare the Stage 6 contract-only entry point for external adapter emulators.
 
-This step does not add product features. It only ensures the Stage 5 runtime QA suite is actually executed by the required autopilot guard path and that autopilot state does not advance to PR 6.x before this stability wiring is green and merged.
+This PR must not implement live integrations, API routes, DB persistence, UI, AI gateway, theme, onboarding, or adapter runtime behavior. It only advances the autopilot/state layer after PR 5.8 was merged green and defines the next reviewable work boundary.
 
 ## Allowed files
 
-- scripts/p7-autopilot-guard.sh
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -39,10 +34,8 @@ This step does not add product features. It only ensures the Stage 5 runtime QA 
 - apps/web/lib/platform-v7/adapters
 - apps/web/lib/platform-v7/ai
 - apps/web/app/api
-- apps/web/lib/platform-v7/runtime implementation files
-- apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
-- apps/web/tests/unit/platformV7RuntimeIntegration.test.ts
-- apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts
+- apps/web/lib/platform-v7/runtime
+- apps/web/tests/unit
 - package-lock.json
 - pnpm-lock.yaml
 - theme
@@ -51,31 +44,25 @@ This step does not add product features. It only ensures the Stage 5 runtime QA 
 
 ## Implement
 
-Keep the existing Stage 5 runtime implementation untouched.
-
 Required changes:
 
-- Ensure `scripts/p7-autopilot-guard.sh` runs the Stage 5 runtime test suite when those files exist:
-  - tests/unit/platformV7RuntimeServerActions.test.ts
-  - tests/unit/platformV7RuntimeIntegration.test.ts
-  - tests/unit/platformV7RuntimeFinalQa.test.ts
-- Keep `pnpm test` behavior unchanged; do not edit root package.json or lockfiles.
-- Keep PR 5.8 as the current autopilot step until this PR is green and merged.
-- Do not mark PR 5.8 as lastClosed before merge.
-- Keep PR 6.x locked until PR 5.8 is green and merged.
-- Keep all maturity language at controlled-pilot / pre-integration.
-- Do not introduce any live bank, FGIS, EDO or production-ready claims.
+- Mark PR 5.8 as completed after green merge.
+- Set current step to PR 6.1 — External Adapter Emulator Contracts.
+- Set readiness to 48% and do not raise it higher in this PR.
+- Keep PR 6.2+ locked until PR 6.1 is green and merged.
+- Keep Stage 6 explicitly pre-integration: no live bank, FGIS, EDO, EPD or logistics access is claimed.
+- Keep maturity wording at controlled-pilot / pre-integration.
 
 ## Tests / checks
 
-Run:
+Run through CI:
 
-- bash scripts/p7-autopilot-guard.sh
-- pnpm typecheck
-- pnpm test
-
-The guard itself must execute the Stage 5 runtime tests so they cannot be optional local-only coverage.
+- platform-v7 autopilot guard
+- Node CI
+- CI
+- Repo automations
+- Labeler
 
 ## PR title
 
-ci(platform-v7): wire stage 5 runtime qa into guard
+docs(platform-v7): bootstrap stage 6 autopilot
