@@ -27,6 +27,7 @@
   ],
   "allowedCurrentScope": [
     "scripts/p7-autopilot-guard.sh",
+    "apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/autopilot/progress.json",
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
