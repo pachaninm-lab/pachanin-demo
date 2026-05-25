@@ -1,14 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 47,
-  "currentStep": "PR 5.8 — Stage 5 Stability Wiring",
-  "lastCompletedStep": "PR 5.7 — Final Stage 5 QA",
+  "fullTzReadinessPercent": 48,
+  "currentStep": "PR 6.1 — External Adapter Emulator Contracts",
+  "lastCompletedStep": "PR 5.8 — Stage 5 Stability Wiring",
   "openPr": null,
-  "blockedBy": [
-    "Stage 5 QA must be wired into required guard before PR 6.x starts"
-  ],
-  "nextStep": "PR 5.8 — Stage 5 Stability Wiring",
-  "updatedAt": "2026-05-25T10:30:00.000Z",
+  "blockedBy": [],
+  "nextStep": "PR 6.1 — External Adapter Emulator Contracts",
+  "updatedAt": "2026-05-26T00:00:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

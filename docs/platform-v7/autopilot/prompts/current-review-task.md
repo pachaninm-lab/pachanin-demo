@@ -1,16 +1,14 @@
-# Review current task — PR 5.8 Stage 5 Stability Wiring
+# Review current task — PR 6.1 External Adapter Emulator Contracts
 
 Maturity: controlled-pilot / pre-integration.
 Review the diff, not the agent report. Human review and green checks are required before merge.
 
 ## Objective
 
-Verify that Stage 5 runtime QA is included in the required autopilot guard path before PR 6.x starts.
+Verify that the autopilot state advances from merged PR 5.8 to PR 6.1 without starting implementation work.
 
 ## Allowed files
 
-- scripts/p7-autopilot-guard.sh
-- apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -26,30 +24,28 @@ Verify that Stage 5 runtime QA is included in the required autopilot guard path 
 - apps/web/lib/platform-v7/adapters
 - apps/web/lib/platform-v7/ai
 - apps/web/app/api
-- apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
-- apps/web/tests/unit/platformV7RuntimeIntegration.test.ts
+- apps/web/lib/platform-v7/runtime
+- apps/web/tests/unit
 - package-lock.json
 - pnpm-lock.yaml
 
 ## Review checks
 
-- Guard runs these existing Stage 5 tests when present:
-  - tests/unit/platformV7RuntimeServerActions.test.ts
-  - tests/unit/platformV7RuntimeIntegration.test.ts
-  - tests/unit/platformV7RuntimeFinalQa.test.ts
-- Final QA alignment only updates stale assertions to match the current transactional-port contract.
-- Current step remains PR 5.8 until green and merged.
-- PR 5.8 is not in lastClosed before merge.
-- PR 6.x remains locked until PR 5.8 green.
-- Progress and queue do not state that Stage 6 has started.
-- Prompts reference PR 5.8, not PR 5.2.
+- PR 5.8 is listed as completed.
+- Current step is PR 6.1 — External Adapter Emulator Contracts.
+- Readiness is 48% and not higher.
+- PR 6.2+ remains locked until PR 6.1 green and merged.
+- No Stage 6 implementation files are added or edited.
+- No UI, onboarding, theme, AI gateway, API, DB, runtime or live adapter work is included.
 - No external live-connection or product-maturity claims are introduced.
 
 ## Required checks
 
-- bash scripts/p7-autopilot-guard.sh
-- pnpm typecheck
-- pnpm test
+- platform-v7 autopilot guard
+- Node CI
+- CI
+- Repo automations
+- Labeler
 
 ## Output
 
