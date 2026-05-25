@@ -193,6 +193,76 @@ function validateOrFail<T>(validation: P7ValidationResult<T>): P7RuntimeActionRe
   return null;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function addRequiredRuntimeStringError(
+  errors: P7ValidationError[],
+  field: string,
+  value: unknown,
+): void {
+  if (!nonEmptyString(value)) {
+    errors.push({
+      code: 'REQUIRED',
+      field,
+      message: `${field} is required.`,
+    });
+  }
+}
+
+function validateP7RuntimeRequestBaseDto(input: P7RuntimeRequestBaseDto): P7ValidationResult<P7RuntimeRequestBaseDto> {
+  const candidate = input as unknown;
+  if (!isRecord(candidate)) {
+    return {
+      ok: false,
+      errors: [{ code: 'INVALID_OBJECT', field: 'dto', message: 'dto must be an object.' }],
+    };
+  }
+
+  const errors: P7ValidationError[] = [];
+  const actor = candidate.actor;
+  const resource = candidate.resource;
+  const audit = candidate.audit;
+  const idempotency = candidate.idempotency;
+
+  if (!isRecord(actor)) {
+    errors.push({ code: 'REQUIRED', field: 'actor', message: 'actor is required.' });
+  } else {
+    addRequiredRuntimeStringError(errors, 'actor.actorId', actor.actorId);
+    addRequiredRuntimeStringError(errors, 'actor.actorRole', actor.actorRole);
+    addRequiredRuntimeStringError(errors, 'actor.organizationId', actor.organizationId);
+  }
+
+  if (!isRecord(resource)) {
+    errors.push({ code: 'REQUIRED', field: 'resource', message: 'resource is required.' });
+  } else {
+    addRequiredRuntimeStringError(errors, 'resource.resourceType', resource.resourceType);
+    addRequiredRuntimeStringError(errors, 'resource.resourceId', resource.resourceId);
+    addRequiredRuntimeStringError(errors, 'resource.dealId', resource.dealId);
+  }
+
+  if (!isRecord(audit)) {
+    errors.push({ code: 'REQUIRED', field: 'audit', message: 'audit is required.' });
+  } else {
+    addRequiredRuntimeStringError(errors, 'audit.auditId', audit.auditId);
+    addRequiredRuntimeStringError(errors, 'audit.correlationId', audit.correlationId);
+    addRequiredRuntimeStringError(errors, 'audit.reason', audit.reason);
+  }
+
+  if (!isRecord(idempotency)) {
+    errors.push({ code: 'REQUIRED', field: 'idempotency', message: 'idempotency is required.' });
+  } else {
+    addRequiredRuntimeStringError(errors, 'idempotency.idempotencyKey', idempotency.idempotencyKey);
+  }
+
+  return errors.length === 0 ? { ok: true, value: input } : { ok: false, errors };
+}
+
 function duplicateBeforeCall(store: P7MockRuntimeStore, dto: P7RuntimeRequestBaseDto): boolean {
   return store.snapshot().idempotencyKeys.includes(dto.idempotency.idempotencyKey);
 }
@@ -352,7 +422,7 @@ export function createP7RuntimeServerActions(deps: P7RuntimeServerActionDependen
         );
       }
       if (input.action === 'get_release_status') {
-        return executeWithService(deps, input.dto, { ok: true, value: input.dto }, async (store) =>
+        return executeWithService(deps, input.dto, validateP7RuntimeRequestBaseDto(input.dto), async (store) =>
           createP7ReleaseWorkflowService({ unitOfWork: store, now: deps.now }).getReleaseStatus(input.dto)
         );
       }
@@ -379,7 +449,7 @@ export function createP7RuntimeServerActions(deps: P7RuntimeServerActionDependen
         );
       }
 
-      return executeWithService(deps, input.dto, { ok: true, value: input.dto }, async (store) => {
+      return executeWithService(deps, input.dto, validateP7RuntimeRequestBaseDto(input.dto), async (store) => {
         const service = createP7DisputeSettlementService({ unitOfWork: store, now: deps.now });
         if (input.action === 'attach_evidence') return service.attachEvidence(input.dto);
         if (input.action === 'get_dispute_money_impact') return service.getDisputeMoneyImpact(input.dto);
