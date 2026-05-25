@@ -10,6 +10,7 @@ Verify that Stage 5 runtime QA is included in the required autopilot guard path 
 ## Allowed files
 
 - scripts/p7-autopilot-guard.sh
+- apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -27,7 +28,6 @@ Verify that Stage 5 runtime QA is included in the required autopilot guard path 
 - apps/web/app/api
 - apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
 - apps/web/tests/unit/platformV7RuntimeIntegration.test.ts
-- apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts
 - package-lock.json
 - pnpm-lock.yaml
 
@@ -37,6 +37,7 @@ Verify that Stage 5 runtime QA is included in the required autopilot guard path 
   - tests/unit/platformV7RuntimeServerActions.test.ts
   - tests/unit/platformV7RuntimeIntegration.test.ts
   - tests/unit/platformV7RuntimeFinalQa.test.ts
+- Final QA alignment only updates stale assertions to match the current transactional-port contract.
 - Current step remains PR 5.8 until green and merged.
 - PR 5.8 is not in lastClosed before merge.
 - PR 6.x remains locked until PR 5.8 green.
