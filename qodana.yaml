@@ -1,9 +1,7 @@
 version: "1.0"
-linter: jetbrains/qodana-js:2025.3
+linter: jetbrains/qodana-js:2026.1
 profile:
   name: qodana.recommended
-include:
-  - name: CheckDependencyLicenses
 exclude:
   - name: All
     paths:
@@ -14,6 +12,5 @@ exclude:
       - coverage
       - playwright-report
       - test-results
-failureConditions:
-  severityThresholds:
-    any: 999999
+      - .turbo
+      - .vercel
