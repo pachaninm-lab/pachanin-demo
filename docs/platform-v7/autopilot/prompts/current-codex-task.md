@@ -1,19 +1,18 @@
-# Codex current task — Qodana #1423 CI-only report-mode baseline
+# Codex current task — CodeQL #1434 GitHub-native security report-only baseline
 
-Current step: Qodana #1423 — CI-only report-mode baseline.
+Current step: CodeQL #1434 — GitHub-native security report-only baseline.
 Maturity: controlled-pilot / pre-integration.
 
 ## Objective
 
-Add the first Qodana baseline strictly as a CI-only report-mode layer.
+Add the first GitHub-native CodeQL baseline strictly as a report-only security visibility layer.
 
-This PR must improve observability and static-analysis visibility only. It must not change product behavior, UI, runtime, API routes, DB, adapters, lockfiles or maturity claims.
+This PR must improve static security visibility only. It must not change product behavior, UI, runtime, API routes, DB, adapters, lockfiles or maturity claims.
 
 ## Allowed files
 
-- .github/workflows/qodana-platform-v7-report.yml
-- qodana.yaml
-- docs/platform-v7/qa/qodana-report-mode.md
+- .github/workflows/codeql-platform-v7-report.yml
+- docs/platform-v7/qa/codeql-report-mode.md
 
 ## Forbidden zones
 
@@ -29,15 +28,17 @@ This PR must improve observability and static-analysis visibility only. It must 
 
 ## Implement
 
-Create a Qodana report-mode workflow for platform-v7 quality visibility.
+Create a CodeQL workflow for platform-v7 security visibility in report-only mode.
 
 Requirements:
 - run on pull_request and workflow_dispatch;
-- do not block merges in this first Qodana PR;
+- use GitHub-native CodeQL action;
+- analyze JavaScript/TypeScript only;
+- do not block merges in this first CodeQL PR;
 - do not auto-fix code;
-- do not upload secrets or require live integration credentials;
+- do not require live integration credentials;
 - keep the check informational/report-only;
-- limit analysis intent to repository quality visibility and controlled-pilot hardening;
+- limit analysis intent to repository security visibility and controlled-pilot hardening;
 - document how findings must be triaged before any future hard gate.
 
 ## Required checks
@@ -52,4 +53,4 @@ Dependency Review may run, but this PR must not change dependency files.
 
 ## PR title
 
-ci(platform-v7): add qodana report-mode baseline
+ci(platform-v7): add codeql report-mode baseline

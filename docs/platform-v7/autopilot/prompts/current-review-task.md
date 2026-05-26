@@ -1,12 +1,11 @@
-# Review current task — Qodana #1423 CI-only report-mode baseline
+# Review current task — CodeQL #1434 GitHub-native security report-only baseline
 
 Maturity: controlled-pilot / pre-integration.
 
 ## Allowed files
 
-- .github/workflows/qodana-platform-v7-report.yml
-- qodana.yaml
-- docs/platform-v7/qa/qodana-report-mode.md
+- .github/workflows/codeql-platform-v7-report.yml
+- docs/platform-v7/qa/codeql-report-mode.md
 
 ## Forbidden zones
 
