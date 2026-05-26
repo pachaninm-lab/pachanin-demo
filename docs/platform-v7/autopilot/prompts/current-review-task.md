@@ -10,7 +10,7 @@ live integrations, API routes, UI, DB, AI gateway, onboarding or theme changes.
 
 ## Allowed files
 
-- apps/web/tests/integration/platformV7ExternalAdapterRuntimeQA.test.ts
+- apps/web/tests/unit/platformV7ExternalAdapterRuntimeQA.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md

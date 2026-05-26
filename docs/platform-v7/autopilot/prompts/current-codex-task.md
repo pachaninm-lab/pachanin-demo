@@ -23,7 +23,7 @@ zero `any`, idempotent, no network calls, no live external system claims.
 
 ## Allowed files
 
-- apps/web/tests/integration/platformV7ExternalAdapterRuntimeQA.test.ts
+- apps/web/tests/unit/platformV7ExternalAdapterRuntimeQA.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -46,7 +46,7 @@ zero `any`, idempotent, no network calls, no live external system claims.
 
 ## Implement
 
-The QA test file (`apps/web/tests/integration/platformV7ExternalAdapterRuntimeQA.test.ts`) must:
+The QA test file (`apps/web/tests/unit/platformV7ExternalAdapterRuntimeQA.test.ts`) must:
 
 - Be deterministic, fully typed (no `any`), DI-friendly.
 - Import and exercise all four emulators: BankAdapterEmulator, FgisAdapterEmulator,
