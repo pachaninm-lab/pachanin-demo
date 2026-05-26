@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "CodeQL — GitHub-native security report-only baseline",
+  "current": "CI speed baseline — concurrency, cache and timeouts",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -36,8 +36,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    ".github/workflows/codeql-platform-v7-report.yml",
-    "docs/platform-v7/qa/codeql-report-mode.md"
+    ".github/workflows",
+    "docs/platform-v7/qa/ci-speed-baseline.md"
   ],
   "forbiddenZones": [
     "apps/landing",
