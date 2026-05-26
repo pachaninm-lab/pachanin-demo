@@ -5,7 +5,7 @@ Review the diff, not the agent report. Human review and green checks are require
 
 ## Objective
 
-Verify that the autopilot state advances from merged PR 5.8 to PR 6.1 without starting implementation work.
+Verify that PR 6.1 defines the external adapter emulator contract boundary without starting implementation work.
 
 ## Allowed files
 
@@ -13,6 +13,7 @@ Verify that the autopilot state advances from merged PR 5.8 to PR 6.1 without st
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/autopilot/stage-6-adapter-emulator-contracts.md
 - docs/platform-v7/execution-queue.md
 
 ## Reject if changed
@@ -31,9 +32,11 @@ Verify that the autopilot state advances from merged PR 5.8 to PR 6.1 without st
 
 ## Review checks
 
-- PR 5.8 is listed as completed.
-- Current step is PR 6.1 — External Adapter Emulator Contracts.
-- Readiness is 48% and not higher.
+- PR 6.1 is contracts-only.
+- The contract document defines bank, FGIS/SDIZ, EDO, EPD/logistics and lab/inspection emulator boundaries.
+- The contract document defines a shared event envelope.
+- `external_confirmed` is reserved for future live integrations only.
+- Readiness remains 48% and not higher.
 - PR 6.2+ remains locked until PR 6.1 green and merged.
 - No Stage 6 implementation files are added or edited.
 - No UI, onboarding, theme, AI gateway, API, DB, runtime or live adapter work is included.

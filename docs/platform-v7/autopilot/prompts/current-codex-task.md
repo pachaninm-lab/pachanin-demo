@@ -10,12 +10,13 @@ Human review is required before merge.
 - docs/platform-v7/execution-queue.md
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/autopilot/stage-6-adapter-emulator-contracts.md
 
 ## Objective
 
-Prepare the Stage 6 contract-only entry point for external adapter emulators.
+Define the Stage 6 contract-only boundary for future external adapter emulators.
 
-This PR must not implement live integrations, API routes, DB persistence, UI, AI gateway, theme, onboarding, or adapter runtime behavior. It only advances the autopilot/state layer after PR 5.8 was merged green and defines the next reviewable work boundary.
+This PR must not implement live integrations, adapter runtime behavior, API routes, DB persistence, UI, AI gateway, theme or onboarding. It only documents the external-event contract envelope, adapter families, allowed maturity language and guardrails for the next Stage 6 implementation PRs.
 
 ## Allowed files
 
@@ -23,6 +24,7 @@ This PR must not implement live integrations, API routes, DB persistence, UI, AI
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/autopilot/stage-6-adapter-emulator-contracts.md
 - docs/platform-v7/execution-queue.md
 
 ## Forbidden zones
@@ -46,12 +48,14 @@ This PR must not implement live integrations, API routes, DB persistence, UI, AI
 
 Required changes:
 
-- Mark PR 5.8 as completed after green merge.
-- Set current step to PR 6.1 — External Adapter Emulator Contracts.
-- Set readiness to 48% and do not raise it higher in this PR.
+- Add a contracts-only document for Stage 6 external adapter emulator boundaries.
+- Define contract families for bank, FGIS/SDIZ, EDO, EPD/logistics and lab/inspection emulators.
+- Define a shared external adapter event envelope.
+- Keep `external_confirmed` reserved for future live integrations only.
+- Keep readiness at 48% and do not raise it in this PR.
 - Keep PR 6.2+ locked until PR 6.1 is green and merged.
-- Keep Stage 6 explicitly pre-integration: no live bank, FGIS, EDO, EPD or logistics access is claimed.
 - Keep maturity wording at controlled-pilot / pre-integration.
+- Do not introduce any live bank, FGIS, EDO, EPD, logistics, lab or production-ready claims.
 
 ## Tests / checks
 
@@ -65,4 +69,4 @@ Run through CI:
 
 ## PR title
 
-docs(platform-v7): bootstrap stage 6 autopilot
+docs(platform-v7): define stage 6 adapter emulator contracts
