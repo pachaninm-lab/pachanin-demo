@@ -1,6 +1,6 @@
-# Codex current task — PR 6.5 EPD / Logistics Adapter Emulator
+# Codex current task — PR 6.6 External Adapter Runtime QA
 
-Current step: PR 6.5 — EPD / Logistics Adapter Emulator.
+Current step: PR 6.6 — External Adapter Runtime QA.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -14,17 +14,16 @@ Human review is required before merge.
 
 ## Objective
 
-Implement a pre-integration EPD / logistics adapter emulator that models transport
-document and logistics event exchange without live EPD or logistics system connectivity.
+Implement cross-emulator integration QA tests that verify all four external adapter
+emulators (bank, FGIS, EDO, EPD/logistics) behave correctly in isolation and in
+combination without live connectivity.
 
-Follow the same patterns established in PR 6.2 (bank-adapter-emulator.ts),
-PR 6.3 (fgis-adapter-emulator.ts), and PR 6.4 (edo-adapter-emulator.ts):
-deterministic, DI-friendly, zero `any`, idempotent, satisfies interface.
+Follow the same patterns established in PR 6.2–6.5: deterministic, DI-friendly,
+zero `any`, idempotent, no network calls, no live external system claims.
 
 ## Allowed files
 
-- apps/web/lib/platform-v7/epd-adapter-emulator.ts
-- apps/web/tests/unit/platformV7EpdAdapterEmulator.test.ts
+- apps/web/tests/integration/platformV7ExternalAdapterRuntimeQA.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -47,58 +46,43 @@ deterministic, DI-friendly, zero `any`, idempotent, satisfies interface.
 
 ## Implement
 
-The EPD adapter emulator (`apps/web/lib/platform-v7/epd-adapter-emulator.ts`) must:
+The QA test file (`apps/web/tests/integration/platformV7ExternalAdapterRuntimeQA.test.ts`) must:
 
-- Be deterministic, fully typed (no `any`), DI-friendly, idempotent.
-- Model transport document and logistics events without claiming live EPD or logistics connectivity.
-- Include `EpdAdapterEmulatorConfig`, `EpdAdapterEmulator` class and
-  `createEpdAdapterEmulator` factory.
-- Logistics events must not override evidence, quality, document or bank gates
-  without explicit domain rules.
+- Be deterministic, fully typed (no `any`), DI-friendly.
+- Import and exercise all four emulators: BankAdapterEmulator, FgisAdapterEmulator,
+  EdoAdapterEmulator, EpdAdapterEmulator.
+- Verify event envelope fields: source, receivedAt, correlationId, externalStatus,
+  maturity, payload.
+- Verify maturity is always "pre-integration" on all emulators.
+- Verify idempotency across all emulators.
+- Verify failure injection (manualReview, timeout, rejected, conflict) across all emulators.
+- Verify state machine lifecycles: bank reserve→hold→release chain,
+  FGIS party_link→sdiz chain, EDO draft→sent→signed chain, EPD draft→sent→confirmed chain.
+- Verify cross-emulator deal scenario: a deal that requires all four adapter events.
+- No live external system claims in any test assertion or description.
+- No network calls.
 
-Required event types (from stage-6-adapter-emulator-contracts.md):
+## Cross-emulator deal scenario
 
-- epd_draft_created
-- epd_sent
-- epd_confirmed
-- epd_rejected
-- trip_event_received
-- route_deviation_received
-- arrival_confirmed
-- manual_review
+Model a complete deal flow using all four emulators for the same dealId:
+1. Bank: reserve_requested → reserve_confirmed
+2. FGIS: party_link_requested → party_linked → sdiz_draft_created → sdiz_signed
+3. EDO: document_draft_created → document_sent → document_signed_by_all_sides
+4. EPD: epd_draft_created → epd_sent → epd_confirmed → trip_event_received → arrival_confirmed
 
-Required failure states:
-
-- rejected
-- conflict
-- manual_review
-- timeout
-- invalid_payload
-
-Required event envelope fields:
-
-- source: "epd_emulator"
-- receivedAt: ISO string
-- correlationId: string
-- externalStatus: EpdEventType | EpdFailureState
-- maturity: "pre-integration"
-- payload: typed (dealId, tripId?, documentId?, reason?)
-
-State machine constraints:
-
-- epd_sent requires prior epd_draft_created.
-- epd_confirmed requires prior epd_sent.
-- epd_rejected requires prior epd_sent.
-- arrival_confirmed requires prior trip_event_received.
-- Unknown correlationId for state-dependent events → invalid_payload.
-- Duplicate (eventType, correlationId) → idempotent.
+Verify: all events reference the same dealId, all have maturity "pre-integration",
+no event claims live connectivity.
 
 ## Tests
 
-Required test cases: determinism, idempotency, lifecycle state machine,
-invalid_payload for missing prior step, all failure states via config,
-no live EPD claim (maturity always "pre-integration"), no network calls,
-full event type coverage.
+Required test cases:
+- All four emulators instantiate and reset correctly.
+- Envelope fields correct on each emulator.
+- Idempotency on each emulator.
+- Failure injection on each emulator.
+- State machine for each emulator.
+- Cross-emulator deal scenario.
+- No live external claim across all emulators (check serialized events for forbidden phrases).
 
 ## Readiness
 
@@ -106,4 +90,4 @@ Keep `fullTzReadinessPercent` at 60. Do not raise it.
 
 ## PR title
 
-feat(platform-v7): add EPD / logistics adapter emulator
+feat(platform-v7): external adapter runtime QA — cross-emulator integration tests
