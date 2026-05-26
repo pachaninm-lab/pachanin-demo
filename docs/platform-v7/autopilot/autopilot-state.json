@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "CodeQL #1434 — GitHub-native security report-only baseline",
+  "current": "CI speed baseline — workflow concurrency, cache and timeouts",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -27,7 +27,8 @@
     "PR 7.2 — AI Gateway Provider Port",
     "PR 7.3 — AI Gateway Mock Provider",
     "PR 7.4 — AI Gateway Runtime QA",
-    "Qodana #1423 — CI-only report-mode baseline"
+    "Qodana #1423 — CI-only report-mode baseline",
+    "CodeQL #1434 — GitHub-native security report-only baseline"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -36,8 +37,9 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    ".github/workflows/codeql-platform-v7-report.yml",
-    "docs/platform-v7/qa/codeql-report-mode.md"
+    ".github/workflows/node-ci.yml",
+    ".github/workflows/ci.yml",
+    "docs/platform-v7/qa/ci-speed-baseline.md"
   ],
   "forbiddenZones": [
     "apps/landing",
