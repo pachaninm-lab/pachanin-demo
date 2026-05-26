@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 7.3 — AI Gateway Mock Provider",
+  "current": "PR 7.4 — AI Gateway Runtime QA",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -24,10 +24,10 @@
     "PR 6.5 — EPD / Logistics Adapter Emulator",
     "PR 6.6 — External Adapter Runtime QA",
     "PR 7.1 — AI Gateway Contracts",
-    "PR 7.2 — AI Gateway Provider Port"
+    "PR 7.2 — AI Gateway Provider Port",
+    "PR 7.3 — AI Gateway Mock Provider"
   ],
   "lockedUntilCurrentGreen": [
-    "PR 7.4 — AI Gateway Runtime QA",
     "Product Entry / Onboarding",
     "Theme / Visual",
     "Role Cockpit / UX"
@@ -38,8 +38,7 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/web/lib/platform-v7/ai/gateway-mock-provider.ts",
-    "apps/web/tests/unit/platformV7AiGatewayMockProvider.test.ts"
+    "apps/web/tests/unit/platformV7AiGatewayRuntimeQa.test.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
