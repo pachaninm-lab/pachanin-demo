@@ -1,14 +1,17 @@
 {
-  "project": "platform-v7",
+  "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
   "currentStep": "Workflow maintenance baseline",
-  "lastCompletedStep": "Qodana report-mode baseline",
+  "lastCompletedStep": "Qodana #1423 — CI-only report-mode baseline",
   "openPr": null,
   "blockedBy": [],
   "nextStep": "Workflow maintenance baseline",
   "updatedAt": "2026-05-27T00:00:00.000Z",
   "rules": {
     "noAppsLanding": true,
-    "controlledPilotOnly": true
+    "noFakeLiveClaims": true,
+    "noAutoMerge": true,
+    "controlledPilotOnly": true,
+    "noProductCodeChanges": true
   }
 }
