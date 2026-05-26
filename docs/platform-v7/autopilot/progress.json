@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 48,
-  "currentStep": "PR 6.1 — External Adapter Emulator Contracts",
-  "lastCompletedStep": "PR 5.8 — Stage 5 Stability Wiring",
+  "currentStep": "PR 6.2 — Bank Adapter Emulator",
+  "lastCompletedStep": "PR 6.1 — External Adapter Emulator Contracts",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "PR 6.1 — External Adapter Emulator Contracts",
-  "updatedAt": "2026-05-26T00:00:00.000Z",
+  "nextStep": "PR 6.2 — Bank Adapter Emulator",
+  "updatedAt": "2026-05-26T05:00:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
