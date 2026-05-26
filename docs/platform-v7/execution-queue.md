@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: PR 6.6 — External Adapter Runtime QA
+CURRENT: PR 7.1 — AI Gateway Contracts
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -19,9 +19,12 @@ DONE:
 - PR 6.3 — FGIS Adapter Emulator
 - PR 6.4 — EDO Adapter Emulator
 - PR 6.5 — EPD / Logistics Adapter Emulator
+- PR 6.6 — External Adapter Runtime QA
 
-LOCKED UNTIL 6.6 GREEN:
-- AI Gateway
+LOCKED UNTIL 7.1 GREEN:
+- PR 7.2 — AI Gateway Provider Port
+- PR 7.3 — AI Gateway Mock Provider
+- PR 7.4 — AI Gateway Runtime QA
 - Product Entry / Onboarding
 - Theme / Visual
 - Role Cockpit / UX
@@ -29,18 +32,18 @@ LOCKED UNTIL 6.6 GREEN:
 ACTIVE RULES:
 - Do not rewrite platform-v7 from scratch.
 - Do not touch apps/landing.
-- Do not start UI, onboarding, visual polish, AI gateway or theme-pass during PR 6.6.
-- PR 6.6 is External Adapter Runtime QA only: cross-emulator integration tests for bank, FGIS, EDO and EPD emulators.
+- Do not start UI, onboarding, visual polish, AI gateway implementation, provider runtime or theme-pass during PR 7.1.
+- PR 7.1 is contracts-only: define AI gateway boundaries, safety terms and review rules without implementing AI runtime behavior.
 - Keep maturity wording at controlled-pilot / pre-integration.
-- Do not overstate external connection status or product maturity.
+- Do not overstate external connection status, AI capability status or product maturity.
 - One PR = one narrow reviewable layer.
-- External adapter emulators must remain explicitly pre-integration and must not imply live bank, FGIS, EDO, EPD or logistics access.
+- AI Gateway must remain explicitly pre-integration and must not imply live provider access, automated decisions, guarantees or binding actions.
 
 NEXT AUTOPILOT STEP:
-- Prepare PR 6.6 — External Adapter Runtime QA.
+- Prepare PR 7.1 — AI Gateway Contracts.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
-- Do not advance to AI Gateway until PR 6.6 is green, reviewed and merged.
+- Do not advance to PR 7.2 until PR 7.1 is green, reviewed and merged.
 
 AUTOPILOT STATE RULES:
 - The dispatcher may generate prompts and progress from state and queue.
