@@ -2,18 +2,18 @@
 
 Status: controlled-pilot / pre-integration.
 
-This document defines the intended first GitHub-native CodeQL layer for platform-v7. The goal is security visibility only. This layer must not change product behavior, UI, API routes, runtime logic, database shape, adapters, lockfiles or maturity claims.
+This document defines the first GitHub-native CodeQL layer for platform-v7. The goal is security visibility only. This layer must not change product behavior, UI, API routes, runtime logic, database shape, adapters, lockfiles or maturity claims.
 
-## Intended scope
+## Scope
 
-The first CodeQL PR may add only:
+The first CodeQL PR adds only:
 
 - `.github/workflows/codeql-platform-v7-report.yml`
 - `docs/platform-v7/qa/codeql-report-mode.md`
 
 ## Report-mode rule
 
-The first CodeQL workflow must be informational only:
+The first CodeQL workflow is informational only:
 
 - no hard gate;
 - no auto-fix;
@@ -25,16 +25,16 @@ The first CodeQL workflow must be informational only:
 
 CodeQL findings are treated as a report until reviewed and grouped by risk.
 
-## Required workflow behavior
+## Workflow behavior
 
-The workflow should:
+The workflow:
 
-- run on `pull_request` and `workflow_dispatch`;
-- use GitHub-native CodeQL actions;
-- analyze JavaScript / TypeScript only;
-- use `build-mode: none` for this first baseline;
-- keep `continue-on-error: true` for the first report-mode layer;
-- use read-only repository permissions plus `security-events: write` for SARIF upload if repository policy allows it.
+- runs on `pull_request` and `workflow_dispatch`;
+- uses GitHub-native CodeQL actions;
+- analyzes JavaScript / TypeScript only;
+- uses `build-mode: none` for this first baseline;
+- keeps `continue-on-error: true` for the first report-mode layer;
+- uses read-only repository permissions plus `security-events: write` for SARIF upload if repository policy allows it.
 
 ## Triage order
 
@@ -48,7 +48,7 @@ Findings must be grouped before any future enforcement:
 6. Maintainability and dead-code findings.
 7. Style-only findings.
 
-## Merge rule for the implementation layer
+## Merge rule
 
 Merge only if:
 
@@ -59,6 +59,6 @@ Merge only if:
 - CodeQL is not required as a blocking check;
 - maturity remains controlled-pilot / pre-integration.
 
-## Current blocker
+## Completion rule
 
-Creating `.github/workflows/codeql-platform-v7-report.yml` may require workflow-write permission or a manual GitHub UI step depending on connector safety policy. If workflow file creation is blocked, do not mark CodeQL as complete. Keep the step open until the workflow file is added and checks pass.
+This layer is complete only after the workflow file is present, checks are green, scope is clean and the PR is merged.
