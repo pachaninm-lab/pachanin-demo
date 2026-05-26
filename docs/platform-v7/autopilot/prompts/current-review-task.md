@@ -1,10 +1,13 @@
 # Review current task — PR 7.2 AI Gateway Provider Port
 
 Maturity: controlled-pilot / pre-integration.
+Review the diff, not the agent report. Human review and green checks are required before merge.
 
 ## Objective
 
 Verify a minimal TypeScript provider port implementation after PR 7.1 (AI Gateway Contracts).
+
+This PR combines state advance and the minimal provider port only because the guard reads allowed scope from the PR branch source-of-truth. Treat this as a high-risk exception and block merge unless every gate below is green.
 
 ## Allowed files
 
@@ -19,6 +22,8 @@ Verify a minimal TypeScript provider port implementation after PR 7.1 (AI Gatewa
 
 ## Review checks
 
+- Changed files exactly match the allowed files list.
+- `apps/landing` diff is 0.
 - Current step is PR 7.2 — AI Gateway Provider Port.
 - PR 7.1 is listed as completed in lastClosed.
 - Readiness is 64% and not higher.
@@ -29,7 +34,7 @@ Verify a minimal TypeScript provider port implementation after PR 7.1 (AI Gatewa
 - `DisabledGatewayProvider.execute()` returns a correctly shaped disabled response with `result: null`, `confidence: 0`, non-empty `limitations`, and `auditContext.providerId === "disabled"`.
 - `GATEWAY_MATURITY === "pre-integration"`.
 - No live provider credentials, tokens, or external AI service calls.
-- All forbidden claims absent from exported values.
+- All forbidden claims absent from exported values, docs and PR body.
 
 ## Required checks
 
@@ -40,5 +45,11 @@ Verify a minimal TypeScript provider port implementation after PR 7.1 (AI Gatewa
 - Labeler
 
 ## Output
+
+BLOCKERS
+- ...
+
+REQUIRED FIXES
+- ...
 
 MERGEABLE: yes/no
