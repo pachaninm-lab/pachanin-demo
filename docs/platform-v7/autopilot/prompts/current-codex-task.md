@@ -1,6 +1,6 @@
-# Codex current task — PR 6.3 FGIS Adapter Emulator
+# Codex current task — PR 6.4 EDO Adapter Emulator
 
-Current step: PR 6.3 — FGIS Adapter Emulator.
+Current step: PR 6.4 — EDO Adapter Emulator.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -14,21 +14,17 @@ Human review is required before merge.
 
 ## Objective
 
-Implement a pre-integration FGIS/SDIZ adapter emulator that models party
-traceability, SDIZ status, redemption and error/manual review states without
-live FGIS connectivity.
+Implement a pre-integration EDO adapter emulator that models legally significant
+document exchange lifecycle events without live EDO connectivity.
 
-This PR must not add API routes, wire UI, change runtime behavior, touch
-DB/migrations, touch AI gateway, or claim live FGIS/SDIZ integration. It only
-implements the deterministic emulator TypeScript module and its focused unit tests.
-
-Follow the same patterns established in PR 6.2 (bank-adapter-emulator.ts):
-- deterministic, DI-friendly, zero `any`, idempotent, satisfies interface.
+Follow the same patterns established in PR 6.2 (bank-adapter-emulator.ts)
+and PR 6.3 (fgis-adapter-emulator.ts): deterministic, DI-friendly, zero `any`,
+idempotent, satisfies interface.
 
 ## Allowed files
 
-- apps/web/lib/platform-v7/fgis-adapter-emulator.ts
-- apps/web/tests/unit/platformV7FgisAdapterEmulator.test.ts
+- apps/web/lib/platform-v7/edo-adapter-emulator.ts
+- apps/web/tests/unit/platformV7EdoAdapterEmulator.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -47,35 +43,27 @@ Follow the same patterns established in PR 6.2 (bank-adapter-emulator.ts):
 - apps/web/lib/platform-v7/runtime
 - package-lock.json
 - pnpm-lock.yaml
-- theme
-- onboarding
-- UI components/routes
+- theme / onboarding / UI components/routes
 
 ## Implement
 
-The FGIS adapter emulator (`apps/web/lib/platform-v7/fgis-adapter-emulator.ts`) must:
+The EDO adapter emulator (`apps/web/lib/platform-v7/edo-adapter-emulator.ts`) must:
 
-- Be deterministic: same input → same output.
-- Be fully typed in TypeScript with no `any`.
-- Be dependency-injection friendly: accept a seed/config, no hidden singleton state.
-- Support idempotency via correlation IDs.
-- Model FGIS/SDIZ event statuses without claiming live FGIS connection.
-- Preserve the rule: FGIS/SDIZ status affects deal readiness only through
-  explicit status and blocker mapping — not through live system calls.
-- Include a `FgisAdapterEmulatorConfig` type.
-- Include a `FgisAdapterEmulator` class and `createFgisAdapterEmulator` factory.
+- Be deterministic, fully typed (no `any`), DI-friendly, idempotent.
+- Model document exchange without claiming live EDO connectivity.
+- Include `EdoAdapterEmulatorConfig`, `EdoAdapterEmulator` class and
+  `createEdoAdapterEmulator` factory.
+- Documents must remain tied to deal, role, responsible party, blocker level
+  and money impact (through status, not through live calls).
 
 Required event types (from stage-6-adapter-emulator-contracts.md):
 
-- party_link_requested
-- party_linked
-- sdiz_draft_created
-- sdiz_ready_to_sign
-- sdiz_signed
-- sdiz_sent
-- sdiz_redeemed
-- sdiz_partially_redeemed
-- sdiz_error
+- document_draft_created
+- document_sent
+- document_signed_by_one_side
+- document_signed_by_all_sides
+- document_rejected
+- document_revoked
 - manual_review
 
 Required failure states:
@@ -88,52 +76,33 @@ Required failure states:
 
 Required event envelope fields:
 
-- source: "fgis_emulator"
+- source: "edo_emulator"
 - receivedAt: ISO string
 - correlationId: string
-- externalStatus: FgisEventType | FgisFailureState
+- externalStatus: EdoEventType | EdoFailureState
 - maturity: "pre-integration"
-- payload: typed (dealId, sdizId?, partyInn?, reason?)
+- payload: typed (dealId, documentId?, documentType?, reason?)
 
 State machine constraints:
 
-- party_linked requires prior party_link_requested with same correlationId.
-- sdiz_ready_to_sign requires prior sdiz_draft_created.
-- sdiz_signed requires prior sdiz_ready_to_sign.
-- sdiz_sent requires prior sdiz_signed.
-- sdiz_redeemed / sdiz_partially_redeemed require prior sdiz_sent.
+- document_sent requires prior document_draft_created.
+- document_signed_by_one_side requires prior document_sent.
+- document_signed_by_all_sides requires prior document_signed_by_one_side.
+- document_rejected / document_revoked require prior document_sent.
 - Unknown correlationId for state-dependent events → invalid_payload.
-- Duplicate correlationId for same event type → idempotent.
+- Duplicate (eventType, correlationId) → idempotent.
 
 ## Tests
 
-Required test cases:
-
-- Determinism
-- Idempotency
-- State machine: each confirmation requires prior step
-- Invalid payload: missing prior step → invalid_payload
-- Manual review and sdiz_error states
-- No live FGIS claim: maturity always "pre-integration"
-- No network calls
-- All required event types covered
+Required test cases: determinism, idempotency, lifecycle state machine,
+invalid_payload for missing prior step, all failure states via config,
+no live EDO claim (maturity always "pre-integration"), no network calls,
+full event type coverage.
 
 ## Readiness
 
-Keep `fullTzReadinessPercent` at 52 in this PR. Do not raise it.
-
-## Tests / checks
-
-Run through CI:
-
-- platform-v7 autopilot guard
-- pnpm typecheck
-- pnpm test
-- Node CI
-- CI
-- Repo automations
-- Labeler
+Keep `fullTzReadinessPercent` at 56. Do not raise it.
 
 ## PR title
 
-feat(platform-v7): add FGIS adapter emulator
+feat(platform-v7): add EDO adapter emulator
