@@ -1,6 +1,6 @@
-# Codex current task — PR 7.2 AI Gateway Provider Port
+# Codex current task — PR 7.3 AI Gateway Mock Provider
 
-Current step: PR 7.2 — AI Gateway Provider Port.
+Current step: PR 7.3 — AI Gateway Mock Provider.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -14,15 +14,14 @@ Human review is required before merge.
 
 ## Objective
 
-Define the AI gateway provider port as a deterministic TypeScript interface after PR 7.1 (AI Gateway Contracts) was committed to main.
+Implement a deterministic pre-integration mock provider behind the existing AI gateway provider port.
 
-This PR must not implement a live AI provider, make external calls, add API routes, touch DB, or touch UI. It only defines the typed port interface, request/response envelope, and a disabled-live-provider default state.
+This PR must not implement a live AI provider, make external calls, add API routes, touch DB, or touch UI. It only adds the mock provider and focused tests.
 
 ## Allowed files
 
-- apps/web/lib/platform-v7/ai/gateway-provider-port.ts
-- apps/web/lib/platform-v7/ai/gateway-envelope.ts
-- apps/web/tests/unit/platformV7AiGatewayProviderPort.test.ts
+- apps/web/lib/platform-v7/ai/gateway-mock-provider.ts
+- apps/web/tests/unit/platformV7AiGatewayMockProvider.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -40,40 +39,38 @@ This PR must not implement a live AI provider, make external calls, add API rout
 - apps/web/lib/platform-v7/runtime
 - package-lock.json
 - pnpm-lock.yaml
-- Any live provider runtime, API key usage, or external AI service calls
+- live provider runtime
+- API key usage
+- external AI service calls
 
 ## Implement
 
-Create `apps/web/lib/platform-v7/ai/gateway-envelope.ts` and define:
+Create `apps/web/lib/platform-v7/ai/gateway-mock-provider.ts`.
 
-- `GatewayMaturity` type alias: `"pre-integration"`.
-- `GatewayRole` union type for allowed roles (e.g. `"seller" | "buyer" | "operator" | "bank" | "support"`).
-- `GatewayScope` union type for allowed scopes (e.g. `"hint" | "summary" | "blocker_explanation" | "next_action" | "evidence_summary" | "triage"`).
-- `GatewayIdempotencyKey` type alias: `string`.
-- `GatewayAuditContext` interface: `{ providerId: string; executedAt: string; }`.
-- `GatewayRequest` interface with: `requestId: string`, `dealId: string`, `role: GatewayRole`, `scope: GatewayScope`, `maturity: GatewayMaturity`, `idempotencyKey: GatewayIdempotencyKey`, `inputSnapshot: Record<string, unknown>`.
-- `GatewayResponse` interface with: `result: string | null`, `confidence: number`, `limitations: string[]`, `auditContext: GatewayAuditContext`.
+Required behavior:
 
-Create `apps/web/lib/platform-v7/ai/gateway-provider-port.ts` and define:
+- imports `GatewayProviderPort`, `GatewayRequest`, `GatewayResponse`, `GATEWAY_MATURITY` from the provider port layer;
+- exports `MockGatewayProvider` implementing `GatewayProviderPort`;
+- deterministic response based only on request fields;
+- no network calls;
+- no credentials;
+- no global mutable singleton state;
+- no binding decisions;
+- returns `maturity: "pre-integration"` through existing envelope conventions;
+- supports scopes: `hint`, `summary`, `blocker_explanation`, `next_action`, `evidence_summary`, `triage`;
+- always includes limitations explaining that output requires human review and cannot override bank/document/logistics statuses.
 
-- `GATEWAY_MATURITY: GatewayMaturity = "pre-integration"` constant.
-- `GatewayProviderPort` interface with a single `execute(req: GatewayRequest): Promise<GatewayResponse>` method.
-- `DisabledGatewayProvider` class implementing `GatewayProviderPort` that:
-  - never throws;
-  - returns `{ result: null, confidence: 0, limitations: ["provider not configured — requires credentials and live integration"], auditContext: { providerId: "disabled", executedAt: new Date().toISOString() } }`;
-  - has `readonly maturity: GatewayMaturity = "pre-integration"`.
+Create `apps/web/tests/unit/platformV7AiGatewayMockProvider.test.ts` and verify:
 
-Create `apps/web/tests/unit/platformV7AiGatewayProviderPort.test.ts` and verify:
-
-- `DisabledGatewayProvider.execute()` resolves without throwing.
-- `DisabledGatewayProvider.execute()` returns `result: null`.
-- `DisabledGatewayProvider.execute()` returns `confidence: 0`.
-- `DisabledGatewayProvider.execute()` returns `limitations` array with at least one entry.
-- `DisabledGatewayProvider.execute()` returns `auditContext.providerId === "disabled"`.
-- `DisabledGatewayProvider.execute()` returns `auditContext.executedAt` as a valid ISO string.
-- `GATEWAY_MATURITY === "pre-integration"`.
-- `DisabledGatewayProvider.maturity === "pre-integration"`.
-- Forbidden claims absent from all module exports (no "production-ready", "fully live", "AI makes binding decisions", "AI gateway is live").
+- provider resolves for every allowed scope;
+- response is deterministic for the same request;
+- response carries non-empty limitations;
+- response confidence is bounded from 0 to 1;
+- provider does not use network APIs;
+- provider output does not contain forbidden claims;
+- no claim that AI makes binding decisions;
+- no claim that AI gateway is live;
+- no claim that platform releases money or guarantees payment.
 
 ## Tests / checks
 
@@ -87,4 +84,4 @@ Run through CI:
 
 ## PR title
 
-feat(platform-v7): add ai gateway provider port
+feat(platform-v7): add ai gateway mock provider
