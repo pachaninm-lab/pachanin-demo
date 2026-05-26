@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: PR 7.4 — AI Gateway Runtime QA
+CURRENT: Qodana #1423 — CI-only report-mode baseline
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -23,20 +23,24 @@ DONE:
 - PR 7.1 — AI Gateway Contracts
 - PR 7.2 — AI Gateway Provider Port
 - PR 7.3 — AI Gateway Mock Provider
+- PR 7.4 — AI Gateway Runtime QA
 
-LOCKED UNTIL 7.4 GREEN:
+LOCKED UNTIL QODANA REPORT-MODE BASELINE GREEN:
 - Product Entry / Onboarding
 - Theme / Visual
 - Role Cockpit / UX
+- Backend / DB / runtime persistence expansion
 
 NEXT AUTOPILOT STEP:
-- Implement PR 7.4 — AI Gateway Runtime QA.
+- Implement Qodana #1423 only as a CI-only report-mode baseline.
+- Do not hard-gate the first Qodana PR.
+- Do not auto-fix issues in the first Qodana PR.
+- Do not touch product code, UI, API routes, DB, runtime, adapters or lockfiles.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
-- Do not advance beyond PR 7.4 until PR 7.4 is green, reviewed and merged.
 
 RULES:
 - Do not touch apps/landing.
-- Do not start UI, onboarding, visual polish, API routes, DB work or theme-pass during PR 7.4.
 - Keep maturity wording at controlled-pilot / pre-integration.
 - One PR = one narrow reviewable layer.
+- Live integrations remain out of scope until credentials, agreements and explicit approval exist.
