@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Qodana #1423 — CI-only report-mode baseline",
+  "current": "PR 8.1 — Integration Readiness Matrix QA",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -26,24 +26,29 @@
     "PR 7.1 — AI Gateway Contracts",
     "PR 7.2 — AI Gateway Provider Port",
     "PR 7.3 — AI Gateway Mock Provider",
-    "PR 7.4 — AI Gateway Runtime QA"
+    "PR 7.4 — AI Gateway Runtime QA",
+    "Qodana #1423 — CI-only report-mode baseline"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
     "Theme / Visual",
-    "Role Cockpit / UX"
+    "Role Cockpit / UX",
+    "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    ".github/workflows/qodana-platform-v7-report.yml",
-    "qodana.yaml",
-    "docs/platform-v7/qa/qodana-report-mode.md"
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/progress.json",
+    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md",
+    "docs/platform-v7/execution-queue.md",
+    "docs/platform-v7/integrations/integration-readiness-matrix.md",
+    "apps/web/tests/unit/platformV7IntegrationReadinessMatrix.test.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
     "apps/web/app/platform-v7",
     "apps/web/components/platform-v7",
     "apps/web/components/v7r",
-    "apps/web/lib/platform-v7",
     "apps/web/app/api",
     "package.json",
     "package-lock.json",
