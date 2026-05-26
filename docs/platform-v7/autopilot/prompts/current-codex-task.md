@@ -1,18 +1,22 @@
-# Codex current task — CodeQL #1434 GitHub-native security report-only baseline
+# Codex current task — CI Speed #1436 GitHub Actions speed baseline
 
-Current step: CodeQL #1434 — GitHub-native security report-only baseline.
+Current step: CI Speed #1436 — GitHub Actions speed baseline.
 Maturity: controlled-pilot / pre-integration.
 
 ## Objective
 
-Add the first GitHub-native CodeQL baseline strictly as a report-only security visibility layer.
+Improve GitHub Actions speed and stability without changing product behavior.
 
-This PR must improve static security visibility only. It must not change product behavior, UI, runtime, API routes, DB, adapters, lockfiles or maturity claims.
+This PR must improve CI execution only. It must not change product behavior, UI, runtime, API routes, DB, adapters, lockfiles or maturity claims.
 
 ## Allowed files
 
+- .github/workflows/ci.yml
+- .github/workflows/node-ci.yml
+- .github/workflows/platform-v7-autopilot-guard.yml
+- .github/workflows/qodana-platform-v7-report.yml
 - .github/workflows/codeql-platform-v7-report.yml
-- docs/platform-v7/qa/codeql-report-mode.md
+- docs/platform-v7/qa/ci-speed-baseline.md
 
 ## Forbidden zones
 
@@ -28,18 +32,16 @@ This PR must improve static security visibility only. It must not change product
 
 ## Implement
 
-Create a CodeQL workflow for platform-v7 security visibility in report-only mode.
+Add a safe CI speed/stability baseline.
 
 Requirements:
-- run on pull_request and workflow_dispatch;
-- use GitHub-native CodeQL action;
-- analyze JavaScript/TypeScript only;
-- do not block merges in this first CodeQL PR;
-- do not auto-fix code;
-- do not require live integration credentials;
-- keep the check informational/report-only;
-- limit analysis intent to repository security visibility and controlled-pilot hardening;
-- document how findings must be triaged before any future hard gate.
+- add `concurrency` / `cancel-in-progress` where safe;
+- add explicit job timeouts where missing;
+- use pnpm cache through setup-node where already compatible;
+- do not introduce new required dependencies;
+- do not change scripts, tests or product files;
+- keep Qodana and CodeQL informational/report-only;
+- document the CI speed baseline and future triage.
 
 ## Required checks
 
@@ -48,9 +50,10 @@ Requirements:
 - CI
 - Repo automations
 - Labeler
-
-Dependency Review may run, but this PR must not change dependency files.
+- Dependency Review
+- Qodana platform-v7 report
+- CodeQL platform-v7 report
 
 ## PR title
 
-ci(platform-v7): add codeql report-mode baseline
+ci(platform-v7): add actions speed baseline

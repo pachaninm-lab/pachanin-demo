@@ -1,18 +1,18 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "CodeQL #1434 — GitHub-native security report-only baseline",
-  "lastCompletedStep": "Qodana #1423 — CI-only report-mode baseline",
+  "currentStep": "CI Speed #1436 — GitHub Actions speed baseline",
+  "lastCompletedStep": "CodeQL #1434 — GitHub-native security report-only baseline",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "CodeQL #1434 — GitHub-native security report-only baseline",
-  "updatedAt": "2026-05-27T05:50:00.000Z",
+  "nextStep": "CI Speed #1436 — GitHub Actions speed baseline",
+  "updatedAt": "2026-05-27T06:10:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
     "controlledPilotOnly": true,
-    "securityToolsReportOnlyFirst": true,
-    "noHardGateForFirstCodeqlPr": true
+    "ciSpeedOnly": true,
+    "noProductCodeForCiSpeedBaseline": true
   }
 }
