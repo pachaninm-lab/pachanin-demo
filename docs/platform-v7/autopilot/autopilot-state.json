@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 7.1 — AI Gateway Contracts",
+  "current": "PR 7.2 — AI Gateway Provider Port",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -22,10 +22,10 @@
     "PR 6.3 — FGIS Adapter Emulator",
     "PR 6.4 — EDO Adapter Emulator",
     "PR 6.5 — EPD / Logistics Adapter Emulator",
-    "PR 6.6 — External Adapter Runtime QA"
+    "PR 6.6 — External Adapter Runtime QA",
+    "PR 7.1 — AI Gateway Contracts"
   ],
   "lockedUntilCurrentGreen": [
-    "PR 7.2 — AI Gateway Provider Port",
     "PR 7.3 — AI Gateway Mock Provider",
     "PR 7.4 — AI Gateway Runtime QA",
     "Product Entry / Onboarding",
@@ -38,7 +38,9 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "docs/platform-v7/autopilot/stage-7-ai-gateway-contracts.md"
+    "apps/web/lib/platform-v7/ai/gateway-provider-port.ts",
+    "apps/web/lib/platform-v7/ai/gateway-envelope.ts",
+    "apps/web/tests/unit/platformV7AiGatewayProviderPort.test.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -46,10 +48,8 @@
     "apps/web/components/platform-v7",
     "apps/web/components/v7r",
     "apps/web/lib/platform-v7/adapters",
-    "apps/web/lib/platform-v7/ai",
     "apps/web/app/api",
     "apps/web/lib/platform-v7/runtime",
-    "apps/web/tests/unit",
     "package-lock.json",
     "pnpm-lock.yaml"
   ],

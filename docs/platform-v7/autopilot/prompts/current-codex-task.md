@@ -1,6 +1,6 @@
-# Codex current task — PR 7.1 AI Gateway Contracts
+# Codex current task — PR 7.2 AI Gateway Provider Port
 
-Current step: PR 7.1 — AI Gateway Contracts.
+Current step: PR 7.2 — AI Gateway Provider Port.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -14,13 +14,15 @@ Human review is required before merge.
 
 ## Objective
 
-Define the contracts-only boundary for future AI Gateway work after PR 6.6 was merged green.
+Define the AI gateway provider port as a deterministic TypeScript interface after PR 7.1 (AI Gateway Contracts) was committed to main.
 
-This PR must not implement AI runtime behavior, provider calls, API routes, DB persistence, UI, onboarding, theme, role cockpit UX, or live integrations. It only creates the Stage 7 AI Gateway contract document and synchronizes autopilot state so the dispatcher does not repeat PR 6.6.
+This PR must not implement a live AI provider, make external calls, add API routes, touch DB, or touch UI. It only defines the typed port interface, request/response envelope, and a disabled-live-provider default state.
 
 ## Allowed files
 
-- docs/platform-v7/autopilot/stage-7-ai-gateway-contracts.md
+- apps/web/lib/platform-v7/ai/gateway-provider-port.ts
+- apps/web/lib/platform-v7/ai/gateway-envelope.ts
+- apps/web/tests/unit/platformV7AiGatewayProviderPort.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -34,32 +36,44 @@ This PR must not implement AI runtime behavior, provider calls, API routes, DB p
 - apps/web/components/platform-v7
 - apps/web/components/v7r
 - apps/web/lib/platform-v7/adapters
-- apps/web/lib/platform-v7/ai
 - apps/web/app/api
 - apps/web/lib/platform-v7/runtime
-- apps/web/tests/unit
 - package-lock.json
 - pnpm-lock.yaml
-- theme / onboarding / UI components/routes
+- Any live provider runtime, API key usage, or external AI service calls
 
 ## Implement
 
-Create `docs/platform-v7/autopilot/stage-7-ai-gateway-contracts.md` and define:
+Create `apps/web/lib/platform-v7/ai/gateway-envelope.ts` and define:
 
-- AI Gateway purpose and strict non-production maturity boundary.
-- Allowed future capabilities as contracts only: role-aware suggestions, document/checklist review, blocker explanation, next-action drafting, evidence-pack summarization.
-- Hard safety rules: no binding decisions, no money release, no external submissions, no live provider claims, no legal/financial final advice, no hidden autonomous actions.
-- Required provider boundary: deterministic interface, typed request/response envelope, idempotency key, audit context, role scope, maturity flag, disabled-live-provider state.
-- Required review gates before PR 7.2+.
-- Forbidden claims list for AI Gateway copy and tests.
+- `GatewayMaturity` type alias: `"pre-integration"`.
+- `GatewayRole` union type for allowed roles (e.g. `"seller" | "buyer" | "operator" | "bank" | "support"`).
+- `GatewayScope` union type for allowed scopes (e.g. `"hint" | "summary" | "blocker_explanation" | "next_action" | "evidence_summary" | "triage"`).
+- `GatewayIdempotencyKey` type alias: `string`.
+- `GatewayAuditContext` interface: `{ providerId: string; executedAt: string; }`.
+- `GatewayRequest` interface with: `requestId: string`, `dealId: string`, `role: GatewayRole`, `scope: GatewayScope`, `maturity: GatewayMaturity`, `idempotencyKey: GatewayIdempotencyKey`, `inputSnapshot: Record<string, unknown>`.
+- `GatewayResponse` interface with: `result: string | null`, `confidence: number`, `limitations: string[]`, `auditContext: GatewayAuditContext`.
 
-Update source-of-truth files:
+Create `apps/web/lib/platform-v7/ai/gateway-provider-port.ts` and define:
 
-- Move `PR 6.6 — External Adapter Runtime QA` into `lastClosed`.
-- Set current/currentStep to `PR 7.1 — AI Gateway Contracts`.
-- Keep `fullTzReadinessPercent` at 64 and do not raise it further in this PR.
-- Keep PR 7.2+ / provider implementation / UI / onboarding / theme locked until PR 7.1 is green and merged.
-- Keep maturity wording at controlled-pilot / pre-integration.
+- `GATEWAY_MATURITY: GatewayMaturity = "pre-integration"` constant.
+- `GatewayProviderPort` interface with a single `execute(req: GatewayRequest): Promise<GatewayResponse>` method.
+- `DisabledGatewayProvider` class implementing `GatewayProviderPort` that:
+  - never throws;
+  - returns `{ result: null, confidence: 0, limitations: ["provider not configured — requires credentials and live integration"], auditContext: { providerId: "disabled", executedAt: new Date().toISOString() } }`;
+  - has `readonly maturity: GatewayMaturity = "pre-integration"`.
+
+Create `apps/web/tests/unit/platformV7AiGatewayProviderPort.test.ts` and verify:
+
+- `DisabledGatewayProvider.execute()` resolves without throwing.
+- `DisabledGatewayProvider.execute()` returns `result: null`.
+- `DisabledGatewayProvider.execute()` returns `confidence: 0`.
+- `DisabledGatewayProvider.execute()` returns `limitations` array with at least one entry.
+- `DisabledGatewayProvider.execute()` returns `auditContext.providerId === "disabled"`.
+- `DisabledGatewayProvider.execute()` returns `auditContext.executedAt` as a valid ISO string.
+- `GATEWAY_MATURITY === "pre-integration"`.
+- `DisabledGatewayProvider.maturity === "pre-integration"`.
+- Forbidden claims absent from all module exports (no "production-ready", "fully live", "AI makes binding decisions", "AI gateway is live").
 
 ## Tests / checks
 
@@ -73,4 +87,4 @@ Run through CI:
 
 ## PR title
 
-docs(platform-v7): define ai gateway contracts
+feat(platform-v7): add ai gateway provider port
