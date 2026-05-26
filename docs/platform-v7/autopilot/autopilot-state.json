@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 6.6 — External Adapter Runtime QA",
+  "current": "PR 7.1 — AI Gateway Contracts",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -21,10 +21,13 @@
     "PR 6.2 — Bank Adapter Emulator",
     "PR 6.3 — FGIS Adapter Emulator",
     "PR 6.4 — EDO Adapter Emulator",
-    "PR 6.5 — EPD / Logistics Adapter Emulator"
+    "PR 6.5 — EPD / Logistics Adapter Emulator",
+    "PR 6.6 — External Adapter Runtime QA"
   ],
   "lockedUntilCurrentGreen": [
-    "AI Gateway",
+    "PR 7.2 — AI Gateway Provider Port",
+    "PR 7.3 — AI Gateway Mock Provider",
+    "PR 7.4 — AI Gateway Runtime QA",
     "Product Entry / Onboarding",
     "Theme / Visual",
     "Role Cockpit / UX"
@@ -35,7 +38,7 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/web/tests/unit/platformV7ExternalAdapterRuntimeQA.test.ts"
+    "docs/platform-v7/autopilot/stage-7-ai-gateway-contracts.md"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -46,6 +49,7 @@
     "apps/web/lib/platform-v7/ai",
     "apps/web/app/api",
     "apps/web/lib/platform-v7/runtime",
+    "apps/web/tests/unit",
     "package-lock.json",
     "pnpm-lock.yaml"
   ],
@@ -64,6 +68,9 @@
     "банк подключён",
     "ФГИС подключён",
     "ЭДО подключён",
-    "EPD подключён"
+    "EPD подключён",
+    "AI makes binding decisions",
+    "AI gateway is live",
+    "ИИ принимает обязательные решения"
   ]
 }
