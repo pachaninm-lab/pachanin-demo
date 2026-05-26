@@ -1,17 +1,17 @@
-# Review current task — PR 6.3 FGIS Adapter Emulator
+# Review current task — PR 6.4 EDO Adapter Emulator
 
 Maturity: controlled-pilot / pre-integration.
 Review the diff, not the agent report. Human review and green checks are required before merge.
 
 ## Objective
 
-Verify that PR 6.3 implements the FGIS/SDIZ adapter emulator correctly without
-adding live integrations, API routes, UI, DB, AI gateway, onboarding or theme changes.
+Verify that PR 6.4 implements the EDO adapter emulator correctly without adding
+live integrations, API routes, UI, DB, AI gateway, onboarding or theme changes.
 
 ## Allowed files
 
-- apps/web/lib/platform-v7/fgis-adapter-emulator.ts
-- apps/web/tests/unit/platformV7FgisAdapterEmulator.test.ts
+- apps/web/lib/platform-v7/edo-adapter-emulator.ts
+- apps/web/tests/unit/platformV7EdoAdapterEmulator.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -33,42 +33,25 @@ adding live integrations, API routes, UI, DB, AI gateway, onboarding or theme ch
 
 ## Review checks
 
-- FGIS emulator is deterministic.
-- FGIS emulator has no hidden singleton state; config is injected.
-- FGIS emulator supports correlation IDs for idempotency.
-- All required event types present: party_link_requested, party_linked, sdiz_draft_created, sdiz_ready_to_sign, sdiz_signed, sdiz_sent, sdiz_redeemed, sdiz_partially_redeemed, sdiz_error, manual_review.
+- EDO emulator is deterministic, DI-friendly, no hidden singleton state.
+- All required event types present: document_draft_created, document_sent, document_signed_by_one_side, document_signed_by_all_sides, document_rejected, document_revoked, manual_review.
 - All required failure states present: rejected, conflict, manual_review, timeout, invalid_payload.
-- Event envelope includes: source, receivedAt, correlationId, externalStatus, maturity, payload.
-- `maturity` field is always "pre-integration".
-- `source` is "fgis_emulator", not "fgis" or "live_fgis".
-- No live FGIS/SDIZ connection claims.
-- No API routes added or modified.
-- No UI wired.
-- No fetch/http/network calls in emulator.
-- Readiness stays at 52% and does not increase.
-- PR 6.4+ remains locked until PR 6.3 is green and merged.
-- No `any` types in emulator module.
-- No `production-ready`, `fully live`, `ФГИС подключён` or payment-guarantee claims.
+- Event envelope: source="edo_emulator", maturity="pre-integration", correlationId, receivedAt, externalStatus, payload.
+- Lifecycle state machine correct: sent requires draft, signed_by_one requires sent, signed_by_all requires signed_by_one.
+- No live EDO connection claims.
+- No API routes, no UI, no network calls in emulator.
+- Readiness stays at 56%.
+- PR 6.5+ locked until PR 6.4 green and merged.
+- No `any` types.
+- No forbidden claims.
 
 ## Required checks
 
 - platform-v7 autopilot guard
 - pnpm typecheck
 - pnpm test
-- Node CI
-- CI
-- Repo automations
-- Labeler
+- Node CI / CI / Repo automations / Labeler
 
 ## Output
 
-BLOCKERS
-- ...
-
-REQUIRED FIXES
-- ...
-
-OPTIONAL IMPROVEMENTS
-- ...
-
-MERGEABLE: yes/no
+BLOCKERS / REQUIRED FIXES / OPTIONAL / MERGEABLE: yes/no

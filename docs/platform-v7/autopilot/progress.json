@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 52,
-  "currentStep": "PR 6.3 — FGIS Adapter Emulator",
-  "lastCompletedStep": "PR 6.2 — Bank Adapter Emulator",
+  "fullTzReadinessPercent": 56,
+  "currentStep": "PR 6.4 — EDO Adapter Emulator",
+  "lastCompletedStep": "PR 6.3 — FGIS Adapter Emulator",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "PR 6.3 — FGIS Adapter Emulator",
-  "updatedAt": "2026-05-26T08:22:00.000Z",
+  "nextStep": "PR 6.4 — EDO Adapter Emulator",
+  "updatedAt": "2026-05-26T08:31:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
