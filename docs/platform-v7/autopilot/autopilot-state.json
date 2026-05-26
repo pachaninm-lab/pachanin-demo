@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "CI speed baseline — concurrency, cache and timeouts",
+  "current": "Workflow maintenance baseline",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -37,7 +37,7 @@
   ],
   "allowedCurrentScope": [
     ".github/workflows",
-    "docs/platform-v7/qa/ci-speed-baseline.md"
+    "docs/platform-v7/qa/workflow-maintenance-baseline.md"
   ],
   "forbiddenZones": [
     "apps/landing",
