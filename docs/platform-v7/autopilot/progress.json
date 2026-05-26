@@ -1,16 +1,18 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 68,
-  "currentStep": "PR 7.4 — AI Gateway Runtime QA",
-  "lastCompletedStep": "PR 7.3 — AI Gateway Mock Provider",
+  "fullTzReadinessPercent": 72,
+  "currentStep": "Qodana #1423 — CI-only report-mode baseline",
+  "lastCompletedStep": "PR 7.4 — AI Gateway Runtime QA",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "PR 7.4 — AI Gateway Runtime QA",
-  "updatedAt": "2026-05-26T18:20:00.000Z",
+  "nextStep": "Qodana #1423 — CI-only report-mode baseline",
+  "updatedAt": "2026-05-26T20:10:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
-    "controlledPilotOnly": true
+    "controlledPilotOnly": true,
+    "ciOnlyReportMode": true,
+    "noHardGateForFirstQodanaPr": true
   }
 }
