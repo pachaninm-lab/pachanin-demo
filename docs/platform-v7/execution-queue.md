@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: PR 7.3 — AI Gateway Mock Provider
+CURRENT: PR 7.4 — AI Gateway Runtime QA
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -22,32 +22,21 @@ DONE:
 - PR 6.6 — External Adapter Runtime QA
 - PR 7.1 — AI Gateway Contracts
 - PR 7.2 — AI Gateway Provider Port
+- PR 7.3 — AI Gateway Mock Provider
 
-LOCKED UNTIL 7.3 GREEN:
-- PR 7.4 — AI Gateway Runtime QA
+LOCKED UNTIL 7.4 GREEN:
 - Product Entry / Onboarding
 - Theme / Visual
 - Role Cockpit / UX
 
-ACTIVE RULES:
-- Do not rewrite platform-v7 from scratch.
-- Do not touch apps/landing.
-- Do not start UI, onboarding, visual polish, live provider calls, API routes, DB work or theme-pass during PR 7.3.
-- PR 7.3 is mock-provider only: implement a deterministic pre-integration mock provider behind the provider port. No live provider, no credentials, no external calls, no binding decisions.
-- Keep maturity wording at controlled-pilot / pre-integration.
-- Do not overstate AI capability status or product maturity.
-- One PR = one narrow reviewable layer.
-- AI Gateway must remain explicitly pre-integration and must not imply live provider access, automated decisions, guarantees or binding actions.
-
 NEXT AUTOPILOT STEP:
-- Implement PR 7.3 — AI Gateway Mock Provider.
+- Implement PR 7.4 — AI Gateway Runtime QA.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
-- Do not advance to PR 7.4 until PR 7.3 is green, reviewed and merged.
+- Do not advance beyond PR 7.4 until PR 7.4 is green, reviewed and merged.
 
-AUTOPILOT STATE RULES:
-- The dispatcher may generate prompts and progress from state and queue.
-- The dispatcher must not mark locked work as current while the current step is not green, closed, mergeable or merged.
-- The dispatcher must not update readiness percent as if work merged.
-- The dispatcher must not remove forbidden zones.
-- The dispatcher must not auto-merge.
+RULES:
+- Do not touch apps/landing.
+- Do not start UI, onboarding, visual polish, API routes, DB work or theme-pass during PR 7.4.
+- Keep maturity wording at controlled-pilot / pre-integration.
+- One PR = one narrow reviewable layer.

@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 64,
-  "currentStep": "PR 7.3 — AI Gateway Mock Provider",
-  "lastCompletedStep": "PR 7.2 — AI Gateway Provider Port",
+  "fullTzReadinessPercent": 68,
+  "currentStep": "PR 7.4 — AI Gateway Runtime QA",
+  "lastCompletedStep": "PR 7.3 — AI Gateway Mock Provider",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "PR 7.3 — AI Gateway Mock Provider",
-  "updatedAt": "2026-05-26T13:45:00.000Z",
+  "nextStep": "PR 7.4 — AI Gateway Runtime QA",
+  "updatedAt": "2026-05-26T18:20:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
