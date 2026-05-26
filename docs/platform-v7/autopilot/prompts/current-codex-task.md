@@ -1,6 +1,6 @@
-# Codex current task — PR 6.4 EDO Adapter Emulator
+# Codex current task — PR 6.5 EPD / Logistics Adapter Emulator
 
-Current step: PR 6.4 — EDO Adapter Emulator.
+Current step: PR 6.5 — EPD / Logistics Adapter Emulator.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -14,17 +14,17 @@ Human review is required before merge.
 
 ## Objective
 
-Implement a pre-integration EDO adapter emulator that models legally significant
-document exchange lifecycle events without live EDO connectivity.
+Implement a pre-integration EPD / logistics adapter emulator that models transport
+document and logistics event exchange without live EPD or logistics system connectivity.
 
-Follow the same patterns established in PR 6.2 (bank-adapter-emulator.ts)
-and PR 6.3 (fgis-adapter-emulator.ts): deterministic, DI-friendly, zero `any`,
-idempotent, satisfies interface.
+Follow the same patterns established in PR 6.2 (bank-adapter-emulator.ts),
+PR 6.3 (fgis-adapter-emulator.ts), and PR 6.4 (edo-adapter-emulator.ts):
+deterministic, DI-friendly, zero `any`, idempotent, satisfies interface.
 
 ## Allowed files
 
-- apps/web/lib/platform-v7/edo-adapter-emulator.ts
-- apps/web/tests/unit/platformV7EdoAdapterEmulator.test.ts
+- apps/web/lib/platform-v7/epd-adapter-emulator.ts
+- apps/web/tests/unit/platformV7EpdAdapterEmulator.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -47,23 +47,24 @@ idempotent, satisfies interface.
 
 ## Implement
 
-The EDO adapter emulator (`apps/web/lib/platform-v7/edo-adapter-emulator.ts`) must:
+The EPD adapter emulator (`apps/web/lib/platform-v7/epd-adapter-emulator.ts`) must:
 
 - Be deterministic, fully typed (no `any`), DI-friendly, idempotent.
-- Model document exchange without claiming live EDO connectivity.
-- Include `EdoAdapterEmulatorConfig`, `EdoAdapterEmulator` class and
-  `createEdoAdapterEmulator` factory.
-- Documents must remain tied to deal, role, responsible party, blocker level
-  and money impact (through status, not through live calls).
+- Model transport document and logistics events without claiming live EPD or logistics connectivity.
+- Include `EpdAdapterEmulatorConfig`, `EpdAdapterEmulator` class and
+  `createEpdAdapterEmulator` factory.
+- Logistics events must not override evidence, quality, document or bank gates
+  without explicit domain rules.
 
 Required event types (from stage-6-adapter-emulator-contracts.md):
 
-- document_draft_created
-- document_sent
-- document_signed_by_one_side
-- document_signed_by_all_sides
-- document_rejected
-- document_revoked
+- epd_draft_created
+- epd_sent
+- epd_confirmed
+- epd_rejected
+- trip_event_received
+- route_deviation_received
+- arrival_confirmed
 - manual_review
 
 Required failure states:
@@ -76,19 +77,19 @@ Required failure states:
 
 Required event envelope fields:
 
-- source: "edo_emulator"
+- source: "epd_emulator"
 - receivedAt: ISO string
 - correlationId: string
-- externalStatus: EdoEventType | EdoFailureState
+- externalStatus: EpdEventType | EpdFailureState
 - maturity: "pre-integration"
-- payload: typed (dealId, documentId?, documentType?, reason?)
+- payload: typed (dealId, tripId?, documentId?, reason?)
 
 State machine constraints:
 
-- document_sent requires prior document_draft_created.
-- document_signed_by_one_side requires prior document_sent.
-- document_signed_by_all_sides requires prior document_signed_by_one_side.
-- document_rejected / document_revoked require prior document_sent.
+- epd_sent requires prior epd_draft_created.
+- epd_confirmed requires prior epd_sent.
+- epd_rejected requires prior epd_sent.
+- arrival_confirmed requires prior trip_event_received.
 - Unknown correlationId for state-dependent events → invalid_payload.
 - Duplicate (eventType, correlationId) → idempotent.
 
@@ -96,13 +97,13 @@ State machine constraints:
 
 Required test cases: determinism, idempotency, lifecycle state machine,
 invalid_payload for missing prior step, all failure states via config,
-no live EDO claim (maturity always "pre-integration"), no network calls,
+no live EPD claim (maturity always "pre-integration"), no network calls,
 full event type coverage.
 
 ## Readiness
 
-Keep `fullTzReadinessPercent` at 56. Do not raise it.
+Keep `fullTzReadinessPercent` at 60. Do not raise it.
 
 ## PR title
 
-feat(platform-v7): add EDO adapter emulator
+feat(platform-v7): add EPD / logistics adapter emulator
