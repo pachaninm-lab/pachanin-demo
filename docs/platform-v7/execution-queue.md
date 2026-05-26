@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: PR 7.1 — AI Gateway Contracts
+CURRENT: PR 7.2 — AI Gateway Provider Port
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -20,9 +20,9 @@ DONE:
 - PR 6.4 — EDO Adapter Emulator
 - PR 6.5 — EPD / Logistics Adapter Emulator
 - PR 6.6 — External Adapter Runtime QA
+- PR 7.1 — AI Gateway Contracts
 
-LOCKED UNTIL 7.1 GREEN:
-- PR 7.2 — AI Gateway Provider Port
+LOCKED UNTIL 7.2 GREEN:
 - PR 7.3 — AI Gateway Mock Provider
 - PR 7.4 — AI Gateway Runtime QA
 - Product Entry / Onboarding
@@ -32,18 +32,18 @@ LOCKED UNTIL 7.1 GREEN:
 ACTIVE RULES:
 - Do not rewrite platform-v7 from scratch.
 - Do not touch apps/landing.
-- Do not start UI, onboarding, visual polish, AI gateway implementation, provider runtime or theme-pass during PR 7.1.
-- PR 7.1 is contracts-only: define AI gateway boundaries, safety terms and review rules without implementing AI runtime behavior.
+- Do not start UI, onboarding, visual polish, mock provider runtime, AI gateway live calls, or theme-pass during PR 7.2.
+- PR 7.2 is interface-only: define the AI gateway provider port with deterministic interface shape, typed request/response envelope, idempotency key, audit context, role scope, maturity flag, and disabled-live-provider default state. No runtime provider implementation.
 - Keep maturity wording at controlled-pilot / pre-integration.
 - Do not overstate external connection status, AI capability status or product maturity.
 - One PR = one narrow reviewable layer.
 - AI Gateway must remain explicitly pre-integration and must not imply live provider access, automated decisions, guarantees or binding actions.
 
 NEXT AUTOPILOT STEP:
-- Prepare PR 7.1 — AI Gateway Contracts.
+- Implement PR 7.2 — AI Gateway Provider Port.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
-- Do not advance to PR 7.2 until PR 7.1 is green, reviewed and merged.
+- Do not advance to PR 7.3 until PR 7.2 is green, reviewed and merged.
 
 AUTOPILOT STATE RULES:
 - The dispatcher may generate prompts and progress from state and queue.
