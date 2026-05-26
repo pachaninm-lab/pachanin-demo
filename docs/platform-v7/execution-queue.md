@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Qodana #1423 — CI-only report-mode baseline
+CURRENT: CodeQL #1434 — GitHub-native security report-only baseline
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -24,17 +24,18 @@ DONE:
 - PR 7.2 — AI Gateway Provider Port
 - PR 7.3 — AI Gateway Mock Provider
 - PR 7.4 — AI Gateway Runtime QA
+- Qodana #1423 — CI-only report-mode baseline
 
-LOCKED UNTIL QODANA REPORT-MODE BASELINE GREEN:
+LOCKED UNTIL CODEQL REPORT-MODE BASELINE GREEN:
 - Product Entry / Onboarding
 - Theme / Visual
 - Role Cockpit / UX
 - Backend / DB / runtime persistence expansion
 
 NEXT AUTOPILOT STEP:
-- Implement Qodana #1423 only as a CI-only report-mode baseline.
-- Do not hard-gate the first Qodana PR.
-- Do not auto-fix issues in the first Qodana PR.
+- Implement CodeQL #1434 only as a GitHub-native security report-only baseline.
+- Do not hard-gate the first CodeQL PR.
+- Do not auto-fix issues in the first CodeQL PR.
 - Do not touch product code, UI, API routes, DB, runtime, adapters or lockfiles.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
