@@ -1,6 +1,6 @@
-# Codex current task — PR 6.2 Bank Adapter Emulator
+# Codex current task — PR 6.3 FGIS Adapter Emulator
 
-Current step: PR 6.2 — Bank Adapter Emulator.
+Current step: PR 6.3 — FGIS Adapter Emulator.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -14,14 +14,21 @@ Human review is required before merge.
 
 ## Objective
 
-Implement a pre-integration bank adapter emulator that models bank-side events without live bank connectivity.
+Implement a pre-integration FGIS/SDIZ adapter emulator that models party
+traceability, SDIZ status, redemption and error/manual review states without
+live FGIS connectivity.
 
-This PR must not add API routes, wire UI, change runtime behavior, touch DB/migrations, touch AI gateway, or claim live bank integration. It only implements the deterministic emulator TypeScript module and its focused unit tests.
+This PR must not add API routes, wire UI, change runtime behavior, touch
+DB/migrations, touch AI gateway, or claim live FGIS/SDIZ integration. It only
+implements the deterministic emulator TypeScript module and its focused unit tests.
+
+Follow the same patterns established in PR 6.2 (bank-adapter-emulator.ts):
+- deterministic, DI-friendly, zero `any`, idempotent, satisfies interface.
 
 ## Allowed files
 
-- apps/web/lib/platform-v7/bank-adapter-emulator.ts
-- apps/web/tests/unit/platformV7BankAdapterEmulator.test.ts
+- apps/web/lib/platform-v7/fgis-adapter-emulator.ts
+- apps/web/tests/unit/platformV7FgisAdapterEmulator.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -46,29 +53,30 @@ This PR must not add API routes, wire UI, change runtime behavior, touch DB/migr
 
 ## Implement
 
-The bank adapter emulator (`apps/web/lib/platform-v7/bank-adapter-emulator.ts`) must:
+The FGIS adapter emulator (`apps/web/lib/platform-v7/fgis-adapter-emulator.ts`) must:
 
 - Be deterministic: same input → same output.
 - Be fully typed in TypeScript with no `any`.
 - Be dependency-injection friendly: accept a seed/config, no hidden singleton state.
 - Support idempotency via correlation IDs.
-- Model bank event statuses without claiming live bank connection.
-- Preserve the core rule: the platform does not release money itself; bank confirmation is external.
-- Include a `BankAdapterEmulatorConfig` type for DI configuration.
-- Include a `BankAdapterEmulator` class or factory function.
+- Model FGIS/SDIZ event statuses without claiming live FGIS connection.
+- Preserve the rule: FGIS/SDIZ status affects deal readiness only through
+  explicit status and blocker mapping — not through live system calls.
+- Include a `FgisAdapterEmulatorConfig` type.
+- Include a `FgisAdapterEmulator` class and `createFgisAdapterEmulator` factory.
 
-Required event types (enum or union):
+Required event types (from stage-6-adapter-emulator-contracts.md):
 
-- reserve_requested
-- reserve_confirmed
-- hold_created
-- hold_released
-- release_requested
-- release_confirmed
-- refund_requested
-- refund_confirmed
+- party_link_requested
+- party_linked
+- sdiz_draft_created
+- sdiz_ready_to_sign
+- sdiz_signed
+- sdiz_sent
+- sdiz_redeemed
+- sdiz_partially_redeemed
+- sdiz_error
 - manual_review
-- reconciliation_mismatch
 
 Required failure states:
 
@@ -78,46 +86,41 @@ Required failure states:
 - timeout
 - invalid_payload
 
-Required event envelope fields (aligned with stage-6-adapter-emulator-contracts.md):
+Required event envelope fields:
 
-- source: "bank_emulator"
+- source: "fgis_emulator"
 - receivedAt: ISO string
 - correlationId: string
-- externalStatus: BankEventType | BankFailureState
+- externalStatus: FgisEventType | FgisFailureState
 - maturity: "pre-integration"
-- payload: typed per event
+- payload: typed (dealId, sdizId?, partyInn?, reason?)
 
 State machine constraints:
 
-- reserve_confirmed requires prior reserve_requested with same correlationId.
-- release_confirmed requires prior release_requested with same correlationId.
-- refund_confirmed requires prior refund_requested with same correlationId.
-- Unknown correlationId → invalid_payload.
-- Duplicate correlationId for same event type → idempotent (return existing result).
+- party_linked requires prior party_link_requested with same correlationId.
+- sdiz_ready_to_sign requires prior sdiz_draft_created.
+- sdiz_signed requires prior sdiz_ready_to_sign.
+- sdiz_sent requires prior sdiz_signed.
+- sdiz_redeemed / sdiz_partially_redeemed require prior sdiz_sent.
+- Unknown correlationId for state-dependent events → invalid_payload.
+- Duplicate correlationId for same event type → idempotent.
 
-Money rule (must be asserted in tests):
-
-- The emulator must never emit an event that claims the platform released money.
-- `release_confirmed` means "bank confirmed release" — not "platform released".
-
-## Tests (`apps/web/tests/unit/platformV7BankAdapterEmulator.test.ts`)
+## Tests
 
 Required test cases:
 
-- Deterministic event creation: same seed + correlationId → same event.
-- Idempotency: calling with same correlationId twice returns the same result.
-- Correlation state: release_confirmed requires prior release_requested.
-- Invalid payload: unknown correlationId → invalid_payload failure.
-- Manual review: emulator can produce manual_review state.
-- Reconciliation mismatch: emulator can produce reconciliation_mismatch.
-- No money release claim: no event contains text claiming the platform released money.
-- No live bank claim: maturity field is always "pre-integration".
-- No network calls: emulator must not call fetch/http/axios.
+- Determinism
+- Idempotency
+- State machine: each confirmation requires prior step
+- Invalid payload: missing prior step → invalid_payload
+- Manual review and sdiz_error states
+- No live FGIS claim: maturity always "pre-integration"
+- No network calls
+- All required event types covered
 
 ## Readiness
 
-Keep `fullTzReadinessPercent` at 48 in this PR. Do not raise it.
-Readiness may advance after PR 6.2 is green and merged.
+Keep `fullTzReadinessPercent` at 52 in this PR. Do not raise it.
 
 ## Tests / checks
 
@@ -133,4 +136,4 @@ Run through CI:
 
 ## PR title
 
-feat(platform-v7): add bank adapter emulator
+feat(platform-v7): add FGIS adapter emulator
