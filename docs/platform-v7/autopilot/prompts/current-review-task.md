@@ -1,19 +1,16 @@
-# Review current task — PR 7.2 AI Gateway Provider Port
+# Review current task — PR 7.3 AI Gateway Mock Provider
 
 Maturity: controlled-pilot / pre-integration.
 Review the diff, not the agent report. Human review and green checks are required before merge.
 
 ## Objective
 
-Verify a minimal TypeScript provider port implementation after PR 7.1 (AI Gateway Contracts).
-
-This PR combines state advance and the minimal provider port only because the guard reads allowed scope from the PR branch source-of-truth. Treat this as a high-risk exception and block merge unless every gate below is green.
+Verify a deterministic pre-integration mock provider behind the existing AI gateway provider port.
 
 ## Allowed files
 
-- apps/web/lib/platform-v7/ai/gateway-provider-port.ts
-- apps/web/lib/platform-v7/ai/gateway-envelope.ts
-- apps/web/tests/unit/platformV7AiGatewayProviderPort.test.ts
+- apps/web/lib/platform-v7/ai/gateway-mock-provider.ts
+- apps/web/tests/unit/platformV7AiGatewayMockProvider.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -22,19 +19,18 @@ This PR combines state advance and the minimal provider port only because the gu
 
 ## Review checks
 
-- Changed files exactly match the allowed files list.
+- Changed files are inside the allowed files list.
 - `apps/landing` diff is 0.
-- Current step is PR 7.2 — AI Gateway Provider Port.
-- PR 7.1 is listed as completed in lastClosed.
+- Current step is PR 7.3 — AI Gateway Mock Provider.
+- PR 7.2 is listed as completed in lastClosed.
 - Readiness is 64% and not higher.
-- PR 7.3+ remains locked.
+- PR 7.4+ remains locked.
 - No app, runtime, live provider, API, DB, UI, onboarding, theme or lockfile changes.
 - Maturity remains controlled-pilot / pre-integration.
-- `DisabledGatewayProvider` is the only concrete implementation.
-- `DisabledGatewayProvider.execute()` returns a correctly shaped disabled response with `result: null`, `confidence: 0`, non-empty `limitations`, and `auditContext.providerId === "disabled"`.
-- `GATEWAY_MATURITY === "pre-integration"`.
-- No live provider credentials, tokens, or external AI service calls.
-- All forbidden claims absent from exported values, docs and PR body.
+- Mock provider is deterministic for the same request.
+- Mock provider uses no network calls, credentials or external AI services.
+- Mock provider output states limitations and human review boundary.
+- No binding decision, money guarantee, money release or live AI gateway claim is introduced.
 
 ## Required checks
 
