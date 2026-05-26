@@ -1,16 +1,17 @@
-# Review current task — PR 6.6 External Adapter Runtime QA
+# Review current task — PR 6.7 Lab / Inspection Adapter Emulator
 
 Maturity: controlled-pilot / pre-integration.
 Review the diff, not the agent report. Human review and green checks are required before merge.
 
 ## Objective
 
-Verify that PR 6.6 implements cross-emulator integration QA tests correctly without adding
+Verify that PR 6.7 implements the lab / inspection adapter emulator correctly without adding
 live integrations, API routes, UI, DB, AI gateway, onboarding or theme changes.
 
 ## Allowed files
 
-- apps/web/tests/unit/platformV7ExternalAdapterRuntimeQA.test.ts
+- apps/web/lib/platform-v7/lab-adapter-emulator.ts
+- apps/web/tests/unit/platformV7LabAdapterEmulator.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -32,19 +33,16 @@ live integrations, API routes, UI, DB, AI gateway, onboarding or theme changes.
 
 ## Review checks
 
-- Tests import from emulator files only, no live adapters.
-- All four emulators exercised: bank, FGIS, EDO, EPD.
-- Event envelope verified on each emulator: source, receivedAt, correlationId, externalStatus, maturity, payload.
-- Maturity always "pre-integration" on all emulators.
-- Idempotency verified across all emulators.
-- Failure injection (manualReview, timeout, rejected, conflict) verified across all emulators.
-- State machine lifecycles verified for each emulator.
-- Cross-emulator deal scenario present and correct.
-- No live external system claims in test descriptions or assertions.
-- No network calls.
+- Lab emulator is deterministic, DI-friendly, no hidden singleton state.
+- All required event types present: sample_registered, protocol_draft_created, protocol_confirmed, quality_delta_detected, discrepancy_reported, inspection_confirmed, manual_review.
+- All required failure states present: rejected, conflict, manual_review, timeout, invalid_payload.
+- Event envelope: source="lab_emulator", maturity="pre-integration", correlationId, receivedAt, externalStatus, payload.
+- Lifecycle state machine correct: protocol_draft_created requires sample_registered, protocol_confirmed requires draft, quality_delta_detected requires sample_registered, discrepancy_reported requires quality_delta_detected, inspection_confirmed requires protocol_confirmed.
+- No live lab or inspection connection claims.
+- No API routes, no UI, no network calls in emulator.
+- Readiness stays at 60%.
 - No `any` types.
 - No forbidden claims.
-- Readiness stays at 60%.
 
 ## Required checks
 

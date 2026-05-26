@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: PR 6.6 — External Adapter Runtime QA
+CURRENT: PR 6.7 — Lab / Inspection Adapter Emulator
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -19,8 +19,9 @@ DONE:
 - PR 6.3 — FGIS Adapter Emulator
 - PR 6.4 — EDO Adapter Emulator
 - PR 6.5 — EPD / Logistics Adapter Emulator
+- PR 6.6 — External Adapter Runtime QA
 
-LOCKED UNTIL 6.6 GREEN:
+LOCKED UNTIL 6.7 GREEN:
 - AI Gateway
 - Product Entry / Onboarding
 - Theme / Visual
@@ -29,18 +30,18 @@ LOCKED UNTIL 6.6 GREEN:
 ACTIVE RULES:
 - Do not rewrite platform-v7 from scratch.
 - Do not touch apps/landing.
-- Do not start UI, onboarding, visual polish, AI gateway or theme-pass during PR 6.6.
-- PR 6.6 is External Adapter Runtime QA only: cross-emulator integration tests for bank, FGIS, EDO and EPD emulators.
+- Do not start UI, onboarding, visual polish, AI gateway or theme-pass during PR 6.7.
+- PR 6.7 is Lab/Inspection emulator only: implement deterministic lab quality protocol and inspection event model, no live lab or inspection connectivity.
 - Keep maturity wording at controlled-pilot / pre-integration.
 - Do not overstate external connection status or product maturity.
 - One PR = one narrow reviewable layer.
-- External adapter emulators must remain explicitly pre-integration and must not imply live bank, FGIS, EDO, EPD or logistics access.
+- Lab/inspection emulator must not claim live lab, surveyor or inspection connectivity.
 
 NEXT AUTOPILOT STEP:
-- Prepare PR 6.6 — External Adapter Runtime QA.
+- Prepare PR 6.7 — Lab / Inspection Adapter Emulator.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
-- Do not advance to AI Gateway until PR 6.6 is green, reviewed and merged.
+- Do not advance to AI Gateway until PR 6.7 is green, reviewed and merged.
 
 AUTOPILOT STATE RULES:
 - The dispatcher may generate prompts and progress from state and queue.

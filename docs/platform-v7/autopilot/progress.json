@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 60,
-  "currentStep": "PR 6.6 — External Adapter Runtime QA",
-  "lastCompletedStep": "PR 6.5 — EPD / Logistics Adapter Emulator",
+  "currentStep": "PR 6.7 — Lab / Inspection Adapter Emulator",
+  "lastCompletedStep": "PR 6.6 — External Adapter Runtime QA",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "PR 6.6 — External Adapter Runtime QA",
-  "updatedAt": "2026-05-26T09:00:00.000Z",
+  "nextStep": "PR 6.7 — Lab / Inspection Adapter Emulator",
+  "updatedAt": "2026-05-26T09:05:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

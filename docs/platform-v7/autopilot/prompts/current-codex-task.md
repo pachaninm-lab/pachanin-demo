@@ -1,6 +1,6 @@
-# Codex current task — PR 6.6 External Adapter Runtime QA
+# Codex current task — PR 6.7 Lab / Inspection Adapter Emulator
 
-Current step: PR 6.6 — External Adapter Runtime QA.
+Current step: PR 6.7 — Lab / Inspection Adapter Emulator.
 Maturity: controlled-pilot / pre-integration.
 Human review is required before merge.
 
@@ -14,16 +14,19 @@ Human review is required before merge.
 
 ## Objective
 
-Implement cross-emulator integration QA tests that verify all four external adapter
-emulators (bank, FGIS, EDO, EPD/logistics) behave correctly in isolation and in
-combination without live connectivity.
+Implement a pre-integration lab / inspection adapter emulator that models quality
+protocol, sample, inspection and discrepancy events without live laboratory or
+surveyor connectivity.
 
-Follow the same patterns established in PR 6.2–6.5: deterministic, DI-friendly,
-zero `any`, idempotent, no network calls, no live external system claims.
+Follow the same patterns established in PR 6.2 (bank-adapter-emulator.ts),
+PR 6.3 (fgis-adapter-emulator.ts), PR 6.4 (edo-adapter-emulator.ts),
+PR 6.5 (epd-adapter-emulator.ts): deterministic, DI-friendly, zero `any`,
+idempotent, satisfies interface.
 
 ## Allowed files
 
-- apps/web/tests/unit/platformV7ExternalAdapterRuntimeQA.test.ts
+- apps/web/lib/platform-v7/lab-adapter-emulator.ts
+- apps/web/tests/unit/platformV7LabAdapterEmulator.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -46,43 +49,58 @@ zero `any`, idempotent, no network calls, no live external system claims.
 
 ## Implement
 
-The QA test file (`apps/web/tests/unit/platformV7ExternalAdapterRuntimeQA.test.ts`) must:
+The lab adapter emulator (`apps/web/lib/platform-v7/lab-adapter-emulator.ts`) must:
 
-- Be deterministic, fully typed (no `any`), DI-friendly.
-- Import and exercise all four emulators: BankAdapterEmulator, FgisAdapterEmulator,
-  EdoAdapterEmulator, EpdAdapterEmulator.
-- Verify event envelope fields: source, receivedAt, correlationId, externalStatus,
-  maturity, payload.
-- Verify maturity is always "pre-integration" on all emulators.
-- Verify idempotency across all emulators.
-- Verify failure injection (manualReview, timeout, rejected, conflict) across all emulators.
-- Verify state machine lifecycles: bank reserve→hold→release chain,
-  FGIS party_link→sdiz chain, EDO draft→sent→signed chain, EPD draft→sent→confirmed chain.
-- Verify cross-emulator deal scenario: a deal that requires all four adapter events.
-- No live external system claims in any test assertion or description.
-- No network calls.
+- Be deterministic, fully typed (no `any`), DI-friendly, idempotent.
+- Model quality protocol and inspection events without claiming live lab or surveyor connectivity.
+- Include `LabAdapterEmulatorConfig`, `LabAdapterEmulator` class and
+  `createLabAdapterEmulator` factory.
+- Quality deltas must remain auditable and must be able to affect hold/release
+  basis, dispute and document blockers (via explicit status — not live calls).
 
-## Cross-emulator deal scenario
+Required event types (from stage-6-adapter-emulator-contracts.md):
 
-Model a complete deal flow using all four emulators for the same dealId:
-1. Bank: reserve_requested → reserve_confirmed
-2. FGIS: party_link_requested → party_linked → sdiz_draft_created → sdiz_signed
-3. EDO: document_draft_created → document_sent → document_signed_by_all_sides
-4. EPD: epd_draft_created → epd_sent → epd_confirmed → trip_event_received → arrival_confirmed
+- sample_registered
+- protocol_draft_created
+- protocol_confirmed
+- quality_delta_detected
+- discrepancy_reported
+- inspection_confirmed
+- manual_review
 
-Verify: all events reference the same dealId, all have maturity "pre-integration",
-no event claims live connectivity.
+Required failure states:
+
+- rejected
+- conflict
+- manual_review
+- timeout
+- invalid_payload
+
+Required event envelope fields:
+
+- source: "lab_emulator"
+- receivedAt: ISO string
+- correlationId: string
+- externalStatus: LabEventType | LabFailureState
+- maturity: "pre-integration"
+- payload: typed (dealId, sampleId?, protocolId?, qualityDeltaPercent?, reason?)
+
+State machine constraints:
+
+- protocol_draft_created requires prior sample_registered.
+- protocol_confirmed requires prior protocol_draft_created.
+- quality_delta_detected requires prior sample_registered.
+- discrepancy_reported requires prior quality_delta_detected.
+- inspection_confirmed requires prior protocol_confirmed.
+- Unknown correlationId for state-dependent events → invalid_payload.
+- Duplicate (eventType, correlationId) → idempotent.
 
 ## Tests
 
-Required test cases:
-- All four emulators instantiate and reset correctly.
-- Envelope fields correct on each emulator.
-- Idempotency on each emulator.
-- Failure injection on each emulator.
-- State machine for each emulator.
-- Cross-emulator deal scenario.
-- No live external claim across all emulators (check serialized events for forbidden phrases).
+Required test cases: determinism, idempotency, lifecycle state machine,
+invalid_payload for missing prior step, all failure states via config,
+no live lab claim (maturity always "pre-integration"), no network calls,
+full event type coverage, quality delta auditing (qualityDeltaPercent in payload).
 
 ## Readiness
 
@@ -90,4 +108,4 @@ Keep `fullTzReadinessPercent` at 60. Do not raise it.
 
 ## PR title
 
-feat(platform-v7): external adapter runtime QA — cross-emulator integration tests
+feat(platform-v7): add lab / inspection adapter emulator
