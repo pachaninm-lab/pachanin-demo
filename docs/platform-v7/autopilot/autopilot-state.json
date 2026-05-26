@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 6.1 — External Adapter Emulator Contracts",
+  "current": "PR 6.2 — Bank Adapter Emulator",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -16,10 +16,10 @@
     "PR 5.2 — Server Action Wrappers",
     "PR 5.6 — Runtime Integration Tests",
     "PR 5.7 — Final Stage 5 QA",
-    "PR 5.8 — Stage 5 Stability Wiring"
+    "PR 5.8 — Stage 5 Stability Wiring",
+    "PR 6.1 — External Adapter Emulator Contracts"
   ],
   "lockedUntilCurrentGreen": [
-    "PR 6.2 — Bank Adapter Emulator",
     "PR 6.3 — FGIS Adapter Emulator",
     "PR 6.4 — EDO Adapter Emulator",
     "PR 6.5 — EPD / Logistics Adapter Emulator",
@@ -34,8 +34,9 @@
     "docs/platform-v7/autopilot/progress.json",
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
-    "docs/platform-v7/autopilot/stage-6-adapter-emulator-contracts.md",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    "apps/web/lib/platform-v7/bank-adapter-emulator.ts",
+    "apps/web/tests/unit/platformV7BankAdapterEmulator.test.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -46,7 +47,6 @@
     "apps/web/lib/platform-v7/ai",
     "apps/web/app/api",
     "apps/web/lib/platform-v7/runtime",
-    "apps/web/tests/unit",
     "package-lock.json",
     "pnpm-lock.yaml"
   ],

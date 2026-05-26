@@ -1,19 +1,20 @@
-# Review current task — PR 6.1 External Adapter Emulator Contracts
+# Review current task — PR 6.2 Bank Adapter Emulator
 
 Maturity: controlled-pilot / pre-integration.
 Review the diff, not the agent report. Human review and green checks are required before merge.
 
 ## Objective
 
-Verify that PR 6.1 defines the external adapter emulator contract boundary without starting implementation work.
+Verify that PR 6.2 implements the bank adapter emulator correctly without adding live integrations, API routes, UI, DB, AI gateway, onboarding or theme changes.
 
 ## Allowed files
 
+- apps/web/lib/platform-v7/bank-adapter-emulator.ts
+- apps/web/tests/unit/platformV7BankAdapterEmulator.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
-- docs/platform-v7/autopilot/stage-6-adapter-emulator-contracts.md
 - docs/platform-v7/execution-queue.md
 
 ## Reject if changed
@@ -26,25 +27,34 @@ Verify that PR 6.1 defines the external adapter emulator contract boundary witho
 - apps/web/lib/platform-v7/ai
 - apps/web/app/api
 - apps/web/lib/platform-v7/runtime
-- apps/web/tests/unit
 - package-lock.json
 - pnpm-lock.yaml
 
 ## Review checks
 
-- PR 6.1 is contracts-only.
-- The contract document defines bank, FGIS/SDIZ, EDO, EPD/logistics and lab/inspection emulator boundaries.
-- The contract document defines a shared event envelope.
-- `external_confirmed` is reserved for future live integrations only.
-- Readiness remains 48% and not higher.
-- PR 6.2+ remains locked until PR 6.1 green and merged.
-- No Stage 6 implementation files are added or edited.
-- No UI, onboarding, theme, AI gateway, API, DB, runtime or live adapter work is included.
-- No external live-connection or product-maturity claims are introduced.
+- Bank emulator is deterministic: same input produces same output.
+- Bank emulator has no hidden singleton state; config is injected.
+- Bank emulator supports correlation IDs for idempotency.
+- All required event types are present: reserve_requested, reserve_confirmed, hold_created, hold_released, release_requested, release_confirmed, refund_requested, refund_confirmed, manual_review, reconciliation_mismatch.
+- All required failure states are present: rejected, conflict, manual_review, timeout, invalid_payload.
+- Event envelope includes: source, receivedAt, correlationId, externalStatus, maturity, payload.
+- `maturity` field is always "pre-integration".
+- No event implies the platform released money independently.
+- No live bank, FGIS, EDO or EPD connection claims.
+- No API routes added or modified.
+- No UI wired.
+- No fetch/http/network calls in emulator.
+- Readiness stays at 48% and does not increase.
+- PR 6.3+ remains locked until PR 6.2 is green and merged.
+- Tests cover: determinism, idempotency, correlation state, invalid payload, manual_review, reconciliation_mismatch, no money-release claim, no live bank claim, no network calls.
+- No `any` types in emulator module.
+- No `production-ready`, `fully live`, `fully integrated`, `банк подключён` or payment-guarantee claims.
 
 ## Required checks
 
 - platform-v7 autopilot guard
+- pnpm typecheck
+- pnpm test
 - Node CI
 - CI
 - Repo automations
