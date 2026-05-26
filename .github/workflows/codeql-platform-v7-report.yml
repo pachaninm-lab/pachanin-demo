@@ -1,0 +1,50 @@
+name: CodeQL platform-v7 report
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/codeql-platform-v7-report.yml"
+      - "apps/web/app/platform-v7/**"
+      - "apps/web/components/platform-v7/**"
+      - "apps/web/components/v7r/**"
+      - "apps/web/lib/platform-v7/**"
+      - "apps/web/lib/domain/**"
+      - "apps/web/tests/**"
+      - "docs/platform-v7/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codeql-report:
+    name: codeql report-mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["javascript-typescript"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        continue-on-error: true
+        with:
+          category: "/language:${{ matrix.language }}"
+
+      - name: Report-mode notice
+        if: always()
+        run: |
+          echo "CodeQL is report-mode only for the first platform-v7 baseline."
+          echo "Do not treat this workflow as a hard gate until findings are triaged."
