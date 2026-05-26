@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: PR 6.4 — EDO Adapter Emulator
+CURRENT: PR 6.5 — EPD / Logistics Adapter Emulator
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -17,9 +17,9 @@ DONE:
 - PR 6.1 — External Adapter Emulator Contracts
 - PR 6.2 — Bank Adapter Emulator
 - PR 6.3 — FGIS Adapter Emulator
+- PR 6.4 — EDO Adapter Emulator
 
-LOCKED UNTIL 6.4 GREEN:
-- PR 6.5 — EPD / Logistics Adapter Emulator
+LOCKED UNTIL 6.5 GREEN:
 - PR 6.6 — External Adapter Runtime QA
 - AI Gateway
 - Product Entry / Onboarding
@@ -29,19 +29,19 @@ LOCKED UNTIL 6.4 GREEN:
 ACTIVE RULES:
 - Do not rewrite platform-v7 from scratch.
 - Do not touch apps/landing.
-- Do not start UI, onboarding, visual polish, AI gateway or theme-pass during PR 6.4.
-- PR 6.4 is EDO emulator only: implement deterministic EDO document exchange model, no live EDO connectivity.
+- Do not start UI, onboarding, visual polish, AI gateway or theme-pass during PR 6.5.
+- PR 6.5 is EPD/Logistics emulator only: implement deterministic EPD and logistics event model, no live EPD or logistics connectivity.
 - Keep maturity wording at controlled-pilot / pre-integration.
 - Do not overstate external connection status or product maturity.
 - One PR = one narrow reviewable layer.
-- External adapter emulators must remain explicitly pre-integration and must not imply live bank, FGIS, EDO or EPD access.
-- EDO emulator must not claim live EDO connectivity.
+- External adapter emulators must remain explicitly pre-integration and must not imply live bank, FGIS, EDO, EPD or logistics access.
+- EPD emulator must not claim live EPD or logistics connectivity.
 
 NEXT AUTOPILOT STEP:
-- Prepare PR 6.4 — EDO Adapter Emulator.
+- Prepare PR 6.5 — EPD / Logistics Adapter Emulator.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
-- Do not advance to PR 6.5 until PR 6.4 is green, reviewed and merged.
+- Do not advance to PR 6.6 until PR 6.5 is green, reviewed and merged.
 
 AUTOPILOT STATE RULES:
 - The dispatcher may generate prompts and progress from state and queue.

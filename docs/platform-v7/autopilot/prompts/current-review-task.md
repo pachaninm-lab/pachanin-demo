@@ -1,17 +1,17 @@
-# Review current task — PR 6.4 EDO Adapter Emulator
+# Review current task — PR 6.5 EPD / Logistics Adapter Emulator
 
 Maturity: controlled-pilot / pre-integration.
 Review the diff, not the agent report. Human review and green checks are required before merge.
 
 ## Objective
 
-Verify that PR 6.4 implements the EDO adapter emulator correctly without adding
+Verify that PR 6.5 implements the EPD / logistics adapter emulator correctly without adding
 live integrations, API routes, UI, DB, AI gateway, onboarding or theme changes.
 
 ## Allowed files
 
-- apps/web/lib/platform-v7/edo-adapter-emulator.ts
-- apps/web/tests/unit/platformV7EdoAdapterEmulator.test.ts
+- apps/web/lib/platform-v7/epd-adapter-emulator.ts
+- apps/web/tests/unit/platformV7EpdAdapterEmulator.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -33,15 +33,15 @@ live integrations, API routes, UI, DB, AI gateway, onboarding or theme changes.
 
 ## Review checks
 
-- EDO emulator is deterministic, DI-friendly, no hidden singleton state.
-- All required event types present: document_draft_created, document_sent, document_signed_by_one_side, document_signed_by_all_sides, document_rejected, document_revoked, manual_review.
+- EPD emulator is deterministic, DI-friendly, no hidden singleton state.
+- All required event types present: epd_draft_created, epd_sent, epd_confirmed, epd_rejected, trip_event_received, route_deviation_received, arrival_confirmed, manual_review.
 - All required failure states present: rejected, conflict, manual_review, timeout, invalid_payload.
-- Event envelope: source="edo_emulator", maturity="pre-integration", correlationId, receivedAt, externalStatus, payload.
-- Lifecycle state machine correct: sent requires draft, signed_by_one requires sent, signed_by_all requires signed_by_one.
-- No live EDO connection claims.
+- Event envelope: source="epd_emulator", maturity="pre-integration", correlationId, receivedAt, externalStatus, payload.
+- Lifecycle state machine correct: epd_sent requires draft, epd_confirmed/rejected require sent, arrival_confirmed requires trip_event_received.
+- No live EPD or logistics connection claims.
 - No API routes, no UI, no network calls in emulator.
-- Readiness stays at 56%.
-- PR 6.5+ locked until PR 6.4 green and merged.
+- Readiness stays at 60%.
+- PR 6.6+ locked until PR 6.5 green and merged.
 - No `any` types.
 - No forbidden claims.
 

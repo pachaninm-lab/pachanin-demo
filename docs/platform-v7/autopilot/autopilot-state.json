@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 6.4 — EDO Adapter Emulator",
+  "current": "PR 6.5 — EPD / Logistics Adapter Emulator",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -19,10 +19,10 @@
     "PR 5.8 — Stage 5 Stability Wiring",
     "PR 6.1 — External Adapter Emulator Contracts",
     "PR 6.2 — Bank Adapter Emulator",
-    "PR 6.3 — FGIS Adapter Emulator"
+    "PR 6.3 — FGIS Adapter Emulator",
+    "PR 6.4 — EDO Adapter Emulator"
   ],
   "lockedUntilCurrentGreen": [
-    "PR 6.5 — EPD / Logistics Adapter Emulator",
     "PR 6.6 — External Adapter Runtime QA",
     "AI Gateway",
     "Product Entry / Onboarding",
@@ -35,8 +35,8 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/web/lib/platform-v7/edo-adapter-emulator.ts",
-    "apps/web/tests/unit/platformV7EdoAdapterEmulator.test.ts"
+    "apps/web/lib/platform-v7/epd-adapter-emulator.ts",
+    "apps/web/tests/unit/platformV7EpdAdapterEmulator.test.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -64,6 +64,7 @@
     "платформа сама выпускает деньги",
     "банк подключён",
     "ФГИС подключён",
-    "ЭДО подключён"
+    "ЭДО подключён",
+    "EPD подключён"
   ]
 }
