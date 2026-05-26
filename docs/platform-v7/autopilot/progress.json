@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 60,
-  "currentStep": "PR 6.5 — EPD / Logistics Adapter Emulator",
-  "lastCompletedStep": "PR 6.4 — EDO Adapter Emulator",
+  "currentStep": "PR 6.6 — External Adapter Runtime QA",
+  "lastCompletedStep": "PR 6.5 — EPD / Logistics Adapter Emulator",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "PR 6.5 — EPD / Logistics Adapter Emulator",
-  "updatedAt": "2026-05-26T08:43:00.000Z",
+  "nextStep": "PR 6.6 — External Adapter Runtime QA",
+  "updatedAt": "2026-05-26T09:00:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

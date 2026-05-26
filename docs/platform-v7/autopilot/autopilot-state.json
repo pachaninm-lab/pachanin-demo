@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 6.5 — EPD / Logistics Adapter Emulator",
+  "current": "PR 6.6 — External Adapter Runtime QA",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -20,10 +20,10 @@
     "PR 6.1 — External Adapter Emulator Contracts",
     "PR 6.2 — Bank Adapter Emulator",
     "PR 6.3 — FGIS Adapter Emulator",
-    "PR 6.4 — EDO Adapter Emulator"
+    "PR 6.4 — EDO Adapter Emulator",
+    "PR 6.5 — EPD / Logistics Adapter Emulator"
   ],
   "lockedUntilCurrentGreen": [
-    "PR 6.6 — External Adapter Runtime QA",
     "AI Gateway",
     "Product Entry / Onboarding",
     "Theme / Visual",
@@ -35,8 +35,7 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/web/lib/platform-v7/epd-adapter-emulator.ts",
-    "apps/web/tests/unit/platformV7EpdAdapterEmulator.test.ts"
+    "apps/web/tests/unit/platformV7ExternalAdapterRuntimeQA.test.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
