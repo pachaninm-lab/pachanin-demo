@@ -1,0 +1,44 @@
+name: Qodana platform-v7 report
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/qodana-platform-v7-report.yml"
+      - "qodana.yaml"
+      - "apps/web/app/platform-v7/**"
+      - "apps/web/components/platform-v7/**"
+      - "apps/web/components/v7r/**"
+      - "apps/web/lib/platform-v7/**"
+      - "apps/web/lib/domain/**"
+      - "apps/web/tests/**"
+      - "docs/platform-v7/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qodana-report:
+    name: qodana report-mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Qodana in report mode
+        uses: JetBrains/qodana-action@v2026.1
+        continue-on-error: true
+        with:
+          upload-result: false
+          use-annotations: false
+          post-pr-comment: false
+
+      - name: Report-mode notice
+        if: always()
+        run: |
+          echo "Qodana is configured as report-mode only for the first platform-v7 baseline."
+          echo "This workflow must not be treated as a hard gate until findings are triaged."
