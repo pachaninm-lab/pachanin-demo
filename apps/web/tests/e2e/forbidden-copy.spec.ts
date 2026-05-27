@@ -70,6 +70,26 @@ const forbiddenVisibleTerms = [
   'выпустить сейчас',
 ] as const;
 
+const forbiddenVisiblePatterns = [
+  /банк\s+[^\n]{0,24}подключ[её]н/i,
+  /ФГИС\s+[^\n]{0,24}подключ[её]н/i,
+  /ЭДО\s+[^\n]{0,24}подключ[её]н/i,
+  /ЭПД\s+[^\n]{0,24}подключ[её]н/i,
+  /ГИС\s+ЭПД\s+[^\n]{0,24}подключ[её]н/i,
+  /bank\s+[^\n]{0,24}connected/i,
+  /FGIS\s+[^\n]{0,24}connected/i,
+  /EDO\s+[^\n]{0,24}connected/i,
+  /EPD\s+[^\n]{0,24}connected/i,
+  /live\s+[^\n]{0,24}(bank|FGIS|EDO|EPD)/i,
+  /платформа\s+[^\n]{0,32}гарантир[^\n]{0,16}оплат/i,
+  /платформа\s+[^\n]{0,32}выпускает\s+деньги/i,
+  /оплат[аы]\s+[^\n]{0,32}гарантирован[аы]\s+[^\n]{0,32}платформ/i,
+  /payment\s+[^\n]{0,32}guaranteed\s+[^\n]{0,32}platform/i,
+  /platform\s+[^\n]{0,32}releases\s+money/i,
+  /AI\s+[^\n]{0,32}binding\s+decisions/i,
+  /ИИ\s+[^\n]{0,32}обязательн[^\n]{0,16}решен/i,
+] as const;
+
 test.describe('platform-v7 forbidden user-facing copy', () => {
   for (const route of routes) {
     test(`${route} does not expose forbidden technical or inflated copy`, async ({ page }) => {
@@ -80,6 +100,10 @@ test.describe('platform-v7 forbidden user-facing copy', () => {
 
       for (const term of forbiddenVisibleTerms) {
         expect(visibleText, `${route} should not expose "${term}"`).not.toContain(term);
+      }
+
+      for (const pattern of forbiddenVisiblePatterns) {
+        expect(visibleText, `${route} should not match ${pattern}`).not.toMatch(pattern);
       }
     });
   }
