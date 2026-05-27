@@ -1,18 +1,18 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "CI Speed #1436 — GitHub Actions speed baseline",
-  "lastCompletedStep": "CodeQL #1434 — GitHub-native security report-only baseline",
+  "currentStep": "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
+  "lastCompletedStep": "CI Speed #1436 — GitHub Actions speed baseline",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "CI Speed #1436 — GitHub Actions speed baseline",
-  "updatedAt": "2026-05-27T06:10:00.000Z",
+  "nextStep": "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
+  "updatedAt": "2026-05-27T06:35:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
     "controlledPilotOnly": true,
-    "ciSpeedOnly": true,
-    "noProductCodeForCiSpeedBaseline": true
+    "playwrightSmokeOnly": true,
+    "noProductCodeForSmokeBaseline": true
   }
 }
