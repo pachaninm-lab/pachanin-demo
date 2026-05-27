@@ -1,15 +1,11 @@
-# Review current task — CI Speed #1436 GitHub Actions speed baseline
+# Review current task — Playwright Smoke #1438 platform-v7 key route smoke skeleton
 
 Maturity: controlled-pilot / pre-integration.
 
 ## Allowed files
 
-- .github/workflows/ci.yml
-- .github/workflows/node-ci.yml
-- .github/workflows/platform-v7-autopilot-guard.yml
-- .github/workflows/qodana-platform-v7-report.yml
-- .github/workflows/codeql-platform-v7-report.yml
-- docs/platform-v7/qa/ci-speed-baseline.md
+- apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts
+- docs/platform-v7/qa/playwright-smoke-baseline.md
 
 ## Forbidden zones
 
@@ -36,4 +32,4 @@ Maturity: controlled-pilot / pre-integration.
 
 ## Merge rule
 
-Merge only if scope is clean, checks are green, apps/landing diff is 0, maturity remains controlled-pilot / pre-integration, no product code changed, no lockfile changed, no hard gate added, and mergeable=true.
+Merge only if scope is clean, checks are green, apps/landing diff is 0, maturity remains controlled-pilot / pre-integration, no product code changed, no lockfile changed, no generated artifacts added, and mergeable=true.
