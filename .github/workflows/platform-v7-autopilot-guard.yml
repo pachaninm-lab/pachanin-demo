@@ -15,9 +15,14 @@ on:
       - '.github/workflows/platform-v7-autopilot-guard.yml'
       - '.github/workflows/platform-v7-agent-runner.yml'
 
+concurrency:
+  group: platform-v7-autopilot-guard-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   autopilot-guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
