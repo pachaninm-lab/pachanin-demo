@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
+  "current": "Forbidden Copy #1440 — no-fake-live test expansion",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -29,7 +29,8 @@
     "PR 7.4 — AI Gateway Runtime QA",
     "Qodana #1423 — CI-only report-mode baseline",
     "CodeQL #1434 — GitHub-native security report-only baseline",
-    "CI Speed #1436 — GitHub Actions speed baseline"
+    "CI Speed #1436 — GitHub Actions speed baseline",
+    "Playwright Smoke #1438 — platform-v7 key route smoke skeleton"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -38,8 +39,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts",
-    "docs/platform-v7/qa/playwright-smoke-baseline.md"
+    "apps/web/tests/e2e/forbidden-copy.spec.ts",
+    "docs/platform-v7/qa/forbidden-copy-baseline.md"
   ],
   "forbiddenZones": [
     "apps/landing",
