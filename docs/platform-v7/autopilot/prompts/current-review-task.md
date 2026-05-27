@@ -1,11 +1,11 @@
-# Review current task — Forbidden Copy #1440 no-fake-live test expansion
+# Review current task — Mobile Overflow Smoke 390x844 baseline
 
 Maturity: controlled-pilot / pre-integration.
 
 ## Allowed files
 
-- apps/web/tests/e2e/forbidden-copy.spec.ts
-- docs/platform-v7/qa/forbidden-copy-baseline.md
+- apps/web/tests/e2e/platform-v7-mobile-overflow-390.spec.ts
+- docs/platform-v7/qa/mobile-overflow-smoke-baseline.md
 
 ## Forbidden zones
 
