@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: CI Speed #1436 — GitHub Actions speed baseline
+CURRENT: Playwright Smoke #1438 — platform-v7 key route smoke skeleton
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -26,19 +26,20 @@ DONE:
 - PR 7.4 — AI Gateway Runtime QA
 - Qodana #1423 — CI-only report-mode baseline
 - CodeQL #1434 — GitHub-native security report-only baseline
+- CI Speed #1436 — GitHub Actions speed baseline
 
-LOCKED UNTIL CI SPEED BASELINE GREEN:
+LOCKED UNTIL PLAYWRIGHT SMOKE BASELINE GREEN:
 - Product Entry / Onboarding
 - Theme / Visual
 - Role Cockpit / UX
 - Backend / DB / runtime persistence expansion
 
 NEXT AUTOPILOT STEP:
-- Implement CI Speed #1436 only as a GitHub Actions speed/stability baseline.
-- Add concurrency / cancel-in-progress where safe.
-- Add pnpm cache where safe.
-- Add explicit timeouts where safe.
-- Do not touch product code, UI, API routes, DB, runtime, adapters or lockfiles.
+- Implement Playwright Smoke #1438 only as a platform-v7 key route smoke skeleton.
+- Reuse existing Playwright infra and dependencies.
+- Do not add dependencies or change lockfiles.
+- Do not touch product code, UI, API routes, DB, runtime or adapters.
+- Keep tests smoke/report-oriented and scoped to route availability/basic platform-v7 invariants.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
 
