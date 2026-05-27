@@ -1,18 +1,18 @@
-# Codex current task — Playwright Smoke #1438 platform-v7 key route smoke skeleton
+# Codex current task — Forbidden Copy #1440 no-fake-live test expansion
 
-Current step: Playwright Smoke #1438 — platform-v7 key route smoke skeleton.
+Current step: Forbidden Copy #1440 — no-fake-live test expansion.
 Maturity: controlled-pilot / pre-integration.
 
 ## Objective
 
-Add a narrow Playwright smoke skeleton for key platform-v7 routes using existing Playwright infrastructure.
+Expand platform-v7 forbidden-copy / no-fake-live Playwright coverage using the existing e2e test infrastructure.
 
-This PR must improve route-level smoke visibility only. It must not change product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
+This PR must improve copy-safety coverage only. It must not change product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
 
 ## Allowed files
 
-- apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts
-- docs/platform-v7/qa/playwright-smoke-baseline.md
+- apps/web/tests/e2e/forbidden-copy.spec.ts
+- docs/platform-v7/qa/forbidden-copy-baseline.md
 
 ## Forbidden zones
 
@@ -28,15 +28,15 @@ This PR must improve route-level smoke visibility only. It must not change produ
 
 ## Implement
 
-Create a route smoke skeleton that:
+Expand the existing forbidden-copy test by adding high-risk fake-live and inflated maturity terms that must never be visible to end users.
 
-- uses existing `@playwright/test` setup;
-- covers only key platform-v7 routes;
-- checks HTTP/page availability and absence of fatal crash copy;
-- does not require live external credentials;
-- does not assert fake live integration states;
-- does not add screenshots, snapshots or generated artifacts;
-- stays tolerant enough for report/smoke mode, not full UX validation.
+Requirements:
+- reuse the existing Playwright test file;
+- do not add new dependencies;
+- do not add generated artifacts;
+- keep checks focused on user-visible copy;
+- include bank, FGIS, EDO, EPD, payment guarantee and maturity overclaim wording;
+- document the forbidden-copy baseline and future triage.
 
 ## Required checks
 
@@ -51,4 +51,4 @@ Create a route smoke skeleton that:
 
 ## PR title
 
-test(platform-v7): add key route smoke skeleton
+test(platform-v7): expand forbidden fake-live copy coverage
