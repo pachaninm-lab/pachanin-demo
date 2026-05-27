@@ -1,18 +1,17 @@
-# Codex current task — Mobile Overflow Smoke 390x844 baseline
+# Codex current task — Agent Runner Diagnostics
 
-Current step: Mobile Overflow Smoke — 390x844 baseline.
+Current step: Agent Runner Diagnostics — background coding health check.
 Maturity: controlled-pilot / pre-integration.
 
 ## Objective
 
-Add a narrow Playwright smoke baseline for mobile horizontal overflow at 390x844 using existing e2e infrastructure.
+Document the existing platform-v7 background coding runner so failures become diagnosable instead of silent.
 
-This PR must improve mobile route visibility only. It must not change product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
+This PR must improve automation visibility only. It must not change runner scripts, workflow files, product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
 
 ## Allowed files
 
-- apps/web/tests/e2e/platform-v7-mobile-overflow-390.spec.ts
-- docs/platform-v7/qa/mobile-overflow-smoke-baseline.md
+- docs/platform-v7/autopilot/agent-runner-diagnostics.md
 
 ## Forbidden zones
 
@@ -22,21 +21,22 @@ This PR must improve mobile route visibility only. It must not change product be
 - apps/web/components/v7r
 - apps/web/lib/platform-v7
 - apps/web/app/api
+- .github/workflows
+- scripts
 - package.json
 - package-lock.json
 - pnpm-lock.yaml
 
 ## Implement
 
-Create a mobile overflow smoke test that:
+Create a concise diagnostics document that covers:
 
-- uses existing `@playwright/test` setup;
-- sets viewport to 390x844;
-- covers key platform-v7 routes only;
-- checks route response success and body rendering;
-- checks that document horizontal overflow does not exceed viewport by more than a small tolerance;
-- does not require live external credentials;
-- does not add screenshots, snapshots or generated artifacts.
+- available trigger paths: workflow dispatch, issue label, issue comment;
+- required GitHub Actions secret name;
+- expected agent path from trigger to PR creation;
+- allowed scope enforcement through autopilot-state and guard script;
+- failure modes: missing secret, unavailable connector, no PR produced, blocked scope, red checks;
+- safe next action for each failure mode.
 
 ## Required checks
 
@@ -51,4 +51,4 @@ Create a mobile overflow smoke test that:
 
 ## PR title
 
-test(platform-v7): add mobile overflow smoke baseline
+docs(platform-v7): add agent runner diagnostics
