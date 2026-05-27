@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Playwright Smoke #1438 — platform-v7 key route smoke skeleton
+CURRENT: Forbidden Copy #1440 — no-fake-live test expansion
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -27,19 +27,20 @@ DONE:
 - Qodana #1423 — CI-only report-mode baseline
 - CodeQL #1434 — GitHub-native security report-only baseline
 - CI Speed #1436 — GitHub Actions speed baseline
+- Playwright Smoke #1438 — platform-v7 key route smoke skeleton
 
-LOCKED UNTIL PLAYWRIGHT SMOKE BASELINE GREEN:
+LOCKED UNTIL FORBIDDEN COPY EXPANSION GREEN:
 - Product Entry / Onboarding
 - Theme / Visual
 - Role Cockpit / UX
 - Backend / DB / runtime persistence expansion
 
 NEXT AUTOPILOT STEP:
-- Implement Playwright Smoke #1438 only as a platform-v7 key route smoke skeleton.
-- Reuse existing Playwright infra and dependencies.
+- Implement Forbidden Copy #1440 only as no-fake-live test expansion.
+- Reuse existing Playwright forbidden-copy test infrastructure.
 - Do not add dependencies or change lockfiles.
 - Do not touch product code, UI, API routes, DB, runtime or adapters.
-- Keep tests smoke/report-oriented and scoped to route availability/basic platform-v7 invariants.
+- Expand forbidden-copy coverage only where current UI is already expected to comply.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
 
