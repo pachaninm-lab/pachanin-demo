@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Mobile Overflow Smoke — 390x844 baseline",
+  "current": "Agent Runner Diagnostics — background coding health check",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -31,7 +31,8 @@
     "CodeQL #1434 — GitHub-native security report-only baseline",
     "CI Speed #1436 — GitHub Actions speed baseline",
     "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
-    "Forbidden Copy #1440 — no-fake-live test expansion"
+    "Forbidden Copy #1440 — no-fake-live test expansion",
+    "Mobile Overflow Smoke — 390x844 baseline"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -40,8 +41,7 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-mobile-overflow-390.spec.ts",
-    "docs/platform-v7/qa/mobile-overflow-smoke-baseline.md"
+    "docs/platform-v7/autopilot/agent-runner-diagnostics.md"
   ],
   "forbiddenZones": [
     "apps/landing",

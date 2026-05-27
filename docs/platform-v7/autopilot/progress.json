@@ -1,16 +1,16 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Mobile Overflow Smoke — 390x844 baseline",
-  "lastCompletedStep": "Forbidden Copy #1440 — no-fake-live test expansion",
+  "currentStep": "Agent Runner Diagnostics — background coding health check",
+  "lastCompletedStep": "Mobile Overflow Smoke — 390x844 baseline",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Mobile Overflow Smoke — 390x844 baseline",
-  "updatedAt": "2026-05-27T19:40:00.000Z",
+  "nextStep": "Agent Runner Diagnostics — background coding health check",
+  "updatedAt": "2026-05-27T20:30:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "controlledPilotOnly": true,
-    "mobileOverflowSmokeOnly": true,
-    "noProductCodeForMobileOverflowBaseline": true
+    "diagnosticsOnly": true,
+    "noProductCodeForAgentRunnerDiagnostics": true
   }
 }
