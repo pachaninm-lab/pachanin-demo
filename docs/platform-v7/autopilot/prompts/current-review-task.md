@@ -1,11 +1,11 @@
-# Review current task — Playwright Smoke #1438 platform-v7 key route smoke skeleton
+# Review current task — Forbidden Copy #1440 no-fake-live test expansion
 
 Maturity: controlled-pilot / pre-integration.
 
 ## Allowed files
 
-- apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts
-- docs/platform-v7/qa/playwright-smoke-baseline.md
+- apps/web/tests/e2e/forbidden-copy.spec.ts
+- docs/platform-v7/qa/forbidden-copy-baseline.md
 
 ## Forbidden zones
 
