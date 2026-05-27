@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "CI Speed #1436 — GitHub Actions speed baseline",
+  "current": "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -28,7 +28,8 @@
     "PR 7.3 — AI Gateway Mock Provider",
     "PR 7.4 — AI Gateway Runtime QA",
     "Qodana #1423 — CI-only report-mode baseline",
-    "CodeQL #1434 — GitHub-native security report-only baseline"
+    "CodeQL #1434 — GitHub-native security report-only baseline",
+    "CI Speed #1436 — GitHub Actions speed baseline"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -37,12 +38,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    ".github/workflows/ci.yml",
-    ".github/workflows/node-ci.yml",
-    ".github/workflows/platform-v7-autopilot-guard.yml",
-    ".github/workflows/qodana-platform-v7-report.yml",
-    ".github/workflows/codeql-platform-v7-report.yml",
-    "docs/platform-v7/qa/ci-speed-baseline.md"
+    "apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts",
+    "docs/platform-v7/qa/playwright-smoke-baseline.md"
   ],
   "forbiddenZones": [
     "apps/landing",
