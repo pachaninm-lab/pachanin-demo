@@ -1,18 +1,18 @@
-# Codex current task — Forbidden Copy #1440 no-fake-live test expansion
+# Codex current task — Mobile Overflow Smoke 390x844 baseline
 
-Current step: Forbidden Copy #1440 — no-fake-live test expansion.
+Current step: Mobile Overflow Smoke — 390x844 baseline.
 Maturity: controlled-pilot / pre-integration.
 
 ## Objective
 
-Expand platform-v7 forbidden-copy / no-fake-live Playwright coverage using the existing e2e test infrastructure.
+Add a narrow Playwright smoke baseline for mobile horizontal overflow at 390x844 using existing e2e infrastructure.
 
-This PR must improve copy-safety coverage only. It must not change product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
+This PR must improve mobile route visibility only. It must not change product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
 
 ## Allowed files
 
-- apps/web/tests/e2e/forbidden-copy.spec.ts
-- docs/platform-v7/qa/forbidden-copy-baseline.md
+- apps/web/tests/e2e/platform-v7-mobile-overflow-390.spec.ts
+- docs/platform-v7/qa/mobile-overflow-smoke-baseline.md
 
 ## Forbidden zones
 
@@ -28,15 +28,15 @@ This PR must improve copy-safety coverage only. It must not change product behav
 
 ## Implement
 
-Expand the existing forbidden-copy test by adding high-risk fake-live and inflated maturity terms that must never be visible to end users.
+Create a mobile overflow smoke test that:
 
-Requirements:
-- reuse the existing Playwright test file;
-- do not add new dependencies;
-- do not add generated artifacts;
-- keep checks focused on user-visible copy;
-- include bank, FGIS, EDO, EPD, payment guarantee and maturity overclaim wording;
-- document the forbidden-copy baseline and future triage.
+- uses existing `@playwright/test` setup;
+- sets viewport to 390x844;
+- covers key platform-v7 routes only;
+- checks route response success and body rendering;
+- checks that document horizontal overflow does not exceed viewport by more than a small tolerance;
+- does not require live external credentials;
+- does not add screenshots, snapshots or generated artifacts.
 
 ## Required checks
 
@@ -51,4 +51,4 @@ Requirements:
 
 ## PR title
 
-test(platform-v7): expand forbidden fake-live copy coverage
+test(platform-v7): add mobile overflow smoke baseline

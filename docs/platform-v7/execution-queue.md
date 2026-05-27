@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Forbidden Copy #1440 — no-fake-live test expansion
+CURRENT: Mobile Overflow Smoke — 390x844 baseline
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -28,19 +28,20 @@ DONE:
 - CodeQL #1434 — GitHub-native security report-only baseline
 - CI Speed #1436 — GitHub Actions speed baseline
 - Playwright Smoke #1438 — platform-v7 key route smoke skeleton
+- Forbidden Copy #1440 — no-fake-live test expansion
 
-LOCKED UNTIL FORBIDDEN COPY EXPANSION GREEN:
+LOCKED UNTIL MOBILE OVERFLOW SMOKE BASELINE GREEN:
 - Product Entry / Onboarding
 - Theme / Visual
 - Role Cockpit / UX
 - Backend / DB / runtime persistence expansion
 
 NEXT AUTOPILOT STEP:
-- Implement Forbidden Copy #1440 only as no-fake-live test expansion.
-- Reuse existing Playwright forbidden-copy test infrastructure.
+- Implement Mobile Overflow Smoke only as a 390x844 Playwright baseline.
+- Reuse existing Playwright infrastructure.
 - Do not add dependencies or change lockfiles.
 - Do not touch product code, UI, API routes, DB, runtime or adapters.
-- Expand forbidden-copy coverage only where current UI is already expected to comply.
+- Keep checks focused on horizontal overflow and basic body rendering on key platform-v7 routes.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
 

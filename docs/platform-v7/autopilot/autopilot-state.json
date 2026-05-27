@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Forbidden Copy #1440 — no-fake-live test expansion",
+  "current": "Mobile Overflow Smoke — 390x844 baseline",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -30,7 +30,8 @@
     "Qodana #1423 — CI-only report-mode baseline",
     "CodeQL #1434 — GitHub-native security report-only baseline",
     "CI Speed #1436 — GitHub Actions speed baseline",
-    "Playwright Smoke #1438 — platform-v7 key route smoke skeleton"
+    "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
+    "Forbidden Copy #1440 — no-fake-live test expansion"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -39,8 +40,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/forbidden-copy.spec.ts",
-    "docs/platform-v7/qa/forbidden-copy-baseline.md"
+    "apps/web/tests/e2e/platform-v7-mobile-overflow-390.spec.ts",
+    "docs/platform-v7/qa/mobile-overflow-smoke-baseline.md"
   ],
   "forbiddenZones": [
     "apps/landing",
