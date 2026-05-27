@@ -1,18 +1,18 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
-  "lastCompletedStep": "CI Speed #1436 — GitHub Actions speed baseline",
+  "currentStep": "Forbidden Copy #1440 — no-fake-live test expansion",
+  "lastCompletedStep": "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
-  "updatedAt": "2026-05-27T06:35:00.000Z",
+  "nextStep": "Forbidden Copy #1440 — no-fake-live test expansion",
+  "updatedAt": "2026-05-27T08:20:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
     "controlledPilotOnly": true,
-    "playwrightSmokeOnly": true,
-    "noProductCodeForSmokeBaseline": true
+    "forbiddenCopyOnly": true,
+    "noProductCodeForForbiddenCopyExpansion": true
   }
 }
