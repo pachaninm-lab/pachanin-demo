@@ -1,22 +1,18 @@
-# Codex current task — CI Speed #1436 GitHub Actions speed baseline
+# Codex current task — Playwright Smoke #1438 platform-v7 key route smoke skeleton
 
-Current step: CI Speed #1436 — GitHub Actions speed baseline.
+Current step: Playwright Smoke #1438 — platform-v7 key route smoke skeleton.
 Maturity: controlled-pilot / pre-integration.
 
 ## Objective
 
-Improve GitHub Actions speed and stability without changing product behavior.
+Add a narrow Playwright smoke skeleton for key platform-v7 routes using existing Playwright infrastructure.
 
-This PR must improve CI execution only. It must not change product behavior, UI, runtime, API routes, DB, adapters, lockfiles or maturity claims.
+This PR must improve route-level smoke visibility only. It must not change product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
 
 ## Allowed files
 
-- .github/workflows/ci.yml
-- .github/workflows/node-ci.yml
-- .github/workflows/platform-v7-autopilot-guard.yml
-- .github/workflows/qodana-platform-v7-report.yml
-- .github/workflows/codeql-platform-v7-report.yml
-- docs/platform-v7/qa/ci-speed-baseline.md
+- apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts
+- docs/platform-v7/qa/playwright-smoke-baseline.md
 
 ## Forbidden zones
 
@@ -32,16 +28,15 @@ This PR must improve CI execution only. It must not change product behavior, UI,
 
 ## Implement
 
-Add a safe CI speed/stability baseline.
+Create a route smoke skeleton that:
 
-Requirements:
-- add `concurrency` / `cancel-in-progress` where safe;
-- add explicit job timeouts where missing;
-- use pnpm cache through setup-node where already compatible;
-- do not introduce new required dependencies;
-- do not change scripts, tests or product files;
-- keep Qodana and CodeQL informational/report-only;
-- document the CI speed baseline and future triage.
+- uses existing `@playwright/test` setup;
+- covers only key platform-v7 routes;
+- checks HTTP/page availability and absence of fatal crash copy;
+- does not require live external credentials;
+- does not assert fake live integration states;
+- does not add screenshots, snapshots or generated artifacts;
+- stays tolerant enough for report/smoke mode, not full UX validation.
 
 ## Required checks
 
@@ -56,4 +51,4 @@ Requirements:
 
 ## PR title
 
-ci(platform-v7): add actions speed baseline
+test(platform-v7): add key route smoke skeleton
