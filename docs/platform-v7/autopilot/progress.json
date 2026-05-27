@@ -1,18 +1,16 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Forbidden Copy #1440 — no-fake-live test expansion",
-  "lastCompletedStep": "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
+  "currentStep": "Mobile Overflow Smoke — 390x844 baseline",
+  "lastCompletedStep": "Forbidden Copy #1440 — no-fake-live test expansion",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Forbidden Copy #1440 — no-fake-live test expansion",
-  "updatedAt": "2026-05-27T08:20:00.000Z",
+  "nextStep": "Mobile Overflow Smoke — 390x844 baseline",
+  "updatedAt": "2026-05-27T19:40:00.000Z",
   "rules": {
     "noAppsLanding": true,
-    "noFakeLiveClaims": true,
-    "noAutoMerge": true,
     "controlledPilotOnly": true,
-    "forbiddenCopyOnly": true,
-    "noProductCodeForForbiddenCopyExpansion": true
+    "mobileOverflowSmokeOnly": true,
+    "noProductCodeForMobileOverflowBaseline": true
   }
 }
