@@ -85,10 +85,48 @@ jobs:
         run: node scripts/p7-autopilot-dispatcher.mjs
 
       - name: Run platform-v7 agent runner
+        shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash scripts/p7-agent-runner.sh
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || '' }}
+        run: |
+          set +e
+          bash scripts/p7-agent-runner.sh 2>&1 | tee /tmp/p7-agent-runner.log
+          status=${PIPESTATUS[0]}
+
+          tail -n 80 /tmp/p7-agent-runner.log | python3 -c 'import os,re,sys
+text=sys.stdin.read()
+for value in (os.environ.get("OPENAI_API_KEY"), os.environ.get("GITHUB_TOKEN"), os.environ.get("GH_TOKEN")):
+    if value:
+        text=text.replace(value,"[redacted-secret]")
+text=re.sub(r"sk-[A-Za-z0-9_-]{12,}","[redacted-openai-key]",text)
+text=re.sub(r"gh[pousr]_[A-Za-z0-9_]{12,}","[redacted-github-token]",text)
+print(text,end="")
+' > /tmp/p7-agent-runner-tail.txt
+
+          {
+            echo "## runner output tail"
+            echo "- exit code: $status"
+            echo '```text'
+            cat /tmp/p7-agent-runner-tail.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$status" -ne 0 ]; then
+            if [ -n "${ISSUE_NUMBER:-}" ] && command -v gh >/dev/null 2>&1; then
+              {
+                echo "Agent runner failed after preflight: run=${{ github.run_id }}, exit=$status. Sanitized tail:"
+                echo '```text'
+                tail -n 40 /tmp/p7-agent-runner-tail.txt
+                echo '```'
+              } > /tmp/p7-agent-runner-comment.md
+              gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file /tmp/p7-agent-runner-comment.md || true
+            fi
+            exit "$status"
+          fi
 
       - name: Runner summary
         if: always()
