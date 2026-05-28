@@ -25,9 +25,11 @@ test.describe('platform-v7 key route smoke skeleton', () => {
     test(`${route} renders without fatal route crash`, async ({ page }) => {
       const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
 
+      expect(response, `${route} should return a response`).not.toBeNull();
       expect(response?.ok(), `${route} should return a successful response`).toBeTruthy();
       await expect(page.locator('body'), `${route} should render body content`).not.toBeEmpty();
       await expect(page.locator('body'), `${route} should not show fatal crash copy`).not.toContainText(FATAL_RENDER_COPY);
+      await expect(page.locator('html'), `${route} should render an html root`).toBeAttached();
     });
   }
 });
