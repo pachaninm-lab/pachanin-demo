@@ -17,6 +17,10 @@ permissions:
   pull-requests: write
   issues: write
 
+concurrency:
+  group: platform-v7-agent-runner-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   run-agent:
     if: >-
@@ -24,6 +28,7 @@ jobs:
       (github.event_name == 'issues' && github.event.label.name == 'agent:run') ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/agent run current'))
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,6 +46,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Preflight
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          echo "## platform-v7 agent runner" >> "$GITHUB_STEP_SUMMARY"
+          echo "- event: ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- run id: ${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "- status: blocked" >> "$GITHUB_STEP_SUMMARY"
+            echo "- reason: OPENAI_API_KEY secret is not available" >> "$GITHUB_STEP_SUMMARY"
+            echo "ERROR: OPENAI_API_KEY secret is not available for this workflow run."
+            exit 2
+          fi
+          echo "- status: preflight passed" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Generate current platform-v7 task
         run: node scripts/p7-autopilot-dispatcher.mjs
 
@@ -49,6 +71,15 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/p7-agent-runner.sh
+
+      - name: Runner summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## runner result" >> "$GITHUB_STEP_SUMMARY"
+          echo "- job status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- current progress file: docs/platform-v7/autopilot/progress.json" >> "$GITHUB_STEP_SUMMARY"
+          echo "- generated branch env: ${P7_AGENT_BRANCH:-not-set}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create pull request
         if: success()
