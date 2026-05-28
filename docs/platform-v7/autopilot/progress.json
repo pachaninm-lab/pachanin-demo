@@ -1,16 +1,16 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Agent Runner Diagnostics — background coding health check",
-  "lastCompletedStep": "Mobile Overflow Smoke — 390x844 baseline",
+  "currentStep": "Route Smoke Hardening — platform-v7 route availability baseline",
+  "lastCompletedStep": "Agent Runner Diagnostics — background coding health check",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Agent Runner Diagnostics — background coding health check",
-  "updatedAt": "2026-05-27T20:30:00.000Z",
+  "nextStep": "Route Smoke Hardening — platform-v7 route availability baseline",
+  "updatedAt": "2026-05-28T03:30:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "controlledPilotOnly": true,
-    "diagnosticsOnly": true,
-    "noProductCodeForAgentRunnerDiagnostics": true
+    "routeSmokeOnly": true,
+    "noProductCodeForRouteSmokeHardening": true
   }
 }
