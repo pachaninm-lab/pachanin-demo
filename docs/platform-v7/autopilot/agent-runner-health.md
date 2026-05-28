@@ -10,6 +10,7 @@ The runner workflow now has:
 
 - a concurrency group for runner executions;
 - a 25-minute timeout;
+- an issue-visible start marker for issue-triggered runs;
 - a preflight step;
 - a visible GitHub Actions step summary;
 - an explicit check for the required repository secret;
@@ -17,7 +18,7 @@ The runner workflow now has:
 
 ## Issue-visible diagnostics
 
-Issue-triggered runs should also surface missing-secret preflight failures back into the trigger issue when `OPENAI_API_KEY` is unavailable. This keeps the failure visible even when the run is not connected to an implementation pull request.
+Issue-triggered runs should surface a start marker back into the trigger issue before checkout, dependency installation or code-writing begins. Missing-secret preflight failures should also be posted back to the trigger issue when `OPENAI_API_KEY` is unavailable. This separates trigger failures from later runner failures.
 
 ## Required repository secret
 
@@ -37,6 +38,7 @@ The runner-health layer is acceptable when:
 - product code is unchanged;
 - apps/landing is unchanged;
 - dependency files and lockfiles are unchanged;
+- issue-triggered runs create a visible start marker;
 - the runner has a clear preflight failure path;
 - issue-triggered missing-secret failures are visible on the trigger issue;
 - generated work remains PR-only;
@@ -44,4 +46,4 @@ The runner-health layer is acceptable when:
 
 ## Next verification
 
-After merge, trigger the runner through issue #1441 with `agent:run` or `/agent run current` and verify whether it creates an `agent-generated` pull request or fails with a visible preflight reason.
+After merge, trigger the runner through issue #1441 with `agent:run` or `/agent run current` and verify whether it creates an `agent-generated` pull request, posts a start marker, or fails with a visible preflight reason.
