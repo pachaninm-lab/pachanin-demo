@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Agent Runner Diagnostics — background coding health check
+CURRENT: Route Smoke Hardening — platform-v7 route availability baseline
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -30,17 +30,20 @@ DONE:
 - Playwright Smoke #1438 — platform-v7 key route smoke skeleton
 - Forbidden Copy #1440 — no-fake-live test expansion
 - Mobile Overflow Smoke — 390x844 baseline
+- Agent Runner Diagnostics — background coding health check
 
-LOCKED UNTIL AGENT RUNNER DIAGNOSTICS GREEN:
+LOCKED UNTIL ROUTE SMOKE HARDENING GREEN:
 - Product Entry / Onboarding
 - Theme / Visual
 - Role Cockpit / UX
 - Backend / DB / runtime persistence expansion
 
 NEXT AUTOPILOT STEP:
-- Implement Agent Runner Diagnostics only as documentation for the existing background coding runner.
-- Do not change runner scripts, workflow files, secrets, product code, UI, API routes, DB, runtime, adapters or lockfiles.
-- Document the exact trigger paths, required secret, expected PR creation path, and failure modes.
+- Implement Route Smoke Hardening only as a Playwright route availability baseline.
+- Reuse existing Playwright infrastructure.
+- Do not add dependencies or change lockfiles.
+- Do not touch product code, UI, API routes, DB, runtime or adapters.
+- Keep checks focused on route response, body rendering and fatal crash copy.
 - Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
 - Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
 
