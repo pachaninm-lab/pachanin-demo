@@ -1,18 +1,18 @@
-# Codex current task — Route Smoke Hardening
+# Codex current task — Agent Runner Health
 
-Current step: Route Smoke Hardening — platform-v7 route availability baseline.
+Current step: Agent Runner Health.
 Maturity: controlled-pilot / pre-integration.
 
 ## Objective
 
-Harden the existing platform-v7 route smoke test using existing Playwright infrastructure.
+Improve visibility for the existing platform-v7 background runner without changing product behavior.
 
-This PR must improve route availability visibility only. It must not change product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
+This PR must be limited to runner workflow visibility and documentation. It must not change product code, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
 
 ## Allowed files
 
-- apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts
-- docs/platform-v7/qa/route-smoke-hardening.md
+- .github/workflows/platform-v7-agent-runner.yml
+- docs/platform-v7/autopilot/agent-runner-health.md
 
 ## Forbidden zones
 
@@ -28,15 +28,15 @@ This PR must improve route availability visibility only. It must not change prod
 
 ## Implement
 
-Update the route smoke baseline so it:
+Harden the existing runner workflow so failed or skipped runs are easier to diagnose.
 
-- reuses the existing `@playwright/test` setup;
-- covers key platform-v7 routes only;
-- checks route response success;
-- checks body content rendering;
-- checks the page does not show fatal crash copy;
-- does not require live external credentials;
-- does not add screenshots, snapshots or generated artifacts.
+Requirements:
+- keep generated work PR-only;
+- do not add auto-merge;
+- do not add dependencies;
+- do not change scripts in this layer;
+- add clear workflow-level visibility where safe;
+- document start paths, pass criteria and failure handling.
 
 ## Required checks
 
@@ -51,4 +51,4 @@ Update the route smoke baseline so it:
 
 ## PR title
 
-test(platform-v7): harden route smoke baseline
+ci(platform-v7): improve runner health visibility
