@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Route Smoke Hardening — platform-v7 route availability baseline
+CURRENT: Agent Runner Health
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -31,24 +31,14 @@ DONE:
 - Forbidden Copy #1440 — no-fake-live test expansion
 - Mobile Overflow Smoke — 390x844 baseline
 - Agent Runner Diagnostics — background coding health check
+- Route Smoke Hardening — platform-v7 route availability baseline
 
-LOCKED UNTIL ROUTE SMOKE HARDENING GREEN:
-- Product Entry / Onboarding
-- Theme / Visual
-- Role Cockpit / UX
-- Backend / DB / runtime persistence expansion
-
-NEXT AUTOPILOT STEP:
-- Implement Route Smoke Hardening only as a Playwright route availability baseline.
-- Reuse existing Playwright infrastructure.
-- Do not add dependencies or change lockfiles.
-- Do not touch product code, UI, API routes, DB, runtime or adapters.
-- Keep checks focused on route response, body rendering and fatal crash copy.
-- Use docs/platform-v7/autopilot/prompts/current-codex-task.md as the implementation prompt.
-- Use docs/platform-v7/autopilot/prompts/current-review-task.md as the review prompt.
+NEXT:
+- Keep the next layer limited to the existing runner workflow and docs.
+- Do not change product code, UI, API routes, DB, runtime, adapters or lockfiles.
+- Keep generated work PR-only.
 
 RULES:
 - Do not touch apps/landing.
 - Keep maturity wording at controlled-pilot / pre-integration.
 - One PR = one narrow reviewable layer.
-- Live integrations remain out of scope until credentials, agreements and explicit approval exist.

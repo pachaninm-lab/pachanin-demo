@@ -1,16 +1,16 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Route Smoke Hardening — platform-v7 route availability baseline",
-  "lastCompletedStep": "Agent Runner Diagnostics — background coding health check",
+  "currentStep": "Agent Runner Health — trigger and preflight hardening",
+  "lastCompletedStep": "Route Smoke Hardening — platform-v7 route availability baseline",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Route Smoke Hardening — platform-v7 route availability baseline",
-  "updatedAt": "2026-05-28T03:30:00.000Z",
+  "nextStep": "Agent Runner Health — trigger and preflight hardening",
+  "updatedAt": "2026-05-28T10:10:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "controlledPilotOnly": true,
-    "routeSmokeOnly": true,
-    "noProductCodeForRouteSmokeHardening": true
+    "agentRunnerHealthOnly": true,
+    "noProductCodeForAgentRunnerHealth": true
   }
 }
