@@ -1,17 +1,18 @@
-# Codex current task — Agent Runner Diagnostics
+# Codex current task — Route Smoke Hardening
 
-Current step: Agent Runner Diagnostics — background coding health check.
+Current step: Route Smoke Hardening — platform-v7 route availability baseline.
 Maturity: controlled-pilot / pre-integration.
 
 ## Objective
 
-Document the existing platform-v7 background coding runner so failures become diagnosable instead of silent.
+Harden the existing platform-v7 route smoke test using existing Playwright infrastructure.
 
-This PR must improve automation visibility only. It must not change runner scripts, workflow files, product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
+This PR must improve route availability visibility only. It must not change product behavior, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
 
 ## Allowed files
 
-- docs/platform-v7/autopilot/agent-runner-diagnostics.md
+- apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts
+- docs/platform-v7/qa/route-smoke-hardening.md
 
 ## Forbidden zones
 
@@ -21,22 +22,21 @@ This PR must improve automation visibility only. It must not change runner scrip
 - apps/web/components/v7r
 - apps/web/lib/platform-v7
 - apps/web/app/api
-- .github/workflows
-- scripts
 - package.json
 - package-lock.json
 - pnpm-lock.yaml
 
 ## Implement
 
-Create a concise diagnostics document that covers:
+Update the route smoke baseline so it:
 
-- available trigger paths: workflow dispatch, issue label, issue comment;
-- required GitHub Actions secret name;
-- expected agent path from trigger to PR creation;
-- allowed scope enforcement through autopilot-state and guard script;
-- failure modes: missing secret, unavailable connector, no PR produced, blocked scope, red checks;
-- safe next action for each failure mode.
+- reuses the existing `@playwright/test` setup;
+- covers key platform-v7 routes only;
+- checks route response success;
+- checks body content rendering;
+- checks the page does not show fatal crash copy;
+- does not require live external credentials;
+- does not add screenshots, snapshots or generated artifacts.
 
 ## Required checks
 
@@ -51,4 +51,4 @@ Create a concise diagnostics document that covers:
 
 ## PR title
 
-docs(platform-v7): add agent runner diagnostics
+test(platform-v7): harden route smoke baseline
