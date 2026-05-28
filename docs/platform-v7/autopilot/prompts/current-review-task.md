@@ -1,11 +1,11 @@
-# Review current task — Route Smoke Hardening
+# Review current task — Agent Runner Health
 
 Maturity: controlled-pilot / pre-integration.
 
 ## Allowed files
 
-- apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts
-- docs/platform-v7/qa/route-smoke-hardening.md
+- .github/workflows/platform-v7-agent-runner.yml
+- docs/platform-v7/autopilot/agent-runner-health.md
 
 ## Forbidden zones
 
@@ -32,4 +32,4 @@ Maturity: controlled-pilot / pre-integration.
 
 ## Merge rule
 
-Merge only if scope is clean, checks are green, apps/landing diff is 0, maturity remains controlled-pilot / pre-integration, no product code changed, no lockfile changed, no generated artifacts added, and mergeable=true.
+Merge only if scope is clean, checks are green, apps/landing diff is 0, maturity remains controlled-pilot / pre-integration, no product code changed, no lockfile changed, generated work stays PR-only, and mergeable=true.
