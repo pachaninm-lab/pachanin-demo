@@ -1,10 +1,11 @@
-# Review current task — Agent Runner Diagnostics
+# Review current task — Route Smoke Hardening
 
 Maturity: controlled-pilot / pre-integration.
 
 ## Allowed files
 
-- docs/platform-v7/autopilot/agent-runner-diagnostics.md
+- apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts
+- docs/platform-v7/qa/route-smoke-hardening.md
 
 ## Forbidden zones
 
@@ -14,8 +15,6 @@ Maturity: controlled-pilot / pre-integration.
 - apps/web/components/v7r
 - apps/web/lib/platform-v7
 - apps/web/app/api
-- .github/workflows
-- scripts
 - package.json
 - package-lock.json
 - pnpm-lock.yaml
@@ -33,4 +32,4 @@ Maturity: controlled-pilot / pre-integration.
 
 ## Merge rule
 
-Merge only if scope is clean, checks are green, apps/landing diff is 0, maturity remains controlled-pilot / pre-integration, no product code changed, no workflow or script changed, no lockfile changed, no generated artifacts added, and mergeable=true.
+Merge only if scope is clean, checks are green, apps/landing diff is 0, maturity remains controlled-pilot / pre-integration, no product code changed, no lockfile changed, no generated artifacts added, and mergeable=true.
