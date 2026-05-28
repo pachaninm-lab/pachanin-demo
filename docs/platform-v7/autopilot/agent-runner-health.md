@@ -14,11 +14,15 @@ The runner workflow now has:
 - a preflight step;
 - a visible GitHub Actions step summary;
 - an explicit check for the required repository secret;
+- sanitized runner output tail in the run summary;
+- issue-visible sanitized runner failure tail when the runner step fails;
 - a final runner summary that records the generated branch environment value when available.
 
 ## Issue-visible diagnostics
 
-Issue-triggered runs should surface a start marker back into the trigger issue before checkout, dependency installation or code-writing begins. Missing-secret preflight failures should also be posted back to the trigger issue when `OPENAI_API_KEY` is unavailable. This separates trigger failures from later runner failures.
+Issue-triggered runs should surface a start marker back into the trigger issue before checkout, dependency installation or code-writing begins. Missing-secret preflight failures should also be posted back to the trigger issue when `OPENAI_API_KEY` is unavailable.
+
+When the runner itself fails after preflight, the workflow should post a sanitized tail from the runner output to the trigger issue. This separates trigger failures, missing-secret failures and agent-runtime failures.
 
 ## Required repository secret
 
@@ -41,9 +45,10 @@ The runner-health layer is acceptable when:
 - issue-triggered runs create a visible start marker;
 - the runner has a clear preflight failure path;
 - issue-triggered missing-secret failures are visible on the trigger issue;
+- runner-step failures produce a sanitized tail in the run summary and trigger issue;
 - generated work remains PR-only;
 - required checks are green.
 
 ## Next verification
 
-After merge, trigger the runner through issue #1441 with `agent:run` or `/agent run current` and verify whether it creates an `agent-generated` pull request, posts a start marker, or fails with a visible preflight reason.
+After merge, trigger the runner through issue #1441 with `agent:run` or `/agent run current` and verify whether it creates an `agent-generated` pull request, posts a start marker, fails at preflight, or fails inside the runner with a sanitized visible tail.
