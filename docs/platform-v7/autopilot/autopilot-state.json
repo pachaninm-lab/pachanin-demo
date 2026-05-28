@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Agent Runner Diagnostics — background coding health check",
+  "current": "Route Smoke Hardening — platform-v7 route availability baseline",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -32,7 +32,8 @@
     "CI Speed #1436 — GitHub Actions speed baseline",
     "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
     "Forbidden Copy #1440 — no-fake-live test expansion",
-    "Mobile Overflow Smoke — 390x844 baseline"
+    "Mobile Overflow Smoke — 390x844 baseline",
+    "Agent Runner Diagnostics — background coding health check"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -41,7 +42,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "docs/platform-v7/autopilot/agent-runner-diagnostics.md"
+    "apps/web/tests/e2e/platform-v7-key-routes-smoke.spec.ts",
+    "docs/platform-v7/qa/route-smoke-hardening.md"
   ],
   "forbiddenZones": [
     "apps/landing",
