@@ -30,6 +30,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
+      - name: Mark issue-triggered runner start
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || '' }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ISSUE_NUMBER:-}" ] && command -v gh >/dev/null 2>&1; then
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "Agent runner started: event=${{ github.event_name }}, run=${{ github.run_id }}. Generated work remains PR-only." || true
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
