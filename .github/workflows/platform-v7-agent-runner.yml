@@ -2,7 +2,7 @@ name: platform-v7 agent runner
 
 on:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
       command:
