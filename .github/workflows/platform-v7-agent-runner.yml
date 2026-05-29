@@ -107,6 +107,12 @@ text=re.sub(r"gh[pousr]_[A-Za-z0-9_]{12,}","[redacted-github-token]",text)
 print(text,end="")
 ' > /tmp/p7-agent-runner-tail.txt
 
+          if [ "$status" -eq 3 ]; then
+            echo "P7_AGENT_NOOP=true" >> "$GITHUB_ENV"
+            echo "P7_AGENT_NOOP_REASON=agent produced no repository changes" >> "$GITHUB_ENV"
+            status=0
+          fi
+
           {
             echo "## runner output tail"
             echo "- exit code: $status"
@@ -136,9 +142,11 @@ print(text,end="")
           echo "- job status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- current progress file: docs/platform-v7/autopilot/progress.json" >> "$GITHUB_STEP_SUMMARY"
           echo "- generated branch env: ${P7_AGENT_BRANCH:-not-set}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- noop: ${P7_AGENT_NOOP:-false}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- noop reason: ${P7_AGENT_NOOP_REASON:-not-set}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create pull request
-        if: success()
+        if: success() && env.P7_AGENT_NOOP != 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

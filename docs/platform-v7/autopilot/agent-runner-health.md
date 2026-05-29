@@ -16,13 +16,18 @@ The runner workflow now has:
 - an explicit check for the required repository secret;
 - sanitized runner output tail in the run summary;
 - issue-visible sanitized runner failure tail when the runner step fails;
-- a final runner summary that records the generated branch environment value when available.
+- controlled no-op handling for empty agent diffs;
+- a final runner summary that records the generated branch environment value and no-op status when available.
 
 ## Issue-visible diagnostics
 
 Issue-triggered runs should surface a start marker back into the trigger issue before checkout, dependency installation or code-writing begins. Missing-secret preflight failures should also be posted back to the trigger issue when `OPENAI_API_KEY` is unavailable.
 
 When the runner itself fails after preflight, the workflow should post a sanitized tail from the runner output to the trigger issue. This separates trigger failures, missing-secret failures and agent-runtime failures.
+
+## Controlled no-op
+
+If the runner exits with the known no-change code, the workflow marks the run as a controlled no-op and skips pull-request creation. This prevents empty generated branches from becoming failed runs or empty pull requests.
 
 ## Required repository secret
 
@@ -46,9 +51,10 @@ The runner-health layer is acceptable when:
 - the runner has a clear preflight failure path;
 - issue-triggered missing-secret failures are visible on the trigger issue;
 - runner-step failures produce a sanitized tail in the run summary and trigger issue;
+- empty agent diffs are treated as controlled no-op;
 - generated work remains PR-only;
 - required checks are green.
 
 ## Next verification
 
-After merge, trigger the runner through issue #1441 with `agent:run` or `/agent run current` and verify whether it creates an `agent-generated` pull request, posts a start marker, fails at preflight, or fails inside the runner with a sanitized visible tail.
+After merge, trigger the runner through issue #1441 with `agent:run` or `/agent run current` and verify whether it creates an `agent-generated` pull request, posts a start marker, fails at preflight, fails inside the runner with a sanitized visible tail, or exits as a controlled no-op.
