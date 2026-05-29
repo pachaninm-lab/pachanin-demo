@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Agent Runner Health
+CURRENT: Runner Dispatch Reliability
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -32,11 +32,13 @@ DONE:
 - Mobile Overflow Smoke — 390x844 baseline
 - Agent Runner Diagnostics — background coding health check
 - Route Smoke Hardening — platform-v7 route availability baseline
+- Runner Health
 
 NEXT:
-- Keep the next layer limited to the existing runner workflow and docs.
+- Keep the next layer limited to runner dispatch reliability.
 - Do not change product code, UI, API routes, DB, runtime, adapters or lockfiles.
 - Keep generated work PR-only.
+- Keep readiness at 72% until generated pull request behavior is verified.
 
 RULES:
 - Do not touch apps/landing.

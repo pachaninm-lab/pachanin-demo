@@ -1,13 +1,14 @@
-# Review current task — Agent Runner Health
+# Review current task
 
+Current step: Runner Dispatch Reliability.
 Maturity: controlled-pilot / pre-integration.
 
 ## Allowed files
 
 - .github/workflows/platform-v7-agent-runner.yml
-- docs/platform-v7/autopilot/agent-runner-health.md
+- docs/platform-v7/autopilot/runner-dispatch-reliability.md
 
-## Forbidden zones
+## Do not change
 
 - apps/landing
 - apps/web/app/platform-v7
@@ -32,4 +33,4 @@ Maturity: controlled-pilot / pre-integration.
 
 ## Merge rule
 
-Merge only if scope is clean, checks are green, apps/landing diff is 0, maturity remains controlled-pilot / pre-integration, no product code changed, no lockfile changed, generated work stays PR-only, and mergeable=true.
+Merge only if scope is clean, checks are green, apps/landing diff is 0, maturity remains controlled-pilot / pre-integration, no product code changed, no lockfile changed, generated work stays pull-request only, and mergeable=true.

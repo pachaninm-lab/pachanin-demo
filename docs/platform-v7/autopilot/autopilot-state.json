@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Agent Runner Health — trigger and preflight hardening",
+  "current": "Runner Dispatch Reliability",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -34,7 +34,8 @@
     "Forbidden Copy #1440 — no-fake-live test expansion",
     "Mobile Overflow Smoke — 390x844 baseline",
     "Agent Runner Diagnostics — background coding health check",
-    "Route Smoke Hardening — platform-v7 route availability baseline"
+    "Route Smoke Hardening — platform-v7 route availability baseline",
+    "Runner Health"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -44,7 +45,7 @@
   ],
   "allowedCurrentScope": [
     ".github/workflows/platform-v7-agent-runner.yml",
-    "docs/platform-v7/autopilot/agent-runner-health.md"
+    "docs/platform-v7/autopilot/runner-dispatch-reliability.md"
   ],
   "forbiddenZones": [
     "apps/landing",

@@ -1,20 +1,18 @@
-# Codex current task — Agent Runner Health
+# Current task
 
-Current step: Agent Runner Health.
+Current step: Runner Dispatch Reliability.
 Maturity: controlled-pilot / pre-integration.
 
-## Objective
+## Goal
 
-Improve visibility for the existing platform-v7 background runner without changing product behavior.
-
-This PR must be limited to runner workflow visibility and documentation. It must not change product code, UI, runtime, API routes, DB, adapters, dependencies, lockfiles or maturity claims.
+Keep the runner path observable and pull-request only.
 
 ## Allowed files
 
 - .github/workflows/platform-v7-agent-runner.yml
-- docs/platform-v7/autopilot/agent-runner-health.md
+- docs/platform-v7/autopilot/runner-dispatch-reliability.md
 
-## Forbidden zones
+## Do not change
 
 - apps/landing
 - apps/web/app/platform-v7
@@ -26,17 +24,13 @@ This PR must be limited to runner workflow visibility and documentation. It must
 - package-lock.json
 - pnpm-lock.yaml
 
-## Implement
+## Requirements
 
-Harden the existing runner workflow so failed or skipped runs are easier to diagnose.
-
-Requirements:
-- keep generated work PR-only;
-- do not add auto-merge;
-- do not add dependencies;
-- do not change scripts in this layer;
-- add clear workflow-level visibility where safe;
-- document start paths, pass criteria and failure handling.
+- no product code changes;
+- no auto-merge;
+- no dependency changes;
+- generated work stays pull-request only;
+- readiness remains 72.
 
 ## Required checks
 
@@ -48,7 +42,3 @@ Requirements:
 - Dependency Review
 - Qodana platform-v7 report
 - CodeQL platform-v7 report
-
-## PR title
-
-ci(platform-v7): improve runner health visibility
