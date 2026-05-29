@@ -1,6 +1,8 @@
 name: platform-v7 agent runner
 
 on:
+  schedule:
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       command:
@@ -24,6 +26,7 @@ concurrency:
 jobs:
   run-agent:
     if: >-
+      github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' && github.event.label.name == 'agent:run') ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/agent run current'))
