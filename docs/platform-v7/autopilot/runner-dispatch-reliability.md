@@ -14,9 +14,13 @@ Runner health work is complete at the workflow visibility level:
 - empty output can be treated as a controlled no-op;
 - generated work remains pull-request only.
 
+## Scheduled dispatch
+
+The runner workflow may start from a schedule, manual dispatch, issue label or issue comment. Scheduled runs are still bounded by the same guardrails: they can create pull requests only and cannot merge generated work.
+
 ## Scope
 
-Allowed files for the next reliability pass:
+Allowed files for this reliability pass:
 
 - `.github/workflows/platform-v7-agent-runner.yml`
 - `docs/platform-v7/autopilot/runner-dispatch-reliability.md`
@@ -32,10 +36,10 @@ Allowed files for the next reliability pass:
 
 ## Acceptance criteria
 
-The next layer is acceptable when:
+The layer is acceptable when:
 
+- the workflow can start without manual issue activity;
 - the workflow still creates pull requests only;
 - empty output does not create an empty pull request;
-- issue/comment based start signal is visible when the event is delivered;
 - failures remain visible without exposing secrets;
 - required checks are green.
