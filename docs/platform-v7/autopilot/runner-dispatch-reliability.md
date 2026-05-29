@@ -18,6 +18,10 @@ Runner health work is complete at the workflow visibility level:
 
 The runner workflow may start from a schedule, manual dispatch, issue label or issue comment. Scheduled runs are still bounded by the same guardrails: they can create pull requests only and cannot merge generated work.
 
+The GitHub-hosted schedule is set to the shortest practical loop supported by GitHub Actions for scheduled workflows: every five minutes. This is a continuous PR-loop, not a direct-to-main write path.
+
+For a true always-on daemon, use a self-hosted runner or external worker that triggers the same PR-only workflow and keeps the same review gates.
+
 ## Scope
 
 Allowed files for this reliability pass:
