@@ -60,6 +60,22 @@
   ],
   "maturityLanguage": [
     "controlled-pilot",
-    "pre-integration"
+    "pre-integration",
+    "requires external credentials and agreements for live integrations"
+  ],
+  "forbiddenClaims": [
+    "production-ready",
+    "fully live",
+    "fully integrated",
+    "platform guarantees payment",
+    "платформа гарантирует оплату",
+    "платформа сама выпускает деньги",
+    "банк подключён",
+    "ФГИС подключён",
+    "ЭДО подключён",
+    "EPD подключён",
+    "AI makes binding decisions",
+    "AI gateway is live",
+    "ИИ принимает обязательные решения"
   ]
 }
