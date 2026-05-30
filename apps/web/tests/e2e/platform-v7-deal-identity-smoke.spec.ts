@@ -4,7 +4,7 @@ const dealIdentityRoutes = [
   {
     route: '/platform-v7/deals/DL-9102/clean',
     heading: 'Карточка сделки',
-    stableCopy: 'Стабильная пилотная карточка исполнения сделки.',
+    stableCopy: 'DL-9102',
   },
   {
     route: '/platform-v7/deals/DL-9106/audit',
