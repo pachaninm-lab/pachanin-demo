@@ -1,16 +1,16 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Runner Dispatch Reliability",
-  "lastCompletedStep": "Runner Health",
+  "currentStep": "Generated Code Smoke — Deal Identity Consistency",
+  "lastCompletedStep": "Runner Dispatch Reliability",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Runner Dispatch Reliability",
-  "updatedAt": "2026-05-29T06:40:00.000Z",
+  "nextStep": "Generated Code Smoke — Deal Identity Consistency",
+  "updatedAt": "2026-05-30T02:20:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "controlledPilotOnly": true,
-    "runnerDispatchOnly": true,
-    "noProductCodeForRunnerDispatch": true
+    "generatedPullRequestOnly": true,
+    "singleSmallScope": true
   }
 }
