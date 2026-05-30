@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Runner Dispatch Reliability",
+  "current": "Generated Code Smoke — Deal Identity Consistency",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -35,7 +35,8 @@
     "Mobile Overflow Smoke — 390x844 baseline",
     "Agent Runner Diagnostics — background coding health check",
     "Route Smoke Hardening — platform-v7 route availability baseline",
-    "Runner Health"
+    "Runner Health",
+    "Runner Dispatch Reliability"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -44,8 +45,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    ".github/workflows/platform-v7-agent-runner.yml",
-    "docs/platform-v7/autopilot/runner-dispatch-reliability.md"
+    "apps/web/tests/e2e/platform-v7-deal-identity-smoke.spec.ts",
+    "docs/platform-v7/qa/deal-identity-smoke.md"
   ],
   "forbiddenZones": [
     "apps/landing",

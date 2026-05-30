@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Runner Dispatch Reliability
+CURRENT: Generated Code Smoke — Deal Identity Consistency
 
 DONE:
 - Stage 3 — RBAC / ACL / roles / access rights
@@ -33,12 +33,16 @@ DONE:
 - Agent Runner Diagnostics — background coding health check
 - Route Smoke Hardening — platform-v7 route availability baseline
 - Runner Health
+- Runner Dispatch Reliability
 
 NEXT:
-- Keep the next layer limited to runner dispatch reliability.
+- Add a narrow generated-code smoke layer for deal identity consistency.
+- Allowed files only:
+  - apps/web/tests/e2e/platform-v7-deal-identity-smoke.spec.ts
+  - docs/platform-v7/qa/deal-identity-smoke.md
 - Do not change product code, UI, API routes, DB, runtime, adapters or lockfiles.
 - Keep generated work PR-only.
-- Keep readiness at 72% until generated pull request behavior is verified.
+- Keep readiness at 72% until generated pull request behavior and checks are verified.
 
 RULES:
 - Do not touch apps/landing.

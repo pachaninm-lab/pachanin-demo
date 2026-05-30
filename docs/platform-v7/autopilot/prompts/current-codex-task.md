@@ -1,16 +1,16 @@
 # Current task
 
-Current step: Runner Dispatch Reliability.
+Current step: Deal Identity Smoke.
 Maturity: controlled-pilot / pre-integration.
 
 ## Goal
 
-Keep the runner path observable and pull-request only.
+Add one narrow QA smoke test and one short QA note for deal identity visibility.
 
 ## Allowed files
 
-- .github/workflows/platform-v7-agent-runner.yml
-- docs/platform-v7/autopilot/runner-dispatch-reliability.md
+- apps/web/tests/e2e/platform-v7-deal-identity-smoke.spec.ts
+- docs/platform-v7/qa/deal-identity-smoke.md
 
 ## Do not change
 
@@ -26,11 +26,15 @@ Keep the runner path observable and pull-request only.
 
 ## Requirements
 
-- no product code changes;
-- no auto-merge;
-- no dependency changes;
-- generated work stays pull-request only;
+- add a small Playwright smoke test file;
+- add a small QA documentation file;
+- do not change product code;
+- do not add dependencies;
 - readiness remains 72.
+
+## Test intent
+
+Use existing platform-v7 route patterns from current e2e tests. Check that a deal-facing page renders stable deal identity text.
 
 ## Required checks
 
