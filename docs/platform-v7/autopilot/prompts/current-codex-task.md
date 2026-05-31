@@ -1,9 +1,9 @@
 # Current task
 
-Route Smoke QA.
+Role Boundary Smoke.
 
 Allowed file:
 
-- apps/web/tests/e2e/platform-v7-route-control-smoke.spec.ts
+- apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts
 
 Keep readiness at 72.
