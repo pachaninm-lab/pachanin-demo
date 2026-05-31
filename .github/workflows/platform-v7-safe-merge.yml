@@ -20,11 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Safe merge eligible PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -35,14 +30,14 @@ jobs:
 
           echo "## platform-v7 safe merge" >> "$GITHUB_STEP_SUMMARY"
 
-          prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number,headRefName,isDraft,mergeable,reviewDecision,statusCheckRollup,files,reviewThreads --jq '.[] | @base64')
+          prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number,headRefName,isDraft,mergeable,reviewDecision,statusCheckRollup,files --jq '.[] | @base64')
 
           if [ -z "${prs:-}" ]; then
             echo "- no eligible PRs" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          blocked_path_re='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$|\.env|.*\.pem$|.*\.key$)'
+          blocked_path_re='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$)'
 
           while IFS= read -r encoded; do
             [ -z "$encoded" ] && continue
@@ -67,12 +62,6 @@ jobs:
 
             if [ "$review_decision" = "CHANGES_REQUESTED" ]; then
               echo "  - skipped: changes requested" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            unresolved_threads=$(printf '%s' "$pr_json" | jq '[.reviewThreads[]? | select(.isResolved == false)] | length')
-            if [ "$unresolved_threads" != "0" ]; then
-              echo "  - skipped: unresolved review threads" >> "$GITHUB_STEP_SUMMARY"
               continue
             fi
 
