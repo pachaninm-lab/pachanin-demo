@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Route Smoke QA
+CURRENT: Role Boundary Smoke
 
 DONE:
 - Runtime foundation stages
@@ -9,11 +9,12 @@ DONE:
 - CI and QA baseline stages
 - Runner health and dispatch stages
 - Deal identity smoke
+- Route smoke QA
 
 NEXT:
-- Add one narrow route smoke QA file.
+- Add one narrow role-boundary smoke file.
 - Allowed file:
-  - apps/web/tests/e2e/platform-v7-route-control-smoke.spec.ts
+  - apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts
 - Readiness remains 72%.
 
 RULES:
