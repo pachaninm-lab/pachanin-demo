@@ -1,9 +1,7 @@
-# Review current task
+# Review task
 
-Route Smoke QA.
+Current QA layer.
 
 Allowed file:
 
-- apps/web/tests/e2e/platform-v7-route-control-smoke.spec.ts
-
-Merge only if changed files match the allowed file and checks pass.
+- apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts
