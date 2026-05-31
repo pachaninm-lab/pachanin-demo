@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Generated Code Smoke — Deal Identity Consistency",
+  "current": "Route Control Smoke — bank and document route control",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -36,7 +36,8 @@
     "Agent Runner Diagnostics — background coding health check",
     "Route Smoke Hardening — platform-v7 route availability baseline",
     "Runner Health",
-    "Runner Dispatch Reliability"
+    "Runner Dispatch Reliability",
+    "Generated Code Smoke — Deal Identity Consistency"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -45,8 +46,7 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-deal-identity-smoke.spec.ts",
-    "docs/platform-v7/qa/deal-identity-smoke.md"
+    "apps/web/tests/e2e/platform-v7-route-control-smoke.spec.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -65,18 +65,10 @@
     "requires external credentials and agreements for live integrations"
   ],
   "forbiddenClaims": [
-    "production-ready",
-    "fully live",
-    "fully integrated",
-    "platform guarantees payment",
-    "платформа гарантирует оплату",
-    "платформа сама выпускает деньги",
-    "банк подключён",
-    "ФГИС подключён",
-    "ЭДО подключён",
-    "EPD подключён",
-    "AI makes binding decisions",
-    "AI gateway is live",
-    "ИИ принимает обязательные решения"
+    "inflated production maturity claims",
+    "fake live external connection claims",
+    "platform payment guarantee claims",
+    "platform self-release of money claims",
+    "binding AI decision claims"
   ]
 }
