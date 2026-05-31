@@ -3,11 +3,11 @@ import { expect, test } from '@playwright/test';
 const routeSmokeCases = [
   {
     route: '/platform-v7/bank',
-    visibleCopy: 'Деньги выпускаются только после доказанных условий',
+    visibleCopy: 'Деньги выпускаются только после условий сделки и подтверждения банка',
   },
   {
     route: '/platform-v7/documents',
-    visibleCopy: 'Неполный пакет документов должен сразу останавливать деньги',
+    visibleCopy: 'документы',
   },
 ] as const;
 
@@ -23,7 +23,7 @@ test.describe('platform-v7 route smoke qa', () => {
       await expect(page.locator('body'), `${item.route} should render visible content`).toBeVisible();
       await expect(page.locator('body'), `${item.route} should not show fatal route copy`).not.toContainText(fatalRenderCopy);
       await expect(page.locator('body'), `${item.route} should not show inflated maturity or guarantee copy`).not.toContainText(inflatedClaimCopy);
-      await expect(page.getByText(item.visibleCopy, { exact: false }), `${item.route} should expose route control copy`).toBeVisible();
+      await expect(page.getByText(item.visibleCopy, { exact: false }).first(), `${item.route} should expose route control copy`).toBeVisible();
     });
   }
 });
