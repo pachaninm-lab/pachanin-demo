@@ -1,12 +1,12 @@
 {
-  "project": "platform-v7 / Прозрачная Цена",
+  "project": "platform-v7",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Generated Code Smoke — Deal Identity Consistency",
-  "lastCompletedStep": "Runner Dispatch Reliability",
+  "currentStep": "Route Control Smoke",
+  "lastCompletedStep": "Deal Identity Smoke",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Generated Code Smoke — Deal Identity Consistency",
-  "updatedAt": "2026-05-30T02:20:00.000Z",
+  "nextStep": "Route Control Smoke",
+  "updatedAt": "2026-05-31T04:10:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "controlledPilotOnly": true,
