@@ -1,12 +1,12 @@
 {
   "project": "platform-v7",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Route Control Smoke",
-  "lastCompletedStep": "Deal Identity Smoke",
+  "currentStep": "Role Boundary Smoke",
+  "lastCompletedStep": "Route Smoke QA",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Route Control Smoke",
-  "updatedAt": "2026-05-31T04:10:00.000Z",
+  "nextStep": "Role Boundary Smoke",
+  "updatedAt": "2026-05-31T12:35:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "controlledPilotOnly": true,
