@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Route Control Smoke — bank and document route control",
+  "current": "Role Boundary Smoke",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -37,7 +37,8 @@
     "Route Smoke Hardening — platform-v7 route availability baseline",
     "Runner Health",
     "Runner Dispatch Reliability",
-    "Generated Code Smoke — Deal Identity Consistency"
+    "Generated Code Smoke — Deal Identity Consistency",
+    "Route Control Smoke"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -46,7 +47,7 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-route-control-smoke.spec.ts"
+    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
