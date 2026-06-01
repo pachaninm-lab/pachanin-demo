@@ -1,3 +1,4 @@
 name = "throbbing-paper-40e5"
 main = "worker.js"
 compatibility_date = "2025-01-01"
+# deploy trigger Mon Jun  1 13:55:03 UTC 2026
