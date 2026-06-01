@@ -19,3 +19,13 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           workingDirectory: workers/vless-cf
+
+      - name: Smoke test - check TCP connectivity from Cloudflare edge
+        run: |
+          echo "Waiting 10s for worker to propagate..."
+          sleep 10
+          echo "--- /check (cloudflare:sockets TCP connectivity test) ---"
+          curl -sf --max-time 30 https://throbbing-paper-40e5.pachaninm.workers.dev/check || echo "CURL_FAILED"
+          echo ""
+          echo "--- root (version check) ---"
+          curl -sf --max-time 10 https://throbbing-paper-40e5.pachaninm.workers.dev/ || echo "CURL_FAILED"
