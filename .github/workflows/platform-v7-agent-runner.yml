@@ -135,8 +135,9 @@ jobs:
             exit 1
           fi
 
-          git status --short
-          if git diff --quiet && git diff --cached --quiet; then
+          changed_files=$(git status --porcelain)
+          printf '%s\n' "$changed_files"
+          if [ -z "$changed_files" ]; then
             echo "No repository changes to commit."
             exit 1
           fi
