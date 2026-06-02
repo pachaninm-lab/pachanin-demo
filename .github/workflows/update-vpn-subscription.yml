@@ -19,8 +19,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # BLACK_VLESS_RUS_mobile.txt — топ-150 конфигов, проверяется ВНУТРИ России каждые 2 часа.
-          # Берём напрямую, без лишней фильтрации — сортировка уже сделана авторами списка.
           MOBILE_URL="https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLESS_RUS_mobile.txt"
           ALL_URL="https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_SS+All_RUS.txt"
 
@@ -35,12 +33,12 @@ jobs:
             | grep -E '^(trojan|vmess)://' \
             | head -10 >> "$TMP" || echo "WARN: failed $ALL_URL" >&2
 
-          # Netherlands VMess (mirra.now/Vercel CDN) — всегда первые
-          # Эти серверы независимы от списков и используют Vercel CDN (не Cloudflare)
+          # Приватный сервер (Deno Deploy) — ВСЕГДА ПЕРВЫЙ, никогда не удалять
           {
+            echo "vless://9f3cbdb8-4a9d-5811-1d8e-58603f42cfd6@pachanin-demo.pachaninm-lab.deno.net:443?encryption=none&security=tls&sni=pachanin-demo.pachaninm-lab.deno.net&type=ws&host=pachanin-demo.pachaninm-lab.deno.net&path=%2F&fp=chrome&alpn=http%2F1.1#MY-VPN-FOREVER"
             echo "vmess://eyJhZGQiOiJyZW5kZXJlci1zdHJlYW0tMS00MTEubWlycmEubm93IiwiYWlkIjoiMCIsImFsbG93SW5zZWN1cmUiOiIwIiwiYWxsb3dfaW5zZWN1cmUiOiIwIiwiaG9zdCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJpZCI6ImRmOWM5MzU1LWIwMmMtNGMxMi05MDlkLTBkYmViNzI1ZDUyYiIsImluc2VjdXJlIjoiMCIsIm5ldCI6IndzIiwicGF0aCI6Ii9hcGkvdjEvZ3B1LXN0cmVhbS9zb2NrZXQiLCJwb3J0IjoiNDQzIiwicHMiOiLwn4ez8J+HsSBOZXRoZXJsYW5kcy0xIiwic2VjdXJpdHkiOiJhdXRvIiwic25pIjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsInRscyI6InRscyIsInYiOiIyIiwidHlwZSI6Im5vbmUiLCJzY3kiOiJhdXRvIiwiYWxwbiI6IiIsImZwIjoiIn0="
             echo "vmess://eyJ2IjoiMiIsInBzIjoi8J+Hs/Cfh7EgTmV0aGVybGFuZHMtMiIsImFkZCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJwb3J0IjoiNDQzIiwidHlwZSI6Im5vbmUiLCJpZCI6ImRmOWM5MzU1LWIwMmMtNGMxMi05MDlkLTBkYmViNzI1ZDUyYiIsImFpZCI6IjAiLCJuZXQiOiJ3cyIsInBhdGgiOiIvYXBpL3YxL2dwdS1zdHJlYW0vc29ja2V0IiwiaG9zdCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJ0bHMiOiJ0bHMiLCJza2lwLWNlcnQtdmVyaWZ5Ijp0cnVlLCJzY3kiOiJhdXRvIiwic25pIjoiIiwiYWxwbiI6IiIsImZwIjoiIn0="
-            echo "vmess://eyJhZGQiOiJyZW5kZXJlci1zdHJlYW0tMS00MTEubWlycmEubm93IiwiYWlkIjoiMCIsImFsbG93aW5zZWN1cmUiOiIwIiwiYWxwbiI6ImgyLGh0dHAvMS4xIiwiZnAiOiJjaHJvbWUiLCJob3N0IjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsImlkIjoiZGY5YzkzNTUtYjAyYy00YzEyLTkwOWQtMGRiZWI3MjVkNTJiIiwibmV0Ijoid3MiLCJwYXRoIjoiL2FwaS92MS9ncHUtc3RyZWFtL3NvY2tldCIsInBvcnQiOiI0NDMiLCJwcyI6IvCfh7Pwn4exIE5ldGhlcmxhbmRzLTMiLCJzY3kiOiJhdXRvIiwic25pIjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsInRscyI6InRscyIsInR5cGUiOiJub25lIiwidiI6IjIifQ=="
+            echo "vmess://eyJhZGQiOiJyZW5kZXJlci1zdHJlYW0tMS00MTEubWlycmEubm93IiwiYWlkIjoiMCIsImFsbG93aW5zZWN1cmUiOiIwIiwiYWxwbiI6ImgyLGh0dHAvMS4xIiwiZnAiOiJjaHJvbWUiLCJob3N0IjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsImlkIjoiZGY5YzkzNTUtYjAyYy00YzEyLTkwOWQtMGRiZWI3MjVkNTJiIiwibmV0Ijoid3MiLCJwYXRoIjoiL2FwaS92MS9ncHUtc3RyZWFtL3NvY2tldCIsInBvcnQiOiI0NDMiLCJwcyI6IvCfh7Pwn4exIE5ldGhlcmxhbmRzLTMiLCJzY3kiOiJhdXRvIiwic25pIjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsInRscyI6InRscyIsInR5cGUiOiJub25lIiwiViI6IjIifQ=="
             cat "$TMP"
           } > vpn/subscription.txt
 
