@@ -1,16 +1,18 @@
 {
-  "project": "platform-v7",
+  "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
   "currentStep": "Role Boundary Smoke",
-  "lastCompletedStep": "Agent PR Creation Reliability",
+  "lastCompletedStep": "Runner Inline PR",
   "openPr": null,
-  "blockedBy": [],
+  "blockedBy": [
+    "Role Boundary Smoke is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding."
+  ],
   "nextStep": "Role Boundary Smoke",
-  "updatedAt": "2026-06-02T06:55:00.000Z",
+  "updatedAt": "2026-06-02T18:28:07.356Z",
   "rules": {
     "noAppsLanding": true,
-    "controlledPilotOnly": true,
-    "pullRequestOnly": true,
-    "singleSmallScope": true
+    "noFakeLiveClaims": true,
+    "noAutoMerge": true,
+    "controlledPilotOnly": true
   }
 }
