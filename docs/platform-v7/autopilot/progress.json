@@ -1,16 +1,16 @@
 {
   "project": "platform-v7",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Agent PR Creation Reliability",
-  "lastCompletedStep": "Route Smoke QA",
+  "currentStep": "Role Boundary Smoke",
+  "lastCompletedStep": "Agent PR Creation Reliability",
   "openPr": null,
   "blockedBy": [],
   "nextStep": "Role Boundary Smoke",
-  "updatedAt": "2026-06-02T06:25:00.000Z",
+  "updatedAt": "2026-06-02T06:55:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "controlledPilotOnly": true,
-    "generatedPullRequestOnly": true,
+    "pullRequestOnly": true,
     "singleSmallScope": true
   }
 }
