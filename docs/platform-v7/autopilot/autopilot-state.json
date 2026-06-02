@@ -3,9 +3,12 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Runner Inline PR",
+  "current": "Role Boundary Smoke",
   "openPr": null,
-  "lastClosed": ["baseline"],
+  "lastClosed": [
+    "baseline",
+    "Runner Inline PR"
+  ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
     "Theme / Visual",
@@ -13,9 +16,7 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "docs/platform-v7/autopilot/autopilot-state.json",
-    ".github/workflows/platform-v7-agent-runner.yml",
-    "scripts/p7-agent-runner.sh"
+    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
