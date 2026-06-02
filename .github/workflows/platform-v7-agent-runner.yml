@@ -151,12 +151,12 @@ jobs:
             exit 0
           fi
 
-          cat > /tmp/p7-agent-pr-body.md <<'EOF'
-          Automated platform-v7 current-step run.
-
-          Scope is controlled by source-of-truth files and guard scripts.
-          Work remains PR-only and must keep controlled-pilot / pre-integration maturity language.
-          EOF
+          {
+            echo "Automated platform-v7 current-step run."
+            echo
+            echo "Scope is controlled by source-of-truth files and guard scripts."
+            echo "Work remains PR-only and keeps controlled-pilot / pre-integration maturity language."
+          } > /tmp/p7-agent-pr-body.md
 
           gh pr create \
             --repo "$REPO" \
