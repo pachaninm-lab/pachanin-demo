@@ -16,6 +16,31 @@ function parse(a: Uint8Array, uid: string) {
   return { ver: a[0], host, port, cmd, p: new Uint8Array(a.buffer.slice(a.byteOffset + end)) };
 }
 
+async function forwardDns(data: Uint8Array, ws: WebSocket): Promise<void> {
+  let off = 0;
+  while (off + 2 <= data.length) {
+    const len = (data[off] << 8) | data[off + 1];
+    off += 2;
+    if (len === 0 || off + len > data.length) break;
+    const query = data.slice(off, off + len);
+    off += len;
+    try {
+      const r = await fetch('https://1.1.1.1/dns-query', {
+        method: 'POST',
+        headers: { 'content-type': 'application/dns-message' },
+        body: query,
+      });
+      if (!r.ok) continue;
+      const ans = new Uint8Array(await r.arrayBuffer());
+      const frame = new Uint8Array(2 + ans.byteLength);
+      frame[0] = ans.byteLength >> 8;
+      frame[1] = ans.byteLength & 0xff;
+      frame.set(ans, 2);
+      try { ws.send(frame); } catch { /**/ }
+    } catch { /**/ }
+  }
+}
+
 async function handleVless(ws: WebSocket): Promise<void> {
   const buf = await new Promise<ArrayBuffer>((ok, no) => {
     ws.addEventListener('message', (e: MessageEvent) => {
@@ -29,8 +54,24 @@ async function handleVless(ws: WebSocket): Promise<void> {
   });
 
   const v = parse(new Uint8Array(buf), UUID);
-  if (!v || v.cmd !== 1) { try { ws.close(); } catch { /**/ } return; }
+  if (!v) { try { ws.close(); } catch { /**/ } return; }
 
+  // UDP — handle only DNS (port 53) via DoH
+  if (v.cmd === 2) {
+    if (v.port !== 53) { try { ws.close(); } catch { /**/ } return; }
+    ws.send(new Uint8Array([v.ver, 0]));
+    if (v.p.byteLength > 0) await forwardDns(v.p, ws);
+    ws.addEventListener('message', async (e: MessageEvent) => {
+      try {
+        const bytes = e.data instanceof ArrayBuffer ? new Uint8Array(e.data)
+          : e.data instanceof Blob ? new Uint8Array(await e.data.arrayBuffer()) : null;
+        if (bytes) await forwardDns(bytes, ws);
+      } catch { /**/ }
+    });
+    return;
+  }
+
+  // TCP (cmd === 1)
   let conn: Deno.TcpConn;
   try {
     conn = await Deno.connect({ hostname: v.host, port: v.port });
@@ -58,11 +99,9 @@ async function handleVless(ws: WebSocket): Promise<void> {
     q = q.then(async () => {
       if (done) return;
       try {
-        let bytes: Uint8Array;
-        if (e.data instanceof ArrayBuffer) bytes = new Uint8Array(e.data);
-        else if (e.data instanceof Blob) bytes = new Uint8Array(await e.data.arrayBuffer());
-        else return;
-        await writer.write(bytes);
+        const bytes = e.data instanceof ArrayBuffer ? new Uint8Array(e.data)
+          : e.data instanceof Blob ? new Uint8Array(await e.data.arrayBuffer()) : null;
+        if (bytes) await writer.write(bytes);
       } catch { shut(); }
     });
   });
