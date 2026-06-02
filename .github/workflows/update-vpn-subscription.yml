@@ -2,7 +2,7 @@ name: Update VPN Subscription
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # каждые 6 часов
+    - cron: '0 */2 * * *'   # каждые 2 часа (совпадает с циклом проверки igareck)
   workflow_dispatch:          # можно запустить вручную
 
 jobs:
@@ -19,10 +19,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Источники, протестированные из России каждые 2 часа
+          # Источники, проверяются из России каждые 2 часа автоматически
           SOURCES=(
             "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLESS_RUS.txt"
-            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLESS_RUS_mobile.txt"
+            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_SS+All_RUS.txt"
           )
 
           TMP=$(mktemp)
@@ -31,7 +31,7 @@ jobs:
             curl -fsSL --max-time 30 "$URL" 2>/dev/null >> "$TMP" || echo "WARN: failed $URL" >&2
           done
 
-          # Всегда ставим Netherlands VMess (mirra.now/Vercel CDN) первыми — работают в РФ
+          # 1. Netherlands VMess (mirra.now/Vercel CDN) — подтверждённо работают в РФ, всегда первые
           MIRRA_VMESS=(
             "vmess://eyJhZGQiOiJyZW5kZXJlci1zdHJlYW0tMS00MTEubWlycmEubm93IiwiYWlkIjoiMCIsImFsbG93SW5zZWN1cmUiOiIwIiwiYWxsb3dfaW5zZWN1cmUiOiIwIiwiaG9zdCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJpZCI6ImRmOWM5MzU1LWIwMmMtNGMxMi05MDlkLTBkYmViNzI1ZDUyYiIsImluc2VjdXJlIjoiMCIsIm5ldCI6IndzIiwicGF0aCI6Ii9hcGkvdjEvZ3B1LXN0cmVhbS9zb2NrZXQiLCJwb3J0IjoiNDQzIiwicHMiOiLwn4ez8J+HsSBOZXRoZXJsYW5kcy0xIiwic2VjdXJpdHkiOiJhdXRvIiwic25pIjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsInRscyI6InRscyIsInYiOiIyIiwidHlwZSI6Im5vbmUiLCJzY3kiOiJhdXRvIiwiYWxwbiI6IiIsImZwIjoiIn0="
             "vmess://eyJ2IjoiMiIsInBzIjoi8J+Hs/Cfh7EgTmV0aGVybGFuZHMtMiIsImFkZCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJwb3J0IjoiNDQzIiwidHlwZSI6Im5vbmUiLCJpZCI6ImRmOWM5MzU1LWIwMmMtNGMxMi05MDlkLTBkYmViNzI1ZDUyYiIsImFpZCI6IjAiLCJuZXQiOiJ3cyIsInBhdGgiOiIvYXBpL3YxL2dwdS1zdHJlYW0vc29ja2V0IiwiaG9zdCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJ0bHMiOiJ0bHMiLCJza2lwLWNlcnQtdmVyaWZ5Ijp0cnVlLCJzY3kiOiJhdXRvIiwic25pIjoiIiwiYWxwbiI6IiIsImZwIjoiIn0="
@@ -39,12 +39,23 @@ jobs:
           )
           printf '%s\n' "${MIRRA_VMESS[@]}" > vpn/subscription.txt
 
-          # CDN-фронтинг через Fastly — ТСПУ не может блокировать Fastly без потери CDN-трафика
-          grep -E 'vless://.*fastly\.net' "$TMP" \
+          # 2. Fastly CDN-fronтинг (VLESS/xhttp) — Россия не может блокировать Fastly глобально
+          grep -E '^vless://.*fastly\.net' "$TMP" \
             | grep -v 'Telegram=' \
             | sort -u \
-            | head -20 \
+            | head -15 \
             >> vpn/subscription.txt || true
+
+          # 3. Trojan WebSocket+TLS — тестируются из России каждые 2 часа
+          grep -E '^trojan://.*type=ws' "$TMP" \
+            | grep 'security=tls' \
+            | grep -v 'Telegram=' \
+            | sort -u \
+            | head -8 \
+            >> vpn/subscription.txt || true
+
+          # 4. VMess WebSocket+TLS через CDN (не Cloudflare)
+          grep -E '^vmess://' "$TMP" | sort -u | head -5 >> vpn/subscription.txt || true
 
           COUNT=$(wc -l < vpn/subscription.txt)
           echo "Configs written: $COUNT"

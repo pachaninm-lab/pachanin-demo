@@ -8,3 +8,5 @@ vless://InternetAzad-PRO@151.101.192.223:80?encryption=none&extra={"scMaxEachPos
 vless://InternetAzadRobot@151.101.128.223:80?type=xhttp&security=none&host=shangulin.global.ssl.fastly.net&path=%2Flogin&encryption=none#Fastly-CDN-5
 vless://InternetAzadRobot@151.101.128.223:80?encryption=none&security=none&type=xhttp&host=tignaltofan.global.ssl.fastly.net&path=%2FTignaliSWithYou&mode=auto&extra=%7B%22mode%22%3A%22auto%22%2C%22scMaxEachPostBytes%22%3A%221000000%22%2C%22xPaddingBytes%22%3A%22100-1000%22%7D#Fastly-CDN-6
 vless://InternetAzadRobot-AliKiller@151.101.192.223:80?mode=auto&path=%2F&security=none&encryption=none&host=InternetAzadRobot07gt745.global.ssl.fastly.net&type=xhttp#Fastly-CDN-7
+trojan://humanity@202.37.33.80:443?path=%2Fassignment&security=tls&insecure=0&host=www.creationlong.org&ech=ip.gs%2Budp%3A%2F%2F8.8.8.8&type=ws&allowInsecure=0&sni=www.creationlong.org#Trojan-WS-1
+trojan://humanity@81.255.155.10:443?path=%2Fassignment&security=tls&insecure=0&host=www.creationlong.org&ech=ip.gs%2Budp%3A%2F%2F8.8.8.8&type=ws&allowInsecure=0&sni=www.creationlong.org#Trojan-WS-2
