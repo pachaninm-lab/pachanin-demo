@@ -8,8 +8,8 @@ PROGRESS_FILE="docs/platform-v7/autopilot/progress.json"
 BRANCH_PREFIX="p7-agent"
 AGENT_MODEL="${OPENAI_MODEL:-gpt-4o}"
 
- echo "platform-v7 agent runner"
- echo "agent model: ${AGENT_MODEL}"
+echo "platform-v7 agent runner"
+echo "agent model: ${AGENT_MODEL}"
 
 if ! command -v node >/dev/null 2>&1; then
   echo "ERROR: node is required."
@@ -62,6 +62,7 @@ JS
 )
 RUN_ID="${GITHUB_RUN_ID:-local}"
 BRANCH_NAME="${BRANCH_PREFIX}/${RUN_ID}-${STEP_SLUG}"
+REPO_NAME="${REPO:-${GITHUB_REPOSITORY:-}}"
 
 echo "current step: ${CURRENT_STEP}"
 echo "prompt: ${PROMPT_FILE}"
@@ -224,6 +225,54 @@ console.log(`deterministic fallback file applied: ${filePath}`);
 JS
 }
 
+open_generated_pr() {
+  if [ -z "${REPO_NAME:-}" ]; then
+    echo "ERROR: repository name is not available for PR creation."
+    exit 1
+  fi
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "ERROR: gh CLI is required for PR creation."
+    exit 1
+  fi
+
+  {
+    echo "Automated platform-v7 current-step run."
+    echo
+    echo "Scope is controlled by source-of-truth files and guard scripts."
+    echo "Work remains PR-only and keeps controlled-pilot / pre-integration maturity language."
+  } > /tmp/p7-agent-pr-body.md
+
+  if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
+    existing_pr=$(gh pr list --repo "$REPO_NAME" --head "$BRANCH_NAME" --json number --jq '.[0].number // ""')
+    if [ -n "$existing_pr" ]; then
+      echo "Generated PR already exists: #$existing_pr"
+      exit 0
+    fi
+  else
+    echo "Committing generated work to $BRANCH_NAME"
+    git add -A
+    git commit -m "feat(platform-v7): apply current autopilot step"
+    git push origin "HEAD:refs/heads/$BRANCH_NAME"
+  fi
+
+  echo "Opening generated PR for $BRANCH_NAME"
+  gh pr create \
+    --repo "$REPO_NAME" \
+    --title "$PR_TITLE" \
+    --body-file /tmp/p7-agent-pr-body.md \
+    --head "$BRANCH_NAME" \
+    --base main
+
+  pr_number=$(gh pr list --repo "$REPO_NAME" --head "$BRANCH_NAME" --json number --jq '.[0].number // ""')
+  if [ -n "$pr_number" ]; then
+    gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label platform-v7 || true
+    gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label agent-generated || true
+    gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label needs-review || true
+    echo "Generated PR ready: #$pr_number"
+  fi
+}
+
 set +e
 run_agent_api
 agent_status=$?
@@ -256,4 +305,6 @@ fi
 echo "Agent output status:"
 git status --porcelain
 
-echo "Agent run complete. GitHub Actions will commit and open the PR."
+open_generated_pr
+
+echo "Agent run complete. Generated PR handling completed inside runner."
