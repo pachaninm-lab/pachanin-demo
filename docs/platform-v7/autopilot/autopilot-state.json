@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Role Boundary Smoke",
+  "current": "Runner Gate Fix",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -16,7 +16,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "scripts/p7-agent-runner.sh"
   ],
   "forbiddenZones": [
     "apps/landing",

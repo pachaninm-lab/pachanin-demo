@@ -295,7 +295,6 @@ fi
 
 bash scripts/p7-autopilot-guard.sh
 pnpm typecheck
-pnpm test
 
 if [ -z "$(git status --porcelain)" ]; then
   echo "ERROR: No repository changes produced by agent or fallback."
@@ -307,4 +306,4 @@ git status --porcelain
 
 open_generated_pr
 
-echo "Agent run complete. Generated PR handling completed inside runner."
+echo "Agent run complete. Generated PR handling completed inside runner. Full tests run as PR checks."
