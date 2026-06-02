@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Agent PR Creation Reliability
+CURRENT: Role Boundary Smoke
 
 DONE:
 - Runtime foundation stages
@@ -10,15 +10,14 @@ DONE:
 - Runner health and dispatch stages
 - Deal identity smoke
 - Route smoke QA
+- Agent PR creation reliability
 
 NEXT:
-- Authorize one narrow infrastructure reliability pass.
-- Allowed files:
-  - .github/workflows/platform-v7-agent-runner.yml
-  - scripts/p7-agent-runner.sh
-- After merge, return to Role Boundary Smoke.
+- Add one narrow role-boundary smoke file.
+- Allowed file:
+  - apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts
 - Readiness remains 72%.
 
 RULES:
 - One PR equals one narrow layer.
-- Keep controlled-pilot / pre-integration status.
+- Keep controlled-pilot status.

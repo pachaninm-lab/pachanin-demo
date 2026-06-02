@@ -3,30 +3,14 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Agent PR Creation Reliability",
+  "current": "Role Boundary Smoke",
   "openPr": null,
   "lastClosed": [
-    "Stage 3 — RBAC / ACL / roles / access rights",
-    "Stage 4 — MoneyTree / Document Matrix / Bank Basis / Action Boundary / Final QA",
-    "Stage 5.0 — Runtime Inventory",
-    "Stage 5.3 — Persistence Port Interfaces",
-    "Stage 5.4 — DTO / Validation Schemas",
-    "PR 5.1 — Application Service Layer",
-    "PR 5.5 — Mock Persistence Adapter",
-    "PR 5.2 — Server Action Wrappers",
-    "PR 5.6 — Runtime Integration Tests",
-    "PR 5.7 — Final Stage 5 QA",
-    "PR 5.8 — Stage 5 Stability Wiring",
-    "PR 6.1 — External Adapter Emulator Contracts",
-    "PR 6.2 — Bank Adapter Emulator",
-    "PR 6.3 — FGIS Adapter Emulator",
-    "PR 6.4 — EDO Adapter Emulator",
-    "PR 6.5 — EPD / Logistics Adapter Emulator",
-    "PR 6.6 — External Adapter Runtime QA",
-    "PR 7.1 — AI Gateway Contracts",
-    "PR 7.2 — AI Gateway Provider Port",
-    "PR 7.3 — AI Gateway Mock Provider",
-    "PR 7.4 — AI Gateway Runtime QA",
+    "Stage 3 RBAC ACL roles access rights",
+    "Stage 4 MoneyTree Document Matrix Bank Basis Action Boundary Final QA",
+    "Stage 5 runtime foundation",
+    "Stage 6 external adapter emulator baseline",
+    "Stage 7 AI gateway baseline",
     "Qodana report-mode baseline",
     "CodeQL report-mode baseline",
     "CI speed baseline",
@@ -38,7 +22,8 @@
     "Runner health",
     "Runner dispatch reliability",
     "Generated code smoke",
-    "Route control smoke"
+    "Route control smoke",
+    "Agent PR creation reliability"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -47,8 +32,7 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    ".github/workflows/platform-v7-agent-runner.yml",
-    "scripts/p7-agent-runner.sh"
+    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -67,10 +51,10 @@
     "requires external credentials and agreements for live integrations"
   ],
   "forbiddenClaims": [
-    "inflated production maturity claims",
-    "fake live external connection claims",
-    "platform payment guarantee claims",
-    "platform self-release of money claims",
-    "binding AI decision claims"
+    "maturity overclaim",
+    "external live connection overclaim",
+    "payment guarantee overclaim",
+    "platform-controlled money release overclaim",
+    "binding AI decision overclaim"
   ]
 }

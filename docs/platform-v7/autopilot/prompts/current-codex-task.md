@@ -1,15 +1,12 @@
 # Current task
 
-Agent PR Creation Reliability.
+Role Boundary Smoke.
 
-Allowed files:
+Allowed file:
 
-- .github/workflows/platform-v7-agent-runner.yml
-- scripts/p7-agent-runner.sh
+- apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts
 
 Goal:
 
-- Keep work PR-only.
-- Open generated pull requests reliably after the runner creates changes.
-- Make retry safe after a partial push or pull-request creation failure.
+- Add one narrow role-boundary smoke file.
 - Keep readiness at 72.
