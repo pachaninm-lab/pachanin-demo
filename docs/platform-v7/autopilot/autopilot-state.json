@@ -1,9 +1,9 @@
 {
-  "project": "platform-v7 / Прозрачная Цена",
+  "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Role Boundary Smoke",
+  "current": "Agent PR Creation Reliability",
   "openPr": null,
   "lastClosed": [
     "Stage 3 — RBAC / ACL / roles / access rights",
@@ -27,18 +27,18 @@
     "PR 7.2 — AI Gateway Provider Port",
     "PR 7.3 — AI Gateway Mock Provider",
     "PR 7.4 — AI Gateway Runtime QA",
-    "Qodana #1423 — CI-only report-mode baseline",
-    "CodeQL #1434 — GitHub-native security report-only baseline",
-    "CI Speed #1436 — GitHub Actions speed baseline",
-    "Playwright Smoke #1438 — platform-v7 key route smoke skeleton",
-    "Forbidden Copy #1440 — no-fake-live test expansion",
-    "Mobile Overflow Smoke — 390x844 baseline",
-    "Agent Runner Diagnostics — background coding health check",
-    "Route Smoke Hardening — platform-v7 route availability baseline",
-    "Runner Health",
-    "Runner Dispatch Reliability",
-    "Generated Code Smoke — Deal Identity Consistency",
-    "Route Control Smoke"
+    "Qodana report-mode baseline",
+    "CodeQL report-mode baseline",
+    "CI speed baseline",
+    "Playwright key route smoke skeleton",
+    "Forbidden copy test expansion",
+    "Mobile overflow smoke baseline",
+    "Agent runner diagnostics",
+    "Route smoke hardening",
+    "Runner health",
+    "Runner dispatch reliability",
+    "Generated code smoke",
+    "Route control smoke"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -47,7 +47,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
+    ".github/workflows/platform-v7-agent-runner.yml",
+    "scripts/p7-agent-runner.sh"
   ],
   "forbiddenZones": [
     "apps/landing",
