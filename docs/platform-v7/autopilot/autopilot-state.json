@@ -3,10 +3,12 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Runner PR Step",
+  "current": "Role Boundary Smoke",
   "openPr": null,
   "lastClosed": [
-    "baseline"
+    "Stage baseline",
+    "QA baseline",
+    "Runner reliability"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -15,8 +17,7 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "docs/platform-v7/autopilot/autopilot-state.json",
-    ".github/workflows/platform-v7-agent-runner.yml"
+    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
