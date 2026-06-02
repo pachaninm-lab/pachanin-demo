@@ -15,14 +15,14 @@ jobs:
         with:
           ref: claude/xray-endpoint-happ-36Qc0
 
-      - name: Fetch and filter Reality configs
+      - name: Fetch and filter working configs for Russia
         run: |
           set -euo pipefail
 
+          # Источники, протестированные из России каждые 2 часа
           SOURCES=(
-            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/Vless-Reality-White-Lists-Rus-Mobile.txt"
-            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/Vless-Reality.txt"
-            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/Vless-Reality-White-Lists-Rus-Mobile-2.txt"
+            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLESS_RUS.txt"
+            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLESS_RUS_mobile.txt"
           )
 
           TMP=$(mktemp)
@@ -31,7 +31,7 @@ jobs:
             curl -fsSL --max-time 30 "$URL" 2>/dev/null >> "$TMP" || echo "WARN: failed $URL" >&2
           done
 
-          # Всегда ставим Netherlands VMess (mirra.now) первыми — они работают в РФ
+          # Всегда ставим Netherlands VMess (mirra.now/Vercel CDN) первыми — работают в РФ
           MIRRA_VMESS=(
             "vmess://eyJhZGQiOiJyZW5kZXJlci1zdHJlYW0tMS00MTEubWlycmEubm93IiwiYWlkIjoiMCIsImFsbG93SW5zZWN1cmUiOiIwIiwiYWxsb3dfaW5zZWN1cmUiOiIwIiwiaG9zdCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJpZCI6ImRmOWM5MzU1LWIwMmMtNGMxMi05MDlkLTBkYmViNzI1ZDUyYiIsImluc2VjdXJlIjoiMCIsIm5ldCI6IndzIiwicGF0aCI6Ii9hcGkvdjEvZ3B1LXN0cmVhbS9zb2NrZXQiLCJwb3J0IjoiNDQzIiwicHMiOiLwn4ez8J+HsSBOZXRoZXJsYW5kcy0xIiwic2VjdXJpdHkiOiJhdXRvIiwic25pIjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsInRscyI6InRscyIsInYiOiIyIiwidHlwZSI6Im5vbmUiLCJzY3kiOiJhdXRvIiwiYWxwbiI6IiIsImZwIjoiIn0="
             "vmess://eyJ2IjoiMiIsInBzIjoi8J+Hs/Cfh7EgTmV0aGVybGFuZHMtMiIsImFkZCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJwb3J0IjoiNDQzIiwidHlwZSI6Im5vbmUiLCJpZCI6ImRmOWM5MzU1LWIwMmMtNGMxMi05MDlkLTBkYmViNzI1ZDUyYiIsImFpZCI6IjAiLCJuZXQiOiJ3cyIsInBhdGgiOiIvYXBpL3YxL2dwdS1zdHJlYW0vc29ja2V0IiwiaG9zdCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJ0bHMiOiJ0bHMiLCJza2lwLWNlcnQtdmVyaWZ5Ijp0cnVlLCJzY3kiOiJhdXRvIiwic25pIjoiIiwiYWxwbiI6IiIsImZwIjoiIn0="
@@ -39,15 +39,12 @@ jobs:
           )
           printf '%s\n' "${MIRRA_VMESS[@]}" > vpn/subscription.txt
 
-          # Добавляем VLESS+Reality (может работать на других провайдерах)
-          grep -E 'vless://.*security=reality' "$TMP" \
-            | grep -E '(xtls-rprx-vision|grpc)' \
+          # CDN-фронтинг через Fastly — ТСПУ не может блокировать Fastly без потери CDN-трафика
+          grep -E 'vless://.*fastly\.net' "$TMP" \
+            | grep -v 'Telegram=' \
             | sort -u \
-            | head -30 \
+            | head -20 \
             >> vpn/subscription.txt || true
-
-          # Добавляем vmess из списка (WebSocket серверы)
-          grep '^vmess://' "$TMP" | sort -u | head -10 >> vpn/subscription.txt || true
 
           COUNT=$(wc -l < vpn/subscription.txt)
           echo "Configs written: $COUNT"
