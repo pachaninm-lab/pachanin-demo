@@ -3,16 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Role Boundary Smoke",
+  "current": "Runner PR Step",
   "openPr": null,
   "lastClosed": [
-    "Stage 3 RBAC ACL roles access rights",
-    "Stage 4 runtime control baseline",
-    "Stage 5 runtime foundation",
-    "Stage 6 adapter baseline",
-    "Stage 7 AI gateway baseline",
-    "QA and CI baselines",
-    "Runner reliability followup"
+    "baseline"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -21,7 +15,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    ".github/workflows/platform-v7-agent-runner.yml"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -39,9 +34,6 @@
     "pre-integration"
   ],
   "forbiddenClaims": [
-    "maturity overclaim",
-    "external connection overclaim",
-    "payment overclaim",
-    "binding AI decision overclaim"
+    "overclaim"
   ]
 }

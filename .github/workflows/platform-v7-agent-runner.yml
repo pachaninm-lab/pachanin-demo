@@ -127,14 +127,41 @@ jobs:
           set -euo pipefail
 
           if [ -z "${P7_AGENT_BRANCH:-}" ]; then
-            echo "P7_AGENT_BRANCH is not set."
-            exit 1
+            step_slug=$(node - <<'JS'
+          const fs = require('fs');
+          const progress = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/progress.json', 'utf8'));
+          const slug = String(progress.currentStep || 'current-step')
+            .toLowerCase()
+            .replace(/—/g, '-')
+            .replace(/[^a-z0-9а-яё]+/gi, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+          console.log(slug || 'current-step');
+          JS
+          )
+            P7_AGENT_BRANCH="p7-agent/${GITHUB_RUN_ID:-local}-${step_slug}"
+            echo "P7_AGENT_BRANCH fallback: $P7_AGENT_BRANCH"
           fi
 
           if [ -z "${P7_AGENT_PR_TITLE:-}" ]; then
-            echo "P7_AGENT_PR_TITLE is not set."
-            exit 1
+            step_title=$(node - <<'JS'
+          const fs = require('fs');
+          const progress = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/progress.json', 'utf8'));
+          const current = String(progress.currentStep || 'current autopilot step')
+            .replace(/^PR\s+/i, '')
+            .trim()
+            .toLowerCase();
+          console.log(current || 'apply current autopilot step');
+          JS
+          )
+            P7_AGENT_PR_TITLE="feat(platform-v7): ${step_title}"
+            echo "P7_AGENT_PR_TITLE fallback: $P7_AGENT_PR_TITLE"
           fi
+
+          echo "create-pr branch: $P7_AGENT_BRANCH"
+          echo "create-pr title: $P7_AGENT_PR_TITLE"
+          git status --short
+          git branch --show-current || true
 
           git config user.name "platform-v7-agent"
           git config user.email "platform-v7-agent@users.noreply.github.com"
