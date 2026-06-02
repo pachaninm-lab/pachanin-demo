@@ -118,18 +118,52 @@ jobs:
 
       - name: Create pull request
         if: success() && env.P7_AGENT_NOOP != 'true'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: ${{ env.P7_AGENT_PR_TITLE }}
-          body: |
-            Automated platform-v7 current-step run.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
 
-            Scope is controlled by source-of-truth files and guard scripts.
-          branch: ${{ env.P7_AGENT_BRANCH }}
-          base: main
-          commit-message: 'feat(platform-v7): apply current autopilot step'
-          labels: |
-            platform-v7
-            agent-generated
-            needs-review
+          if [ -z "${P7_AGENT_BRANCH:-}" ]; then
+            echo "P7_AGENT_BRANCH is not set."
+            exit 1
+          fi
+
+          if [ -z "${P7_AGENT_PR_TITLE:-}" ]; then
+            echo "P7_AGENT_PR_TITLE is not set."
+            exit 1
+          fi
+
+          git status --short
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No repository changes to commit."
+            exit 1
+          fi
+
+          git add -A
+          git commit -m "feat(platform-v7): apply current autopilot step"
+          git push --set-upstream origin "$P7_AGENT_BRANCH"
+
+          existing_pr=$(gh pr list --repo "$REPO" --head "$P7_AGENT_BRANCH" --json number --jq '.[0].number // ""')
+          if [ -n "$existing_pr" ]; then
+            echo "PR already exists: #$existing_pr"
+            exit 0
+          fi
+
+          cat > /tmp/p7-agent-pr-body.md <<'EOF'
+          Automated platform-v7 current-step run.
+
+          Scope is controlled by source-of-truth files and guard scripts.
+          Work remains PR-only and must keep controlled-pilot / pre-integration maturity language.
+          EOF
+
+          gh pr create \
+            --repo "$REPO" \
+            --title "$P7_AGENT_PR_TITLE" \
+            --body-file /tmp/p7-agent-pr-body.md \
+            --head "$P7_AGENT_BRANCH" \
+            --base main \
+            --label platform-v7 \
+            --label agent-generated \
+            --label needs-review
