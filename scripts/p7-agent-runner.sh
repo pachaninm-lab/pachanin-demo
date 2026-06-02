@@ -253,4 +253,7 @@ if [ -z "$(git status --porcelain)" ]; then
   exit 3
 fi
 
+echo "Agent output status:"
+git status --porcelain
+
 echo "Agent run complete. GitHub Actions will commit and open the PR."
