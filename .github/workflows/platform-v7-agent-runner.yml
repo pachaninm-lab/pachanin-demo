@@ -121,6 +121,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -135,12 +136,40 @@ jobs:
             exit 1
           fi
 
+          git config user.name "platform-v7-agent"
+          git config user.email "platform-v7-agent@users.noreply.github.com"
+
           {
             echo "Automated platform-v7 current-step run."
             echo
             echo "Scope is controlled by source-of-truth files and guard scripts."
             echo "Work remains PR-only and keeps controlled-pilot / pre-integration maturity language."
           } > /tmp/p7-agent-pr-body.md
+
+          create_or_label_pr() {
+            local pr_output
+            set +e
+            pr_output=$(gh pr create \
+              --repo "$REPO" \
+              --title "$P7_AGENT_PR_TITLE" \
+              --body-file /tmp/p7-agent-pr-body.md \
+              --head "$P7_AGENT_BRANCH" \
+              --base main 2>&1)
+            local pr_status=$?
+            set -e
+            printf '%s\n' "$pr_output"
+            if [ "$pr_status" -ne 0 ]; then
+              return "$pr_status"
+            fi
+
+            local pr_number
+            pr_number=$(gh pr list --repo "$REPO" --head "$P7_AGENT_BRANCH" --json number --jq '.[0].number // ""')
+            if [ -n "$pr_number" ]; then
+              gh pr edit "$pr_number" --repo "$REPO" --add-label platform-v7 || true
+              gh pr edit "$pr_number" --repo "$REPO" --add-label agent-generated || true
+              gh pr edit "$pr_number" --repo "$REPO" --add-label needs-review || true
+            fi
+          }
 
           if git ls-remote --exit-code --heads origin "$P7_AGENT_BRANCH" >/dev/null 2>&1; then
             existing_pr=$(gh pr list --repo "$REPO" --head "$P7_AGENT_BRANCH" --json number --jq '.[0].number // ""')
@@ -149,15 +178,7 @@ jobs:
               exit 0
             fi
 
-            gh pr create \
-              --repo "$REPO" \
-              --title "$P7_AGENT_PR_TITLE" \
-              --body-file /tmp/p7-agent-pr-body.md \
-              --head "$P7_AGENT_BRANCH" \
-              --base main \
-              --label platform-v7 \
-              --label agent-generated \
-              --label needs-review
+            create_or_label_pr
             exit 0
           fi
 
@@ -170,14 +191,6 @@ jobs:
 
           git add -A
           git commit -m "feat(platform-v7): apply current autopilot step"
-          git push --set-upstream origin "$P7_AGENT_BRANCH"
+          git push origin "HEAD:refs/heads/$P7_AGENT_BRANCH"
 
-          gh pr create \
-            --repo "$REPO" \
-            --title "$P7_AGENT_PR_TITLE" \
-            --body-file /tmp/p7-agent-pr-body.md \
-            --head "$P7_AGENT_BRANCH" \
-            --base main \
-            --label platform-v7 \
-            --label agent-generated \
-            --label needs-review
+          create_or_label_pr
