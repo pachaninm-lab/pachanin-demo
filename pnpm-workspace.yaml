@@ -2,3 +2,4 @@ packages:
   - "apps/api"
   - "apps/web"
   - "packages/*"
+  - "deno-proxy"
