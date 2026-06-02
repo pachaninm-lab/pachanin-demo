@@ -205,12 +205,14 @@ const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-s
 const progress = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/progress.json', 'utf8'));
 const allowed = state.allowedCurrentScope || [];
 if (allowed.length !== 1) {
-  throw new Error(`Deterministic fallback expects exactly one allowed file, got ${allowed.length}`);
+  console.log(`Deterministic fallback skipped: expected exactly one allowed file, got ${allowed.length}.`);
+  process.exit(3);
 }
 
 const filePath = allowed[0];
 if (!filePath.startsWith('apps/web/tests/e2e/') || !filePath.endsWith('.spec.ts')) {
-  throw new Error(`Deterministic fallback only writes narrow e2e specs, got ${filePath}`);
+  console.log(`Deterministic fallback skipped: allowed file is not a narrow e2e spec: ${filePath}.`);
+  process.exit(3);
 }
 
 const currentStep = String(progress.currentStep || state.current || 'platform-v7 smoke');
@@ -228,17 +230,27 @@ agent_status=$?
 set -e
 
 if [ "$agent_status" -ne 0 ]; then
-  echo "Agent API did not produce a valid repository change; using deterministic fallback inside allowed scope."
+  echo "Agent API did not produce a valid repository change; trying deterministic fallback inside allowed scope."
+  set +e
   write_deterministic_fallback
+  fallback_status=$?
+  set -e
+  if [ "$fallback_status" -eq 3 ]; then
+    echo "No deterministic fallback is available for this current step."
+    exit 3
+  fi
+  if [ "$fallback_status" -ne 0 ]; then
+    exit "$fallback_status"
+  fi
 fi
 
 bash scripts/p7-autopilot-guard.sh
 pnpm typecheck
 pnpm test
 
-if git diff --quiet; then
+if [ -z "$(git status --porcelain)" ]; then
   echo "ERROR: No repository changes produced by agent or fallback."
   exit 3
 fi
 
-echo "Agent run complete. GitHub Actions create-pull-request will commit and open the PR."
+echo "Agent run complete. GitHub Actions will commit and open the PR."
