@@ -3,11 +3,12 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Runner Gate Fix",
+  "current": "Role Boundary Smoke",
   "openPr": null,
   "lastClosed": [
     "baseline",
-    "Runner Inline PR"
+    "Runner Inline PR",
+    "Runner Gate Fix"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -16,8 +17,7 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "docs/platform-v7/autopilot/autopilot-state.json",
-    "scripts/p7-agent-runner.sh"
+    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
