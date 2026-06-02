@@ -3,12 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Runner Env Fallback",
+  "current": "Runner PR Step",
   "openPr": null,
   "lastClosed": [
-    "Stage baseline",
-    "QA baseline",
-    "Runner reliability"
+    "baseline"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -17,6 +15,7 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
     ".github/workflows/platform-v7-agent-runner.yml"
   ],
   "forbiddenZones": [
