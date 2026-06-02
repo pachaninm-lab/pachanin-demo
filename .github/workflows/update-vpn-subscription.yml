@@ -1,0 +1,63 @@
+name: Update VPN Subscription
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # каждые 6 часов
+  workflow_dispatch:          # можно запустить вручную
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/xray-endpoint-happ-36Qc0
+
+      - name: Fetch and filter Reality configs
+        run: |
+          set -euo pipefail
+
+          SOURCES=(
+            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/Vless-Reality-White-Lists-Rus-Mobile.txt"
+            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/Vless-Reality.txt"
+            "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/Vless-Reality-White-Lists-Rus-Mobile-2.txt"
+          )
+
+          TMP=$(mktemp)
+
+          for URL in "${SOURCES[@]}"; do
+            curl -fsSL --max-time 30 "$URL" 2>/dev/null >> "$TMP" || echo "WARN: failed $URL" >&2
+          done
+
+          # Оставляем только VLESS+Reality с flow=xtls-rprx-vision (лучшая защита от DPI)
+          # или grpc+reality — тоже хорошо работает в РФ
+          grep -E 'vless://.*security=reality' "$TMP" \
+            | grep -E '(xtls-rprx-vision|grpc)' \
+            | grep -v 'vmess\|trojan\|ss://' \
+            | sort -u \
+            | head -50 \
+            > vpn/subscription.txt || true
+
+          COUNT=$(wc -l < vpn/subscription.txt)
+          echo "Configs written: $COUNT"
+
+          if [ "$COUNT" -lt 5 ]; then
+            echo "Too few configs ($COUNT), keeping existing file"
+            git checkout -- vpn/subscription.txt
+          fi
+
+          rm -f "$TMP"
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vpn/subscription.txt
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Auto-update VPN subscription $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push origin claude/xray-endpoint-happ-36Qc0
+          fi
