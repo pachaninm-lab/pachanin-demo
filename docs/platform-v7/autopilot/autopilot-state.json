@@ -3,13 +3,9 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Role Boundary Smoke",
+  "current": "Runner Inline PR",
   "openPr": null,
-  "lastClosed": [
-    "Stage baseline",
-    "QA baseline",
-    "Runner reliability"
-  ],
+  "lastClosed": ["baseline"],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
     "Theme / Visual",
@@ -17,7 +13,9 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    ".github/workflows/platform-v7-agent-runner.yml",
+    "scripts/p7-agent-runner.sh"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -30,11 +28,6 @@
     "package-lock.json",
     "pnpm-lock.yaml"
   ],
-  "maturityLanguage": [
-    "controlled-pilot",
-    "pre-integration"
-  ],
-  "forbiddenClaims": [
-    "overclaim"
-  ]
+  "maturityLanguage": ["controlled-pilot", "pre-integration"],
+  "forbiddenClaims": ["overclaim"]
 }
