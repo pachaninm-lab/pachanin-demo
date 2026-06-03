@@ -3,15 +3,15 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Resilience Layer",
+  "current": "Role Boundary Smoke",
   "openPr": null,
   "lastClosed": [
     "baseline",
     "Runner Inline PR",
     "Runner Gate Fix",
     "Runner Opens PR",
-    "Role Boundary Smoke",
-    "Runner PR Permission Smoke"
+    "Runner PR Permission Smoke",
+    "Autopilot Resilience Layer"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -21,9 +21,8 @@
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "scripts/p7-agent-runner.sh",
-    "scripts/p7-autopilot-scope-cleaner.mjs",
-    ".github/workflows/platform-v7-autopilot-watchdog.yml"
+    "docs/platform-v7/execution-queue.md",
+    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
