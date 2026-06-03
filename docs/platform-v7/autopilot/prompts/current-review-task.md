@@ -1,4 +1,4 @@
-# Review current task — Role Boundary Smoke
+# Review current task — Runner PR Permission Smoke
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -17,11 +17,11 @@ Review the diff, not the agent report.
 
 ## Current allowed scope
 
-- apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts
+- apps/web/tests/e2e/platform-v7-runner-pr-permission-smoke.spec.ts
 
 ## Transition guard
 
-- BLOCKED: Role Boundary Smoke is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
+- BLOCKED: Runner PR Permission Smoke is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
 
 ## Queue snapshot
 
@@ -52,6 +52,6 @@ RULES:
 
 ## Review brief
 
-Review Role Boundary Smoke strictly against the state allowed scope and queue.
+Review Runner PR Permission Smoke strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.
