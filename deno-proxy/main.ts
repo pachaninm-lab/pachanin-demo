@@ -56,7 +56,7 @@ async function handleVless(ws: WebSocket): Promise<void> {
   const v = parse(new Uint8Array(buf), UUID);
   if (!v) { try { ws.close(); } catch { /**/ } return; }
 
-  // UDP — handle only DNS (port 53) via DoH
+  // UDP: only DNS via DoH
   if (v.cmd === 2) {
     if (v.port !== 53) { try { ws.close(); } catch { /**/ } return; }
     ws.send(new Uint8Array([v.ver, 0]));
@@ -71,11 +71,12 @@ async function handleVless(ws: WebSocket): Promise<void> {
     return;
   }
 
-  // TCP (cmd === 1)
+  // TCP
   let conn: Deno.TcpConn;
   try {
     conn = await Deno.connect({ hostname: v.host, port: v.port });
-  } catch {
+  } catch (e) {
+    console.error('[vless] connect failed', v.host, v.port, String(e));
     try { ws.close(); } catch { /**/ }
     return;
   }
@@ -87,14 +88,16 @@ async function handleVless(ws: WebSocket): Promise<void> {
     try { conn.close(); } catch { /**/ }
   };
 
-  ws.send(new Uint8Array([v.ver, 0]));
-
   const writer = conn.writable.getWriter();
-  if (v.p.byteLength > 0) {
-    try { await writer.write(v.p); } catch { shut(); return; }
-  }
 
-  let q = Promise.resolve();
+  // Register WS→TCP listener BEFORE sending VLESS response to avoid
+  // dropping messages that arrive immediately after the response.
+  let q = v.p.byteLength > 0
+    ? Promise.resolve().then(async () => {
+        try { await writer.write(v.p); } catch { shut(); }
+      })
+    : Promise.resolve();
+
   ws.addEventListener('message', (e: MessageEvent) => {
     q = q.then(async () => {
       if (done) return;
@@ -108,6 +111,7 @@ async function handleVless(ws: WebSocket): Promise<void> {
   ws.addEventListener('close', shut);
   ws.addEventListener('error', shut);
 
+  // TCP → WS
   (async () => {
     try {
       for await (const chunk of conn.readable) {
@@ -116,10 +120,26 @@ async function handleVless(ws: WebSocket): Promise<void> {
       }
     } catch { /**/ } finally { shut(); }
   })();
+
+  // Send VLESS response after listeners are ready
+  ws.send(new Uint8Array([v.ver, 0]));
 }
 
 export default {
-  fetch(req: Request): Response {
+  async fetch(req: Request): Promise<Response> {
+    const path = new URL(req.url).pathname;
+
+    // Diagnostic: verify Deno.connect() works
+    if (path === '/check') {
+      try {
+        const c = await Deno.connect({ hostname: '1.1.1.1', port: 53 });
+        c.close();
+        return new Response('OK: Deno.connect works. Proxy is operational.\n', { status: 200 });
+      } catch (e) {
+        return new Response(`FAIL: Deno.connect error: ${e}\n`, { status: 500 });
+      }
+    }
+
     if (req.headers.get('Upgrade') !== 'websocket') {
       return new Response('ok', { status: 200 });
     }
