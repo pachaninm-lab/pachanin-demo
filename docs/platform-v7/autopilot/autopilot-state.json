@@ -3,13 +3,14 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Role Boundary Smoke",
+  "current": "Runner PR Permission Smoke",
   "openPr": null,
   "lastClosed": [
     "baseline",
     "Runner Inline PR",
     "Runner Gate Fix",
-    "Runner Opens PR"
+    "Runner Opens PR",
+    "Role Boundary Smoke"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -18,7 +19,7 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
+    "apps/web/tests/e2e/platform-v7-runner-pr-permission-smoke.spec.ts"
   ],
   "forbiddenZones": [
     "apps/landing",
