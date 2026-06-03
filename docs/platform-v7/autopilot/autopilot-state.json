@@ -10,7 +10,6 @@
     "Runner Inline PR",
     "Runner Gate Fix",
     "Runner Opens PR",
-    "Role Boundary Smoke",
     "Runner PR Permission Smoke",
     "Autopilot Resilience Layer"
   ],
