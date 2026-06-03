@@ -11,6 +11,7 @@ DONE:
 - Deal identity smoke
 - Route smoke QA
 - Agent PR creation reliability
+- Autopilot Resilience Layer
 
 NEXT:
 - Add one narrow role-boundary smoke file.
@@ -21,3 +22,4 @@ NEXT:
 RULES:
 - One PR equals one narrow layer.
 - Keep controlled-pilot status.
+- No product code, apps/landing, API, DB, runtime, adapters, theme, onboarding, or lockfiles in this layer.
