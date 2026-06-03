@@ -1,0 +1,57 @@
+name: platform-v7 generated PR cleanup
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: platform-v7-generated-pr-cleanup-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'agent-generated') ||
+      startsWith(github.event.pull_request.head.ref, 'p7-agent/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Clean outside-scope generated changes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        run: |
+          set -euo pipefail
+          git config user.name "platform-v7-cleanup"
+          git config user.email "platform-v7-cleanup@users.noreply.github.com"
+
+          if [ -n "${PR_NUMBER:-}" ]; then
+            base_sha=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json baseRefOid --jq .baseRefOid)
+            git fetch origin "$base_sha"
+            git reset --mixed "$base_sha"
+          fi
+
+          node scripts/p7-autopilot-scope-cleaner.mjs
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "cleanup: no in-scope changes to commit"
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "chore(platform-v7): clean generated pr scope"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
