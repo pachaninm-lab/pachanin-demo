@@ -1,127 +1,61 @@
 const UUID = '9f3cbdb8-4a9d-5811-1d8e-58603f42cfd6';
 
-type VlessRequest = {
-  ver: number;
-  host: string;
-  port: number;
-  cmd: number;
-  p: Uint8Array;
-};
-
-type DnsPacket = {
-  query: Uint8Array;
-  framed: boolean;
-};
-
-function parse(a: Uint8Array, uid: string): VlessRequest | null {
+function parse(a: Uint8Array, uid: string) {
   if (a.length < 24) return null;
-
   const u = Array.from(a.slice(1, 17), (b: number) => b.toString(16).padStart(2, '0'))
-    .join('')
-    .replace(/(.{8})(.{4})(.{4})(.{4})/, '$1-$2-$3-$4-');
+    .join('').replace(/(.{8})(.{4})(.{4})(.{4})/, '$1-$2-$3-$4-');
   if (u !== uid) return null;
-
-  const al = a[17];
-  const o = 18 + al;
-  if (o + 4 > a.length) return null;
-
-  const cmd = a[o];
+  const al = a[17], o = 18 + al, cmd = a[o];
   if (cmd !== 1 && cmd !== 2) return null;
-
-  const port = (a[o + 1] << 8) | a[o + 2];
-  const at = a[o + 3];
-  let host: string;
-  let end: number;
-
-  if (at === 1) {
-    if (o + 8 > a.length) return null;
-    host = `${a[o + 4]}.${a[o + 5]}.${a[o + 6]}.${a[o + 7]}`;
-    end = o + 8;
-  } else if (at === 2) {
-    if (o + 5 > a.length) return null;
-    const l = a[o + 4];
-    if (o + 5 + l > a.length) return null;
-    host = new TextDecoder().decode(a.slice(o + 5, o + 5 + l));
-    end = o + 5 + l;
-  } else if (at === 3) {
-    if (o + 20 > a.length) return null;
-    const dv = new DataView(a.buffer, a.byteOffset + o + 4, 16);
-    host = Array.from({ length: 8 }, (_, i) => dv.getUint16(i * 2).toString(16)).join(':');
-    end = o + 20;
-  } else {
-    return null;
-  }
-
+  const port = (a[o + 1] << 8) | a[o + 2], at = a[o + 3];
+  let host: string, end: number;
+  if (at === 1) { host = `${a[o+4]}.${a[o+5]}.${a[o+6]}.${a[o+7]}`; end = o + 8; }
+  else if (at === 2) { const l = a[o+4]; host = new TextDecoder().decode(a.slice(o+5, o+5+l)); end = o+5+l; }
+  else if (at === 3) { const dv = new DataView(a.buffer, a.byteOffset+o+4, 16); host = Array.from({length:8},(_,i)=>dv.getUint16(i*2).toString(16)).join(':'); end = o+20; }
+  else return null;
   return { ver: a[0], host, port, cmd, p: new Uint8Array(a.buffer.slice(a.byteOffset + end)) };
 }
 
-function decodeDnsPackets(data: Uint8Array): DnsPacket[] {
-  if (data.byteLength === 0) return [];
-
-  const framed: DnsPacket[] = [];
-  let off = 0;
-  let validFrames = true;
-
-  while (off < data.length) {
-    if (off + 2 > data.length) {
-      validFrames = false;
-      break;
+// Deno Deploy resolves IPv6 first and hangs on timeout (denoland/deno#23580).
+// Fix: pre-resolve every domain to an A record via DoH before Deno.connect().
+async function toIPv4(hostname: string): Promise<string> {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.includes(':')) return hostname;
+  try {
+    const r = await fetch(
+      `https://1.1.1.1/dns-query?name=${encodeURIComponent(hostname)}&type=A`,
+      { headers: { accept: 'application/dns-json' }, signal: AbortSignal.timeout(3000) }
+    );
+    if (r.ok) {
+      const j = await r.json() as { Answer?: { type: number; data: string }[] };
+      const ip = j.Answer?.find(a => a.type === 1)?.data;
+      if (ip) return ip;
     }
-
-    const len = (data[off] << 8) | data[off + 1];
-    off += 2;
-
-    if (len === 0 || off + len > data.length) {
-      validFrames = false;
-      break;
-    }
-
-    framed.push({ query: data.slice(off, off + len), framed: true });
-    off += len;
-  }
-
-  if (validFrames && framed.length > 0 && off === data.length) {
-    return framed;
-  }
-
-  // Some Android/Xray clients can send the first UDP DNS payload as a raw DNS datagram.
-  // Without this fallback the tunnel stays connected but DNS never answers, which appears as DNS_PROBE_STARTED.
-  return [{ query: data, framed: false }];
-}
-
-function encodeDnsAnswer(answer: Uint8Array, framed: boolean): Uint8Array {
-  if (!framed) return answer;
-
-  const frame = new Uint8Array(2 + answer.byteLength);
-  frame[0] = answer.byteLength >> 8;
-  frame[1] = answer.byteLength & 0xff;
-  frame.set(answer, 2);
-  return frame;
+  } catch { /**/ }
+  return hostname;
 }
 
 async function forwardDns(data: Uint8Array, ws: WebSocket): Promise<void> {
-  for (const packet of decodeDnsPackets(data)) {
+  let off = 0;
+  while (off + 2 <= data.length) {
+    const len = (data[off] << 8) | data[off + 1];
+    off += 2;
+    if (len === 0 || off + len > data.length) break;
+    const query = data.slice(off, off + len);
+    off += len;
     try {
       const r = await fetch('https://1.1.1.1/dns-query', {
         method: 'POST',
-        headers: {
-          accept: 'application/dns-message',
-          'content-type': 'application/dns-message',
-        },
-        body: packet.query,
+        headers: { 'content-type': 'application/dns-message' },
+        body: query,
       });
-
       if (!r.ok) continue;
-
       const ans = new Uint8Array(await r.arrayBuffer());
-      try {
-        ws.send(encodeDnsAnswer(ans, packet.framed));
-      } catch {
-        // Socket may already be closed by the client.
-      }
-    } catch {
-      // Keep the tunnel alive for the next DNS packet.
-    }
+      const frame = new Uint8Array(2 + ans.byteLength);
+      frame[0] = ans.byteLength >> 8;
+      frame[1] = ans.byteLength & 0xff;
+      frame.set(ans, 2);
+      try { ws.send(frame); } catch { /**/ }
+    } catch { /**/ }
   }
 }
 
@@ -131,138 +65,102 @@ async function handleVless(ws: WebSocket): Promise<void> {
       const d = e.data;
       if (d instanceof ArrayBuffer) ok(d);
       else if (d instanceof Blob) d.arrayBuffer().then(ok, no);
-      else no(new Error('unexpected data type'));
+      else no(new Error('type'));
     }, { once: true });
     ws.addEventListener('close', () => no(new Error('closed')), { once: true });
     ws.addEventListener('error', () => no(new Error('error')), { once: true });
   });
 
   const v = parse(new Uint8Array(buf), UUID);
-  if (!v) {
-    try { ws.close(); } catch { /**/ }
-    return;
-  }
+  if (!v) { try { ws.close(); } catch { /**/ } return; }
 
-  // UDP: safely support DNS only. Non-DNS UDP is intentionally rejected.
+  // UDP: only DNS (port 53) via DoH
   if (v.cmd === 2) {
-    if (v.port !== 53) {
-      try { ws.close(); } catch { /**/ }
-      return;
-    }
-
+    if (v.port !== 53) { try { ws.close(); } catch { /**/ } return; }
     ws.send(new Uint8Array([v.ver, 0]));
-
     if (v.p.byteLength > 0) await forwardDns(v.p, ws);
-
     ws.addEventListener('message', async (e: MessageEvent) => {
       try {
-        const bytes = e.data instanceof ArrayBuffer
-          ? new Uint8Array(e.data)
-          : e.data instanceof Blob
-            ? new Uint8Array(await e.data.arrayBuffer())
-            : null;
-        if (bytes) await forwardDns(bytes, ws);
-      } catch {
-        // Ignore one bad DNS packet and keep the websocket open.
-      }
+        const b = e.data instanceof ArrayBuffer ? new Uint8Array(e.data)
+          : e.data instanceof Blob ? new Uint8Array(await e.data.arrayBuffer()) : null;
+        if (b) await forwardDns(b, ws);
+      } catch { /**/ }
     });
     return;
   }
 
-  // TCP.
+  // TCP: resolve to IPv4 first to avoid Deno's IPv6-first bug
+  const ip = await toIPv4(v.host);
   let conn: Deno.TcpConn;
   try {
-    conn = await Deno.connect({ hostname: v.host, port: v.port });
-  } catch {
+    conn = await Deno.connect({ hostname: ip, port: v.port });
+  } catch (e) {
+    console.error('[vless] connect failed', ip, v.port, String(e));
     try { ws.close(); } catch { /**/ }
     return;
   }
 
   let done = false;
   const shut = () => {
-    if (done) return;
-    done = true;
+    if (done) return; done = true;
     try { ws.close(); } catch { /**/ }
     try { conn.close(); } catch { /**/ }
   };
 
-  ws.send(new Uint8Array([v.ver, 0]));
-
   const writer = conn.writable.getWriter();
-  if (v.p.byteLength > 0) {
-    try { await writer.write(v.p); } catch { shut(); return; }
-  }
 
-  let q = Promise.resolve();
+  // Register WS→TCP listener BEFORE sending VLESS response (no race condition)
+  let q = v.p.byteLength > 0
+    ? Promise.resolve().then(async () => {
+        try { await writer.write(v.p); } catch { shut(); }
+      })
+    : Promise.resolve();
+
   ws.addEventListener('message', (e: MessageEvent) => {
     q = q.then(async () => {
       if (done) return;
       try {
-        const bytes = e.data instanceof ArrayBuffer
-          ? new Uint8Array(e.data)
-          : e.data instanceof Blob
-            ? new Uint8Array(await e.data.arrayBuffer())
-            : null;
-        if (bytes) await writer.write(bytes);
-      } catch {
-        shut();
-      }
+        const b = e.data instanceof ArrayBuffer ? new Uint8Array(e.data)
+          : e.data instanceof Blob ? new Uint8Array(await e.data.arrayBuffer()) : null;
+        if (b) await writer.write(b);
+      } catch { shut(); }
     });
   });
   ws.addEventListener('close', shut);
   ws.addEventListener('error', shut);
 
+  // TCP → WS
   (async () => {
     try {
       for await (const chunk of conn.readable) {
         if (done) break;
         try { ws.send(chunk); } catch { break; }
       }
-    } catch {
-      // Remote TCP close/reset.
-    } finally {
-      shut();
-    }
+    } catch { /**/ } finally { shut(); }
   })();
-}
 
-async function canOpenTcp(): Promise<boolean> {
-  let timer: number | undefined;
-  try {
-    const timeout = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), 2500);
-    });
-
-    const conn = await Promise.race<Deno.TcpConn | null>([
-      Deno.connect({ hostname: '1.1.1.1', port: 443 }),
-      timeout,
-    ]);
-
-    if (!conn) return false;
-    try { conn.close(); } catch { /**/ }
-    return true;
-  } catch {
-    return false;
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
+  // Send VLESS response after listener is ready
+  ws.send(new Uint8Array([v.ver, 0]));
 }
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const url = new URL(req.url);
+    const path = new URL(req.url).pathname;
 
-    if (url.pathname === '/check') {
-      const tcp = await canOpenTcp();
-      return Response.json({ ok: true, tcp, udpDnsMode: 'dns-over-https', version: 'dns-raw-fallback-2026-06-02' }, {
-        headers: { 'cache-control': 'no-store' },
-      });
+    if (path === '/check') {
+      try {
+        const ip = await toIPv4('one.one.one.one');
+        const c = await Deno.connect({ hostname: ip, port: 53 });
+        c.close();
+        return new Response(`OK: Deno.connect works (1.1.1.1 → ${ip})\n`, { status: 200 });
+      } catch (e) {
+        return new Response(`FAIL: ${e}\n`, { status: 500 });
+      }
     }
 
     if (req.headers.get('Upgrade') !== 'websocket') {
-      return new Response('ok', { status: 200, headers: { 'cache-control': 'no-store' } });
+      return new Response('ok', { status: 200 });
     }
-
     const { socket, response } = Deno.upgradeWebSocket(req);
     handleVless(socket).catch(() => { try { socket.close(); } catch { /**/ } });
     return response;
