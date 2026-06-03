@@ -1,14 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Role Boundary Smoke",
-  "lastCompletedStep": "Runner Opens PR",
+  "currentStep": "Runner PR Permission Smoke",
+  "lastCompletedStep": "Role Boundary Smoke",
   "openPr": null,
   "blockedBy": [
-    "Role Boundary Smoke is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding."
+    "Runner PR Permission Smoke is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding."
   ],
-  "nextStep": "Role Boundary Smoke",
-  "updatedAt": "2026-06-03T17:08:02.219Z",
+  "nextStep": "Runner PR Permission Smoke",
+  "updatedAt": "2026-06-03T18:09:35.239Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

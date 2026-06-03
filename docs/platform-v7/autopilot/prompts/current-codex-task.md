@@ -1,4 +1,4 @@
-# Codex current task — Role Boundary Smoke
+# Codex current task — Runner PR Permission Smoke
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -13,7 +13,7 @@ Do not auto-merge. Human review and green checks are required.
 
 ## Current step
 
-Role Boundary Smoke
+Runner PR Permission Smoke
 
 ## Next candidate
 
@@ -21,11 +21,11 @@ Product Entry / Onboarding
 
 ## Transition guard
 
-- BLOCKED: Role Boundary Smoke is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
+- BLOCKED: Runner PR Permission Smoke is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
 
 ## Allowed current scope
 
-- apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts
+- apps/web/tests/e2e/platform-v7-runner-pr-permission-smoke.spec.ts
 
 ## Forbidden zones
 
@@ -68,4 +68,4 @@ RULES:
 
 ## Implementation brief
 
-Implement Role Boundary Smoke strictly inside the state allowed scope.
+Implement Runner PR Permission Smoke strictly inside the state allowed scope.
