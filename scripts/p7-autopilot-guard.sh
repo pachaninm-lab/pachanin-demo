@@ -32,7 +32,7 @@ for (const file of state.allowedCurrentScope || []) console.log(file);
 JS
 )
 
-ALLOWED_INFRA='^(AGENTS\.md|docs/platform-v7/execution-queue\.md|docs/platform-v7/autopilot/.*|scripts/p7-autopilot-guard\.sh|scripts/p7-agent-runner\.sh|scripts/p7-autopilot-dispatcher\.mjs|\.github/workflows/platform-v7-autopilot-guard\.yml|\.github/workflows/platform-v7-autopilot-loop\.yml|\.github/workflows/platform-v7-agent-runner\.yml|\.github/ISSUE_TEMPLATE/platform-v7-agent-run\.md)$'
+ALLOWED_INFRA='^(AGENTS\.md|docs/platform-v7/execution-queue\.md|docs/platform-v7/autopilot/.*|scripts/p7-autopilot-guard\.sh|scripts/p7-agent-runner\.sh|scripts/p7-autopilot-dispatcher\.mjs|scripts/p7-autopilot-scope-cleaner\.mjs|\.github/workflows/platform-v7-autopilot-guard\.yml|\.github/workflows/platform-v7-autopilot-loop\.yml|\.github/workflows/platform-v7-agent-runner\.yml|\.github/workflows/platform-v7-generated-pr-cleanup\.yml|\.github/workflows/platform-v7-autopilot-watchdog\.yml|\.github/ISSUE_TEMPLATE/platform-v7-agent-run\.md)$'
 
 FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$|\.env|.*\.pem$|.*\.key$)'
 
