@@ -16,6 +16,24 @@ function parse(a: Uint8Array, uid: string) {
   return { ver: a[0], host, port, cmd, p: new Uint8Array(a.buffer.slice(a.byteOffset + end)) };
 }
 
+// Deno Deploy resolves IPv6 first and hangs on timeout (denoland/deno#23580).
+// Fix: pre-resolve every domain to an A record via DoH before Deno.connect().
+async function toIPv4(hostname: string): Promise<string> {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.includes(':')) return hostname;
+  try {
+    const r = await fetch(
+      `https://1.1.1.1/dns-query?name=${encodeURIComponent(hostname)}&type=A`,
+      { headers: { accept: 'application/dns-json' }, signal: AbortSignal.timeout(3000) }
+    );
+    if (r.ok) {
+      const j = await r.json() as { Answer?: { type: number; data: string }[] };
+      const ip = j.Answer?.find(a => a.type === 1)?.data;
+      if (ip) return ip;
+    }
+  } catch { /**/ }
+  return hostname;
+}
+
 async function forwardDns(data: Uint8Array, ws: WebSocket): Promise<void> {
   let off = 0;
   while (off + 2 <= data.length) {
@@ -47,7 +65,7 @@ async function handleVless(ws: WebSocket): Promise<void> {
       const d = e.data;
       if (d instanceof ArrayBuffer) ok(d);
       else if (d instanceof Blob) d.arrayBuffer().then(ok, no);
-      else no(new Error('unexpected data type'));
+      else no(new Error('type'));
     }, { once: true });
     ws.addEventListener('close', () => no(new Error('closed')), { once: true });
     ws.addEventListener('error', () => no(new Error('error')), { once: true });
@@ -56,27 +74,28 @@ async function handleVless(ws: WebSocket): Promise<void> {
   const v = parse(new Uint8Array(buf), UUID);
   if (!v) { try { ws.close(); } catch { /**/ } return; }
 
-  // UDP: only DNS via DoH
+  // UDP: only DNS (port 53) via DoH
   if (v.cmd === 2) {
     if (v.port !== 53) { try { ws.close(); } catch { /**/ } return; }
     ws.send(new Uint8Array([v.ver, 0]));
     if (v.p.byteLength > 0) await forwardDns(v.p, ws);
     ws.addEventListener('message', async (e: MessageEvent) => {
       try {
-        const bytes = e.data instanceof ArrayBuffer ? new Uint8Array(e.data)
+        const b = e.data instanceof ArrayBuffer ? new Uint8Array(e.data)
           : e.data instanceof Blob ? new Uint8Array(await e.data.arrayBuffer()) : null;
-        if (bytes) await forwardDns(bytes, ws);
+        if (b) await forwardDns(b, ws);
       } catch { /**/ }
     });
     return;
   }
 
-  // TCP
+  // TCP: resolve to IPv4 first to avoid Deno's IPv6-first bug
+  const ip = await toIPv4(v.host);
   let conn: Deno.TcpConn;
   try {
-    conn = await Deno.connect({ hostname: v.host, port: v.port });
+    conn = await Deno.connect({ hostname: ip, port: v.port });
   } catch (e) {
-    console.error('[vless] connect failed', v.host, v.port, String(e));
+    console.error('[vless] connect failed', ip, v.port, String(e));
     try { ws.close(); } catch { /**/ }
     return;
   }
@@ -90,8 +109,7 @@ async function handleVless(ws: WebSocket): Promise<void> {
 
   const writer = conn.writable.getWriter();
 
-  // Register WS→TCP listener BEFORE sending VLESS response to avoid
-  // dropping messages that arrive immediately after the response.
+  // Register WS→TCP listener BEFORE sending VLESS response (no race condition)
   let q = v.p.byteLength > 0
     ? Promise.resolve().then(async () => {
         try { await writer.write(v.p); } catch { shut(); }
@@ -102,9 +120,9 @@ async function handleVless(ws: WebSocket): Promise<void> {
     q = q.then(async () => {
       if (done) return;
       try {
-        const bytes = e.data instanceof ArrayBuffer ? new Uint8Array(e.data)
+        const b = e.data instanceof ArrayBuffer ? new Uint8Array(e.data)
           : e.data instanceof Blob ? new Uint8Array(await e.data.arrayBuffer()) : null;
-        if (bytes) await writer.write(bytes);
+        if (b) await writer.write(b);
       } catch { shut(); }
     });
   });
@@ -121,7 +139,7 @@ async function handleVless(ws: WebSocket): Promise<void> {
     } catch { /**/ } finally { shut(); }
   })();
 
-  // Send VLESS response after listeners are ready
+  // Send VLESS response after listener is ready
   ws.send(new Uint8Array([v.ver, 0]));
 }
 
@@ -129,14 +147,14 @@ export default {
   async fetch(req: Request): Promise<Response> {
     const path = new URL(req.url).pathname;
 
-    // Diagnostic: verify Deno.connect() works
     if (path === '/check') {
       try {
-        const c = await Deno.connect({ hostname: '1.1.1.1', port: 53 });
+        const ip = await toIPv4('one.one.one.one');
+        const c = await Deno.connect({ hostname: ip, port: 53 });
         c.close();
-        return new Response('OK: Deno.connect works. Proxy is operational.\n', { status: 200 });
+        return new Response(`OK: Deno.connect works (1.1.1.1 → ${ip})\n`, { status: 200 });
       } catch (e) {
-        return new Response(`FAIL: Deno.connect error: ${e}\n`, { status: 500 });
+        return new Response(`FAIL: ${e}\n`, { status: 500 });
       }
     }
 
