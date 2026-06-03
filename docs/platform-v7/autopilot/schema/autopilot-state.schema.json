@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pachanin-demo.local/platform-v7/autopilot-state.schema.json",
+  "title": "platform-v7 autopilot state",
+  "type": "object",
+  "required": [
+    "project",
+    "status",
+    "current",
+    "currentStatus",
+    "openPr",
+    "lastClosed",
+    "allowedCurrentScope",
+    "forbiddenZones",
+    "maturityLanguage",
+    "forbiddenClaims"
+  ],
+  "properties": {
+    "project": {
+      "const": "platform-v7"
+    },
+    "status": {
+      "enum": ["active", "paused", "blocked"]
+    },
+    "current": {
+      "type": "string",
+      "minLength": 1
+    },
+    "currentStatus": {
+      "enum": ["ready", "in_progress", "blocked", "merged"]
+    },
+    "openPr": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "lastClosed": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "allowedCurrentScope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "forbiddenZones": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "maturityLanguage": {
+      "type": "array",
+      "contains": {
+        "const": "controlled-pilot"
+      }
+    },
+    "forbiddenClaims": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "additionalProperties": true
+}
