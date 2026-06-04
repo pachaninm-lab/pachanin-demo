@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Step Enablement",
+  "current": "Autopilot Scope Proposal Gate",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -22,7 +22,8 @@
     "Autopilot Issue Executor Dry-run",
     "Autopilot Issue Executor PR Wiring",
     "Autopilot Full Loop Verification",
-    "Autopilot Live Controlled Pilot Gate"
+    "Autopilot Live Controlled Pilot Gate",
+    "Autopilot Step Enablement"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -36,6 +37,9 @@
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
+  "controlledActions": {
+    "enabled": false
+  },
   "forbiddenZones": [
     "apps/landing",
     "apps/web/app/platform-v7",

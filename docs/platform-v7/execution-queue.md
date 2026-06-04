@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Step Enablement
+CURRENT: Autopilot Scope Proposal Gate
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
@@ -9,10 +9,10 @@ CURRENT ALLOWED:
 - .github/workflows/platform-v7-autopilot-*.yml
 
 CURRENT CRITERIA:
-- guarded mode stays off by default;
-- guarded mode requires explicit state flag;
-- branch and draft PR steps require safe intake and merge gate;
-- out-of-scope paths require a new source-of-truth layer.
+- next task request is converted into a narrow scope proposal;
+- proposal is blocked unless source-of-truth explicitly allows exact paths;
+- restricted paths remain blocked;
+- merge gate remains final authority.
 
 DONE:
 - Runtime foundation stages
@@ -35,18 +35,19 @@ DONE:
 - Autopilot Issue Executor PR Wiring
 - Autopilot Full Loop Verification
 - Autopilot Live Controlled Pilot Gate
+- Autopilot Step Enablement
 
 NEXT:
-- Layer: Autopilot Scope Proposal Gate
+- Layer: Autopilot Exact Path Unlock
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - scripts/p7-autopilot-*.mjs
   - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - next task request is converted into a narrow scope proposal;
-  - proposal is blocked unless source-of-truth explicitly allows exact paths;
-  - restricted paths remain blocked;
+  - exact path unlock is represented as a proposed state patch;
+  - patch is blocked for restricted paths;
+  - patch can allow a narrow non-restricted path only when current source-of-truth says so;
   - merge gate remains final authority.
 - Readiness remains 72%.
 
