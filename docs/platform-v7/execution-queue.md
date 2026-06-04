@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Full Loop Verification
+CURRENT: Autopilot Controlled Pilot Gate
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
@@ -9,10 +9,10 @@ CURRENT ALLOWED:
 - .github/workflows/platform-v7-autopilot-*.yml
 
 CURRENT CRITERIA:
-- selector, intake, executor dry-run, analyzer, safe-fix, merge gate, and state update are verified in one report;
-- report shows blocked state for unsafe scope;
-- report shows planned state for safe scope;
-- no product files are changed.
+- controlled mode is off by default;
+- controlled mode requires explicit state permission;
+- branch and draft PR steps require safe intake and merge gate;
+- non-autopilot scope requires a new source-of-truth layer.
 
 DONE:
 - Runtime foundation stages
@@ -33,19 +33,20 @@ DONE:
 - Autopilot Safe Task Intake
 - Autopilot Issue Executor Dry-run
 - Autopilot Issue Executor PR Wiring
+- Autopilot Full Loop Verification
 
 NEXT:
-- Layer: Autopilot Live Controlled Pilot Gate
+- Layer: Autopilot Controlled Step Enablement
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - scripts/p7-autopilot-*.mjs
   - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - live write mode is blocked unless explicitly enabled;
-  - all write actions require safe intake and merge gate;
-  - non-autopilot scope requires a new source-of-truth layer;
-  - external deploy failures remain non-blocking unless marked required by GitHub.
+  - controlled mode stays off by default;
+  - controlled mode requires explicit state flag;
+  - branch and draft PR steps require safe intake and merge gate;
+  - product scope remains locked until source-of-truth changes.
 - Readiness remains 72%.
 
 RULES:
