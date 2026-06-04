@@ -1,6 +1,13 @@
 # platform-v7 execution queue
 
-CURRENT: Role Boundary Smoke
+CURRENT: Autopilot State Schema
+
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/execution-queue.md
+- docs/platform-v7/autopilot/schema/autopilot-state.schema.json
+- scripts/p7-autopilot-state-validate.mjs
+- scripts/p7-autopilot-state-update.mjs
 
 DONE:
 - Runtime foundation stages
@@ -12,11 +19,19 @@ DONE:
 - Route smoke QA
 - Agent PR creation reliability
 - Autopilot Resilience Layer
+- Role Boundary Smoke
 
 NEXT:
-- Add one narrow role-boundary smoke file.
-- Allowed file:
-  - apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts
+- Layer: Autopilot Next-layer Selector
+- Allowed files:
+  - scripts/p7-autopilot-next-layer.mjs
+  - docs/platform-v7/autopilot/**
+  - docs/platform-v7/execution-queue.md
+- Success criteria:
+  - selector returns one valid next layer;
+  - selector stops on conflict;
+  - selector stops on forbidden scope;
+  - selector writes clear reason.
 - Readiness remains 72%.
 
 RULES:

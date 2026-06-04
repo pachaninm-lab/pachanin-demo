@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Role Boundary Smoke",
+  "current": "Autopilot State Schema",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -11,7 +11,8 @@
     "Runner Gate Fix",
     "Runner Opens PR",
     "Runner PR Permission Smoke",
-    "Autopilot Resilience Layer"
+    "Autopilot Resilience Layer",
+    "Role Boundary Smoke"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -22,7 +23,9 @@
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "apps/web/tests/e2e/platform-v7-role-boundary-smoke.spec.ts"
+    "docs/platform-v7/autopilot/schema/autopilot-state.schema.json",
+    "scripts/p7-autopilot-state-validate.mjs",
+    "scripts/p7-autopilot-state-update.mjs"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -36,5 +39,15 @@
     "pnpm-lock.yaml"
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
-  "forbiddenClaims": ["overclaim"]
+  "forbiddenClaims": [
+    "production-ready",
+    "fully live",
+    "fully integrated",
+    "platform guarantees payment",
+    "платформа гарантирует оплату",
+    "платформа сама выпускает деньги",
+    "банк подключён",
+    "ФГИС подключён",
+    "ЭДО подключён"
+  ]
 }
