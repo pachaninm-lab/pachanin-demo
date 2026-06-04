@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Safe Task Intake",
+  "current": "Autopilot Issue Executor Dry-run",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -17,7 +17,8 @@
     "Autopilot Next-layer Selector",
     "Autopilot Check Analyzer",
     "Autopilot Merge Gate",
-    "Autopilot Dry-run Loop"
+    "Autopilot Dry-run Loop",
+    "Autopilot Safe Task Intake"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -28,7 +29,8 @@
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
-    "scripts/p7-autopilot-*.mjs"
+    "scripts/p7-autopilot-*.mjs",
+    ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "forbiddenZones": [
     "apps/landing",
