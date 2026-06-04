@@ -41,24 +41,60 @@ if printf '%s\n' "$DIFF_FILES" | grep -E "$FORBIDDEN_ALWAYS"; then
   exit 1
 fi
 
-DISALLOWED=''
-while IFS= read -r file; do
-  [ -z "$file" ] && continue
-  allowed=false
-  if printf '%s\n' "$ALLOWED_CURRENT" | grep -Fx "$file" >/dev/null 2>&1; then
-    allowed=true
-  fi
-  if printf '%s\n' "$file" | grep -E "$ALLOWED_INFRA" >/dev/null 2>&1; then
-    allowed=true
-  fi
-  if [ "$allowed" != "true" ]; then
-    DISALLOWED="${DISALLOWED}${file}\n"
-  fi
-done <<< "$DIFF_FILES"
+SCOPE_RESULT=$(DIFF_FILES="$DIFF_FILES" node - <<'JS'
+const fs = require('fs');
 
-if [ -n "$DISALLOWED" ]; then
+const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+const files = String(process.env.DIFF_FILES || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
+const allowedCurrent = Array.isArray(state.allowedCurrentScope) ? state.allowedCurrentScope : [];
+const allowedInfra = /^(AGENTS\.md|docs\/platform-v7\/execution-queue\.md|docs\/platform-v7\/autopilot\/.+|scripts\/p7-autopilot-guard\.sh|scripts\/p7-agent-runner\.sh|scripts\/p7-autopilot-dispatcher\.mjs|scripts\/p7-autopilot-scope-cleaner\.mjs|\.github\/workflows\/platform-v7-autopilot-guard\.yml|\.github\/workflows\/platform-v7-autopilot-loop\.yml|\.github\/workflows\/platform-v7-agent-runner\.yml|\.github\/workflows\/platform-v7-generated-pr-cleanup\.yml|\.github\/workflows\/platform-v7-autopilot-watchdog\.yml|\.github\/ISSUE_TEMPLATE\/platform-v7-agent-run\.md)$/;
+
+function normalizePath(input) {
+  return String(input ?? '').trim().replace(/\\/g, '/').replace(/\/+$/g, '');
+}
+
+function escapeRegExp(input) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function globToRegExp(glob) {
+  const normalized = normalizePath(glob);
+  let pattern = '';
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index];
+    const next = normalized[index + 1];
+    if (character === '*' && next === '*') {
+      pattern += '.*';
+      index += 1;
+    } else if (character === '*') {
+      pattern += '[^/]*';
+    } else {
+      pattern += escapeRegExp(character);
+    }
+  }
+  return new RegExp(`^${pattern}$`);
+}
+
+function scopeMatches(allowedEntry, candidate) {
+  const allowed = normalizePath(allowedEntry);
+  const file = normalizePath(candidate);
+  if (!allowed || !file) return false;
+  if (allowed === file) return true;
+  if (allowed.includes('*')) return globToRegExp(allowed).test(file);
+  return file.startsWith(`${allowed}/`);
+}
+
+const disallowed = files.filter((file) => !allowedInfra.test(file) && !allowedCurrent.some((scope) => scopeMatches(scope, file)));
+if (disallowed.length > 0) {
+  process.stdout.write(disallowed.join('\n'));
+  process.exitCode = 1;
+}
+JS
+) || true
+
+if [ -n "$SCOPE_RESULT" ]; then
   echo "Files outside current autopilot scope:"
-  printf '%b' "$DISALLOWED"
+  printf '%s\n' "$SCOPE_RESULT"
   echo "Allowed current scope from $STATE_FILE:"
   printf '%s\n' "$ALLOWED_CURRENT"
   exit 1
