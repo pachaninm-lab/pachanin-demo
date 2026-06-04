@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Scope Proposal Gate",
+  "current": "Autopilot Exact Path Unlock",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -23,7 +23,8 @@
     "Autopilot Issue Executor PR Wiring",
     "Autopilot Full Loop Verification",
     "Autopilot Live Controlled Pilot Gate",
-    "Autopilot Step Enablement"
+    "Autopilot Step Enablement",
+    "Autopilot Scope Proposal Gate"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",

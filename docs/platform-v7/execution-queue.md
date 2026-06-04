@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Scope Proposal Gate
+CURRENT: Autopilot Exact Path Unlock
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
@@ -9,9 +9,9 @@ CURRENT ALLOWED:
 - .github/workflows/platform-v7-autopilot-*.yml
 
 CURRENT CRITERIA:
-- next task request is converted into a narrow scope proposal;
-- proposal is blocked unless source-of-truth explicitly allows exact paths;
-- restricted paths remain blocked;
+- exact path unlock is represented as a proposed state patch;
+- patch is blocked for restricted paths;
+- patch can allow a narrow non-restricted path only when current source-of-truth says so;
 - merge gate remains final authority.
 
 DONE:
@@ -36,18 +36,19 @@ DONE:
 - Autopilot Full Loop Verification
 - Autopilot Live Controlled Pilot Gate
 - Autopilot Step Enablement
+- Autopilot Scope Proposal Gate
 
 NEXT:
-- Layer: Autopilot Exact Path Unlock
+- Layer: Autopilot Product Slice Proposal
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - scripts/p7-autopilot-*.mjs
   - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - exact path unlock is represented as a proposed state patch;
-  - patch is blocked for restricted paths;
-  - patch can allow a narrow non-restricted path only when current source-of-truth says so;
+  - first product slice is proposed as exact paths only;
+  - proposal does not modify product files;
+  - apps/landing remains blocked;
   - merge gate remains final authority.
 - Readiness remains 72%.
 
