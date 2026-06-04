@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Controlled Pilot Gate
+CURRENT: Autopilot Live Controlled Pilot Gate
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
