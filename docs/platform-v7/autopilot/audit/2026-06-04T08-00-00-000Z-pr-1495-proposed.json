@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-06-04T08:00:00.000Z",
+  "sourcePr": 1495,
+  "sourceSha": "91061ad357920c988fc22364afbe76411e9774d0",
+  "layerClosed": "Autopilot Next-layer Selector",
+  "nextLayer": "Autopilot Check Analyzer",
+  "allowedFiles": [
+    "scripts/p7-autopilot-check-analyzer.mjs",
+    "scripts/p7-autopilot-safe-fix.mjs",
+    "docs/platform-v7/autopilot/**",
+    "docs/platform-v7/execution-queue.md",
+    ".github/workflows/platform-v7-autopilot-*.yml"
+  ],
+  "checksSummary": {
+    "success": [],
+    "failed": [],
+    "skipped": []
+  },
+  "autoFixAttempts": 0,
+  "mergeDecision": "dry_run",
+  "stopReason": "stacked_pr_waiting_for_pr_1495_merge"
+}
