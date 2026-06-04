@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-06-04T08:20:00.000Z",
+  "sourcePr": 1497,
+  "sourceSha": "2acac18bae060133c95412d21a8a9ca4a848c707",
+  "layerClosed": "Autopilot Merge Gate",
+  "nextLayer": "Autopilot Dry-run Loop",
+  "allowedFiles": [
+    "scripts/p7-autopilot-loop-dry-run.mjs",
+    "docs/platform-v7/autopilot/**",
+    "docs/platform-v7/execution-queue.md",
+    ".github/workflows/platform-v7-autopilot-loop-dry-run.yml"
+  ],
+  "checksSummary": {
+    "success": [],
+    "failed": [],
+    "skipped": []
+  },
+  "autoFixAttempts": 0,
+  "mergeDecision": "dry_run",
+  "stopReason": "stacked_pr_waiting_for_pr_1497_merge"
+}

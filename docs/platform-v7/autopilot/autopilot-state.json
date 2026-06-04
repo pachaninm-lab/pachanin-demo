@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Merge Gate",
+  "current": "Autopilot Dry-run Loop",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -15,7 +15,8 @@
     "Role Boundary Smoke",
     "Autopilot State Schema",
     "Autopilot Next-layer Selector",
-    "Autopilot Check Analyzer"
+    "Autopilot Check Analyzer",
+    "Autopilot Merge Gate"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -24,11 +25,10 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "scripts/p7-autopilot-merge-gate.mjs",
-    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-loop-dry-run.mjs",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
-    ".github/workflows/platform-v7-autopilot-*.yml"
+    ".github/workflows/platform-v7-autopilot-loop-dry-run.yml"
   ],
   "forbiddenZones": [
     "apps/landing",
