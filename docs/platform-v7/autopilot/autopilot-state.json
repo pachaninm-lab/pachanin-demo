@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Exact Path Unlock",
+  "current": "Autopilot Product Slice Proposal",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -24,7 +24,8 @@
     "Autopilot Full Loop Verification",
     "Autopilot Live Controlled Pilot Gate",
     "Autopilot Step Enablement",
-    "Autopilot Scope Proposal Gate"
+    "Autopilot Scope Proposal Gate",
+    "Autopilot Exact Path Unlock"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
