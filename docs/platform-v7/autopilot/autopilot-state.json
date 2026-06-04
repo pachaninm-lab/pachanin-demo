@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Next-layer Selector",
+  "current": "Autopilot Check Analyzer",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -13,7 +13,8 @@
     "Runner PR Permission Smoke",
     "Autopilot Resilience Layer",
     "Role Boundary Smoke",
-    "Autopilot State Schema"
+    "Autopilot State Schema",
+    "Autopilot Next-layer Selector"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -22,9 +23,11 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "scripts/p7-autopilot-next-layer.mjs",
+    "scripts/p7-autopilot-check-analyzer.mjs",
+    "scripts/p7-autopilot-safe-fix.mjs",
     "docs/platform-v7/autopilot/**",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "forbiddenZones": [
     "apps/landing",
