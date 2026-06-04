@@ -1,13 +1,17 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot State Schema
+CURRENT: Autopilot Next-layer Selector
 
 CURRENT ALLOWED:
-- docs/platform-v7/autopilot/autopilot-state.json
+- scripts/p7-autopilot-next-layer.mjs
+- docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
-- docs/platform-v7/autopilot/schema/autopilot-state.schema.json
-- scripts/p7-autopilot-state-validate.mjs
-- scripts/p7-autopilot-state-update.mjs
+
+CURRENT CRITERIA:
+- selector returns one valid current layer;
+- selector stops on queue/state conflict;
+- selector stops on forbidden scope;
+- selector writes clear machine-readable JSON reason.
 
 DONE:
 - Runtime foundation stages
@@ -20,18 +24,21 @@ DONE:
 - Agent PR creation reliability
 - Autopilot Resilience Layer
 - Role Boundary Smoke
+- Autopilot State Schema
 
 NEXT:
-- Layer: Autopilot Next-layer Selector
+- Layer: Autopilot Check Analyzer
 - Allowed files:
-  - scripts/p7-autopilot-next-layer.mjs
+  - scripts/p7-autopilot-check-analyzer.mjs
+  - scripts/p7-autopilot-safe-fix.mjs
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
+  - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - selector returns one valid next layer;
-  - selector stops on conflict;
-  - selector stops on forbidden scope;
-  - selector writes clear reason.
+  - analyzer creates clear report;
+  - safe-fix refuses forbidden scope;
+  - safe-fix respects attempt limit;
+  - failed checks are not silently ignored.
 - Readiness remains 72%.
 
 RULES:

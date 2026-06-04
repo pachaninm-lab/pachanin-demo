@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-06-04T07:27:31.769Z",
+  "sourcePr": 1493,
+  "sourceSha": "22a5df43858232b76184dedcb2aea4388bb428f9",
+  "layerClosed": "Autopilot State Schema",
+  "nextLayer": "Autopilot Next-layer Selector",
+  "allowedFiles": [
+    "scripts/p7-autopilot-next-layer.mjs",
+    "docs/platform-v7/autopilot/**",
+    "docs/platform-v7/execution-queue.md"
+  ],
+  "checksSummary": {
+    "success": [],
+    "failed": [],
+    "skipped": []
+  },
+  "autoFixAttempts": 0,
+  "mergeDecision": "merged",
+  "stopReason": null
+}

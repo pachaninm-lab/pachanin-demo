@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot State Schema",
+  "current": "Autopilot Next-layer Selector",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -12,7 +12,8 @@
     "Runner Opens PR",
     "Runner PR Permission Smoke",
     "Autopilot Resilience Layer",
-    "Role Boundary Smoke"
+    "Role Boundary Smoke",
+    "Autopilot State Schema"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -21,11 +22,9 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md",
-    "docs/platform-v7/autopilot/schema/autopilot-state.schema.json",
-    "scripts/p7-autopilot-state-validate.mjs",
-    "scripts/p7-autopilot-state-update.mjs"
+    "scripts/p7-autopilot-next-layer.mjs",
+    "docs/platform-v7/autopilot/**",
+    "docs/platform-v7/execution-queue.md"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -38,7 +37,10 @@
     "package-lock.json",
     "pnpm-lock.yaml"
   ],
-  "maturityLanguage": ["controlled-pilot", "pre-integration"],
+  "maturityLanguage": [
+    "controlled-pilot",
+    "pre-integration"
+  ],
   "forbiddenClaims": [
     "production-ready",
     "fully live",
@@ -49,5 +51,6 @@
     "банк подключён",
     "ФГИС подключён",
     "ЭДО подключён"
-  ]
+  ],
+  "readiness": "72%"
 }
