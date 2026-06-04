@@ -150,6 +150,41 @@ function extractJsonObject(text) {
   return '';
 }
 
+function normalizePath(input) {
+  return String(input ?? '').trim().replace(/\\/g, '/').replace(/\/+$/g, '');
+}
+
+function escapeRegExp(input) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function globToRegExp(glob) {
+  const normalized = normalizePath(glob);
+  let pattern = '';
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index];
+    const next = normalized[index + 1];
+    if (character === '*' && next === '*') {
+      pattern += '.*';
+      index += 1;
+    } else if (character === '*') {
+      pattern += '[^/]*';
+    } else {
+      pattern += escapeRegExp(character);
+    }
+  }
+  return new RegExp(`^${pattern}$`);
+}
+
+function scopeMatches(scope, candidate) {
+  const allowed = normalizePath(scope);
+  const file = normalizePath(candidate);
+  if (!allowed || !file) return false;
+  if (allowed === file) return true;
+  if (allowed.includes('*')) return globToRegExp(allowed).test(file);
+  return file.startsWith(`${allowed}/`);
+}
+
 const output = response.output_text || collectText(response.output);
 const jsonText = extractJsonObject(output);
 if (!jsonText) {
@@ -174,22 +209,27 @@ if (!Array.isArray(parsed.files) || parsed.files.length === 0) {
 }
 
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
-const allowed = new Set(state.allowedCurrentScope || []);
+const allowed = state.allowedCurrentScope || [];
+const forbidden = state.forbiddenZones || [];
 const changed = [];
 for (const file of parsed.files) {
   if (!file || typeof file.path !== 'string' || typeof file.content !== 'string') {
     throw new Error('Each agent file replacement must include path and content.');
   }
-  if (!allowed.has(file.path)) {
+  const normalizedPath = normalizePath(file.path);
+  if (!allowed.some((scope) => scopeMatches(scope, normalizedPath))) {
     throw new Error(`Agent attempted to write outside allowed current scope: ${file.path}`);
   }
-  const absolute = path.resolve(file.path);
+  if (forbidden.some((scope) => scopeMatches(scope, normalizedPath) || scopeMatches(normalizedPath, scope))) {
+    throw new Error(`Agent attempted to write inside forbidden zone: ${file.path}`);
+  }
+  const absolute = path.resolve(normalizedPath);
   if (!absolute.startsWith(process.cwd())) {
     throw new Error(`Agent attempted to write outside repository: ${file.path}`);
   }
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
   fs.writeFileSync(absolute, file.content, 'utf8');
-  changed.push(file.path);
+  changed.push(normalizedPath);
 }
 
 console.log(`agent response saved: docs/platform-v7/autopilot/last-agent-response.json`);
@@ -241,6 +281,7 @@ open_generated_pr() {
     echo
     echo "Scope is controlled by source-of-truth files and guard scripts."
     echo "Work remains PR-only and keeps controlled-pilot / pre-integration maturity language."
+    echo "Automerge label is applied; merge is still gated by GitHub checks and repository automerge rules."
   } > /tmp/p7-agent-pr-body.md
 
   if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
@@ -268,8 +309,8 @@ open_generated_pr() {
   if [ -n "$pr_number" ]; then
     gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label platform-v7 || true
     gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label agent-generated || true
-    gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label needs-review || true
-    echo "Generated PR ready: #$pr_number"
+    gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label automerge || true
+    echo "Generated PR ready for guarded automerge: #$pr_number"
   fi
 }
 
