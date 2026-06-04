@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Issue Executor Dry-run
+CURRENT: Autopilot Issue Executor PR Wiring
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
@@ -9,10 +9,10 @@ CURRENT ALLOWED:
 - .github/workflows/platform-v7-autopilot-*.yml
 
 CURRENT CRITERIA:
-- selected safe task becomes a branch plan;
-- executor dry-run produces intended file actions;
-- unsafe scope stops before branch or PR creation;
-- merge gate remains required before merge.
+- executor creates a branch only after safe intake passes;
+- executor opens a draft PR only with clean scope;
+- failed checks are routed back to analyzer and safe-fix;
+- merge gate remains final authority.
 
 DONE:
 - Runtime foundation stages
@@ -31,19 +31,20 @@ DONE:
 - Autopilot Merge Gate
 - Autopilot Dry-run Loop
 - Autopilot Safe Task Intake
+- Autopilot Issue Executor Dry-run
 
 NEXT:
-- Layer: Autopilot Issue Executor PR Wiring
+- Layer: Autopilot Full Loop Verification
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - scripts/p7-autopilot-*.mjs
   - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - executor creates a branch only after safe intake passes;
-  - executor opens a draft PR only with clean scope;
-  - failed checks are routed back to analyzer and safe-fix;
-  - merge gate remains final authority.
+  - selector, intake, executor dry-run, analyzer, safe-fix, merge gate, and state update are verified in one report;
+  - report shows blocked state for unsafe scope;
+  - report shows planned state for safe scope;
+  - no product files are changed.
 - Readiness remains 72%.
 
 RULES:
