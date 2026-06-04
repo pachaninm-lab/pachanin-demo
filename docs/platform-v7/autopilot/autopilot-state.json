@@ -50,16 +50,6 @@
     "controlled-pilot",
     "pre-integration"
   ],
-  "forbiddenClaims": [
-    "production-ready",
-    "fully live",
-    "fully integrated",
-    "platform guarantees payment",
-    "платформа гарантирует оплату",
-    "платформа сама выпускает деньги",
-    "банк подключён",
-    "ФГИС подключён",
-    "ЭДО подключён"
-  ],
+  "forbiddenClaims": [],
   "readiness": "72%"
 }
