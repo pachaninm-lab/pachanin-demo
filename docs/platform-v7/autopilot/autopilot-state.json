@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Check Analyzer",
+  "current": "Autopilot Merge Gate",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -14,7 +14,8 @@
     "Autopilot Resilience Layer",
     "Role Boundary Smoke",
     "Autopilot State Schema",
-    "Autopilot Next-layer Selector"
+    "Autopilot Next-layer Selector",
+    "Autopilot Check Analyzer"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -23,8 +24,8 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "scripts/p7-autopilot-check-analyzer.mjs",
-    "scripts/p7-autopilot-safe-fix.mjs",
+    "scripts/p7-autopilot-merge-gate.mjs",
+    "scripts/p7-autopilot-guard.sh",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     ".github/workflows/platform-v7-autopilot-*.yml"
