@@ -1,19 +1,19 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Merge Gate
+CURRENT: Autopilot Dry-run Loop
 
 CURRENT ALLOWED:
-- scripts/p7-autopilot-merge-gate.mjs
-- scripts/p7-autopilot-guard.sh
+- scripts/p7-autopilot-loop-dry-run.mjs
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
-- .github/workflows/platform-v7-autopilot-*.yml
+- .github/workflows/platform-v7-autopilot-loop-dry-run.yml
 
 CURRENT CRITERIA:
-- dirty PR is refused;
-- red PR is refused;
-- green clean PR is allowed;
-- gate writes decision reason to audit log.
+- dry-run loop receives a completed PR event;
+- state updater runs;
+- next layer is selected;
+- merge gate is evaluated in dry-run mode;
+- audit record is written.
 
 DONE:
 - Runtime foundation stages
@@ -29,20 +29,18 @@ DONE:
 - Autopilot State Schema
 - Autopilot Next-layer Selector
 - Autopilot Check Analyzer
+- Autopilot Merge Gate
 
 NEXT:
-- Layer: Autopilot Dry-run Loop
+- Layer: Autopilot Safe Task Intake
 - Allowed files:
-  - scripts/p7-autopilot-loop-dry-run.mjs
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
-  - .github/workflows/platform-v7-autopilot-loop-dry-run.yml
+  - scripts/p7-autopilot-*.mjs
 - Success criteria:
-  - dry-run loop receives a completed PR event;
-  - state updater runs;
-  - next layer is selected;
-  - merge gate is evaluated in dry-run mode;
-  - audit record is written.
+  - next issue/task is selected only when allowed scope is explicit;
+  - no product file is selected without exact state permission;
+  - blocked state is reported when the next task requires forbidden scope.
 - Readiness remains 72%.
 
 RULES:

@@ -1,0 +1,49 @@
+name: platform-v7 autopilot loop dry-run
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_pr:
+        description: Source PR number to simulate
+        required: false
+        default: '1500'
+      source_sha:
+        description: Source merge SHA to simulate
+        required: false
+        default: ''
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/platform-v7/autopilot/**'
+      - 'docs/platform-v7/execution-queue.md'
+      - 'scripts/p7-autopilot-*.mjs'
+      - '.github/workflows/platform-v7-autopilot-loop-dry-run.yml'
+
+concurrency:
+  group: platform-v7-autopilot-loop-dry-run-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run dry-run loop
+        run: |
+          node scripts/p7-autopilot-loop-dry-run.mjs \
+            --source-pr "${{ inputs.source_pr || '1500' }}" \
+            --source-sha "${{ inputs.source_sha || github.sha }}" \
+            --output docs/platform-v7/autopilot/loop-dry-run-result.json \
+            --write-audit
+
+      - name: Show dry-run result
+        run: cat docs/platform-v7/autopilot/loop-dry-run-result.json
