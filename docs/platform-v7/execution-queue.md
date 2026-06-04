@@ -1,19 +1,16 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Dry-run Loop
+CURRENT: Autopilot Safe Task Intake
 
 CURRENT ALLOWED:
-- scripts/p7-autopilot-loop-dry-run.mjs
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
-- .github/workflows/platform-v7-autopilot-loop-dry-run.yml
+- scripts/p7-autopilot-*.mjs
 
 CURRENT CRITERIA:
-- dry-run loop receives a completed PR event;
-- state updater runs;
-- next layer is selected;
-- merge gate is evaluated in dry-run mode;
-- audit record is written.
+- selected task must have explicit allowed scope;
+- selected task must stay inside current state permission;
+- unsafe scope must return blocked state.
 
 DONE:
 - Runtime foundation stages
@@ -30,17 +27,20 @@ DONE:
 - Autopilot Next-layer Selector
 - Autopilot Check Analyzer
 - Autopilot Merge Gate
+- Autopilot Dry-run Loop
 
 NEXT:
-- Layer: Autopilot Safe Task Intake
+- Layer: Autopilot Issue Executor Dry-run
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - scripts/p7-autopilot-*.mjs
+  - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - next issue/task is selected only when allowed scope is explicit;
-  - no product file is selected without exact state permission;
-  - blocked state is reported when the next task requires forbidden scope.
+  - selected safe task becomes a branch plan;
+  - executor dry-run produces intended file actions;
+  - unsafe scope stops before branch or PR creation;
+  - merge gate remains required before merge.
 - Readiness remains 72%.
 
 RULES:
