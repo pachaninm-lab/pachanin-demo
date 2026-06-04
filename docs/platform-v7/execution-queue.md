@@ -1,19 +1,19 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Check Analyzer
+CURRENT: Autopilot Merge Gate
 
 CURRENT ALLOWED:
-- scripts/p7-autopilot-check-analyzer.mjs
-- scripts/p7-autopilot-safe-fix.mjs
+- scripts/p7-autopilot-merge-gate.mjs
+- scripts/p7-autopilot-guard.sh
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 - .github/workflows/platform-v7-autopilot-*.yml
 
 CURRENT CRITERIA:
-- analyzer creates clear report;
-- safe-fix refuses forbidden scope;
-- safe-fix respects attempt limit;
-- failed checks are not silently ignored.
+- dirty PR is refused;
+- red PR is refused;
+- green clean PR is allowed;
+- gate writes decision reason to audit log.
 
 DONE:
 - Runtime foundation stages
@@ -28,23 +28,24 @@ DONE:
 - Role Boundary Smoke
 - Autopilot State Schema
 - Autopilot Next-layer Selector
+- Autopilot Check Analyzer
 
 NEXT:
-- Layer: Autopilot Merge Gate
+- Layer: Autopilot Dry-run Loop
 - Allowed files:
-  - scripts/p7-autopilot-merge-gate.mjs
-  - scripts/p7-autopilot-guard.sh
+  - scripts/p7-autopilot-loop-dry-run.mjs
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
-  - .github/workflows/platform-v7-autopilot-*.yml
+  - .github/workflows/platform-v7-autopilot-loop-dry-run.yml
 - Success criteria:
-  - dirty PR is refused;
-  - red PR is refused;
-  - green clean PR is allowed;
-  - gate writes decision reason to audit log.
+  - dry-run loop receives a completed PR event;
+  - state updater runs;
+  - next layer is selected;
+  - merge gate is evaluated in dry-run mode;
+  - audit record is written.
 - Readiness remains 72%.
 
 RULES:
 - One PR equals one narrow layer.
 - Keep controlled-pilot status.
-- No product code, apps/landing, API, DB, runtime, adapters, theme, onboarding, or lockfiles in this layer.
+- Keep this layer limited to autopilot docs, scripts, and matching autopilot workflows.
