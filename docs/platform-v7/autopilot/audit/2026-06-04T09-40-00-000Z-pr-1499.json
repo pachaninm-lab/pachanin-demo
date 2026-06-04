@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-06-04T09:40:00.000Z",
+  "sourcePr": 1499,
+  "sourceSha": "b57f24445e8c97f051e53d1aad0c735b788d7dd5",
+  "layerClosed": "Autopilot Check Analyzer",
+  "nextLayer": "Autopilot Merge Gate",
+  "allowedFiles": [
+    "scripts/p7-autopilot-merge-gate.mjs",
+    "scripts/p7-autopilot-guard.sh",
+    "docs/platform-v7/autopilot/**",
+    "docs/platform-v7/execution-queue.md",
+    ".github/workflows/platform-v7-autopilot-*.yml"
+  ],
+  "checksSummary": {
+    "success": [],
+    "failed": [],
+    "skipped": []
+  },
+  "autoFixAttempts": 0,
+  "mergeDecision": "merged",
+  "stopReason": null
+}
