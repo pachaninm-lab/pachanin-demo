@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Exact Path Unlock
+CURRENT: Autopilot Product Slice Proposal
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
@@ -9,9 +9,9 @@ CURRENT ALLOWED:
 - .github/workflows/platform-v7-autopilot-*.yml
 
 CURRENT CRITERIA:
-- exact path unlock is represented as a proposed state patch;
-- patch is blocked for restricted paths;
-- patch can allow a narrow non-restricted path only when current source-of-truth says so;
+- first product slice is proposed as exact paths only;
+- proposal does not modify product files;
+- apps/landing remains blocked;
 - merge gate remains final authority.
 
 DONE:
@@ -37,18 +37,19 @@ DONE:
 - Autopilot Live Controlled Pilot Gate
 - Autopilot Step Enablement
 - Autopilot Scope Proposal Gate
+- Autopilot Exact Path Unlock
 
 NEXT:
-- Layer: Autopilot Product Slice Proposal
+- Layer: Autopilot Product Slice 01
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - scripts/p7-autopilot-*.mjs
   - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - first product slice is proposed as exact paths only;
-  - proposal does not modify product files;
-  - apps/landing remains blocked;
+  - slice is limited to exact files;
+  - slice is represented as a proposal only;
+  - restricted areas remain blocked;
   - merge gate remains final authority.
 - Readiness remains 72%.
 
