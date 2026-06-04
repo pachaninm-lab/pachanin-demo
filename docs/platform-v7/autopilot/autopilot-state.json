@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Full Loop Verification",
+  "current": "Autopilot Live Controlled Pilot Gate",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -20,7 +20,8 @@
     "Autopilot Dry-run Loop",
     "Autopilot Safe Task Intake",
     "Autopilot Issue Executor Dry-run",
-    "Autopilot Issue Executor PR Wiring"
+    "Autopilot Issue Executor PR Wiring",
+    "Autopilot Full Loop Verification"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
