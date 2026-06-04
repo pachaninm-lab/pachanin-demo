@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Live Controlled Pilot Gate
+CURRENT: Autopilot Step Enablement
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
@@ -9,10 +9,10 @@ CURRENT ALLOWED:
 - .github/workflows/platform-v7-autopilot-*.yml
 
 CURRENT CRITERIA:
-- controlled mode is off by default;
-- controlled mode requires explicit state permission;
+- guarded mode stays off by default;
+- guarded mode requires explicit state flag;
 - branch and draft PR steps require safe intake and merge gate;
-- non-autopilot scope requires a new source-of-truth layer.
+- out-of-scope paths require a new source-of-truth layer.
 
 DONE:
 - Runtime foundation stages
@@ -34,19 +34,20 @@ DONE:
 - Autopilot Issue Executor Dry-run
 - Autopilot Issue Executor PR Wiring
 - Autopilot Full Loop Verification
+- Autopilot Live Controlled Pilot Gate
 
 NEXT:
-- Layer: Autopilot Controlled Step Enablement
+- Layer: Autopilot Scope Proposal Gate
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - scripts/p7-autopilot-*.mjs
   - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - controlled mode stays off by default;
-  - controlled mode requires explicit state flag;
-  - branch and draft PR steps require safe intake and merge gate;
-  - product scope remains locked until source-of-truth changes.
+  - next task request is converted into a narrow scope proposal;
+  - proposal is blocked unless source-of-truth explicitly allows exact paths;
+  - restricted paths remain blocked;
+  - merge gate remains final authority.
 - Readiness remains 72%.
 
 RULES:
