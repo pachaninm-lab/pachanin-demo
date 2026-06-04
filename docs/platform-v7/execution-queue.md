@@ -1,17 +1,19 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Next-layer Selector
+CURRENT: Autopilot Check Analyzer
 
 CURRENT ALLOWED:
-- scripts/p7-autopilot-next-layer.mjs
+- scripts/p7-autopilot-check-analyzer.mjs
+- scripts/p7-autopilot-safe-fix.mjs
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
+- .github/workflows/platform-v7-autopilot-*.yml
 
 CURRENT CRITERIA:
-- selector returns one valid current layer;
-- selector stops on queue/state conflict;
-- selector stops on forbidden scope;
-- selector writes clear machine-readable JSON reason.
+- analyzer creates clear report;
+- safe-fix refuses forbidden scope;
+- safe-fix respects attempt limit;
+- failed checks are not silently ignored.
 
 DONE:
 - Runtime foundation stages
@@ -25,20 +27,21 @@ DONE:
 - Autopilot Resilience Layer
 - Role Boundary Smoke
 - Autopilot State Schema
+- Autopilot Next-layer Selector
 
 NEXT:
-- Layer: Autopilot Check Analyzer
+- Layer: Autopilot Merge Gate
 - Allowed files:
-  - scripts/p7-autopilot-check-analyzer.mjs
-  - scripts/p7-autopilot-safe-fix.mjs
+  - scripts/p7-autopilot-merge-gate.mjs
+  - scripts/p7-autopilot-guard.sh
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - analyzer creates clear report;
-  - safe-fix refuses forbidden scope;
-  - safe-fix respects attempt limit;
-  - failed checks are not silently ignored.
+  - dirty PR is refused;
+  - red PR is refused;
+  - green clean PR is allowed;
+  - gate writes decision reason to audit log.
 - Readiness remains 72%.
 
 RULES:
