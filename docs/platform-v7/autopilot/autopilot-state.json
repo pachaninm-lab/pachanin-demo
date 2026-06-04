@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Issue Executor Dry-run",
+  "current": "Autopilot Issue Executor PR Wiring",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -18,7 +18,8 @@
     "Autopilot Check Analyzer",
     "Autopilot Merge Gate",
     "Autopilot Dry-run Loop",
-    "Autopilot Safe Task Intake"
+    "Autopilot Safe Task Intake",
+    "Autopilot Issue Executor Dry-run"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
