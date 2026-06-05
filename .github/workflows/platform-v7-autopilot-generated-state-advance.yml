@@ -1,0 +1,55 @@
+name: platform-v7 autopilot generated state advance
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  advance-state:
+    if: >-
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'platform-v7') &&
+      contains(github.event.pull_request.labels.*.name, 'agent-generated')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Open state advance PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "platform-v7-state-advance"
+          git config user.email "platform-v7-state-advance@users.noreply.github.com"
+          branch="p7-state/${PR_NUMBER}-advance"
+          git checkout -B "$branch"
+          node scripts/p7-autopilot-generated-state-advance.mjs
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "state advance: no changes"
+            exit 0
+          fi
+          git add docs/platform-v7/autopilot docs/platform-v7/execution-queue.md
+          git commit -m "docs(platform-v7): advance after generated PR ${PR_NUMBER}"
+          git push origin "HEAD:refs/heads/$branch"
+          existing=$(gh pr list --repo "$REPO" --head "$branch" --json number --jq '.[0].number // ""')
+          if [ -z "$existing" ]; then
+            gh pr create --repo "$REPO" --title "p7 advance after generated PR ${PR_NUMBER}" --body "Automated source-of-truth advance after generated PR ${PR_NUMBER}." --head "$branch" --base main
+            existing=$(gh pr list --repo "$REPO" --head "$branch" --json number --jq '.[0].number // ""')
+          fi
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --repo "$REPO" --add-label platform-v7 || true
+            gh pr edit "$existing" --repo "$REPO" --add-label automerge || true
+          fi
