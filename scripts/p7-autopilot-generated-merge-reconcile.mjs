@@ -12,8 +12,8 @@ function out(command, args) {
   return execFileSync(command, args, { encoding: 'utf8' }).trim();
 }
 
-function run(command, args, env = process.env) {
-  execFileSync(command, args, { stdio: 'inherit', env });
+function run(command, args) {
+  execFileSync(command, args, { stdio: 'inherit' });
 }
 
 function assertGeneratedScope(prNumber) {
@@ -66,11 +66,7 @@ for (const pr of prs) {
   if (!headSha) continue;
   assertGeneratedScope(prNumber);
   assertStatuses(headSha);
-  run('node', ['scripts/p7-autopilot-generated-merge-and-advance.mjs'], {
-    ...process.env,
-    PR_NUMBER: prNumber,
-    HEAD_SHA: headSha,
-  });
+  run('gh', ['pr', 'merge', prNumber, '--repo', repo, '--squash', '--delete-branch']);
 }
 
 console.log(`generated merge reconcile checked ${prs.length} PR(s)`);
