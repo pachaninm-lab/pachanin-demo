@@ -1,14 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Runner PR Permission Smoke",
-  "lastCompletedStep": "Role Boundary Smoke",
+  "currentStep": "Autopilot Product Slice 01",
+  "lastCompletedStep": "Autopilot Product Slice Proposal",
   "openPr": null,
   "blockedBy": [
-    "Runner PR Permission Smoke is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding."
+    "Autopilot Product Slice 01 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding."
   ],
-  "nextStep": "Runner PR Permission Smoke",
-  "updatedAt": "2026-06-03T20:25:44.159Z",
+  "nextStep": "Autopilot Product Slice 01",
+  "updatedAt": "2026-06-05T12:53:04.676Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
