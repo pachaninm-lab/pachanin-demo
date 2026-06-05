@@ -48,6 +48,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Setup Node
@@ -76,13 +77,26 @@ jobs:
           set +e
           bash scripts/p7-agent-runner.sh 2>&1 | tee /tmp/p7-agent-runner.log
           status=${PIPESTATUS[0]}
+          set -e
 
           tail -n 80 /tmp/p7-agent-runner.log > /tmp/p7-agent-runner-tail.txt
 
           if [ "$status" -eq 3 ]; then
             echo "P7_AGENT_NOOP=true" >> "$GITHUB_ENV"
             echo "P7_AGENT_NOOP_REASON=agent produced no repository changes" >> "$GITHUB_ENV"
-            status=0
+            has_agent_writable=$(node - <<'JS'
+          const fs = require('fs');
+          const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+          const writable = Array.isArray(state.agentWritableScope) ? state.agentWritableScope : [];
+          console.log(writable.length > 0 ? 'true' : 'false');
+          JS
+          )
+            if [ "$has_agent_writable" = "true" ]; then
+              echo "Agent NOOP is not allowed while agentWritableScope is present."
+            else
+              echo "Agent NOOP accepted: no active agentWritableScope in source-of-truth."
+              status=0
+            fi
           fi
 
           {
@@ -115,6 +129,39 @@ jobs:
           echo "- generated branch env: ${P7_AGENT_BRANCH:-not-set}" >> "$GITHUB_STEP_SUMMARY"
           echo "- noop: ${P7_AGENT_NOOP:-false}" >> "$GITHUB_STEP_SUMMARY"
           echo "- noop reason: ${P7_AGENT_NOOP_REASON:-not-set}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify generated PR labels
+        if: success() && env.P7_AGENT_NOOP != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "${P7_AGENT_BRANCH:-}" ]; then
+            echo "ERROR: P7_AGENT_BRANCH is not set."
+            exit 1
+          fi
+
+          pr_number=$(gh pr list --repo "$REPO" --head "$P7_AGENT_BRANCH" --json number --jq '.[0].number // ""')
+          if [ -z "$pr_number" ]; then
+            echo "ERROR: generated PR not found for branch $P7_AGENT_BRANCH"
+            exit 1
+          fi
+
+          for label in platform-v7 agent-generated automerge; do
+            gh pr edit "$pr_number" --repo "$REPO" --add-label "$label"
+          done
+
+          labels=$(gh pr view "$pr_number" --repo "$REPO" --json labels --jq '.labels[].name')
+          for label in platform-v7 agent-generated automerge; do
+            if ! printf '%s\n' "$labels" | grep -Fx "$label" >/dev/null; then
+              echo "ERROR: missing required generated PR label: $label"
+              exit 1
+            fi
+          done
+
+          echo "Generated PR labels verified: #$pr_number"
 
       - name: Confirm generated PR handling
         if: success() && env.P7_AGENT_NOOP != 'true'
