@@ -1,16 +1,17 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice 03
+CURRENT: Autopilot Product Slice 04
 
 CURRENT ALLOWED:
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-02.spec.ts
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke-03.spec.ts
 
 CURRENT CRITERIA:
 - runner generates exactly one allowed code/test file;
 - generated branch is opened as PR by the repo-side runner;
 - generated PR receives platform-v7, agent-generated and automerge labels without manual labeling;
 - restricted areas remain blocked;
-- merge gate remains final authority.
+- merge gate remains final authority;
+- generated merge opens source-of-truth advance PR for the next slice.
 
 DONE:
 - Runtime foundation stages
@@ -39,9 +40,10 @@ DONE:
 - Autopilot Product Slice Proposal
 - Autopilot Product Slice 01
 - Autopilot Product Slice 02
+- Autopilot Product Slice 03
 
 NEXT:
-- Layer: Autopilot Product Slice 04
+- Layer: Autopilot Product Slice 05
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
