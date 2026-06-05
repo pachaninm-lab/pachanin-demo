@@ -1,14 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Autopilot Product Slice 01",
-  "lastCompletedStep": "Autopilot Product Slice Proposal",
+  "currentStep": "Autopilot Product Slice 02",
+  "lastCompletedStep": "Autopilot Product Slice 01",
   "openPr": null,
   "blockedBy": [
-    "Autopilot Product Slice 01 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding."
+    "Autopilot Product Slice 02 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding."
   ],
-  "nextStep": "Autopilot Product Slice 01",
-  "updatedAt": "2026-06-05T12:53:04.676Z",
+  "nextStep": "Autopilot Product Slice 02",
+  "updatedAt": "2026-06-05T13:20:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
