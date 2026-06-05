@@ -60,4 +60,4 @@ jobs:
             exit 1
           fi
 
-          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --delete-branch
+          node scripts/p7-autopilot-generated-merge-and-advance.mjs
