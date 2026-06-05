@@ -1,17 +1,14 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice 02
+CURRENT: Autopilot Product Slice 03
 
 CURRENT ALLOWED:
-- docs/platform-v7/autopilot/**
-- docs/platform-v7/execution-queue.md
-- scripts/p7-autopilot-*.mjs
-- .github/workflows/platform-v7-autopilot-*.yml
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke-02.spec.ts
 
 CURRENT CRITERIA:
-- source-of-truth is advanced after generated PR #1517;
-- next exact writable slice is selected by source-of-truth only;
-- generated PR stays within source-of-truth;
+- runner generates exactly one allowed code/test file;
+- generated branch is opened as PR by the repo-side runner;
+- generated PR receives platform-v7, agent-generated and automerge labels without manual labeling;
 - restricted areas remain blocked;
 - merge gate remains final authority.
 
@@ -41,17 +38,17 @@ DONE:
 - Autopilot Exact Path Unlock
 - Autopilot Product Slice Proposal
 - Autopilot Product Slice 01
+- Autopilot Product Slice 02
 
 NEXT:
-- Layer: Autopilot Product Slice 03
+- Layer: Autopilot Product Slice 04
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - scripts/p7-autopilot-*.mjs
   - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - next slice is exact-path only;
-  - generated PR stays within source-of-truth;
+  - source-of-truth advances after generated PR merge;
   - restricted areas remain blocked;
   - merge gate remains final authority.
 - Readiness remains 72%.
@@ -59,4 +56,4 @@ NEXT:
 RULES:
 - One PR equals one narrow layer.
 - Keep controlled-pilot status.
-- Keep current slice limited to autopilot source-of-truth and guard wiring.
+- Keep current slice limited to the exact allowed file.
