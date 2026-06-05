@@ -51,5 +51,6 @@ jobs:
           fi
           if [ -n "$existing" ]; then
             gh pr edit "$existing" --repo "$REPO" --add-label platform-v7 || true
+            gh pr edit "$existing" --repo "$REPO" --add-label agent-generated || true
             gh pr edit "$existing" --repo "$REPO" --add-label automerge || true
           fi
