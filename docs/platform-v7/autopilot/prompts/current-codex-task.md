@@ -1,4 +1,4 @@
-# Codex current task — Autopilot Product Slice 01
+# Codex current task — Autopilot Product Slice 02
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -13,7 +13,7 @@ Do not auto-merge. Human review and green checks are required.
 
 ## Current step
 
-Autopilot Product Slice 01
+Autopilot Product Slice 02
 
 ## Next candidate
 
@@ -21,11 +21,10 @@ Product Entry / Onboarding
 
 ## Transition guard
 
-- BLOCKED: Autopilot Product Slice 01 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
+- BLOCKED: Autopilot Product Slice 02 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
 
 ## Allowed current scope
 
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke.spec.ts
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 - scripts/p7-autopilot-*.mjs
@@ -47,16 +46,20 @@ Product Entry / Onboarding
 
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice 01
+CURRENT: Autopilot Product Slice 02
 
 CURRENT ALLOWED:
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke.spec.ts
+- docs/platform-v7/autopilot/**
+- docs/platform-v7/execution-queue.md
+- scripts/p7-autopilot-*.mjs
+- .github/workflows/platform-v7-autopilot-*.yml
 
 CURRENT CRITERIA:
-- runner generates exactly one allowed code/test file;
-- generated branch is opened as PR by the repo-side runner;
-- generated PR receives guarded automerge labeling;
-- restricted areas remain blocked.
+- source-of-truth is advanced after generated PR #1517;
+- next exact writable slice is selected by source-of-truth only;
+- generated PR stays within source-of-truth;
+- restricted areas remain blocked;
+- merge gate remains final authority.
 
 DONE:
 - Runtime foundation stages
@@ -83,9 +86,10 @@ DONE:
 - Autopilot Scope Proposal Gate
 - Autopilot Exact Path Unlock
 - Autopilot Product Slice Proposal
+- Autopilot Product Slice 01
 
 NEXT:
-- Layer: Autopilot Product Slice 02
+- Layer: Autopilot Product Slice 03
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
@@ -101,9 +105,9 @@ NEXT:
 RULES:
 - One PR equals one narrow layer.
 - Keep controlled-pilot status.
-- Keep current slice limited to the exact allowed file.
+- Keep current slice limited to autopilot source-of-truth and guard wiring.
 
 
 ## Implementation brief
 
-Implement Autopilot Product Slice 01 strictly inside the state allowed scope.
+Advance source-of-truth after generated PR #1517 and prepare the next exact writable slice strictly inside the state allowed scope.
