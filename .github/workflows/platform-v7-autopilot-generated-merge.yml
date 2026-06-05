@@ -50,7 +50,7 @@ jobs:
           if grep -Ev '^(apps/web/tests/e2e/platform-v7-agent-generated-smoke.*\.spec\.ts|docs/platform-v7/autopilot/|docs/platform-v7/execution-queue\.md)$' /tmp/p7-files.txt; then exit 1; fi
           gh api "repos/$REPO/commits/$HEAD_SHA/status" --jq '.statuses[] | [.context,.state] | @tsv' > /tmp/p7-status.tsv || true
           awk '$1 != "deploy/pachaninm-lab/pachanin-demo" && $2 != "success" { bad=1 } END { exit bad }' /tmp/p7-status.tsv
-          node scripts/p7-autopilot-generated-merge-and-advance.mjs
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --delete-branch
 
   reconcile-generated:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -68,4 +68,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-        run: node scripts/p7-autopilot-generated-merge-reconcile.mjs
+        run: |
+          node scripts/p7-autopilot-generated-merge-reconcile.mjs
+          node scripts/p7-autopilot-recover-generated-state.mjs
