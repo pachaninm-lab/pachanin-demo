@@ -1,18 +1,15 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice Proposal
+CURRENT: Autopilot Product Slice 01
 
 CURRENT ALLOWED:
-- docs/platform-v7/autopilot/**
-- docs/platform-v7/execution-queue.md
-- scripts/p7-autopilot-*.mjs
-- .github/workflows/platform-v7-autopilot-*.yml
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke.spec.ts
 
 CURRENT CRITERIA:
-- first product slice is proposed as exact paths only;
-- proposal does not modify product files;
-- apps/landing remains blocked;
-- merge gate remains final authority.
+- runner generates exactly one allowed code/test file;
+- generated branch is opened as PR by the repo-side runner;
+- generated PR receives guarded automerge labeling;
+- restricted areas remain blocked.
 
 DONE:
 - Runtime foundation stages
@@ -38,17 +35,18 @@ DONE:
 - Autopilot Step Enablement
 - Autopilot Scope Proposal Gate
 - Autopilot Exact Path Unlock
+- Autopilot Product Slice Proposal
 
 NEXT:
-- Layer: Autopilot Product Slice 01
+- Layer: Autopilot Product Slice 02
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
   - scripts/p7-autopilot-*.mjs
   - .github/workflows/platform-v7-autopilot-*.yml
 - Success criteria:
-  - slice is limited to exact files;
-  - slice is represented as a proposal only;
+  - next slice is exact-path only;
+  - generated PR stays within source-of-truth;
   - restricted areas remain blocked;
   - merge gate remains final authority.
 - Readiness remains 72%.
@@ -56,4 +54,4 @@ NEXT:
 RULES:
 - One PR equals one narrow layer.
 - Keep controlled-pilot status.
-- Keep this layer limited to autopilot docs, scripts, and matching autopilot workflows.
+- Keep current slice limited to the exact allowed file.
