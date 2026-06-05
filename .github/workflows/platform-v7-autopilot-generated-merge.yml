@@ -3,14 +3,22 @@ name: platform-v7 autopilot generated merge
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: platform-v7-generated-merge-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   merge-generated:
     if: >-
+      github.event_name == 'pull_request' &&
       github.event.pull_request.state == 'open' &&
       contains(github.event.pull_request.labels.*.name, 'platform-v7') &&
       contains(github.event.pull_request.labels.*.name, 'agent-generated') &&
@@ -33,31 +41,31 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-
-          pr_json=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json isDraft,mergeable,state)
+          pr_json=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json isDraft,state)
           is_draft=$(printf '%s' "$pr_json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).isDraft?'true':'false'))")
           state=$(printf '%s' "$pr_json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).state))")
-          if [ "$is_draft" = "true" ] || [ "$state" != "OPEN" ]; then
-            echo "generated merge blocked: draft or not open"
-            exit 1
-          fi
-
+          if [ "$is_draft" = "true" ] || [ "$state" != "OPEN" ]; then exit 1; fi
           gh pr diff "$PR_NUMBER" --repo "$REPO" --name-only > /tmp/p7-files.txt
-          if grep -E '^(apps/landing|apps/web/app/platform-v7|apps/web/components/platform-v7|apps/web/components/v7r|apps/web/lib/platform-v7|apps/web/app/api|package.json|package-lock.json|pnpm-lock.yaml)(/|$)' /tmp/p7-files.txt; then
-            echo "generated merge blocked: forbidden file changed"
-            exit 1
-          fi
-          if grep -Ev '^(apps/web/tests/e2e/platform-v7-agent-generated-smoke.*\.spec\.ts|docs/platform-v7/autopilot/|docs/platform-v7/execution-queue\.md)$' /tmp/p7-files.txt; then
-            echo "generated merge blocked: file outside generated scope"
-            exit 1
-          fi
-
+          if grep -E '^(apps/landing|apps/web/app/platform-v7|apps/web/components/platform-v7|apps/web/components/v7r|apps/web/lib/platform-v7|apps/web/app/api|package.json|package-lock.json|pnpm-lock.yaml)(/|$)' /tmp/p7-files.txt; then exit 1; fi
+          if grep -Ev '^(apps/web/tests/e2e/platform-v7-agent-generated-smoke.*\.spec\.ts|docs/platform-v7/autopilot/|docs/platform-v7/execution-queue\.md)$' /tmp/p7-files.txt; then exit 1; fi
           gh api "repos/$REPO/commits/$HEAD_SHA/status" --jq '.statuses[] | [.context,.state] | @tsv' > /tmp/p7-status.tsv || true
-          if awk '$1 != "deploy/pachaninm-lab/pachanin-demo" && $2 != "success" { print; bad=1 } END { exit bad }' /tmp/p7-status.tsv; then
-            echo "status gate passed"
-          else
-            echo "generated merge blocked: non-Deno status failure"
-            exit 1
-          fi
-
+          awk '$1 != "deploy/pachaninm-lab/pachanin-demo" && $2 != "success" { bad=1 } END { exit bad }' /tmp/p7-status.tsv
           node scripts/p7-autopilot-generated-merge-and-advance.mjs
+
+  reconcile-generated:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: node scripts/p7-autopilot-generated-merge-reconcile.mjs
