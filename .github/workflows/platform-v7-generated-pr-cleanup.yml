@@ -22,24 +22,39 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Skip closed or merged PR
+        if: github.event_name == 'pull_request' && github.event.pull_request.state != 'open'
+        shell: bash
+        run: |
+          echo "cleanup: PR is not open; nothing to clean"
+
       - name: Checkout PR head
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.state == 'open'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
           fetch-depth: 0
 
       - name: Clean outside-scope generated changes
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.state == 'open'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
         run: |
           set -euo pipefail
           git config user.name "platform-v7-cleanup"
           git config user.email "platform-v7-cleanup@users.noreply.github.com"
 
           if [ -n "${PR_NUMBER:-}" ]; then
+            pr_state=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json state --jq .state)
+            if [ "$pr_state" != "OPEN" ]; then
+              echo "cleanup: PR #$PR_NUMBER is $pr_state; nothing to clean"
+              exit 0
+            fi
+
             base_sha=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json baseRefOid --jq .baseRefOid)
             git fetch origin "$base_sha"
             git reset --mixed "$base_sha"
@@ -54,4 +69,4 @@ jobs:
 
           git add -A
           git commit -m "chore(platform-v7): clean generated pr scope"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          git push origin "HEAD:${HEAD_REF}"
