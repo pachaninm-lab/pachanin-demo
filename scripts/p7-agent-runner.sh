@@ -209,7 +209,7 @@ if (!Array.isArray(parsed.files) || parsed.files.length === 0) {
 }
 
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
-const allowed = state.allowedCurrentScope || [];
+const allowed = state.agentWritableScope || state.allowedCurrentScope || [];
 const forbidden = state.forbiddenZones || [];
 const changed = [];
 for (const file of parsed.files) {
@@ -218,7 +218,7 @@ for (const file of parsed.files) {
   }
   const normalizedPath = normalizePath(file.path);
   if (!allowed.some((scope) => scopeMatches(scope, normalizedPath))) {
-    throw new Error(`Agent attempted to write outside allowed current scope: ${file.path}`);
+    throw new Error(`Agent attempted to write outside agent writable scope: ${file.path}`);
   }
   if (forbidden.some((scope) => scopeMatches(scope, normalizedPath) || scopeMatches(normalizedPath, scope))) {
     throw new Error(`Agent attempted to write inside forbidden zone: ${file.path}`);
@@ -244,15 +244,15 @@ const path = require('path');
 
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
 const progress = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/progress.json', 'utf8'));
-const allowed = state.allowedCurrentScope || [];
+const allowed = state.agentWritableScope || state.allowedCurrentScope || [];
 if (allowed.length !== 1) {
-  console.log(`Deterministic fallback skipped: expected exactly one allowed file, got ${allowed.length}.`);
+  console.log(`Deterministic fallback skipped: expected exactly one agent writable file, got ${allowed.length}.`);
   process.exit(3);
 }
 
 const filePath = allowed[0];
 if (!filePath.startsWith('apps/web/tests/e2e/') || !filePath.endsWith('.spec.ts')) {
-  console.log(`Deterministic fallback skipped: allowed file is not a narrow e2e spec: ${filePath}.`);
+  console.log(`Deterministic fallback skipped: agent writable file is not a narrow e2e spec: ${filePath}.`);
   process.exit(3);
 }
 
@@ -320,7 +320,7 @@ agent_status=$?
 set -e
 
 if [ "$agent_status" -ne 0 ]; then
-  echo "Agent API did not produce a valid repository change; trying deterministic fallback inside allowed scope."
+  echo "Agent API did not produce a valid repository change; trying deterministic fallback inside agent writable scope."
   set +e
   write_deterministic_fallback
   fallback_status=$?
