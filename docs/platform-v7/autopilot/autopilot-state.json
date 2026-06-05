@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Autopilot Product Slice 03",
+  "current": "Autopilot Product Slice 04",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -28,7 +28,8 @@
     "Autopilot Exact Path Unlock",
     "Autopilot Product Slice Proposal",
     "Autopilot Product Slice 01",
-    "Autopilot Product Slice 02"
+    "Autopilot Product Slice 02",
+    "Autopilot Product Slice 03"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -37,14 +38,14 @@
     "Backend / DB / runtime persistence expansion"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-02.spec.ts",
+    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-03.spec.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-02.spec.ts"
+    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-03.spec.ts"
   ],
   "controlledActions": {
     "enabled": true
