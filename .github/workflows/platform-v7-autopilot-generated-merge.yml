@@ -12,6 +12,9 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
+  checks: read
+  statuses: read
 
 concurrency:
   group: platform-v7-generated-merge-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
@@ -39,20 +42,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          pr_json=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json isDraft,state)
-          is_draft=$(printf '%s' "$pr_json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).isDraft?'true':'false'))")
-          state=$(printf '%s' "$pr_json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).state))")
-          if [ "$is_draft" = "true" ] || [ "$state" != "OPEN" ]; then exit 1; fi
-          gh pr diff "$PR_NUMBER" --repo "$REPO" --name-only > /tmp/p7-files.txt
-          if grep -E '^(apps/landing|apps/web/app/platform-v7|apps/web/components/platform-v7|apps/web/components/v7r|apps/web/lib/platform-v7|apps/web/app/api|package.json|package-lock.json|pnpm-lock.yaml)(/|$)' /tmp/p7-files.txt; then exit 1; fi
-          if grep -Ev '^(apps/web/tests/e2e/platform-v7-agent-generated-smoke.*\.spec\.ts|docs/platform-v7/autopilot/|docs/platform-v7/execution-queue\.md)$' /tmp/p7-files.txt; then exit 1; fi
-          gh api "repos/$REPO/commits/$HEAD_SHA/status" --jq '.statuses[] | [.context,.state] | @tsv' > /tmp/p7-status.tsv || true
-          awk '$1 != "deploy/pachaninm-lab/pachanin-demo" && $2 != "success" { bad=1 } END { exit bad }' /tmp/p7-status.tsv
-          node scripts/p7-autopilot-generated-merge-and-advance.mjs
+        run: node scripts/p7-autopilot-generated-merge-reconcile.mjs
 
   reconcile-generated:
     if: >-
