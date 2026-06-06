@@ -174,6 +174,7 @@ function isWaitableReadinessError(error) {
   const message = String(error?.message || error);
   return (
     message.includes('dispatched ') ||
+    message.includes('mergeability is not ready') ||
     message.includes('required workflow is still running') ||
     message.includes('check is not completed') ||
     message.endsWith(':pending')
@@ -197,6 +198,27 @@ function waitForReadiness(label, callback) {
   }
 
   throw lastError || new Error(`${label} did not become ready before timeout`);
+}
+
+function waitForMergeablePr(prNumber, label) {
+  let latest = null;
+  waitForReadiness(label, () => {
+    latest = json('gh', [
+      'pr',
+      'view',
+      String(prNumber),
+      '--repo',
+      repo,
+      '--json',
+      'isDraft,mergeable,headRefOid,headRefName',
+    ]);
+
+    if (latest.isDraft) throw new Error(`${label} is draft`);
+    if (latest.mergeable === 'MERGEABLE') return;
+    if (latest.mergeable === 'CONFLICTING') throw new Error(`${label} is conflicting`);
+    throw new Error(`${label} mergeability is not ready: ${latest.mergeable || 'UNKNOWN'}`);
+  });
+  return latest;
 }
 
 function mergePr(prNumber, headSha, message) {
@@ -303,34 +325,30 @@ function mergeOpenGeneratedPrs() {
       console.log(`generated PR #${prNumber} is stale for current slice ${slice}; skipped`);
       continue;
     }
-    if (pr.isDraft) continue;
-    if (pr.mergeable !== 'MERGEABLE') {
-      console.log(`generated PR #${prNumber} is not mergeable yet: ${pr.mergeable}`);
-      continue;
-    }
-
-    const headSha = String(pr.headRefOid || '');
-    const headRefName = String(pr.headRefName || '');
-    if (!headSha || !headRefName) continue;
 
     try {
+      const readyPr = waitForMergeablePr(prNumber, `generated PR #${prNumber}`);
+      const headSha = String(readyPr.headRefOid || '');
+      const headRefName = String(readyPr.headRefName || '');
+      if (!headSha || !headRefName) throw new Error(`generated PR #${prNumber} is missing head metadata`);
+
       assertGeneratedScope(prNumber, exactWritableFile);
       waitForReadiness(`generated PR #${prNumber}`, () => {
         ensureRequiredWorkflows(headSha, headRefName);
         assertCheckRollup(prNumber);
         assertStatuses(headSha);
       });
+
+      run('node', ['scripts/p7-autopilot-generated-merge-and-advance.mjs'], {
+        ...process.env,
+        PR_NUMBER: prNumber,
+        HEAD_SHA: headSha,
+      });
+      merged += 1;
     } catch (error) {
       console.log(`generated PR #${prNumber} is not ready for guarded merge: ${error.message}`);
       continue;
     }
-
-    run('node', ['scripts/p7-autopilot-generated-merge-and-advance.mjs'], {
-      ...process.env,
-      PR_NUMBER: prNumber,
-      HEAD_SHA: headSha,
-    });
-    merged += 1;
   }
 
   return { checked: openPrs.length, merged };
@@ -355,30 +373,26 @@ function mergeOpenStateAdvancePrs() {
   let merged = 0;
   for (const pr of prs) {
     const prNumber = String(pr.number);
-    if (pr.isDraft) continue;
-    if (pr.mergeable !== 'MERGEABLE') {
-      console.log(`SOT advance PR #${prNumber} is not mergeable yet: ${pr.mergeable}`);
-      continue;
-    }
-
-    const headSha = String(pr.headRefOid || '');
-    const headRefName = String(pr.headRefName || '');
-    if (!headSha || !headRefName) continue;
 
     try {
+      const readyPr = waitForMergeablePr(prNumber, `SOT advance PR #${prNumber}`);
+      const headSha = String(readyPr.headRefOid || '');
+      const headRefName = String(readyPr.headRefName || '');
+      if (!headSha || !headRefName) throw new Error(`SOT advance PR #${prNumber} is missing head metadata`);
+
       assertStateAdvanceScope(prNumber);
       waitForReadiness(`SOT advance PR #${prNumber}`, () => {
         ensureRequiredWorkflows(headSha, headRefName);
         assertCheckRollup(prNumber);
         assertStatuses(headSha);
       });
+
+      mergePr(prNumber, headSha, `docs(platform-v7): advance SOT after generated PR`);
+      merged += 1;
     } catch (error) {
       console.log(`SOT advance PR #${prNumber} is not ready for guarded merge: ${error.message}`);
       continue;
     }
-
-    mergePr(prNumber, headSha, `docs(platform-v7): advance SOT after generated PR`);
-    merged += 1;
   }
 
   return { checked: prs.length, merged };
