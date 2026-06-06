@@ -6,7 +6,7 @@ const repo = process.env.REPO;
 if (!repo) throw new Error('Missing REPO');
 
 const forbiddenPattern = /^(apps\/landing|apps\/web\/app\/platform-v7|apps\/web\/components\/platform-v7|apps\/web\/components\/v7r|apps\/web\/lib\/platform-v7|apps\/web\/app\/api|package\.json|package-lock\.json|pnpm-lock\.yaml)(\/|$)/;
-const allowedPattern = /^(apps\/web\/tests\/e2e\/platform-v7-agent-generated-smoke.*\.spec\.ts|docs\/platform-v7\/autopilot\/|docs\/platform-v7\/execution-queue\.md)$/;
+const allowedPattern = /^(apps\/web\/tests\/e2e\/platform-v7-agent-generated-smoke.*\.spec\.ts|docs\/platform-v7\/autopilot\/.*|docs\/platform-v7\/execution-queue\.md)$/;
 const ignoredStatusContext = 'deploy/pachaninm-lab/pachanin-demo';
 
 function out(command, args) {
