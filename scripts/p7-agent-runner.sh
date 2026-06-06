@@ -70,11 +70,133 @@ echo "review: ${REVIEW_FILE}"
 echo "branch: ${BRANCH_NAME}"
 echo "pr title: ${PR_TITLE}"
 
+set_agent_noop() {
+  local reason="$1"
+  if [ -n "${GITHUB_ENV:-}" ]; then
+    {
+      echo "P7_AGENT_NOOP=true"
+      echo "P7_AGENT_NOOP_REASON=${reason}"
+    } >> "$GITHUB_ENV"
+  fi
+  echo "Agent NOOP: ${reason}"
+}
+
 if [ -n "${GITHUB_ENV:-}" ]; then
   {
     echo "P7_AGENT_BRANCH=${BRANCH_NAME}"
     echo "P7_AGENT_PR_TITLE=${PR_TITLE}"
   } >> "$GITHUB_ENV"
+fi
+
+slice_guard_result=$(node <<'JS'
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+
+function currentSliceNumber(value) {
+  const match = String(value || '').match(/Autopilot Product Slice\s+(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function titleSliceNumber(value) {
+  const match = String(value || '').match(/autopilot product slice\s+(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function print(action, data = {}) {
+  process.stdout.write(JSON.stringify({ action, ...data }));
+}
+
+const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '';
+const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+const current = String(state.current || '');
+const slice = currentSliceNumber(current);
+
+if (!slice) {
+  print('run', { reason: 'current step is not a generated product slice' });
+  process.exit(0);
+}
+
+const auditDir = 'docs/platform-v7/autopilot/audit';
+if (fs.existsSync(auditDir)) {
+  for (const entry of fs.readdirSync(auditDir)) {
+    if (!/^generated-pr-\d+-merged\.json$/.test(entry)) continue;
+    const record = JSON.parse(fs.readFileSync(path.join(auditDir, entry), 'utf8'));
+    if (record.layerClosed === current) {
+      print('reconcile', {
+        reason: `audit lock says ${current} already merged in PR #${record.sourcePr}`,
+        prNumber: record.sourcePr || null,
+      });
+      process.exit(0);
+    }
+  }
+}
+
+if (!repo) {
+  print('run', { reason: 'repository name is unavailable' });
+  process.exit(0);
+}
+
+try {
+  execFileSync('gh', ['--version'], { stdio: 'ignore' });
+} catch {
+  print('run', { reason: 'gh CLI is unavailable for slice guard' });
+  process.exit(0);
+}
+
+const raw = execFileSync('gh', [
+  'pr',
+  'list',
+  '--repo',
+  repo,
+  '--state',
+  'all',
+  '--label',
+  'platform-v7',
+  '--label',
+  'agent-generated',
+  '--json',
+  'number,title,state,mergedAt,url',
+  '--limit',
+  '50',
+], { encoding: 'utf8' });
+
+const prs = JSON.parse(raw || '[]');
+const matching = prs.filter((pr) => titleSliceNumber(pr.title) === slice);
+const open = matching.find((pr) => String(pr.state).toUpperCase() === 'OPEN');
+if (open) {
+  print('noop', {
+    reason: `generated PR #${open.number} is already open for ${current}`,
+    prNumber: open.number,
+  });
+  process.exit(0);
+}
+
+const merged = matching.find((pr) => pr.mergedAt);
+if (merged) {
+  print('reconcile', {
+    reason: `generated PR #${merged.number} already merged for ${current}`,
+    prNumber: merged.number,
+  });
+  process.exit(0);
+}
+
+print('run', { reason: `no generated PR lock for ${current}` });
+JS
+)
+slice_guard_action=$(SLICE_GUARD_RESULT="$slice_guard_result" node -e "const r=JSON.parse(process.env.SLICE_GUARD_RESULT); console.log(r.action)")
+slice_guard_reason=$(SLICE_GUARD_RESULT="$slice_guard_result" node -e "const r=JSON.parse(process.env.SLICE_GUARD_RESULT); console.log(r.reason || r.action)")
+
+if [ "$slice_guard_action" = "noop" ]; then
+  set_agent_noop "$slice_guard_reason"
+  exit 0
+fi
+
+if [ "$slice_guard_action" = "reconcile" ]; then
+  echo "Current slice has a merged generated PR or audit lock; running generated merge reconciler instead of creating another PR."
+  node scripts/p7-autopilot-generated-merge-reconcile.mjs
+  set_agent_noop "$slice_guard_reason"
+  exit 0
 fi
 
 git config user.name "platform-v7-agent"
@@ -119,17 +241,33 @@ try {
   response = JSON.parse(raw);
 } catch (error) {
   console.error('ERROR: OpenAI response was not valid JSON.');
-  console.error(raw.slice(0, 2000));
+  console.error(raw.slice(0, 2000).replace(/(sk|gh[pousr])_[A-Za-z0-9_=-]+/g, '[redacted-secret]'));
   process.exit(10);
 }
-fs.writeFileSync('docs/platform-v7/autopilot/last-agent-response.json', `${JSON.stringify(response, null, 2)}\n`);
+
+function sanitizeSecretText(input) {
+  return String(input || '')
+    .replace(/(sk|gh[pousr])_[A-Za-z0-9_=-]+/g, '[redacted-secret]')
+    .replace(/Bearer\s+[A-Za-z0-9._=-]+/gi, 'Bearer [redacted-secret]');
+}
 
 if (response.error) {
   const code = response.error.code || response.error.type || 'openai_error';
-  const message = response.error.message || JSON.stringify(response.error);
+  const message = sanitizeSecretText(response.error.message || JSON.stringify(response.error));
+  fs.writeFileSync('docs/platform-v7/autopilot/last-agent-response.json', `${JSON.stringify({
+    error: {
+      code,
+      message,
+    },
+  }, null, 2)}\n`);
   console.error(`OpenAI API error (${code}): ${message}`);
+  if (code === 'invalid_api_key' || /api key/i.test(message)) {
+    console.error('OpenAI real coding not proven until OPENAI_API_KEY is replaced.');
+  }
   process.exit(10);
 }
+
+fs.writeFileSync('docs/platform-v7/autopilot/last-agent-response.json', `${JSON.stringify(response, null, 2)}\n`);
 
 function collectText(value) {
   if (typeof value === 'string') return value;

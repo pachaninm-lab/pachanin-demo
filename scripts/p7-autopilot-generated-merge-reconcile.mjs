@@ -47,6 +47,21 @@ function assertStatuses(headSha) {
   }
 }
 
+function assertCheckRollup(prNumber) {
+  const value = json('gh', ['pr', 'view', String(prNumber), '--repo', repo, '--json', 'statusCheckRollup', '--jq', '.statusCheckRollup']);
+  const checks = Array.isArray(value) ? value : [];
+  for (const check of checks) {
+    const name = check.context || check.name || check.workflowName || check.title || '';
+    if (name === ignoredStatusContext) continue;
+    const status = String(check.status || '').toUpperCase();
+    const conclusion = String(check.conclusion || check.state || '').toUpperCase();
+    if (status && status !== 'COMPLETED') throw new Error(`generated PR check is not completed: ${name}:${status}`);
+    if (conclusion && !['SUCCESS', 'SKIPPED', 'NEUTRAL'].includes(conclusion)) {
+      throw new Error(`generated PR check is not green: ${name}:${conclusion}`);
+    }
+  }
+}
+
 function currentSliceNumber() {
   const state = JSON.parse(readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
   const match = String(state.current || '').match(/Autopilot Product Slice\s+(\d+)/i);
@@ -60,9 +75,14 @@ function titleSliceNumber(title) {
 
 function openStateAdvanceRecovery(prNumber, headSha) {
   const branch = `p7-state/${prNumber}-reconcile`;
+  const existingPr = out('gh', ['pr', 'list', '--repo', repo, '--state', 'open', '--head', branch, '--json', 'number', '--jq', '.[0].number // ""']);
+  if (existingPr) {
+    console.log(`state advance PR already open for generated PR #${prNumber}: #${existingPr}`);
+    return false;
+  }
+
   run('git', ['fetch', 'origin', 'main']);
-  run('git', ['checkout', 'main']);
-  run('git', ['reset', '--hard', 'origin/main']);
+  run('git', ['checkout', '-B', 'main', 'origin/main']);
   run('git', ['config', 'user.name', 'p7-state']);
   run('git', ['config', 'user.email', 'p7-state@users.noreply.github.com']);
   run('git', ['checkout', '-B', branch]);
@@ -129,6 +149,7 @@ for (const pr of openPrs) {
   const headSha = String(pr.headRefOid || '');
   if (!headSha) continue;
   assertGeneratedScope(prNumber);
+  assertCheckRollup(prNumber);
   assertStatuses(headSha);
   run('node', ['scripts/p7-autopilot-generated-merge-and-advance.mjs'], {
     ...process.env,
@@ -163,6 +184,7 @@ for (const pr of closedPrs) {
   const headSha = String(pr.headRefOid || '');
   if (!headSha) continue;
   assertGeneratedScope(prNumber);
+  assertCheckRollup(prNumber);
   assertStatuses(headSha);
   if (openStateAdvanceRecovery(prNumber, headSha)) recovered += 1;
   break;

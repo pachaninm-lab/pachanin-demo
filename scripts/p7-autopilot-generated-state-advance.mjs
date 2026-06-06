@@ -22,6 +22,21 @@ if (!match) throw new Error(`Unsupported generated slice current: ${current}`);
 
 const currentNumber = Number(match[1]);
 const nextNumber = currentNumber + 1;
+const sourcePr = Number(process.env.PR_NUMBER || 0) || null;
+const lockPath = sourcePr ? path.join(auditDir, `generated-pr-${sourcePr}-merged.json`) : null;
+
+if (lockPath) {
+  try {
+    const existingLock = JSON.parse(await readFile(lockPath, 'utf8'));
+    if (existingLock.layerClosed && existingLock.layerClosed !== current) {
+      console.log(`state advance already applied for generated PR #${sourcePr}: ${existingLock.layerClosed} -> ${existingLock.nextLayer || 'next layer'}`);
+      process.exit(0);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+}
+
 if (nextNumber > 20) {
   state.currentStatus = 'blocked';
   state.blockedReason = 'generated_slice_cap_reached';
@@ -31,6 +46,9 @@ if (nextNumber > 20) {
 
 const next = nextSliceName(nextNumber);
 const filePath = generatedFileForSlice(currentNumber);
+const generatedWritableFile = Array.isArray(state.agentWritableScope) && state.agentWritableScope.length === 1
+  ? state.agentWritableScope[0]
+  : generatedFileForSlice(currentNumber - 1);
 state.lastClosed = Array.from(new Set([...(state.lastClosed || []), current]));
 state.current = next;
 state.currentStatus = 'ready';
@@ -68,7 +86,19 @@ await writeFile(progressPath, `${JSON.stringify({
 
 await mkdir(auditDir, { recursive: true });
 const timestamp = new Date().toISOString();
-const sourcePr = Number(process.env.PR_NUMBER || 0) || null;
+if (lockPath) {
+  await writeFile(lockPath, `${JSON.stringify({
+    timestamp,
+    sourcePr,
+    sourceSha: process.env.MERGE_SHA || null,
+    layerClosed: current,
+    nextLayer: next,
+    generatedWritableFile,
+    nextAgentWritableFile: filePath,
+    mergeDecision: 'generated_pr_merged',
+  }, null, 2)}\n`);
+}
+
 await writeFile(path.join(auditDir, `${timestamp.replace(/[:.]/g, '-')}-pr-${sourcePr || 'unknown'}-state-advance.json`), `${JSON.stringify({
   timestamp,
   sourcePr,
