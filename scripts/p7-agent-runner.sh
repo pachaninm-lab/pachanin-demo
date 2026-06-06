@@ -344,6 +344,9 @@ if [ "$agent_status" -ne 0 ]; then
   write_deterministic_fallback
   fallback_status=$?
   set -e
+  if [ "$fallback_status" -eq 0 ]; then
+    node scripts/p7-agent-force-writable-diff.mjs
+  fi
   if [ "$fallback_status" -eq 3 ]; then
     echo "No deterministic fallback is available for this current step."
     exit 3
@@ -363,6 +366,9 @@ if [ "$writable_status" -eq 4 ]; then
   write_deterministic_fallback
   fallback_status=$?
   set -e
+  if [ "$fallback_status" -eq 0 ]; then
+    node scripts/p7-agent-force-writable-diff.mjs
+  fi
   if [ "$fallback_status" -ne 0 ]; then
     exit "$fallback_status"
   fi
