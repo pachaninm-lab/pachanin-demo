@@ -1,4 +1,4 @@
-# Review current task — Autopilot Product Slice 07
+# Review current task — Autopilot Product Slice 08
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -17,7 +17,7 @@ Review the diff, not the agent report.
 
 ## Current allowed scope
 
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-06.spec.ts
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke-07.spec.ts
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 - scripts/p7-autopilot-*.mjs
@@ -25,16 +25,16 @@ Review the diff, not the agent report.
 
 ## Transition guard
 
-- BLOCKED: Autopilot Product Slice 07 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
+- BLOCKED: Autopilot Product Slice 08 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
 
 ## Queue snapshot
 
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice 07
+CURRENT: Autopilot Product Slice 08
 
 CURRENT ALLOWED:
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-06.spec.ts
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke-07.spec.ts
 
 CURRENT CRITERIA:
 - runner generates exactly one allowed code/test file;
@@ -71,9 +71,10 @@ DONE:
 - Autopilot Product Slice 04
 - Autopilot Product Slice 05
 - Autopilot Product Slice 06
+- Autopilot Product Slice 07
 
 NEXT:
-- Layer: Autopilot Product Slice 08
+- Layer: Autopilot Product Slice 09
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
@@ -93,6 +94,6 @@ RULES:
 
 ## Review brief
 
-Review Autopilot Product Slice 07 strictly against the state allowed scope and queue.
+Review Autopilot Product Slice 08 strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.
