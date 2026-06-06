@@ -1,0 +1,8 @@
+{
+  "sourcePr": 1557,
+  "sourceHeadSha": "8da794532c137b0583c85e9f0e3729e4a78f8076",
+  "mainMergeSha": "93076d7ffd398c9cbc5dbd804319e3d27631353b",
+  "closedLayer": "Autopilot Product Slice 06",
+  "openedLayer": "Autopilot Product Slice 07",
+  "note": "State advance recovery after generated PR merge. Queue update is intentionally left for a separate safe follow-up if this recovery PR lands."
+}
