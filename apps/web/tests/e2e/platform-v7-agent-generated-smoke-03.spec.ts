@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('platform-v7 generated fallback smoke', () => {
-  test('Autopilot Product Slice 04 keeps platform available', async ({ page }) => {
+  test('current autopilot slice keeps platform available', async ({ page }) => {
     const response = await page.goto('/platform-v7', { waitUntil: 'networkidle' });
 
     expect(response?.ok(), 'platform-v7 should return 2xx').toBeTruthy();
@@ -9,3 +9,4 @@ test.describe('platform-v7 generated fallback smoke', () => {
     await expect(page.locator('body'), 'platform-v7 should not show fatal route copy').not.toContainText(/404|500|Application error|Unhandled Runtime Error|This page could not be found/i);
   });
 });
+// platform-v7 fallback run marker: 27060521393 2026-06-06T11:02:38.244Z
