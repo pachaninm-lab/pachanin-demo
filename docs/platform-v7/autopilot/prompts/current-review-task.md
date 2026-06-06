@@ -1,4 +1,4 @@
-# Review current task — Autopilot Product Slice 06
+# Review current task — Autopilot Product Slice 07
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -17,7 +17,7 @@ Review the diff, not the agent report.
 
 ## Current allowed scope
 
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-05.spec.ts
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke-06.spec.ts
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 - scripts/p7-autopilot-*.mjs
@@ -25,34 +25,30 @@ Review the diff, not the agent report.
 
 ## Transition guard
 
-- BLOCKED: Autopilot Product Slice 06 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
+- BLOCKED: Autopilot Product Slice 07 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
 
 ## Queue snapshot
 
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice 06
+CURRENT: Autopilot Product Slice 07
 
 CURRENT ALLOWED:
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-05.spec.ts
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke-06.spec.ts
 
 CURRENT CRITERIA:
 - runner generates exactly one allowed code/test file;
 - generated branch is opened as PR by the repo-side runner;
 - generated PR receives platform-v7, agent-generated and automerge labels without manual labeling;
 - restricted areas remain blocked;
-- merge gate remains final authority;
-- generated merge opens source-of-truth advance PR for the next slice.
+- merge gate remains final authority.
 
 DONE:
-- Runtime foundation stages
-- External adapter baseline stages
-- AI gateway baseline stages
-- CI and QA baseline stages
-- Runner health and dispatch stages
-- Deal identity smoke
-- Route smoke QA
-- Agent PR creation reliability
+- baseline
+- Runner Inline PR
+- Runner Gate Fix
+- Runner Opens PR
+- Runner PR Permission Smoke
 - Autopilot Resilience Layer
 - Role Boundary Smoke
 - Autopilot State Schema
@@ -74,9 +70,10 @@ DONE:
 - Autopilot Product Slice 03
 - Autopilot Product Slice 04
 - Autopilot Product Slice 05
+- Autopilot Product Slice 06
 
 NEXT:
-- Layer: Autopilot Product Slice 07
+- Layer: Autopilot Product Slice 08
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
@@ -96,6 +93,6 @@ RULES:
 
 ## Review brief
 
-Review Autopilot Product Slice 06 strictly against the state allowed scope and queue.
+Review Autopilot Product Slice 07 strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.

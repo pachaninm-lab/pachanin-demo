@@ -8,7 +8,7 @@
     "Autopilot Product Slice 07 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding."
   ],
   "nextStep": "Autopilot Product Slice 07",
-  "updatedAt": "2026-06-06T21:12:46.565Z",
+  "updatedAt": "2026-06-06T21:22:38.473Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
