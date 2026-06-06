@@ -21,14 +21,14 @@ function json(command, args) {
 }
 
 function mergeGeneratedPr() {
-  const before = json('gh', ['pr', 'view', prNumber, '--repo', repo, '--json', 'merged,mergeCommit']);
-  if (before.merged) {
+  const before = json('gh', ['pr', 'view', prNumber, '--repo', repo, '--json', 'mergedAt,mergeCommit']);
+  if (before.mergedAt) {
     const existing = before.mergeCommit?.oid || '';
     if (!existing) throw new Error(`generated PR #${prNumber} is merged but merge commit is unavailable`);
     return existing;
   }
 
-  run('gh', [
+  const mergeResult = json('gh', [
     'api',
     '--method',
     'PUT',
@@ -39,9 +39,8 @@ function mergeGeneratedPr() {
     `sha=${headSha}`,
   ]);
 
-  const after = json('gh', ['pr', 'view', prNumber, '--repo', repo, '--json', 'merged,mergeCommit']);
-  const mergeSha = after.mergeCommit?.oid || '';
-  if (!after.merged || !mergeSha) throw new Error(`generated PR #${prNumber} merge did not produce a merge commit`);
+  const mergeSha = mergeResult.sha || '';
+  if (!mergeResult.merged || !mergeSha) throw new Error(`generated PR #${prNumber} merge did not produce a merge commit`);
   return mergeSha;
 }
 
