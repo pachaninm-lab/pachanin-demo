@@ -19,26 +19,38 @@ jobs:
         run: |
           set -euo pipefail
 
-          MOBILE_URL="https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLESS_RUS_mobile.txt"
-          ALL_URL="https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_SS+All_RUS.txt"
+          # Источники с Reality + Hysteria2 + TUIC для домашнего интернета России
+          VLESS_RUS_URL="https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLESS_RUS.txt"
+          NIKITA_URL="https://raw.githubusercontent.com/nikita29a/FreeProxyList/refs/heads/main/mirror/1.txt"
+          BYPASS_URL="https://raw.githubusercontent.com/whoahaow/rjsxrd/refs/heads/main/githubmirror/bypass/bypass-all.txt"
+          HYSTERIA_URL="https://raw.githubusercontent.com/Surfboardv2ray/TGParse/main/python/hysteria2"
 
           TMP=$(mktemp)
 
-          curl -fsSL --max-time 30 "$MOBILE_URL" 2>/dev/null \
+          # VLESS Reality протестированные из России на домашнем интернете
+          curl -fsSL --max-time 30 "$VLESS_RUS_URL" 2>/dev/null \
             | grep -v '^#' | grep -v '^$' \
-            | head -40 > "$TMP" || echo "WARN: failed $MOBILE_URL" >&2
+            | head -40 > "$TMP" || echo "WARN: failed $VLESS_RUS_URL" >&2
 
-          curl -fsSL --max-time 30 "$ALL_URL" 2>/dev/null \
+          # Reality + Hysteria2 + TUIC от nikita29a
+          curl -fsSL --max-time 30 "$NIKITA_URL" 2>/dev/null \
             | grep -v '^#' | grep -v '^$' \
-            | grep -E '^(trojan|vmess)://' \
-            | head -10 >> "$TMP" || echo "WARN: failed $ALL_URL" >&2
+            | head -30 >> "$TMP" || echo "WARN: failed $NIKITA_URL" >&2
 
-          # Приватный сервер (Deno Deploy) — ВСЕГДА ПЕРВЫЙ, никогда не удалять
+          # bypass-all (Reality + обходы)
+          curl -fsSL --max-time 30 "$BYPASS_URL" 2>/dev/null \
+            | grep -v '^#' | grep -v '^$' \
+            | grep -E '^(vless|trojan|tuic|hysteria2?)://' \
+            | head -20 >> "$TMP" || echo "WARN: failed $BYPASS_URL" >&2
+
+          # Hysteria2 — UDP, хорошо работает на домашнем интернете
+          curl -fsSL --max-time 30 "$HYSTERIA_URL" 2>/dev/null \
+            | grep -v '^#' | grep -v '^$' \
+            | head -15 >> "$TMP" || echo "WARN: failed $HYSTERIA_URL" >&2
+
+          # Резервный сервер — ВСЕГДА ПЕРВЫЙ, никогда не удалять
           {
             echo "vless://9f3cbdb8-4a9d-5811-1d8e-58603f42cfd6@pachanin-demo.pachaninm-lab.deno.net:443?encryption=none&security=tls&sni=pachanin-demo.pachaninm-lab.deno.net&type=ws&host=pachanin-demo.pachaninm-lab.deno.net&path=%2F&fp=chrome&alpn=http%2F1.1#MY-VPN-FOREVER"
-            echo "vmess://eyJhZGQiOiJyZW5kZXJlci1zdHJlYW0tMS00MTEubWlycmEubm93IiwiYWlkIjoiMCIsImFsbG93SW5zZWN1cmUiOiIwIiwiYWxsb3dfaW5zZWN1cmUiOiIwIiwiaG9zdCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJpZCI6ImRmOWM5MzU1LWIwMmMtNGMxMi05MDlkLTBkYmViNzI1ZDUyYiIsImluc2VjdXJlIjoiMCIsIm5ldCI6IndzIiwicGF0aCI6Ii9hcGkvdjEvZ3B1LXN0cmVhbS9zb2NrZXQiLCJwb3J0IjoiNDQzIiwicHMiOiLwn4ez8J+HsSBOZXRoZXJsYW5kcy0xIiwic2VjdXJpdHkiOiJhdXRvIiwic25pIjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsInRscyI6InRscyIsInYiOiIyIiwidHlwZSI6Im5vbmUiLCJzY3kiOiJhdXRvIiwiYWxwbiI6IiIsImZwIjoiIn0="
-            echo "vmess://eyJ2IjoiMiIsInBzIjoi8J+Hs/Cfh7EgTmV0aGVybGFuZHMtMiIsImFkZCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJwb3J0IjoiNDQzIiwidHlwZSI6Im5vbmUiLCJpZCI6ImRmOWM5MzU1LWIwMmMtNGMxMi05MDlkLTBkYmViNzI1ZDUyYiIsImFpZCI6IjAiLCJuZXQiOiJ3cyIsInBhdGgiOiIvYXBpL3YxL2dwdS1zdHJlYW0vc29ja2V0IiwiaG9zdCI6InJlbmRlcmVyLXN0cmVhbS0xLTQxMS5taXJyYS5ub3ciLCJ0bHMiOiJ0bHMiLCJza2lwLWNlcnQtdmVyaWZ5Ijp0cnVlLCJzY3kiOiJhdXRvIiwic25pIjoiIiwiYWxwbiI6IiIsImZwIjoiIn0="
-            echo "vmess://eyJhZGQiOiJyZW5kZXJlci1zdHJlYW0tMS00MTEubWlycmEubm93IiwiYWlkIjoiMCIsImFsbG93aW5zZWN1cmUiOiIwIiwiYWxwbiI6ImgyLGh0dHAvMS4xIiwiZnAiOiJjaHJvbWUiLCJob3N0IjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsImlkIjoiZGY5YzkzNTUtYjAyYy00YzEyLTkwOWQtMGRiZWI3MjVkNTJiIiwibmV0Ijoid3MiLCJwYXRoIjoiL2FwaS92MS9ncHUtc3RyZWFtL3NvY2tldCIsInBvcnQiOiI0NDMiLCJwcyI6IvCfh7Pwn4exIE5ldGhlcmxhbmRzLTMiLCJzY3kiOiJhdXRvIiwic25pIjoicmVuZGVyZXItc3RyZWFtLTEtNDExLm1pcnJhLm5vdyIsInRscyI6InRscyIsInR5cGUiOiJub25lIiwiViI6IjIifQ=="
             cat "$TMP"
           } > vpn/subscription.txt
 
