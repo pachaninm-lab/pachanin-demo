@@ -31,6 +31,10 @@ function run(command, args, env = process.env) {
   execFileSync(command, args, { stdio: 'inherit', env });
 }
 
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function normalizePath(input) {
   return String(input || '').trim().replace(/\\/g, '/');
 }
@@ -166,6 +170,35 @@ function ensureRequiredWorkflows(headSha, headRefName) {
   }
 }
 
+function isWaitableReadinessError(error) {
+  const message = String(error?.message || error);
+  return (
+    message.includes('dispatched ') ||
+    message.includes('required workflow is still running') ||
+    message.includes('check is not completed') ||
+    message.endsWith(':pending')
+  );
+}
+
+function waitForReadiness(label, callback) {
+  const deadline = Date.now() + 16 * 60 * 1000;
+  let lastError = null;
+
+  while (Date.now() < deadline) {
+    try {
+      callback();
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isWaitableReadinessError(error)) throw error;
+      console.log(`${label} waiting for gate readiness: ${error.message}`);
+      sleep(30 * 1000);
+    }
+  }
+
+  throw lastError || new Error(`${label} did not become ready before timeout`);
+}
+
 function mergePr(prNumber, headSha, message) {
   run('gh', [
     'api',
@@ -282,9 +315,11 @@ function mergeOpenGeneratedPrs() {
 
     try {
       assertGeneratedScope(prNumber, exactWritableFile);
-      ensureRequiredWorkflows(headSha, headRefName);
-      assertCheckRollup(prNumber);
-      assertStatuses(headSha);
+      waitForReadiness(`generated PR #${prNumber}`, () => {
+        ensureRequiredWorkflows(headSha, headRefName);
+        assertCheckRollup(prNumber);
+        assertStatuses(headSha);
+      });
     } catch (error) {
       console.log(`generated PR #${prNumber} is not ready for guarded merge: ${error.message}`);
       continue;
@@ -332,9 +367,11 @@ function mergeOpenStateAdvancePrs() {
 
     try {
       assertStateAdvanceScope(prNumber);
-      ensureRequiredWorkflows(headSha, headRefName);
-      assertCheckRollup(prNumber);
-      assertStatuses(headSha);
+      waitForReadiness(`SOT advance PR #${prNumber}`, () => {
+        ensureRequiredWorkflows(headSha, headRefName);
+        assertCheckRollup(prNumber);
+        assertStatuses(headSha);
+      });
     } catch (error) {
       console.log(`SOT advance PR #${prNumber} is not ready for guarded merge: ${error.message}`);
       continue;
@@ -392,8 +429,8 @@ function recoverMergedGeneratedPr() {
 
 const generated = mergeOpenGeneratedPrs();
 const stateBeforeRecovery = mergeOpenStateAdvancePrs();
-const recovered = recoverMergedGeneratedPr();
-const stateAfterRecovery = mergeOpenStateAdvancePrs();
+const recovered = stateBeforeRecovery.merged > 0 ? 0 : recoverMergedGeneratedPr();
+const stateAfterRecovery = recovered > 0 ? mergeOpenStateAdvancePrs() : { checked: 0, merged: 0 };
 
 console.log([
   `generated merge reconcile checked ${generated.checked} open generated PR(s), merged ${generated.merged}`,
