@@ -1,9 +1,9 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice 12
+CURRENT: Autopilot Product Slice 13
 
 CURRENT ALLOWED:
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-11.spec.ts
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke-12.spec.ts
 
 CURRENT CRITERIA:
 - runner generates exactly one allowed code/test file;
@@ -45,9 +45,10 @@ DONE:
 - Autopilot Product Slice 09
 - Autopilot Product Slice 10
 - Autopilot Product Slice 11
+- Autopilot Product Slice 12
 
 NEXT:
-- Layer: Autopilot Product Slice 13
+- Layer: Autopilot Product Slice 14
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
