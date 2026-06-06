@@ -175,6 +175,7 @@ function isWaitableReadinessError(error) {
   return (
     message.includes('dispatched ') ||
     message.includes('mergeability is not ready') ||
+    message.includes('SOT advance PR discovery pending') ||
     message.includes('required workflow is still running') ||
     message.includes('check is not completed') ||
     message.endsWith(':pending')
@@ -354,8 +355,8 @@ function mergeOpenGeneratedPrs() {
   return { checked: openPrs.length, merged };
 }
 
-function mergeOpenStateAdvancePrs() {
-  const prs = json('gh', [
+function stateAdvancePrs() {
+  return json('gh', [
     'pr',
     'list',
     '--repo',
@@ -369,6 +370,16 @@ function mergeOpenStateAdvancePrs() {
     '--limit',
     '50',
   ]).filter((pr) => String(pr.headRefName || '').startsWith('p7-state/') && String(pr.title || '') === 'p7 advance after generated PR');
+}
+
+function waitForStateAdvanceDiscovery() {
+  waitForReadiness('SOT advance PR discovery', () => {
+    if (stateAdvancePrs().length === 0) throw new Error('SOT advance PR discovery pending');
+  });
+}
+
+function mergeOpenStateAdvancePrs() {
+  const prs = stateAdvancePrs();
 
   let merged = 0;
   for (const pr of prs) {
@@ -442,6 +453,7 @@ function recoverMergedGeneratedPr() {
 }
 
 const generated = mergeOpenGeneratedPrs();
+if (generated.merged > 0) waitForStateAdvanceDiscovery();
 const stateBeforeRecovery = mergeOpenStateAdvancePrs();
 const recovered = stateBeforeRecovery.merged > 0 ? 0 : recoverMergedGeneratedPr();
 const stateAfterRecovery = recovered > 0 ? mergeOpenStateAdvancePrs() : { checked: 0, merged: 0 };
