@@ -139,67 +139,25 @@ function collectText(value) {
   return Object.values(value).map(collectText).join('\n');
 }
 
-function extractJsonObject(text) {
-  const trimmed = String(text || '').trim();
-  if (!trimmed) return '';
-  const fenceStripped = trimmed.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
-  if (fenceStripped.startsWith('{')) return fenceStripped;
-  const first = fenceStripped.indexOf('{');
-  const last = fenceStripped.lastIndexOf('}');
-  if (first >= 0 && last > first) return fenceStripped.slice(first, last + 1);
-  return '';
-}
-
 function normalizePath(input) {
   return String(input ?? '').trim().replace(/\\/g, '/').replace(/\/+$/g, '');
 }
 
-function escapeRegExp(input) {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function globToRegExp(glob) {
-  const normalized = normalizePath(glob);
-  let pattern = '';
-  for (let index = 0; index < normalized.length; index += 1) {
-    const character = normalized[index];
-    const next = normalized[index + 1];
-    if (character === '*' && next === '*') {
-      pattern += '.*';
-      index += 1;
-    } else if (character === '*') {
-      pattern += '[^/]*';
-    } else {
-      pattern += escapeRegExp(character);
-    }
-  }
-  return new RegExp(`^${pattern}$`);
-}
-
-function scopeMatches(scope, candidate) {
-  const allowed = normalizePath(scope);
-  const file = normalizePath(candidate);
-  if (!allowed || !file) return false;
-  if (allowed === file) return true;
-  if (allowed.includes('*')) return globToRegExp(allowed).test(file);
-  return file.startsWith(`${allowed}/`);
-}
-
 const output = response.output_text || collectText(response.output);
-const jsonText = extractJsonObject(output);
-if (!jsonText) {
+const first = String(output || '').indexOf('{');
+const last = String(output || '').lastIndexOf('}');
+if (first < 0 || last <= first) {
   console.error('ERROR: Agent response did not include JSON file replacements.');
-  console.error('Response preview:');
   console.error(String(output || '').slice(0, 2000));
   process.exit(10);
 }
 
 let parsed;
 try {
-  parsed = JSON.parse(jsonText);
+  parsed = JSON.parse(String(output).slice(first, last + 1));
 } catch (error) {
   console.error('ERROR: Agent JSON payload could not be parsed.');
-  console.error(jsonText.slice(0, 2000));
+  console.error(String(output || '').slice(0, 2000));
   process.exit(10);
 }
 
@@ -209,27 +167,28 @@ if (!Array.isArray(parsed.files) || parsed.files.length === 0) {
 }
 
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
-const allowed = state.agentWritableScope || state.allowedCurrentScope || [];
-const forbidden = state.forbiddenZones || [];
+const allowed = new Set((state.agentWritableScope || state.allowedCurrentScope || []).map(normalizePath));
+const forbidden = (state.forbiddenZones || []).map(normalizePath);
 const changed = [];
+
 for (const file of parsed.files) {
   if (!file || typeof file.path !== 'string' || typeof file.content !== 'string') {
     throw new Error('Each agent file replacement must include path and content.');
   }
-  const normalizedPath = normalizePath(file.path);
-  if (!allowed.some((scope) => scopeMatches(scope, normalizedPath))) {
-    throw new Error(`Agent attempted to write outside agent writable scope: ${file.path}`);
+  const filePath = normalizePath(file.path);
+  if (!allowed.has(filePath)) {
+    throw new Error(`Agent attempted to write outside exact agent writable scope: ${file.path}`);
   }
-  if (forbidden.some((scope) => scopeMatches(scope, normalizedPath) || scopeMatches(normalizedPath, scope))) {
+  if (forbidden.some((scope) => filePath === scope || filePath.startsWith(`${scope}/`))) {
     throw new Error(`Agent attempted to write inside forbidden zone: ${file.path}`);
   }
-  const absolute = path.resolve(normalizedPath);
+  const absolute = path.resolve(filePath);
   if (!absolute.startsWith(process.cwd())) {
     throw new Error(`Agent attempted to write outside repository: ${file.path}`);
   }
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
   fs.writeFileSync(absolute, file.content, 'utf8');
-  changed.push(normalizedPath);
+  changed.push(filePath);
 }
 
 console.log(`agent response saved: docs/platform-v7/autopilot/last-agent-response.json`);
@@ -243,7 +202,6 @@ const fs = require('fs');
 const path = require('path');
 
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
-const progress = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/progress.json', 'utf8'));
 const allowed = state.agentWritableScope || state.allowedCurrentScope || [];
 if (allowed.length !== 1) {
   console.log(`Deterministic fallback skipped: expected exactly one agent writable file, got ${allowed.length}.`);
@@ -256,11 +214,28 @@ if (!filePath.startsWith('apps/web/tests/e2e/') || !filePath.endsWith('.spec.ts'
   process.exit(3);
 }
 
-const currentStep = String(progress.currentStep || state.current || 'platform-v7 smoke');
-const content = `import { expect, test } from '@playwright/test';\n\ntest.describe('platform-v7 generated fallback smoke', () => {\n  test('${currentStep.replace(/'/g, "\\'")} keeps platform available', async ({ page }) => {\n    const response = await page.goto('/platform-v7', { waitUntil: 'networkidle' });\n\n    expect(response?.ok(), 'platform-v7 should return 2xx').toBeTruthy();\n    await expect(page.locator('body'), 'platform-v7 should render body content').toBeVisible();\n    await expect(page.locator('body'), 'platform-v7 should not show fatal route copy').not.toContainText(/404|500|Application error|Unhandled Runtime Error|This page could not be found/i);\n  });\n});\n`;
+const absolute = path.resolve(filePath);
+if (!absolute.startsWith(process.cwd())) {
+  throw new Error(`Refusing to write outside repository: ${filePath}`);
+}
 
-fs.mkdirSync(path.dirname(filePath), { recursive: true });
-fs.writeFileSync(filePath, content, 'utf8');
+const content = [
+  "import { expect, test } from '@playwright/test';",
+  '',
+  "test.describe('platform-v7 generated fallback smoke', () => {",
+  "  test('current autopilot slice keeps platform available', async ({ page }) => {",
+  "    const response = await page.goto('/platform-v7', { waitUntil: 'networkidle' });",
+  '',
+  "    expect(response?.ok(), 'platform-v7 should return 2xx').toBeTruthy();",
+  "    await expect(page.locator('body'), 'platform-v7 should render body content').toBeVisible();",
+  "    await expect(page.locator('body'), 'platform-v7 should not show fatal route copy').not.toContainText(/404|500|Application error|Unhandled Runtime Error|This page could not be found/i);",
+  '  });',
+  '});',
+  '',
+].join('\n');
+
+fs.mkdirSync(path.dirname(absolute), { recursive: true });
+fs.writeFileSync(absolute, content, 'utf8');
 console.log(`deterministic fallback file applied: ${filePath}`);
 JS
 }
@@ -273,7 +248,7 @@ const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-s
 const writable = Array.isArray(state.agentWritableScope) ? state.agentWritableScope : [];
 if (writable.length === 0) process.exit(0);
 const changed = cp.execSync('git status --porcelain', { encoding: 'utf8' })
-  .split(/\r?\n/)
+  .split('\n')
   .map((line) => line.slice(3).trim())
   .filter(Boolean);
 const hit = writable.some((file) => changed.includes(file));
@@ -344,6 +319,9 @@ if [ "$agent_status" -ne 0 ]; then
   write_deterministic_fallback
   fallback_status=$?
   set -e
+  if [ "$fallback_status" -eq 0 ]; then
+    node scripts/p7-autopilot-force-writable-diff.mjs
+  fi
   if [ "$fallback_status" -eq 3 ]; then
     echo "No deterministic fallback is available for this current step."
     exit 3
@@ -363,6 +341,9 @@ if [ "$writable_status" -eq 4 ]; then
   write_deterministic_fallback
   fallback_status=$?
   set -e
+  if [ "$fallback_status" -eq 0 ]; then
+    node scripts/p7-autopilot-force-writable-diff.mjs
+  fi
   if [ "$fallback_status" -ne 0 ]; then
     exit "$fallback_status"
   fi
