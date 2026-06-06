@@ -6,13 +6,15 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
   pull-requests: write
 
 concurrency:
-  group: platform-v7-generated-merge-${{ github.event.pull_request.number || github.run_id }}
+  group: platform-v7-generated-merge-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -53,7 +55,10 @@ jobs:
           node scripts/p7-autopilot-generated-merge-and-advance.mjs
 
   reconcile-generated:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/reconcile generated'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
