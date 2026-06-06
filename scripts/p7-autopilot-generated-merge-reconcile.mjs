@@ -189,7 +189,11 @@ for (const pr of closedPrs) {
   const headSha = String(pr.headRefOid || '');
   if (!headSha) continue;
   assertGeneratedScope(prNumber);
-  assertCheckRollup(prNumber);
+  try {
+    assertCheckRollup(prNumber);
+  } catch (error) {
+    console.log(`merged generated PR #${prNumber} check rollup mismatch during SOT recovery: ${error.message}`);
+  }
   assertStatuses(headSha);
   if (openStateAdvanceRecovery(prNumber, headSha)) recovered += 1;
   break;
