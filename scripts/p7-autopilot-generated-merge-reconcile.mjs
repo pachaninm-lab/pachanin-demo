@@ -148,9 +148,14 @@ for (const pr of openPrs) {
   const prNumber = String(pr.number);
   const headSha = String(pr.headRefOid || '');
   if (!headSha) continue;
-  assertGeneratedScope(prNumber);
-  assertCheckRollup(prNumber);
-  assertStatuses(headSha);
+  try {
+    assertGeneratedScope(prNumber);
+    assertCheckRollup(prNumber);
+    assertStatuses(headSha);
+  } catch (error) {
+    console.log(`generated PR #${prNumber} is not ready for guarded merge: ${error.message}`);
+    continue;
+  }
   run('node', ['scripts/p7-autopilot-generated-merge-and-advance.mjs'], {
     ...process.env,
     PR_NUMBER: prNumber,
