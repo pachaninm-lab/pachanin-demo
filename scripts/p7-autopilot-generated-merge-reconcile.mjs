@@ -172,13 +172,14 @@ function ensureRequiredWorkflows(headSha, headRefName) {
 
 function isWaitableReadinessError(error) {
   const message = String(error?.message || error);
+  const normalized = message.toLowerCase();
   return (
     message.includes('dispatched ') ||
     message.includes('mergeability is not ready') ||
     message.includes('SOT advance PR discovery pending') ||
     message.includes('required workflow is still running') ||
     message.includes('check is not completed') ||
-    message.endsWith(':pending')
+    normalized.includes(':pending')
   );
 }
 
