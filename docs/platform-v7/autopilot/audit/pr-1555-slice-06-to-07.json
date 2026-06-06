@@ -1,0 +1,8 @@
+{
+  "sourcePr": 1555,
+  "sourceHeadSha": "fa5b31947141c59cdc296f2d42b8b141546a90fb",
+  "mainMergeSha": "3c6c7a95d09908fe6f7dfa6d3176bbfc3df4b173",
+  "closedLayer": "Autopilot Product Slice 06",
+  "openedLayer": "Autopilot Product Slice 07",
+  "note": "State advance recovery after generated PR merge."
+}
