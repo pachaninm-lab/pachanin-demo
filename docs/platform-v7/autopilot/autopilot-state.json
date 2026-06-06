@@ -1,1 +1,73 @@
-{"project":"platform-v7","mode":"variant-b","status":"active","currentStatus":"ready","current":"Autopilot Product Slice 06","openPr":null,"lastClosed":["baseline","Runner Inline PR","Runner Gate Fix","Runner Opens PR","Runner PR Permission Smoke","Autopilot Resilience Layer","Role Boundary Smoke","Autopilot State Schema","Autopilot Next-layer Selector","Autopilot Check Analyzer","Autopilot Merge Gate","Autopilot Dry-run Loop","Autopilot Safe Task Intake","Autopilot Issue Executor Dry-run","Autopilot Issue Executor PR Wiring","Autopilot Full Loop Verification","Autopilot Live Controlled Pilot Gate","Autopilot Step Enablement","Autopilot Scope Proposal Gate","Autopilot Exact Path Unlock","Autopilot Product Slice Proposal","Autopilot Product Slice 01","Autopilot Product Slice 02","Autopilot Product Slice 03","Autopilot Product Slice 04","Autopilot Product Slice 05"],"lockedUntilCurrentGreen":["Product Entry / Onboarding","Theme / Visual","Role Cockpit / UX","Backend / DB / runtime persistence expansion"],"allowedCurrentScope":["apps/web/tests/e2e/platform-v7-agent-generated-smoke-05.spec.ts","docs/platform-v7/autopilot/**","docs/platform-v7/execution-queue.md","scripts/p7-autopilot-*.mjs",".github/workflows/platform-v7-autopilot-*.yml"],"agentWritableScope":["apps/web/tests/e2e/platform-v7-agent-generated-smoke-05.spec.ts"],"controlledActions":{"enabled":true},"forbiddenZones":["apps/landing","apps/web/app/platform-v7","apps/web/components/platform-v7","apps/web/components/v7r","apps/web/lib/platform-v7","apps/web/app/api","package.json","package-lock.json","pnpm-lock.yaml"],"maturityLanguage":["controlled-pilot","pre-integration"],"forbiddenClaims":[],"readiness":"72%"}
+{
+  "project": "platform-v7",
+  "mode": "variant-b",
+  "status": "active",
+  "currentStatus": "ready",
+  "current": "Autopilot Product Slice 07",
+  "openPr": null,
+  "lastClosed": [
+    "baseline",
+    "Runner Inline PR",
+    "Runner Gate Fix",
+    "Runner Opens PR",
+    "Runner PR Permission Smoke",
+    "Autopilot Resilience Layer",
+    "Role Boundary Smoke",
+    "Autopilot State Schema",
+    "Autopilot Next-layer Selector",
+    "Autopilot Check Analyzer",
+    "Autopilot Merge Gate",
+    "Autopilot Dry-run Loop",
+    "Autopilot Safe Task Intake",
+    "Autopilot Issue Executor Dry-run",
+    "Autopilot Issue Executor PR Wiring",
+    "Autopilot Full Loop Verification",
+    "Autopilot Live Controlled Pilot Gate",
+    "Autopilot Step Enablement",
+    "Autopilot Scope Proposal Gate",
+    "Autopilot Exact Path Unlock",
+    "Autopilot Product Slice Proposal",
+    "Autopilot Product Slice 01",
+    "Autopilot Product Slice 02",
+    "Autopilot Product Slice 03",
+    "Autopilot Product Slice 04",
+    "Autopilot Product Slice 05",
+    "Autopilot Product Slice 06"
+  ],
+  "lockedUntilCurrentGreen": [
+    "Product Entry / Onboarding",
+    "Theme / Visual",
+    "Role Cockpit / UX",
+    "Backend / DB / runtime persistence expansion"
+  ],
+  "allowedCurrentScope": [
+    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-06.spec.ts",
+    "docs/platform-v7/autopilot/**",
+    "docs/platform-v7/execution-queue.md",
+    "scripts/p7-autopilot-*.mjs",
+    ".github/workflows/platform-v7-autopilot-*.yml"
+  ],
+  "agentWritableScope": [
+    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-06.spec.ts"
+  ],
+  "controlledActions": {
+    "enabled": true
+  },
+  "forbiddenZones": [
+    "apps/landing",
+    "apps/web/app/platform-v7",
+    "apps/web/components/platform-v7",
+    "apps/web/components/v7r",
+    "apps/web/lib/platform-v7",
+    "apps/web/app/api",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml"
+  ],
+  "maturityLanguage": [
+    "controlled-pilot",
+    "pre-integration"
+  ],
+  "forbiddenClaims": [],
+  "readiness": "72%"
+}

@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-06-06T20:46:57.000Z",
+  "sourcePr": 1562,
+  "sourceSha": "3479bdb9b8d6518dde2a810e274edc26eea8c3a1",
+  "mergeCommitSha": "91fc2eebb9f6717daa8b78019b7e38f45b46bd64",
+  "layerClosed": "Autopilot Product Slice 06",
+  "nextLayer": "Autopilot Product Slice 07",
+  "generatedWritableFile": "apps/web/tests/e2e/platform-v7-agent-generated-smoke-05.spec.ts",
+  "nextAgentWritableFile": "apps/web/tests/e2e/platform-v7-agent-generated-smoke-06.spec.ts",
+  "mergeDecision": "generated_pr_merged",
+  "recoveryReason": "main still pointed at Slice 06 after generated PR merge"
+}
