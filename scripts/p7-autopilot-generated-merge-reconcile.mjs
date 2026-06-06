@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const repo = process.env.REPO;
 if (!repo) throw new Error('Missing REPO');
@@ -10,6 +11,11 @@ const ignoredStatusContext = 'deploy/pachaninm-lab/pachanin-demo';
 
 function out(command, args) {
   return execFileSync(command, args, { encoding: 'utf8' }).trim();
+}
+
+function json(command, args) {
+  const raw = out(command, args);
+  return raw ? JSON.parse(raw) : [];
 }
 
 function run(command, args, env = process.env) {
@@ -41,7 +47,65 @@ function assertStatuses(headSha) {
   }
 }
 
-const prs = JSON.parse(out('gh', [
+function currentSliceNumber() {
+  const state = JSON.parse(readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const match = String(state.current || '').match(/Autopilot Product Slice\s+(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function titleSliceNumber(title) {
+  const match = String(title || '').match(/autopilot product slice\s+(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function openStateAdvanceRecovery(prNumber, headSha) {
+  const branch = `p7-state/${prNumber}-reconcile`;
+  run('git', ['fetch', 'origin', 'main']);
+  run('git', ['checkout', 'main']);
+  run('git', ['reset', '--hard', 'origin/main']);
+  run('git', ['config', 'user.name', 'p7-state']);
+  run('git', ['config', 'user.email', 'p7-state@users.noreply.github.com']);
+  run('git', ['checkout', '-B', branch]);
+  run('node', ['scripts/p7-autopilot-generated-state-advance.mjs'], {
+    ...process.env,
+    PR_NUMBER: String(prNumber),
+    MERGE_SHA: String(headSha),
+  });
+
+  const status = out('git', ['status', '--porcelain']);
+  if (!status) return false;
+
+  run('git', ['add', 'docs/platform-v7/autopilot', 'docs/platform-v7/execution-queue.md']);
+  run('git', ['commit', '-m', 'docs(platform-v7): advance after generated PR']);
+  run('git', ['push', 'origin', `HEAD:${branch}`]);
+
+  let statePr = out('gh', ['pr', 'list', '--repo', repo, '--head', branch, '--json', 'number', '--jq', '.[0].number // ""']);
+  if (!statePr) {
+    run('gh', [
+      'pr',
+      'create',
+      '--repo',
+      repo,
+      '--title',
+      'p7 advance after generated PR',
+      '--body',
+      `Automated SOT advance recovery after generated PR #${prNumber}.`,
+      '--head',
+      branch,
+      '--base',
+      'main',
+    ]);
+    statePr = out('gh', ['pr', 'list', '--repo', repo, '--head', branch, '--json', 'number', '--jq', '.[0].number // ""']);
+  }
+
+  if (statePr) {
+    run('gh', ['pr', 'edit', statePr, '--repo', repo, '--add-label', 'platform-v7']);
+    run('gh', ['pr', 'edit', statePr, '--repo', repo, '--add-label', 'automerge']);
+  }
+  return true;
+}
+
+const openPrs = json('gh', [
   'pr',
   'list',
   '--repo',
@@ -56,9 +120,9 @@ const prs = JSON.parse(out('gh', [
   'automerge',
   '--json',
   'number,headRefOid,isDraft,mergeable',
-]));
+]);
 
-for (const pr of prs) {
+for (const pr of openPrs) {
   if (pr.isDraft) continue;
   if (pr.mergeable === 'CONFLICTING') continue;
   const prNumber = String(pr.number);
@@ -73,4 +137,35 @@ for (const pr of prs) {
   });
 }
 
-console.log(`generated merge reconcile checked ${prs.length} PR(s)`);
+const slice = currentSliceNumber();
+const closedPrs = json('gh', [
+  'pr',
+  'list',
+  '--repo',
+  repo,
+  '--state',
+  'closed',
+  '--label',
+  'platform-v7',
+  '--label',
+  'agent-generated',
+  '--json',
+  'number,headRefOid,mergedAt,title',
+  '--limit',
+  '10',
+]);
+
+let recovered = 0;
+for (const pr of closedPrs) {
+  if (!pr.mergedAt) continue;
+  if (titleSliceNumber(pr.title) !== slice) continue;
+  const prNumber = String(pr.number);
+  const headSha = String(pr.headRefOid || '');
+  if (!headSha) continue;
+  assertGeneratedScope(prNumber);
+  assertStatuses(headSha);
+  if (openStateAdvanceRecovery(prNumber, headSha)) recovered += 1;
+  break;
+}
+
+console.log(`generated merge reconcile checked ${openPrs.length} open PR(s), recovered ${recovered} merged PR state advance(s)`);
