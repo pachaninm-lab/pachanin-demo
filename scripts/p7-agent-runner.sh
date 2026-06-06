@@ -88,6 +88,13 @@ consume_trigger_issue() {
   fi
 }
 
+dispatch_generated_merge_gate() {
+  if [ -n "${REPO_NAME:-}" ] && command -v gh >/dev/null 2>&1; then
+    gh workflow run platform-v7-autopilot-generated-merge.yml --repo "$REPO_NAME" --ref main || true
+    echo "Dispatched platform-v7 generated merge gate."
+  fi
+}
+
 if [ -n "${GITHUB_ENV:-}" ]; then
   {
     echo "P7_AGENT_BRANCH=${BRANCH_NAME}"
@@ -195,6 +202,7 @@ slice_guard_action=$(SLICE_GUARD_RESULT="$slice_guard_result" node -e "const r=J
 slice_guard_reason=$(SLICE_GUARD_RESULT="$slice_guard_result" node -e "const r=JSON.parse(process.env.SLICE_GUARD_RESULT); console.log(r.reason || r.action)")
 
 if [ "$slice_guard_action" = "noop" ]; then
+  dispatch_generated_merge_gate
   consume_trigger_issue
   set_agent_noop "$slice_guard_reason"
   exit 0
@@ -203,6 +211,7 @@ fi
 if [ "$slice_guard_action" = "reconcile" ]; then
   echo "Current slice has a merged generated PR or audit lock; running generated merge reconciler instead of creating another PR."
   node scripts/p7-autopilot-generated-merge-reconcile.mjs
+  dispatch_generated_merge_gate
   consume_trigger_issue
   set_agent_noop "$slice_guard_reason"
   exit 0
@@ -454,6 +463,7 @@ open_generated_pr() {
     gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label automerge || true
     echo "Generated PR ready for guarded automerge: #$pr_number"
     consume_trigger_issue
+    dispatch_generated_merge_gate
   fi
 }
 
