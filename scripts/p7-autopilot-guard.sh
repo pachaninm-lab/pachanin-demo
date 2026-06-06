@@ -32,7 +32,7 @@ for (const file of state.allowedCurrentScope || []) console.log(file);
 JS
 )
 
-ALLOWED_INFRA='^(AGENTS\.md|docs/platform-v7/execution-queue\.md|docs/platform-v7/autopilot/.*|scripts/p7-autopilot-guard\.sh|scripts/p7-agent-runner\.sh|scripts/p7-autopilot-dispatcher\.mjs|scripts/p7-autopilot-scope-cleaner\.mjs|\.github/workflows/platform-v7-autopilot-guard\.yml|\.github/workflows/platform-v7-autopilot-loop\.yml|\.github/workflows/platform-v7-agent-runner\.yml|\.github/workflows/platform-v7-generated-pr-cleanup\.yml|\.github/workflows/platform-v7-autopilot-watchdog\.yml|\.github/ISSUE_TEMPLATE/platform-v7-agent-run\.md)$'
+ALLOWED_INFRA='^(AGENTS\.md|docs/platform-v7/execution-queue\.md|docs/platform-v7/autopilot/.*|scripts/p7-autopilot-guard\.sh|scripts/p7-agent-runner\.sh|scripts/p7-autopilot-dispatcher\.mjs|scripts/p7-autopilot-scope-cleaner\.mjs|\.github/workflows/automerge\.yml|\.github/workflows/ci\.yml|\.github/workflows/platform-v7-autopilot-guard\.yml|\.github/workflows/platform-v7-autopilot-generated-merge\.yml|\.github/workflows/platform-v7-autopilot-loop\.yml|\.github/workflows/platform-v7-agent-runner\.yml|\.github/workflows/platform-v7-generated-pr-cleanup\.yml|\.github/workflows/platform-v7-autopilot-watchdog\.yml|\.github/workflows/platform-v7-safe-merge\.yml|\.github/ISSUE_TEMPLATE/platform-v7-agent-run\.md)$'
 
 FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$|\.env|.*\.pem$|.*\.key$)'
 
@@ -47,7 +47,7 @@ const fs = require('fs');
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
 const files = String(process.env.DIFF_FILES || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
 const allowedCurrent = Array.isArray(state.allowedCurrentScope) ? state.allowedCurrentScope : [];
-const allowedInfra = /^(AGENTS\.md|docs\/platform-v7\/execution-queue\.md|docs\/platform-v7\/autopilot\/.+|scripts\/p7-autopilot-guard\.sh|scripts\/p7-agent-runner\.sh|scripts\/p7-autopilot-dispatcher\.mjs|scripts\/p7-autopilot-scope-cleaner\.mjs|\.github\/workflows\/platform-v7-autopilot-guard\.yml|\.github\/workflows\/platform-v7-autopilot-loop\.yml|\.github\/workflows\/platform-v7-agent-runner\.yml|\.github\/workflows\/platform-v7-generated-pr-cleanup\.yml|\.github\/workflows\/platform-v7-autopilot-watchdog\.yml|\.github\/ISSUE_TEMPLATE\/platform-v7-agent-run\.md)$/;
+const allowedInfra = /^(AGENTS\.md|docs\/platform-v7\/execution-queue\.md|docs\/platform-v7\/autopilot\/.+|scripts\/p7-autopilot-guard\.sh|scripts\/p7-agent-runner\.sh|scripts\/p7-autopilot-dispatcher\.mjs|scripts\/p7-autopilot-scope-cleaner\.mjs|\.github\/workflows\/automerge\.yml|\.github\/workflows\/ci\.yml|\.github\/workflows\/platform-v7-autopilot-guard\.yml|\.github\/workflows\/platform-v7-autopilot-generated-merge\.yml|\.github\/workflows\/platform-v7-autopilot-loop\.yml|\.github\/workflows\/platform-v7-agent-runner\.yml|\.github\/workflows\/platform-v7-generated-pr-cleanup\.yml|\.github\/workflows\/platform-v7-autopilot-watchdog\.yml|\.github\/workflows\/platform-v7-safe-merge\.yml|\.github\/ISSUE_TEMPLATE\/platform-v7-agent-run\.md)$/;
 
 function normalizePath(input) {
   return String(input ?? '').trim().replace(/\\/g, '/').replace(/\/+$/g, '');

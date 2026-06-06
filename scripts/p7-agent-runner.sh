@@ -81,6 +81,13 @@ set_agent_noop() {
   echo "Agent NOOP: ${reason}"
 }
 
+consume_trigger_issue() {
+  if [ -n "${ISSUE_NUMBER:-}" ] && [ -n "${REPO_NAME:-}" ] && command -v gh >/dev/null 2>&1; then
+    gh issue edit "$ISSUE_NUMBER" --repo "$REPO_NAME" --remove-label agent:run >/dev/null 2>&1 || true
+    echo "Consumed trigger issue #${ISSUE_NUMBER}: removed agent:run label if present."
+  fi
+}
+
 if [ -n "${GITHUB_ENV:-}" ]; then
   {
     echo "P7_AGENT_BRANCH=${BRANCH_NAME}"
@@ -188,6 +195,7 @@ slice_guard_action=$(SLICE_GUARD_RESULT="$slice_guard_result" node -e "const r=J
 slice_guard_reason=$(SLICE_GUARD_RESULT="$slice_guard_result" node -e "const r=JSON.parse(process.env.SLICE_GUARD_RESULT); console.log(r.reason || r.action)")
 
 if [ "$slice_guard_action" = "noop" ]; then
+  consume_trigger_issue
   set_agent_noop "$slice_guard_reason"
   exit 0
 fi
@@ -195,6 +203,7 @@ fi
 if [ "$slice_guard_action" = "reconcile" ]; then
   echo "Current slice has a merged generated PR or audit lock; running generated merge reconciler instead of creating another PR."
   node scripts/p7-autopilot-generated-merge-reconcile.mjs
+  consume_trigger_issue
   set_agent_noop "$slice_guard_reason"
   exit 0
 fi
@@ -413,13 +422,14 @@ open_generated_pr() {
     echo
     echo "Scope is controlled by source-of-truth files and guard scripts."
     echo "Work remains PR-only and keeps controlled-pilot / pre-integration maturity language."
-    echo "Automerge label is applied; merge is still gated by GitHub checks and repository automerge rules."
+    echo "Automerge label is applied; merge is owned by the platform-v7 generated merge gate."
   } > /tmp/p7-agent-pr-body.md
 
   if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
     existing_pr=$(gh pr list --repo "$REPO_NAME" --head "$BRANCH_NAME" --json number --jq '.[0].number // ""')
     if [ -n "$existing_pr" ]; then
       echo "Generated PR already exists: #$existing_pr"
+      consume_trigger_issue
       exit 0
     fi
   else
@@ -443,6 +453,7 @@ open_generated_pr() {
     gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label agent-generated || true
     gh pr edit "$pr_number" --repo "$REPO_NAME" --add-label automerge || true
     echo "Generated PR ready for guarded automerge: #$pr_number"
+    consume_trigger_issue
   fi
 }
 

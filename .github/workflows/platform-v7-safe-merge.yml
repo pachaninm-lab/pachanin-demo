@@ -49,6 +49,8 @@ jobs:
             review_decision=$(printf '%s' "$pr_json" | jq -r '.reviewDecision // ""')
 
             echo "- checking #$number ($head)" >> "$GITHUB_STEP_SUMMARY"
+            echo "  - skipped: platform-v7 agent-generated PRs are reserved for platform-v7-autopilot-generated-merge.yml" >> "$GITHUB_STEP_SUMMARY"
+            continue
 
             if [ "$is_draft" = "true" ]; then
               echo "  - skipped: draft" >> "$GITHUB_STEP_SUMMARY"

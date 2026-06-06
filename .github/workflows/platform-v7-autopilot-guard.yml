@@ -1,6 +1,7 @@
 name: platform-v7 autopilot guard
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - main

@@ -6,8 +6,17 @@ const repo = process.env.REPO;
 if (!repo) throw new Error('Missing REPO');
 
 const forbiddenPattern = /^(apps\/landing|apps\/web\/app\/platform-v7|apps\/web\/components\/platform-v7|apps\/web\/components\/v7r|apps\/web\/lib\/platform-v7|apps\/web\/app\/api|package\.json|package-lock\.json|pnpm-lock\.yaml)(\/|$)/;
-const allowedPattern = /^(apps\/web\/tests\/e2e\/platform-v7-agent-generated-smoke.*\.spec\.ts|docs\/platform-v7\/autopilot\/.*|docs\/platform-v7\/execution-queue\.md)$/;
 const ignoredStatusContext = 'deploy/pachaninm-lab/pachanin-demo';
+const ignoredCheckNames = new Set([
+  'platform-v7 autopilot generated merge',
+  'Repo automations',
+  ignoredStatusContext,
+]);
+const requiredWorkflows = [
+  { name: 'CI', file: 'ci.yml' },
+  { name: 'Node CI', file: 'node-ci.yml' },
+  { name: 'platform-v7 autopilot guard', file: 'platform-v7-autopilot-guard.yml' },
+];
 
 function out(command, args) {
   return execFileSync(command, args, { encoding: 'utf8' }).trim();
@@ -22,15 +31,62 @@ function run(command, args, env = process.env) {
   execFileSync(command, args, { stdio: 'inherit', env });
 }
 
-function assertGeneratedScope(prNumber) {
-  const files = out('gh', ['pr', 'diff', prNumber, '--repo', repo, '--name-only'])
+function normalizePath(input) {
+  return String(input || '').trim().replace(/\\/g, '/');
+}
+
+function readState() {
+  return JSON.parse(readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+}
+
+function currentSliceNumber() {
+  const state = readState();
+  const match = String(state.current || '').match(/Autopilot Product Slice\s+(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function currentAgentWritableFile() {
+  const state = readState();
+  const writable = Array.isArray(state.agentWritableScope) ? state.agentWritableScope.map(normalizePath) : [];
+  if (writable.length !== 1) throw new Error(`expected exactly one agentWritableScope file, got ${writable.length}`);
+  return writable[0];
+}
+
+function titleSliceNumber(title) {
+  const match = String(title || '').match(/autopilot product slice\s+(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function prFiles(prNumber) {
+  return out('gh', ['pr', 'diff', String(prNumber), '--repo', repo, '--name-only'])
     .split('\n')
-    .map((file) => file.trim())
+    .map(normalizePath)
     .filter(Boolean);
+}
+
+function assertGeneratedScope(prNumber, exactWritableFile) {
+  const files = prFiles(prNumber);
+  const allowedDocsPattern = /^(docs\/platform-v7\/autopilot\/.*|docs\/platform-v7\/execution-queue\.md)$/;
 
   for (const file of files) {
     if (forbiddenPattern.test(file)) throw new Error(`forbidden generated PR file: ${file}`);
-    if (!allowedPattern.test(file)) throw new Error(`generated PR file outside scope: ${file}`);
+    if (file === exactWritableFile) continue;
+    if (allowedDocsPattern.test(file)) continue;
+    throw new Error(`generated PR file outside exact scope: ${file}`);
+  }
+
+  if (!files.includes(exactWritableFile)) {
+    throw new Error(`generated PR did not change exact agentWritableScope file: ${exactWritableFile}`);
+  }
+}
+
+function assertStateAdvanceScope(prNumber) {
+  const files = prFiles(prNumber);
+  const allowedPattern = /^(docs\/platform-v7\/autopilot\/.*|docs\/platform-v7\/execution-queue\.md)$/;
+
+  for (const file of files) {
+    if (forbiddenPattern.test(file)) throw new Error(`forbidden SOT advance PR file: ${file}`);
+    if (!allowedPattern.test(file)) throw new Error(`SOT advance PR file outside scope: ${file}`);
   }
 }
 
@@ -43,7 +99,7 @@ function assertStatuses(headSha) {
   for (const row of rows) {
     const [context, state] = row.split('\t');
     if (context === ignoredStatusContext) continue;
-    if (state !== 'success') throw new Error(`generated PR status is not green: ${context}:${state}`);
+    if (state !== 'success') throw new Error(`commit status is not green: ${context}:${state}`);
   }
 }
 
@@ -52,35 +108,95 @@ function assertCheckRollup(prNumber) {
   const checks = Array.isArray(value) ? value : [];
   for (const check of checks) {
     const name = check.context || check.name || check.workflowName || check.title || '';
-    if (name === ignoredStatusContext) continue;
+    if (ignoredCheckNames.has(name)) continue;
     const status = String(check.status || '').toUpperCase();
     const conclusion = String(check.conclusion || check.state || '').toUpperCase();
-    if (status && status !== 'COMPLETED') throw new Error(`generated PR check is not completed: ${name}:${status}`);
+    if (status && status !== 'COMPLETED') throw new Error(`check is not completed: ${name}:${status}`);
     if (conclusion && !['SUCCESS', 'SKIPPED', 'NEUTRAL'].includes(conclusion)) {
-      throw new Error(`generated PR check is not green: ${name}:${conclusion}`);
+      throw new Error(`check is not green: ${name}:${conclusion}`);
     }
   }
 }
 
-function currentSliceNumber() {
-  const state = JSON.parse(readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
-  const match = String(state.current || '').match(/Autopilot Product Slice\s+(\d+)/i);
-  return match ? Number(match[1]) : null;
+function runsForSha(headSha) {
+  const runs = json('gh', [
+    'api',
+    '--method',
+    'GET',
+    `repos/${repo}/actions/runs`,
+    '-f',
+    `head_sha=${headSha}`,
+    '-f',
+    'per_page=100',
+    '--jq',
+    '.workflow_runs',
+  ]);
+  return Array.isArray(runs) ? runs : [];
 }
 
-function titleSliceNumber(title) {
-  const match = String(title || '').match(/autopilot product slice\s+(\d+)/i);
-  return match ? Number(match[1]) : null;
+function latestRun(runs, workflowName) {
+  return runs
+    .filter((runItem) => runItem.name === workflowName)
+    .sort((left, right) => Date.parse(right.created_at || '') - Date.parse(left.created_at || ''))[0] || null;
 }
 
-function openStateAdvanceRecovery(prNumber, headSha) {
-  const branch = `p7-state/${prNumber}-reconcile`;
-  const existingPr = out('gh', ['pr', 'list', '--repo', repo, '--state', 'open', '--head', branch, '--json', 'number', '--jq', '.[0].number // ""']);
+function ensureRequiredWorkflows(headSha, headRefName) {
+  const runs = runsForSha(headSha);
+  let dispatched = 0;
+
+  for (const workflow of requiredWorkflows) {
+    const runItem = latestRun(runs, workflow.name);
+    if (!runItem) {
+      run('gh', ['workflow', 'run', workflow.file, '--repo', repo, '--ref', headRefName]);
+      dispatched += 1;
+      continue;
+    }
+
+    if (runItem.status !== 'completed') {
+      throw new Error(`required workflow is still running: ${workflow.name}:${runItem.status}`);
+    }
+
+    if (!['success', 'skipped', 'neutral'].includes(String(runItem.conclusion || '').toLowerCase())) {
+      throw new Error(`required workflow is not green: ${workflow.name}:${runItem.conclusion}`);
+    }
+  }
+
+  if (dispatched > 0) {
+    throw new Error(`dispatched ${dispatched} required workflow(s); waiting for completion`);
+  }
+}
+
+function mergePr(prNumber, headSha, message) {
+  run('gh', [
+    'api',
+    '--method',
+    'PUT',
+    `repos/${repo}/pulls/${prNumber}/merge`,
+    '-f',
+    'merge_method=squash',
+    '-f',
+    `sha=${headSha}`,
+    '-f',
+    `commit_title=${message}`,
+  ]);
+}
+
+function existingStateAdvancePr(prNumber) {
+  for (const branch of [`p7-state/${prNumber}`, `p7-state/${prNumber}-reconcile`]) {
+    const found = out('gh', ['pr', 'list', '--repo', repo, '--state', 'open', '--head', branch, '--json', 'number', '--jq', '.[0].number // ""']);
+    if (found) return found;
+  }
+  return '';
+}
+
+function openStateAdvanceRecovery(prNumber, mergeSha) {
+  const existingPr = existingStateAdvancePr(prNumber);
   if (existingPr) {
     console.log(`state advance PR already open for generated PR #${prNumber}: #${existingPr}`);
     return false;
   }
 
+  const branch = `p7-state/${prNumber}`;
   run('git', ['fetch', 'origin', 'main']);
   run('git', ['checkout', '-B', 'main', 'origin/main']);
   run('git', ['config', 'user.name', 'p7-state']);
@@ -89,7 +205,7 @@ function openStateAdvanceRecovery(prNumber, headSha) {
   run('node', ['scripts/p7-autopilot-generated-state-advance.mjs'], {
     ...process.env,
     PR_NUMBER: String(prNumber),
-    MERGE_SHA: String(headSha),
+    MERGE_SHA: String(mergeSha),
   });
 
   const status = out('git', ['status', '--porcelain']);
@@ -109,7 +225,7 @@ function openStateAdvanceRecovery(prNumber, headSha) {
       '--title',
       'p7 advance after generated PR',
       '--body',
-      `Automated SOT advance recovery after generated PR #${prNumber}.`,
+      `Automated SOT advance recovery after generated PR #${prNumber}. Merge remains owned by the platform-v7 generated merge gate.`,
       '--head',
       branch,
       '--base',
@@ -118,85 +234,169 @@ function openStateAdvanceRecovery(prNumber, headSha) {
     statePr = out('gh', ['pr', 'list', '--repo', repo, '--head', branch, '--json', 'number', '--jq', '.[0].number // ""']);
   }
 
-  if (statePr) {
-    run('gh', ['pr', 'edit', statePr, '--repo', repo, '--add-label', 'platform-v7']);
-    run('gh', ['pr', 'edit', statePr, '--repo', repo, '--add-label', 'automerge']);
-  }
+  if (statePr) run('gh', ['pr', 'edit', statePr, '--repo', repo, '--add-label', 'platform-v7']);
   return true;
 }
 
-const openPrs = json('gh', [
-  'pr',
-  'list',
-  '--repo',
-  repo,
-  '--state',
-  'open',
-  '--label',
-  'platform-v7',
-  '--label',
-  'agent-generated',
-  '--label',
-  'automerge',
-  '--json',
-  'number,headRefOid,isDraft,mergeable',
-]);
+function mergedPrCommitSha(prNumber) {
+  const pr = json('gh', ['pr', 'view', String(prNumber), '--repo', repo, '--json', 'mergeCommit', '--jq', '.mergeCommit']);
+  return pr?.oid || '';
+}
 
-for (const pr of openPrs) {
-  if (pr.isDraft) continue;
-  if (pr.mergeable === 'CONFLICTING') continue;
-  const prNumber = String(pr.number);
-  const headSha = String(pr.headRefOid || '');
-  if (!headSha) continue;
-  try {
-    assertGeneratedScope(prNumber);
-    assertCheckRollup(prNumber);
+function mergeOpenGeneratedPrs() {
+  const slice = currentSliceNumber();
+  const exactWritableFile = currentAgentWritableFile();
+  const openPrs = json('gh', [
+    'pr',
+    'list',
+    '--repo',
+    repo,
+    '--state',
+    'open',
+    '--label',
+    'platform-v7',
+    '--label',
+    'agent-generated',
+    '--label',
+    'automerge',
+    '--json',
+    'number,headRefOid,headRefName,isDraft,mergeable,title',
+  ]);
+
+  let merged = 0;
+  for (const pr of openPrs) {
+    const prNumber = String(pr.number);
+    if (titleSliceNumber(pr.title) !== slice) {
+      console.log(`generated PR #${prNumber} is stale for current slice ${slice}; skipped`);
+      continue;
+    }
+    if (pr.isDraft) continue;
+    if (pr.mergeable !== 'MERGEABLE') {
+      console.log(`generated PR #${prNumber} is not mergeable yet: ${pr.mergeable}`);
+      continue;
+    }
+
+    const headSha = String(pr.headRefOid || '');
+    const headRefName = String(pr.headRefName || '');
+    if (!headSha || !headRefName) continue;
+
+    try {
+      assertGeneratedScope(prNumber, exactWritableFile);
+      ensureRequiredWorkflows(headSha, headRefName);
+      assertCheckRollup(prNumber);
+      assertStatuses(headSha);
+    } catch (error) {
+      console.log(`generated PR #${prNumber} is not ready for guarded merge: ${error.message}`);
+      continue;
+    }
+
+    run('node', ['scripts/p7-autopilot-generated-merge-and-advance.mjs'], {
+      ...process.env,
+      PR_NUMBER: prNumber,
+      HEAD_SHA: headSha,
+    });
+    merged += 1;
+  }
+
+  return { checked: openPrs.length, merged };
+}
+
+function mergeOpenStateAdvancePrs() {
+  const prs = json('gh', [
+    'pr',
+    'list',
+    '--repo',
+    repo,
+    '--state',
+    'open',
+    '--label',
+    'platform-v7',
+    '--json',
+    'number,headRefOid,headRefName,isDraft,mergeable,title',
+    '--limit',
+    '50',
+  ]).filter((pr) => String(pr.headRefName || '').startsWith('p7-state/') && String(pr.title || '') === 'p7 advance after generated PR');
+
+  let merged = 0;
+  for (const pr of prs) {
+    const prNumber = String(pr.number);
+    if (pr.isDraft) continue;
+    if (pr.mergeable !== 'MERGEABLE') {
+      console.log(`SOT advance PR #${prNumber} is not mergeable yet: ${pr.mergeable}`);
+      continue;
+    }
+
+    const headSha = String(pr.headRefOid || '');
+    const headRefName = String(pr.headRefName || '');
+    if (!headSha || !headRefName) continue;
+
+    try {
+      assertStateAdvanceScope(prNumber);
+      ensureRequiredWorkflows(headSha, headRefName);
+      assertCheckRollup(prNumber);
+      assertStatuses(headSha);
+    } catch (error) {
+      console.log(`SOT advance PR #${prNumber} is not ready for guarded merge: ${error.message}`);
+      continue;
+    }
+
+    mergePr(prNumber, headSha, `docs(platform-v7): advance SOT after generated PR`);
+    merged += 1;
+  }
+
+  return { checked: prs.length, merged };
+}
+
+function recoverMergedGeneratedPr() {
+  const slice = currentSliceNumber();
+  const exactWritableFile = currentAgentWritableFile();
+  const closedPrs = json('gh', [
+    'pr',
+    'list',
+    '--repo',
+    repo,
+    '--state',
+    'closed',
+    '--label',
+    'platform-v7',
+    '--label',
+    'agent-generated',
+    '--json',
+    'number,headRefOid,mergedAt,title',
+    '--limit',
+    '20',
+  ]);
+
+  for (const pr of closedPrs) {
+    if (!pr.mergedAt) continue;
+    if (titleSliceNumber(pr.title) !== slice) continue;
+
+    const prNumber = String(pr.number);
+    const headSha = String(pr.headRefOid || '');
+    if (!headSha) continue;
+
+    assertGeneratedScope(prNumber, exactWritableFile);
+    try {
+      assertCheckRollup(prNumber);
+    } catch (error) {
+      console.log(`merged generated PR #${prNumber} check rollup mismatch during SOT recovery: ${error.message}`);
+    }
     assertStatuses(headSha);
-  } catch (error) {
-    console.log(`generated PR #${prNumber} is not ready for guarded merge: ${error.message}`);
-    continue;
+
+    const mergeSha = mergedPrCommitSha(prNumber) || headSha;
+    return openStateAdvanceRecovery(prNumber, mergeSha) ? 1 : 0;
   }
-  run('node', ['scripts/p7-autopilot-generated-merge-and-advance.mjs'], {
-    ...process.env,
-    PR_NUMBER: prNumber,
-    HEAD_SHA: headSha,
-  });
+
+  return 0;
 }
 
-const slice = currentSliceNumber();
-const closedPrs = json('gh', [
-  'pr',
-  'list',
-  '--repo',
-  repo,
-  '--state',
-  'closed',
-  '--label',
-  'platform-v7',
-  '--label',
-  'agent-generated',
-  '--json',
-  'number,headRefOid,mergedAt,title',
-  '--limit',
-  '10',
-]);
+const generated = mergeOpenGeneratedPrs();
+const stateBeforeRecovery = mergeOpenStateAdvancePrs();
+const recovered = recoverMergedGeneratedPr();
+const stateAfterRecovery = mergeOpenStateAdvancePrs();
 
-let recovered = 0;
-for (const pr of closedPrs) {
-  if (!pr.mergedAt) continue;
-  if (titleSliceNumber(pr.title) !== slice) continue;
-  const prNumber = String(pr.number);
-  const headSha = String(pr.headRefOid || '');
-  if (!headSha) continue;
-  assertGeneratedScope(prNumber);
-  try {
-    assertCheckRollup(prNumber);
-  } catch (error) {
-    console.log(`merged generated PR #${prNumber} check rollup mismatch during SOT recovery: ${error.message}`);
-  }
-  assertStatuses(headSha);
-  if (openStateAdvanceRecovery(prNumber, headSha)) recovered += 1;
-  break;
-}
-
-console.log(`generated merge reconcile checked ${openPrs.length} open PR(s), recovered ${recovered} merged PR state advance(s)`);
+console.log([
+  `generated merge reconcile checked ${generated.checked} open generated PR(s), merged ${generated.merged}`,
+  `checked ${stateBeforeRecovery.checked + stateAfterRecovery.checked} open SOT advance PR(s), merged ${stateBeforeRecovery.merged + stateAfterRecovery.merged}`,
+  `recovered ${recovered} merged generated PR state advance(s)`,
+].join('; '));
