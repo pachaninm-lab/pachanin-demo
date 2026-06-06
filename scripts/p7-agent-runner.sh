@@ -265,6 +265,25 @@ console.log(`deterministic fallback file applied: ${filePath}`);
 JS
 }
 
+ensure_agent_writable_change() {
+  node <<'JS'
+const cp = require('child_process');
+const fs = require('fs');
+const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+const writable = Array.isArray(state.agentWritableScope) ? state.agentWritableScope : [];
+if (writable.length === 0) process.exit(0);
+const changed = cp.execSync('git status --porcelain', { encoding: 'utf8' })
+  .split(/\r?\n/)
+  .map((line) => line.slice(3).trim())
+  .filter(Boolean);
+const hit = writable.some((file) => changed.includes(file));
+if (!hit) {
+  console.error(`ERROR: agentWritableScope present but no exact writable file changed: ${writable.join(', ')}`);
+  process.exit(4);
+}
+JS
+}
+
 open_generated_pr() {
   if [ -z "${REPO_NAME:-}" ]; then
     echo "ERROR: repository name is not available for PR creation."
@@ -332,6 +351,28 @@ if [ "$agent_status" -ne 0 ]; then
   if [ "$fallback_status" -ne 0 ]; then
     exit "$fallback_status"
   fi
+fi
+
+set +e
+ensure_agent_writable_change
+writable_status=$?
+set -e
+if [ "$writable_status" -eq 4 ]; then
+  echo "Agent did not change exact agentWritableScope file; applying deterministic fallback."
+  set +e
+  write_deterministic_fallback
+  fallback_status=$?
+  set -e
+  if [ "$fallback_status" -ne 0 ]; then
+    exit "$fallback_status"
+  fi
+  set +e
+  ensure_agent_writable_change
+  writable_status=$?
+  set -e
+fi
+if [ "$writable_status" -ne 0 ]; then
+  exit "$writable_status"
 fi
 
 if [ -z "$(git status --porcelain)" ]; then
