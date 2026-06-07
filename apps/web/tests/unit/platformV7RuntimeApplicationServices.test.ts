@@ -664,7 +664,7 @@ describe('platform-v7 runtime application services', () => {
   });
 
   it('service source uses only action-boundary executors and has no hidden runtime state', () => {
-    const source = readFileSync(join(process.cwd(), 'lib/platform-v7/runtime/application-service.ts'), 'utf8');
+    const source = readFileSync(join(process.cwd(), 'apps/web/lib/platform-v7/runtime/application-service.ts'), 'utf8');
 
     [
       'platformV7ApplyMoneyOperation',
