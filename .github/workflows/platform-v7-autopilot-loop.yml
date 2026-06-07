@@ -39,14 +39,26 @@ jobs:
           set -euo pipefail
           current=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.current || '')")
           current_status=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.currentStatus || '')")
-          open_prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number --jq 'length')
+
+          # Count only open agent PRs matching the current slice; stale slices are excluded
+          gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated \
+            --json number,title > /tmp/p7-loop-open-prs.json
+          open_prs=$(CURRENT_STEP="$current" node -e "
+            const fs=require('fs');
+            const prs=JSON.parse(fs.readFileSync('/tmp/p7-loop-open-prs.json','utf8'));
+            const m=String(process.env.CURRENT_STEP||'').match(/\d+\$/);
+            const slice=m?Number(m[0]):0;
+            if(!slice){process.stdout.write(String(prs.length));process.exit(0);}
+            const re=new RegExp('slice\\\\s+'+slice+'\\\\b','i');
+            process.stdout.write(String(prs.filter(p=>re.test(p.title||'')).length));
+          ")
 
           echo "current=$current" >> "$GITHUB_OUTPUT"
           echo "current_status=$current_status" >> "$GITHUB_OUTPUT"
           echo "open_agent_prs=$open_prs" >> "$GITHUB_OUTPUT"
           echo "current step: $current"
           echo "current status: $current_status"
-          echo "open agent PRs: $open_prs"
+          echo "open agent PRs (current slice): $open_prs"
 
       - name: Trigger current step when idle
         if: steps.state.outputs.open_agent_prs == '0' && steps.state.outputs.current_status == 'ready'
@@ -95,7 +107,7 @@ Merge remains guarded by CI and scope checks."
 
       - name: Skip when agent PR exists
         if: steps.state.outputs.open_agent_prs != '0'
-        run: echo "Open agent-generated platform-v7 PR exists. Loop will not start another implementation PR."
+        run: echo "Open agent-generated PR for current slice exists. Loop will not start another implementation PR."
 
       - name: Skip when current step not ready
         if: steps.state.outputs.current_status != 'ready'
