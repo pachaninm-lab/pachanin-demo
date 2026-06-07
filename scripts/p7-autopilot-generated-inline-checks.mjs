@@ -55,7 +55,7 @@ function runGeneratedScopeGuard(worktree) {
     }
   }
 
-  const runMatch = ref.match(/^p7-agent\/([A-Za-z0-9._-]+)-/);
+  const runMatch = ref.match(/^p7-agent\/(\d+)-/);
   if (!runMatch) fail(`cannot infer run id from generated branch: ${ref}`);
   const runId = runMatch[1];
   const smoke = files.filter((file) => /^apps\/web\/tests\/e2e\/platform-v7-agent-generated-smoke-\d+\.spec\.ts$/.test(file));
