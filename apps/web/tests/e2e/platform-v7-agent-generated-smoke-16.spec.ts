@@ -9,4 +9,4 @@ test.describe('platform-v7 generated fallback smoke', () => {
     await expect(page.locator('body'), 'platform-v7 should not show fatal route copy').not.toContainText(/404|500|Application error|Unhandled Runtime Error|This page could not be found/i);
   });
 });
-// platform-v7 fallback run marker: 27091166344 2026-06-07T11:25:54.155Z
+// platform-v7 fallback run marker: 27091976632 2026-06-07T12:02:25.649Z
