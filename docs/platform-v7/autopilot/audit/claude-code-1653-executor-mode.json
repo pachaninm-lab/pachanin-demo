@@ -1,0 +1,18 @@
+{
+  "executor": "claude-code",
+  "issueNumber": 1653,
+  "timestamp": "2026-06-07T22:45:00.000Z",
+  "prScope": [
+    "docs/platform-v7/autopilot/claude-code-executor-mode.md",
+    "docs/platform-v7/autopilot/claude-code-task-template.md",
+    "docs/platform-v7/autopilot/claude-code-pr-checklist.md",
+    "docs/platform-v7/autopilot/claude-code-audit-marker.md",
+    "docs/platform-v7/autopilot/audit/claude-code-1653-executor-mode.json"
+  ],
+  "fallbackAutopilotActive": true,
+  "fallbackStatus": "blocked at Slice 20 (generated_slice_cap_reached) — loop continues when cap clears",
+  "sotRead": "docs/platform-v7/autopilot/autopilot-state.json",
+  "allowedScopeVerified": true,
+  "forbiddenZonesTouched": false,
+  "maturity": "controlled-pilot / pre-integration"
+}
