@@ -1,4 +1,4 @@
-# Codex current task — Autopilot Product Slice 17
+# Codex current task — Autopilot Product Slice 18
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -13,7 +13,7 @@ Do not auto-merge. Human review and green checks are required.
 
 ## Current step
 
-Autopilot Product Slice 17
+Autopilot Product Slice 18
 
 ## Next candidate
 
@@ -21,11 +21,11 @@ Product Entry / Onboarding
 
 ## Transition guard
 
-- BLOCKED: Autopilot Product Slice 17 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
+- BLOCKED: Autopilot Product Slice 18 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
 
 ## Allowed current scope
 
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-16.spec.ts
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke-17.spec.ts
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 - scripts/p7-autopilot-*.mjs
@@ -47,10 +47,10 @@ Product Entry / Onboarding
 
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice 17
+CURRENT: Autopilot Product Slice 18
 
 CURRENT ALLOWED:
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-16.spec.ts
+- apps/web/tests/e2e/platform-v7-agent-generated-smoke-17.spec.ts
 
 CURRENT CRITERIA:
 - runner generates exactly one allowed code/test file;
@@ -97,9 +97,10 @@ DONE:
 - Autopilot Product Slice 14
 - Autopilot Product Slice 15
 - Autopilot Product Slice 16
+- Autopilot Product Slice 17
 
 NEXT:
-- Layer: Autopilot Product Slice 18
+- Layer: Autopilot Product Slice 19
 - Allowed files:
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
@@ -119,4 +120,4 @@ RULES:
 
 ## Implementation brief
 
-Implement Autopilot Product Slice 17 strictly inside the state allowed scope.
+Implement Autopilot Product Slice 18 strictly inside the state allowed scope.
