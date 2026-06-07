@@ -2,7 +2,7 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "ready",
+  "currentStatus": "blocked",
   "current": "Autopilot Product Slice 20",
   "openPr": null,
   "lastClosed": [
@@ -82,5 +82,6 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "72%"
+  "readiness": "72%",
+  "blockedReason": "generated_slice_cap_reached"
 }
