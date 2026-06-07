@@ -102,6 +102,8 @@ fi
 
 echo "Scope guard passed."
 
+node scripts/p7-autopilot-agent-engine-audit-guard.mjs
+
 STAGE5_TESTS=(
   "tests/unit/platformV7RuntimeServerActions.test.ts"
   "tests/unit/platformV7RuntimeIntegration.test.ts"

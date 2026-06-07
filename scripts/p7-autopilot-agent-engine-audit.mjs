@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-const fs = require('node:fs');
-const path = require('node:path');
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 
 const engine = String(process.argv[2] || 'unknown').trim();
 const allowedEngines = new Set(['openai', 'fallback', 'unknown']);
@@ -12,7 +12,7 @@ if (!allowedEngines.has(engine)) {
 
 function readJson(filePath) {
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return JSON.parse(readFileSync(filePath, 'utf8'));
   } catch {
     return {};
   }
@@ -50,9 +50,9 @@ const record = {
 };
 
 const auditDir = 'docs/platform-v7/autopilot/audit';
-fs.mkdirSync(auditDir, { recursive: true });
+mkdirSync(auditDir, { recursive: true });
 
 const auditPath = path.join(auditDir, `agent-engine-${runId}.json`);
-fs.writeFileSync(auditPath, `${JSON.stringify(record, null, 2)}\n`, 'utf8');
+writeFileSync(auditPath, `${JSON.stringify(record, null, 2)}\n`, 'utf8');
 
 console.log(`agent engine audit written: ${auditPath}`);
