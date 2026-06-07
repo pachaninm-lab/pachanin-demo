@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-06-07T09:45:27.352Z",
+  "sourcePr": 1602,
+  "sourceSha": "8d670e84bf500fe5a86063693d546a8deccc7969",
+  "layerClosed": "Autopilot Product Slice 16",
+  "nextLayer": "Autopilot Product Slice 17",
+  "allowedFiles": [
+    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-16.spec.ts",
+    "docs/platform-v7/autopilot/**",
+    "docs/platform-v7/execution-queue.md",
+    "scripts/p7-autopilot-*.mjs",
+    ".github/workflows/platform-v7-autopilot-*.yml"
+  ],
+  "mergeDecision": "state_advanced_pr"
+}
