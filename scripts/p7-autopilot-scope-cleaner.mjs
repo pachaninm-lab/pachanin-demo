@@ -4,10 +4,45 @@ import { readFileSync } from 'node:fs';
 
 const STATE_PATH = 'docs/platform-v7/autopilot/autopilot-state.json';
 const state = JSON.parse(readFileSync(STATE_PATH, 'utf8'));
-const allowed = new Set(state.allowedCurrentScope || []);
+const allowed = Array.isArray(state.allowedCurrentScope) ? state.allowedCurrentScope : [];
 
 function git(args) {
   return execFileSync('git', args, { encoding: 'utf8' }).trim();
+}
+
+function normalizePath(input) {
+  return String(input ?? '').trim().replace(/\\/g, '/').replace(/\/+$/g, '');
+}
+
+function escapeRegExp(input) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function globToRegExp(glob) {
+  const normalized = normalizePath(glob);
+  let pattern = '';
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index];
+    const next = normalized[index + 1];
+    if (character === '*' && next === '*') {
+      pattern += '.*';
+      index += 1;
+    } else if (character === '*') {
+      pattern += '[^/]*';
+    } else {
+      pattern += escapeRegExp(character);
+    }
+  }
+  return new RegExp(`^${pattern}$`);
+}
+
+function scopeMatches(allowedEntry, candidate) {
+  const scope = normalizePath(allowedEntry);
+  const filePath = normalizePath(candidate);
+  if (!scope || !filePath) return false;
+  if (scope === filePath) return true;
+  if (scope.includes('*')) return globToRegExp(scope).test(filePath);
+  return filePath.startsWith(`${scope}/`);
 }
 
 const status = git(['status', '--porcelain'])
@@ -16,7 +51,7 @@ const status = git(['status', '--porcelain'])
   .filter(Boolean);
 
 const changedPaths = status.map((line) => line.slice(3));
-const outside = changedPaths.filter((filePath) => !allowed.has(filePath));
+const outside = changedPaths.filter((filePath) => !allowed.some((scope) => scopeMatches(scope, filePath)));
 
 if (outside.length === 0) {
   console.log('scope cleaner: all changes are inside allowed current scope');
@@ -49,7 +84,7 @@ const remaining = git(['status', '--porcelain'])
   .filter(Boolean)
   .map((line) => line.slice(3));
 
-const remainingOutside = remaining.filter((filePath) => !allowed.has(filePath));
+const remainingOutside = remaining.filter((filePath) => !allowed.some((scope) => scopeMatches(scope, filePath)));
 if (remainingOutside.length > 0) {
   console.error('scope cleaner: remaining outside-scope changes detected');
   for (const filePath of remainingOutside) console.error(`- ${filePath}`);
