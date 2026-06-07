@@ -139,6 +139,31 @@ function runsForSha(headSha) {
   return Array.isArray(runs) ? runs : [];
 }
 
+function runsForBranch(headRefName) {
+  if (!headRefName) return [];
+  const runs = json('gh', [
+    'api',
+    '--method',
+    'GET',
+    `repos/${repo}/actions/runs`,
+    '-f',
+    `branch=${headRefName}`,
+    '-f',
+    'per_page=100',
+    '--jq',
+    '.workflow_runs',
+  ]);
+  return Array.isArray(runs) ? runs : [];
+}
+
+function workflowRuns(headSha, headRefName) {
+  const byId = new Map();
+  for (const runItem of [...runsForSha(headSha), ...runsForBranch(headRefName)]) {
+    if (runItem?.id) byId.set(runItem.id, runItem);
+  }
+  return [...byId.values()];
+}
+
 function latestRun(runs, workflowName) {
   return runs
     .filter((runItem) => runItem.name === workflowName)
@@ -146,7 +171,7 @@ function latestRun(runs, workflowName) {
 }
 
 function ensureRequiredWorkflows(headSha, headRefName) {
-  const runs = runsForSha(headSha);
+  const runs = workflowRuns(headSha, headRefName);
   let dispatched = 0;
 
   for (const workflow of requiredWorkflows) {
