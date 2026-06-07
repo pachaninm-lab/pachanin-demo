@@ -9,6 +9,7 @@ const forbiddenPattern = /^(apps\/landing|apps\/web\/app\/platform-v7|apps\/web\
 const ignoredStatusContext = 'deploy/pachaninm-lab/pachanin-demo';
 const ignoredCheckNames = new Set([
   'platform-v7 autopilot generated merge',
+  'platform-v7 generated PR cleanup',
   'Repo automations',
   ignoredStatusContext,
 ]);
