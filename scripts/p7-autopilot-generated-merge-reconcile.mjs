@@ -187,7 +187,9 @@ function ensureRequiredWorkflows(headSha, headRefName) {
     }
 
     if (!['success', 'skipped', 'neutral'].includes(String(runItem.conclusion || '').toLowerCase())) {
-      throw new Error(`required workflow is not green: ${workflow.name}:${runItem.conclusion}`);
+      run('gh', ['workflow', 'run', workflow.file, '--repo', repo, '--ref', headRefName]);
+      dispatched += 1;
+      continue;
     }
   }
 
