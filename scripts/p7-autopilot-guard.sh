@@ -6,6 +6,9 @@ HEAD_REF="${HEAD_REF:-HEAD}"
 STATE_FILE="docs/platform-v7/autopilot/autopilot-state.json"
 
 if git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
+  if ! git merge-base "$BASE_REF" "$HEAD_REF" >/dev/null 2>&1; then
+    git fetch --unshallow origin main 2>/dev/null || git fetch origin main
+  fi
   DIFF_FILES=$(git diff --name-only "$BASE_REF...$HEAD_REF")
 else
   DIFF_FILES=$(git diff --name-only "HEAD~1...$HEAD_REF")
