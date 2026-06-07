@@ -38,12 +38,23 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Guard and merge generated PR
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-        run: node scripts/p7-autopilot-generated-merge-reconcile.mjs
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          P7_GENERATED_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          node scripts/p7-autopilot-generated-inline-checks.mjs
+          node scripts/p7-autopilot-generated-merge-and-advance.mjs
+          node scripts/p7-autopilot-generated-merge-reconcile.mjs
 
   reconcile-generated:
     if: >-
