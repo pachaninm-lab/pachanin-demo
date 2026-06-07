@@ -37,7 +37,7 @@ if (!isAgentGeneratedBranch) {
   process.exit(0);
 }
 
-const match = headRef.match(/^p7-agent\/([A-Za-z0-9._-]+)-/);
+const match = headRef.match(/^p7-agent\/(\d+)-/);
 if (!match) fail(`cannot infer run id from generated branch: ${headRef}`);
 const runId = match[1];
 
