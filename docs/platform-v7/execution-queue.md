@@ -1,18 +1,43 @@
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice 20
+## MASTER-TZ Execution Order
+
+This is the real product execution sequence. The fallback smoke-slice loop is the
+automation conveyor only — it does not represent product completion.
+
+---
+
+CURRENT: PR 5.1 Application Service Layer
 
 CURRENT ALLOWED:
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-19.spec.ts
+- apps/web/lib/platform-v7/runtime/application-service.ts
+- apps/web/lib/platform-v7/runtime/application-service-types.ts
+- apps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts
 
 CURRENT CRITERIA:
-- runner generates exactly one allowed code/test file;
-- generated branch is opened as PR by the repo-side runner;
-- generated PR receives platform-v7, agent-generated and automerge labels without manual labeling;
-- restricted areas remain blocked;
-- merge gate remains final authority.
+- Implements P7MoneyExecutionService, P7DocumentExecutionService,
+  P7BankBasisExecutionService, P7ReleaseWorkflowService, P7DisputeSettlementService.
+- Connects: DTO validation, persistence ports, idempotency, audit,
+  action-boundary, domain result, typed service result.
+- Allowed domain paths: executePlatformV7MoneyAction,
+  executePlatformV7DocumentAction, executePlatformV7BankBasisAction.
+- Forbidden direct calls from service layer:
+  platformV7ApplyMoneyOperation, platformV7ReleaseGate,
+  p7ConfirmBankRelease, p7ConfirmBankRefund, p7ConfirmBankHold,
+  p7MarkBankBasisSent, p7BuildBankBasisPayload,
+  p7BuildArbitrationBasisPayload, platformV7DocumentsBlockingStage,
+  isBankBasisReady, platformV7DocumentMatrixReadiness.
+- Restricted areas remain blocked.
+- Merge gate remains final authority.
 
-DONE:
+DONE (MASTER-TZ checkpoints):
+- Stage 3: RBAC / ACL / roles / access rights
+- Stage 4: MoneyTree / Document Matrix / Bank Basis / Action Boundary / Final QA
+- PR 5.0: Runtime Inventory
+- PR 5.3: Persistence Port Interfaces
+- PR 5.4: DTO / Validation Schemas
+
+DONE (autopilot smoke conveyor):
 - baseline
 - Runner Inline PR
 - Runner Gate Fix
@@ -34,40 +59,22 @@ DONE:
 - Autopilot Scope Proposal Gate
 - Autopilot Exact Path Unlock
 - Autopilot Product Slice Proposal
-- Autopilot Product Slice 01
-- Autopilot Product Slice 02
-- Autopilot Product Slice 03
-- Autopilot Product Slice 04
-- Autopilot Product Slice 05
-- Autopilot Product Slice 06
-- Autopilot Product Slice 07
-- Autopilot Product Slice 08
-- Autopilot Product Slice 09
-- Autopilot Product Slice 10
-- Autopilot Product Slice 11
-- Autopilot Product Slice 12
-- Autopilot Product Slice 13
-- Autopilot Product Slice 14
-- Autopilot Product Slice 15
-- Autopilot Product Slice 16
-- Autopilot Product Slice 17
-- Autopilot Product Slice 18
-- Autopilot Product Slice 19
+- Autopilot Product Slice 01 through 20
 
-NEXT:
-- Layer: Autopilot Product Slice 21
-- Allowed files:
-  - docs/platform-v7/autopilot/**
-  - docs/platform-v7/execution-queue.md
-  - scripts/p7-autopilot-*.mjs
-  - .github/workflows/platform-v7-autopilot-*.yml
-- Success criteria:
-  - source-of-truth advances after generated PR merge;
-  - restricted areas remain blocked;
-  - merge gate remains final authority.
-- Readiness remains 72%.
+NEXT (strict order — each unlocked only after previous merges):
+1. PR 5.1 Application Service Layer                 ← CURRENT
+2. PR 5.5 Mock Persistence Adapter
+3. PR 5.2 Server Action Wrappers
+4. PR 5.6 Runtime Integration Tests
+5. PR 5.7 Final Stage 5 QA
+6. External Adapter Emulators     (only after Stage 5 complete)
+7. AI Integration Gateway         (only after runtime/adapters)
+8. Product Entry / Onboarding     (only after runtime foundation)
+9. Theme / Visual / Role Cockpit  (only after runtime binding)
 
 RULES:
 - One PR equals one narrow layer.
-- Keep controlled-pilot status.
-- Keep current slice limited to the exact allowed file.
+- Keep controlled-pilot / pre-integration status.
+- No apps/landing. No broad UI/runtime/API/DB/lockfiles outside explicit SOT unlock.
+- No production-ready claims. No fake-live claims.
+- Fallback smoke conveyor continues independently and does not represent product completion.

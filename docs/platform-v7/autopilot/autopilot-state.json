@@ -2,8 +2,8 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "blocked",
-  "current": "Autopilot Product Slice 20",
+  "currentStatus": "ready",
+  "current": "PR 5.1 Application Service Layer",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -45,23 +45,36 @@
     "Autopilot Product Slice 16",
     "Autopilot Product Slice 17",
     "Autopilot Product Slice 18",
-    "Autopilot Product Slice 19"
+    "Autopilot Product Slice 19",
+    "Autopilot Product Slice 20",
+    "Stage 3: RBAC",
+    "Stage 4: MoneyTree / DocMatrix / BankBasis / ActionBoundary / QA",
+    "PR 5.0: Runtime Inventory",
+    "PR 5.3: Persistence Ports",
+    "PR 5.4: DTO / Validation"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
     "Theme / Visual",
     "Role Cockpit / UX",
-    "Backend / DB / runtime persistence expansion"
+    "Backend / DB / runtime persistence expansion",
+    "External adapters",
+    "AI Integration Gateway",
+    "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-19.spec.ts",
+    "apps/web/lib/platform-v7/runtime/application-service.ts",
+    "apps/web/lib/platform-v7/runtime/application-service-types.ts",
+    "apps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-19.spec.ts"
+    "apps/web/lib/platform-v7/runtime/application-service.ts",
+    "apps/web/lib/platform-v7/runtime/application-service-types.ts",
+    "apps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts"
   ],
   "controlledActions": {
     "enabled": true
@@ -82,6 +95,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "72%",
-  "blockedReason": "generated_slice_cap_reached"
+  "readiness": "72%"
 }
