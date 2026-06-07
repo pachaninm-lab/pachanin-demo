@@ -95,6 +95,17 @@ dispatch_generated_merge_gate() {
   fi
 }
 
+write_agent_engine_audit() {
+  local engine="$1"
+  set +e
+  P7_AGENT_BRANCH_NAME="$BRANCH_NAME" P7_AGENT_CURRENT_STEP="$CURRENT_STEP" node scripts/p7-autopilot-agent-engine-audit.mjs "$engine"
+  local audit_status=$?
+  set -e
+  if [ "$audit_status" -ne 0 ]; then
+    echo "Agent engine audit failed for ${engine}; continuing without printing secrets."
+  fi
+}
+
 if [ -n "${GITHUB_ENV:-}" ]; then
   {
     echo "P7_AGENT_BRANCH=${BRANCH_NAME}"
@@ -467,10 +478,16 @@ open_generated_pr() {
   fi
 }
 
+agent_engine="unknown"
+
 set +e
 run_agent_api
 agent_status=$?
 set -e
+
+if [ "$agent_status" -eq 0 ]; then
+  agent_engine="openai"
+fi
 
 if [ "$agent_status" -ne 0 ]; then
   echo "Agent API did not produce a valid repository change; trying deterministic fallback inside agent writable scope."
@@ -480,6 +497,7 @@ if [ "$agent_status" -ne 0 ]; then
   set -e
   if [ "$fallback_status" -eq 0 ]; then
     node scripts/p7-autopilot-force-writable-diff.mjs
+    agent_engine="fallback"
   fi
   if [ "$fallback_status" -eq 3 ]; then
     echo "No deterministic fallback is available for this current step."
@@ -502,6 +520,7 @@ if [ "$writable_status" -eq 4 ]; then
   set -e
   if [ "$fallback_status" -eq 0 ]; then
     node scripts/p7-autopilot-force-writable-diff.mjs
+    agent_engine="fallback"
   fi
   if [ "$fallback_status" -ne 0 ]; then
     exit "$fallback_status"
@@ -513,6 +532,10 @@ if [ "$writable_status" -eq 4 ]; then
 fi
 if [ "$writable_status" -ne 0 ]; then
   exit "$writable_status"
+fi
+
+if [ "$agent_engine" = "openai" ] || [ "$agent_engine" = "fallback" ]; then
+  write_agent_engine_audit "$agent_engine"
 fi
 
 if [ -z "$(git status --porcelain)" ]; then
