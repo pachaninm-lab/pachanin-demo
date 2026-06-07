@@ -7,8 +7,9 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
   issues: write
+  actions: write
 
 concurrency:
   group: platform-v7-autopilot-watchdog
@@ -17,20 +18,84 @@ concurrency:
 jobs:
   watchdog:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Check activity
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Close stale generated PRs and report activity
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          echo "## platform-v7 watchdog" >> "$GITHUB_STEP_SUMMARY"
-          open_prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number,title,updatedAt --jq 'length')
-          echo "- open generated PRs: $open_prs" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$open_prs" = "0" ]; then
-            echo "- status: no generated PR is currently open" >> "$GITHUB_STEP_SUMMARY"
-          else
-            gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number,title,updatedAt --jq '.[] | "- #\(.number) \(.title) updated \(.updatedAt)"' >> "$GITHUB_STEP_SUMMARY"
+
+          current=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.current || '')")
+          current_status=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.currentStatus || '')")
+
+          {
+            echo "## platform-v7 watchdog"
+            echo "- current step: $current"
+            echo "- current status: $current_status"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated \
+            --json number,title,updatedAt > /tmp/p7-watchdog-open.json
+
+          current_slice=$(CURRENT_STEP="$current" node -e "const m=String(process.env.CURRENT_STEP||'').match(/\d+\$/); process.stdout.write(m?m[0]:'')")
+
+          open_current=$(CURRENT_SLICE="$current_slice" node -e "
+            const fs=require('fs');
+            const prs=JSON.parse(fs.readFileSync('/tmp/p7-watchdog-open.json','utf8'));
+            const slice=Number(process.env.CURRENT_SLICE)||0;
+            if(!slice){process.stdout.write(String(prs.length));process.exit(0);}
+            const re=new RegExp('slice\\\\s+'+slice+'\\\\b','i');
+            process.stdout.write(String(prs.filter(p=>re.test(p.title||'')).length));
+          ")
+
+          echo "- open generated PRs (current slice ${current_slice:-?}): $open_current" >> "$GITHUB_STEP_SUMMARY"
+
+          # Close stale generated PRs (for slices strictly below current)
+          closed_stale=0
+          if [ -n "$current_slice" ]; then
+            stale_numbers=$(CURRENT_SLICE="$current_slice" node -e "
+              const fs=require('fs');
+              const prs=JSON.parse(fs.readFileSync('/tmp/p7-watchdog-open.json','utf8'));
+              const cur=Number(process.env.CURRENT_SLICE)||0;
+              prs.forEach(p=>{
+                const m=String(p.title||'').match(/slice\s+(\d+)/i);
+                if(m && Number(m[1])<cur) process.stdout.write(p.number+'\n');
+              });
+            " || true)
+            while IFS= read -r pr_num; do
+              [ -n "$pr_num" ] || continue
+              echo "Closing stale generated PR #$pr_num (behind current Slice $current_slice)"
+              gh pr close "$pr_num" --repo "$REPO" \
+                --comment "watchdog: closing stale generated PR — current automation is at Slice $current_slice." || true
+              closed_stale=$((closed_stale + 1))
+            done <<< "$stale_numbers"
+          fi
+          echo "- stale generated PRs closed: $closed_stale" >> "$GITHUB_STEP_SUMMARY"
+
+          # Recovery: currentStatus=ready but no open current-slice PR → dispatch agent runner
+          if [ "$current_status" = "ready" ] && [ "$open_current" = "0" ]; then
+            echo "Watchdog: SOT ready but no open generated PR for current slice. Dispatching recovery."
+            gh workflow run platform-v7-agent-runner.yml --repo "$REPO" -f command=run-current || true
+            echo "- recovery: agent runner dispatched" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "$open_current" != "0" ]; then
+            node -e "
+              const fs=require('fs');
+              const prs=JSON.parse(fs.readFileSync('/tmp/p7-watchdog-open.json','utf8'));
+              const slice=Number('${current_slice:-0}')||0;
+              const re=slice?new RegExp('slice\\\\s+'+slice+'\\\\b','i'):null;
+              prs.filter(p=>!re||re.test(p.title||'')).forEach(p=>{
+                process.stdout.write('- #'+p.number+' '+p.title+' updated '+p.updatedAt+'\n');
+              });
+            " >> "$GITHUB_STEP_SUMMARY" || true
           fi
