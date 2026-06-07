@@ -36,6 +36,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: Overlay scripts from main
+        run: |
+          git fetch origin main --depth=1
+          git checkout FETCH_HEAD -- scripts/
+
       - name: Enable pnpm
         run: corepack enable
 
