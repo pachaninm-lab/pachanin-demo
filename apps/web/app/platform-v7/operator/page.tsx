@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
 import { OperatorExecutionQueue } from '../../../components/platform-v7/OperatorExecutionQueue';
 import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
@@ -99,12 +100,16 @@ export default async function PlatformV7OperatorPage() {
         outcome='После закрытия всех блокеров деньги продолжат движение к выплате.'
       />
       <section style={hero}>
-        <div style={badge}>Центр управления оператора</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={badge}>Центр управления оператора</div>
+          <RoleLearningDrawer role='operator' />
+        </div>
         <h1 style={h1}>Блокеры, деньги и следующий ответственный</h1>
         <p style={lead}>Оператор видит не технические интеграции, а сделки, которые остановили деньги: причина, источник, сумма влияния, ответственный и следующее действие.</p>
         <div style={actions}>
           <Link href={`/platform-v7/deals/${deal9106.dealId}/clean`} style={primaryBtn}>Открыть сделку</Link>
           <Link href='/platform-v7/documents' style={ghostBtn}>Матрица документов</Link>
+          <Link href='/platform-v7/ai?from=/platform-v7/operator&role=operator' style={ghostBtn}>Помощник</Link>
         </div>
       </section>
 

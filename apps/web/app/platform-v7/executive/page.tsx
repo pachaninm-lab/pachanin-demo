@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
@@ -43,7 +45,13 @@ export default async function ExecutivePage() {
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Исполнительная панель</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Исполнительная панель</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link href='/platform-v7/ai?from=/platform-v7/executive&role=executive' style={{ textDecoration: 'none', fontSize: 12, fontWeight: 800, padding: '6px 10px', borderRadius: 999, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419' }}>Помощник</Link>
+          <RoleLearningDrawer role='operator' />
+        </div>
+      </div>
       <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>Read-only — только просмотр</p>
 
       <LiveApiStatusBar
