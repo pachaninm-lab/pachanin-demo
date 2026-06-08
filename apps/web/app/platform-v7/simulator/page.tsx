@@ -23,7 +23,7 @@ export default function PlatformV7SimulatorPage() {
         <div style={{ maxWidth: 920 }}>
           <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.12, color: '#0F1419' }}>Сценарии сделки</h1>
           <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.7, color: '#5B6576' }}>
-            Экран показывает, как разные отклонения меняют деньги, документы, логистику, спор и следующий шаг. Используется для controlled pilot и демонстрации без заявлений о внешних подключениях.
+            Экран показывает, как разные отклонения меняют деньги, документы, логистику, спор и следующий шаг. Используется для controlled pilot и проверки сценариев без заявлений о внешних подключениях.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
