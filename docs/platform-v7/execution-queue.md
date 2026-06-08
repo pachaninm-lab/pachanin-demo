@@ -7,21 +7,20 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 15.0 Grain Automation Engines 2
+CURRENT: PR 16.0 Risk & Document Security Layer
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7GrainAutomationEngines2.test.ts
+- apps/web/tests/unit/platformV7RiskDocumentSecurityLayer.test.ts
 
 CURRENT CRITERIA:
-- Confirms all 7 remaining grain automation engine source files are present.
+- Confirms all 6 risk & document security source files are present.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms action-feedback-engine: createActionFeedbackPreview (enabled/disabled/money-mismatch/blocker), createActionFeedbackPreviewsForRole (role filtering: investor=none, operator=all, bank/driver).
-- Confirms action-guard-engine: guardNextActionsForExecutionState (publish_lot readiness, assign_logistics money, approve_release release flag, capture_weight arrival, preserves existing reason).
-- Confirms audit-event-engine: createAuditEvent (fields, optional dealId/reason, incrementing IDs), createRequiredAuditEvents (15 events, all with createdAt).
-- Confirms evidence-pack-engine: calculateEvidencePackReadiness (complete/partial/empty), evidencePackBlocker (null/blocker), canPrepareDisputeDecision, prepareDisputeDecision (complete/incomplete/holdAmount default).
-- Confirms role-visibility-engine: canSee (seller/driver/investor/bank/operator/elevator), assertRoleVisibility (driver money leak, logistics money leak, investor support leak), projectSummaryForRole (hides by role).
-- Confirms support-action-feedback-engine: createSupportActionFeedback (id/statusText/nextVisibleState), createSupportActionFeedbackListForRole (bank/logistics/investor/operator).
-- Confirms support-case-engine: createSupportCaseFromBlocker (category mapping, priority), createSupportCases (info excluded, incident/quality/weight cases), summarizeSupport (open/critical counts).
+- Confirms anti-leak-filter: scanMessageForLeaks (phone/email/external_link/messenger/inn/exact_address/bypass_phrase, safeText replacement, maxAction precedence).
+- Confirms bypass-risk-score: riskLevelFromBypassScore (low/medium/high/critical thresholds), mapLeakFindingToSignal (finding→signal type mapping, source=chat), calculateBypassRiskProfile (score accumulation, restrictions for high/critical, cooldown for deal_cancelled, clamp 0-100), platformTrustScoreFromBypassRisk (100-bypass clamped).
+- Confirms audit-events: createAuditEvent (required fields, optional dealId/reason/before/after), requireReason (5 reason-required actions, throws without reason), withAudit (returns result+auditEvent, enforces requireReason, sets after).
+- Confirms contact-vault: canRevealContact (role/stage/bypassRisk/operatorApproval checks), revealContact (throws when denied, returns maskedValue+auditEvent when allowed).
+- Confirms document-access-control: canPreviewDocument (driver=false, bypassScore>=80=false, dealDraft/acceptedOffer/operatorApproved=true), canDownloadDocument (driver/investor=denied, no draft=denied, bypassRisk>=35 without approval=denied), documentAccessLabel (download/preview/closed).
+- Confirms document-fingerprinting: createDocumentFingerprint (all fields, dealId/lotId/rfqId/NO-SCOPE scope, base64 invisibleFingerprint), auditDocumentAccess (fingerprint+auditEvent, downloaded vs opened action).
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -44,6 +43,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 12.0: Grain Execution Automation Engines
 - PR 13.0: Domain Layer
 - PR 14.0: Deal Transaction Layer
+- PR 15.0: Grain Automation Engines 2
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -84,7 +84,8 @@ NEXT (strict order — each unlocked only after previous merges):
 12. PR 12.0 Grain Execution Automation Engines      ← DONE
 13. PR 13.0 Domain Layer                            ← DONE
 14. PR 14.0 Deal Transaction Layer                  ← DONE
-15. PR 15.0 Grain Automation Engines 2              ← CURRENT
+15. PR 15.0 Grain Automation Engines 2              ← DONE
+16. PR 16.0 Risk & Document Security Layer          ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.
