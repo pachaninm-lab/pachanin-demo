@@ -7,17 +7,17 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 19.0 Shell, Simulation & Deal360
+CURRENT: PR 20.0 Bank Payment Basis, Routes Manifest & Support Contour
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7ShellSimulationDeal360.test.ts
+- apps/web/tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts
 
 CURRENT CRITERIA:
-- Confirms all 3 source files are present: simulated-external-actions.ts, shell-role-policy.ts, deal360-source-of-truth.ts.
+- Confirms all 3 source files are present: bank-payment-basis-runtime-action.ts, routes-manifest.ts, support-contour-smoke.ts.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms simulated-external-actions: simulatePlatformV7ExternalAction (status resolution by keyword, auditEvent shape, id slug, 6 systems), getPlatformV7SimulationBanner (non-empty, mentions simulation context).
-- Confirms shell-role-policy: inferPlatformRoleFromPath (12 path patterns + fallback), getShellPolicy (field/role-scoped/operator), canShowRoleSwitcher/GlobalSearch/GlobalStatuses/Drawer/PortalRoleSwitcher, getHeaderSelectableRoles, FIELD_SHELL_ROLES, ROLE_SCOPED_SHELL_ROLES constants.
-- Confirms deal360-source-of-truth: getDeal360Scenario (DL-9106 base, DL-9102 dispute, unknown fallback), DEAL360_SCENARIOS (2 entries), money/documents/chain/providerGates shapes, cockpit fields.
+- Confirms bank-payment-basis-runtime-action: buildPlatformV7BankPaymentBasisRuntimeAction (created for operator, blocked for non-operator roles, uiStatusLabel/uiSafetyNote, event shape, dealId trimming).
+- Confirms routes-manifest: PLATFORM_V7_ROUTES_MANIFEST (non-empty, path/label/roles/critical fields, all paths start with /platform-v7/, no duplicates), CRITICAL_ROUTES (matches critical=true entries), MANIFEST_ROLES (contains all standard roles, no duplicates).
+- Confirms support-contour-smoke: PLATFORM_V7_SUPPORT_CONTOUR_SMOKE === true.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -44,6 +44,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 16.0: Risk & Document Security Layer
 - PR 17.0: Trust & Intelligence Layer
 - PR 18.0: Deal Execution SOT
+- PR 19.0: Shell, Simulation & Deal360
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -88,7 +89,8 @@ NEXT (strict order — each unlocked only after previous merges):
 16. PR 16.0 Risk & Document Security Layer          ← DONE
 17. PR 17.0 Trust & Intelligence Layer              ← DONE
 18. PR 18.0 Deal Execution SOT                      ← DONE
-19. PR 19.0 Shell, Simulation & Deal360             ← CURRENT
+19. PR 19.0 Shell, Simulation & Deal360             ← DONE
+20. PR 20.0 Bank Payment Basis, Routes Manifest & Support Contour ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.
