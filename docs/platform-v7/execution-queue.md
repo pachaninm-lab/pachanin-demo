@@ -7,16 +7,15 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 5.2 Server Action Wrappers
+CURRENT: PR 5.6 Runtime Integration Tests
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/actions/runtime-actions.ts
-- apps/web/tests/unit/platformV7RuntimeServerActions.test.ts
+- apps/web/tests/unit/platformV7RuntimeIntegration.test.ts
 
 CURRENT CRITERIA:
-- createP7RuntimeServerActions factory wiring all execution services.
-- No forbidden direct domain calls (platformV7ApplyMoneyOperation, etc.).
-- No hidden store, live calls, direct domain mutation, apps/landing or UI imports.
+- Integration tests exercise the full server-wrapper → service → persistence chain.
+- Covers: money, document, bank-basis, release-workflow, dispute-settlement paths.
+- Covers: idempotency duplicate replay, conflict handling, validation_error paths.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -27,6 +26,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 5.4: DTO / Validation Schemas
 - PR 5.1: Application Service Layer
 - PR 5.5: Mock Persistence Adapter
+- PR 5.2: Server Action Wrappers
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -55,8 +55,8 @@ DONE (autopilot smoke conveyor):
 NEXT (strict order — each unlocked only after previous merges):
 1. PR 5.1 Application Service Layer                 ← DONE
 2. PR 5.5 Mock Persistence Adapter                  ← DONE
-3. PR 5.2 Server Action Wrappers                    ← CURRENT
-4. PR 5.6 Runtime Integration Tests
+3. PR 5.2 Server Action Wrappers                    ← DONE
+4. PR 5.6 Runtime Integration Tests                 ← CURRENT
 5. PR 5.7 Final Stage 5 QA
 6. External Adapter Emulators     (only after Stage 5 complete)
 7. AI Integration Gateway         (only after runtime/adapters)
