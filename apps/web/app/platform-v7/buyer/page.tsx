@@ -182,6 +182,7 @@ export default async function PlatformV7BuyerPage() {
         <div style={actions}>
           <Link href='/platform-v7/deals/DL-9106/money' style={primaryBtn}>Запросить подтверждение резерва</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть сделку</Link>
+          <Link href='/platform-v7/ai?from=/platform-v7/buyer&role=buyer' style={ghostBtn}>Помощник</Link>
         </div>
         <TrustDot state='test' size='sm' label='Тестовый контур · Внешние подключения требуют договоров' />
       </section>

@@ -146,6 +146,7 @@ export default async function PlatformV7SellerPage() {
         <div style={actions}>
           <Link href='/platform-v7/deals/DL-9106/clean' style={primaryBtn}>Закрыть СДИЗ и ЭТрН</Link>
           <Link href='/platform-v7/seller/batches/new' style={ghostBtn}>Создать новую партию</Link>
+          <Link href='/platform-v7/ai?from=/platform-v7/seller&role=seller' style={ghostBtn}>Помощник</Link>
         </div>
       </section>
 
