@@ -14,8 +14,8 @@ export default function GrainReadinessPage() {
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>Готовность зернового контура</div>
-        <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Роли, деньги, документы, интеграции, риски и демо-показ</h1>
-        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Финальная сводка показывает, какие блоки готовы к демонстрации и куда перейти для проверки каждого контура.</p>
+        <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Роли, деньги, документы, интеграции, риски и проверка готовности</h1>
+        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Финальная сводка показывает, какие блоки готовы к пилоту и куда перейти для проверки каждого контура.</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/readiness' style={btn}>Readiness</Link>
           <Link href='/platform-v7/executive/grain' style={ghost}>Executive</Link>

@@ -55,7 +55,7 @@ export default function PlatformV7FgisToLotPage() {
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>ФГИС → лот · песочница</div>
+            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>ФГИС → лот · пилотный контур</div>
             <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Как партия из ФГИС становится лотом</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 940 }}>
               В жизни нельзя просто скопировать товар и показать его покупателю. Сначала нужно подтвердить права продавца, остаток партии, качество, статус, место хранения и блокеры. Только после этого создаётся черновик лота.

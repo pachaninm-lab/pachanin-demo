@@ -90,7 +90,7 @@ export default function PlatformV7ReadinessPage() {
       <section data-testid="platform-v7-readiness-hero" style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица готовности · песочница</div>
+            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица готовности · пилотный контур</div>
             <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Готовность сделки к исполнению и выпуску денег</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 900 }}>
               Один экран показывает, где сделка застряла: ФГИС, документы, логистика, банк или спор. Это не платёжный механизм, а проверочная панель оператора.

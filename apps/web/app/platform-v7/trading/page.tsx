@@ -74,7 +74,7 @@ export default function PlatformV7TradingPage() {
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Торги и ставки · песочница</div>
+            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Торги и ставки · пилотный контур</div>
             <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Лоты, заявки, ставки и допуск к сделке</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 920 }}>
               Экран показывает не просто цену. Он связывает лот, заявку, лучшую ставку, блокеры, риск обхода и готовность перевести торг в исполнимую сделку.

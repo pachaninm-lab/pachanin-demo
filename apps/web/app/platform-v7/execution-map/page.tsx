@@ -104,7 +104,7 @@ export default function PlatformV7ExecutionMapPage() {
       <div style={wrap}>
         <section style={card}>
           <p style={{ margin: '0 0 10px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em' }}>
-            Проверочный контур · песочница
+            Проверочный контур · пилот
           </p>
           <h1 style={{ margin: 0, fontSize: '34px', lineHeight: 1.1 }}>Карта исполнения сделки</h1>
           <p style={{ margin: '14px 0 0', maxWidth: '820px', color: '#475569', fontSize: '16px', lineHeight: 1.7 }}>

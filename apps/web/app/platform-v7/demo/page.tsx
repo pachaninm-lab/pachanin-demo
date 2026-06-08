@@ -21,13 +21,13 @@ export default function DemoModePage() {
   return (
     <div style={{ display: 'grid', gap: 20 }}>
       <section data-testid="platform-v7-demo-flow-hero" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 28, fontWeight: 900, color: '#0F1419' }}>Демо-сценарий исполнения сделки</div>
+        <div style={{ fontSize: 28, fontWeight: 900, color: '#0F1419' }}>Сквозной маршрут исполнения сделки</div>
         <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, maxWidth: 920 }}>
-          Отдельный тестовый сценарий на 3–5 минут. Он показывает весь путь зерновой сделки: лот, ставка, сделка, резерв, логистика, рейс, приёмка, лаборатория, документы, выпуск или удержание денег, спор, доказательства и решение. Сценарий не заявляет live-интеграции и не подменяет рабочие кабинеты.
+          Открытый просмотр полного пути зерновой сделки: лот, ставка, сделка, резерв, логистика, рейс, приёмка, лаборатория, документы, выпуск или удержание денег, спор, доказательства и решение. Без авторизации — только контур исполнения.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Link href="/platform-v7/demo/deals/DL-9103" style={{ padding: '12px 16px', borderRadius: 12, background: '#0A7A5F', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>Запустить демо сделки</Link>
-          <Link href="/platform-v7/investor" style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', textDecoration: 'none', fontWeight: 700 }}>Открыть инвесторский режим</Link>
+          <Link href="/platform-v7/demo/deals/DL-9103" style={{ padding: '12px 16px', borderRadius: 12, background: '#0A7A5F', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>Открыть маршрут сделки</Link>
+          <Link href="/platform-v7/investor" style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', textDecoration: 'none', fontWeight: 700 }}>Инвесторский режим</Link>
         </div>
       </section>
 
