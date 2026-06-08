@@ -7,22 +7,21 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 10.0 Deal Workspace
+CURRENT: PR 11.0 Deal State / Dispute / Evidence
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7DealWorkspace.test.ts
+- apps/web/tests/unit/platformV7DealStateDisputeEvidence.test.ts
 
 CURRENT CRITERIA:
-- Confirms deal-workspace source files are present (workspace, documents, logistics, release-readiness, actions, timeline, sidepanel, financial-terms).
+- Confirms deal-state-model, dispute-model, dispute-engine, evidence-model, evidence-pack files are present.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms workspace model: 5 tabs, defaultTab overview, action hierarchy constraints.
-- Confirms documents model: completeness, blocksRelease, badge tones, signature gate.
-- Confirms logistics model: trip-based blocksRelease, ettn gate, route-deviation blockers.
-- Confirms financial terms: grossAmount, vatAmount, holdAmount clamping, balance check.
-- Confirms release readiness: 5 gates (documents, logistics, money, bank, dispute), canRelease, tone.
-- Confirms action evaluation: gate blockers, safeActionPlan, full release guard on release-funds.
-- Confirms timeline: sort newest-first, type/actor/severity filter, summary counts.
-- Confirms side panel: releaseGuard maturityMode, nextOwnerTone, model validity.
+- Confirms deal state machine: 13 statuses, valid transitions, terminal statuses, no skip transitions.
+- Confirms dispute predicates: isOpen, isMoneyLinked, requiresManualReview, canBeResolved, canChangeMoney.
+- Confirms dispute readiness: canReview, canDecide, missingEvidenceIds, bankBasisRequired, nextAction, release amounts.
+- Confirms evidence pack predicates: missing count, isComplete, canResolve, isLinked.
+- Confirms evidence validation: hash, immutability, version, signature, chain integrity.
+- Confirms buildEvidencePackReadiness: complete → ready_for_review; missing → incomplete.
+- Confirms lockEvidencePack and appendEvidenceItem (idempotent).
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -40,6 +39,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 7.0: AI Integration Gateway
 - PR 8.0: Product Entry / Onboarding
 - PR 9.0: Theme / Visual / Role Cockpit
+- PR 10.0: Deal Workspace
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -75,7 +75,8 @@ NEXT (strict order — each unlocked only after previous merges):
 7. PR 7.0 AI Integration Gateway                    ← DONE
 8. PR 8.0 Product Entry / Onboarding                ← DONE
 9. PR 9.0 Theme / Visual / Role Cockpit             ← DONE
-10. PR 10.0 Deal Workspace                          ← CURRENT
+10. PR 10.0 Deal Workspace                          ← DONE
+11. PR 11.0 Deal State / Dispute / Evidence         ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.
