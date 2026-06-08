@@ -268,3 +268,19 @@ if [ "$SHOULD_RUN_STAGE14_QA" = "true" ]; then
   echo "Running platform-v7 Stage 14 deal transaction layer tests from autopilot guard."
   pnpm --filter @pc/web exec vitest run "${STAGE14_TESTS[@]}"
 fi
+
+STAGE15_TESTS=(
+  "tests/unit/platformV7GrainAutomationEngines2.test.ts"
+)
+
+SHOULD_RUN_STAGE15_QA=false
+for test_file in "${STAGE15_TESTS[@]}"; do
+  if [ -f "apps/web/${test_file}" ]; then
+    SHOULD_RUN_STAGE15_QA=true
+  fi
+done
+
+if [ "$SHOULD_RUN_STAGE15_QA" = "true" ]; then
+  echo "Running platform-v7 Stage 15 grain automation engines 2 tests from autopilot guard."
+  pnpm --filter @pc/web exec vitest run "${STAGE15_TESTS[@]}"
+fi
