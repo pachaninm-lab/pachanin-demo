@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { BatonStrip } from '@/components/platform-v7/BatonStrip';
 
@@ -14,8 +15,9 @@ export default function Page() {
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={hero}>
         <div style={{ display: 'grid', gap: 9, maxWidth: 840 }}>
-          <div style={badge}>
-            Независимая фиксация на площадке
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={badge}>Независимая фиксация на площадке</div>
+            <RoleLearningDrawer role='disputes' />
           </div>
           <h1 style={h1}>
             Осмотр, фото, расхождение и заключение

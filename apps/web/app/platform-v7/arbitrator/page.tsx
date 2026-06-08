@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import ArbitratorPage from '@/app/platform-v7r/arbitrator/page';
@@ -50,7 +52,13 @@ export default async function Page() {
       />
       <RoleExecutionSummary role="arbitrator" />
       <section data-testid="platform-v7-arbitrator-decision-guard" style={decisionGuard}>
-        <div style={micro}>Арбитр · рамка решения</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={micro}>Арбитр · рамка решения</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Link href='/platform-v7/ai?from=/platform-v7/arbitrator&role=arbitrator' style={{ textDecoration: 'none', fontSize: 11, fontWeight: 800, padding: '5px 9px', borderRadius: 999, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419' }}>Помощник</Link>
+            <RoleLearningDrawer role='disputes' />
+          </div>
+        </div>
         <div style={title}>Решение арбитра создаёт основание для ручной проверки</div>
         <div style={lead}>
           Арбитр фиксирует сумму спора, доказательства, причину остановки и рекомендуемое действие. Следующий шаг требует ручной сверки основания оператором.
