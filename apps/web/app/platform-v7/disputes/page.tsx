@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 import { EvidenceStrengthMeter } from '@/components/platform-v7/visual/EvidenceStrengthMeter';
 import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platform-v7/grain-execution/automation/evidence-pack-engine';
@@ -141,7 +142,10 @@ export default async function PlatformV7DisputesPage() {
         }
       />
       <section style={hero}>
-        <div style={badge}>Споры и удержания</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={badge}>Споры и удержания</div>
+          <RoleLearningDrawer role='disputes' />
+        </div>
         <h1 style={h1}>Спор объясняет, почему сумма остановлена</h1>
         <p style={lead}>Здесь сверху видны только причина, сумма влияния, срок, ответственный и следующий шаг. Доказательства, правила и передача между ролями раскрываются отдельно.</p>
         <div style={actions}>

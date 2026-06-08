@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import type { ReactNode } from 'react';
 import { getDeal360Scenario, type Deal360State } from '@/lib/platform-v7/deal360-source-of-truth';
 import { BankCleanView } from '@/components/platform-v7/visual/BankCleanView';
@@ -151,7 +152,10 @@ export default async function PlatformV7BankPage() {
         toHref="/platform-v7/control-tower"
       />
       <section style={hero}>
-        <div style={badge}>Кабинет банка</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={badge}>Кабинет банка</div>
+          <RoleLearningDrawer role='bank' />
+        </div>
         <h1 style={h1}>Сначала основание, потом банковская проверка</h1>
         <p style={lead}>Деньги выпускаются только после условий сделки и подтверждения банка. Экран показывает только то, что важно для решения: сумма, стоп, причина, ответственный и следующее действие.</p>
         <div style={actions}>
