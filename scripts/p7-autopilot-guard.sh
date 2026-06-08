@@ -316,3 +316,19 @@ if [ "$SHOULD_RUN_STAGE17_QA" = "true" ]; then
   echo "Running platform-v7 Stage 17 trust & intelligence layer tests from autopilot guard."
   pnpm --filter @pc/web exec vitest run "${STAGE17_TESTS[@]}"
 fi
+
+STAGE18_TESTS=(
+  "tests/unit/platformV7DealExecutionSot.test.ts"
+)
+
+SHOULD_RUN_STAGE18_QA=false
+for test_file in "${STAGE18_TESTS[@]}"; do
+  if [ -f "apps/web/${test_file}" ]; then
+    SHOULD_RUN_STAGE18_QA=true
+  fi
+done
+
+if [ "$SHOULD_RUN_STAGE18_QA" = "true" ]; then
+  echo "Running platform-v7 Stage 18 deal execution SOT tests from autopilot guard."
+  pnpm --filter @pc/web exec vitest run "${STAGE18_TESTS[@]}"
+fi

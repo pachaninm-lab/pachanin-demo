@@ -7,20 +7,17 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 17.0 Trust & Intelligence Layer
+CURRENT: PR 18.0 Deal Execution SOT
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7TrustIntelligenceLayer.test.ts
+- apps/web/tests/unit/platformV7DealExecutionSot.test.ts
 
 CURRENT CRITERIA:
-- Confirms all 6 trust & intelligence source files are present.
+- Confirms all 3 deal execution SOT source files are present.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms attachment-risk-scanner: scanAttachmentRisk (mode: live/simulation/manual, pattern detection in extractedText, QR/business-card flags, maxRisk, allowPreview/allowDownload gates).
-- Confirms reputation: calculateBuyerReliabilityScore (weighted formula, red flag penalties, clamp, riskLevel), calculateSellerReliabilityScore (weighted formula, penalties), calculateReviewScore (average×20 + wouldTradeAgain bonus), ratingAdmission (5 tiers from high-reliability to critical).
-- Confirms decision-recommendation: getDecisionRecommendation (record fields for disputes/bank/elevator), isDecisionReadyForAction (false for all awaiting_evidence), DECISION_PILOT_STATE_LABEL (3 states), pilotStateLabel consistency.
-- Confirms document-money-decision-pack: getDecisionPackRows (non-empty rows, required fields), getBlockedRows (only blocked state, buyer_reserve_request=0 blocked), DECISION_PACK_CONTEXTS (5 entries), DECISION_PACK_CONTEXT_LABEL, pilotNote non-null.
-- Confirms journal-preview: getJournalPreviewEntries (all 4 roles, maxEntries limit, default 3, scope filtering, chronological order).
-- Confirms direct-money-boundaries: PLATFORM_V7_DIRECT_MONEY_BOUNDARIES (4 ids), isPlatformV7DirectMoneyBoundary (true for all 4, false for others, case-sensitive).
+- Confirms deal-execution-source-of-truth: selectDealExecutionCase/MoneyState/SdizLifecycle (lookups, undefined for unknown), isSdizLifecycleBlockingMoneyRelease, selectDealDocumentMatrix/BlockingDocs/LogisticsTripPlan/TransportDocPack, isTransportPackBlockingBankBasis, calculateDealMoneyFormulaAmount/AllocationAmount/isDealMoneyStateBalanced, calculateElevatorWeightImpact (net/accepted/delta/hold), calculateLabQualityImpact (perfect=0 adjustments, bad=deltas), createSupportTicket (slaDeadline, status=open, audit event), formatRub/Tons, executionReadinessScore/Blockers/canRequestMoneyRelease/expectedDealAmountRub/executionSummary.
+- Confirms workflow-source-of-truth: getWorkflowDashboardModel (4 contexts, title/lead/state/actions/auditSeed), runWorkflowAction (state transitions, auditEvent, toast).
+- Confirms role-lens: canSee (operator=all, driver=2, lab=2, role-specific atom gates), visibleAtoms (operator=20, driver=2), ROLE_LENS completeness.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -45,6 +42,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 14.0: Deal Transaction Layer
 - PR 15.0: Grain Automation Engines 2
 - PR 16.0: Risk & Document Security Layer
+- PR 17.0: Trust & Intelligence Layer
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -87,7 +85,8 @@ NEXT (strict order — each unlocked only after previous merges):
 14. PR 14.0 Deal Transaction Layer                  ← DONE
 15. PR 15.0 Grain Automation Engines 2              ← DONE
 16. PR 16.0 Risk & Document Security Layer          ← DONE
-17. PR 17.0 Trust & Intelligence Layer              ← CURRENT
+17. PR 17.0 Trust & Intelligence Layer              ← DONE
+18. PR 18.0 Deal Execution SOT                      ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.

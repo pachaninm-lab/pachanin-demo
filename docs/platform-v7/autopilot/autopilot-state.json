@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 17.0 Trust & Intelligence Layer",
+  "current": "PR 18.0 Deal Execution SOT",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -67,21 +67,22 @@
     "PR 13.0: Domain Layer",
     "PR 14.0: Deal Transaction Layer",
     "PR 15.0: Grain Automation Engines 2",
-    "PR 16.0: Risk & Document Security Layer"
+    "PR 16.0: Risk & Document Security Layer",
+    "PR 17.0: Trust & Intelligence Layer"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7TrustIntelligenceLayer.test.ts",
+    "apps/web/tests/unit/platformV7DealExecutionSot.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/unit/platformV7TrustIntelligenceLayer.test.ts"
+    "apps/web/tests/unit/platformV7DealExecutionSot.test.ts"
   ],
   "controlledActions": {
     "enabled": true
