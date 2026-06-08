@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
 import { DriverBigTileIsland } from '@/components/platform-v7/visual/DriverBigTileIsland';
@@ -69,8 +70,11 @@ export default async function DriverFieldPage() {
               Текущий рейс
             </h1>
           </div>
-          <div style={{ border: '1px solid #CBD5E1', borderRadius: 999, background: '#fff', color: '#475569', padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>
-            Полевой режим
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ border: '1px solid #CBD5E1', borderRadius: 999, background: '#fff', color: '#475569', padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>
+              Полевой режим
+            </div>
+            <RoleLearningDrawer role='driver' />
           </div>
         </div>
 

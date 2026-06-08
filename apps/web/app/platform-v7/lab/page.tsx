@@ -1,3 +1,4 @@
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { FieldLabRuntime } from '@/components/v7r/FieldLabRuntime';
 import { RoleContinuityPanel } from '@/components/v7r/RoleContinuityPanel';
@@ -62,8 +63,9 @@ export default async function Page() {
       </div>
       <section className="p7-lab-hero" style={hero}>
         <div style={{ display: 'grid', gap: 9, maxWidth: 840 }}>
-          <div style={badge}>
-            Лаборатория · качество и протокол
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={badge}>Лаборатория · качество и протокол</div>
+            <RoleLearningDrawer role='lab' />
           </div>
           <h1 style={h1}>
             Проба, показатели и протокол качества

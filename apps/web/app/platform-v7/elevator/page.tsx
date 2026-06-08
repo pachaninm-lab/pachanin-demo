@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { getLabSamples, pendingProtocols } from '@/lib/labs-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -95,7 +96,10 @@ export default async function Page() {
         <QuietIntelligenceHint problem='Отклонение веса -1,2 т и превышение по сорной примеси — акт расхождения не подписан.' action='Зафиксировать вес, подписать акт приёмки и акт расхождения, передать пробу в лабораторию.' outcome='После закрытия актов основание уйдёт в контур документов и банку на проверку выплаты.' />
       </div>
       <section className='p7-elevator-hero' style={card}>
-        <div style={badge}>Кабинет приёмки</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={badge}>Кабинет приёмки</div>
+          <RoleLearningDrawer role='elevator' />
+        </div>
         <h1 style={h1}>Вес, качество и основание для проверки выплаты</h1>
         <p style={lead}>Приёмка видит только груз, рейс, вес, лабораторию, документы и отклонения. Деньги, ставки, резерв, кредит и покупательская аналитика не раскрываются.</p>
       </section>
