@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 10.0 Deal Workspace",
+  "current": "PR 11.0 Deal State / Dispute / Evidence",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -60,21 +60,22 @@
     "PR 6.0: External Adapter Emulators",
     "PR 7.0: AI Integration Gateway",
     "PR 8.0: Product Entry / Onboarding",
-    "PR 9.0: Theme / Visual / Role Cockpit"
+    "PR 9.0: Theme / Visual / Role Cockpit",
+    "PR 10.0: Deal Workspace"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7DealWorkspace.test.ts",
+    "apps/web/tests/unit/platformV7DealStateDisputeEvidence.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/unit/platformV7DealWorkspace.test.ts"
+    "apps/web/tests/unit/platformV7DealStateDisputeEvidence.test.ts"
   ],
   "controlledActions": {
     "enabled": true
