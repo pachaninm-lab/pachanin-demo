@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 5.6 Runtime Integration Tests",
+  "current": "PR 5.7 Final Stage 5 QA",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -54,7 +54,8 @@
     "PR 5.4: DTO / Validation",
     "PR 5.1: Application Service Layer",
     "PR 5.5: Mock Persistence Adapter",
-    "PR 5.2: Server Action Wrappers"
+    "PR 5.2: Server Action Wrappers",
+    "PR 5.6: Runtime Integration Tests"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -66,14 +67,14 @@
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7RuntimeIntegration.test.ts",
+    "apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/unit/platformV7RuntimeIntegration.test.ts"
+    "apps/web/tests/unit/platformV7RuntimeFinalQa.test.ts"
   ],
   "controlledActions": {
     "enabled": true
@@ -94,5 +95,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "83%"
+  "readiness": "88%"
 }
