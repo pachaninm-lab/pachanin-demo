@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { P7Page } from '@/components/platform-v7/P7Page';
 import { P7Section } from '@/components/platform-v7/P7Section';
 import { P7Toolbar } from '@/components/platform-v7/P7Toolbar';
@@ -188,6 +189,8 @@ export default function PlatformV7ControlTowerPage() {
             <Badge tone='red'>Деньги остановлены</Badge>
             <Badge tone='amber'>Есть ручная проверка</Badge>
             <Link href={topBlocker?.primaryAction.href ?? '/platform-v7/deals'} style={btn('primary')}>Открыть главный блокер</Link>
+            <Link href='/platform-v7/ai?from=/platform-v7/control-tower&role=operator' style={btn('ghost')}>Помощник</Link>
+            <RoleLearningDrawer role='operator' />
           </P7Toolbar>
         )}
         testId='platform-v7-control-tower-page'
