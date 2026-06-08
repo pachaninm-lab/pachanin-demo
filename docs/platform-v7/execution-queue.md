@@ -7,19 +7,18 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 8.0 Product Entry / Onboarding
+CURRENT: PR 9.0 Theme / Visual / Role Cockpit
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts
+- apps/web/tests/unit/platformV7ThemeVisualRoleCockpit.test.ts
 
 CURRENT CRITERIA:
-- Confirms onboarding source files (kyc, documents, access-gate, risk-score, compliance-queue) are present.
+- Confirms design source files (tokens, contrast, dark-qa, execution-cockpit, role-execution-cockpit) are present.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms KYC model: status transitions, blocker detection, readiness percent, tone.
-- Confirms documents model: required kinds per role, expiry handling, canSubmitKyc gate.
-- Confirms access gate: per-action allow/block by role + KYC + docs, hard blocker override.
-- Confirms risk score: signal accumulation, sanctions/AML critical override, level thresholds.
-- Confirms compliance queue: sorting, summary counts, isClean contract.
+- Confirms token structure: light/dark themes, all color keys, tone tokens per theme.
+- Confirms WCAG contrast: black/white ratio, AA text, AA large text/UI thresholds.
+- Confirms role cockpit: all 12 roles covered, every cockpit has operations with actions.
+- Confirms dark QA acceptance criteria: darkModeRequired, noFakePayoutCta, minTextContrastAa, minMobileCriticalActionPx=44.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -35,6 +34,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 5.7: Final Stage 5 QA
 - PR 6.0: External Adapter Emulators
 - PR 7.0: AI Integration Gateway
+- PR 8.0: Product Entry / Onboarding
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -68,8 +68,8 @@ NEXT (strict order — each unlocked only after previous merges):
 5. PR 5.7 Final Stage 5 QA                          ← DONE
 6. PR 6.0 External Adapter Emulators                ← DONE
 7. PR 7.0 AI Integration Gateway                    ← DONE
-8. PR 8.0 Product Entry / Onboarding                ← CURRENT
-9. Theme / Visual / Role Cockpit  (only after runtime binding)
+8. PR 8.0 Product Entry / Onboarding                ← DONE
+9. PR 9.0 Theme / Visual / Role Cockpit             ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.
