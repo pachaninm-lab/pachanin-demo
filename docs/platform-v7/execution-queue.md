@@ -7,28 +7,17 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 5.1 Application Service Layer
+CURRENT: PR 5.5 Mock Persistence Adapter
 
 CURRENT ALLOWED:
-- apps/web/lib/platform-v7/runtime/application-service.ts
-- apps/web/lib/platform-v7/runtime/application-service-types.ts
-- apps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts
+- apps/web/lib/platform-v7/runtime/mock-persistence-adapter.ts
+- apps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts
 
 CURRENT CRITERIA:
-- Implements P7MoneyExecutionService, P7DocumentExecutionService,
-  P7BankBasisExecutionService, P7ReleaseWorkflowService, P7DisputeSettlementService.
-- Connects: DTO validation, persistence ports, idempotency, audit,
-  action-boundary, domain result, typed service result.
-- Allowed domain paths: executePlatformV7MoneyAction,
-  executePlatformV7DocumentAction, executePlatformV7BankBasisAction.
-- Forbidden direct calls from service layer:
-  platformV7ApplyMoneyOperation, platformV7ReleaseGate,
-  p7ConfirmBankRelease, p7ConfirmBankRefund, p7ConfirmBankHold,
-  p7MarkBankBasisSent, p7BuildBankBasisPayload,
-  p7BuildArbitrationBasisPayload, platformV7DocumentsBlockingStage,
-  isBankBasisReady, platformV7DocumentMatrixReadiness.
-- Restricted areas remain blocked.
-- Merge gate remains final authority.
+- createP7MockRuntimeStore with seeded scenarios, version tokens,
+  simulateNextConflict / simulateNextNotFound / simulateDuplicateBankEventId.
+- No module-level Map/Set/global state.
+- Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
 - Stage 3: RBAC / ACL / roles / access rights
@@ -36,6 +25,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 5.0: Runtime Inventory
 - PR 5.3: Persistence Port Interfaces
 - PR 5.4: DTO / Validation Schemas
+- PR 5.1: Application Service Layer
 
 DONE (autopilot smoke conveyor):
 - baseline
