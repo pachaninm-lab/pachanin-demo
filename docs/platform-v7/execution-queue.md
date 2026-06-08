@@ -7,23 +7,20 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 13.0 Domain Layer
+CURRENT: PR 14.0 Deal Transaction Layer
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7DomainLayer.test.ts
+- apps/web/tests/unit/platformV7DealTransactionLayer.test.ts
 
 CURRENT CRITERIA:
-- Confirms all 9 domain layer source files are present.
+- Confirms all 6 deal transaction source files are present.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms canonical: 23 statuses, valid/invalid transitions, terminal statuses, assertDealTransition, isStrategicPlatformTask, EXECUTE_RELEASE requirements.
-- Confirms status-mapper: toCanonicalDealStatus (known→canonical, unknown→DEGRADED), isKnownLegacyDealStatus.
-- Confirms rbac: hasPermission, canPerformCriticalAction (allowed roles, 2fa, audit).
-- Confirms money: calculateDealMoneyAtRisk, calculateMoneyTree (buckets), calculateMoneyStateFromEvents, calculateMoneyKpi.
-- Confirms kpi: calculateControlTowerKpi (active/disputed/blocked/readyToRelease), calculateInvestorKpi (disputeRate).
-- Confirms release-guard: evaluateReleaseGuard (canRequestRelease, canExecuteRelease, blocker types).
-- Confirms money-stop-labels: moneyStopReasonText, primaryMoneyStopReason.
-- Confirms legacy-deal-adapter: normalizeLegacyDeal, normalizeLegacyDeals.
-- Confirms selectors: selectDealReadinessFlags, selectHighestRiskDeal.
+- Confirms deal-access-gate: canAccessSensitiveField (manual restriction, bypass risk, trust score, role gates, stage gates, documents_not_ready, counterparty_not_admitted), maskSensitiveValue.
+- Confirms deal-draft: createDealDraftFromAcceptedOffer (accepted-only guard), evaluateDealDraftGuards (all blocker types), updateDealDraftReadiness (audit event).
+- Confirms deal-fingerprint: createDealFingerprint (volume/price bucketing, deterministic ID), isSimilarDealFingerprint.
+- Confirms offer-state-machine: canTransitionOffer (allowed/terminal transitions), transitionOffer (happy path, invalid, rejection-reason guard), createCounterOffer (reason guard, terminal guard).
+- Confirms price-calculators: calculateSellerNetback (no deductions, with deductions, 7 items, explanation), calculateBuyerLandedPrice (no additions, with additions, 5 items, explanation).
+- Confirms role-canonical: PLATFORM_V7_CANONICAL_ROLES (16 roles), toPlatformV7CanonicalRole (canonical/camelCase/short aliases, null for unknown), platformV7CanonicalRoleName.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -44,6 +41,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 10.0: Deal Workspace
 - PR 11.0: Deal State / Dispute / Evidence
 - PR 12.0: Grain Execution Automation Engines
+- PR 13.0: Domain Layer
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -82,7 +80,8 @@ NEXT (strict order — each unlocked only after previous merges):
 10. PR 10.0 Deal Workspace                          ← DONE
 11. PR 11.0 Deal State / Dispute / Evidence         ← DONE
 12. PR 12.0 Grain Execution Automation Engines      ← DONE
-13. PR 13.0 Domain Layer                            ← CURRENT
+13. PR 13.0 Domain Layer                            ← DONE
+14. PR 14.0 Deal Transaction Layer                  ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.
