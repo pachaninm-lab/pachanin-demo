@@ -7,21 +7,25 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 11.0 Deal State / Dispute / Evidence
+CURRENT: PR 12.0 Grain Execution Automation Engines
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7DealStateDisputeEvidence.test.ts
+- apps/web/tests/unit/platformV7GrainExecutionEngines.test.ts
 
 CURRENT CRITERIA:
-- Confirms deal-state-model, dispute-model, dispute-engine, evidence-model, evidence-pack files are present.
+- Confirms all 11 grain-execution automation engine source files are present.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms deal state machine: 13 statuses, valid transitions, terminal statuses, no skip transitions.
-- Confirms dispute predicates: isOpen, isMoneyLinked, requiresManualReview, canBeResolved, canChangeMoney.
-- Confirms dispute readiness: canReview, canDecide, missingEvidenceIds, bankBasisRequired, nextAction, release amounts.
-- Confirms evidence pack predicates: missing count, isComplete, canResolve, isLinked.
-- Confirms evidence validation: hash, immutability, version, signature, chain integrity.
-- Confirms buildEvidencePackReadiness: complete → ready_for_review; missing → incomplete.
-- Confirms lockEvidencePack and appendEvidenceItem (idempotent).
+- Confirms next-action-engine: seed-based id, priority defaults, sortNextActions order.
+- Confirms document-requirement-engine: isDocumentRequirementSatisfied, buildDocumentRequirements (by basis), summarizeDocuments, documentBlockers.
+- Confirms sdiz-gate-engine: buildSdizGates per basis, getSdizGateBlockers satisfied/unsatisfied/error.
+- Confirms logistics-incident-engine: adjustment null for resolved/zero-impact, blockers for open critical incidents.
+- Confirms weight-balance-engine: not_started, loading_weight_captured, within_tolerance, deviation status + impact.
+- Confirms quality-delta-engine: not_measured, within_tolerance, discount_required, dispute_required.
+- Confirms money-release-engine: idempotency key, qualityAdjustment, weightAdjustment, documentAdjustment, calculateMoneyProjection release gate.
+- Confirms readiness-engine: score, blockers, status (blocked/almost_ready/ready_for_sale).
+- Confirms netback-engine: grossAmount, logistics by basis, netAmount ≥ 0, rankOffersByNetback.
+- Confirms matching-engine: calculateDeliveredPricePerTon, matchBatchesToRfq score/filter/sort.
+- Confirms sample-chain-engine: evaluateSampleChain, nextSampleStep.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -40,6 +44,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 8.0: Product Entry / Onboarding
 - PR 9.0: Theme / Visual / Role Cockpit
 - PR 10.0: Deal Workspace
+- PR 11.0: Deal State / Dispute / Evidence
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -76,7 +81,8 @@ NEXT (strict order — each unlocked only after previous merges):
 8. PR 8.0 Product Entry / Onboarding                ← DONE
 9. PR 9.0 Theme / Visual / Role Cockpit             ← DONE
 10. PR 10.0 Deal Workspace                          ← DONE
-11. PR 11.0 Deal State / Dispute / Evidence         ← CURRENT
+11. PR 11.0 Deal State / Dispute / Evidence         ← DONE
+12. PR 12.0 Grain Execution Automation Engines      ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.
