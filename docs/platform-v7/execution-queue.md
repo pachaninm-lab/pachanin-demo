@@ -7,16 +7,19 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 7.0 AI Integration Gateway
+CURRENT: PR 8.0 Product Entry / Onboarding
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7AiIntegrationGateway.test.ts
+- apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts
 
 CURRENT CRITERIA:
-- Confirms AI gateway source files (envelope, provider port, mock provider) are present.
-- Confirms pre-integration maturity: no live AI API calls, no credentials, no fetch().
-- Confirms MockGatewayProvider: deterministic results, correct confidence, scope coverage.
-- Confirms DisabledGatewayProvider: null result, confidence 0, not-configured limitations.
+- Confirms onboarding source files (kyc, documents, access-gate, risk-score, compliance-queue) are present.
+- Confirms pre-integration: no live network calls, no external API references.
+- Confirms KYC model: status transitions, blocker detection, readiness percent, tone.
+- Confirms documents model: required kinds per role, expiry handling, canSubmitKyc gate.
+- Confirms access gate: per-action allow/block by role + KYC + docs, hard blocker override.
+- Confirms risk score: signal accumulation, sanctions/AML critical override, level thresholds.
+- Confirms compliance queue: sorting, summary counts, isClean contract.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -31,6 +34,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 5.6: Runtime Integration Tests
 - PR 5.7: Final Stage 5 QA
 - PR 6.0: External Adapter Emulators
+- PR 7.0: AI Integration Gateway
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -63,8 +67,8 @@ NEXT (strict order — each unlocked only after previous merges):
 4. PR 5.6 Runtime Integration Tests                 ← DONE
 5. PR 5.7 Final Stage 5 QA                          ← DONE
 6. PR 6.0 External Adapter Emulators                ← DONE
-7. PR 7.0 AI Integration Gateway                    ← CURRENT
-8. Product Entry / Onboarding     (only after runtime foundation)
+7. PR 7.0 AI Integration Gateway                    ← DONE
+8. PR 8.0 Product Entry / Onboarding                ← CURRENT
 9. Theme / Visual / Role Cockpit  (only after runtime binding)
 
 RULES:
