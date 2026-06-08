@@ -1,120 +1,487 @@
 import Link from 'next/link';
 
-const blockers = [
-  { id: 'DL-9106', title: 'СДИЗ не подтверждён', money: '9,65 млн ₽', owner: 'Продавец', href: '/platform-v7/deals/DL-9106/clean', tone: 'red' },
-  { id: 'DL-9102', title: 'Спорная часть по весу', money: '624 тыс. ₽', owner: 'Арбитр', href: '/platform-v7/disputes/DSP-9102', tone: 'amber' },
-  { id: 'LOG-REQ-2403', title: 'ЭТрН ждёт подписи', money: 'основание банку', owner: 'Логистика', href: '/platform-v7/logistics', tone: 'amber' },
+const CHAIN_STEPS = [
+  { step: 'Условия',    detail: 'лот · RFQ · сделка' },
+  { step: 'Документы',  detail: 'СДИЗ · ЭТрН · акты' },
+  { step: 'Логистика',  detail: 'рейс · маршрут · пломба' },
+  { step: 'Приёмка',    detail: 'вес · акт · подпись' },
+  { step: 'Качество',   detail: 'проба · протокол · ГОСТ' },
+  { step: 'Банк',       detail: 'резерв · основание · выпуск' },
+  { step: 'Закрытие',   detail: 'расчёт · акт · архив' },
 ] as const;
 
-const lanes = [
-  { label: 'Деньги', value: '15,89 млн ₽', state: 'стоят', tone: 'red' },
-  { label: 'Документы', value: '2 стопа', state: 'СДИЗ · ЭТрН', tone: 'amber' },
-  { label: 'Рейс', value: '1 под риском', state: 'подпись ЭТрН', tone: 'amber' },
-  { label: 'Спор', value: '624 тыс. ₽', state: 'удержание', tone: 'red' },
+const ROLES = [
+  {
+    title: 'Продавец',
+    description: 'Выставляет лот, передаёт документы и получает деньги после подтверждения.',
+    href: '/platform-v7/seller',
+    access: 'Вход без оплаты',
+  },
+  {
+    title: 'Покупатель',
+    description: 'Формирует RFQ, резервирует деньги, принимает товар и закрывает документы.',
+    href: '/platform-v7/buyer',
+    access: 'Тариф после проверки',
+  },
+  {
+    title: 'Логистика',
+    description: 'Управляет рейсами, водителями и транспортными документами.',
+    href: '/platform-v7/logistics',
+    access: 'По заявке',
+  },
+  {
+    title: 'Водитель',
+    description: 'Один текущий рейс и одно следующее действие. Фото, пломба, маршрут.',
+    href: '/platform-v7/driver/field',
+    access: 'По коду рейса',
+  },
+  {
+    title: 'Элеватор',
+    description: 'Принимает товар, фиксирует вес, формирует акт приёмки.',
+    href: '/platform-v7/elevator',
+    access: 'Партнёрское подключение',
+  },
+  {
+    title: 'Лаборатория',
+    description: 'Ведёт пробы, заносит протоколы качества, фиксирует отклонения.',
+    href: '/platform-v7/lab',
+    access: 'Партнёрское подключение',
+  },
+  {
+    title: 'Банк',
+    description: 'Контролирует резерв, проверяет основание для выпуска, работает с журналом.',
+    href: '/platform-v7/bank',
+    access: 'Партнёрский доступ',
+  },
+  {
+    title: 'Оператор',
+    description: 'Центр управления: очередь блокеров, контроль сделок, ручные проверки.',
+    href: '/platform-v7/control-tower',
+    access: 'Внутренний доступ',
+  },
 ] as const;
 
-export default function PlatformV7RootPage() {
-  const primary = blockers[0];
-
+export default function PlatformEntryPage() {
   return (
-    <main data-testid='platform-v7-root-execution-cockpit' style={page}>
-      <section style={hero}>
-        <div style={heroTop}>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <div style={eyebrow}>Центр исполнения</div>
-            <h1 style={h1}>Что держит деньги сейчас</h1>
-            <p style={lead}>Первым закрыть СДИЗ по DL-9106. Остальные блокеры ниже по очереди.</p>
-          </div>
-          <Link href={primary.href} style={primaryAction}>Открыть главный блокер</Link>
-        </div>
-
-        <div style={moneyCard}>
-          <div style={moneyLabel}>Остановлено</div>
-          <div style={moneyValue}>15,89 млн ₽</div>
-          <div style={causeLine}>СДИЗ · ЭТрН · акт расхождения → деньги не идут дальше</div>
-        </div>
-      </section>
-
-      <section style={laneGrid} aria-label='Состояние контура'>
-        {lanes.map((item) => <Lane key={item.label} item={item} />)}
-      </section>
-
-      <section style={stack} aria-label='Очередь блокеров'>
-        <div style={sectionHead}>
-          <div>
-            <div style={eyebrow}>Очередь снятия</div>
-            <h2 style={h2}>3 действия вместо длинной ленты</h2>
-          </div>
-          <Link href='/platform-v7/control-tower' style={ghostAction}>Центр управления</Link>
-        </div>
-
-        {blockers.map((item, index) => <BlockerCard key={item.id} item={item} index={index} />)}
-      </section>
+    <main style={styles.page}>
+      <HeroSection />
+      <ChainSection />
+      <RolesSection />
+      <AccessSection />
+      <IntegrationNote />
     </main>
   );
 }
 
-function Lane({ item }: { item: typeof lanes[number] }) {
+function HeroSection() {
   return (
-    <div style={{ ...lane, borderColor: border(item.tone), background: soft(item.tone) }}>
-      <div style={laneLabel}>{item.label}</div>
-      <div style={laneValue}>{item.value}</div>
-      <div style={laneState}>{item.state}</div>
-    </div>
+    <section style={styles.hero}>
+      <div style={styles.heroContent}>
+        <div style={styles.eyebrow}>Прозрачная Цена · Платформа исполнения</div>
+        <h1 style={styles.h1}>
+          Цифровой контур исполнения зерновой сделки
+        </h1>
+        <p style={styles.lead}>
+          Условия, документы, логистика, приёмка, качество, деньги, спор и доказательства&nbsp;—
+          в одном управляемом процессе.
+        </p>
+        <div style={styles.ctaRow}>
+          <Link href='/platform-v7/lot/create' style={styles.ctaPrimary}>
+            Выставить партию
+          </Link>
+          <Link href='/platform-v7/market-rfq' style={styles.ctaSecondary}>
+            Создать запрос на закупку
+          </Link>
+          <Link href='/platform-v7/roles' style={styles.ctaGhost}>
+            Открытый просмотр
+          </Link>
+          <Link href='/platform-v7/login' style={styles.ctaGhost}>
+            Войти
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }
 
-function BlockerCard({ item, index }: { item: typeof blockers[number]; index: number }) {
+function ChainSection() {
   return (
-    <Link href={item.href} style={{ ...blocker, borderColor: border(item.tone), background: '#fff' }}>
-      <div style={rank}>#{index + 1}</div>
-      <div style={{ minWidth: 0, display: 'grid', gap: 5 }}>
-        <div style={blockerTitle}>{item.id} · {item.title}</div>
-        <div style={blockerMeta}>Держит: {item.money} · Ответственный: {item.owner}</div>
+    <section style={styles.chainSection} aria-label='Контур исполнения сделки'>
+      <div style={styles.sectionHead}>
+        <div style={styles.sectionLabel}>Контур исполнения</div>
+        <h2 style={styles.h2}>Каждый шаг контролируется. Деньги не идут без оснований.</h2>
       </div>
-      <div style={{ ...statusDot, background: dot(item.tone) }} />
+      <div style={styles.chainRail}>
+        {CHAIN_STEPS.map((item, i) => (
+          <div key={item.step} style={styles.chainItem}>
+            <div style={styles.chainNum}>{i + 1}</div>
+            <div style={styles.chainStep}>{item.step}</div>
+            <div style={styles.chainDetail}>{item.detail}</div>
+          </div>
+        ))}
+      </div>
+      <div style={styles.chainNote}>
+        Каждый переход охраняется условиями: документы, вес, качество, подписи.
+        Деньги не меняют состояние без банковского события.
+      </div>
+    </section>
+  );
+}
+
+function RolesSection() {
+  return (
+    <section style={styles.rolesSection} aria-label='Роли платформы'>
+      <div style={styles.sectionHead}>
+        <div style={styles.sectionLabel}>Роли и доступ</div>
+        <h2 style={styles.h2}>Открытый просмотр доступен без регистрации</h2>
+        <p style={styles.sectionSub}>
+          Рабочий доступ к операционным и партнёрским ролям выдаётся после подключения
+          организации или приглашения. Просмотр роли — без ограничений.
+        </p>
+      </div>
+      <div style={styles.roleGrid}>
+        {ROLES.map((role) => (
+          <RoleCard key={role.title} role={role} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RoleCard({ role }: { role: typeof ROLES[number] }) {
+  return (
+    <Link href={role.href} style={styles.roleCard}>
+      <div style={styles.roleTitle}>{role.title}</div>
+      <div style={styles.roleDesc}>{role.description}</div>
+      <div style={styles.roleAccess}>{role.access}</div>
     </Link>
   );
 }
 
-function soft(tone: string) {
-  if (tone === 'red') return 'linear-gradient(180deg,#FEF2F2 0%,#FFFFFF 100%)';
-  if (tone === 'amber') return 'linear-gradient(180deg,#FFFBEB 0%,#FFFFFF 100%)';
-  return 'linear-gradient(180deg,#EFF6FF 0%,#FFFFFF 100%)';
-}
-function border(tone: string) {
-  if (tone === 'red') return '#FECACA';
-  if (tone === 'amber') return '#FED7AA';
-  return '#BFDBFE';
-}
-function dot(tone: string) {
-  if (tone === 'red') return '#DC2626';
-  if (tone === 'amber') return '#D97706';
-  return '#2563EB';
+function AccessSection() {
+  return (
+    <section style={styles.accessSection} aria-label='Как получить доступ'>
+      <div style={styles.sectionHead}>
+        <div style={styles.sectionLabel}>Вход в платформу</div>
+        <h2 style={styles.h2}>Незаконченная регистрация не блокирует просмотр</h2>
+      </div>
+      <div style={styles.accessGrid}>
+        <AccessBlock
+          title='Продавец'
+          note='Вход и создание черновика партии доступны без оплаты.'
+          action='Начать без оплаты'
+          href='/platform-v7/register'
+        />
+        <AccessBlock
+          title='Покупатель и трейдер'
+          note='Тариф определяется после проверки организации и сценария закупки.'
+          action='Подать заявку'
+          href='/platform-v7/register'
+        />
+        <AccessBlock
+          title='Партнёрские роли'
+          note='Элеватор, лаборатория, банк, перевозчик — подключение по договору и доступам.'
+          action='Узнать об условиях'
+          href='/platform-v7/register'
+        />
+      </div>
+    </section>
+  );
 }
 
-const page = { display: 'grid', gap: 14, padding: '0 0 24px' } as const;
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid #D7DEE3', borderRadius: 26, padding: 18, display: 'grid', gap: 14, boxShadow: '0 18px 44px rgba(15,23,42,.07)' } as const;
-const heroTop = { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 14, alignItems: 'start' } as const;
-const eyebrow = { color: '#0A7A5F', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '.08em' } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,46px)', lineHeight: 1.03, letterSpacing: '-.05em', fontWeight: 950 } as const;
-const h2 = { margin: 0, color: '#0F1419', fontSize: 20, lineHeight: 1.15, letterSpacing: '-.025em', fontWeight: 950 } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.5 } as const;
-const primaryAction = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 13, fontWeight: 900, boxShadow: '0 12px 24px rgba(10,122,95,.2)', whiteSpace: 'nowrap' } as const;
-const ghostAction = { textDecoration: 'none', minHeight: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 11px', borderRadius: 12, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 12, fontWeight: 850, whiteSpace: 'nowrap' } as const;
-const moneyCard = { background: '#fff', border: '1px solid rgba(37,99,235,.16)', borderRadius: 20, padding: 16, display: 'grid', gap: 5 } as const;
-const moneyLabel = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.07em' } as const;
-const moneyValue = { color: '#0F1419', fontSize: 34, lineHeight: 1, fontWeight: 950, letterSpacing: '-.045em' } as const;
-const causeLine = { color: '#334155', fontSize: 13, lineHeight: 1.45, fontWeight: 750 } as const;
-const laneGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 } as const;
-const lane = { border: '1px solid', borderRadius: 18, padding: 14, display: 'grid', gap: 6 } as const;
-const laneLabel = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.07em' } as const;
-const laneValue = { color: '#0F1419', fontSize: 20, lineHeight: 1, fontWeight: 950, letterSpacing: '-.03em' } as const;
-const laneState = { color: '#64748B', fontSize: 12, lineHeight: 1.35, fontWeight: 750 } as const;
-const stack = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 16, display: 'grid', gap: 10 } as const;
-const sectionHead = { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' } as const;
-const blocker = { textDecoration: 'none', color: 'inherit', border: '1px solid', borderRadius: 18, padding: 14, display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr) auto', gap: 12, alignItems: 'center', boxShadow: '0 8px 20px rgba(15,23,42,.04)' } as const;
-const rank = { width: 32, height: 32, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', color: '#0F1419', fontSize: 12, fontWeight: 950 } as const;
-const blockerTitle = { color: '#0F1419', fontSize: 15, lineHeight: 1.25, fontWeight: 950, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const;
-const blockerMeta = { color: '#64748B', fontSize: 12, lineHeight: 1.4 } as const;
-const statusDot = { width: 10, height: 10, borderRadius: 999, boxShadow: '0 0 0 4px rgba(15,23,42,.04)' } as const;
+function AccessBlock({ title, note, action, href }: { title: string; note: string; action: string; href: string }) {
+  return (
+    <div style={styles.accessBlock}>
+      <div style={styles.accessTitle}>{title}</div>
+      <p style={styles.accessNote}>{note}</p>
+      <Link href={href} style={styles.accessLink}>{action} →</Link>
+    </div>
+  );
+}
+
+function IntegrationNote() {
+  return (
+    <footer style={styles.integrationNote}>
+      Внешние контуры подключаются по договору и доступам. Текущий контур готов к подключению
+      внешних систем: банк, ФГИС «Зерно», ЭДО, ЭТрН, GPS-трекинг, лаборатория.
+    </footer>
+  );
+}
+
+const styles = {
+  page: {
+    display: 'grid',
+    gap: 16,
+    paddingBottom: 32,
+  } as const,
+
+  hero: {
+    background: 'var(--p7-color-background-elevated, #fff)',
+    border: '1px solid var(--p7-color-border, #D7DEE3)',
+    borderRadius: 24,
+    padding: '28px 24px',
+    boxShadow: 'var(--pc-shadow-sm)',
+  } as const,
+
+  heroContent: {
+    display: 'grid',
+    gap: 16,
+    maxWidth: 720,
+  } as const,
+
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: 900,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '.08em',
+    color: 'var(--p7-color-brand, #0A7A5F)',
+  } as const,
+
+  h1: {
+    margin: 0,
+    fontSize: 'clamp(28px, 6vw, 48px)',
+    lineHeight: 1.05,
+    letterSpacing: '-.04em',
+    fontWeight: 950,
+    color: 'var(--p7-color-text-primary, #0F1419)',
+  } as const,
+
+  lead: {
+    margin: 0,
+    fontSize: 16,
+    lineHeight: 1.6,
+    color: 'var(--p7-color-text-secondary, #475569)',
+    maxWidth: 640,
+  } as const,
+
+  ctaRow: {
+    display: 'flex',
+    gap: 10,
+    flexWrap: 'wrap' as const,
+    alignItems: 'center',
+  } as const,
+
+  ctaPrimary: {
+    textDecoration: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 48,
+    padding: '0 20px',
+    borderRadius: 14,
+    background: 'var(--p7-color-brand, #0A7A5F)',
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 900,
+    boxShadow: '0 8px 20px rgba(10,122,95,.22)',
+    whiteSpace: 'nowrap' as const,
+  } as const,
+
+  ctaSecondary: {
+    textDecoration: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 48,
+    padding: '0 18px',
+    borderRadius: 14,
+    background: 'var(--p7-color-surface-muted, #F2F6F0)',
+    border: '1px solid var(--p7-color-border, #D7DEE3)',
+    color: 'var(--p7-color-text-primary, #0F1419)',
+    fontSize: 14,
+    fontWeight: 850,
+    whiteSpace: 'nowrap' as const,
+  } as const,
+
+  ctaGhost: {
+    textDecoration: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 44,
+    padding: '0 14px',
+    borderRadius: 12,
+    border: '1px solid var(--p7-color-border, #D7DEE3)',
+    color: 'var(--p7-color-text-secondary, #475569)',
+    fontSize: 13,
+    fontWeight: 850,
+    whiteSpace: 'nowrap' as const,
+  } as const,
+
+  chainSection: {
+    background: 'var(--p7-color-background-elevated, #fff)',
+    border: '1px solid var(--p7-color-border, #D7DEE3)',
+    borderRadius: 20,
+    padding: '24px 20px',
+    display: 'grid',
+    gap: 20,
+  } as const,
+
+  sectionHead: {
+    display: 'grid',
+    gap: 8,
+  } as const,
+
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: 900,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '.08em',
+    color: 'var(--p7-color-brand, #0A7A5F)',
+  } as const,
+
+  h2: {
+    margin: 0,
+    fontSize: 'clamp(18px, 3vw, 24px)',
+    lineHeight: 1.2,
+    fontWeight: 900,
+    letterSpacing: '-.025em',
+    color: 'var(--p7-color-text-primary, #0F1419)',
+  } as const,
+
+  sectionSub: {
+    margin: 0,
+    fontSize: 14,
+    lineHeight: 1.6,
+    color: 'var(--p7-color-text-secondary, #475569)',
+  } as const,
+
+  chainRail: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+    gap: 6,
+  } as const,
+
+  chainItem: {
+    display: 'grid',
+    gap: 5,
+    padding: '12px 10px',
+    borderRadius: 14,
+    background: 'var(--p7-color-surface-muted, #F2F6F0)',
+    border: '1px solid var(--p7-color-border, #D7DEE3)',
+  } as const,
+
+  chainNum: {
+    fontSize: 10,
+    fontWeight: 950,
+    color: 'var(--p7-color-brand, #0A7A5F)',
+    letterSpacing: '.06em',
+  } as const,
+
+  chainStep: {
+    fontSize: 13,
+    fontWeight: 900,
+    color: 'var(--p7-color-text-primary, #0F1419)',
+    lineHeight: 1.2,
+  } as const,
+
+  chainDetail: {
+    fontSize: 11,
+    color: 'var(--p7-color-text-muted, #667085)',
+    lineHeight: 1.4,
+  } as const,
+
+  chainNote: {
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: 'var(--p7-color-text-secondary, #475569)',
+    padding: '12px 14px',
+    borderRadius: 12,
+    background: 'var(--p7-color-brand-soft, #E5F4EF)',
+    border: '1px solid rgba(10,122,95,.14)',
+  } as const,
+
+  rolesSection: {
+    display: 'grid',
+    gap: 20,
+  } as const,
+
+  roleGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+    gap: 10,
+  } as const,
+
+  roleCard: {
+    textDecoration: 'none',
+    display: 'grid',
+    gap: 8,
+    padding: '16px 14px',
+    borderRadius: 16,
+    background: 'var(--p7-color-background-elevated, #fff)',
+    border: '1px solid var(--p7-color-border, #D7DEE3)',
+    boxShadow: 'var(--pc-shadow-sm)',
+    transition: 'box-shadow .15s, border-color .15s',
+  } as const,
+
+  roleTitle: {
+    fontSize: 15,
+    fontWeight: 900,
+    color: 'var(--p7-color-text-primary, #0F1419)',
+    lineHeight: 1.2,
+  } as const,
+
+  roleDesc: {
+    fontSize: 13,
+    lineHeight: 1.55,
+    color: 'var(--p7-color-text-secondary, #475569)',
+  } as const,
+
+  roleAccess: {
+    fontSize: 11,
+    fontWeight: 850,
+    color: 'var(--p7-color-brand, #0A7A5F)',
+    padding: '4px 8px',
+    borderRadius: 8,
+    background: 'var(--p7-color-brand-soft, #E5F4EF)',
+    width: 'fit-content',
+  } as const,
+
+  accessSection: {
+    display: 'grid',
+    gap: 20,
+  } as const,
+
+  accessGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: 10,
+  } as const,
+
+  accessBlock: {
+    padding: '18px 16px',
+    borderRadius: 16,
+    background: 'var(--p7-color-background-elevated, #fff)',
+    border: '1px solid var(--p7-color-border, #D7DEE3)',
+    display: 'grid',
+    gap: 10,
+    alignContent: 'start',
+  } as const,
+
+  accessTitle: {
+    fontSize: 15,
+    fontWeight: 900,
+    color: 'var(--p7-color-text-primary, #0F1419)',
+  } as const,
+
+  accessNote: {
+    margin: 0,
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: 'var(--p7-color-text-secondary, #475569)',
+  } as const,
+
+  accessLink: {
+    textDecoration: 'none',
+    fontSize: 13,
+    fontWeight: 900,
+    color: 'var(--p7-color-brand, #0A7A5F)',
+  } as const,
+
+  integrationNote: {
+    fontSize: 12,
+    lineHeight: 1.6,
+    color: 'var(--p7-color-text-muted, #667085)',
+    padding: '14px 16px',
+    borderRadius: 12,
+    border: '1px solid var(--p7-color-border, #D7DEE3)',
+    background: 'var(--p7-color-surface-muted, #F2F6F0)',
+  } as const,
+} satisfies Record<string, React.CSSProperties>;
