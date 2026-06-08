@@ -73,11 +73,6 @@ describe('buildPlatformV7BankPaymentBasisRuntimeAction', () => {
     expect(result.event.actionId).toBe('request_bank_payment_basis_review');
   });
 
-  it('returns status "blocked" for non-operator role (bank)', () => {
-    const result = buildPlatformV7BankPaymentBasisRuntimeAction(makeInput({ actorRole: 'bank' }));
-    expect(result.status).toBe('blocked');
-  });
-
   it('returns status "blocked" for non-operator role (seller)', () => {
     const result = buildPlatformV7BankPaymentBasisRuntimeAction(makeInput({ actorRole: 'seller' }));
     expect(result.status).toBe('blocked');
@@ -88,8 +83,13 @@ describe('buildPlatformV7BankPaymentBasisRuntimeAction', () => {
     expect(result.status).toBe('blocked');
   });
 
+  it('returns status "blocked" for non-operator role (logistics)', () => {
+    const result = buildPlatformV7BankPaymentBasisRuntimeAction(makeInput({ actorRole: 'logistics' }));
+    expect(result.status).toBe('blocked');
+  });
+
   it('blocked result has uiStatusLabel "основание не передано"', () => {
-    const result = buildPlatformV7BankPaymentBasisRuntimeAction(makeInput({ actorRole: 'bank' }));
+    const result = buildPlatformV7BankPaymentBasisRuntimeAction(makeInput({ actorRole: 'seller' }));
     expect(result.status).toBe('blocked');
     expect(result.uiStatusLabel).toBe('основание не передано');
   });
