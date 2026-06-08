@@ -300,3 +300,19 @@ if [ "$SHOULD_RUN_STAGE16_QA" = "true" ]; then
   echo "Running platform-v7 Stage 16 risk & document security layer tests from autopilot guard."
   pnpm --filter @pc/web exec vitest run "${STAGE16_TESTS[@]}"
 fi
+
+STAGE17_TESTS=(
+  "tests/unit/platformV7TrustIntelligenceLayer.test.ts"
+)
+
+SHOULD_RUN_STAGE17_QA=false
+for test_file in "${STAGE17_TESTS[@]}"; do
+  if [ -f "apps/web/${test_file}" ]; then
+    SHOULD_RUN_STAGE17_QA=true
+  fi
+done
+
+if [ "$SHOULD_RUN_STAGE17_QA" = "true" ]; then
+  echo "Running platform-v7 Stage 17 trust & intelligence layer tests from autopilot guard."
+  pnpm --filter @pc/web exec vitest run "${STAGE17_TESTS[@]}"
+fi
