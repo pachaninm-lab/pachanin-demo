@@ -124,3 +124,19 @@ if [ "$SHOULD_RUN_STAGE5_QA" = "true" ]; then
   echo "Running platform-v7 Stage 5 runtime QA tests from autopilot guard."
   pnpm --filter @pc/web exec vitest run "${STAGE5_TESTS[@]}"
 fi
+
+STAGE6_TESTS=(
+  "tests/unit/platformV7ExternalAdapterEmulators.test.ts"
+)
+
+SHOULD_RUN_STAGE6_QA=false
+for test_file in "${STAGE6_TESTS[@]}"; do
+  if [ -f "apps/web/${test_file}" ]; then
+    SHOULD_RUN_STAGE6_QA=true
+  fi
+done
+
+if [ "$SHOULD_RUN_STAGE6_QA" = "true" ]; then
+  echo "Running platform-v7 Stage 6 external adapter emulator tests from autopilot guard."
+  pnpm --filter @pc/web exec vitest run "${STAGE6_TESTS[@]}"
+fi
