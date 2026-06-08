@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 15.0 Grain Automation Engines 2",
+  "current": "PR 16.0 Risk & Document Security Layer",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -65,21 +65,22 @@
     "PR 11.0: Deal State / Dispute / Evidence",
     "PR 12.0: Grain Execution Automation Engines",
     "PR 13.0: Domain Layer",
-    "PR 14.0: Deal Transaction Layer"
+    "PR 14.0: Deal Transaction Layer",
+    "PR 15.0: Grain Automation Engines 2"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7GrainAutomationEngines2.test.ts",
+    "apps/web/tests/unit/platformV7RiskDocumentSecurityLayer.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/unit/platformV7GrainAutomationEngines2.test.ts"
+    "apps/web/tests/unit/platformV7RiskDocumentSecurityLayer.test.ts"
   ],
   "controlledActions": {
     "enabled": true
