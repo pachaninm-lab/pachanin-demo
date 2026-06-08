@@ -7,20 +7,21 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 14.0 Deal Transaction Layer
+CURRENT: PR 15.0 Grain Automation Engines 2
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7DealTransactionLayer.test.ts
+- apps/web/tests/unit/platformV7GrainAutomationEngines2.test.ts
 
 CURRENT CRITERIA:
-- Confirms all 6 deal transaction source files are present.
+- Confirms all 7 remaining grain automation engine source files are present.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms deal-access-gate: canAccessSensitiveField (manual restriction, bypass risk, trust score, role gates, stage gates, documents_not_ready, counterparty_not_admitted), maskSensitiveValue.
-- Confirms deal-draft: createDealDraftFromAcceptedOffer (accepted-only guard), evaluateDealDraftGuards (all blocker types), updateDealDraftReadiness (audit event).
-- Confirms deal-fingerprint: createDealFingerprint (volume/price bucketing, deterministic ID), isSimilarDealFingerprint.
-- Confirms offer-state-machine: canTransitionOffer (allowed/terminal transitions), transitionOffer (happy path, invalid, rejection-reason guard), createCounterOffer (reason guard, terminal guard).
-- Confirms price-calculators: calculateSellerNetback (no deductions, with deductions, 7 items, explanation), calculateBuyerLandedPrice (no additions, with additions, 5 items, explanation).
-- Confirms role-canonical: PLATFORM_V7_CANONICAL_ROLES (16 roles), toPlatformV7CanonicalRole (canonical/camelCase/short aliases, null for unknown), platformV7CanonicalRoleName.
+- Confirms action-feedback-engine: createActionFeedbackPreview (enabled/disabled/money-mismatch/blocker), createActionFeedbackPreviewsForRole (role filtering: investor=none, operator=all, bank/driver).
+- Confirms action-guard-engine: guardNextActionsForExecutionState (publish_lot readiness, assign_logistics money, approve_release release flag, capture_weight arrival, preserves existing reason).
+- Confirms audit-event-engine: createAuditEvent (fields, optional dealId/reason, incrementing IDs), createRequiredAuditEvents (15 events, all with createdAt).
+- Confirms evidence-pack-engine: calculateEvidencePackReadiness (complete/partial/empty), evidencePackBlocker (null/blocker), canPrepareDisputeDecision, prepareDisputeDecision (complete/incomplete/holdAmount default).
+- Confirms role-visibility-engine: canSee (seller/driver/investor/bank/operator/elevator), assertRoleVisibility (driver money leak, logistics money leak, investor support leak), projectSummaryForRole (hides by role).
+- Confirms support-action-feedback-engine: createSupportActionFeedback (id/statusText/nextVisibleState), createSupportActionFeedbackListForRole (bank/logistics/investor/operator).
+- Confirms support-case-engine: createSupportCaseFromBlocker (category mapping, priority), createSupportCases (info excluded, incident/quality/weight cases), summarizeSupport (open/critical counts).
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -42,6 +43,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 11.0: Deal State / Dispute / Evidence
 - PR 12.0: Grain Execution Automation Engines
 - PR 13.0: Domain Layer
+- PR 14.0: Deal Transaction Layer
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -81,7 +83,8 @@ NEXT (strict order — each unlocked only after previous merges):
 11. PR 11.0 Deal State / Dispute / Evidence         ← DONE
 12. PR 12.0 Grain Execution Automation Engines      ← DONE
 13. PR 13.0 Domain Layer                            ← DONE
-14. PR 14.0 Deal Transaction Layer                  ← CURRENT
+14. PR 14.0 Deal Transaction Layer                  ← DONE
+15. PR 15.0 Grain Automation Engines 2              ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.

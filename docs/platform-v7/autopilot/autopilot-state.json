@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 14.0 Deal Transaction Layer",
+  "current": "PR 15.0 Grain Automation Engines 2",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -64,21 +64,22 @@
     "PR 10.0: Deal Workspace",
     "PR 11.0: Deal State / Dispute / Evidence",
     "PR 12.0: Grain Execution Automation Engines",
-    "PR 13.0: Domain Layer"
+    "PR 13.0: Domain Layer",
+    "PR 14.0: Deal Transaction Layer"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7DealTransactionLayer.test.ts",
+    "apps/web/tests/unit/platformV7GrainAutomationEngines2.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/unit/platformV7DealTransactionLayer.test.ts"
+    "apps/web/tests/unit/platformV7GrainAutomationEngines2.test.ts"
   ],
   "controlledActions": {
     "enabled": true
