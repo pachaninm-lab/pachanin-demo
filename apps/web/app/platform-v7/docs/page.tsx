@@ -10,7 +10,7 @@ const ENDPOINTS = [
 const SECTIONS = [
   {
     title: 'Что это за docs',
-    body: 'Это не финальный публичный SDK-портал, а рабочая страница для пилота и интеграций. Она показывает основные точки входа и то, как сейчас устроен демо-контур.',
+    body: 'Это не финальный публичный SDK-портал, а рабочая страница для пилота и интеграций. Она показывает основные точки входа и то, как сейчас устроен пилотный контур.',
   },
   {
     title: 'Главный принцип',
@@ -51,7 +51,7 @@ export default function DocsPage() {
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Developer Docs</div>
         <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
-          Рабочая документация по демо- и пилотному контуру. Без притворства, что это уже финальный production SDK-портал.
+          Рабочая документация по пилотному контуру. Без притворства, что это уже финальный production SDK-портал.
         </div>
       </section>
 
