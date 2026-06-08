@@ -7,17 +7,16 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 6.0 External Adapter Emulators
+CURRENT: PR 7.0 AI Integration Gateway
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7ExternalAdapterEmulators.test.ts
+- apps/web/tests/unit/platformV7AiIntegrationGateway.test.ts
 
 CURRENT CRITERIA:
-- Confirms all external adapter emulator source files are present and non-regressed.
-- Confirms pre-integration maturity: no live network calls, no connected system references.
-- Confirms BankAdapterEmulator, EdoAdapterEmulator, FgisAdapterEmulator, EpdAdapterEmulator
-  idempotency and state-machine contracts.
-- Confirms platformV7CreateMockAdapterRegistry covers all 8 systems with doesNotConfirmExternally.
+- Confirms AI gateway source files (envelope, provider port, mock provider) are present.
+- Confirms pre-integration maturity: no live AI API calls, no credentials, no fetch().
+- Confirms MockGatewayProvider: deterministic results, correct confidence, scope coverage.
+- Confirms DisabledGatewayProvider: null result, confidence 0, not-configured limitations.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -31,6 +30,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 5.2: Server Action Wrappers
 - PR 5.6: Runtime Integration Tests
 - PR 5.7: Final Stage 5 QA
+- PR 6.0: External Adapter Emulators
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -62,8 +62,8 @@ NEXT (strict order — each unlocked only after previous merges):
 3. PR 5.2 Server Action Wrappers                    ← DONE
 4. PR 5.6 Runtime Integration Tests                 ← DONE
 5. PR 5.7 Final Stage 5 QA                          ← DONE
-6. PR 6.0 External Adapter Emulators                ← CURRENT
-7. AI Integration Gateway         (only after runtime/adapters)
+6. PR 6.0 External Adapter Emulators                ← DONE
+7. PR 7.0 AI Integration Gateway                    ← CURRENT
 8. Product Entry / Onboarding     (only after runtime foundation)
 9. Theme / Visual / Role Cockpit  (only after runtime binding)
 
