@@ -90,6 +90,7 @@ export default async function DriverFieldPage() {
           <a href="#driver-offline-events" style={secondaryChip}>Связь / очередь</a>
           <a href="#driver-photo-seal" style={secondaryChip}>Фото / пломба</a>
           <a href="#driver-route-status" style={secondaryChip}>Статус рейса</a>
+          <Link href='/platform-v7/ai?from=/platform-v7/driver/field&role=driver' style={secondaryChip}>Помощник</Link>
         </div>
       </section>
 

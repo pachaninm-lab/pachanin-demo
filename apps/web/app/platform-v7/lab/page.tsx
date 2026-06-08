@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { FieldLabRuntime } from '@/components/v7r/FieldLabRuntime';
@@ -73,6 +74,11 @@ export default async function Page() {
           <p style={lead}>
             Лабораторный экран показывает только пробу, показатели качества, отклонения и итоговый допуск. Финансовое решение, спор и банковская проверка остаются вне роли лаборатории.
           </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link href='/platform-v7/ai?from=/platform-v7/lab&role=lab' style={{ textDecoration: 'none', minHeight: 40, display: 'inline-flex', alignItems: 'center', padding: '9px 14px', borderRadius: 12, border: '1px solid #CBD5E1', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 800 }}>Помощник</Link>
+          <Link href='/platform-v7/disputes' style={{ textDecoration: 'none', minHeight: 40, display: 'inline-flex', alignItems: 'center', padding: '9px 14px', borderRadius: 12, border: '1px solid #CBD5E1', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 800 }}>Споры и удержания</Link>
         </div>
 
         <div className="p7-lab-steps" style={stepsGrid}>

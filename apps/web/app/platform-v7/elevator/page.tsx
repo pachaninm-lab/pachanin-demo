@@ -136,6 +136,7 @@ export default async function Page() {
         <div className='p7-elevator-active-actions' style={actions}>
           <Link href={`/platform-v7/deals/${receiving.dealId}/clean`} style={primaryBtn}>Открыть Deal 360</Link>
           <Link href='/platform-v7/lab' style={ghostBtn}>Лаборатория</Link>
+          <Link href='/platform-v7/ai?from=/platform-v7/elevator&role=elevator' style={ghostBtn}>Помощник</Link>
         </div>
       </section>
 
