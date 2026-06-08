@@ -368,7 +368,7 @@ describe('createP7MockRuntimeStore', () => {
   });
 
   it('does not use module-level fake persistence state', () => {
-    const source = readFileSync(join(process.cwd(), 'lib/platform-v7/runtime/mock-persistence-adapter.ts'), 'utf8');
+    const source = readFileSync(join(process.cwd(), 'apps/web/lib/platform-v7/runtime/mock-persistence-adapter.ts'), 'utf8');
 
     expect(source).not.toMatch(/^const\s+\w+\s*=\s*new\s+(Map|Set)\b/m);
     expect(source).not.toMatch(/^let\s+\w+\s*=\s*new\s+(Map|Set)\b/m);

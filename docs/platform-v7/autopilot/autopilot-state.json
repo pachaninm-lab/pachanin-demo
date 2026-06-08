@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 5.1 Application Service Layer",
+  "current": "PR 5.5 Mock Persistence Adapter",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -51,7 +51,8 @@
     "Stage 4: MoneyTree / DocMatrix / BankBasis / ActionBoundary / QA",
     "PR 5.0: Runtime Inventory",
     "PR 5.3: Persistence Ports",
-    "PR 5.4: DTO / Validation"
+    "PR 5.4: DTO / Validation",
+    "PR 5.1: Application Service Layer"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
@@ -63,18 +64,16 @@
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/lib/platform-v7/runtime/application-service.ts",
-    "apps/web/lib/platform-v7/runtime/application-service-types.ts",
-    "apps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts",
+    "apps/web/lib/platform-v7/runtime/mock-persistence-adapter.ts",
+    "apps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/lib/platform-v7/runtime/application-service.ts",
-    "apps/web/lib/platform-v7/runtime/application-service-types.ts",
-    "apps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts"
+    "apps/web/lib/platform-v7/runtime/mock-persistence-adapter.ts",
+    "apps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts"
   ],
   "controlledActions": {
     "enabled": true
