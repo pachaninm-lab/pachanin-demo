@@ -188,3 +188,19 @@ if [ "$SHOULD_RUN_STAGE9_QA" = "true" ]; then
   echo "Running platform-v7 Stage 9 theme / visual / role cockpit tests from autopilot guard."
   pnpm --filter @pc/web exec vitest run "${STAGE9_TESTS[@]}"
 fi
+
+STAGE10_TESTS=(
+  "tests/unit/platformV7DealWorkspace.test.ts"
+)
+
+SHOULD_RUN_STAGE10_QA=false
+for test_file in "${STAGE10_TESTS[@]}"; do
+  if [ -f "apps/web/${test_file}" ]; then
+    SHOULD_RUN_STAGE10_QA=true
+  fi
+done
+
+if [ "$SHOULD_RUN_STAGE10_QA" = "true" ]; then
+  echo "Running platform-v7 Stage 10 deal workspace tests from autopilot guard."
+  pnpm --filter @pc/web exec vitest run "${STAGE10_TESTS[@]}"
+fi

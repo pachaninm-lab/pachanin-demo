@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 9.0 Theme / Visual / Role Cockpit",
+  "current": "PR 10.0 Deal Workspace",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -59,21 +59,22 @@
     "PR 5.7: Final Stage 5 QA",
     "PR 6.0: External Adapter Emulators",
     "PR 7.0: AI Integration Gateway",
-    "PR 8.0: Product Entry / Onboarding"
+    "PR 8.0: Product Entry / Onboarding",
+    "PR 9.0: Theme / Visual / Role Cockpit"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7ThemeVisualRoleCockpit.test.ts",
+    "apps/web/tests/unit/platformV7DealWorkspace.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/unit/platformV7ThemeVisualRoleCockpit.test.ts"
+    "apps/web/tests/unit/platformV7DealWorkspace.test.ts"
   ],
   "controlledActions": {
     "enabled": true
