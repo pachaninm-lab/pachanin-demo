@@ -2,8 +2,8 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "ready",
-  "current": "PR 20.0 Bank Payment Basis, Routes Manifest & Support Contour",
+  "currentStatus": "done",
+  "current": "MASTER-TZ complete",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -70,21 +70,22 @@
     "PR 16.0: Risk & Document Security Layer",
     "PR 17.0: Trust & Intelligence Layer",
     "PR 18.0: Deal Execution SOT",
-    "PR 19.0: Shell, Simulation & Deal360"
+    "PR 19.0: Shell, Simulation & Deal360",
+    "PR 20.0: Bank Payment Basis, Routes Manifest & Support Contour"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts"
+    "docs/platform-v7/autopilot/**",
+    "docs/platform-v7/execution-queue.md"
   ],
   "controlledActions": {
     "enabled": true
@@ -105,5 +106,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "98%"
+  "readiness": "100%"
 }
