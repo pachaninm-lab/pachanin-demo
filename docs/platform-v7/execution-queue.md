@@ -7,25 +7,23 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 12.0 Grain Execution Automation Engines
+CURRENT: PR 13.0 Domain Layer
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7GrainExecutionEngines.test.ts
+- apps/web/tests/unit/platformV7DomainLayer.test.ts
 
 CURRENT CRITERIA:
-- Confirms all 11 grain-execution automation engine source files are present.
+- Confirms all 9 domain layer source files are present.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms next-action-engine: seed-based id, priority defaults, sortNextActions order.
-- Confirms document-requirement-engine: isDocumentRequirementSatisfied, buildDocumentRequirements (by basis), summarizeDocuments, documentBlockers.
-- Confirms sdiz-gate-engine: buildSdizGates per basis, getSdizGateBlockers satisfied/unsatisfied/error.
-- Confirms logistics-incident-engine: adjustment null for resolved/zero-impact, blockers for open critical incidents.
-- Confirms weight-balance-engine: not_started, loading_weight_captured, within_tolerance, deviation status + impact.
-- Confirms quality-delta-engine: not_measured, within_tolerance, discount_required, dispute_required.
-- Confirms money-release-engine: idempotency key, qualityAdjustment, weightAdjustment, documentAdjustment, calculateMoneyProjection release gate.
-- Confirms readiness-engine: score, blockers, status (blocked/almost_ready/ready_for_sale).
-- Confirms netback-engine: grossAmount, logistics by basis, netAmount ≥ 0, rankOffersByNetback.
-- Confirms matching-engine: calculateDeliveredPricePerTon, matchBatchesToRfq score/filter/sort.
-- Confirms sample-chain-engine: evaluateSampleChain, nextSampleStep.
+- Confirms canonical: 23 statuses, valid/invalid transitions, terminal statuses, assertDealTransition, isStrategicPlatformTask, EXECUTE_RELEASE requirements.
+- Confirms status-mapper: toCanonicalDealStatus (known→canonical, unknown→DEGRADED), isKnownLegacyDealStatus.
+- Confirms rbac: hasPermission, canPerformCriticalAction (allowed roles, 2fa, audit).
+- Confirms money: calculateDealMoneyAtRisk, calculateMoneyTree (buckets), calculateMoneyStateFromEvents, calculateMoneyKpi.
+- Confirms kpi: calculateControlTowerKpi (active/disputed/blocked/readyToRelease), calculateInvestorKpi (disputeRate).
+- Confirms release-guard: evaluateReleaseGuard (canRequestRelease, canExecuteRelease, blocker types).
+- Confirms money-stop-labels: moneyStopReasonText, primaryMoneyStopReason.
+- Confirms legacy-deal-adapter: normalizeLegacyDeal, normalizeLegacyDeals.
+- Confirms selectors: selectDealReadinessFlags, selectHighestRiskDeal.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -45,6 +43,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 9.0: Theme / Visual / Role Cockpit
 - PR 10.0: Deal Workspace
 - PR 11.0: Deal State / Dispute / Evidence
+- PR 12.0: Grain Execution Automation Engines
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -82,7 +81,8 @@ NEXT (strict order — each unlocked only after previous merges):
 9. PR 9.0 Theme / Visual / Role Cockpit             ← DONE
 10. PR 10.0 Deal Workspace                          ← DONE
 11. PR 11.0 Deal State / Dispute / Evidence         ← DONE
-12. PR 12.0 Grain Execution Automation Engines      ← CURRENT
+12. PR 12.0 Grain Execution Automation Engines      ← DONE
+13. PR 13.0 Domain Layer                            ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.

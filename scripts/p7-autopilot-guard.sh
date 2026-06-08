@@ -236,3 +236,19 @@ if [ "$SHOULD_RUN_STAGE12_QA" = "true" ]; then
   echo "Running platform-v7 Stage 12 grain execution automation engine tests from autopilot guard."
   pnpm --filter @pc/web exec vitest run "${STAGE12_TESTS[@]}"
 fi
+
+STAGE13_TESTS=(
+  "tests/unit/platformV7DomainLayer.test.ts"
+)
+
+SHOULD_RUN_STAGE13_QA=false
+for test_file in "${STAGE13_TESTS[@]}"; do
+  if [ -f "apps/web/${test_file}" ]; then
+    SHOULD_RUN_STAGE13_QA=true
+  fi
+done
+
+if [ "$SHOULD_RUN_STAGE13_QA" = "true" ]; then
+  echo "Running platform-v7 Stage 13 domain layer tests from autopilot guard."
+  pnpm --filter @pc/web exec vitest run "${STAGE13_TESTS[@]}"
+fi
