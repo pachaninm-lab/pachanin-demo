@@ -1,5 +1,5 @@
-import { GrainExecutionPage } from '@/components/platform-v7/GrainExecutionPage';
+import { redirect } from 'next/navigation';
 
 export default function PlatformV7BuyerRfqDetailPage() {
-  return <GrainExecutionPage mode='rfq-detail' role='buyer' />;
+  redirect('/platform-v7/buyer/rfq/new');
 }
