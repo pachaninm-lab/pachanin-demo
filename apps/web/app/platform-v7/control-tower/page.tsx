@@ -335,7 +335,7 @@ function Signal({ title, detail, href }: { title: string; detail: string; href: 
   return <Link href={href} style={{ textDecoration:'none', borderRadius:16, padding:14, background:'#fff', border:'1px solid #E4E6EA', display:'grid', gap:6, boxShadow:'0 8px 20px rgba(15,23,42,.04)' }}><div style={{ fontSize:14, fontWeight:900, color:'#0F1419' }}>{title}</div><div style={{ fontSize:12, color:'#6B778C', lineHeight:1.45 }}>{detail}</div></Link>;
 }
 
-function btn(kind: 'default' | 'primary' | 'danger' = 'default') {
+function btn(kind: 'default' | 'primary' | 'danger' | 'ghost' = 'default') {
   if (kind === 'primary') return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'#0A7A5F', border:'1px solid #0A7A5F', color:'#fff', fontWeight:800, fontSize:12, boxShadow:'0 10px 22px rgba(10,122,95,.18)' };
   if (kind === 'danger') return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'rgba(220,38,38,0.08)', border:'1px solid rgba(220,38,38,0.18)', color:'#B91C1C', fontWeight:800, fontSize:12 };
   return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'#fff', border:'1px solid #E4E6EA', color:'#0F1419', fontWeight:800, fontSize:12, boxShadow:'0 8px 18px rgba(15,23,42,.04)' };
