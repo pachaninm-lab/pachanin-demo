@@ -332,3 +332,19 @@ if [ "$SHOULD_RUN_STAGE18_QA" = "true" ]; then
   echo "Running platform-v7 Stage 18 deal execution SOT tests from autopilot guard."
   pnpm --filter @pc/web exec vitest run "${STAGE18_TESTS[@]}"
 fi
+
+STAGE19_TESTS=(
+  "tests/unit/platformV7ShellSimulationDeal360.test.ts"
+)
+
+SHOULD_RUN_STAGE19_QA=false
+for test_file in "${STAGE19_TESTS[@]}"; do
+  if [ -f "apps/web/${test_file}" ]; then
+    SHOULD_RUN_STAGE19_QA=true
+  fi
+done
+
+if [ "$SHOULD_RUN_STAGE19_QA" = "true" ]; then
+  echo "Running platform-v7 Stage 19 shell, simulation & deal360 tests from autopilot guard."
+  pnpm --filter @pc/web exec vitest run "${STAGE19_TESTS[@]}"
+fi

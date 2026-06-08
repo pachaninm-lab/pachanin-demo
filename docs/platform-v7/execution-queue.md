@@ -7,17 +7,17 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 18.0 Deal Execution SOT
+CURRENT: PR 19.0 Shell, Simulation & Deal360
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7DealExecutionSot.test.ts
+- apps/web/tests/unit/platformV7ShellSimulationDeal360.test.ts
 
 CURRENT CRITERIA:
-- Confirms all 3 deal execution SOT source files are present.
+- Confirms all 3 source files are present: simulated-external-actions.ts, shell-role-policy.ts, deal360-source-of-truth.ts.
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms deal-execution-source-of-truth: selectDealExecutionCase/MoneyState/SdizLifecycle (lookups, undefined for unknown), isSdizLifecycleBlockingMoneyRelease, selectDealDocumentMatrix/BlockingDocs/LogisticsTripPlan/TransportDocPack, isTransportPackBlockingBankBasis, calculateDealMoneyFormulaAmount/AllocationAmount/isDealMoneyStateBalanced, calculateElevatorWeightImpact (net/accepted/delta/hold), calculateLabQualityImpact (perfect=0 adjustments, bad=deltas), createSupportTicket (slaDeadline, status=open, audit event), formatRub/Tons, executionReadinessScore/Blockers/canRequestMoneyRelease/expectedDealAmountRub/executionSummary.
-- Confirms workflow-source-of-truth: getWorkflowDashboardModel (4 contexts, title/lead/state/actions/auditSeed), runWorkflowAction (state transitions, auditEvent, toast).
-- Confirms role-lens: canSee (operator=all, driver=2, lab=2, role-specific atom gates), visibleAtoms (operator=20, driver=2), ROLE_LENS completeness.
+- Confirms simulated-external-actions: simulatePlatformV7ExternalAction (status resolution by keyword, auditEvent shape, id slug, 6 systems), getPlatformV7SimulationBanner (non-empty, mentions simulation context).
+- Confirms shell-role-policy: inferPlatformRoleFromPath (12 path patterns + fallback), getShellPolicy (field/role-scoped/operator), canShowRoleSwitcher/GlobalSearch/GlobalStatuses/Drawer/PortalRoleSwitcher, getHeaderSelectableRoles, FIELD_SHELL_ROLES, ROLE_SCOPED_SHELL_ROLES constants.
+- Confirms deal360-source-of-truth: getDeal360Scenario (DL-9106 base, DL-9102 dispute, unknown fallback), DEAL360_SCENARIOS (2 entries), money/documents/chain/providerGates shapes, cockpit fields.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -43,6 +43,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 15.0: Grain Automation Engines 2
 - PR 16.0: Risk & Document Security Layer
 - PR 17.0: Trust & Intelligence Layer
+- PR 18.0: Deal Execution SOT
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -86,7 +87,8 @@ NEXT (strict order — each unlocked only after previous merges):
 15. PR 15.0 Grain Automation Engines 2              ← DONE
 16. PR 16.0 Risk & Document Security Layer          ← DONE
 17. PR 17.0 Trust & Intelligence Layer              ← DONE
-18. PR 18.0 Deal Execution SOT                      ← CURRENT
+18. PR 18.0 Deal Execution SOT                      ← DONE
+19. PR 19.0 Shell, Simulation & Deal360             ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.
