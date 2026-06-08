@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 8.0 Product Entry / Onboarding",
+  "current": "PR 9.0 Theme / Visual / Role Cockpit",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -58,23 +58,22 @@
     "PR 5.6: Runtime Integration Tests",
     "PR 5.7: Final Stage 5 QA",
     "PR 6.0: External Adapter Emulators",
-    "PR 7.0: AI Integration Gateway"
+    "PR 7.0: AI Integration Gateway",
+    "PR 8.0: Product Entry / Onboarding"
   ],
   "lockedUntilCurrentGreen": [
-    "Theme / Visual",
-    "Role Cockpit / UX",
     "Backend / DB / runtime persistence expansion",
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts",
+    "apps/web/tests/unit/platformV7ThemeVisualRoleCockpit.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts"
+    "apps/web/tests/unit/platformV7ThemeVisualRoleCockpit.test.ts"
   ],
   "controlledActions": {
     "enabled": true
@@ -95,5 +94,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "96%"
+  "readiness": "98%"
 }
