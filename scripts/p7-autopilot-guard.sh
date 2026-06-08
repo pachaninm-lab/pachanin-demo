@@ -140,3 +140,19 @@ if [ "$SHOULD_RUN_STAGE6_QA" = "true" ]; then
   echo "Running platform-v7 Stage 6 external adapter emulator tests from autopilot guard."
   pnpm --filter @pc/web exec vitest run "${STAGE6_TESTS[@]}"
 fi
+
+STAGE7_TESTS=(
+  "tests/unit/platformV7AiIntegrationGateway.test.ts"
+)
+
+SHOULD_RUN_STAGE7_QA=false
+for test_file in "${STAGE7_TESTS[@]}"; do
+  if [ -f "apps/web/${test_file}" ]; then
+    SHOULD_RUN_STAGE7_QA=true
+  fi
+done
+
+if [ "$SHOULD_RUN_STAGE7_QA" = "true" ]; then
+  echo "Running platform-v7 Stage 7 AI integration gateway tests from autopilot guard."
+  pnpm --filter @pc/web exec vitest run "${STAGE7_TESTS[@]}"
+fi

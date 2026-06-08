@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "PR 6.0 External Adapter Emulators",
+  "current": "PR 7.0 AI Integration Gateway",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -56,25 +56,25 @@
     "PR 5.5: Mock Persistence Adapter",
     "PR 5.2: Server Action Wrappers",
     "PR 5.6: Runtime Integration Tests",
-    "PR 5.7: Final Stage 5 QA"
+    "PR 5.7: Final Stage 5 QA",
+    "PR 6.0: External Adapter Emulators"
   ],
   "lockedUntilCurrentGreen": [
     "Product Entry / Onboarding",
     "Theme / Visual",
     "Role Cockpit / UX",
     "Backend / DB / runtime persistence expansion",
-    "AI Integration Gateway",
     "UI / visual components"
   ],
   "allowedCurrentScope": [
-    "apps/web/tests/unit/platformV7ExternalAdapterEmulators.test.ts",
+    "apps/web/tests/unit/platformV7AiIntegrationGateway.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     "scripts/p7-autopilot-*.mjs",
     ".github/workflows/platform-v7-autopilot-*.yml"
   ],
   "agentWritableScope": [
-    "apps/web/tests/unit/platformV7ExternalAdapterEmulators.test.ts"
+    "apps/web/tests/unit/platformV7AiIntegrationGateway.test.ts"
   ],
   "controlledActions": {
     "enabled": true
@@ -95,5 +95,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "92%"
+  "readiness": "94%"
 }
