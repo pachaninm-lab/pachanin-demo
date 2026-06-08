@@ -7,18 +7,22 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 9.0 Theme / Visual / Role Cockpit
+CURRENT: PR 10.0 Deal Workspace
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7ThemeVisualRoleCockpit.test.ts
+- apps/web/tests/unit/platformV7DealWorkspace.test.ts
 
 CURRENT CRITERIA:
-- Confirms design source files (tokens, contrast, dark-qa, execution-cockpit, role-execution-cockpit) are present.
+- Confirms deal-workspace source files are present (workspace, documents, logistics, release-readiness, actions, timeline, sidepanel, financial-terms).
 - Confirms pre-integration: no live network calls, no external API references.
-- Confirms token structure: light/dark themes, all color keys, tone tokens per theme.
-- Confirms WCAG contrast: black/white ratio, AA text, AA large text/UI thresholds.
-- Confirms role cockpit: all 12 roles covered, every cockpit has operations with actions.
-- Confirms dark QA acceptance criteria: darkModeRequired, noFakePayoutCta, minTextContrastAa, minMobileCriticalActionPx=44.
+- Confirms workspace model: 5 tabs, defaultTab overview, action hierarchy constraints.
+- Confirms documents model: completeness, blocksRelease, badge tones, signature gate.
+- Confirms logistics model: trip-based blocksRelease, ettn gate, route-deviation blockers.
+- Confirms financial terms: grossAmount, vatAmount, holdAmount clamping, balance check.
+- Confirms release readiness: 5 gates (documents, logistics, money, bank, dispute), canRelease, tone.
+- Confirms action evaluation: gate blockers, safeActionPlan, full release guard on release-funds.
+- Confirms timeline: sort newest-first, type/actor/severity filter, summary counts.
+- Confirms side panel: releaseGuard maturityMode, nextOwnerTone, model validity.
 - Restricted areas remain blocked. Merge gate remains final authority.
 
 DONE (MASTER-TZ checkpoints):
@@ -35,6 +39,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 6.0: External Adapter Emulators
 - PR 7.0: AI Integration Gateway
 - PR 8.0: Product Entry / Onboarding
+- PR 9.0: Theme / Visual / Role Cockpit
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -69,7 +74,8 @@ NEXT (strict order — each unlocked only after previous merges):
 6. PR 6.0 External Adapter Emulators                ← DONE
 7. PR 7.0 AI Integration Gateway                    ← DONE
 8. PR 8.0 Product Entry / Onboarding                ← DONE
-9. PR 9.0 Theme / Visual / Role Cockpit             ← CURRENT
+9. PR 9.0 Theme / Visual / Role Cockpit             ← DONE
+10. PR 10.0 Deal Workspace                          ← CURRENT
 
 RULES:
 - One PR equals one narrow layer.
