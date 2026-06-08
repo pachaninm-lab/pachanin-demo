@@ -7,18 +7,11 @@ automation conveyor only — it does not represent product completion.
 
 ---
 
-CURRENT: PR 20.0 Bank Payment Basis, Routes Manifest & Support Contour
+CURRENT: MASTER-TZ COMPLETE — all 20 PRs merged
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts
-
-CURRENT CRITERIA:
-- Confirms all 3 source files are present: bank-payment-basis-runtime-action.ts, routes-manifest.ts, support-contour-smoke.ts.
-- Confirms pre-integration: no live network calls, no external API references.
-- Confirms bank-payment-basis-runtime-action: buildPlatformV7BankPaymentBasisRuntimeAction (created for operator, blocked for non-operator roles, uiStatusLabel/uiSafetyNote, event shape, dealId trimming).
-- Confirms routes-manifest: PLATFORM_V7_ROUTES_MANIFEST (non-empty, path/label/roles/critical fields, all paths start with /platform-v7/, no duplicates), CRITICAL_ROUTES (matches critical=true entries), MANIFEST_ROLES (contains all standard roles, no duplicates).
-- Confirms support-contour-smoke: PLATFORM_V7_SUPPORT_CONTOUR_SMOKE === true.
-- Restricted areas remain blocked. Merge gate remains final authority.
+- docs/platform-v7/autopilot/**
+- docs/platform-v7/execution-queue.md
 
 DONE (MASTER-TZ checkpoints):
 - Stage 3: RBAC / ACL / roles / access rights
@@ -45,6 +38,7 @@ DONE (MASTER-TZ checkpoints):
 - PR 17.0: Trust & Intelligence Layer
 - PR 18.0: Deal Execution SOT
 - PR 19.0: Shell, Simulation & Deal360
+- PR 20.0: Bank Payment Basis, Routes Manifest & Support Contour
 
 DONE (autopilot smoke conveyor):
 - baseline
@@ -70,7 +64,7 @@ DONE (autopilot smoke conveyor):
 - Autopilot Product Slice Proposal
 - Autopilot Product Slice 01 through 20
 
-NEXT (strict order — each unlocked only after previous merges):
+NEXT: None — MASTER-TZ execution queue fully complete.
 1. PR 5.1 Application Service Layer                 ← DONE
 2. PR 5.5 Mock Persistence Adapter                  ← DONE
 3. PR 5.2 Server Action Wrappers                    ← DONE
@@ -90,7 +84,7 @@ NEXT (strict order — each unlocked only after previous merges):
 17. PR 17.0 Trust & Intelligence Layer              ← DONE
 18. PR 18.0 Deal Execution SOT                      ← DONE
 19. PR 19.0 Shell, Simulation & Deal360             ← DONE
-20. PR 20.0 Bank Payment Basis, Routes Manifest & Support Contour ← CURRENT
+20. PR 20.0 Bank Payment Basis, Routes Manifest & Support Contour ← DONE
 
 RULES:
 - One PR equals one narrow layer.
