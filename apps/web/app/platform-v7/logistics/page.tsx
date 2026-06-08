@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
@@ -151,6 +152,10 @@ export default async function LogisticsPage() {
             : 'Данные статичные — API недоступен'
         }
       />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+        <RoleLearningDrawer role='logistics' />
+      </div>
 
       <RoleExecutionHandoff items={logisticsHandoff} title='исполнение: что логистика отправляет и ожидает' />
 

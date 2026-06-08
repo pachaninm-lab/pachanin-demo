@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -157,7 +158,10 @@ export default async function PlatformV7BuyerPage() {
       <section style={hero}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ display: 'grid', gap: 9, maxWidth: 780 }}>
-            <div style={badge}>Кабинет покупателя · запрос → резерв → логистика</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={badge}>Кабинет покупателя · запрос → резерв → логистика</div>
+              <RoleLearningDrawer role='buyer' />
+            </div>
             <h1 style={h1}>Подтвердить резерв, чтобы сделка пошла в исполнение</h1>
             <p style={lead}>Покупатель видит не доску партий, а контур закупки: запрос, выбранную партию, ставку, резерв, удержание, документы и причину, почему сделка ещё не перешла к логистике.</p>
           </div>

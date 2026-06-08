@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RoleLearningDrawer } from '@/components/platform-v7/RoleLearningDrawer';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -116,7 +117,10 @@ export default async function PlatformV7SellerPage() {
       <section style={hero}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ display: 'grid', gap: 9, maxWidth: 780 }}>
-            <div style={badge}>Кабинет продавца · сделка → документы → деньги</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={badge}>Кабинет продавца · сделка → документы → деньги</div>
+              <RoleLearningDrawer role='seller' />
+            </div>
             <h1 style={h1}>Закрыть документы, чтобы передать основание банку</h1>
             <p style={lead}>Продавец видит не витрину лотов, а контур исполнения: партия, лот, резерв покупателя, СДИЗ, ЭТрН, приёмка и причина, почему деньги ещё не переданы на банковскую проверку.</p>
           </div>
