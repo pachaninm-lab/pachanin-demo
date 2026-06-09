@@ -49,7 +49,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       <section style={card()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Карточка сделки · контур исполнения</p>
+            <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Карточка сделки · пилотный контур</p>
             <h1 style={{ margin: '6px 0 0', fontSize: 28, color: text }}>{deal.id} · {scenario.lotId}</h1>
           </div>
           <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>
@@ -82,7 +82,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       <section style={grid()}>
         <Cell label='Резерв денег' value={rub(deal.reservedAmount)} accent />
         <Cell label='Удержание' value={rub(deal.holdAmount)} danger={deal.holdAmount > 0} />
-        <Cell label='К выплате по текущим условиям' value={rub(releaseAmount)} accent={!hasBlockers} muted={hasBlockers} />
+        <Cell label='К выпуску' value={rub(releaseAmount)} accent={!hasBlockers} muted={hasBlockers} />
         <Cell label='Открытые споры' value={String(disputes.length)} danger={disputes.length > 0} />
       </section>
 
@@ -127,11 +127,26 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         </div>
       </section>
 
+      <section style={{ ...card(), background: hasBlockers ? redBg : greenBg, borderColor: hasBlockers ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)' }}>
+        <p style={{ margin: 0, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Что блокирует выпуск денег</p>
+        <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>
+          {hasBlockers
+            ? [
+                deal.blockers.includes('docs') ? 'документы не закрыты' : null,
+                deal.blockers.includes('fgis') ? 'ФГИС/СДИЗ не подтверждены' : null,
+                deal.holdAmount > 0 ? 'есть активное удержание' : null,
+                (!releaseCheck?.canRequestRelease && releaseCheck != null) ? 'стадия сделки не готова к выплате' : null,
+                releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : null,
+              ].filter(Boolean).join(' · ') || 'стадия сделки не готова к выплате'
+            : 'Нет блокеров: сделка готова к выпуску денег.'}
+        </p>
+      </section>
+
       {hasBlockers ? (
         <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
           <p style={{ margin: 0, color: red, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</p>
           <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>
-            {scenario.nextAction}. {releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : deal.blockers.length > 0 ? deal.blockers.join(' · ') : ''}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}
+            {scenario.nextAction}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}
           </p>
         </section>
       ) : null}

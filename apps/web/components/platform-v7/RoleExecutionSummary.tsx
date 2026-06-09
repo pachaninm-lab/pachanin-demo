@@ -92,7 +92,7 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     next: 'водитель подтверждает ближайшее полевое действие',
     cta: 'Открыть рейс водителя',
     href: '/platform-v7/driver/field',
-    hidden: 'не показывается: коммерческие условия, ставки, покупатель, кредит, чужие рейсы',
+    hidden: 'не показывается: деньги, ставки, банк, покупатель, кредит, чужие рейсы',
   },
   elevator: {
     title: 'Элеватор',
@@ -225,26 +225,15 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
 export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }) {
   const summary = PLATFORM_V7_ROLE_EXECUTION_SUMMARIES[role];
   const tone = getPlatformV7ToneTokens(summary.tone);
-  const rows = role === 'driver'
-    ? [
-        ['Что происходит сейчас', summary.now],
-        ['Что остановило рейс', summary.blocked],
-        ['Коммерческий контекст', summary.money],
-        ['Где документы рейса', summary.documents],
-        ['Где исполнение', summary.execution],
-        ['Что нажать сейчас', summary.next],
-      ]
-    : [
-        ['Что происходит сейчас', summary.now],
-        ['Что остановило сделку', summary.blocked],
-        ['Где деньги', summary.money],
-        ['Где документы', summary.documents],
-        ['Где груз / исполнение', summary.execution],
-        ['Кто следующий', summary.next],
-      ];
-  const headline = role === 'driver'
-    ? `${summary.title}: маршрут, документы рейса, событие и следующий шаг`
-    : `${summary.title}: деньги, документы, груз, причина остановки и следующий шаг`;
+  const rows = [
+    ['Что происходит сейчас', summary.now],
+    ['Что заблокировано', summary.blocked],
+    ['Где деньги', summary.money],
+    ['Где документы', summary.documents],
+    ['Где груз / исполнение', summary.execution],
+    ['Кто следующий', summary.next],
+  ];
+  const headline = `${summary.title}: деньги, документы, груз, причина остановки и следующий шаг`;
 
   return (
     <section
@@ -266,6 +255,7 @@ export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }
             <P7Badge tone={summary.tone}>{summary.title}</P7Badge>
             <P7Badge tone='neutral'>{modeLabel(summary.mode)}</P7Badge>
             <P7Badge tone='neutral'>контур исполнения</P7Badge>
+            <P7Badge tone='neutral'>controlled-pilot</P7Badge>
           </div>
           <h1
             style={{

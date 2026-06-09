@@ -93,7 +93,7 @@ export default function PlatformV7ReadinessPage() {
             <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица готовности · пилотный контур</div>
             <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Готовность сделки к исполнению и выпуску денег</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 900 }}>
-              Один экран показывает, где сделка застряла: ФГИС, документы, логистика, банк или спор. Это не платёжный механизм, а проверочная панель оператора.
+              Один экран показывает, где сделка застряла: реестр, документы, логистика, банк или спор. Это не платёжный механизм, а проверочная панель оператора.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -128,15 +128,14 @@ export default function PlatformV7ReadinessPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
               {gates.map((gate) => (
-                <div key={gate.label} style={{ border: `1px solid ${gate.ready ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, background: gate.ready ? 'rgba(10,122,95,0.06)' : 'rgba(217,119,6,0.08)', borderRadius: 12, padding: 10 }}>
-                  <div style={{ fontSize: 12, color: gate.ready ? BRAND : WARN, fontWeight: 900 }}>{gate.ready ? 'Готово' : 'Проверить'}</div>
-                  <div style={{ marginTop: 4, fontSize: 13, color: T, fontWeight: 900 }}>{gate.label}</div>
+                <div key={gate.label} aria-label={gate.label} style={{ border: `1px solid ${gate.ready ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, background: gate.ready ? 'rgba(10,122,95,0.06)' : 'rgba(217,119,6,0.08)', borderRadius: 12, padding: 10 }}>
+                  <div style={{ fontSize: 12, color: gate.ready ? BRAND : WARN, fontWeight: 900 }}>{gate.ready ? '✓' : '!'}</div>
                   <div style={{ marginTop: 3, fontSize: 11, color: M }}>{gate.note}</div>
                 </div>
               ))}
             </div>
             <div style={{ fontSize: 12, color: M }}>
-              Резерв: <b style={{ color: T }}>{formatCompactMoney(deal.reservedAmount)}</b> · Удержано: <b style={{ color: deal.holdAmount > 0 ? ERR : T }}>{formatCompactMoney(deal.holdAmount)}</b> · Блокеры: <b style={{ color: deal.blockers.length ? ERR : T }}>{deal.blockers.length ? deal.blockers.join(', ') : '—'}</b>
+              Резерв: <b style={{ color: T }}>{formatCompactMoney(deal.reservedAmount)}</b> · Удержано: <b style={{ color: deal.holdAmount > 0 ? ERR : T }}>{formatCompactMoney(deal.holdAmount)}</b> · <b style={{ color: deal.blockers.length ? ERR : T }}>{deal.blockers.length ? deal.blockers.join(', ') : 'Нет блокеров'}</b>
             </div>
           </div>
         ))}
@@ -163,7 +162,7 @@ function DL9102ReadinessCard() {
         <div>
           <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Демо-сделка · {deal.maturity}</div>
           <div style={{ marginTop: 4, fontSize: 20, fontWeight: 900, color: T }}>{deal.id} · {deal.lotId} · {deal.crop}</div>
-          <div style={{ marginTop: 4, fontSize: 13, color: M }}>{deal.fgisPartyId} · {formatTons(deal.volumeTons)} · {deal.basis}</div>
+          <div style={{ marginTop: 4, fontSize: 13, color: M }}>Партия: {deal.fgisPartyId.replace(/^ФГИС-/, '')} · {formatTons(deal.volumeTons)} · {deal.basis}</div>
         </div>
         <span style={{ padding: '6px 12px', borderRadius: 999, background: score === 100 ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${score === 100 ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, color: score === 100 ? BRAND : WARN, fontSize: 14, fontWeight: 900 }}>{score}% готово</span>
       </div>

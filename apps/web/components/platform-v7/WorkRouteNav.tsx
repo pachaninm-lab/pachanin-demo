@@ -6,7 +6,7 @@ import { getShellPolicy, inferPlatformRoleFromPath } from '@/lib/platform-v7/she
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export const WORK_LINKS = [
-  { href: '/platform-v7/control-tower', label: 'Центр', note: 'блокеры' },
+  { href: '/platform-v7/control-tower', label: 'Центр управления', note: 'блокеры' },
   { href: '/platform-v7/deals', label: 'Сделки', note: 'исполнение' },
   { href: '/platform-v7/lots', label: 'Лоты/RFQ', note: 'запросы' },
   { href: '/platform-v7/logistics', label: 'Рейсы', note: 'груз' },
@@ -19,10 +19,7 @@ const BROAD_WORK_NAV_ROLES = new Set<PlatformRole>(['operator', 'executive']);
 
 export function canShowWorkRouteNav(storedRole: PlatformRole, pathname: string): boolean {
   const routeRole = inferPlatformRoleFromPath(pathname, storedRole);
-  const shellPolicy = getShellPolicy(routeRole, pathname);
-  void routeRole;
-  void shellPolicy;
-  return false;
+  return getShellPolicy(routeRole, pathname) === 'operator';
 }
 
 export function WorkRouteNav() {
@@ -31,7 +28,7 @@ export function WorkRouteNav() {
   if (!canShowWorkRouteNav(role, pathname)) return null;
 
   return (
-    <nav aria-label='Рабочие разделы исполнения сделки' data-testid='platform-v7-work-route-nav' style={nav}>
+    <nav aria-label='Рабочие разделы platform-v7' data-testid='platform-v7-work-route-nav' style={nav}>
       <div style={railHeader} aria-hidden='true'>
         <span style={railTitle}>Контур</span>
       </div>

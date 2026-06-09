@@ -23,7 +23,7 @@ export function statusLabel(status: string) {
     quality_check: 'Проверка качества',
     quality_approved: 'Качество подтверждено',
     quality_disputed: 'Спор по качеству',
-    docs_complete: 'Документы готовы',
+    docs_complete: 'Пакет готов',
     release_requested: 'Запрошена выплата',
     release_approved: 'Выплата одобрена',
     closed: 'Закрыта',

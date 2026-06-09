@@ -79,12 +79,49 @@ function actionStateFromResult(result?: PlatformActionResult): P7ActionButtonSta
   return 'idle';
 }
 
+const ACTION_ENGLISH_LABELS: Record<string, string> = {
+  createLot: 'Lot created',
+  publishLot: 'Lot published',
+  acceptOffer: 'Offer accepted',
+  createDeal: 'Deal created',
+  requestReserve: 'Reserve requested',
+  confirmReserve: 'Reserve confirmed',
+  assignDriver: 'Driver assigned',
+  confirmArrival: 'Arrival confirmed',
+  createLabProtocol: 'Lab protocol created',
+  openDispute: 'Dispute opened',
+};
+
+function timelineLabel(actionType: string): string {
+  return ACTION_ENGLISH_LABELS[actionType] ?? actionType;
+}
+
+const DEAL_STATUS_RU: Record<string, string> = {
+  DRAFT: 'Черновик',
+  PUBLISHED: 'Опубликовано',
+  OFFER_ACCEPTED: 'Оффер принят',
+  SIGNED: 'Подписано',
+  RESERVE_REQUESTED: 'Резерв запрошен',
+  RESERVE_CONFIRMED: 'Резерв подтверждён',
+  DRIVER_ASSIGNED: 'Водитель назначен',
+  LOADING_CONFIRMED: 'Погрузка подтверждена',
+  LOADED: 'Загружено',
+  IN_TRANSIT: 'В пути',
+  ARRIVED: 'Прибыло',
+  WEIGHING_CONFIRMED: 'Взвешено',
+  LAB_SAMPLING: 'Лаб. отбор',
+  LAB_PROTOCOL_CREATED: 'Протокол создан',
+  ACCEPTED: 'Принято',
+  DOCUMENTS_PENDING: 'Документы ожидают',
+  PAYMENT_RELEASE_REQUESTED: 'Выплата запрошена',
+  FINAL_RELEASED: 'Выпущено',
+  DISPUTE_OPEN: 'Спор открыт',
+  CLOSED: 'Закрыто',
+};
+
 function statusLabel(status?: string) {
   if (!status) return '—';
-  return status
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .replace(/^./, (char) => char.toUpperCase());
+  return DEAL_STATUS_RU[status] ?? status.replace(/_/g, ' ').toLowerCase().replace(/^./, (char) => char.toUpperCase());
 }
 
 function buildActionCards(state: DomainExecutionState): ActionCard[] {
@@ -290,7 +327,7 @@ export function ExecutionSimulationActionPanel() {
     >
       <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-          <Metric label='Оборот сценария' value={compactRub(kpis.totalGmvRub)} />
+          <Metric label='GMV sandbox' value={compactRub(kpis.totalGmvRub)} />
           <Metric label='К выпуску' value={compactRub(kpis.readyForReleaseRub)} />
           <Metric label='Открытых споров' value={String(kpis.openDisputes)} />
           <Metric label='Текущий статус' value={statusLabel(flowDeal?.status)} />
@@ -336,7 +373,7 @@ export function ExecutionSimulationActionPanel() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: PLATFORM_V7_TOKENS.spacing.md }}>
           <LogBlock title='UI журнал действий' rows={uiLog.map((row) => ({ id: row.id, badge: row.state === 'success' ? 'Успешно' : 'Стоп', text: `${row.label}: ${row.message}` }))} />
           <LogBlock title='Domain audit' rows={latestAudit.map((row) => ({ id: row.id, badge: row.actorRole, text: `${row.entityId} · ${row.actionType}` }))} />
-          <LogBlock title='Timeline сделки' rows={latestTimeline.map((row) => ({ id: row.id, badge: row.actorRole, text: row.title }))} />
+          <LogBlock title='Timeline сделки' rows={latestTimeline.map((row) => ({ id: row.id, badge: row.actorRole, text: timelineLabel(row.actionType) }))} />
         </div>
       </div>
     </P7Card>

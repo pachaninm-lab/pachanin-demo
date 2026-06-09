@@ -49,13 +49,13 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
   },
   bank: {
     label: 'Банк',
-    headline: 'Связка денег: основание → удержание → подтверждение банка → журнал',
+    headline: 'Связка денег: reserve → hold → release → audit',
     nextAction: 'Проверить допустимость следующего банкового события и техническую сверку.',
     evidenceFocus: 'Документы, спорный статус, событие банка, удержание, выпуск, запись журнала.',
   },
   logistics: {
     label: 'Логистика',
-    headline: 'Связка рейса: назначение → погрузка → прибытие → транспортное основание',
+    headline: 'Связка рейса: назначение → погрузка → прибытие → транспортный gate',
     nextAction: 'Закрыть событие рейса, которое держит приёмку или банковый выпуск.',
     evidenceFocus: 'Маршрут, водитель, прибытие, GPS, фото, транспортные документы.',
   },
@@ -75,7 +75,7 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
 
 const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
   buyer: {
-    label: 'Запросить банковское основание или открыть спор',
+    label: 'Запросить резерв или открыть спор',
     actionType: 'requestReserve',
     ownerRole: 'buyer',
     route: '/platform-v7/bank',
@@ -84,7 +84,7 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
     blockedLabel: 'Покупатель ждёт подписания, документов, приёмки или лабораторного результата.',
   },
   seller: {
-    label: 'Закрыть выплатный блокер',
+    label: 'Закрыть выплатный blocker',
     actionType: 'publishLot',
     ownerRole: 'seller',
     route: '/platform-v7/lots/create',
@@ -93,7 +93,7 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
     blockedLabel: 'Продавец не является владельцем следующего подтверждаемого шага.',
   },
   bank: {
-    label: 'Подтвердить основание / выпуск',
+    label: 'Подтвердить резерв / выпуск',
     actionType: 'confirmReserve',
     ownerRole: 'bank',
     route: '/platform-v7/bank',
@@ -161,7 +161,7 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Ролевой контур · {copy.label}
+            P0-04 · continuity · {copy.label}
           </div>
           <div style={{ marginTop: 6, fontSize: compact ? 18 : 22, lineHeight: 1.15, fontWeight: 900, color: T }}>{copy.headline}</div>
           <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 860 }}>
@@ -193,9 +193,9 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
       <RoleActionDispatchBridge role={role} dealId={deal.id} actionType={handoff.actionType} canRun={handoff.canRun} disabledReason={handoff.disabledReason} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
-        <ListBlock title='Доказательства' empty='Нет доказательств по выбранной сделке.' rows={evidence.map((item) => ({ id: item.id, kicker: item.type, text: item.title }))} />
-        <ListBlock title='Журнал' empty='Нет записей журнала по выбранной сделке.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${actionLabel(item.actionType)} · ${item.entityId}` }))} />
-        <ListBlock title='Линия событий' empty='Нет событий по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
+        <ListBlock title='Evidence' empty='Нет доказательств по выбранной сделке.' rows={evidence.map((item) => ({ id: item.id, kicker: item.type, text: item.title }))} />
+        <ListBlock title='Audit' empty='Нет записей журнала по выбранной сделке.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${actionLabel(item.actionType)} · ${item.entityId}` }))} />
+        <ListBlock title='Timeline' empty='Нет событий по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
       </div>
     </section>
   );
@@ -223,13 +223,13 @@ function ActionHandoffBlock({ handoff }: { handoff: RoleActionHandoff & { canRun
     <div data-testid='role-action-handoff' style={{ background: handoff.canRun ? BRAND_BG : WARN_BG, border: `1px solid ${handoff.canRun ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div style={{ display: 'grid', gap: 4 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: handoff.canRun ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</div>
+          <div style={{ fontSize: 12, fontWeight: 900, color: handoff.canRun ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Action handoff</div>
           <div style={{ fontSize: 15, lineHeight: 1.35, color: T, fontWeight: 900 }}>{handoff.label}</div>
         </div>
         <Link href={handoff.route} style={btn(handoff.canRun ? 'primary' : 'default')}>Открыть действие</Link>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
-        <Cell label='Действие' value={actionLabel(handoff.actionType)} />
+        <Cell label='Действие' value={handoff.actionType} />
         <Cell label='Ответственный' value={roleLabel(handoff.ownerRole)} tone='accent' />
         <Cell label='Статус' value={handoff.canRun ? 'Доступно' : 'Заблокировано'} tone={handoff.canRun ? 'accent' : 'danger'} />
       </div>

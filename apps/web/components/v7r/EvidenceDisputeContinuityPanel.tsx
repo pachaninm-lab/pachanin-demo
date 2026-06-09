@@ -59,7 +59,7 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
         <Cell label='Сумма сделки' value={compactRub(amount)} />
         <Cell label='Статус сделки' value={human(deal.status)} tone={deal.status === 'DISPUTE_OPEN' ? 'danger' : 'default'} />
         <Cell label='Спор' value={dispute ? humanDisputeStatus(dispute.status) : 'Нет'} tone={isOpen ? 'danger' : 'accent'} />
-        <Cell label='Доказательства' value={String(evidence.length)} />
+        <Cell label='Кол-во доказательств' value={String(evidence.length)} />
         <Cell label='Решение банка' value={bankDecision.label} tone={bankDecision.tone} />
         <Cell label='Готовность пакета' value={`${readiness.score}%`} tone={readiness.tone} />
       </div>
@@ -86,9 +86,9 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
-        <ListBlock title='Доказательства' empty='Нет доказательств по выбранной сделке.' rows={evidence.slice(0, 5).map((item) => ({ id: item.id, kicker: humanEvidenceType(item.type), text: `${item.title} · хеш ${item.hash.slice(0, 18)}…` }))} />
+        <ListBlock title='Доказательства' empty='Нет доказательств по выбранной сделке.' rows={evidence.slice(0, 5).map((item) => ({ id: item.id, kicker: humanEvidenceType(item.type), text: `${humanEvidenceType(item.type)} · хеш ${item.hash.slice(0, 7)}…` }))} />
         <ListBlock title='Спорный контекст' empty='Нет активного спора по выбранной сделке.' rows={dispute ? [{ id: dispute.id, kicker: humanDisputeReason(dispute.reason), text: `${humanDisputeStatus(dispute.status)} · влияние ${compactRub(dispute.amountImpactRub)}` }] : []} />
-        <ListBlock title='Журнал действий' empty='Нет событий по выбранной сделке или спору.' rows={audit.map((item) => ({ id: item.id, kicker: humanRole(item.actorRole), text: `${humanAction(item.actionType)} · объект ${item.entityId}` }))} />
+        <ListBlock title='Журнал событий' empty='Нет событий по выбранной сделке или спору.' rows={audit.map((item) => ({ id: item.id, kicker: humanRole(item.actorRole), text: `${humanAction(item.actionType)} · объект ${item.entityId}` }))} />
         <ListBlock title='Лента сделки' empty='Нет событий ленты по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: humanRole(item.actorRole), text: item.title }))} />
       </div>
     </section>
@@ -209,9 +209,13 @@ function humanDisputeStatus(value: string) {
 function humanDisputeReason(value: string) {
   const labels: Record<string, string> = {
     quality_mismatch: 'Расхождение качества',
+    quality_delta: 'Расхождение качества',
     weight_mismatch: 'Расхождение веса',
+    weight_delta: 'Расхождение веса',
     document_mismatch: 'Расхождение документов',
+    missing_document: 'Расхождение документов',
     late_delivery: 'Срыв срока доставки',
+    delivery_delay: 'Срыв срока доставки',
   };
   return labels[value] || human(value);
 }
@@ -243,6 +247,8 @@ function humanAction(value: string) {
     decision_recorded: 'Решение зафиксировано',
     document_checked: 'Документ проверен',
     timeline_event_added: 'Событие добавлено в ленту',
+    stateTransition: 'Статус сделки изменён',
+    guardBlocked: 'Действие заблокировано guard-правилом',
   };
   return labels[value] || human(value);
 }

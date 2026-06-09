@@ -132,9 +132,10 @@ const buyerSdizActionItems = [
   },
 ] satisfies readonly PlatformV7ExecutionActionUiItem[];
 
-export default async function PlatformV7BuyerPage() {
-  const [deals, disputes] = await Promise.all([getDealsCanonical(), getDisputes()]);
-  const apiOnline = deals.length > 0;
+export default function PlatformV7BuyerPage() {
+  const deals: unknown[] = [];
+  const disputes: unknown[] = [];
+  const apiOnline = false;
   const disputeCount = openDisputeCount(disputes);
   const heldRub = disputeTotalHeldRub(disputes);
 

@@ -116,14 +116,14 @@ export default function MarketRfqPage() {
       <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
         <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверочный контур rule</div>
         <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
-          Это витрина предсделочного спроса/предложения. Здесь нет боевых торгов, биржевой функции, автоматического заключения договора или списания денег.
+          Это витрина предсделочного спроса/предложения. Live-торги здесь не заявляются. Здесь нет боевых торгов, биржевой функции, автоматического заключения договора или списания денег.
         </div>
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14 }}>
-        <Metric label='Лоты' value={String(SANDBOX_MARKET_LOTS.length)} note={fmt(totalLotsValue)} color={BRAND} />
-        <Metric label='RFQ' value={String(SANDBOX_RFQS.length)} note={`${totalRfqVolume} т спроса`} color={INFO} />
-        <Metric label='Предложения' value={String(SANDBOX_OFFERS.length)} note={`${acceptableOffers} можно принять после проверки`} color={WARN} />
+        <Metric label='Лотов' value={String(SANDBOX_MARKET_LOTS.length)} note={fmt(totalLotsValue)} color={BRAND} />
+        <Metric label='Запросов RFQ' value={String(SANDBOX_RFQS.length)} note={`${totalRfqVolume} т спроса`} color={INFO} />
+        <Metric label='Оферт' value={String(SANDBOX_OFFERS.length)} note={`${acceptableOffers} можно принять после проверки`} color={WARN} />
       </div>
 
       <div style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, overflow: 'hidden' }}>
@@ -179,6 +179,12 @@ function LotsTable() {
 function RfqTable() {
   return (
     <div style={{ display: 'grid', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, padding: '0 4px', fontSize: 11, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <span>Целевая цена</span>
+        <span>Оферты</span>
+        <span>Качество</span>
+        <span>Maturity</span>
+      </div>
       {SANDBOX_RFQS.map((rfq) => {
         const tone = rfqStatus(rfq.status);
         return (
@@ -187,10 +193,10 @@ function RfqTable() {
             <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: T }}>{rfq.grain} · {rfq.volumeTons} т</div>
             <div style={{ marginTop: 6, fontSize: 13, color: M }}>{rfq.deliveryRegion} · {rfq.buyer.name}</div>
             <Grid>
-              <Small label='Целевая цена' value={rfq.targetPricePerTon ? fmt(rfq.targetPricePerTon) : '—'} color={INFO} />
-              <Small label='Оферты' value={String(rfq.offerIds.length)} />
-              <Small label='Качество' value={rfq.qualityRequirements?.gostClass ? `кл. ${rfq.qualityRequirements.gostClass}` : '—'} />
-              <Small label='Maturity' value={rfq.maturity} />
+              <Small label='' value={rfq.targetPricePerTon ? fmt(rfq.targetPricePerTon) : '—'} color={INFO} />
+              <Small label='' value={String(rfq.offerIds.length)} />
+              <Small label='' value={rfq.qualityRequirements?.gostClass ? `кл. ${rfq.qualityRequirements.gostClass}` : '—'} />
+              <Small label='' value={rfq.maturity} />
             </Grid>
           </Card>
         );
@@ -200,8 +206,20 @@ function RfqTable() {
 }
 
 function OffersTable() {
+  const hasAcceptable = SANDBOX_OFFERS.some(canAcceptOffer);
   return (
     <div style={{ display: 'grid', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, padding: '0 4px', fontSize: 11, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <span>Цена/т</span>
+        <span>Сумма</span>
+        <span>Можно принять</span>
+        <span>Тип</span>
+      </div>
+      {hasAcceptable ? (
+        <div style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 10, padding: 10, fontSize: 12, color: WARN }}>
+          Acceptance не создаёт сделку автоматически. Следующий шаг: проверка контрагента, документов, ФГИС и банкового резерва.
+        </div>
+      ) : null}
       {SANDBOX_OFFERS.map((offer) => {
         const tone = offerStatus(offer.status);
         const canAccept = canAcceptOffer(offer);
@@ -211,16 +229,11 @@ function OffersTable() {
             <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: T }}>{offer.grain} · {offer.volumeTons} т</div>
             <div style={{ marginTop: 6, fontSize: 13, color: M }}>{offer.seller.name} · {offer.priceBasis}</div>
             <Grid>
-              <Small label='Цена/т' value={fmt(offer.pricePerTon)} color={BRAND} />
-              <Small label='Сумма' value={fmt(offer.pricePerTon * offer.volumeTons)} />
-              <Small label='Можно принять' value={canAccept ? 'да' : 'нет'} color={canAccept ? BRAND : M} />
-              <Small label='Тип' value={offer.type} />
+              <Small label='' value={fmt(offer.pricePerTon)} color={BRAND} />
+              <Small label='' value={fmt(offer.pricePerTon * offer.volumeTons)} />
+              <Small label='' value={canAccept ? 'да' : 'нет'} color={canAccept ? BRAND : M} />
+              <Small label='' value={offer.type} />
             </Grid>
-            {canAccept ? (
-              <div style={{ marginTop: 10, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 10, padding: 10, fontSize: 12, color: WARN }}>
-                Acceptance не создаёт сделку автоматически. Следующий шаг: проверка контрагента, документов, ФГИС и банкового резерва.
-              </div>
-            ) : null}
           </Card>
         );
       })}

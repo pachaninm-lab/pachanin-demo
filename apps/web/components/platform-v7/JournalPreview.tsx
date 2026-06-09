@@ -45,7 +45,7 @@ export function JournalPreview({ role, maxEntries = 3 }: Props) {
       data-role={role}
       style={shell}
     >
-      <div style={micro}>журнал событий · контур исполнения</div>
+      <div style={micro}>пилотный контур · журнал событий</div>
 
       {entries.length === 0 ? (
         <div style={{ color: '#64748B', fontSize: 13 }}>События пока не зафиксированы.</div>

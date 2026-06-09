@@ -109,8 +109,9 @@ function bankProviderLabel(provider: string) {
   return provider;
 }
 
-export default async function PlatformV7BankPage() {
-  const [outbox, disputes] = await Promise.all([getOutboxStatus(), getDisputes()]);
+export default function PlatformV7BankPage() {
+  const outbox = { isApiAvailable: false, totalPending: 0, hasManualReview: false, outbox: [] as never[] };
+  const disputes = [] as Array<{ id: string; status: string; claimAmountRub?: number }>;
   const apiOnline = outbox.isApiAvailable;
   const heldRub = disputeTotalHeldRub(disputes);
   const disputeCount = openDisputeCount(disputes);

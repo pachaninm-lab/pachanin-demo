@@ -55,7 +55,7 @@ export default function SellerFgisPartiesPage() {
             </div>
             <div style={{ fontSize: 26, fontWeight: 900, color: T, marginTop: 8, lineHeight: 1.1 }}>Мои партии ФГИС</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 760 }}>
-              Проверочный контур-экран показывает, как продавец будет начинать создание лота от подтверждённой партии. Реальных запросов к внешним системам здесь нет.
+              Sandbox-экран показывает, как продавец будет начинать создание лота от подтверждённой партии. Реальных запросов к внешним системам здесь нет.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -68,7 +68,7 @@ export default function SellerFgisPartiesPage() {
           <Chip label={`${parties.length} организации`} />
           <Chip label={`${parties.reduce((sum, party) => sum + party.batches.length, 0)} партий`} />
           <Chip label={`${lotPassportCount} паспортов лотов`} />
-          <Chip label='Интеграция: проверочный контур' tone='warn' />
+          <Chip label='Интеграция: sandbox' tone='warn' />
         </div>
       </section>
 

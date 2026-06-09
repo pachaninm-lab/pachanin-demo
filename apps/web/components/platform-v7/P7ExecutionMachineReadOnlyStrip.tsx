@@ -4,7 +4,7 @@ import { PLATFORM_V7_TOKENS } from '@/lib/platform-v7/design/tokens';
 const blockerLabels: Record<string, string> = {
   reserve_not_confirmed: 'Резерв денег не подтверждён',
   quality_not_accepted: 'Качество не принято',
-  documents_missing: 'Документы не приложены',
+  documents_missing: 'Пакет не приложен',
   sdiz_missing: 'СДИЗ не подтверждён',
   dispute_open: 'Открыт спор',
 };

@@ -76,7 +76,7 @@ export function EvidencePackOperationsQueue({ decision = 'all', missing = 'all' 
 
       {missing !== 'all' ? (
         <div data-testid='active-missing-filter' style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 12, padding: 10, fontSize: 12, color: WARN, fontWeight: 900 }}>
-          Фильтр недостающих данных: {missingLabel(missing)}
+          Missing filter: {missing}
         </div>
       ) : null}
 
@@ -97,9 +97,9 @@ export function EvidencePackOperationsQueue({ decision = 'all', missing = 'all' 
 function DecisionControls({ active }: { active: DecisionFilter }) {
   const items: Array<{ label: string; value: DecisionFilter; href: string }> = [
     { label: 'Все', value: 'all', href: '/platform-v7/evidence-pack' },
-    { label: 'Удержано', value: 'Hold', href: '/platform-v7/evidence-pack?decision=Hold' },
-    { label: 'На проверке', value: 'Review', href: '/platform-v7/evidence-pack?decision=Review' },
-    { label: 'К выпуску', value: 'Can release', href: '/platform-v7/evidence-pack?decision=Can%20release' },
+    { label: 'Hold', value: 'Hold', href: '/platform-v7/evidence-pack?decision=Hold' },
+    { label: 'Review', value: 'Review', href: '/platform-v7/evidence-pack?decision=Review' },
+    { label: 'Can release', value: 'Can release', href: '/platform-v7/evidence-pack?decision=Can%20release' },
   ];
 
   return (
@@ -125,12 +125,12 @@ function QueueCard({ row }: { row: QueueRow }) {
     <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div style={{ display: 'grid', gap: 4 }}>
-          <div style={{ fontFamily: 'JetBrains Mono, monospace', color: BRAND, fontWeight: 900, fontSize: 13 }}>{row.deal.id}</div>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', color: BRAND, fontWeight: 900, fontSize: 13 }}>#{row.deal.id}</span>
           <div style={{ color: T, fontWeight: 900, fontSize: 15 }}>{human(row.deal.status)} · {compactRub(calculateDealAmountRub(row.deal))}</div>
           <div style={{ color: M, fontSize: 12, lineHeight: 1.5 }}>{row.blocker}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Link href={`/platform-v7/deals/${row.deal.id}/evidence-pack`} style={btn('primary')}>Открыть пакет</Link>
+          <Link href={`/platform-v7/deals/${row.deal.id}/evidence-pack`} style={btn('primary')}>Preview</Link>
           <Link href={`/platform-v7/deals/${row.deal.id}`} style={btn()}>Сделка</Link>
         </div>
       </div>
@@ -148,6 +148,14 @@ function QueueCard({ row }: { row: QueueRow }) {
   );
 }
 
+const MISSING_HINT_LABELS: Record<MissingHint, string> = {
+  evidence: 'Needs evidence',
+  audit: 'Needs audit',
+  timeline: 'Needs timeline',
+  documents: 'Needs documents',
+  none: 'No missing data',
+};
+
 function MissingHints({ row }: { row: QueueRow }) {
   const hints = row.missingHints.length ? row.missingHints : ['none' as const];
   return (
@@ -156,7 +164,7 @@ function MissingHints({ row }: { row: QueueRow }) {
         const ok = hint === 'none';
         return (
           <Link key={hint} href={ok ? `/platform-v7/deals/${row.deal.id}/evidence-pack` : `/platform-v7/evidence-pack?decision=Review&missing=${hint}`} style={{ textDecoration: 'none', borderRadius: 999, padding: '6px 9px', background: ok ? BRAND_BG : WARN_BG, border: `1px solid ${ok ? BRAND_BORDER : WARN_BORDER}`, color: ok ? BRAND : WARN, fontSize: 11, fontWeight: 900 }}>
-            {ok ? 'Данные полные' : `Нужно: ${missingLabel(hint)}`}
+            {MISSING_HINT_LABELS[hint]}
           </Link>
         );
       })}

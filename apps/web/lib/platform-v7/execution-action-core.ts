@@ -211,7 +211,8 @@ export const PLATFORM_V7_EXECUTION_ACTION_SPECS: Record<
     scope: 'bank',
     allowedRoles: ['buyer', 'operator'],
     mode: 'controlled-pilot',
-    successStateLabel: 'Намерение резерва денег создано',
+    successStateLabel: 'Намерение резерва создано',
+    statusAfter: 'Основание для резерва зафиксировано · ожидает банк',
     rollbackLabel: 'Отменить намерение резерва',
   },
   assignLogistics: {
@@ -230,6 +231,7 @@ export const PLATFORM_V7_EXECUTION_ACTION_SPECS: Record<
     allowedRoles: ['seller', 'buyer', 'operator'],
     mode: 'manual',
     successStateLabel: 'Внутренний документ приложен',
+    statusAfter: 'Документ зафиксирован в контуре',
     rollbackLabel: 'Удалить внутренний документ',
   },
   recordFieldEvent: {

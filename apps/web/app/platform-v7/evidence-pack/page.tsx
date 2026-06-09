@@ -20,10 +20,10 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
           Готовность доказательств · проверочный контур
         </div>
         <h1 style={{ margin: 0, fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
-          Операции с доказательными пакетами
+          Evidence pack operations
         </h1>
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#6B778C', maxWidth: 860 }}>
-          Операционный индекс доказательных пакетов. Навигация не запускает внешний PDF, ЭДО, КЭП, банк, ФГИС или СберКорус.
+          Операционный индекс доказательных пакетов. sandbox-навигация: не запускает live PDF, ЭДО, КЭП, банк, ФГИС или СберКорус.
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/deals' style={btn('primary')}>Сделки</Link>

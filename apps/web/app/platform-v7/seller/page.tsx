@@ -89,9 +89,10 @@ const sellerPaths = [
   { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, основание и банковская проверка' },
 ] as const;
 
-export default async function PlatformV7SellerPage() {
-  const [deals, disputes] = await Promise.all([getDealsCanonical(), getDisputes()]);
-  const apiOnline = deals.length > 0;
+export default function PlatformV7SellerPage() {
+  const deals: unknown[] = [];
+  const disputes: unknown[] = [];
+  const apiOnline = false;
   const disputeCount = openDisputeCount(disputes);
 
   return (

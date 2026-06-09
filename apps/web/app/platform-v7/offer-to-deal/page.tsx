@@ -29,7 +29,7 @@ const dealBridgeInitialState = {
 
 const dealBridgeActionItems = [
   {
-    title: 'Создать черновик сделки',
+    title: 'Шаг 1: создание черновика',
     description: 'Переносит принятую ставку в Deal Workspace как черновик контура исполнения без передачи основания банку.',
     targetId: 'e4-create-draft-deal',
     actionId: 'createDraftDealFromOffer',
@@ -38,22 +38,13 @@ const dealBridgeActionItems = [
     mode: 'controlled-pilot',
   },
   {
-    title: 'Запросить резерв денег',
-    description: 'Создаёт только намерение резерва. Это не банковское подтверждение и не внешний банковский адаптер.',
+    title: 'Шаг 2: резерв денег',
+    description: 'Создаёт только намерение резерва. Это не выпуск денег и не live bank adapter. Банк должен отдельно подтвердить резерв.',
     targetId: 'e4-request-money-reserve',
     actionId: 'requestMoneyReserve',
     actorRole: 'buyer',
     entityId: 'RESERVE-DL-DRAFT-2403',
     mode: 'controlled-pilot',
-  },
-  {
-    title: 'Назначить логистику',
-    description: 'Связывает сделку с логистическим заказом в ручном режиме без Driver PWA и внешнего отслеживания.',
-    targetId: 'e4-assign-logistics',
-    actionId: 'assignLogistics',
-    actorRole: 'operator',
-    entityId: 'LOG-TMB-2403',
-    mode: 'manual',
   },
   {
     title: 'Приложить документ',
@@ -134,7 +125,7 @@ export default function PlatformV7OfferToDealPage() {
       <section style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 14, padding: 14 }}>
         <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Правило</div>
         <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
-          Черновик сделки не передаёт основание банку и не создаёт обязательство автоматически. Он фиксирует источник условий и показывает, какие проверки должны пройти до договора и резерва денег.
+          Черновик сделки не выпускает деньги и не создаёт обязательство автоматически. Он фиксирует источник условий и показывает, какие проверки должны пройти до договора и резерва денег.
         </div>
       </section>
 
