@@ -6,7 +6,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 
 describe('platform-v7 hidden details pattern', () => {
   it('provides a reusable disclosure component for overloaded screens', () => {
-    const component = read('apps/web/components/platform-v7/P7HiddenDetails.tsx');
+    const component = read('components/platform-v7/P7HiddenDetails.tsx');
 
     expect(component).toContain('export function P7HiddenDetails');
     expect(component).toContain('<details');
@@ -16,7 +16,7 @@ describe('platform-v7 hidden details pattern', () => {
   });
 
   it('keeps support index compact by hiding long case details', () => {
-    const support = read('apps/web/components/platform-v7/SupportIndexPage.tsx');
+    const support = read('components/platform-v7/SupportIndexPage.tsx');
 
     expect(support).toContain('P7HiddenDetails');
     expect(support).toContain("title='Детали обращения'");
@@ -25,7 +25,7 @@ describe('platform-v7 hidden details pattern', () => {
   });
 
   it('keeps disputes page compact by hiding evidence, decision and handoff details', () => {
-    const disputes = read('apps/web/app/platform-v7/disputes/page.tsx');
+    const disputes = read('app/platform-v7/disputes/page.tsx');
 
     expect(disputes).toContain('P7HiddenDetails');
     expect(disputes).toContain("title='Проверка доказательного пакета'");
@@ -36,7 +36,7 @@ describe('platform-v7 hidden details pattern', () => {
   });
 
   it('keeps documents page focused by hiding secondary document details only', () => {
-    const documents = read('apps/web/app/platform-v7/documents/page.tsx');
+    const documents = read('app/platform-v7/documents/page.tsx');
 
     expect(documents).toContain('P7HiddenDetails');
     expect(documents).toContain("title='Именные контуры документов'");
@@ -47,7 +47,7 @@ describe('platform-v7 hidden details pattern', () => {
   });
 
   it('keeps operator queue compact by hiding blocker execution details', () => {
-    const operatorQueue = read('apps/web/components/platform-v7/OperatorExecutionQueue.tsx');
+    const operatorQueue = read('components/platform-v7/OperatorExecutionQueue.tsx');
 
     expect(operatorQueue).toContain('P7HiddenDetails');
     expect(operatorQueue).toContain("title='Детали блокера'");
@@ -57,11 +57,11 @@ describe('platform-v7 hidden details pattern', () => {
 
   it('keeps support disputes documents and operator queue visible copy out of pilot wording', () => {
     const files = [
-      'apps/web/components/platform-v7/SupportIndexPage.tsx',
-      'apps/web/lib/platform-v7/support-types.ts',
-      'apps/web/app/platform-v7/disputes/page.tsx',
-      'apps/web/app/platform-v7/documents/page.tsx',
-      'apps/web/components/platform-v7/OperatorExecutionQueue.tsx',
+      'components/platform-v7/SupportIndexPage.tsx',
+      'lib/platform-v7/support-types.ts',
+      'app/platform-v7/disputes/page.tsx',
+      'app/platform-v7/documents/page.tsx',
+      'components/platform-v7/OperatorExecutionQueue.tsx',
     ];
     const source = files.map(read).join('\n').toLowerCase();
 

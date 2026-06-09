@@ -6,7 +6,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 
 describe('platform-v7 premium role focus labels', () => {
   it('keeps role-specific focus visible in the premium status line', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain('const roleFocusLabels: Record<DealRole, string> = {');
     expect(ui).toContain("seller: 'получение денег и документы'");
@@ -25,7 +25,7 @@ describe('platform-v7 premium role focus labels', () => {
   });
 
   it('keeps driver field shell separate from premium role focus copy', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain("activeRole === 'driver'");
     expect(ui).toContain('return <DriverFieldShell task={deal.driverTask} theme={theme} />');

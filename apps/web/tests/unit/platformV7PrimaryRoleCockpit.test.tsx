@@ -40,11 +40,11 @@ describe('platform-v7 primary role execution cockpit', () => {
 
   it('wires primary pages to the shared cockpit component', () => {
     const files = [
-      'apps/web/app/platform-v7/seller/page.tsx',
-      'apps/web/app/platform-v7/buyer/page.tsx',
-      'apps/web/app/platform-v7/bank/page.tsx',
-      'apps/web/app/platform-v7/compliance/page.tsx',
-      'apps/web/app/platform-v7/control-tower/page.tsx',
+      'app/platform-v7/seller/page.tsx',
+      'app/platform-v7/buyer/page.tsx',
+      'app/platform-v7/bank/page.tsx',
+      'app/platform-v7/compliance/page.tsx',
+      'app/platform-v7/control-tower/page.tsx',
     ];
 
     for (const file of files) {

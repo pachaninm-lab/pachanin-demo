@@ -6,7 +6,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 
 describe('platform-v7 premium mobile text density', () => {
   it('keeps premium header compact on mobile', () => {
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(css).toContain('@container (max-width: 640px)');
     expect(css).toContain('.topChrome {');
@@ -19,8 +19,8 @@ describe('platform-v7 premium mobile text density', () => {
   });
 
   it('keeps first screen compact after role focus labels were added', () => {
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain('{roleLabels[role]} · {roleFocusLabels[role]} · {balanceLabel}');
     expect(css).toContain('.statusTitle p { -webkit-line-clamp: 1; font-size: 13px; }');

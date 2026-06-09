@@ -5,7 +5,7 @@ import path from 'node:path';
 const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf8');
 
 describe('platform-v7 money route copy safety', () => {
-  const pageSource = read('apps/web/app/platform-v7/money/page.tsx');
+  const pageSource = read('app/platform-v7/money/page.tsx');
 
   it('does not expose release-oriented money wording', () => {
     expect(pageSource).not.toContain('К выпуску');

@@ -6,7 +6,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 
 describe('platform-v7 public smoke audit', () => {
   it('keeps deployed platform routes, viewports and screenshots covered', () => {
-    const smoke = read('apps/web/tests/e2e/platform-v7-public-smoke.spec.ts');
+    const smoke = read('tests/e2e/platform-v7-public-smoke.spec.ts');
 
     expect(smoke).toContain('PLATFORM_V7_PUBLIC_URL');
     expect(smoke).toContain('pachanin-web.vercel.app');
@@ -20,7 +20,7 @@ describe('platform-v7 public smoke audit', () => {
   });
 
   it('keeps user-visible risk checks stronger than page-load only', () => {
-    const smoke = read('apps/web/tests/e2e/platform-v7-public-smoke.spec.ts');
+    const smoke = read('tests/e2e/platform-v7-public-smoke.spec.ts');
 
     expect(smoke).toContain('response?.ok()');
     expect(smoke).toContain('Application error');

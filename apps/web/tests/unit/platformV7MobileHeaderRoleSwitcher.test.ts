@@ -6,7 +6,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 
 describe('platform-v7 mobile header role switcher', () => {
   it('keeps the portal role switcher compact enough for the mobile header', () => {
-    const source = read('apps/web/components/platform-v7/RoleHeaderSwitcher.tsx');
+    const source = read('components/platform-v7/RoleHeaderSwitcher.tsx');
 
     expect(source).toContain('function roleControlStyle()');
     expect(source).toContain('minWidth: 116');
@@ -17,7 +17,7 @@ describe('platform-v7 mobile header role switcher', () => {
   });
 
   it('does not render the caption as visible mobile header text', () => {
-    const source = read('apps/web/components/platform-v7/RoleHeaderSwitcher.tsx');
+    const source = read('components/platform-v7/RoleHeaderSwitcher.tsx');
 
     expect(source).toContain('function roleCaptionStyle()');
     expect(source).toContain("display: 'none'");
@@ -25,7 +25,7 @@ describe('platform-v7 mobile header role switcher', () => {
   });
 
   it('uses short readable header role labels while preserving full labels in markup', () => {
-    const source = read('apps/web/components/platform-v7/RoleHeaderSwitcher.tsx');
+    const source = read('components/platform-v7/RoleHeaderSwitcher.tsx');
 
     expect(source).toContain('const HEADER_ROLE_LABELS');
     expect(source).toContain("buyer: 'Покуп.'");
@@ -36,7 +36,7 @@ describe('platform-v7 mobile header role switcher', () => {
   });
 
   it('keeps the select width elastic instead of fixed wide', () => {
-    const source = read('apps/web/components/platform-v7/RoleHeaderSwitcher.tsx');
+    const source = read('components/platform-v7/RoleHeaderSwitcher.tsx');
 
     expect(source).toContain('function roleSelectStyle()');
     expect(source).toContain('minWidth: 0');

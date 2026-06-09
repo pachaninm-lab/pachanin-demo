@@ -5,23 +5,23 @@ import path from 'node:path';
 const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf8');
 
 const visibleExecutionFiles = [
-  'apps/web/app/platform-v7/deals/page.tsx',
-  'apps/web/app/platform-v7/deals/[id]/clean/page.tsx',
-  'apps/web/app/platform-v7/bank/page.tsx',
-  'apps/web/lib/platform-v7/deal360-source-of-truth.ts',
-  'apps/web/lib/platform-v7/deal-execution-source-of-truth.ts',
+  'app/platform-v7/deals/page.tsx',
+  'app/platform-v7/deals/[id]/clean/page.tsx',
+  'app/platform-v7/bank/page.tsx',
+  'lib/platform-v7/deal360-source-of-truth.ts',
+  'lib/platform-v7/deal-execution-source-of-truth.ts',
 ];
 
 const visibleSummaryFiles = [
-  'apps/web/components/platform-v7/RoleExecutionSummary.tsx',
-  'apps/web/components/platform-v7/SystemRouteSummary.tsx',
-  'apps/web/components/platform-v7/AuditSurfaceSummary.tsx',
-  'apps/web/components/platform-v7/ActionFeedbackPreviewStrip.tsx',
-  'apps/web/lib/platform-v7/action-feedback-preview.ts',
-  'apps/web/components/platform-v7/JournalPreview.tsx',
-  'apps/web/lib/platform-v7/journal-preview.ts',
-  'apps/web/app/platform-v7/driver/field/page.tsx',
-  'apps/web/app/platform-v7/driver/page.tsx',
+  'components/platform-v7/RoleExecutionSummary.tsx',
+  'components/platform-v7/SystemRouteSummary.tsx',
+  'components/platform-v7/AuditSurfaceSummary.tsx',
+  'components/platform-v7/ActionFeedbackPreviewStrip.tsx',
+  'lib/platform-v7/action-feedback-preview.ts',
+  'components/platform-v7/JournalPreview.tsx',
+  'lib/platform-v7/journal-preview.ts',
+  'app/platform-v7/driver/field/page.tsx',
+  'app/platform-v7/driver/page.tsx',
 ];
 
 describe('platform-v7 visible execution copy', () => {
@@ -66,7 +66,7 @@ describe('platform-v7 visible execution copy', () => {
   });
 
   it('keeps overloaded bank details hidden behind disclosure sections', () => {
-    const bank = read('apps/web/app/platform-v7/bank/page.tsx');
+    const bank = read('app/platform-v7/bank/page.tsx');
 
     expect(bank).toContain('function DisclosureSection');
     expect(bank).toContain('<details style={detailsCard}>');
@@ -78,7 +78,7 @@ describe('platform-v7 visible execution copy', () => {
   });
 
   it('routes the legacy driver page directly to the field shell', () => {
-    const driver = read('apps/web/app/platform-v7/driver/page.tsx');
+    const driver = read('app/platform-v7/driver/page.tsx');
 
     expect(driver).toContain("redirect('/platform-v7/driver/field')");
     expect(driver).not.toContain('TRIP-SIM');

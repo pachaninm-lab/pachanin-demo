@@ -1,5 +1,6 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ArbitratorShellPage from '@/app/platform-v7/arbitrator/page';
@@ -14,7 +15,7 @@ vi.mock('@/app/platform-v7r/arbitrator/page', () => ({
   default: () => <div data-testid="arbitrator-runtime" />,
 }));
 
-const source = readFileSync(new URL('../../app/platform-v7/arbitrator/page.tsx', import.meta.url), 'utf8');
+const source = readFileSync(resolve(__dirname, '../../app/platform-v7/arbitrator/page.tsx'), 'utf8');
 
 describe('platform-v7 arbitrator decision polish', () => {
   it('renders decision frame with evidence, amount, manual review and journal', () => {

@@ -1,10 +1,11 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import PlatformV7ControlTowerPage from '@/app/platform-v7/control-tower/page';
 
-const source = readFileSync(new URL('../../app/platform-v7/control-tower/page.tsx', import.meta.url), 'utf8');
+const source = readFileSync(resolve(__dirname, '../../app/platform-v7/control-tower/page.tsx'), 'utf8');
 
 describe('platform-v7 control tower visual hierarchy', () => {
   it('renders the operator control room with stronger bank-boundary language', () => {

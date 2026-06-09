@@ -1,5 +1,6 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import DriverFieldPage from '@/app/platform-v7/driver/field/page';
@@ -12,7 +13,7 @@ vi.mock('@/components/v7r/FieldDriverRuntime', () => ({
   FieldDriverRuntime: () => <div data-testid="field-driver-runtime" />,
 }));
 
-const source = readFileSync(new URL('../../app/platform-v7/driver/field/page.tsx', import.meta.url), 'utf8');
+const source = readFileSync(resolve(__dirname, '../../app/platform-v7/driver/field/page.tsx'), 'utf8');
 
 describe('platform-v7 driver field shell polish', () => {
   it('renders a focused field-only shell with large operational hints', () => {

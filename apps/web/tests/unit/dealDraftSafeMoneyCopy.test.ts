@@ -6,7 +6,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 
 describe('platform-v7 deal draft safe money copy', () => {
   it('does not imply that the platform releases money itself', () => {
-    const source = read('apps/web/components/v7r/DealDraftDetailRuntime.tsx');
+    const source = read('components/v7r/DealDraftDetailRuntime.tsx');
 
     const forbiddenCopy = [
       'Выпустить деньги',
@@ -25,7 +25,7 @@ describe('platform-v7 deal draft safe money copy', () => {
   });
 
   it('keeps technical draft/runtime/blocker labels out of the user-facing screen', () => {
-    const source = read('apps/web/components/v7r/DealDraftDetailRuntime.tsx');
+    const source = read('components/v7r/DealDraftDetailRuntime.tsx');
 
     const forbiddenTechnicalCopy = [
       'Draft-сделка',
