@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PlatformV7ActionBoundaryResult } from '@/lib/platform-v7/action-boundary';
 import type { P7BankBasisDecision, P7BankConfirmationEvent } from '@/lib/platform-v7/bank-basis';
@@ -368,7 +368,7 @@ describe('createP7MockRuntimeStore', () => {
   });
 
   it('does not use module-level fake persistence state', () => {
-    const source = readFileSync(join(process.cwd(), 'apps/web/lib/platform-v7/runtime/mock-persistence-adapter.ts'), 'utf8');
+    const source = readFileSync(resolve(__dirname, '../../lib/platform-v7/runtime/mock-persistence-adapter.ts'), 'utf8');
 
     expect(source).not.toMatch(/^const\s+\w+\s*=\s*new\s+(Map|Set)\b/m);
     expect(source).not.toMatch(/^let\s+\w+\s*=\s*new\s+(Map|Set)\b/m);

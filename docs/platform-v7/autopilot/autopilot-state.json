@@ -3,8 +3,8 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-1: Visible Execution Entry Cockpit",
-  "openPr": 1682,
+  "current": "VP-2: Runtime QA Stabilization",
+  "openPr": null,
   "lastClosed": [
     "baseline",
     "Runner Inline PR",
@@ -52,21 +52,24 @@
     "PR 17.0: Trust & Intelligence Layer",
     "PR 18.0: Deal Execution SOT",
     "PR 19.0: Shell, Simulation & Deal360",
-    "PR 20.0: Bank Payment Basis, Routes Manifest & Support Contour"
+    "PR 20.0: Bank Payment Basis, Routes Manifest & Support Contour",
+    "VP-1: Visible Execution Entry Cockpit"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
-    "UI / visual components outside VP-1 exact entry scope"
+    "UI / visual components outside VP-2 exact runtime QA scope"
   ],
   "allowedCurrentScope": [
-    "\u0061pps/web/app/platform-v7/page.tsx",
-    "\u0061pps/web/tests/unit/platformV7VisibleEntry.test.ts",
+    "\u0061pps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts",
+    "\u0061pps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts",
+    "\u0061pps/web/tests/unit/platformV7RuntimeCheckHelper.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "\u0061pps/web/app/platform-v7/page.tsx",
-    "\u0061pps/web/tests/unit/platformV7VisibleEntry.test.ts",
+    "\u0061pps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts",
+    "\u0061pps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts",
+    "\u0061pps/web/tests/unit/platformV7RuntimeCheckHelper.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],
@@ -89,5 +92,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "100% plus VP-1 visible gap fix in progress"
+  "readiness": "100% plus VP-1 merged; VP-2 runtime QA stabilization in progress"
 }

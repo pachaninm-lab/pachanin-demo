@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key-helper';
 import type {
@@ -664,7 +664,7 @@ describe('platform-v7 runtime application services', () => {
   });
 
   it('service source uses only action-boundary executors and has no hidden runtime state', () => {
-    const source = readFileSync(join(process.cwd(), 'apps/web/lib/platform-v7/runtime/application-service.ts'), 'utf8');
+    const source = readFileSync(resolve(__dirname, '../../lib/platform-v7/runtime/application-service.ts'), 'utf8');
 
     [
       'platformV7ApplyMoneyOperation',
