@@ -1,43 +1,31 @@
 # platform-v7 execution queue
 
-## MASTER-TZ Execution Order
-
-This is the real product execution sequence. The fallback smoke-slice loop is the automation conveyor only — it does not represent product completion.
-
----
-
-CURRENT: VP-3: Runtime-bound Entry Cockpit
+CURRENT: VP-4: Product Entry
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/page.tsx
-- apps/web/lib/platform-v7/runtime/entry-cockpit-state.ts
-- apps/web/tests/unit/platformV7VisibleEntry.test.ts
-- apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
+- apps/web/app/platform-v7/open/page.tsx
+- apps/web/app/platform-v7/role-preview/page.tsx
+- apps/web/app/platform-v7/onboarding/page.tsx
+- apps/web/app/platform-v7/actions/runtime-actions.ts
+- apps/web/lib/platform-v7/runtime/open-walkthrough.ts
+- apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 
-DONE (MASTER-TZ checkpoints):
-- MASTER-TZ complete through PR 20.0 as engineering foundation, not full product completion
-- VP-1: Visible Execution Entry Cockpit — merged via PR #1682
-- VP-2: Runtime QA Stabilization — merged via PR #1684
-
-DONE (autopilot smoke conveyor):
-- Autopilot conveyor complete through Product Slice 20
+DONE:
+- VP-1: Visible Execution Entry Cockpit
+- VP-2: Runtime QA Stabilization
+- VP-3: Runtime-bound Entry Cockpit
 
 NEXT:
-- Layer: VP-3 runtime-bound entry cockpit implementation via PR #1687
-- Success criteria:
-  - `/platform-v7` no longer owns operational blockers, lanes, roles, executionPath or proofItems arrays.
-  - Entry cockpit state is produced outside the page component.
-  - Page renders from runtime-facing state.
-  - Empty state exists for no active blockers.
-  - Guard, typecheck and relevant tests are green.
-  - Maturity remains controlled-pilot / pre-integration.
-  - No apps/landing, API, DB, live integration or lockfile changes.
+- VP-4 open route
+- VP-4 role preview route
+- VP-4 onboarding route
+- VP-4 focused test
 
 RULES:
-- One PR equals one narrow layer.
-- Keep controlled-pilot / pre-integration status.
-- No apps/landing. No broad UI/runtime/API/DB/lockfiles outside explicit SOT unlock.
-- No production-ready claims. No fake-live claims.
-- Fallback smoke conveyor continues independently and does not represent product completion.
+- one PR equals one narrow layer
+- no apps/landing
+- no API routes
+- no DB
+- no package or lockfiles

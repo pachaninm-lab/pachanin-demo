@@ -3,8 +3,8 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-3: Runtime-bound Entry Cockpit",
-  "openPr": 1687,
+  "current": "VP-4: Product Server Actions / Open Walkthrough / Role Preview",
+  "openPr": null,
   "lastClosed": [
     "baseline",
     "Runner Inline PR",
@@ -54,7 +54,8 @@
     "PR 19.0: Shell, Simulation & Deal360",
     "PR 20.0: Bank Payment Basis, Routes Manifest & Support Contour",
     "VP-1: Visible Execution Entry Cockpit",
-    "VP-2: Runtime QA Stabilization"
+    "VP-2: Runtime QA Stabilization",
+    "VP-3: Runtime-bound Entry Cockpit"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
@@ -62,18 +63,22 @@
     "Package or lockfile changes"
   ],
   "allowedCurrentScope": [
-    "apps/web/app/platform-v7/page.tsx",
-    "apps/web/lib/platform-v7/runtime/entry-cockpit-state.ts",
-    "apps/web/tests/unit/platformV7VisibleEntry.test.ts",
-    "apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts",
+    "apps/web/app/platform-v7/open/page.tsx",
+    "apps/web/app/platform-v7/role-preview/page.tsx",
+    "apps/web/app/platform-v7/onboarding/page.tsx",
+    "apps/web/app/platform-v7/actions/runtime-actions.ts",
+    "apps/web/lib/platform-v7/runtime/open-walkthrough.ts",
+    "apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/web/app/platform-v7/page.tsx",
-    "apps/web/lib/platform-v7/runtime/entry-cockpit-state.ts",
-    "apps/web/tests/unit/platformV7VisibleEntry.test.ts",
-    "apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts",
+    "apps/web/app/platform-v7/open/page.tsx",
+    "apps/web/app/platform-v7/role-preview/page.tsx",
+    "apps/web/app/platform-v7/onboarding/page.tsx",
+    "apps/web/app/platform-v7/actions/runtime-actions.ts",
+    "apps/web/lib/platform-v7/runtime/open-walkthrough.ts",
+    "apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],
@@ -92,5 +97,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "67% full mature platform readiness; VP-3 runtime-bound entry cockpit in progress"
+  "readiness": "69% full mature platform readiness; VP-4 open walkthrough and role preview in progress"
 }
