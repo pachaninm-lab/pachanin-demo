@@ -8,7 +8,7 @@ describe('platform-v7 api action map backlog', () => {
       (boundary) => boundary.method !== 'GET' && !PLATFORM_V7_API_ACTION_MAP[boundary.id],
     ).map((boundary) => boundary.id);
 
-    expect(unmappedWrites).toHaveLength(1);
+    expect(unmappedWrites).toHaveLength(0);
     expect(unmappedWrites).not.toContain('accept_trip');
     expect(unmappedWrites).not.toContain('open_incident');
     expect(unmappedWrites).not.toContain('append_support_message');
@@ -22,7 +22,7 @@ describe('platform-v7 api action map backlog', () => {
         !PLATFORM_V7_API_ACTION_MAP[boundary.id],
     ).map((boundary) => boundary.id);
 
-    expect(unmappedMoneyWrites).toHaveLength(1);
+    expect(unmappedMoneyWrites).toHaveLength(0);
     expect(unmappedMoneyWrites).not.toContain('accept_trip');
     expect(unmappedMoneyWrites).not.toContain('open_incident');
   });

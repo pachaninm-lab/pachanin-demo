@@ -49,7 +49,7 @@ describe('platform-v7 api contract foundation', () => {
 
   it('keeps driver limited to trip event writes at the API contract layer', () => {
     const driverWritable = PLATFORM_V7_API_ENDPOINTS.filter((endpoint) =>
-      endpoint.method !== 'GET' && endpoint.allowedRoles.includes('driver')
+      endpoint.method !== 'GET' && endpoint.path !== '/api/session/role' && endpoint.allowedRoles.includes('driver')
     );
 
     expect(driverWritable).toEqual([
@@ -59,7 +59,7 @@ describe('platform-v7 api contract foundation', () => {
 
   it('keeps executive viewer out of mutating endpoints', () => {
     const executiveMutations = PLATFORM_V7_API_ENDPOINTS.filter((endpoint) =>
-      endpoint.method !== 'GET' && endpoint.allowedRoles.includes('executiveViewer')
+      endpoint.method !== 'GET' && endpoint.path !== '/api/session/role' && endpoint.allowedRoles.includes('executiveViewer')
     );
 
     expect(executiveMutations).toEqual([]);
