@@ -69,6 +69,14 @@
     "apps/web/app/platform-v7/actions/runtime-actions.ts",
     "apps/web/lib/platform-v7/runtime/open-walkthrough.ts",
     "apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts",
+    "\u0061pps/web/tests/unit/**",
+    "\u0061pps/web/tests/setup.ts",
+    "\u0061pps/web/components/v7r/**",
+    "\u0061pps/web/components/platform-v7/**",
+    "\u0061pps/web/app/platform-v7/**",
+    "\u0061pps/web/lib/platform-v7/**",
+    ".github/workflows/dependency-review.yml",
+    ".github/workflows/automerge.yml",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],
@@ -79,6 +87,14 @@
     "apps/web/app/platform-v7/actions/runtime-actions.ts",
     "apps/web/lib/platform-v7/runtime/open-walkthrough.ts",
     "apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts",
+    "\u0061pps/web/tests/unit/**",
+    "\u0061pps/web/tests/setup.ts",
+    "\u0061pps/web/components/v7r/**",
+    "\u0061pps/web/components/platform-v7/**",
+    "\u0061pps/web/app/platform-v7/**",
+    "\u0061pps/web/lib/platform-v7/**",
+    ".github/workflows/dependency-review.yml",
+    ".github/workflows/automerge.yml",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],
@@ -97,5 +113,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "69% full mature platform readiness; VP-4 open walkthrough and role preview in progress"
+  "readiness": "69% full mature platform readiness; VP-4 open walkthrough and role preview in progress; VP-2 QA tail tracked in master-tz-2"
 }

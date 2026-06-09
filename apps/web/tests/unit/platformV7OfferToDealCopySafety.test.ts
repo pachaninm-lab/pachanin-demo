@@ -5,7 +5,7 @@ import path from 'node:path';
 const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf8');
 
 describe('platform-v7 offer-to-deal copy safety', () => {
-  const pageSource = read('apps/web/app/platform-v7/offer-to-deal/page.tsx');
+  const pageSource = read('app/platform-v7/offer-to-deal/page.tsx');
 
   it('does not expose startup or engineering language in the user-facing offer-to-deal page', () => {
     expect(pageSource).not.toContain('Deal Workspace');

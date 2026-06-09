@@ -6,7 +6,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 
 describe('platform-v7 premium execution shell', () => {
   it('wires root command center to the premium shell', () => {
-    const hub = read('apps/web/components/v7r/PlatformCommandCenterHub.tsx');
+    const hub = read('components/v7r/PlatformCommandCenterHub.tsx');
 
     expect(hub).toContain('PremiumDealShell');
     expect(hub).toContain('PLATFORM_V7_EXECUTION_SOURCE');
@@ -15,8 +15,8 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps the premium deal shell light by default while preserving explicit dark mode', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(ui).toContain("theme = 'light'");
     expect(ui).toContain("theme?: 'dark' | 'light'");
@@ -26,7 +26,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps premium top navigation compact with role always visible', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain('function PremiumTopChrome');
     expect(ui).toContain('<PremiumTopChrome activeRole={activeRole} roles={roles} onSelectRole={handleRoleChange} />');
@@ -41,7 +41,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps premium above fold focused on role money document reserve and next action', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain("const balanceLabel = isMoneyBalanced(deal.money) ? 'деньги сходятся' : 'нужна сверка денег';");
     expect(ui).toContain("const mainDocument = deal.documents.find((doc) => doc.status !== 'ready');");
@@ -55,7 +55,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps premium mobile density tight without hiding the active role', () => {
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(css).toContain('@container (max-width: 640px)');
     expect(css).toContain('gap: 9px;');
@@ -70,7 +70,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps driver role on the field shell path', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain("driver: ['execution']");
     expect(ui).toContain("activeRole === 'driver'");
@@ -79,7 +79,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps adaptive mobile primitives in scoped styles', () => {
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(css).toContain('100dvh');
     expect(css).toContain('safe-area-inset-bottom');
@@ -89,7 +89,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps premium visual foundation tokens scoped to platform-v7', () => {
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(css).toContain('--p7-page-bg: #080a0d');
     expect(css).toContain('--p7-surface: #0e1116');
@@ -102,7 +102,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps visual foundation responsive, accessible and motion-safe', () => {
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(css).toContain('@media (max-width: 374px)');
     expect(css).toContain('@media (max-height: 430px) and (orientation: landscape)');
@@ -113,8 +113,8 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps every referenced premium style class defined in css', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
     const referencedClasses = new Set<string>();
 
     for (const match of ui.matchAll(/styles\.([A-Za-z0-9_]+)/g)) referencedClasses.add(match[1]);
@@ -122,8 +122,8 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps deal core above-fold focused on money documents blocker and action', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(ui).toContain('function DealCoreSnapshot');
     expect(ui).toContain('aria-label="Главное по сделке"');
@@ -138,7 +138,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps deal core responsive without horizontal-scroll tables', () => {
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(css).toContain('.dealCore { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
     expect(css).toContain('.statusBar,\n  .dealCore {');
@@ -147,8 +147,8 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps money rail dense without changing controlled money buckets', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(ui).toContain('const blockedRub = deal.money.heldRub + deal.money.awaitingDocsRub + deal.money.disputedRub;');
     expect(ui).toContain('К движению: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}');
@@ -161,8 +161,8 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps document matrix dense and mobile-card based', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(ui).toContain('const readyCount = documents.filter((doc) => doc.status === \'ready\').length;');
     expect(ui).toContain('aria-label="Сводка документов"');
@@ -176,8 +176,8 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps execution evidence and timeline compact with mobile-card behavior', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(ui).toContain('className={styles.executionList}');
     expect(ui).toContain('className={styles.executionStep} data-status={step.status}');
@@ -196,7 +196,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps blocker and next action hierarchy clear without new css surfaces', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain('причина остановки');
     expect(ui).toContain('<dt>Влияние</dt>');
@@ -210,7 +210,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps money reconciliation as one reserved amount split into controlled buckets', () => {
-    const money = read('apps/web/lib/platform-v7/premium/money.ts');
+    const money = read('lib/platform-v7/premium/money.ts');
 
     expect(money).toContain('money.reservedRub - (money.readyToReleaseRub + money.heldRub + money.awaitingDocsRub + money.disputedRub + money.releasedRub)');
     expect(money).toContain('Math.abs(getMoneyBalanceDelta(money)) < 1');
@@ -218,9 +218,9 @@ describe('platform-v7 premium execution shell', () => {
 
   it('keeps unsafe maturity and guarantee claims out of premium UI sources', () => {
     const files = [
-      'apps/web/components/platform-v7/premium/ExecutionUi.tsx',
-      'apps/web/components/v7r/PlatformCommandCenterHub.tsx',
-      'apps/web/lib/platform-v7/premium/copy.ts',
+      'components/platform-v7/premium/ExecutionUi.tsx',
+      'components/v7r/PlatformCommandCenterHub.tsx',
+      'lib/platform-v7/premium/copy.ts',
     ];
 
     const source = files.map(read).join('\n').toLowerCase();
@@ -248,10 +248,10 @@ describe('platform-v7 premium execution shell', () => {
 
   it('keeps bank as the release confirmer instead of the platform', () => {
     const files = [
-      'apps/web/components/platform-v7/premium/ExecutionUi.tsx',
-      'apps/web/components/v7r/PlatformCommandCenterHub.tsx',
-      'apps/web/lib/platform-v7/deal-execution-source-of-truth.ts',
-      'apps/web/lib/platform-v7/premium/copy.ts',
+      'components/platform-v7/premium/ExecutionUi.tsx',
+      'components/v7r/PlatformCommandCenterHub.tsx',
+      'lib/platform-v7/deal-execution-source-of-truth.ts',
+      'lib/platform-v7/premium/copy.ts',
     ];
     const source = files.map(read).join('\n').toLowerCase();
 
@@ -271,7 +271,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps role adapter explicit between product roles and stored platform roles', () => {
-    const hub = read('apps/web/components/v7r/PlatformCommandCenterHub.tsx');
+    const hub = read('components/v7r/PlatformCommandCenterHub.tsx');
 
     expect(hub).toContain("if (role === 'arbitrator') return 'arbiter';");
     expect(hub).toContain("if (role === 'arbiter') return 'arbitrator';");
@@ -279,7 +279,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps every live execution role available from the top role selector', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
     const requiredRoles = [
       'seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab',
       'surveyor', 'bank', 'arbiter', 'compliance', 'operator', 'executive',
@@ -293,7 +293,7 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps the selected role visible in page state and above-fold status', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain('<main className={styles.root} data-role={activeRole} data-theme={theme}>');
     expect(ui).toContain('{roleLabels[role]} · {balanceLabel}');
@@ -301,8 +301,8 @@ describe('platform-v7 premium execution shell', () => {
   });
 
   it('keeps the driver shell isolated from desktop chrome and money surfaces', () => {
-    const ui = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
-    const css = read('apps/web/components/platform-v7/premium/ExecutionUi.module.css');
+    const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
+    const css = read('components/platform-v7/premium/ExecutionUi.module.css');
     const driverReturn = ui.indexOf("if (activeRole === 'driver' && deal.driverTask) return <DriverFieldShell task={deal.driverTask} theme={theme} />;");
     const desktopChrome = ui.indexOf('styles.topChrome');
 

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = readFileSync(new URL('../../components/v7r/AppShellV4.tsx', import.meta.url), 'utf8');
+const source = readFileSync(resolve(__dirname, '../../components/v7r/AppShellV4.tsx'), 'utf8');
 
 function bellButtonSource() {
   const bellIndex = source.indexOf('<Bell');

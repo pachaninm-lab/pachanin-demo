@@ -179,7 +179,7 @@ export default async function PlatformV7BuyerPage() {
           <Link href='/platform-v7/deals/DL-9106/money' style={primaryBtn}>Запросить подтверждение резерва</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть сделку</Link>
         </div>
-        <TrustDot state='test' size='sm' label='Тестовый контур · Внешние подключения требуют договоров' />
+        <TrustDot state='test' size='sm' label='Пилотный контур · Внешние подключения требуют договоров' />
       </section>
 
       <section style={metricsGrid}>

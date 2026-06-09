@@ -29,26 +29,46 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
+      # Production deploys are also driven by the Vercel Git integration.
+      # This CLI path is the secondary channel: when VERCEL_TOKEN is missing
+      # or revoked, surface a warning and skip instead of failing every push.
       - name: Check Vercel token
+        id: vercel_token
         shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
-            echo "VERCEL_TOKEN secret is missing"
-            exit 1
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::VERCEL_TOKEN secret is missing. CLI deploy skipped; production is covered by the Vercel Git integration. Add the secret in Settings → Secrets to re-enable CLI deploys."
+            exit 0
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v2/user")
+          if [ "$code" = "200" ]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::VERCEL_TOKEN is invalid (HTTP $code). CLI deploy skipped; production is covered by the Vercel Git integration. Rotate the token in Settings → Secrets to re-enable CLI deploys."
           fi
 
       - name: Checkout
+        if: steps.vercel_token.outputs.valid == 'true'
         uses: actions/checkout@v4
 
       - name: Setup Node
+        if: steps.vercel_token.outputs.valid == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Install Vercel CLI
+        if: steps.vercel_token.outputs.valid == 'true'
         run: npm install --global vercel@latest
 
       - name: Pull production settings
+        if: steps.vercel_token.outputs.valid == 'true'
         working-directory: apps/web
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
@@ -56,6 +76,7 @@ jobs:
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build production bundle
+        if: steps.vercel_token.outputs.valid == 'true'
         working-directory: apps/web
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
@@ -63,6 +84,7 @@ jobs:
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to production
+        if: steps.vercel_token.outputs.valid == 'true'
         working-directory: apps/web
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
@@ -73,26 +95,44 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
+      # Same secondary-channel policy as deploy-production above.
       - name: Check Vercel token
+        id: vercel_token
         shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
-            echo "VERCEL_TOKEN secret is missing"
-            exit 1
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::VERCEL_TOKEN secret is missing. CLI deploy skipped; production is covered by the Vercel Git integration. Add the secret in Settings → Secrets to re-enable CLI deploys."
+            exit 0
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v2/user")
+          if [ "$code" = "200" ]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::VERCEL_TOKEN is invalid (HTTP $code). CLI deploy skipped; production is covered by the Vercel Git integration. Rotate the token in Settings → Secrets to re-enable CLI deploys."
           fi
 
       - name: Checkout
+        if: steps.vercel_token.outputs.valid == 'true'
         uses: actions/checkout@v4
 
       - name: Setup Node
+        if: steps.vercel_token.outputs.valid == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 24
 
       - name: Install Vercel CLI
+        if: steps.vercel_token.outputs.valid == 'true'
         run: npm install --global vercel@latest
 
       - name: Pull production settings
+        if: steps.vercel_token.outputs.valid == 'true'
         working-directory: apps/api
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
@@ -100,6 +140,7 @@ jobs:
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build production bundle
+        if: steps.vercel_token.outputs.valid == 'true'
         working-directory: apps/api
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
@@ -107,6 +148,7 @@ jobs:
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to production
+        if: steps.vercel_token.outputs.valid == 'true'
         working-directory: apps/api
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk

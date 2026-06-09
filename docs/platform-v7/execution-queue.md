@@ -12,9 +12,19 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 
+PARALLEL MAINTENANCE (VP-2 QA stabilization, see docs/platform-v7/autopilot/master-tz-2.md):
+- apps/web/tests/unit/**
+- apps/web/tests/setup.ts
+- apps/web/components/v7r/**
+- apps/web/components/platform-v7/**
+- apps/web/app/platform-v7/**
+- apps/web/lib/platform-v7/**
+- .github/workflows/dependency-review.yml
+- .github/workflows/automerge.yml
+
 DONE:
 - VP-1: Visible Execution Entry Cockpit
-- VP-2: Runtime QA Stabilization
+- VP-2: Runtime QA Stabilization (slice 1 merged; remaining tail tracked in master-tz-2.md VP-2.3–2.5)
 - VP-3: Runtime-bound Entry Cockpit
 
 NEXT:

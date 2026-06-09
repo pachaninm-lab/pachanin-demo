@@ -1,10 +1,11 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import PlatformV7BuyerPage from '@/app/platform-v7/buyer/page';
 
-const source = readFileSync(new URL('../../app/platform-v7/buyer/page.tsx', import.meta.url), 'utf8');
+const source = readFileSync(resolve(__dirname, '../../app/platform-v7/buyer/page.tsx'), 'utf8');
 
 describe('platform-v7 buyer execution polish', () => {
   it('renders buyer execution screen with reserve and hold focus', () => {

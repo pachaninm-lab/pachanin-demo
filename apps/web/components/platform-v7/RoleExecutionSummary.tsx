@@ -92,7 +92,7 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
     next: 'водитель подтверждает ближайшее полевое действие',
     cta: 'Открыть рейс водителя',
     href: '/platform-v7/driver/field',
-    hidden: 'не показывается: коммерческие условия, ставки, покупатель, кредит, чужие рейсы',
+    hidden: 'не показывается: деньги, ставки, банк, покупатель, кредит, чужие рейсы',
   },
   elevator: {
     title: 'Элеватор',

@@ -15,6 +15,10 @@ describe('platform-v7 server action route summary', () => {
       summary: 'Proposal boundary checked.',
       payload: {
         partyId: 'seller-1',
+        counterpartyId: 'seller-1',
+        priceRubPerTon: 16080,
+        volumeTons: 600,
+        validUntil: '2026-05-15T00:00:00.000Z',
         riskSnapshot: { status: 'clear', score: 91, source: 'test' },
       },
     });
@@ -28,7 +32,7 @@ describe('platform-v7 server action route summary', () => {
       canAttemptRuntimeWrite: false,
       canClaimExecuted: false,
       persisted: false,
-      issueCount: 1,
+      issueCount: 3,
     });
   });
 
@@ -53,6 +57,10 @@ describe('platform-v7 server action route summary', () => {
       summary: 'Proposal boundary checked.',
       payload: {
         partyId: 'seller-1',
+        counterpartyId: 'seller-1',
+        priceRubPerTon: 16080,
+        volumeTons: 600,
+        validUntil: '2026-05-15T00:00:00.000Z',
         riskSnapshot: { status: 'clear', score: 91, source: 'test' },
       },
     });

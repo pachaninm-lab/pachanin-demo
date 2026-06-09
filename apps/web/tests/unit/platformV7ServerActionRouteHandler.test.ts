@@ -102,17 +102,33 @@ describe('platform-v7 server action route handler', () => {
   });
 
   it('returns contract-checked result without runtime persistence claim', () => {
+    const idempotencyKey = buildPlatformV7IdempotencyKey({
+      boundaryId: 'request_money_reserve',
+      actorId: 'buyer-1',
+      entityId: 'money-1',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      attemptId: 'attempt-1',
+    });
+
     const result = handlePlatformV7ServerActionRouteBody({
       boundaryId: 'request_money_reserve',
       actorId: 'buyer-1',
       actorRole: 'buyer',
       entityId: 'money-1',
       entityType: 'money_record',
+      dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
+      idempotencyKey,
       payload: {
         dealId: 'deal-1',
         amountMinor: 100_000,
         currency: 'RUB',
         reason: 'Reserve request.',
+        partyId: 'seller-1',
+        riskSnapshot: { status: 'clear', score: 91, source: 'test' },
       },
       occurredAt: '2026-05-07T10:00:00.000Z',
       summary: 'Reserve boundary checked.',

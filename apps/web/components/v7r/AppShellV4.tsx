@@ -300,6 +300,8 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const [mounted, setMounted] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
+  const [alertsSeen, setAlertsSeen] = React.useState(false);
+  const hasUnread = !alertsSeen && NOTIFICATIONS.length > 0;
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
 
@@ -530,9 +532,9 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
               <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
               <button className='pc-v4-iconbtn' onClick={toggleTheme} aria-label='Сменить тему'>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
               <div style={{ position: 'relative' }}>
-                <button className='pc-v4-iconbtn' onClick={() => setAlertsOpen((value) => !value)} aria-label='Открыть уведомления'>
+                <button className='pc-v4-iconbtn' onClick={() => { setAlertsOpen((value) => !value); setAlertsSeen(true); }} aria-label='Открыть уведомления'>
                   <Bell size={17} />
-                  <span style={{ position: 'absolute', right: 7, top: 7, width: 8, height: 8, borderRadius: 999, background: '#FF8B90', border: '2px solid var(--pc-bg-card)' }} />
+                  {hasUnread ? <span style={{ position: 'absolute', right: 7, top: 7, width: 8, height: 8, borderRadius: 999, background: '#FF8B90', border: '2px solid var(--pc-bg-card)' }} /> : null}
                 </button>
                 {alertsOpen ? (
                   <div className='pc-v4-alert-panel'>

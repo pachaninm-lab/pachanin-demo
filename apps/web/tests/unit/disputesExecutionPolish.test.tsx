@@ -1,5 +1,6 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import PlatformV7DisputesPage from '@/app/platform-v7/disputes/page';
@@ -23,7 +24,7 @@ vi.mock('@/components/platform-v7/RoleExecutionHandoff', () => ({
   RoleExecutionHandoff: () => <div data-testid="role-execution-handoff" />,
 }));
 
-const source = readFileSync(new URL('../../app/platform-v7/disputes/page.tsx', import.meta.url), 'utf8');
+const source = readFileSync(resolve(__dirname, '../../app/platform-v7/disputes/page.tsx'), 'utf8');
 
 describe('platform-v7 disputes execution polish', () => {
   it('renders dispute execution screen with evidence and bank-boundary wording', () => {

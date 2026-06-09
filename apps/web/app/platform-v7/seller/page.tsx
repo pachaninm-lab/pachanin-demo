@@ -136,7 +136,7 @@ export default async function PlatformV7SellerPage() {
 
         {/* VIL: TrustDot рядом с суммой */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <TrustDot state='test' size='sm' label='Тестовый контур · Внешние подключения требуют договоров' />
+          <TrustDot state='test' size='sm' label='Пилотный контур · Внешние подключения требуют договоров' />
         </div>
 
         <div style={actions}>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import SurveyorShellPage from '@/app/platform-v7/surveyor/page';
@@ -11,7 +12,7 @@ vi.mock('@/app/platform-v7r/surveyor/page', () => ({
   default: () => <div data-testid="surveyor-runtime" />,
 }));
 
-const source = readFileSync(new URL('../../app/platform-v7/surveyor/page.tsx', import.meta.url), 'utf8');
+const source = readFileSync(resolve(__dirname, '../../app/platform-v7/surveyor/page.tsx'), 'utf8');
 
 describe('platform-v7 surveyor evidence polish', () => {
   it('renders independent evidence-focused surveyor screen', () => {

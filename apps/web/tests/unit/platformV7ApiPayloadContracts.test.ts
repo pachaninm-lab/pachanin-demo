@@ -12,15 +12,20 @@ import {
 describe('platform-v7 api payload contracts', () => {
   it('keeps payload layer explicitly contract-only', () => {
     expect(getPlatformV7ApiPayloadReadinessSummary()).toMatchObject({
-      total: 20,
+      total: 22,
       rejectingEmptyPayload: 20,
       mode: 'contract_only_requires_validation_runtime',
     });
   });
 
   it('rejects empty payloads for every contracted write endpoint', () => {
-    expect(PLATFORM_V7_API_PAYLOAD_CONTRACTS.every((contract) => contract.rejectsEmptyPayload)).toBe(true);
-    expect(PLATFORM_V7_API_PAYLOAD_CONTRACTS.every((contract) => contract.requiredFields.length > 0)).toBe(true);
+    const readBoundaries = ['list_batches', 'read_audit_events'];
+    const writeContracts = PLATFORM_V7_API_PAYLOAD_CONTRACTS.filter(
+      (contract) => !readBoundaries.includes(contract.boundaryId),
+    );
+
+    expect(writeContracts.every((contract) => contract.rejectsEmptyPayload)).toBe(true);
+    expect(writeContracts.every((contract) => contract.requiredFields.length > 0)).toBe(true);
   });
 
   it('requires money amounts for money-sensitive payloads', () => {
@@ -33,7 +38,7 @@ describe('platform-v7 api payload contracts', () => {
       'confirm_money_released',
       'open_dispute',
     ]);
-    expect(moneyContracts.every((contract) => getPlatformV7RequiredPayloadFieldNames(contract.boundaryId).some((field) => field.includes('amount')))).toBe(true);
+    expect(moneyContracts.every((contract) => getPlatformV7RequiredPayloadFieldNames(contract.boundaryId).some((field) => field.toLowerCase().includes('amount')))).toBe(true);
   });
 
   it('requires bank references for bank confirmation payloads', () => {

@@ -78,6 +78,7 @@ describe('platform-v7 server action contract wrapper', () => {
           tripId: 'trip-1',
           arrivedAt: '2026-05-07T10:00:00.000Z',
           geoPoint: { lat: 52.1, lon: 39.2 },
+          evidenceRefs: ['geo-1'],
         },
         evidenceRefs: ['geo-1'],
         occurredAt: '2026-05-07T10:00:00.000Z',

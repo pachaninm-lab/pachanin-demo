@@ -39,7 +39,7 @@ describe('platform-v7 operational role execution cockpit', () => {
   });
 
   it('keeps driver page source scoped to one field trip without cross-role language', () => {
-    const source = readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/driver/field/page.tsx'), 'utf8');
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/driver/field/page.tsx'), 'utf8');
 
     expect(OPERATIONAL_ROLE_EXECUTION_COCKPITS.driver.operations).toHaveLength(1);
     expect(OPERATIONAL_ROLE_EXECUTION_COCKPITS.driver.operations[0].action.label).toBe('Подтвердить прибытие');

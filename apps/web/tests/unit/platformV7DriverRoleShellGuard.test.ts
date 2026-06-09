@@ -6,7 +6,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 
 describe('platform-v7 driver role shell guard', () => {
   it('keeps the header role switcher pointed to the driver field route', () => {
-    const source = read('apps/web/components/platform-v7/RoleHeaderSwitcher.tsx');
+    const source = read('components/platform-v7/RoleHeaderSwitcher.tsx');
 
     expect(source).toContain("driver: '/platform-v7/driver/field'");
     expect(source).toContain("if (shellPolicy === 'field')");
@@ -15,7 +15,7 @@ describe('platform-v7 driver role shell guard', () => {
   });
 
   it('keeps driver paths in field shell without selectable header roles', () => {
-    const source = read('apps/web/lib/platform-v7/shell-role-policy.ts');
+    const source = read('lib/platform-v7/shell-role-policy.ts');
 
     expect(source).toContain("if (pathname.startsWith('/platform-v7/driver')) return 'driver';");
     expect(source).toContain("export const FIELD_SHELL_ROLES = ['driver', 'surveyor', 'elevator', 'lab']");

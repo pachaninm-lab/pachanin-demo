@@ -3,30 +3,41 @@ import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key
 import { handlePlatformV7ServerActionRouteBody } from '@/lib/platform-v7/server-action-route-handler';
 
 describe('platform-v7 server action route dispute gate', () => {
-  it('blocks dispute opening when dispute id is missing', () => {
+  it('blocks dispute resolution when dispute id is missing', () => {
     const idempotencyKey = buildPlatformV7IdempotencyKey({
-      boundaryId: 'open_dispute',
-      actorId: 'buyer-1',
+      boundaryId: 'resolve_dispute',
+      actorId: 'arbitrator-1',
       entityId: 'deal-1',
       dealId: 'deal-1',
+      amountMinor: 250_000,
+      currency: 'RUB',
       attemptId: 'attempt-1',
     });
 
     const result = handlePlatformV7ServerActionRouteBody({
-      boundaryId: 'open_dispute',
-      actorId: 'buyer-1',
-      actorRole: 'buyer',
+      boundaryId: 'resolve_dispute',
+      actorId: 'arbitrator-1',
+      actorRole: 'arbitrator',
       entityId: 'deal-1',
       entityType: 'deal',
       dealId: 'deal-1',
+      amountMinor: 250_000,
+      currency: 'RUB',
       idempotencyKey,
-      evidenceRefs: ['evidence-1'],
+      evidenceRefs: ['decision-1'],
       occurredAt: '2026-05-08T04:50:00.000Z',
-      summary: 'Dispute opening boundary checked.',
+      summary: 'Dispute resolution boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        decision: 'partial_refund',
+        moneyAction: 'hold_partial_release',
+        decisionEventId: 'decision-1',
+        evidenceRefs: ['decision-1'],
+      },
     });
 
     expect(result.ok).toBe(false);
-    expect(result.status).toBe(409);
+    expect(result.status).toBe(400);
     expect(result.body.disputeGateSummary).toMatchObject({
       status: 'blocked_missing_dispute_id',
       canReachDisputeRuntimeBoundary: false,
@@ -42,6 +53,8 @@ describe('platform-v7 server action route dispute gate', () => {
       actorId: 'buyer-1',
       entityId: 'deal-1',
       dealId: 'deal-1',
+      amountMinor: 250_000,
+      currency: 'RUB',
       attemptId: 'attempt-1',
     });
 
@@ -53,10 +66,18 @@ describe('platform-v7 server action route dispute gate', () => {
       entityType: 'deal',
       disputeId: 'dispute-1',
       dealId: 'deal-1',
+      amountMinor: 250_000,
+      currency: 'RUB',
       idempotencyKey,
       evidenceRefs: ['evidence-1'],
       occurredAt: '2026-05-08T04:50:00.000Z',
       summary: 'Dispute opening boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        reason: 'quality_mismatch',
+        claimAmountMinor: 250_000,
+        evidenceRefs: ['evidence/dispute-1-lab-protocol.pdf'],
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -86,6 +107,8 @@ describe('platform-v7 server action route dispute gate', () => {
       actorId: 'buyer-1',
       entityId: 'deal-1',
       dealId: 'deal-1',
+      amountMinor: 250_000,
+      currency: 'RUB',
       attemptId: 'attempt-1',
     });
 
@@ -96,11 +119,19 @@ describe('platform-v7 server action route dispute gate', () => {
       entityId: 'deal-1',
       entityType: 'deal',
       dealId: 'deal-1',
+      amountMinor: 250_000,
+      currency: 'RUB',
       idempotencyKey,
       evidenceRefs: ['evidence-1'],
       occurredAt: '2026-05-08T04:50:00.000Z',
       summary: 'Dispute opening boundary checked.',
-      payload: { disputeId: 'dispute-1' },
+      payload: {
+        disputeId: 'dispute-1',
+        dealId: 'deal-1',
+        reason: 'quality_mismatch',
+        claimAmountMinor: 250_000,
+        evidenceRefs: ['evidence/dispute-1-lab-protocol.pdf'],
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -148,6 +179,8 @@ describe('platform-v7 server action route dispute gate', () => {
       actorId: 'arbitrator-1',
       entityId: 'deal-1',
       dealId: 'deal-1',
+      amountMinor: 250_000,
+      currency: 'RUB',
       attemptId: 'attempt-1',
     });
 
@@ -159,10 +192,20 @@ describe('platform-v7 server action route dispute gate', () => {
       entityType: 'deal',
       disputeId: 'dispute-1',
       dealId: 'deal-1',
+      amountMinor: 250_000,
+      currency: 'RUB',
       idempotencyKey,
       evidenceRefs: ['decision-1'],
       occurredAt: '2026-05-08T04:50:00.000Z',
       summary: 'Dispute resolution boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        disputeId: 'dispute-1',
+        decision: 'partial_refund',
+        moneyAction: 'hold_partial_release',
+        decisionEventId: 'decision-1',
+        evidenceRefs: ['decision-1'],
+      },
     });
 
     expect(result.ok).toBe(true);

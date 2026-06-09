@@ -6,7 +6,7 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 
 describe('platform-v7 premium money copy safety', () => {
   it('keeps the premium command money rail bank-safe', () => {
-    const source = read('apps/web/components/platform-v7/premium/ExecutionUi.tsx');
+    const source = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     const forbidden = [
       'К выпуску',
@@ -27,7 +27,7 @@ describe('platform-v7 premium money copy safety', () => {
   });
 
   it('keeps platform-v7 not-found navigation out of standalone money-release copy', () => {
-    const source = read('apps/web/app/platform-v7/not-found.tsx');
+    const source = read('app/platform-v7/not-found.tsx');
 
     expect(source).not.toContain('деньги к выпуску');
     expect(source).not.toContain('выпуск денег');

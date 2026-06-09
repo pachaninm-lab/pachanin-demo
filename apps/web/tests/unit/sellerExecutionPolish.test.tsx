@@ -1,10 +1,11 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import PlatformV7SellerPage from '@/app/platform-v7/seller/page';
 
-const source = readFileSync(new URL('../../app/platform-v7/seller/page.tsx', import.meta.url), 'utf8');
+const source = readFileSync(resolve(__dirname, '../../app/platform-v7/seller/page.tsx'), 'utf8');
 
 describe('platform-v7 seller execution polish', () => {
   it('renders seller execution screen with bank-boundary money language', () => {

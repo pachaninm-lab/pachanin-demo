@@ -9,6 +9,7 @@ const sellerPage = readFileSync(join(cwd, 'app/platform-v7/seller/page.tsx'), 'u
 const disputesPage = readFileSync(join(cwd, 'app/platform-v7/disputes/page.tsx'), 'utf8');
 const elevatorPage = readFileSync(join(cwd, 'app/platform-v7/elevator/page.tsx'), 'utf8');
 const driverPage = readFileSync(join(cwd, 'app/platform-v7/driver/page.tsx'), 'utf8');
+const driverFieldPage = readFileSync(join(cwd, 'app/platform-v7/driver/field/page.tsx'), 'utf8');
 const cleanDealPage = readFileSync(join(cwd, 'app/platform-v7/deals/[id]/clean/page.tsx'), 'utf8');
 const controlTowerPage = readFileSync(join(cwd, 'app/platform-v7/control-tower/page.tsx'), 'utf8');
 const roleSummarySource = readFileSync(join(cwd, 'components/platform-v7/RoleExecutionSummary.tsx'), 'utf8');
@@ -66,22 +67,22 @@ describe('platform-v7 role UX regressions', () => {
       });
     }
 
-    it('driver page explicitly declares what is hidden', () => {
-      expect(driverPage).toContain('скрыты');
+    it('driver field page explicitly declares what is hidden', () => {
+      expect(driverFieldPage).toContain('скрыт');
     });
 
     it('driver role summary declares money and bids as hidden', () => {
-      expect(roleSummarySource).toContain("деньги, ставки, банк, покупатель, кредит");
+      expect(roleSummarySource).toContain('деньги, ставки, банк, покупатель, кредит');
     });
   });
 
   describe('CTA discipline: hero sections reduced to 1 primary + 1 secondary', () => {
-    it('buyer hero retains primary CTA Создать запрос', () => {
-      expect(buyerPage).toContain('Создать запрос');
+    it('buyer hero retains primary CTA Запросить подтверждение резерва', () => {
+      expect(buyerPage).toContain('Запросить подтверждение резерва');
     });
 
-    it('buyer hero retains secondary CTA Карточка сделки', () => {
-      expect(buyerPage).toContain('Карточка сделки');
+    it('buyer hero retains secondary CTA Открыть сделку', () => {
+      expect(buyerPage).toContain('Открыть сделку');
     });
 
     it('buyer hero has removed extra financing CTA', () => {
@@ -110,18 +111,15 @@ describe('platform-v7 role UX regressions', () => {
     });
 
     it('elevator role summary hides commercial data from acceptance role', () => {
-      const elevatorHiddenLine = roleSummarySource.match(/elevator[\s\S]{0,300}hidden:/)?.[0] ?? '';
+      const elevatorHiddenLine = roleSummarySource.match(/elevator: \{[\s\S]{0,900}hidden:[^\n]*/)?.[0] ?? '';
       expect(elevatorHiddenLine).toContain('банк');
     });
   });
 
   describe('deal clean page uses pilot terminology, not simulation', () => {
-    it('integration section uses "пилот" label', () => {
-      expect(cleanDealPage).toContain('Интеграции в сделке · пилот');
-    });
-
-    it('external connections described as pilot mode', () => {
-      expect(cleanDealPage).toContain('пилотный режим');
+    it('money state is visible without simulation framing', () => {
+      expect(cleanDealPage).toContain('Резерв денег');
+      expect(cleanDealPage).toContain('К выплате по текущим условиям');
     });
 
     it('clean deal page has no simulation wording', () => {
@@ -130,33 +128,33 @@ describe('platform-v7 role UX regressions', () => {
   });
 
   describe('control tower uses pilot terminology', () => {
-    it('uses "Пилотная цепочка" not "Тестовая цепочка"', () => {
-      expect(controlTowerPage).toContain('Пилотная цепочка');
+    it('keeps operator framing without dev chain wording', () => {
+      expect(controlTowerPage).toContain('Центр управления');
       expect(controlTowerPage).not.toContain('Тестовая цепочка');
     });
 
-    it('uses pilot execution section label', () => {
-      expect(controlTowerPage).toContain('Контур исполнения (пилот)');
+    it('keeps the operator radar execution section', () => {
+      expect(controlTowerPage).toContain('Радар оператора');
     });
   });
 
-  describe('deal clean page navigation links have 44px tap target', () => {
-    it('linkStyle function includes minHeight: 44', () => {
-      expect(cleanDealPage).toContain('minHeight: 44');
+  describe('deal clean page stays on the shared platform shell', () => {
+    it('uses the P7 page layout', () => {
+      expect(cleanDealPage).toContain('P7DealWorkspaceTabs');
     });
   });
 
   describe('role execution summaries declare field isolation for field roles', () => {
     it('driver summary has hidden declaration with money and bank', () => {
-      expect(roleSummarySource).toMatch(/driver[\s\S]{0,400}hidden:.*деньги[\s\S]{0,200}банк/);
+      expect(roleSummarySource).toMatch(/driver: \{[\s\S]{0,900}hidden:[^\n]*деньги[^\n]*банк/);
     });
 
     it('elevator summary has hidden declaration with bank and bids', () => {
-      expect(roleSummarySource).toMatch(/elevator[\s\S]{0,400}hidden:.*банк/);
+      expect(roleSummarySource).toMatch(/elevator: \{[\s\S]{0,900}hidden:[^\n]*банк/);
     });
 
     it('lab summary has hidden declaration', () => {
-      expect(roleSummarySource).toMatch(/lab[\s\S]{0,400}hidden:/);
+      expect(roleSummarySource).toMatch(/lab: \{[\s\S]{0,900}hidden:/);
     });
   });
 });

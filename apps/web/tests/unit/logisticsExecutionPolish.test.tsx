@@ -1,10 +1,11 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import LogisticsPage from '@/app/platform-v7/logistics/page';
 
-const source = readFileSync(new URL('../../app/platform-v7/logistics/page.tsx', import.meta.url), 'utf8');
+const source = readFileSync(resolve(__dirname, '../../app/platform-v7/logistics/page.tsx'), 'utf8');
 
 describe('platform-v7 logistics execution polish', () => {
   it('renders logistics execution screen focused on route, documents and next action', () => {

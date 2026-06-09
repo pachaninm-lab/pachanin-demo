@@ -5,8 +5,8 @@ import path from 'node:path';
 const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf8');
 
 const scenarioFiles = [
-  'apps/web/lib/platform-v7/deal-execution-source-of-truth.ts',
-  'apps/web/components/v7r/PlatformCommandCenterHub.tsx',
+  'lib/platform-v7/deal-execution-source-of-truth.ts',
+  'components/v7r/PlatformCommandCenterHub.tsx',
 ];
 
 describe('platform-v7 command scenario honesty', () => {
