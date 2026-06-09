@@ -1,66 +1,42 @@
-const steps = [
-  {
-    title: '1. Компания',
-    fields: ['ИНН / ОГРН', 'Полное наименование', 'Регион', 'Контактное лицо'],
-    note: 'Базовый профиль компании и первичная идентификация.',
-  },
-  {
-    title: '2. Роль',
-    fields: ['Продавец', 'Покупатель', 'Логистика', 'Лаборатория', 'Банк / финпартнёр'],
-    note: 'Выбор основного рабочего контура и прав доступа.',
-  },
-  {
-    title: '3. Реквизиты',
-    fields: ['Расчётный счёт', 'Банк', 'БИК', 'Подписант'],
-    note: 'Данные для расчётов, удержаний и будущих выплат.',
-  },
-  {
-    title: '4. Документы',
-    fields: ['Устав / ЕГРЮЛ', 'Доверенности', 'Сертификаты', 'Данные по культурам'],
-    note: 'Загрузка обязательного пакета для допуска и сделок.',
-  },
-  {
-    title: '5. Банк',
-    fields: ['Подключение СберБизнес ID', 'Режим безопасной сделки', 'Эскроу / факторинг'],
-    note: 'Финансовый контур и правила выпуска денег.',
-  },
-  {
-    title: '6. Первый лот',
-    fields: ['Культура', 'Объём', 'Цена', 'Базис поставки'],
-    note: 'Стартовая карточка сделки или торгового предложения.',
-  },
-];
+import { getPlatformV7OpenWalkthroughState } from '@/lib/platform-v7/runtime/open-walkthrough';
 
-export default function OnboardingPage() {
+export default function PlatformV7OnboardingPage() {
+  const state = getPlatformV7OpenWalkthroughState();
+
   return (
-    <div style={{ display: 'grid', gap: 18 }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419' }}>Онбординг компании</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-              Пошаговый вход в платформу: компания, роль, реквизиты, документы, банковый контур и первый лот. Контур сделан как демо-мастер, чтобы показать целевую механику pilot-ready запуска.
-            </div>
-          </div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 800 }}>
-            6 шагов подключения
-          </div>
-        </div>
+    <main data-testid='platform-v7-onboarding-draft' style={page}>
+      <section style={hero}>
+        <div style={eyebrow}>Доступ к controlled pilot</div>
+        <h1 style={h1}>Онбординг без ложных обещаний</h1>
+        <p style={lead}>Экран фиксирует, что доступ к контуру сделки выдаётся по роли и сценарию. Внешние подключения остаются pre-integration до договоров, доступов и проверки на реальных сделках.</p>
       </section>
 
-      <section style={{ display: 'grid', gap: 14 }}>
-        {steps.map((step) => (
-          <div key={step.title} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gap: 10 }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>{step.title}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {step.fields.map((field) => (
-                <span key={field} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 700 }}>{field}</span>
-              ))}
-            </div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>{step.note}</div>
-          </div>
+      <section style={grid}>
+        {state.gates.map((gate) => (
+          <article key={gate.label} style={card}>
+            <span style={statePill(gate.state)}>{gate.state}</span>
+            <strong style={title}>{gate.label}</strong>
+            <span style={text}>{gate.text}</span>
+          </article>
         ))}
       </section>
-    </div>
+    </main>
   );
 }
+
+function statePill(state: string) {
+  const bg = state === 'available' ? '#ECFDF5' : state === 'requires-operator' ? '#FFFBEB' : '#F8FAFC';
+  const color = state === 'available' ? '#047857' : state === 'requires-operator' ? '#B45309' : '#475569';
+  return { ...pill, background: bg, color } as const;
+}
+
+const page = { display: 'grid', gap: 14, padding: '0 0 24px' } as const;
+const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #D7DEE3', borderRadius: 24, padding: 18, display: 'grid', gap: 10 } as const;
+const eyebrow = { color: '#0A7A5F', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '.08em' } as const;
+const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(28px,7vw,44px)', lineHeight: 1.05, letterSpacing: '-.045em', fontWeight: 950 } as const;
+const lead = { margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.5, maxWidth: 720 } as const;
+const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 } as const;
+const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, display: 'grid', gap: 8, boxShadow: '0 10px 24px rgba(15,23,42,.05)' } as const;
+const pill = { justifySelf: 'start', borderRadius: 999, padding: '5px 8px', fontSize: 10, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '.07em' } as const;
+const title = { color: '#0F1419', fontSize: 18, lineHeight: 1.2, fontWeight: 950 } as const;
+const text = { color: '#64748B', fontSize: 13, lineHeight: 1.45, fontWeight: 750 } as const;
