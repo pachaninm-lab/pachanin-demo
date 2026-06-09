@@ -96,7 +96,7 @@ describe('platform-v7 runtime check helper', () => {
       canAffectMoney: false,
       canClaimRealExecution: false,
       missingCriticalCount: 9,
-      missingMoneyCriticalCount: 13,
+      missingMoneyCriticalCount: 14,
       manualReviewCount: 1,
     });
   });
