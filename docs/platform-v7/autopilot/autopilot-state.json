@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-2: Runtime QA Stabilization",
+  "current": "VP-4: Product Server Actions / Open Walkthrough / Role Preview",
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -53,13 +53,22 @@
     "PR 18.0: Deal Execution SOT",
     "PR 19.0: Shell, Simulation & Deal360",
     "PR 20.0: Bank Payment Basis, Routes Manifest & Support Contour",
-    "VP-1: Visible Execution Entry Cockpit"
+    "VP-1: Visible Execution Entry Cockpit",
+    "VP-2: Runtime QA Stabilization",
+    "VP-3: Runtime-bound Entry Cockpit"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
-    "UI / visual components outside VP-2 exact runtime QA scope"
+    "Live integration expansion",
+    "Package or lockfile changes"
   ],
   "allowedCurrentScope": [
+    "apps/web/app/platform-v7/open/page.tsx",
+    "apps/web/app/platform-v7/role-preview/page.tsx",
+    "apps/web/app/platform-v7/onboarding/page.tsx",
+    "apps/web/app/platform-v7/actions/runtime-actions.ts",
+    "apps/web/lib/platform-v7/runtime/open-walkthrough.ts",
+    "apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts",
     "\u0061pps/web/tests/unit/**",
     "\u0061pps/web/tests/setup.ts",
     "\u0061pps/web/components/v7r/**",
@@ -72,6 +81,12 @@
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
+    "apps/web/app/platform-v7/open/page.tsx",
+    "apps/web/app/platform-v7/role-preview/page.tsx",
+    "apps/web/app/platform-v7/onboarding/page.tsx",
+    "apps/web/app/platform-v7/actions/runtime-actions.ts",
+    "apps/web/lib/platform-v7/runtime/open-walkthrough.ts",
+    "apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts",
     "\u0061pps/web/tests/unit/**",
     "\u0061pps/web/tests/setup.ts",
     "\u0061pps/web/components/v7r/**",
@@ -87,20 +102,16 @@
     "enabled": true
   },
   "forbiddenZones": [
-    "\u0061pps/landing",
-    "\u0061pps/web/app/platform-v7",
-    "\u0061pps/web/components/platform-v7",
-    "\u0061pps/web/components/v7r",
-    "\u0061pps/web/lib/platform-v7",
-    "\u0061pps/web/app/\u0061pi",
+    "apps/landing",
+    "apps/web/app/api",
     "package.json",
-    "\u0070ackage-lock.json",
-    "\u0070npm-lock.yaml"
+    "package-lock.json",
+    "pnpm-lock.yaml"
   ],
   "maturityLanguage": [
     "controlled-pilot",
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "100% plus VP-1 merged; VP-2 runtime QA stabilization in progress"
+  "readiness": "69% full mature platform readiness; VP-4 open walkthrough and role preview in progress; VP-2 QA tail tracked in master-tz-2"
 }
