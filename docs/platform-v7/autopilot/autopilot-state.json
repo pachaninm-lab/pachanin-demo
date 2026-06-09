@@ -60,16 +60,26 @@
     "UI / visual components outside VP-2 exact runtime QA scope"
   ],
   "allowedCurrentScope": [
-    "\u0061pps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts",
-    "\u0061pps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts",
-    "\u0061pps/web/tests/unit/platformV7RuntimeCheckHelper.test.ts",
+    "\u0061pps/web/tests/unit/**",
+    "\u0061pps/web/tests/setup.ts",
+    "\u0061pps/web/components/v7r/**",
+    "\u0061pps/web/components/platform-v7/**",
+    "\u0061pps/web/app/platform-v7/**",
+    "\u0061pps/web/lib/platform-v7/**",
+    ".github/workflows/dependency-review.yml",
+    ".github/workflows/automerge.yml",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "\u0061pps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts",
-    "\u0061pps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts",
-    "\u0061pps/web/tests/unit/platformV7RuntimeCheckHelper.test.ts",
+    "\u0061pps/web/tests/unit/**",
+    "\u0061pps/web/tests/setup.ts",
+    "\u0061pps/web/components/v7r/**",
+    "\u0061pps/web/components/platform-v7/**",
+    "\u0061pps/web/app/platform-v7/**",
+    "\u0061pps/web/lib/platform-v7/**",
+    ".github/workflows/dependency-review.yml",
+    ".github/workflows/automerge.yml",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],

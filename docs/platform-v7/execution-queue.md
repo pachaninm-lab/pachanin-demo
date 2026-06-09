@@ -6,12 +6,16 @@ This is the real product execution sequence. The fallback smoke-slice loop is th
 
 ---
 
-CURRENT: VP-2: Runtime QA Stabilization
+CURRENT: VP-2: Runtime QA Stabilization (master plan: docs/platform-v7/autopilot/master-tz-2.md)
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/platformV7RuntimeApplicationServices.test.ts
-- apps/web/tests/unit/platformV7RuntimeMockPersistenceAdapter.test.ts
-- apps/web/tests/unit/platformV7RuntimeCheckHelper.test.ts
+- apps/web/tests/unit/**
+- apps/web/components/v7r/**
+- apps/web/components/platform-v7/**
+- apps/web/app/platform-v7/**
+- apps/web/lib/platform-v7/**
+- .github/workflows/dependency-review.yml
+- .github/workflows/automerge.yml
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 
@@ -23,12 +27,12 @@ DONE (autopilot smoke conveyor):
 - Autopilot conveyor complete through Product Slice 20
 
 NEXT:
-- Layer: VP-3 visible product slice proposal
+- Layer: VP-3 Deal Workspace Runtime Binding (after full web vitest is green and gated in CI)
 - Allowed files: to be unlocked by an explicit SOT scope proposal after VP-2 is green.
-- Success criteria:
-  - Runtime source-guard tests resolve source files independent of vitest cwd.
-  - Runtime check-helper expectations match the current money-critical check registry.
-  - Full platform-v7 runtime suite is green; typecheck and build are green.
+- Success criteria (VP-2, see master-tz-2.md):
+  - Full `pnpm --filter @pc/web test` run is green and added as a required CI job.
+  - Role-isolation and honesty guard contracts match sources again.
+  - No permanently red CI jobs: deploy/dependency-review either work or honest-skip with warning.
   - Maturity remains controlled-pilot / pre-integration.
   - No apps/landing, API, DB, live integration or lockfile changes.
 
