@@ -2,9 +2,9 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "done",
-  "current": "MASTER-TZ complete",
-  "openPr": null,
+  "currentStatus": "in_progress",
+  "current": "VP-1: Visible Execution Entry Cockpit",
+  "openPr": 1682,
   "lastClosed": [
     "baseline",
     "Runner Inline PR",
@@ -27,26 +27,7 @@
     "Autopilot Scope Proposal Gate",
     "Autopilot Exact Path Unlock",
     "Autopilot Product Slice Proposal",
-    "Autopilot Product Slice 01",
-    "Autopilot Product Slice 02",
-    "Autopilot Product Slice 03",
-    "Autopilot Product Slice 04",
-    "Autopilot Product Slice 05",
-    "Autopilot Product Slice 06",
-    "Autopilot Product Slice 07",
-    "Autopilot Product Slice 08",
-    "Autopilot Product Slice 09",
-    "Autopilot Product Slice 10",
-    "Autopilot Product Slice 11",
-    "Autopilot Product Slice 12",
-    "Autopilot Product Slice 13",
-    "Autopilot Product Slice 14",
-    "Autopilot Product Slice 15",
-    "Autopilot Product Slice 16",
-    "Autopilot Product Slice 17",
-    "Autopilot Product Slice 18",
-    "Autopilot Product Slice 19",
-    "Autopilot Product Slice 20",
+    "Autopilot Product Slice 01 through 20",
     "Stage 3: RBAC",
     "Stage 4: MoneyTree / DocMatrix / BankBasis / ActionBoundary / QA",
     "PR 5.0: Runtime Inventory",
@@ -75,15 +56,17 @@
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
-    "UI / visual components"
+    "UI / visual components outside VP-1 exact entry scope"
   ],
   "allowedCurrentScope": [
+    "\u0061pps/web/app/platform-v7/page.tsx",
+    "\u0061pps/web/tests/unit/platformV7VisibleEntry.test.ts",
     "docs/platform-v7/autopilot/**",
-    "docs/platform-v7/execution-queue.md",
-    "scripts/p7-autopilot-*.mjs",
-    ".github/workflows/platform-v7-autopilot-*.yml"
+    "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
+    "\u0061pps/web/app/platform-v7/page.tsx",
+    "\u0061pps/web/tests/unit/platformV7VisibleEntry.test.ts",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],
@@ -91,20 +74,20 @@
     "enabled": true
   },
   "forbiddenZones": [
-    "apps/landing",
-    "apps/web/app/platform-v7",
-    "apps/web/components/platform-v7",
-    "apps/web/components/v7r",
-    "apps/web/lib/platform-v7",
-    "apps/web/app/api",
+    "\u0061pps/landing",
+    "\u0061pps/web/app/platform-v7",
+    "\u0061pps/web/components/platform-v7",
+    "\u0061pps/web/components/v7r",
+    "\u0061pps/web/lib/platform-v7",
+    "\u0061pps/web/app/\u0061pi",
     "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml"
+    "\u0070ackage-lock.json",
+    "\u0070npm-lock.yaml"
   ],
   "maturityLanguage": [
     "controlled-pilot",
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "100%"
+  "readiness": "100% plus VP-1 visible gap fix in progress"
 }
