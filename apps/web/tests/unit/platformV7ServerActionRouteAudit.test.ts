@@ -32,9 +32,15 @@ describe('platform-v7 server action route audit exposure', () => {
       entityType: 'grain_batch',
       occurredAt: '2026-05-08T03:00:00.000Z',
       summary: 'Create batch boundary checked.',
+      payload: {
+        crop: 'wheat',
+        className: '3',
+        volumeTons: 600,
+        storageLocation: 'Элеватор Заря',
+      },
     });
 
-    expect(result.status).toBe(202);
+    expect(result.status).toBe(409);
     expect(result.body.auditBoundary).toMatchObject({
       status: 'blocked_invalid_audit_event',
       canProceed: false,
@@ -67,6 +73,14 @@ describe('platform-v7 server action route audit exposure', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T03:00:00.000Z',
       summary: 'Reserve request boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        amountMinor: 100_000,
+        currency: 'RUB',
+        reason: 'Reserve request.',
+        partyId: 'seller-1',
+        riskSnapshot: { status: 'clear', score: 91, source: 'test' },
+      },
     });
 
     expect(result.status).toBe(202);

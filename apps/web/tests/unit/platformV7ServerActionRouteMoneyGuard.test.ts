@@ -91,6 +91,13 @@ describe('platform-v7 server action route money guard', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T03:20:00.000Z',
       summary: 'Bank reserve confirmation boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        amountMinor: 100_000,
+        currency: 'RUB',
+        bankReferenceId: 'bank-evt-1',
+        confirmedAt: '2026-05-08T05:00:00.000Z',
+      },
     });
 
     expect(result.ok).toBe(false);
@@ -128,6 +135,13 @@ describe('platform-v7 server action route money guard', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T03:20:00.000Z',
       summary: 'Bank reserve confirmation boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        amountMinor: 100_000,
+        currency: 'RUB',
+        bankReferenceId: 'bank-evt-1',
+        confirmedAt: '2026-05-08T05:00:00.000Z',
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -164,7 +178,14 @@ describe('platform-v7 server action route money guard', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T03:20:00.000Z',
       summary: 'Bank release confirmation boundary checked.',
-      payload: { externalConfirmationReady: true },
+      payload: {
+        externalConfirmationReady: true,
+        dealId: 'deal-1',
+        amountMinor: 100_000,
+        currency: 'RUB',
+        bankReferenceId: 'bank-evt-1',
+        confirmedAt: '2026-05-08T05:00:00.000Z',
+      },
     });
 
     expect(result.ok).toBe(true);

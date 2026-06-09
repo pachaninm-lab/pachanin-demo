@@ -22,6 +22,12 @@ describe('platform-v7 server action route document gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T04:20:00.000Z',
       summary: 'Document upload boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        documentType: 'quality_certificate',
+        fileRef: 'files/doc-1.pdf',
+        uploadedAt: '2026-05-08T04:15:00.000Z',
+      },
     });
 
     expect(result.ok).toBe(false);
@@ -54,6 +60,12 @@ describe('platform-v7 server action route document gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T04:20:00.000Z',
       summary: 'Document upload boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        documentType: 'quality_certificate',
+        fileRef: 'files/doc-1.pdf',
+        uploadedAt: '2026-05-08T04:15:00.000Z',
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -85,7 +97,13 @@ describe('platform-v7 server action route document gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T04:20:00.000Z',
       summary: 'Document upload boundary checked.',
-      payload: { documentId: 'doc-1' },
+      payload: {
+        documentId: 'doc-1',
+        dealId: 'deal-1',
+        documentType: 'quality_certificate',
+        fileRef: 'files/doc-1.pdf',
+        uploadedAt: '2026-05-08T04:15:00.000Z',
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -120,6 +138,14 @@ describe('platform-v7 server action route document gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T04:20:00.000Z',
       summary: 'Document acceptance boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        documentId: 'doc-1',
+        reviewedBy: 'operator-1',
+        reviewedAt: '2026-05-08T04:18:00.000Z',
+        evidenceRefs: ['evidence/doc-1-review.pdf'],
+        externalConfirmationRef: 'edo-confirm-1',
+      },
     });
 
     expect(result.body.documentGateSummary).toMatchObject({
@@ -155,6 +181,14 @@ describe('platform-v7 server action route document gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T04:20:00.000Z',
       summary: 'Document acceptance boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        documentId: 'doc-1',
+        reviewedBy: 'operator-1',
+        reviewedAt: '2026-05-08T04:18:00.000Z',
+        evidenceRefs: ['evidence/doc-1-review.pdf'],
+        externalConfirmationRef: 'edo-confirm-1',
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -173,6 +207,8 @@ describe('platform-v7 server action route document gate', () => {
       actorId: 'operator-1',
       entityId: 'deal-1',
       dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
       attemptId: 'attempt-1',
     });
 
@@ -185,9 +221,19 @@ describe('platform-v7 server action route document gate', () => {
       documentId: 'doc-1',
       externalConfirmationReady: true,
       dealId: 'deal-1',
+      amountMinor: 100_000,
+      currency: 'RUB',
       idempotencyKey,
       occurredAt: '2026-05-08T04:20:00.000Z',
       summary: 'Document acceptance boundary checked.',
+      payload: {
+        dealId: 'deal-1',
+        documentId: 'doc-1',
+        reviewedBy: 'operator-1',
+        reviewedAt: '2026-05-08T04:18:00.000Z',
+        evidenceRefs: ['evidence/doc-1-review.pdf'],
+        externalConfirmationRef: 'edo-confirm-1',
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -234,7 +280,15 @@ describe('platform-v7 server action route document gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T04:20:00.000Z',
       summary: 'Document acceptance boundary checked.',
-      payload: { externalConfirmationReady: true },
+      payload: {
+        externalConfirmationReady: true,
+        dealId: 'deal-1',
+        documentId: 'doc-1',
+        reviewedBy: 'operator-1',
+        reviewedAt: '2026-05-08T04:18:00.000Z',
+        evidenceRefs: ['evidence/doc-1-review.pdf'],
+        externalConfirmationRef: 'edo-confirm-1',
+      },
     });
 
     expect(result.ok).toBe(true);

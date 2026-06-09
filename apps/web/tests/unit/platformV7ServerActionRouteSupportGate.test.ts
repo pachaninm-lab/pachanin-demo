@@ -22,6 +22,12 @@ describe('platform-v7 server action route support gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T05:00:00.000Z',
       summary: 'Support case boundary checked.',
+      payload: {
+        title: 'Вопрос по приёмке',
+        category: 'acceptance',
+        priority: 'normal',
+        description: 'Расхождение веса при приёмке партии.',
+      },
     });
 
     expect(result.body.supportGateSummary).toMatchObject({
@@ -51,6 +57,11 @@ describe('platform-v7 server action route support gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T05:00:00.000Z',
       summary: 'Support message boundary checked.',
+      payload: {
+        caseId: 'support-1',
+        message: 'Добавлен акт приёмки.',
+        sentAt: '2026-05-08T05:05:00.000Z',
+      },
     });
 
     expect(result.ok).toBe(false);
@@ -83,6 +94,11 @@ describe('platform-v7 server action route support gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T05:00:00.000Z',
       summary: 'Support message boundary checked.',
+      payload: {
+        caseId: 'support-1',
+        message: 'Добавлен акт приёмки.',
+        sentAt: '2026-05-08T05:05:00.000Z',
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -114,7 +130,12 @@ describe('platform-v7 server action route support gate', () => {
       idempotencyKey,
       occurredAt: '2026-05-08T05:00:00.000Z',
       summary: 'Support message boundary checked.',
-      payload: { supportCaseId: 'support-1' },
+      payload: {
+        supportCaseId: 'support-1',
+        caseId: 'support-1',
+        message: 'Добавлен акт приёмки.',
+        sentAt: '2026-05-08T05:05:00.000Z',
+      },
     });
 
     expect(result.ok).toBe(true);

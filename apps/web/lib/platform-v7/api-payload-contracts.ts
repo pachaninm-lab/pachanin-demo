@@ -44,6 +44,32 @@ const optional = (
 
 export const PLATFORM_V7_API_PAYLOAD_CONTRACTS: readonly PlatformV7ApiPayloadContract[] = [
   {
+    boundaryId: 'list_batches',
+    requiredFields: [],
+    optionalFields: [
+      optional('crop', 'string', 'Optional crop filter.'),
+      optional('storageLocation', 'string', 'Optional storage or pickup location filter.'),
+    ],
+    rejectsEmptyPayload: false,
+    requiresEvidenceReference: false,
+    requiresMoneyAmount: false,
+    requiresExternalReference: false,
+    summary: 'Read boundary: listing batches carries no required payload.',
+  },
+  {
+    boundaryId: 'read_audit_events',
+    requiredFields: [],
+    optionalFields: [
+      optional('dealId', 'string', 'Optional deal filter.'),
+      optional('boundaryId', 'string', 'Optional boundary filter.'),
+    ],
+    rejectsEmptyPayload: false,
+    requiresEvidenceReference: false,
+    requiresMoneyAmount: false,
+    requiresExternalReference: false,
+    summary: 'Read boundary: audit journal reads carry no required payload.',
+  },
+  {
     boundaryId: 'create_batch',
     requiredFields: [
       required('crop', 'string', 'Crop name or commodity type.'),

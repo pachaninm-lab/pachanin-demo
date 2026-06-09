@@ -1,8 +1,22 @@
 import * as React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiShellEnhancer } from '@/components/v7r/AiShellEnhancer';
 import { platformV7ShellNotificationCenterModel } from '@/lib/platform-v7/shellNotificationCenter';
+
+// The enhancer mounts the notification center through a portal into the
+// shell header actions container, so the tests provide that host element.
+let headerActions: HTMLDivElement;
+
+beforeEach(() => {
+  headerActions = document.createElement('div');
+  headerActions.className = 'pc-header-actions';
+  document.body.appendChild(headerActions);
+});
+
+afterEach(() => {
+  headerActions.remove();
+});
 
 vi.mock('next/link', () => ({
   default: ({ href, children, onClick, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) =>
@@ -22,7 +36,7 @@ describe('AiShellEnhancer notification center bridge', () => {
   it('renders the platform v7 notification center bridge', () => {
     render(<AiShellEnhancer />);
 
-    expect(screen.getByLabelText('Центр уведомлений platform-v7 shell')).toBeInTheDocument();
+    expect(screen.getByLabelText('Значки уведомлений и предупреждений в шапке')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Уведомления/i })).toBeInTheDocument();
   });
 
@@ -31,9 +45,13 @@ describe('AiShellEnhancer notification center bridge', () => {
     render(<AiShellEnhancer />);
 
     const trigger = screen.getByRole('button', { name: /Уведомления/i });
-
     expect(trigger.getAttribute('aria-label')).toContain(String(model.summary.unread));
-    expect(trigger.getAttribute('aria-label')).toContain(String(model.summary.critical));
+
+    if (model.summary.critical > 0) {
+      const warnings = screen.getByRole('button', { name: /Предупреждения/i });
+      expect(warnings.getAttribute('aria-label')).toContain(String(model.summary.critical));
+    }
+
     expect(screen.getByText(model.badgeLabel)).toBeInTheDocument();
   });
 
@@ -43,7 +61,7 @@ describe('AiShellEnhancer notification center bridge', () => {
     fireEvent.click(screen.getByRole('button', { name: /Уведомления/i }));
 
     expect(screen.getByRole('dialog', { name: 'Центр уведомлений' })).toBeInTheDocument();
-    expect(screen.getByText('Главный блокер')).toBeInTheDocument();
+    expect(screen.getByText('Последний важный сигнал')).toBeInTheDocument();
   });
 
   it('closes the bridged notification center on Escape', () => {
