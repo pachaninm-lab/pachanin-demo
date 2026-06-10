@@ -101,7 +101,7 @@ export default function BankReleaseSafetyPage() {
         <P7PanelShell>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · тестовый контур</div>
+              <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · предынтеграционный контур</div>
               <div style={{ marginTop: 6, fontSize: 26, lineHeight: 1.1, fontWeight: 900, color: T }}>Банковская проверка выплаты</div>
               <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 860 }}>
                 Экран показывает, почему запрос в банк не должен обходить резерв, документы, ФГИС/СДИЗ, рейс, приёмку, качество, спор и удержание. Это контрольный экран, а не платёжный механизм.

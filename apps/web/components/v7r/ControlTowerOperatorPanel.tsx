@@ -74,9 +74,9 @@ function cleanCopy(value: string) {
     .replace(/\bgate\b/g, 'проверка')
     .replace(/\bblocker\b/g, 'препятствие')
     .replace(/\bcallback\b/g, 'событие банка')
-    .replace(/\brelease\b/g, 'выпуск денег')
+    .replace(/\brelease\b/g, 'банковская проверка выплаты')
     .replace(/\bsync\b/g, 'сверка')
-    .replace(/\bfake-live\b/g, 'демо-событие')
+    .replace(/\bfake-live\b/g, 'локальное событие')
     .replace(/\baudit\b/g, 'журнал');
 }
 
@@ -138,7 +138,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
         objectId: item.id,
         action: 'bank-callback',
         actor: 'Оператор платформы',
-        loadingMessage: `${item.id}: запрошено банковское демо-событие.`,
+        loadingMessage: `${item.id}: запрошено банковское событие предынтеграционного контура.`,
         successMessage: (data: { id: string; amountRub: number; ts: string }) => `${item.id}: банк подтвердил ${formatMoney(data.amountRub)}.`,
         errorMessage: () => `${item.id}: подтверждение банка не получено.`,
         run: async () => {
@@ -166,7 +166,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
   return (
     <P7Card
       title='Операторские действия'
-      subtitle='Прямо из центра управления: снять препятствие, увидеть журнал и получить демо-событие банка по выпуску денег.'
+      subtitle='Прямо из центра управления: снять препятствие, увидеть журнал и получить событие банка предынтеграционного контура по проверку денег.'
       testId='control-tower-operator-panel'
       footer={<OperatorAudit audit={audit} />}
     >

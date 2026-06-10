@@ -7,7 +7,7 @@ const ACTIONS = [
     actor: 'Оператор',
     label: 'Проверить документы',
     testMode: true,
-    nextStep: 'Открыть проверку выпуска денег.',
+    nextStep: 'Открыть проверку банковской проверки выплаты.',
     timestamp: '2026-05-02T10:00:00.000Z',
   }),
   createPlatformV7ActionResult({
@@ -39,7 +39,7 @@ export function P7ActionFeedbackStrip() {
   return (
     <section data-testid="platform-v7-action-feedback-strip" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
-        <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Action feedback · тестовый режим</div>
+        <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Результат действия · тестовый режим</div>
         <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: '#0F1419' }}>Результат действия и следующий шаг</div>
         <div style={{ marginTop: 6, fontSize: 13, color: '#64748B', lineHeight: 1.55 }}>Каждое действие должно показывать понятный результат, следующий шаг и запись для журнала. Ниже — единый контракт для старых и новых кнопок.</div>
       </div>

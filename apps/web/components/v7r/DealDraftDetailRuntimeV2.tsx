@@ -37,7 +37,7 @@ function reserveLabel(v: string) {
 function paymentLabel(v: string) {
   if (v === 'blocked') return 'Выпуск заблокирован';
   if (v === 'ready_for_release') return 'Готово к выпуску';
-  if (v === 'released') return 'Деньги выпущены';
+  if (v === 'released') return 'Банк подтвердил выплату';
   return v;
 }
 function disputeLabel(v: string) {
@@ -53,7 +53,7 @@ function statusLabel(v: string) {
   if (v === 'reserve_approved') return 'Резерв подтверждён';
   if (v === 'dispute_open') return 'Спор открыт';
   if (v === 'release_ready') return 'Готово к выпуску';
-  if (v === 'released') return 'Деньги выпущены';
+  if (v === 'released') return 'Банк подтвердил выплату';
   return v;
 }
 function blockerLabel(v: string) {
@@ -74,7 +74,7 @@ export function DealDraftDetailRuntimeV2({ id }: { id: string }) {
 
   const sourceLabel = item.sourceType === 'RFQ_MARKET' ? 'Рыночный вариант' : 'Внутренний запрос';
   const marketSource = item.sourceType === 'RFQ_MARKET' ? getMarketRfqById(item.sourceId) : null;
-  const moneyCenter = item.paymentState === 'released' ? 'Деньги выпущены' : item.paymentState === 'ready_for_release' ? 'Банк может выпускать деньги' : item.reserveState === 'approved' ? 'Нужно запросить выпуск денег' : item.reserveState === 'pending' ? 'Банк проверяет резерв' : 'Сначала собрать документы и запустить резерв';
+  const moneyCenter = item.paymentState === 'released' ? 'Банк подтвердил выплату' : item.paymentState === 'ready_for_release' ? 'Банк может выпускать деньги' : item.reserveState === 'approved' ? 'Нужно запросить банковская проверка выплаты' : item.reserveState === 'pending' ? 'Банк проверяет резерв' : 'Сначала собрать документы и запустить резерв';
 
   return (
     <div style={{ display:'grid', gap:18, padding:'8px 0' }}>
@@ -124,8 +124,8 @@ export function DealDraftDetailRuntimeV2({ id }: { id: string }) {
           {item.docsState !== 'complete' ? <button onClick={() => { markDraftDocsComplete(item.id); toast('Документный пакет отмечен как полный.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Документы собраны</button> : null}
           {item.docsState === 'complete' && item.reserveState === 'not_started' ? <button onClick={() => { submitDraftReserve(item.id); toast('Запрос на резерв отправлен в банк.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Отправить на резерв</button> : null}
           {item.reserveState === 'pending' ? <button onClick={() => { approveDraftReserve(item.id); toast('Резерв подтверждён.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid #E4E6EA', color:'#0F1419', fontSize:13, fontWeight:700, cursor:'pointer' }}>Подтвердить резерв</button> : null}
-          {item.reserveState === 'approved' && item.docsState === 'complete' && item.disputeState !== 'open' && item.paymentState !== 'ready_for_release' && item.paymentState !== 'released' ? <button onClick={() => { requestDraftRelease(item.id); toast('Запрос на выпуск денег создан.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Запросить выпуск денег</button> : null}
-          {item.paymentState === 'ready_for_release' ? <button onClick={() => { releaseDraftFunds(item.id); toast('Деньги выпущены.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid #E4E6EA', color:'#0F1419', fontSize:13, fontWeight:700, cursor:'pointer' }}>Выпустить деньги</button> : null}
+          {item.reserveState === 'approved' && item.docsState === 'complete' && item.disputeState !== 'open' && item.paymentState !== 'ready_for_release' && item.paymentState !== 'released' ? <button onClick={() => { requestDraftRelease(item.id); toast('Запрос на банковскую проверку выплаты создан.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Передать основание банку денег</button> : null}
+          {item.paymentState === 'ready_for_release' ? <button onClick={() => { releaseDraftFunds(item.id); toast('Банк подтвердил выплату.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid #E4E6EA', color:'#0F1419', fontSize:13, fontWeight:700, cursor:'pointer' }}>Подтвердить банковское событие</button> : null}
           {item.disputeState !== 'open' && item.paymentState !== 'released' ? <button onClick={() => { openDraftDispute(item.id); toast('Спор открыт.', 'warning'); }} style={{ borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid rgba(220,38,38,0.18)', color:'#B91C1C', fontSize:13, fontWeight:700, cursor:'pointer' }}>Открыть спор</button> : null}
           {item.disputeState === 'open' ? <button onClick={() => { resolveDraftDispute(item.id); toast('Спор закрыт.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Закрыть спор</button> : null}
           <Link href='/platform-v7/bank' style={{ textDecoration:'none', display:'inline-flex', alignItems:'center', justifyContent:'center', borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid #E4E6EA', color:'#0F1419', fontSize:13, fontWeight:700 }}>Банк</Link>

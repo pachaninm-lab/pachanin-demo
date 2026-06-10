@@ -70,7 +70,7 @@ export default function DealTransportDocumentsPage({ params }: { params: { id: s
           <div style={{ display: 'grid', gap: 8 }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Перевозочные документы · {deal.id}</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
-              Внешний юридически значимый контур рейса через СберКорус. Здесь платформа показывает не внутренние события, а состояние пакета перевозочных документов, подписей, webhooks и влияние на выпуск денег.
+              Внешний юридически значимый контур рейса через СберКорус. Здесь платформа показывает не внутренние события, а состояние пакета перевозочных документов, подписей, внешние уведомления и влияние на банковскую проверку выплаты.
             </div>
           </div>
           <SberKorusBadge subtitle='Юридически значимый транспортный контур' />
@@ -130,7 +130,7 @@ export default function DealTransportDocumentsPage({ params }: { params: { id: s
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Документы пакета</div>
-          {pack.driverActionUrl ? <span style={{ fontSize: 12, color: '#6B778C' }}>Для водителя доступен отдельный mobile-flow провайдера</span> : null}
+          {pack.driverActionUrl ? <span style={{ fontSize: 12, color: '#6B778C' }}>Для водителя доступен отдельный мобильный сценарий провайдера</span> : null}
         </div>
         <div style={{ display: 'grid', gap: 12 }}>
           {pack.documents.map((document) => {

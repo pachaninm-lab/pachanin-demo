@@ -6,7 +6,7 @@ export default function PlatformV7OnboardingPage() {
   return (
     <main data-testid='platform-v7-onboarding-draft' style={page}>
       <section style={hero}>
-        <div style={eyebrow}>Доступ к controlled pilot</div>
+        <div style={eyebrow}>Доступ к управляемый запуск</div>
         <h1 style={h1}>Онбординг без ложных обещаний</h1>
         <p style={lead}>Экран фиксирует, что доступ к контуру сделки выдаётся по роли и сценарию. Внешние подключения остаются pre-integration до договоров, доступов и проверки на реальных сделках.</p>
       </section>

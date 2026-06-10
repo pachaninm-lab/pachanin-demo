@@ -91,7 +91,7 @@ function describeBlocker(code: string) {
   switch (code) {
     case 'dispute': return 'Открыт спор по качеству или весу';
     case 'docs':
-    case 'DOCS_MISSING': return 'Не хватает документов для выпуска денег';
+    case 'DOCS_MISSING': return 'Не хватает документов для банковской проверки выплаты';
     case 'bank_confirm': return 'Банк ещё не подтвердил выпуск';
     case 'lab_result': return 'Нет финального лабораторного результата';
     case 'reserve': return 'Резерв средств ещё не подтверждён';
@@ -150,10 +150,10 @@ export function DealDetailRuntime({ id }: { id: string }) {
   const currentStageIndex = Math.max(PIPELINE_STAGES.findIndex((stage) => stage.statuses.includes(deal.status)), 0);
   const blockerTexts = [...new Set([...deal.blockers, ...integration.reasonCodes].map(describeBlocker))];
   const primaryAction = primaryActionForDeal(deal.status, deal.id, dispute?.id);
-  const nextStepTitle = integration.nextStep ?? (deal.status === 'quality_disputed' ? 'Закрыть спор и снять удержание' : deal.status === 'release_requested' ? 'Подтвердить выпуск в банке' : deal.status === 'docs_complete' ? 'Запросить выпуск денег' : 'Довести сделку до следующего этапа');
+  const nextStepTitle = integration.nextStep ?? (deal.status === 'quality_disputed' ? 'Закрыть спор и снять удержание' : deal.status === 'release_requested' ? 'Подтвердить выпуск в банке' : deal.status === 'docs_complete' ? 'Передать основание банку денег' : 'Довести сделку до следующего этапа');
   const problemSummary = [
     dispute ? dispute.title : null,
-    integration.gateState === 'FAIL' ? 'Интеграционный контур блокирует выпуск денег' : null,
+    integration.gateState === 'FAIL' ? 'Интеграционный контур блокирует банковскую проверку выплаты' : null,
     integration.reasonCodes.includes('ESIA_LINK_MISSING') ? 'Нет связи с ЕСИА' : null,
     integration.reasonCodes.includes('FGIS_GATE_FAIL') ? 'ФГИС не подтвердил партию' : null,
     integration.reasonCodes.includes('DOCS_MISSING') ? 'Не хватает документов' : null,
@@ -471,7 +471,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
           <section style={{ display: 'grid', gap: 16, minWidth: 0 }}>
             <div className='surface'>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Банк и события</div>
-              <div style={{ fontSize: 12, color: '#6B778C', marginTop: 6, wordBreak: 'break-word' }}>{integration.gateState === 'FAIL' ? 'Выпуск денег заблокирован до снятия причин в ФГИС / ЕСИА.' : integration.gateState === 'REVIEW' ? 'Банк требует ручной проверки перед выпуском.' : 'Интеграционный контур не блокирует банк.'}</div>
+              <div style={{ fontSize: 12, color: '#6B778C', marginTop: 6, wordBreak: 'break-word' }}>{integration.gateState === 'FAIL' ? 'Банковская проверка выплаты заблокирован до снятия причин в ФГИС / ЕСИА.' : integration.gateState === 'REVIEW' ? 'Банк требует ручной проверки перед выпуском.' : 'Интеграционный контур не блокирует банк.'}</div>
               <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
                 {callbacks.length ? callbacks.map((cb) => (
                   <div key={cb.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 12, maxWidth: '100%', overflow: 'hidden' }}>

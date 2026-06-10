@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 const items = [
-  { title: 'СДИЗ', value: 'ждёт подтверждения', note: 'Ответственный — продавец. Без подтверждения выпуск денег закрыт.', href: '/platform-v7/deals/grain-sdiz', tone: 'stop' },
+  { title: 'СДИЗ', value: 'ждёт подтверждения', note: 'Ответственный — продавец. Без подтверждения банковская проверка выплаты закрыт.', href: '/platform-v7/deals/grain-sdiz', tone: 'stop' },
   { title: 'ЭТрН', value: 'ждёт подписи', note: 'Ответственный — грузополучатель. Закрывает транспортное условие.', href: '/platform-v7/deals/DL-9106/transport-documents', tone: 'stop' },
   { title: 'Вес', value: 'есть отклонение', note: 'Ответственный — приёмка. Нужен акт расхождения.', href: '/platform-v7/deals/grain-weight', tone: 'warn' },
   { title: 'Качество', value: 'протокол ожидается', note: 'Ответственный — лаборатория. Влияет на удержание и спор.', href: '/platform-v7/deals/grain-quality', tone: 'warn' },
@@ -24,7 +24,7 @@ export default function OperatorGrainPage() {
         <div style={actions}>
           <Link href='/platform-v7/operator' style={primaryBtn}>Центр оператора</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Сделка</Link>
-          <Link href='/platform-v7/deals/grain-release' style={ghostBtn}>Выпуск денег</Link>
+          <Link href='/platform-v7/deals/grain-release' style={ghostBtn}>Банковская проверка выплаты</Link>
         </div>
       </section>
 

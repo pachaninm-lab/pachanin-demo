@@ -82,7 +82,7 @@ export default function BankEscrowPage() {
     const released = rows.reduce((sum, row) => sum + row.released, 0);
     const triggers = new Set(rows.map((row) => row.trigger)).size;
     return [
-      { title: 'Тестовые кейсы', value: String(rows.length), note: 'Денежные кейсы по сделкам в пилотном контуре' },
+      { title: 'Тестовые кейсы', value: String(rows.length), note: 'Денежные кейсы по сделкам в контуре исполнения' },
       { title: 'На удержании', value: formatMillions(held || 0), note: 'Сумма, которая ещё не может быть раскрыта в тестовом сценарии' },
       { title: 'Условия раскрытия', value: String(triggers), note: 'Приёмка, качество, документы, банковское подтверждение и спорный режим' },
       { title: 'Отмечено к раскрытию', value: formatMillions(released || 0), note: 'Имитация выпущенных средств; боевой платёж не выполнялся' }
@@ -160,11 +160,11 @@ export default function BankEscrowPage() {
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419' }}>Эскроу</div>
             <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-              Тестовый контур удержания и раскрытия денег по подтверждённым событиям: приёмка, лаборатория, документы, спор и банковское подтверждение. Это не боевой эскроу и не банковское списание.
+              Предынтеграционный контур удержания и раскрытия денег по подтверждённым событиям: приёмка, лаборатория, документы, спор и банковское подтверждение. Это не боевой эскроу и не банковское списание.
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 800 }}>
-            Пилотный контур · тестовый сценарий
+            Контур исполнения · локальный сценарий
           </div>
         </div>
       </section>

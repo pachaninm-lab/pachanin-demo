@@ -229,7 +229,7 @@ function buildActionCards(state: DomainExecutionState): ActionCard[] {
   const openDispute: ActionCard = {
     id: 'openDispute',
     title: '10. Открыть спор',
-    description: 'Блокирует финальный выпуск денег и создаёт доказательный контур спора.',
+    description: 'Блокирует финальный банковская проверка выплаты и создаёт доказательный контур спора.',
     command: flowDeal ? {
       type: 'openDispute',
       actor: buyer,

@@ -246,7 +246,7 @@ export function BankRuntime() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {brandPill('sberBusinessId')}
             {brandPill('sberApi')}
-            <div data-demo="true" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>Демо-данные</div>
+            <div data-local-scenario="true" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>Локальные данные</div>
           </div>
         </div>
       </section>
@@ -286,7 +286,7 @@ export function BankRuntime() {
 
       <section style={{ display: 'grid', gap: 14 }}>
         <QueueCard
-          title='Очередь на выпуск денег'
+          title='Очередь на банковскую проверку выплаты'
           note='Сделки, где деньги уже близко к release, но ещё могут застрять на банке, документах или финальной сверке.'
           accent={{ bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' }}
           rows={releaseQueue}

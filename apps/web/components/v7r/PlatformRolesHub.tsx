@@ -56,7 +56,7 @@ const CONTROL_ANSWERS = [
   {
     label: 'Где документы',
     value: `СДИЗ: ${documents.sdizStatus}; ЭДО: ${documents.edoStatus}; КЭП: ${documents.kepStatus}`,
-    note: `Не хватает: ${documents.missingDocuments.join(', ')}. Без полного пакета выпуск денег закрыт.`,
+    note: `Не хватает: ${documents.missingDocuments.join(', ')}. Без полного пакета банковская проверка выплаты закрыт.`,
   },
   {
     label: 'Что заблокировано',
@@ -95,7 +95,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     role: 'bank',
     actor: 'финансовый партнёр',
     answer: `Сумма сделки: ${formatRub(expectedDealAmount)}. Резервный контур: ${formatRub(money.reservedRub)}. К выпуску сейчас: ${formatRub(money.releaseCandidateRub)}.`,
-    boundary: 'Нет фальшивой кнопки выплаты: выпуск денег невозможен без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора.',
+    boundary: 'Нет фальшивой кнопки выплаты: банковская проверка выплаты невозможен без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора.',
   },
   {
     step: '04',
@@ -247,7 +247,7 @@ const DOCUMENT_FLOW = [
     source: 'ФГИС «Зерно»',
     owner: 'продавец + оператор',
     status: documents.sdizStatus,
-    impact: 'блокирует финальный выпуск денег',
+    impact: 'блокирует финальный банковская проверка выплаты',
   },
   {
     name: 'ЭТрН / транспортный пакет',
@@ -424,7 +424,7 @@ export function PlatformRolesHub() {
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={microLabel}>маршрут показа</div>
           <h2 style={sectionTitle}>Одна сделка, девять рабочих поверхностей</h2>
-          <p style={sectionText}>Путь ведёт пользователя по исполнению сделки, а не по меню. Каждый шаг показывает: что видит роль, что скрыто и почему выпуск денег не происходит без доказательств.</p>
+          <p style={sectionText}>Путь ведёт пользователя по исполнению сделки, а не по меню. Каждый шаг показывает: что видит роль, что скрыто и почему банковская проверка выплаты не происходит без доказательств.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
           {GUIDED_ROUTE.map((route) => <RouteStepCard key={route.step} route={route} />)}

@@ -88,7 +88,7 @@ const RELEASE_GATES: PlatformV7DealWorkspaceGateId[] = [
 export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[] = [
   {
     id: 'request-release',
-    label: 'Запросить выпуск денег',
+    label: 'Передать основание банку денег',
     kind: 'primary',
     tone: 'success',
     requiredGates: ['money', 'documents', 'transport', 'fgis', 'degradation'],
@@ -103,7 +103,7 @@ export const PLATFORM_V7_DEAL_WORKSPACE_ACTIONS: PlatformV7DealWorkspaceAction[]
   },
   {
     id: 'release-funds',
-    label: 'Выпустить деньги',
+    label: 'Подтвердить банковское событие',
     kind: 'primary',
     tone: 'success',
     requiredGates: RELEASE_GATES,

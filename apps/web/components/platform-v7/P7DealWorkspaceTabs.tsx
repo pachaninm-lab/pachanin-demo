@@ -48,7 +48,7 @@ export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', borderBottom: `1px solid ${B}`, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: 12, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Рабочая зона сделки · тестовый контур</div>
+          <div style={{ fontSize: 12, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Рабочая зона сделки · предынтеграционный контур</div>
           <div style={{ marginTop: 4, fontSize: 18, fontWeight: 900, color: T }}>Сделка как единый контур исполнения</div>
         </div>
         <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: blockers > 0 ? ERR_BG : BRAND_BG, border: `1px solid ${blockers > 0 ? ERR_BORDER : BRAND_BORDER}`, color: blockers > 0 ? ERR : BRAND }}>
@@ -80,7 +80,7 @@ export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
 function Overview({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
-      <p style={{ margin: 0, fontSize: 13, color: M, lineHeight: 1.6 }}>Один объект сделки связывает цену, логистику, приёмку, документы, деньги, спор и доказательства. Боевые подключения не заявлены: экран показывает тестовый контур и источники фактов.</p>
+      <p style={{ margin: 0, fontSize: 13, color: M, lineHeight: 1.6 }}>Один объект сделки связывает цену, логистику, приёмку, документы, деньги, спор и доказательства. Боевые подключения не заявлены: экран показывает предынтеграционный контур и источники фактов.</p>
       <FactRail items={['sber_safe_deals', 'fgis_grain', 'logistics_sphere']} />
       <Grid>
         <Cell label='Сделка' value={deal.id} mono />
@@ -109,11 +109,11 @@ function Money({ deal }: { deal: DomainDeal }) {
         <Cell label='К выпуску' value={money(deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0))} color={releaseBlocked ? M : BRAND} />
       </Grid>
       <Notice danger={releaseBlocked} title={releaseBlocked ? 'Выпуск заблокирован' : 'Выпуск возможен только после проверки'}>
-        {releaseBlocked ? 'Есть блокеры или удержание. Прямой выпуск денег невозможен.' : 'Выпуск денег остаётся под проверкой: резерв, документы, приёмка, качество, рейс и спор.'}
+        {releaseBlocked ? 'Есть блокеры или удержание. Прямой банковская проверка выплаты невозможен.' : 'Банковская проверка выплаты остаётся под проверкой: резерв, документы, приёмка, качество, рейс и спор.'}
       </Notice>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {requestTarget ? <P7GuardedActionButton target={requestTarget} activeActionId={null} blocked={releaseBlocked} blockerLabels={blockerLabels} blockedLabel='Запрос заблокирован' blockedReason='Сначала снимите блокеры сделки.' /> : null}
-        {releaseTarget ? <P7GuardedActionButton target={releaseTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Выпуск под контролем' blockedReason='Выпуск денег доступен только после полной контрольной проверки.' /> : null}
+        {releaseTarget ? <P7GuardedActionButton target={releaseTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Выпуск под контролем' blockedReason='Банковская проверка выплаты доступен только после полной контрольной проверки.' /> : null}
         <Link href='/platform-v7/bank' style={linkButton()}>Банковый контур →</Link>
       </div>
     </Stack>
@@ -145,7 +145,7 @@ function Documents({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
       <FactRail items={['edo_saby', 'fgis_grain']} />
-      <Notice danger={missing} title={missing ? 'Документы блокируют деньги' : 'Критичных пробелов нет'}>{missing ? 'Недостающие документы блокируют выпуск денег.' : 'Документный слой не красный для текущего этапа.'}</Notice>
+      <Notice danger={missing} title={missing ? 'Документы блокируют деньги' : 'Критичных пробелов нет'}>{missing ? 'Недостающие документы блокируют банковскую проверку выплаты.' : 'Документный слой не красный для текущего этапа.'}</Notice>
       <Grid>
         <Cell label='Договор' value='тест: подписан' color={BRAND} />
         <Cell label='СДИЗ' value={deal.blockers.includes('fgis') ? 'ручная проверка' : 'тест: связан'} danger={deal.blockers.includes('fgis')} />

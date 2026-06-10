@@ -26,7 +26,7 @@ describe('platform-v7 assistant route language', () => {
   it('keeps the new assistant page in working Russian execution language', () => {
     expect(page).toContain('Помощник сделки');
     expect(page).toContain('Центр управления');
-    expect(page).toContain('выпуск денег');
+    expect(page).toContain('банковская проверка выплаты');
     expect(page).toContain('удержание');
     expect(page).toContain('ответственный');
 
