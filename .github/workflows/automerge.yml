@@ -69,7 +69,6 @@ jobs:
 
       - name: Pull production settings
         if: steps.vercel_token.outputs.valid == 'true'
-        working-directory: apps/web
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
           VERCEL_PROJECT_ID: prj_B6IuQnfGGqWejQYgcJypeAzDhM9k
@@ -77,7 +76,6 @@ jobs:
 
       - name: Build production bundle
         if: steps.vercel_token.outputs.valid == 'true'
-        working-directory: apps/web
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
           VERCEL_PROJECT_ID: prj_B6IuQnfGGqWejQYgcJypeAzDhM9k
@@ -85,7 +83,6 @@ jobs:
 
       - name: Deploy to production
         if: steps.vercel_token.outputs.valid == 'true'
-        working-directory: apps/web
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
           VERCEL_PROJECT_ID: prj_B6IuQnfGGqWejQYgcJypeAzDhM9k
@@ -133,7 +130,6 @@ jobs:
 
       - name: Pull production settings
         if: steps.vercel_token.outputs.valid == 'true'
-        working-directory: apps/api
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
           VERCEL_PROJECT_ID: prj_F8IOEInvI4N3Bu700Lvsleojl1CJ
@@ -141,7 +137,6 @@ jobs:
 
       - name: Build production bundle
         if: steps.vercel_token.outputs.valid == 'true'
-        working-directory: apps/api
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
           VERCEL_PROJECT_ID: prj_F8IOEInvI4N3Bu700Lvsleojl1CJ
@@ -149,7 +144,6 @@ jobs:
 
       - name: Deploy to production
         if: steps.vercel_token.outputs.valid == 'true'
-        working-directory: apps/api
         env:
           VERCEL_ORG_ID: team_z7meLkDGNXDTyAt8lH0XWGgk
           VERCEL_PROJECT_ID: prj_F8IOEInvI4N3Bu700Lvsleojl1CJ
