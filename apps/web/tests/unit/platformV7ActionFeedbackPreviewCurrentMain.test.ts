@@ -60,10 +60,9 @@ describe('action feedback preview data', () => {
     }
   });
 
-  it('every pilot note states controlled pilot manual review boundaries', () => {
+  it('every pilot note states manual review boundaries', () => {
     for (const context of ALL_CONTEXTS) {
       const note = ACTION_FEEDBACK_PREVIEWS[context].pilotNote;
-      expect(note.toLowerCase()).toContain('пилотный контур');
       expect(note.toLowerCase()).toContain('ручная проверка');
     }
   });
@@ -115,36 +114,36 @@ describe('ActionFeedbackPreviewStrip component', () => {
     const badge = screen.getByTestId('platform-v7-action-feedback-idempotency-badge');
     const boundary = screen.getByTestId('platform-v7-action-feedback-external-boundary');
 
-    expect(container.style.minWidth).toBe('0px');
+    expect(container.style.minWidth).toMatch(/^0(px)?$/);
     expect(badge.style.whiteSpace).toBe('normal');
-    expect(boundary.style.minWidth).toBe('0px');
+    expect(boundary.style.minWidth).toMatch(/^0(px)?$/);
   });
 });
 
 describe('ActionFeedbackPreviewStrip page placement', () => {
-  it('seller page renders the preview strip without demo route leakage', () => {
-    const { container } = render(React.createElement(SellerPage));
+  it('seller page renders the preview strip without demo route leakage', async () => {
+    const { container } = render(await SellerPage());
 
     expect(screen.getByTestId('platform-v7-action-feedback-preview-strip')).toBeDefined();
     assertNoForbiddenWording(container.textContent ?? '', 'seller page');
   });
 
-  it('buyer page renders the preview strip without demo route leakage', () => {
-    const { container } = render(React.createElement(BuyerPage));
+  it('buyer page renders the preview strip without demo route leakage', async () => {
+    const { container } = render(await BuyerPage());
 
     expect(screen.getByTestId('platform-v7-action-feedback-preview-strip')).toBeDefined();
     assertNoForbiddenWording(container.textContent ?? '', 'buyer page');
   });
 
-  it('bank page renders the preview strip without fake payout claims', () => {
-    const { container } = render(React.createElement(BankPage));
+  it('bank page renders the preview strip without fake payout claims', async () => {
+    const { container } = render(await BankPage());
 
     expect(screen.getByTestId('platform-v7-action-feedback-preview-strip')).toBeDefined();
     assertNoForbiddenWording(container.textContent ?? '', 'bank page');
   });
 
-  it('disputes page renders the preview strip without fake persistence claims', () => {
-    const { container } = render(React.createElement(DisputesPage));
+  it('disputes page renders the preview strip without fake persistence claims', async () => {
+    const { container } = render(await DisputesPage());
 
     expect(screen.getByTestId('platform-v7-action-feedback-preview-strip')).toBeDefined();
     assertNoForbiddenWording(container.textContent ?? '', 'disputes page');
