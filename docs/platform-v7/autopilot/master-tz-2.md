@@ -57,11 +57,14 @@ platform-v7 / «Прозрачная Цена»
 
 Правило: дополнить payload до контрактно-валидного там, где тест проверяет гейт ЗА контрактом (409 idempotency, 202 manual review, готовность гейтов). Намеренные пропуски для негативных сценариев не трогать.
 
-### PR VP-2.3 — Shell / Role Isolation Guards
+### PR VP-2.3 — Shell / Role Isolation Guards (закрыт)
 
-Файлы: scopedShellGuard, roleExecutionHandoff, driverFieldShellGuard, platformV7RoleUxRegressions, journalPreview, roleContinuity*, workRouteNav*, supportIndexRoleScope (~90 падений)
+Файлы: scopedShellGuard, roleExecutionHandoff, driverFieldShellGuard, platformV7RoleUxRegressions, journalPreview, roleContinuity*, workRouteNav*, supportIndexRoleScope — 57 падений на момент слайса, все закрыты (165/165 в скоупе, 0 регрессий по полному прогону: 270 → 212).
 
-Это ядро ролевой изоляции. Приоритет — починка компонентов: AppShellV4 / ScopedShellGuard обязаны держать контракт «каждая роль видит только свою работу».
+Восстановление контракта по правилу §2:
+
+- исходники: FieldShellPolicy дополнительно прячет `.pc-v4-drawer` (дыра изоляции — drawer с «Все роли» был виден полевым ролям); honesty-копии приведены к реестру deep-guard («СДИЗ не подтверждён» → «СДИЗ ожидает подтверждения», «выпуск денег» → «банковская проверка выплаты» на bank-поверхностях, driver field без слова «банковый»)
+- тесты: рендер async server components через `render(await Page())` (паттерн слайса 1); ожидания обновлены под осознанно переработанные слои (копия «контур исполнения», русские лейблы RoleContinuityPanel, layout-контракты decision pack / RBAC, выведенный из работы WorkRouteNav, useSearchParams-мок)
 
 ### PR VP-2.4 — Honesty / Premium Copy Guards
 

@@ -75,7 +75,7 @@ export default async function DriverFieldPage() {
         </div>
 
         <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: '#475569' }}>
-          На экране только маршрут, связь, прибытие, фото, пломба и отклонение. Денежный, банковый и чужой контекст скрыт.
+          На экране только маршрут, связь, прибытие, фото, пломба и отклонение. Остальной контекст скрыт.
         </p>
 
         <Link href="#driver-next-action" style={primaryAction}>

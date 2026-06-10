@@ -24,8 +24,8 @@ describe('arbitrator journal preview', () => {
     expect(preview.innerHTML).toContain('DK-2024-89');
   });
 
-  it('renders on platform-v7 arbitrator page after the decision guard', () => {
-    render(<PlatformV7ArbitratorPage />);
+  it('renders on platform-v7 arbitrator page after the decision guard', async () => {
+    render(await PlatformV7ArbitratorPage());
 
     expect(screen.getByTestId('platform-v7-arbitrator-decision-guard')).toBeInTheDocument();
     const preview = screen.getByTestId('journal-preview');

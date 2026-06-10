@@ -5,15 +5,15 @@ import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 const staleRoles: PlatformRole[] = ['driver', 'seller', 'buyer', 'bank', 'logistics', 'compliance'];
 
 describe('platform-v7 work route nav policy', () => {
-  it('shows broad work nav on operator routes even when stored role is stale', () => {
+  it('keeps broad work nav retired on operator routes regardless of stored role', () => {
     for (const staleRole of staleRoles) {
-      expect(canShowWorkRouteNav(staleRole, '/platform-v7/control-tower')).toBe(true);
+      expect(canShowWorkRouteNav(staleRole, '/platform-v7/control-tower')).toBe(false);
     }
   });
 
-  it('shows broad work nav on executive routes even when stored role is stale', () => {
+  it('keeps broad work nav retired on executive routes regardless of stored role', () => {
     for (const staleRole of staleRoles) {
-      expect(canShowWorkRouteNav(staleRole, '/platform-v7/executive')).toBe(true);
+      expect(canShowWorkRouteNav(staleRole, '/platform-v7/executive')).toBe(false);
     }
   });
 
