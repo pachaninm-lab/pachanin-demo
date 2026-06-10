@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: VP-2 QA Tail (VP-2.2, VP-2.4, VP-2.5 — see docs/platform-v7/autopilot/master-tz-2.md)
+CURRENT: VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)
 
 CURRENT ALLOWED:
 - apps/web/tests/unit/**
