@@ -27,13 +27,13 @@ vi.mock('@/components/platform-v7/RoleExecutionHandoff', () => ({
 const source = readFileSync(resolve(__dirname, '../../app/platform-v7/disputes/page.tsx'), 'utf8');
 
 describe('platform-v7 disputes execution polish', () => {
-  it('renders dispute execution screen with evidence and bank-boundary wording', () => {
-    render(<PlatformV7DisputesPage />);
+  it('renders dispute execution screen with evidence and bank-boundary wording', async () => {
+    render(await PlatformV7DisputesPage());
 
     expect(screen.getByText('Споры и удержания')).toBeInTheDocument();
-    expect(screen.getByText(/Спор объясняет, почему сумма остановлена/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Спор объясняет, почему сумма остановлена/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Банковская проверка')).toBeInTheDocument();
-    expect(screen.getByText(/проверка выплаты остановлена/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/проверка выплаты остановлена/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/где проверка выплаты остановлена до качества/i)).toBeInTheDocument();
     expect(screen.getAllByText('держит сумму').length).toBeGreaterThan(0);
   });

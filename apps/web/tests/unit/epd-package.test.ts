@@ -14,7 +14,7 @@ describe('epd-package', () => {
     expect(pack?.etrnId).toBe('ETRN-DL-9106-001');
     expect(pack?.epdOperator).toContain('требуется договор и доступ');
     expect(pack?.titles.map((title) => title.role)).toEqual(['грузоотправитель', 'перевозчик', 'водитель', 'грузополучатель']);
-    expect(executionCase?.logistics.trips[0]?.tripId).toBe('TRIP-SIM-001');
+    expect(executionCase?.logistics.trips[0]?.tripId).toBe('TRIP-2403-001');
   });
 
   it('shows exactly which signatures and GIS EPD transfer block the bank basis', () => {

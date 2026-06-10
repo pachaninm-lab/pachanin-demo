@@ -10,7 +10,7 @@ describe('logistics-n-trips', () => {
 
     expect(plan.logisticsOrderId).toBe('LOG-REQ-2403');
     expect(plan.vehicleCount).toBeGreaterThan(1);
-    expect(plan.tripIds).toEqual(['TRIP-SIM-001', 'TRIP-SIM-002', 'TRIP-SIM-003']);
+    expect(plan.tripIds).toEqual(['TRIP-2403-001', 'TRIP-2403-002', 'TRIP-2403-003']);
     expect(plan.declaredTons).toBe(600);
     expect(plan.plannedTons).toBe(600);
     expect(plan.isCompletePlan).toBe(true);

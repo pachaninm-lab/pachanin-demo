@@ -74,7 +74,7 @@ describe('platform-v7 visible execution copy', () => {
     expect(bank).toContain('Внешние контуры');
     expect(bank).toContain('Рекомендации и доказательства');
     expect(bank).toContain('Передача между ролями и журнал');
-    expect(bank).toContain('Длинные детали скрыты ниже');
+    expect(bank).toContain('раскрыть детали');
   });
 
   it('routes the legacy driver page directly to the field shell', () => {

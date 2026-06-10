@@ -8,12 +8,12 @@ import LogisticsPage from '@/app/platform-v7/logistics/page';
 const source = readFileSync(resolve(__dirname, '../../app/platform-v7/logistics/page.tsx'), 'utf8');
 
 describe('platform-v7 logistics execution polish', () => {
-  it('renders logistics execution screen focused on route, documents and next action', () => {
-    render(<LogisticsPage />);
+  it('renders logistics execution screen focused on route, documents and next action', async () => {
+    render(await LogisticsPage());
 
-    expect(screen.getByText('Кабинет логистики')).toBeInTheDocument();
-    expect(screen.getByText(/Заявки, водители, ЭТрН и маршрут/i)).toBeInTheDocument();
-    expect(screen.getByText(/Деньги и ставки не раскрываются/i)).toBeInTheDocument();
+    expect(screen.getByText('Логистика · рейс → водитель → ЭТрН → приёмка')).toBeInTheDocument();
+    expect(screen.getByText(/Довести рейс до приёмки и закрыть транспортные документы/i)).toBeInTheDocument();
+    expect(screen.getByText(/Коммерческие условия и банковские действия скрыты/i)).toBeInTheDocument();
     expect(screen.getByText('Документные условия перевозки')).toBeInTheDocument();
     expect(screen.getByText('Водители на линии')).toBeInTheDocument();
     expect(screen.getByText('Текущая очередь заказов')).toBeInTheDocument();

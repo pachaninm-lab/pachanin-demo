@@ -126,7 +126,7 @@ export default async function PlatformV7BankPage() {
       label: `Спор ${d.id}: удержание ${d.claimAmountRub ? (d.claimAmountRub / 1_000_000).toFixed(2) + ' млн ₽' : 'активно'}`,
       severity: 'stop' as const,
       responsibleRole: 'ARBITRATOR',
-      nextAction: 'Закрыть спор до выпуска денег',
+      nextAction: 'Закрыть спор до банковской проверки выплаты',
     })),
   ];
 
@@ -217,7 +217,7 @@ export default async function PlatformV7BankPage() {
           { id: '3', label: 'Закрыть акт приёмки', status: 'upcoming' },
         ]}
         journalHref={`/platform-v7/deals/${mainDeal.dealId}/audit`}
-        manualReviewNote='Выпуск денег требует подтверждения банка. Платформа формирует основание при закрытых условиях.'
+        manualReviewNote='Выплата требует подтверждения банка. Платформа формирует основание при закрытых условиях.'
       />
 
       <section style={cardInner}>

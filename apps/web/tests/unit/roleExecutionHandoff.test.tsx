@@ -141,8 +141,8 @@ describe('RoleExecutionHandoff component', () => {
 });
 
 describe('Seller page execution handoff', () => {
-  it('renders execution handoff section with sends and awaits items', () => {
-    render(<SellerPage />);
+  it('renders execution handoff section with sends and awaits items', async () => {
+    render(await SellerPage());
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
     expect(screen.getAllByText('ожидает').length).toBeGreaterThan(0);
@@ -151,120 +151,119 @@ describe('Seller page execution handoff', () => {
     expect(screen.getAllByText('следующий шаг').length).toBeGreaterThan(0);
   });
 
-  it('seller handoff contains SDIZ and bank confirmation wording', () => {
-    render(<SellerPage />);
+  it('seller handoff contains SDIZ and bank confirmation wording', async () => {
+    render(await SellerPage());
 
     expect(screen.getByText(/СДИЗ ожидает закрытия/)).toBeInTheDocument();
     expect(screen.getByText(/резерв ожидает банковского подтверждения/)).toBeInTheDocument();
   });
 
-  it('seller page has no forbidden copy', () => {
-    const { container } = render(<SellerPage />);
+  it('seller page has no forbidden copy', async () => {
+    const { container } = render(await SellerPage());
     expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
 describe('Buyer page execution handoff', () => {
-  it('renders execution handoff section with sends and awaits items', () => {
-    render(<BuyerPage />);
+  it('renders execution handoff section with sends and awaits items', async () => {
+    render(await BuyerPage());
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
     expect(screen.getAllByText('ожидает').length).toBeGreaterThan(0);
     expect(screen.getAllByText('отправляет').length).toBeGreaterThan(0);
   });
 
-  it('buyer handoff contains bank confirmation request wording', () => {
-    render(<BuyerPage />);
+  it('buyer handoff contains bank confirmation request wording', async () => {
+    render(await BuyerPage());
 
     expect(screen.getByText(/запрос банковского подтверждения резерва/)).toBeInTheDocument();
   });
 
-  it('buyer page has no forbidden copy', () => {
-    const { container } = render(<BuyerPage />);
+  it('buyer page has no forbidden copy', async () => {
+    const { container } = render(await BuyerPage());
     expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
 describe('Logistics page execution handoff', () => {
-  it('renders execution handoff section with ETRN wording', () => {
-    render(<LogisticsPage />);
+  it('renders execution handoff section with ETRN wording', async () => {
+    render(await LogisticsPage());
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
     expect(screen.getByText(/ЭТрН ожидает подписи грузополучателя/)).toBeInTheDocument();
   });
 
-  it('logistics handoff frames document states as awaiting confirmation', () => {
-    render(<LogisticsPage />);
+  it('logistics handoff frames document states as awaiting confirmation', async () => {
+    render(await LogisticsPage());
 
     expect(screen.getByText(/передаёт данные о рейсе и водителе — ожидает подтверждения приёмки от элеватора/)).toBeInTheDocument();
     expect(screen.getByText(/СДИЗ ожидает закрытия/)).toBeInTheDocument();
   });
 
-  it('logistics page has no forbidden copy', () => {
-    const { container } = render(<LogisticsPage />);
+  it('logistics page has no forbidden copy', async () => {
+    const { container } = render(await LogisticsPage());
     expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
 describe('Elevator page execution handoff', () => {
-  it('renders execution handoff section with acceptance act wording', () => {
-    render(<ElevatorPage />);
+  it('renders execution handoff section with acceptance act wording', async () => {
+    render(await ElevatorPage());
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
     expect(screen.getByText(/акт приёмки и акт расхождения в контур документов/)).toBeInTheDocument();
   });
 
-  it('elevator handoff has blockedBy item about weight deviation', () => {
-    render(<ElevatorPage />);
+  it('elevator handoff has blockedBy item about weight deviation', async () => {
+    render(await ElevatorPage());
 
     expect(screen.getByText(/отклонение веса -1,2 т/)).toBeInTheDocument();
   });
 
-  it('elevator page has no forbidden copy', () => {
-    const { container } = render(<ElevatorPage />);
+  it('elevator page has no forbidden copy', async () => {
+    const { container } = render(await ElevatorPage());
     expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
 describe('Bank page execution handoff', () => {
-  it('renders execution handoff section with bank event wording', () => {
-    render(<BankPage />);
+  it('renders execution handoff section with bank event wording', async () => {
+    render(await BankPage());
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
-    expect(screen.getByText(/документы, приёмка, качество и спор должны быть закрыты до банковского события/)).toBeInTheDocument();
+    expect(screen.getByText(/документы, приёмка, качество и спор должны быть закрыты до банковской проверки выплаты/)).toBeInTheDocument();
   });
 
-  it('bank handoff describes bank-side event/check, not platform-controlled money release', () => {
-    render(<BankPage />);
+  it('bank handoff describes bank-side event/check, not platform-controlled money release', async () => {
+    render(await BankPage());
 
-    expect(screen.getByText(/банк направляет уведомление о готовности к банковскому событию/)).toBeInTheDocument();
-    expect(screen.getByText(/пилотный контур требует ручной сверки оператором/)).toBeInTheDocument();
-    expect(screen.getByText(/банковская проверка выплаты не продолжается/)).toBeInTheDocument();
+    expect(screen.getByText(/банк направляет статус проверки; оператор сверяет причину остановки и основание в сделке/)).toBeInTheDocument();
+    expect(screen.getAllByText(/банковская проверка выплаты не продолжается/).length).toBeGreaterThan(0);
   });
 
-  it('bank page has no forbidden copy', () => {
-    const { container } = render(<BankPage />);
+  it('bank page has no forbidden copy', async () => {
+    const { container } = render(await BankPage());
     expectNoForbiddenCopy(container.innerHTML);
   });
 });
 
 describe('Disputes page execution handoff', () => {
-  it('renders execution handoff section with retention and review wording', () => {
-    render(<DisputesPage />);
+  it('renders execution handoff section with retention and review wording', async () => {
+    render(await DisputesPage());
 
     expect(screen.getByTestId('role-execution-handoff')).toBeInTheDocument();
     expect(screen.getByText(/рекомендация по удержанию или спорной сумме/)).toBeInTheDocument();
   });
 
-  it('disputes handoff describes review of disputed amount, not platform-controlled release', () => {
-    render(<DisputesPage />);
+  it('disputes handoff describes review of disputed amount, not platform-controlled release', async () => {
+    render(await DisputesPage());
 
     expect(screen.getByText(/рекомендация по удержанию или спорной сумме — передаётся оператору на ручную проверку оснований/)).toBeInTheDocument();
     expect(screen.getByText(/спорная сумма остаётся на ручной проверке до решения оператора/)).toBeInTheDocument();
   });
 
-  it('disputes page has no forbidden copy', () => {
-    const { container } = render(<DisputesPage />);
+  it('disputes page has no forbidden copy', async () => {
+    const { container } = render(await DisputesPage());
     expectNoForbiddenCopy(container.innerHTML);
   });
 });
@@ -276,14 +275,14 @@ describe('No apps/landing imports in handoff component', () => {
     expect(src).not.toContain('@/app/landing');
   });
 
-  it('seller page does not link to /platform-v7/demo/', () => {
-    const { container } = render(<SellerPage />);
+  it('seller page does not link to /platform-v7/demo/', async () => {
+    const { container } = render(await SellerPage());
     const links = container.querySelectorAll('a[href*="/platform-v7/demo/"]');
     expect(links.length).toBe(0);
   });
 
-  it('buyer page does not link to /platform-v7/demo/', () => {
-    const { container } = render(<BuyerPage />);
+  it('buyer page does not link to /platform-v7/demo/', async () => {
+    const { container } = render(await BuyerPage());
     const links = container.querySelectorAll('a[href*="/platform-v7/demo/"]');
     expect(links.length).toBe(0);
   });

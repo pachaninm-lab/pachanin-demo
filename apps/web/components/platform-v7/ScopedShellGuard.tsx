@@ -135,7 +135,7 @@ const bankMobile = `
   }
 `;
 
-function FieldShellPolicy(){return <style>{`${base}.pc-v4-search,.pc-v4-select,.pc-v4-mobile-role,.pc-v4-stage,.pc-v4-meta,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(env(safe-area-inset-top) + 66px)!important}`}</style>}
+function FieldShellPolicy(){return <style>{`${base}.pc-v4-search,.pc-v4-select,.pc-v4-mobile-role,.pc-v4-stage,.pc-v4-meta,.pc-v4-drawer,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(env(safe-area-inset-top) + 66px)!important}`}</style>}
 function RoleScopedShellPolicy({extra=''}:{extra?:string}){return <style>{`${base}${extra}.pc-v4-search,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(var(--pc-header-offset) + 8px)!important}`}</style>}
 function OperatorShellPolicy({extra=''}:{extra?:string}){return <style>{`${base}${extra}`}</style>}
 

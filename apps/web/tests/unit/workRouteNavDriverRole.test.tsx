@@ -31,15 +31,13 @@ const ROLE_SCOPED_PATHS = [
 const NON_BROAD_NAV_ROLES = ['buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance'] as const;
 
 describe('WorkRouteNav role scope', () => {
-  it.each(['operator', 'executive'] as const)('renders broad work navigation for %s on operator surfaces', (role) => {
+  it.each(['operator', 'executive'] as const)('keeps broad work navigation retired for %s on operator surfaces', (role) => {
     activeRole = role;
     usePathname.mockReturnValue('/platform-v7/control-tower');
 
-    render(<WorkRouteNav />);
+    const { container } = render(<WorkRouteNav />);
 
-    expect(screen.getByLabelText('Рабочие разделы platform-v7')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Центр управления' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Сделки' })).toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it.each(ROLE_SCOPED_PATHS)('hides broad work navigation on role-scoped path %s', (path) => {

@@ -27,6 +27,11 @@ const supportCase = {
   updatedAt: '2026-05-12T10:20:00.000Z',
 };
 
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/platform-v7/support',
+}));
+
 vi.mock('@/stores/usePlatformV7RStore', () => ({
   usePlatformV7RStore: (selector: (state: { role: string }) => unknown) => selector({ role: activeRole }),
 }));
@@ -53,7 +58,7 @@ describe('SupportIndexPage role scope', () => {
     render(<SupportIndexPage />);
 
     expect(screen.getByText('Помощь по моему рейсу')).toBeInTheDocument();
-    expect(screen.getByText(/операторские очереди, суммы риска и банковские данные скрыты/i)).toBeInTheDocument();
+    expect(screen.getByText(/Банк, деньги и операторская очередь скрыты/)).toBeInTheDocument();
     expect(screen.queryByText('Деньги под риском')).not.toBeInTheDocument();
     expect(screen.queryByText('Операторская очередь')).not.toBeInTheDocument();
     expect(screen.queryByText(/23\s?140\s?000 ₽/)).not.toBeInTheDocument();
@@ -64,7 +69,7 @@ describe('SupportIndexPage role scope', () => {
 
     render(<SupportIndexPage />);
 
-    expect(screen.getByText('Центр поддержки исполнения сделки')).toBeInTheDocument();
+    expect(screen.getByText('Центр поддержки')).toBeInTheDocument();
     expect(screen.getByText('Деньги под риском')).toBeInTheDocument();
     expect(screen.getByText('Операторская очередь')).toBeInTheDocument();
     expect(screen.getByText('Открыть очередь')).toBeInTheDocument();

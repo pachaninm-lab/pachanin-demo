@@ -8,13 +8,13 @@ import PlatformV7SellerPage from '@/app/platform-v7/seller/page';
 const source = readFileSync(resolve(__dirname, '../../app/platform-v7/seller/page.tsx'), 'utf8');
 
 describe('platform-v7 seller execution polish', () => {
-  it('renders seller execution screen with bank-boundary money language', () => {
-    render(<PlatformV7SellerPage />);
+  it('renders seller execution screen with bank-boundary money language', async () => {
+    render(await PlatformV7SellerPage());
 
-    expect(screen.getByText('Кабинет продавца')).toBeInTheDocument();
-    expect(screen.getByText(/Лоты, предложения, документы и проверка выплаты/i)).toBeInTheDocument();
-    expect(screen.getByText('К передаче банку')).toBeInTheDocument();
-    expect(screen.getByText(/к передаче банку 0 ₽/i)).toBeInTheDocument();
+    expect(screen.getByText('Кабинет продавца · сделка → документы → деньги')).toBeInTheDocument();
+    expect(screen.getByText(/контур исполнения: партия, лот, резерв покупателя, СДИЗ, ЭТрН, приёмка/i)).toBeInTheDocument();
+    expect(screen.getByText('На проверку банку')).toBeInTheDocument();
+    expect(screen.getAllByText(/проверку банку 0 ₽/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/закрыть СДИЗ и ЭТрН для передачи основания банку на проверку/i)).toBeInTheDocument();
     expect(screen.getByText(/сделка передаёт основание банку/i)).toBeInTheDocument();
   });

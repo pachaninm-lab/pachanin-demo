@@ -57,9 +57,9 @@ describe('JournalPreview component', () => {
     expect(el).toHaveAttribute('data-role', 'seller');
   });
 
-  it('renders section label with пилотный контур wording', () => {
+  it('renders section label with контур исполнения wording', () => {
     const { container } = render(<JournalPreview role='seller' />);
-    expect(container.innerHTML).toContain('пилотный контур');
+    expect(container.innerHTML).toContain('контур исполнения');
   });
 
   it('renders entries with data-testid journal-preview-entry', () => {
@@ -80,9 +80,9 @@ describe('JournalPreview component', () => {
     expect(screen.queryByTestId('journal-preview-entry')).not.toBeInTheDocument();
   });
 
-  it('seller entries include пилотный контур wording', () => {
+  it('seller entries include контур исполнения wording', () => {
     const { container } = render(<JournalPreview role='seller' />);
-    expect(container.innerHTML).toContain('пилотный контур');
+    expect(container.innerHTML).toContain('контур исполнения');
   });
 
   it('buyer entries include банковское подтверждение wording', () => {
@@ -139,38 +139,38 @@ describe('JournalPreview component', () => {
 });
 
 describe('JournalPreview on role pages', () => {
-  it('seller page renders journal-preview section', () => {
-    render(<SellerPage />);
+  it('seller page renders journal-preview section', async () => {
+    render(await SellerPage());
     expect(screen.getByTestId('journal-preview')).toBeInTheDocument();
     expect(screen.getByTestId('journal-preview')).toHaveAttribute('data-role', 'seller');
   });
 
-  it('buyer page renders journal-preview section', () => {
-    render(<BuyerPage />);
+  it('buyer page renders journal-preview section', async () => {
+    render(await BuyerPage());
     expect(screen.getByTestId('journal-preview')).toBeInTheDocument();
     expect(screen.getByTestId('journal-preview')).toHaveAttribute('data-role', 'buyer');
   });
 
-  it('bank page renders journal-preview section', () => {
-    render(<BankPage />);
+  it('bank page renders journal-preview section', async () => {
+    render(await BankPage());
     expect(screen.getByTestId('journal-preview')).toBeInTheDocument();
     expect(screen.getByTestId('journal-preview')).toHaveAttribute('data-role', 'bank');
   });
 
-  it('seller page journal entries are role-specific (seller objects)', () => {
-    render(<SellerPage />);
+  it('seller page journal entries are role-specific (seller objects)', async () => {
+    render(await SellerPage());
     const preview = screen.getByTestId('journal-preview');
     expect(preview.innerHTML).toContain('BAT-2403');
   });
 
-  it('buyer page journal has банковское подтверждение wording', () => {
-    render(<BuyerPage />);
+  it('buyer page journal has банковское подтверждение wording', async () => {
+    render(await BuyerPage());
     const preview = screen.getByTestId('journal-preview');
     expect(preview.innerHTML).toContain('банковское подтверждение');
   });
 
-  it('bank page journal has банковское событие wording', () => {
-    render(<BankPage />);
+  it('bank page journal has банковское событие wording', async () => {
+    render(await BankPage());
     const preview = screen.getByTestId('journal-preview');
     expect(preview.innerHTML).toContain('банковское событие');
   });

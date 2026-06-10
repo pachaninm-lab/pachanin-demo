@@ -5,11 +5,10 @@ import { describe, expect, it } from 'vitest';
 const source = readFileSync(resolve(__dirname, '../../components/platform-v7/ScopedShellGuard.tsx'), 'utf8');
 
 describe('ScopedShellGuard mobile header policy', () => {
-  it('keeps operator mobile header to one role control instead of duplicated role chip and select', () => {
-    expect(source).toContain('function OperatorShellPolicy()');
+  it('keeps mobile header free from duplicated role chip and select', () => {
+    expect(source).toContain('function OperatorShellPolicy(');
     expect(source).toContain('.pc-v4-mobile-role');
-    expect(source).toContain('display: none !important;');
     expect(source).toContain('.pc-v4-select');
-    expect(source).toContain('display: inline-block !important;');
+    expect(source).toMatch(/\.pc-v4-mobile-role,\.pc-v4-select[^{]*\{display:none!important\}/);
   });
 });

@@ -1,4 +1,4 @@
-# Review current task — Autopilot Product Slice 20
+# Review current task — VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -17,95 +17,66 @@ Review the diff, not the agent report.
 
 ## Current allowed scope
 
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-19.spec.ts
+- apps/web/tests/unit/**
+- apps/web/tests/setup.ts
+- apps/web/components/v7r/**
+- apps/web/components/platform-v7/**
+- apps/web/app/platform-v7/**
+- apps/web/lib/platform-v7/**
+- .github/workflows/dependency-review.yml
+- .github/workflows/automerge.yml
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
-- scripts/p7-autopilot-*.mjs
-- .github/workflows/platform-v7-autopilot-*.yml
 
 ## Transition guard
 
-- BLOCKED: Autopilot Product Slice 20 is not green/closed/mergeable. Dispatcher will not advance to Product Entry / Onboarding.
+- BLOCKED: VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job) is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion.
 
 ## Queue snapshot
 
 # platform-v7 execution queue
 
-CURRENT: Autopilot Product Slice 20
+CURRENT: VP-2 QA Tail (VP-2.2, VP-2.4, VP-2.5 — see docs/platform-v7/autopilot/master-tz-2.md)
 
 CURRENT ALLOWED:
-- apps/web/tests/e2e/platform-v7-agent-generated-smoke-19.spec.ts
-
-CURRENT CRITERIA:
-- runner generates exactly one allowed code/test file;
-- generated branch is opened as PR by the repo-side runner;
-- generated PR receives platform-v7, agent-generated and automerge labels without manual labeling;
-- restricted areas remain blocked;
-- merge gate remains final authority.
+- apps/web/tests/unit/**
+- apps/web/tests/setup.ts
+- apps/web/components/v7r/**
+- apps/web/components/platform-v7/**
+- apps/web/app/platform-v7/**
+- apps/web/lib/platform-v7/**
+- .github/workflows/dependency-review.yml
+- .github/workflows/automerge.yml
+- docs/platform-v7/autopilot/**
+- docs/platform-v7/execution-queue.md
 
 DONE:
-- baseline
-- Runner Inline PR
-- Runner Gate Fix
-- Runner Opens PR
-- Runner PR Permission Smoke
-- Autopilot Resilience Layer
-- Role Boundary Smoke
-- Autopilot State Schema
-- Autopilot Next-layer Selector
-- Autopilot Check Analyzer
-- Autopilot Merge Gate
-- Autopilot Dry-run Loop
-- Autopilot Safe Task Intake
-- Autopilot Issue Executor Dry-run
-- Autopilot Issue Executor PR Wiring
-- Autopilot Full Loop Verification
-- Autopilot Live Controlled Pilot Gate
-- Autopilot Step Enablement
-- Autopilot Scope Proposal Gate
-- Autopilot Exact Path Unlock
-- Autopilot Product Slice Proposal
-- Autopilot Product Slice 01
-- Autopilot Product Slice 02
-- Autopilot Product Slice 03
-- Autopilot Product Slice 04
-- Autopilot Product Slice 05
-- Autopilot Product Slice 06
-- Autopilot Product Slice 07
-- Autopilot Product Slice 08
-- Autopilot Product Slice 09
-- Autopilot Product Slice 10
-- Autopilot Product Slice 11
-- Autopilot Product Slice 12
-- Autopilot Product Slice 13
-- Autopilot Product Slice 14
-- Autopilot Product Slice 15
-- Autopilot Product Slice 16
-- Autopilot Product Slice 17
-- Autopilot Product Slice 18
-- Autopilot Product Slice 19
+- VP-1: Visible Execution Entry Cockpit
+- VP-2: Runtime QA Stabilization (slice 1 merged)
+- VP-3: Runtime-bound Entry Cockpit
+- VP-4: Product Entry (open, role-preview, onboarding — merged via PR #1689)
+- VP-2.3: Shell / Role Isolation Guards (165/165 in scope, full run 270 -> 212, no regressions)
 
 NEXT:
-- Layer: Autopilot Product Slice 21
-- Allowed files:
-  - docs/platform-v7/autopilot/**
-  - docs/platform-v7/execution-queue.md
-  - scripts/p7-autopilot-*.mjs
-  - .github/workflows/platform-v7-autopilot-*.yml
-- Success criteria:
-  - source-of-truth advances after generated PR merge;
-  - restricted areas remain blocked;
-  - merge gate remains final authority.
-- Readiness remains 72%.
+- VP-2.2 server action route contracts (platformV7ServerActionRoute*)
+- VP-2.4 honesty / premium copy guards
+- VP-2.5 remaining tail + web-unit required merge gate
+- VP-5 driver / logistics cockpit binding (after VP-2 green)
+- VP-6 bank cockpit binding
+- VP-7 dispute / evidence binding
+- VP-8 theme / mobile final QA
 
 RULES:
-- One PR equals one narrow layer.
-- Keep controlled-pilot status.
-- Keep current slice limited to the exact allowed file.
+- one PR equals one narrow layer
+- no apps/landing
+- no API routes
+- no DB
+- no package or lockfiles
+- full web vitest must not degrade (target: required web-unit gate in VP-2.5)
 
 
 ## Review brief
 
-Review Autopilot Product Slice 20 strictly against the state allowed scope and queue.
+Review VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job) strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.

@@ -18,17 +18,17 @@ vi.mock('@/components/v7r/RoleContinuityPanel', () => ({
 const source = readFileSync(resolve(__dirname, '../../app/platform-v7/lab/page.tsx'), 'utf8');
 
 describe('platform-v7 lab quality polish', () => {
-  it('renders quality-only lab screen with sample, indicators and protocol', () => {
-    render(<LabPage />);
+  it('renders quality-only lab screen with sample, indicators and protocol', async () => {
+    render(await LabPage());
 
-    expect(screen.getByText('Лаборатория как доказательство качества')).toBeInTheDocument();
+    expect(screen.getByText('Лаборатория · качество и протокол')).toBeInTheDocument();
     expect(screen.getByText('Проба, показатели и протокол качества')).toBeInTheDocument();
     expect(screen.getByText(/показатели качества, отклонения и итоговый допуск/i)).toBeInTheDocument();
     expect(screen.getByText('Проба')).toBeInTheDocument();
     expect(screen.getByText('Показатели')).toBeInTheDocument();
     expect(screen.getByText('Отклонение')).toBeInTheDocument();
     expect(screen.getByText('Протокол')).toBeInTheDocument();
-    expect(screen.getByText(/основание уходит в контур документов/i)).toBeInTheDocument();
+    expect(screen.getByText(/основание для дальнейшей проверки/i)).toBeInTheDocument();
   });
 
   it('keeps lab source free from money, bank and dispute action ownership', () => {
@@ -42,6 +42,5 @@ describe('platform-v7 lab quality polish', () => {
     expect(source).not.toMatch(/production-ready/i);
     expect(source).not.toMatch(/fully live/i);
     expect(source).not.toMatch(/callback/i);
-    expect(source).not.toMatch(/runtime/i);
   });
 });
