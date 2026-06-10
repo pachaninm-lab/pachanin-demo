@@ -20,11 +20,21 @@ DONE:
 - VP-3: Runtime-bound Entry Cockpit
 - VP-4: Product Entry (open, role-preview, onboarding — merged via PR #1689)
 - VP-2.3: Shell / Role Isolation Guards (165/165 in scope, full run 270 -> 212, no regressions)
+- VP-2.2: Server Action Route Contracts (closed in slice 1, verified green)
+- VP-2.4: Honesty / Premium Copy Guards (named scope, full run 212 -> 191, no regressions)
 
 NEXT:
-- VP-2.2 server action route contracts (platformV7ServerActionRoute*)
-- VP-2.4 honesty / premium copy guards
-- VP-2.5 remaining tail + web-unit required merge gate
+- Layer: web-unit merge gate activation
+- Allowed files:
+  - .github/workflows/web-unit.yml
+  - docs/platform-v7/autopilot/**
+  - docs/platform-v7/execution-queue.md
+- Success criteria:
+  - pnpm --filter @pc/web test is green in CI
+  - web-unit job is required for merge into main
+- Readiness remains 69% full mature platform readiness.
+
+LATER:
 - VP-5 driver / logistics cockpit binding (after VP-2 green)
 - VP-6 bank cockpit binding
 - VP-7 dispute / evidence binding
