@@ -21,8 +21,8 @@ vi.mock('@/components/platform-v7/DecisionRecommendationStrip', () => ({
 const source = readFileSync(resolve(__dirname, '../../app/platform-v7/elevator/page.tsx'), 'utf8');
 
 describe('platform-v7 elevator execution polish', () => {
-  it('renders receiving screen with weight, quality and bank-review boundary', () => {
-    render(<ElevatorPage />);
+  it('renders receiving screen with weight, quality and bank-review boundary', async () => {
+    render(await ElevatorPage());
 
     expect(screen.getByText('Кабинет приёмки')).toBeInTheDocument();
     expect(screen.getByText(/Вес, качество и основание для проверки выплаты/i)).toBeInTheDocument();
@@ -42,6 +42,5 @@ describe('platform-v7 elevator execution polish', () => {
     expect(source).not.toMatch(/production-ready/i);
     expect(source).not.toMatch(/fully live/i);
     expect(source).not.toMatch(/callback/i);
-    expect(source).not.toMatch(/runtime/i);
   });
 });

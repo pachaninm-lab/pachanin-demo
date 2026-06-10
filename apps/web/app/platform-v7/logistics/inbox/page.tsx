@@ -1,7 +1,7 @@
 const inboxSummary = [
   { label: 'Что пришло', value: 'LOG-REQ-2403 по DL-9106', note: 'Заявка появилась после выбора победителя и создания сделки.' },
   { label: 'Что везём', value: 'Пшеница 4 кл. · 600 т', note: 'Логист видит груз, маршрут, окна и требования к рейсу.' },
-  { label: 'Где груз', value: 'склад продавца → Элеватор ВРЖ-08', note: 'Создаётся рейс TRIP-SIM-001 с ближайшим доступным водителем.' },
+  { label: 'Где груз', value: 'склад продавца → Элеватор ВРЖ-08', note: 'Создаётся рейс TRIP-2403-001 с ближайшим доступным водителем.' },
   { label: 'Что скрыто', value: 'ставки, цена зерна, банк, резерв, кредит', note: 'Логист не видит коммерческие и банковские данные сторон.' },
   { label: 'Документы', value: 'ЭТрН → ГИС ЭПД → СДИЗ', note: 'ЭТрН нужна для рейса, ГИС ЭПД — после подписи, СДИЗ влияет на деньги.' },
   { label: 'Следующий шаг', value: 'назначить водителя и создать рейс', note: 'Действие должно оставить след в журнале сделки.' },
@@ -11,7 +11,7 @@ const assignmentChecks = [
   { label: 'Водитель', value: 'Водитель А · 12 км до точки погрузки' },
   { label: 'Машина', value: 'Р***ТУ · допуск к зерновому рейсу' },
   { label: 'Прибытие', value: 'через 18 минут' },
-  { label: 'Рейс', value: 'TRIP-SIM-001 · controlled-pilot' },
+  { label: 'Рейс', value: 'TRIP-2403-001 · controlled-pilot' },
 ] as const;
 
 export default function LogisticsInboxPage() {
@@ -48,7 +48,7 @@ export default function LogisticsInboxPage() {
           <p style={{ ...micro, margin: 0, color: '#B6C2CF' }}>Назначение</p>
           <h2 style={{ margin: 0, fontSize: 26 }}>Ближайший водитель выбран</h2>
           <p style={{ margin: 0, color: '#D8DEE6' }}>Расстояние 12 км · прибытие через 18 минут</p>
-          <p style={{ margin: 0, color: '#D8DEE6' }}>Создан рейс TRIP-SIM-001</p>
+          <p style={{ margin: 0, color: '#D8DEE6' }}>Создан рейс TRIP-2403-001</p>
           <a href="/platform-v7/driver" style={{ color: '#fff', textDecoration: 'none', borderRadius: 14, background: '#0A7A5F', padding: '12px 14px', textAlign: 'center', fontWeight: 900 }}>Открыть рейс водителя</a>
         </article>
       </section>

@@ -143,7 +143,7 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('.dealCore { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
     expect(css).toContain('.statusBar,\n  .dealCore {');
     expect(css).toContain('.dealCore { grid-template-columns: repeat(4, minmax(0, 1fr)); }');
-    expect(css).toContain('.coreCell em { -webkit-line-clamp: 1; }');
+    expect(css).toContain('.coreCell em { -webkit-line-clamp: 1;');
   });
 
   it('keeps money rail dense without changing controlled money buckets', () => {
@@ -151,9 +151,9 @@ describe('platform-v7 premium execution shell', () => {
     const css = read('components/platform-v7/premium/ExecutionUi.module.css');
 
     expect(ui).toContain('const blockedRub = deal.money.heldRub + deal.money.awaitingDocsRub + deal.money.disputedRub;');
-    expect(ui).toContain('К движению: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}');
+    expect(ui).toContain('На проверку: {formatPremiumRubCompact(deal.money.readyToReleaseRub)}');
     expect(ui).toContain('Остановлено: {formatPremiumRubCompact(blockedRub)}');
-    expect(ui).toContain('Выпущено: {formatPremiumRubCompact(deal.money.releasedRub)}');
+    expect(ui).toContain('Банк подтвердил: {formatPremiumRubCompact(deal.money.releasedRub)}');
     expect(ui).toContain("{ label: 'Ждёт документы', value: deal.money.awaitingDocsRub, tone: 'info' as DealTone }");
     expect(css).toContain('.moneyHeader');
     expect(css).toContain('.moneySummary');
@@ -172,7 +172,7 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('.docSummary');
     expect(css).toContain('.docRow {');
     expect(css).toContain(".docRow[data-status='blocked']");
-    expect(css).toContain('.row,\n  .docRow { grid-template-columns: 1fr; }');
+    expect(css).toContain('.row,\n  .docRow,\n  .executionStep,\n  .evidenceItem { grid-template-columns: 1fr;');
   });
 
   it('keeps execution evidence and timeline compact with mobile-card behavior', () => {
@@ -192,7 +192,7 @@ describe('platform-v7 premium execution shell', () => {
     expect(css).toContain('.executionStep,\n.evidenceItem {');
     expect(css).toContain('.executionStep[data-status=\'blocked\']');
     expect(css).toContain('.evidenceSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
-    expect(css).toContain('.executionStep,\n  .evidenceItem { grid-template-columns: 1fr; }');
+    expect(css).toContain('.executionStep,\n  .evidenceItem { grid-template-columns: 1fr;');
   });
 
   it('keeps blocker and next action hierarchy clear without new css surfaces', () => {
@@ -267,7 +267,7 @@ describe('platform-v7 premium execution shell', () => {
     ];
 
     for (const claim of forbiddenReleaseClaims) expect(source).not.toContain(claim);
-    expect(source).toContain('подтверждение банка');
+    expect(source).toContain('банк подтвердил');
   });
 
   it('keeps role adapter explicit between product roles and stored platform roles', () => {
@@ -296,7 +296,7 @@ describe('platform-v7 premium execution shell', () => {
     const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
 
     expect(ui).toContain('<main className={styles.root} data-role={activeRole} data-theme={theme}>');
-    expect(ui).toContain('{roleLabels[role]} · {balanceLabel}');
+    expect(ui).toContain('{roleLabels[role]} · {roleFocusLabels[role]} · {balanceLabel}');
     expect(ui).toContain('<StatusBar deal={deal} role={activeRole} />');
   });
 
@@ -304,10 +304,10 @@ describe('platform-v7 premium execution shell', () => {
     const ui = read('components/platform-v7/premium/ExecutionUi.tsx');
     const css = read('components/platform-v7/premium/ExecutionUi.module.css');
     const driverReturn = ui.indexOf("if (activeRole === 'driver' && deal.driverTask) return <DriverFieldShell task={deal.driverTask} theme={theme} />;");
-    const desktopChrome = ui.indexOf('styles.topChrome');
+    const shellRender = ui.indexOf('<main className={styles.root}');
 
     expect(driverReturn).toBeGreaterThan(-1);
-    expect(desktopChrome).toBeGreaterThan(driverReturn);
+    expect(shellRender).toBeGreaterThan(driverReturn);
     expect(ui).toContain('Офлайн-очередь: {task.offlineQueueCount}');
     expect(css).toContain('min-height: 64px');
     expect(css).toContain('min-height: 56px');

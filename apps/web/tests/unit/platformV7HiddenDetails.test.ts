@@ -18,10 +18,10 @@ describe('platform-v7 hidden details pattern', () => {
   it('keeps support index compact by hiding long case details', () => {
     const support = read('components/platform-v7/SupportIndexPage.tsx');
 
-    expect(support).toContain('P7HiddenDetails');
-    expect(support).toContain("title='Детали обращения'");
-    expect(support).toContain('последнее сообщение, объект, SLA и влияние на деньги');
-    expect(support).toContain('Сначала видны статус, риск и следующий шаг; детали раскрываются отдельно.');
+    expect(support).toContain('/platform-v7/support/detail?id=');
+    expect(support).not.toContain('{item.description}');
+    expect(support).toContain('{item.nextAction}');
+    expect(support).toContain('SLA');
   });
 
   it('keeps disputes page compact by hiding evidence, decision and handoff details', () => {
@@ -32,7 +32,7 @@ describe('platform-v7 hidden details pattern', () => {
     expect(disputes).toContain("title='Решение и рекомендации'");
     expect(disputes).toContain("title='Правила закрытия спора'");
     expect(disputes).toContain("title='Передача между ролями'");
-    expect(disputes).toContain('Здесь сверху видны только причина, сумма влияния, SLA, ответственный и следующий шаг.');
+    expect(disputes).toContain('Здесь сверху видны только причина, сумма влияния, срок, ответственный и следующий шаг.');
   });
 
   it('keeps documents page focused by hiding secondary document details only', () => {

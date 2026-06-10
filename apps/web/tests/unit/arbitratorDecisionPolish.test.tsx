@@ -18,8 +18,8 @@ vi.mock('@/app/platform-v7r/arbitrator/page', () => ({
 const source = readFileSync(resolve(__dirname, '../../app/platform-v7/arbitrator/page.tsx'), 'utf8');
 
 describe('platform-v7 arbitrator decision polish', () => {
-  it('renders decision frame with evidence, amount, manual review and journal', () => {
-    render(<ArbitratorShellPage />);
+  it('renders decision frame with evidence, amount, manual review and journal', async () => {
+    render(await ArbitratorShellPage());
 
     expect(screen.getByText('Арбитр · рамка решения')).toBeInTheDocument();
     expect(screen.getByText('Решение арбитра создаёт основание для ручной проверки')).toBeInTheDocument();

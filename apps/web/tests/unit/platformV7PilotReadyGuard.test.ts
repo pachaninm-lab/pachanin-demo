@@ -8,8 +8,8 @@ import {
 
 describe('platform-v7 pilot-ready guard', () => {
   it('keeps the execution source inside honest test-mode maturity boundaries', () => {
-    expect(PLATFORM_V7_EXECUTION_SOURCE.deal.maturity).toBe('тестовый режим');
-    expect(executionSummary().maturity).toBe('тестовый режим');
+    expect(PLATFORM_V7_EXECUTION_SOURCE.deal.maturity).toBe('предынтеграционный контур');
+    expect(executionSummary().maturity).toBe('предынтеграционный контур');
   });
 
   it('keeps release blocked until controlled-pilot gates are ready', () => {

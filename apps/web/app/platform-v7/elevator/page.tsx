@@ -16,13 +16,13 @@ const elevatorHandoff: HandoffItem[] = [
   { direction: 'sends', role: 'элеватор → лабораторный контур качества', requirement: 'проба и показатели качества — в пилотный протокол качества', documentImpact: true },
   { direction: 'awaits', role: 'от логистики', requirement: 'рейс с ЭТрН и данными водителя перед началом приёмки', documentImpact: true },
   { direction: 'blockedBy', requirement: 'отклонение веса -1,2 т — нужен акт расхождения до банковской проверки', documentImpact: true, moneyImpact: true },
-  { direction: 'next', requirement: 'зафиксировать вес, подписать акт приёмки и передать пробу в лабораторный контур качества', entity: 'TRIP-SIM-001', documentImpact: true },
+  { direction: 'next', requirement: 'зафиксировать вес, подписать акт приёмки и передать пробу в лабораторный контур качества', entity: 'TRIP-2403-001', documentImpact: true },
 ];
 
-const receiving = { tripId: 'TRIP-SIM-001', dealId: 'DL-9106', lotId: 'LOT-2403', crop: 'Пшеница 4 класса', declaredWeight: '600 т', arrivedWeight: '598,8 т', deviation: '-1,2 т', lab: 'проба отобрана', docs: 'акт приёмки готовится', next: 'зафиксировать вес и качество' };
+const receiving = { tripId: 'TRIP-2403-001', dealId: 'DL-9106', lotId: 'LOT-2403', crop: 'Пшеница 4 класса', declaredWeight: '600 т', arrivedWeight: '598,8 т', deviation: '-1,2 т', lab: 'проба отобрана', docs: 'акт приёмки готовится', next: 'зафиксировать вес и качество' };
 
 const receivingSummary = [
-  { label: 'Что сейчас', value: 'TRIP-SIM-001 прибыл на приёмку', note: 'Приёмка фиксирует физический факт: вес, качество, акт и отклонения.' },
+  { label: 'Что сейчас', value: 'TRIP-2403-001 прибыл на приёмку', note: 'Приёмка фиксирует физический факт: вес, качество, акт и отклонения.' },
   { label: 'Где груз', value: 'элеватор ВРЖ-08 · партия LOT-2403', note: 'Видна только партия и рейс, без коммерческой цены сделки.' },
   { label: 'Вес', value: '600 т заявлено · 598,8 т принято', note: 'Отклонение -1,2 т создаёт основание для акта расхождения.' },
   { label: 'Качество', value: 'сорная примесь выше допуска', note: 'Нужен протокол качества; это может изменить расчёт и открыть спор.' },
@@ -150,7 +150,7 @@ export default async function Page() {
         <CauseLine cause={{ text: 'Акт расхождения по весу не подписан', tone: 'blocked' }} relation='blocks' effect={{ text: 'Основание не передаётся банку', tone: 'blocked' }} moneyAmount='9,65 млн ₽' moneyTone='hold' />
         <CauseLine cause={{ text: 'Превышение по сорной примеси (2,4% > 2%)', tone: 'warning' }} relation='requires' effect={{ text: 'Протокол качества до расчёта', tone: 'warning' }} />
         <TrustDot state='test' size='sm' label='Пилотный контур · Физические данные требуют реальных приёмок' />
-        <SmartSectionSummary label='Статус приёмки' items={[{ text: 'TRIP-SIM-001 · Вес 598,8 т · Отклонение -1,2 т · Акт готовится', tone: 'warn' }, { text: 'Сорная примесь 2,4% — выше допуска 2% · Протокол ожидается', tone: 'warn' }]} />
+        <SmartSectionSummary label='Статус приёмки' items={[{ text: 'TRIP-2403-001 · Вес 598,8 т · Отклонение -1,2 т · Акт готовится', tone: 'warn' }, { text: 'Сорная примесь 2,4% — выше допуска 2% · Протокол ожидается', tone: 'warn' }]} />
       </div>
 
       <div className='p7-elevator-decision'><DecisionRecommendationStrip context='elevator' /></div>
