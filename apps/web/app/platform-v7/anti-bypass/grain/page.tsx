@@ -3,7 +3,7 @@ import Link from 'next/link';
 const risks = [
   { title: 'Контакт вне сделки', value: 'риск высокий', note: 'Попытка перенести договорённость в мессенджер или звонок должна фиксироваться как событие риска.', href: '/platform-v7/support', tone: 'stop' },
   { title: 'Смена реквизитов', value: 'требует проверки', note: 'Новые реквизиты не принимаются без повторной проверки контрагента и полномочий.', href: '/platform-v7/compliance/grain', tone: 'warn' },
-  { title: 'Ручной выпуск', value: 'закрыт', note: 'Выпуск денег невозможен без документов, приёмки, качества и банковского основания.', href: '/platform-v7/settlement/grain', tone: 'stop' },
+  { title: 'Ручной выпуск', value: 'закрыт', note: 'Банковская проверка выплаты невозможен без документов, приёмки, качества и банковского основания.', href: '/platform-v7/settlement/grain', tone: 'stop' },
   { title: 'Обход логистики', value: 'остановка сделки', note: 'Рейс без заявки, водителя, контрольного номера и документов не закрывает исполнение.', href: '/platform-v7/logistics/grain', tone: 'stop' },
 ] as const;
 
@@ -38,7 +38,7 @@ export default function GrainAntiBypassPage() {
       <section style={darkCard}>
         <div style={{ ...micro, color: '#FECACA' }}>Правило антиобхода</div>
         <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Сделка закрывается только внутри доказательного контура</h2>
-        <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Если участник пытается вывести оплату, документы, логистику или спор за пределы платформы, выпуск денег остаётся закрытым, а событие уходит в журнал риска.</p>
+        <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Если участник пытается вывести оплату, документы, логистику или спор за пределы платформы, банковская проверка выплаты остаётся закрытым, а событие уходит в журнал риска.</p>
       </section>
     </main>
   );

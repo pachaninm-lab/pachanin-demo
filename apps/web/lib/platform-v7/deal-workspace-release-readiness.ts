@@ -86,7 +86,7 @@ export function platformV7DealReleaseReadinessModel(
     gateStatus: status,
     releaseAmount: input.financialTerms.releaseAmount,
     blockerCount,
-    nextAction: status === 'pass' ? 'Выпустить деньги' : gates.find((gate) => gate.status !== 'pass')?.label ?? 'Проверить сделку',
+    nextAction: status === 'pass' ? 'Подтвердить банковское событие' : gates.find((gate) => gate.status !== 'pass')?.label ?? 'Проверить сделку',
   };
 }
 

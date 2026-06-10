@@ -20,7 +20,7 @@ const groups: Array<{ title: string; description: string; cards: RoleCard[] }> =
     description: 'Кто запускает, ведёт и закрывает сделку.',
     cards: [
       { role: 'operator', title: 'Оператор', description: 'Центр управления: сделки, блокировки, деньги, сроки, разбор инцидентов.', href: '/platform-v7/control-tower', tone: '#0A7A5F', mark: 'ОП' },
-      { role: 'buyer', title: 'Покупатель', description: 'Закупка, отбор предложений, качество партии, выпуск денег после подтверждений.', href: '/platform-v7/buyer', tone: '#0B6B9A', mark: 'ПК' },
+      { role: 'buyer', title: 'Покупатель', description: 'Закупка, отбор предложений, качество партии, банковская проверка выплаты после подтверждений.', href: '/platform-v7/buyer', tone: '#0B6B9A', mark: 'ПК' },
       { role: 'seller', title: 'Продавец', description: 'Что загружено, что мешает выплате, сколько денег к получению.', href: '/platform-v7/seller', tone: '#A16207', mark: 'ПР' },
       { role: 'logistics', title: 'Логист', description: 'Рейсы, очередь машин, отклонения маршрута, прибытие, приёмка.', href: '/platform-v7/logistics', tone: '#374151', mark: 'ЛГ' },
     ],
@@ -37,7 +37,7 @@ const groups: Array<{ title: string; description: string; cards: RoleCard[] }> =
   },
   {
     title: 'Деньги, контроль и решение',
-    description: 'Кто отвечает за выпуск денег, спорность и прозрачность.',
+    description: 'Кто отвечает за банковская проверка выплаты, спорность и прозрачность.',
     cards: [
       { role: 'bank', title: 'Банк', description: 'Резерв, удержание, выпуск, ручная проверка расхождений.', href: '/platform-v7/bank', tone: '#0B6B9A', mark: 'БН' },
       { role: 'arbitrator', title: 'Арбитр', description: 'Комната разбора, пакет доказательств, у кого мяч и сколько под удержанием.', href: '/platform-v7/disputes', tone: '#9333EA', mark: 'АР' },

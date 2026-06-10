@@ -68,11 +68,11 @@ describe('PlatformV7 bank routes', () => {
     render(<BankFactoringPage />);
 
     expect(screen.getByText('Факторинг')).toBeInTheDocument();
-    expect(screen.getByText('Пилотный банковый модуль · тестовый контур')).toBeInTheDocument();
+    expect(screen.getByText('Банковый модуль предынтеграционного контура · предынтеграционный контур')).toBeInTheDocument();
     expect(screen.getByText(/не кредитование покупателя и не боевой банковский платёж/)).toBeInTheDocument();
     expect(screen.getByText('Заявки на факторинг')).toBeInTheDocument();
     expect(screen.getByText('FAC-201')).toBeInTheDocument();
-    expect(screen.getByText('Тестовый лимит')).toBeInTheDocument();
+    expect(screen.getByText('Предварительный лимит')).toBeInTheDocument();
     expect(screen.getByText('Отмеченные авансы')).toBeInTheDocument();
     expect(screen.getByText(/не кредитное решение банка/)).toBeInTheDocument();
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
@@ -93,7 +93,7 @@ describe('PlatformV7 bank routes', () => {
     render(<BankEscrowPage />);
 
     expect(screen.getByText('Эскроу')).toBeInTheDocument();
-    expect(screen.getByText('Пилотный контур · тестовый сценарий')).toBeInTheDocument();
+    expect(screen.getByText('Контур исполнения · локальный сценарий')).toBeInTheDocument();
     expect(screen.getByText(/не боевой эскроу и не банковское списание/)).toBeInTheDocument();
     expect(screen.getByText('Активные эскроу-кейсы')).toBeInTheDocument();
     expect(screen.getByText('На удержании')).toBeInTheDocument();

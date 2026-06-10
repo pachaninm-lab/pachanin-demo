@@ -80,7 +80,7 @@ describe('operator-execution-queue data', () => {
 
   it('every whyNotExecutable references пилотный контур', () => {
     for (const item of OPERATOR_QUEUE_ITEMS) {
-      expect(item.whyNotExecutable.toLowerCase()).toContain('пилотный контур');
+      expect(item.whyNotExecutable.toLowerCase()).toContain('контур исполнения');
     }
   });
 
@@ -145,7 +145,7 @@ describe('OperatorExecutionQueue component', () => {
   it('renders пилотный контур · ручная проверка label', () => {
     render(React.createElement(OperatorExecutionQueue));
     const container = screen.getByTestId('platform-v7-operator-execution-queue');
-    expect(container.textContent).toContain('пилотный контур');
+    expect(container.textContent).toContain('контур исполнения');
     expect(container.textContent).toContain('ручная проверка');
   });
 

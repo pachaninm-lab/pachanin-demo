@@ -34,7 +34,7 @@ const quality = [
   { label: 'Влажность', value: '13,1%', limit: 'допуск до 14%', state: 'ok' },
   { label: 'Клейковина', value: '23%', limit: 'минимум 21%', state: 'ok' },
   { label: 'Сорная примесь', value: '2,4%', limit: 'допуск до 2%', state: 'stop' },
-  { label: 'Протокол', value: 'ожидается', limit: 'пилотный контур качества', state: 'wait' },
+  { label: 'Протокол', value: 'ожидается', limit: 'контур исполнения качества', state: 'wait' },
 ] as const;
 
 const gates = [
@@ -149,7 +149,7 @@ export default async function Page() {
       <div className='p7-elevator-proof' style={{ display: 'grid', gap: 10 }}>
         <CauseLine cause={{ text: 'Акт расхождения по весу не подписан', tone: 'blocked' }} relation='blocks' effect={{ text: 'Основание не передаётся банку', tone: 'blocked' }} moneyAmount='9,65 млн ₽' moneyTone='hold' />
         <CauseLine cause={{ text: 'Превышение по сорной примеси (2,4% > 2%)', tone: 'warning' }} relation='requires' effect={{ text: 'Протокол качества до расчёта', tone: 'warning' }} />
-        <TrustDot state='test' size='sm' label='Пилотный контур · Физические данные требуют реальных приёмок' />
+        <TrustDot state='test' size='sm' label='Контур исполнения · Физические данные требуют реальных приёмок' />
         <SmartSectionSummary label='Статус приёмки' items={[{ text: 'TRIP-2403-001 · Вес 598,8 т · Отклонение -1,2 т · Акт готовится', tone: 'warn' }, { text: 'Сорная примесь 2,4% — выше допуска 2% · Протокол ожидается', tone: 'warn' }]} />
       </div>
 

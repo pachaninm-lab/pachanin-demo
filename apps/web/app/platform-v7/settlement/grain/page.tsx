@@ -4,7 +4,7 @@ const gates = [
   { title: 'Резерв', value: 'подтверждён', note: 'Деньги зарезервированы, но не доступны к выпуску без закрытых условий.', href: '/platform-v7/bank/grain', tone: 'good' },
   { title: 'Удержание', value: '624 тыс. ₽', note: 'Спорная часть удерживается до решения по весу и качеству.', href: '/platform-v7/arbitrator/grain', tone: 'warn' },
   { title: 'Документы', value: 'не все закрыты', note: 'СДИЗ, ЭТрН, УПД, акт и протокол должны иметь основание и статус.', href: '/platform-v7/documents', tone: 'stop' },
-  { title: 'Выпуск', value: 'закрыт', note: 'Ручной выпуск денег запрещён до выполнения условий сделки.', href: '/platform-v7/deals/grain-release', tone: 'stop' },
+  { title: 'Выпуск', value: 'закрыт', note: 'Ручной банковская проверка выплаты запрещён до выполнения условий сделки.', href: '/platform-v7/deals/grain-release', tone: 'stop' },
 ] as const;
 
 const metrics = [

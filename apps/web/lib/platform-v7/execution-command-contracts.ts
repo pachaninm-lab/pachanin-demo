@@ -141,7 +141,7 @@ export const PLATFORM_V7_EXECUTION_COMMANDS: readonly PlatformV7ExecutionCommand
     requiresIdempotencyKey: true,
     affectsMoney: true,
     persistenceEntity: 'money_record',
-    summary: 'Reserve request is money-sensitive and must be deal-bound and idempotent.',
+    summary: 'Reserve request is money-sensitive and must be deal-bound and replay-safe.',
   },
   {
     id: 'confirm_money_reserved',
@@ -280,7 +280,7 @@ export const PLATFORM_V7_EXECUTION_COMMANDS: readonly PlatformV7ExecutionCommand
   },
   {
     id: 'mark_money_ready_to_release',
-    label: 'Передать на выпуск денег',
+    label: 'Передать на банковскую проверку выплаты',
     actorRoles: ['bank', 'operator'],
     entity: 'money',
     from: 'reserved',
@@ -295,7 +295,7 @@ export const PLATFORM_V7_EXECUTION_COMMANDS: readonly PlatformV7ExecutionCommand
   },
   {
     id: 'confirm_money_released',
-    label: 'Подтвердить выпуск денег',
+    label: 'Подтвердить банковская проверка выплаты',
     actorRoles: ['bank'],
     entity: 'money',
     from: 'ready_to_release',

@@ -70,7 +70,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
       ts: new Date(Date.now() - (index + 1) * 36 * 60 * 1000).toISOString(),
       actor: 'Оператор / документный контур',
       action: `Подтверждён документ: ${doc.label}`,
-      note: doc.blocker ? 'Снимает blocker для выпуска денег.' : 'Не блокирует выпуск, но усиливает досье сделки.',
+      note: doc.blocker ? 'Снимает blocker для банковской проверки выплаты.' : 'Не блокирует выпуск, но усиливает досье сделки.',
     }));
     const fileEvents = docs.map((doc) => ({
       id: `doc-${doc.id}`,
@@ -108,7 +108,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
         <Metric title='Файлы' value={String(docs.length)} note='Загруженные документы в досье сделки.' />
         <Metric title='Checklist' value={`${requiredDone}/${REQUIRED_DOCS.length}`} note='Подтверждённые пункты документного набора.' />
-        <Metric title='Blocker-docs' value={`${blockerDone}/${blockerTotal}`} note='Критичные документы, влияющие на выпуск денег.' />
+        <Metric title='Документы-блокеры' value={`${blockerDone}/${blockerTotal}`} note='Критичные документы, влияющие на банковскую проверку выплаты.' />
       </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
@@ -120,7 +120,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button onClick={buildDossier} style={{ padding: '10px 14px', borderRadius: 12, background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Сформировать досье</button>
             <button onClick={requestRelease} style={{ padding: '10px 14px', borderRadius: 12, background: releaseReady ? '#0A7A5F' : '#F8FAFB', border: releaseReady ? '1px solid #0A7A5F' : '1px solid #E4E6EA', color: releaseReady ? '#fff' : '#6B778C', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-              Запросить выпуск
+              Передать основание банку
             </button>
           </div>
         </div>
@@ -133,7 +133,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
                 <span style={{ width: 18, textAlign: 'center', fontWeight: 900, color: checklist[doc.id] ? '#0A7A5F' : '#9AA4B2' }}>{checklist[doc.id] ? '✓' : '•'}</span>
                 <div style={{ display: 'grid', gap: 2, flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{doc.label}</div>
-                  <div style={{ fontSize: 11, color: '#6B778C' }}>{doc.blocker ? 'Блокирует выпуск денег' : 'Не блокирует выпуск, но нужен для полного досье'}</div>
+                  <div style={{ fontSize: 11, color: '#6B778C' }}>{doc.blocker ? 'Блокирует банковская проверка выплаты' : 'Не блокирует выпуск, но нужен для полного досье'}</div>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
                   {tone.label}
@@ -159,7 +159,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
         </section>
 
         <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Audit trail</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Журнал событий</div>
           {auditTrail.length ? auditTrail.map((event) => (
             <div key={event.id} style={{ display: 'grid', gridTemplateColumns: '12px 1fr', gap: 12, alignItems: 'start' }}>
               <div style={{ width: 12, height: 12, borderRadius: 999, background: '#0A7A5F', marginTop: 5 }} />

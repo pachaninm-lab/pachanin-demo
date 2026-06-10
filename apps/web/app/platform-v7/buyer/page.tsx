@@ -179,7 +179,7 @@ export default async function PlatformV7BuyerPage() {
           <Link href='/platform-v7/deals/DL-9106/money' style={primaryBtn}>Запросить подтверждение резерва</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Открыть сделку</Link>
         </div>
-        <TrustDot state='test' size='sm' label='Пилотный контур · Внешние подключения требуют договоров' />
+        <TrustDot state='test' size='sm' label='Контур исполнения · Внешние подключения требуют договоров' />
       </section>
 
       <section style={metricsGrid}>
@@ -189,7 +189,7 @@ export default async function PlatformV7BuyerPage() {
       <MoneyImpactSummaryStrip
         amountContext='резерв 9,65 млн ₽ · удержание 624 тыс. ₽'
         pilotState='waiting'
-        pilotStateLabel='пилотный контур · ожидание подтверждения'
+        pilotStateLabel='контур исполнения · ожидание подтверждения'
         responsible='покупатель · банк'
         nextStep='ожидать банковского подтверждения резерва'
         stopReason='сделка не переходит к логистике до банковского подтверждения'

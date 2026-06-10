@@ -54,7 +54,7 @@ describe('platform-v7 command scenario honesty', () => {
 
     expect(source).toContain('отгрузку и основание выплаты');
     expect(source).toContain('проверку выплаты');
-    expect(source).toContain('выпуск денег банком');
+    expect(source).toContain('банковскую проверку выплаты');
     expect(source).toContain('Передать основание банку');
   });
 });
