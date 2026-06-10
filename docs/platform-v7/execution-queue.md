@@ -1,18 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: VP-4: Product Entry
+CURRENT: VP-2 QA Tail (VP-2.2, VP-2.4, VP-2.5 — see docs/platform-v7/autopilot/master-tz-2.md)
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/open/page.tsx
-- apps/web/app/platform-v7/role-preview/page.tsx
-- apps/web/app/platform-v7/onboarding/page.tsx
-- apps/web/app/platform-v7/actions/runtime-actions.ts
-- apps/web/lib/platform-v7/runtime/open-walkthrough.ts
-- apps/web/tests/unit/platformV7ProductEntryOnboarding.test.ts
-- docs/platform-v7/autopilot/**
-- docs/platform-v7/execution-queue.md
-
-PARALLEL MAINTENANCE (VP-2 QA stabilization, see docs/platform-v7/autopilot/master-tz-2.md):
 - apps/web/tests/unit/**
 - apps/web/tests/setup.ts
 - apps/web/components/v7r/**
@@ -21,17 +11,24 @@ PARALLEL MAINTENANCE (VP-2 QA stabilization, see docs/platform-v7/autopilot/mast
 - apps/web/lib/platform-v7/**
 - .github/workflows/dependency-review.yml
 - .github/workflows/automerge.yml
+- docs/platform-v7/autopilot/**
+- docs/platform-v7/execution-queue.md
 
 DONE:
 - VP-1: Visible Execution Entry Cockpit
-- VP-2: Runtime QA Stabilization (slice 1 merged; remaining tail tracked in master-tz-2.md VP-2.3–2.5)
+- VP-2: Runtime QA Stabilization (slice 1 merged)
 - VP-3: Runtime-bound Entry Cockpit
+- VP-4: Product Entry (open, role-preview, onboarding — merged via PR #1689)
+- VP-2.3: Shell / Role Isolation Guards (165/165 in scope, full run 270 -> 212, no regressions)
 
 NEXT:
-- VP-4 open route
-- VP-4 role preview route
-- VP-4 onboarding route
-- VP-4 focused test
+- VP-2.2 server action route contracts (platformV7ServerActionRoute*)
+- VP-2.4 honesty / premium copy guards
+- VP-2.5 remaining tail + web-unit required merge gate
+- VP-5 driver / logistics cockpit binding (after VP-2 green)
+- VP-6 bank cockpit binding
+- VP-7 dispute / evidence binding
+- VP-8 theme / mobile final QA
 
 RULES:
 - one PR equals one narrow layer
@@ -39,3 +36,4 @@ RULES:
 - no API routes
 - no DB
 - no package or lockfiles
+- full web vitest must not degrade (target: required web-unit gate in VP-2.5)

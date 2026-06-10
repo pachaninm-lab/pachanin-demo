@@ -1,12 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 100,
-  "currentStep": "VP-2: Runtime QA Stabilization (VP-2.4 honesty/premium copy guards)",
-  "lastCompletedStep": "VP-2.3: Shell / Role Isolation Guards (165/165 in scope, full-run failures 270 -> 212, no regressions)",
+  "fullTzReadinessPercent": 69,
+  "currentStep": "VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate",
+  "lastCompletedStep": "VP-2.3: Shell / Role Isolation Guards",
   "openPr": null,
-  "blockedBy": [],
-  "nextStep": "VP-2.4 honesty/premium copy guards, then VP-2.5 tail + web-unit merge gate",
-  "updatedAt": "2026-06-10T05:00:00.000Z",
+  "blockedBy": [
+    "VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion."
+  ],
+  "nextStep": "VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate",
+  "updatedAt": "2026-06-10T04:31:31.887Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
