@@ -49,13 +49,9 @@ platform-v7 / «Прозрачная Цена»
 - `new URL(..., import.meta.url)` заменён на `resolve(__dirname, ...)` (12 файлов)
 - workflow-гигиена: dependency-review с probe графа; CLI-deploy со skip+warning при невалидном токене
 
-### PR VP-2.2 — Server Action Route Contracts
+### PR VP-2.2 — Server Action Route Contracts (закрыт)
 
-Файлы: tests/unit/platformV7ServerActionRoute*.test.ts (~29 падений)
-
-Причина: payload-контракты боундари расширились (counterpartyId, priceRubPerTon, volumeTons, validUntil и др.), route-тесты шлют старый payload и получают 400 до гейта, который проверяют.
-
-Правило: дополнить payload до контрактно-валидного там, где тест проверяет гейт ЗА контрактом (409 idempotency, 202 manual review, готовность гейтов). Намеренные пропуски для негативных сценариев не трогать.
+Файлы: tests/unit/platformV7ServerActionRoute*.test.ts — закрыты слайсом 1 (#1690): 18 файлов, 65/65 зелёных. Payload-контракты дополнены до валидных там, где тест проверяет гейт за контрактом; негативные сценарии сохранены.
 
 ### PR VP-2.3 — Shell / Role Isolation Guards (закрыт)
 
@@ -66,11 +62,13 @@ platform-v7 / «Прозрачная Цена»
 - исходники: FieldShellPolicy дополнительно прячет `.pc-v4-drawer` (дыра изоляции — drawer с «Все роли» был виден полевым ролям); honesty-копии приведены к реестру deep-guard («СДИЗ не подтверждён» → «СДИЗ ожидает подтверждения», «выпуск денег» → «банковская проверка выплаты» на bank-поверхностях, driver field без слова «банковый»)
 - тесты: рендер async server components через `render(await Page())` (паттерн слайса 1); ожидания обновлены под осознанно переработанные слои (копия «контур исполнения», русские лейблы RoleContinuityPanel, layout-контракты decision pack / RBAC, выведенный из работы WorkRouteNav, useSearchParams-мок)
 
-### PR VP-2.4 — Honesty / Premium Copy Guards
+### PR VP-2.4 — Honesty / Premium Copy Guards (закрыт по именованному скоупу)
 
-Файлы: platformV7Premium*, *ExecutionPolish, platformV7VisibleExecutionCopy, platformV7HiddenDetails, controlTowerVisualHierarchy (~30 падений)
+Файлы: platformV7Premium*, *ExecutionPolish, platformV7VisibleExecutionCopy, platformV7HiddenDetails, controlTowerVisualHierarchy — все зелёные (полный прогон 212 → 191, 0 регрессий).
 
-Контракты честности: нет «production-ready», деньги выпускает банк, длинные детали скрыты, статус дублирован текстом.
+Сделано: pilot-/тестовые формулировки убраны из видимой копии deal-execution-source-of-truth (maturity → «предынтеграционный контур»), TRIP-SIM-* → канонические TRIP-2403-*; ожидания premium/polish-гардов обновлены под честную денежную копию («На проверку» / «Банк подтвердил») и async server components.
+
+Перенесено в VP-2.5: platformV7DeepBankDealCopyGuard — реестр запрещённых копий («выпуск денег», «тестовый/пилотный контур», «Запросить выпуск», «демо-» и др.) нарушен в ~40 исходниках (v7r runtime-панели, deal workspace actions, bank routes, информационные страницы). Это отдельный слайс массовой замены копий с обновлением зависимых пинов.
 
 ### PR VP-2.5 — Remaining Tail + Regression Gate
 

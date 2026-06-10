@@ -1,14 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 69,
-  "currentStep": "VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate",
-  "lastCompletedStep": "VP-2.3: Shell / Role Isolation Guards",
+  "currentStep": "VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)",
+  "lastCompletedStep": "VP-2.4: Honesty / Premium Copy Guards (named scope)",
   "openPr": null,
   "blockedBy": [
-    "VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion."
+    "VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job) is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion."
   ],
-  "nextStep": "VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate",
-  "updatedAt": "2026-06-10T04:31:31.887Z",
+  "nextStep": "VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)",
+  "updatedAt": "2026-06-10T04:52:30.939Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

@@ -1,4 +1,4 @@
-# Codex current task — VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate
+# Codex current task — VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -13,7 +13,7 @@ Do not auto-merge. Human review and green checks are required.
 
 ## Current step
 
-VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate
+VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)
 
 ## Next candidate
 
@@ -21,7 +21,7 @@ Backend / DB / runtime persistence expansion
 
 ## Transition guard
 
-- BLOCKED: VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion.
+- BLOCKED: VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job) is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion.
 
 ## Allowed current scope
 
@@ -89,4 +89,4 @@ RULES:
 
 ## Implementation brief
 
-Implement VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate strictly inside the state allowed scope.
+Implement VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job) strictly inside the state allowed scope.

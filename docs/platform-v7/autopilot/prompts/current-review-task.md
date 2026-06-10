@@ -1,4 +1,4 @@
-# Review current task — VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate
+# Review current task — VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -30,7 +30,7 @@ Review the diff, not the agent report.
 
 ## Transition guard
 
-- BLOCKED: VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion.
+- BLOCKED: VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job) is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion.
 
 ## Queue snapshot
 
@@ -77,6 +77,6 @@ RULES:
 
 ## Review brief
 
-Review VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate strictly against the state allowed scope and queue.
+Review VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job) strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.

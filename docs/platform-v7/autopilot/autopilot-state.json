@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-2 QA Tail: VP-2.2 route contracts, VP-2.4 honesty copy, VP-2.5 regression gate",
+  "current": "VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)",
   "fullTzReadinessPercent": 69,
   "openPr": null,
   "lastClosed": [
@@ -58,7 +58,9 @@
     "VP-2: Runtime QA Stabilization (slice 1)",
     "VP-3: Runtime-bound Entry Cockpit",
     "VP-4: Product Entry (open, role-preview, onboarding, merged via PR #1689)",
-    "VP-2.3: Shell / Role Isolation Guards"
+    "VP-2.3: Shell / Role Isolation Guards",
+    "VP-2.2: Server Action Route Contracts (closed in slice 1, verified green)",
+    "VP-2.4: Honesty / Premium Copy Guards (named scope)"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
@@ -66,24 +68,24 @@
     "Package or lockfile changes"
   ],
   "allowedCurrentScope": [
-    "\u0061pps/web/tests/unit/**",
-    "\u0061pps/web/tests/setup.ts",
-    "\u0061pps/web/components/v7r/**",
-    "\u0061pps/web/components/platform-v7/**",
-    "\u0061pps/web/app/platform-v7/**",
-    "\u0061pps/web/lib/platform-v7/**",
+    "apps/web/tests/unit/**",
+    "apps/web/tests/setup.ts",
+    "apps/web/components/v7r/**",
+    "apps/web/components/platform-v7/**",
+    "apps/web/app/platform-v7/**",
+    "apps/web/lib/platform-v7/**",
     ".github/workflows/dependency-review.yml",
     ".github/workflows/automerge.yml",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "\u0061pps/web/tests/unit/**",
-    "\u0061pps/web/tests/setup.ts",
-    "\u0061pps/web/components/v7r/**",
-    "\u0061pps/web/components/platform-v7/**",
-    "\u0061pps/web/app/platform-v7/**",
-    "\u0061pps/web/lib/platform-v7/**",
+    "apps/web/tests/unit/**",
+    "apps/web/tests/setup.ts",
+    "apps/web/components/v7r/**",
+    "apps/web/components/platform-v7/**",
+    "apps/web/app/platform-v7/**",
+    "apps/web/lib/platform-v7/**",
     ".github/workflows/dependency-review.yml",
     ".github/workflows/automerge.yml",
     "docs/platform-v7/autopilot/**",
@@ -104,5 +106,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "69% full mature platform readiness; VP-4 product entry merged; VP-2.3 closed; VP-2 QA tail (VP-2.2, VP-2.4, VP-2.5) in progress per master-tz-2"
+  "readiness": "69% full mature platform readiness; VP-2 tail: 191 full-run failures left (deep copy registry sweep, role cockpit bindings, env-dependent tests); web-unit gate pending VP-2.5"
 }
