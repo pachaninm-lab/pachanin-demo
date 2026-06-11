@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T17:55:00.000Z",
+  "task": "VP-2.5 role execution summary gate test refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7RoleExecutionSummaryGate.test.ts"
+  ],
+  "sourceOfTruth": "Current role execution summary gate covers ten platform-v7 runtime-heavy route surfaces.",
+  "changes": [
+    "Updated the route gate assertion from the old three-route subset to the current full summary route map."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}
