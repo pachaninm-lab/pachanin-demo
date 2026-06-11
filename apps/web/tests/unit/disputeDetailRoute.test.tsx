@@ -9,7 +9,7 @@ describe('PlatformV7DisputeDetailPage', () => {
     const metadata = generateMetadata({ params: { id: 'DK-2024-89' } });
 
     expect(metadata.title).toBe('Спор DK-2024-89');
-    expect(String(metadata.description)).toContain('удержание, доказательства, SLA');
+    expect(String(metadata.description)).toContain('удержание, доказательства, срок реакции');
   });
 
   it('renders dispute detail hold calculator link through the dispute route constant', () => {

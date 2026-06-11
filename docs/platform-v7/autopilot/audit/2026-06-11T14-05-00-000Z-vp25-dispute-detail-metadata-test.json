@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_dispute_detail_metadata_test",
+  "createdAt": "2026-06-11T14:05:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/disputeDetailRoute.test.tsx",
+    "reason": "The metadata test expected older SLA wording while the current route copy names the reaction window and next action owner."
+  },
+  "slice": "Refresh the dispute detail metadata assertion to the current controlled-pilot wording.",
+  "changedFiles": [
+    "apps/web/tests/unit/disputeDetailRoute.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only assertion refresh",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}
