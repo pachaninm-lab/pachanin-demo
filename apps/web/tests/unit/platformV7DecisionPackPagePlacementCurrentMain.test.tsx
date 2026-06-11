@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import BankPage from '@/app/platform-v7/bank/page';
@@ -27,8 +26,8 @@ function assertNoForbiddenWording(text: string, label: string) {
 }
 
 describe('platform-v7 decision pack page placement', () => {
-  it('renders the decision pack mini panel on the bank page', () => {
-    const { container } = render(React.createElement(BankPage));
+  it('renders the decision pack mini panel on the bank page', async () => {
+    const { container } = render(await BankPage());
 
     expect(screen.getByTestId('platform-v7-decision-pack-mini-panel')).toBeInTheDocument();
     expect(container.textContent ?? '').toContain('банк · условия выплаты');
@@ -36,8 +35,8 @@ describe('platform-v7 decision pack page placement', () => {
     assertNoForbiddenWording(container.textContent ?? '', 'bank page decision pack placement');
   });
 
-  it('renders the decision pack mini panel on the disputes page', () => {
-    const { container } = render(React.createElement(DisputesPage));
+  it('renders the decision pack mini panel on the disputes page', async () => {
+    const { container } = render(await DisputesPage());
 
     expect(screen.getByTestId('platform-v7-decision-pack-mini-panel')).toBeInTheDocument();
     expect(container.textContent ?? '').toContain('DL-9102 · спор и удержание');
