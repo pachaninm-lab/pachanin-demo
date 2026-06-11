@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T19:52:00.000Z",
+  "task": "VP-2.5 FGIS runtime safety-note test refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7FgisRuntimeAction.test.ts"
+  ],
+  "sourceOfTruth": "FGIS runtime action and panel copy state that the platform waits for the external FGIS event and does not count party, balance or SDIZ as closed without it.",
+  "changes": [
+    "Aligned the FGIS runtime action unit assertion with the current controlled-pilot safety note."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}
