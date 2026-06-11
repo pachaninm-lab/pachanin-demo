@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_market_rfq_route_test",
+  "createdAt": "2026-06-11T14:45:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/marketRfqRoute.test.tsx",
+    "reason": "The market RFQ route test expected older live-trading wording and unique labels while the current page uses боевые торги boundary copy and repeated metric/tab labels."
+  },
+  "slice": "Refresh market RFQ route assertions to current pre-deal boundary wording and repeated label rendering.",
+  "changedFiles": [
+    "apps/web/tests/unit/marketRfqRoute.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only assertion refresh",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}
