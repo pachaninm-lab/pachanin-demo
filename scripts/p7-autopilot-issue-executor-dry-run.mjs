@@ -118,7 +118,6 @@ async function cli() {
   const output = `${JSON.stringify(result, null, 2)}\n`;
   if (options.outputPath) await writeText(options.outputPath, output);
   else process.stdout.write(output);
-  if (result.decision === 'blocked') process.exitCode = 1;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

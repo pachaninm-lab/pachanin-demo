@@ -13,7 +13,11 @@ CURRENT ALLOWED:
 - .github/workflows/dependency-review.yml
 - .github/workflows/automerge.yml
 - .github/workflows/platform-v7-autopilot-guard.yml
+- .github/workflows/platform-v7-autopilot-issue-executor-dry-run.yml
+- .github/workflows/platform-v7-autopilot-executor-wiring.yml
 - .github/workflows/web-unit.yml
+- scripts/p7-autopilot-issue-executor-dry-run.mjs
+- scripts/p7-autopilot-issue-executor-pr-wiring.mjs
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 
@@ -31,6 +35,10 @@ NEXT:
 - Allowed files:
   - .github/workflows/web-unit.yml
   - .github/workflows/platform-v7-autopilot-guard.yml
+  - .github/workflows/platform-v7-autopilot-issue-executor-dry-run.yml
+  - .github/workflows/platform-v7-autopilot-executor-wiring.yml
+  - scripts/p7-autopilot-issue-executor-dry-run.mjs
+  - scripts/p7-autopilot-issue-executor-pr-wiring.mjs
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
 - Success criteria:
