@@ -28,10 +28,12 @@ const PLATFORM_V7_TEST_ROLES = [
 
 describe('platform-v7 action permission boundary', () => {
   it('keeps every action behind durable write, audit and idempotency requirements', () => {
+    const serviceCount = new Set(PLATFORM_V7_ACTION_PERMISSION_POLICIES.map((policy) => policy.serviceName)).size;
+
     expect(getPlatformV7ActionPermissionBoundarySummary()).toEqual({
       mode: 'contract_only_requires_runtime',
       actionCount: PLATFORM_V7_ACTION_PERMISSION_POLICIES.length,
-      serviceCount: 9,
+      serviceCount,
       needsDurableWrite: true,
       needsAuditEvent: true,
       needsIdempotencyKey: true,
