@@ -20,10 +20,10 @@ describe('platform-v7 offer-to-deal copy safety', () => {
 
   it('keeps the offer-to-deal bridge bank-safe and user-facing', () => {
     expect(pageSource).toContain('карточку сделки');
-    expect(pageSource).toContain('без банковского решения и без движения денег');
-    expect(pageSource).toContain('Банк должен отдельно подтвердить резерв');
-    expect(pageSource).toContain('проверку условий, уведомление, журнал действий и отмену последнего шага');
-    expect(pageSource).toContain('Проверить банковское основание');
+    expect(pageSource).toContain('не банковское подтверждение и не внешний банковский адаптер');
+    expect(pageSource).toContain('не передаёт основание банку и не создаёт обязательство автоматически');
+    expect(pageSource).toContain('запускает проверки: ФГИС, документы, логистика, банк и риск обхода');
+    expect(pageSource).toContain('Проверки до запуска сделки');
   });
 
   it('keeps FGIS gate wording honest before external reconciliation', () => {

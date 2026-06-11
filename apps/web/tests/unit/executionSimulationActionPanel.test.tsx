@@ -21,7 +21,7 @@ describe('ExecutionSimulationActionPanel', () => {
     render(<ExecutionSimulationActionPanel />);
 
     expect(screen.getByTestId('execution-simulation-action-panel')).toBeInTheDocument();
-    expect(screen.getByText('GMV sandbox')).toBeInTheDocument();
+    expect(screen.getByText('Оборот сценария')).toBeInTheDocument();
     expect(screen.getByText('К выпуску')).toBeInTheDocument();
     expect(screen.getByText('Открытых споров')).toBeInTheDocument();
     expect(screen.getByText('Текущий статус')).toBeInTheDocument();
@@ -40,10 +40,10 @@ describe('ExecutionSimulationActionPanel', () => {
 
     clickCardAction('5. Запросить резерв');
 
-    expect(screen.getByText('Запрошен резерв средств в sandbox-контуре')).toBeInTheDocument();
-    expect(screen.getByText(/5\. Запросить резерв: Запрошен резерв средств в sandbox-контуре/)).toBeInTheDocument();
+    expect(screen.getAllByText('Запрошен резерв средств в предынтеграционном контуре').length).toBeGreaterThan(0);
+    expect(screen.getByText(/5\. Запросить резерв: Запрошен резерв средств в предынтеграционном контуре/)).toBeInTheDocument();
     expect(screen.getByText('DL-9113 · requestReserve')).toBeInTheDocument();
-    expect(screen.getByText('Запрошен резерв средств в sandbox-контуре')).toBeInTheDocument();
+    expect(screen.getAllByText('Запрошен резерв средств в предынтеграционном контуре').length).toBeGreaterThan(0);
     expect(screen.getByText('Reserve requested')).toBeInTheDocument();
   });
 
@@ -53,8 +53,8 @@ describe('ExecutionSimulationActionPanel', () => {
     clickCardAction('5. Запросить резерв');
     clickCardAction('6. Подтвердить резерв');
 
-    expect(screen.getByText('Резерв средств подтверждён в sandbox-контуре')).toBeInTheDocument();
-    expect(screen.getByText(/6\. Подтвердить резерв: Резерв средств подтверждён в sandbox-контуре/)).toBeInTheDocument();
+    expect(screen.getAllByText('Резерв средств подтверждён в предынтеграционном контуре').length).toBeGreaterThan(0);
+    expect(screen.getByText(/6\. Подтвердить резерв: Резерв средств подтверждён в предынтеграционном контуре/)).toBeInTheDocument();
     expect(screen.getByText('DL-9113 · confirmReserve')).toBeInTheDocument();
     expect(screen.getByText('Reserve confirmed')).toBeInTheDocument();
   });

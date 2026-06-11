@@ -20,16 +20,16 @@ type ActionOutcome = { entityId: string; dealId?: string; before?: unknown; afte
 type ActionHandler = (state: DomainExecutionState, command: PlatformActionCommand) => ActionOutcome;
 
 const simulationActionMessages: Record<PlatformActionType, string> = {
-  createLot: 'Лот создан в sandbox-контуре',
-  publishLot: 'Лот опубликован в sandbox-контуре',
-  acceptOffer: 'Оффер акцептован в sandbox-контуре',
-  createDeal: 'Сделка создана в sandbox-контуре',
-  requestReserve: 'Запрошен резерв средств в sandbox-контуре',
-  confirmReserve: 'Резерв средств подтверждён в sandbox-контуре',
-  assignDriver: 'Водитель назначен в sandbox-контуре',
-  confirmArrival: 'Прибытие подтверждено в sandbox-контуре',
-  createLabProtocol: 'Лабораторный протокол создан в sandbox-контуре',
-  openDispute: 'Спор открыт в sandbox-контуре'
+  createLot: 'Лот создан в предынтеграционном контуре',
+  publishLot: 'Лот опубликован в предынтеграционном контуре',
+  acceptOffer: 'Оффер акцептован в предынтеграционном контуре',
+  createDeal: 'Сделка создана в предынтеграционном контуре',
+  requestReserve: 'Запрошен резерв средств в предынтеграционном контуре',
+  confirmReserve: 'Резерв средств подтверждён в предынтеграционном контуре',
+  assignDriver: 'Водитель назначен в предынтеграционном контуре',
+  confirmArrival: 'Прибытие подтверждено в предынтеграционном контуре',
+  createLabProtocol: 'Лабораторный протокол создан в предынтеграционном контуре',
+  openDispute: 'Спор открыт в предынтеграционном контуре'
 };
 
 const allowedRolesByAction: Record<PlatformActionType, string[]> = {

@@ -22,7 +22,7 @@ function expectNoUnsafeCopy(html: string) {
 describe('P7ActionStateChip', () => {
   it('renders label text', () => {
     render(<P7ActionStateChip status='active' label='пилотный сценарий' />);
-    expect(screen.getByText('пилотный сценарий')).toBeInTheDocument();
+    expect(screen.getAllByText('пилотный сценарий').length).toBeGreaterThan(0);
   });
 
   it('renders status dot with aria-hidden', () => {
@@ -72,7 +72,7 @@ describe('P7ActionStateChip', () => {
         moneyEffect='удержание до закрытия условий'
       />,
     );
-    expect(screen.getByText('банковская проверка выплаты')).toBeInTheDocument();
+    expect(screen.getAllByText('банковская проверка выплаты').length).toBeGreaterThan(0);
     expect(screen.getByTestId('p7-action-state-next')).toBeInTheDocument();
     expect(screen.getByTestId('p7-action-state-blocker')).toBeInTheDocument();
     expect(screen.getByTestId('p7-action-state-money')).toBeInTheDocument();
@@ -92,27 +92,27 @@ describe('P7ActionStateChip', () => {
 });
 
 describe('P7ActionStateChip page placement', () => {
-  it('seller page exposes visible action state chip', () => {
-    const { container } = render(<SellerPage />);
+  it('seller page exposes visible action state chip', async () => {
+    const { container } = render(await SellerPage());
     expect(screen.getByTestId('p7-action-state-chip')).toBeInTheDocument();
-    expect(screen.getByText('пилотный сценарий')).toBeInTheDocument();
-    expect(screen.getByText('выплата остановлена')).toBeInTheDocument();
+    expect(screen.getAllByText('пилотный сценарий').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('банковская проверка остановлена').length).toBeGreaterThan(0);
     expectNoUnsafeCopy(container.innerHTML);
   });
 
-  it('buyer page exposes visible action state chip', () => {
-    const { container } = render(<BuyerPage />);
+  it('buyer page exposes visible action state chip', async () => {
+    const { container } = render(await BuyerPage());
     expect(screen.getByTestId('p7-action-state-chip')).toBeInTheDocument();
-    expect(screen.getByText('пилотный сценарий')).toBeInTheDocument();
+    expect(screen.getAllByText('пилотный сценарий').length).toBeGreaterThan(0);
     expect(screen.getByText('резерв после банковского подтверждения')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });
 
-  it('bank page exposes visible action state chip', () => {
-    const { container } = render(<BankPage />);
+  it('bank page exposes visible action state chip', async () => {
+    const { container } = render(await BankPage());
     expect(screen.getByTestId('p7-action-state-chip')).toBeInTheDocument();
-    expect(screen.getByText('банковская проверка выплаты')).toBeInTheDocument();
-    expect(screen.getByText('удержание до закрытия условий')).toBeInTheDocument();
+    expect(screen.getAllByText('банковская проверка выплаты').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('удержание до закрытия условий').length).toBeGreaterThan(0);
     expectNoUnsafeCopy(container.innerHTML);
   });
 });

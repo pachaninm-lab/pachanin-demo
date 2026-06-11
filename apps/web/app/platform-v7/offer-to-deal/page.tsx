@@ -30,7 +30,7 @@ const dealBridgeInitialState = {
 const dealBridgeActionItems = [
   {
     title: 'Создать черновик сделки',
-    description: 'Переносит принятую ставку в Deal Workspace как черновик контура исполнения без передачи основания банку.',
+    description: 'Переносит принятую ставку в карточку сделки как черновик контура исполнения без передачи основания банку.',
     targetId: 'e4-create-draft-deal',
     actionId: 'createDraftDealFromOffer',
     actorRole: 'operator',
@@ -48,7 +48,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Назначить логистику',
-    description: 'Связывает сделку с логистическим заказом в ручном режиме без Driver PWA и внешнего отслеживания.',
+    description: 'Связывает сделку с логистическим заказом в ручном режиме без мобильного контура водителя и внешнего отслеживания.',
     targetId: 'e4-assign-logistics',
     actionId: 'assignLogistics',
     actorRole: 'operator',
@@ -57,7 +57,7 @@ const dealBridgeActionItems = [
   },
   {
     title: 'Приложить документ',
-    description: 'Фиксирует внутренний документ как gate/evidence. Это не ЭДО, не УКЭП и не СберКорус.',
+    description: 'Фиксирует внутренний документ как условие и доказательство. Это не ЭДО, не УКЭП и не СберКорус.',
     targetId: 'e4-attach-document',
     actionId: 'attachDocument',
     actorRole: 'operator',
@@ -96,7 +96,7 @@ const transfer = [
 ];
 
 const gates = [
-  ['ФГИС', 'партия подтверждена, остаток достаточен', 'готово'],
+  ['ФГИС', 'партия требует сверки по партии и остатку', 'проверить'],
   ['Качество', 'показатели заполнены, но лаборатория нужна на приёмке', 'проверить'],
   ['Логистика', 'нужен слот вывоза и водитель', 'проверить'],
   ['Документы', 'нужен договор, СДИЗ и транспортный пакет', 'проверить'],
