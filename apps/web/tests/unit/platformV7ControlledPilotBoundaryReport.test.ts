@@ -50,8 +50,8 @@ describe('platform-v7 controlled pilot boundary report', () => {
       canClaimServerRuntime: false,
       canClaimRealExecution: false,
       runtimeStatus: 'contract_only',
-      missingCriticalCount: 8,
-      missingMoneyCriticalCount: 12,
+      missingCriticalCount: 9,
+      missingMoneyCriticalCount: 14,
     });
   });
 });
