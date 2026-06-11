@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_seller_mobile_async_route_test",
+  "createdAt": "2026-06-11T13:35:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/sellerMobileClarity.test.tsx",
+    "reason": "The unit test rendered an async seller route component directly, producing an [object Promise] React child error."
+  },
+  "slice": "Stabilize the seller mobile clarity unit test by awaiting the async server page before rendering copy assertions.",
+  "changedFiles": [
+    "apps/web/tests/unit/sellerMobileClarity.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only route rendering fix",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}
