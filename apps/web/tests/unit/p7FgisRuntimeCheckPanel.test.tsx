@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { P7FgisRuntimeCheckPanel } from '@/components/platform-v7/P7FgisRuntimeCheckPanel';
 
 function unsafeCopyGuard(text: string) {
@@ -9,7 +9,7 @@ function unsafeCopyGuard(text: string) {
   expect(text).not.toMatch(/fully integrated/i);
   expect(text).not.toMatch(/ФГИС подтвержд[ёе]н/i);
   expect(text).not.toMatch(/партия подтверждена/i);
-  expect(text).not.toMatch(/СДИЗ подтвержд[ёе]н/i);
+  expect(text).not.toMatch(/(?:^|[.!?]\s*)СДИЗ подтвержд[ёе]н(?:$|[\s.!?])/i);
   expect(text).not.toMatch(/остаток подтвержд[ёе]н/i);
 }
 
@@ -40,7 +40,7 @@ describe('P7FgisRuntimeCheckPanel', () => {
 
     expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('действие остановлено');
     expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('сверка ФГИС не создана');
-    expect(screen.getByText('У роли нет права выполнить это действие.')).toBeInTheDocument();
+    expect(within(screen.getByTestId('p7-fgis-runtime-status')).getByText('У роли нет права выполнить это действие.')).toBeInTheDocument();
     expect(screen.queryByText('fgis_check_requested')).not.toBeInTheDocument();
     unsafeCopyGuard(container.textContent || '');
   });

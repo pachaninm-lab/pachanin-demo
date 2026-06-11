@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-11T16:55:00.000Z",
+  "task": "VP-2.5 FGIS runtime check panel test refresh",
+  "scope": [
+    "apps/web/tests/unit/p7FgisRuntimeCheckPanel.test.tsx"
+  ],
+  "sourceOfTruth": "Current main uses negative FGIS boundary copy and repeats blocked-role copy in both status and banner surfaces.",
+  "changes": [
+    "Adjusted the СДИЗ confirmation guard to avoid false positives on negative boundary copy.",
+    "Scoped the blocked-role reason assertion to the runtime status panel."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}
