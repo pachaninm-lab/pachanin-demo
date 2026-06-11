@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_deals_route_copy_test",
+  "createdAt": "2026-06-11T14:15:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/dealsRoute.test.tsx",
+    "reason": "The deals overview test expected older overview headings and direct deal links while the current page uses the execution registry copy and clean-card links."
+  },
+  "slice": "Refresh the deals route assertions to current controlled-pilot registry wording and clean-card navigation.",
+  "changedFiles": [
+    "apps/web/tests/unit/dealsRoute.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only assertion refresh",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}
