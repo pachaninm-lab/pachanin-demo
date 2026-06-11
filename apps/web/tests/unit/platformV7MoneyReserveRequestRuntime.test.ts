@@ -57,7 +57,7 @@ describe('platform-v7 money reserve request runtime', () => {
       reserveCommand({
         entityId: 'deal-money-001b',
         idempotencyKey: 'idem-reserve-001b',
-        payload: { amountRub: '8_000_000'.replace('_', '') },
+        payload: { amountRub: '8000000' },
       }),
       () => '2026-05-10T22:30:30.000Z',
     );
