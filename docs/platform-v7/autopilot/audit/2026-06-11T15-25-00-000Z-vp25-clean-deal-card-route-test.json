@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_clean_deal_card_route_test",
+  "createdAt": "2026-06-11T15:25:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/cleanDealCardRoute.test.tsx",
+    "reason": "The clean deal card route test expected older pilot/test contour headings while the current deal card uses execution-contour and pre-integration labels; money release copy now appears in the next-action stop block."
+  },
+  "slice": "Refresh clean deal card route assertions to current execution-contour, pre-integration source, and money stop wording.",
+  "changedFiles": [
+    "apps/web/tests/unit/cleanDealCardRoute.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only assertion refresh",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}
