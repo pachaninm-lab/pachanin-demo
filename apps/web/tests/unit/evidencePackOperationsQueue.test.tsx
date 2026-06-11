@@ -9,9 +9,9 @@ describe('EvidencePackOperationsQueue', () => {
     expect(screen.getByTestId('evidence-pack-operations-queue')).toBeInTheDocument();
     expect(screen.getByText('Очередь доказательных пакетов')).toBeInTheDocument();
     expect(screen.getByText('Средняя готовность')).toBeInTheDocument();
-    expect(screen.getByText('Hold')).toBeInTheDocument();
-    expect(screen.getByText('Review')).toBeInTheDocument();
-    expect(screen.getByText('Can release')).toBeInTheDocument();
+    expect(screen.getAllByText('Удержано').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('На проверке').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('К выпуску').length).toBeGreaterThan(0);
   });
 
   it('renders decision controls and visible count', () => {
@@ -19,19 +19,19 @@ describe('EvidencePackOperationsQueue', () => {
     expect(screen.getByTestId('evidence-queue-controls')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-queue-visible-count')).toHaveTextContent(/Показано:/);
     expect(screen.getByRole('link', { name: 'Все' })).toHaveAttribute('href', '/platform-v7/evidence-pack');
-    expect(screen.getByRole('link', { name: 'Hold' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Hold');
-    expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Review');
-    expect(screen.getByRole('link', { name: 'Can release' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Can%20release');
+    expect(screen.getByRole('link', { name: 'Удержано' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Hold');
+    expect(screen.getByRole('link', { name: 'На проверке' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Review');
+    expect(screen.getByRole('link', { name: 'К выпуску' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Can%20release');
   });
 
   it('renders row-level missing hints', () => {
     render(<EvidencePackOperationsQueue />);
-    expect(screen.getAllByText(/Needs evidence|Needs audit|Needs timeline|Needs documents|No missing data/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Нужно: документы|Нужно: доказательства|Нужно: журнал|Нужно: линия событий|Данных хватает/).length).toBeGreaterThan(0);
   });
 
   it('renders active missing filter', () => {
     render(<EvidencePackOperationsQueue decision='Review' missing='evidence' />);
-    expect(screen.getByTestId('active-missing-filter')).toHaveTextContent('Missing filter: evidence');
+    expect(screen.getByTestId('active-missing-filter')).toHaveTextContent('Фильтр недостающих данных: доказательства');
   });
 
   it('links missing hints to typed Review filters', () => {
@@ -43,7 +43,7 @@ describe('EvidencePackOperationsQueue', () => {
 
   it('links queue rows to deal evidence preview routes', () => {
     render(<EvidencePackOperationsQueue />);
-    const previewLinks = screen.getAllByRole('link', { name: 'Preview' });
+    const previewLinks = screen.getAllByRole('link', { name: 'Открыть пакет' });
     expect(previewLinks.length).toBeGreaterThan(0);
     expect(previewLinks[0]).toHaveAttribute('href', expect.stringContaining('/platform-v7/deals/'));
     expect(previewLinks[0]).toHaveAttribute('href', expect.stringContaining('/evidence-pack'));

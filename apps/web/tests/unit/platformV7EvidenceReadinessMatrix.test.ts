@@ -149,20 +149,20 @@ describe('EvidenceReadinessMiniMatrix component', () => {
 });
 
 describe('EvidenceReadinessMiniMatrix page placement', () => {
-  it('disputes page renders evidence readiness matrix without demo links', () => {
-    const { container } = render(React.createElement(DisputesPage));
+  it('disputes page renders evidence readiness matrix without demo links', async () => {
+    const { container } = render(await DisputesPage());
     expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });
 
-  it('bank page renders evidence readiness matrix without demo links', () => {
-    const { container } = render(React.createElement(BankPage));
+  it('bank page renders evidence readiness matrix without demo links', async () => {
+    const { container } = render(await BankPage());
     expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });
 
-  it('elevator page renders evidence readiness matrix without demo links', () => {
-    const { container } = render(React.createElement(ElevatorPage));
+  it('elevator page renders evidence readiness matrix without demo links', async () => {
+    const { container } = render(await ElevatorPage());
     expect(screen.getByTestId('platform-v7-evidence-readiness-mini-matrix')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);
   });

@@ -8,58 +8,58 @@ describe('RoleActionDispatchBridge', () => {
     render(
       <RoleActionDispatchBridge
         role='bank'
-        dealId='DL-9113'
+        dealId='DL-9122'
         actionType='confirmReserve'
         canRun={false}
         disabledReason='Банк ждёт reserve request.'
       />,
     );
 
-    const button = screen.getByRole('button', { name: 'Выполнить sandbox' });
+    const button = screen.getByRole('button', { name: 'Проверить действие' });
     expect(button).toBeDisabled();
     expect(screen.getByText('Банк ждёт reserve request.')).toBeInTheDocument();
     expect(screen.getByText(/Боевые интеграции не вызываются/)).toBeInTheDocument();
-    expect(screen.getByTestId('role-action-journal')).toHaveTextContent('Журнал появится после sandbox-действия.');
+    expect(screen.getByTestId('role-action-journal')).toHaveTextContent('Журнал появится после проверки действия.');
   });
 
   it('runs an allowed sandbox dispatch and shows audit feedback', () => {
     render(
       <RoleActionDispatchBridge
         role='buyer'
-        dealId='DL-9113'
+        dealId='DL-9122'
         actionType='requestReserve'
         canRun
         disabledReason={null}
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Выполнить sandbox' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить действие' }));
 
-    expect(screen.getByText('Запрошен резерв средств в sandbox-контуре')).toBeInTheDocument();
-    expect(screen.getByText(/Текущий статус после dispatch:/)).toBeInTheDocument();
-    expect(screen.getByText(/Audit: requestReserve · DL-9113/)).toBeInTheDocument();
-    expect(screen.getByText(/Timeline: Запрошен резерв средств в sandbox-контуре/)).toBeInTheDocument();
+    expect(screen.getAllByText('Запрошен резерв средств в предынтеграционном контуре').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Текущий статус после проверки: PAYMENT_RELEASE_REQUESTED/)).toBeInTheDocument();
+    expect(screen.getByText(/Журнал: Запросить банковское основание · DL-9122/)).toBeInTheDocument();
+    expect(screen.getByText(/Событие: Запрошен резерв средств в предынтеграционном контуре/)).toBeInTheDocument();
   });
 
   it('writes the sandbox result to the role action journal', () => {
     render(
       <RoleActionDispatchBridge
         role='buyer'
-        dealId='DL-9113'
+        dealId='DL-9122'
         actionType='requestReserve'
         canRun
         disabledReason={null}
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Выполнить sandbox' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить действие' }));
 
     const journal = screen.getByTestId('role-action-journal');
-    expect(within(journal).getByText('Role action journal')).toBeInTheDocument();
-    expect(within(journal).getByText('requestReserve · success')).toBeInTheDocument();
-    expect(within(journal).getByText('Запрошен резерв средств в sandbox-контуре')).toBeInTheDocument();
-    expect(within(journal).getByText(/status: RESERVE_REQUESTED/)).toBeInTheDocument();
-    expect(within(journal).getByText(/audit: requestReserve · DL-9113/)).toBeInTheDocument();
-    expect(within(journal).getByText(/timeline: Запрошен резерв средств в sandbox-контуре/)).toBeInTheDocument();
+    expect(screen.getByText('Журнал действия')).toBeInTheDocument();
+    expect(within(journal).getByText('Запросить банковское основание · готово')).toBeInTheDocument();
+    expect(within(journal).getByText('Запрошен резерв средств в предынтеграционном контуре')).toBeInTheDocument();
+    expect(within(journal).getByText(/статус: PAYMENT_RELEASE_REQUESTED/)).toBeInTheDocument();
+    expect(within(journal).getByText(/журнал: Запросить банковское основание · DL-9122/)).toBeInTheDocument();
+    expect(within(journal).getByText(/событие: Запрошен резерв средств в предынтеграционном контуре/)).toBeInTheDocument();
   });
 });

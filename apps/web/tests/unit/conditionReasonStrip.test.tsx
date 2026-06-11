@@ -103,8 +103,8 @@ describe('ConditionReasonStrip', () => {
 });
 
 describe('ConditionReasonStrip page placement', () => {
-  it('seller page renders condition reason strip with stop reason', () => {
-    const { container } = render(<SellerPage />);
+  it('seller page renders condition reason strip with stop reason', async () => {
+    const { container } = render(await SellerPage());
     expect(screen.getByTestId('condition-reason-strip')).toBeInTheDocument();
     expect(screen.getByTestId('condition-reason-condition')).toBeInTheDocument();
     expect(screen.getByTestId('condition-reason-responsible')).toBeInTheDocument();
@@ -113,16 +113,16 @@ describe('ConditionReasonStrip page placement', () => {
     expectNoUnsafeCopy(container.innerHTML);
   });
 
-  it('buyer page renders condition reason strip without stop reason', () => {
-    const { container } = render(<BuyerPage />);
+  it('buyer page renders condition reason strip without stop reason', async () => {
+    const { container } = render(await BuyerPage());
     expect(screen.getByTestId('condition-reason-strip')).toBeInTheDocument();
     expect(screen.getByTestId('condition-reason-condition')).toBeInTheDocument();
     expect(screen.queryByTestId('condition-reason-stop')).toBeNull();
     expectNoUnsafeCopy(container.innerHTML);
   });
 
-  it('bank page renders condition reason strip with stop reason', () => {
-    const { container } = render(<BankPage />);
+  it('bank page renders condition reason strip with stop reason', async () => {
+    const { container } = render(await BankPage());
     expect(screen.getByTestId('condition-reason-strip')).toBeInTheDocument();
     expect(screen.getByTestId('condition-reason-stop')).toBeInTheDocument();
     expectNoUnsafeCopy(container.innerHTML);

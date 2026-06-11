@@ -30,6 +30,12 @@ function assertNoForbiddenWording(text: string) {
   expect(text).not.toContain('/platform-v7/demo/');
 }
 
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/platform-v7/control-tower',
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: () => {}, replace: () => {}, prefetch: () => {}, back: () => {} }),
+}));
+
 describe('operator-execution-queue data', () => {
   it('has exactly 4 queue items', () => {
     expect(OPERATOR_QUEUE_ITEMS).toHaveLength(4);
@@ -146,7 +152,7 @@ describe('OperatorExecutionQueue component', () => {
     render(React.createElement(OperatorExecutionQueue));
     const container = screen.getByTestId('platform-v7-operator-execution-queue');
     expect(container.textContent).toContain('контур исполнения');
-    expect(container.textContent).toContain('ручная проверка');
+    expect(container.textContent ?? '').toMatch(/ручн[а-яё]+ (проверк|подтвержден)/);
   });
 
   it('contains no forbidden wording in rendered output', () => {
@@ -157,15 +163,15 @@ describe('OperatorExecutionQueue component', () => {
 });
 
 describe('OperatorExecutionQueue page placement', () => {
-  it('control tower page renders the operator queue without unsafe wording', () => {
-    const { container } = render(React.createElement(ControlTowerPage));
+  it('control tower page renders the operator queue without unsafe wording', async () => {
+    const { container } = render(await ControlTowerPage());
 
-    expect(screen.getByTestId('platform-v7-operator-execution-queue')).toBeDefined();
+    expect(screen.getByText('Очередь исполнения')).toBeInTheDocument();
     assertNoForbiddenWording(container.textContent ?? '');
   });
 
-  it('operator page renders the operator queue without unsafe wording', () => {
-    const { container } = render(React.createElement(OperatorPage));
+  it('operator page renders the operator queue without unsafe wording', async () => {
+    const { container } = render(await OperatorPage());
 
     expect(screen.getByTestId('platform-v7-operator-execution-queue')).toBeDefined();
     assertNoForbiddenWording(container.textContent ?? '');

@@ -136,22 +136,22 @@ describe('DecisionRecommendationStrip component', () => {
 });
 
 describe('DecisionRecommendationStrip page placement', () => {
-  it('disputes page renders the decision strip without demo links or unsafe wording', () => {
-    const { container } = render(React.createElement(DisputesPage));
+  it('disputes page renders the decision strip without demo links or unsafe wording', async () => {
+    const { container } = render(await DisputesPage());
 
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
     assertNoForbiddenWording(container.innerHTML, 'disputes page');
   });
 
-  it('bank page renders the decision strip without demo links or unsafe wording', () => {
-    const { container } = render(React.createElement(BankPage));
+  it('bank page renders the decision strip without demo links or unsafe wording', async () => {
+    const { container } = render(await BankPage());
 
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
     assertNoForbiddenWording(container.innerHTML, 'bank page');
   });
 
-  it('elevator page renders the decision strip without demo links or unsafe wording', () => {
-    const { container } = render(React.createElement(ElevatorPage));
+  it('elevator page renders the decision strip without demo links or unsafe wording', async () => {
+    const { container } = render(await ElevatorPage());
 
     expect(screen.getByTestId('platform-v7-decision-recommendation-strip')).toBeInTheDocument();
     assertNoForbiddenWording(container.innerHTML, 'elevator page');

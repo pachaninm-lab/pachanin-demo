@@ -7,7 +7,6 @@ const coreRoles = [
   ['seller', 'Продавец', 'коммерческий контур'],
   ['buyer', 'Покупатель', 'коммерческий контур'],
   ['logistics', 'Логистика', 'полевой контур'],
-  ['driver', 'Водитель', 'полевой контур'],
   ['elevator', 'Элеватор', 'полевой контур'],
 ] as const;
 
@@ -18,13 +17,28 @@ describe('RoleExecutionSummary core role polish', () => {
     expect(screen.getByTestId(`role-execution-summary-${role}`)).toBeInTheDocument();
     expect(screen.getAllByText(title).length).toBeGreaterThan(0);
     expect(screen.getByText(mode)).toBeInTheDocument();
-    expect(screen.getByText('controlled-pilot')).toBeInTheDocument();
+    expect(screen.getByText('контур исполнения')).toBeInTheDocument();
     expect(screen.getByText('Что происходит сейчас')).toBeInTheDocument();
-    expect(screen.getByText('Что заблокировано')).toBeInTheDocument();
+    expect(screen.getByText('Что остановило сделку')).toBeInTheDocument();
     expect(screen.getByText('Где деньги')).toBeInTheDocument();
     expect(screen.getByText('Где документы')).toBeInTheDocument();
     expect(screen.getByText('Где груз / исполнение')).toBeInTheDocument();
     expect(screen.getByText('Кто следующий')).toBeInTheDocument();
+  });
+
+  it('renders the driver role execution summary with field-only questions', () => {
+    render(<RoleExecutionSummary role='driver' />);
+
+    expect(screen.getByTestId('role-execution-summary-driver')).toBeInTheDocument();
+    expect(screen.getAllByText('Водитель').length).toBeGreaterThan(0);
+    expect(screen.getByText('полевой контур')).toBeInTheDocument();
+    expect(screen.getByText('контур исполнения')).toBeInTheDocument();
+    expect(screen.getByText('Что происходит сейчас')).toBeInTheDocument();
+    expect(screen.getByText('Что остановило рейс')).toBeInTheDocument();
+    expect(screen.getByText('Где документы рейса')).toBeInTheDocument();
+    expect(screen.getByText('Где исполнение')).toBeInTheDocument();
+    expect(screen.getByText('Что нажать сейчас')).toBeInTheDocument();
+    expect(screen.queryByText('Где деньги')).not.toBeInTheDocument();
   });
 
   it('keeps seller from seeing buyer credit line', () => {
