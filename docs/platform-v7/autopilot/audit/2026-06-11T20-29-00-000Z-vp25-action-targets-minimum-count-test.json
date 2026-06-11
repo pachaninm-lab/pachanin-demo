@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T20:29:00.000Z",
+  "task": "VP-2.5 action targets minimum-count guard refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7ActionTargets.test.ts"
+  ],
+  "sourceOfTruth": "The action target registry must keep at least twenty feedback-enabled action targets; the current registry may safely exceed that minimum.",
+  "changes": [
+    "Replaced the stale exact-count assertion with the lower-bound assertion described by the test name."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}
