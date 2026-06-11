@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_seller_fgis_route_copy_test",
+  "createdAt": "2026-06-11T14:35:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/sellerFgisPartiesRoute.test.tsx",
+    "reason": "The seller FGIS route test expected older sandbox wording while the current page uses проверочный контур boundary copy."
+  },
+  "slice": "Refresh seller FGIS route assertions to current pre-integration boundary wording.",
+  "changedFiles": [
+    "apps/web/tests/unit/sellerFgisPartiesRoute.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only assertion refresh",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}

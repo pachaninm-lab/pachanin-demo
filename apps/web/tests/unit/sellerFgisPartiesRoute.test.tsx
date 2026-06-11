@@ -8,9 +8,9 @@ describe('SellerFgisPartiesPage', () => {
     render(<SellerFgisPartiesPage />);
 
     expect(screen.getByText('Мои партии ФГИС')).toBeInTheDocument();
-    expect(screen.getByText(/Sandbox-экран показывает/)).toBeInTheDocument();
+    expect(screen.getByText(/Проверочный контур-экран показывает/)).toBeInTheDocument();
     expect(screen.getByText(/Боевой доступ, подпись, внешний реестр и проверка СДИЗ здесь не заявляются/)).toBeInTheDocument();
-    expect(screen.getByText('Интеграция: sandbox')).toBeInTheDocument();
+    expect(screen.getByText('Интеграция: проверочный контур')).toBeInTheDocument();
   });
 
   it('renders navigation links without live claims', () => {
