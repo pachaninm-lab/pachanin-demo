@@ -16,7 +16,7 @@ describe('platform-v7 premium role focus labels', () => {
     expect(ui).toContain("elevator: 'вес, приёмка и акт'");
     expect(ui).toContain("lab: 'качество и протокол'");
     expect(ui).toContain("surveyor: 'доказательства и расхождения'");
-    expect(ui).toContain("bank: 'основания для выпуска денег'");
+    expect(ui).toContain("bank: 'основания для банковской проверки'");
     expect(ui).toContain("arbiter: 'спор и доказательства'");
     expect(ui).toContain("compliance: 'документы и риск допуска'");
     expect(ui).toContain("operator: 'снятие блокеров сделки'");
