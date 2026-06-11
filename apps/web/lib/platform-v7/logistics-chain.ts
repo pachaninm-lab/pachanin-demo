@@ -213,7 +213,7 @@ export function buildLogisticsProjection(
     totalLegs: legs.length,
     openIncidents: incidents.filter((incident) => incident.status === 'open' || incident.status === 'under_review').length,
     transportGateCleared: pack ? isTransportGateCleared(pack) : false,
-    deviations: legs.filter((leg) => leg.status === 'deviated' && leg.deviationNote).map((leg) => leg.deviationNote as string),
+    deviations: legs.filter((leg) => Boolean(leg.deviationNote)).map((leg) => leg.deviationNote as string),
   };
 }
 

@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getLabSamples, pendingProtocols } from '@/lib/labs-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -10,6 +9,7 @@ import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietInte
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+import { WeighStationPanel } from '@/components/platform-v7/WeighStationPanel';
 
 const elevatorHandoff: HandoffItem[] = [
   { direction: 'sends', role: 'элеватор → контур документов', requirement: 'акт приёмки и акт расхождения в контур документов', documentImpact: true, moneyImpact: true },
@@ -121,6 +121,13 @@ export default async function Page() {
           </div>
           <span style={statusPill}>в работе</span>
         </div>
+        <WeighStationPanel
+          tripId={receiving.tripId}
+          declaredTons={600}
+          acceptedTons={598.8}
+          toleranceTons={0.5}
+          note='Отклонение фиксируется актом расхождения; без него основание не передаётся банку на проверку выплаты.'
+        />
         <div className='p7-elevator-active-grid' style={grid2}>
           <Cell label='Заявлено' value={receiving.declaredWeight} />
           <Cell label='На приёмке' value={receiving.arrivedWeight} strong />
@@ -130,8 +137,8 @@ export default async function Page() {
           <Cell label='Следующее действие' value={receiving.next} strong />
         </div>
         <div className='p7-elevator-active-actions' style={actions}>
-          <Link href={`/platform-v7/deals/${receiving.dealId}/clean`} style={primaryBtn}>Открыть Deal 360</Link>
-          <Link href='/platform-v7/lab' style={ghostBtn}>Лаборатория</Link>
+          <a href={`/platform-v7/deals/${receiving.dealId}/clean`} style={primaryBtn}>Открыть Deal 360</a>
+          <a href='/platform-v7/lab' style={ghostBtn}>Лаборатория</a>
         </div>
       </section>
 

@@ -14,16 +14,16 @@ describe('platform-v7 logistics driver simulation', () => {
   it('connects lot winner to logistics inbox and driver trip', () => {
     const lot = read('app/platform-v7/lots/[lotId]/page.tsx');
     const inbox = read('app/platform-v7/logistics/inbox/page.tsx');
-    const driver = read('app/platform-v7/driver/page.tsx');
+    const driver = read('app/platform-v7/driver/field/page.tsx');
     const demo = read('app/platform-v7/demo/run/page.tsx');
 
     for (const content of [lot, inbox, driver, demo]) {
-      expect(content).toContain('TRIP-SIM-001');
+      expect(content).toContain('TRIP-2403-001');
     }
 
     expect(lot).toContain('/platform-v7/logistics/inbox');
     expect(inbox).toContain('LOG-REQ-2403');
-    expect(driver).toContain('Трекер маршрута');
+    expect(driver).toContain('Текущий рейс');
     expect(demo).toContain('/platform-v7/driver');
   });
 });

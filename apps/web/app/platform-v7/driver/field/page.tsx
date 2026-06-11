@@ -3,6 +3,7 @@ import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
 import { DriverBigTileIsland } from '@/components/platform-v7/visual/DriverBigTileIsland';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { DriverMissionRouteCard } from '@/components/platform-v7/DriverMissionRouteCard';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 
 export default async function DriverFieldPage() {
@@ -103,6 +104,18 @@ export default async function DriverFieldPage() {
           <strong style={miniValue}>только свой рейс</strong>
         </div>
       </section>
+
+      <DriverMissionRouteCard
+        tripId='TRIP-2403-001'
+        route='Тамбовская область → Элеватор ВРЖ-08'
+        progressPercent={62}
+        stageLabel='в пути'
+        photoChecklist={[
+          { label: 'Фото погрузки', done: true },
+          { label: 'Пломба зафиксирована', done: true },
+          { label: 'Фото выгрузки', done: false },
+        ]}
+      />
 
       <DriverBigTileIsland />
 
