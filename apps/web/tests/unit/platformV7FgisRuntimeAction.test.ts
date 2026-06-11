@@ -26,7 +26,7 @@ describe('platform-v7 fgis runtime action helper', () => {
     expect(result.partyId).toBe('FGIS-PARTY-2403');
     expect(result.uiStatusLabel).toBe('запрос сверки ФГИС создан');
     expect(result.uiSafetyNote).toContain('ждёт внешнее событие ФГИС');
-    expect(result.uiSafetyNote).toContain('не считает партию, остаток или СДИЗ подтверждёнными');
+    expect(result.uiSafetyNote).toContain('не считает партию, остаток или СДИЗ закрытыми');
 
     expect(result.event.status).toBe('created');
     if (result.event.status !== 'created') throw new Error('Expected created event');
