@@ -21,6 +21,7 @@ import '@/styles/platform-v7-work-surfaces.css';
 import '@/styles/platform-v7-mobile-excellence.css';
 import '@/styles/platform-v7-premium-visual-polish.css';
 import '@/styles/platform-v7-final-polish.css';
+import '@/styles/platform-v7-living-deal.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',
