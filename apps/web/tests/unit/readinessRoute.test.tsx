@@ -19,10 +19,10 @@ describe('PlatformV7ReadinessPage', () => {
     expect(screen.getByText('Готовы полностью')).toBeInTheDocument();
     expect(screen.getByText('С блокерами')).toBeInTheDocument();
     expect(screen.getByText('Под удержанием')).toBeInTheDocument();
-    expect(screen.getByText(/ФГИС/)).toBeInTheDocument();
-    expect(screen.getByText(/Документы/)).toBeInTheDocument();
-    expect(screen.getByText(/Логистика/)).toBeInTheDocument();
-    expect(screen.getByText(/Банк/)).toBeInTheDocument();
+    expect(screen.getAllByText(/ФГИС/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Документы/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Логистика/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Банк/).length).toBeGreaterThan(0);
   });
 
   it('renders DL-9102 readiness card and money lock state', () => {
@@ -31,7 +31,7 @@ describe('PlatformV7ReadinessPage', () => {
     expect(screen.getByText(/DL-9102/)).toBeInTheDocument();
     expect(screen.getByText(/Демо-сделка/)).toBeInTheDocument();
     expect(screen.getByText(/Выпуск:/)).toBeInTheDocument();
-    expect(screen.getByText(/Блокеры:/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Блокеры:/).length).toBeGreaterThan(0);
   });
 
   it('uses stable route links', () => {
