@@ -9,8 +9,11 @@ CURRENT ALLOWED:
 - apps/web/components/platform-v7/**
 - apps/web/app/platform-v7/**
 - apps/web/lib/platform-v7/**
+- packages/domain-core/src/execution-simulation/**
 - .github/workflows/dependency-review.yml
 - .github/workflows/automerge.yml
+- .github/workflows/platform-v7-autopilot-guard.yml
+- .github/workflows/web-unit.yml
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 
@@ -27,6 +30,7 @@ NEXT:
 - Layer: web-unit merge gate activation
 - Allowed files:
   - .github/workflows/web-unit.yml
+  - .github/workflows/platform-v7-autopilot-guard.yml
   - docs/platform-v7/autopilot/**
   - docs/platform-v7/execution-queue.md
 - Success criteria:
