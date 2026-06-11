@@ -56,3 +56,15 @@
     transition: box-shadow 160ms ease;
   }
 }
+
+/* Route pulse водителя: функциональная анимация, только без reduced-motion */
+@media (prefers-reduced-motion: no-preference) {
+  .p7-route-pulse-dot {
+    animation: p7-route-pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes p7-route-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(10, 122, 95, 0.2); }
+    50% { box-shadow: 0 0 0 7px rgba(10, 122, 95, 0.08); }
+  }
+}

@@ -19,7 +19,7 @@ export default function Page({ params }: { params: { lotId: string } }) {
         <section style={card}>
           <div style={badge}>Лот · победитель выбран</div>
           <h1 style={h1}>LOT-2403 · Пшеница 4 класса</h1>
-          <p style={lead}>Ставка принята. Создана сделка DL-9106, заявка LOG-REQ-2403 передана логистике, рейс TRIP-SIM-001 назначен водителю.</p>
+          <p style={lead}>Ставка принята. Создана сделка DL-9106, заявка LOG-REQ-2403 передана логистике, рейс TRIP-2403-001 назначен водителю.</p>
           <div style={actions}>
             <Link href='/platform-v7/deals/DL-9106/clean' style={primaryBtn}>Открыть сделку</Link>
             <Link href='/platform-v7/logistics/inbox' style={ghostBtn}>Заявка в логистике</Link>

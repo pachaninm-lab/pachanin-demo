@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { BatonStrip } from '@/components/platform-v7/BatonStrip';
 
@@ -47,7 +46,7 @@ export default function Page() {
       <section style={{ background: 'var(--pc-bg-card, #fff)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
         <div style={micro}>Назначения</div>
         {ASSIGNMENTS.map((a) => (
-          <Link key={a.id} href={`/platform-v7/surveyor/acts/${a.id}`} style={assignmentCard}>
+          <a key={a.id} href={`/platform-v7/surveyor/acts/${a.id}`} style={assignmentCard}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <div>
                 <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{a.id}</div>
@@ -56,7 +55,7 @@ export default function Page() {
               </div>
               <span style={{ padding: '5px 10px', borderRadius: 999, border: '1px solid rgba(217,119,6,0.24)', background: 'rgba(217,119,6,0.07)', color: '#B45309', fontSize: 11, fontWeight: 900 }}>{a.status}</span>
             </div>
-          </Link>
+          </a>
         ))}
       </section>
     </div>

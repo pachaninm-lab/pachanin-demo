@@ -6,6 +6,7 @@ import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getLabSamples, pendingProtocols, labMoneyImpactRub } from '@/lib/labs-server';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
+import { QualityDeltaBars } from '@/components/platform-v7/QualityDeltaBars';
 
 const labSteps = [
   { label: 'Проба', value: 'отбор и фиксация', note: 'кто взял, когда, по какому рейсу' },
@@ -83,6 +84,15 @@ export default async function Page() {
           ))}
         </div>
       </section>
+
+      <QualityDeltaBars
+        title='Протокол качества · показатели против допуска'
+        indicators={[
+          { label: 'Влажность', value: 13.1, unit: '%', max: 14, limitLabel: 'допуск до 14%' },
+          { label: 'Клейковина', value: 23, unit: '%', min: 21, limitLabel: 'минимум 21%' },
+          { label: 'Сорная примесь', value: 2.4, unit: '%', max: 2, limitLabel: 'допуск до 2% — превышение требует протокола с допуском или отказом' },
+        ]}
+      />
 
       <div className="p7-lab-proof">
         <CauseLine

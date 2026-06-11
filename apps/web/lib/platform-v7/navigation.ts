@@ -14,7 +14,7 @@ const field = { label: platformV7EnvLabel('field'), tone: 'field' as const };
 
 export const PLATFORM_V7_ROLE_STAGE: Record<PlatformRole, { label: string; tone: PlatformV7StageTone }> = {
   operator: pilot, buyer: pilot, seller: pilot, logistics: pilot, driver: field, surveyor: field, elevator: field, lab: field,
-  bank: { label: platformV7EnvLabel('callbacks'), tone: 'demo' }, arbitrator: { label: platformV7EnvLabel('evidence'), tone: 'demo' }, compliance: { label: platformV7EnvLabel('rules'), tone: 'demo' }, executive: pilot,
+  bank: { label: PLATFORM_V7_LEXICON.nav.bankEvents, tone: 'demo' }, arbitrator: { label: platformV7EnvLabel('evidence'), tone: 'demo' }, compliance: { label: platformV7EnvLabel('rules'), tone: 'demo' }, executive: pilot,
 };
 
 export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
