@@ -17,7 +17,7 @@ it('closes money action feedback when money parts do not reconcile', () => {
     dealId: 'DL-GRAIN-450',
     grossDealAmount: 1000,
     reservedAmount: 1000,
-    releasedAmount: 10,
+    releasedAmount: 1200,
   });
 
   const feedback = createActionFeedbackPreview(action, moneyProjection);
