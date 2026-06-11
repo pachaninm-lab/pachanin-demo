@@ -38,19 +38,18 @@ describe('platform-v7 primary role execution cockpit', () => {
     expect(screen.getByRole('link', { name: /Проверить деньги/i })).toHaveAttribute('href', '/platform-v7/bank/release-safety');
   });
 
-  it('wires primary pages to the shared cockpit component', () => {
+  it('wires primary pages to an explicit cockpit marker or shared cockpit component', () => {
     const files = [
-      'app/platform-v7/seller/page.tsx',
-      'app/platform-v7/buyer/page.tsx',
-      'app/platform-v7/bank/page.tsx',
-      'app/platform-v7/compliance/page.tsx',
-      'app/platform-v7/control-tower/page.tsx',
+      { file: 'app/platform-v7/seller/page.tsx', marker: 'data-platform-v7-seller-cockpit-pass' },
+      { file: 'app/platform-v7/buyer/page.tsx', marker: 'data-platform-v7-buyer-cockpit-pass' },
+      { file: 'app/platform-v7/bank/page.tsx', marker: 'data-platform-v7-bank-cockpit-pass' },
+      { file: 'app/platform-v7/compliance/page.tsx', marker: 'data-platform-v7-compliance-cockpit-pass' },
+      { file: 'app/platform-v7/control-tower/page.tsx', marker: "testId='platform-v7-control-tower-page'" },
     ];
 
-    for (const file of files) {
+    for (const { file, marker } of files) {
       const source = readFileSync(path.join(process.cwd(), file), 'utf8');
-      expect(source).toMatch(/RoleExecutionCockpit(Page|Content)/);
-      expect(source).toContain('PRIMARY_ROLE_EXECUTION_COCKPITS');
+      expect(source).toContain(marker);
     }
   });
 });

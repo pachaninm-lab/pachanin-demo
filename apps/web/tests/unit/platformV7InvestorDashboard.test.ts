@@ -11,8 +11,8 @@ describe('platform-v7 investor dashboard model', () => {
     expect(model.metrics).toHaveLength(6);
     expect(model.story).toHaveLength(3);
     expect(model.roadmap).toHaveLength(5);
-    expect(model.primaryCta).toBe('Показать инвестору');
-    expect(model.secondaryCta).toBe('Открыть демо-сценарий');
+    expect(model.primaryCta).toBe('Показать руководителю');
+    expect(model.secondaryCta).toBe('Открыть проверочный сценарий');
   });
 
   it('keeps investor dashboard honest about readiness', () => {

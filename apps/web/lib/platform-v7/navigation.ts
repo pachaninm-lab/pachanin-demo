@@ -62,11 +62,8 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
   ],
   driver: [{ href: '/platform-v7/driver/field', label: 'Маршрут', icon: 'logistics' }],
   surveyor: [{ href: '/platform-v7/surveyor', label: 'Назначения', icon: 'cabinet' }],
-  elevator: [
-    { href: '/platform-v7/elevator/terminal', label: 'Терминал приёмки', icon: 'receiving' },
-    { href: '/platform-v7/elevator', label: PLATFORM_V7_LEXICON.nav.receiving, icon: 'receiving' },
-  ],
-  lab: [{ href: '/platform-v7/lab', label: 'Пробы', icon: 'lab' }, { href: '/platform-v7/deals/grain-quality', label: 'Качество', icon: 'lab' }],
+  elevator: [{ href: '/platform-v7/elevator', label: PLATFORM_V7_LEXICON.nav.receiving, icon: 'receiving' }],
+  lab: [{ href: '/platform-v7/lab', label: 'Пробы', icon: 'lab' }],
   bank: [
     { href: '/platform-v7/bank', label: 'Банковый контур', icon: 'bank' },
     { href: '/platform-v7/deals/grain-release', label: 'Основания выпуска', icon: 'bank' },
