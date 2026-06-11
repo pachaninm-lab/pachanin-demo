@@ -4,9 +4,16 @@ import { PLATFORM_V7_SUMMARY_BY_ROUTE } from '@/components/platform-v7/RoleExecu
 describe('platform-v7 role execution summary route gate', () => {
   it('adds summary coverage to runtime-heavy role screens without rewriting them', () => {
     expect(PLATFORM_V7_SUMMARY_BY_ROUTE).toEqual({
-      '/platform-v7/logistics': 'logistics',
+      '/platform-v7/buyer': 'buyer',
       '/platform-v7/control-tower': 'operator',
+      '/platform-v7/driver': 'driver',
+      '/platform-v7/driver/field': 'driver',
+      '/platform-v7/elevator': 'elevator',
       '/platform-v7/investor': 'investor',
+      '/platform-v7/logistics': 'logistics',
+      '/platform-v7/logistics/inbox': 'logistics',
+      '/platform-v7/seller': 'seller',
+      '/platform-v7/support/operator': 'operator',
     });
   });
 
