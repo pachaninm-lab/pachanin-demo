@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-11T15:55:00.000Z",
+  "task": "VP-2.5 investor executive route test refresh",
+  "scope": [
+    "apps/web/tests/unit/investorExecutiveRoutes.test.tsx"
+  ],
+  "sourceOfTruth": "Current main renders the investor page as a controlled-pilot investor mode surface, not the older investor-and-round copy.",
+  "changes": [
+    "Updated investor route assertions to expect the current controlled-pilot headline and boundary copy.",
+    "Kept the production-ready negative assertion unchanged."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

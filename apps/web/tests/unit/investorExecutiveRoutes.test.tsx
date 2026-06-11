@@ -24,10 +24,10 @@ describe('PlatformV7 investor and executive routes', () => {
   it('renders investor page as a demo investment slice without production claims', () => {
     render(<InvestorPage />);
 
-    expect(screen.getByText('Инвестор и раунд')).toBeInTheDocument();
-    expect(screen.getByText(/демонстрационный инвестиционный срез/)).toBeInTheDocument();
-    expect(screen.getByText(/Боевые интеграции, подтверждённый оборот и полная готовность не заявляются/)).toBeInTheDocument();
-    expect(screen.getByText('Что уже встроено в продукт')).toBeInTheDocument();
+    expect(screen.getByText('Инвесторский режим')).toBeInTheDocument();
+    expect(screen.getByText(/Инвесторский экран показывает controlled-pilot картину/)).toBeInTheDocument();
+    expect(screen.getByText(/Внешние подключения, банковские операции и реальное исполнение требуют договоров/)).toBeInTheDocument();
+    expect(screen.getByText('Что уже собрано в продукте')).toBeInTheDocument();
     expect(screen.getByText('План на 90 дней')).toBeInTheDocument();
     expect(screen.queryByText(/production-ready/i)).not.toBeInTheDocument();
   });
