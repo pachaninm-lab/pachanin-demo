@@ -8,7 +8,7 @@ describe('BuyerFinancingPage', () => {
     render(<BuyerFinancingPage />);
 
     expect(screen.getByText('Финансирование закупки')).toBeInTheDocument();
-    expect(screen.getByText(/Buyer-only sandbox экран/)).toBeInTheDocument();
+    expect(screen.getByText(/Экран покупателя для проверки сценария заявки на финансирование закупки/)).toBeInTheDocument();
     expect(screen.getByText(/Боевой банковый скоринг, выдача кредита и резерв денег здесь не заявляются/)).toBeInTheDocument();
     expect(screen.getByText(/Реальных запросов в банк, кредитных решений, списаний или резервирования средств нет/)).toBeInTheDocument();
   });
@@ -16,7 +16,7 @@ describe('BuyerFinancingPage', () => {
   it('renders credit limits and sandbox applications', () => {
     render(<BuyerFinancingPage />);
 
-    expect(screen.getByText('Sandbox-лимит')).toBeInTheDocument();
+    expect(screen.getByText('Проверочный контур-лимит')).toBeInTheDocument();
     expect(screen.getByText('Общий лимит')).toBeInTheDocument();
     expect(screen.getByText('Доступно')).toBeInTheDocument();
     expect(screen.getByText('cr-001')).toBeInTheDocument();
@@ -29,15 +29,15 @@ describe('BuyerFinancingPage', () => {
     render(<BuyerFinancingPage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Подать заявку' }));
-    expect(screen.getByText('Новая sandbox-заявка')).toBeInTheDocument();
+    expect(screen.getByText('Новая заявка')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('DL-9101')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('1000000')).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText('DL-9101'), { target: { value: 'DL-9101' } });
     fireEvent.change(screen.getByPlaceholderText('1000000'), { target: { value: '1000000' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Подать заявку sandbox' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Подать заявку' }));
 
-    expect(screen.getByText('Заявка создана в sandbox')).toBeInTheDocument();
+    expect(screen.getByText('Заявка создана в проверочном контуре')).toBeInTheDocument();
     expect(screen.getByText(/Боевой банковый workflow не запускался/)).toBeInTheDocument();
   });
 
