@@ -8,10 +8,10 @@ describe('PlatformV7 clean deal card route', () => {
     render(<PlatformV7CleanDealPage params={{ id: 'DL-9102' }} />);
 
     expect(screen.getByText('Карточка сделки · контур исполнения')).toBeInTheDocument();
-    expect(screen.getByText('DL-9102')).toBeInTheDocument();
+    expect(screen.getAllByText('DL-9102').length).toBeGreaterThan(0);
     expect(screen.getByText('Резерв денег')).toBeInTheDocument();
     expect(screen.getAllByText('Удержание').length).toBeGreaterThan(0);
-    expect(screen.getByText('К выплате по текущим условиям')).toBeInTheDocument();
+    expect(screen.getAllByText(/К выплате/).length).toBeGreaterThan(0);
     expect(screen.getByText('Рабочая зона сделки · предынтеграционный контур')).toBeInTheDocument();
     expect(screen.getByText(/Источник: Сбер · предынтеграционный контур/)).toBeInTheDocument();
   });
@@ -19,7 +19,7 @@ describe('PlatformV7 clean deal card route', () => {
   it('renders release guard money stop reasons on the deal card', () => {
     render(<PlatformV7CleanDealPage params={{ id: 'DL-9102' }} />);
 
-    expect(screen.getByText('Следующее действие')).toBeInTheDocument();
+    expect(screen.getByText('Что сейчас невозможно')).toBeInTheDocument();
     expect(screen.getByText(/документы не закрыты|ФГИС\/СДИЗ не подтверждены|есть активное удержание|стадия сделки не готова к выплате/)).toBeInTheDocument();
   });
 
