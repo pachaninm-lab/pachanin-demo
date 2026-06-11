@@ -1,47 +1,58 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { PlatformCommandCenterHub } from '@/components/v7r/PlatformCommandCenterHub';
 
+let activeRole = 'operator';
+const setRole = vi.fn((next: string) => { activeRole = next; });
+
+vi.mock('@/stores/usePlatformV7RStore', () => ({
+  usePlatformV7RStore: () => ({ role: activeRole, setRole }),
+}));
+
+const forbiddenClaims = [
+  /production-ready/i,
+  /simulation-grade/i,
+  /fully live/i,
+  /fully integrated/i,
+  /платформа гарантирует оплату/i,
+  /деньги переведены/i,
+];
+
 describe('PlatformCommandCenterHub', () => {
+  beforeEach(() => {
+    activeRole = 'operator';
+  });
+
   it('renders the premium command center entry without production claims', () => {
-    render(<PlatformCommandCenterHub />);
+    const { container } = render(<PlatformCommandCenterHub />);
 
-    expect(screen.getByTestId('platform-command-center-hero')).toBeInTheDocument();
-    expect(screen.getByTestId('platform-command-center-spine')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Дорогой контур исполнения зерновой сделки' })).toBeInTheDocument();
-    expect(screen.getByText('controlled-pilot')).toBeInTheDocument();
-    expect(screen.getByText('simulation-grade')).toBeInTheDocument();
-    expect(screen.getByText('не production-ready')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Пройти сделку за 3 минуты' })).toHaveAttribute('href', '/platform-v7/demo');
-    expect(screen.getByRole('link', { name: 'Открыть Deal 360' })).toHaveAttribute('href', '/platform-v7/deals/DL-9106/clean');
+    const root = container.querySelector("main[data-role='operator']");
+    expect(root).not.toBeNull();
+    expect(root).toHaveAttribute('data-theme', 'light');
+    expect(screen.getByRole('heading', { level: 1, name: /Пшеница 4 класс · LOT-2403/ })).toBeInTheDocument();
+
+    const html = container.innerHTML;
+    for (const claim of forbiddenClaims) expect(html).not.toMatch(claim);
+    expect(html).not.toContain('/platform-v7/demo/');
   });
 
-  it('renders execution spine anchors and 5-second answers', () => {
+  it('renders deal status, core snapshot and next action for the operator', () => {
     render(<PlatformCommandCenterHub />);
 
-    expect(screen.getByText('лот')).toBeInTheDocument();
-    expect(screen.getByText('LOT-2403')).toBeInTheDocument();
-    expect(screen.getByText('сделка')).toBeInTheDocument();
-    expect(screen.getByText('DL-9106')).toBeInTheDocument();
-    expect(screen.getByText('логистика')).toBeInTheDocument();
-    expect(screen.getByText('TRIP-SIM-001')).toBeInTheDocument();
-    expect(screen.getByText('Что происходит')).toBeInTheDocument();
-    expect(screen.getByText('Где деньги')).toBeInTheDocument();
-    expect(screen.getByText('Где груз')).toBeInTheDocument();
-    expect(screen.getByText('Где документы')).toBeInTheDocument();
-    expect(screen.getByText('Что заблокировано')).toBeInTheDocument();
-    expect(screen.getByText('Кто следующий')).toBeInTheDocument();
+    expect(screen.getByLabelText('Состояние сделки')).toBeInTheDocument();
+    expect(screen.getByLabelText('Главное по сделке')).toBeInTheDocument();
+    expect(screen.getByLabelText('Следующее действие')).toBeInTheDocument();
+    expect(screen.getByLabelText('Деньги по сделке')).toBeInTheDocument();
+    expect(screen.getAllByText('DL-9106').length).toBeGreaterThan(0);
   });
 
-  it('keeps role entry points explicit and role-safe', () => {
+  it('keeps the driver store role on the field shell without money surfaces', () => {
+    activeRole = 'driver';
     render(<PlatformCommandCenterHub />);
 
-    expect(screen.getByRole('link', { name: /Продавец/ })).toHaveAttribute('href', '/platform-v7/seller?as=seller');
-    expect(screen.getByRole('link', { name: /Покупатель/ })).toHaveAttribute('href', '/platform-v7/buyer?as=buyer');
-    expect(screen.getByRole('link', { name: /Логистика/ })).toHaveAttribute('href', '/platform-v7/logistics?as=logistics');
-    expect(screen.getByRole('link', { name: /Водитель/ })).toHaveAttribute('href', '/platform-v7/driver?as=driver');
-    expect(screen.getByRole('link', { name: /Банк/ })).toHaveAttribute('href', '/platform-v7/bank?as=bank');
-    expect(screen.getByRole('link', { name: /Оператор/ })).toHaveAttribute('href', '/platform-v7/control-tower?as=operator');
+    expect(screen.queryByLabelText('Деньги по сделке')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Сводка документов')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/рейс/i).length).toBeGreaterThan(0);
   });
 });

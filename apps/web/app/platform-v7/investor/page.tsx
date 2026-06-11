@@ -100,7 +100,7 @@ export default function InvestorPage() {
             Зрелость · экономика · риски · ручная нагрузка · roadmap
           </p>
         </div>
-        <TrustDot state='test' size='sm' label='Тестовый контур · данные сценария, не подтверждённый GMV' />
+        <TrustDot state='test' size='sm' label='Предынтеграционный контур · данные сценария, не подтверждённый GMV' />
       </div>
 
       <div data-testid="platform-v7-investor-truth-banner" style={{ padding: '14px 16px', borderRadius: 16, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#0F1419', fontSize: 13, lineHeight: 1.6 }}>

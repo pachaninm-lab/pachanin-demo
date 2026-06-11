@@ -71,7 +71,7 @@ export default async function Page() {
         moneyAmount='624 тыс. ₽'
         moneyTone='hold'
       />
-      <TrustDot state='test' size='sm' label='Тестовый контур · Арбитраж требует реальных договоров' />
+      <TrustDot state='test' size='sm' label='Предынтеграционный контур · Арбитраж требует реальных договоров' />
       <SmartSectionSummary
         label='Активные споры'
         items={[

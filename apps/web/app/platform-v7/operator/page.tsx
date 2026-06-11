@@ -17,7 +17,7 @@ const deal9102 = getDeal360Scenario('DL-9102');
 const STATIC_BLOCKERS = [
   { deal: 'DL-9106', lot: 'LOT-2403', reason: 'СДИЗ не подтверждён', source: 'ФГИС «Зерно»', amount: '9,65 млн ₽', owner: 'продавец', next: 'отправить СДИЗ и дождаться подтверждения', href: '/platform-v7/deals/DL-9106/clean', severity: 'stop' as const },
   { deal: 'DL-9106', lot: 'LOT-2403', reason: 'ЭТрН ждёт подписи грузополучателя', source: 'СБИС / Saby ЭТрН', amount: '9,65 млн ₽', owner: 'грузополучатель', next: 'закрыть подпись ЭТрН и передачу в ГИС ЭПД', href: '/platform-v7/logistics', severity: 'stop' as const },
-  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'Протокол качества ожидается', source: 'ФГБУ ЦОК АПК', amount: '9,65 млн ₽', owner: 'лаборатория', next: 'получить протокол качества', href: '/platform-v7/elevator', severity: 'wait' as const },
+  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'Протокол качества ожидается', source: 'лабораторный контур качества', amount: '9,65 млн ₽', owner: 'лаборатория', next: 'получить протокол качества', href: '/platform-v7/elevator', severity: 'wait' as const },
   { deal: 'DL-9102', lot: 'LOT-2402', reason: 'Отклонение веса', source: 'приёмка', amount: '624 тыс. ₽', owner: 'оператор', next: deal9102.nextAction, href: '/platform-v7/deals/DL-9102/clean', severity: 'stop' as const },
 ];
 
@@ -144,7 +144,7 @@ export default async function PlatformV7OperatorPage() {
           { text: 'DL-9102 · Удержание 624 тыс. ₽ · Акт расхождения не подписан', tone: 'block' },
         ]}
       />
-      <TrustDot state='test' size='sm' label='Тестовый контур · Реальные интеграции требуют договоров' />
+      <TrustDot state='test' size='sm' label='Предынтеграционный контур · Внешние контуры подключаются по договору' />
 
       <OperatorExecutionQueue />
 

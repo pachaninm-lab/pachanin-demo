@@ -94,7 +94,7 @@ describe('P7Badge', () => {
 
   it('uses semantic theme variables', () => {
     render(<P7Badge tone='danger'>FAIL</P7Badge>);
-    expect(screen.getByText('FAIL')).toHaveStyle({ color: 'var(--p7-color-danger)' });
+    expect(screen.getByText('FAIL').style.color).toBe('var(--p7-color-danger)');
   });
 });
 
@@ -115,7 +115,7 @@ describe('P7Card', () => {
 
   it('uses the theme-aware card surface', () => {
     render(<P7Card testId='p7-card-surface'>Тело карточки</P7Card>);
-    expect(screen.getByTestId('p7-card-surface')).toHaveStyle({ background: 'var(--p7-color-surface)' });
+    expect(screen.getByTestId('p7-card-surface').style.background).toBe('var(--p7-color-surface)');
   });
 });
 
@@ -134,7 +134,7 @@ describe('P7MetricCard', () => {
 
   it('uses semantic theme surfaces', () => {
     render(<P7MetricCard title='Evidence' value='5/5' tone='evidence' testId='evidence-metric' />);
-    expect(screen.getByTestId('evidence-metric')).toHaveStyle({ background: 'var(--p7-color-evidence-soft)' });
+    expect(screen.getByTestId('evidence-metric').style.background).toBe('var(--p7-color-evidence-soft)');
   });
 });
 
@@ -183,7 +183,7 @@ describe('P7Section', () => {
       </P7Section>,
     );
 
-    expect(screen.getByTestId('p7-section-card')).toHaveStyle({ background: 'var(--p7-color-surface)' });
+    expect(screen.getByTestId('p7-section-card').style.background).toBe('var(--p7-color-surface)');
     expect(screen.getByText('Условия выпуска')).toBeInTheDocument();
   });
 });
@@ -200,7 +200,7 @@ describe('P7Toolbar', () => {
     expect(screen.getByTestId('p7-toolbar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Фильтры' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Сохранить вид' })).toBeInTheDocument();
-    expect(screen.getByTestId('p7-toolbar')).toHaveStyle({ background: 'var(--p7-color-surface)' });
+    expect(screen.getByTestId('p7-toolbar').style.background).toBe('var(--p7-color-surface)');
   });
 });
 
@@ -240,6 +240,6 @@ describe('P7DealSpine', () => {
     expect(screen.getByText('резерв')).toBeInTheDocument();
     expect(screen.getByText('рейс')).toBeInTheDocument();
     expect(screen.getByText('TRIP-SIM-001')).toBeInTheDocument();
-    expect(screen.getByTestId('p7-deal-spine')).not.toHaveStyle({ background: 'rgba(255,255,255,0.78)' });
+    expect(screen.getByTestId('p7-deal-spine').style.background).not.toBe('rgba(255,255,255,0.78)');
   });
 });
