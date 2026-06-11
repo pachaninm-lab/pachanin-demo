@@ -9,7 +9,7 @@ describe('PlatformV7OfferToDealPage', () => {
 
     expect(screen.getByText('Как принятая ставка становится сделкой')).toBeInTheDocument();
     expect(screen.getByText(/ставка → черновик сделки/i)).toBeInTheDocument();
-    expect(screen.getByText(/Черновик сделки не выпускает деньги/)).toBeInTheDocument();
+    expect(screen.getByText(/Черновик сделки не передаёт основание банку/)).toBeInTheDocument();
     expect(screen.getByText(/не создаёт обязательство автоматически/)).toBeInTheDocument();
   });
 
@@ -30,10 +30,10 @@ describe('PlatformV7OfferToDealPage', () => {
     render(<PlatformV7OfferToDealPage />);
 
     expect(screen.getByText('Сквозные действия сделки')).toBeInTheDocument();
-    expect(screen.getByText('Создать черновик сделки')).toBeInTheDocument();
-    expect(screen.getByText('Запросить резерв денег')).toBeInTheDocument();
-    expect(screen.getByText('Назначить логистику')).toBeInTheDocument();
-    expect(screen.getByText(/Это не выпуск денег и не live bank adapter/)).toBeInTheDocument();
+    expect(screen.getAllByText('Создать черновик сделки').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Запросить резерв денег').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Назначить логистику').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Это не банковское подтверждение и не внешний банковский адаптер/)).toBeInTheDocument();
     expect(screen.getByText(/Это не ЭДО, не УКЭП и не СберКорус/)).toBeInTheDocument();
   });
 
