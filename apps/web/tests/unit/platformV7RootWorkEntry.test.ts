@@ -4,25 +4,32 @@ import { describe, expect, it } from 'vitest';
 
 describe('platform-v7 root working entry', () => {
   const page = readFileSync(join(process.cwd(), 'app/platform-v7/page.tsx'), 'utf8');
-  const hub = readFileSync(join(process.cwd(), 'components/v7r/PlatformCommandCenterHub.tsx'), 'utf8');
+  const cockpitState = readFileSync(join(process.cwd(), 'lib/platform-v7/runtime/entry-cockpit-state.ts'), 'utf8');
+  const rootSurface = `${page}\n${cockpitState}`;
 
-  it('uses the command center hub as the root entry point', () => {
-    expect(page).toContain('PlatformCommandCenterHub');
+  it('uses the execution cockpit as the root entry point', () => {
+    expect(page).toContain('getPlatformV7EntryCockpitState');
+    expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
+    expect(page).toContain('Открыть главный блокер');
   });
 
-  it('keeps the first screen focused on execution, money, cargo, documents and blockers', () => {
-    expect(hub).toContain('Центр исполнения сделки');
-    expect(hub).toContain('Деньги');
-    expect(hub).toContain('Груз');
-    expect(hub).toContain('Документы');
-    expect(hub).toContain('Блокер');
-    expect(hub).toContain('Следующий шаг');
-    expect(hub).toContain('Рабочий контур сделки');
+  it('keeps the first screen focused on execution, money, route, documents and blockers', () => {
+    expect(rootSurface).toContain('Цифровой контур исполнения сделки');
+    expect(rootSurface).toContain('От причины к деньгам');
+    expect(rootSurface).toContain('Деньги');
+    expect(rootSurface).toContain('Документы');
+    expect(rootSurface).toContain('Рейс');
+    expect(rootSurface).toContain('Спор');
+    expect(rootSurface).toContain('Очередь снятия');
+    expect(rootSurface).toContain('Без заявлений о live-интеграциях');
   });
 
-  it('keeps role entry points secondary and hidden behind details', () => {
-    expect(hub).toContain('<details');
-    expect(hub).toContain('Открыть список ролей');
-    expect(hub).toContain('Ролевые входы скрыты в меню');
+  it('keeps role entry points secondary to the blocker queue', () => {
+    const blockerQueueIndex = page.indexOf("aria-label='Очередь блокеров'");
+    const roleEntryIndex = page.indexOf("aria-label='Ролевой вход'");
+
+    expect(blockerQueueIndex).toBeGreaterThan(-1);
+    expect(roleEntryIndex).toBeGreaterThan(blockerQueueIndex);
+    expect(cockpitState).toContain('roleEntrypoints');
   });
 });
