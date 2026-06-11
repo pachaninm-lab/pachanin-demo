@@ -44,7 +44,7 @@ describe('platform-v7 execution positioning entry copy', () => {
     const shell = read('components/v7r/AppShellV4.tsx');
 
     expect(notFound).toContain('/platform-v7/lots');
-    expect(notFound).toContain('Лоты исполнения');
+    expect(notFound).toContain('Лоты и запросы');
     expect(shell).toContain('/platform-v7/execution-map');
     expect(shell).toContain('Карта исполнения');
   });

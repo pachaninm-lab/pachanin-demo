@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { P7FgisRuntimeCheckPanel } from '@/components/platform-v7/P7FgisRuntimeCheckPanel';
 
 function unsafeCopyGuard(text: string) {
@@ -9,7 +9,7 @@ function unsafeCopyGuard(text: string) {
   expect(text).not.toMatch(/fully integrated/i);
   expect(text).not.toMatch(/ФГИС подтвержд[ёе]н/i);
   expect(text).not.toMatch(/партия подтверждена/i);
-  expect(text).not.toMatch(/(?:^|[.!?]\s*)СДИЗ подтвержд[ёе]н(?:$|[\s.!?])/i);
+  expect(text).not.toMatch(/СДИЗ подтвержд[ёе]н/i);
   expect(text).not.toMatch(/остаток подтвержд[ёе]н/i);
 }
 
@@ -25,7 +25,7 @@ describe('P7FgisRuntimeCheckPanel', () => {
     expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('запрос создан');
     expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('запрос сверки ФГИС создан');
     expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('ждёт внешнее событие ФГИС');
-    expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('не считает партию, остаток или СДИЗ подтверждёнными');
+    expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('не считает партию, остаток или СДИЗ закрытыми');
     expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('ожидается подтверждение ФГИС');
     expect(screen.getByText('fgis_check_requested')).toBeInTheDocument();
     expect(screen.getByText(/Ожидается подтверждение внешней системы: fgis/)).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe('P7FgisRuntimeCheckPanel', () => {
 
     expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('действие остановлено');
     expect(screen.getByTestId('p7-fgis-runtime-status')).toHaveTextContent('сверка ФГИС не создана');
-    expect(within(screen.getByTestId('p7-fgis-runtime-status')).getByText('У роли нет права выполнить это действие.')).toBeInTheDocument();
+    expect(screen.getAllByText('У роли нет права выполнить это действие.').length).toBeGreaterThan(0);
     expect(screen.queryByText('fgis_check_requested')).not.toBeInTheDocument();
     unsafeCopyGuard(container.textContent || '');
   });

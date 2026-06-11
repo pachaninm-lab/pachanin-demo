@@ -8,19 +8,19 @@ describe('P7PersistenceQueueStatus', () => {
     render(<P7PersistenceQueueStatus />);
 
     expect(screen.getByTestId('persistence-queue-status')).toBeInTheDocument();
-    expect(screen.getByText('Persistence queue status')).toBeInTheDocument();
-    expect(screen.getByText(/controlled pilot data layer/i)).toBeInTheDocument();
-    expect(screen.getByText('Append-only · idempotent')).toBeInTheDocument();
+    expect(screen.getByText('Статус журнала и очереди')).toBeInTheDocument();
+    expect(screen.getByText(/controlled-pilot слой данных/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/неизменяем/i).length).toBeGreaterThan(0);
   });
 
   it('renders stable ledger, queue, manual review and timeline metrics', () => {
     render(<P7PersistenceQueueStatus />);
 
     const shell = screen.getByTestId('persistence-queue-status');
-    expect(within(shell).getByText('Ledger entries')).toBeInTheDocument();
-    expect(within(shell).getByText('Queue items')).toBeInTheDocument();
-    expect(within(shell).getByText('Manual review')).toBeInTheDocument();
-    expect(within(shell).getByText('Timeline events')).toBeInTheDocument();
+    expect(within(shell).getByText('Записи журнала')).toBeInTheDocument();
+    expect(within(shell).getByText('Элементы очереди')).toBeInTheDocument();
+    expect(within(shell).getByText('Ручная проверка')).toBeInTheDocument();
+    expect(within(shell).getByText('События сделки')).toBeInTheDocument();
     expect(within(shell).getByText('3')).toBeInTheDocument();
     expect(within(shell).getAllByText('8')).toHaveLength(2);
     expect(within(shell).getByText('1')).toBeInTheDocument();

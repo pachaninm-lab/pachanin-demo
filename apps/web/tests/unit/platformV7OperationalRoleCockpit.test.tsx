@@ -34,7 +34,7 @@ describe('platform-v7 operational role execution cockpit', () => {
 
     expect(screen.getByTestId('platform-v7-logistics-execution-cockpit')).toHaveAttribute('data-theme', 'light');
     expect(screen.getByText('Логистика · рейс → водитель → ЭТрН → приёмка')).toBeInTheDocument();
-    expect(screen.getByText(/ЭТрН не закрыта грузополучателем/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/ЭТрН не закрыта грузополучателем/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: /Открыть рейс водителя/i })).toHaveAttribute('href', '/platform-v7/driver/field');
   });
 

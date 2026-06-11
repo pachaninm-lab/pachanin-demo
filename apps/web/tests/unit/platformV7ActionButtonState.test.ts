@@ -13,7 +13,7 @@ describe('platform-v7 action button state', () => {
     const state = resolvePlatformV7ActionButtonState({ target: target!, activeActionId: null });
 
     expect(state).toEqual({
-      label: 'Выпустить деньги',
+      label: 'Передать основание банку',
       disabled: false,
       ariaBusy: false,
       tone: 'secondary',
@@ -92,6 +92,6 @@ describe('platform-v7 action button state', () => {
       blockerLabels: ['MoneyGate', 'DocumentGate'],
     });
 
-    expect(platformV7ActionButtonUiProps(state).disabledReason).toBe('Не закрыты: MoneyGate, DocumentGate');
+    expect(platformV7ActionButtonUiProps(state).disabledReason).toBe('Действие недоступно: сначала закрой условия сделки — MoneyGate, DocumentGate.');
   });
 });

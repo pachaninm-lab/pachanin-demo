@@ -9,10 +9,10 @@ describe('SystemRouteSummary', () => {
     render(<SystemRouteSummary surface='demo' />);
 
     expect(screen.getByTestId('platform-v7-system-surface-demo')).toBeInTheDocument();
-    expect(screen.getAllByText('Демо-маршрут сделки').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Маршрут сделки').length).toBeGreaterThan(0);
     expect(screen.getByText('3 минуты по цепочке исполнения')).toBeInTheDocument();
     expect(screen.getByText(/лот → ставка → сделка → резерв → рейс → приёмка → документы → деньги → спор/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Начать демо' })).toHaveAttribute('href', '/platform-v7/demo');
+    expect(screen.getByRole('link', { name: 'Начать маршрут' })).toHaveAttribute('href', '/platform-v7/demo');
   });
 
   it('renders deploy-check as a service-only surface', () => {
@@ -28,7 +28,7 @@ describe('SystemRouteSummary', () => {
   it('renders compliance and lab as audit-safe operational surfaces', () => {
     render(<SystemRouteSummary surface='compliance' />);
     expect(screen.getByTestId('platform-v7-system-surface-compliance')).toBeInTheDocument();
-    expect(screen.getByText(/sandbox\/readiness не должен выглядеть как юридически полностью закрытый live-допуск/i)).toBeInTheDocument();
+    expect(screen.getByText(/готовность к подключению не является подтверждённым/i)).toBeInTheDocument();
 
     render(<SystemRouteSummary surface='lab' />);
     expect(screen.getByTestId('platform-v7-system-surface-lab')).toBeInTheDocument();

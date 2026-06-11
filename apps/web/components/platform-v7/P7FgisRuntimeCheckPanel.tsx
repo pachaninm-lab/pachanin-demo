@@ -22,7 +22,7 @@ export function P7FgisRuntimeCheckPanel({
   partyId,
   actorRole = 'operator',
   title = 'Сверка партии ФГИС',
-  description = 'Создаёт запрос сверки партии и остатка. Платформа ждёт внешнее событие ФГИС и не считает партию, остаток или СДИЗ подтверждёнными без ответа внешней системы.',
+  description = 'Создаёт запрос сверки партии и остатка. Платформа ждёт внешнее событие ФГИС и не считает партию, остаток или СДИЗ закрытыми без ответа внешней системы.',
 }: P7FgisRuntimeCheckPanelProps) {
   const [result, setResult] = useState<PlatformV7FgisCheckRuntimeResult | null>(null);
   const [log, setLog] = useState<PlatformActionLogEntry[]>([]);

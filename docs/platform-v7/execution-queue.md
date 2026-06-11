@@ -9,6 +9,8 @@ CURRENT ALLOWED:
 - apps/web/components/platform-v7/**
 - apps/web/app/platform-v7/**
 - apps/web/lib/platform-v7/**
+- apps/web/lib/v7r/**
+- apps/web/styles/**
 - packages/domain-core/src/execution-simulation/**
 - .github/workflows/dependency-review.yml
 - .github/workflows/automerge.yml

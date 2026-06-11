@@ -26,7 +26,8 @@ export function createPlatformV7ExecutionMachineContextFromSource(source: Platfo
   const currentLeg = source.logistics.currentLeg.toLowerCase();
   const bankReady = source.readiness.bank.status === 'готово' && source.money.bankDecision === 'готово';
   const docsReady = source.readiness.documents.status === 'готово' && source.documents.missingDocuments.length === 0;
-  const sdizReady = source.documents.sdizStatus.toLowerCase().includes('готов') || source.documents.sdizStatus.toLowerCase().includes('оформлен');
+  const sdizStatus = source.documents.sdizStatus.toLowerCase();
+  const sdizReady = !sdizStatus.includes('не ') && (sdizStatus.includes('готов') || sdizStatus.includes('оформлен'));
   const qualityReady = source.readiness.quality.status === 'готово';
   const disputeOpen = source.dispute.status !== 'готово' || source.dispute.arbitratorNeeded;
 

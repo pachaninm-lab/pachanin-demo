@@ -15,9 +15,9 @@ describe('platform-v7 environment', () => {
 
   it('uses centralized Russian labels', () => {
     expect(platformV7EnvironmentLabel('pilot')).toBe('Пилотный режим');
-    expect(platformV7EnvironmentLabel('sandbox')).toBe('Тестовая среда');
-    expect(platformV7EnvironmentLabel('demo')).toBe('Демо-данные');
-    expect(platformV7EnvironmentLabel('production')).toBe('Боевой контур');
+    expect(platformV7EnvironmentLabel('sandbox')).toBe('Тестовый контур');
+    expect(platformV7EnvironmentLabel('demo')).toBe('Данные проверочного сценария');
+    expect(platformV7EnvironmentLabel('production')).toBe('Промышленный контур требует подтверждения');
   });
 
   it('does not allow non-production modes to be shown as live', () => {

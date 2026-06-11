@@ -98,12 +98,12 @@ export default function BuyerFinancingPage() {
       <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Режим: проверочный контур</div>
         <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.5 }}>
-          Данные демонстрационные. Реальных запросов в банк, кредитных решений, списаний или резервирования средств нет. Экран показывает будущий UX, а не боевую банковую интеграцию.
+          Внешние банковские запросы не выполняются: нет кредитных решений, списаний или резервирования средств. Подключение происходит по договору и доступам.
         </div>
       </section>
 
       <section style={{ background: CREDIT_BG, border: `1px solid ${CREDIT_BORDER}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: CREDIT, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверочный контур-лимит</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: CREDIT, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Предварительный лимит</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginTop: 14 }}>
           <MetricCell label='Общий лимит' value={fmt(CREDIT_LIMITS.total)} color={CREDIT} />
           <MetricCell label='Использовано' value={fmt(CREDIT_LIMITS.used)} color={WARN} />
@@ -136,7 +136,7 @@ export default function BuyerFinancingPage() {
                 <option value='180'>180 дней</option>
               </select>
             </FormField>
-            <div style={{ fontSize: 12, color: M }}>Ставка и лимит здесь демонстрационные. Боевое решение требует банковского подключения и проверки.</div>
+            <div style={{ fontSize: 12, color: M }}>Ставка и лимит предварительные. Решение требует банковского подключения и проверки.</div>
             <div>
               <button type='submit' style={btn('primary')}>Подать заявку</button>
             </div>
