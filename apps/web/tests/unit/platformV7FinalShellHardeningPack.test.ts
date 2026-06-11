@@ -16,6 +16,7 @@ import { platformV7CanShowAsLive, platformV7EnvironmentInfo, type PlatformEnviro
 
 const forbiddenFamilies = ['/platform-v4', '/platform-v9'];
 const environments: PlatformEnvironment[] = ['pilot', 'sandbox', 'demo', 'production'];
+const SHELL_ROUTE_SURFACE_ALLOWED_DUPLICATES = ['/platform-v7/buyer', '/platform-v7/seller'] as const;
 
 function expectSafeRoute(route: string) {
   expect(route.trim()).toBe(route);
@@ -57,14 +58,14 @@ describe('platform-v7 final shell hardening pack', () => {
     }
   });
 
-  it('keeps static shell route surfaces unique and safe', () => {
+  it('keeps static shell route surfaces safe with explicit role-route aliases', () => {
     const routes = [...PLATFORM_V7_COMMAND_ROUTE_SURFACE, ...PLATFORM_V7_SHELL_ROUTE_SURFACE];
 
     for (const route of routes) {
       expectSafeRoute(route);
     }
     expect(new Set(PLATFORM_V7_COMMAND_ROUTE_SURFACE).size).toBe(PLATFORM_V7_COMMAND_ROUTE_SURFACE.length);
-    expect(new Set(PLATFORM_V7_SHELL_ROUTE_SURFACE).size).toBe(PLATFORM_V7_SHELL_ROUTE_SURFACE.length);
+    expect(duplicateRoutes(PLATFORM_V7_SHELL_ROUTE_SURFACE)).toEqual(SHELL_ROUTE_SURFACE_ALLOWED_DUPLICATES);
   });
 
   it('keeps execution machine strip routes inside safe platform route families', () => {
@@ -99,3 +100,18 @@ describe('platform-v7 final shell hardening pack', () => {
     }
   });
 });
+
+function duplicateRoutes(routes: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+
+  for (const route of routes) {
+    if (seen.has(route)) {
+      duplicates.add(route);
+      continue;
+    }
+    seen.add(route);
+  }
+
+  return [...duplicates];
+}
