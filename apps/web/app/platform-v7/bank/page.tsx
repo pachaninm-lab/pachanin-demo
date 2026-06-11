@@ -131,7 +131,7 @@ export default async function PlatformV7BankPage() {
   ];
 
   return (
-    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+    <main data-platform-v7-bank-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <LiveApiStatusBar
         apiOnline={apiOnline}
         blockers={liveBlockers}

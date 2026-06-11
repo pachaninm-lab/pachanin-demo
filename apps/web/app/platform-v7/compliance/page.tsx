@@ -4,7 +4,7 @@ import { ComplianceRuntime } from '@/components/v7r/ComplianceRuntime';
 
 export default function CompliancePage() {
   return (
-    <div data-testid="platform-v7-compliance-page" style={{ display: 'grid', gap: 18 }}>
+    <div data-testid="platform-v7-compliance-page" data-platform-v7-compliance-cockpit-pass='true' style={{ display: 'grid', gap: 18 }}>
       <style>{`
         @media(max-width:767px){
           [data-testid='platform-v7-compliance-page']{gap:10px!important}

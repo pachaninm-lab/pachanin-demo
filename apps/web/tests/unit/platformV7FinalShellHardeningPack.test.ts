@@ -16,7 +16,7 @@ import { platformV7CanShowAsLive, platformV7EnvironmentInfo, type PlatformEnviro
 
 const forbiddenFamilies = ['/platform-v4', '/platform-v9'];
 const environments: PlatformEnvironment[] = ['pilot', 'sandbox', 'demo', 'production'];
-const SHELL_ROUTE_SURFACE_ALLOWED_DUPLICATES = ['/platform-v7/buyer', '/platform-v7/seller'] as const;
+const SHELL_ROUTE_SURFACE_ALLOWED_DUPLICATES = [] as const;
 
 function expectSafeRoute(route: string) {
   expect(route.trim()).toBe(route);
