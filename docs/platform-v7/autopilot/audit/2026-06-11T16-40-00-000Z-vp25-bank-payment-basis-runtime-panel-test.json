@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-11T16:40:00.000Z",
+  "task": "VP-2.5 bank payment basis runtime panel test refresh",
+  "scope": [
+    "apps/web/tests/unit/p7BankPaymentBasisRuntimePanel.test.tsx"
+  ],
+  "sourceOfTruth": "Current main renders repeated bank-payment-basis status copy in both panel body and journal surfaces.",
+  "changes": [
+    "Allowed repeated pending bank-payment-basis copy with getAllByText.",
+    "Scoped the blocked-role reason assertion to the runtime status panel."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}
