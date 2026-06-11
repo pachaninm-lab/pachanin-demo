@@ -8,15 +8,15 @@ describe('BuyerFinancingPage', () => {
     render(<BuyerFinancingPage />);
 
     expect(screen.getByText('Финансирование закупки')).toBeInTheDocument();
-    expect(screen.getAllByText(/Внешние банковские запросы не выполняются/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Боевой банковый скоринг, выдача кредита и резерв денег здесь не заявляются/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/нет кредитных решений, списаний или резервирования средств/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Экран покупателя для проверки сценария заявки на финансирование закупки/)).toBeInTheDocument();
+    expect(screen.getByText(/Боевой банковый скоринг, выдача кредита и резерв денег здесь не заявляются/)).toBeInTheDocument();
+    expect(screen.getByText(/Реальных запросов в банк, кредитных решений, списаний или резервирования средств нет/)).toBeInTheDocument();
   });
 
   it('renders credit limits and sandbox applications', () => {
     render(<BuyerFinancingPage />);
 
-    expect(screen.getByText('Предварительный лимит')).toBeInTheDocument();
+    expect(screen.getByText('Проверочный контур-лимит')).toBeInTheDocument();
     expect(screen.getByText('Общий лимит')).toBeInTheDocument();
     expect(screen.getByText('Доступно')).toBeInTheDocument();
     expect(screen.getByText('cr-001')).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe('BuyerFinancingPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Подать заявку' }));
 
     expect(screen.getByText('Заявка создана в проверочном контуре')).toBeInTheDocument();
-    expect(screen.getAllByText(/Боевой банковый workflow не запускался/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Боевой банковый workflow не запускался/)).toBeInTheDocument();
   });
 
   it('keeps buyer financing separate from factoring and links back to buyer/deals', () => {
@@ -46,7 +46,7 @@ describe('BuyerFinancingPage', () => {
 
     expect(screen.getByRole('link', { name: '← Назад' })).toHaveAttribute('href', '/platform-v7/buyer');
     expect(screen.getByRole('link', { name: /Открыть сделку DL-9101/ })).toHaveAttribute('href', '/platform-v7/deals/DL-9101');
-    expect(screen.getAllByText(/Факторинг относится к продавцу/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/не смешивается с buyer financing/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Факторинг относится к продавцу/)).toBeInTheDocument();
+    expect(screen.getByText(/не смешивается с buyer financing/)).toBeInTheDocument();
   });
 });

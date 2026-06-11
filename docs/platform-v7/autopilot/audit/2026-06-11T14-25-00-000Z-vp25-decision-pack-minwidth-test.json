@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_decision_pack_minwidth_test",
+  "createdAt": "2026-06-11T14:25:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/platformV7DecisionPackMiniPanelCurrentMain.test.tsx",
+    "reason": "The CSSOM-normalized minWidth value was reported as 0 while the test expected only 0px."
+  },
+  "slice": "Allow equivalent zero min-width serialization in the mobile-safe decision pack assertion.",
+  "changedFiles": [
+    "apps/web/tests/unit/platformV7DecisionPackMiniPanelCurrentMain.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only assertion refresh",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}

@@ -204,4 +204,21 @@ describe('MSW — /api/deals', () => {
     expect(dispute.id).toBe('DK-2024-89');
     expect(dispute.holdAmount).toBe(624000);
   });
+
+  it('routes absolute localhost backend calls through deterministic test fixtures', async () => {
+    const res = await fetch('http://localhost:4000/api/deals');
+    const json = await res.json() as { data: unknown[]; total: number };
+    expect(res.ok).toBe(true);
+    expect(json.data.length).toBe(12);
+    expect(json.total).toBe(12);
+  });
+
+  it('uses a deterministic fallback for unhandled localhost backend calls', async () => {
+    const res = await fetch('http://localhost:4000/api/integrations/health');
+    const json = await res.json() as { data: unknown[]; total: number; source: string };
+    expect(res.ok).toBe(true);
+    expect(json.data).toEqual([]);
+    expect(json.total).toBe(0);
+    expect(json.source).toBe('vitest-local-backend-fallback');
+  });
 });

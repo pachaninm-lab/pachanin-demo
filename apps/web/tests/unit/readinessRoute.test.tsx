@@ -8,9 +8,9 @@ describe('PlatformV7ReadinessPage', () => {
     render(<PlatformV7ReadinessPage />);
 
     expect(screen.getByText('Готовность сделки к исполнению и выпуску денег')).toBeInTheDocument();
-    expect(screen.getAllByText(/Матрица готовности · песочница/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Это не платёжный механизм/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/проверочная панель оператора/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Матрица готовности · песочница/)).toBeInTheDocument();
+    expect(screen.getByText(/Это не платёжный механизм/)).toBeInTheDocument();
+    expect(screen.getByText(/проверочная панель оператора/)).toBeInTheDocument();
   });
 
   it('renders readiness metrics and execution strip', () => {
@@ -28,9 +28,9 @@ describe('PlatformV7ReadinessPage', () => {
   it('renders DL-9102 readiness card and money lock state', () => {
     render(<PlatformV7ReadinessPage />);
 
-    expect(screen.getAllByText(/DL-9102/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Демо-сделка/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Выпуск:/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/DL-9102/)).toBeInTheDocument();
+    expect(screen.getByText(/Демо-сделка/)).toBeInTheDocument();
+    expect(screen.getByText(/Выпуск:/)).toBeInTheDocument();
     expect(screen.getAllByText(/Блокеры:/).length).toBeGreaterThan(0);
   });
 

@@ -51,6 +51,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   return (
     <ToastProvider>
       <PlatformThemeSync />
+      <ShellCopyNormalizer />
       <AppShellV4 initialRole={initialRole}>
         <>
           <ScopedShellGuard />

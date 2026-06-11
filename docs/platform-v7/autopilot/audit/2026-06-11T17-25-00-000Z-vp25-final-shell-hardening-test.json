@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T17:25:00.000Z",
+  "task": "VP-2.5 final shell hardening test refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7FinalShellHardeningPack.test.ts"
+  ],
+  "sourceOfTruth": "Current shell route surface intentionally repeats buyer and seller role routes as explicit shell aliases while preserving route safety.",
+  "changes": [
+    "Replaced the obsolete strict shell-route uniqueness assertion with an explicit duplicate whitelist for buyer and seller role aliases."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

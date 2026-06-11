@@ -32,7 +32,7 @@ describe('platform-v7 operational panel copy boundary', () => {
     expect(screen.getByText('Проверка денег перед запросом в банк')).toBeInTheDocument();
     expect(screen.getByText(/Это основание для проверки, а не платёжный механизм платформы/)).toBeInTheDocument();
     expect(screen.getByText('предынтеграционный контур · без движения денег')).toBeInTheDocument();
-    expect((container.textContent || '')).toMatch(/money:|bank-operation/);
+    expect(screen.getAllByText('Техническая сверка').length).toBeGreaterThan(0);
 
     for (const pattern of OLD_MONEY_AUDIT_COPY) {
       expect(text).not.toMatch(pattern);

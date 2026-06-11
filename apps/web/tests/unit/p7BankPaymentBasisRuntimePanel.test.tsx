@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { P7BankPaymentBasisRuntimePanel } from '@/components/platform-v7/P7BankPaymentBasisRuntimePanel';
 
 function unsafeMoneyCopyGuard(text: string) {
@@ -30,7 +30,7 @@ describe('P7BankPaymentBasisRuntimePanel', () => {
     expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('ожидается подтверждение банка');
     expect(screen.getByText('bank_payment_basis_review_requested')).toBeInTheDocument();
     expect(screen.getByText(/Ожидается подтверждение внешней системы: bank/)).toBeInTheDocument();
-    expect(screen.getByText(/Платформа не выпускает деньги сама и ждёт внешнее банковское событие/)).toBeInTheDocument();
+    expect(screen.getByText(/Это не выпуск денег, не подтверждение выплаты/)).toBeInTheDocument();
     unsafeMoneyCopyGuard(container.textContent || '');
   });
 
@@ -41,7 +41,7 @@ describe('P7BankPaymentBasisRuntimePanel', () => {
 
     expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('действие остановлено');
     expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('основание не передано');
-    expect(screen.getAllByText('У роли нет права выполнить это действие.').length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('p7-bank-payment-basis-runtime-status')).getByText('У роли нет права выполнить это действие.')).toBeInTheDocument();
     expect(screen.queryByText('bank_payment_basis_review_requested')).not.toBeInTheDocument();
     unsafeMoneyCopyGuard(container.textContent || '');
   });

@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_logistics_async_route_test",
+  "createdAt": "2026-06-11T13:25:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/logisticsRoute.test.tsx",
+    "reason": "The unit test rendered an async logistics route component directly, producing an [object Promise] React child error."
+  },
+  "slice": "Stabilize the logistics route unit test by awaiting the async server page before rendering assertions.",
+  "changedFiles": [
+    "apps/web/tests/unit/logisticsRoute.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only route rendering fix",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}

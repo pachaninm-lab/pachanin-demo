@@ -18,13 +18,13 @@ describe('PlatformV7 deals routes', () => {
   it('renders deals overview with money, risk and execution context', () => {
     render(<PlatformV7DealsPage />);
 
-    expect(screen.getByText(/Сделки: деньги, документы/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Реестр сделок/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Реестр сделок/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/под удержанием/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/к выплате/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/блокируют выплату/).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link').some((link) => link.getAttribute('href') === '/platform-v7/deals/DL-9102')).toBe(true);
+    expect(screen.getByText('Сделки: деньги, документы, рейс, спор')).toBeInTheDocument();
+    expect(screen.getByText('Реестр исполнения · сделки в работе')).toBeInTheDocument();
+    expect(screen.getByText(/Реестр сделок/)).toBeInTheDocument();
+    expect(screen.getByText('15,89 млн ₽ в работе')).toBeInTheDocument();
+    expect(screen.getByText('DL-9106 · резерв ожидает подтверждения · к выплате 0 ₽')).toBeInTheDocument();
+    expect(screen.getByText('DL-9102 · резерв отмечен · 624 тыс. ₽ под удержанием')).toBeInTheDocument();
+    expect(screen.getAllByRole('link').some((link) => link.getAttribute('href') === '/platform-v7/deals/DL-9102/clean')).toBe(true);
   });
 
   it('redirects deal detail route to the clean deal card', () => {

@@ -6,8 +6,12 @@ on:
     branches:
       - main
     paths:
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/v7r/**'
       - 'apps/web/lib/platform-v7/**'
       - 'apps/web/tests/**'
+      - 'packages/domain-core/src/execution-simulation/**'
       - 'docs/platform-v7/**'
       - 'scripts/p7-autopilot-guard.sh'
       - 'scripts/p7-autopilot-dispatcher.mjs'

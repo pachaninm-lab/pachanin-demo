@@ -138,9 +138,9 @@ describe('DecisionPackMiniPanel component', () => {
     const firstReason = screen.getAllByTestId('platform-v7-decision-pack-reason')[0];
     const firstNext = screen.getAllByTestId('platform-v7-decision-pack-next')[0];
 
-    expect(panel.style.minWidth).toMatch(/^0(px)?$/);
+    expect(panel.style.minWidth).toMatch(/^0(?:px)?$/);
     expect(rows.style.gridTemplateColumns).toContain('auto-fit');
-    expect(firstRow.style.minWidth).toMatch(/^0(px)?$/);
+    expect(firstRow.style.minWidth).toMatch(/^0(?:px)?$/);
     expect(firstDocument.style.overflowWrap).toBe('anywhere');
     expect(firstMoney.style.overflowWrap).toBe('anywhere');
     expect(firstReason.style.overflowWrap).toBe('anywhere');

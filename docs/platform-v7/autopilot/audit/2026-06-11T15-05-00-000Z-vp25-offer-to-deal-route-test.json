@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_offer_to_deal_route_test",
+  "createdAt": "2026-06-11T15:05:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/offerToDealRoute.test.tsx",
+    "reason": "The offer-to-deal route test expected older money-release and live bank adapter wording while the current page states that a draft deal does not pass bank grounds or create an obligation automatically; action labels also render as both titles and guarded buttons."
+  },
+  "slice": "Refresh offer-to-deal route assertions to current controlled-pilot bank guard wording and repeated action label rendering.",
+  "changedFiles": [
+    "apps/web/tests/unit/offerToDealRoute.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only assertion refresh",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}

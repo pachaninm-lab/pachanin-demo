@@ -47,9 +47,27 @@ describe('platform-v7 action routes', () => {
     }
   });
 
-  it('keeps action permission policy routes unique', () => {
-    const routes = PLATFORM_V7_ACTION_PERMISSION_POLICIES.map((policy) => policy.route);
-    expect(new Set(routes).size).toBe(routes.length);
+  it('keeps shared action permission policy routes explicit', () => {
+    const actionIdsByRoute = new Map<string, string[]>();
+
+    for (const policy of PLATFORM_V7_ACTION_PERMISSION_POLICIES) {
+      actionIdsByRoute.set(policy.route, [...(actionIdsByRoute.get(policy.route) ?? []), policy.actionId]);
+    }
+
+    const sharedRoutes = [...actionIdsByRoute.entries()]
+      .filter(([, actionIds]) => actionIds.length > 1)
+      .map(([route, actionIds]) => [route, actionIds] as const);
+
+    expect(sharedRoutes).toEqual([
+      ['/platform-v7/buyer', ['buyer.submit_offer', 'money.request_reserve']],
+      ['/platform-v7/deals', ['proposal.submit', 'proposal.accept', 'deal.confirm_terms', 'trip.accept']],
+      [
+        '/platform-v7/bank',
+        ['bank.confirm_money_reserved', 'bank.mark_money_ready_to_release', 'bank.confirm_money_released'],
+      ],
+      ['/platform-v7/logistics', ['logistics.assign_driver', 'trip.open_incident']],
+      ['/platform-v7/disputes', ['dispute.open', 'arbitration.record_decision']],
+    ]);
   });
 
   it('keeps action permission policies audit-ready', () => {

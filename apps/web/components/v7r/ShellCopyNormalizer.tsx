@@ -1,197 +1,135 @@
 'use client';
 
-import { useEffect } from 'react';
+import * as React from 'react';
 
 type DarkFixMode = 'surface' | 'action' | 'hero' | 'chip';
+type ChipTone = 'neutral' | 'warning' | 'danger' | 'success';
 
-const RISKY_COPY_NORMALIZATIONS: ReadonlyArray<readonly [string, string]> = [
-  ['Зафиксировать решение: выпустить деньги', 'Зафиксировать решение: полный выпуск'],
-  ['Пилотная готовность', 'Предпилотная готовность'],
-];
+const NORMALIZED_RUNTIME_COPY = new Map([
+  ['Зафиксировать решение: полный выпуск', 'Зафиксировать решение: банковская проверка выплаты'],
+  ['Демо-готовность', 'Предпилотная готовность'],
+]);
 
-const LIGHT_SURFACE_LUMINANCE = 0.82;
-const CHIP_MAX_WIDTH = 220;
-const CHIP_MAX_HEIGHT = 44;
-const HERO_MIN_WIDTH = 480;
-const HERO_MIN_HEIGHT = 120;
+const CHIP_TONE_SURFACES: Record<Exclude<ChipTone, 'neutral'>, string> = {
+  warning: 'var(--p7-color-warning-soft)',
+  danger: 'var(--p7-color-danger-soft)',
+  success: 'var(--p7-color-success-soft)',
+};
 
-function parseRgb(value: string): [number, number, number] | null {
-  const match = value.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+function isLightColor(value: string) {
+  const normalized = value.toLowerCase().replace(/\s+/g, '');
+  if (!normalized || normalized === 'transparent' || normalized === 'rgba(0,0,0,0)') return false;
+  if (normalized.includes('#fff') || normalized.includes('#ffffff') || normalized.includes('white')) return true;
 
-  if (!match) {
-    return null;
-  }
-
-  return [Number(match[1]), Number(match[2]), Number(match[3])];
+  const rgb = normalized.match(/rgba?\((\d+),(\d+),(\d+)(?:,[^)]+)?\)/);
+  if (!rgb) return false;
+  const [, red, green, blue] = rgb.map(Number);
+  return red >= 238 && green >= 238 && blue >= 238;
 }
 
-function relativeLuminance(rgb: [number, number, number]): number {
-  const [r, g, b] = rgb.map((channel) => channel / 255);
-
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+function isLightGradient(value: string) {
+  return value.toLowerCase().includes('gradient') && isLightColor(value);
 }
 
-function isLightColor(value: string): boolean {
-  const rgb = parseRgb(value);
-
-  return rgb !== null && relativeLuminance(rgb) >= LIGHT_SURFACE_LUMINANCE;
+function hasPaleHeroHeading(el: HTMLElement) {
+  const heading = el.querySelector<HTMLElement>('h1,h2,[data-hero-heading]');
+  if (!heading) return false;
+  const style = window.getComputedStyle(heading);
+  return isLightColor(style.color) || style.color === 'rgb(15, 20, 25)' || style.color === 'rgb(17, 24, 39)';
 }
 
-function isLightGradient(backgroundImage: string): boolean {
-  if (!backgroundImage.includes('gradient')) {
-    return false;
-  }
-
-  const stops = backgroundImage.match(/rgba?\([^)]+\)/g) ?? [];
-
-  return stops.length > 0 && stops.every((stop) => isLightColor(stop));
-}
-
-function hasPaleHeroHeading(el: HTMLElement): boolean {
-  const heading = el.querySelector<HTMLElement>('h1, h2, h3');
-
-  if (!heading) {
-    return false;
-  }
-
-  return isLightColor(window.getComputedStyle(heading).color);
-}
-
-function isLargeHeroCandidate(el: HTMLElement): boolean {
+function isLargeHeroCandidate(el: HTMLElement) {
   const rect = el.getBoundingClientRect();
-
-  return rect.width >= HERO_MIN_WIDTH && rect.height >= HERO_MIN_HEIGHT;
+  return rect.height >= 160 && rect.width >= 280 && Boolean(el.querySelector('h1,h2,[data-hero-heading]'));
 }
 
-function isCompactPillCandidate(el: HTMLElement): boolean {
+function isCompactPillCandidate(el: HTMLElement) {
   const rect = el.getBoundingClientRect();
-
-  if (rect.width === 0 || rect.height === 0) {
-    return false;
-  }
-
-  return rect.width <= CHIP_MAX_WIDTH && rect.height <= CHIP_MAX_HEIGHT;
+  const style = window.getComputedStyle(el);
+  const radius = Number.parseFloat(style.borderRadius || '0');
+  return rect.height > 0 && rect.height <= 52 && rect.width <= 360 && radius >= 10;
 }
 
-function hasLightChip(style: CSSStyleDeclaration): boolean {
-  return isLightColor(style.backgroundColor) && style.borderRadius !== '0px';
+function inferChipTone(el: HTMLElement): ChipTone {
+  const text = (el.textContent || '').toLowerCase();
+  if (/ошиб|риск|спор|заблок|blocked|danger/.test(text)) return 'danger';
+  if (/ожида|провер|pending|warning|на проверку/.test(text)) return 'warning';
+  if (/готов|подтверж|success|ready|ok/.test(text)) return 'success';
+  return 'neutral';
 }
 
-function inferChipTone(el: HTMLElement): string {
-  const text = (el.textContent ?? '').toLowerCase();
-
-  if (/(стоп|блок|спор|просроч|откло)/.test(text)) {
-    return 'var(--p7-color-danger-soft)';
-  }
-
-  if (/(жд[её]т|ожида|внимани|риск)/.test(text)) {
-    return 'var(--p7-color-warning-soft)';
-  }
-
-  return 'var(--p7-color-surface-muted)';
+function hasLightChip(el: HTMLElement) {
+  const style = window.getComputedStyle(el);
+  return isCompactPillCandidate(el) && (isLightColor(style.backgroundColor) || isLightGradient(style.backgroundImage));
 }
 
-function classifyDarkFixMode(el: HTMLElement, style: CSSStyleDeclaration): DarkFixMode | null {
-  if (isLargeHeroCandidate(el) && (isLightGradient(style.backgroundImage) || (isLightColor(style.backgroundColor) && hasPaleHeroHeading(el)))) {
-    return 'hero';
-  }
-
-  if (isCompactPillCandidate(el) && hasLightChip(style)) {
-    return 'chip';
-  }
-
-  if (!isLightColor(style.backgroundColor)) {
-    return null;
-  }
-
-  return el.matches('a, button, [role="button"]') ? 'action' : 'surface';
+function classifyDarkFix(el: HTMLElement): DarkFixMode | null {
+  const style = window.getComputedStyle(el);
+  const isLightSurface = isLightColor(style.backgroundColor) || isLightGradient(style.backgroundImage);
+  if (!isLightSurface) return null;
+  if (isLargeHeroCandidate(el) && (isLightGradient(style.backgroundImage) || hasPaleHeroHeading(el))) return 'hero';
+  if (hasLightChip(el)) return 'chip';
+  if (el.matches('button,a,[role="button"],input,select,textarea')) return 'action';
+  if (el.matches('section,article,aside,form,div,li,td,th')) return 'surface';
+  return null;
 }
 
-function applyDarkFix(el: HTMLElement, mode: DarkFixMode) {
-  el.dataset.p7DarkFixed = mode;
-
-  if (mode === 'hero') {
-    el.style.backgroundImage = 'none';
-    el.style.backgroundColor = 'var(--p7-color-surface)';
-    el.style.color = 'var(--p7-color-text-primary)';
-    return;
-  }
-
-  if (el.dataset.p7DarkFixed === 'chip') {
-    el.style.backgroundColor = inferChipTone(el);
-    el.style.color = 'var(--p7-color-text-primary)';
-  }
-}
-
-function stabilizeDarkSurfaces(root: HTMLElement) {
-  const theme = document.documentElement.dataset.theme;
-
-  if (theme === 'light' || theme === 'high-contrast') {
-    return;
-  }
-
-  for (const el of Array.from(root.querySelectorAll<HTMLElement>('.pc-main *'))) {
-    if (el.dataset.p7DarkFixed) {
-      continue;
-    }
-
-    const style = window.getComputedStyle(el);
-    const mode = classifyDarkFixMode(el, style);
-
-    if (mode) {
-      applyDarkFix(el, mode);
-    }
-  }
-}
-
-function normalizeRiskyCopy(root: HTMLElement) {
+function normalizeRuntimeCopy(root: ParentNode) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode as Text);
 
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    let text = node.textContent ?? '';
-
-    for (const [risky, safe] of RISKY_COPY_NORMALIZATIONS) {
-      if (text.includes(risky)) {
-        text = text.split(risky).join(safe);
-      }
+  for (const node of nodes) {
+    let nextValue = node.nodeValue || '';
+    for (const [from, to] of NORMALIZED_RUNTIME_COPY) {
+      nextValue = nextValue.replaceAll(from, to);
     }
+    if (nextValue !== node.nodeValue) node.nodeValue = nextValue;
+  }
+}
 
-    if (text !== node.textContent) {
-      node.textContent = text;
+export function stabilizeDarkSurfaces(root: ParentNode = document) {
+  const theme = document.documentElement.dataset.theme;
+  if (theme === 'light' || theme === 'high-contrast') return;
+
+  const candidates = root.querySelectorAll<HTMLElement>(
+    '.pc-main section,.pc-main article,.pc-main aside,.pc-main form,.pc-main div,.pc-main li,.pc-main td,.pc-main th,.pc-main button,.pc-main a,.pc-main input,.pc-main select,.pc-main textarea',
+  );
+
+  for (const el of candidates) {
+    if (el.dataset.p7DarkFixed) continue;
+    const mode = classifyDarkFix(el);
+    if (!mode) continue;
+    el.dataset.p7DarkFixed = mode;
+    if (mode === 'hero') el.dataset.p7DarkHero = 'true';
+    if (el.dataset.p7DarkFixed === 'chip') {
+      const tone = inferChipTone(el);
+      if (tone !== 'neutral') el.style.setProperty('--p7-chip-tone-surface', CHIP_TONE_SURFACES[tone]);
     }
   }
+
+  normalizeRuntimeCopy(root);
 }
 
 export function ShellCopyNormalizer() {
-  useEffect(() => {
+  React.useEffect(() => {
     let frame = 0;
 
-    const run = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        normalizeRiskyCopy(document.body);
-        stabilizeDarkSurfaces(document.body);
-      });
-    };
+    function schedule() {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => stabilizeDarkSurfaces(document));
+    }
 
-    run();
+    schedule();
 
-    const themeObserver = new MutationObserver(() => {
-      for (const el of Array.from(document.querySelectorAll<HTMLElement>('[data-p7-dark-fixed]'))) {
-        delete el.dataset.p7DarkFixed;
-      }
-
-      run();
-    });
-
+    const themeObserver = new MutationObserver(schedule);
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-    const contentObserver = new MutationObserver(run);
-
-    contentObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    const contentObserver = new MutationObserver(schedule);
+    contentObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
 
     return () => {
-      cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(frame);
       themeObserver.disconnect();
       contentObserver.disconnect();
     };
