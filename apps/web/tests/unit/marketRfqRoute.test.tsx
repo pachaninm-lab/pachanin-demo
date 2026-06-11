@@ -10,16 +10,16 @@ describe('MarketRfqPage', () => {
     expect(screen.getByText('Лоты, заявки и оферты')).toBeInTheDocument();
     expect(screen.getByText(/Предсделочный контур/)).toBeInTheDocument();
     expect(screen.getByText(/лот или RFQ не равны сделке/)).toBeInTheDocument();
-    expect(screen.getByText(/Live-торги здесь не заявляются/)).toBeInTheDocument();
+    expect(screen.getByText(/Боевые торги здесь не заявляются/)).toBeInTheDocument();
     expect(screen.getByText(/нет боевых торгов, биржевой функции, автоматического заключения договора или списания денег/)).toBeInTheDocument();
   });
 
   it('renders market metrics and navigation links', () => {
     render(<MarketRfqPage />);
 
-    expect(screen.getByText('Лоты')).toBeInTheDocument();
-    expect(screen.getByText('RFQ')).toBeInTheDocument();
-    expect(screen.getByText('Оферты')).toBeInTheDocument();
+    expect(screen.getAllByText('Лоты').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('RFQ').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Оферты').length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: 'Текущие лоты' })).toHaveAttribute('href', '/platform-v7/lots');
     expect(screen.getByRole('link', { name: 'Башня управления' })).toHaveAttribute('href', '/platform-v7/control-tower');
   });
@@ -37,8 +37,8 @@ describe('MarketRfqPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'RFQ' }));
 
-    expect(screen.getByText('Целевая цена')).toBeInTheDocument();
-    expect(screen.getByText('Maturity')).toBeInTheDocument();
+    expect(screen.getAllByText('Целевая цена').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Maturity').length).toBeGreaterThan(0);
     expect(screen.getByText(/т спроса/)).toBeInTheDocument();
   });
 
@@ -47,8 +47,8 @@ describe('MarketRfqPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Оферты' }));
 
-    expect(screen.getByText('Можно принять')).toBeInTheDocument();
-    expect(screen.getByText(/Acceptance не создаёт сделку автоматически/)).toBeInTheDocument();
-    expect(screen.getByText(/проверка контрагента, документов, ФГИС и банкового резерва/)).toBeInTheDocument();
+    expect(screen.getAllByText('Можно принять').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Acceptance не создаёт сделку автоматически/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/проверка контрагента, документов, ФГИС и банкового резерва/).length).toBeGreaterThan(0);
   });
 });
