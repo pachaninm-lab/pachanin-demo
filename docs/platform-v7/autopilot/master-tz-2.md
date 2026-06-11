@@ -73,6 +73,7 @@ platform-v7 / «Прозрачная Цена»
 ### PR VP-2.5 — Remaining Tail + Regression Gate
 
 - добить остаточные падения (route-страницы, evidence pack, simulation panel, env-зависимые тесты)
+- execution-simulation domain-core допускается только в этом VP-2.5-хвосте как уже связанный источник для simulation panel / role continuity QA; вне этого скоупа runtime/API/DB расширение остаётся заблокировано
 - env-зависимые тесты (ECONNREFUSED 127.0.0.1:4000) перевести на msw или явный skip-контракт с пометкой integration
 - добавить в CI required-джобу `web-unit`: `pnpm --filter @pc/web test` — полный vitest как merge-гейт
 - с этого момента полный прогон не имеет права деградировать
