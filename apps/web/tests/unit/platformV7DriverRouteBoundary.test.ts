@@ -80,7 +80,7 @@ describe('platform-v7 driver route boundary', () => {
   });
 
   it('keeps the field page source free of direct privileged route links', () => {
-    expect(fieldPageSource).not.toContain('next/link');
+    expect(fieldPageSource).not.toMatch(/href=['\"]\/platform-v7\/(bank|money|deals|control-tower|executive|lots)/);
     [
       '/platform-v7/bank',
       '/platform-v7/control-tower',

@@ -114,7 +114,7 @@ export interface RfqItem {
 }
 
 export const DEALS: Deal[] = [
-  { id: 'DL-9102', grain: 'Пшеница 4 кл.', quantity: 200.3, unit: 'т', seller: { name: 'Агро-Юг ООО' }, buyer: { name: 'Агрохолдинг СК' }, status: 'quality_disputed', reservedAmount: 6240000, holdAmount: 624000, riskScore: 92, slaDeadline: '2026-04-19', blockers: ['dispute', 'docs'], dispute: { id: 'DK-2024-89' }, pricePerTon: 14800, totalAmount: 2964440, releaseAmount: 4368000, lotId: 'LOT-2401', routeId: 'ТМБ-14', routeState: 'Прибыл · расхождение по качеству', routeEta: '14:28',
+  { id: 'DL-9102', grain: 'Пшеница 4 кл.', quantity: 200.3, unit: 'т', seller: { name: 'Агро-Юг ООО' }, buyer: { name: 'Агрохолдинг СК' }, status: 'quality_disputed', reservedAmount: 6240000, holdAmount: 624000, riskScore: 92, slaDeadline: '2026-04-19', blockers: ['dispute', 'docs'], dispute: { id: 'DK-2024-89' }, pricePerTon: 14800, totalAmount: 2964440, releaseAmount: 0, lotId: 'LOT-2401', routeId: 'ТМБ-14', routeState: 'Прибыл · расхождение по качеству', routeEta: '14:28',
     route: [
       { time: '08:42', event: 'Выезд с хозяйства', gps: '52.7213, 41.4525', driver: 'Ковалёв А.С.' },
       { time: '11:17', event: 'Въезд на элеватор Черноземный', gps: '51.2934, 37.2185' },

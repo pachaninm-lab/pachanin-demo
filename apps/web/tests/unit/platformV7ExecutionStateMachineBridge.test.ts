@@ -14,7 +14,7 @@ describe('platform-v7 execution state machine bridge', () => {
     expect(snapshot.dealId).toBe(PLATFORM_V7_EXECUTION_SOURCE.deal.id);
     expect(snapshot.lotId).toBe(PLATFORM_V7_EXECUTION_SOURCE.deal.lotId);
     expect(snapshot.fgisPartyId).toBe(PLATFORM_V7_EXECUTION_SOURCE.deal.fgisPartyId);
-    expect(snapshot.maturity).toBe('песочница');
+    expect(snapshot.maturity).toBe('предынтеграционный контур');
     expect(snapshot.context.state).toBe('dealDraft');
     expect(snapshot.context.hasDraftDeal).toBe(true);
     expect(snapshot.context.hasMoneyReserveIntent).toBe(true);

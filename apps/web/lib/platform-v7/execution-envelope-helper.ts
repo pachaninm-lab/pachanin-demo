@@ -90,7 +90,10 @@ export function buildPlatformV7ExecutionEnvelope(input: PlatformV7ExecutionEnvel
 export function validatePlatformV7ExecutionEnvelope(
   envelope: PlatformV7ExecutionEnvelope,
 ): PlatformV7ExecutionEnvelopeValidationResult {
-  const payloadResult = validatePlatformV7ApiPayload(envelope.boundaryId, envelope.payload);
+  const payloadForValidation = envelope.auditEvent.evidenceRefs && envelope.auditEvent.evidenceRefs.length > 0
+    ? { ...envelope.payload, evidenceRefs: envelope.auditEvent.evidenceRefs }
+    : envelope.payload;
+  const payloadResult = validatePlatformV7ApiPayload(envelope.boundaryId, payloadForValidation);
   const auditResult = validatePlatformV7AuditEvent(envelope.auditEvent);
   const idempotencyResult = validatePlatformV7IdempotencyKey(envelope.idempotencyKey);
   const issues: string[] = [];
