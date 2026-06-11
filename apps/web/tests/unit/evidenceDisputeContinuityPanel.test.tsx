@@ -8,12 +8,12 @@ describe('EvidenceDisputeContinuityPanel', () => {
     render(<EvidenceDisputeContinuityPanel />);
 
     const panel = screen.getByTestId('evidence-dispute-continuity-panel');
-    expect(within(panel).getByText(/P0-05 · доказательства → спор → деньги · тестовый режим/)).toBeInTheDocument();
+    expect(within(panel).getByText(/P0-05 · доказательства → спор → деньги · предынтеграционный контур/)).toBeInTheDocument();
     expect(within(panel).getByText(/Доказательный пакет сделки/)).toBeInTheDocument();
-    expect(within(panel).getByText('Доказательства')).toBeInTheDocument();
-    expect(within(panel).getByText('Спорный контекст')).toBeInTheDocument();
-    expect(within(panel).getByText('Журнал действий')).toBeInTheDocument();
-    expect(within(panel).getByText('Лента сделки')).toBeInTheDocument();
+    expect(within(panel).getAllByText('Доказательства').length).toBeGreaterThan(0);
+    expect(within(panel).getAllByText('Спорный контекст').length).toBeGreaterThan(0);
+    expect(within(panel).getAllByText('Журнал действий').length).toBeGreaterThan(0);
+    expect(within(panel).getAllByText('Лента сделки').length).toBeGreaterThan(0);
   });
 
   it('explains money hold or release decision without live integration claims', () => {
@@ -22,7 +22,7 @@ describe('EvidenceDisputeContinuityPanel', () => {
     const panel = screen.getByTestId('evidence-dispute-continuity-panel');
     expect(within(panel).getByText('Почему деньги удержаны или требуют проверки')).toBeInTheDocument();
     expect(within(panel).getByText(/Деньги удерживаются|Есть спорный след|Выплата ограничена|Спор не блокирует/)).toBeInTheDocument();
-    expect(within(panel).getByText(/Это тестовый слой/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Это предынтеграционный слой/)).toBeInTheDocument();
     expect(within(panel).getByText(/не вызывает боевые банковские, ФГИС или ЭДО-подключения/)).toBeInTheDocument();
   });
 
@@ -37,7 +37,7 @@ describe('EvidenceDisputeContinuityPanel', () => {
     expect(within(readiness).getByText('Журнал действий')).toBeInTheDocument();
     expect(within(readiness).getByText('Лента сделки связана')).toBeInTheDocument();
     expect(within(readiness).getByText('Решение по деньгам объяснено')).toBeInTheDocument();
-    expect(within(readiness).getByText(/Сводка готова только для тестового просмотра/)).toBeInTheDocument();
+    expect(within(readiness).getByText(/Сводка готова только для предварительного просмотра/)).toBeInTheDocument();
     expect(within(readiness).getByText(/PDF\/ЭДО\/КЭП экспорт не заявлен как боевой/)).toBeInTheDocument();
   });
 

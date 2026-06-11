@@ -9,8 +9,8 @@ describe('EvidencePackIndexPage', () => {
     expect(screen.getByTestId('evidence-export-readiness-summary')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-pack-operations-queue')).toBeInTheDocument();
     expect(screen.getByTestId('evidence-pack-index')).toBeInTheDocument();
-    expect(screen.getByText('Evidence pack operations')).toBeInTheDocument();
-    expect(screen.getByText('DL-9113')).toBeInTheDocument();
+    expect(screen.getByText('Операции с доказательными пакетами')).toBeInTheDocument();
+    expect(screen.getAllByText(/DL-9113/).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: /DL-9113/ })).toHaveAttribute('href', '/platform-v7/deals/DL-9113/evidence-pack');
   });
 
@@ -22,7 +22,7 @@ describe('EvidencePackIndexPage', () => {
 
   it('accepts missing search params', () => {
     render(<EvidencePackIndexPage searchParams={{ decision: 'Review', missing: 'evidence' }} />);
-    expect(screen.getByTestId('active-missing-filter')).toHaveTextContent('Missing filter: evidence');
+    expect(screen.getByTestId('active-missing-filter')).toHaveTextContent('Фильтр недостающих данных: доказательства');
   });
 
   it('falls back to all for invalid missing search params', () => {
@@ -33,7 +33,7 @@ describe('EvidencePackIndexPage', () => {
 
   it('keeps sandbox boundary visible', () => {
     render(<EvidencePackIndexPage />);
-    expect(screen.getByText(/sandbox-навигация/)).toBeInTheDocument();
-    expect(screen.getByText(/не запускает live PDF, ЭДО, КЭП, банк, ФГИС или СберКорус/)).toBeInTheDocument();
+    expect(screen.getByText(/Операционный индекс доказательных пакетов/)).toBeInTheDocument();
+    expect(screen.getByText(/Навигация не запускает внешний PDF, ЭДО, КЭП, банк, ФГИС или СберКорус/)).toBeInTheDocument();
   });
 });

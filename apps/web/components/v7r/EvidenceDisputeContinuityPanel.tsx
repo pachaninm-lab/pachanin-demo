@@ -39,13 +39,13 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontSize: 11, color: isOpen ? DANGER : BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            P0-05 · доказательства → спор → деньги · тестовый режим
+            P0-05 · доказательства → спор → деньги · предынтеграционный контур
           </div>
           <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.15, fontWeight: 900, color: T }}>
             Доказательный пакет сделки {deal.id}
           </div>
           <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 880 }}>
-            Контур связывает доказательства, спор, банковское удержание и ленту сделки. Это тестовый слой: он объясняет логику удержания и проверки выплаты, но не вызывает боевые банковские, ФГИС или ЭДО-подключения.
+            Контур связывает доказательства, спор, банковское удержание и ленту сделки. Это предынтеграционный слой: он объясняет логику удержания и проверки выплаты, но не вызывает боевые банковские, ФГИС или ЭДО-подключения.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -82,7 +82,7 @@ export function EvidenceDisputeContinuityPanel({ dealId }: { dealId?: string }) 
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>Сводка готова только для тестового просмотра. PDF/ЭДО/КЭП экспорт не заявлен как боевой.</div>
+        <div style={{ fontSize: 12, color: M, lineHeight: 1.6 }}>Сводка готова только для предварительного просмотра. PDF/ЭДО/КЭП экспорт не заявлен как боевой.</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
@@ -109,7 +109,7 @@ function resolveMoneyHoldReason(deal: Deal, dispute: Dispute | undefined, eviden
   if (dispute && !['resolved', 'closed'].includes(dispute.status)) {
     return {
       title: 'Деньги удерживаются до решения спора',
-      detail: `Причина: ${dispute.reason}. Количество доказательств: ${evidenceCount}. Финальная выплата запрещена до закрытия спора и проверки документов.`,
+      detail: `Причина: ${humanDisputeReason(dispute.reason)}. Количество доказательств: ${evidenceCount}. Финальная выплата запрещена до закрытия спора и проверки документов.`,
     };
   }
   if (deal.openDisputeId || deal.status === 'DISPUTE_OPEN') {
@@ -149,10 +149,10 @@ function resolveDisputePackReadiness(deal: Deal, dispute: Dispute | undefined, e
   return {
     score,
     checks,
-    label: score >= 80 ? 'готов к тестовому просмотру' : 'требует данных',
+    label: score >= 80 ? 'готов к предварительному просмотру' : 'требует данных',
     tone: score >= 80 ? 'accent' as const : 'default' as const,
     detail: score >= 80
-      ? 'Пакет можно показывать банку и арбитру как тестовую сводку: есть доказательства, спорный контекст, журнал, лента и объяснение денежного решения.'
+      ? 'Пакет можно показывать банку и арбитру как предварительную сводку: есть доказательства, спорный контекст, журнал, лента и объяснение денежного решения.'
       : 'Пакет нельзя подавать как полный: не хватает доказательств, спорного контекста, журнала или ленты сделки.',
   };
 }
@@ -209,8 +209,10 @@ function humanDisputeStatus(value: string) {
 function humanDisputeReason(value: string) {
   const labels: Record<string, string> = {
     quality_mismatch: 'Расхождение качества',
+    quality_delta: 'Расхождение качества',
     weight_mismatch: 'Расхождение веса',
     document_mismatch: 'Расхождение документов',
+    missing_document: 'Расхождение документов',
     late_delivery: 'Срыв срока доставки',
   };
   return labels[value] || human(value);
