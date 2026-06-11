@@ -1,4 +1,5 @@
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { ExecutiveSignalWall, type ExecutiveSignal } from '@/components/platform-v7/ExecutiveSignalWall';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -33,18 +34,67 @@ export default async function ExecutivePage() {
     ...(pendingBank > 0 ? [{ id: 'outbox', label: `${pendingBank} банковских операций ожидают подтверждения`, severity: 'warn' as const }] : []),
   ];
 
-  const kpis = [
-    { label: 'Сделки (всего)', value: String(dealList.length), sub: `${activeDeals.length} активных` },
-    { label: 'Объём', value: formatMoney(totalVolume), sub: 'сумма всех сделок' },
-    { label: 'Рейсы', value: String(shipmentCount), sub: 'активных рейсов' },
-    { label: 'Споры', value: String(disputeCount), sub: `${formatMoney(heldRub)} заморожено` },
-    { label: 'Банк', value: String(pendingBank), sub: 'ожидают callback' },
+  const mainBlocker = liveBlockers[0]?.label ?? 'блокеров нет';
+
+  const signals: ExecutiveSignal[] = [
+    {
+      label: 'Деньги в блоке',
+      value: formatMoney(heldRub),
+      detail: disputeCount > 0 ? 'удержано до решения открытых споров' : 'удержаний по спорам нет',
+      state: heldRub > 0 ? 'stop' : 'ok',
+    },
+    {
+      label: 'Открытые споры',
+      value: String(disputeCount),
+      detail: disputeCount > 0 ? 'каждый спор останавливает свою часть выплаты' : 'спорных сделок нет',
+      state: disputeCount > 0 ? 'stop' : 'ok',
+    },
+    {
+      label: 'Главный блокер',
+      value: liveBlockers.length > 0 ? String(liveBlockers.length) : '0',
+      detail: mainBlocker,
+      state: liveBlockers.some((b) => b.severity === 'stop') ? 'stop' : liveBlockers.length > 0 ? 'wait' : 'ok',
+    },
+    {
+      label: 'Банк ожидает',
+      value: String(pendingBank),
+      detail: pendingBank > 0 ? 'операции ждут банковского подтверждения' : 'нет операций в ожидании банка',
+      state: pendingBank > 0 ? 'wait' : 'ok',
+    },
+    {
+      label: 'Портфель',
+      value: formatMoney(totalVolume),
+      detail: `${dealList.length} сделок · ${activeDeals.length} активных · ${shipmentCount} рейсов`,
+      state: 'ok',
+    },
   ];
 
+  const th: React.CSSProperties = {
+    padding: '10px 14px',
+    textAlign: 'left',
+    color: 'var(--pc-text-muted, #667085)',
+    fontWeight: 600,
+    fontSize: 11,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    borderBottom: '1px solid var(--pc-border, rgba(63,56,38,0.12))',
+  };
+  const td: React.CSSProperties = {
+    padding: '10px 14px',
+    color: 'var(--pc-text-secondary, #475569)',
+    fontVariantNumeric: 'tabular-nums',
+  };
+
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Исполнительная панель</h1>
-      <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>Read-only — только просмотр</p>
+    <main style={{ display: 'grid', gap: 16, maxWidth: 1080, margin: '0 auto', padding: '12px 16px 32px' }}>
+      <header style={{ display: 'grid', gap: 4 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.01em', margin: 0, color: 'var(--pc-text-primary, #0F1419)' }}>
+          Исполнительная панель
+        </h1>
+        <p style={{ color: 'var(--pc-text-muted, #667085)', fontSize: 13, margin: 0 }}>
+          Только просмотр: деньги, споры, блокеры и портфель без права действия
+        </p>
+      </header>
 
       <LiveApiStatusBar
         apiOnline={apiOnline}
@@ -54,46 +104,55 @@ export default async function ExecutivePage() {
         activeShipments={shipmentCount}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginTop: 24 }}>
-        {kpis.map((kpi) => (
-          <div key={kpi.label} style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '16px 14px' }}>
-            <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{kpi.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#111827' }}>{kpi.value}</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{kpi.sub}</div>
-          </div>
-        ))}
-      </div>
+      <ExecutiveSignalWall signals={signals} />
 
-      <div style={{ marginTop: 28, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 600, fontSize: 14 }}>
+      <section
+        style={{
+          background: 'var(--pc-bg-card, #fff)',
+          border: '1px solid var(--pc-border, rgba(63,56,38,0.12))',
+          borderRadius: 16,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '14px 16px',
+            borderBottom: '1px solid var(--pc-border, rgba(63,56,38,0.12))',
+            fontWeight: 700,
+            fontSize: 14,
+            color: 'var(--pc-text-primary, #0F1419)',
+          }}
+        >
           Сделки
         </div>
         {dealList.length === 0 ? (
-          <div style={{ padding: 24, color: '#9ca3af', textAlign: 'center', fontSize: 14 }}>Нет данных</div>
+          <div style={{ padding: 24, color: 'var(--pc-text-muted, #667085)', textAlign: 'center', fontSize: 14 }}>Нет данных</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: '#f9fafb' }}>
-                {['ID', 'Статус', 'Культура', 'Объём, т', 'Сумма', 'Владелец'].map((h) => (
-                  <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#6b7280', fontWeight: 500, borderBottom: '1px solid #e5e7eb' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {dealList.slice(0, 20).map((d, i) => (
-                <tr key={d.id} style={{ borderBottom: i < dealList.length - 1 ? '1px solid #f3f4f6' : undefined }}>
-                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: '#374151' }}>{d.id}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{d.status}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{d.culture ?? '—'}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{d.volumeTons ?? '—'}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{d.totalRub ? formatMoney(d.totalRub) : '—'}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{d.owner ?? '—'}</td>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--pc-bg-subtle, #F5F1E8)' }}>
+                  {['ID', 'Статус', 'Культура', 'Объём, т', 'Сумма', 'Владелец'].map((h) => (
+                    <th key={h} style={th}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {dealList.slice(0, 20).map((d, i) => (
+                  <tr key={d.id} style={{ borderBottom: i < dealList.length - 1 ? '1px solid var(--pc-border, rgba(63,56,38,0.08))' : undefined }}>
+                    <td style={{ ...td, fontFamily: 'var(--pc-font-mono, monospace)', color: 'var(--pc-text-primary, #0F1419)' }}>{d.id}</td>
+                    <td style={td}>{d.status}</td>
+                    <td style={td}>{d.culture ?? '—'}</td>
+                    <td style={td}>{d.volumeTons ?? '—'}</td>
+                    <td style={td}>{d.totalRub ? formatMoney(d.totalRub) : '—'}</td>
+                    <td style={td}>{d.owner ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
