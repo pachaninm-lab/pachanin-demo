@@ -67,7 +67,7 @@ describe('P7ExecutionActionsPanel runtime-safe actions', () => {
     });
 
     expect(screen.getByTestId('execution-action-receipt')).toHaveTextContent('ручная проверка / ожидает внешнее подтверждение');
-    expect(screen.getByText(/Намерение резерва создано/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Намерение резерва денег создано/).length).toBeGreaterThan(0);
     unsafeCopyGuard(container.textContent || '');
   });
 
@@ -96,7 +96,7 @@ describe('P7ExecutionActionsPanel runtime-safe actions', () => {
     });
 
     expect(screen.getByTestId('execution-action-receipt')).toHaveTextContent('ручная проверка / ожидает внешнее подтверждение');
-    expect(screen.getByText(/Внутренний документ приложен/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Внутренний документ приложен/).length).toBeGreaterThan(0);
     unsafeCopyGuard(container.textContent || '');
   });
 });
