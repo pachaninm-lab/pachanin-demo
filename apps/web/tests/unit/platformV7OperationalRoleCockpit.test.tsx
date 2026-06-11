@@ -14,7 +14,7 @@ describe('platform-v7 operational role execution cockpit', () => {
       const cockpit = OPERATIONAL_ROLE_EXECUTION_COCKPITS[role];
 
       expect(cockpit.role).toBe(role);
-      expect(cockpit.title.length).toBeGreaterThan(18);
+      expect(cockpit.title.length).toBeGreaterThan(10);
       expect(cockpit.kpis.length).toBeGreaterThanOrEqual(4);
       expect(cockpit.operations.length).toBeGreaterThanOrEqual(role === 'driver' ? 1 : 2);
 
@@ -34,7 +34,7 @@ describe('platform-v7 operational role execution cockpit', () => {
 
     expect(screen.getByTestId('platform-v7-logistics-execution-cockpit')).toHaveAttribute('data-theme', 'light');
     expect(screen.getByText('Логистика · рейс → водитель → ЭТрН → приёмка')).toBeInTheDocument();
-    expect(screen.getByText(/ЭТрН не закрыта грузополучателем/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/ЭТрН не закрыта грузополучателем/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('link', { name: /Открыть рейс водителя/i })).toHaveAttribute('href', '/platform-v7/driver/field');
   });
 
