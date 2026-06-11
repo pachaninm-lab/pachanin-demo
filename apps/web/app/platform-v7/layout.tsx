@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { AppShellV4 } from '@/components/v7r/AppShellV4';
 import { ToastProvider } from '@/components/v7r/Toast';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
+import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { CommandPalette } from '@/components/platform-v7/CommandPalette';
@@ -50,6 +51,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   return (
     <ToastProvider>
       <PlatformThemeSync />
+      <ShellCopyNormalizer />
       <AppShellV4 initialRole={initialRole}>
         <>
           <ScopedShellGuard />
