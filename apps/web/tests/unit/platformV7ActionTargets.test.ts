@@ -8,7 +8,7 @@ import {
 
 describe('platform-v7 action targets', () => {
   it('covers at least twenty action buttons for E03', () => {
-    expect(PLATFORM_V7_ACTION_TARGETS).toHaveLength(20);
+    expect(PLATFORM_V7_ACTION_TARGETS.length).toBeGreaterThanOrEqual(20);
     expect(PLATFORM_V7_ACTION_TARGETS.every((target) => target.requiresFeedback)).toBe(true);
   });
 
