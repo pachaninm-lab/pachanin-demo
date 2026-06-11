@@ -15,8 +15,8 @@ describe('runtime deal completeness', () => {
 
   it('computes control tower money totals from selector data', () => {
     const kpis = selectControlTowerKpis();
-    expect(kpis.reserveTotal).toBeGreaterThan(0);
-    expect(kpis.heldAmount).toBeGreaterThanOrEqual(0);
-    expect(kpis.readyToRelease).toBeGreaterThanOrEqual(0);
+    expect(kpis.reserveTotal.value).toBeGreaterThan(0);
+    expect(kpis.heldAmount.value).toBeGreaterThanOrEqual(0);
+    expect(kpis.readyToRelease.value).toBeGreaterThanOrEqual(0);
   });
 });
