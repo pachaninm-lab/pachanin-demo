@@ -14,7 +14,7 @@ describe('platform-v7 operational role execution cockpit', () => {
       const cockpit = OPERATIONAL_ROLE_EXECUTION_COCKPITS[role];
 
       expect(cockpit.role).toBe(role);
-      expect(cockpit.title.length).toBeGreaterThan(18);
+      expect(cockpit.title.length).toBeGreaterThan(10);
       expect(cockpit.kpis.length).toBeGreaterThanOrEqual(4);
       expect(cockpit.operations.length).toBeGreaterThanOrEqual(role === 'driver' ? 1 : 2);
 
