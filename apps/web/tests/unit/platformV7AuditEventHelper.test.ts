@@ -80,7 +80,7 @@ describe('platform-v7 audit event helper', () => {
     });
 
     expect(validatePlatformV7AuditEvent(event)).toMatchObject({ ok: false });
-    expect(validatePlatformV7AuditEvent(event).issues).toContain('Money-affecting audit event must include amount and currency.');
+    expect(validatePlatformV7AuditEvent(event).issues).toContain('Direct money audit event must include amount and currency.');
   });
 
   it('rejects deal-bound events without deal id or idempotency key', () => {

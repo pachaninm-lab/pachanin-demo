@@ -36,7 +36,7 @@ describe('platform-v7 persistence repository foundation', () => {
 
     expect(repository.save(invalid)).toEqual({
       ok: false,
-      error: 'Owner id is required for deal. Idempotency key is required. Audit link is required for deal.',
+      error: 'Idempotency key is required. Owner id is required for deal. Audit link is required for deal.',
     });
   });
 

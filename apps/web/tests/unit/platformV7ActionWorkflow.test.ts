@@ -18,7 +18,7 @@ describe('platform-v7 action workflow', () => {
     expect(outcome.feedback.map((item) => item.status)).toEqual(['loading', 'success']);
     expect(outcome.log).toHaveLength(2);
     expect(outcome.toasts).toEqual([
-      expect.objectContaining({ message: 'DL-9102: Деньги по сделке выпущены.', type: 'success' }),
+      expect.objectContaining({ message: 'DL-9102: Основание передано на банковскую проверку.', type: 'success' }),
     ]);
   });
 
