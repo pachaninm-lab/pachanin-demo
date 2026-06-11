@@ -35,8 +35,8 @@ describe('platform-v7 shell notification center model', () => {
       'ntf-document-dl-9102-missing-pack',
       'ntf-money-dl-9109-release-review',
       'ntf-system-sandbox-marker',
-      'ntf-document-dl-9109-gate-ok',
       'ntf-risk-dl-9102-anti-bypass',
+      'ntf-document-dl-9109-gate-ok',
     ]);
     expect(model.items).toHaveLength(platformV7ShellNotifications().length);
   });
