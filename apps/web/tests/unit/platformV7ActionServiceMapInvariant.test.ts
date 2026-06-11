@@ -10,12 +10,18 @@ import {
 import { PLATFORM_V7_EXECUTION_SERVICE_NAMES } from '@/lib/platform-v7/execution-service-registry-contract';
 import {
   doesPlatformV7ServiceExposeWriteMethods,
+  PLATFORM_V7_REQUIRED_SERVICE_NAMES,
   type PlatformV7RequiredServiceName,
 } from '@/lib/platform-v7/service-contracts';
+import {
+  doesPlatformV7TripServiceExposeWriteMethods,
+  PLATFORM_V7_TRIP_SERVICE_NAME,
+} from '@/lib/platform-v7/trip-service-contract';
 
 const policyActionIds = PLATFORM_V7_ACTION_PERMISSION_POLICIES.map((policy) => policy.actionId);
 const serviceMapActionIds = Object.keys(PLATFORM_V7_ACTION_SERVICE_MAP) as PlatformV7ActionPermissionId[];
 const executionServiceNames = new Set<string>(PLATFORM_V7_EXECUTION_SERVICE_NAMES);
+const requiredServiceNames = new Set<string>(PLATFORM_V7_REQUIRED_SERVICE_NAMES);
 
 describe('platform-v7 action service map invariant', () => {
   it('keeps the action service map complete against permission policies', () => {
@@ -31,6 +37,15 @@ describe('platform-v7 action service map invariant', () => {
 
   it('keeps every mapped action service attached to an explicit write surface', () => {
     for (const [actionId, serviceName] of Object.entries(PLATFORM_V7_ACTION_SERVICE_MAP)) {
+      if (serviceName === PLATFORM_V7_TRIP_SERVICE_NAME) {
+        expect(
+          doesPlatformV7TripServiceExposeWriteMethods(),
+          `${actionId}:trip:write-surface`,
+        ).toBe(true);
+        continue;
+      }
+
+      expect(requiredServiceNames.has(serviceName), `${actionId}:${serviceName}`).toBe(true);
       expect(
         doesPlatformV7ServiceExposeWriteMethods(serviceName as PlatformV7RequiredServiceName),
         `${actionId}:${serviceName}`,
