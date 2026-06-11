@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf8');
+const repoRoot = existsSync(path.join(process.cwd(), '.github/workflows')) ? process.cwd() : path.join(process.cwd(), '..', '..');
+const read = (file: string) => readFileSync(path.join(file.startsWith('.github/') ? repoRoot : process.cwd(), file), 'utf8');
 
 describe('platform-v7 public smoke audit', () => {
   it('keeps deployed platform routes, viewports and screenshots covered', () => {

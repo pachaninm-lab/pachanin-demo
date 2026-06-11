@@ -132,7 +132,7 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; ico
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'реестр и статусы' },
     { href: '/platform-v7/lots', label: 'Лоты и запросы', icon: 'lots', note: 'предсделочный контур' },
     { href: '/platform-v7/logistics', label: 'Логистика', icon: 'logistics', note: 'рейсы и отклонения' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и основания' },
+    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и банковская проверка' },
     { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'удержания и доказательства' },
     { href: '/platform-v7/connectors', label: 'Подключения', icon: 'integrations', note: 'ФГИС, банк, ЭДО' },
     { href: '/platform-v7/executive', label: 'Сводка', icon: 'analytics', note: 'управленческий срез' },
@@ -141,7 +141,7 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; ico
     { href: '/platform-v7/buyer', label: 'Кабинет', icon: 'cabinet', note: 'мои заявки и сделки' },
     { href: '/platform-v7/procurement', label: 'Закупки', icon: 'procurement', note: 'потребности и предложения' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'исполнение и документы' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и условия проверки' },
+    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и условия банка' },
   ],
   seller: [
     { href: '/platform-v7/seller', label: 'Кабинет', icon: 'cabinet', note: 'мои партии и офферы' },
@@ -172,7 +172,7 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; ico
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'привязка к рейсам' },
   ],
   bank: [
-    { href: '/platform-v7/bank', label: 'Банковый контур', icon: 'bank', note: 'резерв, удержание, статус' },
+    { href: '/platform-v7/bank', label: 'Банковый контур', icon: 'bank', note: 'резерв, удержание, подтверждение' },
     { href: '/platform-v7/bank/factoring', label: 'Факторинг', icon: 'bank', note: 'заявка и статус' },
     { href: '/platform-v7/bank/escrow', label: 'Эскроу', icon: 'bank', note: 'условия удержания' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'проверка условий' },
