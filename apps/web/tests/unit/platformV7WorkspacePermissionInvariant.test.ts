@@ -16,7 +16,7 @@ const WORKSPACE_ACTION_PERMISSION_IDS = {
   'start-documents': ['document.attach'],
   'complete-documents': ['document.accept'],
   'open-dispute': ['dispute.open'],
-  'resolve-dispute': ['arbitration.record_decision'],
+  'resolve-dispute': ['arbitration.record_decision', 'bank.mark_money_ready_to_release'],
   'open-bank': [],
   'open-disputes': [],
 } as const satisfies Record<PlatformV7DealWorkspaceActionId, readonly PlatformV7ActionPermissionId[]>;
