@@ -41,6 +41,6 @@ export function buildPlatformV7FgisCheckRuntimeAction(input: PlatformV7FgisCheck
     partyId,
     event,
     uiStatusLabel: 'запрос сверки ФГИС создан',
-    uiSafetyNote: 'Платформа ждёт внешнее событие ФГИС и не считает партию, остаток или СДИЗ подтверждёнными.',
+    uiSafetyNote: 'Платформа ждёт внешнее событие ФГИС и не считает партию, остаток или СДИЗ закрытыми.',
   };
 }

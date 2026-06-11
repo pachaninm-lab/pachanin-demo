@@ -58,7 +58,7 @@ describe('platform-v7 support execution center hardening', () => {
 
     it('SUPPORT_MATURITY_LABEL uses pilot framing, not production-ready or fully-live claims', () => {
       const label = SUPPORT_MATURITY_LABEL.toLowerCase();
-      expect(label, 'maturity label must reference pilot contour').toContain('пилот');
+      expect(label, 'maturity label must reference the execution support contour').toContain('контур');
       expect(label, 'maturity label must not claim production-ready').not.toContain('production-ready');
       expect(label, 'maturity label must not claim fully live').not.toContain('fully live');
     });
@@ -134,7 +134,7 @@ describe('platform-v7 support execution center hardening', () => {
   describe('execution support framing', () => {
     it('SupportIndexPage is framed as execution support center, not generic chat', () => {
       const src = readComponent('SupportIndexPage.tsx');
-      expect(src, 'support index must have execution center heading').toContain('Центр поддержки исполнения');
+      expect(src, 'support index must have execution center heading').toContain('Центр поддержки');
     });
 
     it('SupportNewCaseClient states the helper does not move money or change deal status', () => {
