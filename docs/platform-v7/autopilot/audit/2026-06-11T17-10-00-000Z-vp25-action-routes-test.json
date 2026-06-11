@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T17:10:00.000Z",
+  "task": "VP-2.5 action permission routes test refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7ActionRoutes.test.ts"
+  ],
+  "sourceOfTruth": "Current action permission policies intentionally share several platform-v7 role routes while keeping action ids unique and namespaced.",
+  "changes": [
+    "Replaced the obsolete unique-route assertion with an explicit shared-route map for the current controlled-pilot action policy surface."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}
