@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-11T18:25:00.000Z",
+  "task": "VP-2.5 operational role cockpit title test refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7OperationalRoleCockpit.test.tsx"
+  ],
+  "sourceOfTruth": "Current operational role cockpit keeps a concise driver title while preserving the shared title/status/fact/blocker/next/action grammar.",
+  "changes": [
+    "Relaxed the title-length invariant to allow the current concise driver title."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false,
+  "replacesClosedPr": 1722
+}
