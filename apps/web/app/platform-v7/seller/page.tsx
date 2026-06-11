@@ -9,6 +9,7 @@ import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
+import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
 import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
@@ -148,6 +149,16 @@ export default async function PlatformV7SellerPage() {
       <section style={metricsGrid}>
         {sellerMetrics.map((metric) => <Metric key={metric.label} metric={metric} />)}
       </section>
+
+      <MoneyGateRing
+        title='Деньги по сделке DL-9106'
+        totalRub={9_648_000}
+        segments={[
+          { label: 'Банк подтвердил выплату', amountRub: 0, state: 'released' },
+          { label: 'Резерв заявлен покупателем', amountRub: 9_648_000, state: 'reserved' },
+        ]}
+        caption='Резерв ожидает банковского подтверждения; выплата остановлена документными условиями (СДИЗ, ЭТрН, акт приёмки, протокол качества).'
+      />
 
       <MoneyImpactSummaryStrip
         amountContext='резерв 9,65 млн ₽ · на проверку банку 0 ₽'
