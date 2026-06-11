@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T19:59:00.000Z",
+  "task": "VP-2.5 action service trip write-surface invariant refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7ActionServiceMapInvariant.test.ts"
+  ],
+  "sourceOfTruth": "Trip is part of the platform-v7 execution service registry through its dedicated trip-service contract instead of the generic service-contracts registry.",
+  "changes": [
+    "Aligned the action-service invariant test with the existing trip write-surface helper while keeping all generic services checked through service-contracts."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}
