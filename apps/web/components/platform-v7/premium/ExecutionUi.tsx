@@ -164,7 +164,7 @@ function DocumentMatrix({ documents }: { documents: DealDocumentModel[] }) {
 }
 
 function ExecutionChain({ steps }: { steps: ExecutionStepModel[] }) {
-  return <Card title="Цепочка исполнения" eyebrow="этап · ответственный · влияние" className={styles.span6}><div className={styles.executionList}>{steps.map((step) => <article key={step.id} className={styles.executionStep} data-status={step.status}><div className={styles.executionMain}><strong>{limitPremiumText(step.label, 68)}</strong><span>{limitPremiumText(step.nextAction ?? step.blocks ?? 'следить за этапом', 76)}</span></div><Badge tone={step.status === 'done' ? 'success' : step.status === 'blocked' ? 'danger' : step.status === 'active' ? 'info' : 'warning'}>{stepLabels[step.status]}</Badge><div className={styles.executionMeta}><span>{limitPremiumText(step.responsible, 56)}</span>{step.moneyImpactRub ? <span>{formatPremiumRubCompact(step.moneyImpactRub)}</span> : null}</div></article>)}</div></Card>;
+  return <Card title="Цепочка исполнения" eyebrow="этап · ответственный · влияние" className={styles.span6}><div className={styles.executionList}>{steps.map((step, index) => <article key={`${step.id}-${index}`} className={styles.executionStep} data-status={step.status}><div className={styles.executionMain}><strong>{limitPremiumText(step.label, 68)}</strong><span>{limitPremiumText(step.nextAction ?? step.blocks ?? 'следить за этапом', 76)}</span></div><Badge tone={step.status === 'done' ? 'success' : step.status === 'blocked' ? 'danger' : step.status === 'active' ? 'info' : 'warning'}>{stepLabels[step.status]}</Badge><div className={styles.executionMeta}><span>{limitPremiumText(step.responsible, 56)}</span>{step.moneyImpactRub ? <span>{formatPremiumRubCompact(step.moneyImpactRub)}</span> : null}</div></article>)}</div></Card>;
 }
 
 function EvidencePack({ evidence }: { evidence: EvidenceModel[] }) {
@@ -175,7 +175,7 @@ function EvidencePack({ evidence }: { evidence: EvidenceModel[] }) {
 
 function RiskHeatline({ risks }: { risks: RiskItemModel[] }) {
   if (risks.length === 0) return null;
-  return <Card title="Риски исполнения" eyebrow="что может остановить сделку" className={styles.span6}><div className={styles.list}>{risks.map((risk) => <article key={risk.id} className={styles.step}><div className={styles.stepTop}><strong>{limitPremiumText(risk.label, 64)}</strong><Badge tone={risk.tone}>риск</Badge></div><p>{limitPremiumText(risk.detail, premiumTextLimits.description)}</p></article>)}</div></Card>;
+  return <Card title="Риски исполнения" eyebrow="что может остановить сделку" className={styles.span6}><div className={styles.list}>{risks.map((risk, index) => <article key={`${risk.id}-${index}`} className={styles.step}><div className={styles.stepTop}><strong>{limitPremiumText(risk.label, 64)}</strong><Badge tone={risk.tone}>риск</Badge></div><p>{limitPremiumText(risk.detail, premiumTextLimits.description)}</p></article>)}</div></Card>;
 }
 
 function Timeline({ items }: { items: TimelineEventModel[] }) {
