@@ -8,11 +8,11 @@ describe('DealEvidencePackPreview', () => {
     render(<DealEvidencePackPreview dealId='DL-9113' />);
 
     const preview = screen.getByTestId('deal-evidence-pack-preview');
-    expect(within(preview).getByText('P0-06 · deal-level evidence pack · sandbox')).toBeInTheDocument();
-    expect(within(preview).getByText('Evidence pack preview по сделке DL-9113')).toBeInTheDocument();
-    expect(within(preview).getByText(/без live PDF, ЭДО или КЭП-экспорта/)).toBeInTheDocument();
+    expect(within(preview).getByText('доказательный пакет · проверочный контур')).toBeInTheDocument();
+    expect(within(preview).getByText('Доказательный пакет по сделке DL-9113')).toBeInTheDocument();
+    expect(within(preview).getByText(/без внешнего PDF, ЭДО или КЭП-экспорта/)).toBeInTheDocument();
     expect(within(preview).getByTestId('evidence-dispute-continuity-panel')).toBeInTheDocument();
-    expect(within(preview).getByText('Dispute pack readiness')).toBeInTheDocument();
+    expect(within(preview).getByText('Готовность спорного пакета')).toBeInTheDocument();
   });
 
   it('links deal preview to deal, disputes and bank routes', () => {

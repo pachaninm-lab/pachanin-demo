@@ -11,8 +11,8 @@ describe('platform-v7 evidence readiness UI model', () => {
       statusLabel: 'Готов к разбору',
       statusTone: 'success',
       scoreLabel: '100%',
-      requiredLabel: '3/3 required',
-      totalLabel: '4 evidence objects',
+      requiredLabel: '3/3 обязательных',
+      totalLabel: '4 доказательств',
       blockers: [],
     });
     expect(model.items).toHaveLength(4);
@@ -29,13 +29,13 @@ describe('platform-v7 evidence readiness UI model', () => {
     expect(model.scoreLabel).toBe('0%');
     expect(model.items).toEqual([]);
     expect(model.blockers).toEqual(expect.arrayContaining([
-      'Не хватает обязательного evidence: lab_protocol',
-      'Не хватает обязательного evidence: transport_document',
-      'Не хватает обязательного evidence: photo',
+      'Не хватает обязательного доказательства: lab_protocol',
+      'Не хватает обязательного доказательства: transport_document',
+      'Не хватает обязательного доказательства: photo',
     ]));
     expect(model.limitations).toEqual(expect.arrayContaining([
-      'Live file upload не подключён.',
-      'Binary payload hashing не подключён.',
+      'Живая загрузка файлов не подключена.',
+      'Хеширование файлового содержимого не подключено.',
       'Квалифицированная электронная подпись не подключена.',
     ]));
   });

@@ -10,7 +10,7 @@ describe('AuditSurfaceSummary', () => {
 
     expect(screen.getByTestId('platform-v7-audit-surface-bank')).toBeInTheDocument();
     expect(screen.getAllByText('Банковский контур').length).toBeGreaterThan(0);
-    expect(screen.getByText('нет фальшивой выплаты')).toBeInTheDocument();
+    expect(screen.getByText(/нет фальшивой выплаты/)).toBeInTheDocument();
     expect(screen.getByText(/выпуск не разрешён без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Проверить условия выпуска' })).toHaveAttribute('href', '/platform-v7/bank/release-safety');
   });
@@ -30,7 +30,7 @@ describe('AuditSurfaceSummary', () => {
 
     expect(screen.getByTestId('platform-v7-audit-surface-disputes')).toBeInTheDocument();
     expect(screen.getAllByText('Контур спора').length).toBeGreaterThan(0);
-    expect(screen.getByText('доказательства до решения')).toBeInTheDocument();
+    expect(screen.getByText(/доказательства до решения/)).toBeInTheDocument();
     expect(screen.getByText(/сумма под риском связана с удержанием/i)).toBeInTheDocument();
     expect(screen.getByText(/спор нельзя закрыть без доказательного пакета/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Открыть споры' })).toHaveAttribute('href', '/platform-v7/disputes');
