@@ -4,8 +4,8 @@ import { render, screen } from '@testing-library/react';
 import PlatformV7SellerPage from '@/app/platform-v7/seller/page';
 
 describe('seller mobile clarity copy', () => {
-  it('uses bank-boundary wording and avoids payout-control claims', () => {
-    const { container } = render(<PlatformV7SellerPage />);
+  it('uses bank-boundary wording and avoids payout-control claims', async () => {
+    const { container } = render(await PlatformV7SellerPage());
     const text = container.textContent || '';
 
     expect(screen.getByText('Лоты, документы и банковская проверка')).toBeInTheDocument();
