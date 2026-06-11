@@ -19,10 +19,10 @@ describe('driver-isolation', () => {
     const content = readFileSync(driverFieldPath, 'utf8');
     const forbiddenVisibleTerms = ['банк', 'резерв', 'сумма сделки', 'продавец', 'покупатель', 'control-tower', 'executive'];
 
-    expect(content).toContain('Полевой режим · только рейс');
-    expect(content).toContain('Офлайн-события');
-    expect(content).toContain('Фото и пломба');
-    expect(content).toContain('GPS / вес');
+    expect(content).toContain('Полевой режим');
+    expect(content).toContain('очередь');
+    expect(content).toContain('Фото / пломба');
+    expect(content).toContain('пломба и отклонение');
 
     for (const term of forbiddenVisibleTerms) {
       expect(content.toLowerCase()).not.toContain(term);

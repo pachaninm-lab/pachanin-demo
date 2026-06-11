@@ -122,7 +122,7 @@ export function getPlatformActionDisabledReason(state: DomainExecutionState, com
   if (!allowedRolesByAction[command.type].includes(command.actor.role)) return `Роль ${command.actor.role} не может выполнить ${command.type}`;
   if ((command.type === 'requestReserve' || command.type === 'confirmReserve') && !command.idempotencyKey) return 'Банковое действие требует idempotencyKey';
 
-  if (command.type !== 'createLot' && command.type !== 'publishLot' && command.type !== 'acceptOffer') {
+  if (command.type !== 'createLot' && command.type !== 'publishLot' && command.type !== 'acceptOffer' && command.type !== 'createDeal') {
     const dealId = String(command.payload.dealId || '');
     if (dealId && !state.deals.some((deal) => deal.id === dealId)) return `Сделка не найдена: ${dealId}`;
   }

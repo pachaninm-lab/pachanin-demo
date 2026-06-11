@@ -11,7 +11,7 @@ describe('P7GuardedActionButton', () => {
 
     render(<P7GuardedActionButton target={target!} activeActionId={null} />);
 
-    const button = screen.getByRole('button', { name: 'Выпустить деньги' });
+    const button = screen.getByRole('button', { name: 'Передать основание банку' });
     expect(button).toBeEnabled();
     expect(button).toHaveAttribute('data-guard-state', 'ready');
   });
