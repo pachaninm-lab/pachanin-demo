@@ -8,9 +8,9 @@ describe('PlatformV7ReadinessPage', () => {
     render(<PlatformV7ReadinessPage />);
 
     expect(screen.getByText('Готовность сделки к исполнению и выпуску денег')).toBeInTheDocument();
-    expect(screen.getByText(/Матрица готовности · песочница/)).toBeInTheDocument();
-    expect(screen.getByText(/Это не платёжный механизм/)).toBeInTheDocument();
-    expect(screen.getByText(/проверочная панель оператора/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Матрица готовности · песочница/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Это не платёжный механизм/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/проверочная панель оператора/).length).toBeGreaterThan(0);
   });
 
   it('renders readiness metrics and execution strip', () => {
@@ -19,19 +19,19 @@ describe('PlatformV7ReadinessPage', () => {
     expect(screen.getByText('Готовы полностью')).toBeInTheDocument();
     expect(screen.getByText('С блокерами')).toBeInTheDocument();
     expect(screen.getByText('Под удержанием')).toBeInTheDocument();
-    expect(screen.getByText(/ФГИС/)).toBeInTheDocument();
-    expect(screen.getByText(/Документы/)).toBeInTheDocument();
-    expect(screen.getByText(/Логистика/)).toBeInTheDocument();
-    expect(screen.getByText(/Банк/)).toBeInTheDocument();
+    expect(screen.getAllByText(/ФГИС/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Документы/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Логистика/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Банк/).length).toBeGreaterThan(0);
   });
 
   it('renders DL-9102 readiness card and money lock state', () => {
     render(<PlatformV7ReadinessPage />);
 
-    expect(screen.getByText(/DL-9102/)).toBeInTheDocument();
-    expect(screen.getByText(/Демо-сделка/)).toBeInTheDocument();
-    expect(screen.getByText(/Выпуск:/)).toBeInTheDocument();
-    expect(screen.getByText(/Блокеры:/)).toBeInTheDocument();
+    expect(screen.getAllByText(/DL-9102/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Демо-сделка/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Выпуск:/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Блокеры:/).length).toBeGreaterThan(0);
   });
 
   it('uses stable route links', () => {

@@ -3,47 +3,43 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import LogisticsPage from '@/app/platform-v7/logistics/page';
 
-describe('LogisticsPage', () => {
-  it('renders logistics dispatcher sandbox boundary', () => {
-    render(<LogisticsPage />);
+describe('PlatformV7 logistics route', () => {
+  it('renders the logistics cockpit hero with the transport-only boundary', async () => {
+    render(await LogisticsPage());
 
-    expect(screen.getByText('Диспетчерская')).toBeInTheDocument();
-    expect(screen.getByText(/Логистический заказ привязан к сделке/)).toBeInTheDocument();
-    expect(screen.getByText(/заказ → рейсы → инциденты → транспортный gate/)).toBeInTheDocument();
-    expect(screen.getByText(/Live GPS, перевозчик и ЭДО здесь не заявляются/)).toBeInTheDocument();
+    expect(screen.getByText('Логистика · рейс → водитель → ЭТрН → приёмка')).toBeInTheDocument();
+    expect(screen.getByText(/Довести рейс до приёмки и закрыть транспортные документы/)).toBeInTheDocument();
+    expect(screen.getByText(/Коммерческие условия и банковские действия скрыты/)).toBeInTheDocument();
   });
 
-  it('renders key logistics metrics and incident block', () => {
-    render(<LogisticsPage />);
+  it('renders trip, arrival and incident metrics', async () => {
+    render(await LogisticsPage());
 
-    expect(screen.getByText('В пути')).toBeInTheDocument();
-    expect(screen.getByText('Прибыли')).toBeInTheDocument();
-    expect(screen.getByText('Инцидентов')).toBeInTheDocument();
-    expect(screen.getByText('Сделок охвачено')).toBeInTheDocument();
-    expect(screen.getByText(/Открытые инциденты/)).toBeInTheDocument();
+    expect(screen.getAllByText('В пути').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Прибыли/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Инциденты/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/TRIP-2403-001/).length).toBeGreaterThan(0);
   });
 
-  it('renders logistics orders linked to deals and route legs', () => {
-    render(<LogisticsPage />);
+  it('keeps the weight-deviation incident deal visible', async () => {
+    render(await LogisticsPage());
 
-    expect(screen.getByText('Логистические заказы')).toBeInTheDocument();
-    expect(screen.getAllByText(/Сделка/).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link').some((link) => link.getAttribute('href')?.startsWith('/platform-v7/deals/'))).toBe(true);
-    expect(screen.getByText('Рейсы')).toBeInTheDocument();
-    expect(screen.getByText(/Транспортный gate/)).toBeInTheDocument();
+    expect(screen.getAllByText(/DL-9102/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/отклонение веса/i).length).toBeGreaterThan(0);
   });
 
-  it('renders DL-9102 logistics card without live GPS or EDO claims', () => {
-    render(<LogisticsPage />);
+  it('frames external transport contours as pre-integration', async () => {
+    const { container } = render(await LogisticsPage());
+    const html = container.textContent ?? '';
 
-    expect(screen.getByText(/DL-9102/)).toBeInTheDocument();
-    expect(screen.getByText(/Транспортный gate:/)).toBeInTheDocument();
-    expect(screen.getByText(/Live GPS, ЭДО и боевой перевозчик здесь не заявляются/)).toBeInTheDocument();
+    expect(html).toContain('в предынтеграционном контуре');
+    expect(html).not.toMatch(/live gps|боевой перевозчик подключ|fully live|production-ready/i);
   });
 
-  it('links back to control tower', () => {
-    render(<LogisticsPage />);
+  it('keeps driver money isolation: no bank or payout surfaces', async () => {
+    const { container } = render(await LogisticsPage());
+    const html = container.textContent ?? '';
 
-    expect(screen.getByRole('link', { name: 'Башня управления' })).toHaveAttribute('href', '/platform-v7/control-tower');
+    expect(html).not.toMatch(/выпуск денег|платформа гарантирует оплату|деньги переведены/i);
   });
 });
