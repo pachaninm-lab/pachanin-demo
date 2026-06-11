@@ -1,11 +1,10 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import PlatformV7BankPage from '@/app/platform-v7/bank/page';
 
 describe('platform-v7 bank release review decision pack placement', () => {
-  it('keeps the bank release review decision pack on the bank page', () => {
-    const { container } = render(<PlatformV7BankPage />);
+  it('keeps the bank release review decision pack on the bank page', async () => {
+    const { container } = render(await PlatformV7BankPage());
     const text = container.textContent ?? '';
 
     expect(screen.getAllByTestId('platform-v7-decision-pack-mini-panel')).toHaveLength(1);
