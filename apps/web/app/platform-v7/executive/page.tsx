@@ -1,5 +1,6 @@
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { ExecutiveSignalWall, type ExecutiveSignal } from '@/components/platform-v7/ExecutiveSignalWall';
+import { EmptyState } from '@/components/platform-v7/EmptyState';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -126,7 +127,7 @@ export default async function ExecutivePage() {
           Сделки
         </div>
         {dealList.length === 0 ? (
-          <div style={{ padding: 24, color: 'var(--pc-text-muted, #667085)', textAlign: 'center', fontSize: 14 }}>Нет данных</div>
+          <EmptyState title='Сделок пока нет' description='Когда сделки появятся в контуре исполнения, они отобразятся здесь с суммами, статусом и блокерами.' />
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
