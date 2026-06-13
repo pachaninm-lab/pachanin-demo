@@ -40,7 +40,7 @@ export const PLATFORM_V7_DEMO_TOUR_STEPS: PlatformV7DemoTourStep[] = [
     route: '/platform-v7/logistics',
     durationMs: 26000,
     title: 'Логистика и контроль',
-    narration: 'Маршрут, ETA, водитель, документы перевозки и отклонения видны оператору до приёмки.',
+    narration: 'Маршрут, время прибытия, водитель, документы перевозки и отклонения видны оператору до приёмки.',
     highlights: ['route-map', 'eta', 'transport-documents'],
   },
   {

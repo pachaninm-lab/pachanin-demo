@@ -32,7 +32,7 @@ describe('DriverMissionRouteCard', () => {
       <DriverMissionRouteCard tripId='TRIP-X' route='А → Б' progressPercent={10} stageLabel='в пути' photoChecklist={[]} />,
     );
 
-    expect(screen.getByText(/не управляет деньгами/)).toBeInTheDocument();
+    expect(screen.getByText(/финансовых действий на экране нет/)).toBeInTheDocument();
   });
 
   it('clamps progress into 0..100', () => {
