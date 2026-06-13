@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm --filter @pc/web build"
+  command = "pnpm install --frozen-lockfile --config.node-linker=hoisted && pnpm --filter @pc/web build"
   publish = "apps/web/.next"
 
 [build.environment]
@@ -7,6 +7,7 @@
   PNPM_VERSION = "10.2.1"
   NEXT_TELEMETRY_DISABLED = "1"
   PNPM_CONFIG_NODE_LINKER = "hoisted"
+  NPM_FLAGS = "--config.node-linker=hoisted"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
