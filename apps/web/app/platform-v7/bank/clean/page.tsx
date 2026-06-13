@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
+import { getPlatformV7BankCockpitState } from '@/lib/platform-v7/runtime/bank-cockpit-state';
+import { getPlatformV7DisputeCockpitState } from '@/lib/platform-v7/runtime/dispute-cockpit-state';
 
 const micro: CSSProperties = {
   fontSize: 11,
@@ -43,6 +45,9 @@ export default function BankCleanPage() {
   const deal = getDeal360Scenario('DL-9106');
   const disputed = getDeal360Scenario('DL-9102');
   const blockingDocs = deal.documents.filter((doc) => doc.blocksMoney);
+  // VP-6/VP-7: суммы и основание читаются из runtime-слоя Stage 5.
+  const bank = getPlatformV7BankCockpitState();
+  const disputeState = getPlatformV7DisputeCockpitState();
 
   return (
     <main style={{ display: 'grid', gap: 16, maxWidth: 1080, margin: '0 auto', padding: '12px 0 32px' }}>
@@ -56,11 +61,11 @@ export default function BankCleanPage() {
       </header>
 
       <MoneyGateRing
-        title={`Деньги по сделке ${deal.dealId}`}
+        title={`Деньги по сделке ${bank.dealId}`}
         totalRub={9_648_000}
         segments={[
-          { label: 'Банк подтвердил выплату', amountRub: 0, state: 'released' },
-          { label: 'Резерв заявлен покупателем', amountRub: 9_648_000, state: 'reserved' },
+          { label: 'Банк подтвердил выплату', amountRub: bank.releasedRub, state: 'released' },
+          { label: 'Резерв заявлен покупателем', amountRub: bank.reservedRub, state: 'reserved' },
         ]}
         caption='Основание выплаты не передано: документные условия не закрыты. Банковское подтверждение резерва ожидается.'
       />
@@ -131,6 +136,9 @@ export default function BankCleanPage() {
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: 'var(--pc-text-secondary, #475569)' }}>
           Спорные и нестандартные основания уходят на ручную проверку банковского операциониста. Платформа фиксирует передачу основания и ждёт банковское событие; статус всегда дублируется текстом в журнале сделки.
         </p>
+        <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #667085)', lineHeight: 1.5 }}>
+          Контур исполнения (runtime): {bank.basisLabel}; удержание по спору {disputeState.heldLabel}.
+        </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/bank/release-safety' style={{ color: 'var(--pc-accent, #0A7A5F)', fontWeight: 700, fontSize: 13 }}>
             Проверка выплаты

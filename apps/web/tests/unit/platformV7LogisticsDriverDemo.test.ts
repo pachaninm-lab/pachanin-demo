@@ -16,10 +16,16 @@ describe('platform-v7 logistics driver simulation', () => {
     const inbox = read('app/platform-v7/logistics/inbox/page.tsx');
     const driver = read('app/platform-v7/driver/field/page.tsx');
     const demo = read('app/platform-v7/demo/run/page.tsx');
+    const runtimeSource = read('lib/platform-v7/deal-execution-source-of-truth.ts');
 
-    for (const content of [lot, inbox, driver, demo]) {
+    // Trip id stays canonical across lot, inbox, demo and the runtime source.
+    for (const content of [lot, inbox, demo, runtimeSource]) {
       expect(content).toContain('TRIP-2403-001');
     }
+
+    // VP-5: driver cockpit is runtime-bound (reads the mission from Stage 5),
+    // so the trip id is no longer a literal in the page — it comes from runtime.
+    expect(driver).toContain('getPlatformV7DriverCockpitState');
 
     expect(lot).toContain('/platform-v7/logistics/inbox');
     expect(inbox).toContain('LOG-REQ-2403');

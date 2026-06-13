@@ -4,9 +4,11 @@ import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
 import { DriverBigTileIsland } from '@/components/platform-v7/visual/DriverBigTileIsland';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { DriverMissionRouteCard } from '@/components/platform-v7/DriverMissionRouteCard';
+import { getPlatformV7DriverCockpitState } from '@/lib/platform-v7/runtime/driver-cockpit-state';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 
 export default async function DriverFieldPage() {
+  const mission = getPlatformV7DriverCockpitState();
   const shipments = await getShipments();
   const shipmentCount = activeShipmentCount(shipments);
   const blockedShipments = shipmentsWithBlockers(shipments);
@@ -106,15 +108,11 @@ export default async function DriverFieldPage() {
       </section>
 
       <DriverMissionRouteCard
-        tripId='TRIP-2403-001'
-        route='Тамбовская область → Элеватор ВРЖ-08'
-        progressPercent={62}
-        stageLabel='в пути'
-        photoChecklist={[
-          { label: 'Фото погрузки', done: true },
-          { label: 'Пломба зафиксирована', done: true },
-          { label: 'Фото выгрузки', done: false },
-        ]}
+        tripId={mission.tripId}
+        route={mission.route}
+        progressPercent={mission.progressPercent}
+        stageLabel={mission.stageLabel}
+        photoChecklist={mission.photoChecklist}
       />
 
       <DriverBigTileIsland />
