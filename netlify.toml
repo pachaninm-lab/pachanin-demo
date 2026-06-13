@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm --filter @pc/web build"
+  command = "pnpm --filter @pc/web add styled-jsx@5.1.6 --save-prod --lockfile=false && pnpm --filter @pc/web build"
   publish = "apps/web/.next"
 
 [build.environment]
