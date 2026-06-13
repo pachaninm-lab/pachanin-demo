@@ -28,9 +28,9 @@ export default function PlatformV7DisputeDetailPage({ params }: { params: { id: 
         />
       )}
       <DisputeDetailRuntime disputeId={params.id} />
-      <section style={{ maxWidth: 860, margin: '0 auto', width: '100%', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Отдельный расчёт удержания</div>
-        <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>
+      <section style={{ maxWidth: 860, margin: '0 auto', width: '100%', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Отдельный расчёт удержания</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>
           {dispute
             ? `${dispute.title}: оператор видит рекомендуемое удержание без потери контекста спора.`
             : 'Для спорных кейсов с денежным риском вынесен отдельный маршрут, где оператор видит рекомендуемое удержание без потери контекста спора.'}

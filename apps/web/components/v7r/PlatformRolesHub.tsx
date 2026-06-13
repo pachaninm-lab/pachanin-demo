@@ -183,7 +183,7 @@ const ROLE_CARDS: RoleCard[] = [
     title: 'Водитель',
     href: '/platform-v7/driver',
     role: 'driver',
-    accent: '#475569',
+    accent: 'var(--pc-text-secondary, #475569)',
     focus: 'выполнить один рейс без лишних экранов',
     sees: `${logistics.tripId}, маршрут, чек-лист, фото, пломбу, проблему, офлайн-очередь`,
     hidden: 'деньги, ставки, банк, покупатель и кредит',
@@ -218,7 +218,7 @@ const ROLE_CARDS: RoleCard[] = [
   {
     title: 'Сделка',
     href: `/platform-v7/deals/${deal.id}/clean`,
-    accent: '#334155',
+    accent: 'var(--pc-text-secondary, #334155)',
     focus: 'единая правда по сделке',
     sees: `${deal.id}, ${deal.lotId}, ${logistics.orderId}, ${logistics.tripId}, деньги, документы, блокеры, доказательства`,
     hidden: 'несвязанные карточки, конфликтующие суммы и разрозненные статусы',
@@ -311,7 +311,7 @@ function RoleCardView({ scenario }: { scenario: RoleCard }) {
       style={{
         textDecoration: 'none',
         background: '#FFFFFF',
-        border: '1px solid #E4E6EA',
+        border: '1px solid var(--pc-border, #E4E6EA)',
         borderRadius: 24,
         padding: 18,
         display: 'grid',
@@ -322,8 +322,8 @@ function RoleCardView({ scenario }: { scenario: RoleCard }) {
     >
       <div style={{ width: 44, height: 4, borderRadius: 999, background: scenario.accent }} />
       <div style={{ display: 'grid', gap: 8 }}>
-        <h3 style={{ margin: 0, fontSize: 25, lineHeight: 1.08, fontWeight: 950, color: '#0F1419', letterSpacing: '-0.035em' }}>{scenario.title}</h3>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: '#475569' }}>{scenario.focus}</p>
+        <h3 style={{ margin: 0, fontSize: 25, lineHeight: 1.08, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)', letterSpacing: '-0.035em' }}>{scenario.title}</h3>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--pc-text-secondary, #475569)' }}>{scenario.focus}</p>
       </div>
       <div style={{ display: 'grid', gap: 8 }}>
         <div style={miniBlock}>
@@ -349,17 +349,17 @@ function RouteStepCard({ route }: { route: RouteStep }) {
     <Link
       href={`${route.href}${route.role ? `?as=${route.role}` : ''}`}
       onClick={() => route.role && setRole(route.role)}
-      style={{ textDecoration: 'none', background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 22, padding: 18, display: 'grid', gap: 12, minHeight: 232 }}
+      style={{ textDecoration: 'none', background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 18, display: 'grid', gap: 12, minHeight: 232 }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={microLabel}>{route.step} · {route.actor}</div>
-          <h3 style={{ margin: 0, color: '#0F1419', fontSize: 23, lineHeight: 1.1, fontWeight: 950, letterSpacing: '-0.035em' }}>{route.title}</h3>
+          <h3 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 23, lineHeight: 1.1, fontWeight: 950, letterSpacing: '-0.035em' }}>{route.title}</h3>
         </div>
         <span style={openPill}>открыть</span>
       </div>
-      <p style={{ margin: 0, color: '#334155', fontSize: 14, lineHeight: 1.55 }}>{route.answer}</p>
-      <p style={{ margin: 0, borderRadius: 16, border: '1px solid #E4E6EA', background: '#F8FAFB', padding: 12, color: '#64748B', fontSize: 13, lineHeight: 1.5 }}>{route.boundary}</p>
+      <p style={{ margin: 0, color: 'var(--pc-text-secondary, #334155)', fontSize: 14, lineHeight: 1.55 }}>{route.answer}</p>
+      <p style={{ margin: 0, borderRadius: 16, border: '1px solid var(--pc-border, #E4E6EA)', background: '#F8FAFB', padding: 12, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>{route.boundary}</p>
     </Link>
   );
 }
@@ -369,28 +369,28 @@ export function PlatformRolesHub() {
 
   return (
     <main style={{ display: 'grid', gap: 16, padding: '4px 0 28px' }}>
-      <section style={{ background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 30, padding: 22, display: 'grid', gap: 18, boxShadow: '0 18px 55px rgba(15,20,25,0.06)' }}>
+      <section style={{ background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 30, padding: 22, display: 'grid', gap: 18, boxShadow: '0 18px 55px rgba(15,20,25,0.06)' }}>
         <div style={{ display: 'grid', gap: 12, maxWidth: 940 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <span style={statusPill}>controlled-pilot</span>
             <span style={statusPill}>pre-integration</span>
             <span style={statusPill}>внешние статусы ожидаются</span>
           </div>
-          <h1 style={{ margin: 0, fontSize: 'clamp(34px, 8.5vw, 64px)', lineHeight: 1.01, letterSpacing: '-0.058em', fontWeight: 950, color: '#0F1419' }}>
+          <h1 style={{ margin: 0, fontSize: 'clamp(34px, 8.5vw, 64px)', lineHeight: 1.01, letterSpacing: '-0.058em', fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>
             Маршрут сделки за 3 минуты
           </h1>
-          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.62, color: '#475569', maxWidth: 780 }}>
+          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.62, color: 'var(--pc-text-secondary, #475569)', maxWidth: 780 }}>
             Главная страница показывает не «одинаковую платформу для всех», а один понятный контур исполнения: продавец → сделка → банк → документы → логистика → водитель → приёмка → спор → оператор.
           </p>
         </div>
 
-        <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 14 }}>
           <div style={{ display: 'grid', gap: 6 }}>
             <div style={microLabel}>сквозной сценарий</div>
-            <h2 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(24px, 6vw, 42px)', lineHeight: 1.08, letterSpacing: '-0.045em', fontWeight: 950 }}>
+            <h2 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(24px, 6vw, 42px)', lineHeight: 1.08, letterSpacing: '-0.045em', fontWeight: 950 }}>
               {deal.lotId} → ставка → {deal.id} → резерв → {logistics.orderId} → {logistics.tripId}
             </h2>
-            <p style={{ margin: 0, color: '#64748B', fontSize: 14, lineHeight: 1.55 }}>
+            <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 14, lineHeight: 1.55 }}>
               {deal.crop} · {formatTons(deal.volumeTons)} · сумма сделки {formatRub(expectedDealAmount)} · резерв {formatRub(money.reservedRub)} · готовность {readinessScore}%
             </p>
           </div>
@@ -403,7 +403,7 @@ export function PlatformRolesHub() {
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={microLabel}>первый экран</div>
           <h2 style={sectionTitle}>Ответы за 5 секунд</h2>
@@ -411,16 +411,16 @@ export function PlatformRolesHub() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(245px, 1fr))', gap: 10 }}>
           {CONTROL_ANSWERS.map((item) => (
-            <div key={item.label} style={{ border: '1px solid #E4E6EA', borderRadius: 20, background: '#F8FAFB', padding: 15, display: 'grid', gap: 8 }}>
+            <div key={item.label} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, background: '#F8FAFB', padding: 15, display: 'grid', gap: 8 }}>
               <div style={microLabel}>{item.label}</div>
-              <p style={{ margin: 0, color: '#0F1419', fontSize: 15, fontWeight: 900, lineHeight: 1.45 }}>{item.value}</p>
-              <p style={{ margin: 0, color: '#64748B', fontSize: 13, lineHeight: 1.5 }}>{item.note}</p>
+              <p style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 15, fontWeight: 900, lineHeight: 1.45 }}>{item.value}</p>
+              <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>{item.note}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={microLabel}>маршрут показа</div>
           <h2 style={sectionTitle}>Одна сделка, девять рабочих поверхностей</h2>
@@ -431,7 +431,7 @@ export function PlatformRolesHub() {
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={microLabel}>документы</div>
           <h2 style={sectionTitle}>Источник → ответственный → статус → влияние на выплату</h2>
@@ -439,7 +439,7 @@ export function PlatformRolesHub() {
         </div>
         <div style={{ display: 'grid', gap: 8 }}>
           {DOCUMENT_FLOW.map((doc) => (
-            <div key={doc.name} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, border: '1px solid #E4E6EA', borderRadius: 18, padding: 14, background: '#F8FAFB' }}>
+            <div key={doc.name} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, background: '#F8FAFB' }}>
               <div>
                 <div style={microLabel}>документ</div>
                 <p style={tableStrong}>{doc.name}</p>
@@ -462,7 +462,7 @@ export function PlatformRolesHub() {
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={microLabel}>роли</div>
           <h2 style={sectionTitle}>Одинаково понятная платформа, но не одинаковая для всех</h2>
@@ -473,7 +473,7 @@ export function PlatformRolesHub() {
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 22, padding: 16, display: 'grid', gap: 12 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 16, display: 'grid', gap: 12 }}>
         <div style={microLabel}>дополнительные контуры</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {SUPPORT_LINKS.map((link) => (
@@ -489,9 +489,9 @@ export function PlatformRolesHub() {
         </div>
       </section>
 
-      <section style={{ border: '1px solid #E4E6EA', borderRadius: 24, padding: 16, background: '#F8FAFB', display: 'grid', gap: 6 }}>
+      <section style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 16, background: '#F8FAFB', display: 'grid', gap: 6 }}>
         <div style={microLabel}>честная граница показа</div>
-        <p style={{ margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.6 }}>
+        <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 14, lineHeight: 1.6 }}>
           Это сильный controlled-pilot маршрут и единый контур исполнения. Он не заявляет подтверждённый боевой статус внешних систем. ФГИС, ЭДО, ГИС ЭПД, КЭП и банковый контур показаны как управляемые маршруты и адаптеры, требующие договоров, доступов и подтверждения на реальных сделках.
         </p>
       </section>
@@ -499,17 +499,17 @@ export function PlatformRolesHub() {
   );
 }
 
-const microLabel = { fontSize: 11, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 900 } as const;
+const microLabel = { fontSize: 11, color: 'var(--pc-text-muted, #64748B)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 900 } as const;
 const statusPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' } as const;
-const sectionTitle = { margin: 0, color: '#0F1419', fontSize: 'clamp(25px, 6vw, 38px)', lineHeight: 1.08, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const sectionText = { margin: 0, color: '#64748B', fontSize: 14, lineHeight: 1.6, maxWidth: 860 } as const;
+const sectionTitle = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(25px, 6vw, 38px)', lineHeight: 1.08, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const sectionText = { margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 14, lineHeight: 1.6, maxWidth: 860 } as const;
 const darkButton = { textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '11px 15px', borderRadius: 14, background: '#0F172A', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
-const lightButton = { textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '11px 15px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 900 } as const;
-const pillLink = { textDecoration: 'none', minHeight: 40, display: 'inline-flex', alignItems: 'center', padding: '9px 13px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 850 } as const;
-const openPill = { border: '1px solid #CBD5E1', borderRadius: 999, padding: '5px 9px', color: '#64748B', fontSize: 12, fontWeight: 850, whiteSpace: 'nowrap' } as const;
-const miniBlock = { border: '1px solid #E4E6EA', borderRadius: 16, background: '#F8FAFB', padding: 12, display: 'grid', gap: 6 } as const;
+const lightButton = { textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '11px 15px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 900 } as const;
+const pillLink = { textDecoration: 'none', minHeight: 40, display: 'inline-flex', alignItems: 'center', padding: '9px 13px', borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 850 } as const;
+const openPill = { border: '1px solid #CBD5E1', borderRadius: 999, padding: '5px 9px', color: 'var(--pc-text-muted, #64748B)', fontSize: 12, fontWeight: 850, whiteSpace: 'nowrap' } as const;
+const miniBlock = { border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, background: '#F8FAFB', padding: 12, display: 'grid', gap: 6 } as const;
 const greenLabel = { fontSize: 10, color: '#0A7A5F', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 950 } as const;
 const amberLabel = { fontSize: 10, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 950 } as const;
-const miniText = { margin: 0, color: '#475569', fontSize: 13, lineHeight: 1.5 } as const;
-const tableStrong = { margin: '5px 0 0', color: '#0F1419', fontSize: 14, lineHeight: 1.45, fontWeight: 900 } as const;
-const tableText = { margin: '5px 0 8px', color: '#475569', fontSize: 13, lineHeight: 1.5 } as const;
+const miniText = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 13, lineHeight: 1.5 } as const;
+const tableStrong = { margin: '5px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.45, fontWeight: 900 } as const;
+const tableText = { margin: '5px 0 8px', color: 'var(--pc-text-secondary, #475569)', fontSize: 13, lineHeight: 1.5 } as const;

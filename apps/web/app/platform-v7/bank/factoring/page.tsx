@@ -62,7 +62,7 @@ const badgeStyle = (status: FactoringStatus) => {
   if (status === 'Документы') {
     return { background: 'rgba(180,83,9,0.10)', border: '1px solid rgba(180,83,9,0.18)', color: '#B45309' };
   }
-  return { background: '#F5F7F8', border: '1px solid #E4E6EA', color: '#475569' };
+  return { background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' };
 };
 
 function getNextApplication(item: FactoringApplication): FactoringApplication {
@@ -156,11 +156,11 @@ export default function BankFactoringPage() {
 
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419' }}>Факторинг</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
+            <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Факторинг</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
               Контур исполнения финансирования под сделку: лимиты, скоринг, уступка требований, документная готовность и проверка аванса. Это не кредитование покупателя и не боевой банковский платёж.
             </div>
           </div>
@@ -172,17 +172,17 @@ export default function BankFactoringPage() {
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         {metrics.map((card) => (
-          <div key={card.title} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16 }}>
-            <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{card.title}</div>
-            <div style={{ fontSize: 30, lineHeight: 1.05, fontWeight: 800, color: '#0F1419', marginTop: 10 }}>{card.value}</div>
-            <div style={{ fontSize: 12, color: '#6B778C', marginTop: 8, lineHeight: 1.5 }}>{card.note}</div>
+          <div key={card.title} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 16 }}>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{card.title}</div>
+            <div style={{ fontSize: 30, lineHeight: 1.05, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 10 }}>{card.value}</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 8, lineHeight: 1.5 }}>{card.note}</div>
           </div>
         ))}
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Заявки на факторинг</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Заявки на факторинг</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {(['Все', 'Проверка', 'Документы', 'Одобрено', 'Аванс отмечен'] as const).map((item) => {
               const active = filter === item;
@@ -192,9 +192,9 @@ export default function BankFactoringPage() {
                   onClick={() => setFilter(item)}
                   style={{
                     appearance: 'none',
-                    border: active ? '1px solid rgba(10,122,95,0.20)' : '1px solid #E4E6EA',
+                    border: active ? '1px solid rgba(10,122,95,0.20)' : '1px solid var(--pc-border, #E4E6EA)',
                     background: active ? 'rgba(10,122,95,0.08)' : '#fff',
-                    color: active ? '#0A7A5F' : '#475569',
+                    color: active ? '#0A7A5F' : 'var(--pc-text-secondary, #475569)',
                     borderRadius: 999,
                     padding: '8px 12px',
                     fontSize: 12,
@@ -219,25 +219,25 @@ export default function BankFactoringPage() {
           {filteredApplications.map((item) => {
             const actionState = actionStates[item.id] ?? 'idle';
             return (
-              <div key={item.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
+              <div key={item.id} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0F1419' }}>{item.id}</div>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.id}</div>
                   <div style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800, ...badgeStyle(item.status) }}>{item.status}</div>
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#0F1419' }}>{item.buyer} · {item.deal}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{item.buyer} · {item.deal}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                  <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
-                    <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Сумма заявки</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{formatMillions(item.amount)}</div>
+                  <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12 }}>
+                    <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Сумма заявки</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{formatMillions(item.amount)}</div>
                   </div>
-                  <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
-                    <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0F1419', marginTop: 8, lineHeight: 1.45 }}>{item.next}</div>
+                  <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12 }}>
+                    <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8, lineHeight: 1.45 }}>{item.next}</div>
                   </div>
                 </div>
-                <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{item.note}</div>
+                <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>{item.note}</div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <Link href={`${PLATFORM_V7_DEALS_ROUTE}/${item.deal}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '10px 14px', borderRadius: 12, border: '1px solid #D4D9E2', color: '#0F1419', textDecoration: 'none', fontWeight: 800, background: '#fff' }}>
+                  <Link href={`${PLATFORM_V7_DEALS_ROUTE}/${item.deal}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '10px 14px', borderRadius: 12, border: '1px solid #D4D9E2', color: 'var(--pc-text-primary, #0F1419)', textDecoration: 'none', fontWeight: 800, background: '#fff' }}>
                     Открыть сделку
                   </Link>
                   <P7ActionButton

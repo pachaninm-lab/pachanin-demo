@@ -67,9 +67,9 @@ function bankEventLabel(value: string) {
 function Card({ title, value, subtitle, href }: { title: string; value: string; subtitle: string; href?: string }) {
   const body = (
     <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, minHeight: 116 }}>
-      <div style={{ fontSize: 11, fontWeight: 800, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</div>
-      <div style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 800, color: '#0F1419', marginTop: 10 }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#6B778C', marginTop: 8, lineHeight: 1.5 }}>{subtitle}</div>
+      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</div>
+      <div style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 10 }}>{value}</div>
+      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 8, lineHeight: 1.5 }}>{subtitle}</div>
     </div>
   );
   return href ? <Link href={href} style={{ textDecoration: 'none' }}>{body}</Link> : body;
@@ -80,8 +80,8 @@ function Panel({ title, subtitle, actions, children }: { title: string; subtitle
     <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>{title}</div>
-          {subtitle ? <div style={{ fontSize: 13, color: '#6B778C', marginTop: 4, lineHeight: 1.6 }}>{subtitle}</div> : null}
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{title}</div>
+          {subtitle ? <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4, lineHeight: 1.6 }}>{subtitle}</div> : null}
         </div>
         {actions}
       </div>
@@ -92,7 +92,7 @@ function Panel({ title, subtitle, actions, children }: { title: string; subtitle
 
 function Btn({ label, href, onClick, tone = 'neutral' }: { label: string; href?: string; onClick?: () => void; tone?: Tone }) {
   const styles = {
-    neutral: { background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419' },
+    neutral: { background: '#fff', border: '1px solid #E4E6EA', color: 'var(--pc-text-primary, #0F1419)' },
     success: { background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff' },
     warning: { background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', color: '#B45309' },
     danger: { background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C' },
@@ -117,7 +117,7 @@ function Stepper({ status }: { status: string }) {
         const done = index < current;
         return (
           <div key={phase.id} style={{ padding: '12px 12px', borderRadius: 14, background: active ? 'rgba(10,122,95,0.08)' : done ? 'rgba(22,163,74,0.08)' : '#F8FAFB', border: `1px solid ${active ? 'rgba(10,122,95,0.18)' : done ? 'rgba(22,163,74,0.18)' : '#E4E6EA'}` }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: active ? '#0A7A5F' : done ? '#15803D' : '#64748B' }}>{phase.label}</div>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: active ? '#0A7A5F' : done ? '#15803D' : 'var(--pc-text-muted, #64748B)' }}>{phase.label}</div>
           </div>
         );
       })}
@@ -213,7 +213,7 @@ export function CatchAllPage() {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#B91C1C' }}>Самая рискованная сделка</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <span style={{ fontSize: 12, color: '#6B778C' }}>{topRisk.id} · {topRisk.grain}</span>
+                  <span style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{topRisk.id} · {topRisk.grain}</span>
                   <RiskBadge score={topRisk.riskScore} />
                 </div>
               </div>
@@ -232,12 +232,12 @@ export function CatchAllPage() {
                   onMouseEnter={() => setHoveredRow(d.id)}
                   onMouseLeave={() => setHoveredRow(null)}
                   style={{ background: hoveredRow === d.id ? '#F5F7F8' : '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, cursor: 'pointer', transition: 'background 0.15s' }}>
-                  <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{d.id}</div><div style={{ fontSize: 11, color: '#6B778C', marginTop: 3 }}>{d.grain} · {d.quantity} {d.unit}</div></div>
-                  <div style={{ fontSize: 12, color: '#0F1419' }}>{d.seller.name} → {d.buyer.name}</div>
+                  <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{d.id}</div><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', marginTop: 3 }}>{d.grain} · {d.quantity} {d.unit}</div></div>
+                  <div style={{ fontSize: 12, color: 'var(--pc-text-primary, #0F1419)' }}>{d.seller.name} → {d.buyer.name}</div>
                   <div><Badge tone={d.status === 'quality_disputed' ? 'danger' : d.status === 'in_transit' ? 'warning' : 'success'}>{statusLabel(d.status)}</Badge></div>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>{formatCompactMoney(d.reservedAmount)}</div>
                   <div><RiskBadge score={d.riskScore} /></div>
-                  <div style={{ fontSize: 11, color: '#6B778C' }}>
+                  <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>
                     {d.status === 'quality_disputed' ? '⚠️ Закрыть спор' : d.status === 'release_requested' ? '✅ Подтвердить выпуск' : d.status === 'docs_complete' ? '📄 Запросить выпуск' : d.status === 'in_transit' ? '🚛 Ожидание доставки' : '—'}
                   </div>
                 </div>
@@ -257,10 +257,10 @@ export function CatchAllPage() {
                 onMouseEnter={() => setHoveredRow(d.id)}
                 onMouseLeave={() => setHoveredRow(null)}
                 style={{ background: hoveredRow === d.id ? '#F5F7F8' : '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, cursor: 'pointer', transition: 'background 0.15s' }}>
-                <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{d.id}</div><div style={{ fontSize: 11, color: '#6B778C', marginTop: 3 }}>{d.grain} · {d.quantity} {d.unit}</div></div>
-                <div style={{ fontSize: 12, color: '#0F1419' }}>{d.seller.name} → {d.buyer.name}</div>
+                <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{d.id}</div><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', marginTop: 3 }}>{d.grain} · {d.quantity} {d.unit}</div></div>
+                <div style={{ fontSize: 12, color: 'var(--pc-text-primary, #0F1419)' }}>{d.seller.name} → {d.buyer.name}</div>
                 <div><Badge tone={d.status === 'quality_disputed' ? 'danger' : d.status === 'in_transit' ? 'warning' : 'success'}>{statusLabel(d.status)}</Badge></div>
-                <div style={{ fontWeight: 700, color: '#0F1419', fontSize: 13 }}>{formatCompactMoney(d.reservedAmount)}</div>
+                <div style={{ fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', fontSize: 13 }}>{formatCompactMoney(d.reservedAmount)}</div>
                 <div><RiskBadge score={d.riskScore} /></div>
               </div>
             ))}
@@ -303,8 +303,8 @@ export function CatchAllPage() {
         <div style={{ display: 'grid', gap: 18 }}>
           <Panel title="Кабинет продавца" subtitle="Где деньги, что мешает выплате и какие документы ещё нужны.">
             <div style={{ padding: 18, borderRadius: 18, background: 'linear-gradient(180deg, rgba(10,122,95,0.08) 0%, rgba(255,255,255,0.9) 100%)', border: '1px solid rgba(10,122,95,0.14)' }}>
-              <div style={{ fontSize: 12, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Ближайшая выплата</div>
-              <div style={{ fontSize: 34, lineHeight: 1.05, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>4 368 000 ₽</div>
+              <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Ближайшая выплата</div>
+              <div style={{ fontSize: 34, lineHeight: 1.05, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>4 368 000 ₽</div>
               <div style={{ fontSize: 13, color: '#15803D', marginTop: 8 }}>После закрытия спора и проверки акта сумма будет выпущена.</div>
             </div>
           </Panel>
@@ -318,7 +318,7 @@ export function CatchAllPage() {
             <div style={{ display: 'grid', gap: 10 }}>
               {['Акт приёмки', 'Форма ЗТТ', 'Сертификат качества', 'Протокол разгрузки'].map((label) => (
                 <div key={label} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '12px 0', borderTop: '1px solid #F1F3F5' }}>
-                  <div><div style={{ fontSize: 14, fontWeight: 700 }}>{label}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>После загрузки документ станет доступен банку и оператору.</div></div>
+                  <div><div style={{ fontSize: 14, fontWeight: 700 }}>{label}</div><div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>После загрузки документ станет доступен банку и оператору.</div></div>
                   <Btn label="Загрузить" onClick={() => notify(`${label} добавлен в демо-контуре.`)} />
                 </div>
               ))}
@@ -338,7 +338,7 @@ export function CatchAllPage() {
           <Panel title="Кабинет покупателя" subtitle="Отбор предложений, контроль качества и решение по выпуску денег." actions={<Btn label="Открыть проблемную сделку" href="/platform-v7/deals/DL-9102" tone="danger" />}>
             <div style={{ padding: '14px 16px', borderRadius: 16, background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.14)', marginBottom: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#B91C1C' }}>Есть лабораторное расхождение по DL-9102</div>
-              <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>Нужно открыть сделку, сверить качество и решить вопрос с частичным выпуском денег.</div>
+              <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>Нужно открыть сделку, сверить качество и решить вопрос с частичным выпуском денег.</div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }}><option value="price_asc">Цена: от низкой</option><option value="price_desc">Цена: от высокой</option><option value="quality">По качеству</option><option value="region">По региону</option></select>
@@ -347,9 +347,9 @@ export function CatchAllPage() {
             <div style={{ display: 'grid', gap: 10 }}>
               {filteredRfq.map((item) => (
                 <div key={item.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, alignItems: 'center' }}>
-                  <div><div style={{ fontSize: 15, fontWeight: 800 }}>{item.grain}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{item.volume} т · {item.region} · {item.quality}</div></div>
+                  <div><div style={{ fontSize: 15, fontWeight: 800 }}>{item.grain}</div><div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>{item.volume} т · {item.region} · {item.quality}</div></div>
                   <div style={{ fontSize: 14, fontWeight: 700 }}>{formatMoney(item.price)} / т</div>
-                  <div style={{ fontSize: 12, color: '#6B778C' }}>{item.payment}</div>
+                  <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{item.payment}</div>
                   <Btn label="Добавить в отбор" onClick={() => notify(`${item.id} добавлен в отбор.`)} />
                 </div>
               ))}
@@ -370,9 +370,9 @@ export function CatchAllPage() {
             <div style={{ display: 'grid', gap: 10 }}>
               {[{ route: 'Маршрут ТМБ-14', status: 'Прибыл · расхождение по качеству', eta: '14:28', note: 'Требуется разбор лабораторной пробы, машина на элеваторе', href: '/platform-v7/deals/DL-9102' }, { route: 'Маршрут ВРЖ-08', status: 'Ожидание погрузки', eta: '16:10', note: 'Требуется подтверждение склада', href: '/platform-v7/deals/DL-9106' }, { route: 'Маршрут КРС-03', status: 'На приёмке', eta: 'сейчас', note: 'Идёт разгрузка на элеваторе', href: '/platform-v7/deals/DL-9103' }].map((row) => (
                 <div key={row.route} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, alignItems: 'center' }}>
-                  <div><div style={{ fontSize: 15, fontWeight: 800 }}>{row.route}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{row.note}</div></div>
+                  <div><div style={{ fontSize: 15, fontWeight: 800 }}>{row.route}</div><div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>{row.note}</div></div>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{row.status}</div>
-                  <div style={{ fontSize: 13, color: '#0F1419' }}>Прибытие: {row.eta}</div>
+                  <div style={{ fontSize: 13, color: 'var(--pc-text-primary, #0F1419)' }}>Прибытие: {row.eta}</div>
                   <Btn label="Открыть связанную сделку" href={row.href} />
                 </div>
               ))}
@@ -386,17 +386,17 @@ export function CatchAllPage() {
           <Panel title="Поле и приёмка" subtitle="Один экран для водителя, сюрвейера, элеватора и лаборатории.">
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {(['driver', 'surveyor', 'elevator', 'lab'] as const).map((entry) => (
-                <button key={entry} onClick={() => setFieldPreviewRole(entry)} style={{ border: fieldRole === entry ? '1px solid rgba(10,122,95,0.16)' : '1px solid #E4E6EA', background: fieldRole === entry ? 'rgba(10,122,95,0.08)' : '#fff', color: fieldRole === entry ? '#0A7A5F' : '#0F1419', borderRadius: 999, padding: '10px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{entry === 'driver' ? 'Водитель' : entry === 'surveyor' ? 'Сюрвейер' : entry === 'elevator' ? 'Элеватор' : 'Лаборатория'}</button>
+                <button key={entry} onClick={() => setFieldPreviewRole(entry)} style={{ border: fieldRole === entry ? '1px solid rgba(10,122,95,0.16)' : '1px solid #E4E6EA', background: fieldRole === entry ? 'rgba(10,122,95,0.08)' : '#fff', color: fieldRole === entry ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', borderRadius: 999, padding: '10px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{entry === 'driver' ? 'Водитель' : entry === 'surveyor' ? 'Сюрвейер' : entry === 'elevator' ? 'Элеватор' : 'Лаборатория'}</button>
               ))}
             </div>
           </Panel>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-            <Panel title="Маршрут" subtitle="Короткая логика движения, текущая точка и ожидаемое прибытие."><div style={{ display: 'grid', gap: 10 }}><div style={{ fontSize: 13 }}>Хозяйство Ковалёв · старт погрузки</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0A7A5F' }}>Текущая точка · 51.2934, 37.2185</div><div style={{ fontSize: 13, color: '#475569' }}>Элеватор Чернозёмный · прибытие 14:30</div></div></Panel>
-            <Panel title="Следующее действие" subtitle="Система показывает один ожидаемый шаг."><div style={{ padding: 16, borderRadius: 16, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.14)' }}><div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.25 }}>{fieldAction}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 8 }}>Подтверждение уходит в контур сделки и становится основанием для следующего этапа.</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}><Btn label="Выполнить шаг" onClick={() => pushField(fieldAction)} tone="success" /><Btn label={isOnline ? 'Перейти офлайн' : 'Вернуться онлайн'} onClick={() => setIsOnline((p) => !p)} /></div></div></Panel>
+            <Panel title="Маршрут" subtitle="Короткая логика движения, текущая точка и ожидаемое прибытие."><div style={{ display: 'grid', gap: 10 }}><div style={{ fontSize: 13 }}>Хозяйство Ковалёв · старт погрузки</div><div style={{ fontSize: 13, fontWeight: 700, color: '#0A7A5F' }}>Текущая точка · 51.2934, 37.2185</div><div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)' }}>Элеватор Чернозёмный · прибытие 14:30</div></div></Panel>
+            <Panel title="Следующее действие" subtitle="Система показывает один ожидаемый шаг."><div style={{ padding: 16, borderRadius: 16, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.14)' }}><div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.25 }}>{fieldAction}</div><div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 8 }}>Подтверждение уходит в контур сделки и становится основанием для следующего этапа.</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}><Btn label="Выполнить шаг" onClick={() => pushField(fieldAction)} tone="success" /><Btn label={isOnline ? 'Перейти офлайн' : 'Вернуться онлайн'} onClick={() => setIsOnline((p) => !p)} /></div></div></Panel>
           </div>
           <Panel title="Офлайн-очередь" subtitle="Если сеть пропала, события не теряются и ждут отправки.">
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}><Badge tone={isOnline ? 'success' : 'warning'}>{isOnline ? 'Связь есть' : 'Нет связи'}</Badge><div style={{ fontSize: 12, color: '#6B778C' }}>Накоплено событий: {fieldQueue.length}</div></div>
-            <div style={{ display: 'grid', gap: 8 }}>{fieldQueue.length === 0 ? <div style={{ fontSize: 13, color: '#6B778C' }}>Очередь пока пуста.</div> : fieldQueue.map((item) => <div key={item.id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 10, padding: '10px 0', borderTop: '1px solid #F1F3F5', alignItems: 'center' }}><span style={{ fontSize: 16 }}>{item.status === 'sent' ? '✓' : '⏳'}</span><span style={{ fontSize: 13 }}>{item.label}</span><span style={{ fontSize: 11, color: '#6B778C' }}>{item.time}</span></div>)}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}><Badge tone={isOnline ? 'success' : 'warning'}>{isOnline ? 'Связь есть' : 'Нет связи'}</Badge><div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Накоплено событий: {fieldQueue.length}</div></div>
+            <div style={{ display: 'grid', gap: 8 }}>{fieldQueue.length === 0 ? <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>Очередь пока пуста.</div> : fieldQueue.map((item) => <div key={item.id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 10, padding: '10px 0', borderTop: '1px solid #F1F3F5', alignItems: 'center' }}><span style={{ fontSize: 16 }}>{item.status === 'sent' ? '✓' : '⏳'}</span><span style={{ fontSize: 13 }}>{item.label}</span><span style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{item.time}</span></div>)}</div>
           </Panel>
         </div>
       )}
@@ -423,7 +423,7 @@ export function CatchAllPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                     <div>
                       <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13 }}>{callback.id} · {bankEventLabel(callback.type)} · {callback.dealId}</div>
-                      <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{callback.note}</div>
+                      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>{callback.note}</div>
                       {callback.daysOpen ? <div style={{ fontSize: 11, color: '#DC2626', marginTop: 4 }}>Открыто {callback.daysOpen} дн.</div> : null}
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -478,15 +478,15 @@ export function CatchAllPage() {
                 return (
                   <Link key={item.id} href={`/platform-v7/disputes/${item.id}`} style={{ textDecoration: 'none', background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 10 }}>
-                      <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div><div style={{ fontSize: 11, color: '#6B778C', marginTop: 3 }}>{item.dealId} · {item.title}</div></div>
+                      <div><div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', marginTop: 3 }}>{item.dealId} · {item.title}</div></div>
                       <div><Badge tone="warning">{item.reasonCode}</Badge></div>
                       <div style={{ fontWeight: 700, color: '#B91C1C', fontSize: 13 }}>{formatCompactMoney(item.holdAmount)}</div>
-                      <div style={{ fontSize: 12, color: '#0F1419' }}>Мяч у: <strong>{BALL_AT_LABELS[item.ballAt] ?? item.ballAt}</strong></div>
-                      <div style={{ fontSize: 12, color: '#6B778C' }}>Срок: {item.slaDaysLeft} дн.</div>
+                      <div style={{ fontSize: 12, color: 'var(--pc-text-primary, #0F1419)' }}>Мяч у: <strong>{BALL_AT_LABELS[item.ballAt] ?? item.ballAt}</strong></div>
+                      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Срок: {item.slaDaysLeft} дн.</div>
                     </div>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, color: '#6B778C' }}>Пакет доказательств</span>
+                        <span style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Пакет доказательств</span>
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{item.evidence.uploaded}/{item.evidence.total}</span>
                       </div>
                       <div style={{ height: 5, borderRadius: 999, background: '#E4E6EA', overflow: 'hidden' }}>
@@ -535,12 +535,12 @@ export function CatchAllPage() {
             {filteredAudit.map((entry, index) => (
               <div key={`${entry.ts}-${index}`} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 14 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
-                  <div><div style={{ fontSize: 11, color: '#6B778C' }}>Время</div><div style={{ fontSize: 13, fontWeight: 700 }}>{new Date(entry.ts).toLocaleString('ru-RU')}</div></div>
-                  <div><div style={{ fontSize: 11, color: '#6B778C' }}>Актор</div><div style={{ fontSize: 13, fontWeight: 700 }}>{entry.actor}</div></div>
-                  <div><div style={{ fontSize: 11, color: '#6B778C' }}>Тип</div><Badge tone={entry.type === 'danger' ? 'danger' : entry.type === 'warning' ? 'warning' : 'success'}>{entry.type}</Badge></div>
-                  <div><div style={{ fontSize: 11, color: '#6B778C' }}>Объект</div><div style={{ fontSize: 13, fontWeight: 700 }}>{entry.object ?? '—'}</div></div>
+                  <div><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Время</div><div style={{ fontSize: 13, fontWeight: 700 }}>{new Date(entry.ts).toLocaleString('ru-RU')}</div></div>
+                  <div><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Актор</div><div style={{ fontSize: 13, fontWeight: 700 }}>{entry.actor}</div></div>
+                  <div><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Тип</div><Badge tone={entry.type === 'danger' ? 'danger' : entry.type === 'warning' ? 'warning' : 'success'}>{entry.type}</Badge></div>
+                  <div><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Объект</div><div style={{ fontSize: 13, fontWeight: 700 }}>{entry.object ?? '—'}</div></div>
                 </div>
-                <div style={{ fontSize: 13, color: '#0F1419', marginTop: 10 }}>{entry.action}</div>
+                <div style={{ fontSize: 13, color: 'var(--pc-text-primary, #0F1419)', marginTop: 10 }}>{entry.action}</div>
               </div>
             ))}
           </div>
@@ -550,19 +550,19 @@ export function CatchAllPage() {
       {first === 'procurement' && (
         <Panel title="Закупки" subtitle="Пошаговое создание запроса на закупку и список активных запросов.">
           <div style={{ padding: 16, borderRadius: 16, background: '#F8FAFB', border: '1px solid #E4E6EA', marginBottom: 14 }}>
-            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800, color: '#6B778C' }}>Шаг {rfqStep} из 4</div>
+            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800, color: 'var(--pc-text-muted, #6B778C)' }}>Шаг {rfqStep} из 4</div>
             {rfqStep === 1 ? <div style={{ display: 'grid', gap: 10, marginTop: 12 }}><input value={rfqForm.grain} onChange={(e) => setRfqForm({ ...rfqForm, grain: e.target.value })} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }} /><input value={rfqForm.volume} onChange={(e) => setRfqForm({ ...rfqForm, volume: e.target.value })} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }} /></div> : null}
             {rfqStep === 2 ? <div style={{ display: 'grid', gap: 10, marginTop: 12 }}><input value={rfqForm.region} onChange={(e) => setRfqForm({ ...rfqForm, region: e.target.value })} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }} /><input value={rfqForm.payment} onChange={(e) => setRfqForm({ ...rfqForm, payment: e.target.value })} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }} /></div> : null}
             {rfqStep === 3 ? <div style={{ display: 'grid', gap: 10, marginTop: 12 }}><input value={rfqForm.quality} onChange={(e) => setRfqForm({ ...rfqForm, quality: e.target.value })} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }} /></div> : null}
-            {rfqStep === 4 ? <div style={{ marginTop: 12, fontSize: 13, color: '#475569', lineHeight: 1.7 }}>{rfqForm.grain} · {rfqForm.volume} т · {rfqForm.region} · {rfqForm.payment} · {rfqForm.quality}</div> : null}
+            {rfqStep === 4 ? <div style={{ marginTop: 12, fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>{rfqForm.grain} · {rfqForm.volume} т · {rfqForm.region} · {rfqForm.payment} · {rfqForm.quality}</div> : null}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}><Btn label="Назад" onClick={() => setRfqStep((prev) => Math.max(1, prev - 1))} /><Btn label={rfqStep < 4 ? 'Далее' : 'Сохранить'} tone="success" onClick={() => { if (rfqStep < 4) setRfqStep((prev) => prev + 1); else notify('Запрос на закупку сохранён в демо-контуре.'); }} /></div>
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
             {RFQ_LIST.map((rfq) => (
               <div key={rfq.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, alignItems: 'center' }}>
-                <div><div style={{ fontSize: 15, fontWeight: 800 }}>{rfq.id} · {rfq.grain}</div><div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>{rfq.volume} т · {rfq.region}</div></div>
+                <div><div style={{ fontSize: 15, fontWeight: 800 }}>{rfq.id} · {rfq.grain}</div><div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>{rfq.volume} т · {rfq.region}</div></div>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>{formatMoney(rfq.price)} / т</div>
-                <div style={{ fontSize: 12, color: '#6B778C' }}>{rfq.quality}</div>
+                <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{rfq.quality}</div>
                 <Btn label="Подать предложение" onClick={() => notify(`По ${rfq.id} добавлено предложение.`)} />
               </div>
             ))}

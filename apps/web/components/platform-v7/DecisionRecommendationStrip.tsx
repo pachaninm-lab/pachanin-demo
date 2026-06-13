@@ -18,14 +18,14 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
   return (
     <section
       data-testid="platform-v7-decision-recommendation-strip"
-      style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}
+      style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             контур исполнения · рекомендация решения
           </div>
-          <div style={{ marginTop: 4, fontSize: 15, fontWeight: 950, color: '#0F1419', lineHeight: 1.2 }}>
+          <div style={{ marginTop: 4, fontSize: 15, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)', lineHeight: 1.2 }}>
             Следующее рекомендуемое решение
           </div>
         </div>
@@ -49,7 +49,7 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
 
       <div
         data-testid="platform-v7-decision-recommendation-strip-recommendation"
-        style={{ fontSize: 14, fontWeight: 900, color: '#0F1419', lineHeight: 1.45, background: '#F8FAFB', border: '1px solid #EEF1F4', borderRadius: 12, padding: '10px 12px' }}
+        style={{ fontSize: 14, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)', lineHeight: 1.45, background: '#F8FAFB', border: '1px solid #EEF1F4', borderRadius: 12, padding: '10px 12px' }}
       >
         {data.recommendation}
       </div>
@@ -61,7 +61,7 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
           </span>
           <div
             data-testid="platform-v7-decision-recommendation-strip-responsible"
-            style={{ fontSize: 13, color: '#0F1419', fontWeight: 900, lineHeight: 1.35 }}
+            style={{ fontSize: 13, color: 'var(--pc-text-primary, #0F1419)', fontWeight: 900, lineHeight: 1.35 }}
           >
             {data.responsible}
           </div>
@@ -75,7 +75,7 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
             {data.requiredEvidence.map((item) => (
               <span
                 key={item}
-                style={{ display: 'inline-flex', padding: '3px 7px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 850 }}
+                style={{ display: 'inline-flex', padding: '3px 7px', borderRadius: 999, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 850 }}
               >
                 {item}
               </span>

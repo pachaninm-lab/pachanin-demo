@@ -53,7 +53,7 @@ export default async function DriverFieldPage() {
         className="driver-field-hero"
         style={{
           background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)',
-          border: '1px solid #E4E6EA',
+          border: '1px solid var(--pc-border, #E4E6EA)',
           borderRadius: 24,
           padding: 18,
           display: 'grid',
@@ -63,19 +63,19 @@ export default async function DriverFieldPage() {
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ display: 'grid', gap: 7, minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Водитель · один рейс · одно действие
             </div>
-            <h1 style={{ margin: 0, fontSize: 'clamp(30px,8vw,40px)', lineHeight: 1.04, letterSpacing: '-0.04em', fontWeight: 950, color: '#0F1419' }}>
+            <h1 style={{ margin: 0, fontSize: 'clamp(30px,8vw,40px)', lineHeight: 1.04, letterSpacing: '-0.04em', fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>
               Текущий рейс
             </h1>
           </div>
-          <div style={{ border: '1px solid #CBD5E1', borderRadius: 999, background: '#fff', color: '#475569', padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>
+          <div style={{ border: '1px solid #CBD5E1', borderRadius: 999, background: '#fff', color: 'var(--pc-text-secondary, #475569)', padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>
             Полевой режим
           </div>
         </div>
 
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: '#475569' }}>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--pc-text-secondary, #475569)' }}>
           На экране только маршрут, связь, прибытие, фото, пломба и отклонение. Остальной контекст скрыт.
         </p>
 
@@ -149,7 +149,7 @@ const secondaryChip = {
   borderRadius: 14,
   border: '1px solid #CBD5E1',
   background: '#fff',
-  color: '#0F1419',
+  color: 'var(--pc-text-primary, #0F1419)',
   fontSize: 12,
   fontWeight: 900,
   textAlign: 'center',
@@ -162,14 +162,14 @@ const miniStatusCard = {
   gap: 5,
   minHeight: 74,
   borderRadius: 18,
-  border: '1px solid #E4E6EA',
+  border: '1px solid var(--pc-border, #E4E6EA)',
   background: '#fff',
   padding: 14,
   boxShadow: '0 10px 22px rgba(15,23,42,0.045)',
 } as const;
 
 const miniLabel = {
-  color: '#64748B',
+  color: 'var(--pc-text-muted, #64748B)',
   fontSize: 10,
   fontWeight: 900,
   letterSpacing: '0.07em',
@@ -177,7 +177,7 @@ const miniLabel = {
 } as const;
 
 const miniValue = {
-  color: '#0F1419',
+  color: 'var(--pc-text-primary, #0F1419)',
   fontSize: 15,
   lineHeight: 1.25,
   fontWeight: 950,

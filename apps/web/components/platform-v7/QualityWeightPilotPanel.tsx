@@ -95,7 +95,7 @@ export function QualityWeightPilotPanel({ mode }: { readonly mode: 'elevator' | 
 }
 
 function Fact({ label, value, tone = 'neutral' }: { readonly label: string; readonly value: string; readonly tone?: 'neutral' | 'warn' | 'bad' }) {
-  const color = tone === 'bad' ? '#B91C1C' : tone === 'warn' ? '#B45309' : '#0F1419';
+  const color = tone === 'bad' ? '#B91C1C' : tone === 'warn' ? '#B45309' : 'var(--pc-text-primary, #0F1419)';
   return (
     <div style={fact}>
       <div style={factLabel}>{label}</div>
@@ -104,14 +104,14 @@ function Fact({ label, value, tone = 'neutral' }: { readonly label: string; read
   );
 }
 
-const panel = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
+const panel = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 16, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 } as const;
 const list = { display: 'grid', gap: 7 } as const;
 const micro = { color: '#0A7A5F', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const h2 = { margin: 0, color: '#0F1419', fontSize: 20, lineHeight: 1.15, fontWeight: 950 } as const;
-const fact = { display: 'grid', gap: 4, border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, background: '#FFFFFF' } as const;
-const factLabel = { color: '#64748B', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const factValue = { color: '#0F1419', fontSize: 13, lineHeight: 1.35, fontWeight: 900 } as const;
-const notice = { border: '1px solid rgba(217,119,6,0.18)', background: 'rgba(217,119,6,0.07)', borderRadius: 12, padding: 12, color: '#0F1419', fontSize: 13, lineHeight: 1.5, fontWeight: 850 } as const;
-const formula = { border: '1px solid #E4E6EA', background: '#FFFFFF', borderRadius: 12, padding: 12, color: '#475569', fontSize: 12, lineHeight: 1.5, fontWeight: 800 } as const;
+const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 20, lineHeight: 1.15, fontWeight: 950 } as const;
+const fact = { display: 'grid', gap: 4, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10, background: '#FFFFFF' } as const;
+const factLabel = { color: 'var(--pc-text-muted, #64748B)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
+const factValue = { color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.35, fontWeight: 900 } as const;
+const notice = { border: '1px solid rgba(217,119,6,0.18)', background: 'rgba(217,119,6,0.07)', borderRadius: 12, padding: 12, color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.5, fontWeight: 850 } as const;
+const formula = { border: '1px solid var(--pc-border, #E4E6EA)', background: '#FFFFFF', borderRadius: 12, padding: 12, color: 'var(--pc-text-secondary, #475569)', fontSize: 12, lineHeight: 1.5, fontWeight: 800 } as const;
 const deltaRow = { border: '1px solid rgba(220,38,38,0.16)', background: 'rgba(220,38,38,0.06)', borderRadius: 10, padding: 10, color: '#7F1D1D', fontSize: 12, lineHeight: 1.45, fontWeight: 850 } as const;

@@ -28,7 +28,7 @@ function palette(tone: Tone) {
   if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
   if (tone === 'warning') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
   if (tone === 'danger') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
-  return { bg: '#F8FAFB', border: '#E4E6EA', color: '#475569' };
+  return { bg: '#F8FAFB', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' };
 }
 
 function PageFrame({
@@ -44,11 +44,11 @@ function PageFrame({
 }) {
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>{title}</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>{subtitle}</div>
+            <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{title}</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>{subtitle}</div>
           </div>
           {aside}
         </div>
@@ -109,17 +109,17 @@ export function SourceTypeBadge({ sourceType }: { sourceType: 'MANUAL' | 'FGIS' 
 
 export function BlockerList({ blockers }: { blockers: BlockerItem[] }) {
   if (!blockers.length) {
-    return <div style={{ fontSize: 13, color: '#6B778C' }}>Блокеров нет.</div>;
+    return <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>Блокеров нет.</div>;
   }
   return (
     <div style={{ display: 'grid', gap: 10 }}>
       {blockers.map((blocker) => (
         <div key={blocker.id} style={{ background: '#fff', border: '1px solid #F1D2D2', borderRadius: 14, padding: 14 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{blocker.title}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{blocker.title}</div>
             <Badge tone='danger'>{blocker.reasonCode}</Badge>
           </div>
-          <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.65, marginTop: 8 }}>{blocker.detail}</div>
+          <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.65, marginTop: 8 }}>{blocker.detail}</div>
           <div style={{ fontSize: 12, color: '#B91C1C', lineHeight: 1.6, marginTop: 8 }}>{blocker.impact}</div>
         </div>
       ))}
@@ -141,9 +141,9 @@ export function GateResultPanel({
   const tone = getReadinessTone(state);
   const p = palette(tone);
   return (
-    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+    <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Результат gate-проверки</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Результат gate-проверки</div>
         <ReadinessBadge state={state} />
       </div>
       <div style={{ padding: 14, borderRadius: 14, background: p.bg, border: `1px solid ${p.border}`, color: p.color, fontSize: 13, fontWeight: 700 }}>
@@ -153,10 +153,10 @@ export function GateResultPanel({
         <BlockerList blockers={blockers} />
       </div>
       <div style={{ display: 'grid', gap: 6, marginTop: 14 }}>
-        <div style={{ fontSize: 12, color: '#6B778C' }}>Следующий шаг</div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{nextStep ?? '—'}</div>
-        <div style={{ fontSize: 12, color: '#6B778C' }}>Следующий владелец</div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{nextOwner ? translateRole(nextOwner) : '—'}</div>
+        <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Следующий шаг</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{nextStep ?? '—'}</div>
+        <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Следующий владелец</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{nextOwner ? translateRole(nextOwner) : '—'}</div>
       </div>
     </section>
   );
@@ -164,16 +164,16 @@ export function GateResultPanel({
 
 export function ConnectorStatusCard({ item }: { item: ConnectorStatus }) {
   return (
-    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+    <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>{item.type}</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.type}</div>
         <Badge tone={getConnectionTone(item.connectionState)}>{item.connectionState}</Badge>
       </div>
       <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-        <div style={{ fontSize: 13, color: '#475569' }}><strong>Режим:</strong> {item.modeLabel}</div>
-        <div style={{ fontSize: 13, color: '#475569' }}><strong>Последний sync:</strong> {item.lastSyncAt ?? '—'}</div>
-        <div style={{ fontSize: 13, color: '#475569' }}><strong>Очередь:</strong> {item.pending}</div>
-        <div style={{ fontSize: 13, color: '#475569' }}><strong>Сбой:</strong> {item.errorText ?? 'Нет'}</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)' }}><strong>Режим:</strong> {item.modeLabel}</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)' }}><strong>Последний sync:</strong> {item.lastSyncAt ?? '—'}</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)' }}><strong>Очередь:</strong> {item.pending}</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)' }}><strong>Сбой:</strong> {item.errorText ?? 'Нет'}</div>
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
         <Button label='Повторить sync' tone='warning' />
@@ -187,29 +187,29 @@ export function SyncQueueTable({ items }: { items: QueueEntry[] }) {
   return (
     <div style={{ display: 'grid', gap: 10 }}>
       {items.map((item) => (
-        <div key={item.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+        <div key={item.id} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
           <div>
-            <div style={{ fontSize: 11, color: '#6B778C' }}>Очередь</div>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Очередь</div>
             <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#6B778C' }}>Источник</div>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Источник</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{item.connectorType}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#6B778C' }}>Объект</div>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Объект</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{item.objectType} / {item.objectId}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#6B778C' }}>Статус</div>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Статус</div>
             <Badge tone={getQueueTone(item.queueState)}>{item.queueState}</Badge>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#6B778C' }}>Причины</div>
-            <div style={{ fontSize: 12, color: '#475569' }}>{item.reasonCodes.map(translateReason).join(', ') || '—'}</div>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Причины</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #475569)' }}>{item.reasonCodes.map(translateReason).join(', ') || '—'}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#6B778C' }}>Владелец</div>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Владелец</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{translateRole(item.owner)}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -225,7 +225,7 @@ export function NextRailCard({ title, text, href }: { title: string; text: strin
   return (
     <section style={{ background: 'linear-gradient(180deg, rgba(10,122,95,0.08) 0%, rgba(255,255,255,0.96) 100%)', border: '1px solid rgba(10,122,95,0.14)', borderRadius: 18, padding: 18 }}>
       <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{title}</div>
-      <div style={{ fontSize: 18, lineHeight: 1.4, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{text}</div>
+      <div style={{ fontSize: 18, lineHeight: 1.4, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{text}</div>
       <div style={{ marginTop: 14 }}>
         <Button label='Открыть' href={href} tone='success' />
       </div>
@@ -238,16 +238,16 @@ export function ImportFromFGISPanel() {
   const fgisLot = lots.find((item) => item.sourceType === 'FGIS')!;
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Импорт из ФГИС</div>
-        <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6, marginTop: 6 }}>Ниже — честный sandbox-контур. Пока gate не пройден, импорт отключён.</div>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Импорт из ФГИС</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6, marginTop: 6 }}>Ниже — честный sandbox-контур. Пока gate не пройден, импорт отключён.</div>
         <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
           <div>
-            <div style={{ fontSize: 11, color: '#6B778C' }}>Источник партии</div>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Источник партии</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{fgisLot.sourceReference}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#6B778C' }}>Статус подключения</div>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Статус подключения</div>
             <Badge tone={getConnectionTone(fgis.connectionState)}>{fgis.connectionState}</Badge>
           </div>
         </div>
@@ -258,8 +258,8 @@ export function ImportFromFGISPanel() {
         nextStep={fgisLot.readiness.nextStep}
         nextOwner={fgisLot.readiness.nextOwner}
       />
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 12, color: '#6B778C', marginBottom: 8 }}>Действие</div>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginBottom: 8 }}>Действие</div>
         <Button label='Импортировать лот из ФГИС' tone='danger' disabled />
         <div style={{ fontSize: 12, color: '#B91C1C', lineHeight: 1.6, marginTop: 10 }}>
           Кнопка отключена, потому что gate = FAIL. Сначала нужно снять blocker reasons выше.
@@ -271,10 +271,10 @@ export function ImportFromFGISPanel() {
 
 function StatCard({ title, value, note }: { title: string; value: string; note: string }) {
   return (
-    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-      <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
-      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 8 }}>{note}</div>
+    <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+      <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
+      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{value}</div>
+      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6, marginTop: 8 }}>{note}</div>
     </section>
   );
 }
@@ -303,15 +303,15 @@ export function PlatformV7LandingPage() {
       </div>
       <div style={{ display: 'grid', gap: 14 }}>
         {roleReadinessCards.map((card) => (
-          <section key={card.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, alignItems: 'center' }}>
+          <section key={card.id} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>{card.title}</div>
-              <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6, marginTop: 6 }}>{card.blockerSummary}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{card.title}</div>
+              <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6, marginTop: 6 }}>{card.blockerSummary}</div>
             </div>
             <div>
               <ReadinessBadge state={card.readinessState} />
             </div>
-            <div style={{ fontSize: 13, color: '#0F1419', fontWeight: 700 }}>{card.nextRail}</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-primary, #0F1419)', fontWeight: 700 }}>{card.nextRail}</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => {
@@ -359,10 +359,10 @@ export function LotsPage() {
       </div>
       <div style={{ display: 'grid', gap: 10 }}>
         {filtered.map((item: LotItem) => (
-          <section key={item.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, alignItems: 'center' }}>
+          <section key={item.id} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, alignItems: 'center' }}>
             <div>
               <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>{item.id}</div>
-              <div style={{ fontSize: 13, color: '#0F1419', fontWeight: 700, marginTop: 4 }}>{item.title}</div>
+              <div style={{ fontSize: 13, color: 'var(--pc-text-primary, #0F1419)', fontWeight: 700, marginTop: 4 }}>{item.title}</div>
             </div>
             <div>
               <SourceTypeBadge sourceType={item.sourceType} />
@@ -370,9 +370,9 @@ export function LotsPage() {
             <div>
               <ReadinessBadge state={item.readiness.state} />
             </div>
-            <div style={{ fontSize: 12, color: '#475569' }}>{item.sourceReference ?? 'Ручной ввод'}</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #475569)' }}>{item.sourceReference ?? 'Ручной ввод'}</div>
             <div style={{ fontSize: 12, color: '#B91C1C' }}>{item.readiness.blockers[0]?.reasonCode ?? 'Блокеров нет'}</div>
-            <div style={{ fontSize: 12, color: '#0F1419', fontWeight: 700 }}>{item.readiness.nextStep ?? 'Можно двигать дальше'}</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-primary, #0F1419)', fontWeight: 700 }}>{item.readiness.nextStep ?? 'Можно двигать дальше'}</div>
           </section>
         ))}
       </div>
@@ -394,12 +394,12 @@ export function LotCreatePage() {
         <Button label='IMPORT FROM FGIS' onClick={() => setMode('FGIS')} tone={mode === 'FGIS' ? 'success' : 'neutral'} />
       </div>
       {mode === 'MANUAL' ? (
-        <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Ручное создание</div>
+        <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Ручное создание</div>
           <div style={{ display: 'grid', gap: 10 }}>
-            <input placeholder='Культура' style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }} />
-            <input placeholder='Объём, тонн' style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }} />
-            <input placeholder='Регион' style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA' }} />
+            <input placeholder='Культура' style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)' }} />
+            <input placeholder='Объём, тонн' style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)' }} />
+            <input placeholder='Регион' style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)' }} />
           </div>
           <Button label='Создать ручной лот' tone='success' />
         </section>
@@ -423,9 +423,9 @@ export function AuctionDetailPage({ id }: { id: string }) {
       aside={<Button label='Открыть лоты' href='/platform-v7/lots' />}
     >
       <GateResultPanel state={item.gate.state} blockers={item.gate.blockers} nextStep={item.gate.nextStep} nextOwner={item.gate.nextOwner} />
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Выбор победителя</div>
-        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.7, marginTop: 8 }}>Кандидат: {item.winnerLabel}</div>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Выбор победителя</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7, marginTop: 8 }}>Кандидат: {item.winnerLabel}</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
           <Button label='Выбрать победителя' tone={disabled ? 'danger' : 'success'} disabled={disabled} />
           <Button label='Нужна ручная проверка' tone='warning' disabled={item.gate.state !== 'REVIEW'} />
@@ -495,18 +495,18 @@ export function ConnectorsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
         {connectors.map((item) => <ConnectorStatusCard key={item.type} item={item} />)}
       </div>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: '#0F1419' }}>Связанные модули платформы</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8 }}>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Связанные модули платформы</div>
+          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
             Коннекторы больше не висят отдельно. Они уже связаны с входом компании, банком, статусным слоем и trust-контуром.
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           {moduleLinks.map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
-              <div style={{ fontSize: 12, lineHeight: 1.6, color: '#475569' }}>{item.note}</div>
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--pc-text-secondary, #475569)' }}>{item.note}</div>
               <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
             </Link>
           ))}

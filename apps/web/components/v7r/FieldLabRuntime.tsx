@@ -87,16 +87,16 @@ export function FieldLabRuntime() {
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Лаборатория</div>
-        <div style={{ fontSize: 13, color: '#6B778C', marginTop: 8 }}>Формируется протокол качества. Любая дельта влияет на деньги сделки.</div>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Лаборатория</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 8 }}>Формируется протокол качества. Любая дельта влияет на деньги сделки.</div>
       </section>
 
       {labCases.map((c) => {
         const startState = actionStates[`${c.id}:start`] ?? 'idle';
         const confirmState = actionStates[`${c.id}:confirm`] ?? 'idle';
         return (
-          <section key={c.id} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+          <section key={c.id} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <div style={{ fontWeight: 800 }}>{c.id} · {c.dealId}</div>
               <div style={{ fontSize: 12, fontWeight: 800, color: c.status === 'completed' ? '#15803D' : c.status === 'in_progress' ? '#B45309' : '#6B7280' }}>{c.status.toUpperCase()}</div>
@@ -112,9 +112,9 @@ export function FieldLabRuntime() {
                 Начать анализ
               </P7ActionButton>
             ) : null}
-            <input value={c.protein} onChange={(e) => updateLabCase(c.id, { protein: e.target.value })} placeholder='Белок %' style={{ padding: 10, borderRadius: 10, border: '1px solid #E4E6EA' }} />
-            <input value={c.moisture} onChange={(e) => updateLabCase(c.id, { moisture: e.target.value })} placeholder='Влажность %' style={{ padding: 10, borderRadius: 10, border: '1px solid #E4E6EA' }} />
-            <input value={c.gluten} onChange={(e) => updateLabCase(c.id, { gluten: e.target.value })} placeholder='Клейковина %' style={{ padding: 10, borderRadius: 10, border: '1px solid #E4E6EA' }} />
+            <input value={c.protein} onChange={(e) => updateLabCase(c.id, { protein: e.target.value })} placeholder='Белок %' style={{ padding: 10, borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)' }} />
+            <input value={c.moisture} onChange={(e) => updateLabCase(c.id, { moisture: e.target.value })} placeholder='Влажность %' style={{ padding: 10, borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)' }} />
+            <input value={c.gluten} onChange={(e) => updateLabCase(c.id, { gluten: e.target.value })} placeholder='Клейковина %' style={{ padding: 10, borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)' }} />
             {c.status !== 'completed' ? (
               <P7ActionButton
                 state={confirmState}
@@ -126,7 +126,7 @@ export function FieldLabRuntime() {
                 Подтвердить протокол
               </P7ActionButton>
             ) : null}
-            <div style={{ fontSize: 12, color: '#6B778C' }}>Результат: {c.result} · Протокол: {c.protocolSigned ? 'подписан' : 'не подписан'}</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Результат: {c.result} · Протокол: {c.protocolSigned ? 'подписан' : 'не подписан'}</div>
           </section>
         );
       })}

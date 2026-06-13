@@ -5,9 +5,9 @@ import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels';
 import { getDeal360Scenario, type Deal360State, type Deal360Cockpit } from '@/lib/platform-v7/deal360-source-of-truth';
 
-const border = '#E4E6EA';
-const text = '#0F1419';
-const muted = '#475569';
+const border = 'var(--pc-border, #E4E6EA)';
+const text = 'var(--pc-text-primary, #0F1419)';
+const muted = 'var(--pc-text-secondary, #475569)';
 const green = '#0A7A5F';
 const red = '#B91C1C';
 const amber = '#B45309';
@@ -157,7 +157,7 @@ function Cockpit({ cockpit }: { cockpit: Deal360Cockpit }) {
     { label: 'Споры', value: cockpit.disputeStatus.label, state: cockpit.disputeStatus.state },
   ];
   return (
-    <section style={{ background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+    <section style={{ background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
         <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Статус исполнения</p>
         <span style={{ color: muted, fontSize: 12 }}>Этап: <strong style={{ color: text }}>{cockpit.currentStage}</strong></span>
@@ -170,7 +170,7 @@ function Cockpit({ cockpit }: { cockpit: Deal360Cockpit }) {
           </div>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, borderTop: '1px solid #E4E6EA', paddingTop: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, borderTop: '1px solid var(--pc-border, #E4E6EA)', paddingTop: 12 }}>
         <div>
           <p style={{ margin: 0, color: amber, fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующий исполнитель</p>
           <p style={{ margin: '5px 0 0', color: text, fontSize: 13, fontWeight: 900, lineHeight: 1.35 }}>{cockpit.nextActor}</p>

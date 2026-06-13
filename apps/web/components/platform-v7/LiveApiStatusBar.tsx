@@ -106,7 +106,7 @@ export function LiveApiStatusBar({
           {apiOnline ? 'API-контур доступен · данные текущего сценария' : 'API-контур недоступен · показан локальный сценарий'}
         </span>
         {role && (
-          <span style={{ color: '#64748B', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             {role}
           </span>
         )}
@@ -143,7 +143,7 @@ export function LiveApiStatusBar({
 
       {/* Summary */}
       {summary && (
-        <p style={{ margin: 0, color: '#475569', fontSize: 11, lineHeight: 1.4 }}>
+        <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 11, lineHeight: 1.4 }}>
           {summary}
         </p>
       )}
@@ -157,7 +157,7 @@ export function LiveApiStatusBar({
               <div style={{ minWidth: 0 }}>
                 <span style={{ fontWeight: 700, color: '#1E293B', fontSize: 11 }}>{blocker.label}</span>
                 {blocker.nextAction && (
-                  <span style={{ color: '#64748B', fontSize: 11, marginLeft: 6 }}>
+                  <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, marginLeft: 6 }}>
                     → {blocker.nextAction}
                   </span>
                 )}

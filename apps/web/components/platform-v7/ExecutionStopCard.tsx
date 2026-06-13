@@ -17,7 +17,7 @@ export function ExecutionStopCard({ reason, actor, dealId }: Props) {
           </span>
         )}
       </div>
-      <p style={{ margin: 0, color: '#0F1419', fontSize: 13, lineHeight: 1.45, fontWeight: 700 }}>{reason}</p>
+      <p style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.45, fontWeight: 700 }}>{reason}</p>
     </div>
   );
 }

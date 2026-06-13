@@ -21,14 +21,14 @@ export function EvidenceReadinessMiniMatrix({ context }: { context: EvidenceRead
   return (
     <section
       data-testid="platform-v7-evidence-readiness-mini-matrix"
-      style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}
+      style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             контур исполнения · доказательства
           </div>
-          <div style={{ marginTop: 4, fontSize: 15, fontWeight: 950, color: '#0F1419', lineHeight: 1.2 }}>
+          <div style={{ marginTop: 4, fontSize: 15, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)', lineHeight: 1.2 }}>
             Готовность доказательств — {EVIDENCE_READINESS_CONTEXT_LABEL[context]}
           </div>
         </div>
@@ -69,7 +69,7 @@ export function EvidenceReadinessMiniMatrix({ context }: { context: EvidenceRead
                 minWidth: 0,
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 900, color: '#0F1419', minWidth: 0, overflowWrap: 'anywhere' }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)', minWidth: 0, overflowWrap: 'anywhere' }}>
                 {row.item}
               </div>
               <span
@@ -90,13 +90,13 @@ export function EvidenceReadinessMiniMatrix({ context }: { context: EvidenceRead
               >
                 {EVIDENCE_READINESS_STATE_LABEL[row.pilotState]}
               </span>
-              <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.35, minWidth: 0, overflowWrap: 'anywhere' }}>
+              <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.35, minWidth: 0, overflowWrap: 'anywhere' }}>
                 <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
                   ответственный
                 </span>
                 {row.responsible}
               </div>
-              <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.35, fontWeight: 750, minWidth: 0, overflowWrap: 'anywhere' }}>
+              <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #334155)', lineHeight: 1.35, fontWeight: 750, minWidth: 0, overflowWrap: 'anywhere' }}>
                 <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
                   следующий шаг
                 </span>

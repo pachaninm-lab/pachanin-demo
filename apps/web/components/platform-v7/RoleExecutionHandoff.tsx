@@ -82,13 +82,13 @@ function HandoffCard({ item }: { item: HandoffItem }) {
   );
 }
 
-const shell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
-const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const shell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 } as const;
 const card = { border: '1px solid', borderRadius: 14, padding: 12, display: 'grid', gap: 7, minWidth: 0 } as const;
 const dirTag = { display: 'inline-flex', alignItems: 'center', padding: '4px 9px', borderRadius: 999, border: '1px solid', background: '#fff', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' } as const;
-const impactTag = { display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: '1px solid #CBD5E1', color: '#475569', fontSize: 11, fontWeight: 900 } as const;
+const impactTag = { display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 900 } as const;
 const roleLabel = { color: '#94A3B8', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const requirement = { margin: 0, color: '#0F1419', fontSize: 13, lineHeight: 1.45, fontWeight: 900, overflowWrap: 'break-word' } as const;
+const requirement = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.45, fontWeight: 900, overflowWrap: 'break-word' } as const;
 const entityLink = { fontSize: 12, fontWeight: 900, textDecoration: 'none', overflowWrap: 'break-word' } as const;
 const entityChip = { display: 'inline-flex', padding: '3px 8px', borderRadius: 8, border: '1px solid', fontSize: 11, fontWeight: 900 } as const;

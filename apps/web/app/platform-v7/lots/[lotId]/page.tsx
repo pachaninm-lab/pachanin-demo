@@ -30,7 +30,7 @@ export default function Page({ params }: { params: { lotId: string } }) {
         <section style={card}>
           <div style={micro}>Ставки покупателей</div>
           {lot2403Bids.map((bid) => (
-            <article key={bid.buyer} style={{ background: bid.status === 'победитель' ? 'rgba(10,122,95,0.06)' : '#F8FAFB', border: `1px solid ${bid.status === 'победитель' ? 'rgba(10,122,95,0.18)' : '#E4E6EA'}`, borderRadius: 18, padding: 14, display: 'grid', gap: 10 }}>
+            <article key={bid.buyer} style={{ background: bid.status === 'победитель' ? 'rgba(10,122,95,0.06)' : '#F8FAFB', border: `1px solid ${bid.status === 'победитель' ? 'rgba(10,122,95,0.18)' : 'var(--pc-border, #E4E6EA)'}`, borderRadius: 18, padding: 14, display: 'grid', gap: 10 }}>
               <div style={rowHead}>
                 <div>
                   <h2 style={h2}>{bid.buyer}</h2>
@@ -55,21 +55,21 @@ export default function Page({ params }: { params: { lotId: string } }) {
 }
 
 function Cell({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: strong ? '#0A7A5F' : '#0F1419', fontSize: 13, fontWeight: 900 }}>{value}</div></div>;
+  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900 }}>{value}</div></div>;
 }
 
-const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
+const card = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const h2 = { margin: 0, color: '#0F1419', fontSize: 20, lineHeight: 1.08, fontWeight: 950 } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 } as const;
-const muted = { margin: '5px 0 0', color: '#64748B', fontSize: 13 } as const;
+const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 20, lineHeight: 1.08, fontWeight: 950 } as const;
+const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.55 } as const;
+const muted = { margin: '5px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 } as const;
 const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
-const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850 } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
 const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
-const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 13, padding: 10 } as const;
+const cell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 13, padding: 10 } as const;
 const statusPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const neutralPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 } as const;
+const neutralPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 900 } as const;

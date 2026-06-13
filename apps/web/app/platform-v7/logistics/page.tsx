@@ -204,7 +204,7 @@ function Gate({ gate }: { gate: GateItem }) {
   return (
     <div style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 18, padding: 14, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}>
       <div style={{ ...micro, color: stateText(gate.state) }}>{gate.title}</div>
-      <div style={{ marginTop: 6, color: '#0F1419', fontSize: 13, lineHeight: 1.4, fontWeight: 900 }}>{gate.value}</div>
+      <div style={{ marginTop: 6, color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.4, fontWeight: 900 }}>{gate.value}</div>
     </div>
   );
 }
@@ -217,7 +217,7 @@ function DriverCard({ order }: { order: typeof orders[number] }) {
         <div>
           <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.driver} · {order.vehicle}</div>
           <h2 style={h2}>{order.driverStatus}</h2>
-          <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13 }}>Заказ {order.id} · сделка {order.dealId}</p>
+          <p style={{ margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 }}>Заказ {order.id} · сделка {order.dealId}</p>
         </div>
         <span style={hasIncident ? dangerStatus : status}>{hasIncident ? 'инцидент' : order.status}</span>
       </div>
@@ -239,12 +239,12 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
   const hasIncident = order.incidents !== 'нет';
   const isActive = order.status === 'Водитель назначен';
   return (
-    <Link href={order.href} style={{ textDecoration: 'none', color: 'inherit', background: isActive ? 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)' : 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${isActive ? 'rgba(10,122,95,0.2)' : '#E4E6EA'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
+    <Link href={order.href} style={{ textDecoration: 'none', color: 'inherit', background: isActive ? 'linear-gradient(180deg,#FFFFFF 0%,#F0FDF4 100%)' : 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: `1px solid ${isActive ? 'rgba(10,122,95,0.2)' : 'var(--pc-border, #E4E6EA)'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.id} → {order.dealId}</div>
           <h2 style={h2}>{order.crop} · {order.volume}</h2>
-          <p style={{ margin: '6px 0 0', color: '#64748B', fontSize: 13 }}>{order.route}</p>
+          <p style={{ margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 }}>{order.route}</p>
         </div>
         <span style={isActive ? status : neutralStatus}>{order.status}</span>
       </div>
@@ -273,7 +273,7 @@ function Cell({ label, value, strong = false, danger = false }: { label: string;
   return (
     <div style={cell}>
       <div style={micro}>{label}</div>
-      <div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.3, fontWeight: 900, overflowWrap: 'break-word' }}>{value}</div>
+      <div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.3, fontWeight: 900, overflowWrap: 'break-word' }}>{value}</div>
     </div>
   );
 }
@@ -294,15 +294,15 @@ function stateText(state: string) {
   return '#B45309';
 }
 
-const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
-const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
+const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
+const h2 = { margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
 const gateGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 } as const;
 const tripGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8 } as const;
-const tripCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 18, padding: 14, display: 'grid', gap: 10, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
+const tripCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, display: 'grid', gap: 10, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
 const idText = { color: '#0A7A5F', fontSize: 12, fontWeight: 950 } as const;
 const twoColGrid = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
-const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
-const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const cell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const status = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const neutralStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 900 } as const;
+const neutralStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 900 } as const;
 const dangerStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;

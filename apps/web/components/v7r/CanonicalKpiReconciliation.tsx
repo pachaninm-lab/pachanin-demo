@@ -12,7 +12,7 @@ export function CanonicalKpiReconciliation() {
 
   return (
     <details data-testid='canonical-kpi-reconciliation' style={{ border: '1px dashed #CBD5E1', borderRadius: 16, padding: 14, background: '#F8FAFC' }}>
-      <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 800, color: '#334155' }}>
+      <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 800, color: 'var(--pc-text-secondary, #334155)' }}>
         Сверка KPI: текущая формула ↔ canonical domain · {hasDelta ? 'есть расхождения' : 'расхождений нет'}
       </summary>
       <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
@@ -22,8 +22,8 @@ export function CanonicalKpiReconciliation() {
           const formattedDelta = formatCompactMoney(row.delta);
           return (
             <div key={row.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) repeat(3, minmax(90px, auto))', gap: 8, alignItems: 'center', fontSize: 12 }}>
-              <span style={{ color: '#475569', fontWeight: 700 }}>{row.label}</span>
-              <span style={{ color: '#64748B' }}>старое: {formattedLegacy}</span>
+              <span style={{ color: 'var(--pc-text-secondary, #475569)', fontWeight: 700 }}>{row.label}</span>
+              <span style={{ color: 'var(--pc-text-muted, #64748B)' }}>старое: {formattedLegacy}</span>
               <span style={{ color: '#0F172A', fontWeight: 800 }}>canonical: {formattedCanonical}</span>
               <span style={{ color: row.delta === 0 ? '#15803D' : '#B45309', fontWeight: 800 }}>дельта: {formattedDelta}</span>
             </div>

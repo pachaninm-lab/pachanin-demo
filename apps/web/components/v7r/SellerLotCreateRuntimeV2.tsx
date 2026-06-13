@@ -26,7 +26,7 @@ const BASES = ['EXW', 'FCA', 'CPT', 'DAP', 'DAT'];
 
 const labelStyle: React.CSSProperties = {
   fontSize: 11,
-  color: '#6B778C',
+  color: 'var(--pc-text-muted, #6B778C)',
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
@@ -40,7 +40,7 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
   padding: '12px 14px',
   borderRadius: 12,
-  border: '1px solid #E4E6EA',
+  border: '1px solid var(--pc-border, #E4E6EA)',
   fontSize: 14,
   background: 'var(--pc-bg-card)',
   color: 'var(--pc-text-primary)',

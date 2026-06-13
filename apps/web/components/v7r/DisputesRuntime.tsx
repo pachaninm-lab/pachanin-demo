@@ -17,7 +17,7 @@ function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
   if (tone === 'warning') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
   if (tone === 'danger') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
-  return { bg: '#F8FAFB', border: '#E4E6EA', color: '#475569' };
+  return { bg: '#F8FAFB', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' };
 }
 
 function Badge({ tone, children }: { tone: 'success' | 'warning' | 'danger' | 'neutral'; children: React.ReactNode }) {
@@ -27,10 +27,10 @@ function Badge({ tone, children }: { tone: 'success' | 'warning' | 'danger' | 'n
 
 function StatCard({ title, value, note }: { title: string; value: string; note: string }) {
   return (
-    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-      <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
-      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: '#0F1419', marginTop: 8 }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 8 }}>{note}</div>
+    <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+      <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
+      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{value}</div>
+      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6, marginTop: 8 }}>{note}</div>
     </section>
   );
 }
@@ -65,11 +65,11 @@ function DisputeCard({
   secondaryAction?: React.ReactNode;
 }) {
   return (
-    <article style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+    <article style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419', lineHeight: 1.2 }}>{title}</div>
-          <div style={{ marginTop: 6, fontSize: 12, color: '#6B778C' }}>{subtitle}</div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)', lineHeight: 1.2 }}>{title}</div>
+          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{subtitle}</div>
         </div>
         <Badge tone={statusTone}>{statusLabel}</Badge>
       </div>
@@ -86,9 +86,9 @@ function DisputeCard({
       </div>
 
       <div style={{ padding: 14, borderRadius: 14, background: 'rgba(10,122,95,0.05)', border: '1px solid rgba(10,122,95,0.14)', display: 'grid', gap: 6 }}>
-        <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
-        <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{nextStep}</div>
-        <div style={{ fontSize: 12, color: '#6B778C' }}>Следующий владелец: {translateRole(nextOwner)}</div>
+        <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{nextStep}</div>
+        <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Следующий владелец: {translateRole(nextOwner)}</div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -101,9 +101,9 @@ function DisputeCard({
 
 function InfoCell({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ padding: 12, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-      <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 13, fontWeight: 800, color: '#0F1419' }}>{value}</div>
+    <div style={{ padding: 12, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}>
+      <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
+      <div style={{ marginTop: 6, fontSize: 13, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div>
     </div>
   );
 }
@@ -151,11 +151,11 @@ export function DisputesRuntime() {
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419' }}>Споры и доказательства</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Экран перестроен под действие: кто держит следующий шаг, сколько денег под риском, каких доказательств не хватает и куда идти дальше.</div>
+            <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Споры и доказательства</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Экран перестроен под действие: кто держит следующий шаг, сколько денег под риском, каких доказательств не хватает и куда идти дальше.</div>
           </div>
           <Badge tone='warning'>Спор в работе</Badge>
         </div>
@@ -171,9 +171,9 @@ export function DisputesRuntime() {
       </div>
 
       <section style={{ display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Черновые сделки со спором</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Черновые сделки со спором</div>
         {draftDisputes.length === 0 ? (
-          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA', fontSize: 13, color: '#6B778C' }}>Пока нет draft-споров.</div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>Пока нет draft-споров.</div>
         ) : draftDisputes.map((item) => (
           <DisputeCard
             key={item.id}
@@ -206,7 +206,7 @@ export function DisputesRuntime() {
       </section>
 
       <section style={{ display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Доменные споры</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Доменные споры</div>
         {disputes.map((item) => (
           <DisputeCard
             key={item.id}

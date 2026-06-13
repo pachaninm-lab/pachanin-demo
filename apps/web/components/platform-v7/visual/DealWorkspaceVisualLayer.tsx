@@ -236,7 +236,7 @@ export function DealWorkspaceVisualLayer({
                 onClick={() => setCausesOpen((v) => !v)}
                 style={{
                   all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                  color: '#475569', fontSize: 12, fontWeight: 900, textTransform: 'uppercase',
+                  color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 900, textTransform: 'uppercase',
                   letterSpacing: '0.06em', marginBottom: causesOpen ? 8 : 0,
                 }}
                 aria-expanded={causesOpen}

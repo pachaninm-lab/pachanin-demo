@@ -37,7 +37,7 @@ const ROLE_CARDS = [
     blocker: 'нет фото пломбы или события прибытия',
     action: 'Открыть текущий рейс',
     href: '/platform-v7/driver/field',
-    tone: '#475569',
+    tone: 'var(--pc-text-secondary, #475569)',
     surface: '#F8FAFC',
     fieldMode: true,
   },

@@ -5,7 +5,7 @@ import {
   type ActionIdempotency,
 } from '../../lib/platform-v7/action-feedback-preview';
 
-const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.07em' } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.07em' } as const;
 
 const IDEMPOTENCY_COLORS: Record<ActionIdempotency, string> = {
   safe_to_retry: '#0A7A5F',
@@ -17,10 +17,10 @@ function PreviewField({ label, value, testId }: { label: string; value: string; 
   return (
     <div
       data-testid={testId}
-      style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 5, minWidth: 0 }}
+      style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10, display: 'grid', gap: 5, minWidth: 0 }}
     >
       <div style={micro}>{label}</div>
-      <div style={{ color: '#0F1419', fontSize: 13, lineHeight: 1.45, overflowWrap: 'anywhere' }}>{value}</div>
+      <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.45, overflowWrap: 'anywhere' }}>{value}</div>
     </div>
   );
 }
@@ -32,12 +32,12 @@ export function ActionFeedbackPreviewStrip({ context }: { context: ActionFeedbac
   return (
     <div
       data-testid='platform-v7-action-feedback-preview-strip'
-      style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, minWidth: 0 }}
+      style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, minWidth: 0 }}
     >
       <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
         <div style={micro}>предпросмотр действия · контур исполнения</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-          <span style={{ color: '#0F1419', fontSize: 17, fontWeight: 950, lineHeight: 1.1, overflowWrap: 'anywhere' }}>
+          <span style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 17, fontWeight: 950, lineHeight: 1.1, overflowWrap: 'anywhere' }}>
             {preview.actionLabel}
           </span>
           <span
@@ -75,12 +75,12 @@ export function ActionFeedbackPreviewStrip({ context }: { context: ActionFeedbac
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8, minWidth: 0 }}>
         <div
           data-testid='platform-v7-action-feedback-responsible'
-          style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 5, minWidth: 0 }}
+          style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10, display: 'grid', gap: 5, minWidth: 0 }}
         >
           <div style={micro}>ответственный</div>
-          <div style={{ color: '#0F1419', fontSize: 13, fontWeight: 900, overflowWrap: 'anywhere' }}>{preview.responsibleRole}</div>
+          <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900, overflowWrap: 'anywhere' }}>{preview.responsibleRole}</div>
         </div>
-        <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 5, minWidth: 0 }}>
+        <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10, display: 'grid', gap: 5, minWidth: 0 }}>
           <div style={micro}>техническая сверка</div>
           <div style={{ color: idempotencyColor, fontSize: 13, fontWeight: 900, overflowWrap: 'anywhere' }}>{preview.idempotencyLabel}</div>
         </div>
@@ -99,7 +99,7 @@ export function ActionFeedbackPreviewStrip({ context }: { context: ActionFeedbac
         }}
       >
         <div style={micro}>граница внешнего подтверждения</div>
-        <div style={{ color: '#334155', fontSize: 13, lineHeight: 1.45, overflowWrap: 'anywhere' }}>{preview.externalConfirmationBoundary}</div>
+        <div style={{ color: 'var(--pc-text-secondary, #334155)', fontSize: 13, lineHeight: 1.45, overflowWrap: 'anywhere' }}>{preview.externalConfirmationBoundary}</div>
       </div>
 
       <div
@@ -109,7 +109,7 @@ export function ActionFeedbackPreviewStrip({ context }: { context: ActionFeedbac
           border: '1px solid rgba(100,116,139,0.14)',
           borderRadius: 10,
           padding: '8px 12px',
-          color: '#64748B',
+          color: 'var(--pc-text-muted, #64748B)',
           fontSize: 12,
           lineHeight: 1.45,
           overflowWrap: 'anywhere',

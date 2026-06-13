@@ -198,22 +198,22 @@ function Cell({ label, value }: { readonly label: string; readonly value: string
 }
 
 const page = { display: 'grid', gap: 18, padding: '8px 0 24px' } as const;
-const hero = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 16, alignItems: 'stretch', background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 20, padding: 20 } as const;
+const hero = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 16, alignItems: 'stretch', background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 20 } as const;
 const heroMeta = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 } as const;
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14 } as const;
-const panel = { background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16, display: 'grid', gap: 12 } as const;
+const panel = { background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, display: 'grid', gap: 12 } as const;
 const list = { display: 'grid', gap: 8 } as const;
 const checklistGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 8 } as const;
-const checkItem = { display: 'grid', gridTemplateColumns: '32px 1fr', alignItems: 'start', gap: 10, border: '1px solid #E4E6EA', borderRadius: 12, padding: 12, background: '#F8FAFB', color: '#0F1419', fontSize: 13, lineHeight: 1.45, fontWeight: 800 } as const;
-const checkRow = { border: '1px solid #E4E6EA', borderRadius: 12, padding: 12, background: '#F8FAFB', color: '#0F1419', fontSize: 13, lineHeight: 1.45, fontWeight: 800 } as const;
-const row = { display: 'grid', gridTemplateColumns: 'minmax(140px,0.7fr) minmax(160px,1fr)', gap: 10, alignItems: 'center', border: '1px solid #E4E6EA', borderRadius: 12, padding: 12, background: '#F8FAFB' } as const;
-const cell = { border: '1px solid #E4E6EA', borderRadius: 12, padding: 12, background: '#F8FAFB' } as const;
+const checkItem = { display: 'grid', gridTemplateColumns: '32px 1fr', alignItems: 'start', gap: 10, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.45, fontWeight: 800 } as const;
+const checkRow = { border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.45, fontWeight: 800 } as const;
+const row = { display: 'grid', gridTemplateColumns: 'minmax(140px,0.7fr) minmax(160px,1fr)', gap: 10, alignItems: 'center', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB' } as const;
+const cell = { border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB' } as const;
 const micro = { color: '#0A7A5F', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const h1 = { margin: '6px 0 0', color: '#0F1419', fontSize: 34, lineHeight: 1.05, fontWeight: 950 } as const;
-const h2 = { margin: 0, color: '#0F1419', fontSize: 20, lineHeight: 1.15, fontWeight: 950 } as const;
-const lead = { margin: '10px 0 0', color: '#475569', fontSize: 14, lineHeight: 1.6, maxWidth: 820 } as const;
-const rowLabel = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const rowValue = { marginTop: 4, color: '#0F1419', fontSize: 14, lineHeight: 1.35, fontWeight: 900 } as const;
-const rowNote = { color: '#475569', fontSize: 12, lineHeight: 1.45 } as const;
+const h1 = { margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 34, lineHeight: 1.05, fontWeight: 950 } as const;
+const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 20, lineHeight: 1.15, fontWeight: 950 } as const;
+const lead = { margin: '10px 0 0', color: 'var(--pc-text-secondary, #475569)', fontSize: 14, lineHeight: 1.6, maxWidth: 820 } as const;
+const rowLabel = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
+const rowValue = { marginTop: 4, color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.35, fontWeight: 900 } as const;
+const rowNote = { color: 'var(--pc-text-secondary, #475569)', fontSize: 12, lineHeight: 1.45 } as const;
 const step = { display: 'grid', placeItems: 'center', width: 26, height: 26, borderRadius: 999, background: 'rgba(10,122,95,0.1)', color: '#0A7A5F', fontWeight: 950 } as const;
-const button = { textDecoration: 'none', border: '1px solid #D7DEE8', borderRadius: 12, padding: '10px 14px', background: '#FFFFFF', color: '#0F1419', fontSize: 13, fontWeight: 900 } as const;
+const button = { textDecoration: 'none', border: '1px solid #D7DEE8', borderRadius: 12, padding: '10px 14px', background: '#FFFFFF', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900 } as const;

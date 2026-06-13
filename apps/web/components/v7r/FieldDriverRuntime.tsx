@@ -54,7 +54,7 @@ export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps)
       </section>
 
       <section id="driver-next-action" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Следующее полевое действие</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Следующее полевое действие</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             disabled={arrived}
@@ -71,7 +71,7 @@ export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps)
       </section>
 
       <section id="driver-photo-seal" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Фото и пломба</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Фото и пломба</div>
         <div style={{ display: 'grid', gap: 8, color: '#344054', fontSize: 13, lineHeight: 1.5 }}>
           <div>Пломба: зафиксирована в рейсе {trip.id}.</div>
           <div>Фото погрузки: приложено к рейсу и доступно для сверки при приёмке.</div>
@@ -79,7 +79,7 @@ export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps)
       </section>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Отклонение</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Отклонение</div>
         {!showDeviation ? (
           <button onClick={() => setShowDeviation(true)} style={{ padding: compact ? '16px 18px' : '12px 16px', minHeight: compact ? 56 : 44, borderRadius: 12, border: '1px solid rgba(220,38,38,0.2)', background: 'rgba(220,38,38,0.06)', color: '#DC2626', fontSize: compact ? 16 : 14, fontWeight: 700, cursor: 'pointer' }}>
             Сообщить об отклонении

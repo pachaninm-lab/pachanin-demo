@@ -23,13 +23,13 @@ const STATUS_LABEL: Record<EvidenceStatus, string> = {
 function tone(status: EvidenceStatus) {
   if (status === 'ready') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
   if (status === 'partial') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
-  return { bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.18)', color: '#64748B' };
+  return { bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.18)', color: 'var(--pc-text-muted, #64748B)' };
 }
 
 function metadataTone(status: string) {
   if (status === 'available') return { bg: 'rgba(10,122,95,0.08)', color: '#0A7A5F' };
   if (status === 'partial') return { bg: 'rgba(217,119,6,0.08)', color: '#B45309' };
-  return { bg: 'rgba(100,116,139,0.08)', color: '#64748B' };
+  return { bg: 'rgba(100,116,139,0.08)', color: 'var(--pc-text-muted, #64748B)' };
 }
 
 export function EvidencePack() {
@@ -40,9 +40,9 @@ export function EvidencePack() {
 
   if (!dispute || !deal) {
     return (
-      <section data-testid="platform-v7-evidence-pack" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 16, fontWeight: 900, color: '#0F1419' }}>Доказательства</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: '#64748B' }}>Открытых споров нет.</div>
+      <section data-testid="platform-v7-evidence-pack" style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Доказательства</div>
+        <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-muted, #64748B)' }}>Открытых споров нет.</div>
       </section>
     );
   }
@@ -118,12 +118,12 @@ export function EvidencePack() {
   ];
 
   return (
-    <section data-testid="platform-v7-evidence-pack" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+    <section data-testid="platform-v7-evidence-pack" style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
-          <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>EvidencePack · доказательства спора</div>
-          <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: '#0F1419' }}>{dispute.id} · {dispute.title}</div>
-          <div style={{ marginTop: 6, fontSize: 13, color: '#64748B', lineHeight: 1.55 }}>{deal.id} · сумма под риском {formatCompactMoney(dispute.holdAmount)} · решение нельзя скрывать от истории спора.</div>
+          <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>EvidencePack · доказательства спора</div>
+          <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>{dispute.id} · {dispute.title}</div>
+          <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-muted, #64748B)', lineHeight: 1.55 }}>{deal.id} · сумма под риском {formatCompactMoney(dispute.holdAmount)} · решение нельзя скрывать от истории спора.</div>
         </div>
         <span style={{ display: 'inline-flex', alignItems: 'center', padding: '7px 10px', borderRadius: 999, border: '1px solid rgba(217,119,6,0.18)', background: 'rgba(217,119,6,0.08)', color: '#B45309', fontSize: 12, fontWeight: 900 }}>
           {uploadedEvidence}/{totalEvidence} загружено
@@ -137,19 +137,19 @@ export function EvidencePack() {
             <div key={item.key} style={{ border: '1px solid #EEF1F4', borderRadius: 14, padding: 12, background: '#F8FAFB', display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: '#0F1419' }}>{item.label}</div>
-                  <div style={{ marginTop: 3, fontSize: 11, color: '#64748B' }}>{item.source}</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{item.label}</div>
+                  <div style={{ marginTop: 3, fontSize: 11, color: 'var(--pc-text-muted, #64748B)' }}>{item.source}</div>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 7px', borderRadius: 999, background: t.bg, border: `1px solid ${t.border}`, color: t.color, fontSize: 11, fontWeight: 900 }}>{STATUS_LABEL[item.status]}</span>
               </div>
-              <div style={{ fontSize: 12, lineHeight: 1.45, color: '#334155' }}>{item.detail}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--pc-text-secondary, #334155)' }}>{item.detail}</div>
             </div>
           );
         })}
       </div>
 
       <div data-testid="platform-v7-evidence-metadata" style={{ borderTop: '1px solid #EEF1F4', paddingTop: 12, display: 'grid', gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>Метаданные доказательств</div>
+        <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Метаданные доказательств</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
           {metadata.map((slot) => {
             const t = metadataTone(slot.status);

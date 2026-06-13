@@ -27,7 +27,7 @@ export function MobileDealFocus(props: {
           .p7-mobile-focus__amount{border:1px solid rgba(37,99,235,.16);border-radius:20px;background:rgba(255,255,255,.9);padding:13px;display:grid;gap:5px}
           .p7-mobile-focus__label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#64748b;font-weight:900}
           .p7-mobile-focus__money{font-size:32px;line-height:1;font-weight:950;color:#0f1419;letter-spacing:-.045em}
-          .p7-mobile-focus__reason{font-size:14px;line-height:1.38;color:#334155;font-weight:850;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+          .p7-mobile-focus__reason{font-size:14px;line-height:1.38;color:var(--pc-text-secondary, #334155);font-weight:850;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
           .p7-mobile-focus__facts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
           .p7-mobile-focus__fact{border:1px solid #e4e6ea;border-radius:15px;background:#fff;padding:10px;display:grid;gap:4px;min-width:0}
           .p7-mobile-focus__fact strong{font-size:13px;line-height:1.25;color:#0f1419;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -39,7 +39,7 @@ export function MobileDealFocus(props: {
           .p7-mobile-focus__details{border:1px solid #e4e6ea;border-radius:18px;background:#fff;overflow:hidden}
           .p7-mobile-focus__summary{list-style:none;padding:14px 15px;font-size:14px;font-weight:950;color:#0f1419;display:flex;justify-content:space-between;cursor:pointer}
           .p7-mobile-focus__summary::-webkit-details-marker{display:none}
-          .p7-mobile-focus__body{padding:0 15px 15px;color:#475569;font-size:13px;line-height:1.45}
+          .p7-mobile-focus__body{padding:0 15px 15px;color:var(--pc-text-secondary, #475569);font-size:13px;line-height:1.45}
         }
       `}</style>
       <div className='p7-mobile-focus__card'>

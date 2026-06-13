@@ -163,8 +163,8 @@ export default async function PlatformV7BankPage() {
       <section style={focusCard}>
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={micro}>5 секунд для банка</div>
-          <h2 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(23px,5.5vw,34px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Деньги не двигаются, пока нет основания</h2>
-          <p style={{ margin: 0, color: '#475569', fontSize: 14, lineHeight: 1.55 }}>Передача основания банку — результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
+          <h2 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(23px,5.5vw,34px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Деньги не двигаются, пока нет основания</h2>
+          <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 14, lineHeight: 1.55 }}>Передача основания банку — результат закрытых документов, приёмки, качества, спора и банковского решения.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {releaseSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
@@ -282,12 +282,12 @@ export default async function PlatformV7BankPage() {
               <article key={`${gate.provider}-${gate.object}`} style={{ background: stateBg(gate.state), border: `1px solid ${stateBorder(gate.state)}`, borderRadius: 18, padding: 14, display: 'grid', gap: 6, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' }}>
                 <div style={rowHead}>
                   <div>
-                    <h3 style={{ margin: 0, color: '#0F1419', fontSize: 16, fontWeight: 950 }}>{gate.provider}</h3>
+                    <h3 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 16, fontWeight: 950 }}>{gate.provider}</h3>
                     <p style={muted}>{gate.object}</p>
                   </div>
                   <span style={{ ...pill, color: stateText(gate.state), borderColor: stateBorder(gate.state), background: '#fff' }}>{gate.status}</span>
                 </div>
-                <div style={{ color: '#0F1419', fontSize: 13, lineHeight: 1.45, fontWeight: 800 }}>{gate.impact}</div>
+                <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.45, fontWeight: 800 }}>{gate.impact}</div>
               </article>
             ))}
           </div>
@@ -314,8 +314,8 @@ function DisclosureSection({ title, meta, children }: { title: string; meta: str
     <details style={detailsCard}>
       <summary style={summaryRow}>
         <span style={{ display: 'grid', gap: 4 }}>
-          <strong style={{ color: '#0F1419', fontSize: 18, lineHeight: 1.15 }}>{title}</strong>
-          <span style={{ color: '#64748B', fontSize: 12, lineHeight: 1.35 }}>{meta}</span>
+          <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, lineHeight: 1.15 }}>{title}</strong>
+          <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.35 }}>{meta}</span>
         </span>
         <span style={summaryPill}>раскрыть</span>
       </summary>
@@ -325,15 +325,15 @@ function DisclosureSection({ title, meta, children }: { title: string; meta: str
 }
 
 function SummaryCard({ item }: { item: typeof releaseSummary[number] }) {
-  return <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 13, display: 'grid', gap: 7, boxShadow: '0 8px 20px rgba(15,23,42,0.045)' }}><div style={micro}>{item.label}</div><strong style={{ color: '#0F1419', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#64748B', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+  return <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 13, display: 'grid', gap: 7, boxShadow: '0 8px 20px rgba(15,23,42,0.045)' }}><div style={micro}>{item.label}</div><strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
 }
 
 function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return <div style={{ background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' }}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : '#0F1419', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div></div>;
+  return <div style={{ background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' }}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : 'var(--pc-text-primary, #0F1419)', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div></div>;
 }
 
 function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{value}</div></div>;
+  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{value}</div></div>;
 }
 
 function stateBg(state: Deal360State) {
@@ -346,34 +346,34 @@ function stateBorder(state: Deal360State) {
   if (state === 'ok') return 'rgba(10,122,95,0.18)';
   if (state === 'stop') return 'rgba(220,38,38,0.18)';
   if (state === 'wait') return 'rgba(217,119,6,0.18)';
-  return '#E4E6EA';
+  return 'var(--pc-border, #E4E6EA)';
 }
 function stateText(state: Deal360State) {
   if (state === 'ok') return '#0A7A5F';
   if (state === 'stop') return '#B91C1C';
   if (state === 'wait') return '#B45309';
-  return '#475569';
+  return 'var(--pc-text-secondary, #475569)';
 }
 
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
-const focusCard = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 60%,#EEF6F3 100%)', color: '#0F1419', border: '1px solid #E4E6EA', borderRadius: 26, padding: 20, display: 'grid', gap: 14, boxShadow: '0 18px 42px rgba(15,23,42,0.075)' } as const;
-const cardInner = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 14, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
+const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
+const focusCard = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 60%,#EEF6F3 100%)', color: 'var(--pc-text-primary, #0F1419)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 20, display: 'grid', gap: 14, boxShadow: '0 18px 42px rgba(15,23,42,0.075)' } as const;
+const cardInner = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 14, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(15,23,42,0.08)', border: '1px solid rgba(15,23,42,0.18)', color: '#0F172A', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(28px,7vw,46px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 22, lineHeight: 1.08, fontWeight: 950 } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 } as const;
-const muted = { margin: '6px 0 0', color: '#64748B', fontSize: 13 } as const;
+const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(28px,7vw,46px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const h2 = { margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.08, fontWeight: 950 } as const;
+const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.55 } as const;
+const muted = { margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 } as const;
 const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0F172A', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(15,23,42,0.18)' } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
 const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
 const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
 const idText = { color: '#0F172A', fontSize: 13, fontWeight: 950 } as const;
-const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
-const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
-const pill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, border: '1px solid #E4E6EA', fontSize: 12, fontWeight: 900 } as const;
-const detailsCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 0, boxShadow: '0 14px 34px rgba(15,23,42,0.055)', overflow: 'hidden' } as const;
+const cell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
+const pill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 12, fontWeight: 900 } as const;
+const detailsCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 0, boxShadow: '0 14px 34px rgba(15,23,42,0.055)', overflow: 'hidden' } as const;
 const summaryRow = { cursor: 'pointer', listStyle: 'none', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 16 } as const;
-const summaryPill = { flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', borderRadius: 999, border: '1px solid #CBD5E1', background: '#fff', color: '#0F1419', padding: '7px 10px', fontSize: 12, fontWeight: 900 } as const;
-const detailsBody = { borderTop: '1px solid #E4E6EA', padding: 14, display: 'grid', gap: 12 } as const;
+const summaryPill = { flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', borderRadius: 999, border: '1px solid #CBD5E1', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', padding: '7px 10px', fontSize: 12, fontWeight: 900 } as const;
+const detailsBody = { borderTop: '1px solid var(--pc-border, #E4E6EA)', padding: 14, display: 'grid', gap: 12 } as const;

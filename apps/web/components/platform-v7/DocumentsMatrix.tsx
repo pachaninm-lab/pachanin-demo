@@ -26,13 +26,13 @@ function statusTone(status: DocumentStatus) {
   if (status === 'ready') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
   if (status === 'missing') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
   if (status === 'review') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
-  return { bg: '#F8FAFB', border: '#E4E6EA', color: '#64748B' };
+  return { bg: '#F8FAFB', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-muted, #64748B)' };
 }
 
 function metadataTone(status: string) {
   if (status === 'available') return { bg: 'rgba(10,122,95,0.08)', color: '#0A7A5F' };
   if (status === 'partial') return { bg: 'rgba(217,119,6,0.08)', color: '#B45309' };
-  return { bg: 'rgba(100,116,139,0.08)', color: '#64748B' };
+  return { bg: 'rgba(100,116,139,0.08)', color: 'var(--pc-text-muted, #64748B)' };
 }
 
 function hasBlocker(dealBlockers: readonly string[], pattern: string) {
@@ -119,14 +119,14 @@ export function DocumentsMatrix() {
   ];
 
   return (
-    <section data-testid="platform-v7-documents-matrix" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+    <section data-testid="platform-v7-documents-matrix" style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
-          <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>DocumentsMatrix · документный контур</div>
-          <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: '#0F1419' }}>
+          <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>DocumentsMatrix · документный контур</div>
+          <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>
             {primaryDeal ? `${primaryDeal.id} · документы и деньги` : 'Документы'}
           </div>
-          <div style={{ marginTop: 6, fontSize: 13, color: '#64748B', lineHeight: 1.55 }}>
+          <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-muted, #64748B)', lineHeight: 1.55 }}>
             Матрица показывает, чего не хватает, кто следующий и влияет ли документ на банковскую проверку выплаты.
           </div>
         </div>
@@ -141,21 +141,21 @@ export function DocumentsMatrix() {
           return (
             <div key={row.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(130px, 0.8fr) minmax(120px, 0.7fr) minmax(160px, 1fr) minmax(160px, 1fr)', gap: 10, alignItems: 'center', border: '1px solid #EEF1F4', borderRadius: 12, padding: 10, background: '#F8FAFB' }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 900, color: '#0F1419' }}>{row.name}</div>
-                <div style={{ marginTop: 3, fontSize: 11, color: '#64748B' }}>{row.owner}</div>
+                <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{row.name}</div>
+                <div style={{ marginTop: 3, fontSize: 11, color: 'var(--pc-text-muted, #64748B)' }}>{row.owner}</div>
               </div>
               <span style={{ width: 'fit-content', display: 'inline-flex', alignItems: 'center', padding: '5px 8px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 900 }}>
                 {STATUS_LABEL[row.status]}
               </span>
-              <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.45 }}>{row.blocks}</div>
-              <div style={{ fontSize: 12, color: row.moneyImpact ? '#B45309' : '#64748B', lineHeight: 1.45, fontWeight: 750 }}>{row.nextStep}</div>
+              <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #334155)', lineHeight: 1.45 }}>{row.blocks}</div>
+              <div style={{ fontSize: 12, color: row.moneyImpact ? '#B45309' : 'var(--pc-text-muted, #64748B)', lineHeight: 1.45, fontWeight: 750 }}>{row.nextStep}</div>
             </div>
           );
         })}
       </div>
 
       <div data-testid="platform-v7-document-metadata" style={{ borderTop: '1px solid #EEF1F4', paddingTop: 12, display: 'grid', gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 900, color: '#0F1419' }}>Метаданные документов</div>
+        <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Метаданные документов</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
           {metadata.map((slot) => {
             const t = metadataTone(slot.status);

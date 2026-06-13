@@ -21,35 +21,35 @@ const FLOW_STEPS = [
 export default function DemoModePage() {
   return (
     <div style={{ display: 'grid', gap: 20 }}>
-      <section data-testid="platform-v7-demo-flow-hero" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 28, fontWeight: 900, color: '#0F1419' }}>Сквозной сценарий исполнения сделки</div>
-        <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, maxWidth: 920 }}>
+      <section data-testid="platform-v7-demo-flow-hero" style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 20, display: 'grid', gap: 12 }}>
+        <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Сквозной сценарий исполнения сделки</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, maxWidth: 920 }}>
           Отдельный сквозной сценарий на 3–5 минут. Он показывает весь путь зерновой сделки: лот, ставка, сделка, резерв, логистика, рейс, приёмка, лаборатория, документы, выпуск или удержание денег, спор, доказательства и решение. Сценарий не заявляет live-интеграции и не подменяет рабочие кабинеты.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Link href="/platform-v7/demo/deals/DL-9103" style={{ padding: '12px 16px', borderRadius: 12, background: '#0A7A5F', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>Запустить сценарий сделки</Link>
-          <Link href="/platform-v7/investor" style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', textDecoration: 'none', fontWeight: 700 }}>Открыть инвесторский режим</Link>
+          <Link href="/platform-v7/investor" style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', textDecoration: 'none', fontWeight: 700 }}>Открыть инвесторский режим</Link>
         </div>
       </section>
 
-      <section data-testid="platform-v7-demo-flow" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 20, display: 'grid', gap: 14 }}>
+      <section data-testid="platform-v7-demo-flow" style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 20, display: 'grid', gap: 14 }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Сквозной маршрут сделки</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 6 }}>Каждый шаг показывает роль, статус, причину остановки, влияние на деньги или документы и следующий переход.</div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Сквозной маршрут сделки</div>
+          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 6 }}>Каждый шаг показывает роль, статус, причину остановки, влияние на деньги или документы и следующий переход.</div>
         </div>
         <CollapsibleSection title='Все шаги маршрута' summary={`${FLOW_STEPS.length} шагов · роль, статус, блокер, влияние`} defaultOpen={false}>
         <div style={{ display: 'grid', gap: 10 }}>
           {FLOW_STEPS.map((step, index) => (
-            <article key={step.title} style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA', display: 'grid', gap: 10 }}>
+            <article key={step.title} style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', display: 'grid', gap: 10 }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 }}>{index + 1}</div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: '#0F1419' }}>{step.title}</div>
-                    <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{step.role}</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{step.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #64748B)', marginTop: 2 }}>{step.role}</div>
                   </div>
                 </div>
-                <Link href={step.href} style={{ minHeight: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', textDecoration: 'none', fontSize: 12, fontWeight: 850 }}>{step.cta}</Link>
+                <Link href={step.href} style={{ minHeight: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', textDecoration: 'none', fontSize: 12, fontWeight: 850 }}>{step.cta}</Link>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8 }}>
                 <Cell label="Статус" value={step.status} />
@@ -68,8 +68,8 @@ export default function DemoModePage() {
 function Cell({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ border: '1px solid #EEF1F4', borderRadius: 12, padding: 10, background: '#fff' }}>
-      <div style={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.055em', fontWeight: 900 }}>{label}</div>
-      <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.45, color: '#0F1419', fontWeight: 750 }}>{value}</div>
+      <div style={{ fontSize: 10, color: 'var(--pc-text-muted, #64748B)', textTransform: 'uppercase', letterSpacing: '0.055em', fontWeight: 900 }}>{label}</div>
+      <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.45, color: 'var(--pc-text-primary, #0F1419)', fontWeight: 750 }}>{value}</div>
     </div>
   );
 }

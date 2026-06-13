@@ -13,8 +13,8 @@ export function WaitingForConfirmationCard({ waitingFor, from, reason }: Props) 
           от: {from}
         </span>
       </div>
-      <p style={{ margin: 0, color: '#0F1419', fontSize: 13, fontWeight: 900 }}>{waitingFor}</p>
-      {reason && <p style={{ margin: 0, color: '#64748B', fontSize: 12, lineHeight: 1.4 }}>{reason}</p>}
+      <p style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900 }}>{waitingFor}</p>
+      {reason && <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.4 }}>{reason}</p>}
     </div>
   );
 }

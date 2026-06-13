@@ -58,8 +58,8 @@ export default async function Page() {
         <div style={cardsGrid}>
           {decisionGuardCards.map(([cardTitle, text]) => (
             <div key={cardTitle} style={guardCard}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: '#0F1419' }}>{cardTitle}</div>
-              <div style={{ marginTop: 5, fontSize: 12, color: '#64748B', lineHeight: 1.45 }}>{text}</div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{cardTitle}</div>
+              <div style={{ marginTop: 5, fontSize: 12, color: 'var(--pc-text-muted, #64748B)', lineHeight: 1.45 }}>{text}</div>
             </div>
           ))}
         </div>
@@ -87,7 +87,7 @@ export default async function Page() {
 
 const decisionGuard = {
   background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#FEF2F2 100%)',
-  border: '1px solid #E4E6EA',
+  border: '1px solid var(--pc-border, #E4E6EA)',
   borderRadius: 24,
   padding: 20,
   display: 'grid',
@@ -105,10 +105,10 @@ const title = {
   fontSize: 24,
   lineHeight: 1.1,
   fontWeight: 950,
-  color: '#0F1419',
+  color: 'var(--pc-text-primary, #0F1419)',
   letterSpacing: '-0.035em',
 } as const;
-const lead = { fontSize: 13, color: '#475569', lineHeight: 1.6 } as const;
+const lead = { fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 } as const;
 const cardsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 } as const;
 const guardCard = {
   border: '1px solid rgba(220,38,38,0.12)',

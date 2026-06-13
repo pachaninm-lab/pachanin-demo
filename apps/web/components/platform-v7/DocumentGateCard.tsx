@@ -29,14 +29,14 @@ export function DocumentGateCard({ title, responsible, state, blocksMoney, reaso
   return (
     <div style={{ background: c.bg, border: `1px solid ${blocksMoney ? 'rgba(220,38,38,0.22)' : c.border}`, borderRadius: 14, padding: 14, display: 'grid', gap: 5 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ color: '#0F1419', fontSize: 13, fontWeight: 900 }}>{title}</span>
+        <span style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900 }}>{title}</span>
         <span style={{ color: c.text, fontSize: 11, fontWeight: 900, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 999, padding: '3px 8px' }}>{labels[state]}</span>
       </div>
-      <p style={{ margin: 0, color: '#64748B', fontSize: 12 }}>Ответственный: {responsible}</p>
+      <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 12 }}>Ответственный: {responsible}</p>
       {blocksMoney && (
         <p style={{ margin: 0, color: '#B91C1C', fontSize: 11, fontWeight: 900 }}>Блокирует выплату</p>
       )}
-      {reason && <p style={{ margin: 0, color: '#475569', fontSize: 12, lineHeight: 1.4 }}>{reason}</p>}
+      {reason && <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 12, lineHeight: 1.4 }}>{reason}</p>}
     </div>
   );
 }

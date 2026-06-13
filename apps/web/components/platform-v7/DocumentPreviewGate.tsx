@@ -5,10 +5,10 @@ export function DocumentPreviewGate({ context }: { context: DocumentAccessContex
   const download = canDownloadDocument(context);
   const color = download.allowed ? '#0A7A5F' : '#B45309';
   return (
-    <div style={{ border: '1px solid #E4E6EA', borderRadius: 16, padding: 12, display: 'grid', gap: 6, background: '#fff' }}>
-      <strong style={{ color: '#0F1419', fontSize: 14 }}>Документы</strong>
+    <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 12, display: 'grid', gap: 6, background: '#fff' }}>
+      <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 14 }}>Документы</strong>
       <span style={{ color, fontSize: 13, fontWeight: 900 }}>{documentAccessLabel(context)}</span>
-      <span style={{ color: '#64748B', fontSize: 12 }}>{download.allowed ? 'Скачивание будет записано в журнал.' : `Причина: ${download.reason ?? 'этап сделки не наступил'}`}</span>
+      <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12 }}>{download.allowed ? 'Скачивание будет записано в журнал.' : `Причина: ${download.reason ?? 'этап сделки не наступил'}`}</span>
     </div>
   );
 }

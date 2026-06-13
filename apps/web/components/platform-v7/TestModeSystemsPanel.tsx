@@ -15,11 +15,11 @@ function tone(status: string) {
 
 export function TestModeSystemsPanel() {
   return (
-    <section data-testid="platform-v7-test-mode-systems" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+    <section data-testid="platform-v7-test-mode-systems" style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
-        <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Внешние подключения · тестовый режим</div>
-        <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: '#0F1419' }}>Проверочные ответы</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: '#64748B', lineHeight: 1.55 }}>Боевые подключения здесь не используются. Экран показывает тестовые ответы и следующий шаг по сделке.</div>
+        <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Внешние подключения · тестовый режим</div>
+        <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>Проверочные ответы</div>
+        <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-muted, #64748B)', lineHeight: 1.55 }}>Боевые подключения здесь не используются. Экран показывает тестовые ответы и следующий шаг по сделке.</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
@@ -28,11 +28,11 @@ export function TestModeSystemsPanel() {
           return (
             <div key={item.title} style={{ border: '1px solid #EEF1F4', borderRadius: 14, padding: 12, background: '#F8FAFB', display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: '#0F1419' }}>{item.title}</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 7px', borderRadius: 999, background: t.bg, border: `1px solid ${t.border}`, color: t.color, fontSize: 11, fontWeight: 900 }}>{item.status}</span>
               </div>
-              <div style={{ fontSize: 12, lineHeight: 1.45, color: '#334155' }}>{item.note}</div>
-              <div style={{ fontSize: 12, lineHeight: 1.45, color: '#334155', fontWeight: 750 }}>Следующий шаг: {item.next}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--pc-text-secondary, #334155)' }}>{item.note}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--pc-text-secondary, #334155)', fontWeight: 750 }}>Следующий шаг: {item.next}</div>
             </div>
           );
         })}

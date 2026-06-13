@@ -34,11 +34,11 @@ function tone(allowed: boolean) {
 
 export function ManualActionReasonsStrip() {
   return (
-    <section data-testid="platform-v7-manual-action-reasons" style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+    <section data-testid="platform-v7-manual-action-reasons" style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div>
-        <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ручные действия · основания</div>
-        <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: '#0F1419' }}>Нельзя менять сделку без причины</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: '#64748B', lineHeight: 1.55 }}>Запрос документа, ручная проверка, спор и денежная проверка должны иметь причину и запись в журнале.</div>
+        <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ручные действия · основания</div>
+        <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>Нельзя менять сделку без причины</div>
+        <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-muted, #64748B)', lineHeight: 1.55 }}>Запрос документа, ручная проверка, спор и денежная проверка должны иметь причину и запись в журнале.</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
         {CASES.map((item, index) => {
@@ -48,13 +48,13 @@ export function ManualActionReasonsStrip() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 900, color: '#0A7A5F' }}>{item.journal?.entityId ?? '—'}</div>
-                  <div style={{ marginTop: 3, fontSize: 14, fontWeight: 900, color: '#0F1419' }}>{item.journal?.kind ?? 'действие остановлено'}</div>
+                  <div style={{ marginTop: 3, fontSize: 14, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{item.journal?.kind ?? 'действие остановлено'}</div>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 7px', borderRadius: 999, background: t.bg, border: `1px solid ${t.border}`, color: t.color, fontSize: 11, fontWeight: 900 }}>{t.label}</span>
               </div>
-              <div style={{ fontSize: 12, lineHeight: 1.45, color: '#334155' }}>{item.message}</div>
-              <div style={{ fontSize: 12, lineHeight: 1.45, color: '#334155', fontWeight: 750 }}>Следующий шаг: {item.nextStep}</div>
-              <div style={{ fontSize: 11, lineHeight: 1.45, color: '#64748B' }}>Причина: {item.journal?.reason ?? 'не указана'}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--pc-text-secondary, #334155)' }}>{item.message}</div>
+              <div style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--pc-text-secondary, #334155)', fontWeight: 750 }}>Следующий шаг: {item.nextStep}</div>
+              <div style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--pc-text-muted, #64748B)' }}>Причина: {item.journal?.reason ?? 'не указана'}</div>
             </article>
           );
         })}

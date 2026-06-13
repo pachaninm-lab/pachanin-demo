@@ -16,8 +16,8 @@ export default function DemoRunPage() {
       </section>
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
         {steps.map((step, index) => (
-          <article key={step} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 15, display: 'grid', gap: 8 }}>
-            <span style={{ color: '#64748B', fontSize: 11, fontWeight: 900 }}>{String(index + 1).padStart(2, '0')}</span>
+          <article key={step} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 15, display: 'grid', gap: 8 }}>
+            <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900 }}>{String(index + 1).padStart(2, '0')}</span>
             <b style={{ color: '#0F1419', fontSize: 16 }}>{step}</b>
           </article>
         ))}
