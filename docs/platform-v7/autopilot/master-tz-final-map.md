@@ -49,3 +49,26 @@ dto-schemas.ts, persistence-ports.ts существуют и под тестам
 - Конфликт копии решается словарём честной копии §4.2: если codex-тест пинит
   старую копию («демо», «пилотный контур», «тестовый сценарий»), исходник
   остаётся честным, тест перепинивается (прецедент: PR #1721).
+
+## Контракт хостингов и полос (от владельца + Codex, 2026-06-13)
+
+Схема деплоя:
+- **Vercel = основной хостинг** (GitHub `main` → Vercel). Конфиг: `vercel.json`,
+  `apps/web/vercel.json`. Эту сторону НЕ теряем; Codex её не трогает.
+- **Netlify = резервный хостинг**, отдельный контур. Конфиг: `netlify.toml`
+  и hosting-only файлы — это полоса Codex.
+
+Правила недопущения конфликтов (согласовано с Codex):
+1. Codex не трогает PR Claude без явного запроса; перед merge проверяет
+   отсутствие конфликта с последним Claude-merge.
+2. Codex-фиксы Netlify — только `netlify.toml` / hosting-only файлы.
+3. Codex не трогает `vercel.json`, `apps/web/vercel.json`, `apps/landing`,
+   `apps/web/app/platform-v7/**` (платформа) для Netlify-задач.
+4. Claude (визуальная полоса) не трогает `netlify.toml` и hosting-only файлы.
+5. Деплой-конфиг каждого хостинга меняет только его владелец-полоса.
+
+Требование владельца: оба хостинга должны быть под паролем.
+- Vercel: Project → Settings → Deployment Protection → Password Protection
+  (включается в дашборде/через API; в `vercel.json` не настраивается).
+- Netlify: Site → Access control → Visitor access → Password protection
+  (дашборд/план Netlify; полоса Codex/владельца).
