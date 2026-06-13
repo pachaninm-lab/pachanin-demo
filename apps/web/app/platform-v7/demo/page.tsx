@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 
 const FLOW_STEPS = [
   { title: 'Создать лот', role: 'Продавец', status: 'партия подготовлена', blocker: 'паспорт и СДИЗ требуют сверки', impact: 'деньги ещё не запрошены', href: '/platform-v7/lots/create', cta: 'Создать лот' },
@@ -36,6 +37,7 @@ export default function DemoModePage() {
           <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Сквозной маршрут сделки</div>
           <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 6 }}>Каждый шаг показывает роль, статус, причину остановки, влияние на деньги или документы и следующий переход.</div>
         </div>
+        <CollapsibleSection title='Все шаги маршрута' summary={`${FLOW_STEPS.length} шагов · роль, статус, блокер, влияние`} defaultOpen={false}>
         <div style={{ display: 'grid', gap: 10 }}>
           {FLOW_STEPS.map((step, index) => (
             <article key={step.title} style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA', display: 'grid', gap: 10 }}>
@@ -57,6 +59,7 @@ export default function DemoModePage() {
             </article>
           ))}
         </div>
+        </CollapsibleSection>
       </section>
     </div>
   );
