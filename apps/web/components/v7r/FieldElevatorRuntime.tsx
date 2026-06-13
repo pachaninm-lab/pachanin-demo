@@ -107,27 +107,27 @@ export function FieldElevatorRuntime() {
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Приёмка и весовая</div>
-        <div style={{ fontSize: 13, color: '#6B778C', marginTop: 8, lineHeight: 1.7 }}>Экран больше не витрина. Здесь реально двигается состояние по машинам: допуск, вес, СДИЗ и фиксация ФГИС-шага.</div>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Приёмка и весовая</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 8, lineHeight: 1.7 }}>Экран больше не витрина. Здесь реально двигается состояние по машинам: допуск, вес, СДИЗ и фиксация ФГИС-шага.</div>
       </section>
 
       {receptions.map((item) => {
         const admitState = actionStates[`${item.plate}:admit`] ?? 'idle';
         const confirmState = actionStates[`${item.plate}:confirm`] ?? 'idle';
         return (
-          <section key={item.plate} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+          <section key={item.plate} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontFamily: 'JetBrains Mono, monospace', color: '#0A7A5F', fontSize: 13, fontWeight: 800 }}>{item.plate}</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419', marginTop: 4 }}>Сделка {item.dealId}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 4 }}>Сделка {item.dealId}</div>
               </div>
               <div style={{ fontSize: 12, fontWeight: 800, color: item.status === 'completed' ? '#15803D' : item.status === 'admitted' ? '#B45309' : '#6B7280' }}>{item.status.toUpperCase()}</div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-              <input value={item.weight} onChange={(e) => updateReception(item.plate, { weight: e.target.value })} placeholder='Вес' style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid #E4E6EA', fontSize: 14 }} />
-              <input value={item.sdiz} onChange={(e) => updateReception(item.plate, { sdiz: e.target.value })} placeholder='Номер СДИЗ' style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid #E4E6EA', fontSize: 14 }} />
+              <input value={item.weight} onChange={(e) => updateReception(item.plate, { weight: e.target.value })} placeholder='Вес' style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 14 }} />
+              <input value={item.sdiz} onChange={(e) => updateReception(item.plate, { sdiz: e.target.value })} placeholder='Номер СДИЗ' style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 14 }} />
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -154,16 +154,16 @@ export function FieldElevatorRuntime() {
                   Подтвердить приёмку
                 </P7ActionButton>
               ) : null}
-              <Link href={`/platform-v7/deals/${item.dealId}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontWeight: 700 }}>Открыть сделку</Link>
+              <Link href={`/platform-v7/deals/${item.dealId}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontWeight: 700 }}>Открыть сделку</Link>
             </div>
 
-            <div style={{ fontSize: 12, color: '#6B778C' }}>FGIS: {item.fgis ? 'подтверждено' : 'не отправлено'} · Вес: {item.weight || '—'} т · СДИЗ: {item.sdiz || '—'}</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>FGIS: {item.fgis ? 'подтверждено' : 'не отправлено'} · Вес: {item.weight || '—'} т · СДИЗ: {item.sdiz || '—'}</div>
           </section>
         );
       })}
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Журнал действий приёмки</div>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Журнал действий приёмки</div>
         {actionLog.length ? actionLog.map((row) => {
           const tone = statusTone(row.status);
           return (
@@ -171,14 +171,14 @@ export function FieldElevatorRuntime() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{ display: 'inline-flex', borderRadius: 999, padding: '4px 8px', background: '#fff', color: tone.color, fontSize: 11, fontWeight: 800 }}>{tone.label}</span>
-                  <span style={{ color: '#0F1419', fontSize: 13, fontWeight: 800 }}>{row.action}</span>
+                  <span style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 800 }}>{row.action}</span>
                 </div>
                 <span style={{ color: '#667085', fontSize: 11 }}>{new Date(row.at).toLocaleString('ru-RU')}</span>
               </div>
-              <div style={{ color: row.status === 'error' ? '#B42318' : '#475569', fontSize: 13, lineHeight: 1.5 }}>{row.message}</div>
+              <div style={{ color: row.status === 'error' ? '#B42318' : 'var(--pc-text-secondary, #475569)', fontSize: 13, lineHeight: 1.5 }}>{row.message}</div>
             </div>
           );
-        }) : <div style={{ color: '#6B778C', fontSize: 13 }}>Действий пока нет.</div>}
+        }) : <div style={{ color: 'var(--pc-text-muted, #6B778C)', fontSize: 13 }}>Действий пока нет.</div>}
       </section>
     </div>
   );

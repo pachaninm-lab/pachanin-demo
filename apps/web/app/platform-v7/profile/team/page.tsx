@@ -132,11 +132,11 @@ export default function TeamPage() {
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>Команда компании</div>
-            <div style={{ marginTop: 8, fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Команда компании</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
               Рабочая страница multi-user контура: кто в компании за что отвечает, какой у него уровень доступа и где проходит граница между деньгами, исполнением и стратегией.
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function TeamPage() {
             <button onClick={sendInvite} style={{ padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
               Пригласить участника
             </button>
-            <Link href='/platform-v7/auth' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
+            <Link href='/platform-v7/auth' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
               Контур доступа
             </Link>
           </div>
@@ -153,23 +153,23 @@ export default function TeamPage() {
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         {IAM_METRICS.map((item) => (
-          <div key={item.label} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-            <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{item.label}</div>
-            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: '#0F1419' }}>{item.value}</div>
-            <div style={{ marginTop: 8, fontSize: 12, color: '#6B778C', lineHeight: 1.6 }}>{item.note}</div>
+          <div key={item.label} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{item.label}</div>
+            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.value}</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{item.note}</div>
           </div>
         ))}
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#0F1419' }}>Состав команды</div>
-            <div style={{ marginTop: 6, fontSize: 12, color: '#6B778C', lineHeight: 1.6 }}>Живой multi-user слой: фильтры, статусы и быстрые действия по доступам.</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Состав команды</div>
+            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Живой multi-user слой: фильтры, статусы и быстрые действия по доступам.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {(['Все', 'Активные', 'Ограниченные'] as const).map((item) => (
-              <button key={item} onClick={() => setFilter(item)} style={{ padding: '8px 10px', borderRadius: 999, background: filter === item ? 'rgba(10,122,95,0.08)' : '#F8FAFB', border: filter === item ? '1px solid rgba(10,122,95,0.18)' : '1px solid #E4E6EA', color: filter === item ? '#0A7A5F' : '#475569', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>{item}</button>
+              <button key={item} onClick={() => setFilter(item)} style={{ padding: '8px 10px', borderRadius: 999, background: filter === item ? 'rgba(10,122,95,0.08)' : '#F8FAFB', border: filter === item ? '1px solid rgba(10,122,95,0.18)' : '1px solid var(--pc-border, #E4E6EA)', color: filter === item ? '#0A7A5F' : 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>{item}</button>
             ))}
           </div>
         </div>
@@ -178,27 +178,27 @@ export default function TeamPage() {
           {visibleMembers.map((member) => {
             const tone = statusTone(member.status);
             return (
-              <section key={member.name} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+              <section key={member.name} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                   <div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>{member.name}</div>
-                    <div style={{ marginTop: 4, fontSize: 13, color: '#6B778C', fontWeight: 700 }}>{member.role}</div>
-                    <div style={{ marginTop: 6, fontSize: 12, color: '#6B778C' }}>{member.email}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{member.name}</div>
+                    <div style={{ marginTop: 4, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 700 }}>{member.role}</div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{member.email}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
                       {member.status}
                     </span>
-                    <button onClick={() => toggleMemberStatus(member.name)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                    <button onClick={() => toggleMemberStatus(member.name)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                       Переключить доступ
                     </button>
                   </div>
                 </div>
-                <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.7 }}><strong>Контур:</strong> {member.access}</div>
-                <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.7 }}>{member.note}</div>
+                <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}><strong>Контур:</strong> {member.access}</div>
+                <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>{member.note}</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {member.rights.map((item) => (
-                    <span key={item} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 700 }}>
+                    <span key={item} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 700 }}>
                       {item}
                     </span>
                   ))}
@@ -209,29 +209,29 @@ export default function TeamPage() {
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#0F1419' }}>Приглашения и подключение</div>
-          <div style={{ marginTop: 6, fontSize: 12, color: '#6B778C', lineHeight: 1.6 }}>Кто уже приглашён в компанию и на какой стадии подключение в контур.</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Приглашения и подключение</div>
+          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Кто уже приглашён в компанию и на какой стадии подключение в контур.</div>
         </div>
 
         <div style={{ display: 'grid', gap: 10 }}>
           {invites.map((invite) => {
             const tone = statusTone(invite.state);
             return (
-              <div key={invite.id} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, background: '#F8FAFB', display: 'grid', gap: 10 }}>
+              <div key={invite.id} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, background: '#F8FAFB', display: 'grid', gap: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                   <div>
                     <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 12 }}>{invite.id}</div>
-                    <div style={{ marginTop: 4, fontSize: 15, fontWeight: 800, color: '#0F1419' }}>{invite.name}</div>
-                    <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{invite.role} · {invite.email}</div>
+                    <div style={{ marginTop: 4, fontSize: 15, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{invite.name}</div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{invite.role} · {invite.email}</div>
                   </div>
                   <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
                     {invite.state}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button onClick={() => resendInvite(invite.id)} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Отправить повторно</button>
+                  <button onClick={() => resendInvite(invite.id)} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Отправить повторно</button>
                   <button onClick={() => revokeInvite(invite.id)} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Отозвать</button>
                 </div>
               </div>
@@ -240,26 +240,26 @@ export default function TeamPage() {
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#0F1419' }}>Матрица доступов</div>
-          <div style={{ marginTop: 6, fontSize: 12, color: '#6B778C', lineHeight: 1.6 }}>Чёткая граница: кто видит деньги, кто — исполнение, а кто — только стратегию и отчёты.</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Матрица доступов</div>
+          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Чёткая граница: кто видит деньги, кто — исполнение, а кто — только стратегию и отчёты.</div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
             <thead>
               <tr style={{ textAlign: 'left', background: '#F8FAFB' }}>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid #E4E6EA', fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Контур</th>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid #E4E6EA', fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Директор</th>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid #E4E6EA', fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Оператор</th>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid #E4E6EA', fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Финконтур</th>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid #E4E6EA', fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Логист</th>
+                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Контур</th>
+                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Директор</th>
+                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Оператор</th>
+                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Финконтур</th>
+                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Логист</th>
               </tr>
             </thead>
             <tbody>
               {ACCESS_MATRIX.map((row) => (
-                <tr key={row.scope} style={{ borderTop: '1px solid #E4E6EA' }}>
-                  <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{row.scope}</td>
+                <tr key={row.scope} style={{ borderTop: '1px solid var(--pc-border, #E4E6EA)' }}>
+                  <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{row.scope}</td>
                   <Cell ok={row.director} />
                   <Cell ok={row.operator} />
                   <Cell ok={row.finance} />
@@ -277,8 +277,8 @@ export default function TeamPage() {
         </div>
       ) : null}
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Почему это важно</div>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Почему это важно</div>
         <Bullet text='Одна компания — не один пользователь. В сделке участвуют директор, оператор, бухгалтер и логист.' />
         <Bullet text='Разделение доступов снижает хаос и риск случайных действий не в своей зоне.' />
         <Bullet text='Это усиливает банковый и комплаенс-контур: видно, кто отвечает за деньги, а кто — за исполнение.' />
@@ -288,7 +288,7 @@ export default function TeamPage() {
         <Link href='/platform-v7/profile' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
           Профиль компании
         </Link>
-        <Link href='/platform-v7/control-tower' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
+        <Link href='/platform-v7/control-tower' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
           Вернуться в платформу
         </Link>
       </div>
@@ -306,7 +306,7 @@ function Cell({ ok }: { ok: boolean }) {
 
 function Bullet({ text }: { text: string }) {
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>
       <span style={{ fontWeight: 900 }}>•</span>
       <span>{text}</span>
     </div>

@@ -293,38 +293,38 @@ function EvidenceGateCard({ item }: { item: typeof evidenceGateRows[number] }) {
 }
 
 function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return <div style={metric}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : '#0F1419', fontSize: 29, lineHeight: 1, fontWeight: 950, letterSpacing: '-0.035em' }}>{value}</div></div>;
+  return <div style={metric}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : 'var(--pc-text-primary, #0F1419)', fontSize: 29, lineHeight: 1, fontWeight: 950, letterSpacing: '-0.035em' }}>{value}</div></div>;
 }
 
 function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.3, fontWeight: 900 }}>{value}</div></div>;
+  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.3, fontWeight: 900 }}>{value}</div></div>;
 }
 
 function Rule({ title, text }: { title: string; text: string }) {
-  return <div style={cell}><strong style={{ color: '#0F1419', fontSize: 14 }}>{title}</strong><p style={{ margin: '5px 0 0', color: '#64748B', fontSize: 12, lineHeight: 1.4 }}>{text}</p></div>;
+  return <div style={cell}><strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 14 }}>{title}</strong><p style={{ margin: '5px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.4 }}>{text}</p></div>;
 }
 
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#FFF1F2 100%)', border: '1px solid #E4E6EA', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(127,29,29,0.08)' } as const;
+const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#FFF1F2 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(127,29,29,0.08)' } as const;
 const darkCard = { background: 'linear-gradient(135deg,#7F1D1D 0%,#991B1B 58%,#450A0A 120%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(127,29,29,0.2)' } as const;
-const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
-const cardInner = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 14, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
-const metric = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' } as const;
+const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
+const cardInner = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 14, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
+const metric = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const h2 = { margin: '6px 0 0', color: '#0F1419', fontSize: 20, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.02em' } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.6 } as const;
-const muted = { margin: '6px 0 0', color: '#64748B', fontSize: 13 } as const;
+const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const h2 = { margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 20, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.02em' } as const;
+const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.6 } as const;
+const muted = { margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 } as const;
 const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
 const idText = { color: '#B91C1C', fontSize: 13, fontWeight: 950 } as const;
-const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
-const cell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
+const cell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#B91C1C', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(185,28,28,0.18)' } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
 const disputeCard = { textDecoration: 'none', color: 'inherit', background: 'linear-gradient(180deg,#FFFFFF 0%,#FEF2F2 100%)', border: '1px solid rgba(220,38,38,0.16)', borderRadius: 22, padding: 16, display: 'grid', gap: 10, boxShadow: '0 12px 30px rgba(127,29,29,0.07)' } as const;
 const dangerPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
 const safePill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: '#fff', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const evidencePill = { display: 'inline-flex', width: 'fit-content', padding: '6px 9px', borderRadius: 999, background: '#fff', border: '1px solid #E4E6EA', color: '#475569', fontSize: 12, fontWeight: 850 } as const;
+const evidencePill = { display: 'inline-flex', width: 'fit-content', padding: '6px 9px', borderRadius: 999, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 850 } as const;
 const missingEvidencePill = { display: 'inline-flex', width: 'fit-content', padding: '6px 9px', borderRadius: 999, background: '#fff', border: '1px solid rgba(220,38,38,0.22)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;

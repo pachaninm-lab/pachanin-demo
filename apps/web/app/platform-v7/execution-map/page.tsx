@@ -107,7 +107,7 @@ export default function PlatformV7ExecutionMapPage() {
             Проверочный контур · песочница
           </p>
           <h1 style={{ margin: 0, fontSize: '34px', lineHeight: 1.1 }}>Карта исполнения сделки</h1>
-          <p style={{ margin: '14px 0 0', maxWidth: '820px', color: '#475569', fontSize: '16px', lineHeight: 1.7 }}>
+          <p style={{ margin: '14px 0 0', maxWidth: '820px', color: 'var(--pc-text-secondary, #475569)', fontSize: '16px', lineHeight: 1.7 }}>
             Один маршрут связывает товар из ФГИС, лот, ставки, черновик сделки, готовность, логистику,
             документы, деньги, спор и доказательства. Экран не запускает действия и не заявляет боевые интеграции:
             он показывает, где находится каждый рабочий контур.
@@ -120,7 +120,7 @@ export default function PlatformV7ExecutionMapPage() {
           {stages.map((stage) => (
             <article key={stage.title} style={card}>
               <h2 style={{ margin: 0, fontSize: '20px' }}>{stage.title}</h2>
-              <p style={{ margin: '10px 0 18px', color: '#475569', lineHeight: 1.6 }}>{stage.note}</p>
+              <p style={{ margin: '10px 0 18px', color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>{stage.note}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {stage.links.map((item) => (
                   <Link key={item.href} href={item.href} style={linkStyle}>
@@ -136,7 +136,7 @@ export default function PlatformV7ExecutionMapPage() {
           <h2 style={{ margin: 0, fontSize: '22px' }}>Правила связности</h2>
           <div style={{ display: 'grid', gap: '10px', marginTop: '14px' }}>
             {principles.map((item) => (
-              <div key={item} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', color: '#334155' }}>
+              <div key={item} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', color: 'var(--pc-text-secondary, #334155)' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0f766e', marginTop: '8px', flex: '0 0 auto' }} />
                 <span>{item}</span>
               </div>

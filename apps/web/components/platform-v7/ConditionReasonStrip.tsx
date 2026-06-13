@@ -20,7 +20,7 @@ export function ConditionReasonStrip({
         gap: 8,
         padding: '10px 14px',
         background: '#F8FAFB',
-        border: '1px solid #E4E6EA',
+        border: '1px solid var(--pc-border, #E4E6EA)',
         borderRadius: 14,
       }}
     >
@@ -49,7 +49,7 @@ function Slot({
     <div style={{ display: 'grid', gap: 3 }}>
       <span
         style={{
-          color: '#64748B',
+          color: 'var(--pc-text-muted, #64748B)',
           fontSize: 10,
           fontWeight: 900,
           textTransform: 'uppercase' as const,
@@ -61,7 +61,7 @@ function Slot({
       <span
         data-testid={testId}
         style={{
-          color: danger ? '#B91C1C' : '#0F1419',
+          color: danger ? '#B91C1C' : 'var(--pc-text-primary, #0F1419)',
           fontSize: 12,
           fontWeight: 900,
           lineHeight: 1.35,

@@ -38,7 +38,7 @@ export function P7MoneySafetyAuditStrip() {
         data-testid="money-safety-audit-strip"
         style={{
           background: '#fff',
-          border: '1px solid #E4E6EA',
+          border: '1px solid var(--pc-border, #E4E6EA)',
           borderRadius: 18,
           padding: 18,
           display: 'grid',
@@ -47,12 +47,12 @@ export function P7MoneySafetyAuditStrip() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Проверка денег перед запросом в банк</div>
+            <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Проверка денег перед запросом в банк</div>
             <div style={{ marginTop: 8, maxWidth: 820, fontSize: 13, lineHeight: 1.65, color: '#5B6576' }}>
               Контрольный слой показывает резерв, документы, подтверждение банка, транспорт, ФГИС/СДИЗ, журнал и сверку. Это основание для проверки, а не платёжный механизм платформы.
             </div>
           </div>
-          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 900 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 900 }}>
             предынтеграционный контур · без движения денег
           </span>
         </div>
@@ -75,23 +75,23 @@ export function P7MoneySafetyAuditStrip() {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 900, color: '#0F1419' }}>{row.dealId}</div>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{row.dealId}</div>
                   <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: `1px solid ${token.border}`, color: token.color, fontSize: 11, fontWeight: 900 }}>
                     {token.label}
                   </span>
                 </div>
 
-                <div style={{ fontSize: 14, lineHeight: 1.45, fontWeight: 900, color: '#0F1419' }}>{row.primaryLabel}</div>
+                <div style={{ fontSize: 14, lineHeight: 1.45, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{row.primaryLabel}</div>
 
                 <div style={{ display: 'grid', gap: 6 }}>
                   {row.reasonLabels.map((label) => (
-                    <div key={label} style={{ fontSize: 12, lineHeight: 1.45, color: '#475569' }}>• {label}</div>
+                    <div key={label} style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--pc-text-secondary, #475569)' }}>• {label}</div>
                   ))}
                 </div>
 
                 <details style={{ display: 'grid', gap: 4, paddingTop: 4 }}>
-                  <summary style={{ cursor: 'pointer', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, color: '#64748B' }}>Техническая сверка</summary>
-                  <div style={{ marginTop: 6, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, lineHeight: 1.5, color: '#334155', wordBreak: 'break-all' }}>{row.idempotencyKey}</div>
+                  <summary style={{ cursor: 'pointer', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, color: 'var(--pc-text-muted, #64748B)' }}>Техническая сверка</summary>
+                  <div style={{ marginTop: 6, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, lineHeight: 1.5, color: 'var(--pc-text-secondary, #334155)', wordBreak: 'break-all' }}>{row.idempotencyKey}</div>
                 </details>
               </article>
             );

@@ -54,12 +54,12 @@ const eventTypes = [
 export default function PlatformV7BankEventsPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <section style={{ border: '1px solid #E4E6EA', borderRadius: 20, padding: 22, background: '#fff', display: 'grid', gap: 14 }}>
+      <section style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 22, background: '#fff', display: 'grid', gap: 14 }}>
         <div style={{ display: 'inline-flex', width: 'fit-content', padding: '6px 10px', borderRadius: 999, background: '#FFF7ED', border: '1px solid #FED7AA', color: '#B45309', fontSize: 12, fontWeight: 900 }}>
           Банк · тестовые события
         </div>
         <div style={{ maxWidth: 920 }}>
-          <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.12, color: '#0F1419' }}>Консоль банковских событий</h1>
+          <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.12, color: 'var(--pc-text-primary, #0F1419)' }}>Консоль банковских событий</h1>
           <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.7, color: '#5B6576' }}>
             Экран показывает, как денежные события влияют на сделку: резерв, удержание, выпуск, расхождение и ручная проверка. Это предынтеграционный контур для пилота, а не подтверждение боевого подключения банка.
           </p>
@@ -73,25 +73,25 @@ export default function PlatformV7BankEventsPage() {
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
         {eventTypes.map(([title, description]) => (
-          <article key={title} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gap: 6 }}>
-            <div style={{ fontSize: 15, color: '#0F1419', fontWeight: 900 }}>{title}</div>
-            <div style={{ fontSize: 13, lineHeight: 1.55, color: '#64748B' }}>{description}</div>
+          <article key={title} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 6 }}>
+            <div style={{ fontSize: 15, color: 'var(--pc-text-primary, #0F1419)', fontWeight: 900 }}>{title}</div>
+            <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--pc-text-muted, #64748B)' }}>{description}</div>
           </article>
         ))}
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 20, color: '#0F1419' }}>Журнал событий</h2>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+        <h2 style={{ margin: 0, fontSize: 20, color: 'var(--pc-text-primary, #0F1419)' }}>Журнал событий</h2>
         <div style={{ display: 'grid', gap: 10 }}>
           {bankEvents.map((event) => (
             <article key={event.code} style={{ display: 'grid', gap: 10, padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #EEF1F4' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900 }}>{event.code} · {event.deal}</div>
-                  <div style={{ marginTop: 4, fontSize: 15, color: '#0F1419', fontWeight: 900 }}>{event.title}</div>
+                  <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900 }}>{event.code} · {event.deal}</div>
+                  <div style={{ marginTop: 4, fontSize: 15, color: 'var(--pc-text-primary, #0F1419)', fontWeight: 900 }}>{event.title}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  <span style={{ padding: '5px 9px', borderRadius: 999, background: '#fff', border: '1px solid #CBD5E1', fontSize: 11, color: '#334155', fontWeight: 900 }}>{event.status}</span>
+                  <span style={{ padding: '5px 9px', borderRadius: 999, background: '#fff', border: '1px solid #CBD5E1', fontSize: 11, color: 'var(--pc-text-secondary, #334155)', fontWeight: 900 }}>{event.status}</span>
                   <span style={{ padding: '5px 9px', borderRadius: 999, background: '#fff', border: '1px solid #CBD5E1', fontSize: 11, color: '#0A7A5F', fontWeight: 900 }}>{event.amount}</span>
                 </div>
               </div>
@@ -110,8 +110,8 @@ export default function PlatformV7BankEventsPage() {
 function Cell({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ border: '1px solid #EEF1F4', borderRadius: 12, padding: 10, background: '#fff' }}>
-      <div style={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.055em', fontWeight: 900 }}>{label}</div>
-      <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.45, color: '#0F1419', fontWeight: 750 }}>{value}</div>
+      <div style={{ fontSize: 10, color: 'var(--pc-text-muted, #64748B)', textTransform: 'uppercase', letterSpacing: '0.055em', fontWeight: 900 }}>{label}</div>
+      <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.45, color: 'var(--pc-text-primary, #0F1419)', fontWeight: 750 }}>{value}</div>
     </div>
   );
 }
@@ -133,6 +133,6 @@ const primaryLink = {
 const secondaryLink = {
   ...primaryLink,
   background: '#fff',
-  color: '#0F1419',
+  color: 'var(--pc-text-primary, #0F1419)',
   border: '1px solid #CBD5E1',
 } as const;

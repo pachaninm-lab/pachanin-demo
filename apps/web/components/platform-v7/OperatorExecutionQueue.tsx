@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
 import { OPERATOR_QUEUE_ITEMS, getStopCount, type OperatorQueueItem, type QueuePriority } from '../../lib/platform-v7/operator-execution-queue';
 
-const microStyle = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.07em' } as const;
+const microStyle = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.07em' } as const;
 
 const PRIORITY_LABELS: Record<QueuePriority, string> = {
   stop: 'стоп',
@@ -24,7 +24,7 @@ function QueueRow({ item }: { item: OperatorQueueItem }) {
       data-testid='platform-v7-operator-queue-row'
       style={{
         background: '#F8FAFB',
-        border: `1px solid ${item.priority === 'stop' ? 'rgba(185,28,28,0.18)' : '#E4E6EA'}`,
+        border: `1px solid ${item.priority === 'stop' ? 'rgba(185,28,28,0.18)' : 'var(--pc-border, #E4E6EA)'}`,
         borderRadius: 16,
         padding: 14,
         display: 'grid',
@@ -50,8 +50,8 @@ function QueueRow({ item }: { item: OperatorQueueItem }) {
         >
           {PRIORITY_LABELS[item.priority]}
         </span>
-        <span style={{ color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{item.slaLabel}</span>
-        <span style={{ marginLeft: 'auto', color: '#0F1419', fontSize: 12, fontWeight: 900 }}>{item.id}</span>
+        <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{item.slaLabel}</span>
+        <span style={{ marginLeft: 'auto', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 900 }}>{item.id}</span>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 8 }}>
@@ -63,23 +63,23 @@ function QueueRow({ item }: { item: OperatorQueueItem }) {
       <P7HiddenDetails title='Детали блокера' meta='причина, требуемое действие, безопасный шаг и почему нельзя исполнить сейчас'>
         <div
           data-testid='platform-v7-operator-queue-blocker'
-          style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 6 }}
+          style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10, display: 'grid', gap: 6 }}
         >
           <div style={microStyle}>блокер</div>
-          <div style={{ color: '#0F1419', fontSize: 13, lineHeight: 1.4, fontWeight: 900 }}>{item.blocker}</div>
+          <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.4, fontWeight: 900 }}>{item.blocker}</div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
-          <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}>
+          <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}>
             <div style={microStyle}>требуемое действие</div>
-            <div style={{ color: '#0F1419', fontSize: 12, lineHeight: 1.45 }}>{item.requiredAction}</div>
+            <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, lineHeight: 1.45 }}>{item.requiredAction}</div>
           </div>
           <div
             data-testid='platform-v7-operator-queue-safe-next'
             style={{ background: '#fff', border: '1px solid rgba(10,122,95,0.2)', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}
           >
             <div style={microStyle}>безопасный следующий шаг</div>
-            <div style={{ color: '#0F1419', fontSize: 12, lineHeight: 1.45 }}>{item.safeNextAction}</div>
+            <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, lineHeight: 1.45 }}>{item.safeNextAction}</div>
           </div>
         </div>
 
@@ -88,7 +88,7 @@ function QueueRow({ item }: { item: OperatorQueueItem }) {
           style={{ background: 'rgba(185,28,28,0.04)', border: '1px solid rgba(185,28,28,0.1)', borderRadius: 12, padding: 10, display: 'grid', gap: 5 }}
         >
           <div style={microStyle}>почему сейчас не исполнимо</div>
-          <div style={{ color: '#64748B', fontSize: 12, lineHeight: 1.45 }}>{item.whyNotExecutable}</div>
+          <div style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.45 }}>{item.whyNotExecutable}</div>
         </div>
       </P7HiddenDetails>
 
@@ -115,9 +115,9 @@ function QueueRow({ item }: { item: OperatorQueueItem }) {
   );
 }
 
-function Field({ label, value, color = '#0F1419' }: { label: string; value: string; color?: string }) {
+function Field({ label, value, color = 'var(--pc-text-primary, #0F1419)' }: { label: string; value: string; color?: string }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 12, padding: 10, display: 'grid', gap: 4 }}>
+    <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10, display: 'grid', gap: 4 }}>
       <div style={microStyle}>{label}</div>
       <div style={{ color, fontSize: 13, fontWeight: 900, lineHeight: 1.3 }}>{value}</div>
     </div>
@@ -131,12 +131,12 @@ export function OperatorExecutionQueue() {
   return (
     <div
       data-testid='platform-v7-operator-execution-queue'
-      style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}
+      style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}
     >
       <div style={{ display: 'grid', gap: 6 }}>
         <div style={microStyle}>очередь исполнения</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ color: '#0F1419', fontSize: 20, fontWeight: 950, lineHeight: 1 }}>
+          <span style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 20, fontWeight: 950, lineHeight: 1 }}>
             Очередь оператора
           </span>
           <span
@@ -156,7 +156,7 @@ export function OperatorExecutionQueue() {
             {stopCount} блокеров из {total}
           </span>
         </div>
-        <p style={{ margin: 0, color: '#64748B', fontSize: 13, lineHeight: 1.5 }}>
+        <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>
           Каждый элемент показывает ответственного и деньги под риском. Причина блокировки, требуемое действие и безопасный следующий шаг раскрываются отдельно.
         </p>
       </div>

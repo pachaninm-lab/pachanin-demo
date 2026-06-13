@@ -17,7 +17,7 @@ const colors: Record<MoneyGateState, { bg: string; border: string; text: string 
   held:         { bg: 'rgba(220,38,38,0.06)',  border: 'rgba(220,38,38,0.18)',  text: '#B91C1C' },
   ready:        { bg: 'rgba(10,122,95,0.06)',  border: 'rgba(10,122,95,0.18)',  text: '#0A7A5F' },
   released:     { bg: 'rgba(10,122,95,0.06)',  border: 'rgba(10,122,95,0.18)',  text: '#0A7A5F' },
-  manual_review:{ bg: 'rgba(100,116,139,0.06)',border: 'rgba(100,116,139,0.18)',text: '#475569' },
+  manual_review:{ bg: 'rgba(100,116,139,0.06)',border: 'rgba(100,116,139,0.18)',text: 'var(--pc-text-secondary, #475569)' },
 };
 
 type Props = {
@@ -35,13 +35,13 @@ export function MoneyGateCard({ amount, state, note, blockedBy }: Props) {
   return (
     <div style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 14, padding: 14, display: 'grid', gap: 5 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-        <span style={{ color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Деньги</span>
+        <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Деньги</span>
         <span style={{ color: c.text, fontSize: 11, fontWeight: 900, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 999, padding: '3px 8px' }}>{labels[state]}</span>
       </div>
-      <p style={{ margin: 0, color: '#0F1419', fontSize: 18, fontWeight: 950 }}>{amount}</p>
-      {note && <p style={{ margin: 0, color: '#475569', fontSize: 12, lineHeight: 1.4 }}>{note}</p>}
+      <p style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, fontWeight: 950 }}>{amount}</p>
+      {note && <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 12, lineHeight: 1.4 }}>{note}</p>}
       {requiresBankEvent && (
-        <p style={{ margin: 0, color: '#475569', fontSize: 11, lineHeight: 1.4 }}>
+        <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 11, lineHeight: 1.4 }}>
           Денежный статус требует банковского события или ручной сверки.
         </p>
       )}

@@ -92,12 +92,12 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 14 }}>{params.id}</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: '#0F1419', marginTop: 6 }}>Документы сделки</div>
-            <div style={{ fontSize: 13, color: '#6B778C', marginTop: 6, lineHeight: 1.6 }}>Отдельный документный контур: файлы, checklist, audit trail и готовность к выпуску денег.</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 6 }}>Документы сделки</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 6, lineHeight: 1.6 }}>Отдельный документный контур: файлы, checklist, audit trail и готовность к выпуску денег.</div>
           </div>
           <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: releaseReady ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${releaseReady ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, color: releaseReady ? '#0A7A5F' : '#B45309', fontSize: 11, fontWeight: 800 }}>
             {releaseReady ? 'Документы готовы к выпуску' : `До выпуска: ${blockerDone}/${blockerTotal}`}
@@ -111,15 +111,15 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
         <Metric title='Документы-блокеры' value={`${blockerDone}/${blockerTotal}`} note='Критичные документы, влияющие на банковскую проверку выплаты.' />
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Готовность досье</div>
-            <div style={{ marginTop: 6, fontSize: 12, color: '#6B778C', lineHeight: 1.6 }}>Что уже подтверждено и что ещё держит денежный контур.</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Готовность досье</div>
+            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Что уже подтверждено и что ещё держит денежный контур.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={buildDossier} style={{ padding: '10px 14px', borderRadius: 12, background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Сформировать досье</button>
-            <button onClick={requestRelease} style={{ padding: '10px 14px', borderRadius: 12, background: releaseReady ? '#0A7A5F' : '#F8FAFB', border: releaseReady ? '1px solid #0A7A5F' : '1px solid #E4E6EA', color: releaseReady ? '#fff' : '#6B778C', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+            <button onClick={buildDossier} style={{ padding: '10px 14px', borderRadius: 12, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Сформировать досье</button>
+            <button onClick={requestRelease} style={{ padding: '10px 14px', borderRadius: 12, background: releaseReady ? '#0A7A5F' : '#F8FAFB', border: releaseReady ? '1px solid #0A7A5F' : '1px solid var(--pc-border, #E4E6EA)', color: releaseReady ? '#fff' : 'var(--pc-text-muted, #6B778C)', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
               Передать основание банку
             </button>
           </div>
@@ -129,11 +129,11 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
           {REQUIRED_DOCS.map((doc) => {
             const tone = statusTone(!!checklist[doc.id]);
             return (
-              <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, border: '1px solid #E4E6EA', background: checklist[doc.id] ? 'rgba(10,122,95,0.06)' : '#F8FAFB' }}>
+              <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, border: '1px solid var(--pc-border, #E4E6EA)', background: checklist[doc.id] ? 'rgba(10,122,95,0.06)' : '#F8FAFB' }}>
                 <span style={{ width: 18, textAlign: 'center', fontWeight: 900, color: checklist[doc.id] ? '#0A7A5F' : '#9AA4B2' }}>{checklist[doc.id] ? '✓' : '•'}</span>
                 <div style={{ display: 'grid', gap: 2, flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{doc.label}</div>
-                  <div style={{ fontSize: 11, color: '#6B778C' }}>{doc.blocker ? 'Блокирует банковская проверка выплаты' : 'Не блокирует выпуск, но нужен для полного досье'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{doc.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{doc.blocker ? 'Блокирует банковская проверка выплаты' : 'Не блокирует выпуск, но нужен для полного досье'}</div>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
                   {tone.label}
@@ -145,34 +145,34 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) minmax(320px,.9fr)', gap: 16 }}>
-        <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Реестр файлов</div>
+        <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Реестр файлов</div>
           {docs.length ? docs.map((doc) => (
-            <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff' }}>
+            <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff' }}>
               <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
-                <div style={{ fontSize: 11, color: '#6B778C' }}>{formatSize(doc.size)} · {new Date(doc.uploadedAt).toLocaleString('ru-RU')}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{formatSize(doc.size)} · {new Date(doc.uploadedAt).toLocaleString('ru-RU')}</div>
               </div>
-              <span style={{ fontSize: 11, color: '#6B778C', fontWeight: 700 }}>{doc.type || 'file'}</span>
+              <span style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 700 }}>{doc.type || 'file'}</span>
             </div>
-          )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Файлы по сделке ещё не загружены.</div>}
+          )) : <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>Файлы по сделке ещё не загружены.</div>}
         </section>
 
-        <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Журнал событий</div>
+        <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Журнал событий</div>
           {auditTrail.length ? auditTrail.map((event) => (
             <div key={event.id} style={{ display: 'grid', gridTemplateColumns: '12px 1fr', gap: 12, alignItems: 'start' }}>
               <div style={{ width: 12, height: 12, borderRadius: 999, background: '#0A7A5F', marginTop: 5 }} />
-              <div style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 12 }}>
+              <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0F1419' }}>{event.action}</div>
-                  <div style={{ fontSize: 11, color: '#6B778C' }}>{new Date(event.ts).toLocaleString('ru-RU')}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{event.action}</div>
+                  <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{new Date(event.ts).toLocaleString('ru-RU')}</div>
                 </div>
-                <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{event.actor}</div>
-                <div style={{ marginTop: 6, fontSize: 12, color: '#475569', lineHeight: 1.5 }}>{event.note}</div>
+                <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{event.actor}</div>
+                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.5 }}>{event.note}</div>
               </div>
             </div>
-          )) : <div style={{ fontSize: 13, color: '#6B778C' }}>История действий появится после загрузки файлов и подтверждения checklist.</div>}
+          )) : <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>История действий появится после загрузки файлов и подтверждения checklist.</div>}
         </section>
       </div>
 
@@ -184,7 +184,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Link href={`/platform-v7/deals/${params.id}`} style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>← Вернуться в сделку</Link>
-        <Link href='/platform-v7/deals' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Все сделки</Link>
+        <Link href='/platform-v7/deals' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>Все сделки</Link>
       </div>
     </div>
   );
@@ -192,10 +192,10 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
 
 function Metric({ title, value, note }: { title: string; value: string; note: string }) {
   return (
-    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
-      <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
-      <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: '#0F1419' }}>{value}</div>
-      <div style={{ marginTop: 8, fontSize: 12, color: '#6B778C', lineHeight: 1.6 }}>{note}</div>
+    <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+      <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
+      <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div>
+      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{note}</div>
     </section>
   );
 }

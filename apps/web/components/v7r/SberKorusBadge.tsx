@@ -35,7 +35,7 @@ export function SberKorusBadge({ subtitle = 'Перевозочные докум
       <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
         <div style={{ fontSize: compact ? 12 : 16, lineHeight: 1, fontWeight: 800, color: '#1F2937', whiteSpace: 'nowrap' }}>СберКорус</div>
         {!compact ? (
-          <div style={{ fontSize: 11, color: '#6B778C', lineHeight: 1.2, wordBreak: 'break-word' }}>{subtitle}</div>
+          <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.2, wordBreak: 'break-word' }}>{subtitle}</div>
         ) : null}
       </div>
     </div>

@@ -17,10 +17,10 @@ const assignmentChecks = [
 export default function LogisticsInboxPage() {
   return (
     <main style={{ display: 'grid', gap: 16 }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 20, display: 'grid', gap: 10 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 20, display: 'grid', gap: 10 }}>
         <p style={microGreen}>Логистика · входящие заявки</p>
         <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,7vw,50px)', lineHeight: 1.04, letterSpacing: '-0.045em' }}>Заявка появляется после выбора победителя</h1>
-        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.6 }}>Логистическая компания принимает заказ по сделке, выбирает ближайшего доступного водителя и создаёт рейс. Показан controlled-pilot сценарий без боевого GPS и внешних API.</p>
+        <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.6 }}>Логистическая компания принимает заказ по сделке, выбирает ближайшего доступного водителя и создаёт рейс. Показан controlled-pilot сценарий без боевого GPS и внешних API.</p>
       </section>
 
       <section style={{ background: '#0F172A', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13 }}>
@@ -35,7 +35,7 @@ export default function LogisticsInboxPage() {
       </section>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 14 }}>
-        <article style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 22, padding: 18, display: 'grid', gap: 10 }}>
+        <article style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 18, display: 'grid', gap: 10 }}>
           <p style={micro}>Заявка</p>
           <h2 style={{ margin: 0, color: '#0F1419', fontSize: 26 }}>LOG-REQ-2403</h2>
           <p style={muted}>LOT-2403 → DL-9106</p>
@@ -53,7 +53,7 @@ export default function LogisticsInboxPage() {
         </article>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 22, padding: 18, display: 'grid', gap: 10 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 18, display: 'grid', gap: 10 }}>
         <p style={micro}>Проверка перед назначением</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
           {assignmentChecks.map((item) => <CheckCell key={item.label} item={item} />)}
@@ -68,10 +68,10 @@ function SummaryCard({ item }: { item: typeof inboxSummary[number] }) {
 }
 
 function CheckCell({ item }: { item: typeof assignmentChecks[number] }) {
-  return <div style={{ background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 13, padding: 10 }}><div style={micro}>{item.label}</div><div style={{ marginTop: 4, color: '#0F1419', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{item.value}</div></div>;
+  return <div style={{ background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 13, padding: 10 }}><div style={micro}>{item.label}</div><div style={{ marginTop: 4, color: '#0F1419', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{item.value}</div></div>;
 }
 
-const micro = { color: '#64748B', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
 const microGreen = { margin: 0, color: '#0A7A5F', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const muted = { margin: 0, color: '#475569' } as const;
+const muted = { margin: 0, color: 'var(--pc-text-secondary, #475569)' } as const;
 const notice = { background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', borderRadius: 14, padding: 11, fontSize: 13, fontWeight: 900, lineHeight: 1.45 } as const;

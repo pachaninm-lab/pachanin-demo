@@ -94,19 +94,19 @@ export default async function PlatformV7AuditLogPage() {
 
 function Card({ title, value, note, danger = false, money = false }: { title: string; value: string; note: string; danger?: boolean; money?: boolean }) {
   return (
-    <article style={{ background: '#fff', border: `1px solid ${danger ? 'rgba(220,38,38,0.18)' : money ? 'rgba(37,99,235,0.18)' : '#E4E6EA'}`, borderRadius: 18, padding: 16, display: 'grid', gap: 8 }}>
-      <div style={{ color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{title}</div>
-      <strong style={{ color: danger ? '#B91C1C' : money ? '#2563EB' : '#0F1419', fontSize: 18, lineHeight: 1.2 }}>{value}</strong>
-      <p style={{ margin: 0, color: '#64748B', fontSize: 12, lineHeight: 1.5 }}>{note}</p>
+    <article style={{ background: '#fff', border: `1px solid ${danger ? 'rgba(220,38,38,0.18)' : money ? 'rgba(37,99,235,0.18)' : 'var(--pc-border, #E4E6EA)'}`, borderRadius: 18, padding: 16, display: 'grid', gap: 8 }}>
+      <div style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{title}</div>
+      <strong style={{ color: danger ? '#B91C1C' : money ? '#2563EB' : 'var(--pc-text-primary, #0F1419)', fontSize: 18, lineHeight: 1.2 }}>{value}</strong>
+      <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.5 }}>{note}</p>
     </article>
   );
 }
 
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 26, padding: 20, display: 'grid', gap: 12 } as const;
+const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 20, display: 'grid', gap: 12 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(28px,7vw,44px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 } as const;
+const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(28px,7vw,44px)', lineHeight: 1.04, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.55 } as const;
 const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 14, fontWeight: 850 } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850 } as const;
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 10 } as const;

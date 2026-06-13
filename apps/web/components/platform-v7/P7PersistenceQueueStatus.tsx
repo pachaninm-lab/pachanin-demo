@@ -15,7 +15,7 @@ export function P7PersistenceQueueStatus() {
       data-testid="persistence-queue-status"
       style={{
         background: '#fff',
-        border: '1px solid #E4E6EA',
+        border: '1px solid var(--pc-border, #E4E6EA)',
         borderRadius: 18,
         padding: 18,
         display: 'grid',
@@ -24,27 +24,27 @@ export function P7PersistenceQueueStatus() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: '#0F1419' }}>Статус журнала и очереди</div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Статус журнала и очереди</div>
           <div style={{ marginTop: 8, maxWidth: 840, fontSize: 13, lineHeight: 1.65, color: '#5B6576' }}>
             Единая неизменяемая очередь для банковского статуса, сверки и линии событий сделки. Это controlled-pilot слой данных, не заявленная боевая БД и не подтверждённая интеграция банка.
           </div>
         </div>
-        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 900 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 900 }}>
           неизменяемый журнал
         </span>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
         {metricLabels.map((metric) => (
-          <div key={metric.key} style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid #E4E6EA', display: 'grid', gap: 6 }}>
-            <div style={{ fontSize: 11, lineHeight: 1.2, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{metric.label}</div>
-            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 24, lineHeight: 1.1, fontWeight: 900, color: '#0F1419' }}>{summary[metric.key]}</div>
+          <div key={metric.key} style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', display: 'grid', gap: 6 }}>
+            <div style={{ fontSize: 11, lineHeight: 1.2, fontWeight: 900, color: 'var(--pc-text-muted, #64748B)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{metric.label}</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 24, lineHeight: 1.1, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{summary[metric.key]}</div>
           </div>
         ))}
       </div>
 
       <div style={{ display: 'grid', gap: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 900, color: '#0F1419' }}>Очередь ручной сверки</div>
+        <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Очередь ручной сверки</div>
         {summary.manualQueue.length === 0 ? (
           <div style={{ padding: 12, borderRadius: 12, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', fontSize: 12, lineHeight: 1.5, color: '#0A7A5F', fontWeight: 800 }}>
             Очередь ручной сверки пустая.
@@ -58,12 +58,12 @@ export function P7PersistenceQueueStatus() {
                 style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 12, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)' }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, lineHeight: 1.4, fontWeight: 900, color: '#0F1419' }}>{item.dealId}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, lineHeight: 1.4, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{item.dealId}</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: '1px solid rgba(217,119,6,0.18)', color: '#B45309', fontSize: 11, fontWeight: 900 }}>
                     {item.reason}
                   </span>
                 </div>
-                <details style={{ fontSize: 11, lineHeight: 1.5, color: '#475569' }}>
+                <details style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--pc-text-secondary, #475569)' }}>
                   <summary style={{ cursor: 'pointer', fontWeight: 800 }}>Техническая сверка</summary>
                   <div style={{ marginTop: 6, fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all' }}>{item.idempotencyKey}</div>
                 </details>

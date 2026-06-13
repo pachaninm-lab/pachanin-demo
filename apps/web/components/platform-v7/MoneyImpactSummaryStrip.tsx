@@ -23,7 +23,7 @@ function Slot({ label, value, testId }: { label: string; value: string; testId: 
   return (
     <div style={{ minWidth: 0 }}>
       <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      <div data-testid={testId} style={{ marginTop: 3, fontSize: 13, fontWeight: 900, color: '#0F1419', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{value}</div>
+      <div data-testid={testId} style={{ marginTop: 3, fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{value}</div>
     </div>
   );
 }
@@ -49,10 +49,10 @@ export function MoneyImpactSummaryStrip({
   return (
     <section
       data-testid="platform-v7-money-impact-strip"
-      style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: '12px 14px', display: 'grid', gap: 12 }}
+      style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: '12px 14px', display: 'grid', gap: 12 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ fontSize: 11, color: '#64748B', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           денежный контур сделки
         </div>
         <span
@@ -94,7 +94,7 @@ export function MoneyImpactSummaryStrip({
       {hasResolutionContext && (
         <div
           data-testid="platform-v7-money-impact-resolution"
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px 16px', background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 12, padding: '10px 12px' }}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px 16px', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: '10px 12px' }}
         >
           {resolvedRequiredEvidence && <Slot label='какое основание нужно' value={resolvedRequiredEvidence} testId='platform-v7-money-impact-evidence' />}
           {resolvedAfterResolved && <Slot label='после закрытия причины' value={resolvedAfterResolved} testId='platform-v7-money-impact-after-resolved' />}

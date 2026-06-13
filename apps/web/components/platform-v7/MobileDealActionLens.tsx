@@ -29,7 +29,7 @@ export function MobileDealActionLens(props: MobileDealActionLensProps) {
           .p7-mobile-action-lens__money{border:1px solid rgba(37,99,235,.16);border-radius:22px;background:rgba(255,255,255,.86);padding:14px;display:grid;gap:5px}
           .p7-mobile-action-lens__money-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:900;color:#64748b}
           .p7-mobile-action-lens__money-value{font-size:34px;line-height:1;font-weight:950;color:#0f1419;letter-spacing:-.045em}
-          .p7-mobile-action-lens__cause{font-size:14px;line-height:1.45;color:#334155;font-weight:850}
+          .p7-mobile-action-lens__cause{font-size:14px;line-height:1.45;color:var(--pc-text-secondary, #334155);font-weight:850}
           .p7-mobile-action-lens__owner{display:grid;grid-template-columns:1fr 1fr;gap:8px}
           .p7-mobile-action-lens__fact{border:1px solid #e4e6ea;border-radius:16px;background:#fff;padding:11px;display:grid;gap:5px}
           .p7-mobile-action-lens__fact-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:900;color:#64748b}
@@ -45,7 +45,7 @@ export function MobileDealActionLens(props: MobileDealActionLensProps) {
           .p7-mobile-action-lens__summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;font-size:14px;font-weight:950;color:#0f1419;cursor:pointer}
           .p7-mobile-action-lens__summary::-webkit-details-marker{display:none}
           .p7-mobile-action-lens__detail-grid{display:grid;gap:8px;padding:0 16px 16px}
-          .p7-mobile-action-lens__detail-row{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #eef2f7;padding-top:9px;font-size:13px;line-height:1.35;color:#475569}
+          .p7-mobile-action-lens__detail-row{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #eef2f7;padding-top:9px;font-size:13px;line-height:1.35;color:var(--pc-text-secondary, #475569)}
           .p7-mobile-action-lens__detail-row strong{color:#0f1419;text-align:right}
         }
       `}</style>

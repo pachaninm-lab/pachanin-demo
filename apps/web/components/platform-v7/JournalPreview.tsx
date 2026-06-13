@@ -48,7 +48,7 @@ export function JournalPreview({ role, maxEntries = 3 }: Props) {
       <div style={micro}>журнал событий · контур исполнения</div>
 
       {entries.length === 0 ? (
-        <div style={{ color: '#64748B', fontSize: 13 }}>События пока не зафиксированы.</div>
+        <div style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13 }}>События пока не зафиксированы.</div>
       ) : (
         <div style={{ display: 'grid', gap: 7 }}>
           {entries.map((entry) => {
@@ -70,10 +70,10 @@ export function JournalPreview({ role, maxEntries = 3 }: Props) {
                   </span>
                   <span style={{ color: '#94A3B8', fontSize: 11 }}>{formatTs(entry.at)}</span>
                 </div>
-                <div style={{ color: '#0F1419', fontSize: 13, fontWeight: 900, lineHeight: 1.4 }}>
+                <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900, lineHeight: 1.4 }}>
                   {entry.objectId}
                 </div>
-                <div style={{ color: '#475569', fontSize: 13, lineHeight: 1.45 }}>
+                <div style={{ color: 'var(--pc-text-secondary, #475569)', fontSize: 13, lineHeight: 1.45 }}>
                   {entry.message}
                 </div>
                 {entry.error ? (
@@ -90,5 +90,5 @@ export function JournalPreview({ role, maxEntries = 3 }: Props) {
   );
 }
 
-const shell = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
-const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.07em' } as const;
+const shell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.07em' } as const;

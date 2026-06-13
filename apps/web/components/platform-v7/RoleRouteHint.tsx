@@ -16,7 +16,7 @@ export function RoleRouteHint({ role, route }: RoleRouteHintProps) {
         <div style={{ fontSize: 12, fontWeight: 900, color: decision.allowed ? '#0A7A5F' : '#B45309', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           Роль · {decision.allowed ? 'рабочий экран' : 'лучше открыть свой экран'}
         </div>
-        <div style={{ marginTop: 5, fontSize: 13, lineHeight: 1.5, color: '#334155' }}>{decision.reason}</div>
+        <div style={{ marginTop: 5, fontSize: 13, lineHeight: 1.5, color: 'var(--pc-text-secondary, #334155)' }}>{decision.reason}</div>
       </div>
       {!decision.allowed ? (
         <Link href={homeRoute} style={{ textDecoration: 'none', borderRadius: 10, padding: '9px 12px', background: '#fff', border: '1px solid rgba(217,119,6,0.24)', color: '#B45309', fontSize: 12, fontWeight: 900 }}>

@@ -129,21 +129,21 @@ function Pill({ tone, children }: { readonly tone: 'good' | 'warn' | 'bad'; read
   return <span style={{ ...pill, color, borderColor: border }}>{children}</span>;
 }
 
-const panel = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
+const panel = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 16, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 10 } as const;
-const card = { background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gap: 10 } as const;
+const card = { background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 10 } as const;
 const facts = { display: 'grid', gap: 7 } as const;
 const list = { display: 'grid', gap: 7 } as const;
 const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' } as const;
 const micro = { color: '#0A7A5F', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const h2 = { margin: 0, color: '#0F1419', fontSize: 22, lineHeight: 1.15, fontWeight: 950 } as const;
-const h3 = { margin: '4px 0 0', color: '#0F1419', fontSize: 18, lineHeight: 1.2, fontWeight: 950 } as const;
+const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.15, fontWeight: 950 } as const;
+const h3 = { margin: '4px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, lineHeight: 1.2, fontWeight: 950 } as const;
 const idText = { color: '#2563EB', fontSize: 12, fontWeight: 950 } as const;
-const fact = { display: 'grid', gap: 3, border: '1px solid #E4E6EA', borderRadius: 10, padding: 9, background: '#F8FAFB' } as const;
-const factCard = { display: 'grid', gap: 4, border: '1px solid #E4E6EA', borderRadius: 12, padding: 12, background: '#FFFFFF' } as const;
-const factLabel = { color: '#64748B', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const factValue = { color: '#0F1419', fontSize: 12, lineHeight: 1.4, fontWeight: 800 } as const;
-const notice = { border: '1px solid rgba(217,119,6,0.18)', background: 'rgba(217,119,6,0.07)', borderRadius: 12, padding: 12, color: '#0F1419', fontSize: 13, lineHeight: 1.5, fontWeight: 800 } as const;
+const fact = { display: 'grid', gap: 3, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 10, padding: 9, background: '#F8FAFB' } as const;
+const factCard = { display: 'grid', gap: 4, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#FFFFFF' } as const;
+const factLabel = { color: 'var(--pc-text-muted, #64748B)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
+const factValue = { color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, lineHeight: 1.4, fontWeight: 800 } as const;
+const notice = { border: '1px solid rgba(217,119,6,0.18)', background: 'rgba(217,119,6,0.07)', borderRadius: 12, padding: 12, color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.5, fontWeight: 800 } as const;
 const stop = { border: '1px solid rgba(220,38,38,0.16)', background: 'rgba(220,38,38,0.06)', borderRadius: 10, padding: 10, color: '#7F1D1D', fontSize: 12, lineHeight: 1.45, fontWeight: 800 } as const;
-const summaryLine = { color: '#0F1419', fontSize: 13, lineHeight: 1.5, fontWeight: 900 } as const;
-const pill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '6px 9px', borderRadius: 999, border: '1px solid #E4E6EA', background: '#FFFFFF', fontSize: 11, fontWeight: 950 } as const;
+const summaryLine = { color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.5, fontWeight: 900 } as const;
+const pill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '6px 9px', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', background: '#FFFFFF', fontSize: 11, fontWeight: 950 } as const;

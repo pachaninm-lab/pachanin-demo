@@ -39,14 +39,14 @@ function Action({ href, title, text }: { readonly href: string; readonly title: 
   return <Link href={href} style={actionCard}><strong style={tileTitle}>{title}</strong><span style={tileText}>{text}</span></Link>;
 }
 
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid #E4E6EA', borderRadius: 26, padding: 22, display: 'grid', gap: 12 } as const;
-const card = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
+const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 22, display: 'grid', gap: 12 } as const;
+const card = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const lead = { margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 } as const;
-const micro = { color: '#64748B', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
+const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.55 } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const grid3 = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 10 } as const;
-const tile = { background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gap: 7 } as const;
-const actionCard = { textDecoration: 'none', color: 'inherit', background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 16, padding: 14, display: 'grid', gap: 7 } as const;
-const tileTitle = { color: '#0F1419', fontSize: 15, lineHeight: 1.25, fontWeight: 900 } as const;
-const tileText = { margin: 0, color: '#64748B', fontSize: 12, lineHeight: 1.5 } as const;
+const tile = { background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 7 } as const;
+const actionCard = { textDecoration: 'none', color: 'inherit', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 7 } as const;
+const tileTitle = { color: 'var(--pc-text-primary, #0F1419)', fontSize: 15, lineHeight: 1.25, fontWeight: 900 } as const;
+const tileText = { margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.5 } as const;

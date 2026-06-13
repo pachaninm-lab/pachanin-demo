@@ -77,7 +77,7 @@ function SberDemoLogo() {
       </svg>
       <div style={{ display: 'grid', gap: 2 }}>
         <div style={{ fontSize: 18, lineHeight: 1, fontWeight: 800, color: '#1F2937' }}>Сбер</div>
-        <div style={{ fontSize: 11, color: '#6B778C' }}>Демо-режим банкового контура</div>
+        <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Демо-режим банкового контура</div>
       </div>
     </div>
   );
@@ -98,10 +98,10 @@ function brandPill(kind: 'sberApi' | 'sberBusinessId') {
 
 function Card({ title, value, note, danger = false }: { title: string; value: string; note: string; danger?: boolean }) {
   return (
-    <section style={{ background: '#fff', border: `1px solid ${danger ? '#FECACA' : '#E4E6EA'}`, borderRadius: 18, padding: 18 }}>
-      <div style={{ fontSize: 11, color: danger ? '#991B1B' : '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
-      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: danger ? '#991B1B' : '#0F1419', marginTop: 8, wordBreak: 'break-word' }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#6B778C', lineHeight: 1.6, marginTop: 8, wordBreak: 'break-word' }}>{note}</div>
+    <section style={{ background: '#fff', border: `1px solid ${danger ? '#FECACA' : 'var(--pc-border, #E4E6EA)'}`, borderRadius: 18, padding: 18 }}>
+      <div style={{ fontSize: 11, color: danger ? '#991B1B' : 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
+      <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: danger ? '#991B1B' : 'var(--pc-text-primary, #0F1419)', marginTop: 8, wordBreak: 'break-word' }}>{value}</div>
+      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6, marginTop: 8, wordBreak: 'break-word' }}>{note}</div>
     </section>
   );
 }
@@ -130,51 +130,51 @@ function QueueCard({
   }>;
 }) {
   return (
-    <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+    <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
       <div style={{ display: 'grid', gap: 6 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: accent.bg, border: `1px solid ${accent.border}`, color: accent.color, fontSize: 11, fontWeight: 800, width: 'fit-content' }}>{title}</div>
-        <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>{note}</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{note}</div>
       </div>
       <div style={{ display: 'grid', gap: 10 }}>
         {rows.length ? rows.map((row) => (
-          <div key={row.dealId} style={{ border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
+          <div key={row.dealId} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
               <div>
-                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 800, color: '#0F1419' }}>{row.dealId}</div>
-                <div style={{ marginTop: 4, fontSize: 13, color: '#475569' }}>{row.seller} → {row.buyer}</div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{row.dealId}</div>
+                <div style={{ marginTop: 4, fontSize: 13, color: 'var(--pc-text-secondary, #475569)' }}>{row.seller} → {row.buyer}</div>
               </div>
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#334155', fontSize: 11, fontWeight: 800 }}>{row.status}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #334155)', fontSize: 11, fontWeight: 800 }}>{row.status}</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-              <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
-                <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Резерв</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419', marginTop: 6 }}>{formatCompactMoney(row.reserved)}</div>
+              <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Резерв</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 6 }}>{formatCompactMoney(row.reserved)}</div>
               </div>
-              <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
-                <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Удержание</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: row.hold > 0 ? '#991B1B' : '#0F1419', marginTop: 6 }}>{formatCompactMoney(row.hold)}</div>
+              <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Удержание</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: row.hold > 0 ? '#991B1B' : 'var(--pc-text-primary, #0F1419)', marginTop: 6 }}>{formatCompactMoney(row.hold)}</div>
               </div>
-              <div style={{ border: '1px solid #E4E6EA', borderRadius: 12, padding: 12 }}>
-                <div style={{ fontSize: 11, color: '#6B778C', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>К выпуску</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419', marginTop: 6 }}>{formatCompactMoney(row.releasable)}</div>
+              <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>К выпуску</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 6 }}>{formatCompactMoney(row.releasable)}</div>
               </div>
             </div>
-            <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
-              <strong style={{ color: '#0F1419' }}>Следующий владелец:</strong> {row.nextOwner ? translateRole(row.nextOwner) : '—'}<br />
-              <strong style={{ color: '#0F1419' }}>Следующий шаг:</strong> {row.nextStep ?? 'Нужно уточнение оператором'}
+            <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--pc-text-primary, #0F1419)' }}>Следующий владелец:</strong> {row.nextOwner ? translateRole(row.nextOwner) : '—'}<br />
+              <strong style={{ color: 'var(--pc-text-primary, #0F1419)' }}>Следующий шаг:</strong> {row.nextStep ?? 'Нужно уточнение оператором'}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {row.blockers.length ? row.blockers.map((item) => (
-                <span key={item} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid #E4E6EA', color: '#475569', fontSize: 11, fontWeight: 700 }}>{item}</span>
-              )) : <span style={{ fontSize: 12, color: '#6B778C' }}>Активных блокеров нет.</span>}
+                <span key={item} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: 'rgba(15,20,25,0.04)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 700 }}>{item}</span>
+              )) : <span style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Активных блокеров нет.</span>}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Link href={`/platform-v7/deals/${row.dealId}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700 }}>Сделка</Link>
+              <Link href={`/platform-v7/deals/${row.dealId}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700 }}>Сделка</Link>
               <Link href={row.action.href} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: accent.bg, border: `1px solid ${accent.border}`, color: accent.color, fontSize: 12, fontWeight: 700 }}>{row.action.label}</Link>
-              <Link href='/platform-v7/control-tower/hotlist' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700 }}>Hotlist</Link>
+              <Link href='/platform-v7/control-tower/hotlist' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700 }}>Hotlist</Link>
             </div>
           </div>
-        )) : <div style={{ fontSize: 13, color: '#6B778C' }}>Пусто.</div>}
+        )) : <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>Пусто.</div>}
       </div>
     </section>
   );
@@ -234,14 +234,14 @@ export function BankRuntime() {
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0', maxWidth: '100%', overflowX: 'hidden' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: '#0F1419', wordBreak: 'break-word' }}>Банковый контур</div>
+              <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', wordBreak: 'break-word' }}>Банковый контур</div>
               <SberDemoLogo />
             </div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7, marginTop: 8, maxWidth: 920, wordBreak: 'break-word' }}>Теперь это не витрина банковых модулей, а единый хаб исполнения: здесь видны деньги, блокеры, владелец следующего шага и прямой переход в нужный контур сделки.</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8, maxWidth: 920, wordBreak: 'break-word' }}>Теперь это не витрина банковых модулей, а единый хаб исполнения: здесь видны деньги, блокеры, владелец следующего шага и прямой переход в нужный контур сделки.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {brandPill('sberBusinessId')}
@@ -259,28 +259,28 @@ export function BankRuntime() {
       </div>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-        <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Факторинг</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>Buyer-side слой для сделок, где деньги ещё не готовы или нужен лимит перед исполнением.</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>{factoringCount}</div>
-          <div style={{ fontSize: 12, color: '#6B778C' }}>Сделок сейчас в зоне предфинансирования или подтверждения резерва.</div>
+        <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Факторинг</div>
+          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Buyer-side слой для сделок, где деньги ещё не готовы или нужен лимит перед исполнением.</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{factoringCount}</div>
+          <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Сделок сейчас в зоне предфинансирования или подтверждения резерва.</div>
           <Link href='/platform-v7/bank/factoring' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: 12, padding: '10px 14px', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#2563EB', fontSize: 13, fontWeight: 800 }}>Открыть факторинг</Link>
         </section>
 
-        <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Эскроу</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>Контур удержания и раскрытия по спору, качеству, документам и событию банка.</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>{escrowCount}</div>
-          <div style={{ fontSize: 12, color: '#6B778C' }}>Сделок сейчас прямо завязаны на удержание или спорный кейс.</div>
+        <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Эскроу</div>
+          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Контур удержания и раскрытия по спору, качеству, документам и событию банка.</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{escrowCount}</div>
+          <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Сделок сейчас прямо завязаны на удержание или спорный кейс.</div>
           <Link href='/platform-v7/bank/escrow' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 13, fontWeight: 800 }}>Открыть эскроу</Link>
         </section>
 
-        <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Control Tower</div>
-          <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>Операторский выход для снятия блокеров, когда проблема уже не про страницу банка, а про сделку целиком.</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#0F1419' }}>{holdQueue.length + prepQueue.length}</div>
-          <div style={{ fontSize: 12, color: '#6B778C' }}>Денежных кейсов прямо сейчас требуют кросс-модульного добивания.</div>
-          <Link href='/platform-v7/control-tower/hotlist' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 800 }}>Открыть hotlist</Link>
+        <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Control Tower</div>
+          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Операторский выход для снятия блокеров, когда проблема уже не про страницу банка, а про сделку целиком.</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{holdQueue.length + prepQueue.length}</div>
+          <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Денежных кейсов прямо сейчас требуют кросс-модульного добивания.</div>
+          <Link href='/platform-v7/control-tower/hotlist' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 800 }}>Открыть hotlist</Link>
         </section>
       </section>
 
@@ -305,11 +305,11 @@ export function BankRuntime() {
         />
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ display: 'grid', gap: 6 }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Transport gate через СберКорус</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>Банк видит транспортный документный контур как отдельный стоп-фактор. Пока пакет не закрыт у СберКорус, финальный выпуск нельзя считать безопасным.</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Transport gate через СберКорус</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Банк видит транспортный документный контур как отдельный стоп-фактор. Пока пакет не закрыт у СберКорус, финальный выпуск нельзя считать безопасным.</div>
           </div>
           <SberKorusBadge subtitle='Транспортные документы и подписи' compact />
         </div>
@@ -324,33 +324,33 @@ export function BankRuntime() {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
               <div>
                 <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>{transportReleaseDealPack.providerPackId}</div>
-                <div style={{ marginTop: 6, fontSize: 20, fontWeight: 800, color: '#0F1419' }}>DL-9109 · зелёный сценарий выпуска</div>
+                <div style={{ marginTop: 6, fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>DL-9109 · зелёный сценарий выпуска</div>
               </div>
               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: '#fff', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 11, fontWeight: 800 }}>{transportPackStatusLabel(transportReleaseDealPack.status)} · {moneyImpactLabel(transportReleaseDealPack.moneyImpactStatus)}</span>
             </div>
-            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.65 }}><strong style={{ color: '#0F1419' }}>{transportCurrentStep.label}.</strong> {transportCurrentStep.detail}</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #334155)', lineHeight: 1.65 }}><strong style={{ color: 'var(--pc-text-primary, #0F1419)' }}>{transportCurrentStep.label}.</strong> {transportCurrentStep.detail}</div>
             <div style={{ fontSize: 12, color: '#0A7A5F', fontWeight: 800 }}>{transportReleaseStateLabel(transportCurrentStep.releaseState)} · {transportCurrentStep.releaseReason}</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Link href='/platform-v7/deals/DL-9109/transport-documents' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 700 }}>Открыть пакет СберКорус</Link>
-              <Link href='/platform-v7/deals/DL-9109/transport-documents/simulation' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Открыть проверочный сценарий</Link>
+              <Link href='/platform-v7/deals/DL-9109/transport-documents/simulation' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>Открыть проверочный сценарий</Link>
             </div>
           </section>
         ) : null}
 
         <div style={{ display: 'grid', gap: 10 }}>
           {transportHotlist.map((item) => (
-            <div key={item.id} style={{ background: '#F8FAFB', border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
+            <div key={item.id} style={{ background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
-                  <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>{item.providerLabel}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{item.providerLabel}</div>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: item.moneyImpactStatus === 'blocks_release' ? 'rgba(220,38,38,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${item.moneyImpactStatus === 'blocks_release' ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)'}`, color: item.moneyImpactStatus === 'blocks_release' ? '#B91C1C' : '#B45309', fontSize: 11, fontWeight: 800 }}>{moneyImpactLabel(item.moneyImpactStatus)}</span>
               </div>
-              <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.6 }}>{item.note}</div>
+              <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #334155)', lineHeight: 1.6 }}>{item.note}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Link href={item.primaryHref} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700 }}>Пакет</Link>
-                <Link href={item.simulationHref} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 12, fontWeight: 700 }}>Проверочный сценарий</Link>
+                <Link href={item.primaryHref} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700 }}>Пакет</Link>
+                <Link href={item.simulationHref} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700 }}>Проверочный сценарий</Link>
               </div>
             </div>
           ))}
@@ -363,20 +363,20 @@ export function BankRuntime() {
             <div style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>Горячая точка</div>
             {brandPill('sberApi')}
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#0F1419', marginTop: 6, wordBreak: 'break-word' }}>DL-9109 → запрос выпуска на 10.5 млн ₽</div>
-          <div style={{ fontSize: 13, color: '#334155', marginTop: 8, wordBreak: 'break-word' }}>Этот выпуск должен быть виден банку и оператору как приоритетный кейс, а не теряться внутри списка модулей.</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 6, wordBreak: 'break-word' }}>DL-9109 → запрос выпуска на 10.5 млн ₽</div>
+          <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #334155)', marginTop: 8, wordBreak: 'break-word' }}>Этот выпуск должен быть виден банку и оператору как приоритетный кейс, а не теряться внутри списка модулей.</div>
           <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href='/platform-v7/deals/DL-9109' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 700 }}>Открыть DL-9109</Link>
-            <Link href='/platform-v7/control-tower/hotlist' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>Передать в hotlist</Link>
+            <Link href='/platform-v7/control-tower/hotlist' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>Передать в hotlist</Link>
           </div>
         </section>
       ) : null}
 
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Реестр банковых событий</div>
-            <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4 }}>Каждое событие должно вести к сделке, сумме и понятному действию.</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Реестр банковых событий</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>Каждое событие должно вести к сделке, сумме и понятному действию.</div>
           </div>
           {brandPill('sberApi')}
         </div>
@@ -385,11 +385,11 @@ export function BankRuntime() {
             const p = badge(item.status);
             return (
               <Link key={item.id} href={`/platform-v7/deals/${item.dealId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16 }}>
+                <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 16 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, alignItems: 'center' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13, wordBreak: 'break-word' }}>{item.id} · {callbackTypeLabel(item.type)}</div>
-                      <div style={{ fontSize: 12, color: '#6B778C', marginTop: 4, wordBreak: 'break-word' }}>{item.note}</div>
+                      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4, wordBreak: 'break-word' }}>{item.note}</div>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700 }}>{item.amountRub ? formatMoney(item.amountRub) : '—'}</div>
                     <div><span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: p.bg, border: `1px solid ${p.border}`, color: p.color, fontSize: 11, fontWeight: 800 }}>{p.label}</span></div>

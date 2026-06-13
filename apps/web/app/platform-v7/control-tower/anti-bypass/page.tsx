@@ -11,10 +11,10 @@ export default function ControlTowerAntiBypassPage() {
   const profile = calculateBypassRiskProfile('BUYER-1', signals);
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ color: '#B91C1C', fontSize: 12, fontWeight: 900 }}>Центр управления · антиобход</div>
-        <h1 style={{ margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Очередь сигналов риска</h1>
-        <p style={{ margin: 0, color: '#475569', fontSize: 15, lineHeight: 1.55 }}>Оператор видит объект сделки, тип сигнала, уровень риска, ограничения и следующий шаг. Каждое решение должно иметь основание и запись в журнале.</p>
+        <h1 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Очередь сигналов риска</h1>
+        <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.55 }}>Оператор видит объект сделки, тип сигнала, уровень риска, ограничения и следующий шаг. Каждое решение должно иметь основание и запись в журнале.</p>
         <BypassRiskBadge profile={profile} />
       </section>
       <OperatorBypassQueue signals={signals} />

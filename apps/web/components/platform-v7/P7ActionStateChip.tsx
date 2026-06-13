@@ -14,7 +14,7 @@ const STATUS_STYLE: Record<P7ActionStateChipStatus, { bg: string; border: string
   active:  { bg: 'rgba(10,122,95,0.08)',  border: 'rgba(10,122,95,0.18)',  color: '#0A7A5F' },
   waiting: { bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.18)',  color: '#B45309' },
   blocked: { bg: 'rgba(220,38,38,0.07)',  border: 'rgba(220,38,38,0.18)',  color: '#B91C1C' },
-  manual:  { bg: 'rgba(15,23,42,0.06)',   border: 'rgba(15,23,42,0.18)',   color: '#475569' },
+  manual:  { bg: 'rgba(15,23,42,0.06)',   border: 'rgba(15,23,42,0.18)',   color: 'var(--pc-text-secondary, #475569)' },
 };
 
 export function P7ActionStateChip({ status, label, nextActor, stopReason, blocker, moneyEffect }: P7ActionStateChipProps) {
@@ -43,7 +43,7 @@ export function P7ActionStateChip({ status, label, nextActor, stopReason, blocke
         {label}
       </span>
       {nextActor && (
-        <span data-testid='p7-action-state-next' style={{ color: '#475569', fontSize: 11, fontWeight: 700 }}>
+        <span data-testid='p7-action-state-next' style={{ color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 700 }}>
           → {nextActor}
         </span>
       )}

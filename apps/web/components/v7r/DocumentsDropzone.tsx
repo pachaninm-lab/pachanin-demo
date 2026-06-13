@@ -91,15 +91,15 @@ export function DocumentsDropzone({ dealId }: { dealId: string }) {
     <section
       aria-label={`Документы по сделке ${dealId}`}
       data-local-scenario="true"
-      style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18 }}
+      style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Документы сделки</div>
-          <div style={{ marginTop: 4, fontSize: 12, color: '#6B778C' }}>Файлы и чек-лист готовности. В предынтеграционном контуре сохраняется в памяти браузера по каждой сделке.</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Документы сделки</div>
+          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>Файлы и чек-лист готовности. В предынтеграционном контуре сохраняется в памяти браузера по каждой сделке.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 11, color: '#6B778C', fontWeight: 700 }}>{docs.length ? `${docs.length} файлов` : 'Пусто'}</div>
+          <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 700 }}>{docs.length ? `${docs.length} файлов` : 'Пусто'}</div>
           <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: releaseReady ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${releaseReady ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, color: releaseReady ? '#0A7A5F' : '#B45309', fontSize: 11, fontWeight: 800 }}>
             {releaseReady ? 'Документы готовы к выпуску' : `До выпуска: ${blockerDone}/${blockerTotal}`}
           </span>
@@ -108,15 +108,15 @@ export function DocumentsDropzone({ dealId }: { dealId: string }) {
 
       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#0F1419' }}>Чек-лист обязательных документов</div>
-          <div style={{ fontSize: 12, color: '#6B778C' }}>{requiredDone}/{REQUIRED_DOCS.length} отмечено</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Чек-лист обязательных документов</div>
+          <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{requiredDone}/{REQUIRED_DOCS.length} отмечено</div>
         </div>
         {REQUIRED_DOCS.map((doc) => (
-          <label key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, border: '1px solid #E4E6EA', background: checklist[doc.id] ? 'rgba(10,122,95,0.06)' : '#F8FAFB', cursor: 'pointer' }}>
+          <label key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: checklist[doc.id] ? 'rgba(10,122,95,0.06)' : '#F8FAFB', cursor: 'pointer' }}>
             <input type="checkbox" checked={!!checklist[doc.id]} onChange={() => toggleChecklist(doc.id)} />
             <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>{doc.label}</div>
-              <div style={{ fontSize: 11, color: '#6B778C' }}>{doc.blocker ? 'Блокирует банковская проверка выплаты' : 'Желательно для полного досье сделки'}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{doc.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{doc.blocker ? 'Блокирует банковская проверка выплаты' : 'Желательно для полного досье сделки'}</div>
             </div>
             <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: checklist[doc.id] ? '#0A7A5F' : '#9AA4B2' }}>{checklist[doc.id] ? 'Готово' : 'Нет'}</span>
           </label>
@@ -151,8 +151,8 @@ export function DocumentsDropzone({ dealId }: { dealId: string }) {
           transition: 'background 0.15s ease, border-color 0.15s ease',
         }}
       >
-        <div style={{ fontSize: 14, fontWeight: 800, color: '#0F1419' }}>Перетащите PDF / DOCX / XLSX сюда</div>
-        <div style={{ marginTop: 6, fontSize: 12, color: '#6B778C' }}>или нажмите для выбора файлов · макс. 20 МБ на файл</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Перетащите PDF / DOCX / XLSX сюда</div>
+        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>или нажмите для выбора файлов · макс. 20 МБ на файл</div>
         <input
           ref={inputRef}
           type="file"
@@ -166,15 +166,15 @@ export function DocumentsDropzone({ dealId }: { dealId: string }) {
       {docs.length ? (
         <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0 0', display: 'grid', gap: 8 }}>
           {docs.map((doc) => (
-            <li key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', padding: '10px 12px', border: '1px solid #E4E6EA', borderRadius: 12, background: '#fff' }}>
+            <li key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', padding: '10px 12px', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, background: '#fff' }}>
               <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
-                <div style={{ fontSize: 11, color: '#6B778C' }}>{formatSize(doc.size)} · {new Date(doc.uploadedAt).toLocaleTimeString('ru-RU')}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{formatSize(doc.size)} · {new Date(doc.uploadedAt).toLocaleTimeString('ru-RU')}</div>
               </div>
               <button
                 onClick={() => remove(doc.id)}
                 aria-label={`Удалить файл ${doc.name}`}
-                style={{ padding: '6px 10px', borderRadius: 8, background: '#fff', border: '1px solid #E4E6EA', fontSize: 11, fontWeight: 700, color: '#6B778C', cursor: 'pointer' }}
+                style={{ padding: '6px 10px', borderRadius: 8, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, fontWeight: 700, color: 'var(--pc-text-muted, #6B778C)', cursor: 'pointer' }}
               >
                 Удалить
               </button>

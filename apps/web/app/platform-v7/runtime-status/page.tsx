@@ -23,7 +23,7 @@ const ITEMS = [
     title: 'Регуляторная проверка',
     state: 'Ручная проверка',
     note: 'Связка с ФГИС и ЕСИА не должна выглядеть подтверждённой без реальной проверки.',
-    accent: { bg: 'rgba(71,85,105,0.08)', border: 'rgba(71,85,105,0.18)', color: '#334155' },
+    accent: { bg: 'rgba(71,85,105,0.08)', border: 'rgba(71,85,105,0.18)', color: 'var(--pc-text-secondary, #334155)' },
   },
   {
     title: 'Транспортный пакет',
@@ -36,21 +36,21 @@ const ITEMS = [
 export default function RuntimeStatusPage() {
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1120, margin: '0 auto' }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 8 }}>
-        <div style={{ fontSize: 28, fontWeight: 900, color: '#0F1419' }}>Статус системы</div>
-        <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.7 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 8 }}>
+        <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Статус системы</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
           Экран показывает, где сделка реально может застрять: деньги, документы, регуляторная связка и транспортный пакет. Это не декоративный health-check, а операционный слой для оператора и банка.
         </div>
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
         {ITEMS.map((item) => (
-          <section key={item.title} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 16, display: 'grid', gap: 10 }}>
+          <section key={item.title} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, display: 'grid', gap: 10 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: item.accent.bg, border: `1px solid ${item.accent.border}`, color: item.accent.color, fontSize: 11, fontWeight: 800, width: 'fit-content' }}>
               {item.state}
             </div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>{item.title}</div>
-            <div style={{ fontSize: 13, color: '#6B778C', lineHeight: 1.6 }}>{item.note}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{item.note}</div>
           </section>
         ))}
       </div>
@@ -59,10 +59,10 @@ export default function RuntimeStatusPage() {
         <Link href='/platform-v7/control-tower/hotlist' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
           Hotlist
         </Link>
-        <Link href='/platform-v7/bank' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
+        <Link href='/platform-v7/bank' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
           Банк
         </Link>
-        <Link href='/platform-v7/documents' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#fff', color: '#0F1419', fontSize: 13, fontWeight: 700 }}>
+        <Link href='/platform-v7/documents' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
           Документы
         </Link>
       </div>

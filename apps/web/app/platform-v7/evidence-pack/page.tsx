@@ -15,14 +15,14 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
 
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 11, color: '#0A7A5F', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           Готовность доказательств · проверочный контур
         </div>
-        <h1 style={{ margin: 0, fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: '#0F1419' }}>
+        <h1 style={{ margin: 0, fontSize: 24, lineHeight: 1.15, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>
           Операции с доказательными пакетами
         </h1>
-        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#6B778C', maxWidth: 860 }}>
+        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--pc-text-muted, #6B778C)', maxWidth: 860 }}>
           Операционный индекс доказательных пакетов. Навигация не запускает внешний PDF, ЭДО, КЭП, банк, ФГИС или СберКорус.
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -35,18 +35,18 @@ export default function EvidencePackIndexPage({ searchParams }: { searchParams?:
       <EvidenceExportReadinessSummary />
       <EvidencePackOperationsQueue decision={decision} missing={missing} />
 
-      <section data-testid='evidence-pack-index' style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 900, color: '#0F1419' }}>Доступные пакеты для просмотра</div>
+      <section data-testid='evidence-pack-index' style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>Доступные пакеты для просмотра</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
           {SAMPLE_DEALS.map((dealId) => (
             <Link
               key={dealId}
               href={`/platform-v7/deals/${dealId}/evidence-pack`}
-              style={{ textDecoration: 'none', border: '1px solid #E4E6EA', borderRadius: 14, padding: 14, background: '#F8FAFB', display: 'grid', gap: 6 }}
+              style={{ textDecoration: 'none', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, background: '#F8FAFB', display: 'grid', gap: 6 }}
             >
               <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#0A7A5F', fontWeight: 900, fontSize: 13 }}>{dealId}</span>
-              <span style={{ color: '#0F1419', fontWeight: 800, fontSize: 14 }}>Открыть доказательный пакет</span>
-              <span style={{ color: '#6B778C', fontSize: 12, lineHeight: 1.5 }}>Проверочный просмотр доказательств, спора, денег, журнала и линии событий.</span>
+              <span style={{ color: 'var(--pc-text-primary, #0F1419)', fontWeight: 800, fontSize: 14 }}>Открыть доказательный пакет</span>
+              <span style={{ color: 'var(--pc-text-muted, #6B778C)', fontSize: 12, lineHeight: 1.5 }}>Проверочный просмотр доказательств, спора, денег, журнала и линии событий.</span>
             </Link>
           ))}
         </div>
@@ -67,5 +67,5 @@ function parseMissing(value?: string): 'all' | Missing {
 
 function btn(kind: 'default' | 'primary' = 'default') {
   if (kind === 'primary') return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 13, fontWeight: 800 };
-  return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: '#F8FAFB', border: '1px solid #E4E6EA', color: '#0F1419', fontSize: 13, fontWeight: 800 };
+  return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 800 };
 }

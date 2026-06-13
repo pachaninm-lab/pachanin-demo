@@ -41,7 +41,7 @@ const groups: Array<{ title: string; description: string; cards: RoleCard[] }> =
     cards: [
       { role: 'bank', title: 'Банк', description: 'Резерв, удержание, выпуск, ручная проверка расхождений.', href: '/platform-v7/bank', tone: '#0B6B9A', mark: 'БН' },
       { role: 'arbitrator', title: 'Арбитр', description: 'Комната разбора, пакет доказательств, у кого мяч и сколько под удержанием.', href: '/platform-v7/disputes', tone: '#9333EA', mark: 'АР' },
-      { role: 'compliance', title: 'Комплаенс', description: 'Журнал действий, выгрузка, фильтры по актору и дате.', href: '/platform-v7/compliance', tone: '#475569', mark: 'КМ' },
+      { role: 'compliance', title: 'Комплаенс', description: 'Журнал действий, выгрузка, фильтры по актору и дате.', href: '/platform-v7/compliance', tone: 'var(--pc-text-secondary, #475569)', mark: 'КМ' },
       { role: 'executive', title: 'Руководитель', description: 'Короткая сводка: оборот, спорность, скорость закрытия, деньги в контуре.', href: '/platform-v7/analytics', tone: '#111827', mark: 'РК' },
     ],
   },
@@ -56,28 +56,28 @@ export function RoleEntry() {
       <div style={{ width: '100%', maxWidth: 1240, display: 'grid', gap: 18 }}>
         <div style={{ background: 'linear-gradient(180deg, rgba(10,122,95,0.08) 0%, rgba(255,255,255,0.96) 100%)', border: '1px solid rgba(10,122,95,0.14)', borderRadius: 20, padding: '22px 22px 18px', boxShadow: '0 10px 30px rgba(15,20,25,0.05)' }}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#0A7A5F' }}>Прозрачная Цена</div>
-          <h1 style={{ margin: '10px 0 8px', fontSize: 32, lineHeight: 1.15, color: '#0F1419' }}>Выбор рабочего кабинета</h1>
+          <h1 style={{ margin: '10px 0 8px', fontSize: 32, lineHeight: 1.15, color: 'var(--pc-text-primary, #0F1419)' }}>Выбор рабочего кабинета</h1>
           <p style={{ margin: 0, maxWidth: 760, color: '#556070', fontSize: 14, lineHeight: 1.65 }}>Вход начинается с роли. У каждого кабинета свой первый экран, свои действия, своя логика денег, документов, приёмки и споров.</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
-            <Link href="/platform-v7/control-tower" style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #DCE3E8', background: '#FFFFFF', color: '#0F1419', fontWeight: 700, fontSize: 13 }}>Открыть центр управления</Link>
-            <Link href="/platform-v7/deals" style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #DCE3E8', background: '#FFFFFF', color: '#0F1419', fontWeight: 700, fontSize: 13 }}>Все сделки</Link>
+            <Link href="/platform-v7/control-tower" style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #DCE3E8', background: '#FFFFFF', color: 'var(--pc-text-primary, #0F1419)', fontWeight: 700, fontSize: 13 }}>Открыть центр управления</Link>
+            <Link href="/platform-v7/deals" style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid #DCE3E8', background: '#FFFFFF', color: 'var(--pc-text-primary, #0F1419)', fontWeight: 700, fontSize: 13 }}>Все сделки</Link>
           </div>
         </div>
 
         {groups.map((group) => (
-          <section key={group.title} style={{ background: '#FFFFFF', border: '1px solid #E4E6EA', borderRadius: 20, padding: 18, boxShadow: '0 8px 26px rgba(9,30,66,0.04)' }}>
+          <section key={group.title} style={{ background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 18, boxShadow: '0 8px 26px rgba(9,30,66,0.04)' }}>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#0F1419' }}>{group.title}</div>
-              <div style={{ fontSize: 13, color: '#6B778C', marginTop: 4 }}>{group.description}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{group.title}</div>
+              <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>{group.description}</div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
               {group.cards.map((card) => (
-                <button key={card.role} onClick={() => { setRole(card.role); router.push(card.href); }} style={{ textAlign: 'left', background: '#FCFDFD', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, cursor: 'pointer', display: 'grid', gap: 14, boxShadow: '0 6px 18px rgba(9,30,66,0.03)' }}>
+                <button key={card.role} onClick={() => { setRole(card.role); router.push(card.href); }} style={{ textAlign: 'left', background: '#FCFDFD', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, cursor: 'pointer', display: 'grid', gap: 14, boxShadow: '0 6px 18px rgba(9,30,66,0.03)' }}>
                   <div style={{ width: 48, height: 48, borderRadius: 14, background: `${card.tone}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: card.tone, fontSize: 14, fontWeight: 800 }}>{card.mark}</div>
                   <div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#0F1419' }}>{card.title}</div>
-                    <div style={{ fontSize: 13, color: '#6B778C', marginTop: 7, lineHeight: 1.6 }}>{card.description}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{card.title}</div>
+                    <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 7, lineHeight: 1.6 }}>{card.description}</div>
                   </div>
                   <div style={{ fontSize: 12, fontWeight: 800, color: card.tone, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Перейти в кабинет</div>
                 </button>
