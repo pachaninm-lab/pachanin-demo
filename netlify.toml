@@ -1,12 +1,11 @@
 [build]
-  command = "pnpm --filter @pc/web build"
+  command = "pnpm --filter @pc/web add styled-jsx@5.1.6 --save-prod --lockfile=false && pnpm --filter @pc/web build"
   publish = "apps/web/.next"
 
 [build.environment]
   NODE_VERSION = "22"
   PNPM_VERSION = "10.2.1"
   NEXT_TELEMETRY_DISABLED = "1"
-  PNPM_FLAGS = "--no-frozen-lockfile"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
