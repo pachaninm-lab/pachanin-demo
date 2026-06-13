@@ -21,6 +21,7 @@ import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-executio
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
+import { DonutGauge, PremiumStatCard } from '@/components/platform-v7/premium';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -171,11 +172,20 @@ export default async function PlatformV7BankPage() {
         </div>
       </section>
 
-      <section style={metricsGrid}>
-        <Metric label='В резерве' value='15,89 млн ₽' />
-        <Metric label='К передаче банку сейчас' value='0 ₽' danger />
-        <Metric label='Под удержанием' value='624 тыс. ₽' danger />
-        <Metric label='Требуют проверки' value='2 сделки' />
+      <section style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', padding: '4px 0' }}>
+        <DonutGauge
+          value={0}
+          centerValue='0 ₽'
+          sublabel='передано'
+          caption='Платформа деньги не передаёт без банка'
+          tone='warning'
+        />
+        <div className='pc-prem-kpis' style={{ flex: '1 1 280px', minWidth: 240 }} aria-label='Деньги под контролем банка'>
+          <PremiumStatCard glyph='coins' tone='info' value='15,89 млн ₽' label='В резерве' />
+          <PremiumStatCard glyph='scale' tone='danger' value='0 ₽' label='К передаче банку сейчас' />
+          <PremiumStatCard glyph='alert' tone='danger' value='624 тыс. ₽' label='Под удержанием' />
+          <PremiumStatCard glyph='doc' tone='warning' value='2 сделки' label='Требуют проверки' />
+        </div>
       </section>
 
       <BankCleanView
@@ -328,10 +338,6 @@ function SummaryCard({ item }: { item: typeof releaseSummary[number] }) {
   return <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 13, display: 'grid', gap: 7, boxShadow: '0 8px 20px rgba(15,23,42,0.045)' }}><div style={micro}>{item.label}</div><strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
 }
 
-function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return <div style={{ background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' }}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : 'var(--pc-text-primary, #0F1419)', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div></div>;
-}
-
 function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
   return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{value}</div></div>;
 }
@@ -366,7 +372,6 @@ const muted = { margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontS
 const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0F172A', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(15,23,42,0.18)' } as const;
 const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
-const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
 const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
 const idText = { color: '#0F172A', fontSize: 13, fontWeight: 950 } as const;
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
