@@ -10,6 +10,7 @@ import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 import { WeighStationPanel } from '@/components/platform-v7/WeighStationPanel';
+import { CockpitHero, ProcessStepper } from '@/components/platform-v7/premium';
 
 const elevatorHandoff: HandoffItem[] = [
   { direction: 'sends', role: 'элеватор → контур документов', requirement: 'акт приёмки и акт расхождения в контур документов', documentImpact: true, moneyImpact: true },
@@ -94,11 +95,24 @@ export default async function Page() {
       <div className='p7-elevator-intel'>
         <QuietIntelligenceHint problem='Отклонение веса -1,2 т и превышение по сорной примеси — акт расхождения не подписан.' action='Зафиксировать вес, подписать акт приёмки и акт расхождения, передать пробу в лабораторию.' outcome='После закрытия актов основание уйдёт в контур документов и банку на проверку выплаты.' />
       </div>
-      <section className='p7-elevator-hero' style={card}>
-        <div style={badge}>Кабинет приёмки</div>
-        <h1 style={h1}>Вес, качество и основание для проверки выплаты</h1>
-        <p style={lead}>Приёмка видит только груз, рейс, вес, лабораторию, документы и отклонения. Деньги, ставки, резерв, кредит и покупательская аналитика не раскрываются.</p>
-      </section>
+      <CockpitHero
+        className='p7-elevator-hero'
+        eyebrow='Кабинет приёмки'
+        title='Вес, качество и основание для проверки выплаты'
+        lead='Приёмка видит только груз, рейс, вес, лабораторию, документы и отклонения. Деньги, ставки, резерв, кредит и покупательская аналитика не раскрываются.'
+      >
+        <ProcessStepper
+          ariaLabel='Этапы приёмки'
+          steps={[
+            { label: 'Сделка', state: 'done' },
+            { label: 'Партия', state: 'done' },
+            { label: 'Приёмка', state: 'current' },
+            { label: 'Лаборатория', state: 'upcoming' },
+            { label: 'Документы', state: 'upcoming' },
+            { label: 'Готово', state: 'upcoming' },
+          ]}
+        />
+      </CockpitHero>
 
       <section className='p7-elevator-explainer' style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
@@ -181,11 +195,8 @@ function stateText(state: string) { if (state === 'ok') return '#0A7A5F'; if (st
 
 const card = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
 const darkCard = { background: 'linear-gradient(135deg,#7C2D12 0%,#9A3412 58%,#431407 120%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(124,45,18,0.2)' } as const;
-const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(180,83,9,0.08)', border: '1px solid rgba(180,83,9,0.18)', color: '#B45309', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const h2 = { margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
-const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.6 } as const;
-const muted = { margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 } as const;
+const h2 ={ margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
+const muted ={ margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 } as const;
 const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
 const idText = { color: '#B45309', fontSize: 13, fontWeight: 950 } as const;
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;

@@ -7,6 +7,7 @@ import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getLabSamples, pendingProtocols, labMoneyImpactRub } from '@/lib/labs-server';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { QualityDeltaBars } from '@/components/platform-v7/QualityDeltaBars';
+import { CockpitHero } from '@/components/platform-v7/premium';
 
 const labSteps = [
   { label: 'Проба', value: 'отбор и фиксация', note: 'кто взял, когда, по какому рейсу' },
@@ -61,19 +62,12 @@ export default async function Page() {
           outcome="Протокол уйдёт в контур документов как основание для дальнейшей проверки."
         />
       </div>
-      <section className="p7-lab-hero" style={hero}>
-        <div style={{ display: 'grid', gap: 9, maxWidth: 840 }}>
-          <div style={badge}>
-            Лаборатория · качество и протокол
-          </div>
-          <h1 style={h1}>
-            Проба, показатели и протокол качества
-          </h1>
-          <p style={lead}>
-            Лабораторный экран показывает только пробу, показатели качества, отклонения и итоговый допуск. Финансовое решение, спор и банковская проверка остаются вне роли лаборатории.
-          </p>
-        </div>
-
+      <CockpitHero
+        className='p7-lab-hero'
+        eyebrow='Лаборатория · качество и протокол'
+        title='Проба, показатели и протокол качества'
+        lead='Лабораторный экран показывает только пробу, показатели качества, отклонения и итоговый допуск. Финансовое решение, спор и банковская проверка остаются вне роли лаборатории.'
+      >
         <div className="p7-lab-steps" style={stepsGrid}>
           {labSteps.map((item) => (
             <div key={item.label} className="p7-lab-step" style={stepCard}>
@@ -83,7 +77,7 @@ export default async function Page() {
             </div>
           ))}
         </div>
-      </section>
+      </CockpitHero>
 
       <QualityDeltaBars
         title='Протокол качества · показатели против допуска'
@@ -112,35 +106,6 @@ export default async function Page() {
   );
 }
 
-const hero = {
-  background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFB 58%, #EEF6F3 100%)',
-  border: '1px solid var(--pc-border, #E4E6EA)',
-  borderRadius: 28,
-  padding: 24,
-  display: 'grid',
-  gap: 16,
-  boxShadow: '0 18px 44px rgba(15,23,42,0.08)',
-} as const;
-const badge = {
-  display: 'inline-flex',
-  width: 'fit-content',
-  padding: '7px 11px',
-  borderRadius: 999,
-  background: 'rgba(10,122,95,0.08)',
-  border: '1px solid rgba(10,122,95,0.18)',
-  color: '#0A7A5F',
-  fontSize: 12,
-  fontWeight: 900,
-} as const;
-const h1 = {
-  margin: 0,
-  fontSize: 'clamp(30px, 4.8vw, 52px)',
-  lineHeight: 1.04,
-  letterSpacing: '-0.045em',
-  color: 'var(--pc-text-primary, #0F1419)',
-  fontWeight: 950,
-} as const;
-const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.7 } as const;
 const stepsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 } as const;
 const stepCard = {
   background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)',
