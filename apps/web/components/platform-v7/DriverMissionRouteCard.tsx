@@ -40,7 +40,7 @@ export function DriverMissionRouteCard({ tripId, route, progressPercent, stageLa
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <span style={micro}>Текущий рейс</span>
+        <span style={micro}>Рейс</span>
         <span style={{ fontSize: 13, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--pc-text-primary, #0F1419)' }}>{tripId}</span>
         <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: 'var(--pc-accent, #0A7A5F)' }}>{stageLabel}</span>
       </div>
@@ -84,7 +84,7 @@ export function DriverMissionRouteCard({ tripId, route, progressPercent, stageLa
           />
         </div>
         <div style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums', color: 'var(--pc-text-secondary, #475569)' }}>
-          {progress}% пути · точка из телематики, не управляет деньгами
+          {progress}% пути · точка из телематики; финансовых действий на экране нет
         </div>
       </div>
 

@@ -10,7 +10,7 @@ export default function DemoRunPage() {
   return (
     <main style={{ display: 'grid', gap: 16 }}>
       <section style={{ background: '#0F1419', color: '#fff', borderRadius: 24, padding: 22, display: 'grid', gap: 10 }}>
-        <p style={{ margin: 0, color: '#9FE3CC', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Пилотный сценарий</p>
+        <p style={{ margin: 0, color: '#9FE3CC', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Сценарий исполнения</p>
         <h1 style={{ margin: 0, fontSize: 'clamp(30px,7.5vw,52px)', lineHeight: 1.04, letterSpacing: '-0.045em' }}>Цикл: торги → логистика → рейс → контроль</h1>
         <p style={{ margin: 0, color: '#CBD5E1', fontSize: 15, lineHeight: 1.55 }}>Показан один связанный сценарий без заявления боевых внешних подключений.</p>
       </section>

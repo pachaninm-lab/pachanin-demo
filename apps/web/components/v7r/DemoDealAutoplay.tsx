@@ -8,7 +8,7 @@ const STEPS = [
   'Логистика',
   'Приёмка',
   'Лаборатория',
-  'Release денег',
+  'Банковская проверка выплаты',
 ];
 
 type CallbackState = 'pending' | 'ok';
@@ -80,13 +80,13 @@ export function DemoDealAutoplay({ dealId, amount }: { dealId: string; amount: n
       {callback && (
         <div style={{ padding: 12, border: '1px solid #E4E6EA', borderRadius: 12, background: '#fff', display: 'grid', gap: 6 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ fontWeight: 700 }}>Webhook: {callback.id}</div>
+            <div style={{ fontWeight: 700 }}>Событие банка: {callback.id}</div>
             <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: callback.state === 'pending' ? 'rgba(217,119,6,0.08)' : 'rgba(37,99,235,0.08)', border: callback.state === 'pending' ? '1px solid rgba(217,119,6,0.18)' : '1px solid rgba(37,99,235,0.18)', color: callback.state === 'pending' ? '#B45309' : '#1D4ED8', fontSize: 11, fontWeight: 800 }}>
-              {callback.state === 'pending' ? 'Webhook pending' : 'Webhook ok'}
+              {callback.state === 'pending' ? 'Событие ожидается' : 'Событие принято'}
             </span>
           </div>
           <div style={{ fontSize: 12, color: '#334155' }}>Принят банком: {new Date(callback.acceptedAt).toLocaleTimeString('ru-RU')}</div>
-          <div style={{ fontSize: 12, color: '#334155' }}>Сумма release: {callback.amountRub} ₽</div>
+          <div style={{ fontSize: 12, color: '#334155' }}>Сумма к выплате: {callback.amountRub} ₽</div>
           <div style={{ fontSize: 12, color: '#6B778C' }}>Задержка шлюза: {callback.latencyMs} мс</div>
           {callback.confirmedAt ? <div style={{ fontSize: 12, color: '#334155' }}>Подтверждён: {new Date(callback.confirmedAt).toLocaleTimeString('ru-RU')}</div> : null}
         </div>

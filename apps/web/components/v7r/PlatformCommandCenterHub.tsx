@@ -173,12 +173,42 @@ export function PlatformCommandCenterHub() {
   const { role, setRole } = usePlatformV7RStore();
 
   return (
-    <PremiumDealShell
-      deal={premiumDeal}
-      initialRole={normalizeRole(role)}
-      roles={roles}
-      theme="light"
-      onRoleChange={(nextRole) => setRole(denormalizeRole(nextRole))}
-    />
+    <div style={{ display: 'grid', gap: 16 }}>
+      <section
+        data-testid="platform-command-center-hero"
+        style={{
+          background: 'var(--pc-bg-card, #fff)',
+          border: '1px solid var(--pc-border, rgba(63,56,38,0.12))',
+          borderRadius: 18,
+          padding: 20,
+          display: 'grid',
+          gap: 10,
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--pc-accent, #0A7A5F)' }}>
+          Центр исполнения сделки
+        </div>
+        <h1 style={{ margin: 0, fontSize: 'clamp(24px,4vw,34px)', lineHeight: 1.05, letterSpacing: '-0.02em', fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>
+          Рабочий контур сделки
+        </h1>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--pc-text-secondary, #475569)', maxWidth: 760 }}>
+          Контур собирает основание для банковской проверки выплаты по сделке. Пакет можно передавать банку только после закрытия условий — деньги двигает банк по своим правилам.
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ display: 'inline-flex', width: 'fit-content', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--p7-color-warning-soft, #FFFAEB)', color: 'var(--pc-warning, #B54708)' }}>
+            проверка выплаты
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-accent, #0A7A5F)' }}>передать основание банку</span>
+        </div>
+      </section>
+
+      <PremiumDealShell
+        deal={premiumDeal}
+        initialRole={normalizeRole(role)}
+        roles={roles}
+        theme="light"
+        onRoleChange={(nextRole) => setRole(denormalizeRole(nextRole))}
+      />
+    </div>
   );
 }
