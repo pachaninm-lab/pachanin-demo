@@ -128,3 +128,20 @@
     to { opacity: 1; transform: translateY(0); }
   }
 }
+
+/* Тактильные микровзаимодействия — ощущение «дорогого» отклика интерфейса */
+@media (prefers-reduced-motion: no-preference) {
+  .pc-main a[href],
+  .pc-main button:not(:disabled),
+  .pc-main [role='button']:not([aria-disabled='true']) {
+    transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+  }
+  .pc-main a[href]:active,
+  .pc-main button:not(:disabled):active,
+  .pc-main [role='button']:not([aria-disabled='true']):active {
+    transform: translateY(1px) scale(0.992);
+  }
+}
+
+/* Согласованный курсор и доступная зона для интерактивных плиток */
+.pc-main [role='button'] { cursor: pointer; }
