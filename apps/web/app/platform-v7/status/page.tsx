@@ -29,7 +29,7 @@ const SERVICES = [
     id: 'labs',
     name: 'Лаборатории / протоколы',
     status: 'test_mode',
-    uptime: 'Пилот',
+    uptime: 'Контур',
     note: 'Тестовый режим. Часть протоколов ещё загружается вручную.',
     incidents: ['2026-04-15 · ручной ввод протокола по тестовой сделке'],
   },
@@ -82,7 +82,7 @@ export default function StatusPage() {
         <Metric title='ОК' value='2' note='ФГИС и СПАРК проходят штатно.' />
         <Metric title='Нестабильно' value='1' note='Банк иногда уводит кейсы в ручную проверку.' />
         <Metric title='Тестовый режим' value='1' note='Лабораторный контур требует ручного сопровождения.' />
-        <Metric title='Режим' value='Пилот' note='Честная стадия: пилотный контур с сопровождением.' />
+        <Metric title='Режим' value='Контур' note='Честная стадия: контур исполнения с сопровождением.' />
       </div>
 
       <section style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>

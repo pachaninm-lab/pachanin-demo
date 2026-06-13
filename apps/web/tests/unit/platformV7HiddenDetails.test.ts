@@ -21,7 +21,7 @@ describe('platform-v7 hidden details pattern', () => {
     expect(support).toContain('/platform-v7/support/detail?id=');
     expect(support).not.toContain('{item.description}');
     expect(support).toContain('{item.nextAction}');
-    expect(support).toContain('SLA');
+    expect(support).toContain('Срок');
   });
 
   it('keeps disputes page compact by hiding evidence, decision and handoff details', () => {

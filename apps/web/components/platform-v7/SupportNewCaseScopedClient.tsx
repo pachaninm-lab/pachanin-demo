@@ -80,7 +80,7 @@ function FieldForm({ defaults, role }: { defaults: Partial<SupportCase>; role: P
           <button className='p7-support-new-submit' onClick={submitCase} disabled={!objectId} style={{ minHeight: 46, borderRadius: 14, border: 0, background: objectId ? 'var(--pc-accent,#0A7A5F)' : 'var(--pc-bg-muted,#E4E6EA)', color: objectId ? '#fff' : 'var(--pc-text-muted,#64748b)', fontWeight: 900, cursor: objectId ? 'pointer' : 'not-allowed' }}>Создать обращение</button>
         </div>
         <aside className='p7-support-new-preview' style={{ ...card, display: 'grid', gap: 10, alignContent: 'start' }}>
-          <div style={{ fontWeight: 900 }}>Предварительная оценка</div><div>Категория: <b>{SUPPORT_CATEGORY_LABELS[category]}</b></div><div>Приоритет: <b>{SUPPORT_PRIORITY_LABELS[priority]}</b></div><div>SLA: <b>{supportSlaHours(priority)} ч.</b></div>
+          <div style={{ fontWeight: 900 }}>Предварительная оценка</div><div>Категория: <b>{SUPPORT_CATEGORY_LABELS[category]}</b></div><div>Приоритет: <b>{SUPPORT_PRIORITY_LABELS[priority]}</b></div><div>Срок: <b>{supportSlaHours(priority)} ч.</b></div>
         </aside>
       </section>
     </div>

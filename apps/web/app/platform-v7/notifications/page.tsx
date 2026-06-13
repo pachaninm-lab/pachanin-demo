@@ -13,7 +13,7 @@ type InboxItem = {
 };
 
 const INITIAL_ITEMS: InboxItem[] = [
-  { id: 'N-101', type: 'critical', title: 'DL-9102: выпуск денег заблокирован', note: 'Открыт спор по качеству и не хватает пакета доказательств.', action: '/platform-v7/disputes/DSP-104', bucket: 'Критичные' },
+  { id: 'N-101', type: 'critical', title: 'DL-9102: банковская проверка выплаты заблокирована', note: 'Открыт спор по качеству и не хватает пакета доказательств.', action: '/platform-v7/disputes/DSP-104', bucket: 'Критичные' },
   { id: 'N-102', type: 'sla', title: 'DL-9107: истекает срок реакции оператора', note: 'До дедлайна осталось менее 4 часов.', action: '/platform-v7/control-tower', bucket: 'срок реакции' },
   { id: 'N-103', type: 'bank', title: 'CB-441: банк подтвердил release', note: 'Деньги по сделке готовы к финальному отражению.', action: '/platform-v7/bank/events/CB-441', bucket: 'Банк' },
   { id: 'N-104', type: 'logistics', title: 'ТМБ-14: водитель подтвердил прибытие', note: 'Можно переходить к приёмке и акту.', action: '/platform-v7/logistics/%D0%A2%D0%9C%D0%91-14', bucket: 'Логистика' },
