@@ -5,6 +5,7 @@ import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
 import { getOutboxStatus } from '@/lib/outbox-server';
+import { CockpitHero, PremiumStatCard } from '@/components/platform-v7/premium';
 
 function formatMoney(rub: number): string {
   if (rub >= 1_000_000_000) return `${(rub / 1_000_000_000).toFixed(2)} млрд ₽`;
@@ -88,14 +89,19 @@ export default async function ExecutivePage() {
 
   return (
     <main style={{ display: 'grid', gap: 16, maxWidth: 1080, margin: '0 auto', padding: '12px 16px 32px' }}>
-      <header style={{ display: 'grid', gap: 4 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.01em', margin: 0, color: 'var(--pc-text-primary, #0F1419)' }}>
-          Исполнительная панель
-        </h1>
-        <p style={{ color: 'var(--pc-text-muted, #667085)', fontSize: 13, margin: 0 }}>
-          Только просмотр: деньги, споры, блокеры и портфель без права действия
-        </p>
-      </header>
+      <CockpitHero
+        eyebrow='Руководитель · только просмотр'
+        title='Стратегический контроль.'
+        accent='Фокус на результате.'
+        lead='Исполнительная панель: деньги, споры, блокеры и портфель без права действия.'
+      >
+        <div className='pc-prem-kpis' aria-label='Ключевые показатели руководителя'>
+          <PremiumStatCard glyph='coins' tone={heldRub > 0 ? 'danger' : 'success'} value={formatMoney(heldRub)} label='Деньги в блоке' />
+          <PremiumStatCard glyph='bag' tone='info' value={String(activeDeals.length)} label='Сделок под контролем' />
+          <PremiumStatCard glyph='alert' tone={disputeCount > 0 ? 'danger' : 'neutral'} value={String(disputeCount)} label='Открытых споров' />
+          <PremiumStatCard glyph='shield-check' tone={pendingBank > 0 ? 'warning' : 'success'} value={String(pendingBank)} label='Банк ожидает' />
+        </div>
+      </CockpitHero>
 
       <LiveApiStatusBar
         apiOnline={apiOnline}
