@@ -47,6 +47,14 @@ NEXT:
   - pnpm --filter @pc/web test is green in CI
   - web-unit job is required for merge into main
 - Readiness remains 69% full mature platform readiness.
+- STATUS 2026-06-13: full web vitest = 3603 tests / 1 failure left
+  (platformV7CopyGuard — ложное срабатывание на имена пропсов 'blocker'/'blockers'
+  в bank/page.tsx; чистый фикс = переименование общего пропса LiveApiStatusBar.blockers
+  и P7ActionStateChip.blocker по ~20 файлам = код-полоса Codex). web-unit required
+  gate включается сразу после закрытия этого единственного реда.
+- HOSTING: Vercel (основной) временно заблокирован на уровне аккаунта (лимит/биллинг).
+  Все изменения накапливаются в main и задеплоятся на Vercel после разблокировки;
+  проверка идёт на Netlify (резерв) экономно по билд-кредитам.
 
 LATER:
 - VP-5 driver / logistics cockpit binding (after VP-2 green)
