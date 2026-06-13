@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)
+CURRENT: web-unit merge gate activation (full web vitest GREEN 3607/3607; web-unit required job added)
 
 CURRENT ALLOWED:
 - apps/web/tests/unit/**
@@ -31,9 +31,11 @@ DONE:
 - VP-2.3: Shell / Role Isolation Guards (165/165 in scope, full run 270 -> 212, no regressions)
 - VP-2.2: Server Action Route Contracts (closed in slice 1, verified green)
 - VP-2.4: Honesty / Premium Copy Guards (named scope, full run 212 -> 191, no regressions)
+- VP-2.5: Remaining Tail + Regression Gate — full web vitest 330 -> 0 (3607/3607 green); web-unit required job added (.github/workflows/web-unit.yml)
 
 NEXT:
-- Layer: web-unit merge gate activation
+- Layer: VP-5 driver / logistics cockpit runtime binding (needs live Vercel for visual QA)
+- (was) web-unit merge gate activation
 - Allowed files:
   - .github/workflows/web-unit.yml
   - .github/workflows/platform-v7-autopilot-guard.yml
