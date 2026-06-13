@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { getPlatformV7OpenWalkthroughState } from '@/lib/platform-v7/runtime/open-walkthrough';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 
 // Цепочка исполнения сделки (макет product entry). Иконки — лёгкие глифы,
 // статус контура честный: controlled-pilot / pre-integration, без фейковых сумм.
@@ -80,8 +81,7 @@ export default function PlatformV7OpenPage() {
         </div>
       </section>
 
-      <section style={gatesCard} aria-label='Контур доступа'>
-        <h2 style={h2}>Контур доступа</h2>
+      <CollapsibleSection title='Контур доступа' summary={`${state.gates.length} шага · роль → контур → подключения`} defaultOpen={false}>
         <div style={gatesGrid}>
           {state.gates.map((gate) => (
             <div key={gate.label} style={gateItem}>
@@ -91,7 +91,7 @@ export default function PlatformV7OpenPage() {
             </div>
           ))}
         </div>
-      </section>
+      </CollapsibleSection>
     </main>
   );
 }

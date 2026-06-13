@@ -68,3 +68,10 @@
     50% { box-shadow: 0 0 0 7px rgba(10, 122, 95, 0.08); }
   }
 }
+
+/* Smart Disclosure: плавный шеврон секции «скрыть/раскрыть» */
+@media (prefers-reduced-motion: no-preference) {
+  .p7-collapsible-chevron {
+    transition: transform 180ms ease;
+  }
+}
