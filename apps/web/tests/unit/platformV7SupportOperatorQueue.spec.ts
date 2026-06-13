@@ -45,8 +45,8 @@ describe('platform-v7 support operator queue helpers', () => {
 
   it('labels SLA state without hiding breached or closed cases', () => {
     expect(supportSlaState(supportCase({ slaDueAt: '2026-05-05T11:00:00.000Z' }))).toBe('breached');
-    expect(supportSlaLabel(supportCase({ slaDueAt: '2026-05-05T13:00:00.000Z' }))).toBe('SLA скоро истечёт');
-    expect(supportSlaLabel(supportCase({ status: 'closed', slaDueAt: '2026-05-05T09:00:00.000Z' }))).toBe('SLA закрыт');
+    expect(supportSlaLabel(supportCase({ slaDueAt: '2026-05-05T13:00:00.000Z' }))).toBe('Срок скоро истечёт');
+    expect(supportSlaLabel(supportCase({ status: 'closed', slaDueAt: '2026-05-05T09:00:00.000Z' }))).toBe('Срок закрыт');
   });
 
   it('builds linked execution routes from explicit related object type first', () => {

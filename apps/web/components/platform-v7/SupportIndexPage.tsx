@@ -62,14 +62,14 @@ export function SupportIndexPage() {
                 <div className='p7-support-mobile-card' style={{ display: 'none', gap: 8 }}>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><span style={pill}>{item.id}</span><span style={pill}>{SUPPORT_PRIORITY_LABELS[item.priority]}</span></div>
                   <b className='p7-support-mobile-title'>{item.title || 'Детали обращения'}</b>
-                  <span className='p7-support-mobile-meta'>{SUPPORT_STATUS_LABELS[item.status]} · {supportObjectLabel(item)} · SLA {dt(item.slaDueAt)}</span>
+                  <span className='p7-support-mobile-meta'>{SUPPORT_STATUS_LABELS[item.status]} · {supportObjectLabel(item)} · Срок {dt(item.slaDueAt)}</span>
                   <span className='p7-support-mobile-meta'>{item.nextAction}</span>
                   <span className='p7-support-mobile-open'>Раскрыть</span>
                 </div>
                 <div className='p7-support-case-grid' style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,1.2fr) minmax(180px,.8fr) minmax(180px,.8fr)', gap: 12 }}>
                   <div style={{ display: 'grid', gap: 7 }}><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><span style={pill}>{item.id}</span><span style={pill}>{SUPPORT_PRIORITY_LABELS[item.priority]}</span><span style={pill}>{SUPPORT_CATEGORY_LABELS[item.category]}</span></div><b>{item.title || 'Детали обращения'}</b></div>
                   <div style={{ display: 'grid', gap: 5 }}><span style={muted}>Статус</span><b>{SUPPORT_STATUS_LABELS[item.status]}</b><span style={muted}>{item.nextAction}</span></div>
-                  <div style={{ display: 'grid', gap: 5 }}><span style={muted}>{supportObjectLabel(item)}</span><b>SLA: {dt(item.slaDueAt)}</b>{view.money ? <b>{supportFormatRub(item.moneyAtRiskRub)}</b> : null}</div>
+                  <div style={{ display: 'grid', gap: 5 }}><span style={muted}>{supportObjectLabel(item)}</span><b>Срок: {dt(item.slaDueAt)}</b>{view.money ? <b>{supportFormatRub(item.moneyAtRiskRub)}</b> : null}</div>
                 </div>
               </Link>
             </article>

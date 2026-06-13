@@ -21,7 +21,7 @@ describe('SystemRouteSummary', () => {
     expect(screen.getByTestId('platform-v7-system-surface-deployCheck')).toBeInTheDocument();
     expect(screen.getByText('Служебная проверка')).toBeInTheDocument();
     expect(screen.getByText('не пользовательский экран')).toBeInTheDocument();
-    expect(screen.getByText(/не должен участвовать во внешней демонстрации/i)).toBeInTheDocument();
+    expect(screen.getByText(/не должен участвовать во внешнем показе/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Вернуться в платформу' })).toHaveAttribute('href', '/platform-v7');
   });
 

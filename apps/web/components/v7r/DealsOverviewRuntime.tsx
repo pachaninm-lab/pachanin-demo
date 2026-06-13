@@ -38,8 +38,8 @@ function toneByDealStatus(item: Deal) {
 
 function nextStepLabel(item: Deal) {
   if (item.status === 'quality_disputed') return 'Закрыть спор и снять hold';
-  if (item.status === 'release_requested') return 'Подтвердить выпуск денег';
-  if (item.status === 'docs_complete') return 'Запросить выпуск денег';
+  if (item.status === 'release_requested') return 'Подтвердить банковское событие';
+  if (item.status === 'docs_complete') return 'Передать основание банку';
   return 'Довести до следующего шага';
 }
 
@@ -170,7 +170,7 @@ export function DealsOverviewRuntime() {
       openCompare(idsArray);
       return;
     }
-    const label = action === 'release' ? `Запрошен выпуск денег по ${selected.size} сделкам` : action === 'dispute' ? `Открыты споры по ${selected.size} сделкам` : `Закрыты ${selected.size} сделок`;
+    const label = action === 'release' ? `Передано основание банку по ${selected.size} сделкам` : action === 'dispute' ? `Открыты споры по ${selected.size} сделкам` : `Закрыты ${selected.size} сделок`;
     setBulkToast(`${label}: ${ids}`);
     setSelected(new Set());
   };

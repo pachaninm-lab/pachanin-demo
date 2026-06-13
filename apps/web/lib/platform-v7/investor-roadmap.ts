@@ -40,12 +40,12 @@ export const PLATFORM_V7_INVESTOR_ROADMAP: PlatformV7InvestorRoadmapItem[] = [
     risk: 'Боевые банковские события требуют отдельного подключения и правовой проверки.',
   },
   {
-    id: 'tambov-controlled-pilot',
+    id: 'tambov-regional-contour',
     track: 'region',
-    title: 'Controlled pilot для регионального контура',
+    title: 'Региональный контур исполнения',
     status: 'planned',
     quarter: 'Q3 2026',
-    evidence: 'Позиционирование пилота удерживается как controlled/sandbox до подтверждения модели реальными сделками.',
+    evidence: 'Позиционирование удерживается как контур исполнения до подтверждения модели реальными сделками.',
     risk: 'Нельзя обещать региону боевую готовность до подтверждения реальных сделок и интеграций.',
   },
   {
