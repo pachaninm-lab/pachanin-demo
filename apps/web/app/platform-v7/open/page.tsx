@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { getPlatformV7OpenWalkthroughState } from '@/lib/platform-v7/runtime/open-walkthrough';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { CockpitHero, PremiumCtaButton, ProcessStepper } from '@/components/platform-v7/premium';
 
 // Цепочка исполнения сделки (макет product entry). Иконки — лёгкие глифы,
 // статус контура честный: controlled-pilot / pre-integration, без фейковых сумм.
@@ -20,39 +21,28 @@ export default function PlatformV7OpenPage() {
 
   return (
     <main data-testid='platform-v7-open-walkthrough' style={page}>
-      <section style={hero}>
-        <div style={heroOverlay} aria-hidden='true' />
-        <div style={heroContent}>
-          <div style={eyebrow}>Прозрачная Цена · контур исполнения сделки</div>
-          <h1 style={h1}>Одна сделка. Полный контроль.</h1>
-          <p style={lead}>
-            Не доска объявлений, а сквозной контур: цена и допуск → документы → рейс → приёмка →
-            качество → деньги → спор и доказательства. Видно, что блокирует деньги и кто следующий.
-          </p>
-
-          <div style={ctaRow}>
-            <Link href='/platform-v7/seller/batches/new' style={ctaPrimary}>Выставить партию</Link>
-            <Link href='/platform-v7/buyer/rfq/new' style={ctaSecondary}>Создать запрос на закупку</Link>
-            <Link href='/platform-v7/role-preview' style={ctaGhost}>Открытый просмотр</Link>
-          </div>
-
-          <div style={maturityChip}>
-            Контур: controlled-pilot · внешние подключения: pre-integration. Боевые подключения
-            требуют доступов, договоров и проверки на реальных сделках.
-          </div>
+      <CockpitHero
+        eyebrow='Прозрачная Цена · контур исполнения сделки'
+        title='Одна сделка.'
+        accent='Полный контроль.'
+        lead='Не доска объявлений, а сквозной контур: цена и допуск → документы → рейс → приёмка → качество → деньги → спор и доказательства. Видно, что блокирует деньги и кто следующий.'
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href='/platform-v7/seller/batches/new' glyph='bag'>Выставить партию</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/buyer/rfq/new' variant='ghost'>Создать запрос на закупку</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/role-preview' variant='ghost'>Открытый просмотр</PremiumCtaButton>
         </div>
-      </section>
+        <div style={maturityChip}>
+          Контур: controlled-pilot · внешние подключения: pre-integration. Боевые подключения
+          требуют доступов, договоров и проверки на реальных сделках.
+        </div>
+      </CockpitHero>
 
       <section style={chainCard} aria-label='Цепочка исполнения сделки'>
-        <div style={chainScroll}>
-          {EXECUTION_CHAIN.map((node, index) => (
-            <div key={node.label} style={chainItem}>
-              <span style={chainGlyph} aria-hidden='true'>{node.glyph}</span>
-              <span style={chainLabel}>{node.label}</span>
-              {index < EXECUTION_CHAIN.length - 1 ? <span style={chainArrow} aria-hidden='true'>→</span> : null}
-            </div>
-          ))}
-        </div>
+        <ProcessStepper
+          ariaLabel='Цепочка исполнения сделки'
+          steps={EXECUTION_CHAIN.map((node) => ({ label: node.label, state: 'upcoming' as const }))}
+        />
       </section>
 
       <section style={block} aria-label='Как открывается путь сделки'>
