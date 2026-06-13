@@ -91,7 +91,9 @@
     "scripts/p7-autopilot-issue-executor-dry-run.mjs",
     "scripts/p7-autopilot-issue-executor-pr-wiring.mjs",
     "docs/platform-v7/autopilot/**",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    ".github/workflows/platform-v7-dual-hosting-smoke.yml",
+    "docs/platform-v7/dual-hosting-operating-rules.md"
   ],
   "agentWritableScope": [
     "apps/web/tests/unit/**",
@@ -112,7 +114,9 @@
     "scripts/p7-autopilot-issue-executor-dry-run.mjs",
     "scripts/p7-autopilot-issue-executor-pr-wiring.mjs",
     "docs/platform-v7/autopilot/**",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    ".github/workflows/platform-v7-dual-hosting-smoke.yml",
+    "docs/platform-v7/dual-hosting-operating-rules.md"
   ],
   "controlledActions": {
     "enabled": true
