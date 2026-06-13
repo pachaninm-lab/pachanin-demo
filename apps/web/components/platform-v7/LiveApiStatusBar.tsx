@@ -10,6 +10,8 @@ export interface LiveBlocker {
 
 export interface LiveApiStatusBarProps {
   apiOnline: boolean;
+  /** Предпочтительный честный проп; legacy `blockers` оставлен как fallback. */
+  liveStops?: LiveBlocker[];
   blockers?: LiveBlocker[];
   pendingBankOps?: number;
   openDisputes?: number;
@@ -64,15 +66,17 @@ function Chip({ children, color, bg }: { children: ReactNode; color: string; bg:
 
 export function LiveApiStatusBar({
   apiOnline,
-  blockers = [],
+  liveStops,
+  blockers,
   pendingBankOps = 0,
   openDisputes = 0,
   activeShipments = 0,
   summary,
   role,
 }: LiveApiStatusBarProps) {
-  const stopCount = blockers.filter((b) => b.severity === 'stop').length;
-  const warnCount = blockers.filter((b) => b.severity === 'warn').length;
+  const stops = liveStops ?? blockers ?? [];
+  const stopCount = stops.filter((b) => b.severity === 'stop').length;
+  const warnCount = stops.filter((b) => b.severity === 'warn').length;
 
   return (
     <div
@@ -144,10 +148,10 @@ export function LiveApiStatusBar({
         </p>
       )}
 
-      {/* Blockers list */}
-      {blockers.length > 0 && (
+      {/* Stops list */}
+      {stops.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {blockers.map((blocker) => (
+          {stops.map((blocker) => (
             <div key={blocker.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
               <SeverityDot severity={blocker.severity} />
               <div style={{ minWidth: 0 }}>

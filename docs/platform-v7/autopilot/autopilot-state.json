@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-2.5: Remaining Tail + Regression Gate (full web vitest green, web-unit required job)",
+  "current": "web-unit merge gate activation (full web vitest GREEN 3607/3607; web-unit required job added)",
   "fullTzReadinessPercent": 69,
   "openPr": null,
   "lastClosed": [
@@ -60,7 +60,8 @@
     "VP-4: Product Entry (open, role-preview, onboarding, merged via PR #1689)",
     "VP-2.3: Shell / Role Isolation Guards",
     "VP-2.2: Server Action Route Contracts (closed in slice 1, verified green)",
-    "VP-2.4: Honesty / Premium Copy Guards (named scope)"
+    "VP-2.4: Honesty / Premium Copy Guards (named scope)",
+    "VP-2.5: Remaining Tail + Regression Gate (full web vitest green)"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
@@ -128,5 +129,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "69% full mature platform readiness. VP-2.5 tail: full web vitest 3603 tests / 1 failure remaining (platformV7CopyGuard — false positive on English prop names 'blocker'/'blockers' in bank/page.tsx; shared-prop rename = Codex code lane). Visual lane (Living Deal, role cockpits, Money Gate Ring, Signal Wall, Lab/Elevator/Driver, Bank Clean Room, Product Entry, Smart Disclosure, premium polish, Empty/Skeleton) merged. web-unit required gate pending the single guard. VP-5..8 runtime cockpit binding + theme/mobile QA need live Vercel for visual QA (account currently blocked)."
+  "readiness": "Full web vitest GREEN: 563 files / 3607 tests / 0 failures (VP-2.5 tail 330 -> 0). web-unit required job added (.github/workflows/web-unit.yml) running pnpm --filter @pc/web test on PRs to main. Visual lane + premium HX + honest copy §4.2 merged. NEXT: VP-5..8 runtime cockpit binding + theme/token unification — need live Vercel for visual QA (account currently blocked; changes accumulate in main and deploy on unblock)."
 }

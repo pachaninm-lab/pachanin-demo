@@ -4,6 +4,8 @@ export interface P7ActionStateChipProps {
   status: P7ActionStateChipStatus;
   label: string;
   nextActor?: string;
+  /** Предпочтительный честный проп; legacy `blocker` оставлен как fallback. */
+  stopReason?: string;
   blocker?: string;
   moneyEffect?: string;
 }
@@ -15,7 +17,8 @@ const STATUS_STYLE: Record<P7ActionStateChipStatus, { bg: string; border: string
   manual:  { bg: 'rgba(15,23,42,0.06)',   border: 'rgba(15,23,42,0.18)',   color: '#475569' },
 };
 
-export function P7ActionStateChip({ status, label, nextActor, blocker, moneyEffect }: P7ActionStateChipProps) {
+export function P7ActionStateChip({ status, label, nextActor, stopReason, blocker, moneyEffect }: P7ActionStateChipProps) {
+  const reason = stopReason ?? blocker;
   const s = STATUS_STYLE[status];
   return (
     <div
@@ -44,7 +47,7 @@ export function P7ActionStateChip({ status, label, nextActor, blocker, moneyEffe
           → {nextActor}
         </span>
       )}
-      {blocker && (
+      {reason && (
         <span
           data-testid='p7-action-state-blocker'
           style={{
@@ -57,7 +60,7 @@ export function P7ActionStateChip({ status, label, nextActor, blocker, moneyEffe
             padding: '2px 7px',
           }}
         >
-          {blocker}
+          {reason}
         </span>
       )}
       {moneyEffect && (

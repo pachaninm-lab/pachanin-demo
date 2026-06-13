@@ -114,7 +114,7 @@ export default async function PlatformV7BankPage() {
   const heldRub = disputeTotalHeldRub(disputes);
   const disputeCount = openDisputeCount(disputes);
 
-  const liveBlockers = [
+  const liveStops = [
     ...(outbox.totalPending > 0
       ? [{ id: 'bank-ops', label: `${outbox.totalPending} банковских операций в очереди`, severity: 'warn' as const, responsibleRole: 'ACCOUNTING', nextAction: 'Проверить статус в bank-workspace' }]
       : []),
@@ -134,7 +134,7 @@ export default async function PlatformV7BankPage() {
     <main data-platform-v7-bank-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <LiveApiStatusBar
         apiOnline={apiOnline}
-        blockers={liveBlockers}
+        liveStops={liveStops}
         pendingBankOps={outbox.totalPending}
         openDisputes={disputeCount}
         role="BANK · Проверка выплаты"
@@ -255,7 +255,7 @@ export default async function PlatformV7BankPage() {
         status='blocked'
         label='банковская проверка выплаты'
         nextActor='оператор и ответственный за документ'
-        blocker='СДИЗ, ЭТрН, УПД, приёмка, качество'
+        stopReason='СДИЗ, ЭТрН, УПД, приёмка, качество'
         moneyEffect='удержание до закрытия условий'
       />
 
