@@ -13,9 +13,9 @@ export function DriverBigTileIsland() {
 
   return (
     <DriverBigTileMode
-      tripId='RT-7821'
-      destination='Элеватор «Южный», г. Ростов-на-Дону'
-      eta='14:30'
+      tripId='TRIP-2403-001'
+      destination='Элеватор ВРЖ-08, Тамбовская область'
+      eta='14:28'
       pin='4821'
       offline={false}
       onPhotoUpload={() => {
