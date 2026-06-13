@@ -8,6 +8,8 @@ import { primaryMoneyStopReason } from '@/lib/platform-v7/domain/money-stop-labe
 import { formatCompactMoney, statusLabel } from '@/lib/v7r/helpers';
 import { countTransportAwaitingSignatures, countTransportBlockedPacks, countTransportCompleted, getTransportHotlist } from '@/lib/v7r/transport-docs';
 import { OperatorRadarIsland } from '@/components/platform-v7/visual/OperatorRadarIsland';
+import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
+import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import type { RadarZoneData, RadarItemData } from '@/components/platform-v7/visual/OperatorRadarIsland';
 
 function describeReason(code: string) {
@@ -192,6 +194,8 @@ export default function PlatformV7ControlTowerPage() {
         )}
         testId='platform-v7-control-tower-page'
       >
+        <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.operator} />
+
         <section className='ct-priority' aria-label='Главный приоритет оператора'>
           <div className='ct-priority-main'>
             <div style={{ display: 'grid', gap: 12 }}>

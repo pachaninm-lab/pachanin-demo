@@ -55,7 +55,7 @@ export const PRIMARY_ROLE_EXECUTION_COCKPITS = {
       { label: 'Груз на приёмке', tone: 'info' },
     ],
     kpis: [
-      { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'готовность денег; это не выплата', tone: 'money' },
+      { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'готовность денег; это ещё не выплата', tone: 'money' },
       { label: 'На проверку банку', value: '0 ₽', note: 'основание не передано из-за СДИЗ и ЭТрН', tone: 'danger' },
       { label: 'Документы', value: '4/7', note: 'СДИЗ, ЭТрН и акт приёмки блокируют следующий шаг', tone: 'warning' },
       { label: 'Логистика', value: 'рейс 62%', note: 'машина в пути; приёмка ещё не закрыта', tone: 'info' },
@@ -75,7 +75,7 @@ export const PRIMARY_ROLE_EXECUTION_COCKPITS = {
         title: 'Деньги продавца',
         status: 'ждёт банк',
         statusTone: 'money',
-        shortFact: 'Резерв 9,65 млн ₽ виден, к передаче банку 0 ₽',
+        shortFact: 'Резерв 9,65 млн ₽ виден, на проверку банку 0 ₽',
         blocker: 'Нет полного основания для банковской проверки',
         nextStep: 'После документов передать основание банку',
         action: { label: 'Передать основание банку', href: '/platform-v7/bank/release-safety', tone: 'secondary' },
@@ -94,7 +94,7 @@ export const PRIMARY_ROLE_EXECUTION_COCKPITS = {
     ],
     kpis: [
       { label: 'Мой резерв', value: '9,65 млн ₽', note: 'ожидает банковского подтверждения', tone: 'money' },
-      { label: 'Удержание', value: '624 тыс. ₽', note: 'спорная часть по весу и качеству', tone: 'warning' },
+      { label: 'Под удержанием', value: '624 тыс. ₽', note: 'спорная часть по весу и качеству', tone: 'warning' },
       { label: 'Документы', value: '5/8', note: 'нужно закрыть банковское основание', tone: 'info' },
       { label: 'Следующий шаг', value: 'резерв', note: 'запросить подтверждение резерва', tone: 'success' },
     ],
