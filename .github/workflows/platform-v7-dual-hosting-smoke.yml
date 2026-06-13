@@ -10,8 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check primary and reserve hosts
+      - name: Reserve host (Netlify) — required
         run: |
           set -e
-          curl -L --fail --retry 10 --retry-delay 15 https://pachanin-web.vercel.app/platform-v7/
+          # Netlify is the active host while the Vercel account is blocked.
+          # This is the hard gate: main must be served by the reserve.
           curl -L --fail --retry 10 --retry-delay 15 https://gleaming-mandazi-bb9856.netlify.app/platform-v7/
+
+      - name: Primary host (Vercel) — non-fatal while account is blocked
+        run: |
+          # The Vercel account is temporarily blocked and returns HTTP 402.
+          # We still ping the primary for visibility, but do not fail the smoke
+          # job on it while it is blocked. Restore this as a hard check (move it
+          # before the reserve step under `set -e`) once Vercel is unblocked.
+          if curl -L --fail --retry 3 --retry-delay 10 https://pachanin-web.vercel.app/platform-v7/; then
+            echo "Vercel primary: OK"
+          else
+            echo "::warning::Vercel primary is not serving (account blocked / HTTP 402). Reserve (Netlify) is the active host."
+          fi
