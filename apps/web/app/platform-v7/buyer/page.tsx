@@ -9,6 +9,9 @@ import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
 import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
+import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
+import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
+import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
 import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
@@ -57,14 +60,7 @@ const buyerHandoff: HandoffItem[] = [
   },
 ];
 
-type MetricItem = { label: string; value: string; note: string; good?: boolean; warn?: boolean; danger?: boolean };
 
-const buyerMetrics: MetricItem[] = [
-  { label: 'Подходящие партии', value: '7', note: 'отфильтрованы по культуре, региону и документам' },
-  { label: 'Мой резерв', value: '9,65 млн ₽', note: 'пилотная готовность денег по DL-9106', good: true },
-  { label: 'Под удержанием', value: '624 тыс. ₽', note: 'спорная часть по весу', danger: true },
-  { label: 'Следующий шаг', value: 'резерв', note: 'запросить банковское подтверждение', warn: true },
-];
 
 const buyerLots = [
   {
@@ -182,9 +178,19 @@ export default async function PlatformV7BuyerPage() {
         <TrustDot state='test' size='sm' label='Контур исполнения · Внешние подключения требуют договоров' />
       </section>
 
-      <section style={metricsGrid}>
-        {buyerMetrics.map((metric) => <Metric key={metric.label} metric={metric} />)}
-      </section>
+
+      <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.buyer} />
+
+      <MoneyGateRing
+        title='Деньги покупателя по сделке DL-9106'
+        totalRub={9_648_000}
+        segments={[
+          { label: 'Банк подтвердил выплату', amountRub: 0, state: 'released' },
+          { label: 'Резерв заявлен покупателем', amountRub: 9_024_000, state: 'reserved' },
+          { label: 'Удержано по спору', amountRub: 624_000, state: 'held' },
+        ]}
+        caption='Резерв ожидает банковского подтверждения; спорная часть удержана до закрытия расхождения по весу. Платформа деньги не выпускает.'
+      />
 
       <MoneyImpactSummaryStrip
         amountContext='резерв 9,65 млн ₽ · удержание 624 тыс. ₽'
@@ -294,15 +300,6 @@ export default async function PlatformV7BuyerPage() {
   );
 }
 
-function Metric({ metric }: { metric: MetricItem }) {
-  return (
-    <div style={metricCard}>
-      <div style={micro}>{metric.label}</div>
-      <div style={{ color: metric.danger ? '#B91C1C' : metric.warn ? '#B45309' : metric.good ? '#0A7A5F' : '#2563EB', fontSize: 29, lineHeight: 1, fontWeight: 950, letterSpacing: '-0.035em' }}>{metric.value}</div>
-      <p style={{ margin: 0, color: '#64748B', fontSize: 12, lineHeight: 1.5, fontWeight: 750 }}>{metric.note}</p>
-    </div>
-  );
-}
 
 function Cell({ label, value, strong = false, warning = false }: { label: string; value: string; strong?: boolean; warning?: boolean }) {
   return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0A7A5F' : '#0F1419', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div></div>;
@@ -329,8 +326,6 @@ const ghostBtn = { ...primaryBtn, background: '#fff', border: '1px solid #CBD5E1
 const blockerCard = { display: 'grid', gap: 6, minWidth: 220, maxWidth: 280, padding: 14, borderRadius: 18, background: '#FFFBEB', border: '1px solid #FDE68A', boxShadow: '0 12px 28px rgba(180,83,9,0.08)' } as const;
 const buyerCockpitGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 } as const;
 const cockpitFact = { background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 12, display: 'grid', gap: 5, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
-const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
-const metricCard = { background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 20, padding: 16, display: 'grid', gap: 8, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' } as const;
 const pathGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 } as const;
 const pathCard = { textDecoration: 'none', minHeight: 132, display: 'grid', alignContent: 'start', gap: 8, padding: 14, borderRadius: 20, background: '#fff', border: '1px solid #E4E6EA', boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
 const lotRow = { textDecoration: 'none', color: 'inherit', background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #E4E6EA', borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' } as const;
