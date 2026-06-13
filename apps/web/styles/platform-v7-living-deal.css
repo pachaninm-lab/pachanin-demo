@@ -145,3 +145,19 @@
 
 /* Согласованный курсор и доступная зона для интерактивных плиток */
 .pc-main [role='button'] { cursor: pointer; }
+
+/* Skeleton shimmer — премиальная загрузка (только без reduced-motion) */
+.p7-skeleton { position: relative; overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .p7-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--pc-bg-card, #fff) 60%, transparent), transparent);
+    animation: p7-shimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes p7-shimmer {
+    100% { transform: translateX(100%); }
+  }
+}

@@ -128,5 +128,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "69% full mature platform readiness; VP-2 tail: 191 full-run failures left (deep copy registry sweep, role cockpit bindings, env-dependent tests); web-unit gate pending VP-2.5"
+  "readiness": "69% full mature platform readiness. VP-2.5 tail: full web vitest 3603 tests / 1 failure remaining (platformV7CopyGuard — false positive on English prop names 'blocker'/'blockers' in bank/page.tsx; shared-prop rename = Codex code lane). Visual lane (Living Deal, role cockpits, Money Gate Ring, Signal Wall, Lab/Elevator/Driver, Bank Clean Room, Product Entry, Smart Disclosure, premium polish, Empty/Skeleton) merged. web-unit required gate pending the single guard. VP-5..8 runtime cockpit binding + theme/mobile QA need live Vercel for visual QA (account currently blocked)."
 }
