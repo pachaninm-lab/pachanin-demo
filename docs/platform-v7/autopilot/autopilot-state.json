@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "web-unit merge gate activation (full web vitest GREEN 3607/3607; web-unit required job added)",
+  "current": "VP-8 theme/token parity (DONE across platform-v7 surfaces); web-unit required gate active",
   "fullTzReadinessPercent": 69,
   "openPr": null,
   "lastClosed": [
@@ -61,7 +61,8 @@
     "VP-2.3: Shell / Role Isolation Guards",
     "VP-2.2: Server Action Route Contracts (closed in slice 1, verified green)",
     "VP-2.4: Honesty / Premium Copy Guards (named scope)",
-    "VP-2.5: Remaining Tail + Regression Gate (full web vitest green)"
+    "VP-2.5: Remaining Tail + Regression Gate (full web vitest green)",
+    "VP-8: Theme token parity (dark-theme native, light preserved)"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
@@ -129,5 +130,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "Full web vitest GREEN: 563 files / 3607 tests / 0 failures (VP-2.5 tail 330 -> 0). web-unit required job added (.github/workflows/web-unit.yml) running pnpm --filter @pc/web test on PRs to main. Visual lane + premium HX + honest copy §4.2 merged. NEXT: VP-5..8 runtime cockpit binding + theme/token unification — need live Vercel for visual QA (account currently blocked; changes accumulate in main and deploy on unblock)."
+  "readiness": "Full web vitest GREEN 563/3607. web-unit required gate active. VP-2.5 (tail 330->0) + VP-8 (token parity for dark theme across 171 platform-v7 surfaces) DONE; visual lane + premium HX + honest copy §4.2 merged. Remaining: VP-5..7 runtime cockpit binding (code lane + need live Vercel for visual QA; Vercel account currently blocked — changes accumulate in main and deploy on unblock)."
 }
