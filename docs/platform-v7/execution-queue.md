@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: VP-8 theme/token parity (DONE across platform-v7 surfaces); web-unit required gate active
+CURRENT: MASTER-ТЗ 2 — все VP-слои (VP-1…VP-8) закрыты; остаток = owner-only действия (разблокировать Vercel, отметить web-unit required, ротация VERCEL_TOKEN, dependency graph)
 
 CURRENT ALLOWED:
 - apps/web/tests/unit/**
@@ -33,10 +33,13 @@ DONE:
 - VP-2.4: Honesty / Premium Copy Guards (named scope, full run 212 -> 191, no regressions)
 - VP-2.5: Remaining Tail + Regression Gate — full web vitest 330 -> 0 (3607/3607 green); web-unit required job added (.github/workflows/web-unit.yml)
 - VP-8: Theme token parity — text/border hex -> design tokens across 171 platform-v7 pages & components (dark-theme native parity; light theme preserved); full vitest stays 3607/3607 green
+- VP-5: Driver / Logistics cockpit runtime binding — driver mission from execution-source runtime (sourceMeta.runtimeBound)
+- VP-6: Bank cockpit runtime binding — amount/basis/documents/journal via runtime; releasedRub invariant 0
+- VP-7: Dispute / Evidence binding — hold via runtime money.holdRub, evidence pack from audit sink
 
 NEXT:
-- Layer: VP-5 driver / logistics cockpit runtime binding (code lane / needs live Vercel for visual QA)
-- VP-6 bank cockpit binding · VP-7 dispute / evidence binding (same)
+- owner-only: разблокировать Vercel (account blocked), отметить web-unit как required check,
+  ротация VERCEL_TOKEN, включить dependency graph. Затем — VP-8 визуальный QA тёмной темы на живом деплое.
 - Allowed files:
   - .github/workflows/web-unit.yml
   - .github/workflows/platform-v7-autopilot-guard.yml

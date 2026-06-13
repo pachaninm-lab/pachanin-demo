@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-8 theme/token parity (DONE across platform-v7 surfaces); web-unit required gate active",
+  "current": "MASTER-ТЗ 2 — все VP-слои (VP-1…VP-8) закрыты; остаток = owner-only действия (разблокировать Vercel, отметить web-unit required, ротация VERCEL_TOKEN, dependency graph)",
   "fullTzReadinessPercent": 69,
   "openPr": null,
   "lastClosed": [
@@ -62,7 +62,10 @@
     "VP-2.2: Server Action Route Contracts (closed in slice 1, verified green)",
     "VP-2.4: Honesty / Premium Copy Guards (named scope)",
     "VP-2.5: Remaining Tail + Regression Gate (full web vitest green)",
-    "VP-8: Theme token parity (dark-theme native, light preserved)"
+    "VP-8: Theme token parity (dark-theme native, light preserved)",
+    "VP-5: Driver / Logistics cockpit runtime binding",
+    "VP-6: Bank cockpit runtime binding",
+    "VP-7: Dispute / Evidence binding"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
@@ -130,5 +133,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "Full web vitest GREEN 563/3607. web-unit required gate active. VP-2.5 (tail 330->0) + VP-8 (token parity for dark theme across 171 platform-v7 surfaces) DONE; visual lane + premium HX + honest copy §4.2 merged. Remaining: VP-5..7 runtime cockpit binding (code lane + need live Vercel for visual QA; Vercel account currently blocked — changes accumulate in main and deploy on unblock)."
+  "readiness": "Full web vitest GREEN 565 files / 3612 tests; web-unit required gate active. Все VP-слои MASTER-ТЗ 2 закрыты: VP-1..VP-4 (entry/QA/runtime/product), VP-2.2/2.3/2.4/2.5 (contracts/isolation/honesty/tail 330->0), VP-5/6/7 (driver/bank/dispute runtime binding, sourceMeta.runtimeBound), VP-8 (token parity тёмной темы). Визуальная система + премиум-HX + честная копия §4.2 + Empty/Skeleton/Smart Disclosure merged. Остаток = owner-only: разблокировать Vercel (account blocked), отметить web-unit required, ротация VERCEL_TOKEN, dependency graph; затем визуальный QA тёмной темы на живом Vercel."
 }
