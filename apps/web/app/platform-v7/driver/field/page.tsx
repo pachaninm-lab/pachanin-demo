@@ -5,7 +5,7 @@ import { DriverBigTileIsland } from '@/components/platform-v7/visual/DriverBigTi
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { DriverMissionRouteCard } from '@/components/platform-v7/DriverMissionRouteCard';
 import { getPlatformV7DriverCockpitState } from '@/lib/platform-v7/runtime/driver-cockpit-state';
-import { CockpitHero } from '@/components/platform-v7/premium';
+import { CockpitHero, OfflineSyncBanner } from '@/components/platform-v7/premium';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 
 export default async function DriverFieldPage() {
@@ -40,6 +40,7 @@ export default async function DriverFieldPage() {
         role="DRIVER · Полевой режим"
         summary={`${shipmentCount} активных рейсов · ${blockedShipments.length} с блокерами`}
       />
+      <OfflineSyncBanner />
       <style>{`
         [data-testid='platform-v7-role-route-hint']{display:none!important}
         @media(max-width:767px){
