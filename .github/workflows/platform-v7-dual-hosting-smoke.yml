@@ -1,0 +1,17 @@
+name: platform-v7 dual hosting smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check primary and reserve hosts
+        run: |
+          set -e
+          curl -L --fail --retry 10 --retry-delay 15 https://pachanin-web.vercel.app/platform-v7/
+          curl -L --fail --retry 10 --retry-delay 15 https://gleaming-mandazi-bb9856.netlify.app/platform-v7/
