@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CockpitHero } from '@/components/platform-v7/premium';
 
 const ROLE_CARDS = [
   {
@@ -138,23 +139,18 @@ function MiniFact({ label, value }: { readonly label: string; readonly value: st
 export default function PlatformV7RolesPage() {
   return (
     <main data-platform-v7-role-cockpit-selector='true' style={shell}>
-      <section style={{ ...panel, padding: 20, display: 'grid', gap: 14, background: 'linear-gradient(135deg, var(--p7-color-surface) 0%, var(--p7-color-background) 62%, var(--p7-color-brand-soft) 100%)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'grid', gap: 8, maxWidth: 760 }}>
-            <div style={{ width: 42, height: 4, borderRadius: 999, background: 'var(--p7-color-brand)' }} />
-            <h1 style={{ margin: 0, color: 'var(--p7-color-text-primary)', fontSize: 'clamp(30px, 7vw, 48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>
-              Ролевой пульт сделки
-            </h1>
-            <p style={{ margin: 0, color: 'var(--p7-color-text-muted)', fontSize: 15, lineHeight: 1.55 }}>
-              Выбор роли — это не витрина кабинетов. Каждая роль ведёт к своему фокусу, блокеру и одному главному действию в контуре исполнения сделки.
-            </p>
-          </div>
+      <CockpitHero
+        eyebrow='Прозрачная Цена · ролевой контур'
+        title='Ролевой пульт'
+        accent='сделки'
+        lead='Выбор роли — это не витрина кабинетов. Каждая роль ведёт к своему фокусу, блокеру и одному главному действию в контуре исполнения сделки.'
+        aside={
           <div style={{ display: 'grid', gap: 8, minWidth: 210 }}>
             <MiniFact label='активная логика' value='роль → блокер → действие' />
             <MiniFact label='field mode' value='водитель / элеватор / лаборатория' />
           </div>
-        </div>
-      </section>
+        }
+      />
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }} aria-label='Основные роли сделки'>
         {ROLE_CARDS.map((role) => (
