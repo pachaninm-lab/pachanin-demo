@@ -7,6 +7,7 @@ export function CockpitHero({
   lead,
   aside,
   children,
+  className,
 }: {
   eyebrow?: ReactNode;
   /** leading part of the headline rendered in the primary text colour */
@@ -17,9 +18,11 @@ export function CockpitHero({
   /** optional element shown to the right of the headline (e.g. a blocker card) */
   aside?: ReactNode;
   children?: ReactNode;
+  /** extra class appended to the hero root (keeps page-specific responsive rules) */
+  className?: string;
 }) {
   return (
-    <section className='pc-prem-hero'>
+    <section className={className ? `pc-prem-hero ${className}` : 'pc-prem-hero'}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'grid', gap: 9 }}>
           {eyebrow ? <span className='pc-prem-hero__eyebrow'>{eyebrow}</span> : null}
