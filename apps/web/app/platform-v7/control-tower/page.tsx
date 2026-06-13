@@ -11,6 +11,7 @@ import { OperatorRadarIsland } from '@/components/platform-v7/visual/OperatorRad
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import type { RadarZoneData, RadarItemData } from '@/components/platform-v7/visual/OperatorRadarIsland';
+import { PremiumStatCard } from '@/components/platform-v7/premium';
 
 function describeReason(code: string) {
   switch (code) {
@@ -194,6 +195,13 @@ export default function PlatformV7ControlTowerPage() {
         )}
         testId='platform-v7-control-tower-page'
       >
+        <div className='pc-prem-kpis' aria-label='Ключевые показатели оператора'>
+          <PremiumStatCard glyph='coins' tone='danger' value={formatCompactMoney(stoppedMoney)} label='Остановлено блокерами' />
+          <PremiumStatCard glyph='bag' tone='info' value={String(activeDeals.length)} label='Сделок в работе' />
+          <PremiumStatCard glyph='truck' tone={transportBlocked > 0 ? 'warning' : 'success'} value={String(transportBlocked)} label='Транспорт держит деньги' />
+          <PremiumStatCard glyph='alert' tone={disputes.length > 0 ? 'danger' : 'neutral'} value={String(disputes.length)} label='Открытых споров' />
+        </div>
+
         <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.operator} />
 
         <section className='ct-priority' aria-label='Главный приоритет оператора'>
