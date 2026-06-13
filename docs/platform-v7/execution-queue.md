@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: web-unit merge gate activation (full web vitest GREEN 3607/3607; web-unit required job added)
+CURRENT: VP-8 theme/token parity (DONE across platform-v7 surfaces); web-unit required gate active
 
 CURRENT ALLOWED:
 - apps/web/tests/unit/**
@@ -32,10 +32,11 @@ DONE:
 - VP-2.2: Server Action Route Contracts (closed in slice 1, verified green)
 - VP-2.4: Honesty / Premium Copy Guards (named scope, full run 212 -> 191, no regressions)
 - VP-2.5: Remaining Tail + Regression Gate — full web vitest 330 -> 0 (3607/3607 green); web-unit required job added (.github/workflows/web-unit.yml)
+- VP-8: Theme token parity — text/border hex -> design tokens across 171 platform-v7 pages & components (dark-theme native parity; light theme preserved); full vitest stays 3607/3607 green
 
 NEXT:
-- Layer: VP-5 driver / logistics cockpit runtime binding (needs live Vercel for visual QA)
-- (was) web-unit merge gate activation
+- Layer: VP-5 driver / logistics cockpit runtime binding (code lane / needs live Vercel for visual QA)
+- VP-6 bank cockpit binding · VP-7 dispute / evidence binding (same)
 - Allowed files:
   - .github/workflows/web-unit.yml
   - .github/workflows/platform-v7-autopilot-guard.yml
