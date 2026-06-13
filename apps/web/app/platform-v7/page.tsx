@@ -1,5 +1,22 @@
 import Link from 'next/link';
 import { getPlatformV7EntryCockpitState } from '@/lib/platform-v7/runtime/entry-cockpit-state';
+import { CockpitHero, PremiumStatCard, PremiumCtaButton, type PremiumTone, type PremiumGlyph } from '@/components/platform-v7/premium';
+
+function laneToPremTone(tone: string): PremiumTone {
+  if (tone === 'red') return 'danger';
+  if (tone === 'amber') return 'warning';
+  if (tone === 'green') return 'success';
+  if (tone === 'blue') return 'info';
+  return 'neutral';
+}
+
+function laneGlyph(label: string): PremiumGlyph {
+  if (label.includes('Деньги')) return 'coins';
+  if (label.includes('Документ')) return 'doc';
+  if (label.includes('Рейс')) return 'truck';
+  if (label.includes('Спор')) return 'alert';
+  return 'gauge';
+}
 
 export default function PlatformV7RootPage() {
   const cockpit = getPlatformV7EntryCockpitState();
@@ -8,23 +25,32 @@ export default function PlatformV7RootPage() {
 
   return (
     <main data-testid='platform-v7-root-execution-cockpit' style={page}>
-      <section style={hero}>
-        <div style={eyebrow}>Цифровой контур исполнения сделки</div>
-        <h1 style={h1}>От причины к деньгам за один экран</h1>
-        <p style={lead}>Документ, рейс, качество или спор → блокер → деньги → ответственный → действие.</p>
-        <div style={heroGrid}>
+      <CockpitHero
+        eyebrow='Цифровой контур исполнения сделки'
+        title='От причины к деньгам за один экран'
+        lead='Документ, рейс, качество или спор → блокер → деньги → ответственный → действие.'
+        aside={
+          <div style={maturityCard}>
+            <strong style={maturityTitle}>Контролируемый предпилотный контур</strong>
+            <span style={cardText}>{cockpit.maturityNotice}</span>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={moneyCard}>
             <span style={cardLabel}>Остановлено сейчас</span>
             <strong style={moneyValue}>{money?.value ?? '0 ₽'}</strong>
             <span style={cardText}>{money?.state ?? 'нет активных стопов'}</span>
           </div>
-          <div style={maturityCard}>
-            <strong style={maturityTitle}>Контролируемый предпилотный контур</strong>
-            <span style={cardText}>{cockpit.maturityNotice}</span>
+          <div style={{ flex: '1 1 240px', minWidth: 220 }}>
+            {primary ? (
+              <PremiumCtaButton href={primary.href} glyph='shield-check'>Открыть главный блокер</PremiumCtaButton>
+            ) : (
+              <span style={disabledAction}>Нет активных стопов</span>
+            )}
           </div>
         </div>
-        {primary ? <Link href={primary.href} style={primaryAction}>Открыть главный блокер</Link> : <span style={disabledAction}>Нет активных стопов</span>}
-      </section>
+      </CockpitHero>
 
       <section style={pathCard} aria-label='Путь исполнения сделки'>
         {cockpit.executionPath.map((step, index) => (
@@ -35,9 +61,17 @@ export default function PlatformV7RootPage() {
         ))}
       </section>
 
-      <section style={laneGrid} aria-label='Состояние контура'>
-        {cockpit.lanes.map((item) => <div key={item.label} style={laneTone(item.tone)}><span style={cardLabel}>{item.label}</span><strong style={laneValue}>{item.value}</strong><span style={cardText}>{item.state}</span></div>)}
-      </section>
+      <div className='pc-prem-kpis' aria-label='Состояние контура'>
+        {cockpit.lanes.map((item) => (
+          <PremiumStatCard
+            key={item.label}
+            glyph={laneGlyph(item.label)}
+            tone={laneToPremTone(item.tone)}
+            value={item.value}
+            label={`${item.label} · ${item.state}`}
+          />
+        ))}
+      </div>
 
       <section style={workGrid}>
         <section style={panel} aria-label='Очередь блокеров'>
@@ -104,32 +138,20 @@ function toneDot(tone: string) {
   return '#2563EB';
 }
 
-function laneTone(tone: string) {
-  return { ...lane, borderColor: toneBorder(tone), background: toneBg(tone) } as const;
-}
-
 const page = { display: 'grid', gap: 14, padding: '0 0 24px' } as const;
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 64%,#EEF6F3 100%)', border: '1px solid #D7DEE3', borderRadius: 26, padding: 18, display: 'grid', gap: 14, boxShadow: '0 18px 44px rgba(15,23,42,.07)' } as const;
 const eyebrow = { color: '#0A7A5F', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '.08em' } as const;
-const h1 = { margin: 0, color: '#0F1419', fontSize: 'clamp(30px,8vw,50px)', lineHeight: 1.02, letterSpacing: '-.055em', fontWeight: 950 } as const;
 const h2 = { margin: 0, color: '#0F1419', fontSize: 20, lineHeight: 1.15, letterSpacing: '-.025em', fontWeight: 950 } as const;
-const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 14, lineHeight: 1.5, maxWidth: 720 } as const;
-const heroGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 } as const;
 const moneyCard = { background: '#fff', border: '1px solid rgba(37,99,235,.16)', borderRadius: 20, padding: 16, display: 'grid', gap: 6 } as const;
 const maturityCard = { background: 'rgba(255,255,255,.72)', border: '1px solid #D7DEE3', borderRadius: 20, padding: 16, display: 'grid', gap: 7 } as const;
 const maturityTitle = { color: '#0F1419', fontSize: 15, lineHeight: 1.2, fontWeight: 950 } as const;
-const primaryAction = { textDecoration: 'none', minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 15, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 950, boxShadow: '0 12px 24px rgba(10,122,95,.18)' } as const;
 const disabledAction = { minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 15, background: '#F1F5F9', color: 'var(--pc-text-muted, #64748B)', fontSize: 14, fontWeight: 900 } as const;
 const ghostAction = { textDecoration: 'none', minHeight: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 11px', borderRadius: 12, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 12, fontWeight: 850, whiteSpace: 'nowrap' } as const;
 const pathCard = { background: '#0F1419', borderRadius: 22, padding: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(118px,1fr))', gap: 8 } as const;
 const pathStep = { display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 8, minHeight: 44, padding: '8px 9px', borderRadius: 14, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.10)' } as const;
 const pathNumber = { width: 22, height: 22, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#FFFFFF', color: '#0F1419', fontSize: 11, fontWeight: 950 } as const;
 const pathText = { color: '#F8FAFC', fontSize: 12, lineHeight: 1.2, fontWeight: 850 } as const;
-const laneGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 } as const;
-const lane = { border: '1px solid', borderRadius: 18, padding: 14, display: 'grid', gap: 6 } as const;
 const cardLabel = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.07em' } as const;
 const moneyValue = { color: '#0F1419', fontSize: 34, lineHeight: 1, fontWeight: 950, letterSpacing: '-.045em' } as const;
-const laneValue = { color: '#0F1419', fontSize: 22, lineHeight: 1, fontWeight: 950, letterSpacing: '-.03em' } as const;
 const cardText = { color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.4, fontWeight: 700 } as const;
 const workGrid = { display: 'grid', gridTemplateColumns: 'minmax(0,1.08fr) minmax(280px,.92fr)', gap: 12, alignItems: 'start' } as const;
 const panel = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 16, display: 'grid', gap: 10 } as const;
