@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: MASTER-ТЗ 2 — все VP-слои (VP-1…VP-8) закрыты; остаток = owner-only действия (разблокировать Vercel, отметить web-unit required, ротация VERCEL_TOKEN, dependency graph)
+CURRENT: MASTER-ТЗ 3+ M3-0 — docs-only фиксация + gap-аудит (внутренний execution-контур в основном закрыт; остаток = доводка M3-1…M3-7 и live-интеграции)
 
 CURRENT ALLOWED:
 - apps/web/tests/unit/**
@@ -22,6 +22,7 @@ CURRENT ALLOWED:
 - scripts/p7-autopilot-issue-executor-pr-wiring.mjs
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
+- docs/platform-v7/**
 
 DONE:
 - VP-1: Visible Execution Entry Cockpit
