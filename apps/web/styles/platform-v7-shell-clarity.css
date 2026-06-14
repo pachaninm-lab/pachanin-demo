@@ -221,3 +221,18 @@
     min-height: 38px !important;
   }
 }
+
+/* Fix: на мобиле grid-треки кабинетов растягивались вложенным контентом
+   (min-content), из-за чего контент уходил под правый край (overflow-x:hidden
+   это скрывал). Разрешаем grid/flex-элементам ужиматься ниже content-min. */
+@media (max-width: 640px) {
+  .pc-v4-main main > *,
+  .pc-v4-main > div > *,
+  .pc-v4-main .pc-prem-hero,
+  .pc-v4-main .pc-prem-kpis,
+  .pc-v4-main section,
+  .pc-v4-main article {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
