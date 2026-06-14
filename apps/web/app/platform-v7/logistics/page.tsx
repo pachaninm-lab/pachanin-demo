@@ -5,6 +5,7 @@ import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecution
 import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
 import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { formatTons, selectDealLogisticsTripPlan } from '@/lib/platform-v7/deal-execution-source-of-truth';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 
 const logisticsHandoff: HandoffItem[] = [
   {
@@ -180,22 +181,26 @@ export default async function LogisticsPage() {
         </div>
       </section>
 
-      <section style={card}>
-        <div style={micro}>Документные условия перевозки</div>
-        <div style={gateGrid}>
-          {gates.map((gate) => <Gate key={gate.title} gate={gate} />)}
+      <CollapsibleSection title='Документы, водители и очередь заказов' summary='детали логистики' defaultOpen={false}>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <section style={card}>
+            <div style={micro}>Документные условия перевозки</div>
+            <div style={gateGrid}>
+              {gates.map((gate) => <Gate key={gate.title} gate={gate} />)}
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={micro}>Водители на линии</div>
+            {assignedDrivers.map((order) => <DriverCard key={`driver-${order.id}`} order={order} />)}
+          </section>
+
+          <section style={card}>
+            <div style={micro}>Текущая очередь заказов</div>
+            {orders.map((order) => <OrderCard key={order.id} order={order} />)}
+          </section>
         </div>
-      </section>
-
-      <section style={card}>
-        <div style={micro}>Водители на линии</div>
-        {assignedDrivers.map((order) => <DriverCard key={`driver-${order.id}`} order={order} />)}
-      </section>
-
-      <section style={card}>
-        <div style={micro}>Текущая очередь заказов</div>
-        {orders.map((order) => <OrderCard key={order.id} order={order} />)}
-      </section>
+      </CollapsibleSection>
     </RoleExecutionCockpitPage>
   );
 }
