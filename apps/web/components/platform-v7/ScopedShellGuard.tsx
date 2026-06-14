@@ -71,7 +71,7 @@ const operatorMobile = `
 
 const complianceMobile = `
   @media(max-width:767px){
-    .pc-v4-main div[data-platform-v7-compliance-cockpit-pass='true'] > *:nth-child(n+4){display:none!important}
+    .pc-v4-main div[data-platform-v7-compliance-cockpit-pass='true'] > *:nth-child(n+3){display:none!important}
   }
 `;
 
