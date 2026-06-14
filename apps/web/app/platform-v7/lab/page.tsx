@@ -8,6 +8,7 @@ import { getLabSamples, pendingProtocols, labMoneyImpactRub } from '@/lib/labs-s
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { QualityDeltaBars } from '@/components/platform-v7/QualityDeltaBars';
 import { CockpitHero } from '@/components/platform-v7/premium';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 
 const labSteps = [
   { label: 'Проба', value: 'отбор и фиксация', note: 'кто взял, когда, по какому рейсу' },
@@ -88,19 +89,22 @@ export default async function Page() {
         ]}
       />
 
-      <div className="p7-lab-proof">
-        <CauseLine
-          cause={{ text: 'Протокол качества не выдан', tone: 'blocked' }}
-          relation="blocks"
-          effect={{ text: 'Пакет документов по качеству не закрыт', tone: 'blocked' }}
-        />
-      </div>
-      <div className="p7-lab-trust">
-        <TrustDot state="test" size="sm" label="Тестовый контур · ФГБУ ЦОК АПК требует договора" />
-      </div>
-
-      <div className="p7-lab-summary"><RoleExecutionSummary role="lab" /></div>
-      <div className="p7-lab-continuity"><RoleContinuityPanel role="lab" compact /></div>
+      <CollapsibleSection title='Влияние, доверие и непрерывность роли' summary='детали протокола' defaultOpen={false}>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div className="p7-lab-proof">
+            <CauseLine
+              cause={{ text: 'Протокол качества не выдан', tone: 'blocked' }}
+              relation="blocks"
+              effect={{ text: 'Пакет документов по качеству не закрыт', tone: 'blocked' }}
+            />
+          </div>
+          <div className="p7-lab-trust">
+            <TrustDot state="test" size="sm" label="Тестовый контур · ФГБУ ЦОК АПК требует договора" />
+          </div>
+          <div className="p7-lab-summary"><RoleExecutionSummary role="lab" /></div>
+          <div className="p7-lab-continuity"><RoleContinuityPanel role="lab" compact /></div>
+        </div>
+      </CollapsibleSection>
       <FieldLabRuntime />
     </div>
   );

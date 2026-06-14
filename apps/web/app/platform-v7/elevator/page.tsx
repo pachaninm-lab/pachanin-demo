@@ -11,6 +11,7 @@ import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 import { WeighStationPanel } from '@/components/platform-v7/WeighStationPanel';
 import { CockpitHero, ProcessStepper } from '@/components/platform-v7/premium';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 
 const elevatorHandoff: HandoffItem[] = [
   { direction: 'sends', role: 'элеватор → контур документов', requirement: 'акт приёмки и акт расхождения в контур документов', documentImpact: true, moneyImpact: true },
@@ -167,16 +168,19 @@ export default async function Page() {
         <div className='p7-elevator-notice' style={notice}>При отклонении веса или качества платформа должна создать акт расхождения, удержание и задачу оператору. Передача основания банку на проверку выплаты не продолжается до закрытия акта и протокола.</div>
       </section>
 
-      <div className='p7-elevator-proof' style={{ display: 'grid', gap: 10 }}>
-        <CauseLine cause={{ text: 'Акт расхождения по весу не подписан', tone: 'blocked' }} relation='blocks' effect={{ text: 'Основание не передаётся банку', tone: 'blocked' }} moneyAmount='9,65 млн ₽' moneyTone='hold' />
-        <CauseLine cause={{ text: 'Превышение по сорной примеси (2,4% > 2%)', tone: 'warning' }} relation='requires' effect={{ text: 'Протокол качества до расчёта', tone: 'warning' }} />
-        <TrustDot state='test' size='sm' label='Контур исполнения · Физические данные требуют реальных приёмок' />
-        <SmartSectionSummary label='Статус приёмки' items={[{ text: 'TRIP-2403-001 · Вес 598,8 т · Отклонение -1,2 т · Акт готовится', tone: 'warn' }, { text: 'Сорная примесь 2,4% — выше допуска 2% · Протокол ожидается', tone: 'warn' }]} />
-      </div>
-
-      <div className='p7-elevator-decision'><DecisionRecommendationStrip context='elevator' /></div>
-      <div className='p7-elevator-evidence'><EvidenceReadinessMiniMatrix context='elevator' /></div>
-      <div className='p7-elevator-handoff'><RoleExecutionHandoff items={elevatorHandoff} title='исполнение: что приёмка отправляет и ожидает' /></div>
+      <CollapsibleSection title='Доказательства, рекомендации и журнал приёмки' summary='детали и передача' defaultOpen={false}>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div className='p7-elevator-proof' style={{ display: 'grid', gap: 10 }}>
+            <CauseLine cause={{ text: 'Акт расхождения по весу не подписан', tone: 'blocked' }} relation='blocks' effect={{ text: 'Основание не передаётся банку', tone: 'blocked' }} moneyAmount='9,65 млн ₽' moneyTone='hold' />
+            <CauseLine cause={{ text: 'Превышение по сорной примеси (2,4% > 2%)', tone: 'warning' }} relation='requires' effect={{ text: 'Протокол качества до расчёта', tone: 'warning' }} />
+            <TrustDot state='test' size='sm' label='Контур исполнения · Физические данные требуют реальных приёмок' />
+            <SmartSectionSummary label='Статус приёмки' items={[{ text: 'TRIP-2403-001 · Вес 598,8 т · Отклонение -1,2 т · Акт готовится', tone: 'warn' }, { text: 'Сорная примесь 2,4% — выше допуска 2% · Протокол ожидается', tone: 'warn' }]} />
+          </div>
+          <div className='p7-elevator-decision'><DecisionRecommendationStrip context='elevator' /></div>
+          <div className='p7-elevator-evidence'><EvidenceReadinessMiniMatrix context='elevator' /></div>
+          <div className='p7-elevator-handoff'><RoleExecutionHandoff items={elevatorHandoff} title='исполнение: что приёмка отправляет и ожидает' /></div>
+        </div>
+      </CollapsibleSection>
 
       <FieldElevatorRuntime />
     </main>
