@@ -37,101 +37,35 @@ const surveyorMobile = `
   }
 `;
 
+// Мобильное «сворачивание хвоста»: на узком экране кабинет показывает фокус-верх
+// (плашка статуса, блокер, герой с действием, ключевая карточка), а длинный
+// детальный хвост скрывается — детали доступны через нижнюю панель и подэкраны.
+// Селекторы привязаны к реальному контейнеру кабинета (см. структуру ниже).
 const buyerMobile = `
   @media(max-width:767px){
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true']{gap:10px!important;padding-top:0!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > div:first-child,
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(n+6):not(:last-child),
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > div:nth-child(n+5){display:none!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2){padding:16px!important;border-radius:24px!important;gap:10px!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2) p,
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2) > div:first-child > div:nth-child(2),
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2) > div:last-child{display:none!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:8px!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(2) > div{padding:12px!important;border-radius:16px!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(3){display:grid!important;grid-template-columns:1fr!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(3) a:nth-child(2){display:none!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(3) a{width:100%!important;min-height:54px!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(3) > div{padding:12px!important;border-radius:16px!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:nth-child(3) > div:nth-child(n+3){display:none!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:last-child{padding:14px!important;border-radius:22px!important;gap:10px!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:last-child a{padding:13px!important;border-radius:16px!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:last-child a:nth-child(n+2){display:none!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:last-child div[style*='grid-template-columns']{grid-template-columns:1fr 1fr!important;gap:8px!important}
-    .pc-v4-main > main[data-platform-v7-buyer-cockpit-pass='true'] > section:last-child div[style*='grid-template-columns'] > div:nth-child(n+3){display:none!important}
+    .pc-v4-main main[data-platform-v7-buyer-cockpit-pass='true']{gap:12px!important}
+    .pc-v4-main main[data-platform-v7-buyer-cockpit-pass='true'] > *:nth-child(n+5){display:none!important}
+    .pc-v4-main > section[data-testid]{display:none!important}
   }
 `;
 
 const sellerMobile = `
   @media(max-width:767px){
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true']{gap:10px!important;padding-top:0!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > div:first-child,
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(n+6):not(:last-child),
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > div:nth-child(n+5){display:none!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2){padding:16px!important;border-radius:24px!important;gap:10px!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) p,
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:first-child > div:nth-child(2),
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(3){display:none!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:8px!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(2) > div:nth-child(n+3){display:none!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:nth-child(2) > div{padding:12px!important;border-radius:16px!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:last-child{display:grid!important;grid-template-columns:1fr!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:last-child a:nth-child(2){display:none!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(2) > div:last-child a{width:100%!important;min-height:54px!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(3) > div{padding:12px!important;border-radius:16px!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:nth-child(3) > div:nth-child(n+3){display:none!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child{padding:14px!important;border-radius:22px!important;gap:10px!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child a{padding:13px!important;border-radius:16px!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child a:nth-child(n+2){display:none!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child div[style*='grid-template-columns']{grid-template-columns:1fr 1fr!important;gap:8px!important}
-    .pc-v4-main > main[data-platform-v7-seller-cockpit-pass='true'] > section:last-child div[style*='grid-template-columns'] > div:nth-child(n+3){display:none!important}
-  }
-`;
-
-const arbitratorMobile = `
-  @media(max-width:767px){
-    .pc-v4-main > div[style*='gap: 18px']{gap:10px!important}
-    .pc-v4-main > div[style*='gap: 18px'] > div:first-child,
-    .pc-v4-main > div[style*='gap: 18px'] > div:nth-child(2),
-    .pc-v4-main > div[style*='gap: 18px'] > div:nth-child(6),
-    .pc-v4-main > div[style*='gap: 18px'] > div:nth-child(7),
-    .pc-v4-main > div[style*='gap: 18px'] > div:nth-child(8){display:none!important}
-    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard']{padding:16px!important;border-radius:24px!important;gap:10px!important}
-    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.04!important}
-    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(3){display:none!important}
-    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(4){grid-template-columns:1fr 1fr!important;gap:8px!important}
-    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(4) > div:nth-child(n+3){display:none!important}
-    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] > div:nth-child(4) > div{padding:12px!important;border-radius:16px!important}
-    .pc-v4-main > div[style*='gap: 18px'] > section[data-testid='platform-v7-arbitrator-decision-guard'] + div{margin-top:0!important}
+    .pc-v4-main main[data-platform-v7-seller-cockpit-pass='true']{gap:12px!important}
+    .pc-v4-main main[data-platform-v7-seller-cockpit-pass='true'] > *:nth-child(n+5){display:none!important}
+    .pc-v4-main > section[data-testid]{display:none!important}
   }
 `;
 
 const bankMobile = `
   @media(max-width:767px){
-    .pc-v4-main > main{gap:10px!important;padding-top:0!important}
-    .pc-v4-main > main > div:first-child,
-    .pc-v4-main > main > section:nth-child(3),
-    .pc-v4-main > main > section:nth-child(9),
-    .pc-v4-main > main > div:nth-child(n+10),
-    .pc-v4-main > main > details{display:none!important}
-    .pc-v4-main > main > section:nth-child(2){padding:16px!important;border-radius:24px!important;gap:10px!important}
-    .pc-v4-main > main > section:nth-child(2) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}
-    .pc-v4-main > main > section:nth-child(2) p{display:none!important}
-    .pc-v4-main > main > section:nth-child(2) > div:last-child{display:grid!important;grid-template-columns:1fr!important}
-    .pc-v4-main > main > section:nth-child(2) > div:last-child a:nth-child(2){display:none!important}
-    .pc-v4-main > main > section:nth-child(2) > div:last-child a{min-height:52px!important;width:100%!important}
-    .pc-v4-main > main > section:nth-child(4){grid-template-columns:1fr 1fr!important;gap:8px!important}
-    .pc-v4-main > main > section:nth-child(4) > div{padding:12px!important;border-radius:16px!important}
-    .pc-v4-main > main > section:nth-child(4) > div:nth-child(n+3){display:none!important}
-    .pc-v4-main > main > section:nth-child(6){padding:14px!important;border-radius:22px!important;gap:10px!important}
-    .pc-v4-main > main > section:nth-child(6) > a{padding:13px!important;border-radius:16px!important}
-    .pc-v4-main > main > section:nth-child(6) > a:nth-child(n+3){display:none!important}
-    .pc-v4-main > main > section:nth-child(6) div[style*='grid-template-columns']{grid-template-columns:1fr 1fr!important;gap:8px!important}
-    .pc-v4-main > main > section:nth-child(6) div[style*='grid-template-columns'] > div:nth-child(n+3){display:none!important}
+    .pc-v4-main main > *:nth-child(n+6):not(details){display:none!important}
+  }
+`;
+
+const operatorMobile = `
+  @media(max-width:767px){
+    .pc-v4-main > main > *:nth-child(n+6){display:none!important}
   }
 `;
 
@@ -139,14 +73,20 @@ function FieldShellPolicy(){return <style>{`${base}.pc-v4-search,.pc-v4-select,.
 function RoleScopedShellPolicy({extra=''}:{extra?:string}){return <style>{`${base}${extra}.pc-v4-search,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(var(--pc-header-offset) + 8px)!important}`}</style>}
 function OperatorShellPolicy({extra=''}:{extra?:string}){return <style>{`${base}${extra}`}</style>}
 
+function roleScopedExtra(pathname: string): string {
+  if(pathname.startsWith('/platform-v7/surveyor')) return surveyorMobile;
+  if(pathname.startsWith('/platform-v7/buyer')) return buyerMobile;
+  if(pathname.startsWith('/platform-v7/seller')) return sellerMobile;
+  if(pathname.startsWith('/platform-v7/bank')) return bankMobile;
+  return '';
+}
+
 export function ScopedShellGuard(){
   const pathname = usePathname();
   const role = usePlatformV7RStore((state)=>state.role);
   const shellPolicy = getShellPolicy(role, pathname);
   if(shellPolicy==='field') return <FieldShellPolicy/>;
-  if(shellPolicy==='role-scoped') return <RoleScopedShellPolicy extra={pathname.startsWith('/platform-v7/surveyor') ? surveyorMobile : ''}/>;
-  if(pathname.startsWith('/platform-v7/arbitrator')) return <OperatorShellPolicy extra={arbitratorMobile}/>;
-  if(pathname.startsWith('/platform-v7/buyer')) return <OperatorShellPolicy extra={buyerMobile}/>;
-  if(pathname.startsWith('/platform-v7/seller')) return <OperatorShellPolicy extra={sellerMobile}/>;
-  return <OperatorShellPolicy extra={pathname.startsWith('/platform-v7/bank') ? bankMobile : ''}/>;
+  if(shellPolicy==='role-scoped') return <RoleScopedShellPolicy extra={roleScopedExtra(pathname)}/>;
+  if(pathname.startsWith('/platform-v7/control-tower') || pathname.startsWith('/platform-v7/operator')) return <OperatorShellPolicy extra={operatorMobile}/>;
+  return <OperatorShellPolicy extra=''/>;
 }
