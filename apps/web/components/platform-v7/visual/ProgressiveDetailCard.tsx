@@ -38,7 +38,7 @@ const STATUS_TONE_COLORS = {
   warn:    { color: 'var(--p7-color-warning, #B54708)',  bg: 'var(--p7-color-warning-soft, #FFFAEB)',  border: 'color-mix(in srgb, var(--p7-color-warning, #B54708) 28%, transparent)' },
   blocked: { color: 'var(--p7-color-danger, #B42318)',   bg: 'var(--p7-color-danger-soft, #FEF3F2)',   border: 'color-mix(in srgb, var(--p7-color-danger, #B42318) 28%, transparent)' },
   money:   { color: 'var(--p7-color-money, #155EEF)',    bg: 'var(--p7-color-money-soft, #EFF4FF)',    border: 'color-mix(in srgb, var(--p7-color-money, #155EEF) 28%, transparent)' },
-  neutral: { color: 'var(--p7-color-text-muted, #667085)', bg: 'var(--p7-color-surface-muted, #F2F6F0)', border: 'var(--p7-color-border, #D7DEE3)' },
+  neutral: { color: 'var(--p7-color-text-muted, #58606E)', bg: 'var(--p7-color-surface-muted, #F2F6F0)', border: 'var(--p7-color-border, #D7DEE3)' },
 };
 
 export function ProgressiveDetailCard({
@@ -127,7 +127,7 @@ export function ProgressiveDetailCard({
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: 'var(--p7-color-text-muted, #667085)',
+                color: 'var(--p7-color-text-muted, #58606E)',
               }}
             >
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}

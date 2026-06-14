@@ -184,7 +184,7 @@ const chainGlyph: CSSProperties = {
   fontSize: 16,
 };
 const chainLabel: CSSProperties = { fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', whiteSpace: 'nowrap' };
-const chainArrow: CSSProperties = { color: 'var(--pc-text-muted, #667085)', fontSize: 14, padding: '0 2px' };
+const chainArrow: CSSProperties = { color: 'var(--pc-text-muted, #58606E)', fontSize: 14, padding: '0 2px' };
 
 const block: CSSProperties = { display: 'grid', gap: 12 };
 const h2: CSSProperties = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, fontWeight: 800, letterSpacing: '-0.01em' };

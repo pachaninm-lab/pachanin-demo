@@ -91,13 +91,13 @@ export function EvidenceReadinessMiniMatrix({ context }: { context: EvidenceRead
                 {EVIDENCE_READINESS_STATE_LABEL[row.pilotState]}
               </span>
               <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.35, minWidth: 0, overflowWrap: 'anywhere' }}>
-                <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
+                <span style={{ fontSize: 10, color: '#566070', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
                   ответственный
                 </span>
                 {row.responsible}
               </div>
               <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #334155)', lineHeight: 1.35, fontWeight: 750, minWidth: 0, overflowWrap: 'anywhere' }}>
-                <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
+                <span style={{ fontSize: 10, color: '#566070', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
                   следующий шаг
                 </span>
                 {row.nextStep}

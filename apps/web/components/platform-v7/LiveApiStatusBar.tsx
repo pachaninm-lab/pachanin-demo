@@ -129,12 +129,12 @@ export function LiveApiStatusBar({
             </Chip>
           )}
           {stopCount > 0 && (
-            <Chip color="#DC2626" bg="#FEE2E2">
+            <Chip color="#B91C1C" bg="#FEE2E2">
               🛑 {stopCount} блокер
             </Chip>
           )}
           {warnCount > 0 && (
-            <Chip color="#D97706" bg="#FEF3C7">
+            <Chip color="#92400E" bg="#FEF3C7">
               ⚠️ {warnCount} предупреждение
             </Chip>
           )}
@@ -166,7 +166,7 @@ export function LiveApiStatusBar({
                     style={{
                       fontSize: 10,
                       fontWeight: 800,
-                      color: '#94A3B8',
+                      color: '#566070',
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
                       marginLeft: 6,

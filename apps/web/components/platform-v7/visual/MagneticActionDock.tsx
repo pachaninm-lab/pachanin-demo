@@ -134,7 +134,7 @@ export function MagneticActionDock({
               : hovered
               ? style.hoverBg
               : style.bg,
-            color: isDisabled ? 'var(--p7-color-text-muted, #667085)' : style.color,
+            color: isDisabled ? 'var(--p7-color-text-muted, #58606E)' : style.color,
             fontSize: 14,
             fontWeight: 900,
             cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -161,7 +161,7 @@ export function MagneticActionDock({
             style={{
               margin: '6px 0 0',
               fontSize: 11,
-              color: 'var(--p7-color-text-muted, #667085)',
+              color: 'var(--p7-color-text-muted, #58606E)',
               lineHeight: 1.4,
               textAlign: 'center',
             }}

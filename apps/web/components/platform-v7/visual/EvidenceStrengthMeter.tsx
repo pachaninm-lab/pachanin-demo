@@ -102,7 +102,7 @@ function FactorRow({ factor }: { factor: EvidenceFactor }) {
         strokeWidth={2}
         style={{
           color: isAbsent
-            ? 'var(--p7-color-text-muted, #667085)'
+            ? 'var(--p7-color-text-muted, #58606E)'
             : 'var(--p7-color-success, #027A48)',
           flexShrink: 0,
           opacity: isAbsent ? 0.5 : 1,
@@ -114,7 +114,7 @@ function FactorRow({ factor }: { factor: EvidenceFactor }) {
           fontSize: 12,
           fontWeight: 650,
           color: isAbsent
-            ? 'var(--p7-color-text-muted, #667085)'
+            ? 'var(--p7-color-text-muted, #58606E)'
             : 'var(--p7-color-text-primary, #0F1419)',
           lineHeight: 1.3,
         }}
@@ -127,7 +127,7 @@ function FactorRow({ factor }: { factor: EvidenceFactor }) {
           fontSize: 12,
           fontWeight: 800,
           color: isAbsent
-            ? 'var(--p7-color-text-muted, #667085)'
+            ? 'var(--p7-color-text-muted, #58606E)'
             : 'var(--p7-color-success, #027A48)',
           whiteSpace: 'nowrap',
           minWidth: 36,
@@ -164,7 +164,7 @@ export function EvidenceStrengthMeter({
           background: 'var(--p7-color-surface, #FFFFFF)',
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--p7-color-text-muted, #667085)', flexShrink: 0 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--p7-color-text-muted, #58606E)', flexShrink: 0 }}>
           Доказанность:
         </span>
         <ScoreBar score={score} max={maxScore} />
@@ -195,7 +195,7 @@ export function EvidenceStrengthMeter({
               style={{
                 fontSize: 11,
                 fontWeight: 900,
-                color: 'var(--p7-color-text-muted, #667085)',
+                color: 'var(--p7-color-text-muted, #58606E)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
               }}
@@ -213,7 +213,7 @@ export function EvidenceStrengthMeter({
       </div>
 
       {/* Disclaimer */}
-      <p style={{ margin: 0, fontSize: 11, color: 'var(--p7-color-text-muted, #667085)', lineHeight: 1.5 }}>
+      <p style={{ margin: 0, fontSize: 11, color: 'var(--p7-color-text-muted, #58606E)', lineHeight: 1.5 }}>
         Технический индекс полноты доказательной базы конкретной сделки, не оценка участников.
       </p>
 
@@ -229,7 +229,7 @@ export function EvidenceStrengthMeter({
               borderRadius: 8,
               border: '1px solid var(--p7-color-border, #D7DEE3)',
               background: 'transparent',
-              color: 'var(--p7-color-text-muted, #667085)',
+              color: 'var(--p7-color-text-muted, #58606E)',
               fontSize: 11,
               fontWeight: 700,
               cursor: 'pointer',

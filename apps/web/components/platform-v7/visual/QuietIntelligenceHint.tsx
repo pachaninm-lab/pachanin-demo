@@ -67,9 +67,10 @@ export function QuietIntelligenceHint({
             aria-label='Скрыть подсказку'
             style={{
               flexShrink: 0,
-              width: 20,
-              height: 20,
-              borderRadius: 4,
+              width: 36,
+              height: 36,
+              marginRight: -8,
+              borderRadius: 10,
               border: 'none',
               background: 'transparent',
               cursor: 'pointer',
@@ -77,7 +78,7 @@ export function QuietIntelligenceHint({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 14,
+              fontSize: 18,
               lineHeight: 1,
               opacity: 0.7,
             }}
@@ -94,7 +95,7 @@ export function QuietIntelligenceHint({
       )}
 
       {outcome && (
-        <p style={{ margin: 0, fontSize: 11, color: 'var(--p7-color-brand, #0A7A5F)', lineHeight: 1.5, paddingLeft: 22, opacity: 0.8 }}>
+        <p style={{ margin: 0, fontSize: 11, color: '#055C44', lineHeight: 1.5, paddingLeft: 22 }}>
           После: {outcome}
         </p>
       )}

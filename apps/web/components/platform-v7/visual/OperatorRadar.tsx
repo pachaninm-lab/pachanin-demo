@@ -90,7 +90,7 @@ function RadarCard({ item }: { item: RadarItem }) {
       </div>
 
       {item.detail && (
-        <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #667085)', lineHeight: 1.35 }}>
+        <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #58606E)', lineHeight: 1.35 }}>
           {item.detail}
         </span>
       )}
@@ -137,9 +137,9 @@ function RadarZoneColumn({ zone, executive }: { zone: RadarZone; executive: bool
         <Icon
           size={14}
           strokeWidth={2}
-          style={{ color: hasBlockers ? 'var(--p7-color-danger, #B42318)' : 'var(--p7-color-text-muted, #667085)', flexShrink: 0 }}
+          style={{ color: hasBlockers ? 'var(--p7-color-danger, #B42318)' : 'var(--p7-color-text-muted, #58606E)', flexShrink: 0 }}
         />
-        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           {ZONE_LABELS[zone.id]}
         </span>
         {zone.items.length > 0 && (
@@ -151,7 +151,7 @@ function RadarZoneColumn({ zone, executive }: { zone: RadarZone; executive: bool
               background: hasBlockers
                 ? 'color-mix(in srgb, var(--p7-color-danger, #B42318) 12%, transparent)'
                 : 'var(--p7-color-surface-muted, #F2F6F0)',
-              color: hasBlockers ? 'var(--p7-color-danger, #B42318)' : 'var(--p7-color-text-muted, #667085)',
+              color: hasBlockers ? 'var(--p7-color-danger, #B42318)' : 'var(--p7-color-text-muted, #58606E)',
               fontSize: 10,
               fontWeight: 800,
             }}
@@ -172,7 +172,7 @@ function RadarZoneColumn({ zone, executive }: { zone: RadarZone; executive: bool
             border: '1px solid var(--p7-color-border, #D7DEE3)',
             background: 'var(--p7-color-surface-muted, #F2F6F0)',
             fontSize: 12,
-            color: 'var(--p7-color-text-muted, #667085)',
+            color: 'var(--p7-color-text-muted, #58606E)',
           }}
         >
           {zone.allClearMessage ?? 'Всё в порядке'}
@@ -180,7 +180,7 @@ function RadarZoneColumn({ zone, executive }: { zone: RadarZone; executive: bool
       )}
 
       {!executive && zone.items.length > 3 && (
-        <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #667085)', paddingLeft: 4 }}>
+        <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #58606E)', paddingLeft: 4 }}>
           +{zone.items.length - 3} ещё
         </span>
       )}

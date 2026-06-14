@@ -109,7 +109,7 @@ export function ObjectFocusHover({
               gap: 8,
             }}
           >
-            <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {label}: связанные элементы
             </span>
             {relations.map((rel, index) => (

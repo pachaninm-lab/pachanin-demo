@@ -10,7 +10,7 @@ const micro: CSSProperties = {
   fontWeight: 700,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
-  color: 'var(--pc-text-muted, #667085)',
+  color: 'var(--pc-text-muted, #58606E)',
 };
 
 const card: CSSProperties = {
@@ -25,7 +25,7 @@ const card: CSSProperties = {
 const th: CSSProperties = {
   padding: '10px 14px',
   textAlign: 'left',
-  color: 'var(--pc-text-muted, #667085)',
+  color: 'var(--pc-text-muted, #58606E)',
   fontWeight: 600,
   fontSize: 11,
   letterSpacing: '0.06em',
@@ -55,7 +55,7 @@ export default function BankCleanPage() {
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--pc-text-primary, #0F1419)' }}>
           Деньги по сделкам
         </h1>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--pc-text-muted, #667085)' }}>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--pc-text-muted, #58606E)' }}>
           Банк видит основание выплаты и статусы; решение о движении денег принимает банк по своим правилам. Платформа деньги не выпускает.
         </p>
       </header>
@@ -110,7 +110,7 @@ export default function BankCleanPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
           {disputed.money.map((row) => (
             <div key={row.title} style={{ display: 'grid', gap: 4, minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #667085)' }}>{row.title}</div>
+              <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #58606E)' }}>{row.title}</div>
               <div
                 style={{
                   fontSize: 22,
@@ -136,7 +136,7 @@ export default function BankCleanPage() {
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: 'var(--pc-text-secondary, #475569)' }}>
           Спорные и нестандартные основания уходят на ручную проверку банковского операциониста. Платформа фиксирует передачу основания и ждёт банковское событие; статус всегда дублируется текстом в журнале сделки.
         </p>
-        <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #667085)', lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #58606E)', lineHeight: 1.5 }}>
           Контур исполнения (runtime): {bank.basisLabel}; удержание по спору {disputeState.heldLabel}.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

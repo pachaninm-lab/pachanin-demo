@@ -22,7 +22,7 @@ const STATE_TONE: Record<MoneyPilotState, { bg: string; border: string; color: s
 function Slot({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
     <div style={{ minWidth: 0 }}>
-      <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+      <div style={{ fontSize: 10, color: '#566070', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
       <div data-testid={testId} style={{ marginTop: 3, fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{value}</div>
     </div>
   );
@@ -86,7 +86,7 @@ export function MoneyImpactSummaryStrip({
           data-testid="platform-v7-money-impact-stop"
           style={{ display: 'grid', gridTemplateColumns: 'minmax(90px, auto) minmax(0, 1fr)', gap: 8, alignItems: 'start', background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.15)', borderRadius: 10, padding: '8px 10px', minWidth: 0 }}
         >
-          <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: 1 }}>причина остановки</span>
+          <span style={{ fontSize: 11, color: '#566070', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: 1 }}>причина остановки</span>
           <span style={{ fontSize: 13, color: '#B91C1C', fontWeight: 850, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{stopReason}</span>
         </div>
       )}

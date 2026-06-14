@@ -49,7 +49,7 @@ export function WeighStationPanel({ tripId, declaredTons, acceptedTons, toleranc
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--pc-text-muted, #667085)' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--pc-text-muted, #58606E)' }}>
           Весовая
         </span>
         <span style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--pc-text-secondary, #475569)' }}>{tripId}</span>
@@ -59,7 +59,7 @@ export function WeighStationPanel({ tripId, declaredTons, acceptedTons, toleranc
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
         {cells.map((cell) => (
           <div key={cell.label} style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #667085)' }}>{cell.label}</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #58606E)' }}>{cell.label}</div>
             <div style={{ ...valueStyle, color: cell.color, overflowWrap: 'anywhere' }}>{cell.value}</div>
           </div>
         ))}

@@ -31,7 +31,7 @@ const mark: CSSProperties = {
   justifyContent: 'center',
   background: 'var(--p7-color-surface-muted, #F2F6F0)',
   border: '1px solid var(--pc-border, #D7DEE3)',
-  color: 'var(--pc-text-muted, #667085)',
+  color: 'var(--pc-text-muted, #58606E)',
   fontSize: 18,
   marginBottom: 2,
 };

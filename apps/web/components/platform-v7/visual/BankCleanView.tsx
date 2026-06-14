@@ -58,7 +58,7 @@ const DOC_STATUS_STYLES = {
 const RISK_COLORS = {
   high:   { color: 'var(--p7-color-danger, #B42318)',  bg: 'var(--p7-color-danger-soft, #FEF3F2)' },
   medium: { color: 'var(--p7-color-warning, #B54708)', bg: 'var(--p7-color-warning-soft, #FFFAEB)' },
-  low:    { color: 'var(--p7-color-text-muted, #667085)', bg: 'var(--p7-color-surface-muted, #F2F6F0)' },
+  low:    { color: 'var(--p7-color-text-muted, #58606E)', bg: 'var(--p7-color-surface-muted, #F2F6F0)' },
 };
 
 const RISK_LABELS = { high: 'Высокий', medium: 'Средний', low: 'Низкий' };
@@ -97,14 +97,14 @@ export function BankCleanView({
             gap: 4,
           }}
         >
-          <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Основание
           </span>
           <span style={{ fontSize: 13, fontWeight: 750, color: 'var(--p7-color-text-primary, #0F1419)', lineHeight: 1.4 }}>
             {basis}
           </span>
           {dealId && (
-            <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #667085)' }}>
+            <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #58606E)' }}>
               Сделка {dealId}
             </span>
           )}
@@ -121,7 +121,7 @@ export function BankCleanView({
       {/* Cause lines */}
       {causeLines.length > 0 && (
         <div style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Причины блокировки
           </span>
           {causeLines.map((props, index) => (
@@ -145,7 +145,7 @@ export function BankCleanView({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <FileCheck size={14} strokeWidth={2} style={{ color: 'var(--p7-color-document, #0369A1)' }} />
-              <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Документы
               </span>
             </div>
@@ -187,7 +187,7 @@ export function BankCleanView({
       {/* Risks */}
       {risks.length > 0 && (
         <div style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Риски
           </span>
           {risks.map((risk) => {

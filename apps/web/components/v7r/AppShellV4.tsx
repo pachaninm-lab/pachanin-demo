@@ -438,7 +438,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
       <aside className='pc-v4-drawer' data-open={sidebarOpen ? 'true' : 'false'} aria-label='Основное меню'>
         <div style={{ padding: 16, borderBottom: '1px solid var(--pc-border)', display: 'grid', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-            <Link href='/platform-v7' className='pc-v4-brand' onClick={() => setSidebarOpen(false)}>
+            <Link href='/platform-v7' className='pc-v4-brand' aria-label='Прозрачная Цена — на главный экран' onClick={() => setSidebarOpen(false)}>
               <BrandMark size={36} />
               <span style={{ minWidth: 0 }}>
                 <span className='pc-v4-title'>Прозрачная Цена</span>
@@ -492,7 +492,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           <div className='pc-v4-top'>
             <button className='pc-v4-iconbtn' onClick={() => setSidebarOpen(true)} aria-label='Открыть меню'><Menu size={19} /></button>
 
-            <Link href='/platform-v7' className='pc-v4-brand'>
+            <Link href='/platform-v7' className='pc-v4-brand' aria-label='Прозрачная Цена — на главный экран'>
               <BrandMark size={38} />
               <span style={{ minWidth: 0 }}>
                 <span className='pc-v4-title'>Прозрачная Цена</span>

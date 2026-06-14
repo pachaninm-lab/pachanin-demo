@@ -19,7 +19,7 @@ const micro: CSSProperties = {
   fontWeight: 700,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
-  color: 'var(--pc-text-muted, #667085)',
+  color: 'var(--pc-text-muted, #58606E)',
 };
 
 export function DriverMissionRouteCard({ tripId, route, progressPercent, stageLabel, photoChecklist }: DriverMissionRouteCardProps) {
@@ -110,7 +110,7 @@ export function DriverMissionRouteCard({ tripId, route, progressPercent, stageLa
                   justifyContent: 'center',
                   fontSize: 12,
                   fontWeight: 800,
-                  color: item.done ? '#fff' : 'var(--pc-text-muted, #667085)',
+                  color: item.done ? '#fff' : 'var(--pc-text-muted, #58606E)',
                   background: item.done ? 'var(--pc-accent, #0A7A5F)' : 'var(--p7-color-surface-strong, #EFEAE0)',
                 }}
               >

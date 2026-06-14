@@ -47,7 +47,7 @@ export function ExecutiveSignalWall({ signals }: { readonly signals: readonly Ex
               fontWeight: 700,
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              color: 'var(--pc-text-muted, #667085)',
+              color: 'var(--pc-text-muted, #58606E)',
             }}
           >
             {signal.label}

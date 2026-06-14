@@ -66,7 +66,7 @@ const STATUS_COLORS = {
   ok:      'var(--p7-color-success, #027A48)',
   warn:    'var(--p7-color-warning, #B54708)',
   blocked: 'var(--p7-color-danger, #B42318)',
-  neutral: 'var(--p7-color-text-muted, #667085)',
+  neutral: 'var(--p7-color-text-muted, #58606E)',
 };
 
 export function DealMiniMap({
@@ -141,7 +141,7 @@ export function DealMiniMap({
                     width: 16,
                     height: 16,
                     borderRadius: '50%',
-                    background: statusColor ?? 'var(--p7-color-text-muted, #667085)',
+                    background: statusColor ?? 'var(--p7-color-text-muted, #58606E)',
                     color: '#FFFFFF',
                     fontSize: 9,
                     fontWeight: 900,
@@ -180,7 +180,7 @@ export function DealMiniMap({
         style={{
           fontSize: 10,
           fontWeight: 900,
-          color: 'var(--p7-color-text-muted, #667085)',
+          color: 'var(--p7-color-text-muted, #58606E)',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
           padding: '0 10px 6px',
@@ -233,7 +233,7 @@ export function DealMiniMap({
                   width: 18,
                   height: 18,
                   borderRadius: '50%',
-                  background: statusColor ?? 'var(--p7-color-text-muted, #667085)',
+                  background: statusColor ?? 'var(--p7-color-text-muted, #58606E)',
                   color: '#FFFFFF',
                   fontSize: 10,
                   fontWeight: 900,

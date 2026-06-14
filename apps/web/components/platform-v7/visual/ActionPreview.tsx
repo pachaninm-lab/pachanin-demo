@@ -70,7 +70,7 @@ function ChangeRow({ change }: { change: ActionPreviewChange }) {
         style={{
           fontSize: 11,
           fontWeight: 900,
-          color: 'var(--p7-color-text-muted, #667085)',
+          color: 'var(--p7-color-text-muted, #58606E)',
           textTransform: 'uppercase',
           letterSpacing: '0.04em',
           minWidth: 100,
@@ -86,7 +86,7 @@ function ChangeRow({ change }: { change: ActionPreviewChange }) {
             style={{
               fontSize: 12,
               fontWeight: 600,
-              color: 'var(--p7-color-text-muted, #667085)',
+              color: 'var(--p7-color-text-muted, #58606E)',
               textDecoration: 'line-through',
               opacity: 0.7,
             }}

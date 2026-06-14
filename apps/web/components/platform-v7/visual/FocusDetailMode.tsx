@@ -63,7 +63,7 @@ export function FocusDetailMode({
                 : 'transparent',
               color: isActive
                 ? 'var(--p7-color-brand, #0A7A5F)'
-                : 'var(--p7-color-text-muted, #667085)',
+                : 'var(--p7-color-text-muted, #58606E)',
               fontSize: 12,
               fontWeight: isActive ? 850 : 650,
               cursor: 'pointer',

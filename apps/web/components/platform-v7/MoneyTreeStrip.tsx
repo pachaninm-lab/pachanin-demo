@@ -16,7 +16,7 @@ export function MoneyTreeStrip() {
           <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Деньги · без двойного счёта</div>
           <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>{tree.reserved.label}: {formatCompactMoney(tree.reserved.amount)}</div>
           <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-muted, #64748B)', lineHeight: 1.55 }}>Резерв — верхний контейнер. Корзины ниже являются разбиением этого резерва, а не отдельными деньгами.</div>
-          <div style={{ marginTop: 6, fontSize: 12, color: '#94A3B8', lineHeight: 1.45 }}>Сверка: {formatCompactMoney(partsTotal)} из {formatCompactMoney(tree.reserved.amount)} · остаток {formatCompactMoney(tree.remainder)}</div>
+          <div style={{ marginTop: 6, fontSize: 12, color: '#566070', lineHeight: 1.45 }}>Сверка: {formatCompactMoney(partsTotal)} из {formatCompactMoney(tree.reserved.amount)} · остаток {formatCompactMoney(tree.remainder)}</div>
         </div>
         <span style={{ display: 'inline-flex', alignItems: 'center', padding: '7px 10px', borderRadius: 999, border: balanced ? '1px solid rgba(10,122,95,0.18)' : '1px solid rgba(220,38,38,0.18)', background: balanced ? 'rgba(10,122,95,0.08)' : 'rgba(220,38,38,0.08)', color: balanced ? '#0A7A5F' : '#B91C1C', fontSize: 12, fontWeight: 900 }}>
           {balanced ? 'Суммы сходятся' : 'Нужна сверка'}
