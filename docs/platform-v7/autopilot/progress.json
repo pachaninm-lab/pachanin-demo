@@ -1,11 +1,11 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 82,
-  "currentStep": "MASTER-ТЗ 3+ M3-0 — docs-only фиксация + gap-аудит (внутренний execution-контур в основном закрыт; остаток = доводка M3-1…M3-7 и live-интеграции)",
-  "lastCompletedStep": "M3-QA: Netlify route QA — smoke-гейт переключён на актуальный host vermillion-kitsune с маршрутами §40 (вкл. /register, /login)",
+  "fullTzReadinessPercent": 88,
+  "currentStep": "MASTER-ТЗ 3+ — supporting runtime docs (§8) + final readiness review (§41/§42) внесены; внутренний контур закрыт",
+  "lastCompletedStep": "M3-docs: runtime-architecture/money/document/evidence-dispute/compliance-fraud + adapter-contracts + mobile-field-qa + final-readiness",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "M3-3: UX-gate сквозной аудит ролей (no long scroll до конца страницы)",
+  "nextStep": "M3-3: UX-gate сквозной аудит ролей (доводка; внутренний runtime уже closed)",
   "updatedAt": "2026-06-14T02:30:00.000Z",
   "rules": {
     "noAppsLanding": true,
