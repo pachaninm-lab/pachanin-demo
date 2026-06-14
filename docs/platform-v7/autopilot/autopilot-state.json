@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "MASTER-ТЗ 2 — все VP-слои (VP-1…VP-8) закрыты; остаток = owner-only действия (разблокировать Vercel, отметить web-unit required, ротация VERCEL_TOKEN, dependency graph)",
+  "current": "MASTER-ТЗ 3+ M3-0 — docs-only фиксация + gap-аудит (внутренний execution-контур в основном закрыт; остаток = доводка M3-1…M3-7 и live-интеграции)",
   "fullTzReadinessPercent": 69,
   "openPr": null,
   "lastClosed": [
@@ -93,7 +93,8 @@
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     ".github/workflows/platform-v7-dual-hosting-smoke.yml",
-    "docs/platform-v7/dual-hosting-operating-rules.md"
+    "docs/platform-v7/dual-hosting-operating-rules.md",
+    "docs/platform-v7/**"
   ],
   "agentWritableScope": [
     "apps/web/tests/unit/**",
@@ -116,7 +117,8 @@
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md",
     ".github/workflows/platform-v7-dual-hosting-smoke.yml",
-    "docs/platform-v7/dual-hosting-operating-rules.md"
+    "docs/platform-v7/dual-hosting-operating-rules.md",
+    "docs/platform-v7/**"
   ],
   "controlledActions": {
     "enabled": true
