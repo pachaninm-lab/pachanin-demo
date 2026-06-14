@@ -40,7 +40,7 @@ evidence, спор, fraud, compliance и audit — runtime-объекты с gua
 | 20 | Audit восстанавливает действия | ✓ | `audit-trail.ts` |
 | 21 | Observability показывает сбои | ✓ | `runtime/observability-cockpit-state.ts` + health-панель в Control Tower (M3-4) |
 | 22 | SLA/recovery/idempotency | ✓ | `idempotency-key-helper.ts` |
-| 23 | BI из runtime | partial | `investor-metrics.ts` (binding — M3-5) |
+| 23 | BI из runtime | ✓ | `runtime/bi-cockpit-state.ts` + BI-панель в кабинете Руководителя (M3-5) |
 | 24 | Reliability rating из событий | ✓ | `reliability-rating.ts` |
 | 25 | AI не нарушает роли | ✓ | `ai/*` role-scoped |
 | 26 | Live provider без переписывания логики | ✓ | стабильные порты/адаптеры |
