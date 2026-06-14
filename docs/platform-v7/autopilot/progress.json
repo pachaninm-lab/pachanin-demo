@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 93,
+  "fullTzReadinessPercent": 95,
   "currentStep": "MASTER-ТЗ 3+ доводка — внутренний контур закрыт; observability (§32) закрыт",
-  "lastCompletedStep": "M3-5: BI/юнит-экономика (§35) — runtime view-model + BI-панель в кабинете Руководителя",
+  "lastCompletedStep": "M3-6: единый runtime-binding QA (§38) — сводный тест на 7 сквозных сценариев",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "M3-6 единый e2e (§38); далее — только live-интеграции (§43, owner-side)",
-  "updatedAt": "2026-06-14T06:31:00.000Z",
+  "nextStep": "Остаток по существу — только live-интеграции (§43, owner-side): договоры, credentials, банк/ФГИС/ЭДО/ЭПД доступы",
+  "updatedAt": "2026-06-14T06:43:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
