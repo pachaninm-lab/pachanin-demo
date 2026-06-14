@@ -1,15 +1,17 @@
 import { getPlatformV7OpenWalkthroughState } from '@/lib/platform-v7/runtime/open-walkthrough';
+import { CockpitHero } from '@/components/platform-v7/premium';
 
 export default function PlatformV7OnboardingPage() {
   const state = getPlatformV7OpenWalkthroughState();
 
   return (
     <main data-testid='platform-v7-onboarding-draft' style={page}>
-      <section style={hero}>
-        <div style={eyebrow}>Доступ к управляемый запуск</div>
-        <h1 style={h1}>Онбординг без ложных обещаний</h1>
-        <p style={lead}>Экран фиксирует, что доступ к контуру сделки выдаётся по роли и сценарию. Внешние подключения остаются pre-integration до договоров, доступов и проверки на реальных сделках.</p>
-      </section>
+      <CockpitHero
+        eyebrow='Доступ · управляемый запуск'
+        title='Онбординг без'
+        accent='ложных обещаний'
+        lead='Экран фиксирует, что доступ к контуру сделки выдаётся по роли и сценарию. Внешние подключения остаются pre-integration до договоров, доступов и проверки на реальных сделках.'
+      />
 
       <section style={grid}>
         {state.gates.map((gate) => (

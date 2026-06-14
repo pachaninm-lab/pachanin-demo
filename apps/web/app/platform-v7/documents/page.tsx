@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
+import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
 
 export const metadata: Metadata = {
@@ -71,19 +72,15 @@ export default function PlatformV7DocumentsPage() {
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article > div:nth-child(2) > div:nth-child(-n+2){display:none!important}
         }
       `}</style>
-      <section style={hero}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div style={{ display: 'grid', gap: 9, maxWidth: 760 }}>
-            <div style={badge}>Документы как условие выплаты</div>
-            <h1 style={h1}>Матрица документов сделки</h1>
-            <p style={lead}>Документы показаны не как архив файлов, а как условия сделки: кто должен закрыть документ, какой источник используется и блокирует ли документ выплату продавцу.</p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href={`/platform-v7/deals/${scenario.dealId}/clean`} style={primary}>Открыть карточку сделки</Link>
-            <Link href='/platform-v7/bank/release-safety' style={secondary}>Проверка выплаты</Link>
-          </div>
+      <CockpitHero
+        eyebrow='Документы как условие выплаты'
+        title='Матрица документов сделки'
+        lead='Документы показаны не как архив файлов, а как условия сделки: кто должен закрыть документ, какой источник используется и блокирует ли документ выплату продавцу.'
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href={`/platform-v7/deals/${scenario.dealId}/clean`} glyph='doc'>Открыть карточку сделки</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/bank/release-safety' variant='ghost'>Проверка выплаты</PremiumCtaButton>
         </div>
-
         <div style={cardsGrid}>
           {controlCards.map((item) => (
             <Link key={item.label} href={item.href} style={controlCard}>
@@ -92,7 +89,7 @@ export default function PlatformV7DocumentsPage() {
             </Link>
           ))}
         </div>
-      </section>
+      </CockpitHero>
 
       <section style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
