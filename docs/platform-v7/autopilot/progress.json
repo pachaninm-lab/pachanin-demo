@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 95,
+  "fullTzReadinessPercent": 96,
   "currentStep": "MASTER-ТЗ 3+ доводка — внутренний контур закрыт; observability (§32) закрыт",
-  "lastCompletedStep": "M3-3 продолжение (§14): Smart Collapse хвоста на элеваторе и лаборатории; банк уже с disclosure, Покупатель — ранее",
+  "lastCompletedStep": "§14 UX-gate завершён по всем ролям: Покупатель/Продавец/Логистика/Приёмка/Лаборатория свёрнуты в Smart Collapse; Банк — <details>; Сюрвейер короткий",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "§14 для оставшихся ролей по необходимости; по существу — только live-интеграции (§43, owner-side)",
-  "updatedAt": "2026-06-14T07:24:00.000Z",
+  "nextStep": "По существу остаётся только live-интеграции (§43, owner-side)",
+  "updatedAt": "2026-06-14T07:36:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

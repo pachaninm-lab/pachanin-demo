@@ -10,6 +10,7 @@ import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionR
 import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
@@ -221,37 +222,41 @@ export default async function PlatformV7SellerPage() {
       />
       <JournalPreview role='seller' maxEntries={3} />
 
-      <section style={card}>
-        <div style={micro}>рабочие маршруты продавца</div>
-        <div style={pathGrid}>
-          {sellerPaths.map((path) => (
-            <Link key={path.href} href={path.href} style={pathCard}>
-              <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 16 }}>{path.title}</strong>
-              <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.45 }}>{path.note}</span>
-              <span style={{ color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>Открыть</span>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <CollapsibleSection title='Маршруты и лоты продавца' summary='детали продаж' defaultOpen={false}>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <section style={card}>
+            <div style={micro}>рабочие маршруты продавца</div>
+            <div style={pathGrid}>
+              {sellerPaths.map((path) => (
+                <Link key={path.href} href={path.href} style={pathCard}>
+                  <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 16 }}>{path.title}</strong>
+                  <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.45 }}>{path.note}</span>
+                  <span style={{ color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>Открыть</span>
+                </Link>
+              ))}
+            </div>
+          </section>
 
-      <section style={card}>
-        <div style={micro}>лоты продавца</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {sellerLots.map((lot) => (
-            <Link key={lot.id} href={lot.href} style={lotRow}>
-              <div>
-                <div style={idText}>{lot.id}</div>
-                <h2 style={h2}>{lot.title}</h2>
-              </div>
-              <div style={rowGrid}>
-                <Cell label='Статус' value={lot.status} />
-                <Cell label='Деньги' value={lot.money} strong />
-                <Cell label='Следующее действие' value={lot.next} warning />
-              </div>
-            </Link>
-          ))}
+          <section style={card}>
+            <div style={micro}>лоты продавца</div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {sellerLots.map((lot) => (
+                <Link key={lot.id} href={lot.href} style={lotRow}>
+                  <div>
+                    <div style={idText}>{lot.id}</div>
+                    <h2 style={h2}>{lot.title}</h2>
+                  </div>
+                  <div style={rowGrid}>
+                    <Cell label='Статус' value={lot.status} />
+                    <Cell label='Деньги' value={lot.money} strong />
+                    <Cell label='Следующее действие' value={lot.next} warning />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
         </div>
-      </section>
+      </CollapsibleSection>
     </main>
   );
 }
