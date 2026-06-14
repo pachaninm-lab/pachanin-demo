@@ -38,7 +38,7 @@ evidence, спор, fraud, compliance и audit — runtime-объекты с gua
 | 18 | Спор ↔ evidence ↔ money hold | ✓ | `dispute-engine.ts` |
 | 19 | Fraud/compliance блокируют сделку | ✓ | `anti-bypass.ts`, `onboarding-kyc.ts` |
 | 20 | Audit восстанавливает действия | ✓ | `audit-trail.ts` |
-| 21 | Observability показывает сбои | partial | `observability-contracts.ts` (экраны — M3-4) |
+| 21 | Observability показывает сбои | ✓ | `runtime/observability-cockpit-state.ts` + health-панель в Control Tower (M3-4) |
 | 22 | SLA/recovery/idempotency | ✓ | `idempotency-key-helper.ts` |
 | 23 | BI из runtime | partial | `investor-metrics.ts` (binding — M3-5) |
 | 24 | Reliability rating из событий | ✓ | `reliability-rating.ts` |

@@ -11,7 +11,20 @@ import { OperatorRadarIsland } from '@/components/platform-v7/visual/OperatorRad
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import type { RadarZoneData, RadarItemData } from '@/components/platform-v7/visual/OperatorRadarIsland';
-import { PremiumStatCard } from '@/components/platform-v7/premium';
+import { PremiumStatCard, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { getPlatformV7ObservabilityCockpitState, type PlatformV7HealthSeverity } from '@/lib/platform-v7/runtime/observability-cockpit-state';
+
+function healthTone(sev: PlatformV7HealthSeverity): PremiumTone {
+  return sev === 'critical' ? 'danger' : sev === 'warning' ? 'warning' : 'success';
+}
+
+const HEALTH_GLYPH: Record<'system' | 'integration' | 'deal' | 'money', 'gauge' | 'route' | 'bag' | 'coins'> = {
+  system: 'gauge',
+  integration: 'route',
+  deal: 'bag',
+  money: 'coins',
+};
 
 function describeReason(code: string) {
   switch (code) {
@@ -51,6 +64,7 @@ function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?
 
 export default function PlatformV7ControlTowerPage() {
   const today = new Date('2026-04-19T12:00:00Z');
+  const health = getPlatformV7ObservabilityCockpitState();
   const deals = selectRuntimeDeals();
   const disputes = selectRuntimeDisputes();
   const activeDeals = deals.filter((d) => d.status !== 'closed');
@@ -296,6 +310,47 @@ export default function PlatformV7ControlTowerPage() {
             </section>
           </section>
         </P7Section>
+
+        <CollapsibleSection
+          title='Состояние системы (Observability)'
+          summary={health.overall === 'critical' ? 'есть критичные сигналы' : health.overall === 'warning' ? 'есть предупреждения' : 'контур в норме'}
+          defaultOpen={false}
+        >
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <StatusPill tone={healthTone(health.overall)}>
+                {health.overall === 'critical' ? 'Критично' : health.overall === 'warning' ? 'Внимание' : 'Норма'}
+              </StatusPill>
+              <span style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>
+                Контролируемый контур · внешние подключения pre-integration
+              </span>
+            </div>
+            <div className='pc-prem-kpis' aria-label='Состояние runtime'>
+              {health.areas.map((area) => (
+                <PremiumStatCard
+                  key={area.key}
+                  glyph={HEALTH_GLYPH[area.key]}
+                  tone={healthTone(area.severity)}
+                  value={area.value}
+                  label={`${area.label} · ${area.note}`}
+                />
+              ))}
+            </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={micro}>Журнал инцидентов</div>
+              {health.incidents.length ? (
+                health.incidents.map((inc) => (
+                  <div key={inc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff' }}>
+                    <StatusPill tone={healthTone(inc.severity)}>{inc.severity === 'critical' ? 'critical' : 'warning'}</StatusPill>
+                    <span style={{ fontSize: 13, color: 'var(--pc-text-secondary, #334155)' }}>{inc.message}</span>
+                  </div>
+                ))
+              ) : (
+                <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>Активных инцидентов нет.</div>
+              )}
+            </div>
+          </div>
+        </CollapsibleSection>
       </P7Page>
     </>
   );
