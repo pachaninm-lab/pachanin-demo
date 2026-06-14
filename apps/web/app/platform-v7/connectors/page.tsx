@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { serverApiUrl, serverAuthHeaders } from '@/lib/server-api';
 
@@ -77,16 +78,17 @@ export default async function PlatformV7ConnectorsPage() {
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a > div:nth-child(2) > div:nth-child(3){display:none!important}
         }
       `}</style>
-      <section style={hero}>
-        <div style={badge}>Реестр интеграций</div>
-        <h1 style={h1}>Именные контуры сделки</h1>
-        <p style={lead}>Экран показывает, какие внешние контуры влияют на сделку: деньги, документы, рейс и качество. Боевой статус не заявляется без договора, доступа и подтверждения на реальных операциях.</p>
-        <div style={actions}>
-          <Link href='/platform-v7/deals/DL-9106/clean' style={primaryBtn}>Сделка DL-9106</Link>
-          <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
-          <Link href='/platform-v7/bank' style={ghostBtn}>Деньги</Link>
+      <CockpitHero
+        eyebrow='Реестр интеграций'
+        title='Именные контуры сделки'
+        lead='Экран показывает, какие внешние контуры влияют на сделку: деньги, документы, рейс и качество. Боевой статус не заявляется без договора, доступа и подтверждения на реальных операциях.'
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href='/platform-v7/deals/DL-9106/clean' glyph='route'>Сделка DL-9106</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/documents' variant='ghost'>Документы</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/bank' variant='ghost'>Деньги</PremiumCtaButton>
         </div>
-      </section>
+      </CockpitHero>
 
       <section style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>

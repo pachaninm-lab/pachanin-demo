@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { CockpitHero } from '@/components/platform-v7/premium';
 import {
   PLATFORM_V7_EXECUTION_SOURCE,
   formatRub,
@@ -72,21 +73,18 @@ export default function PlatformV7PilotRunbookPage() {
 
   return (
     <main style={page}>
-      <section style={hero}>
-        <div>
-          <div style={micro}>controlled pilot runbook</div>
-          <h1 style={h1}>Провести пилот DL-9106</h1>
-          <p style={lead}>
-            Одна зерновая сделка проходит путь от партии и лота до документов, спора, банкового основания и архива. Внешние контуры отмечены как ручная проверка, тестовый контур или ожидание внешнего подтверждения.
-          </p>
-        </div>
+      <CockpitHero
+        eyebrow='controlled pilot runbook'
+        title='Провести пилот DL-9106'
+        lead='Одна зерновая сделка проходит путь от партии и лота до документов, спора, банкового основания и архива. Внешние контуры отмечены как ручная проверка, тестовый контур или ожидание внешнего подтверждения.'
+      >
         <div style={heroMeta}>
           <Cell label='Лот' value={executionCase.lotId} />
           <Cell label='Объём' value={formatTons(executionCase.commodity.volumeDeclaredTons)} />
           <Cell label='Резерв' value={formatRub(executionCase.money.reserveAmount)} />
           <Cell label='К выпуску' value={formatRub(executionCase.money.readyToReleaseAmount)} />
         </div>
-      </section>
+      </CockpitHero>
 
       <section style={grid2}>
         <Panel title='Состав пилота' eyebrow='роли'>
