@@ -10,6 +10,8 @@ import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 import { getOutboxStatus } from '@/lib/outbox-server';
+import { CockpitHero, PremiumStatCard, PremiumCtaButton } from '@/components/platform-v7/premium';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 
 const deal9106 = getDeal360Scenario('DL-9106');
 const deal9102 = getDeal360Scenario('DL-9102');
@@ -98,22 +100,23 @@ export default async function PlatformV7OperatorPage() {
         action='Устранить блокеры по очереди: СДИЗ → ЭТрН → акт расхождения.'
         outcome='После закрытия всех блокеров деньги продолжат движение к выплате.'
       />
-      <section style={hero}>
-        <div style={badge}>Центр управления оператора</div>
-        <h1 style={h1}>Блокеры, деньги и следующий ответственный</h1>
-        <p style={lead}>Оператор видит не технические интеграции, а сделки, которые остановили деньги: причина, источник, сумма влияния, ответственный и следующее действие.</p>
-        <div style={actions}>
-          <Link href={`/platform-v7/deals/${deal9106.dealId}/clean`} style={primaryBtn}>Открыть сделку</Link>
-          <Link href='/platform-v7/documents' style={ghostBtn}>Матрица документов</Link>
+      <CockpitHero
+        eyebrow='Рабочий стол оператора'
+        title='Блокеры, деньги и'
+        accent='следующий ответственный'
+        lead='Оператор видит не технические интеграции, а сделки, которые остановили деньги: причина, источник, сумма влияния, ответственный и следующее действие.'
+      >
+        <div className='pc-prem-kpis' aria-label='Ключевые показатели оператора'>
+          <PremiumStatCard glyph='bag' tone='info' value={apiOnline ? String(deals.length) : '2'} label='Сделок под контролем' />
+          <PremiumStatCard glyph='alert' tone='danger' value={String(apiOnline ? liveBlockers.filter((b) => b.severity === 'stop').length : stopCount)} label='Стоп-блокеров' />
+          <PremiumStatCard glyph='coins' tone={heldRub > 0 ? 'danger' : 'success'} value={apiOnline ? formatMoney(heldRub) : '15,89 млн ₽'} label='Удержано по спорам' />
+          <PremiumStatCard glyph='shield-check' tone={outbox.totalPending > 0 ? 'warning' : 'success'} value={apiOnline ? String(outbox.totalPending) : '—'} label='Банк-операций в очереди' />
         </div>
-      </section>
-
-      <section style={metricsGrid}>
-        <Metric label='Сделок под контролем' value={apiOnline ? String(deals.length) : '2'} />
-        <Metric label='Стоп-блокеров' value={String(apiOnline ? liveBlockers.filter((b) => b.severity === 'stop').length : stopCount)} danger />
-        <Metric label='Удержано по спорам' value={apiOnline ? formatMoney(heldRub) : '15,89 млн ₽'} danger={heldRub > 0} />
-        <Metric label='Банк-операций в очереди' value={apiOnline ? String(outbox.totalPending) : '—'} danger={outbox.totalPending > 0} />
-      </section>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href={`/platform-v7/deals/${deal9106.dealId}/clean`} glyph='alert'>Разобрать критические</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/documents' variant='ghost'>Матрица документов</PremiumCtaButton>
+        </div>
+      </CockpitHero>
 
       <section style={card}>
         <div style={micro}>Очередь блокеров</div>
@@ -122,29 +125,32 @@ export default async function PlatformV7OperatorPage() {
         </div>
       </section>
 
-      <CauseLine
-        cause={{ text: 'СДИЗ не подтверждён ФГИС «Зерно»', tone: 'blocked' }}
-        relation='blocks'
-        effect={{ text: 'Движение денег остановлено', tone: 'blocked' }}
-        moneyAmount='9,65 млн ₽'
-        moneyTone='hold'
-      />
-      <CauseLine
-        cause={{ text: 'Отклонение веса · акт расхождения не закрыт', tone: 'blocked' }}
-        relation='blocks'
-        effect={{ text: 'Удержание не снимается', tone: 'blocked' }}
-        moneyAmount='624 тыс. ₽'
-        moneyTone='hold'
-      />
-
-      <SmartSectionSummary
-        label='Сводка по блокерам'
-        items={[
-          { text: 'DL-9106 · 3 стоп-блокера · СДИЗ, ЭТрН, протокол качества · 9,65 млн ₽ заблокировано', tone: 'block' },
-          { text: 'DL-9102 · Удержание 624 тыс. ₽ · Акт расхождения не подписан', tone: 'block' },
-        ]}
-      />
-      <TrustDot state='test' size='sm' label='Предынтеграционный контур · Внешние контуры подключаются по договору' />
+      <CollapsibleSection title='Причинные связи и сводка по блокерам' summary='детали остановки денег' defaultOpen={false}>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <CauseLine
+            cause={{ text: 'СДИЗ не подтверждён ФГИС «Зерно»', tone: 'blocked' }}
+            relation='blocks'
+            effect={{ text: 'Движение денег остановлено', tone: 'blocked' }}
+            moneyAmount='9,65 млн ₽'
+            moneyTone='hold'
+          />
+          <CauseLine
+            cause={{ text: 'Отклонение веса · акт расхождения не закрыт', tone: 'blocked' }}
+            relation='blocks'
+            effect={{ text: 'Удержание не снимается', tone: 'blocked' }}
+            moneyAmount='624 тыс. ₽'
+            moneyTone='hold'
+          />
+          <SmartSectionSummary
+            label='Сводка по блокерам'
+            items={[
+              { text: 'DL-9106 · 3 стоп-блокера · СДИЗ, ЭТрН, протокол качества · 9,65 млн ₽ заблокировано', tone: 'block' },
+              { text: 'DL-9102 · Удержание 624 тыс. ₽ · Акт расхождения не подписан', tone: 'block' },
+            ]}
+          />
+          <TrustDot state='test' size='sm' label='Предынтеграционный контур · Внешние контуры подключаются по договору' />
+        </div>
+      </CollapsibleSection>
 
       <OperatorExecutionQueue />
 

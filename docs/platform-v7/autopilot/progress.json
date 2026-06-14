@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 96,
-  "currentStep": "MASTER-ТЗ 3+ доводка — внутренний контур закрыт; observability (§32) закрыт",
-  "lastCompletedStep": "§14 UX-gate завершён по всем ролям: Покупатель/Продавец/Логистика/Приёмка/Лаборатория свёрнуты в Smart Collapse; Банк — <details>; Сюрвейер короткий",
+  "fullTzReadinessPercent": 98,
+  "currentStep": "M3-7 Final UX/Visual Gate — premium-герой и Smart Collapse по всем ролям; route-by-route Netlify QA",
+  "lastCompletedStep": "M3-7: seller+operator переведены на CockpitHero; route-by-route QA report; readiness §30/§31 закрыты",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "По существу остаётся только live-интеграции (§43, owner-side)",
-  "updatedAt": "2026-06-14T07:36:00.000Z",
+  "nextStep": "По существу остаётся только live-интеграции (§43, owner-side) + опциональная пиксельная сверка/детали мокапов",
+  "updatedAt": "2026-06-14T08:05:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
