@@ -69,6 +69,12 @@ const operatorMobile = `
   }
 `;
 
+const complianceMobile = `
+  @media(max-width:767px){
+    .pc-v4-main div[data-platform-v7-compliance-cockpit-pass='true'] > *:nth-child(n+4){display:none!important}
+  }
+`;
+
 function FieldShellPolicy(){return <style dangerouslySetInnerHTML={{ __html: `${base}.pc-v4-search,.pc-v4-select,.pc-v4-mobile-role,.pc-v4-stage,.pc-v4-meta,.pc-v4-drawer,.pc-v4-iconbtn[aria-label='Открыть меню'],nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(env(safe-area-inset-top) + 66px)!important}` }} />}
 function RoleScopedShellPolicy({extra=''}:{extra?:string}){return <style dangerouslySetInnerHTML={{ __html: `${base}${extra}.pc-v4-search,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(var(--pc-header-offset) + 8px)!important}` }} />}
 function OperatorShellPolicy({extra=''}:{extra?:string}){return <style dangerouslySetInnerHTML={{ __html: `${base}${extra}` }} />}
@@ -78,6 +84,7 @@ function roleScopedExtra(pathname: string): string {
   if(pathname.startsWith('/platform-v7/buyer')) return buyerMobile;
   if(pathname.startsWith('/platform-v7/seller')) return sellerMobile;
   if(pathname.startsWith('/platform-v7/bank')) return bankMobile;
+  if(pathname.startsWith('/platform-v7/compliance')) return complianceMobile;
   return '';
 }
 
