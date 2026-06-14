@@ -2,11 +2,11 @@
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 99,
   "currentStep": "M3-7 Final UX/Visual Gate — premium-герой и Smart Collapse по всем ролям; route-by-route Netlify QA",
-  "lastCompletedStep": "M3-7 завершён: premium CockpitHero на ВСЕХ страницах platform-v7 (включая bank + служебные); старого героя не осталось нигде",
+  "lastCompletedStep": "M3-8: корень /platform-v7 = витрина входа («Одна сделка. Полный контроль.» + «Выберите свою роль» по группам → личные кабинеты); вход открыт во все ЛК; рабочий контур свёрнут ниже",
   "openPr": null,
   "blockedBy": [],
   "nextStep": "По существу остаётся только live-интеграции (§43, owner-side) + опциональная пиксельная сверка",
-  "updatedAt": "2026-06-14T08:38:00.000Z",
+  "updatedAt": "2026-06-14T10:41:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

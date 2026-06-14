@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { getPlatformV7EntryCockpitState } from '@/lib/platform-v7/runtime/entry-cockpit-state';
 import { CockpitHero, PremiumStatCard, PremiumCtaButton, type PremiumTone, type PremiumGlyph } from '@/components/platform-v7/premium';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { PLATFORM_V7_ROLE_GROUPS, platformV7RolesByGroup } from '@/lib/platform-v7/role-directory';
 
 function laneToPremTone(tone: string): PremiumTone {
   if (tone === 'red') return 'danger';
@@ -25,30 +27,17 @@ export default function PlatformV7RootPage() {
 
   return (
     <main data-testid='platform-v7-root-execution-cockpit' style={page}>
+      {/* Витрина входа: «Одна сделка. Полный контроль.» */}
       <CockpitHero
-        eyebrow='Цифровой контур исполнения сделки'
-        title='От причины к деньгам за один экран'
-        lead='Документ, рейс, качество или спор → блокер → деньги → ответственный → действие.'
-        aside={
-          <div style={maturityCard}>
-            <strong style={maturityTitle}>Контролируемый предпилотный контур</strong>
-            <span style={cardText}>{cockpit.maturityNotice}</span>
-          </div>
-        }
+        eyebrow='Прозрачная Цена · Цифровой контур исполнения сделки'
+        title='Одна сделка.'
+        accent='Полный контроль.'
+        lead='Условия, документы, логистика, приёмка, качество, деньги, спор и доказательства — в одном управляемом процессе.'
       >
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={moneyCard}>
-            <span style={cardLabel}>Остановлено сейчас</span>
-            <strong style={moneyValue}>{money?.value ?? '0 ₽'}</strong>
-            <span style={cardText}>{money?.state ?? 'нет активных стопов'}</span>
-          </div>
-          <div style={{ flex: '1 1 240px', minWidth: 220 }}>
-            {primary ? (
-              <PremiumCtaButton href={primary.href} glyph='shield-check'>Открыть главный блокер</PremiumCtaButton>
-            ) : (
-              <span style={disabledAction}>Нет активных стопов</span>
-            )}
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href='/platform-v7/seller/batches/new' glyph='bag'>Создать сделку</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/register' variant='ghost'>Регистрация</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/login' variant='ghost'>Войти в систему</PremiumCtaButton>
         </div>
       </CockpitHero>
 
@@ -61,61 +50,111 @@ export default function PlatformV7RootPage() {
         ))}
       </section>
 
-      <div className='pc-prem-kpis' aria-label='Состояние контура'>
-        {cockpit.lanes.map((item) => (
-          <PremiumStatCard
-            key={item.label}
-            glyph={laneGlyph(item.label)}
-            tone={laneToPremTone(item.tone)}
-            value={item.value}
-            label={`${item.label} · ${item.state}`}
-          />
-        ))}
-      </div>
-
-      <section style={workGrid}>
-        <section style={panel} aria-label='Очередь блокеров'>
-          <div style={sectionHead}>
-            <div>
-              <div style={eyebrow}>Очередь снятия</div>
-              <h2 style={h2}>{cockpit.blockers.length ? '3 действия вместо длинной ленты' : 'Нет активных стопов'}</h2>
+      {/* Выберите свою роль → личный кабинет (вход открыт во все ЛК) */}
+      <section aria-label='Выберите свою роль' style={{ display: 'grid', gap: 14 }}>
+        <div style={{ display: 'grid', gap: 4 }}>
+          <div style={eyebrow}>Выберите свою роль</div>
+          <h2 style={h2}>Каждая сторона входит в свой личный кабинет</h2>
+        </div>
+        {PLATFORM_V7_ROLE_GROUPS.map((group) => (
+          <div key={group} style={{ display: 'grid', gap: 8 }}>
+            <div style={groupLabel}>{group}</div>
+            <div style={roleGrid}>
+              {platformV7RolesByGroup(group).map((role) => (
+                <Link key={role.href} href={role.href} style={{ ...roleEntryCard, background: role.surface }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ width: 38, height: 4, borderRadius: 999, background: role.tone }} />
+                    {role.fieldMode ? <span style={{ ...fieldChip, color: role.tone, borderColor: role.tone }}>полевой</span> : null}
+                  </div>
+                  <strong style={roleTitle}>{role.title}</strong>
+                  <span style={cardText}>{role.focus}</span>
+                  <span style={{ ...roleAction, color: role.tone }}>Войти в кабинет →</span>
+                </Link>
+              ))}
             </div>
-            <Link href='/platform-v7/control-tower' style={ghostAction}>Центр управления</Link>
-          </div>
-          {cockpit.blockers.length ? cockpit.blockers.map((item, index) => (
-            <Link key={item.id} href={item.href} style={{ ...blockerCard, borderColor: toneBorder(item.tone), background: toneBg(item.tone) }}>
-              <span style={rank}>#{index + 1}</span>
-              <span style={blockerBody}>
-                <strong style={blockerTitle}>{item.id} · {item.title}</strong>
-                <span style={cardText}>{item.cause}</span>
-                <span style={cardText}>Держит: {item.money} · Ответственный: {item.owner}</span>
-              </span>
-              <span style={{ ...dot, background: toneDot(item.tone) }} />
-            </Link>
-          )) : <div style={emptyState}>Нет активных стопов по текущему контуру.</div>}
-        </section>
-
-        <section style={panel} aria-label='Ролевой вход'>
-          <div style={eyebrow}>Ролевой вход</div>
-          <h2 style={h2}>Каждая сторона видит своё действие</h2>
-          {cockpit.roleEntrypoints.map((item) => (
-            <Link key={item.role} href={item.href} style={roleCard}>
-              <strong style={roleTitle}>{item.role}</strong>
-              <span style={cardText}>{item.focus}</span>
-              <span style={roleAction}>{item.action}</span>
-            </Link>
-          ))}
-        </section>
-      </section>
-
-      <section style={proofGrid} aria-label='Почему можно доверять контуру'>
-        {cockpit.proofItems.map((item) => (
-          <div key={item.label} style={proofCard}>
-            <span style={eyebrow}>{item.label}</span>
-            <strong style={proofText}>{item.text}</strong>
           </div>
         ))}
       </section>
+
+      {/* Рабочий контур исполнения (operator/exec view) */}
+      <CollapsibleSection title='Рабочий контур — От причины к деньгам за один экран' summary='деньги · блокеры · ответственный' defaultOpen={false}>
+        <div style={{ display: 'grid', gap: 14 }}>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={moneyCard}>
+              <span style={cardLabel}>Остановлено сейчас</span>
+              <strong style={moneyValue}>{money?.value ?? '0 ₽'}</strong>
+              <span style={cardText}>{money?.state ?? 'нет активных стопов'}</span>
+            </div>
+            <div style={maturityCard}>
+              <strong style={maturityTitle}>Контролируемый предпилотный контур</strong>
+              <span style={cardText}>{cockpit.maturityNotice}</span>
+            </div>
+            <div style={{ flex: '1 1 240px', minWidth: 220 }}>
+              {primary ? (
+                <PremiumCtaButton href={primary.href} glyph='shield-check'>Открыть главный блокер</PremiumCtaButton>
+              ) : (
+                <span style={disabledAction}>Нет активных стопов</span>
+              )}
+            </div>
+          </div>
+
+          <div className='pc-prem-kpis' aria-label='Состояние контура'>
+            {cockpit.lanes.map((item) => (
+              <PremiumStatCard
+                key={item.label}
+                glyph={laneGlyph(item.label)}
+                tone={laneToPremTone(item.tone)}
+                value={item.value}
+                label={`${item.label} · ${item.state}`}
+              />
+            ))}
+          </div>
+
+          <section style={workGrid}>
+            <section style={panel} aria-label='Очередь блокеров'>
+              <div style={sectionHead}>
+                <div>
+                  <div style={eyebrow}>Очередь снятия</div>
+                  <h2 style={h2}>{cockpit.blockers.length ? '3 действия вместо длинной ленты' : 'Нет активных стопов'}</h2>
+                </div>
+                <Link href='/platform-v7/control-tower' style={ghostAction}>Центр управления</Link>
+              </div>
+              {cockpit.blockers.length ? cockpit.blockers.map((item, index) => (
+                <Link key={item.id} href={item.href} style={{ ...blockerCard, borderColor: toneBorder(item.tone), background: toneBg(item.tone) }}>
+                  <span style={rank}>#{index + 1}</span>
+                  <span style={blockerBody}>
+                    <strong style={blockerTitle}>{item.id} · {item.title}</strong>
+                    <span style={cardText}>{item.cause}</span>
+                    <span style={cardText}>Держит: {item.money} · Ответственный: {item.owner}</span>
+                  </span>
+                  <span style={{ ...dot, background: toneDot(item.tone) }} />
+                </Link>
+              )) : <div style={emptyState}>Нет активных стопов по текущему контуру.</div>}
+            </section>
+
+            <section style={panel} aria-label='Ролевой вход'>
+              <div style={eyebrow}>Ролевой вход</div>
+              <h2 style={h2}>Каждая сторона видит своё действие</h2>
+              {cockpit.roleEntrypoints.map((item) => (
+                <Link key={item.role} href={item.href} style={roleCard}>
+                  <strong style={roleTitle}>{item.role}</strong>
+                  <span style={cardText}>{item.focus}</span>
+                  <span style={roleAction}>{item.action}</span>
+                </Link>
+              ))}
+            </section>
+          </section>
+
+          <section style={proofGrid} aria-label='Почему можно доверять контуру'>
+            {cockpit.proofItems.map((item) => (
+              <div key={item.label} style={proofCard}>
+                <span style={eyebrow}>{item.label}</span>
+                <strong style={proofText}>{item.text}</strong>
+              </div>
+            ))}
+          </section>
+        </div>
+      </CollapsibleSection>
     </main>
   );
 }
@@ -140,7 +179,11 @@ function toneDot(tone: string) {
 
 const page = { display: 'grid', gap: 14, padding: '0 0 24px' } as const;
 const eyebrow = { color: '#0A7A5F', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '.08em' } as const;
+const groupLabel = { color: 'var(--pc-text-muted, #64748B)', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em' } as const;
 const h2 = { margin: 0, color: '#0F1419', fontSize: 20, lineHeight: 1.15, letterSpacing: '-.025em', fontWeight: 950 } as const;
+const roleGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 } as const;
+const roleEntryCard = { textDecoration: 'none', minHeight: 132, display: 'grid', alignContent: 'start', gap: 8, padding: 16, borderRadius: 18, border: '1px solid var(--pc-border, #E4E6EA)', boxShadow: '0 8px 20px rgba(15,23,42,.04)' } as const;
+const fieldChip = { border: '1px solid', borderRadius: 999, padding: '3px 8px', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em' } as const;
 const moneyCard = { background: '#fff', border: '1px solid rgba(37,99,235,.16)', borderRadius: 20, padding: 16, display: 'grid', gap: 6 } as const;
 const maturityCard = { background: 'rgba(255,255,255,.72)', border: '1px solid #D7DEE3', borderRadius: 20, padding: 16, display: 'grid', gap: 7 } as const;
 const maturityTitle = { color: '#0F1419', fontSize: 15, lineHeight: 1.2, fontWeight: 950 } as const;
