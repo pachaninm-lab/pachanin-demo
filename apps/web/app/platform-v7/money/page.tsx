@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { DEALS, DISPUTES } from '@/lib/v7r/data';
 
 // S-2: compute from canonical DEALS — single source of truth
@@ -41,15 +42,16 @@ export default function PlatformV7MoneyPage() {
           [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article p{font-size:12px!important;line-height:1.35!important}
         }
       `}</style>
-      <section style={hero}>
-        <div style={badge}>Деньги</div>
-        <h1 style={h1}>Денежный контур сделки</h1>
-        <p style={lead}>Денежный экран показывает резерв, удержание, спор, ручную проверку и основание следующего запроса в банк. Платформа не подменяет банк.</p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Link href='/platform-v7/bank' style={primary}>Открыть банк</Link>
-          <Link href='/platform-v7/bank/release-safety' style={secondary}>Проверка основания банком</Link>
+      <CockpitHero
+        eyebrow='Деньги'
+        title='Денежный контур сделки'
+        lead='Денежный экран показывает резерв, удержание, спор, ручную проверку и основание следующего запроса в банк. Платформа не подменяет банк.'
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href='/platform-v7/bank' glyph='coins'>Открыть банк</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/bank/release-safety' variant='ghost'>Проверка основания банком</PremiumCtaButton>
         </div>
-      </section>
+      </CockpitHero>
 
       <section style={grid}>
         {moneyRows.map(([label, value, note]) => (

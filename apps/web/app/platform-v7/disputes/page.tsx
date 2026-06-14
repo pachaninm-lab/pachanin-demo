@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 import { EvidenceStrengthMeter } from '@/components/platform-v7/visual/EvidenceStrengthMeter';
 import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platform-v7/grain-execution/automation/evidence-pack-engine';
@@ -140,15 +141,16 @@ export default async function PlatformV7DisputesPage() {
             : 'Открытых споров нет'
         }
       />
-      <section style={hero}>
-        <div style={badge}>Споры и удержания</div>
-        <h1 style={h1}>Спор объясняет, почему сумма остановлена</h1>
-        <p style={lead}>Здесь сверху видны только причина, сумма влияния, срок, ответственный и следующий шаг. Доказательства, правила и передача между ролями раскрываются отдельно.</p>
-        <div style={actions}>
-          <Link href='/platform-v7/operator' style={primaryBtn}>Центр управления</Link>
-          <Link href='/platform-v7/bank' style={ghostBtn}>Банковская проверка</Link>
+      <CockpitHero
+        eyebrow='Споры и удержания'
+        title='Спор объясняет, почему сумма остановлена'
+        lead='Здесь сверху видны только причина, сумма влияния, срок, ответственный и следующий шаг. Доказательства, правила и передача между ролями раскрываются отдельно.'
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href='/platform-v7/operator' glyph='gauge'>Центр управления</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/bank' variant='ghost'>Банковская проверка</PremiumCtaButton>
         </div>
-      </section>
+      </CockpitHero>
 
       <section style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
