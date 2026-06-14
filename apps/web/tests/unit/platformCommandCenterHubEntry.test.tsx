@@ -5,15 +5,15 @@ import { PlatformCommandCenterHub } from '@/components/v7r/PlatformCommandCenter
 
 describe('platform-v7 command center entry', () => {
   it('renders the execution entry with bank-boundary wording', () => {
-    render(<PlatformCommandCenterHub />);
+    const { container } = render(<PlatformCommandCenterHub />);
+    const text = container.textContent || '';
 
-    expect(screen.getByTestId('platform-command-center-hero')).toBeInTheDocument();
-    expect(screen.getByText('Центр исполнения сделки')).toBeInTheDocument();
-    expect(screen.getByText('Рабочий контур сделки')).toBeInTheDocument();
-    expect(screen.getByText('проверка выплаты')).toBeInTheDocument();
-    expect(screen.getByText(/основание для банковской проверки выплаты/i)).toBeInTheDocument();
-    expect(screen.getByText(/можно передавать банку только после закрытия условий/i)).toBeInTheDocument();
-    expect(screen.getByText('передать основание банку')).toBeInTheDocument();
+    expect(container.querySelector('main[data-role="operator"][data-theme="light"]')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Пшеница 4 класс · LOT-2403' })).toBeInTheDocument();
+    expect(screen.getByText('DL-9106')).toBeInTheDocument();
+    expect(screen.getAllByText('Запросить сверку ФГИС').length).toBeGreaterThan(0);
+    expect(text).toMatch(/банковск(ая|ую) проверк/i);
+    expect(text).toMatch(/На банковскую проверку/i);
   });
 
   it('does not expose money-release or technical claims on the command center entry', () => {

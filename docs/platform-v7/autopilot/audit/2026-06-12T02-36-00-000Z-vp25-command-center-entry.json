@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-06-12T02:36:00.000Z",
+  "task": "VP-2.5 command center premium entry guard refresh",
+  "scope": [
+    "apps/web/components/platform-v7/premium/ExecutionUi.tsx",
+    "apps/web/tests/unit/platformCommandCenterHubEntry.test.tsx"
+  ],
+  "sourceOfTruth": "MASTER-ТЗ 2 / VP-2.5 requires command-center entry guards to match current premium execution shell without React key warnings.",
+  "changes": [
+    "Stabilized premium execution and risk list keys for repeated execution domains.",
+    "Aligned command-center entry assertions with the current PremiumDealShell rendering contract."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}
