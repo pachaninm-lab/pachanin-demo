@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   AlertTriangle,
   BarChart3,
@@ -31,7 +31,6 @@ import {
 import { CommandPalette } from '@/components/v7r/CommandPalette';
 import { BrandMark } from '@/components/v7r/BrandMark';
 import { NOTIFICATIONS, NOTIFICATION_GROUPS, type NotificationGroup } from '@/lib/v7r/data';
-import { trackRoleSwitch } from '@/lib/analytics/track';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { PLATFORM_V7_LIGHT_DEFAULT_VERSION, PLATFORM_V7_THEME_VERSION_KEY } from '@/components/v7r/PlatformThemeSync';
 
@@ -63,21 +62,6 @@ const ROLE_STAGE: Record<PlatformRole, { label: string; tone: 'pilot' | 'test' |
   surveyor: { label: 'Полевой режим', tone: 'field' },
   elevator: { label: 'Полевой режим', tone: 'field' },
   lab: { label: 'Полевой режим', tone: 'field' },
-};
-
-const ROLE_ROUTES: Record<PlatformRole, string> = {
-  operator: '/platform-v7/control-tower',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
 };
 
 const ROLE_ICONS: Record<PlatformRole, LucideIcon> = {
@@ -295,7 +279,6 @@ function iconTone(active: boolean) {
 
 export function AppShellV4({ children, initialRole = 'operator' }: { children: React.ReactNode; initialRole?: PlatformRole }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { role, setRole } = usePlatformV7RStore();
   const [mounted, setMounted] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
@@ -364,12 +347,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
       return next;
     });
   }, []);
-
-  const switchRole = React.useCallback((nextRole: PlatformRole) => {
-    setRole(nextRole);
-    trackRoleSwitch(nextRole);
-    router.push(ROLE_ROUTES[nextRole]);
-  }, [router, setRole]);
 
   const displayRole: PlatformRole = mounted ? role : initialRole;
   const items = NAV_BY_ROLE[displayRole];
@@ -443,6 +420,17 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           .pc-v4-pilot-note { font-size: 11px; padding: 9px 11px; }
           .pc-v4-alert-panel { position: fixed; left: 10px; right: 10px; top: calc(env(safe-area-inset-top) + 62px); width: auto; max-width: none; }
         }
+        .pc-v4-switch-cabinet { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border-radius: 14px; border: 1px solid var(--pc-accent-border); background: var(--pc-accent-bg); color: var(--pc-accent-strong); font-size: 13px; font-weight: 900; text-decoration: none; }
+        .pc-v4-switch-cabinet:hover { filter: brightness(1.03); }
+        .pc-v4-bottomnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 96; padding: 7px 10px calc(env(safe-area-inset-bottom) + 7px); background: color-mix(in srgb, var(--pc-bg-header) 96%, transparent); backdrop-filter: blur(18px); border-top: 1px solid var(--pc-border); box-shadow: 0 -10px 28px rgba(3,8,7,0.10); }
+        .pc-v4-bottomnav-inner { max-width: 720px; margin: 0 auto; width: 100%; display: flex; gap: 4px; justify-content: space-around; }
+        .pc-v4-bn-item { flex: 1 1 0; min-width: 0; display: grid; justify-items: center; gap: 3px; padding: 6px 4px; border-radius: 14px; text-decoration: none; color: var(--pc-text-muted); border: 1px solid transparent; transition: background 0.15s ease, color 0.15s ease; }
+        .pc-v4-bn-item:hover { color: var(--pc-text-primary); }
+        .pc-v4-bn-item[data-active='true'] { color: var(--pc-accent-strong); background: var(--pc-accent-bg); border-color: var(--pc-accent-border); }
+        .pc-v4-bn-icon { display: inline-flex; align-items: center; justify-content: center; }
+        .pc-v4-bn-label { font-size: 10.5px; font-weight: 850; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
+        .pc-v4-main { padding-bottom: calc(env(safe-area-inset-bottom) + 84px) !important; }
+        @media (min-width: 981px) { .pc-v4-bottomnav-inner { max-width: 860px; } .pc-v4-bn-label { font-size: 12px; } }
       `}</style>
 
       {sidebarOpen ? <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(3,8,7,0.62)', zIndex: 110 }} aria-hidden /> : null}
@@ -486,20 +474,13 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         </nav>
 
         <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid var(--pc-border)', display: 'grid', gap: 10 }}>
-          <details style={{ border: '1px solid var(--pc-border)', borderRadius: 16, background: 'var(--pc-bg-elevated)', padding: 10 }}>
-            <summary style={{ cursor: 'pointer', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 900 }}>Сменить роль</summary>
-            <div className='pc-v4-role-grid' style={{ marginTop: 10 }}>
-              {(Object.keys(ROLE_LABELS) as PlatformRole[]).map((item) => (
-                <button key={item} type='button' className='pc-v4-role-btn' data-active={item === displayRole ? 'true' : 'false'} onClick={() => switchRole(item)}>{ROLE_LABELS[item]}</button>
-              ))}
-            </div>
-          </details>
+          <Link href='/platform-v7' className='pc-v4-switch-cabinet' onClick={() => setSidebarOpen(false)}>
+            <LayoutDashboard size={16} /> Сменить кабинет
+          </Link>
 
           <details style={{ border: '1px solid var(--pc-border)', borderRadius: 16, background: 'var(--pc-bg-elevated)', padding: 10 }}>
             <summary style={{ cursor: 'pointer', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 900 }}>Дополнительно</summary>
             <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-              <Link href='/platform-v7/roles' style={drawerUtilityLink}>Все роли</Link>
-              <Link href='/platform-v7/investor' style={drawerUtilityLink}>Инвесторский обзор</Link>
               <Link href='/platform-v7/execution-map' style={drawerUtilityLink}>Карта исполнения</Link>
             </div>
           </details>
@@ -525,12 +506,8 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
                 <strong>Поиск</strong>
                 <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>⌘K</span>
               </button>
-              <select className='pc-v4-select' value={displayRole} onChange={(event) => switchRole(event.target.value as PlatformRole)} aria-label='Сменить роль'>
-                {(Object.keys(ROLE_LABELS) as PlatformRole[]).map((item) => <option key={item} value={item}>{ROLE_LABELS[item]}</option>)}
-              </select>
-              <button className='pc-v4-mobile-role' onClick={() => setSidebarOpen(true)} aria-label='Открыть роли'>{ROLE_LABELS[displayRole]}</button>
               <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
-              <button className='pc-v4-iconbtn' onClick={toggleTheme} aria-label='Сменить тему'>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
+              <button className='pc-v4-iconbtn pc-v4-theme-toggle' onClick={toggleTheme} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'} title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
               <div style={{ position: 'relative' }}>
                 <button className='pc-v4-iconbtn' onClick={() => { setAlertsOpen((value) => !value); setAlertsSeen(true); }} aria-label='Открыть уведомления'>
                   <Bell size={17} />
@@ -589,6 +566,29 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         ) : null}
         {children}
       </main>
+
+      {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
+        <nav className='pc-v4-bottomnav' aria-label='Навигация кабинета'>
+          <div className='pc-v4-bottomnav-inner'>
+            {items.slice(0, 5).map((item) => {
+              const active = pathname === item.href || pathname.startsWith(item.href + '/');
+              const Icon = SECTION_ICONS[item.icon];
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className='pc-v4-bn-item'
+                  data-active={active ? 'true' : 'false'}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <span className='pc-v4-bn-icon'><Icon size={20} /></span>
+                  <span className='pc-v4-bn-label'>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      ) : null}
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
