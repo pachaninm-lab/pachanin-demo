@@ -47,8 +47,8 @@ evidence, спор, fraud, compliance и audit — runtime-объекты с gua
 | 27 | Question Coverage Matrix | ✓ | `question-coverage/role-bank-question-coverage-matrix.md` |
 | 28 | UI как взрослая B2B/agri-fintech | ✓ | premium дизайн-система |
 | 29 | Мокапы как target reference | ✓ | premium cockpits по мокапам |
-| 30 | Нет длинных скроллов с кашей | partial | UX-gate сквозной — M3-3 |
-| 31 | Нет сборной солянки | partial | единый premium-язык внедрён |
+| 30 | Нет длинных скроллов с кашей | ✓ | M3-3 + M3-7: Smart Collapse/`<details>` по всем тяжёлым ролям |
+| 31 | Нет сборной солянки | ✓ | M3-7: premium-герой по всем ролям (seller/operator доведены), единые токены |
 | 32 | Нет demo/pilot/mock/sandbox в UI | ✓ | copy-гарды + M3-1 |
 | 33 | Нет fake-live claims | ✓ | honesty-гарды §3 |
 | 34 | Netlify routes проверены | ✓ | smoke-гейт §40 (vermillion-kitsune) |

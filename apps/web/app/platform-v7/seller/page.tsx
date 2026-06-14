@@ -11,6 +11,7 @@ import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/Doc
 import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
 import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { CockpitHero, PremiumStatCard, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
@@ -110,37 +111,34 @@ export default async function PlatformV7SellerPage() {
         outcome='После закрытия документов банк получит основание для проверки выплаты.'
       />
 
-      <section style={hero}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-          <div style={{ display: 'grid', gap: 9, maxWidth: 780 }}>
-            <div style={badge}>Кабинет продавца · сделка → документы → деньги</div>
-            <h1 style={h1}>Закрыть документы, чтобы передать основание банку</h1>
-            <p style={lead}>Продавец видит не витрину лотов, а контур исполнения: партия, лот, резерв покупателя, СДИЗ, ЭТрН, приёмка и причина, почему деньги ещё не переданы на банковскую проверку.</p>
-          </div>
+      <CockpitHero
+        eyebrow='Кабинет продавца · сделка → документы → деньги'
+        title='Закрыть документы, чтобы передать основание банку'
+        lead='Продавец видит не витрину лотов, а контур исполнения: партия, лот, резерв покупателя, СДИЗ, ЭТрН, приёмка и причина, почему деньги ещё не переданы на банковскую проверку.'
+        aside={
           <div style={blockerCard}>
             <div style={micro}>главный блокер</div>
-            <strong style={{ color: '#B45309', fontSize: 18, lineHeight: 1.2 }}>СДИЗ и ЭТрН не закрыты</strong>
+            <strong style={{ color: 'var(--pc-prem-warn, #B45309)', fontSize: 18, lineHeight: 1.2 }}>СДИЗ и ЭТрН не закрыты</strong>
             <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.45 }}>на проверку банку сейчас 0 ₽</span>
           </div>
+        }
+      >
+        <div className='pc-prem-kpis' aria-label='Ключевые показатели продавца'>
+          <PremiumStatCard glyph='bag' tone='info' value={String(deals.length)} label='Сделок в работе' />
+          <PremiumStatCard glyph='coins' tone='success' value='9,65 млн ₽' label='Резерв · не выплата' />
+          <PremiumStatCard glyph='doc' tone='warning' value='0 ₽' label='На проверку банку сейчас' />
+          <PremiumStatCard glyph='alert' tone={disputeCount > 0 ? 'danger' : 'neutral'} value={String(disputeCount)} label='Открытых споров' />
         </div>
 
-        <div style={sellerCockpitGrid} aria-label='Seller cockpit summary'>
-          <CockpitFact label='партия' value='600 т · пшеница 4 класса' />
-          <CockpitFact label='резерв' value='9,65 млн ₽ · не выплата' strong />
-          <CockpitFact label='документ' value='закрыть СДИЗ' warning />
-          <CockpitFact label='банк' value='ждёт основание' danger />
-        </div>
-
-        {/* VIL: TrustDot рядом с суммой */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <TrustDot state='test' size='sm' label='Контур исполнения · Внешние подключения требуют договоров' />
         </div>
 
-        <div style={actions}>
-          <Link href='/platform-v7/deals/DL-9106/clean' style={primaryBtn}>Закрыть СДИЗ и ЭТрН</Link>
-          <Link href='/platform-v7/seller/batches/new' style={ghostBtn}>Создать новую партию</Link>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href='/platform-v7/deals/DL-9106/clean' glyph='shield-check'>Закрыть СДИЗ и ЭТрН</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/seller/batches/new' variant='ghost'>Создать новую партию</PremiumCtaButton>
         </div>
-      </section>
+      </CockpitHero>
 
 
       <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.seller} />
