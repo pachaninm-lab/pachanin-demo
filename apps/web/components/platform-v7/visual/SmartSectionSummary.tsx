@@ -44,7 +44,7 @@ export interface SmartSectionSummaryProps {
 }
 
 const TONE_COLORS = {
-  neutral: { color: 'var(--p7-color-text-muted, #667085)',   bg: 'transparent',                                        border: 'transparent' },
+  neutral: { color: 'var(--p7-color-text-muted, #58606E)',   bg: 'transparent',                                        border: 'transparent' },
   ok:      { color: 'var(--p7-color-success, #027A48)',      bg: 'var(--p7-color-success-soft, #ECFDF3)',              border: 'color-mix(in srgb, var(--p7-color-success, #027A48) 20%, transparent)' },
   warn:    { color: 'var(--p7-color-warning, #B54708)',      bg: 'var(--p7-color-warning-soft, #FFFAEB)',              border: 'color-mix(in srgb, var(--p7-color-warning, #B54708) 20%, transparent)' },
   block:   { color: 'var(--p7-color-danger, #B42318)',       bg: 'var(--p7-color-danger-soft, #FEF3F2)',               border: 'color-mix(in srgb, var(--p7-color-danger, #B42318) 20%, transparent)' },
@@ -144,7 +144,7 @@ export function SmartSectionSummary({
             borderRadius: 6,
             border: '1px solid var(--p7-color-border, #D7DEE3)',
             background: 'transparent',
-            color: 'var(--p7-color-text-muted, #667085)',
+            color: 'var(--p7-color-text-muted, #58606E)',
             fontSize: 11,
             fontWeight: 700,
             cursor: 'pointer',

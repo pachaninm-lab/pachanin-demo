@@ -56,7 +56,7 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
         <div style={{ display: 'grid', gap: 4 }}>
-          <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: 10, color: '#566070', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             ответственный
           </span>
           <div
@@ -68,7 +68,7 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
         </div>
 
         <div style={{ display: 'grid', gap: 4 }}>
-          <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: 10, color: '#566070', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             требуемые доказательства
           </span>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>

@@ -83,14 +83,14 @@ function ImpactEvent({ event, compact }: { event: TimelineImpactEvent; compact: 
             {event.text}
           </span>
           {event.ts && (
-            <span style={{ fontSize: 10, color: 'var(--p7-color-text-muted, #667085)', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 10, color: 'var(--p7-color-text-muted, #58606E)', whiteSpace: 'nowrap' }}>
               {event.ts}
             </span>
           )}
         </div>
 
         {event.actor && !compact && (
-          <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #667085)', lineHeight: 1.3 }}>
+          <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #58606E)', lineHeight: 1.3 }}>
             {event.actor}
           </span>
         )}
@@ -182,7 +182,7 @@ export function TimelineWithImpact({
             borderRadius: 8,
             border: '1px solid var(--p7-color-border, #D7DEE3)',
             background: 'transparent',
-            color: 'var(--p7-color-text-muted, #667085)',
+            color: 'var(--p7-color-text-muted, #58606E)',
             fontSize: 11,
             fontWeight: 700,
             cursor: 'pointer',
@@ -203,7 +203,7 @@ export function TimelineWithImpact({
             borderRadius: 8,
             border: '1px solid var(--p7-color-border, #D7DEE3)',
             background: 'transparent',
-            color: 'var(--p7-color-text-muted, #667085)',
+            color: 'var(--p7-color-text-muted, #58606E)',
             fontSize: 11,
             fontWeight: 700,
             cursor: 'pointer',

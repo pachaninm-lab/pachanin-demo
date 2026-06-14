@@ -61,11 +61,11 @@ export function CollapsibleSection({
       >
         <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em' }}>{title}</span>
         {summary ? (
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--pc-text-muted, #667085)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--pc-text-muted, #58606E)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {summary}
           </span>
         ) : null}
-        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--pc-text-muted, #667085)', flexShrink: 0 }}>
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--pc-text-muted, #58606E)', flexShrink: 0 }}>
           {open ? 'Скрыть' : 'Показать'}
           <ChevronDown
             size={16}

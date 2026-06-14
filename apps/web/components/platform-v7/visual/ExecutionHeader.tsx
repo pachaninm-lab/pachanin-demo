@@ -53,7 +53,7 @@ const TONE_COLORS = {
   warn:    { color: 'var(--p7-color-warning, #B54708)', bg: 'transparent' },
   blocked: { color: 'var(--p7-color-danger, #B42318)',  bg: 'transparent' },
   money:   { color: 'var(--p7-color-money, #155EEF)',   bg: 'transparent' },
-  neutral: { color: 'var(--p7-color-text-muted, #667085)', bg: 'transparent' },
+  neutral: { color: 'var(--p7-color-text-muted, #58606E)', bg: 'transparent' },
 };
 
 function ZoneItem({
@@ -85,7 +85,7 @@ function ZoneItem({
       <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: c.color }}>
         <Icon size={compact ? 12 : 13} strokeWidth={2} />
         {!compact && (
-          <span style={{ fontSize: 10, fontWeight: 750, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1 }}>
+          <span style={{ fontSize: 10, fontWeight: 750, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1 }}>
             {label}
           </span>
         )}
@@ -206,7 +206,7 @@ export function ExecutionHeader({
             background: 'var(--pc-bg-card)',
             fontSize: 11,
             fontWeight: 850,
-            color: 'var(--p7-color-text-muted, #667085)',
+            color: 'var(--p7-color-text-muted, #58606E)',
             whiteSpace: 'nowrap',
           }}
         >

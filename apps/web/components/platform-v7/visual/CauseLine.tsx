@@ -162,7 +162,7 @@ export function CauseLine({
         {/* cause → effect */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <NodeChip node={cause} small />
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--p7-color-text-muted, #667085)', flexShrink: 0 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--p7-color-text-muted, #58606E)', flexShrink: 0 }}>
             {relationLabel}
           </span>
           <NodeChip node={effect} small />
@@ -171,7 +171,7 @@ export function CauseLine({
         {/* money row */}
         {moneyAmount && moneyColors && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #667085)', fontWeight: 600 }}>Деньги:</span>
+            <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #58606E)', fontWeight: 600 }}>Деньги:</span>
             <span
               style={{
                 padding: '2px 8px',
@@ -234,7 +234,7 @@ export function CauseLine({
           display: 'flex',
           alignItems: 'center',
           gap: 4,
-          color: 'var(--p7-color-text-muted, #667085)',
+          color: 'var(--p7-color-text-muted, #58606E)',
           fontSize: 11,
           fontWeight: 700,
           flexShrink: 0,
@@ -249,7 +249,7 @@ export function CauseLine({
 
       {moneyAmount && moneyColors && (
         <>
-          <ArrowRight size={13} style={{ color: 'var(--p7-color-text-muted, #667085)', flexShrink: 0 }} />
+          <ArrowRight size={13} style={{ color: 'var(--p7-color-text-muted, #58606E)', flexShrink: 0 }} />
           <span
             style={{
               padding: '4px 10px',

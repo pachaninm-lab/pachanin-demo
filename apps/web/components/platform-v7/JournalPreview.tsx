@@ -68,7 +68,7 @@ export function JournalPreview({ role, maxEntries = 3 }: Props) {
                   <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 999, background: '#fff', border: `1px solid ${border}`, color, fontSize: 11, fontWeight: 900 }}>
                     {STATUS_LABEL[entry.status]}
                   </span>
-                  <span style={{ color: '#94A3B8', fontSize: 11 }}>{formatTs(entry.at)}</span>
+                  <span style={{ color: '#566070', fontSize: 11 }}>{formatTs(entry.at)}</span>
                 </div>
                 <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900, lineHeight: 1.4 }}>
                   {entry.objectId}

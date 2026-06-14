@@ -44,7 +44,7 @@ const TONE_COLORS = {
   warn:    { color: 'var(--p7-color-warning, #B54708)',  border: 'color-mix(in srgb, var(--p7-color-warning, #B54708) 28%, transparent)',  bg: 'var(--p7-color-warning-soft, #FFFAEB)' },
   blocked: { color: 'var(--p7-color-danger, #B42318)',   border: 'color-mix(in srgb, var(--p7-color-danger, #B42318) 28%, transparent)',   bg: 'var(--p7-color-danger-soft, #FEF3F2)' },
   money:   { color: 'var(--p7-color-money, #155EEF)',    border: 'color-mix(in srgb, var(--p7-color-money, #155EEF) 28%, transparent)',    bg: 'var(--p7-color-money-soft, #EFF4FF)' },
-  neutral: { color: 'var(--p7-color-text-muted, #667085)', border: 'var(--pc-border, #D7DEE3)', bg: 'var(--pc-bg-card, #FFFFFF)' },
+  neutral: { color: 'var(--p7-color-text-muted, #58606E)', border: 'var(--pc-border, #D7DEE3)', bg: 'var(--pc-bg-card, #FFFFFF)' },
 };
 
 function MobilePill({

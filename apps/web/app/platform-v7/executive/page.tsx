@@ -77,7 +77,7 @@ export default async function ExecutivePage() {
   const th: React.CSSProperties = {
     padding: '10px 14px',
     textAlign: 'left',
-    color: 'var(--pc-text-muted, #667085)',
+    color: 'var(--pc-text-muted, #58606E)',
     fontWeight: 600,
     fontSize: 11,
     letterSpacing: '0.06em',
@@ -129,7 +129,7 @@ export default async function ExecutivePage() {
               />
             ))}
           </div>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-text-muted, #667085)', lineHeight: 1.5 }}>{bi.note}</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-text-muted, #58606E)', lineHeight: 1.5 }}>{bi.note}</p>
         </div>
       </CollapsibleSection>
 

@@ -62,7 +62,7 @@ const STEP_CONFIG: Record<UnlockStepStatus, {
     color: 'var(--p7-color-text-secondary, #475569)',
     bg: 'var(--p7-color-surface-muted, #F2F6F0)',
     border: 'var(--p7-color-border, #D7DEE3)',
-    numberColor: 'var(--p7-color-text-muted, #667085)',
+    numberColor: 'var(--p7-color-text-muted, #58606E)',
     opacity: 0.6,
   },
 };
@@ -167,7 +167,7 @@ function StepItem({ step, index, compact }: { step: UnlockStep; index: number; c
         </span>
 
         {step.detail && (
-          <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #667085)', lineHeight: 1.4 }}>
+          <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #58606E)', lineHeight: 1.4 }}>
             {step.detail}
           </span>
         )}
@@ -207,7 +207,7 @@ export function UnlockPath({ title, steps, compact = false, 'data-testid': testI
         style={{ display: 'grid', gap: 6 }}
       >
         {title && (
-          <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {title}
           </span>
         )}

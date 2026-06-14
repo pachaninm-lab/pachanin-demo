@@ -171,7 +171,7 @@ export function DealWorkspaceVisualLayer({
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ display: 'grid', gap: 3, minWidth: 0 }}>
-            <span style={{ color: 'var(--p7-color-text-muted, #667085)', fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <span style={{ color: 'var(--p7-color-text-muted, #58606E)', fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               Деньги под давлением
             </span>
             <strong style={{ color: 'var(--p7-color-money, #155EEF)', fontSize: 22, lineHeight: 1.08, fontWeight: 950 }}>

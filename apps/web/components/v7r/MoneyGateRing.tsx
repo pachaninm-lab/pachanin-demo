@@ -92,7 +92,7 @@ export function MoneyGateRing({ title, totalRub, segments, caption }: MoneyGateR
           x='64'
           y='60'
           textAnchor='middle'
-          style={{ fontSize: 11, fill: 'var(--pc-text-muted, #667085)', fontVariantNumeric: 'tabular-nums' }}
+          style={{ fontSize: 11, fill: 'var(--pc-text-muted, #58606E)', fontVariantNumeric: 'tabular-nums' }}
         >
           сумма сделки
         </text>
@@ -126,11 +126,11 @@ export function MoneyGateRing({ title, totalRub, segments, caption }: MoneyGateR
               <span style={{ marginLeft: 'auto', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--pc-text-primary, #0F1419)' }}>
                 {formatMoneyGateAmount(segment.amountRub)}
               </span>
-              <span style={{ color: 'var(--pc-text-muted, #667085)' }}>· {SEGMENT_STATE_LABELS[segment.state]}</span>
+              <span style={{ color: 'var(--pc-text-muted, #58606E)' }}>· {SEGMENT_STATE_LABELS[segment.state]}</span>
             </li>
           ))}
         </ul>
-        {caption ? <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #667085)' }}>{caption}</div> : null}
+        {caption ? <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #58606E)' }}>{caption}</div> : null}
       </div>
     </section>
   );

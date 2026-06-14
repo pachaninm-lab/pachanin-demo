@@ -173,7 +173,7 @@ export function FieldElevatorRuntime() {
                   <span style={{ display: 'inline-flex', borderRadius: 999, padding: '4px 8px', background: '#fff', color: tone.color, fontSize: 11, fontWeight: 800 }}>{tone.label}</span>
                   <span style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 800 }}>{row.action}</span>
                 </div>
-                <span style={{ color: '#667085', fontSize: 11 }}>{new Date(row.at).toLocaleString('ru-RU')}</span>
+                <span style={{ color: '#58606E', fontSize: 11 }}>{new Date(row.at).toLocaleString('ru-RU')}</span>
               </div>
               <div style={{ color: row.status === 'error' ? '#B42318' : 'var(--pc-text-secondary, #475569)', fontSize: 13, lineHeight: 1.5 }}>{row.message}</div>
             </div>

@@ -18,14 +18,14 @@ const COUNTERPARTIES = [
 const ACTORS = ['Все ответственные', 'Комплаенс', 'Оператор', 'Банк'];
 
 function riskPalette(risk: string) {
-  if (risk === 'low') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'Низкий' };
-  if (risk === 'medium') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Средний' };
+  if (risk === 'low') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#066A4F', label: 'Низкий' };
+  if (risk === 'medium') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#8A3E08', label: 'Средний' };
   return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C', label: 'Высокий' };
 }
 
 function statusPalette(status: string) {
-  if (status === 'verified') return { color: '#0A7A5F', label: 'Верифицирован' };
-  if (status === 'review') return { color: '#B45309', label: 'На проверке' };
+  if (status === 'verified') return { color: '#066A4F', label: 'Верифицирован' };
+  if (status === 'review') return { color: '#8A3E08', label: 'На проверке' };
   return { color: '#B91C1C', label: 'Заблокирован' };
 }
 
@@ -122,11 +122,11 @@ export function ComplianceRuntime() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8 }}>
-          <select value={actor} onChange={(e) => setActor(e.target.value)} style={inputStyle()}>
+          <select aria-label='Фильтр по участнику' value={actor} onChange={(e) => setActor(e.target.value)} style={inputStyle()}>
             {ACTORS.map(item => <option key={item} value={item}>{item}</option>)}
           </select>
-          <input type='date' value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={inputStyle()} />
-          <input type='date' value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={inputStyle()} />
+          <input aria-label='Дата с' type='date' value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={inputStyle()} />
+          <input aria-label='Дата по' type='date' value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={inputStyle()} />
         </div>
 
         <div style={{ display: 'grid', gap: 8 }}>

@@ -63,7 +63,7 @@ const STATE_CONFIG: Record<TrustDotState, {
     Icon: AlertTriangle,
   },
   test: {
-    color: 'var(--p7-color-text-muted, #667085)',
+    color: 'var(--p7-color-text-muted, #58606E)',
     bg: 'var(--p7-color-surface-muted, #F2F6F0)',
     border: 'var(--p7-color-border, #D7DEE3)',
     defaultTooltip:

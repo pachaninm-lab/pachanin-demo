@@ -103,7 +103,7 @@ export function DriverBigTileMode({
           </div>
           <div style={{ display: 'grid', gap: 3, minWidth: 0 }}>
             {tripId && (
-              <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Рейс {tripId}
               </span>
             )}
@@ -147,7 +147,7 @@ export function DriverBigTileMode({
             <Key size={20} strokeWidth={2} style={{ color: 'var(--p7-color-money, #155EEF)' }} />
           </div>
           <div style={{ display: 'grid', gap: 2 }}>
-            <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #667085)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--p7-color-text-muted, #58606E)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               PIN для элеватора
             </span>
             <span

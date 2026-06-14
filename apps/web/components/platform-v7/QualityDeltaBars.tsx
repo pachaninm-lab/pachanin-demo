@@ -50,7 +50,7 @@ export function QualityDeltaBars({ title, indicators }: { readonly title: string
         gap: 16,
       }}
     >
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--pc-text-muted, #667085)' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--pc-text-muted, #58606E)' }}>
         {title}
       </div>
 
@@ -102,7 +102,7 @@ export function QualityDeltaBars({ title, indicators }: { readonly title: string
               />
             </div>
 
-            <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #667085)' }}>{indicator.limitLabel}</div>
+            <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #58606E)' }}>{indicator.limitLabel}</div>
           </div>
         );
       })}

@@ -82,7 +82,7 @@ const TONE_COLORS = {
 const STATUS_STYLES = {
   done:     { color: 'var(--p7-color-success, #027A48)',  bg: 'var(--p7-color-success-soft, #ECFDF3)' },
   active:   { color: 'var(--p7-color-brand, #0A7A5F)',    bg: 'var(--p7-color-brand-soft, #E5F4EF)' },
-  upcoming: { color: 'var(--p7-color-text-muted, #667085)', bg: 'transparent' },
+  upcoming: { color: 'var(--p7-color-text-muted, #58606E)', bg: 'transparent' },
 };
 
 function EventRow({ event }: { event: TimelineEvent }) {
@@ -118,14 +118,14 @@ function EventRow({ event }: { event: TimelineEvent }) {
             {event.text}
           </span>
           {event.timestamp && (
-            <span style={{ fontSize: 10, color: 'var(--p7-color-text-muted, #667085)', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 10, color: 'var(--p7-color-text-muted, #58606E)', whiteSpace: 'nowrap' }}>
               {event.timestamp}
             </span>
           )}
         </div>
 
         {event.actor && (
-          <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #667085)' }}>
+          <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #58606E)' }}>
             {event.actor}
           </span>
         )}
@@ -212,7 +212,7 @@ function ChapterSection({
             {chapter.label}
           </span>
           {eventCount > 0 && (
-            <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #667085)' }}>
+            <span style={{ fontSize: 11, color: 'var(--p7-color-text-muted, #58606E)' }}>
               {eventCount} {eventCount === 1 ? 'событие' : eventCount < 5 ? 'события' : 'событий'}
             </span>
           )}
@@ -235,7 +235,7 @@ function ChapterSection({
 
       {open && eventCount === 0 && (
         <div style={{ padding: '10px 14px' }}>
-          <span style={{ fontSize: 12, color: 'var(--p7-color-text-muted, #667085)' }}>
+          <span style={{ fontSize: 12, color: 'var(--p7-color-text-muted, #58606E)' }}>
             Событий пока нет
           </span>
         </div>

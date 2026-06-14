@@ -23,10 +23,10 @@ const directionLabel: Record<HandoffDirection, string> = {
 };
 
 const directionColor: Record<HandoffDirection, string> = {
-  sends: '#0A7A5F',
-  awaits: '#B45309',
+  sends: '#066A4F',
+  awaits: '#8A3E08',
   blockedBy: '#B91C1C',
-  next: '#2563EB',
+  next: '#1D4ED8',
 };
 
 const directionBg: Record<HandoffDirection, string> = {
@@ -88,7 +88,7 @@ const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200
 const card = { border: '1px solid', borderRadius: 14, padding: 12, display: 'grid', gap: 7, minWidth: 0 } as const;
 const dirTag = { display: 'inline-flex', alignItems: 'center', padding: '4px 9px', borderRadius: 999, border: '1px solid', background: '#fff', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' } as const;
 const impactTag = { display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 900 } as const;
-const roleLabel = { color: '#94A3B8', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
+const roleLabel = { color: '#566070', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
 const requirement = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.45, fontWeight: 900, overflowWrap: 'break-word' } as const;
 const entityLink = { fontSize: 12, fontWeight: 900, textDecoration: 'none', overflowWrap: 'break-word' } as const;
 const entityChip = { display: 'inline-flex', padding: '3px 8px', borderRadius: 8, border: '1px solid', fontSize: 11, fontWeight: 900 } as const;
