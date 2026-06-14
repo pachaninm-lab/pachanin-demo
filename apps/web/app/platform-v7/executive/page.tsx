@@ -6,6 +6,8 @@ import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disput
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { CockpitHero, PremiumStatCard } from '@/components/platform-v7/premium';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { getPlatformV7BiCockpitState } from '@/lib/platform-v7/runtime/bi-cockpit-state';
 
 function formatMoney(rub: number): string {
   if (rub >= 1_000_000_000) return `${(rub / 1_000_000_000).toFixed(2)} млрд ₽`;
@@ -30,6 +32,7 @@ export default async function ExecutivePage() {
   const disputeCount = openDisputeCount(disputes);
   const shipmentCount = activeShipmentCount(shipments);
   const pendingBank = outbox.totalPending ?? 0;
+  const bi = getPlatformV7BiCockpitState();
 
   const liveBlockers = [
     ...(disputeCount > 0 ? [{ id: 'disp', label: `${disputeCount} открытых спора — удержано ${formatMoney(heldRub)}`, severity: 'stop' as const }] : []),
@@ -112,6 +115,23 @@ export default async function ExecutivePage() {
       />
 
       <ExecutiveSignalWall signals={signals} />
+
+      <CollapsibleSection title='Юнит-экономика (BI)' summary='из runtime-сделок' defaultOpen={false}>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div className='pc-prem-kpis' aria-label='Юнит-экономика'>
+            {bi.metrics.map((m) => (
+              <PremiumStatCard
+                key={m.key}
+                glyph={m.key === 'gmv' ? 'coins' : m.key === 'dispute-rate' ? 'alert' : m.basis === 'scenario' ? 'gauge' : 'bag'}
+                tone={m.basis === 'scenario' ? 'neutral' : 'info'}
+                value={m.value}
+                label={m.label}
+              />
+            ))}
+          </div>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-text-muted, #667085)', lineHeight: 1.5 }}>{bi.note}</p>
+        </div>
+      </CollapsibleSection>
 
       <section
         style={{

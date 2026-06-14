@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 91,
+  "fullTzReadinessPercent": 93,
   "currentStep": "MASTER-ТЗ 3+ доводка — внутренний контур закрыт; observability (§32) закрыт",
-  "lastCompletedStep": "M3-4: Observability health (§32) — runtime view-model + health-панель в Control Tower (System/Integration/Deal/Money + журнал инцидентов)",
+  "lastCompletedStep": "M3-5: BI/юнит-экономика (§35) — runtime view-model + BI-панель в кабинете Руководителя",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "M3-5 BI binding (§35) / M3-6 единый e2e (§38); далее — только live-интеграции (§43)",
-  "updatedAt": "2026-06-14T06:18:00.000Z",
+  "nextStep": "M3-6 единый e2e (§38); далее — только live-интеграции (§43, owner-side)",
+  "updatedAt": "2026-06-14T06:31:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
