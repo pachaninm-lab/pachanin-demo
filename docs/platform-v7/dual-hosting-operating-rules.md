@@ -25,7 +25,8 @@ Rules:
 
 Post-merge route check:
 - Vercel: `https://pachanin-web.vercel.app/platform-v7/`
-- Netlify: `https://gleaming-mandazi-bb9856.netlify.app/platform-v7/`
+- Netlify (active, Master-ТЗ 3+ §40): `https://vermillion-kitsune-0e7b97.netlify.app/platform-v7/`
+- Netlify (secondary): `https://gleaming-mandazi-bb9856.netlify.app/platform-v7/`
 
 Recommended routes:
 - `/platform-v7/`

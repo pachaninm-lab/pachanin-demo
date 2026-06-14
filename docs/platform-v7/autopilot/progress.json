@@ -2,10 +2,10 @@
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 82,
   "currentStep": "MASTER-ТЗ 3+ M3-0 — docs-only фиксация + gap-аудит (внутренний execution-контур в основном закрыт; остаток = доводка M3-1…M3-7 и live-интеграции)",
-  "lastCompletedStep": "M3-1: Product Entry visual+binding — premium /register (поля + статусы заявки) и /login (без demo/pilot), §11",
+  "lastCompletedStep": "M3-QA: Netlify route QA — smoke-гейт переключён на актуальный host vermillion-kitsune с маршрутами §40 (вкл. /register, /login)",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "M3-2: наполнение Question Coverage Matrix + M3-3 UX-gate сквозной аудит",
+  "nextStep": "M3-3: UX-gate сквозной аудит ролей (no long scroll до конца страницы)",
   "updatedAt": "2026-06-14T02:30:00.000Z",
   "rules": {
     "noAppsLanding": true,
