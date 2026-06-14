@@ -1222,3 +1222,54 @@ export function executionSummary() {
     maturity: deal.maturity,
   };
 }
+
+// Приёмочный снимок элеватора для DL-9106 (стадия «рейс прибыл, идёт взвешивание»).
+// Централизован в точке правды, чтобы кабинет приёмки не держал собственные
+// инлайн-данные. Это шов под реальный весовой/лабораторный контур: боевой
+// адаптер элеватора/лаборатории заполнит вес, отклонение и показатели качества;
+// влияние на деньги остаётся за calculateElevatorWeightImpact()/calculateLabQualityImpact().
+export type ElevatorQualityState = 'ok' | 'stop' | 'wait';
+
+export interface ElevatorReceivingSnapshot {
+  readonly tripId: string;
+  readonly dealId: string;
+  readonly lotId: string;
+  readonly crop: string;
+  readonly declaredWeight: string;
+  readonly arrivedWeight: string;
+  readonly deviation: string;
+  readonly lab: string;
+  readonly docs: string;
+  readonly next: string;
+}
+
+export interface ElevatorQualityMetric {
+  readonly label: string;
+  readonly value: string;
+  readonly limit: string;
+  readonly state: ElevatorQualityState;
+}
+
+export const DL_9106_ELEVATOR_RECEIVING: {
+  readonly snapshot: ElevatorReceivingSnapshot;
+  readonly quality: readonly ElevatorQualityMetric[];
+} = {
+  snapshot: {
+    tripId: DL_9106_EXECUTION_CASE.logistics.trips[0]?.tripId ?? 'TRIP-2403-001',
+    dealId: DL_9106_EXECUTION_CASE.dealId,
+    lotId: DL_9106_EXECUTION_CASE.lotId,
+    crop: 'Пшеница 4 класса',
+    declaredWeight: `${DL_9106_EXECUTION_CASE.commodity.volumeDeclaredTons} т`,
+    arrivedWeight: '598,8 т',
+    deviation: '-1,2 т',
+    lab: 'проба отобрана',
+    docs: 'акт приёмки готовится',
+    next: 'зафиксировать вес и качество',
+  },
+  quality: [
+    { label: 'Влажность', value: '13,1%', limit: 'допуск до 14%', state: 'ok' },
+    { label: 'Клейковина', value: '23%', limit: 'минимум 21%', state: 'ok' },
+    { label: 'Сорная примесь', value: '2,4%', limit: 'допуск до 2%', state: 'stop' },
+    { label: 'Протокол', value: 'ожидается', limit: 'контур исполнения качества', state: 'wait' },
+  ],
+};
