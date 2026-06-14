@@ -19,6 +19,7 @@ import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectio
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
 import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, type PlatformV7ExecutionActionState } from '@/lib/platform-v7/execution-action-core';
 import {
   CockpitHero,
@@ -271,46 +272,50 @@ export default async function PlatformV7BuyerPage() {
 
       <RoleExecutionHandoff items={buyerHandoff} title='исполнение: что покупатель отправляет и ожидает' />
 
-      <SmartSectionSummary
-        label='Журнал'
-        items={[
-          { text: 'Резерв 9,65 млн ₽ зарезервирован · ожидает банковского подтверждения', tone: 'warn' },
-          { text: 'Удержание 624 тыс. ₽ · расхождение веса по LOT-2403', tone: 'warn' },
-        ]}
-      />
-      <JournalPreview role='buyer' maxEntries={3} />
+      <CollapsibleSection title='Журнал, маршруты и партии' summary='детали закупки' defaultOpen={false}>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <SmartSectionSummary
+            label='Журнал'
+            items={[
+              { text: 'Резерв 9,65 млн ₽ зарезервирован · ожидает банковского подтверждения', tone: 'warn' },
+              { text: 'Удержание 624 тыс. ₽ · расхождение веса по LOT-2403', tone: 'warn' },
+            ]}
+          />
+          <JournalPreview role='buyer' maxEntries={3} />
 
-      <section style={card}>
-        <div style={micro}>рабочие маршруты покупателя</div>
-        <div style={pathGrid}>
-          {buyerPaths.map((path) => (
-            <Link key={path.href} href={path.href} style={pathCard}>
-              <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 16 }}>{path.title}</strong>
-              <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.45 }}>{path.note}</span>
-              <span style={{ color: '#2563EB', fontSize: 12, fontWeight: 900 }}>Открыть</span>
-            </Link>
-          ))}
-        </div>
-      </section>
+          <section style={card}>
+            <div style={micro}>рабочие маршруты покупателя</div>
+            <div style={pathGrid}>
+              {buyerPaths.map((path) => (
+                <Link key={path.href} href={path.href} style={pathCard}>
+                  <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 16 }}>{path.title}</strong>
+                  <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.45 }}>{path.note}</span>
+                  <span style={{ color: '#2563EB', fontSize: 12, fontWeight: 900 }}>Открыть</span>
+                </Link>
+              ))}
+            </div>
+          </section>
 
-      <section style={card}>
-        <div style={micro}>партии для закупки</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {buyerLots.map((lot) => (
-            <Link key={lot.id} href={lot.href} style={lotRow}>
-              <div>
-                <div style={idText}>{lot.id}</div>
-                <h2 style={h2}>{lot.title}</h2>
-              </div>
-              <div style={rowGrid}>
-                <Cell label='Цена' value={lot.price} strong />
-                <Cell label='Статус' value={lot.status} />
-                <Cell label='Следующее действие' value={lot.next} warning />
-              </div>
-            </Link>
-          ))}
+          <section style={card}>
+            <div style={micro}>партии для закупки</div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {buyerLots.map((lot) => (
+                <Link key={lot.id} href={lot.href} style={lotRow}>
+                  <div>
+                    <div style={idText}>{lot.id}</div>
+                    <h2 style={h2}>{lot.title}</h2>
+                  </div>
+                  <div style={rowGrid}>
+                    <Cell label='Цена' value={lot.price} strong />
+                    <Cell label='Статус' value={lot.status} />
+                    <Cell label='Следующее действие' value={lot.next} warning />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
         </div>
-      </section>
+      </CollapsibleSection>
     </main>
   );
 }
