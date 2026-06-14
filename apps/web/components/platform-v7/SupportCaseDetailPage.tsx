@@ -72,7 +72,7 @@ export function SupportCaseDetailPage({ caseId }: { caseId: string }) {
 
   return (
     <div data-testid='platform-v7-support-case-detail' style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-support-case-detail']{gap:12px!important}
           .p7-support-case-hero{padding:16px!important;border-radius:24px!important}
@@ -84,7 +84,7 @@ export function SupportCaseDetailPage({ caseId }: { caseId: string }) {
           .p7-support-case-actions a,.p7-support-case-actions button{width:100%!important;min-height:52px!important;justify-content:center!important}
           .p7-support-case-desktop-heavy{display:none!important}
         }
-      `}</style>
+      ` }} />
 
       <section className='p7-support-case-hero' style={{ ...card, display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

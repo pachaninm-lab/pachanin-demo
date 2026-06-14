@@ -69,7 +69,7 @@ export default async function Page() {
             : 'Данные статичные — API недоступен'
         }
       />
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-elevator-page']{gap:10px!important;padding-top:0!important}
           .p7-elevator-intel,.p7-elevator-explainer,.p7-elevator-secondary,.p7-elevator-proof,.p7-elevator-decision,.p7-elevator-evidence,.p7-elevator-handoff{display:none!important}
@@ -88,7 +88,7 @@ export default async function Page() {
           .p7-elevator-quality-grid > div:nth-child(1),.p7-elevator-quality-grid > div:nth-child(2){display:none!important}
           .p7-elevator-quality .p7-elevator-notice{font-size:12px!important;line-height:1.4!important}
         }
-      `}</style>
+      ` }} />
       <div className='p7-elevator-intel'>
         <QuietIntelligenceHint problem='Отклонение веса -1,2 т и превышение по сорной примеси — акт расхождения не подписан.' action='Зафиксировать вес, подписать акт приёмки и акт расхождения, передать пробу в лабораторию.' outcome='После закрытия актов основание уйдёт в контур документов и банку на проверку выплаты.' />
       </div>

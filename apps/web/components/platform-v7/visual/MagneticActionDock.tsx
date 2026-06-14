@@ -200,7 +200,7 @@ function LoadingSpinner() {
     >
       <circle cx='8' cy='8' r='6' stroke='currentColor' strokeWidth='2' strokeOpacity='0.25' />
       <path d='M14 8a6 6 0 0 0-6-6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' />
-      <style>{`@keyframes p7-spin { to { transform: rotate(360deg); } }`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `@keyframes p7-spin { to { transform: rotate(360deg); } }` }} />
     </svg>
   );
 }

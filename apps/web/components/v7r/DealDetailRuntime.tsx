@@ -172,7 +172,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
 
   return (
     <>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .deal-page,.deal-page *{box-sizing:border-box}
         .deal-page{display:grid;gap:16px;padding-bottom:104px;max-width:100%;overflow-x:hidden}
         .surface{background:#fff;border:1px solid var(--pc-border, #E4E6EA);border-radius:18px;padding:18px;max-width:100%;overflow:hidden;min-width:0}
@@ -244,7 +244,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
         @media (max-width: 960px){.hero-actions{grid-template-columns:1fr}}
         @media (max-width: 768px){.surface{padding:16px;border-radius:16px}.hero-title{font-size:28px}.hero-top{display:grid}.summary-grid{grid-template-columns:1fr 1fr}.mini-grid{grid-template-columns:1fr 1fr}.desktop-only{display:none}.mobile-only{display:block}.timeline-layout{gap:12px}.sticky-inner{grid-template-columns:1fr}.sticky-inner .btn{width:100%}.bank-route-grid{grid-template-columns:1fr}}
         @media (max-width: 560px){.deal-page{gap:12px;padding-bottom:112px}.action-card{padding:16px;gap:12px}.action-title{font-size:20px}.mini-grid{grid-template-columns:1fr}.owner-value{font-size:22px}.summary-grid{grid-template-columns:1fr}.summary-value{font-size:26px}.chip-flow{overflow:auto hidden;flex-wrap:nowrap;padding-bottom:2px;margin-right:-4px}.chip-link{white-space:nowrap}}
-      `}</style>
+      ` }} />
 
       <div className='deal-page'>
         <section className='surface hero'>

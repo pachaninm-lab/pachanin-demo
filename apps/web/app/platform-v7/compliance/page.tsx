@@ -7,12 +7,12 @@ import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-executio
 export default function CompliancePage() {
   return (
     <div data-testid="platform-v7-compliance-page" data-platform-v7-compliance-cockpit-pass='true' style={{ display: 'grid', gap: 18 }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-compliance-page']{gap:10px!important}
           .p7-compliance-summary{display:none!important}
         }
-      `}</style>
+      ` }} />
       <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.compliance} />
       <div className="p7-compliance-summary"><RoleExecutionSummary role="compliance" /></div>
       <BankCompliancePilotPanel mode="compliance" />

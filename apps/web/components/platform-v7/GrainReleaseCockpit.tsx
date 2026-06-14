@@ -292,7 +292,7 @@ export function GrainReleaseCockpit({ role = 'bank' }: { readonly role?: UserRol
 
   return (
     <>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-platform-v7-grain-release-cockpit='true']{gap:10px!important}
           [data-platform-v7-grain-release-cockpit='true'] > section{padding:14px!important;border-radius:20px!important;gap:10px!important}
@@ -319,7 +319,7 @@ export function GrainReleaseCockpit({ role = 'bank' }: { readonly role?: UserRol
           [data-platform-v7-grain-release-cockpit='true'] section[aria-label='Следующие действия'] a{min-height:54px!important;border-radius:16px!important}
           [data-platform-v7-grain-release-cockpit='true'] section[aria-label='Следующие действия'] a:nth-child(n+2){display:none!important}
         }
-      `}</style>
+      ` }} />
       <main data-platform-v7-grain-release-cockpit='true' style={shellStyle}>
         <section style={{ ...cardStyle, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md, background: P7_THEME_CSS.surface.premium }}>
           <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.md, flexWrap: 'wrap' }}>

@@ -188,14 +188,14 @@ export function DealsOverviewRuntime() {
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .deals-desktop-table{display:block}
         .deals-mobile-cards{display:none}
         @media (max-width: 860px){
           .deals-desktop-table{display:none}
           .deals-mobile-cards{display:grid;gap:12px;padding:12px}
         }
-      `}</style>
+      ` }} />
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>

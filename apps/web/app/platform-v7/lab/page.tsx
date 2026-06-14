@@ -43,7 +43,7 @@ export default async function Page() {
             : 'Данные статичные — API недоступен'
         }
       />
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-lab-page']{gap:10px!important}
           .p7-lab-intel,.p7-lab-proof,.p7-lab-trust,.p7-lab-summary,.p7-lab-continuity{display:none!important}
@@ -55,7 +55,7 @@ export default async function Page() {
           .p7-lab-step{padding:13px!important;border-radius:16px!important;gap:5px!important}
           .p7-lab-step strong{font-size:14px!important;line-height:1.25!important}
         }
-      `}</style>
+      ` }} />
       <div className="p7-lab-intel">
         <QuietIntelligenceHint
           problem="Сорная примесь 2,4% превышает допуск 2% — протокол качества не закрыт."

@@ -41,7 +41,7 @@ export default async function DriverFieldPage() {
         summary={`${shipmentCount} активных рейсов · ${blockedShipments.length} с блокерами`}
       />
       <OfflineSyncBanner />
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         [data-testid='platform-v7-role-route-hint']{display:none!important}
         @media(max-width:767px){
           [data-testid='platform-v7-driver-field-shell']{gap:10px!important;padding-top:0!important}
@@ -52,7 +52,7 @@ export default async function DriverFieldPage() {
           .driver-field-status-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
           .driver-field-status-grid > div:nth-child(3){display:none!important}
         }
-      `}</style>
+      ` }} />
       <CockpitHero
         className="driver-field-hero"
         eyebrow="Водитель · один рейс · одно действие"

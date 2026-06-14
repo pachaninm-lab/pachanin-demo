@@ -39,7 +39,7 @@ export function BankSectionNav({ links }: BankSectionNavProps) {
           </Link>
         );
       })}
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .p7-bank-section-nav {
           width: fit-content;
           max-width: 100%;
@@ -107,7 +107,7 @@ export function BankSectionNav({ links }: BankSectionNavProps) {
             padding-inline: 10px;
           }
         }
-      `}</style>
+      ` }} />
     </nav>
   );
 }

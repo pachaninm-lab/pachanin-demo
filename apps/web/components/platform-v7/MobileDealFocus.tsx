@@ -15,7 +15,7 @@ export function MobileDealFocus(props: {
 }) {
   return (
     <section className='p7-mobile-focus' data-testid='p7-mobile-deal-focus'>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .p7-mobile-focus{display:none}
         @media(max-width:767px){
           .p7-mobile-focus{display:grid;gap:10px;margin:0 0 12px}
@@ -41,7 +41,7 @@ export function MobileDealFocus(props: {
           .p7-mobile-focus__summary::-webkit-details-marker{display:none}
           .p7-mobile-focus__body{padding:0 15px 15px;color:var(--pc-text-secondary, #475569);font-size:13px;line-height:1.45}
         }
-      `}</style>
+      ` }} />
       <div className='p7-mobile-focus__card'>
         <div className='p7-mobile-focus__top'><div><div className='p7-mobile-focus__kicker'>{props.dealId} · {props.lotId}</div><h1 className='p7-mobile-focus__title'>Один шаг сейчас</h1></div><span className='p7-mobile-focus__badge'>стоп</span></div>
         <div className='p7-mobile-focus__amount'><div className='p7-mobile-focus__label'>сумма под влиянием</div><div className='p7-mobile-focus__money'>{props.amount}</div><div className='p7-mobile-focus__reason'>{props.reason}</div></div>

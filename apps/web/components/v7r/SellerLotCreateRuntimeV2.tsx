@@ -116,7 +116,7 @@ export function SellerLotCreateRuntimeV2() {
 
   return (
     <div className='lot-create-shell'>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .lot-create-shell{display:grid;gap:18px;padding:8px 0;max-width:100%;overflow-x:hidden}
         .lot-create-surface{background:var(--pc-bg-card);border:1px solid var(--pc-border);border-radius:18px;padding:18px;min-width:0;overflow:hidden}
         .lot-create-top{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start}
@@ -139,7 +139,7 @@ export function SellerLotCreateRuntimeV2() {
           .lot-create-actions{display:grid;grid-template-columns:1fr}
           .lot-create-actions a,.lot-create-actions button{width:100%}
         }
-      `}</style>
+      ` }} />
 
       <section className='lot-create-surface'>
         <div className='lot-create-top'>
