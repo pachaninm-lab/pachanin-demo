@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CockpitHero } from '@/components/platform-v7/premium';
 
 const proposals = [
   ['OFFER-2403-1', 'Покупатель А · 600 т', 'лидирует', 'Проверить резерв и документы', '/platform-v7/deals/grain-release'],
@@ -9,11 +10,11 @@ const proposals = [
 export default function PlatformV7ProposalsPage() {
   return (
     <main style={{ display: 'grid', gap: 16 }}>
-      <section style={hero}>
-        <div style={badge}>Предложения и ставки</div>
-        <h1 style={h1}>Предсделочный контур</h1>
-        <p style={lead}>Предложения связаны с лотом или закупочным запросом. На экране видно: кто предложил цену, какой статус, что блокирует сделку и какой следующий шаг.</p>
-      </section>
+      <CockpitHero
+        eyebrow='Предложения и ставки'
+        title='Предсделочный контур'
+        lead='Предложения связаны с лотом или закупочным запросом. На экране видно: кто предложил цену, какой статус, что блокирует сделку и какой следующий шаг.'
+      />
 
       <section style={grid}>
         {proposals.map(([id, title, status, next, href]) => (

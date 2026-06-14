@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { TimelineWithImpact } from '@/components/platform-v7/visual/TimelineWithImpact';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -64,21 +65,18 @@ export default async function PlatformV7AuditLogPage() {
             : 'Данные статичные — API или БД недоступны'
         }
       />
-      <section style={hero}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
-            <div style={badge}>Журнал с последствиями</div>
-            <h1 style={h1}>Что изменилось в сделке и на какие деньги повлияло</h1>
-            <p style={lead}>Журнал показывает не только событие, но и последствие: какая сумма стоит, какой документ стал основанием, кто отвечает и где продолжить действие.</p>
-          </div>
-          <TrustDot state='test' size='sm' label='тестовый контур' />
+      <CockpitHero
+        eyebrow='Журнал с последствиями'
+        title='Что изменилось в сделке и на какие деньги повлияло'
+        lead='Журнал показывает не только событие, но и последствие: какая сумма стоит, какой документ стал основанием, кто отвечает и где продолжить действие.'
+        aside={<TrustDot state='test' size='sm' label='тестовый контур' />}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href='/platform-v7/deals/DL-9106/clean' glyph='doc'>Открыть сделку</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/control-tower' variant='ghost'>Центр управления</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/documents' variant='ghost'>Документы</PremiumCtaButton>
         </div>
-        <div style={actions}>
-          <Link href='/platform-v7/deals/DL-9106/clean' style={primaryBtn}>Открыть сделку</Link>
-          <Link href='/platform-v7/control-tower' style={ghostBtn}>Центр управления</Link>
-          <Link href='/platform-v7/documents' style={ghostBtn}>Документы</Link>
-        </div>
-      </section>
+      </CockpitHero>
 
       <TimelineWithImpact events={events} />
 

@@ -21,7 +21,7 @@ import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-executio
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
-import { DonutGauge, PremiumStatCard } from '@/components/platform-v7/premium';
+import { DonutGauge, PremiumStatCard, CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -151,15 +151,16 @@ export default async function PlatformV7BankPage() {
         to="оператор — подтверждение"
         toHref="/platform-v7/control-tower"
       />
-      <section style={hero}>
-        <div style={badge}>Кабинет банка</div>
-        <h1 style={h1}>Сначала основание, потом банковская проверка</h1>
-        <p style={lead}>Деньги выпускаются только после условий сделки и подтверждения банка. Экран показывает только то, что важно для решения: сумма, стоп, причина, ответственный и следующее действие.</p>
-        <div style={actions}>
-          <Link href='/platform-v7/bank/release-safety' style={primaryBtn}>Проверка выплаты</Link>
-          <Link href={`/platform-v7/deals/${mainDeal.dealId}/clean`} style={ghostBtn}>Карточка сделки</Link>
+      <CockpitHero
+        eyebrow='Кабинет банка'
+        title='Сначала основание, потом банковская проверка'
+        lead='Деньги выпускаются только после условий сделки и подтверждения банка. Экран показывает только то, что важно для решения: сумма, стоп, причина, ответственный и следующее действие.'
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+          <PremiumCtaButton href='/platform-v7/bank/release-safety' glyph='shield-check'>Проверка выплаты</PremiumCtaButton>
+          <PremiumCtaButton href={`/platform-v7/deals/${mainDeal.dealId}/clean`} variant='ghost'>Карточка сделки</PremiumCtaButton>
         </div>
-      </section>
+      </CockpitHero>
 
       <section style={focusCard}>
         <div style={{ display: 'grid', gap: 6 }}>

@@ -1,16 +1,17 @@
 import Link from 'next/link';
 import { getPlatformV7OpenWalkthroughState } from '@/lib/platform-v7/runtime/open-walkthrough';
+import { CockpitHero } from '@/components/platform-v7/premium';
 
 export default function PlatformV7RolePreviewPage() {
   const state = getPlatformV7OpenWalkthroughState();
 
   return (
     <main data-testid='platform-v7-role-preview' style={page}>
-      <section style={hero}>
-        <div style={eyebrow}>Ролевой предпросмотр</div>
-        <h1 style={h1}>Каждая сторона видит только свой рабочий вход</h1>
-        <p style={lead}>Предпросмотр показывает, что будет видно продавцу, покупателю, логистике и банку в controlled-pilot контуре. Это не выдача боевого доступа.</p>
-      </section>
+      <CockpitHero
+        eyebrow='Ролевой предпросмотр'
+        title='Каждая сторона видит только свой рабочий вход'
+        lead='Предпросмотр показывает, что будет видно продавцу, покупателю, логистике и банку в controlled-pilot контуре. Это не выдача боевого доступа.'
+      />
 
       <section style={grid}>
         {state.roles.map((role) => (
