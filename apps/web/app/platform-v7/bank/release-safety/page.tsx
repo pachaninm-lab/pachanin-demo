@@ -72,7 +72,7 @@ export default function BankReleaseSafetyPage() {
 
   return (
     <div data-testid="platform-v7-bank-release-safety-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-bank-release-safety-page']{gap:10px!important;padding:0!important}
           [data-testid='bank-release-hero'] > section{padding:16px!important;border-radius:24px!important}
@@ -96,7 +96,7 @@ export default function BankReleaseSafetyPage() {
           [data-testid='bank-release-rows'] > section > div:nth-child(2) > div > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:7px!important}
           [data-testid='bank-release-rows'] > section > div:nth-child(2) > div > div:nth-child(2) > div:nth-child(n+4){display:none!important}
         }
-      `}</style>
+      ` }} />
       <div data-testid="bank-release-hero">
         <P7PanelShell>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>

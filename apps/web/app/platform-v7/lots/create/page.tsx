@@ -3,7 +3,7 @@ import { SellerLotCreateRuntimeV2 } from '@/components/v7r/SellerLotCreateRuntim
 export default function PlatformV7LotCreatePage() {
   return (
     <div data-testid="platform-v7-lot-create-page">
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-lot-create-page'] .lot-create-shell{gap:10px!important;padding-top:0!important}
           [data-testid='platform-v7-lot-create-page'] .lot-create-surface{padding:14px!important;border-radius:18px!important}
@@ -22,7 +22,7 @@ export default function PlatformV7LotCreatePage() {
           [data-testid='platform-v7-lot-create-page'] .lot-create-actions a{display:none!important}
           [data-testid='platform-v7-lot-create-page'] .lot-create-actions button{width:100%!important;min-height:54px!important;border-radius:16px!important}
         }
-      `}</style>
+      ` }} />
       <SellerLotCreateRuntimeV2 />
     </div>
   );

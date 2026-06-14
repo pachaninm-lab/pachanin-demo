@@ -52,7 +52,7 @@ function badgeTone(state: string, blocks = false) {
 export default function PlatformV7DocumentsPage() {
   return (
     <main data-testid="platform-v7-documents-page" style={{ display: 'grid', gap: 14, maxWidth: 1120, margin: '0 auto' }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-documents-page']{gap:10px!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:10px!important}
@@ -71,7 +71,7 @@ export default function PlatformV7DocumentsPage() {
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article > div:nth-child(2){grid-template-columns:1fr!important;gap:7px!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article > div:nth-child(2) > div:nth-child(-n+2){display:none!important}
         }
-      `}</style>
+      ` }} />
       <CockpitHero
         eyebrow='Документы как условие выплаты'
         title='Матрица документов сделки'

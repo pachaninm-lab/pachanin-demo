@@ -35,7 +35,7 @@ export function getPlatformV7SystemSurface(pathname: string | null): SystemSurfa
 
 function MobileHeaderRuntimeStyle() {
   return (
-    <style>{`
+    <style dangerouslySetInnerHTML={{ __html: `
       @media (max-width: 560px) {
         .pc-header-top {
           align-items: center !important;
@@ -102,7 +102,7 @@ function MobileHeaderRuntimeStyle() {
           padding: 8px !important;
         }
       }
-    `}</style>
+    ` }} />
   );
 }
 

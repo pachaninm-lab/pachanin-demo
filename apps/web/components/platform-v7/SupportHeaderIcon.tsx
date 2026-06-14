@@ -44,7 +44,7 @@ export function SupportHeaderIcon() {
   );
   return (
     <>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .pc-shell-root-v4 > div[aria-hidden='true']{background:rgba(15,23,42,.01)!important;box-shadow:none!important;backdrop-filter:none!important}
         .pc-v4-drawer:not([data-open='true']){box-shadow:none!important;border-right:0!important;visibility:hidden!important;pointer-events:none!important}
         .p7-role-support{display:inline-flex!important;flex:0 0 auto!important}
@@ -66,7 +66,7 @@ export function SupportHeaderIcon() {
           .pc-v4-drawer[data-open='true']{box-shadow:14px 0 34px rgba(15,23,42,.08)!important}
         }
         @media(max-width:374px){.pc-v4-actions{right:6px!important;gap:5px!important;max-width:calc(100vw - 124px)!important}.p7-role-support.pc-v4-iconbtn,.pc-v4-actions button[aria-label='Идентификация и настройки']{width:40px!important;min-width:40px!important;max-width:40px!important;height:40px!important;min-height:40px!important}}
-      `}</style>
+      ` }} />
       {mount ? createPortal(button, mount) : null}
     </>
   );

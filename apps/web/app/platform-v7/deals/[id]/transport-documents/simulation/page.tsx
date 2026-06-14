@@ -30,7 +30,7 @@ export default function TransportSimulationPage({ params }: { params: { id: stri
 
   return (
     <div className='transport-sim-shell'>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .transport-sim-shell{display:grid;gap:16px;max-width:1120px;margin:0 auto;overflow-x:hidden}
         .transport-sim-card{background:#fff;border:1px solid var(--pc-border, #E4E6EA);border-radius:18px;padding:18px;min-width:0;overflow:hidden}
         .transport-sim-hero{display:grid;gap:12px}
@@ -48,7 +48,7 @@ export default function TransportSimulationPage({ params }: { params: { id: stri
           .transport-sim-actions{display:grid;grid-template-columns:1fr}
           .transport-sim-actions a{width:100%}
         }
-      `}</style>
+      ` }} />
 
       <section className='transport-sim-card transport-sim-hero'>
         <div className='transport-sim-head'>

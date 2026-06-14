@@ -63,7 +63,7 @@ export function MoneySpineStrip() {
 
   return (
     <div className='p7-money-spine-strip' style={shell} role='status' aria-label='Денежная позиция'>
-      <style>{`@media(max-width:767px){.p7-money-spine-strip{display:none!important;height:0!important;margin:0!important;padding:0!important;border:0!important}}`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `@media(max-width:767px){.p7-money-spine-strip{display:none!important;height:0!important;margin:0!important;padding:0!important;border:0!important}}` }} />
       <Sparkline values={RESERVE_TREND} />
       <span style={spineLabel}>₽</span>
       {items.map((it, i) => (

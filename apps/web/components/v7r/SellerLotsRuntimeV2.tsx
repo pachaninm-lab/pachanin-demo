@@ -185,7 +185,7 @@ export function SellerLotsRuntimeV2() {
 
   return (
     <div className='seller-lots-shell'>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .seller-lots-shell{display:grid;gap:18px;padding:8px 0;max-width:100%;overflow-x:hidden}
         .seller-lots-surface{background:${SURFACE};border:1px solid ${BORDER};border-radius:18px;padding:18px;min-width:0;overflow:hidden;color:${TEXT}}
         .seller-lots-top{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start}
@@ -218,7 +218,7 @@ export function SellerLotsRuntimeV2() {
           .seller-lot-stats{grid-template-columns:1fr}
           .seller-lot-actions{grid-template-columns:1fr}
         }
-      `}</style>
+      ` }} />
 
       <section className='seller-lots-surface'>
         <div className='seller-lots-top'>

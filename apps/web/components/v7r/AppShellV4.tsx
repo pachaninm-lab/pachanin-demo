@@ -360,7 +360,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
   return (
     <div className='pc-shell-root-v4' style={{ minHeight: '100dvh', background: 'var(--pc-bg)', overflowX: 'hidden' }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         html, body { overflow-x: hidden; max-width: 100%; }
         *, *::before, *::after { box-sizing: border-box; }
         .pc-shell-root-v4 { --pc-header-offset: 98px; }
@@ -431,7 +431,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         .pc-v4-bn-label { font-size: 10.5px; font-weight: 850; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
         .pc-v4-main { padding-bottom: calc(env(safe-area-inset-bottom) + 84px) !important; }
         @media (min-width: 981px) { .pc-v4-bottomnav-inner { max-width: 860px; } .pc-v4-bn-label { font-size: 12px; } }
-      `}</style>
+      ` }} />
 
       {sidebarOpen ? <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(3,8,7,0.62)', zIndex: 110 }} aria-hidden /> : null}
 

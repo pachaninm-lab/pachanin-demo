@@ -50,7 +50,7 @@ const routes = [
 export default function PlatformV7GrainControlTowerPage() {
   return (
     <>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .grain-control-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
         .grain-control-card{display:grid;gap:10px;padding:18px;border:1px solid var(--pc-border, #E4E6EA);border-radius:18px;background:#fff;text-decoration:none;color:inherit;min-height:160px}
         .grain-control-card:hover{border-color:#0A7A5F;box-shadow:0 16px 44px rgba(15,23,42,.08)}
@@ -69,7 +69,7 @@ export default function PlatformV7GrainControlTowerPage() {
           .grain-control-note{padding:12px!important;border-radius:16px!important;gap:6px!important;font-size:12px!important;line-height:1.4!important}
           .grain-control-note div:nth-child(n+4){display:none!important}
         }
-      `}</style>
+      ` }} />
       <P7Page
         title='Зерновой контур исполнения'
         subtitle='Операторская точка входа в новую цепочку: партия, закупочный запрос, качество, вес, СДИЗ, документы, деньги и сквозной сценарий.'

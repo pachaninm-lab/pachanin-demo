@@ -32,7 +32,7 @@ function HeaderNotificationsPortal() {
 export function AiShellEnhancer() {
   return (
     <>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .pc-header-brand > span:first-child,
         .app-header-brand > span:first-child,
         .pc-brand-mark-fallback {
@@ -99,7 +99,7 @@ export function AiShellEnhancer() {
             order: -1;
           }
         }
-      `}</style>
+      ` }} />
       <HeaderNotificationsPortal />
     </>
   );

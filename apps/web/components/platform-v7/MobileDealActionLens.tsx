@@ -17,7 +17,7 @@ type MobileDealActionLensProps = {
 export function MobileDealActionLens(props: MobileDealActionLensProps) {
   return (
     <section className='p7-mobile-action-lens' data-testid='p7-mobile-deal-action-lens'>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .p7-mobile-action-lens{display:none}
         @media(max-width:767px){
           .p7-mobile-action-lens{display:grid;gap:12px;margin:0 0 14px}
@@ -48,7 +48,7 @@ export function MobileDealActionLens(props: MobileDealActionLensProps) {
           .p7-mobile-action-lens__detail-row{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #eef2f7;padding-top:9px;font-size:13px;line-height:1.35;color:var(--pc-text-secondary, #475569)}
           .p7-mobile-action-lens__detail-row strong{color:#0f1419;text-align:right}
         }
-      `}</style>
+      ` }} />
 
       <div className='p7-mobile-action-lens__hero'>
         <div className='p7-mobile-action-lens__top'>

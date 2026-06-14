@@ -58,7 +58,7 @@ export default function PlatformV7SellerOffersPage() {
 
   return (
     <div data-testid="platform-v7-seller-offers-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-seller-offers-page']{gap:10px!important;padding:0!important}
           [data-testid='platform-v7-seller-offers-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important}
@@ -80,7 +80,7 @@ export default function PlatformV7SellerOffersPage() {
           [data-testid='platform-v7-seller-offers-page'] > section:nth-of-type(3) > div:not(:first-child) > div:nth-child(3) span{display:none!important}
           [data-testid='platform-v7-seller-offers-page'] > section:nth-of-type(3) > div:not(:first-child) > div:nth-child(3) a{width:100%!important;min-height:52px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important}
         }
-      `}</style>
+      ` }} />
       <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>

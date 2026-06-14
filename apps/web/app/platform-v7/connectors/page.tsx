@@ -57,7 +57,7 @@ export default async function PlatformV7ConnectorsPage() {
             : `${stop} стоп · ${ok} ок · ${wait} ожидание — данные статичные`
         }
       />
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-connectors-page']{gap:10px!important;padding:0 0 16px!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:9px!important}
@@ -77,7 +77,7 @@ export default async function PlatformV7ConnectorsPage() {
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a > div:nth-child(2){grid-template-columns:1fr!important;gap:7px!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a > div:nth-child(2) > div:nth-child(3){display:none!important}
         }
-      `}</style>
+      ` }} />
       <CockpitHero
         eyebrow='Реестр интеграций'
         title='Именные контуры сделки'

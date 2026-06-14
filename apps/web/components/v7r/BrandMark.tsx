@@ -104,7 +104,7 @@ export function BrandMark({ size = 40, rounded = 14, shadow = true, style }: Bra
         ...style,
       }}
     >
-      <style>{BRAND_MARK_CSS_RESET}</style>
+      <style dangerouslySetInnerHTML={{ __html: BRAND_MARK_CSS_RESET }} />
       <BrandMarkSvg size='100%' />
     </span>
   );

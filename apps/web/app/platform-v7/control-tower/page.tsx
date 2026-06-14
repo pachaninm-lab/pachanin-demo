@@ -177,7 +177,7 @@ export default function PlatformV7ControlTowerPage() {
 
   return (
     <>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .ct-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
         .ct-priority{background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%);border:1px solid #D7DEE3;border-radius:26px;padding:20px;display:grid;gap:16px;box-shadow:0 18px 44px rgba(15,23,42,.07)}
         .ct-priority-main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:16px;align-items:stretch}
@@ -196,7 +196,7 @@ export default function PlatformV7ControlTowerPage() {
         .ct-two{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
         @media (max-width:1100px){.ct-two,.ct-priority-main{grid-template-columns:1fr}}
         @media (max-width:768px){.ct-queue-item{grid-template-columns:1fr}.ct-queue-actions{justify-content:flex-start}.ct-metric-value{font-size:25px}.ct-priority{padding:14px;border-radius:22px}.ct-priority-panel{padding:13px;border-radius:18px}}
-      `}</style>
+      ` }} />
       <P7Page
         title='Центр управления'
         subtitle='Операторский экран: деньги, главный блокер, ответственный и одно действие.'

@@ -476,7 +476,7 @@ export function AppShellV3({ children, initialRole = 'operator' }: { children: R
 
   return (
     <div className='pc-shell-root' style={{ minHeight: '100dvh', background: 'var(--pc-bg)', overflowX: 'hidden' }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         html, body { overflow-x: hidden; max-width: 100%; }
         *, *::before, *::after { box-sizing: border-box; }
         .pc-shell-root { --pc-header-offset: 148px; }
@@ -535,7 +535,7 @@ export function AppShellV3({ children, initialRole = 'operator' }: { children: R
           .pc-mobile-role { max-width: 118px; }
           .pc-main { padding-inline: 10px; }
         }
-      `}</style>
+      ` }} />
 
       {sidebarOpen ? (
         <div

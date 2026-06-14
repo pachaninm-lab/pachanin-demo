@@ -28,7 +28,7 @@ const moneyRows = [
 export default function PlatformV7MoneyPage() {
   return (
     <main data-testid="platform-v7-money-page" style={{ display: 'grid', gap: 16 }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-money-page']{gap:10px!important}
           [data-testid='platform-v7-money-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:8px!important}
@@ -41,7 +41,7 @@ export default function PlatformV7MoneyPage() {
           [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article strong{font-size:clamp(17px,5vw,21px)!important;line-height:1.05!important;overflow-wrap:anywhere!important}
           [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article p{font-size:12px!important;line-height:1.35!important}
         }
-      `}</style>
+      ` }} />
       <CockpitHero
         eyebrow='Деньги'
         title='Денежный контур сделки'

@@ -4,7 +4,7 @@ import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 export default function PlatformV7LotsPage() {
   return (
     <div data-testid="platform-v7-lots-page" style={{ display: 'grid', gap: 14 }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-lots-page']{gap:10px!important}
           [data-testid='platform-v7-lots-page'] > div:first-child{display:none!important}
@@ -24,7 +24,7 @@ export default function PlatformV7LotsPage() {
           [data-testid='platform-v7-lots-page'] [data-testid='platform-v7-lots-runtime'] > section:nth-child(4) article:nth-of-type(n+2){display:none!important}
           [data-testid='platform-v7-lots-page'] [data-testid='platform-v7-lots-runtime'] > section:nth-child(4) article{padding:13px!important;border-radius:16px!important}
         }
-      `}</style>
+      ` }} />
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <TrustDot state='test' size='sm' label='тестовый контур' />
       </div>
