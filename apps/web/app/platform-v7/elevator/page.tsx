@@ -12,6 +12,7 @@ import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectio
 import { WeighStationPanel } from '@/components/platform-v7/WeighStationPanel';
 import { CockpitHero, ProcessStepper } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { DL_9106_ELEVATOR_RECEIVING } from '@/lib/platform-v7/deal-execution-source-of-truth';
 
 const elevatorHandoff: HandoffItem[] = [
   { direction: 'sends', role: 'элеватор → контур документов', requirement: 'акт приёмки и акт расхождения в контур документов', documentImpact: true, moneyImpact: true },
@@ -21,7 +22,7 @@ const elevatorHandoff: HandoffItem[] = [
   { direction: 'next', requirement: 'зафиксировать вес, подписать акт приёмки и передать пробу в лабораторный контур качества', entity: 'TRIP-2403-001', documentImpact: true },
 ];
 
-const receiving = { tripId: 'TRIP-2403-001', dealId: 'DL-9106', lotId: 'LOT-2403', crop: 'Пшеница 4 класса', declaredWeight: '600 т', arrivedWeight: '598,8 т', deviation: '-1,2 т', lab: 'проба отобрана', docs: 'акт приёмки готовится', next: 'зафиксировать вес и качество' };
+const receiving = DL_9106_ELEVATOR_RECEIVING.snapshot;
 
 const receivingSummary = [
   { label: 'Что сейчас', value: 'TRIP-2403-001 прибыл на приёмку', note: 'Приёмка фиксирует физический факт: вес, качество, акт и отклонения.' },
@@ -32,12 +33,7 @@ const receivingSummary = [
   { label: 'Что дальше', value: 'акт приёмки → акт расхождения → протокол', note: 'Без этих оснований передача банку на проверку выплаты не продолжается.' },
 ] as const;
 
-const quality = [
-  { label: 'Влажность', value: '13,1%', limit: 'допуск до 14%', state: 'ok' },
-  { label: 'Клейковина', value: '23%', limit: 'минимум 21%', state: 'ok' },
-  { label: 'Сорная примесь', value: '2,4%', limit: 'допуск до 2%', state: 'stop' },
-  { label: 'Протокол', value: 'ожидается', limit: 'контур исполнения качества', state: 'wait' },
-] as const;
+const quality = DL_9106_ELEVATOR_RECEIVING.quality;
 
 const gates = [
   { title: 'Вес', value: 'отклонение -1,2 т', impact: 'создаёт удержание до акта расхождения', state: 'stop' },
