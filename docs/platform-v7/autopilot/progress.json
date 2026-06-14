@@ -2,10 +2,10 @@
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 88,
   "currentStep": "MASTER-ТЗ 3+ — supporting runtime docs (§8) + final readiness review (§41/§42) внесены; внутренний контур закрыт",
-  "lastCompletedStep": "M3-docs: runtime-architecture/money/document/evidence-dispute/compliance-fraud + adapter-contracts + mobile-field-qa + final-readiness",
+  "lastCompletedStep": "M3-3 (флагман): UX-gate — хвост Покупателя (журнал/маршруты/партии) свёрнут в Smart Collapse (§14)",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "M3-3: UX-gate сквозной аудит ролей (доводка; внутренний runtime уже closed)",
+  "nextStep": "M3-3 продолжение по ролям + M3-4 observability / M3-5 BI / M3-6 e2e",
   "updatedAt": "2026-06-14T02:30:00.000Z",
   "rules": {
     "noAppsLanding": true,
