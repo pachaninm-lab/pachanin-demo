@@ -6,6 +6,7 @@ import { ToastProvider } from '@/components/v7r/Toast';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
 import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
+import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { CommandPalette } from '@/components/platform-v7/CommandPalette';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
@@ -57,6 +58,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
       <AppShellV4 initialRole={initialRole}>
         <>
           <ScopedShellGuard />
+          <RbacCabinetGuard />
           <ShellCopyNormalizer />
           <SupportHeaderIcon />
           <CommandPalette />
