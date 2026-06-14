@@ -1,46 +1,88 @@
-import Link from 'next/link';
+import { CockpitHero, PremiumCtaButton, StatusPill } from '@/components/platform-v7/premium';
 
 const methods = [
-  { title: 'Вход через ЕСИА', note: 'Для компаний и пользователей, которым нужен подтверждённый государственный контур.', tone: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB' },
-  { title: 'Вход через СберБизнес ID', note: 'Для банкового контура, безопасной сделки, эскроу и факторинга.', tone: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  { title: 'Email + пароль', note: 'Резервный сценарий для демо, внутренних пользователей и предынтеграционного контура.', tone: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
+  {
+    title: 'Вход через ЕСИА',
+    note: 'Для компаний и пользователей с подтверждённой государственной учётной записью и ролью.',
+    tone: 'rgba(37,99,235,0.08)',
+    border: 'rgba(37,99,235,0.18)',
+    color: '#2563EB',
+  },
+  {
+    title: 'Вход через СберБизнес ID',
+    note: 'Для банковского контура: безопасная сделка, эскроу и факторинг. Внешнее подтверждение ожидает подключения.',
+    tone: 'rgba(10,122,95,0.08)',
+    border: 'rgba(10,122,95,0.18)',
+    color: '#0A7A5F',
+  },
+  {
+    title: 'Email и пароль',
+    note: 'Рабочий вход по логину и паролю для участников предынтеграционного контура.',
+    tone: 'rgba(180,83,9,0.08)',
+    border: 'rgba(180,83,9,0.18)',
+    color: '#B45309',
+  },
 ];
+
+const field: React.CSSProperties = {
+  minHeight: 46,
+  borderRadius: 12,
+  border: '1px solid var(--pc-prem-border, rgba(15,23,42,0.09))',
+  background: 'var(--pc-prem-surface, #fff)',
+  padding: '0 14px',
+  fontSize: 14,
+  color: 'var(--pc-prem-text, #0F1419)',
+  width: '100%',
+};
+const label: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: 'var(--pc-prem-text-muted, #64748B)' };
+const card: React.CSSProperties = {
+  background: 'var(--pc-prem-surface, #fff)',
+  border: '1px solid var(--pc-prem-border, rgba(15,23,42,0.09))',
+  borderRadius: 18,
+  padding: 18,
+  display: 'grid',
+  gap: 12,
+};
 
 export default function LoginPage() {
   return (
-    <div style={{ display: 'grid', gap: 18, maxWidth: 980 }}>
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 800, width: 'fit-content' }}>
-            Вход в платформу
-          </div>
-          <div style={{ fontSize: 30, lineHeight: 1.08, fontWeight: 800, color: '#0F1419' }}>Авторизация</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, maxWidth: 760 }}>
-            Выбери способ входа в зависимости от контура: ЕСИА для подтверждённой роли, СберБизнес ID для банкового слоя и email для демо или внутреннего доступа.
-          </div>
-        </div>
-      </section>
+    <main style={{ display: 'grid', gap: 16, maxWidth: 980, margin: '0 auto', padding: '8px 0 28px' }}>
+      <CockpitHero
+        eyebrow='Вход в платформу'
+        title='Войдите в свой'
+        accent='рабочий контур'
+        lead='После входа: роль → организация → личный кабинет → разрешённые действия. Способ входа зависит от контура: ЕСИА — подтверждённая роль, СберБизнес ID — банковский слой, email — участник контура.'
+        aside={<StatusPill tone='success'>Защищённый вход</StatusPill>}
+      />
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+      <section aria-label='Способы входа' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
         {methods.map((method) => (
-          <div key={method.title} style={{ background: '#fff', border: `1px solid ${method.border}`, borderRadius: 16, padding: 16, display: 'grid', gap: 10 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: method.tone, color: method.color, fontSize: 12, fontWeight: 800, width: 'fit-content' }}>{method.title}</div>
-            <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>{method.note}</div>
-            <button type="button" style={{ marginTop: 'auto', borderRadius: 12, padding: '10px 14px', background: '#0F1419', color: '#fff', border: '1px solid #0F1419', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Продолжить</button>
+          <div key={method.title} style={{ ...card, border: `1px solid ${method.border}` }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: method.tone, color: method.color, fontSize: 12, fontWeight: 800, width: 'fit-content' }}>
+              {method.title}
+            </span>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--pc-prem-text-muted, #64748B)', lineHeight: 1.55 }}>{method.note}</p>
+            <div style={{ marginTop: 'auto' }}>
+              <PremiumCtaButton href='/platform-v7/auth' variant='ghost'>Продолжить</PremiumCtaButton>
+            </div>
           </div>
         ))}
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1419' }}>Нет учётной записи?</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 6 }}>Создай компанию, подключи документы и банковый контур.</div>
+      <form aria-label='Вход по email и паролю' style={card}>
+        <span style={label}>Email</span>
+        <input style={field} type='email' name='email' placeholder='name@company.ru' autoComplete='email' />
+        <span style={label}>Пароль</span>
+        <input style={field} type='password' name='password' placeholder='••••••••' autoComplete='current-password' />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8, marginTop: 4 }}>
+          <PremiumCtaButton href='/platform-v7' glyph='shield-check'>Войти в кабинет</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/register' variant='ghost'>Регистрация компании</PremiumCtaButton>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Link href="/platform-v7/register" style={{ textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: '#0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>Регистрация</Link>
-          <Link href="/platform-v7/auth" style={{ textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: '#fff', color: '#0F1419', border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 13, fontWeight: 800 }}>Все способы входа</Link>
-        </div>
-      </section>
-    </div>
+      </form>
+
+      <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-prem-text-muted, #64748B)', lineHeight: 1.5 }}>
+        Внешние подтверждения (ЕСИА, банк) ожидают подключения. Вход в кабинет открывает роли только разрешённые действия.
+      </p>
+    </main>
   );
 }

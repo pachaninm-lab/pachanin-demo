@@ -2,10 +2,10 @@
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 82,
   "currentStep": "MASTER-ТЗ 3+ M3-0 — docs-only фиксация + gap-аудит (внутренний execution-контур в основном закрыт; остаток = доводка M3-1…M3-7 и live-интеграции)",
-  "lastCompletedStep": "MASTER-ТЗ 2: все VP-слои (VP-1…VP-8) закрыты + премиум визуальный редизайн кокпитов (PR #1761…#1768)",
+  "lastCompletedStep": "M3-1: Product Entry visual+binding — premium /register (поля + статусы заявки) и /login (без demo/pilot), §11",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "M3-1: Product Entry visual+binding (premium /register, /login, статусы заявки)",
+  "nextStep": "M3-2: наполнение Question Coverage Matrix + M3-3 UX-gate сквозной аудит",
   "updatedAt": "2026-06-14T02:30:00.000Z",
   "rules": {
     "noAppsLanding": true,
