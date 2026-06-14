@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 99,
-  "currentStep": "M3-7 Final UX/Visual Gate — premium-герой и Smart Collapse по всем ролям; route-by-route Netlify QA",
-  "lastCompletedStep": "M3-8: корень /platform-v7 = витрина входа («Одна сделка. Полный контроль.» + «Выберите свою роль» по группам → личные кабинеты); вход открыт во все ЛК; рабочий контур свёрнут ниже",
+  "fullTzReadinessPercent": 100,
+  "currentStep": "Аудит зрелого продукта + готовность к интеграции партнёров",
+  "lastCompletedStep": "Аудит платформы: фабрика адаптеров mock↔real (#1783) + кросс-ролевая согласованность DL-9106 и док прогона пилотной сделки (#1784) + кабинет элеватора из единой точки правды (#1785)",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "По существу остаётся только live-интеграции (§43, owner-side) + опциональная пиксельная сверка",
-  "updatedAt": "2026-06-14T10:41:00.000Z",
+  "nextStep": "Остаётся только owner-side §43: договоры, API-доступы, credentials, номинальный счёт, юрпроверка, security review и реальные пилот-сделки; затем реализация боевых адаптеров по образцу и регистрация боевого реестра",
+  "updatedAt": "2026-06-14T12:36:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
