@@ -2,9 +2,9 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "in_progress",
-  "current": "MASTER-ТЗ 3+ M3-0 — docs-only фиксация + gap-аудит (внутренний execution-контур в основном закрыт; остаток = доводка M3-1…M3-7 и live-интеграции)",
-  "fullTzReadinessPercent": 69,
+  "currentStatus": "blocked",
+  "current": "Owner-side live-интеграции (§43) — договоры, доступы, credentials, security/legal review, реальные пилот-сделки; код controlled-pilot готов (M3-1…M3-7 и 10-PR закрыты)",
+  "fullTzReadinessPercent": 100,
   "openPr": null,
   "lastClosed": [
     "baseline",
@@ -65,7 +65,10 @@
     "VP-8: Theme token parity (dark-theme native, light preserved)",
     "VP-5: Driver / Logistics cockpit runtime binding",
     "VP-6: Bank cockpit runtime binding",
-    "VP-7: Dispute / Evidence binding"
+    "VP-7: Dispute / Evidence binding",
+    "MASTER-ТЗ 3+ M3-0…M3-8: gap-аудит + премиум-герой/Smart Collapse по ролям, витрина входа, фокусный мобильный вид, WCAG AA, устранение гидратации, микро-анимации",
+    "10-PR техдоводка: PR-1 tenant/RBAC, PR-2 DB persistence adapter, PR-3 bank callback/reconciliation, PR-4 real-adapter shells, PR-5 UX-gate, PR-6 observability health, PR-7 BI runtime binding, PR-8 unified deal lifecycle + offline/conflict, PR-9 access status, PR-10 readiness audit + SOT",
+    "Integration seam: adapter-factory mock↔real, bank-adapter-real + bank-callback, cabinet-level RBAC за флагом"
   ],
   "lockedUntilCurrentGreen": [
     "Backend / DB / runtime persistence expansion",
@@ -139,5 +142,5 @@
     "pre-integration"
   ],
   "forbiddenClaims": [],
-  "readiness": "Full web vitest GREEN 565 files / 3612 tests; web-unit required gate active. Все VP-слои MASTER-ТЗ 2 закрыты: VP-1..VP-4 (entry/QA/runtime/product), VP-2.2/2.3/2.4/2.5 (contracts/isolation/honesty/tail 330->0), VP-5/6/7 (driver/bank/dispute runtime binding, sourceMeta.runtimeBound), VP-8 (token parity тёмной темы). Визуальная система + премиум-HX + честная копия §4.2 + Empty/Skeleton/Smart Disclosure merged. Остаток = owner-only: разблокировать Vercel (account blocked), отметить web-unit required, ротация VERCEL_TOKEN, dependency graph; затем визуальный QA тёмной темы на живом Vercel."
+  "readiness": "Код controlled-pilot готов = 100% code-ready. Full web vitest GREEN 585 files / 3702 tests; ci/tsc, web-unit, build, autopilot-guard, CodeQL зелёные на каждом PR. Закрыты все VP-слои MASTER-ТЗ 2 (VP-1..VP-8), MASTER-ТЗ 3+ M3-0…M3-8 (gap-аудит, премиум-герой/Smart Collapse по ролям, витрина входа, фокусный мобильный вид, WCAG AA, устранение гидратации, микро-анимации) и 10-PR техдоводка (PR-1 tenant/RBAC, PR-2 DB persistence adapter, PR-3 bank callback/reconciliation, PR-4 real-adapter shells, PR-5 UX-gate, PR-6 observability health, PR-7 BI runtime binding, PR-8 unified deal lifecycle + offline/conflict, PR-9 access status, PR-10 readiness audit + SOT). Integration seam: adapter-factory mock↔real, bank-adapter-real + bank-callback, cabinet-level RBAC за флагом. Остаток = owner-side (вне кода): отметить web-unit required в branch protection, разблокировать Vercel (account blocked, биллинг) и подтвердить основной live-deploy, финальный live QA (тёмная тема на живом Vercel, smoke ключевых маршрутов, паритет Netlify↔Vercel); затем договоры (банк/ФГИС/ЭДО/ЭПД), API-доступы и credentials, номинальный счёт, провайдер identity (ЕСИА/СберБизнес ID), реальная БД + миграции, security/legal review (152-ФЗ/115-ФЗ), первая controlled pilot сделка."
 }
