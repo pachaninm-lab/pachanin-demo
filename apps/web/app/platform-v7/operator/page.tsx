@@ -179,7 +179,7 @@ function BlockerRow({ item }: { item: typeof STATIC_BLOCKERS[number] }) {
           <h2 style={h2}>{item.reason}</h2>
           <p style={muted}>{item.source}</p>
         </div>
-        <span style={{ ...pill, color: stop ? '#B91C1C' : '#B45309', borderColor: stop ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)', background: '#fff' }}>{stop ? 'останавливает деньги' : 'ждёт подтверждения'}</span>
+        <span style={{ ...pill, color: stop ? '#B91C1C' : '#B45309', borderColor: stop ? 'rgba(220,38,38,0.18)' : 'rgba(217,119,6,0.18)', background: 'var(--pc-bg-card)' }}>{stop ? 'останавливает деньги' : 'ждёт подтверждения'}</span>
       </div>
       <div style={grid2}>
         <Cell label='Сумма влияния' value={item.amount} danger={stop} />
@@ -199,9 +199,9 @@ function Cell({ label, value, strong = false, danger = false }: { label: string;
   return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.25, fontWeight: 900 }}>{value}</div></div>;
 }
 
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 22, display: 'grid', gap: 12 } as const;
-const card = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
-const metric = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 } as const;
+const hero = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 22, display: 'grid', gap: 12 } as const;
+const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
+const metric = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 } as const;
 const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
 const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 20, lineHeight: 1.08, fontWeight: 950 } as const;
@@ -212,9 +212,9 @@ const idText = { color: '#0A7A5F', fontSize: 13, fontWeight: 950 } as const;
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
-const cell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 13, padding: 10, minWidth: 0 } as const;
+const cell = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 13, padding: 10, minWidth: 0 } as const;
 const pill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 12, fontWeight: 900 } as const;
 const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850 } as const;
-const quickLink = { textDecoration: 'none', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 6 } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850 } as const;
+const quickLink = { textDecoration: 'none', background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 6 } as const;

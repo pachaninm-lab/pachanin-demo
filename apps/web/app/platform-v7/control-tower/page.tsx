@@ -179,15 +179,15 @@ export default function PlatformV7ControlTowerPage() {
     <>
       <style dangerouslySetInnerHTML={{ __html: `
         .ct-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
-        .ct-priority{background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%);border:1px solid #D7DEE3;border-radius:26px;padding:20px;display:grid;gap:16px;box-shadow:0 18px 44px rgba(15,23,42,.07)}
+        .ct-priority{background:var(--pc-bg-card);border:1px solid var(--pc-border, #E4E6EA);border-radius:26px;padding:20px;display:grid;gap:16px;box-shadow:0 18px 44px rgba(15,23,42,.07)}
         .ct-priority-main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:16px;align-items:stretch}
-        .ct-priority-panel{border:1px solid var(--pc-border, #E4E6EA);border-radius:22px;background:#fff;padding:16px;display:grid;gap:10px;box-shadow:0 10px 26px rgba(15,23,42,.045)}
-        .ct-metric{background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%);border:1px solid var(--pc-border, #E4E6EA);border-radius:20px;padding:16px;display:block;text-decoration:none;color:inherit;box-shadow:0 12px 28px rgba(15,23,42,.05)}
+        .ct-priority-panel{border:1px solid var(--pc-border, #E4E6EA);border-radius:22px;background:var(--pc-bg-card);padding:16px;display:grid;gap:10px;box-shadow:0 10px 26px rgba(15,23,42,.045)}
+        .ct-metric{background:var(--pc-bg-card);border:1px solid var(--pc-border, #E4E6EA);border-radius:20px;padding:16px;display:block;text-decoration:none;color:inherit;box-shadow:0 12px 28px rgba(15,23,42,.05)}
         .ct-metric-title{font-size:11px;color:var(--pc-text-muted, #6B778C);font-weight:850;text-transform:uppercase;letter-spacing:.07em}
         .ct-metric-value{margin-top:8px;font-size:28px;line-height:1.05;font-weight:950;color:var(--pc-text-primary, #0F1419);letter-spacing:-.035em}
         .ct-metric-note{margin-top:9px;font-size:12px;color:var(--pc-text-muted, #6B778C);line-height:1.5}
-        .ct-queue{background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%);border:1px solid var(--pc-border, #E4E6EA);border-radius:24px;padding:16px;display:grid;gap:10px;box-shadow:0 14px 34px rgba(15,23,42,.055)}
-        .ct-queue-item{border:1px solid var(--pc-border, #E4E6EA);border-radius:18px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.04)}
+        .ct-queue{background:var(--pc-bg-card);border:1px solid var(--pc-border, #E4E6EA);border-radius:24px;padding:16px;display:grid;gap:10px;box-shadow:0 14px 34px rgba(15,23,42,.055)}
+        .ct-queue-item{border:1px solid var(--pc-border, #E4E6EA);border-radius:18px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--pc-bg-card);box-shadow:0 8px 20px rgba(15,23,42,.04)}
         .ct-queue-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
         .ct-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
         .ct-title{font-size:19px;font-weight:900;color:var(--pc-text-primary, #0F1419);letter-spacing:-.02em}
@@ -340,7 +340,7 @@ export default function PlatformV7ControlTowerPage() {
               <div style={micro}>Журнал инцидентов</div>
               {health.incidents.length ? (
                 health.incidents.map((inc) => (
-                  <div key={inc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff' }}>
+                  <div key={inc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: 'var(--pc-bg-card)' }}>
                     <StatusPill tone={healthTone(inc.severity)}>{inc.severity === 'critical' ? 'critical' : 'warning'}</StatusPill>
                     <span style={{ fontSize: 13, color: 'var(--pc-text-secondary, #334155)' }}>{inc.message}</span>
                   </div>
@@ -369,7 +369,7 @@ function PriorityCard({ label, item }: { label: string; item?: ReturnType<typeof
 }
 
 function Metric({ title, value, note, href, tone = 'default' }: { title: string; value: string; note: string; href: string; tone?: 'default' | 'red' | 'green' }) {
-  const bg = tone === 'red' ? 'linear-gradient(180deg,#FEF2F2 0%,#FFFFFF 100%)' : tone === 'green' ? 'linear-gradient(180deg,#F0FDF4 0%,#FFFFFF 100%)' : 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)';
+  const bg = tone === 'red' ? 'linear-gradient(180deg,#FEF2F2 0%,#FFFFFF 100%)' : tone === 'green' ? 'linear-gradient(180deg,#F0FDF4 0%,#FFFFFF 100%)' : 'var(--pc-bg-card)';
   const border = tone === 'red' ? '#FECACA' : tone === 'green' ? '#BBF7D0' : 'var(--pc-border, #E4E6EA)';
   return <Link href={href} className='ct-metric' style={{ background:bg, borderColor:border }}><div className='ct-metric-title'>{title}</div><div className='ct-metric-value'>{value}</div><div className='ct-metric-note'>{note}</div></Link>;
 }
@@ -388,7 +388,7 @@ function MoneyBar({ label, value, max, tone }: { label: string; value: number; m
         <span style={{ fontSize:13, fontWeight:750, color:'var(--pc-text-primary, #0F1419)' }}>{label}</span>
         <span style={{ fontSize:12, color:'var(--pc-text-muted, #6B778C)' }}>{formatCompactMoney(value)}</span>
       </div>
-      <div style={{ height:10, borderRadius:999, background:'#F1F5F9', overflow:'hidden', boxShadow:'inset 0 1px 2px rgba(15,23,42,.05)' }}>
+      <div style={{ height:10, borderRadius:999, background:'var(--pc-bg-subtle)', overflow:'hidden', boxShadow:'inset 0 1px 2px rgba(15,23,42,.05)' }}>
         <div style={{ width:`${width}%`, height:'100%', background:color, borderRadius:999 }} />
       </div>
     </div>
@@ -396,13 +396,13 @@ function MoneyBar({ label, value, max, tone }: { label: string; value: number; m
 }
 
 function Signal({ title, detail, href }: { title: string; detail: string; href: string }) {
-  return <Link href={href} style={{ textDecoration:'none', borderRadius:16, padding:14, background:'#fff', border:'1px solid var(--pc-border, #E4E6EA)', display:'grid', gap:6, boxShadow:'0 8px 20px rgba(15,23,42,.04)' }}><div style={{ fontSize:14, fontWeight:900, color:'var(--pc-text-primary, #0F1419)' }}>{title}</div><div style={{ fontSize:12, color:'var(--pc-text-muted, #6B778C)', lineHeight:1.45 }}>{detail}</div></Link>;
+  return <Link href={href} style={{ textDecoration:'none', borderRadius:16, padding:14, background:'var(--pc-bg-card)', border:'1px solid var(--pc-border, #E4E6EA)', display:'grid', gap:6, boxShadow:'0 8px 20px rgba(15,23,42,.04)' }}><div style={{ fontSize:14, fontWeight:900, color:'var(--pc-text-primary, #0F1419)' }}>{title}</div><div style={{ fontSize:12, color:'var(--pc-text-muted, #6B778C)', lineHeight:1.45 }}>{detail}</div></Link>;
 }
 
 function btn(kind: 'default' | 'primary' | 'danger' = 'default') {
   if (kind === 'primary') return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'#0A7A5F', border:'1px solid #0A7A5F', color:'#fff', fontWeight:800, fontSize:12, boxShadow:'0 10px 22px rgba(10,122,95,.18)' };
   if (kind === 'danger') return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'rgba(220,38,38,0.08)', border:'1px solid rgba(220,38,38,0.18)', color:'#B91C1C', fontWeight:800, fontSize:12 };
-  return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'#fff', border:'1px solid var(--pc-border, #E4E6EA)', color:'var(--pc-text-primary, #0F1419)', fontWeight:800, fontSize:12, boxShadow:'0 8px 18px rgba(15,23,42,.04)' };
+  return { textDecoration:'none', borderRadius:12, padding:'9px 12px', background:'var(--pc-bg-card)', border:'1px solid var(--pc-border, #E4E6EA)', color:'var(--pc-text-primary, #0F1419)', fontWeight:800, fontSize:12, boxShadow:'0 8px 18px rgba(15,23,42,.04)' };
 }
 
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;

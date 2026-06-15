@@ -12,6 +12,13 @@ const TOKENIZED_FILES = [
   '../../app/platform-v7/elevator/page.tsx',
   '../../app/platform-v7/disputes/page.tsx',
   '../../app/platform-v7/driver/page.tsx',
+  '../../app/platform-v7/control-tower/page.tsx',
+  '../../app/platform-v7/seller/page.tsx',
+  '../../app/platform-v7/operator/page.tsx',
+  '../../app/platform-v7/logistics/page.tsx',
+  '../../app/platform-v7/buyer/page.tsx',
+  '../../app/platform-v7/surveyor/page.tsx',
+  '../../app/platform-v7/lab/page.tsx',
   '../../components/platform-v7/MoneyGateCard.tsx',
   '../../components/platform-v7/P7BankPaymentBasisRuntimePanel.tsx',
 ];
