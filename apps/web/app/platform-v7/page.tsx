@@ -1,6 +1,4 @@
 import Link from 'next/link';
-import { getPlatformV7EntryCockpitState } from '@/lib/platform-v7/runtime/entry-cockpit-state';
-import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { PLATFORM_V7_ROLE_GROUPS, platformV7RolesByGroup } from '@/lib/platform-v7/role-directory';
 
 const preferredRoleTitles = [
@@ -21,15 +19,12 @@ const preferredRoleTitles = [
 const navItems = [
   { label: 'Главная', href: '/platform-v7', icon: '⌂', active: true },
   { label: 'Сделки', href: '/platform-v7/deals', icon: '□', active: false },
-  { label: 'Уведомления', href: '/platform-v7/notifications', icon: '◌', active: false },
-  { label: 'Чаты', href: '/platform-v7/support', icon: '◍', active: false },
-  { label: 'Профиль', href: '/platform-v7/profile', icon: '○', active: false },
+  { label: 'Уведомления', href: '/platform-v7/notifications', icon: '○', active: false },
+  { label: 'Чаты', href: '/platform-v7/support', icon: '◌', active: false },
+  { label: 'Профиль', href: '/platform-v7/profile', icon: '◯', active: false },
 ] as const;
 
 export default function PlatformV7RootPage() {
-  const cockpit = getPlatformV7EntryCockpitState();
-  const primary = cockpit.primaryBlocker;
-  const money = cockpit.lanes.find((item) => item.label === 'Деньги');
   const allRoles = PLATFORM_V7_ROLE_GROUPS.flatMap((group) => platformV7RolesByGroup(group));
   const orderedRoles = preferredRoleTitles
     .map((title) => allRoles.find((role) => role.title === title))
@@ -38,64 +33,64 @@ export default function PlatformV7RootPage() {
   const secondaryRoles = orderedRoles.slice(8);
 
   return (
-    <main data-testid='platform-v7-root-execution-cockpit' style={page}>
-      <section aria-label='Мобильный вход в платформу' style={phoneSurface}>
-        <div aria-hidden='true' style={backgroundImage}>
-          <div style={fieldBand} />
-          <div style={elevatorShape} />
-          <div style={routeLine} />
-          <div style={truckShape} />
-        </div>
-        <div aria-hidden='true' style={softOverlay} />
+    <main data-testid='platform-v7-root-execution-cockpit' className='pc-v7-entry-page'>
+      <style>{entryCss}</style>
 
-        <header style={topBar}>
-          <Link href='/platform-v7' style={brandLink} aria-label='Прозрачная Цена'>
-            <span style={logoMark}>
-              <span style={logoLetter}>П</span>
-              <span style={logoChart} />
+      <section aria-label='Главная страница Прозрачной Цены' className='pc-v7-entry-shell'>
+        <div aria-hidden='true' className='pc-v7-bg pc-v7-bg-field' />
+        <div aria-hidden='true' className='pc-v7-bg pc-v7-bg-elevator' />
+        <div aria-hidden='true' className='pc-v7-bg pc-v7-bg-route' />
+        <div aria-hidden='true' className='pc-v7-bg pc-v7-bg-truck' />
+        <div aria-hidden='true' className='pc-v7-bg-soft' />
+
+        <header className='pc-v7-brand-row'>
+          <Link href='/platform-v7' className='pc-v7-brand' aria-label='Прозрачная Цена'>
+            <span className='pc-v7-logo' aria-hidden='true'>
+              <span className='pc-v7-logo-letter'>П</span>
+              <span className='pc-v7-logo-line' />
             </span>
-            <span style={brandName}>Прозрачная Цена</span>
+            <span className='pc-v7-brand-name'>Прозрачная Цена</span>
           </Link>
-          <Link href='/platform-v7/notifications' style={bellLink} aria-label='Уведомления'>
-            <span style={bellDot} />
+          <Link href='/platform-v7/notifications' className='pc-v7-notify' aria-label='Уведомления'>
+            <span className='pc-v7-notify-dot' />
             <span aria-hidden='true'>♧</span>
           </Link>
         </header>
 
-        <section aria-label='Главное действие' style={heroSection}>
-          <h1 style={heroTitle}>
+        <section aria-label='Главное действие' className='pc-v7-hero'>
+          <h1 className='pc-v7-title'>
             <span>Одна сделка.</span>
-            <span style={heroAccent}>Полный контроль.</span>
+            <span className='pc-v7-title-accent'>Полный контроль.</span>
           </h1>
-          <p style={heroLead}>Качество, логистика, документы и деньги — в одном прозрачном процессе.</p>
-          <Link href='/platform-v7/seller/batches/new' style={primaryCta}>
+          <p className='pc-v7-lead'>Качество, логистика, документы и деньги — в одном прозрачном процессе.</p>
+          <Link href='/platform-v7/seller/batches/new' className='pc-v7-cta'>
             <span>Создать сделку</span>
-            <span aria-hidden='true' style={ctaArrow}>→</span>
+            <span aria-hidden='true'>→</span>
           </Link>
         </section>
 
-        <section aria-label='Выберите свою роль' style={roleSection}>
-          <h2 style={roleSectionTitle}>Выберите свою роль</h2>
-          <div style={mobileRoleGrid}>
+        <section aria-label='Выберите свою роль' className='pc-v7-role-section'>
+          <h2 className='pc-v7-section-title'>Выберите свою роль</h2>
+          <div className='pc-v7-role-grid'>
             {visibleRoles.map((role) => (
-              <Link key={role.href} href={role.href} style={mobileRoleCard}>
-                <RoleGlyph title={role.title} tone='#008B2E' />
-                <strong style={mobileRoleTitle}>{role.title}</strong>
-                <span style={mobileRoleText}>{shortRoleFocus(role.title)}</span>
+              <Link key={role.href} href={role.href} className='pc-v7-role-card'>
+                <RoleGlyph title={role.title} />
+                <strong>{role.title}</strong>
+                <span>{shortRoleFocus(role.title)}</span>
               </Link>
             ))}
           </div>
 
           {secondaryRoles.length ? (
-            <details style={moreRoles}>
-              <summary style={moreRolesSummary}>Ещё роли исполнения и контроля</summary>
-              <div style={secondaryRoleGrid}>
+            <details className='pc-v7-more-roles'>
+              <summary>Ещё роли</summary>
+              <div className='pc-v7-more-grid'>
                 {secondaryRoles.map((role) => (
-                  <Link key={role.href} href={role.href} style={secondaryRoleCard}>
-                    <span style={{ ...secondaryRoleDot, background: role.tone }} />
-                    <span style={secondaryRoleBody}>
-                      <strong style={secondaryRoleTitle}>{role.title}</strong>
-                      <span style={secondaryRoleText}>{role.focus}</span>
+                  <Link key={role.href} href={role.href} className='pc-v7-more-role'>
+                    <span className='pc-v7-more-dot' style={{ background: role.tone }} />
+                    <span>
+                      <strong>{role.title}</strong>
+                      <small>{role.focus}</small>
                     </span>
                   </Link>
                 ))}
@@ -104,225 +99,189 @@ export default function PlatformV7RootPage() {
           ) : null}
         </section>
 
-        <section aria-label='Прозрачность на каждом этапе' style={trustBanner}>
-          <div style={trustShield}>✓</div>
-          <div style={trustCopy}>
-            <strong style={trustTitle}>Прозрачность на каждом этапе</strong>
-            <span style={trustText}>Участники видят свой статус, блокеры, документы и следующее действие.</span>
-          </div>
-          <div aria-hidden='true' style={trustChart}>
-            <span />
-            <span />
-            <span />
-          </div>
+        <section aria-label='Прозрачность исполнения' className='pc-v7-trust'>
+          <span className='pc-v7-shield' aria-hidden='true'>✓</span>
+          <span className='pc-v7-trust-copy'>
+            <strong>Прозрачность на каждом этапе</strong>
+            <small>Статус, блокер, документ, ответственный и следующее действие — в одном контуре.</small>
+          </span>
+          <span className='pc-v7-mini-flow' aria-hidden='true'>
+            <i />
+            <i />
+            <i />
+          </span>
         </section>
 
-        <nav aria-label='Основная навигация' style={bottomNav}>
+        <nav aria-label='Основная навигация' className='pc-v7-bottom-tabs'>
           {navItems.map((item) => (
-            <Link key={item.label} href={item.href} style={item.active ? bottomNavItemActive : bottomNavItem}>
-              <span style={bottomNavIcon}>{item.icon}</span>
-              <span>{item.label}</span>
+            <Link key={item.label} href={item.href} className={item.active ? 'active' : undefined}>
+              <span aria-hidden='true'>{item.icon}</span>
+              <small>{item.label}</small>
             </Link>
           ))}
         </nav>
       </section>
-
-      <section style={pathCard} aria-label='Путь исполнения сделки'>
-        {cockpit.executionPath.map((step, index) => (
-          <div key={step} style={pathStep}>
-            <span style={pathNumber}>{index + 1}</span>
-            <span style={pathText}>{step}</span>
-          </div>
-        ))}
-      </section>
-
-      <CollapsibleSection title='Рабочий контур — От причины к деньгам за один экран' summary='деньги · блокеры · ответственный' defaultOpen={false}>
-        <div style={{ display: 'grid', gap: 14 }}>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={moneyCard}>
-              <span style={cardLabel}>Остановлено сейчас</span>
-              <strong style={moneyValue}>{money?.value ?? '0 ₽'}</strong>
-              <span style={cardText}>{money?.state ?? 'нет активных стопов'}</span>
-            </div>
-            <div style={maturityCard}>
-              <strong style={maturityTitle}>Контролируемый предпилотный контур</strong>
-              <span style={cardText}>{cockpit.maturityNotice}</span>
-            </div>
-            <div style={{ flex: '1 1 240px', minWidth: 220 }}>
-              {primary ? (
-                <Link href={primary.href} style={controlAction}>Открыть главный блокер</Link>
-              ) : (
-                <span style={disabledAction}>Нет активных стопов</span>
-              )}
-            </div>
-          </div>
-
-          <section style={workGrid} aria-label='Очередь блокеров и ролевой вход'>
-            <section style={panel} aria-label='Очередь блокеров'>
-              <div style={sectionHead}>
-                <div>
-                  <div style={eyebrow}>Очередь снятия</div>
-                  <h2 style={h2}>{cockpit.blockers.length ? '3 действия вместо длинной ленты' : 'Нет активных стопов'}</h2>
-                </div>
-                <Link href='/platform-v7/control-tower' style={ghostAction}>Центр управления</Link>
-              </div>
-              {cockpit.blockers.length ? cockpit.blockers.map((item, index) => (
-                <Link key={item.id} href={item.href} style={{ ...blockerCard, borderColor: toneBorder(item.tone), background: toneBg(item.tone) }}>
-                  <span style={rank}>#{index + 1}</span>
-                  <span style={blockerBody}>
-                    <strong style={blockerTitle}>{item.id} · {item.title}</strong>
-                    <span style={cardText}>{item.cause}</span>
-                    <span style={cardText}>Держит: {item.money} · Ответственный: {item.owner}</span>
-                  </span>
-                  <span style={{ ...dot, background: toneDot(item.tone) }} />
-                </Link>
-              )) : <div style={emptyState}>Нет активных стопов по текущему контуру.</div>}
-            </section>
-
-            <section style={panel} aria-label='Ролевой вход'>
-              <div style={eyebrow}>Ролевой вход</div>
-              <h2 style={h2}>Каждая сторона видит своё действие</h2>
-              {cockpit.roleEntrypoints.map((item) => (
-                <Link key={item.role} href={item.href} style={roleCard}>
-                  <strong style={roleTitle}>{item.role}</strong>
-                  <span style={cardText}>{item.focus}</span>
-                  <span style={roleAction}>{item.action}</span>
-                </Link>
-              ))}
-            </section>
-          </section>
-        </div>
-      </CollapsibleSection>
     </main>
   );
 }
 
 function shortRoleFocus(title: string) {
-  if (title === 'Продавец') return 'Размещайте партии и управляйте сделками';
-  if (title === 'Покупатель') return 'Находите партии и заключайте сделки';
-  if (title === 'Логистика') return 'Организуйте перевозки и маршруты';
-  if (title === 'Водитель') return 'Выполняйте рейсы и загрузки';
-  if (title === 'Банк') return 'Проверяйте основание для расчётов';
-  if (title === 'Сюрвейер') return 'Проводите осмотры и экспертизы';
-  if (title === 'Оператор') return 'Сопровождайте сделки и участников';
-  if (title === 'Руководитель') return 'Контролируйте процессы и аналитику';
-  return 'Откройте свой контур действий';
+  if (title === 'Продавец') return 'Партии и сделки';
+  if (title === 'Покупатель') return 'Закупка и приёмка';
+  if (title === 'Логистика') return 'Рейсы и маршруты';
+  if (title === 'Водитель') return 'Рейс и загрузка';
+  if (title === 'Банк') return 'Основание расчёта';
+  if (title === 'Сюрвейер') return 'Осмотр и акт';
+  if (title === 'Оператор') return 'Блокеры сделки';
+  if (title === 'Руководитель') return 'Контроль и деньги';
+  return 'Контур действий';
 }
 
-function RoleGlyph({ title, tone }: { readonly title: string; readonly tone: string }) {
+function RoleGlyph({ title }: { readonly title: string }) {
+  const tone = '#008B2E';
   if (title === 'Продавец') {
-    return <svg viewBox='0 0 40 40' style={roleIconSvg} aria-hidden='true'><path d='M31 9C18 10 9 18 9 31c13-1 22-9 22-22Z' fill='none' stroke={tone} strokeWidth='2.8' /><path d='M12 28 28 12' stroke={tone} strokeWidth='2.6' strokeLinecap='round' /></svg>;
+    return <svg viewBox='0 0 40 40' aria-hidden='true'><path d='M31 9C18 10 9 18 9 31c13-1 22-9 22-22Z' fill='none' stroke={tone} strokeWidth='2.8' /><path d='M12 28 28 12' stroke={tone} strokeWidth='2.6' strokeLinecap='round' /></svg>;
   }
   if (title === 'Покупатель') {
-    return <svg viewBox='0 0 40 40' style={roleIconSvg} aria-hidden='true'><path d='M10 12h4l3 15h13l3-10H16' fill='none' stroke={tone} strokeWidth='2.8' strokeLinecap='round' strokeLinejoin='round' /><circle cx='19' cy='32' r='2' fill={tone} /><circle cx='30' cy='32' r='2' fill={tone} /></svg>;
+    return <svg viewBox='0 0 40 40' aria-hidden='true'><path d='M10 12h4l3 15h13l3-10H16' fill='none' stroke={tone} strokeWidth='2.8' strokeLinecap='round' strokeLinejoin='round' /><circle cx='19' cy='32' r='2' fill={tone} /><circle cx='30' cy='32' r='2' fill={tone} /></svg>;
   }
   if (title === 'Логистика') {
-    return <svg viewBox='0 0 40 40' style={roleIconSvg} aria-hidden='true'><path d='M8 14h17v14H8Z' fill='none' stroke={tone} strokeWidth='2.8' /><path d='M25 18h5l4 5v5h-9Z' fill='none' stroke={tone} strokeWidth='2.8' strokeLinejoin='round' /><circle cx='15' cy='31' r='2' fill={tone} /><circle cx='30' cy='31' r='2' fill={tone} /></svg>;
+    return <svg viewBox='0 0 40 40' aria-hidden='true'><path d='M8 14h17v14H8Z' fill='none' stroke={tone} strokeWidth='2.8' /><path d='M25 18h5l4 5v5h-9Z' fill='none' stroke={tone} strokeWidth='2.8' strokeLinejoin='round' /><circle cx='15' cy='31' r='2' fill={tone} /><circle cx='30' cy='31' r='2' fill={tone} /></svg>;
   }
   if (title === 'Водитель') {
-    return <svg viewBox='0 0 40 40' style={roleIconSvg} aria-hidden='true'><circle cx='20' cy='20' r='14' fill='none' stroke={tone} strokeWidth='2.8' /><circle cx='20' cy='20' r='4' fill='none' stroke={tone} strokeWidth='2.8' /><path d='M9 20h9m4 0h9M20 9v7m0 8v7' stroke={tone} strokeWidth='2.5' strokeLinecap='round' /></svg>;
+    return <svg viewBox='0 0 40 40' aria-hidden='true'><circle cx='20' cy='20' r='14' fill='none' stroke={tone} strokeWidth='2.8' /><circle cx='20' cy='20' r='4' fill='none' stroke={tone} strokeWidth='2.8' /><path d='M9 20h9m4 0h9M20 9v7m0 8v7' stroke={tone} strokeWidth='2.5' strokeLinecap='round' /></svg>;
   }
   if (title === 'Банк') {
-    return <svg viewBox='0 0 40 40' style={roleIconSvg} aria-hidden='true'><path d='M7 17 20 9l13 8Z' fill='none' stroke={tone} strokeWidth='2.8' strokeLinejoin='round' /><path d='M10 18v12m7-12v12m7-12v12m7-12v12M7 31h26' stroke={tone} strokeWidth='2.6' strokeLinecap='round' /></svg>;
+    return <svg viewBox='0 0 40 40' aria-hidden='true'><path d='M7 17 20 9l13 8Z' fill='none' stroke={tone} strokeWidth='2.8' strokeLinejoin='round' /><path d='M10 18v12m7-12v12m7-12v12m7-12v12M7 31h26' stroke={tone} strokeWidth='2.6' strokeLinecap='round' /></svg>;
   }
   if (title === 'Сюрвейер') {
-    return <svg viewBox='0 0 40 40' style={roleIconSvg} aria-hidden='true'><path d='M20 7 31 12v8c0 8-5 12-11 14-6-2-11-6-11-14v-8Z' fill='none' stroke={tone} strokeWidth='2.8' /><path d='m14 20 4 4 8-9' fill='none' stroke={tone} strokeWidth='2.8' strokeLinecap='round' strokeLinejoin='round' /></svg>;
+    return <svg viewBox='0 0 40 40' aria-hidden='true'><path d='M20 7 31 12v8c0 8-5 12-11 14-6-2-11-6-11-14v-8Z' fill='none' stroke={tone} strokeWidth='2.8' /><path d='m14 20 4 4 8-9' fill='none' stroke={tone} strokeWidth='2.8' strokeLinecap='round' strokeLinejoin='round' /></svg>;
   }
   if (title === 'Оператор') {
-    return <svg viewBox='0 0 40 40' style={roleIconSvg} aria-hidden='true'><path d='M10 24v-5a10 10 0 0 1 20 0v5' fill='none' stroke={tone} strokeWidth='2.8' strokeLinecap='round' /><path d='M10 24h5v8h-5Zm15 0h5v8h-5Z' fill='none' stroke={tone} strokeWidth='2.8' /><path d='M25 32h-5' stroke={tone} strokeWidth='2.6' strokeLinecap='round' /></svg>;
+    return <svg viewBox='0 0 40 40' aria-hidden='true'><path d='M10 24v-5a10 10 0 0 1 20 0v5' fill='none' stroke={tone} strokeWidth='2.8' strokeLinecap='round' /><path d='M10 24h5v8h-5Zm15 0h5v8h-5Z' fill='none' stroke={tone} strokeWidth='2.8' /></svg>;
   }
-  return <svg viewBox='0 0 40 40' style={roleIconSvg} aria-hidden='true'><circle cx='20' cy='13' r='5' fill='none' stroke={tone} strokeWidth='2.8' /><path d='M10 32c2-7 18-7 20 0' fill='none' stroke={tone} strokeWidth='2.8' strokeLinecap='round' /></svg>;
+  return <svg viewBox='0 0 40 40' aria-hidden='true'><circle cx='20' cy='13' r='5' fill='none' stroke={tone} strokeWidth='2.8' /><path d='M10 32c2-7 18-7 20 0' fill='none' stroke={tone} strokeWidth='2.8' strokeLinecap='round' /></svg>;
 }
 
-function toneBorder(tone: string) {
-  if (tone === 'red') return '#FECACA';
-  if (tone === 'amber') return '#FED7AA';
-  return '#BFDBFE';
+const entryCss = `
+.pc-v7-entry-page {
+  width: 100%;
+  min-width: 0;
+  padding: 14px 12px 28px;
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(180deg, #F8FAF7 0%, #FFFFFF 100%);
 }
-
-function toneBg(tone: string) {
-  if (tone === 'red') return 'linear-gradient(180deg,#FFF7F7 0%,#FFFFFF 100%)';
-  if (tone === 'amber') return 'linear-gradient(180deg,#FFFBEB 0%,#FFFFFF 100%)';
-  return 'linear-gradient(180deg,#EFF6FF 0%,#FFFFFF 100%)';
+.pc-v7-entry-shell {
+  position: relative;
+  overflow: hidden;
+  width: min(100%, 440px);
+  border-radius: 30px;
+  border: 1px solid rgba(0, 139, 46, .10);
+  background: #fff;
+  box-shadow: 0 24px 72px rgba(15, 23, 42, .10);
+  padding: 22px 16px 12px;
+  display: grid;
+  gap: 18px;
 }
-
-function toneDot(tone: string) {
-  if (tone === 'red') return '#DC2626';
-  if (tone === 'amber') return '#D97706';
-  return '#2563EB';
+.pc-v7-bg { position: absolute; pointer-events: none; opacity: .055; filter: blur(.35px); }
+.pc-v7-bg-field {
+  left: -80px;
+  right: -80px;
+  bottom: 70px;
+  height: 210px;
+  transform: rotate(-5deg);
+  background: repeating-linear-gradient(105deg, rgba(0,139,46,.78) 0 18px, rgba(198,147,32,.58) 18px 36px);
 }
-
-const page = { display: 'grid', gap: 16, padding: '0 0 28px', justifyItems: 'center' } as const;
-const phoneSurface = { position: 'relative', overflow: 'hidden', width: 'min(100%, 430px)', minHeight: 'min(900px, 100dvh)', borderRadius: 34, padding: '20px 16px 0', background: '#FFFFFF', border: '1px solid rgba(15,23,42,.08)', boxShadow: '0 30px 90px rgba(15,23,42,.14)', display: 'grid', alignContent: 'start', gap: 20 } as const;
-const backgroundImage = { position: 'absolute', inset: 0, opacity: .06, filter: 'blur(.2px)', pointerEvents: 'none' } as const;
-const fieldBand = { position: 'absolute', left: -40, right: -40, bottom: 76, height: 220, background: 'repeating-linear-gradient(108deg, rgba(0,139,46,.55) 0 18px, rgba(236,172,31,.42) 18px 36px)', transform: 'rotate(-4deg)' } as const;
-const elevatorShape = { position: 'absolute', right: 26, top: 92, width: 126, height: 180, borderRadius: 22, background: 'linear-gradient(180deg, rgba(15,23,42,.35), rgba(15,23,42,.10))', clipPath: 'polygon(18% 100%,18% 28%,30% 28%,30% 12%,70% 12%,70% 28%,82% 28%,82% 100%)' } as const;
-const routeLine = { position: 'absolute', left: 44, right: 34, top: 248, height: 150, borderTop: '10px solid rgba(0,139,46,.7)', borderRight: '10px solid rgba(0,139,46,.45)', borderRadius: '0 80px 0 0', transform: 'rotate(-10deg)' } as const;
-const truckShape = { position: 'absolute', left: 28, bottom: 168, width: 92, height: 44, borderRadius: 12, background: 'rgba(15,23,42,.28)', boxShadow: '68px 9px 0 -12px rgba(15,23,42,.24)' } as const;
-const softOverlay = { position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(255,255,255,.96) 0%, rgba(255,255,255,.92) 42%, rgba(250,253,250,.94) 100%)', pointerEvents: 'none' } as const;
-const topBar = { position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 } as const;
-const brandLink = { textDecoration: 'none', color: '#071A16', display: 'inline-flex', alignItems: 'center', gap: 12, minWidth: 0 } as const;
-const logoMark = { width: 46, height: 46, borderRadius: 13, background: 'linear-gradient(145deg,#0C1F1B 0%,#173D35 58%,#E7FFF0 100%)', boxShadow: '0 10px 22px rgba(0,139,46,.20)', position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flex: '0 0 auto' } as const;
-const logoLetter = { color: '#FFFFFF', fontSize: 27, lineHeight: 1, fontWeight: 950, letterSpacing: '-.08em' } as const;
-const logoChart = { position: 'absolute', left: 10, right: 8, bottom: 10, height: 18, borderLeft: '2px solid rgba(255,255,255,.78)', borderBottom: '2px solid rgba(255,255,255,.78)', background: 'linear-gradient(135deg, transparent 46%, #00A83B 47% 54%, transparent 55%)' } as const;
-const brandName = { color: '#071A16', fontSize: 19, lineHeight: 1.05, fontWeight: 950, letterSpacing: '-.04em', whiteSpace: 'nowrap' } as const;
-const bellLink = { width: 40, height: 40, borderRadius: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: '#071A16', background: 'rgba(255,255,255,.72)', border: '1px solid rgba(15,23,42,.08)', position: 'relative', fontSize: 22, fontWeight: 900 } as const;
-const bellDot = { position: 'absolute', right: 9, top: 8, width: 9, height: 9, borderRadius: 999, background: '#008B2E', boxShadow: '0 0 0 3px #fff' } as const;
-const heroSection = { position: 'relative', zIndex: 1, display: 'grid', gap: 18, paddingTop: 18 } as const;
-const heroTitle = { margin: 0, display: 'grid', gap: 2, color: '#061A16', fontSize: 'clamp(42px, 10.5vw, 56px)', lineHeight: .96, letterSpacing: '-.075em', fontWeight: 950 } as const;
-const heroAccent = { color: '#008B2E' } as const;
-const heroLead = { margin: 0, maxWidth: 340, color: '#5B6773', fontSize: 18, lineHeight: 1.48, fontWeight: 650, letterSpacing: '-.015em' } as const;
-const primaryCta = { minHeight: 62, borderRadius: 16, background: 'linear-gradient(180deg,#00A83B 0%,#008B2E 100%)', color: '#FFFFFF', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '0 22px', boxShadow: '0 16px 32px rgba(0,139,46,.26)', fontSize: 18, fontWeight: 950, letterSpacing: '-.015em' } as const;
-const ctaArrow = { fontSize: 30, lineHeight: 1, transform: 'translateY(-1px)' } as const;
-const roleSection = { position: 'relative', zIndex: 1, display: 'grid', gap: 12 } as const;
-const roleSectionTitle = { margin: 0, color: '#071A16', fontSize: 19, lineHeight: 1.2, fontWeight: 950, letterSpacing: '-.035em' } as const;
-const mobileRoleGrid = { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 } as const;
-const mobileRoleCard = { minHeight: 126, textDecoration: 'none', color: '#071A16', display: 'grid', justifyItems: 'center', alignContent: 'start', gap: 7, padding: '14px 8px 12px', borderRadius: 15, background: 'rgba(255,255,255,.78)', border: '1px solid rgba(15,23,42,.07)', boxShadow: '0 8px 22px rgba(15,23,42,.055)', backdropFilter: 'blur(10px)' } as const;
-const roleIconSvg = { width: 38, height: 38, display: 'block' } as const;
-const mobileRoleTitle = { color: '#061A16', fontSize: 13.5, lineHeight: 1.12, fontWeight: 950, textAlign: 'center', letterSpacing: '-.02em' } as const;
-const mobileRoleText = { color: '#66717C', fontSize: 11.3, lineHeight: 1.25, fontWeight: 650, textAlign: 'center' } as const;
-const moreRoles = { border: '1px solid rgba(15,23,42,.07)', borderRadius: 16, background: 'rgba(255,255,255,.70)', padding: '0 12px' } as const;
-const moreRolesSummary = { cursor: 'pointer', listStyle: 'none', minHeight: 42, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#0F2A23', fontSize: 13, fontWeight: 900 } as const;
-const secondaryRoleGrid = { display: 'grid', gap: 8, padding: '0 0 12px' } as const;
-const secondaryRoleCard = { textDecoration: 'none', color: '#071A16', display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', gap: 10, alignItems: 'start', padding: 10, borderRadius: 13, background: '#FFFFFF', border: '1px solid rgba(15,23,42,.06)' } as const;
-const secondaryRoleDot = { width: 10, height: 10, borderRadius: 999, marginTop: 5 } as const;
-const secondaryRoleBody = { minWidth: 0, display: 'grid', gap: 2 } as const;
-const secondaryRoleTitle = { color: '#071A16', fontSize: 13, lineHeight: 1.15, fontWeight: 950 } as const;
-const secondaryRoleText = { color: '#66717C', fontSize: 12, lineHeight: 1.3, fontWeight: 650 } as const;
-const trustBanner = { position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr) auto', alignItems: 'center', gap: 12, padding: 13, borderRadius: 18, background: 'linear-gradient(180deg, rgba(241,252,244,.92) 0%, rgba(255,255,255,.90) 100%)', border: '1px solid rgba(0,139,46,.12)', boxShadow: '0 12px 26px rgba(15,23,42,.055)' } as const;
-const trustShield = { width: 48, height: 48, borderRadius: 16, background: 'linear-gradient(180deg,#19B84D 0%,#008B2E 100%)', color: '#FFFFFF', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 22px rgba(0,139,46,.22)', fontSize: 25, fontWeight: 950 } as const;
-const trustCopy = { minWidth: 0, display: 'grid', gap: 3 } as const;
-const trustTitle = { color: '#071A16', fontSize: 15, lineHeight: 1.15, fontWeight: 950, letterSpacing: '-.025em' } as const;
-const trustText = { color: '#5B6773', fontSize: 12.5, lineHeight: 1.35, fontWeight: 650 } as const;
-const trustChart = { width: 66, height: 44, display: 'flex', alignItems: 'end', gap: 6, opacity: .55 } as const;
-const bottomNav = { position: 'sticky', zIndex: 2, bottom: 0, margin: '0 -16px', padding: '10px 12px 14px', minHeight: 76, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0,1fr))', gap: 4, background: 'rgba(255,255,255,.94)', borderTop: '1px solid rgba(15,23,42,.07)', boxShadow: '0 -14px 30px rgba(15,23,42,.06)', backdropFilter: 'blur(18px)' } as const;
-const bottomNavItem = { textDecoration: 'none', color: '#6B7280', display: 'grid', justifyItems: 'center', gap: 3, fontSize: 11.5, lineHeight: 1.1, fontWeight: 750 } as const;
-const bottomNavItemActive = { ...bottomNavItem, color: '#008B2E', fontWeight: 950 } as const;
-const bottomNavIcon = { width: 25, height: 25, borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, lineHeight: 1 } as const;
-const eyebrow = { color: '#0A7A5F', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '.08em' } as const;
-const h2 = { margin: 0, color: '#0F1419', fontSize: 20, lineHeight: 1.15, letterSpacing: '-.025em', fontWeight: 950 } as const;
-const moneyCard = { background: '#fff', border: '1px solid rgba(37,99,235,.16)', borderRadius: 20, padding: 16, display: 'grid', gap: 6 } as const;
-const maturityCard = { background: 'rgba(255,255,255,.72)', border: '1px solid #D7DEE3', borderRadius: 20, padding: 16, display: 'grid', gap: 7 } as const;
-const maturityTitle = { color: '#0F1419', fontSize: 15, lineHeight: 1.2, fontWeight: 950 } as const;
-const disabledAction = { minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 15, background: '#F1F5F9', color: 'var(--pc-text-muted, #64748B)', fontSize: 14, fontWeight: 900 } as const;
-const controlAction = { minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 15, background: '#008B2E', color: '#FFFFFF', textDecoration: 'none', padding: '0 16px', fontSize: 14, fontWeight: 950 } as const;
-const ghostAction = { textDecoration: 'none', minHeight: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 11px', borderRadius: 12, background: '#fff', border: '1px solid #CBD5E1', color: '#0F1419', fontSize: 12, fontWeight: 850, whiteSpace: 'nowrap' } as const;
-const pathCard = { width: 'min(100%, 980px)', background: '#0F1419', borderRadius: 22, padding: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(118px,1fr))', gap: 8 } as const;
-const pathStep = { display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 8, minHeight: 44, padding: '8px 9px', borderRadius: 14, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.10)' } as const;
-const pathNumber = { width: 22, height: 22, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#FFFFFF', color: '#0F1419', fontSize: 11, fontWeight: 950 } as const;
-const pathText = { color: '#F8FAFC', fontSize: 12, lineHeight: 1.2, fontWeight: 850 } as const;
-const cardLabel = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.07em' } as const;
-const moneyValue = { color: '#0F1419', fontSize: 34, lineHeight: 1, fontWeight: 950, letterSpacing: '-.045em' } as const;
-const cardText = { color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.4, fontWeight: 700 } as const;
-const workGrid = { display: 'grid', gridTemplateColumns: 'minmax(0,1.08fr) minmax(280px,.92fr)', gap: 12, alignItems: 'start' } as const;
-const panel = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 16, display: 'grid', gap: 10 } as const;
-const sectionHead = { display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: 10 } as const;
-const blockerCard = { textDecoration: 'none', display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr) auto', gap: 10, alignItems: 'center', padding: 12, borderRadius: 18, border: '1px solid' } as const;
-const blockerBody = { minWidth: 0, display: 'grid', gap: 5 } as const;
-const rank = { width: 32, height: 32, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', color: '#0F1419', fontSize: 12, fontWeight: 950 } as const;
-const blockerTitle = { color: '#0F1419', fontSize: 15, lineHeight: 1.25, fontWeight: 950, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const;
-const dot = { width: 10, height: 10, borderRadius: 999, boxShadow: '0 0 0 4px rgba(15,23,42,.04)' } as const;
-const roleCard = { textDecoration: 'none', color: 'inherit', display: 'grid', gap: 8, padding: 13, borderRadius: 16, border: '1px solid var(--pc-border, #E4E6EA)', background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFC 100%)' } as const;
-const roleTitle = { color: '#0F1419', fontSize: 15, lineHeight: 1.2, fontWeight: 950 } as const;
-const roleAction = { color: '#0A7A5F', fontSize: 12, lineHeight: 1.35, fontWeight: 850 } as const;
-const emptyState = { minHeight: 74, borderRadius: 18, padding: 14, border: '1px dashed #CBD5E1', background: '#F8FAFC', color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.45, fontWeight: 750 } as const;
+.pc-v7-bg-elevator {
+  right: 18px;
+  top: 84px;
+  width: 130px;
+  height: 190px;
+  background: rgba(15,23,42,.42);
+  clip-path: polygon(18% 100%,18% 30%,30% 30%,30% 12%,70% 12%,70% 30%,82% 30%,82% 100%);
+}
+.pc-v7-bg-route {
+  left: 36px;
+  right: 28px;
+  top: 245px;
+  height: 125px;
+  border-top: 9px solid rgba(0,139,46,.70);
+  border-right: 9px solid rgba(0,139,46,.45);
+  border-radius: 0 72px 0 0;
+  transform: rotate(-9deg);
+}
+.pc-v7-bg-truck {
+  left: 30px;
+  bottom: 130px;
+  width: 86px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(15,23,42,.32);
+}
+.pc-v7-bg-soft {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.965) 0%, rgba(255,255,255,.93) 52%, rgba(250,253,250,.965) 100%);
+  pointer-events: none;
+}
+.pc-v7-brand-row,
+.pc-v7-hero,
+.pc-v7-role-section,
+.pc-v7-trust,
+.pc-v7-bottom-tabs { position: relative; z-index: 1; }
+.pc-v7-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pc-v7-brand { min-width: 0; display: inline-flex; align-items: center; gap: 12px; color: #061A16; text-decoration: none; }
+.pc-v7-logo { width: 48px; height: 48px; flex: 0 0 auto; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; position: relative; overflow: hidden; background: linear-gradient(145deg,#08231D 0%,#174A3D 55%,#ECFFF1 100%); box-shadow: 0 12px 24px rgba(0,139,46,.22); }
+.pc-v7-logo-letter { color: #fff; font-size: 28px; line-height: 1; font-weight: 950; letter-spacing: -.08em; }
+.pc-v7-logo-line { position: absolute; left: 10px; right: 8px; bottom: 10px; height: 18px; border-left: 2px solid rgba(255,255,255,.72); border-bottom: 2px solid rgba(255,255,255,.72); background: linear-gradient(135deg, transparent 45%, #00A83B 46% 55%, transparent 56%); }
+.pc-v7-brand-name { min-width: 0; color: #061A16; font-size: clamp(20px, 5vw, 24px); line-height: 1.04; font-weight: 950; letter-spacing: -.045em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-v7-notify { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 17px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: #061A16; border: 1px solid rgba(15,23,42,.08); background: rgba(255,255,255,.76); font-size: 22px; font-weight: 900; position: relative; box-shadow: 0 8px 18px rgba(15,23,42,.045); }
+.pc-v7-notify-dot { position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: #008B2E; box-shadow: 0 0 0 3px #fff; }
+.pc-v7-hero { display: grid; gap: 17px; padding-top: 8px; }
+.pc-v7-title { margin: 0; display: grid; gap: 1px; color: #061A16; font-size: clamp(42px, 11vw, 58px); line-height: .94; letter-spacing: -.078em; font-weight: 950; }
+.pc-v7-title-accent { color: #008B2E; }
+.pc-v7-lead { margin: 0; max-width: 360px; color: #5E6875; font-size: clamp(17px, 4.6vw, 20px); line-height: 1.43; font-weight: 720; letter-spacing: -.018em; }
+.pc-v7-cta { min-height: 62px; border-radius: 17px; padding: 0 22px; display: inline-flex; align-items: center; justify-content: center; gap: 18px; text-decoration: none; color: #fff; background: linear-gradient(180deg,#00A83B 0%,#008B2E 100%); box-shadow: 0 16px 34px rgba(0,139,46,.26); font-size: 19px; font-weight: 950; letter-spacing: -.02em; }
+.pc-v7-cta span:last-child { font-size: 30px; line-height: 1; transform: translateY(-1px); }
+.pc-v7-role-section { display: grid; gap: 12px; }
+.pc-v7-section-title { margin: 0; color: #061A16; font-size: 20px; line-height: 1.2; font-weight: 950; letter-spacing: -.035em; }
+.pc-v7-role-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pc-v7-role-card { min-width: 0; min-height: 112px; padding: 12px 6px 10px; border-radius: 16px; display: grid; justify-items: center; align-content: start; gap: 6px; text-align: center; text-decoration: none; color: #061A16; background: rgba(255,255,255,.86); border: 1px solid rgba(15,23,42,.075); box-shadow: 0 8px 20px rgba(15,23,42,.052); backdrop-filter: blur(10px); }
+.pc-v7-role-card svg { width: 34px; height: 34px; display: block; }
+.pc-v7-role-card strong { max-width: 100%; color: #061A16; font-size: 12.5px; line-height: 1.08; font-weight: 950; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-v7-role-card span { color: #66717C; font-size: 10.5px; line-height: 1.2; font-weight: 700; }
+.pc-v7-more-roles { border: 1px solid rgba(15,23,42,.075); border-radius: 16px; background: rgba(255,255,255,.78); padding: 0 12px; }
+.pc-v7-more-roles summary { cursor: pointer; min-height: 42px; display: flex; align-items: center; color: #0F2A23; font-size: 13px; line-height: 1.2; font-weight: 900; list-style: none; }
+.pc-v7-more-roles summary::-webkit-details-marker { display: none; }
+.pc-v7-more-grid { display: grid; gap: 8px; padding-bottom: 12px; }
+.pc-v7-more-role { min-width: 0; display: grid; grid-template-columns: auto minmax(0,1fr); gap: 9px; align-items: start; text-decoration: none; color: #061A16; padding: 10px; border-radius: 13px; background: #fff; border: 1px solid rgba(15,23,42,.06); }
+.pc-v7-more-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; }
+.pc-v7-more-role span:last-child { display: grid; gap: 2px; min-width: 0; }
+.pc-v7-more-role strong { font-size: 13px; line-height: 1.12; font-weight: 950; }
+.pc-v7-more-role small { color: #66717C; font-size: 12px; line-height: 1.3; font-weight: 650; }
+.pc-v7-trust { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 13px; border-radius: 18px; background: linear-gradient(180deg, rgba(241,252,244,.92) 0%, rgba(255,255,255,.92) 100%); border: 1px solid rgba(0,139,46,.14); box-shadow: 0 10px 24px rgba(15,23,42,.052); }
+.pc-v7-shield { width: 46px; height: 46px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(180deg,#19B84D 0%,#008B2E 100%); box-shadow: 0 9px 20px rgba(0,139,46,.22); font-size: 24px; font-weight: 950; }
+.pc-v7-trust-copy { min-width: 0; display: grid; gap: 3px; }
+.pc-v7-trust-copy strong { color: #061A16; font-size: 14.5px; line-height: 1.14; font-weight: 950; letter-spacing: -.02em; }
+.pc-v7-trust-copy small { color: #5E6875; font-size: 12.2px; line-height: 1.34; font-weight: 670; }
+.pc-v7-mini-flow { width: 58px; height: 34px; display: flex; align-items: end; gap: 5px; opacity: .65; }
+.pc-v7-mini-flow i { display: block; width: 12px; border-radius: 5px 5px 3px 3px; background: #008B2E; }
+.pc-v7-mini-flow i:nth-child(1) { height: 13px; opacity: .35; }
+.pc-v7-mini-flow i:nth-child(2) { height: 22px; opacity: .55; }
+.pc-v7-mini-flow i:nth-child(3) { height: 31px; opacity: .9; }
+.pc-v7-bottom-tabs { margin: 0 -16px -12px; padding: 9px 10px 12px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; border-top: 1px solid rgba(15,23,42,.07); background: rgba(255,255,255,.96); box-shadow: 0 -12px 28px rgba(15,23,42,.055); }
+.pc-v7-bottom-tabs a { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 48px; text-decoration: none; color: #6B7280; font-size: 18px; line-height: 1; font-weight: 850; }
+.pc-v7-bottom-tabs a small { max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; line-height: 1; font-weight: 760; }
+.pc-v7-bottom-tabs a.active { color: #008B2E; }
+@media (max-width: 389px) {
+  .pc-v7-entry-page { padding-left: 10px; padding-right: 10px; }
+  .pc-v7-entry-shell { padding-left: 14px; padding-right: 14px; border-radius: 26px; }
+  .pc-v7-role-grid { gap: 8px; }
+  .pc-v7-role-card { min-height: 104px; padding-left: 4px; padding-right: 4px; }
+  .pc-v7-role-card strong { font-size: 11.8px; }
+  .pc-v7-role-card span { font-size: 10px; }
+  .pc-v7-trust { grid-template-columns: auto minmax(0,1fr); }
+  .pc-v7-mini-flow { display: none; }
+}
+`;
