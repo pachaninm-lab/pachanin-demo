@@ -19,6 +19,9 @@
 11. `11-DATA_PROTECTION_152FZ.md` — перс.данные, consent, локализация, права субъекта.
 12. `12-PILOT_READINESS_REVIEW.md` — Go/No-Go для controlled pilot.
 
+Исполнимый план: `REMEDIATION_BACKLOG.md` — реестр находок → действие → владелец
+(in-scope / api-PR / hosting-PR / owner-side) + go-live runbook по фазам.
+
 Доменные технические отчёты-первоисточники — в `../audit/`.
 
 ## Сквозной вердикт
