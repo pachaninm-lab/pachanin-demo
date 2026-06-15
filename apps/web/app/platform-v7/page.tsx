@@ -103,7 +103,7 @@ export default function PlatformV7RootPage() {
           <span className='pc-v7-shield' aria-hidden='true'>✓</span>
           <span className='pc-v7-trust-copy'>
             <strong>Прозрачность на каждом этапе</strong>
-            <small>Статус, блокер, документ, ответственный и следующее действие — в одном контуре.</small>
+            <small>Участники видят актуальные данные и статус сделки в своём контуре.</small>
           </span>
           <span className='pc-v7-mini-flow' aria-hidden='true'>
             <i />
@@ -126,14 +126,14 @@ export default function PlatformV7RootPage() {
 }
 
 function shortRoleFocus(title: string) {
-  if (title === 'Продавец') return 'Партии и сделки';
-  if (title === 'Покупатель') return 'Закупка и приёмка';
-  if (title === 'Логистика') return 'Рейсы и маршруты';
-  if (title === 'Водитель') return 'Рейс и загрузка';
-  if (title === 'Банк') return 'Основание расчёта';
-  if (title === 'Сюрвейер') return 'Осмотр и акт';
-  if (title === 'Оператор') return 'Блокеры сделки';
-  if (title === 'Руководитель') return 'Контроль и деньги';
+  if (title === 'Продавец') return 'Размещайте зерно и управляйте сделками';
+  if (title === 'Покупатель') return 'Находите зерно и заключайте сделки';
+  if (title === 'Логистика') return 'Организуйте перевозки и маршруты';
+  if (title === 'Водитель') return 'Выполняйте рейсы и загрузки';
+  if (title === 'Банк') return 'Проверяйте сделки и основание расчёта';
+  if (title === 'Сюрвейер') return 'Проводите осмотры и экспертизы';
+  if (title === 'Оператор') return 'Сопровождайте сделки и участников';
+  if (title === 'Руководитель') return 'Контролируйте процессы и аналитику';
   return 'Контур действий';
 }
 
@@ -164,31 +164,36 @@ function RoleGlyph({ title }: { readonly title: string }) {
 }
 
 const entryCss = `
+.pc-shell-root-v4 .pc-v4-header { display: none !important; }
+.pc-shell-root-v4 .pc-v4-main { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+.pc-shell-root-v4 { background: #F8FAF7 !important; }
 .pc-v7-entry-page {
   width: 100%;
   min-width: 0;
-  padding: 14px 12px 28px;
+  min-height: 100dvh;
+  padding: clamp(8px, 2.8vw, 18px) 12px 28px;
   display: flex;
+  align-items: flex-start;
   justify-content: center;
   background: linear-gradient(180deg, #F8FAF7 0%, #FFFFFF 100%);
 }
 .pc-v7-entry-shell {
   position: relative;
   overflow: hidden;
-  width: min(100%, 440px);
+  width: min(100%, 430px);
   border-radius: 30px;
   border: 1px solid rgba(0, 139, 46, .10);
   background: #fff;
   box-shadow: 0 24px 72px rgba(15, 23, 42, .10);
-  padding: 22px 16px 12px;
+  padding: 22px 16px 0;
   display: grid;
   gap: 18px;
 }
-.pc-v7-bg { position: absolute; pointer-events: none; opacity: .055; filter: blur(.35px); }
+.pc-v7-bg { position: absolute; pointer-events: none; opacity: .052; filter: blur(.35px); }
 .pc-v7-bg-field {
   left: -80px;
   right: -80px;
-  bottom: 70px;
+  bottom: 72px;
   height: 210px;
   transform: rotate(-5deg);
   background: repeating-linear-gradient(105deg, rgba(0,139,46,.78) 0 18px, rgba(198,147,32,.58) 18px 36px);
@@ -213,7 +218,7 @@ const entryCss = `
 }
 .pc-v7-bg-truck {
   left: 30px;
-  bottom: 130px;
+  bottom: 132px;
   width: 86px;
   height: 42px;
   border-radius: 12px;
@@ -222,7 +227,7 @@ const entryCss = `
 .pc-v7-bg-soft {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,.965) 0%, rgba(255,255,255,.93) 52%, rgba(250,253,250,.965) 100%);
+  background: linear-gradient(180deg, rgba(255,255,255,.97) 0%, rgba(255,255,255,.93) 52%, rgba(250,253,250,.965) 100%);
   pointer-events: none;
 }
 .pc-v7-brand-row,
@@ -238,19 +243,19 @@ const entryCss = `
 .pc-v7-brand-name { min-width: 0; color: #061A16; font-size: clamp(20px, 5vw, 24px); line-height: 1.04; font-weight: 950; letter-spacing: -.045em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pc-v7-notify { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 17px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: #061A16; border: 1px solid rgba(15,23,42,.08); background: rgba(255,255,255,.76); font-size: 22px; font-weight: 900; position: relative; box-shadow: 0 8px 18px rgba(15,23,42,.045); }
 .pc-v7-notify-dot { position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: #008B2E; box-shadow: 0 0 0 3px #fff; }
-.pc-v7-hero { display: grid; gap: 17px; padding-top: 8px; }
-.pc-v7-title { margin: 0; display: grid; gap: 1px; color: #061A16; font-size: clamp(42px, 11vw, 58px); line-height: .94; letter-spacing: -.078em; font-weight: 950; }
+.pc-v7-hero { display: grid; gap: 17px; padding-top: 26px; }
+.pc-v7-title { margin: 0; display: grid; gap: 1px; color: #061A16; font-size: clamp(43px, 11.2vw, 58px); line-height: .94; letter-spacing: -.078em; font-weight: 950; }
 .pc-v7-title-accent { color: #008B2E; }
 .pc-v7-lead { margin: 0; max-width: 360px; color: #5E6875; font-size: clamp(17px, 4.6vw, 20px); line-height: 1.43; font-weight: 720; letter-spacing: -.018em; }
 .pc-v7-cta { min-height: 62px; border-radius: 17px; padding: 0 22px; display: inline-flex; align-items: center; justify-content: center; gap: 18px; text-decoration: none; color: #fff; background: linear-gradient(180deg,#00A83B 0%,#008B2E 100%); box-shadow: 0 16px 34px rgba(0,139,46,.26); font-size: 19px; font-weight: 950; letter-spacing: -.02em; }
-.pc-v7-cta span:last-child { font-size: 30px; line-height: 1; transform: translateY(-1px); }
+.pc-v7-cta span:last-child { margin-left: auto; font-size: 30px; line-height: 1; transform: translateY(-1px); }
 .pc-v7-role-section { display: grid; gap: 12px; }
 .pc-v7-section-title { margin: 0; color: #061A16; font-size: 20px; line-height: 1.2; font-weight: 950; letter-spacing: -.035em; }
 .pc-v7-role-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.pc-v7-role-card { min-width: 0; min-height: 112px; padding: 12px 6px 10px; border-radius: 16px; display: grid; justify-items: center; align-content: start; gap: 6px; text-align: center; text-decoration: none; color: #061A16; background: rgba(255,255,255,.86); border: 1px solid rgba(15,23,42,.075); box-shadow: 0 8px 20px rgba(15,23,42,.052); backdrop-filter: blur(10px); }
-.pc-v7-role-card svg { width: 34px; height: 34px; display: block; }
-.pc-v7-role-card strong { max-width: 100%; color: #061A16; font-size: 12.5px; line-height: 1.08; font-weight: 950; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pc-v7-role-card span { color: #66717C; font-size: 10.5px; line-height: 1.2; font-weight: 700; }
+.pc-v7-role-card { min-width: 0; min-height: 132px; padding: 13px 6px 11px; border-radius: 16px; display: grid; justify-items: center; align-content: start; gap: 7px; text-align: center; text-decoration: none; color: #061A16; background: rgba(255,255,255,.88); border: 1px solid rgba(15,23,42,.075); box-shadow: 0 8px 20px rgba(15,23,42,.052); backdrop-filter: blur(10px); }
+.pc-v7-role-card svg { width: 36px; height: 36px; display: block; }
+.pc-v7-role-card strong { max-width: 100%; color: #061A16; font-size: 12.6px; line-height: 1.08; font-weight: 950; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-v7-role-card span { color: #66717C; font-size: 10.6px; line-height: 1.21; font-weight: 690; }
 .pc-v7-more-roles { border: 1px solid rgba(15,23,42,.075); border-radius: 16px; background: rgba(255,255,255,.78); padding: 0 12px; }
 .pc-v7-more-roles summary { cursor: pointer; min-height: 42px; display: flex; align-items: center; color: #0F2A23; font-size: 13px; line-height: 1.2; font-weight: 900; list-style: none; }
 .pc-v7-more-roles summary::-webkit-details-marker { display: none; }
@@ -270,15 +275,16 @@ const entryCss = `
 .pc-v7-mini-flow i:nth-child(1) { height: 13px; opacity: .35; }
 .pc-v7-mini-flow i:nth-child(2) { height: 22px; opacity: .55; }
 .pc-v7-mini-flow i:nth-child(3) { height: 31px; opacity: .9; }
-.pc-v7-bottom-tabs { margin: 0 -16px -12px; padding: 9px 10px 12px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; border-top: 1px solid rgba(15,23,42,.07); background: rgba(255,255,255,.96); box-shadow: 0 -12px 28px rgba(15,23,42,.055); }
+.pc-v7-bottom-tabs { margin: 0 -16px; padding: 9px 10px calc(env(safe-area-inset-bottom) + 10px); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; border-top: 1px solid rgba(15,23,42,.07); background: rgba(255,255,255,.965); box-shadow: 0 -12px 28px rgba(15,23,42,.055); }
 .pc-v7-bottom-tabs a { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 48px; text-decoration: none; color: #6B7280; font-size: 18px; line-height: 1; font-weight: 850; }
 .pc-v7-bottom-tabs a small { max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; line-height: 1; font-weight: 760; }
 .pc-v7-bottom-tabs a.active { color: #008B2E; }
 @media (max-width: 389px) {
   .pc-v7-entry-page { padding-left: 10px; padding-right: 10px; }
   .pc-v7-entry-shell { padding-left: 14px; padding-right: 14px; border-radius: 26px; }
+  .pc-v7-title { font-size: 41px; }
   .pc-v7-role-grid { gap: 8px; }
-  .pc-v7-role-card { min-height: 104px; padding-left: 4px; padding-right: 4px; }
+  .pc-v7-role-card { min-height: 122px; padding-left: 4px; padding-right: 4px; }
   .pc-v7-role-card strong { font-size: 11.8px; }
   .pc-v7-role-card span { font-size: 10px; }
   .pc-v7-trust { grid-template-columns: auto minmax(0,1fr); }
