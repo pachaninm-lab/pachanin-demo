@@ -57,7 +57,7 @@ export default function Page() {
 
 const stepsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 } as const;
 const stepCard = {
-  background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)',
+  background: 'var(--pc-bg-card)',
   border: '1px solid var(--pc-border, #E4E6EA)',
   borderRadius: 18,
   padding: 14,
@@ -66,7 +66,7 @@ const stepCard = {
   boxShadow: '0 12px 28px rgba(15,23,42,0.055)',
 } as const;
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
-const assignmentCard = { textDecoration: 'none', color: 'inherit', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, display: 'block' } as const;
+const assignmentCard = { textDecoration: 'none', color: 'inherit', background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, display: 'block' } as const;
 
 const ASSIGNMENTS = [
   { id: 'QC-DL-9102', deal: 'DL-9102', cargo: 'Пшеница 4 кл.', location: 'Элеватор Тамбов', time: '11:00', status: 'Требует акта' },

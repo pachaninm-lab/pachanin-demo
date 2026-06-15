@@ -112,7 +112,7 @@ export default async function Page() {
 
 const stepsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 } as const;
 const stepCard = {
-  background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)',
+  background: 'var(--pc-bg-card)',
   border: '1px solid var(--pc-border, #E4E6EA)',
   borderRadius: 18,
   padding: 14,
