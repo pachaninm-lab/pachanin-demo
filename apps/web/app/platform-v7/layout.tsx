@@ -24,6 +24,7 @@ import '@/styles/platform-v7-premium-visual-polish.css';
 import '@/styles/platform-v7-final-polish.css';
 import '@/styles/platform-v7-living-deal.css';
 import '@/styles/platform-v7-premium-cockpit.css';
+import '@/styles/platform-v7-entry-fix.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',
@@ -48,22 +49,13 @@ const VALID_ROLES = new Set<PlatformRole>([
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const headerStore = await headers();
   const rawRole = headerStore.get('x-pc-role');
-  const initialRole: PlatformRole =
-    rawRole && VALID_ROLES.has(rawRole as PlatformRole) ? (rawRole as PlatformRole) : 'operator';
-
+  const initialRole: PlatformRole = rawRole && VALID_ROLES.has(rawRole as PlatformRole) ? (rawRole as PlatformRole) : 'operator';
   return (
     <ToastProvider>
       <PlatformThemeSync />
       <ShellCopyNormalizer />
       <AppShellV4 initialRole={initialRole}>
-        <>
-          <ScopedShellGuard />
-          <RbacCabinetGuard />
-          <ShellCopyNormalizer />
-          <SupportHeaderIcon />
-          <CommandPalette />
-          {children}
-        </>
+        <><ScopedShellGuard /><RbacCabinetGuard /><ShellCopyNormalizer /><SupportHeaderIcon /><CommandPalette />{children}</>
       </AppShellV4>
     </ToastProvider>
   );
