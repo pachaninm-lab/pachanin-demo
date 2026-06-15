@@ -65,10 +65,17 @@
     "apps/web",
     "packages/*"
   ],
+  "pnpm": {
+    "overrides": {
+      "glob": ">=10.5.0",
+      "picomatch": ">=4.0.4",
+      "fast-uri": ">=3.1.1"
+    }
+  },
   "devDependencies": {
-    "@vitest/browser": "^4.1.2",
-    "@vitest/coverage-v8": "^4.1.2",
+    "@vitest/browser": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.9",
     "jsdom": "^29.0.1",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.9"
   }
 }
