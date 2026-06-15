@@ -53,8 +53,8 @@
   --pc-text-secondary: var(--p7-color-text-secondary);
   --pc-text-muted: var(--p7-color-text-muted);
 
-  --pc-border: rgba(88, 113, 105, 0.28);
-  --pc-border-light: rgba(88, 113, 105, 0.34);
+  --pc-border: rgba(88, 113, 105, 0.36);
+  --pc-border-light: rgba(88, 113, 105, 0.44);
   --pc-border-strong: var(--p7-color-border-strong);
 
   --pc-accent: var(--p7-color-brand);
