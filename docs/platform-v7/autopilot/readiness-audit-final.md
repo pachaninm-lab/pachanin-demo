@@ -50,6 +50,39 @@
 - **no role leakage** — cabinet-RBAC + tenant-isolation тесты; в кабинете нет переключателя всех ролей.
 - **Playwright smoke** — сквозной контур покрыт на runtime-уровне в web-unit (браузерные стенды — owner-side CI-инфраструктура).
 
+## Live QA — что подтверждено по коду (2026-06-15)
+
+Прогон `platform-v7 dual hosting smoke` на merged-коммите SOT-синхронизации
+(run 27527602774, 06:13 UTC) — **success**:
+
+- **Netlify (активный host, vermillion-kitsune) — PASS** по всем ключевым
+  маршрутам с реальным контентом: `/platform-v7/`, `/platform-v7/control-tower`,
+  `/platform-v7/buyer`, `/platform-v7/bank`, `/platform-v7/driver/field`,
+  `/platform-v7/register`, `/platform-v7/login`. Вторичный Netlify
+  (gleaming-mandazi) — OK.
+- **Vercel (primary) — HTTP 402** (`curl: (22) ... error: 402`): аккаунт
+  заблокирован на уровне биллинга. Это не дефект кода — smoke помечает Vercel
+  как non-fatal warning, пока блок активен (см. dual-hosting-operating-rules.md).
+
+Закрыто по коду: smoke по ключевым маршрутам на живом активном хосте.
+Остаётся owner-side (требует живого Vercel): визуальный QA тёмной темы на
+Vercel и пиксельный паритет Netlify ↔ Vercel — оба упираются в разблокировку
+Vercel.
+
+### Флаг для owner-QA (паритет хостинга, вне scope этого PR)
+
+При разблокировке Vercel сверить два момента, которые могут разойтись между
+хостами; они вне allowed-scope платформенных PR (dual-hosting-operating-rules.md
+§5/§7 запрещают их трогать без явного scope):
+
+- `apps/web/next.config.js` и `apps/web/next.config.mjs` существуют оба и задают
+  **разные** `redirects()` (в `.js` — 8 platform-v7 редиректов; в `.mjs` — 2 +
+  корневой `/` → `/platform-v7/control-tower`). Оставить один канонический
+  конфиг, чтобы Vercel и Netlify резолвили одинаковые редиректы.
+- rewrites корневого `vercel.json` (`/cabinet` → `/canon/roles` и др.) не
+  зеркалированы в `netlify.toml`/`next.config` — на Netlify эти алиасы могут не
+  работать. Перенести в `next.config` (его чтят оба хоста) при hosting-PR.
+
 ## Что остаётся owner-side (вне кода)
 
 Договоры (банк/ФГИС/оператор ЭДО/ИС ЭПД), API-доступы и credentials, номинальный
