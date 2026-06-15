@@ -1,12 +1,13 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 100,
-  "currentStep": "Аудит зрелого продукта + готовность к интеграции партнёров",
-  "lastCompletedStep": "Аудит платформы: фабрика адаптеров mock↔real (#1783) + кросс-ролевая согласованность DL-9106 и док прогона пилотной сделки (#1784) + кабинет элеватора из единой точки правды (#1785)",
+  "currentStep": "Code-ready for controlled pilot / pre-integration partner onboarding",
+  "lastCompletedStep": "10-PR план закрыт: PR-1 tenant/RBAC, PR-2 DB persistence adapter, PR-3 bank callback/reconciliation, PR-4 real-adapter shells, PR-5 UX-gate, PR-6 observability health screens, PR-7 BI runtime binding, PR-8 unified deal lifecycle + offline/conflict, PR-9 access status, PR-10 readiness audit + SOT",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Остаётся только owner-side §43: договоры, API-доступы, credentials, номинальный счёт, юрпроверка, security review и реальные пилот-сделки; затем реализация боевых адаптеров по образцу и регистрация боевого реестра",
-  "updatedAt": "2026-06-14T12:36:00.000Z",
+  "nextStep": "Остаётся только owner-side: договоры, API-доступы, credentials, номинальный счёт, внешние стенды, security/legal review и первая controlled pilot сделка",
+  "statement": "platform-v7 is code-ready for controlled pilot / pre-integration partner onboarding. Remaining blockers are owner-side contracts, credentials, live API access, security/legal review and real pilot transactions.",
+  "updatedAt": "2026-06-15T00:08:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
