@@ -22,7 +22,8 @@ describe('platform-v7 runtime entry cockpit', () => {
   it('keeps operational arrays out of the page component', () => {
     const src = pageSource();
 
-    expect(src).toContain('getPlatformV7EntryCockpitState');
+    // Мобильная главная берёт роли из role-directory, без inline операционных массивов.
+    expect(src).toContain('platformV7RolesByGroup');
     expect(src).not.toMatch(/const\s+blockers\s*=/);
     expect(src).not.toMatch(/const\s+lanes\s*=/);
     expect(src).not.toMatch(/const\s+roles\s*=/);
