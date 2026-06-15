@@ -10,14 +10,23 @@ const labels: Record<MoneyGateState, string> = {
   manual_review: 'Ручная проверка',
 };
 
+// Цвета берём из семантических токенов темы (light/dark), а не из сырых hex,
+// чтобы денежные статусы оставались читаемыми в тёмной теме.
+const TONE = {
+  warning: { bg: 'var(--pc-warning-bg)', border: 'color-mix(in srgb, var(--pc-warning) 30%, transparent)', text: 'var(--pc-warning)' },
+  success: { bg: 'var(--pc-success-bg)', border: 'color-mix(in srgb, var(--pc-success) 30%, transparent)', text: 'var(--pc-success)' },
+  danger:  { bg: 'var(--pc-danger-bg)',  border: 'color-mix(in srgb, var(--pc-danger) 30%, transparent)',  text: 'var(--pc-danger)' },
+  neutral: { bg: 'var(--pc-bg-subtle)',  border: 'var(--pc-border)',                                       text: 'var(--pc-text-secondary)' },
+} as const;
+
 const colors: Record<MoneyGateState, { bg: string; border: string; text: string }> = {
-  requested:    { bg: 'rgba(180,83,9,0.05)',   border: 'rgba(180,83,9,0.18)',   text: '#B45309' },
-  awaiting_bank:{ bg: 'rgba(180,83,9,0.05)',   border: 'rgba(180,83,9,0.18)',   text: '#B45309' },
-  reserved:     { bg: 'rgba(10,122,95,0.06)',  border: 'rgba(10,122,95,0.18)',  text: '#0A7A5F' },
-  held:         { bg: 'rgba(220,38,38,0.06)',  border: 'rgba(220,38,38,0.18)',  text: '#B91C1C' },
-  ready:        { bg: 'rgba(10,122,95,0.06)',  border: 'rgba(10,122,95,0.18)',  text: '#0A7A5F' },
-  released:     { bg: 'rgba(10,122,95,0.06)',  border: 'rgba(10,122,95,0.18)',  text: '#0A7A5F' },
-  manual_review:{ bg: 'rgba(100,116,139,0.06)',border: 'rgba(100,116,139,0.18)',text: 'var(--pc-text-secondary, #475569)' },
+  requested:    TONE.warning,
+  awaiting_bank:TONE.warning,
+  reserved:     TONE.success,
+  held:         TONE.danger,
+  ready:        TONE.success,
+  released:     TONE.success,
+  manual_review:TONE.neutral,
 };
 
 type Props = {
@@ -46,7 +55,7 @@ export function MoneyGateCard({ amount, state, note, blockedBy }: Props) {
         </p>
       )}
       {blockedBy && (
-        <p style={{ margin: 0, color: '#B91C1C', fontSize: 12, lineHeight: 1.4 }}>
+        <p style={{ margin: 0, color: 'var(--pc-danger)', fontSize: 12, lineHeight: 1.4 }}>
           Заблокировано: {blockedBy}
         </p>
       )}
