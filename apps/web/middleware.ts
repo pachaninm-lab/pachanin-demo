@@ -44,7 +44,20 @@ const VALID_ROLES = new Set([
 
 const SESSION_COOKIE = 'pc_session_present';
 const OWNER_COOKIE = 'pc_owner_access';
+const PLATFORM_V7_ENTRY_COOKIE = 'pc_v7_entry_seen';
 const PRIVATE_REALM = 'Prozrachnaya Cena Private';
+
+const PLATFORM_V7_PUBLIC_EXACT = new Set([
+  '/platform-v7',
+  '/platform-v7/open',
+  '/platform-v7/login',
+  '/platform-v7/register',
+  '/platform-v7/help',
+  '/platform-v7/pricing',
+  '/platform-v7/roadmap',
+]);
+
+const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 
 function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
@@ -56,6 +69,10 @@ function isPublicAsset(p: string): boolean {
 
 function isPublic(p: string): boolean {
   return PUBLIC_EXACT.has(p) || isPublicAsset(p);
+}
+
+function isPlatformV7PublicPath(p: string): boolean {
+  return PLATFORM_V7_PUBLIC_EXACT.has(p) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => p.startsWith(x));
 }
 
 function isProtectedPath(p: string): boolean {
@@ -196,6 +213,33 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   return applySecurityHeaders(response, protectedResponse);
 }
 
+function persistRoleCookie(req: NextRequest, response: NextResponse, role: string) {
+  if (req.cookies.get('pc-role')?.value !== role) {
+    response.cookies.set('pc-role', role, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+      sameSite: 'lax',
+      secure: true,
+    });
+  }
+}
+
+function markPlatformV7Entry(response: NextResponse) {
+  response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', {
+    path: '/',
+    maxAge: 60 * 60 * 4,
+    sameSite: 'lax',
+    secure: true,
+  });
+}
+
+function redirectToPlatformV7Entry(req: NextRequest) {
+  const u = req.nextUrl.clone();
+  u.pathname = '/platform-v7';
+  u.search = '';
+  return applySecurityHeaders(NextResponse.redirect(u), true);
+}
+
 function redirectToAssistant(req: NextRequest) {
   const u = req.nextUrl.clone();
   u.pathname = '/platform-v7/assistant';
@@ -236,16 +280,22 @@ export function middleware(req: NextRequest) {
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
   const resolvedRole = resolveRole(req, session?.role ?? null);
 
-  if (isPublic(p) || p.startsWith('/platform-v7') || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
-    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
-    if (req.cookies.get('pc-role')?.value !== resolvedRole) {
-      response.cookies.set('pc-role', resolvedRole, {
-        path: '/',
-        maxAge: 60 * 60 * 24 * 30,
-        sameSite: 'lax',
-        secure: true,
-      });
+  if (p.startsWith('/platform-v7')) {
+    const isEntry = p === '/platform-v7';
+    const seenEntry = req.cookies.get(PLATFORM_V7_ENTRY_COOKIE)?.value === 'true';
+    if (!isEntry && !isPlatformV7PublicPath(p) && !seenEntry) {
+      return redirectToPlatformV7Entry(req);
     }
+
+    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+    persistRoleCookie(req, response, resolvedRole);
+    if (isEntry) markPlatformV7Entry(response);
+    return response;
+  }
+
+  if (isPublic(p) || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
+    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+    persistRoleCookie(req, response, resolvedRole);
     return response;
   }
 
