@@ -1,6 +1,8 @@
 'use client';
 
 import { useDeals, useDomainTotals } from '@/lib/domain/hooks';
+import { selectCanonicalDeals } from '@/lib/domain/selectors';
+import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
 
 function StatCard({ title, value, note }: { title: string; value: string; note: string }) {
@@ -19,14 +21,14 @@ export function DomainMoneySummary() {
   const activeDeals = deals.filter((deal) => deal.status !== 'closed');
   const reservedDeals = activeDeals.filter((deal) => deal.reservedAmount > 0).length;
   const heldDeals = activeDeals.filter((deal) => deal.holdAmount > 0).length;
-  const readyDeals = activeDeals.filter((deal) => deal.status === 'release_requested' || deal.status === 'docs_complete').length;
+  const readyDeals = selectCanonicalDeals(activeDeals).filter((deal) => evaluateReleaseGuard(deal).canExecuteRelease).length;
 
   return (
     <section style={{ display: 'grid', gap: 14 }} aria-label='Доменная денежная сводка'>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='В резерве' value={formatCompactMoney(totals.reserveTotal)} note={`${reservedDeals} активных сделок с зарезервированной суммой.`} />
         <StatCard title='Под удержанием' value={formatCompactMoney(totals.heldTotal)} note={`${heldDeals} активных сделок с удержанием.`} />
-        <StatCard title='К выпуску' value={formatCompactMoney(totals.readyToReleaseTotal)} note={`${readyDeals} сделок близки к выпуску денег.`} />
+        <StatCard title='К банковскому шагу' value={formatCompactMoney(totals.readyToReleaseTotal)} note={`${readyDeals} сделок проходят строгую матрицу: резерв, документы, ФГИС/СДИЗ, рейс, приёмка, качество, спор и банк.`} />
       </div>
     </section>
   );
