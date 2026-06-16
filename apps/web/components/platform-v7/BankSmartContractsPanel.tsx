@@ -74,7 +74,7 @@ function fmt(n: number) {
 }
 
 function statusTone(status: ContractStatus) {
-  if (status === 'released') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Выпущено' };
+  if (status === 'released') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Банк подтвердил' };
   if (status === 'condition_met') return { bg: MONEY_BG, border: MONEY_BORDER, color: MONEY, label: 'Условия закрыты' };
   if (status === 'active') return { bg: WARN_BG, border: WARN_BORDER, color: WARN, label: 'Активен' };
   if (status === 'disputed') return { bg: ERR_BG, border: ERR_BORDER, color: ERR, label: 'Спор' };
@@ -82,16 +82,16 @@ function statusTone(status: ContractStatus) {
 }
 
 export function BankSmartContractsPanel() {
-  const readyToRelease = CONTRACTS.filter((contract) => contract.status === 'condition_met').length;
+  const readyForBank = CONTRACTS.filter((contract) => contract.status === 'condition_met').length;
 
   return (
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: M, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Условия выпуска · <span style={{ color: WARN }}>{MATURITY === 'sandbox' ? 'проверочный контур' : MATURITY}</span>
+          Условия банковского шага · <span style={{ color: WARN }}>{MATURITY === 'sandbox' ? 'проверочный контур' : MATURITY}</span>
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: T, marginTop: 4 }}>Контракты безопасной сделки</div>
-        {readyToRelease > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: MONEY, fontWeight: 700 }}>{readyToRelease} готово к банковому выпуску после проверки условий</div> : null}
+        {readyForBank > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: MONEY, fontWeight: 700 }}>{readyForBank} основание готово к банковской проверке после закрытия условий</div> : null}
       </div>
 
       <div style={{ marginBottom: 12, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 10, padding: 10, fontSize: 12, color: WARN }}>
