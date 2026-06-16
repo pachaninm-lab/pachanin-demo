@@ -36,6 +36,18 @@ function blockerTone(code: string) {
   return 'neutral' as const;
 }
 
+function normalizeLiveMoneyText(value: string | null | undefined) {
+  return (value ?? '')
+    .replace(/банковскую проверку выплаты/gi, 'банковскую проверку основания')
+    .replace(/Банк подтвердил выплату/gi, 'Банк подтвердил внешнее банковское событие')
+    .replace(/Запрос на банковскую проверку выплаты/gi, 'Запрос на банковскую проверку основания')
+    .replace(/Передать основание банку денег/gi, 'Передать основание банку')
+    .replace(/выпуск денег/gi, 'банковское подтверждение')
+    .replace(/выпуск/gi, 'банковский шаг')
+    .replace(/выплата/gi, 'основание')
+    .replace(/выплаты/gi, 'основания');
+}
+
 export function LiveDealDetailRuntime({ id }: { id: string }) {
   const toast = useToast();
   const base = selectRuntimeDealById(id) ?? null;
@@ -75,7 +87,8 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
   const reservedAmount = base.reservedAmount;
   const qualityRequiresReview = Boolean(labCase && labCase.result === 'review');
   const recommendedHold = qualityRequiresReview ? Math.max(state.holdAmount, Math.round(reservedAmount * 0.12)) : state.holdAmount;
-  const releaseAmount = state.releaseAmount ?? base.releaseAmount ?? Math.max(reservedAmount - recommendedHold, 0);
+  const bankBasisAmount = state.releaseAmount ?? base.releaseAmount ?? Math.max(reservedAmount - recommendedHold, 0);
+  const safeNextStep = normalizeLiveMoneyText(state.nextStep);
 
   return (
     <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
@@ -97,8 +110,8 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <StatCard title='Резерв' value={formatMoney(reservedAmount)} note='Сумма под резервом по сделке.' />
         <StatCard title='Удержание' value={formatMoney(recommendedHold)} note={qualityRequiresReview ? 'Лаборатория советует удержание до разбора качественной дельты.' : 'Сумма удержания из-за блокеров или спора.'} />
-        <StatCard title='К выпуску' value={formatMoney(releaseAmount)} note='Сумма, доступная к выпуску при закрытых блокерах.' />
-        <StatCard title='Срок' value={base.slaDeadline ?? '—'} note={state.nextStep} />
+        <StatCard title='К банковскому шагу' value={formatMoney(bankBasisAmount)} note='Сумма основания, доступная банку при закрытых блокерах.' />
+        <StatCard title='Срок' value={base.slaDeadline ?? '—'} note={safeNextStep} />
       </div>
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
@@ -119,11 +132,11 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Контур сделки</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Документы</div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{state.docsState}</div></div>
-          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Резерв / выпуск</div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{state.reserveState}</div></div>
+          <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Резерв / банк</div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{state.reserveState}</div></div>
           <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий владелец</div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{state.nextOwner}</div></div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {state.blockers.length ? state.blockers.map((blocker) => <Badge key={blocker} tone={blockerTone(blocker)}>{blocker}</Badge>) : <Badge tone='success'>блокеры закрыты</Badge>}
+          {state.blockers.length ? state.blockers.map((blocker) => <Badge key={blocker} tone={blockerTone(blocker)}>{normalizeLiveMoneyText(blocker)}</Badge>) : <Badge tone='success'>блокеры закрыты</Badge>}
         </div>
       </section>
 
@@ -142,8 +155,8 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {state.docsState === 'missing' ? <button onClick={() => { startDocs(id); toast('Сбор документов по сделке запущен.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Начать сбор документов</button> : null}
           {state.docsState !== 'complete' ? <button onClick={() => { completeDocs(id); toast('Документный пакет сделки собран.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Документы собраны</button> : null}
-          {state.docsState === 'complete' && state.reserveState === 'reserved' && state.disputeState !== 'open' ? <button onClick={() => { requestRelease(id); toast('Запрос на банковскую проверку выплаты по сделке создан.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Передать основание банку денег</button> : null}
-          {state.reserveState === 'pending_release' ? <button onClick={() => { releaseFunds(id); toast('Банк подтвердил выплату по сделке.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Подтвердить банковское событие</button> : null}
+          {state.docsState === 'complete' && state.reserveState === 'reserved' && state.disputeState !== 'open' ? <button onClick={() => { requestRelease(id); toast('Запрос на банковскую проверку основания по сделке создан.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Передать основание банку</button> : null}
+          {state.reserveState === 'pending_release' ? <button onClick={() => { releaseFunds(id); toast('Банк подтвердил внешнее банковское событие по сделке.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Подтвердить банковское событие</button> : null}
           {state.disputeState !== 'open' && state.reserveState !== 'released' ? <button onClick={() => { openDispute(id); toast('Спор по сделке открыт.', 'warning'); }} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Открыть спор</button> : null}
           {state.disputeState === 'open' ? <button onClick={() => { resolveDispute(id); toast('Спор по сделке закрыт.', 'success'); }} style={{ borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Закрыть спор</button> : null}
           <Link href='/platform-v7/bank' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>Банк</Link>
@@ -160,7 +173,7 @@ export function LiveDealDetailRuntime({ id }: { id: string }) {
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{event.actor}</div>
                 <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{event.ts}</div>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #475569)', marginTop: 8 }}>{event.action}</div>
+              <div style={{ fontSize: 12, color: 'var(--pc-text-secondary, #475569)', marginTop: 8 }}>{normalizeLiveMoneyText(event.action)}</div>
             </div>
           ))}
         </div>
