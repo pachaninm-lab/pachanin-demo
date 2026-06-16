@@ -35,9 +35,21 @@ function draftStatusLabel(status: string) {
   if (status === 'reserve_pending') return 'Резерв на проверке';
   if (status === 'reserve_approved') return 'Резерв подтверждён';
   if (status === 'dispute_open') return 'Спор открыт';
-  if (status === 'release_ready') return 'Готово к выпуску';
-  if (status === 'released') return 'Деньги выпущены';
+  if (status === 'release_ready') return 'Основание готово';
+  if (status === 'released') return 'Банк подтвердил событие';
   return status;
+}
+function normalizeDraftNextStep(value: string) {
+  return value
+    .replace(/Деньги\s+выпущены\./gi, 'Получено банковское подтверждение.')
+    .replace(/Банк\s+может\s+выпускать\s+деньги\s+по\s+сделке\./gi, 'Банк может проверить основание по сделке.')
+    .replace(/Запросить\s+выпуск\s+денег\./gi, 'Передать основание на банковскую проверку.')
+    .replace(/Закрыть\s+документные\s+блокеры\s+до\s+выпуска\s+денег\./gi, 'Закрыть документные блокеры до банковского шага.')
+    .replace(/Закрыть\s+спор\s+и\s+заново\s+пройти\s+денежный\s+шаг\./gi, 'Закрыть спор и заново пройти банковский шаг.')
+    .replace(/Запрошен\s+выпуск\s+денег/gi, 'Передано основание на банковскую проверку')
+    .replace(/Деньги\s+по\s+сделке\s+выпущены/gi, 'Получено внешнее банковское подтверждение')
+    .replace(/выпуск\s+денег/gi, 'банковский шаг')
+    .replace(/выпуск/gi, 'банковский шаг');
 }
 
 export function BuyerProcurementRuntimeV2() {
@@ -123,7 +135,7 @@ export function BuyerProcurementRuntimeV2() {
               <div key={item.id} style={{ padding:14, borderRadius:14, background:'#F8FAFB', border:'1px solid var(--pc-border, #E4E6EA)', display:'grid', gap:8 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}><div style={{ fontFamily:'JetBrains Mono, monospace', fontWeight:800, color:'#0A7A5F', fontSize:13 }}>{item.id}</div><Badge text={draftStatusLabel(item.status)} tone='success' /></div>
                 <div style={{ fontSize:14, fontWeight:700, color:'var(--pc-text-primary, #0F1419)' }}>{item.grain} · {item.volume} т · {formatMoney(item.price)} / т</div>
-                <div style={{ fontSize:12, color:'var(--pc-text-secondary, #475569)' }}><strong>Следующий шаг:</strong> {item.nextStep}</div>
+                <div style={{ fontSize:12, color:'var(--pc-text-secondary, #475569)' }}><strong>Следующий шаг:</strong> {normalizeDraftNextStep(item.nextStep)}</div>
                 <Link href={`/platform-v7/deal-drafts/${item.id}`} style={{ textDecoration:'none', display:'inline-flex', alignItems:'center', justifyContent:'center', borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700 }}>Открыть черновик</Link>
               </div>
             ))}
