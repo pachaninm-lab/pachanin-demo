@@ -35,9 +35,9 @@ function reserveLabel(v: string) {
   return v;
 }
 function paymentLabel(v: string) {
-  if (v === 'blocked') return 'Выпуск заблокирован';
-  if (v === 'ready_for_release') return 'Готово к выпуску';
-  if (v === 'released') return 'Банк подтвердил выплату';
+  if (v === 'blocked') return 'Банковский шаг заблокирован';
+  if (v === 'ready_for_release') return 'Основание готово';
+  if (v === 'released') return 'Банк подтвердил событие';
   return v;
 }
 function disputeLabel(v: string) {
@@ -52,8 +52,8 @@ function statusLabel(v: string) {
   if (v === 'reserve_pending') return 'Резерв на проверке';
   if (v === 'reserve_approved') return 'Резерв подтверждён';
   if (v === 'dispute_open') return 'Спор открыт';
-  if (v === 'release_ready') return 'Готово к выпуску';
-  if (v === 'released') return 'Банк подтвердил выплату';
+  if (v === 'release_ready') return 'Основание готово';
+  if (v === 'released') return 'Банк подтвердил событие';
   return v;
 }
 function blockerLabel(v: string) {
@@ -61,6 +61,21 @@ function blockerLabel(v: string) {
   if (v === 'reserve') return 'Резерв';
   if (v === 'dispute') return 'Спор';
   return v;
+}
+
+function normalizeDraftMoneyText(value: string) {
+  return value
+    .replace(/Деньги\s+выпущены\./gi, 'Получено банковское подтверждение.')
+    .replace(/Банк\s+может\s+выпускать\s+деньги\s+по\s+сделке\./gi, 'Банк может проверить основание по сделке.')
+    .replace(/Запросить\s+выпуск\s+денег\./gi, 'Передать основание на банковскую проверку.')
+    .replace(/Закрыть\s+документные\s+блокеры\s+до\s+выпуска\s+денег\./gi, 'Закрыть документные блокеры до банковского шага.')
+    .replace(/Закрыть\s+спор\s+и\s+заново\s+пройти\s+денежный\s+шаг\./gi, 'Закрыть спор и заново пройти банковский шаг.')
+    .replace(/Запрошен\s+выпуск\s+денег/gi, 'Передано основание на банковскую проверку')
+    .replace(/Деньги\s+по\s+сделке\s+выпущены/gi, 'Получено внешнее банковское подтверждение')
+    .replace(/выпуск\s+денег/gi, 'банковский шаг')
+    .replace(/выпуск/gi, 'банковский шаг')
+    .replace(/проверку\s+выплаты/gi, 'проверку основания')
+    .replace(/подтвердил\s+выплату/gi, 'подтвердил банковское событие');
 }
 
 export function DealDraftDetailRuntimeV2({ id }: { id: string }) {
@@ -74,7 +89,8 @@ export function DealDraftDetailRuntimeV2({ id }: { id: string }) {
 
   const sourceLabel = item.sourceType === 'RFQ_MARKET' ? 'Рыночный вариант' : 'Внутренний запрос';
   const marketSource = item.sourceType === 'RFQ_MARKET' ? getMarketRfqById(item.sourceId) : null;
-  const moneyCenter = item.paymentState === 'released' ? 'Банк подтвердил выплату' : item.paymentState === 'ready_for_release' ? 'Банк может выпускать деньги' : item.reserveState === 'approved' ? 'Нужно запросить банковская проверка выплаты' : item.reserveState === 'pending' ? 'Банк проверяет резерв' : 'Сначала собрать документы и запустить резерв';
+  const safeNextStep = normalizeDraftMoneyText(item.nextStep);
+  const moneyCenter = item.paymentState === 'released' ? 'Банк подтвердил внешнее событие' : item.paymentState === 'ready_for_release' ? 'Банк может проверить основание' : item.reserveState === 'approved' ? 'Нужно передать основание на банковскую проверку' : item.reserveState === 'pending' ? 'Банк проверяет резерв' : 'Сначала собрать документы и запустить резерв';
 
   return (
     <div style={{ display:'grid', gap:18, padding:'8px 0' }}>
@@ -95,7 +111,7 @@ export function DealDraftDetailRuntimeV2({ id }: { id: string }) {
       <section style={{ background:'linear-gradient(180deg, rgba(10,122,95,0.08) 0%, rgba(255,255,255,0.96) 100%)', border:'1px solid rgba(10,122,95,0.14)', borderRadius:18, padding:18, display:'grid', gap:12 }}>
         <div style={{ fontSize:12, fontWeight:800, color:'#0A7A5F', letterSpacing:'0.06em', textTransform:'uppercase' }}>Главное сейчас</div>
         <div style={{ fontSize:20, lineHeight:1.4, fontWeight:800, color:'var(--pc-text-primary, #0F1419)' }}>{moneyCenter}</div>
-        <div style={{ fontSize:13, color:'var(--pc-text-secondary, #475569)', lineHeight:1.7 }}><strong>Следующий шаг:</strong> {item.nextStep}</div>
+        <div style={{ fontSize:13, color:'var(--pc-text-secondary, #475569)', lineHeight:1.7 }}><strong>Следующий шаг:</strong> {safeNextStep}</div>
         <div style={{ fontSize:13, color:'var(--pc-text-secondary, #475569)', lineHeight:1.7 }}><strong>Владелец шага:</strong> {item.nextOwner}</div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>{item.blockers.length ? item.blockers.map((b) => <Badge key={b} tone={b === 'dispute' ? 'danger' : 'warning'}>{blockerLabel(b)}</Badge>) : <Badge tone='success'>Блокеров нет</Badge>}</div>
       </section>
@@ -104,7 +120,7 @@ export function DealDraftDetailRuntimeV2({ id }: { id: string }) {
         <StatCard title='Цена' value={formatMoney(item.price)} note='Цена из выбранного источника.' />
         <StatCard title='Документы' value={docsLabel(item.docsState)} note='Состояние документного пакета.' />
         <StatCard title='Резерв' value={reserveLabel(item.reserveState)} note='Состояние банкового резерва.' />
-        <StatCard title='Деньги' value={paymentLabel(item.paymentState)} note='Состояние денежного шага.' />
+        <StatCard title='Банковский шаг' value={paymentLabel(item.paymentState)} note='Состояние банковского шага.' />
       </div>
 
       <section style={{ background:'#fff', border:'1px solid var(--pc-border, #E4E6EA)', borderRadius:18, padding:18, display:'grid', gap:14 }}>
@@ -124,8 +140,8 @@ export function DealDraftDetailRuntimeV2({ id }: { id: string }) {
           {item.docsState !== 'complete' ? <button onClick={() => { markDraftDocsComplete(item.id); toast('Документный пакет отмечен как полный.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Документы собраны</button> : null}
           {item.docsState === 'complete' && item.reserveState === 'not_started' ? <button onClick={() => { submitDraftReserve(item.id); toast('Запрос на резерв отправлен в банк.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Отправить на резерв</button> : null}
           {item.reserveState === 'pending' ? <button onClick={() => { approveDraftReserve(item.id); toast('Резерв подтверждён.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid var(--pc-border, #E4E6EA)', color:'var(--pc-text-primary, #0F1419)', fontSize:13, fontWeight:700, cursor:'pointer' }}>Подтвердить резерв</button> : null}
-          {item.reserveState === 'approved' && item.docsState === 'complete' && item.disputeState !== 'open' && item.paymentState !== 'ready_for_release' && item.paymentState !== 'released' ? <button onClick={() => { requestDraftRelease(item.id); toast('Запрос на банковскую проверку выплаты создан.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Передать основание банку денег</button> : null}
-          {item.paymentState === 'ready_for_release' ? <button onClick={() => { releaseDraftFunds(item.id); toast('Банк подтвердил выплату.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid var(--pc-border, #E4E6EA)', color:'var(--pc-text-primary, #0F1419)', fontSize:13, fontWeight:700, cursor:'pointer' }}>Подтвердить банковское событие</button> : null}
+          {item.reserveState === 'approved' && item.docsState === 'complete' && item.disputeState !== 'open' && item.paymentState !== 'ready_for_release' && item.paymentState !== 'released' ? <button onClick={() => { requestDraftRelease(item.id); toast('Основание передано на банковскую проверку.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Передать основание банку</button> : null}
+          {item.paymentState === 'ready_for_release' ? <button onClick={() => { releaseDraftFunds(item.id); toast('Внешнее банковское подтверждение отмечено.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid var(--pc-border, #E4E6EA)', color:'var(--pc-text-primary, #0F1419)', fontSize:13, fontWeight:700, cursor:'pointer' }}>Подтвердить банковское событие</button> : null}
           {item.disputeState !== 'open' && item.paymentState !== 'released' ? <button onClick={() => { openDraftDispute(item.id); toast('Спор открыт.', 'warning'); }} style={{ borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid rgba(220,38,38,0.18)', color:'#B91C1C', fontSize:13, fontWeight:700, cursor:'pointer' }}>Открыть спор</button> : null}
           {item.disputeState === 'open' ? <button onClick={() => { resolveDraftDispute(item.id); toast('Спор закрыт.', 'success'); }} style={{ borderRadius:12, padding:'10px 14px', background:'rgba(10,122,95,0.08)', border:'1px solid rgba(10,122,95,0.16)', color:'#0A7A5F', fontSize:13, fontWeight:700, cursor:'pointer' }}>Закрыть спор</button> : null}
           <Link href='/platform-v7/bank' style={{ textDecoration:'none', display:'inline-flex', alignItems:'center', justifyContent:'center', borderRadius:12, padding:'10px 14px', background:'#fff', border:'1px solid var(--pc-border, #E4E6EA)', color:'var(--pc-text-primary, #0F1419)', fontSize:13, fontWeight:700 }}>Банк</Link>
@@ -136,7 +152,7 @@ export function DealDraftDetailRuntimeV2({ id }: { id: string }) {
       <section style={{ background:'#fff', border:'1px solid var(--pc-border, #E4E6EA)', borderRadius:18, padding:18, display:'grid', gap:12 }}>
         <div style={{ fontSize:18, fontWeight:800, color:'var(--pc-text-primary, #0F1419)' }}>Журнал событий</div>
         <div style={{ display:'grid', gap:10 }}>
-          {item.events.map((event, index) => <div key={`${event.ts}-${index}`} style={{ padding:14, borderRadius:14, background:'#F8FAFB', border:'1px solid var(--pc-border, #E4E6EA)' }}><div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}><div style={{ fontSize:13, fontWeight:700, color:'var(--pc-text-primary, #0F1419)' }}>{event.actor}</div><div style={{ fontSize:12, color:'var(--pc-text-muted, #6B778C)' }}>{event.ts}</div></div><div style={{ fontSize:12, color:'var(--pc-text-secondary, #475569)', marginTop:8 }}>{event.action}</div></div>)}
+          {item.events.map((event, index) => <div key={`${event.ts}-${index}`} style={{ padding:14, borderRadius:14, background:'#F8FAFB', border:'1px solid var(--pc-border, #E4E6EA)' }}><div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}><div style={{ fontSize:13, fontWeight:700, color:'var(--pc-text-primary, #0F1419)' }}>{event.actor}</div><div style={{ fontSize:12, color:'var(--pc-text-muted, #6B778C)' }}>{event.ts}</div></div><div style={{ fontSize:12, color:'var(--pc-text-secondary, #475569)', marginTop:8 }}>{normalizeDraftMoneyText(event.action)}</div></div>)}
         </div>
       </section>
     </div>
