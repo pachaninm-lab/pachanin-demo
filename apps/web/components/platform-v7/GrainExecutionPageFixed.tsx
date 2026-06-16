@@ -169,7 +169,7 @@ function TitleForMode({ mode }: { readonly mode: GrainExecutionPageMode }) {
     'deal-quality': 'Качество и удержания',
     'deal-weight': 'Весовой баланс',
     'deal-sdiz': 'СДИЗ и ФГИС',
-    'deal-release': 'Выпуск и удержание денег',
+    'deal-release': 'Банковское основание и удержания',
     'demo-flow': 'Сквозной сценарий',
   };
   return <>{titles[mode]}</>;
@@ -180,9 +180,9 @@ function Summary({ ctx, role }: { readonly ctx: GrainContext; readonly role: Use
   return (
     <P7Section surface='card' eyebrow='Операционный статус' title='Цепочка партии до денег' subtitle={summary.currentState}>
       <div style={gridStyle}>
-        <Metric label='на банковскую проверку выплаты' value={summary.moneySummary ? formatMoney(summary.moneySummary.readyToReleaseAmount) : '—'} note='После закрытия документов, СДИЗ и ручных проверок.' tone='money' />
+        <Metric label='на банковскую проверку основания' value={summary.moneySummary ? formatMoney(summary.moneySummary.readyToReleaseAmount) : '—'} note='После закрытия документов, СДИЗ и ручных проверок.' tone='money' />
         <Metric label='под удержанием' value={summary.moneySummary ? formatMoney(summary.moneySummary.heldAmount) : '—'} note='Удерживается только спорная часть.' tone='warn' />
-        <Metric label='документы' value={summary.documentSummary ? `${summary.documentSummary.ready}/${summary.documentSummary.total}` : '—'} note='Документы являются допуском действий и денег.' />
+        <Metric label='документы' value={summary.documentSummary ? `${summary.documentSummary.ready}/${summary.documentSummary.total}` : '—'} note='Документы являются допуском действий и банковского основания.' />
         <Metric label='обращения' value={summary.supportSummary ? String(summary.supportSummary.openCases) : '—'} note={summary.supportSummary?.nextActionTitle ?? 'Создаются из причин остановки.'} tone={summary.supportSummary?.criticalCases ? 'bad' : 'neutral'} />
       </div>
     </P7Section>
@@ -191,7 +191,7 @@ function Summary({ ctx, role }: { readonly ctx: GrainContext; readonly role: Use
 
 function Readiness({ ctx }: { readonly ctx: GrainContext }) {
   return (
-    <P7Section surface='card' eyebrow='Партия зерна' title={`${ctx.primaryBatch.crop} ${ctx.primaryBatch.gostClass}`} subtitle='Партия стала исходной точкой продажи: из неё создаются лот, документы, СДИЗ, логистика, деньги и доказательства.'>
+    <P7Section surface='card' eyebrow='Партия зерна' title={`${ctx.primaryBatch.crop} ${ctx.primaryBatch.gostClass}`} subtitle='Партия стала исходной точкой продажи: из неё создаются лот, документы, СДИЗ, логистика, банковское основание и доказательства.'>
       <div style={gridStyle}>
         <Metric label='готовность к продаже' value={formatPercent(ctx.readiness.score)} note={readableStatus(ctx.readiness.status)} tone={ctx.readiness.status === 'ready_for_sale' ? 'good' : ctx.readiness.status === 'blocked' ? 'bad' : 'warn'} />
         <Metric label='доступный объём' value={formatTons(ctx.primaryBatch.availableVolumeTons)} note={`${formatTons(ctx.primaryBatch.reservedVolumeTons)} уже зарезервировано`} />
@@ -263,7 +263,7 @@ function SdizDocs({ ctx }: { readonly ctx: GrainContext }) {
     <P7Section surface='card' eyebrow='СДИЗ и документы' title='Допуски действий и денег' subtitle='Статусы показаны честно: предынтеграционный контур, ручная проверка или требует боевого подключения.'>
       <div style={gridStyle}>
         {ctx.sdizGates.map((gate) => <div key={gate.id} style={cardStyle}><Pill tone={['signed', 'sent', 'redeemed'].includes(gate.status) ? 'good' : 'warn'}>{maturityLabel[gate.maturity]}</Pill><p style={textStrong}>{readableStatus(gate.operationType)}</p><p style={textSmall}>Ответственный: {roleLabel[gate.responsibleRole]}. Статус: {readableStatus(gate.status)}.</p></div>)}
-        {ctx.documents.map((doc) => <div key={doc.id} style={cardStyle}><Pill tone={['uploaded', 'signed', 'not_required'].includes(doc.status) ? 'good' : 'warn'}>{readableStatus(doc.status)}</Pill><p style={textStrong}>{docLabels[doc.documentType] ?? doc.documentType}</p><p style={textSmall}>Ответственный: {roleLabel[doc.responsibleRole]}. Блокирует деньги: {doc.blocksMoneyRelease ? 'да' : 'нет'}.</p></div>)}
+        {ctx.documents.map((doc) => <div key={doc.id} style={cardStyle}><Pill tone={['uploaded', 'signed', 'not_required'].includes(doc.status) ? 'good' : 'warn'}>{readableStatus(doc.status)}</Pill><p style={textStrong}>{docLabels[doc.documentType] ?? doc.documentType}</p><p style={textSmall}>Ответственный: {roleLabel[doc.responsibleRole]}. Блокирует банковское основание: {doc.blocksMoneyRelease ? 'да' : 'нет'}.</p></div>)}
       </div>
     </P7Section>
   );
@@ -271,11 +271,11 @@ function SdizDocs({ ctx }: { readonly ctx: GrainContext }) {
 
 function Money({ ctx }: { readonly ctx: GrainContext }) {
   return (
-    <P7Section surface='card' eyebrow='Деньги' title='Частичный выпуск и удержание спорной части' subtitle='Платформа не заявляет самостоятельную выплату. Показано основание для банковского подтверждения.'>
+    <P7Section surface='card' eyebrow='Деньги' title='Банковское основание и удержание спорной части' subtitle='Платформа не заявляет самостоятельную выплату. Показано основание для банковского подтверждения.'>
       <div style={gridStyle}>
         <Metric label='сумма сделки' value={formatMoney(ctx.moneyProjection.grossDealAmount)} />
         <Metric label='зарезервировано' value={formatMoney(ctx.moneyProjection.reservedAmount)} tone='money' />
-        <Metric label='на банковскую проверку выплаты' value={formatMoney(ctx.moneyProjection.readyToReleaseAmount)} tone='money' />
+        <Metric label='на банковскую проверку основания' value={formatMoney(ctx.moneyProjection.readyToReleaseAmount)} tone='money' />
         <Metric label='под удержанием' value={formatMoney(ctx.moneyProjection.heldAmount)} tone='warn' />
         <Metric label='спорная часть' value={formatMoney(ctx.moneyProjection.disputedAmount)} tone='bad' />
       </div>
@@ -299,8 +299,8 @@ function Elevator({ ctx }: { readonly ctx: GrainContext }) {
 }
 
 function Demo({ ctx }: { readonly ctx: GrainContext }) {
-  const steps = ['Партия создана', 'Готовность рассчитана', 'Лот создан из партии', 'Закупочный запрос подобрал партию', 'Оффер принят', 'Деньги зарезервированы в предынтеграционном статусе', 'СДИЗ поставлен как допуск', 'Логистика назначена', 'Водитель прибыл', 'Элеватор зафиксировал вес', 'Проба передана в лабораторию', 'Качество создало удержание', 'Спор открыт на конкретную сумму', 'Доказательства собраны', 'Банк видит основание частичного выпуска'];
-  return <P7Section surface='card' eyebrow='Демо 3–5 минут' title='Сквозной сценарий от партии до денег' subtitle={`Активная партия: ${ctx.primaryBatch.id}. Интеграции показаны как тестовый или ручной контур.`}><div style={gridStyle}>{steps.map((step, index) => <div key={step} style={cardStyle}><Pill>{String(index + 1).padStart(2, '0')}</Pill><p style={textStrong}>{step}</p></div>)}</div></P7Section>;
+  const steps = ['Партия создана', 'Готовность рассчитана', 'Лот создан из партии', 'Закупочный запрос подобрал партию', 'Оффер принят', 'Деньги зарезервированы в предынтеграционном статусе', 'СДИЗ поставлен как допуск', 'Логистика назначена', 'Водитель прибыл', 'Элеватор зафиксировал вес', 'Проба передана в лабораторию', 'Качество создало удержание', 'Спор открыт на конкретную сумму', 'Доказательства собраны', 'Банк видит основание частичного банковского шага'];
+  return <P7Section surface='card' eyebrow='Сквозной сценарий' title='Путь от партии до денег' subtitle={`Активная партия: ${ctx.primaryBatch.id}. Интеграции показаны как предынтеграционный или ручной контур.`}><div style={gridStyle}>{steps.map((step, index) => <div key={step} style={cardStyle}><Pill>{String(index + 1).padStart(2, '0')}</Pill><p style={textStrong}>{step}</p></div>)}</div></P7Section>;
 }
 
 function SupportAudit({ ctx }: { readonly ctx: GrainContext }) {
