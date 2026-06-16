@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 const sections = [
-  { title: 'Решение', value: 'держать выпуск закрытым', note: 'Открытые документы, риск и спор не дают основания для выплаты.', href: '/platform-v7/settlement/grain', tone: 'stop' },
+  { title: 'Решение', value: 'банковский шаг закрыт', note: 'Открытые документы, риск и спор не дают основания для банковского подтверждения.', href: '/platform-v7/settlement/grain', tone: 'stop' },
   { title: 'Риск', value: '78/100', note: 'Аномалии доступа, обход и отклонение маршрута требуют контроля.', href: '/platform-v7/security/grain', tone: 'warn' },
   { title: 'Доказательства', value: 'пакет собран', note: 'Пакет содержит документы, фото, акт, протокол и журнал оснований.', href: '/platform-v7/data-room/grain', tone: 'good' },
   { title: 'Следующий шаг', value: 'закрыть СДИЗ', note: 'Ответственный экран — оператор сделки; действие ведёт к документному блоку.', href: '/platform-v7/operator/grain', tone: 'good' },
@@ -9,7 +9,7 @@ const sections = [
 
 const metrics = [
   { label: 'Сделка', value: 'DL-9106', tone: 'neutral' },
-  { label: 'Деньги', value: '0 ₽ к выпуску', tone: 'bad' },
+  { label: 'Деньги', value: '0 ₽ к банку', tone: 'bad' },
   { label: 'Риск', value: 'высокий', tone: 'warn' },
   { label: 'Контроль', value: 'назначен', tone: 'good' },
 ] as const;
