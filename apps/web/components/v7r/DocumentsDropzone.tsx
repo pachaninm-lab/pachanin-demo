@@ -85,7 +85,7 @@ export function DocumentsDropzone({ dealId }: { dealId: string }) {
   const requiredDone = REQUIRED_DOCS.filter((doc) => checklist[doc.id]).length;
   const blockerDone = REQUIRED_DOCS.filter((doc) => doc.blocker && checklist[doc.id]).length;
   const blockerTotal = REQUIRED_DOCS.filter((doc) => doc.blocker).length;
-  const releaseReady = blockerDone === blockerTotal;
+  const bankBasisReady = blockerDone === blockerTotal;
 
   return (
     <section
@@ -100,8 +100,8 @@ export function DocumentsDropzone({ dealId }: { dealId: string }) {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 700 }}>{docs.length ? `${docs.length} файлов` : 'Пусто'}</div>
-          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: releaseReady ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${releaseReady ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, color: releaseReady ? '#0A7A5F' : '#B45309', fontSize: 11, fontWeight: 800 }}>
-            {releaseReady ? 'Документы готовы к выпуску' : `До выпуска: ${blockerDone}/${blockerTotal}`}
+          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: bankBasisReady ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${bankBasisReady ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, color: bankBasisReady ? '#0A7A5F' : '#B45309', fontSize: 11, fontWeight: 800 }}>
+            {bankBasisReady ? 'Основание готово для банка' : `До банка: ${blockerDone}/${blockerTotal}`}
           </span>
         </div>
       </div>
@@ -116,7 +116,7 @@ export function DocumentsDropzone({ dealId }: { dealId: string }) {
             <input type="checkbox" checked={!!checklist[doc.id]} onChange={() => toggleChecklist(doc.id)} />
             <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{doc.label}</div>
-              <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{doc.blocker ? 'Блокирует банковская проверка выплаты' : 'Желательно для полного досье сделки'}</div>
+              <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{doc.blocker ? 'Блокирует банковскую проверку основания' : 'Желательно для полного досье сделки'}</div>
             </div>
             <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: checklist[doc.id] ? '#0A7A5F' : '#9AA4B2' }}>{checklist[doc.id] ? 'Готово' : 'Нет'}</span>
           </label>
