@@ -69,7 +69,7 @@ export function EvidencePackOperationsQueue({ decision = 'all', missing = 'all' 
         <Metric label='Средняя готовность' value={`${avgScore}%`} tone={avgScore >= 80 ? 'accent' : 'default'} />
         <Metric label='Удержано' value={String(holdCount)} tone={holdCount > 0 ? 'danger' : 'accent'} />
         <Metric label='На проверке' value={String(reviewCount)} tone={reviewCount > 0 ? 'default' : 'accent'} />
-        <Metric label='К выпуску' value={String(readyCount)} tone='accent' />
+        <Metric label='Готово к банку' value={String(readyCount)} tone='accent' />
       </div>
 
       <DecisionControls active={decision} />
@@ -99,7 +99,7 @@ function DecisionControls({ active }: { active: DecisionFilter }) {
     { label: 'Все', value: 'all', href: '/platform-v7/evidence-pack' },
     { label: 'Удержано', value: 'Hold', href: '/platform-v7/evidence-pack?decision=Hold' },
     { label: 'На проверке', value: 'Review', href: '/platform-v7/evidence-pack?decision=Review' },
-    { label: 'К выпуску', value: 'Can release', href: '/platform-v7/evidence-pack?decision=Can%20release' },
+    { label: 'Готово к банку', value: 'Can release', href: '/platform-v7/evidence-pack?decision=Can%20release' },
   ];
 
   return (
@@ -181,7 +181,7 @@ function buildRows(state: DomainExecutionState): QueueRow[] {
     const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
     const decision: QueueRow['decision'] = hasDispute ? 'Hold' : score >= 80 ? 'Can release' : 'Review';
     const blocker = hasDispute
-      ? 'Активный спор: выпуск денег требует проверки или арбитражного маршрута.'
+      ? 'Активный спор: банковское основание требует проверки или арбитражного маршрута.'
       : score >= 80
         ? 'Пакет готов к просмотру: доказательства, журнал, линия событий и документы связаны.'
         : 'Пакет требует данных: не хватает доказательств, журнала, линии событий или документной готовности.';
@@ -212,7 +212,7 @@ function human(value: string) {
 
 function decisionLabel(value: QueueRow['decision']) {
   if (value === 'Hold') return 'Удержано';
-  if (value === 'Can release') return 'К выпуску';
+  if (value === 'Can release') return 'Готово к банку';
   return 'На проверке';
 }
 
