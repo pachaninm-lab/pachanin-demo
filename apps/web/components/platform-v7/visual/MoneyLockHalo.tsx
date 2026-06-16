@@ -19,7 +19,7 @@ import type { TrustDotState } from './TrustDot';
  *   />
  *
  *   <MoneyLockHalo amount="624 тыс ₽" lockState="hold" reason="удержание по качеству" />
- *   <MoneyLockHalo amount="12,4 млн ₽" lockState="ready" reason="готово к выпуску" />
+ *   <MoneyLockHalo amount="12,4 млн ₽" lockState="ready" reason="основание готово" />
  */
 
 export type MoneyLockState =
@@ -85,7 +85,7 @@ const LOCK_CONFIG: Record<MoneyLockState, {
     bg:     'var(--p7-color-success-soft, #ECFDF3)',
     border: 'color-mix(in srgb, var(--p7-color-success, #027A48) 36%, transparent)',
     halo:   '0 0 0 4px color-mix(in srgb, var(--p7-color-success, #027A48) 10%, transparent)',
-    label:  'готово к выпуску',
+    label:  'основание готово',
   },
   'released': {
     Icon: CheckCircle2,
@@ -93,7 +93,7 @@ const LOCK_CONFIG: Record<MoneyLockState, {
     bg:     'var(--p7-color-success-soft, #ECFDF3)',
     border: 'color-mix(in srgb, var(--p7-color-success, #027A48) 28%, transparent)',
     halo:   'none',
-    label:  'выпущено',
+    label:  'банк подтвердил',
   },
 };
 
