@@ -16,6 +16,7 @@ import {
 import {
   calculateControlTowerKpi as calculateCanonicalControlTowerKpi,
   calculateInvestorKpi as calculateCanonicalInvestorKpi,
+  evaluateReleaseGuard,
   normalizeDomainDeals,
   type CanonicalDeal,
   type ControlTowerKpi as CanonicalControlTowerKpi,
@@ -122,9 +123,9 @@ export function selectHeldTotal(deals: DomainDeal[] = domainDeals): number {
 }
 
 export function selectReadyToReleaseTotal(deals: DomainDeal[] = domainDeals): number {
-  return selectActiveDeals(deals).reduce((sum, deal) => {
-    const release = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
-    return sum + (deal.status === 'release_requested' || deal.status === 'docs_complete' ? release : 0);
+  return selectCanonicalDeals(selectActiveDeals(deals)).reduce((sum, deal) => {
+    const check = evaluateReleaseGuard(deal);
+    return sum + (check.canExecuteRelease ? check.releaseAmount : 0);
   }, 0);
 }
 
