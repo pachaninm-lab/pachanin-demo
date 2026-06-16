@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import {
   domainDeals,
   selectActiveDealCount,
@@ -57,14 +58,24 @@ describe('domain selectors', () => {
     expect(selectHeldTotal()).toBe(2306000);
   });
 
-  it('calculates ready-to-release total from release requested and docs complete deals', () => {
-    const manual = domainDeals
+  it('calculates ready-to-release total through the strict release guard', () => {
+    const manual = selectCanonicalDeals(domainDeals.filter((deal) => deal.status !== 'closed')).reduce((sum, deal) => {
+      const check = evaluateReleaseGuard(deal);
+      return sum + (check.canExecuteRelease ? check.releaseAmount : 0);
+    }, 0);
+
+    expect(selectReadyToReleaseTotal()).toBe(manual);
+  });
+
+  it('does not use old status-only readiness for money totals', () => {
+    const oldStatusOnlyTotal = domainDeals
       .filter((deal) => deal.status !== 'closed')
       .reduce((sum, deal) => {
         const release = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
         return sum + (deal.status === 'release_requested' || deal.status === 'docs_complete' ? release : 0);
       }, 0);
-    expect(selectReadyToReleaseTotal()).toBe(manual);
+
+    expect(selectReadyToReleaseTotal()).toBeLessThanOrEqual(oldStatusOnlyTotal);
   });
 
   it('returns a consistent totals object', () => {
@@ -75,7 +86,7 @@ describe('domain selectors', () => {
     });
   });
 
-  it('exposes canonical read-only selectors without changing the old domain totals', () => {
+  it('exposes canonical read-only selectors without changing reserve and held totals', () => {
     const canonicalDeals = selectCanonicalDeals();
     const canonicalControlTower = selectCanonicalControlTowerKpis();
     const canonicalInvestor = selectCanonicalInvestorKpis();
