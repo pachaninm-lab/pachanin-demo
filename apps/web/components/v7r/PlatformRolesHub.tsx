@@ -11,6 +11,12 @@ import {
   formatTons,
 } from '@/lib/platform-v7/deal-execution-source-of-truth';
 
+const { deal, logistics, money, documents, readiness, dispute } = PLATFORM_V7_EXECUTION_SOURCE;
+const readinessScore = executionReadinessScore();
+const blockers = executionBlockers();
+const firstBlocker = blockers[0] ?? 'активных блокеров нет';
+const expectedDealAmount = expectedDealAmountRub();
+
 type RoleCard = {
   title: string;
   href: string;
@@ -31,12 +37,6 @@ type RouteStep = {
   boundary: string;
 };
 
-const { deal, logistics, money, documents, readiness, dispute } = PLATFORM_V7_EXECUTION_SOURCE;
-const readinessScore = executionReadinessScore();
-const blockers = executionBlockers();
-const firstBlocker = blockers[0] ?? 'активных блокеров нет';
-const expectedDealAmount = expectedDealAmountRub();
-
 const CONTROL_ANSWERS = [
   {
     label: 'Что происходит',
@@ -45,7 +45,7 @@ const CONTROL_ANSWERS = [
   },
   {
     label: 'Где деньги',
-    value: `${formatRub(money.reservedRub)} · резервный контур; ${formatRub(money.releaseCandidateRub)} · к выпуску`,
+    value: `${formatRub(money.reservedRub)} · резервный контур; ${formatRub(money.releaseCandidateRub)} · банковское основание`,
     note: `Решение банка: ${money.bankDecision}. Продавец не получает деньги сразу после ставки.`,
   },
   {
@@ -56,7 +56,7 @@ const CONTROL_ANSWERS = [
   {
     label: 'Где документы',
     value: `СДИЗ: ${documents.sdizStatus}; ЭДО: ${documents.edoStatus}; КЭП: ${documents.kepStatus}`,
-    note: `Не хватает: ${documents.missingDocuments.join(', ')}. Без полного пакета банковская проверка выплаты закрыт.`,
+    note: `Не хватает: ${documents.missingDocuments.join(', ')}. Без полного пакета банковская проверка основания закрыта.`,
   },
   {
     label: 'Что заблокировано',
@@ -86,7 +86,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     href: `/platform-v7/deals/${deal.id}/clean`,
     actor: 'единая карточка сделки',
     answer: `${deal.id} связывает лот, ставку, резервный контур, логистику, документы, деньги и спор.`,
-    boundary: 'Статус: controlled-pilot / pre-integration. Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.',
+    boundary: 'Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.',
   },
   {
     step: '03',
@@ -94,8 +94,8 @@ const GUIDED_ROUTE: RouteStep[] = [
     href: '/platform-v7/bank',
     role: 'bank',
     actor: 'финансовый партнёр',
-    answer: `Сумма сделки: ${formatRub(expectedDealAmount)}. Резервный контур: ${formatRub(money.reservedRub)}. К выпуску сейчас: ${formatRub(money.releaseCandidateRub)}.`,
-    boundary: 'Нет фальшивой кнопки выплаты: банковская проверка выплаты невозможен без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора.',
+    answer: `Сумма сделки: ${formatRub(expectedDealAmount)}. Резервный контур: ${formatRub(money.reservedRub)}. Банковское основание сейчас: ${formatRub(money.releaseCandidateRub)}.`,
+    boundary: 'Нет ложной кнопки оплаты: банковская проверка основания невозможна без СДИЗ, ЭТрН, УПД, акта, качества и закрытого спора.',
   },
   {
     step: '04',
@@ -103,7 +103,7 @@ const GUIDED_ROUTE: RouteStep[] = [
     href: '/platform-v7/documents',
     actor: 'ЭДО / ФГИС / КЭП',
     answer: `Договор: ${documents.contractStatus}; СДИЗ: ${documents.sdizStatus}; транспортный пакет: ${documents.transportPackStatus}.`,
-    boundary: 'У каждого документа должен быть источник, ответственный, статус и влияние на выплату.',
+    boundary: 'У каждого документа должен быть источник, ответственный, статус и влияние на банковское основание.',
   },
   {
     step: '05',
@@ -202,9 +202,9 @@ const ROLE_CARDS: RoleCard[] = [
     href: '/platform-v7/bank',
     role: 'bank',
     accent: '#0F172A',
-    focus: 'видеть деньги, документы, причины остановки и условия выпуска',
-    sees: `сумму сделки ${formatRub(expectedDealAmount)}, резервный контур, блокеры, документы, условия выпуска`,
-    hidden: 'кнопка выплаты без закрытых условий и подтверждённых событий',
+    focus: 'видеть деньги, документы, причины остановки и условия банковского шага',
+    sees: `сумму сделки ${formatRub(expectedDealAmount)}, резервный контур, блокеры, документы, банковское основание`,
+    hidden: 'кнопка оплаты без закрытых условий и подтверждённых событий',
   },
   {
     title: 'Оператор',
@@ -227,7 +227,7 @@ const ROLE_CARDS: RoleCard[] = [
     title: 'Документы',
     href: '/platform-v7/documents',
     accent: '#0369A1',
-    focus: 'понять, что именно мешает выплате',
+    focus: 'понять, что именно мешает банковскому основанию',
     sees: 'ФГИС, СДИЗ, ЭТрН, УПД, акты, КЭП, источник, ответственного, статус, влияние на деньги',
     hidden: 'внутренний PDF как подмена обязательного государственного или ЭДО-контура',
   },
@@ -242,48 +242,12 @@ const SUPPORT_LINKS = [
 ] as const;
 
 const DOCUMENT_FLOW = [
-  {
-    name: 'СДИЗ',
-    source: 'ФГИС «Зерно»',
-    owner: 'продавец + оператор',
-    status: documents.sdizStatus,
-    impact: 'блокирует финальный банковская проверка выплаты',
-  },
-  {
-    name: 'ЭТрН / транспортный пакет',
-    source: 'ЭДО-провайдер + ГИС ЭПД',
-    owner: 'логист + перевозчик',
-    status: documents.transportPackStatus,
-    impact: 'блокирует закрытие рейса и транспортное основание',
-  },
-  {
-    name: 'УПД',
-    source: 'Контур.Диадок',
-    owner: 'продавец + покупатель',
-    status: documents.edoStatus,
-    impact: 'блокирует бухгалтерское и денежное закрытие',
-  },
-  {
-    name: 'КЭП / МЧД',
-    source: 'КриптоПро DSS',
-    owner: 'уполномоченные подписанты',
-    status: documents.kepStatus,
-    impact: 'блокирует внешне значимое подписание',
-  },
-  {
-    name: 'Акт приёмки',
-    source: 'элеватор / точка приёмки',
-    owner: 'элеватор',
-    status: readiness.logistics.status,
-    impact: 'подтверждает факт исполнения и вес',
-  },
-  {
-    name: 'Протокол качества',
-    source: 'ФГБУ ЦОК АПК / лаборатория',
-    owner: 'лаборатория',
-    status: readiness.quality.status,
-    impact: 'меняет расчётную базу и может открыть спор',
-  },
+  { name: 'СДИЗ', source: 'ФГИС «Зерно»', owner: 'продавец + оператор', status: documents.sdizStatus, impact: 'блокирует финальную банковскую проверку основания' },
+  { name: 'ЭТрН / транспортный пакет', source: 'ЭДО-провайдер + ГИС ЭПД', owner: 'логист + перевозчик', status: documents.transportPackStatus, impact: 'блокирует закрытие рейса и транспортное основание' },
+  { name: 'УПД', source: 'Контур.Диадок', owner: 'продавец + покупатель', status: documents.edoStatus, impact: 'блокирует бухгалтерское и денежное закрытие' },
+  { name: 'КЭП / МЧД', source: 'КриптоПро DSS', owner: 'уполномоченные подписанты', status: documents.kepStatus, impact: 'блокирует внешне значимое подписание' },
+  { name: 'Акт приёмки', source: 'элеватор / точка приёмки', owner: 'элеватор', status: readiness.logistics.status, impact: 'подтверждает факт исполнения и вес' },
+  { name: 'Протокол качества', source: 'ФГБУ ЦОК АПК / лаборатория', owner: 'лаборатория', status: readiness.quality.status, impact: 'меняет расчётную базу и может открыть спор' },
 ];
 
 const STATUS_STYLES: Record<string, { background: string; border: string; color: string }> = {
@@ -294,70 +258,26 @@ const STATUS_STYLES: Record<string, { background: string; border: string; color:
 
 function StatusBadge({ status }: { status: string }) {
   const style = STATUS_STYLES[status] ?? STATUS_STYLES.проверить;
-  return (
-    <span style={{ display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '5px 9px', border: `1px solid ${style.border}`, background: style.background, color: style.color, fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-      {status}
-    </span>
-  );
+  return <span style={{ display: 'inline-flex', width: 'fit-content', borderRadius: 999, padding: '5px 9px', border: `1px solid ${style.border}`, background: style.background, color: style.color, fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{status}</span>;
 }
 
 function RoleCardView({ scenario }: { scenario: RoleCard }) {
   const { setRole } = usePlatformV7RStore();
-
   return (
-    <Link
-      href={`${scenario.href}${scenario.role ? `?as=${scenario.role}` : ''}`}
-      onClick={() => scenario.role && setRole(scenario.role)}
-      style={{
-        textDecoration: 'none',
-        background: '#FFFFFF',
-        border: '1px solid var(--pc-border, #E4E6EA)',
-        borderRadius: 24,
-        padding: 18,
-        display: 'grid',
-        gap: 14,
-        minHeight: 262,
-        boxShadow: '0 14px 34px rgba(15,20,25,0.05)',
-      }}
-    >
+    <Link href={`${scenario.href}${scenario.role ? `?as=${scenario.role}` : ''}`} onClick={() => scenario.role && setRole(scenario.role)} style={{ textDecoration: 'none', background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 14, minHeight: 262, boxShadow: '0 14px 34px rgba(15,20,25,0.05)' }}>
       <div style={{ width: 44, height: 4, borderRadius: 999, background: scenario.accent }} />
-      <div style={{ display: 'grid', gap: 8 }}>
-        <h3 style={{ margin: 0, fontSize: 25, lineHeight: 1.08, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)', letterSpacing: '-0.035em' }}>{scenario.title}</h3>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--pc-text-secondary, #475569)' }}>{scenario.focus}</p>
-      </div>
-      <div style={{ display: 'grid', gap: 8 }}>
-        <div style={miniBlock}>
-          <div style={greenLabel}>видит</div>
-          <p style={miniText}>{scenario.sees}</p>
-        </div>
-        <div style={miniBlock}>
-          <div style={amberLabel}>скрыто / запрещено</div>
-          <p style={miniText}>{scenario.hidden}</p>
-        </div>
-      </div>
-      <div style={{ marginTop: 'auto', minHeight: 44, borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', background: scenario.accent, color: '#fff', fontSize: 15, fontWeight: 900, textAlign: 'center' }}>
-        Открыть кабинет
-      </div>
+      <div style={{ display: 'grid', gap: 8 }}><h3 style={{ margin: 0, fontSize: 25, lineHeight: 1.08, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)', letterSpacing: '-0.035em' }}>{scenario.title}</h3><p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--pc-text-secondary, #475569)' }}>{scenario.focus}</p></div>
+      <div style={{ display: 'grid', gap: 8 }}><div style={miniBlock}><div style={greenLabel}>видит</div><p style={miniText}>{scenario.sees}</p></div><div style={miniBlock}><div style={amberLabel}>скрыто / запрещено</div><p style={miniText}>{scenario.hidden}</p></div></div>
+      <div style={{ marginTop: 'auto', minHeight: 44, borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', background: scenario.accent, color: '#fff', fontSize: 15, fontWeight: 900, textAlign: 'center' }}>Открыть кабинет</div>
     </Link>
   );
 }
 
 function RouteStepCard({ route }: { route: RouteStep }) {
   const { setRole } = usePlatformV7RStore();
-
   return (
-    <Link
-      href={`${route.href}${route.role ? `?as=${route.role}` : ''}`}
-      onClick={() => route.role && setRole(route.role)}
-      style={{ textDecoration: 'none', background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 18, display: 'grid', gap: 12, minHeight: 232 }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={microLabel}>{route.step} · {route.actor}</div>
-          <h3 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 23, lineHeight: 1.1, fontWeight: 950, letterSpacing: '-0.035em' }}>{route.title}</h3>
-        </div>
-        <span style={openPill}>открыть</span>
-      </div>
+    <Link href={`${route.href}${route.role ? `?as=${route.role}` : ''}`} onClick={() => route.role && setRole(route.role)} style={{ textDecoration: 'none', background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 18, display: 'grid', gap: 12, minHeight: 232 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}><div style={{ display: 'grid', gap: 6 }}><div style={microLabel}>{route.step} · {route.actor}</div><h3 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 23, lineHeight: 1.1, fontWeight: 950, letterSpacing: '-0.035em' }}>{route.title}</h3></div><span style={openPill}>открыть</span></div>
       <p style={{ margin: 0, color: 'var(--pc-text-secondary, #334155)', fontSize: 14, lineHeight: 1.55 }}>{route.answer}</p>
       <p style={{ margin: 0, borderRadius: 16, border: '1px solid var(--pc-border, #E4E6EA)', background: '#F8FAFB', padding: 12, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>{route.boundary}</p>
     </Link>
@@ -366,135 +286,31 @@ function RouteStepCard({ route }: { route: RouteStep }) {
 
 export function PlatformRolesHub() {
   const { setRole } = usePlatformV7RStore();
-
   return (
     <main style={{ display: 'grid', gap: 16, padding: '4px 0 28px' }}>
       <section style={{ background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 30, padding: 22, display: 'grid', gap: 18, boxShadow: '0 18px 55px rgba(15,20,25,0.06)' }}>
         <div style={{ display: 'grid', gap: 12, maxWidth: 940 }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span style={statusPill}>controlled-pilot</span>
-            <span style={statusPill}>pre-integration</span>
-            <span style={statusPill}>внешние статусы ожидаются</span>
-          </div>
-          <h1 style={{ margin: 0, fontSize: 'clamp(34px, 8.5vw, 64px)', lineHeight: 1.01, letterSpacing: '-0.058em', fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>
-            Маршрут сделки за 3 минуты
-          </h1>
-          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.62, color: 'var(--pc-text-secondary, #475569)', maxWidth: 780 }}>
-            Главная страница показывает не «одинаковую платформу для всех», а один понятный контур исполнения: продавец → сделка → банк → документы → логистика → водитель → приёмка → спор → оператор.
-          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><span style={statusPill}>контрольный контур</span><span style={statusPill}>предынтеграционный слой</span><span style={statusPill}>внешние статусы ожидаются</span></div>
+          <h1 style={{ margin: 0, fontSize: 'clamp(34px, 8.5vw, 64px)', lineHeight: 1.01, letterSpacing: '-0.058em', fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>Маршрут сделки за 3 минуты</h1>
+          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.62, color: 'var(--pc-text-secondary, #475569)', maxWidth: 780 }}>Главная страница показывает не «одинаковую платформу для всех», а один понятный контур исполнения: продавец → сделка → банк → документы → логистика → водитель → приёмка → спор → оператор.</p>
         </div>
-
         <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 14 }}>
-          <div style={{ display: 'grid', gap: 6 }}>
-            <div style={microLabel}>сквозной сценарий</div>
-            <h2 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(24px, 6vw, 42px)', lineHeight: 1.08, letterSpacing: '-0.045em', fontWeight: 950 }}>
-              {deal.lotId} → ставка → {deal.id} → резерв → {logistics.orderId} → {logistics.tripId}
-            </h2>
-            <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 14, lineHeight: 1.55 }}>
-              {deal.crop} · {formatTons(deal.volumeTons)} · сумма сделки {formatRub(expectedDealAmount)} · резерв {formatRub(money.reservedRub)} · готовность {readinessScore}%
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/seller?as=seller' onClick={() => setRole('seller')} style={darkButton}>Начать с продавца</Link>
-            <Link href={`/platform-v7/deals/${deal.id}/clean`} style={lightButton}>Открыть сделку</Link>
-            <Link href='/platform-v7/bank?as=bank' onClick={() => setRole('bank')} style={lightButton}>Условия выпуска</Link>
-            <Link href='/platform-v7/driver?as=driver' onClick={() => setRole('driver')} style={lightButton}>Рейс водителя</Link>
-          </div>
+          <div style={{ display: 'grid', gap: 6 }}><div style={microLabel}>сквозной сценарий</div><h2 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(24px, 6vw, 42px)', lineHeight: 1.08, letterSpacing: '-0.045em', fontWeight: 950 }}>{deal.lotId} → ставка → {deal.id} → резерв → {logistics.orderId} → {logistics.tripId}</h2><p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 14, lineHeight: 1.55 }}>{deal.crop} · {formatTons(deal.volumeTons)} · сумма сделки {formatRub(expectedDealAmount)} · резерв {formatRub(money.reservedRub)} · готовность {readinessScore}%</p></div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><Link href='/platform-v7/seller?as=seller' onClick={() => setRole('seller')} style={darkButton}>Начать с продавца</Link><Link href={`/platform-v7/deals/${deal.id}/clean`} style={lightButton}>Открыть сделку</Link><Link href='/platform-v7/bank?as=bank' onClick={() => setRole('bank')} style={lightButton}>Условия банка</Link><Link href='/platform-v7/driver?as=driver' onClick={() => setRole('driver')} style={lightButton}>Рейс водителя</Link></div>
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={microLabel}>первый экран</div>
-          <h2 style={sectionTitle}>Ответы за 5 секунд</h2>
-          <p style={sectionText}>На главной странице сразу видно, что происходит, где деньги, где груз, где документы, что заблокировано и кто следующий ответственный.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(245px, 1fr))', gap: 10 }}>
-          {CONTROL_ANSWERS.map((item) => (
-            <div key={item.label} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, background: '#F8FAFB', padding: 15, display: 'grid', gap: 8 }}>
-              <div style={microLabel}>{item.label}</div>
-              <p style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 15, fontWeight: 900, lineHeight: 1.45 }}>{item.value}</p>
-              <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>{item.note}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}><div style={{ display: 'grid', gap: 6 }}><div style={microLabel}>первый экран</div><h2 style={sectionTitle}>Ответы за 5 секунд</h2><p style={sectionText}>На главной странице сразу видно, что происходит, где деньги, где груз, где документы, что заблокировано и кто следующий ответственный.</p></div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(245px, 1fr))', gap: 10 }}>{CONTROL_ANSWERS.map((item) => <div key={item.label} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, background: '#F8FAFB', padding: 15, display: 'grid', gap: 8 }}><div style={microLabel}>{item.label}</div><p style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 15, fontWeight: 900, lineHeight: 1.45 }}>{item.value}</p><p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>{item.note}</p></div>)}</div></section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={microLabel}>маршрут показа</div>
-          <h2 style={sectionTitle}>Одна сделка, девять рабочих поверхностей</h2>
-          <p style={sectionText}>Путь ведёт пользователя по исполнению сделки, а не по меню. Каждый шаг показывает: что видит роль, что скрыто и почему банковская проверка выплаты не происходит без доказательств.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-          {GUIDED_ROUTE.map((route) => <RouteStepCard key={route.step} route={route} />)}
-        </div>
-      </section>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}><div style={{ display: 'grid', gap: 6 }}><div style={microLabel}>маршрут показа</div><h2 style={sectionTitle}>Одна сделка, девять рабочих поверхностей</h2><p style={sectionText}>Путь ведёт пользователя по исполнению сделки, а не по меню. Каждый шаг показывает: что видит роль, что скрыто и почему банковская проверка основания не происходит без доказательств.</p></div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>{GUIDED_ROUTE.map((route) => <RouteStepCard key={route.step} route={route} />)}</div></section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={microLabel}>документы</div>
-          <h2 style={sectionTitle}>Источник → ответственный → статус → влияние на выплату</h2>
-          <p style={sectionText}>Документный контур не подменяет ФГИС, ГИС ЭПД, ЭДО и КЭП внутренней карточкой. В интерфейсе видно, что именно блокирует деньги.</p>
-        </div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {DOCUMENT_FLOW.map((doc) => (
-            <div key={doc.name} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, background: '#F8FAFB' }}>
-              <div>
-                <div style={microLabel}>документ</div>
-                <p style={tableStrong}>{doc.name}</p>
-              </div>
-              <div>
-                <div style={microLabel}>источник</div>
-                <p style={tableText}>{doc.source}</p>
-              </div>
-              <div>
-                <div style={microLabel}>ответственный / статус</div>
-                <p style={tableText}>{doc.owner}</p>
-                <StatusBadge status={doc.status} />
-              </div>
-              <div>
-                <div style={microLabel}>влияние на выплату</div>
-                <p style={tableText}>{doc.impact}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}><div style={{ display: 'grid', gap: 6 }}><div style={microLabel}>документы</div><h2 style={sectionTitle}>Источник → ответственный → статус → влияние на банковское основание</h2><p style={sectionText}>Документный контур не подменяет ФГИС, ГИС ЭПД, ЭДО и КЭП внутренней карточкой. В интерфейсе видно, что именно блокирует деньги.</p></div><div style={{ display: 'grid', gap: 8 }}>{DOCUMENT_FLOW.map((doc) => <div key={doc.name} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, background: '#F8FAFB' }}><div><div style={microLabel}>документ</div><p style={tableStrong}>{doc.name}</p></div><div><div style={microLabel}>источник</div><p style={tableText}>{doc.source}</p></div><div><div style={microLabel}>ответственный / статус</div><p style={tableText}>{doc.owner}</p><StatusBadge status={doc.status} /></div><div><div style={microLabel}>влияние на деньги</div><p style={tableText}>{doc.impact}</p></div></div>)}</div></section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={microLabel}>роли</div>
-          <h2 style={sectionTitle}>Одинаково понятная платформа, но не одинаковая для всех</h2>
-          <p style={sectionText}>У каждой роли свой безопасный контур. Чем меньше лишнего видит роль, тем выше доверие к деньгам, документам и спору.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-          {ROLE_CARDS.map((scenario) => <RoleCardView key={scenario.title} scenario={scenario} />)}
-        </div>
-      </section>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 18, display: 'grid', gap: 14 }}><div style={{ display: 'grid', gap: 6 }}><div style={microLabel}>роли</div><h2 style={sectionTitle}>Одинаково понятная платформа, но не одинаковая для всех</h2><p style={sectionText}>У каждой роли свой безопасный контур. Чем меньше лишнего видит роль, тем выше доверие к деньгам, документам и спору.</p></div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>{ROLE_CARDS.map((scenario) => <RoleCardView key={scenario.title} scenario={scenario} />)}</div></section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 16, display: 'grid', gap: 12 }}>
-        <div style={microLabel}>дополнительные контуры</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {SUPPORT_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={`${link.href}?as=${link.role}`}
-              onClick={() => setRole(link.role)}
-              style={pillLink}
-            >
-              {link.title}
-            </Link>
-          ))}
-        </div>
-      </section>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 16, display: 'grid', gap: 12 }}><div style={microLabel}>дополнительные контуры</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{SUPPORT_LINKS.map((link) => <Link key={link.href} href={`${link.href}?as=${link.role}`} onClick={() => setRole(link.role)} style={pillLink}>{link.title}</Link>)}</div></section>
 
-      <section style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 16, background: '#F8FAFB', display: 'grid', gap: 6 }}>
-        <div style={microLabel}>честная граница показа</div>
-        <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 14, lineHeight: 1.6 }}>
-          Это сильный controlled-pilot маршрут и единый контур исполнения. Он не заявляет подтверждённый боевой статус внешних систем. ФГИС, ЭДО, ГИС ЭПД, КЭП и банковый контур показаны как управляемые маршруты и адаптеры, требующие договоров, доступов и подтверждения на реальных сделках.
-        </p>
-      </section>
+      <section style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 16, background: '#F8FAFB', display: 'grid', gap: 6 }}><div style={microLabel}>честная граница показа</div><p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 14, lineHeight: 1.6 }}>Это сильный контрольный маршрут и единый контур исполнения. Он не заявляет подтверждённый боевой статус внешних систем. ФГИС, ЭДО, ГИС ЭПД, КЭП и банковый контур показаны как управляемые маршруты и адаптеры, требующие договоров, доступов и подтверждения на реальных сделках.</p></section>
     </main>
   );
 }
