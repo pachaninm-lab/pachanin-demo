@@ -8,10 +8,9 @@ import {
 } from '@/lib/platform-v7/routes';
 import {
   PLATFORM_V7_EXECUTION_SOURCE,
-  canRequestMoneyRelease,
-  executionBlockers,
   executionReadinessScore,
 } from '@/lib/platform-v7/deal-execution-source-of-truth';
+import { canRequestStrictMoneyRelease, strictMoneyReleaseBlockers } from '@/lib/platform-v7/deal-money-release-gate';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -105,7 +104,7 @@ export default function PlatformV7DataRoomPage() {
         ))}
       </div>
 
-      <DL9102ExecutionConsistencyCard />
+      <DL9106ExecutionConsistencyCard />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 14 }}>
         {groups.map((group) => (
@@ -129,11 +128,11 @@ export default function PlatformV7DataRoomPage() {
   );
 }
 
-function DL9102ExecutionConsistencyCard() {
+function DL9106ExecutionConsistencyCard() {
   const { deal } = PLATFORM_V7_EXECUTION_SOURCE;
   const score = executionReadinessScore();
-  const blockers = executionBlockers();
-  const canRelease = canRequestMoneyRelease();
+  const blockers = strictMoneyReleaseBlockers();
+  const canRelease = canRequestStrictMoneyRelease();
 
   return (
     <section style={{ background: S, border: `1px solid ${BRAND}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
