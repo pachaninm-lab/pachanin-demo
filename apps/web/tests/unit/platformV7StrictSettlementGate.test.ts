@@ -16,7 +16,7 @@ describe('platform-v7 strict settlement gate', () => {
 
     expect(blockers).toContain('фгис');
     expect(blockers).toContain('лаборатор');
-    expect(blockers).toContain('логист');
+    expect(blockers).toContain('слот');
     expect(blockers).toContain('сдиз');
     expect(blockers).toContain('банк');
     expect(blockers).toContain('суммы');
