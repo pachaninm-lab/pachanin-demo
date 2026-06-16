@@ -10,12 +10,11 @@ import {
 } from '@/lib/platform-v7/routes';
 import {
   PLATFORM_V7_EXECUTION_SOURCE,
-  canRequestMoneyRelease,
-  executionBlockers,
   executionReadinessScore,
   formatRub,
   formatTons,
 } from '@/lib/platform-v7/deal-execution-source-of-truth';
+import { canRequestStrictMoneyRelease, strictMoneyReleaseBlockers } from '@/lib/platform-v7/deal-money-release-gate';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -111,7 +110,7 @@ export default function PlatformV7ReadinessPage() {
         <Metric label='Под удержанием' value={formatCompactMoney(hold)} tone={hold > 0 ? 'bad' : 'good'} />
       </div>
 
-      <DL9102ReadinessCard />
+      <DL9106ReadinessCard />
 
       <section data-testid="platform-v7-readiness-list" style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Сделки по готовности</div>
@@ -145,11 +144,11 @@ export default function PlatformV7ReadinessPage() {
   );
 }
 
-function DL9102ReadinessCard() {
+function DL9106ReadinessCard() {
   const { deal, readiness, money } = PLATFORM_V7_EXECUTION_SOURCE;
   const score = executionReadinessScore();
-  const blockers = executionBlockers();
-  const canRelease = canRequestMoneyRelease();
+  const blockers = strictMoneyReleaseBlockers();
+  const canRelease = canRequestStrictMoneyRelease();
 
   const gateLabels: Record<string, string> = {
     fgis: 'ФГИС', quality: 'Качество', logistics: 'Логистика',
