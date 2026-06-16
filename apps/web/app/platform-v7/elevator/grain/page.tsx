@@ -37,9 +37,9 @@ export default function ElevatorGrainPage() {
       </section>
 
       <section style={darkCard}>
-        <div style={{ ...micro, color: '#FED7AA' }}>Правило допуска выплаты</div>
-        <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Приёмка создаёт основание, а не платёж</h2>
-        <p style={{ margin: 0, color: '#FFEDD5', fontSize: 14, lineHeight: 1.55 }}>Если вес или качество не совпали, платформа должна создать акт расхождения, удержание спорной части и задачу оператору. Выпуск денег остаётся в банковом контуре и не доступен элеватору.</p>
+        <div style={{ ...micro, color: '#FED7AA' }}>Правило банковского основания</div>
+        <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Приёмка создаёт основание, а не денежное действие</h2>
+        <p style={{ margin: 0, color: '#FFEDD5', fontSize: 14, lineHeight: 1.55 }}>Если вес или качество не совпали, создаются акт расхождения, удержание спорной части и задача оператору. Банковский шаг остаётся в банковском контуре.</p>
       </section>
     </main>
   );
