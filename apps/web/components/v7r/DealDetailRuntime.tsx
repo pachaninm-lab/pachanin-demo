@@ -39,7 +39,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
   { key: 'logistics', label: 'Логистика', statuses: ['loading_scheduled', 'loading_started', 'loading_done', 'in_transit', 'arrived'] },
   { key: 'acceptance', label: 'Приёмка', statuses: ['unloading_started', 'unloading_done'] },
   { key: 'quality', label: 'Качество', statuses: ['quality_check', 'quality_approved', 'quality_disputed'] },
-  { key: 'release', label: 'Выплата', statuses: ['docs_complete', 'release_requested', 'release_approved', 'closed'] },
+  { key: 'bank', label: 'Банковский шаг', statuses: ['docs_complete', 'release_requested', 'release_approved', 'closed'] },
 ];
 
 function resolveStageState(stage: PipelineStage, currentIndex: number, stageIndex: number, status: DealStatus): PipelineVisualState {
@@ -77,7 +77,7 @@ function stageMarker(state: PipelineVisualState) {
 function callbackTypeLabel(type: string) {
   if (type === 'Reserve') return 'Резерв';
   if (type === 'Mismatch') return 'Расхождение';
-  if (type === 'Release') return 'Выпуск';
+  if (type === 'Release') return 'Банковское подтверждение';
   return type;
 }
 
@@ -91,8 +91,8 @@ function describeBlocker(code: string) {
   switch (code) {
     case 'dispute': return 'Открыт спор по качеству или весу';
     case 'docs':
-    case 'DOCS_MISSING': return 'Не хватает документов для банковской проверки выплаты';
-    case 'bank_confirm': return 'Банк ещё не подтвердил выпуск';
+    case 'DOCS_MISSING': return 'Не хватает документов для банковской проверки';
+    case 'bank_confirm': return 'Банк ещё не подтвердил банковское событие';
     case 'lab_result': return 'Нет финального лабораторного результата';
     case 'reserve': return 'Резерв средств ещё не подтверждён';
     case 'FGIS_GATE_FAIL': return 'ФГИС не подтвердил партию';
@@ -118,7 +118,7 @@ function moneyMode(dealStatus: DealStatus, holdAmount: number, blockers: string[
       title: 'Эскроу / удержание',
       href: '/platform-v7/bank/escrow',
       tone: { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' },
-      note: 'Деньги нельзя двигать без снятия спорного или качественного блокера.'
+      note: 'Банковский шаг заблокирован до снятия спорного или качественного блокера.'
     };
   }
   if (dealStatus === 'contract_signed' || dealStatus === 'payment_reserved' || blockers.includes('reserve')) {
@@ -130,10 +130,10 @@ function moneyMode(dealStatus: DealStatus, holdAmount: number, blockers: string[
     };
   }
   return {
-    title: 'Банк / выпуск',
+    title: 'Банк / проверка',
     href: '/platform-v7/bank',
     tone: { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-    note: 'Контур денег уже дошёл до выпуска, ручной проверки или финального callback.'
+    note: 'Контур денег дошёл до банковской проверки, ручного решения или внешнего события.'
   };
 }
 
@@ -150,16 +150,16 @@ export function DealDetailRuntime({ id }: { id: string }) {
   const currentStageIndex = Math.max(PIPELINE_STAGES.findIndex((stage) => stage.statuses.includes(deal.status)), 0);
   const blockerTexts = [...new Set([...deal.blockers, ...integration.reasonCodes].map(describeBlocker))];
   const primaryAction = primaryActionForDeal(deal.status, deal.id, dispute?.id);
-  const nextStepTitle = integration.nextStep ?? (deal.status === 'quality_disputed' ? 'Закрыть спор и снять удержание' : deal.status === 'release_requested' ? 'Подтвердить выпуск в банке' : deal.status === 'docs_complete' ? 'Передать основание банку денег' : 'Довести сделку до следующего этапа');
+  const nextStepTitle = integration.nextStep ?? (deal.status === 'quality_disputed' ? 'Закрыть спор и снять удержание' : deal.status === 'release_requested' ? 'Дождаться внешнего банковского подтверждения' : deal.status === 'docs_complete' ? 'Передать основание банку' : 'Довести сделку до следующего этапа');
   const problemSummary = [
     dispute ? dispute.title : null,
-    integration.gateState === 'FAIL' ? 'Интеграционный контур блокирует банковскую проверку выплаты' : null,
+    integration.gateState === 'FAIL' ? 'Интеграционный контур блокирует банковскую проверку' : null,
     integration.reasonCodes.includes('ESIA_LINK_MISSING') ? 'Нет связи с ЕСИА' : null,
     integration.reasonCodes.includes('FGIS_GATE_FAIL') ? 'ФГИС не подтвердил партию' : null,
     integration.reasonCodes.includes('DOCS_MISSING') ? 'Не хватает документов' : null,
   ].filter(Boolean) as string[];
   const moneyRoute = moneyMode(deal.status, deal.holdAmount, [...deal.blockers, ...integration.reasonCodes]);
-  const bankFocus = callbacks.length ? callbackTypeLabel(callbacks[0].type) : deal.status === 'docs_complete' ? 'Ожидает release' : deal.status === 'payment_reserved' ? 'Резерв' : 'Банковый контур';
+  const bankFocus = callbacks.length ? callbackTypeLabel(callbacks[0].type) : deal.status === 'docs_complete' ? 'Ожидает банк' : deal.status === 'payment_reserved' ? 'Резерв' : 'Банковый контур';
 
   const related: RelatedChip[] = [];
   if (deal.lotId) related.push({ label: 'Лот', value: deal.lotId, href: `/platform-v7/lots/${deal.lotId}`, tone: 'lot' });
@@ -271,7 +271,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
           <div className='eyebrow'>Деньги и статус</div>
           <div className='summary-grid' style={{ marginTop: 12 }}>
             <SummaryCard title='Удержано' value={formatCompactMoney(deal.holdAmount)} note={deal.holdAmount ? 'Деньги заморожены до закрытия причины.' : 'Замороженной суммы нет.'} />
-            <SummaryCard title='К выпуску' value={formatCompactMoney(releasableAmount)} note={integration.gateState === 'FAIL' ? 'Пока выпуск заблокирован.' : integration.gateState === 'REVIEW' ? 'Нужна ручная проверка.' : 'Можно выпускать после закрытия блокеров.'} />
+            <SummaryCard title='К банковскому шагу' value={formatCompactMoney(releasableAmount)} note={integration.gateState === 'FAIL' ? 'Банковская проверка заблокирована.' : integration.gateState === 'REVIEW' ? 'Нужна ручная проверка.' : 'Можно передать основание после закрытия блокеров.'} />
             <SummaryCard title='Резерв' value={formatCompactMoney(deal.reservedAmount)} note='Деньги подтверждены в банковом контуре.' />
             <SummaryCard title='Следующий владелец' value={integration.nextOwner ? translateRole(integration.nextOwner) : '—'} note={integration.nextStep ?? 'Следующее действие не определено.'} />
           </div>
@@ -293,7 +293,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
                 <div className='bank-route-title'>Банк</div>
                 <span className='pill' style={{ marginTop: 0 }}>{bankFocus}</span>
               </div>
-              <div className='bank-route-note'>Общий банковый runtime-хаб со всеми денежными очередями, callback и release-кейсами.</div>
+              <div className='bank-route-note'>Общий банковый runtime-хаб с денежными очередями, callback и банковскими кейсами.</div>
               <Link href='/platform-v7/bank' className='btn btn-secondary'>Открыть банк</Link>
             </div>
 
@@ -341,7 +341,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
               </div>
               <div className='action-meta'>
                 <div><strong>Что мешает сейчас:</strong> {blockerTexts.join(' · ') || 'Критичных блокеров нет'}</div>
-                <div><strong>После выполнения:</strong> будет доступно к выпуску {formatMoney(releasableAmount)}</div>
+                <div><strong>После выполнения:</strong> можно передать на банковскую проверку {formatMoney(releasableAmount)}</div>
               </div>
             </section>
 
@@ -349,7 +349,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
               <div className='eyebrow'>Этапы сделки</div>
               <div className='stage-stack' style={{ marginTop: 12 }}>
                 {PIPELINE_STAGES.map((stage, stageIndex) => {
-                  const state = resolveStageState(stage, currentStageIndex, stageIndex, deal.status);
+                  const state = resolveStageState(stage, currentIndex, stageIndex, deal.status);
                   const palette = stagePalette(state);
                   return (
                     <div key={stage.key} className='stage-row' style={{ background: palette.surface }}>
@@ -401,7 +401,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
 
           <div className='decision-side'>
             <section className='problem-card'>
-              <div className='problem-title'>Почему выпуск заблокирован</div>
+              <div className='problem-title'>Почему банковский шаг заблокирован</div>
               <ul className='problem-list'>
                 {(problemSummary.length ? problemSummary : ['Критичных причин нет.']).map((item) => (
                   <li key={item} className='problem-item'><span className='problem-dot'>!</span><span>{item}</span></li>
@@ -471,11 +471,11 @@ export function DealDetailRuntime({ id }: { id: string }) {
           <section style={{ display: 'grid', gap: 16, minWidth: 0 }}>
             <div className='surface'>
               <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Банк и события</div>
-              <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 6, wordBreak: 'break-word' }}>{integration.gateState === 'FAIL' ? 'Банковская проверка выплаты заблокирован до снятия причин в ФГИС / ЕСИА.' : integration.gateState === 'REVIEW' ? 'Банк требует ручной проверки перед выпуском.' : 'Интеграционный контур не блокирует банк.'}</div>
+              <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 6, wordBreak: 'break-word' }}>{integration.gateState === 'FAIL' ? 'Банковская проверка заблокирована до снятия причин в ФГИС / ЕСИА.' : integration.gateState === 'REVIEW' ? 'Банк требует ручной проверки перед внешним подтверждением.' : 'Интеграционный контур не блокирует банк.'}</div>
               <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
                 {callbacks.length ? callbacks.map((cb) => (
                   <div key={cb.id} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 12, maxWidth: '100%', overflow: 'hidden' }}>
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13, wordBreak: 'break-word' }}>{cb.id} · {cb.type === 'Reserve' ? 'Резерв' : cb.type === 'Mismatch' ? 'Расхождение' : cb.type === 'Release' ? 'Выпуск' : cb.type}</div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13, wordBreak: 'break-word' }}>{cb.id} · {cb.type === 'Reserve' ? 'Резерв' : cb.type === 'Mismatch' ? 'Расхождение' : cb.type === 'Release' ? 'Банковское подтверждение' : cb.type}</div>
                     <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-primary, #0F1419)', wordBreak: 'break-word' }}>{cb.note}</div>
                     <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{cb.amountRub ? formatMoney(cb.amountRub) : '—'}</div>
                   </div>
