@@ -1,7 +1,20 @@
 'use client';
 
 import * as React from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
+
+const ENTRY_SESSION_KEY = 'pc-v7-entry-approved';
+
+const PUBLIC_PATHS = new Set([
+  '/platform-v7',
+  '/platform-v7/open',
+  '/platform-v7/login',
+  '/platform-v7/register',
+  '/platform-v7/help',
+  '/platform-v7/pricing',
+  '/platform-v7/roadmap',
+]);
 
 const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true']{--pc-header-offset:0px!important;background:#fbfcf9!important}
@@ -55,6 +68,10 @@ const clickTargets: ClickTarget[] = [
   { selector: '.entry-trust-item:nth-child(4)', href: '/platform-v7/bank' },
 ];
 
+function isPublicPath(pathname: string) {
+  return PUBLIC_PATHS.has(pathname) || pathname.startsWith('/platform-v7/role-preview');
+}
+
 function bindClick(el: HTMLElement, href: string) {
   if (el.dataset.entryClick === 'true') return;
   el.dataset.entryClick = 'true';
@@ -71,19 +88,50 @@ function bindClick(el: HTMLElement, href: string) {
   });
 }
 
+function rewriteOpenPageLinks(root: ParentNode) {
+  const replacements = new Map([
+    ['/platform-v7/seller/batches/new', { href: '/platform-v7/#roles', label: 'Выбрать роль' }],
+    ['/platform-v7/buyer/rfq/new', { href: '/platform-v7/login', label: 'Войти в кабинет' }],
+    ['/platform-v7/role-preview', { href: '/platform-v7/role-preview', label: 'Посмотреть роли' }],
+  ]);
+  root.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
+    const current = link.getAttribute('href') || '';
+    const next = replacements.get(current);
+    if (!next) return;
+    link.setAttribute('href', next.href);
+    link.textContent = next.label;
+  });
+}
+
 export function PublicEntryCleanup() {
+  const pathname = usePathname() || '';
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (!pathname.startsWith('/platform-v7')) return;
+    if (pathname === '/platform-v7') {
+      window.sessionStorage.setItem(ENTRY_SESSION_KEY, 'true');
+      return;
+    }
+    if (isPublicPath(pathname)) return;
+    const approved = window.sessionStorage.getItem(ENTRY_SESSION_KEY) === 'true';
+    if (!approved) router.replace('/platform-v7');
+  }, [pathname, router]);
+
   React.useEffect(() => {
     function sync() {
       const publicEntry = document.querySelector('.pc-v7-public-entry');
-      const shell = publicEntry?.closest('.pc-shell-root-v4') as HTMLElement | null;
+      const openEntry = document.querySelector('[data-testid="platform-v7-open-walkthrough"]');
+      const entry = (publicEntry || openEntry) as HTMLElement | null;
+      const shell = entry?.closest('.pc-shell-root-v4') as HTMLElement | null;
       const allShells = document.querySelectorAll<HTMLElement>('.pc-shell-root-v4[data-public-entry]');
       allShells.forEach((item) => {
         if (item !== shell) delete item.dataset.publicEntry;
       });
-      if (!shell || !publicEntry) return;
+      if (!shell || !entry) return;
       shell.dataset.publicEntry = 'true';
 
-      const mark = publicEntry.querySelector<HTMLElement>('.entry-brand-mark');
+      const mark = entry.querySelector<HTMLElement>('.entry-brand-mark');
       if (mark && mark.dataset.brandApplied !== 'true') {
         mark.innerHTML = '';
         const img = document.createElement('img');
@@ -94,8 +142,9 @@ export function PublicEntryCleanup() {
         mark.dataset.brandApplied = 'true';
       }
 
+      rewriteOpenPageLinks(entry);
       clickTargets.forEach((target) => {
-        const el = publicEntry.querySelector<HTMLElement>(target.selector);
+        const el = entry.querySelector<HTMLElement>(target.selector);
         if (el) bindClick(el, target.href);
       });
     }
