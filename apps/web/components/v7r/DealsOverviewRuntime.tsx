@@ -30,7 +30,7 @@ function StatCard({ title, value, note }: { title: string; value: string; note: 
   );
 }
 
-function toneByDealStatus(item: Deal) {
+function paletteByDealStatus(item: Deal) {
   if (item.status === 'quality_disputed') return 'danger' as const;
   if (item.status === 'in_transit' || item.status === 'payment_reserved' || item.status === 'release_requested') return 'warning' as const;
   return 'success' as const;
@@ -38,7 +38,7 @@ function toneByDealStatus(item: Deal) {
 
 function nextStepLabel(item: Deal) {
   if (item.status === 'quality_disputed') return 'Закрыть спор и снять hold';
-  if (item.status === 'release_requested') return 'Подтвердить банковское событие';
+  if (item.status === 'release_requested') return 'Дождаться банковского подтверждения';
   if (item.status === 'docs_complete') return 'Передать основание банку';
   return 'Довести до следующего шага';
 }
@@ -54,7 +54,7 @@ function MobileDealCard({ item, selected, onToggle, onCompare }: { item: Deal; s
             <div style={{ marginTop: 4, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>{item.grain} · {item.quantity} {item.unit}</div>
           </div>
         </label>
-        <Badge tone={toneByDealStatus(item)}>{statusLabel(item.status)}</Badge>
+        <Badge tone={paletteByDealStatus(item)}>{statusLabel(item.status)}</Badge>
       </div>
 
       <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'grid', gap: 12 }}>
@@ -109,7 +109,7 @@ export function DealsOverviewRuntime() {
   const router = useRouter();
   const { draftDeals, removeDraftDeal } = useBuyerRuntimeStore();
   const highRisk = DEALS.filter((item) => item.riskScore >= 70).length;
-  const releaseRequested = DEALS.filter((item) => item.status === 'release_requested').length;
+  const bankStepRequested = DEALS.filter((item) => item.status === 'release_requested').length;
   const activeDeals = DEALS.filter((item) => item.status !== 'closed').length;
   const [statusFilter, setStatusFilter] = React.useState('');
   const [riskFilter, setRiskFilter] = React.useState('');
@@ -162,7 +162,7 @@ export function DealsOverviewRuntime() {
     router.push(compareIds(compact));
   };
 
-  const runBulkAction = (action: 'release' | 'dispute' | 'close' | 'compare') => {
+  const runBulkAction = (action: 'bank' | 'dispute' | 'close' | 'compare') => {
     if (!selected.size) return;
     const idsArray = Array.from(selected).sort();
     const ids = idsArray.join(', ');
@@ -170,7 +170,7 @@ export function DealsOverviewRuntime() {
       openCompare(idsArray);
       return;
     }
-    const label = action === 'release' ? `Передано основание банку по ${selected.size} сделкам` : action === 'dispute' ? `Открыты споры по ${selected.size} сделкам` : `Закрыты ${selected.size} сделок`;
+    const label = action === 'bank' ? `Передано основание банку по ${selected.size} сделкам` : action === 'dispute' ? `Открыты споры по ${selected.size} сделкам` : `Закрыты ${selected.size} сделок`;
     setBulkToast(`${label}: ${ids}`);
     setSelected(new Set());
   };
@@ -214,7 +214,7 @@ export function DealsOverviewRuntime() {
         <StatCard title='Сделки в реестре' value={String(DEALS.length)} note='Все доменные сделки текущего контура.' />
         <StatCard title='Активные' value={String(activeDeals)} note='Без закрытых архивных кейсов.' />
         <StatCard title='Высокий риск' value={String(highRisk)} note='Сделки с risk ≥ 70.' />
-        <StatCard title='Ожидают выпуск' value={String(releaseRequested)} note='Сделки, где деньги уже у выпуска.' />
+        <StatCard title='Ожидают банк' value={String(bankStepRequested)} note='Сделки на этапе внешнего банковского подтверждения.' />
       </div>
 
       {draftDeals.length ? (
@@ -250,7 +250,7 @@ export function DealsOverviewRuntime() {
         {selected.size ? (
           <div role='toolbar' aria-label='Массовые действия по сделкам' style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', background: 'rgba(10,122,95,0.06)', flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>{selected.size} выбрано</span>
-            <button onClick={() => runBulkAction('release')} style={{ padding: '8px 12px', borderRadius: 10, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Запросить выпуск</button>
+            <button onClick={() => runBulkAction('bank')} style={{ padding: '8px 12px', borderRadius: 10, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Передать основание</button>
             <button onClick={() => runBulkAction('dispute')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(220,38,38,0.3)', color: '#B91C1C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Открыть спор</button>
             <button onClick={() => runBulkAction('compare')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(37,99,235,0.3)', color: '#2563EB', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
             <button onClick={() => runBulkAction('close')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Закрыть сделки</button>
@@ -335,7 +335,7 @@ export function DealsOverviewRuntime() {
                   </td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top', fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{formatMoney(item.reservedAmount)}</td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}><RiskBadge score={item.riskScore} /></td>
-                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}><Badge tone={toneByDealStatus(item)}>{statusLabel(item.status)}</Badge></td>
+                  <td style={{ padding: rowPadding, verticalAlign: 'top' }}><Badge tone={paletteByDealStatus(item)}>{statusLabel(item.status)}</Badge></td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{nextStepLabel(item)}</div>
                     <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{item.blockers.length ? item.blockers.join(' · ') : 'Блокеров нет'}</div>
