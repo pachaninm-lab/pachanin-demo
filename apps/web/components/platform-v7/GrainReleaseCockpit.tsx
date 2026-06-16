@@ -180,7 +180,7 @@ function MoneyGate() {
           <h2 style={{ margin: '4px 0 0', fontSize: 28, lineHeight: 1.1 }}>{formatMoney(money.reservedAmount)}</h2>
           <p style={mutedTextStyle}>зарезервировано в контуре сделки</p>
         </div>
-        <StatusPill tone='warn'>выпуск ждёт основание банка</StatusPill>
+        <StatusPill tone='warn'>банк ждёт подтверждённое основание</StatusPill>
       </div>
 
       <div style={{ display: 'flex', overflow: 'hidden', height: 12, borderRadius: PLATFORM_V7_TOKENS.radius.pill, background: P7_THEME_CSS.color.surfaceMuted }} aria-label='Разбивка денег'>
@@ -190,14 +190,14 @@ function MoneyGate() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-        <PulseCell label='к выпуску через банк' value={formatMoney(money.readyToReleaseAmount)} tone='money' />
+        <PulseCell label='к банковскому шагу' value={formatMoney(money.readyToReleaseAmount)} tone='money' />
         <PulseCell label='удержано' value={formatMoney(money.heldAmount)} tone='warn' />
         <PulseCell label='спорная часть' value={formatMoney(money.disputedAmount)} tone='bad' />
       </div>
 
       <div style={{ border: `1px solid color-mix(in srgb, var(--p7-color-danger) 26%, transparent)`, borderRadius: PLATFORM_V7_TOKENS.radius.lg, background: 'var(--p7-color-danger-soft)', padding: PLATFORM_V7_TOKENS.spacing.sm }}>
         <p style={{ ...smallLabelStyle, color: 'var(--p7-color-danger)' }}>причина остановки</p>
-        <p style={{ margin: '4px 0 0', fontWeight: 820 }}>Нет акта расхождения по весу и качеству. Деньги не выпускаются целиком — спорная часть удержана отдельно.</p>
+        <p style={{ margin: '4px 0 0', fontWeight: 820 }}>Нет акта расхождения по весу и качеству. Банковское подтверждение не проводится целиком — спорная часть удержана отдельно.</p>
       </div>
     </section>
   );
@@ -211,7 +211,7 @@ function DocumentControl() {
     <section style={{ ...cardStyle, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
       <div>
         <p style={smallLabelStyle}>Document Control</p>
-        <h2 style={{ margin: '4px 0 0', fontSize: PLATFORM_V7_TOKENS.typography.h3.size, lineHeight: 1.2 }}>Документы как допуск денег</h2>
+        <h2 style={{ margin: '4px 0 0', fontSize: PLATFORM_V7_TOKENS.typography.h3.size, lineHeight: 1.2 }}>Документы как основание банка</h2>
       </div>
       <div style={{ display: 'grid', gap: 10 }}>
         {docs.map((doc) => {
@@ -243,7 +243,7 @@ function SmartInspector({ role }: { readonly role: UserRole }) {
         <PulseCell label='объект' value='Приёмка / вес / качество' tone='info' />
         <PulseCell label='статус' value='нужен акт расхождения' tone='bad' />
         <PulseCell label='ответственный' value={role === 'bank' ? 'Элеватор + оператор' : roleLabel[role]} tone='warn' />
-        <PulseCell label='влияние' value='частичный выпуск денег' tone='money' />
+        <PulseCell label='влияние' value='частичная банковская проверка' tone='money' />
       </div>
       <div style={{ borderTop: `1px solid ${P7_THEME_CSS.color.border}`, paddingTop: PLATFORM_V7_TOKENS.spacing.sm }}>
         <p style={mutedTextStyle}>Следующее действие</p>
@@ -278,7 +278,7 @@ function DealPulse({ role }: { readonly role: UserRole }) {
   return (
     <section aria-label='Пульс сделки' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
       <PulseCell label='груз' value={`принято ${formatTons(ctx.primaryWeightBalance.acceptedNetTons ?? ctx.primaryWeightBalance.contractedVolumeTons)}`} tone='info' />
-      <PulseCell label='деньги' value={`${formatMoney(ctx.moneyProjection.readyToReleaseAmount)} к выпуску`} tone='money' />
+      <PulseCell label='деньги' value={`${formatMoney(ctx.moneyProjection.readyToReleaseAmount)} к банковскому шагу`} tone='money' />
       <PulseCell label='документы' value={`${summary.documentSummary?.ready ?? 0}/${summary.documentSummary?.total ?? 0} готовы`} tone='warn' />
       <PulseCell label='риск' value='вес / качество' tone='bad' />
       <PulseCell label='действие' value={ctx.moneyProjection.nextAction?.title ?? summary.nextActions[0]?.title ?? 'проверить основание'} tone='warn' />
@@ -325,8 +325,8 @@ export function GrainReleaseCockpit({ role = 'bank' }: { readonly role?: UserRol
           <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.md, flexWrap: 'wrap' }}>
             <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
               <StatusPill tone='warn'>{maturityLabel[summary.maturity]}</StatusPill>
-              <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.08, letterSpacing: '-0.03em' }}>Сделка GR-2048 · выпуск и удержание денег</h1>
-              <p style={{ ...mutedTextStyle, maxWidth: 720 }}>Контур показывает груз, документы, основание для банка и спорную часть без заявления о самостоятельном выпуске денег платформой.</p>
+              <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.08, letterSpacing: '-0.03em' }}>Сделка GR-2048 · банковский шаг и удержание денег</h1>
+              <p style={{ ...mutedTextStyle, maxWidth: 720 }}>Контур показывает груз, документы, основание для банка и спорную часть без заявления, что платформа сама двигает деньги.</p>
             </div>
             <div style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>
               <p style={smallLabelStyle}>активная роль</p>
