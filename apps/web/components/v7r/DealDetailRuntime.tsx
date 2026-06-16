@@ -349,7 +349,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
               <div className='eyebrow'>Этапы сделки</div>
               <div className='stage-stack' style={{ marginTop: 12 }}>
                 {PIPELINE_STAGES.map((stage, stageIndex) => {
-                  const state = resolveStageState(stage, currentIndex, stageIndex, deal.status);
+                  const state = resolveStageState(stage, currentStageIndex, stageIndex, deal.status);
                   const palette = stagePalette(state);
                   return (
                     <div key={stage.key} className='stage-row' style={{ background: palette.surface }}>
