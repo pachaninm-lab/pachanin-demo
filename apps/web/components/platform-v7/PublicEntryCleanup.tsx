@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
 const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true']{--pc-header-offset:0px!important;background:#fbfcf9!important}
@@ -10,6 +11,8 @@ const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-pilot-note{display:none!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#fbfcf9!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-bottom:max(64px,env(safe-area-inset-bottom))!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark{background:transparent!important;color:inherit!important;padding:0!important;overflow:visible!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;background:transparent!important}
 @media(max-width:980px){
   .pc-shell-root-v4[data-public-entry='true'] .entry-header{min-height:64px!important;padding:10px 16px!important}
   .pc-shell-root-v4[data-public-entry='true'] .entry-demo,.pc-shell-root-v4[data-public-entry='true'] .entry-desktop-nav{display:none!important}
@@ -36,7 +39,19 @@ export function PublicEntryCleanup() {
       allShells.forEach((item) => {
         if (item !== shell) delete item.dataset.publicEntry;
       });
-      if (shell) shell.dataset.publicEntry = 'true';
+      if (!shell || !publicEntry) return;
+      shell.dataset.publicEntry = 'true';
+
+      const mark = publicEntry.querySelector<HTMLElement>('.entry-brand-mark');
+      if (mark && mark.dataset.brandApplied !== 'true') {
+        mark.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = BRAND_LOGO_DATA_URI;
+        img.alt = '';
+        img.draggable = false;
+        mark.appendChild(img);
+        mark.dataset.brandApplied = 'true';
+      }
     }
 
     sync();
