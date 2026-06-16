@@ -61,7 +61,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
 
   const blockerDone = REQUIRED_DOCS.filter((doc) => doc.blocker && checklist[doc.id]).length;
   const blockerTotal = REQUIRED_DOCS.filter((doc) => doc.blocker).length;
-  const releaseReady = blockerDone === blockerTotal;
+  const bankReady = blockerDone === blockerTotal;
   const requiredDone = REQUIRED_DOCS.filter((doc) => checklist[doc.id]).length;
 
   const auditTrail = React.useMemo(() => {
@@ -70,7 +70,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
       ts: new Date(Date.now() - (index + 1) * 36 * 60 * 1000).toISOString(),
       actor: 'Оператор / документный контур',
       action: `Подтверждён документ: ${doc.label}`,
-      note: doc.blocker ? 'Снимает blocker для банковской проверки выплаты.' : 'Не блокирует выпуск, но усиливает досье сделки.',
+      note: doc.blocker ? 'Снимает blocker для банковской проверки основания.' : 'Не блокирует банковский шаг, но усиливает досье сделки.',
     }));
     const fileEvents = docs.map((doc) => ({
       id: `doc-${doc.id}`,
@@ -82,8 +82,8 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
     return [...fileEvents, ...checklistEvents].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
   }, [docs, checklist]);
 
-  function requestRelease() {
-    setToast(releaseReady ? `Запрос на выпуск по ${params.id} подготовлен.` : `Нельзя запросить выпуск: ${blockerDone}/${blockerTotal} blocker-документов готовы.`);
+  function requestBankReview() {
+    setToast(bankReady ? `Основание по ${params.id} подготовлено для банка.` : `Нельзя передать основание: ${blockerDone}/${blockerTotal} blocker-документов готовы.`);
   }
 
   function buildDossier() {
@@ -97,10 +97,10 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
           <div>
             <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 14 }}>{params.id}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 6 }}>Документы сделки</div>
-            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 6, lineHeight: 1.6 }}>Отдельный документный контур: файлы, checklist, audit trail и готовность к выпуску денег.</div>
+            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 6, lineHeight: 1.6 }}>Отдельный документный контур: файлы, checklist, audit trail и готовность основания для банка.</div>
           </div>
-          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: releaseReady ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${releaseReady ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, color: releaseReady ? '#0A7A5F' : '#B45309', fontSize: 11, fontWeight: 800 }}>
-            {releaseReady ? 'Документы готовы к выпуску' : `До выпуска: ${blockerDone}/${blockerTotal}`}
+          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: bankReady ? 'rgba(10,122,95,0.08)' : 'rgba(217,119,6,0.08)', border: `1px solid ${bankReady ? 'rgba(10,122,95,0.18)' : 'rgba(217,119,6,0.18)'}`, color: bankReady ? '#0A7A5F' : '#B45309', fontSize: 11, fontWeight: 800 }}>
+            {bankReady ? 'Основание готово для банка' : `До банка: ${blockerDone}/${blockerTotal}`}
           </span>
         </div>
       </section>
@@ -108,7 +108,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
         <Metric title='Файлы' value={String(docs.length)} note='Загруженные документы в досье сделки.' />
         <Metric title='Checklist' value={`${requiredDone}/${REQUIRED_DOCS.length}`} note='Подтверждённые пункты документного набора.' />
-        <Metric title='Документы-блокеры' value={`${blockerDone}/${blockerTotal}`} note='Критичные документы, влияющие на банковскую проверку выплаты.' />
+        <Metric title='Документы-блокеры' value={`${blockerDone}/${blockerTotal}`} note='Критичные документы, влияющие на банковскую проверку основания.' />
       </section>
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
@@ -119,7 +119,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button onClick={buildDossier} style={{ padding: '10px 14px', borderRadius: 12, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Сформировать досье</button>
-            <button onClick={requestRelease} style={{ padding: '10px 14px', borderRadius: 12, background: releaseReady ? '#0A7A5F' : '#F8FAFB', border: releaseReady ? '1px solid #0A7A5F' : '1px solid var(--pc-border, #E4E6EA)', color: releaseReady ? '#fff' : 'var(--pc-text-muted, #6B778C)', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+            <button onClick={requestBankReview} style={{ padding: '10px 14px', borderRadius: 12, background: bankReady ? '#0A7A5F' : '#F8FAFB', border: bankReady ? '1px solid #0A7A5F' : '1px solid var(--pc-border, #E4E6EA)', color: bankReady ? '#fff' : 'var(--pc-text-muted, #6B778C)', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
               Передать основание банку
             </button>
           </div>
@@ -133,7 +133,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
                 <span style={{ width: 18, textAlign: 'center', fontWeight: 900, color: checklist[doc.id] ? '#0A7A5F' : '#9AA4B2' }}>{checklist[doc.id] ? '✓' : '•'}</span>
                 <div style={{ display: 'grid', gap: 2, flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{doc.label}</div>
-                  <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{doc.blocker ? 'Блокирует банковская проверка выплаты' : 'Не блокирует выпуск, но нужен для полного досье'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>{doc.blocker ? 'Блокирует банковскую проверку основания' : 'Не блокирует банковский шаг, но нужен для полного досье'}</div>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
                   {tone.label}
