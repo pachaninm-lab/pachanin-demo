@@ -93,8 +93,6 @@ const forbiddenVisibleCopy = [
   'Деньги выпускаются только после доказанных условий',
 ] as const;
 
-const crashCopy = /404|500|Application error|Unhandled Runtime Error/i;
-
 test.describe('platform-v7 route audit baseline', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/platform-v7', { waitUntil: 'networkidle' });
@@ -183,7 +181,7 @@ test.describe('platform-v7 route audit baseline', () => {
     await page.goto('/platform-v7/buyer', { waitUntil: 'networkidle' });
     await expect(page.getByTestId('workflow-action-panel-buyer')).toBeVisible();
     await page.getByRole('button', { name: /Подтвердить резерв денег/ }).click();
-    await expect(page.getByText('Резерв подтверждён. Выпуск денег продавцу остаётся закрыт до обязательных условий.')).toBeVisible();
+    await expect(page.getByText('Резерв подтверждён. Расчёт с продавцом остаётся закрыт до обязательных условий.')).toBeVisible();
     await expect(page.getByText('Резерв денег подтверждён', { exact: true })).toBeVisible();
   });
 

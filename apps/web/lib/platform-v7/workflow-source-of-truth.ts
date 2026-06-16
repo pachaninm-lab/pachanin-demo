@@ -82,7 +82,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
   seller: {
     context: 'seller',
     title: 'Действия продавца по сделке',
-    lead: 'Продавец публикует лот, принимает предложение и видит, почему деньги ещё не выпущены. Каждое действие меняет состояние и попадает в журнал.',
+    lead: 'Продавец публикует лот, принимает предложение и видит, почему расчёт ещё не готов. Каждое действие меняет состояние и попадает в журнал.',
     state: baseState,
     actions: [
       {
@@ -137,7 +137,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
         entityId: 'MONEY-DL-9106',
         dealId: 'DL-9106',
         reason: 'Покупатель подтверждает готовность расчётного контура',
-        description: 'Резерв подтверждает готовность денег, но выпуск продавцу остаётся заблокирован до документов, приёмки и качества.',
+        description: 'Резерв подтверждает готовность денег, но расчёт с продавцом остаётся заблокирован до документов, приёмки и качества.',
       },
       {
         kind: 'request_document_preview',
@@ -184,7 +184,7 @@ export const workflowDashboardModels: Record<WorkflowActionContext, WorkflowDash
         entityType: 'deal',
         entityId: 'DL-9106',
         dealId: 'DL-9106',
-        reason: 'Требуется ручная проверка условий выпуска денег',
+        reason: 'Требуется ручная проверка условий расчёта',
         description: 'Ручное действие не скрывает факт: оно создаёт след и ограничивает необратимые шаги до решения.',
       },
     ],
@@ -279,7 +279,7 @@ function reduceWorkflowState(kind: WorkflowActionKind, currentState: WorkflowSta
     case 'confirm_money_reserve':
       return {
         ...currentState,
-        moneyStatus: 'резерв денег подтверждён, выпуск продавцу ещё закрыт',
+        moneyStatus: 'резерв денег подтверждён, расчёт с продавцом ещё закрыт',
         dealDraftStatus: 'денежное условие закрыто',
         nextAction: 'закрыть документы, СДИЗ, рейс, приёмку и качество',
         updatedAt,
@@ -321,7 +321,7 @@ function toastForAction(kind: WorkflowActionKind): string {
     case 'accept_offer_to_draft':
       return 'Предложение принято. Создан черновик сделки с условиями по деньгам, документам и логистике.';
     case 'confirm_money_reserve':
-      return 'Резерв подтверждён. Выпуск денег продавцу остаётся закрыт до обязательных условий.';
+      return 'Резерв подтверждён. Расчёт с продавцом остаётся закрыт до обязательных условий.';
     case 'request_document_preview':
       return 'Документ открыт в защищённом просмотре. Событие записано в журнал.';
     case 'block_contact_leak':
