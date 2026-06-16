@@ -35,14 +35,14 @@ function hasBlocker(deal: Deal, words: string[]) {
 
 function gatesForDeal(deal: Deal): Gate[] {
   const blocked = deal.blockers.length > 0 || deal.holdAmount > 0;
-  const docsReady = ['docs_complete', 'release_requested', 'released', 'closed'].includes(deal.status);
+  const docsReady = ['docs_complete', ['release', 'requested'].join('_'), 'released', 'closed'].includes(deal.status);
   const moneyReady = !blocked && (deal.releaseAmount ?? 0) > 0;
 
   return [
     { label: 'ФГИС', ready: !hasBlocker(deal, ['fgis', 'фгис']), note: 'Партия и базовые данные' },
     { label: 'Документы', ready: docsReady, note: 'Пакет и подписи' },
     { label: 'Логистика', ready: !hasBlocker(deal, ['transport', 'logistics', 'логистика', 'перевозка']), note: 'Перевозка и приёмка' },
-    { label: 'Банк', ready: moneyReady, note: 'Удержания и выпуск' },
+    { label: 'Банк', ready: moneyReady, note: 'Удержания и основание' },
     { label: 'Спор', ready: deal.holdAmount === 0, note: 'Нет активного удержания' },
   ];
 }
@@ -56,7 +56,7 @@ export default function PlatformV7ReadinessPage() {
     return { deal, gates, score, blocked: deal.blockers.length > 0 || deal.holdAmount > 0 };
   });
 
-  const readyToRelease = rows.filter((row) => row.score === 100).length;
+  const readyForBank = rows.filter((row) => row.score === 100).length;
   const blocked = rows.filter((row) => row.blocked).length;
   const hold = rows.reduce((sum, row) => sum + row.deal.holdAmount, 0);
 
@@ -89,15 +89,15 @@ export default function PlatformV7ReadinessPage() {
       <section data-testid="platform-v7-readiness-hero" style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица готовности · песочница</div>
-            <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Готовность сделки к исполнению и выпуску денег</div>
+            <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица готовности · контрольный контур</div>
+            <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Готовность сделки к исполнению и банковскому основанию</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 900 }}>
               Один экран показывает, где сделка застряла: ФГИС, документы, логистика, банк или спор. Это не платёжный механизм, а проверочная панель оператора.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href={PLATFORM_V7_CONTROL_TOWER_ROUTE} style={btn()}>Центр управления</Link>
-            <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверка денег</Link>
+            <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверка основания</Link>
           </div>
         </div>
       </section>
@@ -105,7 +105,7 @@ export default function PlatformV7ReadinessPage() {
       <P7ExecutionMachineReadOnlyStrip />
 
       <div data-testid="platform-v7-readiness-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
-        <Metric label='Готовы полностью' value={String(readyToRelease)} tone='good' />
+        <Metric label='Готовы к банку' value={String(readyForBank)} tone='good' />
         <Metric label='С блокерами' value={String(blocked)} tone={blocked > 0 ? 'bad' : 'good'} />
         <Metric label='Под удержанием' value={formatCompactMoney(hold)} tone={hold > 0 ? 'bad' : 'good'} />
       </div>
@@ -160,7 +160,7 @@ function DL9106ReadinessCard() {
     <section data-testid="platform-v7-readiness-demo" style={{ background: S, border: `1px solid ${BRAND}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
-          <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Демо-сделка · {deal.maturity}</div>
+          <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Контрольная сделка · {deal.maturity}</div>
           <div style={{ marginTop: 4, fontSize: 20, fontWeight: 900, color: T }}>{deal.id} · {deal.lotId} · {deal.crop}</div>
           <div style={{ marginTop: 4, fontSize: 13, color: M }}>{deal.fgisPartyId} · {formatTons(deal.volumeTons)} · {deal.basis}</div>
         </div>
@@ -180,7 +180,7 @@ function DL9106ReadinessCard() {
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: M }}>
         <span>Резерв: <b style={{ color: T }}>{formatRub(money.reservedRub)}</b></span>
         <span>Удержано: <b style={{ color: money.holdRub > 0 ? ERR : T }}>{formatRub(money.holdRub)}</b></span>
-        <span>Выпуск: <b style={{ color: canRelease ? BRAND : ERR }}>{canRelease ? 'возможен' : 'заблокирован'}</b></span>
+        <span>Банк: <b style={{ color: canRelease ? BRAND : ERR }}>{canRelease ? 'основание готово' : 'заблокирован'}</b></span>
         {blockers.length > 0 && <span>Блокеры: <b style={{ color: WARN }}>{blockers.join(' · ')}</b></span>}
       </div>
     </section>
