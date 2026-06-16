@@ -64,7 +64,7 @@ export function DealSeal({
         <DataCell label="Лот" value={lotId} mono />
         <DataCell label="Зерно" value={`${grain} · ${quantity} ${unit}`} />
         <DataCell label="Резерв" value={rub(reservedAmount)} />
-        <DataCell label="К выплате" value={rub(releaseAmount)} accent />
+        <DataCell label="К банковскому шагу" value={rub(releaseAmount)} accent />
         <DataCell label="Продавец" value={seller} />
         <DataCell label="Покупатель" value={buyer} />
         <DataCell label="Зафиксировано" value={ts} />
@@ -72,7 +72,7 @@ export function DealSeal({
 
       <div style={footer}>
         <span style={footerText}>
-          Платформа фиксирует момент — выпуск денег подтверждает банк. Deal Seal не является платёжным документом.
+          Платформа фиксирует момент и основание сделки. Банковское подтверждение выполняет внешний банк; Deal Seal не является платёжным документом.
         </span>
         <button
           onClick={() => window.print()}
