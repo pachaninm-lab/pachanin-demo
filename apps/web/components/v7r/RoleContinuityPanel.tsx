@@ -38,25 +38,25 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
   buyer: {
     label: 'Покупатель',
     headline: 'Связка закупки: сделка → приёмка → документы → деньги',
-    nextAction: 'Проверить, что держит банковскую проверку выплаты: документы, приёмка, качество или спор.',
+    nextAction: 'Проверить, что держит банковскую проверку основания: документы, приёмка, качество или спор.',
     evidenceFocus: 'Качество, вес, лаборатория, документы покупателя, банковый статус.',
   },
   seller: {
     label: 'Продавец',
-    headline: 'Связка выплаты: лот → сделка → документы → снятие удержания',
-    nextAction: 'Закрыть документный или спорный блокер, который мешает выплате.',
+    headline: 'Связка денег: лот → сделка → документы → снятие удержания',
+    nextAction: 'Закрыть документный или спорный блокер, который мешает банковскому основанию.',
     evidenceFocus: 'ФГИС/партия, документы продавца, акт, удержание, причина проверки.',
   },
   bank: {
     label: 'Банк',
     headline: 'Связка денег: основание → удержание → подтверждение банка → журнал',
     nextAction: 'Проверить допустимость следующего банкового события и техническую сверку.',
-    evidenceFocus: 'Документы, спорный статус, событие банка, удержание, выпуск, запись журнала.',
+    evidenceFocus: 'Документы, спорный статус, событие банка, удержание, банковский шаг, запись журнала.',
   },
   logistics: {
     label: 'Логистика',
     headline: 'Связка рейса: назначение → погрузка → прибытие → транспортное основание',
-    nextAction: 'Закрыть событие рейса, которое держит приёмку или банковый выпуск.',
+    nextAction: 'Закрыть событие рейса, которое держит приёмку или банковское основание.',
     evidenceFocus: 'Маршрут, водитель, прибытие, GPS, фото, транспортные документы.',
   },
   driver: {
@@ -67,7 +67,7 @@ const ROLE_COPY: Partial<Record<PlatformRole, { label: string; headline: string;
   },
   lab: {
     label: 'Лаборатория',
-    headline: 'Связка качества: проба → протокол → приёмка → спор/выпуск',
+    headline: 'Связка качества: проба → протокол → приёмка → спор/банк',
     nextAction: 'Довести лабораторный результат до статуса, который открывает приёмку или спор.',
     evidenceFocus: 'Протокол, влажность, клейковина, белок, версия анализа, спорность.',
   },
@@ -84,22 +84,22 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
     blockedLabel: 'Покупатель ждёт подписания, документов, приёмки или лабораторного результата.',
   },
   seller: {
-    label: 'Закрыть выплатный блокер',
+    label: 'Закрыть денежный блокер',
     actionType: 'publishLot',
     ownerRole: 'seller',
     route: '/platform-v7/lots/create',
     availableWhen: ['DEAL_CREATED', 'SIGNED', 'DISPUTE_OPEN', 'DOCUMENTS_PENDING'],
-    readyLabel: 'Продавец должен закрыть лот, документы или спорный пакет для выплаты.',
+    readyLabel: 'Продавец должен закрыть лот, документы или спорный пакет для банковского основания.',
     blockedLabel: 'Продавец не является владельцем следующего подтверждаемого шага.',
   },
   bank: {
-    label: 'Подтвердить основание / выпуск',
+    label: 'Подтвердить основание / банковский шаг',
     actionType: 'confirmReserve',
     ownerRole: 'bank',
     route: '/platform-v7/bank',
     availableWhen: ['RESERVE_REQUESTED', 'PAYMENT_RELEASE_REQUESTED', 'DOCUMENTS_READY'],
     readyLabel: 'Банк может подтвердить допустимое денежное событие только после проверок сделки.',
-    blockedLabel: 'Банк ждёт запрос на основание, документы, отсутствие спора или готовность к выпуску.',
+    blockedLabel: 'Банк ждёт запрос на основание, документы, отсутствие спора или готовность основания.',
   },
   logistics: {
     label: 'Назначить водителя / закрыть рейс',
@@ -160,13 +160,9 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
     <section data-testid={`role-continuity-${role}`} style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: compact ? 14 : 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
-          <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Ролевой контур · {copy.label}
-          </div>
+          <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ролевой контур · {copy.label}</div>
           <div style={{ marginTop: 6, fontSize: compact ? 18 : 22, lineHeight: 1.15, fontWeight: 900, color: T }}>{copy.headline}</div>
-          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 860 }}>
-            Единый контур роли показывает не отдельный кабинет, а связку: текущая сделка, допустимое действие, доказательства, журнал и линию событий. Внешние подключения не заявляются как подтверждённые.
-          </div>
+          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: M, maxWidth: 860 }}>Единый контур роли показывает не отдельный кабинет, а связку: текущая сделка, допустимое действие, доказательства, журнал и линию событий. Внешние подключения не заявляются как подтверждённые.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href={`/platform-v7/deals/${deal.id}`} style={btn('primary')}>Открыть сделку</Link>
@@ -207,14 +203,7 @@ function buildRoleActionHandoff(role: PlatformRole, deal: Deal) {
   const isStatusReady = handoff.availableWhen.includes(deal.status);
   const isBlockedByDispute = deal.status === 'DISPUTE_OPEN' && handoff.actionType !== 'openDispute';
   const canRun = isOwner && isStatusReady && !isBlockedByDispute;
-  const disabledReason = canRun
-    ? null
-    : isBlockedByDispute
-      ? 'Открыт спор: действие заблокировано до решения или арбитражного маршрута.'
-      : !isOwner
-        ? `Следующий ответственный: ${roleLabel(deal.ownerRole)}. Роль ${roleLabel(role)} не должна выполнять этот шаг.`
-        : handoff.blockedLabel;
-
+  const disabledReason = canRun ? null : isBlockedByDispute ? 'Открыт спор: действие заблокировано до решения или арбитражного маршрута.' : !isOwner ? `Следующий ответственный: ${roleLabel(deal.ownerRole)}. Роль ${roleLabel(role)} не должна выполнять этот шаг.` : handoff.blockedLabel;
   return { ...handoff, canRun, disabledReason };
 }
 
@@ -222,10 +211,7 @@ function ActionHandoffBlock({ handoff }: { handoff: RoleActionHandoff & { canRun
   return (
     <div data-testid='role-action-handoff' style={{ background: handoff.canRun ? BRAND_BG : WARN_BG, border: `1px solid ${handoff.canRun ? BRAND_BORDER : WARN_BORDER}`, borderRadius: 14, padding: 14, display: 'grid', gap: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ display: 'grid', gap: 4 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: handoff.canRun ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</div>
-          <div style={{ fontSize: 15, lineHeight: 1.35, color: T, fontWeight: 900 }}>{handoff.label}</div>
-        </div>
+        <div style={{ display: 'grid', gap: 4 }}><div style={{ fontSize: 12, fontWeight: 900, color: handoff.canRun ? BRAND : WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</div><div style={{ fontSize: 15, lineHeight: 1.35, color: T, fontWeight: 900 }}>{handoff.label}</div></div>
         <Link href={handoff.route} style={btn(handoff.canRun ? 'primary' : 'default')}>Открыть действие</Link>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
@@ -233,9 +219,7 @@ function ActionHandoffBlock({ handoff }: { handoff: RoleActionHandoff & { canRun
         <Cell label='Ответственный' value={roleLabel(handoff.ownerRole)} tone='accent' />
         <Cell label='Статус' value={handoff.canRun ? 'Доступно' : 'Заблокировано'} tone={handoff.canRun ? 'accent' : 'danger'} />
       </div>
-      <div style={{ fontSize: 12, lineHeight: 1.6, color: handoff.canRun ? BRAND : WARN, fontWeight: 800 }}>
-        {handoff.canRun ? handoff.readyLabel : handoff.disabledReason}
-      </div>
+      <div style={{ fontSize: 12, lineHeight: 1.6, color: handoff.canRun ? BRAND : WARN, fontWeight: 800 }}>{handoff.canRun ? handoff.readyLabel : handoff.disabledReason}</div>
     </div>
   );
 }
@@ -250,27 +234,12 @@ function selectRoleDeal(state: DomainExecutionState, role: PlatformRole) {
 }
 
 function ListBlock({ title, empty, rows }: { title: string; empty: string; rows: Array<{ id: string; kicker: string; text: string }> }) {
-  return (
-    <div style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
-      <div style={{ fontSize: 13, fontWeight: 900, color: T }}>{title}</div>
-      {rows.length ? rows.map((row) => (
-        <div key={row.id} style={{ borderTop: `1px solid ${B}`, paddingTop: 8, display: 'grid', gap: 4 }}>
-          <span style={{ fontSize: 10, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{row.kicker}</span>
-          <span style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>{row.text}</span>
-        </div>
-      )) : <div style={{ fontSize: 12, color: M }}>{empty}</div>}
-    </div>
-  );
+  return <div style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}><div style={{ fontSize: 13, fontWeight: 900, color: T }}>{title}</div>{rows.length ? rows.map((row) => <div key={row.id} style={{ borderTop: `1px solid ${B}`, paddingTop: 8, display: 'grid', gap: 4 }}><span style={{ fontSize: 10, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{row.kicker}</span><span style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>{row.text}</span></div>) : <div style={{ fontSize: 12, color: M }}>{empty}</div>}</div>;
 }
 
 function Cell({ label, value, tone = 'default', mono = false }: { label: string; value: string; tone?: 'default' | 'accent' | 'danger'; mono?: boolean }) {
   const color = tone === 'accent' ? BRAND : tone === 'danger' ? DANGER : T;
-  return (
-    <div style={{ background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 12 }}>
-      <div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      <div style={{ marginTop: 5, fontSize: 13, fontWeight: 900, color, fontFamily: mono ? 'JetBrains Mono, monospace' : undefined }}>{value}</div>
-    </div>
-  );
+  return <div style={{ background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div><div style={{ marginTop: 5, fontSize: 13, fontWeight: 900, color, fontFamily: mono ? 'JetBrains Mono, monospace' : undefined }}>{value}</div></div>;
 }
 
 function humanStatus(value: string) {
@@ -278,22 +247,12 @@ function humanStatus(value: string) {
 }
 
 function roleLabel(role: PlatformRole) {
-  const labels: Partial<Record<PlatformRole, string>> = {
-    seller: 'Продавец', buyer: 'Покупатель', operator: 'Оператор', bank: 'Банк', logistics: 'Логистика', driver: 'Водитель', elevator: 'Элеватор', lab: 'Лаборатория', surveyor: 'Сюрвейер', arbitrator: 'Арбитр', compliance: 'Комплаенс', admin: 'Админ',
-  };
+  const labels: Partial<Record<PlatformRole, string>> = { seller: 'Продавец', buyer: 'Покупатель', operator: 'Оператор', bank: 'Банк', logistics: 'Логистика', driver: 'Водитель', elevator: 'Элеватор', lab: 'Лаборатория', surveyor: 'Сюрвейер', arbitrator: 'Арбитр', compliance: 'Комплаенс', admin: 'Админ' };
   return labels[role] || role;
 }
 
 function actionLabel(actionType: PlatformActionType | string) {
-  const labels: Partial<Record<PlatformActionType, string>> = {
-    publishLot: 'Опубликовать партию',
-    requestReserve: 'Запросить банковское основание',
-    confirmReserve: 'Подтвердить основание',
-    assignDriver: 'Назначить водителя',
-    confirmArrival: 'Подтвердить прибытие',
-    createLabProtocol: 'Создать лабораторный протокол',
-    openDispute: 'Открыть спор',
-  };
+  const labels: Partial<Record<PlatformActionType, string>> = { publishLot: 'Опубликовать партию', requestReserve: 'Запросить банковское основание', confirmReserve: 'Подтвердить основание', assignDriver: 'Назначить водителя', confirmArrival: 'Подтвердить прибытие', createLabProtocol: 'Создать лабораторный протокол', openDispute: 'Открыть спор' };
   return labels[actionType as PlatformActionType] || String(actionType).replace(/_/g, ' ');
 }
 
