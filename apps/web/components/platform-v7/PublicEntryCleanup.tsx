@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
 const ENTRY_SESSION_KEY = 'pc-v7-entry-approved';
+const ENTRY_COOKIE_KEY = 'pc_v7_entry_seen';
 
 const PUBLIC_PATHS = new Set([
   '/platform-v7',
@@ -72,6 +73,10 @@ function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.has(pathname) || pathname.startsWith('/platform-v7/role-preview');
 }
 
+function hasEntryCookie() {
+  return document.cookie.split(';').some((part) => part.trim() === `${ENTRY_COOKIE_KEY}=true`);
+}
+
 function bindClick(el: HTMLElement, href: string) {
   if (el.dataset.entryClick === 'true') return;
   el.dataset.entryClick = 'true';
@@ -114,7 +119,7 @@ export function PublicEntryCleanup() {
       return;
     }
     if (isPublicPath(pathname)) return;
-    const approved = window.sessionStorage.getItem(ENTRY_SESSION_KEY) === 'true';
+    const approved = window.sessionStorage.getItem(ENTRY_SESSION_KEY) === 'true' || hasEntryCookie();
     if (!approved) router.replace('/platform-v7');
   }, [pathname, router]);
 
