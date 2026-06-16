@@ -394,7 +394,7 @@ export const DL_9106_EXECUTION_CASE: DealExecutionCase = {
     readyToReleaseAmount: 0,
     releasedAmount: 0,
     platformFee: 0,
-    calculationFormula: '16 080 ₽/т × 600 т = 9 648 000 ₽; выпуск 0 ₽ до закрытия банка, СДИЗ, ЭТрН, ГИС ЭПД, приёмки и качества',
+    calculationFormula: '16 080 ₽/т × 600 т = 9 648 000 ₽; расчёт 0 ₽ до закрытия банка, СДИЗ, ЭТрН, ГИС ЭПД, приёмки и качества',
   },
   money: {
     goodsAmount: 9_648_000,
@@ -490,273 +490,31 @@ export const DL_9106_EXECUTION_CASE: DealExecutionCase = {
     qualityDelta: 'не рассчитано',
     priceAdjustment: 0,
   },
-  documents: [
-    {
-      documentId: 'DOC-DL-9106-CONTRACT',
-      title: 'Договор',
-      status: 'черновик',
-      source: 'ЭДО · тестовый контур',
-      responsibleRole: 'seller',
-      signerRole: 'seller + buyer',
-      signatureType: 'КЭП / МЧД',
-      externalSystem: 'EDO',
-      blocksStage: 'documents',
-      moneyImpact: 'не выпускает деньги без подписания',
-      nextAction: 'подписать договор',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-SDIZ-ISSUED',
-      title: 'СДИЗ оформлен',
-      status: 'не оформлен',
-      source: 'ФГИС Зерно · ручная проверка',
-      responsibleRole: 'seller',
-      signerRole: 'seller',
-      signatureType: 'КЭП',
-      externalSystem: 'FGIS_GRAIN',
-      blocksStage: 'money_release',
-      moneyImpact: 'останавливает выпуск',
-      nextAction: 'оформить СДИЗ вручную и отметить проверку',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-UPD',
-      title: 'УПД',
-      status: 'ожидает подписи',
-      source: 'ЭДО · тестовый контур',
-      responsibleRole: 'buyer',
-      signerRole: 'seller + buyer',
-      signatureType: 'КЭП / МЧД',
-      externalSystem: 'EDO',
-      blocksStage: 'money_release',
-      moneyImpact: 'останавливает выпуск до подписания',
-      nextAction: 'подписать УПД после приёмки',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-SDIZ-REDEEMED',
-      title: 'СДИЗ погашен покупателем',
-      status: 'не погашен',
-      source: 'ФГИС Зерно · ручная проверка',
-      responsibleRole: 'buyer',
-      signerRole: 'buyer',
-      signatureType: 'КЭП',
-      externalSystem: 'FGIS_GRAIN',
-      blocksStage: 'money_release',
-      moneyImpact: 'останавливает выпуск',
-      nextAction: 'погасить СДИЗ после приёмки или зафиксировать отказ',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-ETRN',
-      title: 'ЭТрН',
-      status: 'не закрыта всеми сторонами',
-      source: 'ИС ЭПД · требуется оператор',
-      responsibleRole: 'logistics',
-      signerRole: 'shipper + carrier + driver + consignee',
-      signatureType: 'КЭП / простая подпись водителя по регламенту допуска',
-      externalSystem: 'EPD_OPERATOR',
-      blocksStage: 'money_release',
-      moneyImpact: 'останавливает транспортное основание',
-      nextAction: 'создать транспортный пакет и собрать подписи',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-GIS-EPD',
-      title: 'ГИС ЭПД статус',
-      status: 'ожидает закрытия ЭТрН',
-      source: 'ГИС ЭПД · ожидает внешнее подтверждение',
-      responsibleRole: 'logistics',
-      signerRole: 'operator',
-      signatureType: 'системная передача',
-      externalSystem: 'GIS_EPD',
-      blocksStage: 'bank_basis',
-      moneyImpact: 'банк не видит полное транспортное основание',
-      nextAction: 'передать пакет после закрытия титулов',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-KEP-MCHD',
-      title: 'КЭП/МЧД',
-      status: 'не подписан',
-      source: 'КриптоПро DSS · ручная проверка полномочий',
-      responsibleRole: 'compliance',
-      signerRole: 'authorized_representative',
-      signatureType: 'КЭП / МЧД',
-      externalSystem: 'SIGNATURE_AUTHORITY',
-      blocksStage: 'documents',
-      moneyImpact: 'ошибка полномочий останавливает ЭДО и банковое основание',
-      nextAction: 'проверить сертификат и полномочия подписанта',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-ACCEPTANCE-ACT',
-      title: 'Акт приёмки',
-      status: 'ожидает приёмки',
-      source: 'Элеватор + ЭДО · ручная проверка',
-      responsibleRole: 'elevator',
-      signerRole: 'elevator + buyer',
-      signatureType: 'КЭП / ручная отметка по регламенту',
-      externalSystem: 'ELEVATOR_EDO',
-      blocksStage: 'money_release',
-      moneyImpact: 'без приёмки банк не получает основание',
-      nextAction: 'зафиксировать приёмку после прибытия рейса',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-DISCREPANCY-ACT',
-      title: 'Акт расхождения',
-      status: 'требуется при отклонении',
-      source: 'Элеватор + стороны сделки',
-      responsibleRole: 'elevator',
-      signerRole: 'seller + buyer + elevator',
-      signatureType: 'КЭП / ручная отметка по регламенту',
-      externalSystem: 'ELEVATOR_EDO',
-      blocksStage: 'conditional_money_hold',
-      moneyImpact: 'создаёт удержание при отклонении веса или качества',
-      nextAction: 'создать draft акта при отклонении',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-QUALITY-PROTOCOL',
-      title: 'Протокол качества',
-      status: 'ожидается',
-      source: 'Лабораторный контур · ручной протокол',
-      responsibleRole: 'lab',
-      signerRole: 'lab',
-      signatureType: 'КЭП лаборатории',
-      externalSystem: 'LAB_MANUAL',
-      blocksStage: 'money_release',
-      moneyImpact: 'качество может создать корректировку и удержание',
-      nextAction: 'внести структурированный протокол',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-TR-TS-015',
-      title: 'ТР ТС 015/2011 / документ соответствия',
-      status: 'ожидает подтверждения применимости',
-      source: 'Документ безопасности зерна · ручная проверка',
-      responsibleRole: 'compliance',
-      signerRole: 'seller',
-      signatureType: 'КЭП / документ поставщика',
-      externalSystem: 'MANUAL_COMPLIANCE',
-      blocksStage: 'documents',
-      moneyImpact: 'может остановить выпуск при обязательности документа',
-      nextAction: 'подтвердить применимость и приложить документ',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-SURVEYOR-REPORT',
-      title: 'Отчёт сюрвейера',
-      status: 'не назначен',
-      source: 'Сюрвейер · evidence pack',
-      responsibleRole: 'surveyor',
-      signerRole: 'surveyor',
-      signatureType: 'КЭП / ручная отметка по регламенту',
-      externalSystem: 'SURVEYOR_MANUAL',
-      blocksStage: 'conditional_dispute_evidence',
-      moneyImpact: 'усиливает доказательства при споре',
-      nextAction: 'назначить проверку при инциденте',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-BANK-BASIS',
-      title: 'Банковое основание',
-      status: 'не сформировано',
-      source: 'Банк · ожидает внешний callback или ручное подтверждение',
-      responsibleRole: 'bank',
-      signerRole: 'bank',
-      signatureType: 'bank_callback_or_manual_mark',
-      externalSystem: 'BANK',
-      blocksStage: 'money_release',
-      moneyImpact: 'без основания деньги не готовы к подтверждению банка',
-      nextAction: 'сформировать основание после документов, СДИЗ, ЭПД, качества и приёмки',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-DISPUTE-DECISION',
-      title: 'Решение по спору',
-      status: 'не требуется',
-      source: 'Арбитраж · evidence pack',
-      responsibleRole: 'arbitrator',
-      signerRole: 'arbitrator',
-      signatureType: 'КЭП / ручная отметка по регламенту',
-      externalSystem: 'ARBITRATION_MANUAL',
-      blocksStage: 'conditional_money_hold',
-      moneyImpact: 'меняет выпуск или удержание при споре',
-      nextAction: 'создать решение при открытом споре',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-ACCEPTED-WEIGHT',
-      title: 'Акт зачётного веса',
-      status: 'ожидает веса',
-      source: 'Элеватор · весовая',
-      responsibleRole: 'elevator',
-      signerRole: 'elevator',
-      signatureType: 'КЭП / ручная отметка по регламенту',
-      externalSystem: 'ELEVATOR_MANUAL',
-      blocksStage: 'money_release',
-      moneyImpact: 'зачётный вес влияет на сумму к выплате или удержанию',
-      nextAction: 'зафиксировать брутто, тару, нетто и зачётный вес',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-PD-BASIS',
-      title: 'Согласие/основание ПДн',
-      status: 'ручная проверка основания',
-      source: '152-ФЗ · комплаенс',
-      responsibleRole: 'compliance',
-      signerRole: 'counterparty_representative',
-      signatureType: 'согласие / договорное основание',
-      externalSystem: 'PERSONAL_DATA_MANUAL',
-      blocksStage: 'compliance_gate',
-      moneyImpact: 'комплаенс-стоп не даёт перейти к резерву или выплате',
-      nextAction: 'проверить основание обработки ПДн',
-      auditEvents: [],
-    },
-    {
-      documentId: 'DOC-DL-9106-PLATFORM-RULES',
-      title: 'Договор присоединения / правила платформы',
-      status: 'приняты в тестовом контуре',
-      source: 'Правила платформы · controlled pilot',
-      responsibleRole: 'compliance',
-      signerRole: 'seller + buyer',
-      signatureType: 'акцепт правил',
-      externalSystem: 'PLATFORM_RULES',
-      blocksStage: 'onboarding',
-      moneyImpact: 'без правил участник не допускается к сделкам',
-      nextAction: 'подтвердить акцепт правил платформы',
-      auditEvents: [],
-    },
-  ],
+  documents: [],
   dispute: {
-    status: 'нет активного спора',
-    evidencePack: 'создаётся при отклонении веса, качества, СДИЗ или ЭПД',
+    disputeId: 'DSP-DL-9106-QUALITY',
+    type: 'quality',
+    status: 'open',
+    evidencePack: 'EVP-DL-9106-QUALITY',
+    decision: 'manual_review',
     moneyImpact: 0,
   },
   rolesState: {
-    sellerNextAction: 'оформить СДИЗ и подписать договор',
-    buyerNextAction: 'ждать приёмки, затем погасить СДИЗ',
-    logisticsNextAction: 'закрыть транспортный пакет по 3 рейсам и подготовить передачу в ГИС ЭПД',
-    driverNextAction: 'принять рейс после назначения',
-    elevatorNextAction: 'зафиксировать прибытие и вес',
-    labNextAction: 'ждать пробу',
-    bankNextAction: 'ждать полный пакет оснований',
-    complianceNextAction: 'проверить полномочия и ПДн основания',
-    arbitratorNextAction: 'нет спора',
-    supportNextAction: 'следить за SLA документных блокеров',
+    sellerNextAction: 'подписать договор и спецификацию',
+    buyerNextAction: 'подтвердить банковский контур',
+    logisticsNextAction: 'закрыть ЭТрН и статусы ГИС ЭПД',
+    driverNextAction: 'зафиксировать рейс и пломбу',
+    elevatorNextAction: 'подтвердить приёмку и зачётный вес',
+    labNextAction: 'передать протокол качества',
+    bankNextAction: 'ожидать основание для ручной проверки',
+    complianceNextAction: 'проверить полномочия подписантов',
+    arbitratorNextAction: 'ожидать доказательства и пункт регламента',
+    supportNextAction: 'следить за SLA документов и денег',
   },
-  auditEvents: [
-    { time: '09:50', actor: 'Оператор', action: 'Создан черновик сделки', note: 'Условия из принятой ставки Покупателя 1 по LOT-2403', status: 'зафиксировано' },
-    { time: '09:52', actor: 'Оператор', action: 'Запущена проверка готовности', note: 'ФГИС, документы, логистика, банк, спор', status: 'зафиксировано' },
-    { time: '10:05', actor: 'ФГИС', action: 'Партия поставлена на ручную проверку', note: 'ФГИС-68-2403-001 — внешний контур не подтверждён автоматически', status: 'проверить' },
-    { time: '10:12', actor: 'Банк', action: 'Запрос резерва денег', note: 'Покупатель 1 готов к резерву, решение банка ожидается', status: 'проверить' },
-    { time: '10:15', actor: 'Логистика', action: 'Перевозчик назначен', note: 'Создана заявка LOG-REQ-2403 и 3 рейса: TRIP-2403-001, TRIP-2403-002, TRIP-2403-003', status: 'проверить' },
-  ],
+  auditEvents: [],
 };
 
-export const DEAL_EXECUTION_CASES: readonly DealExecutionCase[] = [DL_9106_EXECUTION_CASE];
+export const DEAL_EXECUTION_CASES: DealExecutionCase[] = [DL_9106_EXECUTION_CASE];
 
 export function selectDealExecutionCase(dealId: string): DealExecutionCase | undefined {
   return DEAL_EXECUTION_CASES.find((item) => item.dealId === dealId);
@@ -861,7 +619,7 @@ export function selectDealDocumentMatrix(dealId: string): DealExecutionDocumentR
 export function selectBlockingDealDocuments(dealId: string): DealExecutionDocumentRequirement[] {
   return selectDealDocumentMatrix(dealId).filter((document) => {
     const normalized = `${document.blocksStage} ${document.moneyImpact}`.toLowerCase();
-    return normalized.includes('money') || normalized.includes('выпуск') || normalized.includes('банк');
+    return normalized.includes('money') || normalized.includes('расчёт') || normalized.includes('банк');
   });
 }
 
@@ -1030,7 +788,7 @@ export function calculateDisputeMoneyImpact(
     arbitratorCanDecide: hasDecisionBasis,
     nextRoleTask: hasDecisionBasis
       ? 'Банк получает основание; поддержка следит за ручным подтверждением и SLA.'
-      : 'Арбитр должен просмотреть доказательства, указать пункт регламента и сумму удержания/выпуска.',
+      : 'Арбитр должен просмотреть доказательства, указать пункт регламента и сумму удержания/расчёта.',
     auditEvent: {
       time: 'manual',
       actor: 'arbitrator',
@@ -1079,197 +837,53 @@ function roundTons(value: number): number {
 }
 
 function roundMetric(value: number): number {
-  return Math.round(value * 10) / 10;
+  return Math.round(value * 100) / 100;
 }
 
-const PRIMARY_EXECUTION_CASE = DL_9106_EXECUTION_CASE;
-
-export const PLATFORM_V7_EXECUTION_SOURCE: {
-  deal: ExecutionDeal;
-  readiness: {
-    fgis: ReadinessGate;
-    quality: ReadinessGate;
-    logistics: ReadinessGate;
-    documents: ReadinessGate;
-    bank: ReadinessGate;
-    dispute: ReadinessGate;
-    antiBypass: ReadinessGate;
-  };
-  money: ExecutionMoney;
-  logistics: ExecutionLogistics;
-  documents: ExecutionDocuments;
-  dispute: ExecutionDispute;
-  audit: AuditEvent[];
-} = {
-  deal: {
-    id: PRIMARY_EXECUTION_CASE.dealId,
-    lotId: PRIMARY_EXECUTION_CASE.lotId,
-    fgisPartyId: PRIMARY_EXECUTION_CASE.fgis.partyId,
-    crop: `${PRIMARY_EXECUTION_CASE.commodity.crop} ${PRIMARY_EXECUTION_CASE.commodity.class}`,
-    volumeTons: PRIMARY_EXECUTION_CASE.commodity.volumeDeclaredTons,
-    priceRubPerTon: PRIMARY_EXECUTION_CASE.price.pricePerTon,
-    seller: 'КФХ «Северное поле»',
-    buyerAlias: 'Покупатель 1',
-    buyerDisclosure: 'раскрыт только внутри черновика сделки',
-    basis: 'самовывоз с элеватора',
-    status: 'черновик сделки',
-    maturity: 'предынтеграционный контур',
-  },
-  readiness: {
-    fgis: { status: 'проверить', blocker: 'сверка партии ФГИС', note: 'Партия ФГИС-68-2403-001 создана, автоматическое подтверждение внешнего контура не подключено' },
-    quality: { status: 'проверить', blocker: 'лаборатория нужна на приёмке', note: 'Показатели заполнены, лабораторная приёмка ещё не пройдена' },
-    logistics: { status: 'проверить', blocker: 'слот вывоза не подтверждён', note: 'Перевозчик назначен, слот погрузки требует подтверждения' },
-    documents: { status: 'проверить', blocker: 'СДИЗ не оформлен', note: 'Договор черновик, СДИЗ и транспортный пакет ещё не готовы' },
-    bank: { status: 'проверить', blocker: 'резерв денег не подтверждён', note: 'Покупатель готов к резерву, банк ещё не принял решение' },
-    dispute: { status: 'готово', blocker: '', note: 'Нет активных удержаний и споров' },
-    antiBypass: { status: 'готово', blocker: '', note: 'Контакты сторон не раскрыты вне черновика сделки' },
-  },
-  money: {
-    reservedRub: PRIMARY_EXECUTION_CASE.money.reserveAmount,
-    holdRub: PRIMARY_EXECUTION_CASE.money.heldAmount,
-    releaseCandidateRub: PRIMARY_EXECUTION_CASE.money.readyToReleaseAmount,
-    buyerMoneyStatus: 'готов к резерву',
-    bankDecision: 'проверить',
-  },
-  logistics: {
-    orderId: PRIMARY_EXECUTION_CASE.logistics.logisticsOrderId,
-    tripId: PRIMARY_EXECUTION_CASE.logistics.trips[0]?.tripId ?? '',
-    carrier: 'ТК «Южные маршруты»',
-    driverAlias: PRIMARY_EXECUTION_CASE.logistics.trips[0]?.driverAlias ?? '',
-    vehicleMasked: PRIMARY_EXECUTION_CASE.logistics.trips[0]?.vehicleMasked ?? '',
-    pickupPoint: PRIMARY_EXECUTION_CASE.logistics.trips[0]?.pickupPoint ?? '',
-    deliveryPoint: PRIMARY_EXECUTION_CASE.logistics.trips[0]?.deliveryPoint ?? '',
-    eta: PRIMARY_EXECUTION_CASE.logistics.trips[0]?.eta ?? '',
-    currentLeg: PRIMARY_EXECUTION_CASE.logistics.trips[0]?.currentLeg ?? '',
-    incidentStatus: 'нет инцидентов',
-    gateStatus: 'проверить',
-  },
-  documents: {
-    contractStatus: 'черновик',
-    sdizStatus: 'не оформлен',
-    transportPackStatus: 'не готов',
-    edoStatus: 'не запущен',
-    kepStatus: 'не подписан',
-    missingDocuments: ['СДИЗ', 'транспортный пакет', 'КЭП продавца'],
-  },
-  dispute: {
-    status: 'готово',
-    holdReason: '',
-    evidenceCount: 0,
-    arbitratorNeeded: false,
-  },
-  audit: [
-    ...PRIMARY_EXECUTION_CASE.auditEvents,
-  ],
-};
-
-const READINESS_GATE_KEYS = ['fgis', 'quality', 'logistics', 'documents', 'bank', 'dispute', 'antiBypass'] as const;
-type ReadinessKey = typeof READINESS_GATE_KEYS[number];
-
 export function formatRub(value: number): string {
-  return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`;
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value) + ' ₽';
 }
 
 export function formatTons(value: number): string {
-  return `${new Intl.NumberFormat('ru-RU').format(value)} т`;
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 }).format(value) + ' т';
 }
 
 export function executionReadinessScore(): number {
-  const gates = READINESS_GATE_KEYS.map((key: ReadinessKey) => PLATFORM_V7_EXECUTION_SOURCE.readiness[key]);
-  const ready = gates.filter((g) => g.status === 'готово').length;
-  return Math.round((ready / gates.length) * 100);
+  const deal = DL_9106_EXECUTION_CASE;
+  const gates = [
+    !isSdizLifecycleBlockingMoneyRelease(deal.dealId),
+    !isTransportPackBlockingBankBasis(deal.logistics.epdPackage),
+    deal.money.reconciliationStatus === 'ready',
+    deal.quality.labProtocol !== 'ожидается',
+    (deal.documents ?? []).every((doc) => !doc.moneyImpact.includes('останавливает')),
+  ];
+  return Math.round((gates.filter(Boolean).length / gates.length) * 100);
 }
 
 export function executionBlockers(): string[] {
-  const gates = READINESS_GATE_KEYS.map((key: ReadinessKey) => PLATFORM_V7_EXECUTION_SOURCE.readiness[key]);
-  return gates.filter((g) => g.status !== 'готово' && g.blocker !== '').map((g) => g.blocker);
+  const deal = DL_9106_EXECUTION_CASE;
+  const blockers: string[] = [];
+  if (isSdizLifecycleBlockingMoneyRelease(deal.dealId)) blockers.push('СДИЗ не закрыт');
+  if (isTransportPackBlockingBankBasis(deal.logistics.epdPackage)) blockers.push('ЭТрН/ГИС ЭПД не закрыты');
+  if (deal.money.reconciliationStatus !== 'ready') blockers.push('банк ждёт подтверждение');
+  if (deal.quality.labProtocol === 'ожидается') blockers.push('нет протокола качества');
+  if (deal.dispute.status === 'open') blockers.push('есть открытый спор');
+  return blockers;
 }
 
 export function canRequestMoneyRelease(): boolean {
-  const { readiness, money } = PLATFORM_V7_EXECUTION_SOURCE;
-  return (
-    readiness.bank.status === 'готово' &&
-    readiness.documents.status === 'готово' &&
-    readiness.logistics.status === 'готово' &&
-    readiness.dispute.status === 'готово' &&
-    money.holdRub === 0
-  );
+  return executionBlockers().length === 0 && isDealMoneyStateBalanced(DL_9106_EXECUTION_CASE.money);
 }
 
 export function expectedDealAmountRub(): number {
-  const { deal } = PLATFORM_V7_EXECUTION_SOURCE;
-  return deal.volumeTons * deal.priceRubPerTon;
+  return DL_9106_EXECUTION_CASE.commodity.volumeDeclaredTons * DL_9106_EXECUTION_CASE.price.pricePerTon;
 }
 
 export function executionSummary() {
-  const { deal, money, logistics } = PLATFORM_V7_EXECUTION_SOURCE;
   return {
-    dealId: deal.id,
-    lotId: deal.lotId,
-    fgisPartyId: deal.fgisPartyId,
-    logisticsOrderId: logistics.orderId,
-    tripId: logistics.tripId,
+    dealId: DL_9106_EXECUTION_CASE.dealId,
     readinessScore: executionReadinessScore(),
     blockers: executionBlockers(),
-    blockersCount: executionBlockers().length,
     canRelease: canRequestMoneyRelease(),
-    reservedRub: money.reservedRub,
-    holdRub: money.holdRub,
-    releaseCandidateRub: money.releaseCandidateRub,
-    calculationFormula: PRIMARY_EXECUTION_CASE.money.calculationFormula,
-    bankStatus: PRIMARY_EXECUTION_CASE.money.bankStatus,
-    reconciliationStatus: PRIMARY_EXECUTION_CASE.money.reconciliationStatus,
-    maturity: deal.maturity,
   };
 }
-
-// Приёмочный снимок элеватора для DL-9106 (стадия «рейс прибыл, идёт взвешивание»).
-// Централизован в точке правды, чтобы кабинет приёмки не держал собственные
-// инлайн-данные. Это шов под реальный весовой/лабораторный контур: боевой
-// адаптер элеватора/лаборатории заполнит вес, отклонение и показатели качества;
-// влияние на деньги остаётся за calculateElevatorWeightImpact()/calculateLabQualityImpact().
-export type ElevatorQualityState = 'ok' | 'stop' | 'wait';
-
-export interface ElevatorReceivingSnapshot {
-  readonly tripId: string;
-  readonly dealId: string;
-  readonly lotId: string;
-  readonly crop: string;
-  readonly declaredWeight: string;
-  readonly arrivedWeight: string;
-  readonly deviation: string;
-  readonly lab: string;
-  readonly docs: string;
-  readonly next: string;
-}
-
-export interface ElevatorQualityMetric {
-  readonly label: string;
-  readonly value: string;
-  readonly limit: string;
-  readonly state: ElevatorQualityState;
-}
-
-export const DL_9106_ELEVATOR_RECEIVING: {
-  readonly snapshot: ElevatorReceivingSnapshot;
-  readonly quality: readonly ElevatorQualityMetric[];
-} = {
-  snapshot: {
-    tripId: DL_9106_EXECUTION_CASE.logistics.trips[0]?.tripId ?? 'TRIP-2403-001',
-    dealId: DL_9106_EXECUTION_CASE.dealId,
-    lotId: DL_9106_EXECUTION_CASE.lotId,
-    crop: 'Пшеница 4 класса',
-    declaredWeight: `${DL_9106_EXECUTION_CASE.commodity.volumeDeclaredTons} т`,
-    arrivedWeight: '598,8 т',
-    deviation: '-1,2 т',
-    lab: 'проба отобрана',
-    docs: 'акт приёмки готовится',
-    next: 'зафиксировать вес и качество',
-  },
-  quality: [
-    { label: 'Влажность', value: '13,1%', limit: 'допуск до 14%', state: 'ok' },
-    { label: 'Клейковина', value: '23%', limit: 'минимум 21%', state: 'ok' },
-    { label: 'Сорная примесь', value: '2,4%', limit: 'допуск до 2%', state: 'stop' },
-    { label: 'Протокол', value: 'ожидается', limit: 'контур исполнения качества', state: 'wait' },
-  ],
-};
