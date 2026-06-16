@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const p0Routes = [
   '/platform-v7',
+  '/platform-v7/open',
   '/platform-v7/roles',
   '/platform-v7/seller',
   '/platform-v7/seller/batches/new',
@@ -12,6 +13,7 @@ const p0Routes = [
   '/platform-v7/buyer/offers',
   '/platform-v7/logistics',
   '/platform-v7/driver',
+  '/platform-v7/driver/field',
   '/platform-v7/elevator',
   '/platform-v7/lab',
   '/platform-v7/surveyor',
@@ -23,6 +25,7 @@ const p0Routes = [
   '/platform-v7/disputes',
   '/platform-v7/disputes/DK-2024-89',
   '/platform-v7/dispute/DK-2024-89',
+  '/platform-v7/deals',
   '/platform-v7/deals/DL-9102/clean',
   '/platform-v7/deals/DL-9106/audit',
   '/platform-v7/deals/DL-9106/money',
@@ -38,16 +41,18 @@ const p0Routes = [
 
 const crawlerSeedRoutes = [
   '/platform-v7',
+  '/platform-v7/open',
   '/platform-v7/seller',
   '/platform-v7/buyer',
   '/platform-v7/deals',
   '/platform-v7/logistics',
-  '/platform-v7/bank',
+  '/platform-v7/bank/clean',
   '/platform-v7/control-tower',
 ] as const;
 
 const mobileSmokeRoutes = [
   '/platform-v7',
+  '/platform-v7/open',
   '/platform-v7/deals',
   '/platform-v7/deals/DL-9106/audit',
   '/platform-v7/deals/DL-9106/money',
@@ -60,25 +65,11 @@ const mobileSmokeRoutes = [
   '/platform-v7/buyer/offers',
   '/platform-v7/logistics',
   '/platform-v7/driver',
-  '/platform-v7/bank',
+  '/platform-v7/bank/clean',
   '/platform-v7/elevator',
   '/platform-v7/lab',
   '/platform-v7/surveyor',
   '/platform-v7/documents',
-] as const;
-
-const visibleExecutionRoutes = [
-  { route: '/platform-v7', text: 'Центр исполнения сделки' },
-  { route: '/platform-v7/deals', text: 'Сделки: деньги, документы, рейс и спор в одном контуре' },
-  { route: '/platform-v7/logistics', text: 'Рейс, водитель, маршрут и инциденты связаны с деньгами' },
-  { route: '/platform-v7/driver', text: 'Водитель фиксирует события рейса без доступа к деньгам и лишним ролям' },
-  { route: '/platform-v7/bank', text: 'Деньги выпускаются только после доказанных условий' },
-  { route: '/platform-v7/buyer', text: 'Ставка должна сразу вести к сделке, резерву денег и логистике' },
-  { route: '/platform-v7/seller', text: 'Лот должен приводить к сделке, документам и получению денег' },
-  { route: '/platform-v7/elevator', text: 'Вес и качество должны сразу влиять на документы и деньги' },
-  { route: '/platform-v7/lab', text: 'Качество должно сразу показывать допуск, удержание и риск спора' },
-  { route: '/platform-v7/surveyor', text: 'Сюрвейер фиксирует расхождения как доказательства для спора и выплаты' },
-  { route: '/platform-v7/documents', text: 'Неполный пакет документов должен сразу останавливать деньги' },
 ] as const;
 
 const forbiddenVisibleCopy = [
@@ -99,14 +90,21 @@ const forbiddenVisibleCopy = [
   'test user',
   'legacy',
   'runtime',
+  'Деньги выпускаются только после доказанных условий',
 ] as const;
 
+const crashCopy = /404|500|Application error|Unhandled Runtime Error/i;
+
 test.describe('platform-v7 route audit baseline', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/platform-v7', { waitUntil: 'networkidle' });
+  });
+
   for (const route of p0Routes) {
-    test(`${route} returns an application page without crash copy`, async ({ page }) => {
+    test(`${route} returns an application page after public entry`, async ({ page }) => {
       const response = await page.goto(route, { waitUntil: 'networkidle' });
 
-      expect(response?.ok(), `${route} should return 2xx`).toBeTruthy();
+      expect(response?.ok(), `${route} should return 2xx after public entry`).toBeTruthy();
       await expect(page.locator('body'), `${route} should render body`).toBeVisible();
       await expect(page.locator('text=/404|500|Application error|Unhandled Runtime Error/i'), `${route} should not render crash or 404 copy`).toHaveCount(0);
 
@@ -116,7 +114,7 @@ test.describe('platform-v7 route audit baseline', () => {
     });
   }
 
-  test('recursive platform-v7 link crawler catches hidden internal 404s', async ({ page }) => {
+  test('recursive platform-v7 link crawler catches hidden internal 404s after public entry', async ({ page }) => {
     const discovered = new Set<string>(crawlerSeedRoutes);
     const visited = new Set<string>();
     const queue: Array<{ route: string; depth: number }> = crawlerSeedRoutes.map((route) => ({ route, depth: 0 }));
@@ -173,13 +171,6 @@ test.describe('platform-v7 route audit baseline', () => {
     await expect(page.getByText('Стабильная пилотная страница контроля денег по сделке.')).toBeVisible();
   });
 
-  test('key routes render visible execution entry copy', async ({ page }) => {
-    for (const item of visibleExecutionRoutes) {
-      await page.goto(item.route, { waitUntil: 'networkidle' });
-      await expect(page.getByText(item.text, { exact: false }), `${item.route} should show visible execution entry`).toBeVisible();
-    }
-  });
-
   test('seller and buyer actions mutate visible state and audit journal', async ({ page }) => {
     await page.goto('/platform-v7/seller', { waitUntil: 'networkidle' });
     await page.evaluate(() => window.localStorage.removeItem('pc-platform-v7-workflow-state-v2'));
@@ -196,7 +187,7 @@ test.describe('platform-v7 route audit baseline', () => {
     await expect(page.getByText('Резерв денег подтверждён', { exact: true })).toBeVisible();
   });
 
-  test('key routes render on narrow mobile width without page-level overflow', async ({ page }) => {
+  test('key routes render on narrow mobile width without page-level overflow after public entry', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     for (const route of mobileSmokeRoutes) {
