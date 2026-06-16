@@ -58,7 +58,7 @@ function baseOverride(dealId: string): LiveDealOverride | null {
     reserveState,
     disputeState,
     blockers: [...deal.blockers],
-    nextStep: 'Проверить блокеры сделки и довести контур до выпуска денег.',
+    nextStep: 'Проверить блокеры сделки и довести контур до банковского шага.',
     nextOwner: disputeState === 'open' ? 'Арбитр' : docsState !== 'complete' ? 'Продавец' : reserveState === 'pending_release' ? 'Банк' : 'Оператор',
     releaseAmount: deal.releaseAmount ?? null,
     holdAmount: deal.holdAmount,
@@ -88,19 +88,19 @@ function recalc(item: LiveDealOverride): LiveDealOverride {
 
   if (item.disputeState === 'open') {
     status = 'quality_disputed';
-    nextStep = 'Закрыть спор и повторно пройти денежный шаг.';
+    nextStep = 'Закрыть спор и повторно пройти банковский шаг.';
     nextOwner = 'Арбитр';
   } else if (item.reserveState === 'released') {
     status = 'release_approved';
-    nextStep = 'Деньги выпущены. Можно закрывать сделку.';
+    nextStep = 'Получено банковское подтверждение. Можно закрывать сделку.';
     nextOwner = 'Оператор';
   } else if (item.reserveState === 'pending_release') {
     status = 'release_requested';
-    nextStep = 'Банк должен подтвердить выпуск денег.';
+    nextStep = 'Банк должен подтвердить внешнее банковское событие.';
     nextOwner = 'Банк';
   } else if (item.docsState === 'complete') {
     status = 'docs_complete';
-    nextStep = 'Запросить выпуск денег в банке.';
+    nextStep = 'Передать основание на банковскую проверку.';
     nextOwner = 'Покупатель';
   } else if (item.docsState === 'collecting') {
     status = 'quality_check';
@@ -144,13 +144,13 @@ export const useLiveDealRuntimeStore = create<LiveDealRuntimeState>()(
       requestRelease: (dealId) => set((state) => {
         const current = state.overrides[dealId] ?? baseOverride(dealId);
         if (!current) return state;
-        const next = recalc(addEvent({ ...current, reserveState: 'pending_release' }, 'Покупатель', 'Запрошен выпуск денег по сделке', 'info'));
+        const next = recalc(addEvent({ ...current, reserveState: 'pending_release' }, 'Покупатель', 'Передано основание на банковскую проверку', 'info'));
         return { overrides: { ...state.overrides, [dealId]: next } };
       }),
       releaseFunds: (dealId) => set((state) => {
         const current = state.overrides[dealId] ?? baseOverride(dealId);
         if (!current) return state;
-        const next = recalc(addEvent({ ...current, reserveState: 'released', holdAmount: 0 }, 'Банк', 'Деньги по сделке выпущены', 'success'));
+        const next = recalc(addEvent({ ...current, reserveState: 'released', holdAmount: 0 }, 'Банк', 'Получено внешнее банковское подтверждение', 'success'));
         return { overrides: { ...state.overrides, [dealId]: next } };
       }),
       openDispute: (dealId) => set((state) => {
