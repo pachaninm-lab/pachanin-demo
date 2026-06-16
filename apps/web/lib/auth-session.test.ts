@@ -73,12 +73,10 @@ describe('getSessionState', () => {
     expect(getSessionState().status).toBe('active');
   });
 
-  it('handles malformed cookie as legacy (GUEST + 1h)', async () => {
+  it('treats malformed session marker as unauthenticated, not guest access', async () => {
     vi.stubGlobal('document', { cookie: 'pc_session_present=not_json_at_all' });
     const { getSessionState } = await import('./auth-session');
-    const state = getSessionState();
-    expect(state.status).toBe('active');
-    if (state.status === 'active') expect(state.role).toBe('GUEST');
+    expect(getSessionState().status).toBe('unauthenticated');
   });
 });
 
