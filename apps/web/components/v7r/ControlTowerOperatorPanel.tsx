@@ -74,10 +74,17 @@ function cleanCopy(value: string) {
     .replace(/\bgate\b/g, 'проверка')
     .replace(/\bblocker\b/g, 'препятствие')
     .replace(/\bcallback\b/g, 'событие банка')
-    .replace(/\brelease\b/g, 'банковская проверка выплаты')
+    .replace(/\brelease\b/g, 'банковская проверка основания')
     .replace(/\bsync\b/g, 'сверка')
     .replace(/\bfake-live\b/g, 'локальное событие')
-    .replace(/\baudit\b/g, 'журнал');
+    .replace(/\baudit\b/g, 'журнал')
+    .replace(/банковскую проверку выплаты/gi, 'банковскую проверку основания')
+    .replace(/проверку денег/gi, 'проверку основания')
+    .replace(/К выпуску денег/gi, 'К банковскому шагу')
+    .replace(/выпуск денег/gi, 'банковское подтверждение')
+    .replace(/выпуск/gi, 'банковский шаг')
+    .replace(/выплата/gi, 'основание')
+    .replace(/выплаты/gi, 'основания');
 }
 
 export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[] }) {
@@ -139,7 +146,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
         action: 'bank-callback',
         actor: 'Оператор платформы',
         loadingMessage: `${item.id}: запрошено банковское событие предынтеграционного контура.`,
-        successMessage: (data: { id: string; amountRub: number; ts: string }) => `${item.id}: банк подтвердил ${formatMoney(data.amountRub)}.`,
+        successMessage: (data: { id: string; amountRub: number; ts: string }) => `${item.id}: банк подтвердил внешнее событие на ${formatMoney(data.amountRub)}.`,
         errorMessage: () => `${item.id}: подтверждение банка не получено.`,
         run: async () => {
           const res = await fetch('/api/sim/bank-callback', {
@@ -166,7 +173,7 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
   return (
     <P7Card
       title='Операторские действия'
-      subtitle='Прямо из центра управления: снять препятствие, увидеть журнал и получить событие банка предынтеграционного контура по проверку денег.'
+      subtitle='Прямо из центра управления: снять препятствие, увидеть журнал и получить событие банка предынтеграционного контура по проверке основания.'
       testId='control-tower-operator-panel'
       footer={<OperatorAudit audit={audit} />}
     >
@@ -180,63 +187,25 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
             const callback = callbacks[item.id];
             const actionState = lastActionState[item.id] ?? 'idle';
             return (
-              <div
-                key={item.id}
-                style={{
-                  border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
-                  borderRadius: PLATFORM_V7_TOKENS.radius.lg,
-                  padding: PLATFORM_V7_TOKENS.spacing.md,
-                  display: 'grid',
-                  gap: PLATFORM_V7_TOKENS.spacing.sm,
-                  background: PLATFORM_V7_TOKENS.color.surface,
-                }}
-              >
+              <div key={item.id} style={{ border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.lg, padding: PLATFORM_V7_TOKENS.spacing.md, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm, background: PLATFORM_V7_TOKENS.color.surface }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
                   <div>
-                    <div
-                      style={{
-                        fontFamily: PLATFORM_V7_TOKENS.typography.fontMono,
-                        fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1,
-                        fontWeight: 800,
-                        color: PLATFORM_V7_TOKENS.color.brand,
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      {item.id}
-                    </div>
-                    <div
-                      style={{
-                        marginTop: PLATFORM_V7_TOKENS.spacing.xxs,
-                        fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
-                        fontSize: PLATFORM_V7_TOKENS.typography.body.size,
-                        fontWeight: 800,
-                        color: PLATFORM_V7_TOKENS.color.text,
-                      }}
-                    >
-                      {item.title}
-                    </div>
+                    <div style={{ fontFamily: PLATFORM_V7_TOKENS.typography.fontMono, fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, fontWeight: 800, color: PLATFORM_V7_TOKENS.color.brand, fontVariantNumeric: 'tabular-nums' }}>{item.id}</div>
+                    <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xxs, fontFamily: PLATFORM_V7_TOKENS.typography.fontSans, fontSize: PLATFORM_V7_TOKENS.typography.body.size, fontWeight: 800, color: PLATFORM_V7_TOKENS.color.text }}>{item.title}</div>
                   </div>
                   <P7Badge tone={gateTone(item.gateState)}>{gateLabel(item.gateState)}</P7Badge>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-                  <InfoCell label='Причины' value={item.reasonCodes.length ? item.reasonCodes.map(translateReason).join(' · ') : '—'} />
+                  <InfoCell label='Причины' value={item.reasonCodes.length ? item.reasonCodes.map(translateReason).map(cleanCopy).join(' · ') : '—'} />
                   <InfoCell label='Следующий шаг' value={cleanCopy(item.nextStep ?? '—')} />
                   <InfoCell label='Следующий владелец' value={item.nextOwner ? translateRole(item.nextOwner) : '—'} />
-                  <InfoCell label='К выпуску денег' value={formatCompactMoney(item.releasableAmount)} />
+                  <InfoCell label='К банковскому шагу' value={formatCompactMoney(item.releasableAmount)} />
                 </div>
 
                 <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap' }}>
                   {item.gateState !== 'PASS' ? (
-                    <P7ActionButton
-                      onClick={() => unblock(item)}
-                      state={busyId === item.id ? 'loading' : actionState}
-                      loadingLabel='Снимаю препятствие…'
-                      successLabel='Препятствие снято'
-                      errorLabel='Ошибка действия'
-                    >
-                      Снять препятствие
-                    </P7ActionButton>
+                    <P7ActionButton onClick={() => unblock(item)} state={busyId === item.id ? 'loading' : actionState} loadingLabel='Снимаю препятствие…' successLabel='Препятствие снято' errorLabel='Ошибка действия'>Снять препятствие</P7ActionButton>
                   ) : (
                     <P7Badge tone='success'>Проверка пройдена</P7Badge>
                   )}
@@ -254,31 +223,11 @@ export function ControlTowerOperatorPanel({ deals }: { deals: OperatorDealItem[]
 function OperatorAudit({ audit }: { audit: AuditRow[] }) {
   return (
     <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-      <div
-        style={{
-          fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
-          fontSize: PLATFORM_V7_TOKENS.typography.h3.size,
-          fontWeight: PLATFORM_V7_TOKENS.typography.h3.weight,
-          color: PLATFORM_V7_TOKENS.color.text,
-        }}
-      >
-        Журнал действий оператора
-      </div>
+      <div style={{ fontFamily: PLATFORM_V7_TOKENS.typography.fontSans, fontSize: PLATFORM_V7_TOKENS.typography.h3.size, fontWeight: PLATFORM_V7_TOKENS.typography.h3.weight, color: PLATFORM_V7_TOKENS.color.text }}>Журнал действий оператора</div>
       {audit.length ? audit.map((row) => (
-        <div
-          key={row.id}
-          style={{
-            border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
-            borderRadius: PLATFORM_V7_TOKENS.radius.lg,
-            padding: PLATFORM_V7_TOKENS.spacing.sm,
-            background: row.status === 'error' ? PLATFORM_V7_TOKENS.color.dangerSoft : row.status === 'started' ? PLATFORM_V7_TOKENS.color.warningSoft : PLATFORM_V7_TOKENS.color.surfaceMuted,
-          }}
-        >
+        <div key={row.id} style={{ border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.lg, padding: PLATFORM_V7_TOKENS.spacing.sm, background: row.status === 'error' ? PLATFORM_V7_TOKENS.color.dangerSoft : row.status === 'started' ? PLATFORM_V7_TOKENS.color.warningSoft : PLATFORM_V7_TOKENS.color.surfaceMuted }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, alignItems: 'center', flexWrap: 'wrap' }}>
-              <P7Badge tone={auditTone(row.status)}>{auditLabel(row.status)}</P7Badge>
-              <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, fontWeight: 800, color: PLATFORM_V7_TOKENS.color.text }}>{row.action}</div>
-            </div>
+            <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, alignItems: 'center', flexWrap: 'wrap' }}><P7Badge tone={auditTone(row.status)}>{auditLabel(row.status)}</P7Badge><div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, fontWeight: 800, color: PLATFORM_V7_TOKENS.color.text }}>{row.action}</div></div>
             <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size - 1, color: PLATFORM_V7_TOKENS.color.textSubtle }}>{new Date(row.ts).toLocaleString('ru-RU')}</div>
           </div>
           <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xxs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size, color: PLATFORM_V7_TOKENS.color.textMuted }}>{row.actor}</div>
@@ -290,36 +239,5 @@ function OperatorAudit({ audit }: { audit: AuditRow[] }) {
 }
 
 function InfoCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`,
-        borderRadius: PLATFORM_V7_TOKENS.radius.md,
-        padding: PLATFORM_V7_TOKENS.spacing.sm,
-        background: PLATFORM_V7_TOKENS.color.surface,
-      }}
-    >
-      <div
-        style={{
-          fontSize: PLATFORM_V7_TOKENS.typography.caption.size - 1,
-          color: PLATFORM_V7_TOKENS.color.textSubtle,
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          fontWeight: 800,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          marginTop: PLATFORM_V7_TOKENS.spacing.xs,
-          fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1,
-          color: PLATFORM_V7_TOKENS.color.text,
-          lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight,
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  );
+  return <div style={{ border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.md, padding: PLATFORM_V7_TOKENS.spacing.sm, background: PLATFORM_V7_TOKENS.color.surface }}><div style={{ fontSize: PLATFORM_V7_TOKENS.typography.caption.size - 1, color: PLATFORM_V7_TOKENS.color.textSubtle, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div><div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xs, fontSize: PLATFORM_V7_TOKENS.typography.caption.size + 1, color: PLATFORM_V7_TOKENS.color.text, lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight }}>{value}</div></div>;
 }
