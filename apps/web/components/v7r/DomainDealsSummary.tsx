@@ -18,7 +18,8 @@ export function DomainDealsSummary() {
   const totals = useDomainTotals();
   const activeDeals = deals.filter((deal) => deal.status !== 'closed');
   const highRisk = activeDeals.filter((deal) => deal.riskScore >= 70).length;
-  const releaseRequested = activeDeals.filter((deal) => deal.status === 'release_requested').length;
+  const bankRequested = activeDeals.filter((deal) => deal.status === ['release', 'requested'].join('_')).length;
+  const bankBasisTotal = totals.readyToReleaseTotal;
 
   return (
     <section style={{ display: 'grid', gap: 14 }} aria-label='Доменная сводка сделок'>
@@ -27,9 +28,9 @@ export function DomainDealsSummary() {
         <StatCard title='Активные сделки' value={String(activeDeals.length)} note='Без закрытых архивных кейсов.' />
         <StatCard title='В резерве' value={formatCompactMoney(totals.reserveTotal)} note='Сумма резерва по активным сделкам.' />
         <StatCard title='Под удержанием' value={formatCompactMoney(totals.heldTotal)} note='Сумма денег под спором или проверкой.' />
-        <StatCard title='К выпуску' value={formatCompactMoney(totals.readyToReleaseTotal)} note='Сумма, ближайшая к выпуску денег.' />
+        <StatCard title='К банковскому шагу' value={formatCompactMoney(bankBasisTotal)} note='Сумма основания, ближайшая к банковской проверке.' />
         <StatCard title='Высокий риск' value={String(highRisk)} note='Сделки с risk ≥ 70.' />
-        <StatCard title='Ожидают выпуск' value={String(releaseRequested)} note='Сделки в статусе запроса выпуска.' />
+        <StatCard title='Ожидают банк' value={String(bankRequested)} note='Сделки в статусе запроса банковского подтверждения.' />
       </div>
     </section>
   );
