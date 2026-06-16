@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 const items = [
-  { title: 'СДИЗ', value: 'ждёт подтверждения', note: 'Ответственный — продавец. Без подтверждения банковская проверка выплаты закрыт.', href: '/platform-v7/deals/grain-sdiz', tone: 'stop' },
+  { title: 'СДИЗ', value: 'ждёт подтверждения', note: 'Ответственный — продавец. Без подтверждения банковская проверка основания закрыта.', href: '/platform-v7/deals/grain-sdiz', tone: 'stop' },
   { title: 'ЭТрН', value: 'ждёт подписи', note: 'Ответственный — грузополучатель. Закрывает транспортное условие.', href: '/platform-v7/deals/DL-9106/transport-documents', tone: 'stop' },
   { title: 'Вес', value: 'есть отклонение', note: 'Ответственный — приёмка. Нужен акт расхождения.', href: '/platform-v7/deals/grain-weight', tone: 'warn' },
   { title: 'Качество', value: 'протокол ожидается', note: 'Ответственный — лаборатория. Влияет на удержание и спор.', href: '/platform-v7/deals/grain-quality', tone: 'warn' },
@@ -9,7 +9,7 @@ const items = [
 
 const metrics = [
   { label: 'Сделка', value: 'DL-9106', tone: 'neutral' },
-  { label: 'К выпуску', value: '0 ₽', tone: 'bad' },
+  { label: 'К банковскому шагу', value: '0 ₽', tone: 'bad' },
   { label: 'Под влиянием', value: '9,65 млн ₽', tone: 'bad' },
   { label: 'Следующий шаг', value: 'закрыть СДИЗ', tone: 'good' },
 ] as const;
@@ -20,11 +20,11 @@ export default function OperatorGrainPage() {
       <section style={card}>
         <div style={badge}>Оператор сделки</div>
         <h1 style={h1}>Очередь условий по зерновой сделке</h1>
-        <p style={lead}>Оператор видит, что именно удерживает сделку: документ, акт, протокол, ответственный и следующее действие. Ручное решение по деньгам не доступно без закрытия условий.</p>
+        <p style={lead}>Оператор видит, что именно удерживает сделку: документ, акт, протокол, ответственный и следующее действие. Ручное решение по деньгам недоступно без закрытия условий.</p>
         <div style={actions}>
           <Link href='/platform-v7/operator' style={primaryBtn}>Центр оператора</Link>
           <Link href='/platform-v7/deals/DL-9106/clean' style={ghostBtn}>Сделка</Link>
-          <Link href='/platform-v7/deals/grain-release' style={ghostBtn}>Банковская проверка выплаты</Link>
+          <Link href='/platform-v7/deals/grain-release' style={ghostBtn}>Проверка основания</Link>
         </div>
       </section>
 
@@ -36,8 +36,8 @@ export default function OperatorGrainPage() {
       </section>
 
       <section style={darkCard}>
-        <div style={{ ...micro, color: '#FDE68A' }}>Правило выпуска</div>
-        <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Нельзя выпускать деньги, пока условия не закрыты</h2>
+        <div style={{ ...micro, color: '#FDE68A' }}>Правило банковского шага</div>
+        <h2 style={{ margin: 0, color: '#fff', fontSize: 26, lineHeight: 1.08, letterSpacing: '-0.035em', fontWeight: 950 }}>Нельзя передавать деньги к банковскому шагу, пока условия не закрыты</h2>
         <p style={{ margin: 0, color: '#FEF3C7', fontSize: 14, lineHeight: 1.55 }}>Каждое действие должно иметь ответственного, документальное основание и след в журнале. Оператор видит очередь и контроль, но не подменяет банк, лабораторию, элеватор или стороны сделки.</p>
       </section>
     </main>
