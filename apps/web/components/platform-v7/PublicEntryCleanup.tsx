@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
 const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true']{--pc-header-offset:0px!important;background:#fbfcf9!important}
@@ -10,6 +11,10 @@ const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-pilot-note{display:none!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#fbfcf9!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-bottom:max(64px,env(safe-area-inset-bottom))!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark{background:transparent!important;color:inherit!important;padding:0!important;overflow:visible!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;background:transparent!important}
+.pc-shell-root-v4[data-public-entry='true'] [data-entry-click='true']{cursor:pointer!important}
+.pc-shell-root-v4[data-public-entry='true'] [data-entry-click='true']:focus-visible{outline:3px solid rgba(0,122,47,.35)!important;outline-offset:3px!important}
 @media(max-width:980px){
   .pc-shell-root-v4[data-public-entry='true'] .entry-header{min-height:64px!important;padding:10px 16px!important}
   .pc-shell-root-v4[data-public-entry='true'] .entry-demo,.pc-shell-root-v4[data-public-entry='true'] .entry-desktop-nav{display:none!important}
@@ -27,6 +32,45 @@ const cleanupCss = `
 }
 `;
 
+type ClickTarget = { selector: string; href: string };
+
+const clickTargets: ClickTarget[] = [
+  { selector: '.entry-hero-visual', href: '/platform-v7/open' },
+  { selector: '.entry-icon-button[aria-label="Помощь"]', href: '/platform-v7/open' },
+  { selector: '.entry-menu-button', href: '#roles' },
+  { selector: '.entry-control-tile:nth-child(1)', href: '/platform-v7/bank' },
+  { selector: '.entry-control-tile:nth-child(2)', href: '/platform-v7/docs' },
+  { selector: '.entry-control-tile:nth-child(3)', href: '/platform-v7/logistics' },
+  { selector: '.entry-control-tile:nth-child(4)', href: '/platform-v7/lab' },
+  { selector: '.entry-process-tile:nth-child(1)', href: '/platform-v7/open' },
+  { selector: '.entry-process-tile:nth-child(2)', href: '/platform-v7/deals' },
+  { selector: '.entry-process-tile:nth-child(3)', href: '/platform-v7/logistics' },
+  { selector: '.entry-process-tile:nth-child(4)', href: '/platform-v7/elevator' },
+  { selector: '.entry-process-tile:nth-child(5)', href: '/platform-v7/docs' },
+  { selector: '.entry-process-tile:nth-child(6)', href: '/platform-v7/bank' },
+  { selector: '.entry-process-tile:nth-child(7)', href: '/platform-v7/disputes' },
+  { selector: '.entry-trust-item:nth-child(1)', href: '/platform-v7/open' },
+  { selector: '.entry-trust-item:nth-child(2)', href: '/platform-v7/disputes' },
+  { selector: '.entry-trust-item:nth-child(3)', href: '/platform-v7/docs' },
+  { selector: '.entry-trust-item:nth-child(4)', href: '/platform-v7/bank' },
+];
+
+function bindClick(el: HTMLElement, href: string) {
+  if (el.dataset.entryClick === 'true') return;
+  el.dataset.entryClick = 'true';
+  el.setAttribute('tabindex', '0');
+  el.setAttribute('role', 'link');
+  el.addEventListener('click', () => {
+    if (href.startsWith('#')) document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.location.assign(href);
+  });
+  el.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    el.click();
+  });
+}
+
 export function PublicEntryCleanup() {
   React.useEffect(() => {
     function sync() {
@@ -36,7 +80,24 @@ export function PublicEntryCleanup() {
       allShells.forEach((item) => {
         if (item !== shell) delete item.dataset.publicEntry;
       });
-      if (shell) shell.dataset.publicEntry = 'true';
+      if (!shell || !publicEntry) return;
+      shell.dataset.publicEntry = 'true';
+
+      const mark = publicEntry.querySelector<HTMLElement>('.entry-brand-mark');
+      if (mark && mark.dataset.brandApplied !== 'true') {
+        mark.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = BRAND_LOGO_DATA_URI;
+        img.alt = '';
+        img.draggable = false;
+        mark.appendChild(img);
+        mark.dataset.brandApplied = 'true';
+      }
+
+      clickTargets.forEach((target) => {
+        const el = publicEntry.querySelector<HTMLElement>(target.selector);
+        if (el) bindClick(el, target.href);
+      });
     }
 
     sync();
