@@ -195,13 +195,13 @@ function resolvePlatformV7PathRole(pathname: string): string | null {
 }
 
 function resolveRole(req: NextRequest, sessionRole?: string | null) {
-  const queryRole = req.nextUrl.searchParams.get('as');
-  if (queryRole && VALID_ROLES.has(queryRole)) return queryRole;
   const pathRole = resolvePlatformV7PathRole(req.nextUrl.pathname);
   if (pathRole && VALID_ROLES.has(pathRole)) return pathRole;
+  if (sessionRole && VALID_ROLES.has(sessionRole)) return sessionRole;
   const cookieRole = req.cookies.get('pc-role')?.value;
   if (cookieRole && VALID_ROLES.has(cookieRole)) return cookieRole;
-  if (sessionRole && VALID_ROLES.has(sessionRole)) return sessionRole;
+  const queryRole = req.nextUrl.searchParams.get('as');
+  if (queryRole && VALID_ROLES.has(queryRole)) return queryRole;
   return 'operator';
 }
 
