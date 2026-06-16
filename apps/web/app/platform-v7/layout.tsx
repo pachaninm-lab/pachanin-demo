@@ -9,6 +9,7 @@ import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { CommandPalette } from '@/components/platform-v7/CommandPalette';
+import { PublicEntryCleanup } from '@/components/platform-v7/PublicEntryCleanup';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -54,6 +55,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     <ToastProvider>
       <PlatformThemeSync />
       <ShellCopyNormalizer />
+      <PublicEntryCleanup />
       <AppShellV4 initialRole={initialRole}>
         <><ScopedShellGuard /><RbacCabinetGuard /><ShellCopyNormalizer /><SupportHeaderIcon /><CommandPalette />{children}</>
       </AppShellV4>
