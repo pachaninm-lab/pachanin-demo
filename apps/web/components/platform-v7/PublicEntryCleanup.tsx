@@ -6,6 +6,13 @@ import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
 const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
 
+const PUBLIC_ROLES = [
+  ['Водитель', 'Маршрут, прибытие, фото и полевые события.'],
+  ['Комплаенс', 'Допуск, полномочия, стоп-факторы и контроль рисков.'],
+  ['Оператор', 'Центр управления, блокеры, ответственные и следующий шаг.'],
+  ['Руководитель', 'Деньги под риском, статус контура и управленческий срез.'],
+];
+
 const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true']{--pc-header-offset:0px!important;background:#fbfcf9!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-header,
@@ -51,6 +58,20 @@ function rewritePublicLinks(root: ParentNode) {
   });
 }
 
+function ensurePublicRoles(root: ParentNode) {
+  const grid = root.querySelector<HTMLElement>('.entry-role-grid');
+  if (!grid || grid.dataset.fullRoleSet === 'true') return;
+  const existing = grid.textContent || '';
+  PUBLIC_ROLES.forEach(([title, text]) => {
+    if (existing.includes(title)) return;
+    const item = document.createElement('article');
+    item.className = 'entry-role-tile';
+    item.innerHTML = `<strong>${title}</strong><span>${text}</span><em>Доступ после единого входа</em>`;
+    grid.appendChild(item);
+  });
+  grid.dataset.fullRoleSet = 'true';
+}
+
 export function PublicEntryCleanup() {
   const pathname = usePathname() || '';
   const router = useRouter();
@@ -85,6 +106,7 @@ export function PublicEntryCleanup() {
       }
 
       rewritePublicLinks(entry);
+      ensurePublicRoles(entry);
     }
 
     sync();
