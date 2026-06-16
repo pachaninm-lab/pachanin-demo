@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import type { DomainDeal } from '@/lib/domain/types';
+import type { DomainDeal, DomainDealStatus } from '@/lib/domain/types';
 import { SANDBOX_INCIDENTS, SANDBOX_LOGISTICS_ORDERS } from '@/lib/platform-v7/logistics-chain';
 import { P7GuardedActionButton } from '@/components/platform-v7/P7GuardedActionButton';
 import { FactSourceBadge } from '@/components/platform-v7/FactSourceBadge';
@@ -34,8 +34,40 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'dispute', label: 'Спор' },
 ];
 
+const DOC_READY_STATUSES = new Set<DomainDealStatus>(['docs_complete', 'release_requested', 'release_approved', 'closed']);
+const LOGISTICS_READY_STATUSES = new Set<DomainDealStatus>(['arrived', 'unloading_started', 'unloading_done', 'quality_check', 'quality_approved', 'quality_disputed', 'docs_complete', 'release_requested', 'release_approved', 'closed']);
+const ACCEPTANCE_READY_STATUSES = new Set<DomainDealStatus>(['unloading_done', 'quality_check', 'quality_approved', 'quality_disputed', 'docs_complete', 'release_requested', 'release_approved', 'closed']);
+const QUALITY_READY_STATUSES = new Set<DomainDealStatus>(['quality_approved', 'docs_complete', 'release_requested', 'release_approved', 'closed']);
+
 function money(value: number) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(value);
+}
+
+function blockerText(deal: DomainDeal): string {
+  return deal.blockers.join(' ').toLowerCase();
+}
+
+function hasAny(text: string, words: string[]) {
+  return words.some((word) => text.includes(word));
+}
+
+function domainDealMoneyBlockers(deal: DomainDeal): string[] {
+  const text = blockerText(deal);
+  const releaseAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
+  const blockers: string[] = [];
+
+  if (deal.reservedAmount <= 0) blockers.push('no-reserved-money');
+  if (releaseAmount <= 0) blockers.push('no-release-amount');
+  if (deal.holdAmount > 0) blockers.push('active-hold');
+  if (deal.dispute || hasAny(text, ['dispute', 'спор', 'арбитраж'])) blockers.push('open-dispute');
+  if (!DOC_READY_STATUSES.has(deal.status) || hasAny(text, ['docs', 'document', 'документ', 'эдо'])) blockers.push('documents-not-ready');
+  if (hasAny(text, ['fgis', 'фгис', 'sdiz', 'сдиз'])) blockers.push('fgis-not-ready');
+  if (!LOGISTICS_READY_STATUSES.has(deal.status) || hasAny(text, ['transport', 'logistics', 'логист', 'рейс', 'этрн'])) blockers.push('transport-not-ready');
+  if (!ACCEPTANCE_READY_STATUSES.has(deal.status) || hasAny(text, ['acceptance', 'прием', 'приём', 'вес'])) blockers.push('acceptance-not-confirmed');
+  if (!QUALITY_READY_STATUSES.has(deal.status) || hasAny(text, ['quality', 'lab', 'лаборатор', 'качест'])) blockers.push('quality-not-approved');
+  if (deal.blockers.length > 0) blockers.push('manual-blocker');
+
+  return [...new Set(blockers)];
 }
 
 export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
@@ -97,8 +129,9 @@ function Overview({ deal }: { deal: DomainDeal }) {
 function Money({ deal }: { deal: DomainDeal }) {
   const releaseTarget = platformV7ActionTargetById('deal-release-funds');
   const requestTarget = platformV7ActionTargetById('deal-request-release');
-  const releaseBlocked = deal.blockers.length > 0 || deal.holdAmount > 0;
-  const blockerLabels = [...deal.blockers, ...(deal.holdAmount > 0 ? ['active-hold'] : [])];
+  const releaseAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
+  const blockerLabels = domainDealMoneyBlockers(deal);
+  const releaseBlocked = blockerLabels.length > 0;
 
   return (
     <Stack>
@@ -106,14 +139,14 @@ function Money({ deal }: { deal: DomainDeal }) {
       <Grid>
         <Cell label='Зарезервировано' value={money(deal.reservedAmount)} color={MONEY} />
         <Cell label='Удержано' value={money(deal.holdAmount)} danger={deal.holdAmount > 0} />
-        <Cell label='К выпуску' value={money(deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0))} color={releaseBlocked ? M : BRAND} />
+        <Cell label='К запросу в банк' value={money(releaseAmount)} color={releaseBlocked ? M : BRAND} />
       </Grid>
-      <Notice danger={releaseBlocked} title={releaseBlocked ? 'Выпуск заблокирован' : 'Выпуск возможен только после проверки'}>
-        {releaseBlocked ? 'Есть блокеры или удержание. Прямой банковская проверка выплаты невозможен.' : 'Банковская проверка выплаты остаётся под проверкой: резерв, документы, приёмка, качество, рейс и спор.'}
+      <Notice danger={releaseBlocked} title={releaseBlocked ? 'Запрос проверки заблокирован' : 'Запрос проверки возможен'}>
+        {releaseBlocked ? 'Не закрыта полная матрица: резерв, сумма, удержание, документы, ФГИС/СДИЗ, рейс, приёмка, качество, спор и ручные остановки.' : 'Можно подготовить запрос банковской проверки; это ещё не движение денег и не подтверждение внешнего банка.'}
       </Notice>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {requestTarget ? <P7GuardedActionButton target={requestTarget} activeActionId={null} blocked={releaseBlocked} blockerLabels={blockerLabels} blockedLabel='Запрос заблокирован' blockedReason='Сначала снимите блокеры сделки.' /> : null}
-        {releaseTarget ? <P7GuardedActionButton target={releaseTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Выпуск под контролем' blockedReason='Банковская проверка выплаты доступен только после полной контрольной проверки.' /> : null}
+        {requestTarget ? <P7GuardedActionButton target={requestTarget} activeActionId={null} blocked={releaseBlocked} blockerLabels={blockerLabels} blockedLabel='Запрос заблокирован' blockedReason='Сначала закройте всю матрицу сделки: ФГИС, качество, документы, логистику, спор и банк.' /> : null}
+        {releaseTarget ? <P7GuardedActionButton target={releaseTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Выпуск под контролем' blockedReason='Движение денег доступно только после полной контрольной проверки и внешнего банковского подтверждения.' /> : null}
         <Link href='/platform-v7/bank' style={linkButton()}>Банковый контур →</Link>
       </div>
     </Stack>
