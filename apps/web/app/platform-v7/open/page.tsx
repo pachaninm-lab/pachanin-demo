@@ -26,7 +26,7 @@ export default function PlatformV7OpenPage() {
         lead='Не доска объявлений, а сквозной контур: цена и допуск → документы → рейс → приёмка → качество → деньги → спор и доказательства. Видно, что блокирует деньги и кто следующий.'
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
-          <PremiumCtaButton href='/platform-v7/#roles' glyph='arrow'>Выбрать роль</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/#roles' glyph='users'>Выбрать роль</PremiumCtaButton>
           <PremiumCtaButton href='/platform-v7/login' variant='ghost'>Войти в кабинет</PremiumCtaButton>
           <PremiumCtaButton href='/platform-v7/support?role=operator' variant='ghost'>Запросить демонстрацию</PremiumCtaButton>
         </div>
