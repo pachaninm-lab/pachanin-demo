@@ -30,8 +30,7 @@ function readSessionCookie(): { role: string; exp: number } | null {
     if (typeof parsed.role !== 'string' || typeof parsed.exp !== 'number') return null;
     return parsed;
   } catch {
-    // Legacy: plain string cookie just indicates presence
-    return { role: 'GUEST', exp: Date.now() / 1000 + 3600 };
+    return null;
   }
 }
 
