@@ -36,7 +36,7 @@ type ClickTarget = { selector: string; href: string };
 
 const clickTargets: ClickTarget[] = [
   { selector: '.entry-hero-visual', href: '/platform-v7/open' },
-  { selector: '.entry-icon-button[aria-label="Помощь"]', href: '/platform-v7/open' },
+  { selector: '.entry-icon-button[aria-label="Помощь"]', href: '/platform-v7/support?role=operator' },
   { selector: '.entry-menu-button', href: '#roles' },
   { selector: '.entry-control-tile:nth-child(1)', href: '/platform-v7/bank' },
   { selector: '.entry-control-tile:nth-child(2)', href: '/platform-v7/docs' },
