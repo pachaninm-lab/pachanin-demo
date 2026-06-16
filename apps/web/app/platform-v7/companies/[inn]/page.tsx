@@ -29,7 +29,7 @@ const COMPANIES: Record<string, {
     method: ['срок реакции и скорость отгрузки', 'Качество и спорность', 'Скорость закрытия документов', 'Надёжность денежного контура'],
     relatedDeals: [
       { id: 'DL-9102', note: 'Спор по качеству, деньги на удержание', status: 'Спор' },
-      { id: 'DL-9108', note: 'Контур готов к выпуску денег', status: 'Release ready' },
+      { id: 'DL-9108', note: 'Основание готово к банковской проверке', status: 'Банк' },
       { id: 'DL-9110', note: 'На ручной банковой проверке', status: 'Проверка' },
     ],
     reviews: [
@@ -51,7 +51,7 @@ const COMPANIES: Record<string, {
     signals: ['Стабильная приёмка', 'Нормальный цикл сделки', 'Редкие ручные проверки'],
     method: ['срок реакции и скорость отгрузки', 'Качество и спорность', 'Скорость закрытия документов', 'Надёжность денежного контура'],
     relatedDeals: [
-      { id: 'DL-9108', note: 'Готово к выпуску', status: 'Ок' },
+      { id: 'DL-9108', note: 'Основание готово для банка', status: 'Ок' },
       { id: 'DL-9114', note: 'Факторинг по покупателю', status: 'Факторинг' },
     ],
     reviews: [
@@ -129,7 +129,7 @@ export default function CompanyPage({ params }: { params: { inn: string } }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <Metric label='Сделок в контуре' value={company.deals} note='Зафиксировано в рабочем контуре' />
-        <Metric label='Средний цикл' value={company.avgCycle} note='От сделки до выпуска денег' />
+        <Metric label='Средний цикл' value={company.avgCycle} note='От сделки до банковского подтверждения' />
         <Metric label='Проверка' value='Пройдена' note='Компания видна в комплаенс-контуре' />
         <Metric label='Повторная работа' value='74%' note='Доля повторных сделок по профилю' />
       </div>
@@ -168,66 +168,30 @@ export default function CompanyPage({ params }: { params: { inn: string } }) {
               </div>
               <span style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>{deal.note}</span>
             </Link>
-          )) : <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>По контрагенту ещё нет связанных сделок.</div>}
+          )) : <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>Связанных сделок пока нет.</div>}
         </section>
 
         <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Отзывы после сделок</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Отзывы по исполнению</div>
           {company.reviews.length ? company.reviews.map((review) => (
-            <div key={review.title} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, background: '#F8FAFB' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{review.title}</div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>{review.score}</div>
+            <div key={review.title} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, display: 'grid', gap: 6, background: '#F8FAFB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{review.title}</span>
+                <span style={{ fontWeight: 800, color: '#0A7A5F' }}>{review.score}</span>
               </div>
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>{review.note}</div>
+              <span style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>{review.note}</span>
             </div>
-          )) : <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>Отзывы по контрагенту ещё не зафиксированы.</div>}
+          )) : <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>Отзывов пока нет.</div>}
         </section>
-      </div>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Что важно по контрагенту</div>
-        <Bullet text='Карточка нужна не для визитки, а для понимания надёжности исполнения.' />
-        <Bullet text='Контрагент должен быть виден через документы, сделки, споры и bank-ready слой.' />
-        <Bullet text='Рейтинг и цикл — это признаки дисциплины контрагента, а не просто маркетинг.' />
-      </section>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7/profile' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          Профиль компании
-        </Link>
-        <Link href='/platform-v7/deals' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
-          Сделки
-        </Link>
       </div>
     </div>
   );
 }
 
 function Cell({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB' }}>
-      <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div>
-    </div>
-  );
+  return <div style={{ background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14 }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' }}>{label}</div><div style={{ marginTop: 6, fontSize: 15, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div></div>;
 }
 
 function Metric({ label, value, note }: { label: string; value: string; note: string }) {
-  return (
-    <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-      <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div>
-      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{note}</div>
-    </section>
-  );
-}
-
-function Bullet({ text }: { text: string }) {
-  return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>
-      <span style={{ fontWeight: 900 }}>•</span>
-      <span>{text}</span>
-    </div>
-  );
+  return <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' }}>{label}</div><div style={{ marginTop: 8, fontSize: 28, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div><div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{note}</div></section>;
 }
