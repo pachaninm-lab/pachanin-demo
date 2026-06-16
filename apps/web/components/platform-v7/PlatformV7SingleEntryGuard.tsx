@@ -31,6 +31,15 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.has(normalize(pathname));
 }
 
+function readActiveRole(): PlatformRole | null {
+  if (typeof globalThis === 'undefined') return null;
+  return globalThis.sessionStorage?.getItem(PLATFORM_V7_ACTIVE_ROLE_KEY) as PlatformRole | null;
+}
+
+function loginHref(pathname: string): string {
+  return `/platform-v7/login?next=${encodeURIComponent(normalize(pathname))}`;
+}
+
 export function platformV7RoleHome(role: PlatformRole): string {
   return ROLE_HOME[role];
 }
@@ -44,6 +53,7 @@ export function PlatformV7SingleEntryGuard() {
     const path = normalize(pathname);
     if (!path.startsWith('/platform-v7')) return;
     if (isPublicPath(path)) return;
+    if (!readActiveRole()) router.replace(loginHref(path));
   }, [pathname, router]);
 
   return null;
