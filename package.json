@@ -4,7 +4,7 @@
   "packageManager": "pnpm@10.2.1",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "build": "pnpm --filter @pc/web build",
+    "build": "pnpm --filter @pc/api prisma generate && pnpm --filter @pc/web build",
     "test": "pnpm --filter @pc/api test",
     "test:e2e": "pnpm --filter @pc/api test:e2e",
     "test:playwright": "playwright test",
