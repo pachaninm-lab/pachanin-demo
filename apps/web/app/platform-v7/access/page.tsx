@@ -45,8 +45,8 @@ export default function AccessStatusPage() {
         />
         {view.canEnter ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
-            <PremiumCtaButton href="/platform-v7/seller" glyph="bag">Войти в свой кабинет</PremiumCtaButton>
-            <PremiumCtaButton href="/platform-v7" variant="ghost">Вернуться на главную</PremiumCtaButton>
+            <PremiumCtaButton href="/platform-v7/seller" glyph="bag">Войти в кабинет</PremiumCtaButton>
+            <PremiumCtaButton href="/platform-v7" variant="ghost">Сменить кабинет</PremiumCtaButton>
           </div>
         ) : null}
       </CockpitHero>
