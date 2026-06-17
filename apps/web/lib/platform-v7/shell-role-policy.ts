@@ -4,7 +4,7 @@ export const FIELD_SHELL_ROLES = ['driver', 'surveyor', 'elevator', 'lab'] as co
 export const FIELD_SHELL_PATHS = ['/platform-v7/driver', '/platform-v7/surveyor', '/platform-v7/elevator', '/platform-v7/lab'] as const;
 
 export const ROLE_SCOPED_SHELL_ROLES = ['buyer', 'seller', 'logistics', 'bank', 'arbitrator', 'compliance'] as const satisfies readonly PlatformRole[];
-export const ROLE_SCOPED_SHELL_PATHS = ['/platform-v7/buyer', '/platform-v7/seller', '/platform-v7/procurement', '/platform-v7/logistics', '/platform-v7/bank', '/platform-v7/arbitrator', '/platform-v7/compliance'] as const;
+export const ROLE_SCOPED_SHELL_PATHS = ['/platform-v7/buyer', '/platform-v7/seller', '/platform-v7/procurement', '/platform-v7/logistics', '/platform-v7/bank', '/platform-v7/arbitrator', '/platform-v7/disputes', '/platform-v7/compliance', '/platform-v7/connectors'] as const;
 
 export const COMMERCIAL_HEADER_ROLES = ['seller', 'buyer', 'logistics', 'driver'] as const satisfies readonly PlatformRole[];
 export const CONTROL_HEADER_ROLES = ['bank', 'arbitrator', 'compliance'] as const satisfies readonly PlatformRole[];
@@ -23,8 +23,8 @@ export function inferPlatformRoleFromPath(pathname: string, fallback: PlatformRo
   if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
   if (pathname.startsWith('/platform-v7/lab')) return 'lab';
   if (pathname.startsWith('/platform-v7/bank')) return 'bank';
-  if (pathname.startsWith('/platform-v7/arbitrator')) return 'arbitrator';
-  if (pathname.startsWith('/platform-v7/compliance')) return 'compliance';
+  if (pathname.startsWith('/platform-v7/arbitrator') || pathname.startsWith('/platform-v7/disputes')) return 'arbitrator';
+  if (pathname.startsWith('/platform-v7/compliance') || pathname.startsWith('/platform-v7/connectors')) return 'compliance';
   return fallback;
 }
 
