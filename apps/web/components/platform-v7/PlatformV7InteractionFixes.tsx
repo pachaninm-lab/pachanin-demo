@@ -36,6 +36,21 @@ const AI_SCOPE: Record<PlatformRole, string[]> = {
   executive: ['Деньги под риском', 'Главный блокер', 'Приоритет'],
 };
 
+const ROLE_ANCHORS: Record<PlatformRole, string[]> = {
+  operator: ['blockers', 'deals', 'logistics', 'bank', 'disputes', 'compliance'],
+  buyer: ['reserve', 'documents', 'acceptance', 'money', 'blockers'],
+  seller: ['parties', 'offers', 'documents', 'fgis-epd', 'acceptance', 'money', 'blockers'],
+  logistics: ['routes', 'drivers', 'documents', 'deviations'],
+  driver: ['route', 'photo', 'events', 'documents'],
+  surveyor: ['inspection', 'evidence', 'act'],
+  elevator: ['queue', 'weight', 'unloading', 'acts'],
+  lab: ['samples', 'quality', 'protocol', 'repeat'],
+  bank: ['documents', 'holds', 'risks'],
+  arbitrator: ['disputes', 'evidence', 'decision'],
+  compliance: ['admission', 'powers', 'risks', 'documents'],
+  executive: ['summary', 'money', 'risks', 'deals', 'blockers'],
+};
+
 function normalizePath(value: string) {
   return value.split('?')[0].replace(/\/$/, '') || '/platform-v7';
 }
@@ -63,6 +78,24 @@ function readRole(fallback: PlatformRole): PlatformRole {
   return stored && ROLE_LABEL[stored] ? stored : fallback;
 }
 
+function ensureRoleAnchors(role: PlatformRole) {
+  const main = document.querySelector<HTMLElement>('.pc-v4-main main, main');
+  if (!main) return;
+  const ids = ROLE_ANCHORS[role] || [];
+  const children = Array.from(main.children).filter((item) => item instanceof HTMLElement) as HTMLElement[];
+  ids.forEach((id, index) => {
+    if (document.getElementById(id)) return;
+    const anchor = document.createElement('span');
+    anchor.id = id;
+    anchor.dataset.platformV7AnchorFallback = 'true';
+    anchor.setAttribute('aria-hidden', 'true');
+    anchor.style.cssText = 'display:block;position:relative;height:1px;margin-top:-96px;padding-top:96px;pointer-events:none;visibility:hidden;';
+    const before = children[Math.min(children.length - 1, Math.max(0, 2 + index * 2))];
+    if (before?.parentElement === main) main.insertBefore(anchor, before);
+    else main.appendChild(anchor);
+  });
+}
+
 export function PlatformV7InteractionFixes() {
   const pathname = usePathname();
   const storeRole = usePlatformV7RStore((state) => state.role);
@@ -86,7 +119,9 @@ export function PlatformV7InteractionFixes() {
 
   React.useEffect(() => {
     const sync = () => {
-      setRole(readRole(storeRole));
+      const nextRole = readRole(storeRole);
+      setRole(nextRole);
+      ensureRoleAnchors(nextRole);
       document.querySelectorAll<HTMLElement>('.pc-v7-role-dock-item, .pc-v7-safe-drawer-link').forEach((item) => {
         const href = item instanceof HTMLAnchorElement ? item.getAttribute('href') || '' : '';
         if (!href) return;
