@@ -20,7 +20,7 @@ import { ArrowRight } from 'lucide-react';
  */
 
 export type CauseLineRelation = 'blocks' | 'affects' | 'opens' | 'requires' | 'enables';
-export type CauseLineTone = 'blocked' | 'warning' | 'ok' | 'money' | 'neutral';
+export type CauseLineTone = 'blocked' | 'danger' | 'warning' | 'ok' | 'money' | 'neutral';
 
 export interface CauseLineNode {
   readonly text: string;
@@ -53,6 +53,11 @@ const RELATION_LABELS: Record<CauseLineRelation, string> = {
 
 const TONE_COLORS: Record<CauseLineTone, { color: string; bg: string; border: string }> = {
   blocked: {
+    color:  'var(--p7-color-danger, #B42318)',
+    bg:     'var(--p7-color-danger-soft, #FEF3F2)',
+    border: 'color-mix(in srgb, var(--p7-color-danger, #B42318) 28%, transparent)',
+  },
+  danger: {
     color:  'var(--p7-color-danger, #B42318)',
     bg:     'var(--p7-color-danger-soft, #FEF3F2)',
     border: 'color-mix(in srgb, var(--p7-color-danger, #B42318) 28%, transparent)',
