@@ -30,40 +30,53 @@ describe('PlatformV7ShellUxController', () => {
     expect(file).not.toContain('item.href = roleHome');
   });
 
-  it('hides legacy bottom nav, switch-cabinet links, legacy drawer nav and global notices', () => {
+  it('hides legacy shell navigation and protects against horizontal overflow', () => {
     expect(file).toContain('.pc-v4-bottomnav{display:none!important}');
     expect(file).toContain('.pc-v4-switch-cabinet{display:none!important}');
     expect(file).toContain('.pc-v4-drawer .pc-v4-nav{display:none!important}');
+    expect(file).toContain('.pc-v4-drawer > div:not(:first-child){display:none!important}');
     expect(file).toContain(".pc-v4-actions button[aria-label='Открыть уведомления']{display:none!important}");
+    expect(file).toContain('overflow-x:hidden!important');
     expect(file).toContain('pc-v7-safe-drawer-nav');
   });
 
-  it('uses role-specific dock with AI and optional menu only', () => {
+  it('uses role-specific dock with AI and optional menu', () => {
     expect(file).toContain('DOCK_BY_ROLE');
     expect(file).toContain("label: 'ИИ'");
     expect(file).toContain('showMenuButton');
     expect(file).toContain('hasExtraMenuItems');
     expect(file).not.toContain("action: 'signals'");
     expect(file).not.toContain("label: 'Сигналы'");
-    expect(file).not.toContain("label: 'События'");
   });
 
-  it('does not keep fake same-screen dock actions for field roles', () => {
+  it('restores full seller function menu without leaving seller role', () => {
+    const seller = block('seller', 'logistics');
+    expect(seller).toContain("label: 'Партии'");
+    expect(seller).toContain("label: 'Офферы'");
+    expect(seller).toContain("label: 'Документы'");
+    expect(seller).toContain("label: 'СДИЗ / ЭТрН'");
+    expect(seller).toContain("label: 'Приёмка'");
+    expect(seller).toContain("label: 'Деньги / резерв'");
+    expect(seller).toContain("label: 'Блокеры'");
+    expect(seller).not.toContain('/platform-v7/bank');
+    expect(seller).not.toContain('/platform-v7/deals');
+  });
+
+  it('restores field role functions as same-cabinet anchors, not foreign cabinets', () => {
     const driver = block('driver', 'surveyor');
     const elevator = block('elevator', 'lab');
     const lab = block('lab', 'bank');
-    expect(driver).toContain("label: 'Маршрут'");
-    expect(driver).toContain("label: 'ИИ'");
-    expect(driver).not.toContain("label: 'Фото'");
+    expect(driver).toContain("label: 'Фото'");
+    expect(driver).toContain("label: 'События'");
+    expect(driver).toContain("label: 'Документы'");
     expect(driver).not.toContain('/platform-v7/deals');
     expect(driver).not.toContain('/platform-v7/bank');
-    expect(elevator).toContain("label: 'Приёмка'");
-    expect(elevator).not.toContain("label: 'Вес'");
-    expect(elevator).not.toContain("label: 'Акты'");
+    expect(elevator).toContain("label: 'Вес'");
+    expect(elevator).toContain("label: 'Акты'");
     expect(elevator).not.toContain('/platform-v7/deals');
-    expect(lab).toContain("label: 'Пробы'");
-    expect(lab).not.toContain("label: 'Качество'");
-    expect(lab).not.toContain("label: 'Протокол'");
+    expect(lab).toContain("label: 'Качество'");
+    expect(lab).toContain("label: 'Протокол'");
+    expect(lab).toContain("label: 'Повторный анализ'");
     expect(lab).not.toContain('/platform-v7/deals');
     expect(lab).not.toContain('/platform-v7/disputes');
   });
@@ -73,8 +86,11 @@ describe('PlatformV7ShellUxController', () => {
     const executive = file.slice(file.indexOf('executive: ['), file.indexOf('};', file.indexOf('executive: [')));
     expect(bank).toContain("label: 'Факторинг'");
     expect(bank).toContain("label: 'Эскроу'");
+    expect(bank).toContain("label: 'Документы'");
+    expect(bank).toContain("label: 'Удержания'");
     expect(executive).toContain("label: 'Сводка'");
     expect(executive).toContain("label: 'Деньги'");
+    expect(executive).toContain("label: 'Риски'");
   });
 
   it('renders role scoped notices instead of global notifications', () => {
