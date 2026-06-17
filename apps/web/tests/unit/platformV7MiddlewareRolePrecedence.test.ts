@@ -16,14 +16,14 @@ describe('platform-v7 middleware role lock', () => {
     expect(resolveRole).not.toContain("searchParams.get('as')");
   });
 
-  it('keeps guarded role routes and shared-screen access checks', () => {
-    expect(source).toContain("prefix: '/platform-v7/bank'");
-    expect(source).toContain("also: ['operator', 'executive']");
-    expect(source).toContain("prefix: '/platform-v7/driver'");
-    expect(source).toContain("prefix: '/platform-v7/elevator'");
-    expect(source).toContain("prefix: '/platform-v7/lab'");
-    expect(source).toContain("prefix: '/platform-v7/compliance'");
-    expect(source).toContain('canAccessPlatformV7Path');
+  it('keeps guarded route access without URL role assignment', () => {
+    expect(source).toContain('function canAccessPlatformV7Path');
+    expect(source).toContain("role === 'operator'");
+    expect(source).toContain("routeStarts(p, '/platform-v7/bank')");
+    expect(source).toContain("routeStarts(p, '/platform-v7/driver')");
+    expect(source).toContain("routeStarts(p, '/platform-v7/elevator')");
+    expect(source).toContain("routeStarts(p, '/platform-v7/lab')");
+    expect(source).toContain("routeStarts(p, '/platform-v7/compliance')");
     expect(source).toContain('redirectToOwnPlatformV7Cabinet');
   });
 
