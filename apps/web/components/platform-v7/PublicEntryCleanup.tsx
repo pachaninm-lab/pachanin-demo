@@ -1,141 +1,57 @@
 'use client';
 
 import * as React from 'react';
-import { usePathname, useRouter } from 'next/navigation';
 import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
-const ENTRY_SESSION_KEY = 'pc-v7-entry-approved';
-const ENTRY_COOKIE_KEY = 'pc_v7_entry_seen';
-
-const PUBLIC_PATHS = new Set([
-  '/platform-v7',
-  '/platform-v7/open',
-  '/platform-v7/login',
-  '/platform-v7/register',
-  '/platform-v7/help',
-  '/platform-v7/pricing',
-  '/platform-v7/roadmap',
-]);
+const PUBLIC_ROLES = [
+  ['Водитель', 'Маршрут, прибытие, фото и полевые события.'],
+  ['Комплаенс', 'Допуск, полномочия, стоп-факторы и контроль рисков.'],
+  ['Оператор', 'Центр управления, блокеры, ответственные и следующий шаг.'],
+  ['Руководитель', 'Деньги под риском, статус контура и управленческий срез.'],
+];
 
 const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true']{--pc-header-offset:0px!important;background:#fbfcf9!important}
-.pc-shell-root-v4[data-public-entry='true'] .pc-v4-header,
-.pc-shell-root-v4[data-public-entry='true'] .pc-v4-bottomnav,
-.pc-shell-root-v4[data-public-entry='true'] .pc-v4-drawer,
-.pc-shell-root-v4[data-public-entry='true'] .pc-v4-pilot-note{display:none!important}
+.pc-shell-root-v4[data-public-entry='true'] .pc-v4-header,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-bottomnav,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-drawer,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-pilot-note{display:none!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#fbfcf9!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-bottom:max(64px,env(safe-area-inset-bottom))!important}
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark{background:transparent!important;color:inherit!important;padding:0!important;overflow:visible!important}
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;background:transparent!important}
-.pc-shell-root-v4[data-public-entry='true'] [data-entry-click='true']{cursor:pointer!important}
-.pc-shell-root-v4[data-public-entry='true'] [data-entry-click='true']:focus-visible{outline:3px solid rgba(0,122,47,.35)!important;outline-offset:3px!important}
-@media(max-width:980px){
-  .pc-shell-root-v4[data-public-entry='true'] .entry-header{min-height:64px!important;padding:10px 16px!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-demo,.pc-shell-root-v4[data-public-entry='true'] .entry-desktop-nav{display:none!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-hero{padding-top:24px!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-hero h1{font-size:clamp(34px,10.8vw,46px)!important;line-height:1!important;letter-spacing:-.055em!important;font-weight:920!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-hero p{font-size:17px!important;line-height:1.4!important;font-weight:540!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-process-row{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;overflow:visible!important;padding:0!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-process-tile{min-height:0!important;grid-template-columns:32px 46px minmax(0,1fr)!important;justify-items:start!important;align-items:center!important;text-align:left!important;padding:14px!important;gap:10px!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-process-tile:not(:last-child)::after{content:''!important;position:absolute!important;left:52px!important;top:calc(100% - 3px)!important;right:auto!important;width:2px!important;height:14px!important;background:rgba(0,122,47,.22)!important;border-radius:99px!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-process-index{grid-row:1 / span 2!important;align-self:center!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-process-icon{grid-row:1 / span 2!important;width:44px!important;height:44px!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-process-tile strong{font-size:16px!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-process-tile small{grid-column:3!important;font-size:12.4px!important;line-height:1.32!important}
-  .pc-shell-root-v4[data-public-entry='true'] .entry-trust-strip{margin-bottom:72px!important}
-}
 `;
 
-type ClickTarget = { selector: string; href: string };
-
-const clickTargets: ClickTarget[] = [
-  { selector: '.entry-hero-visual', href: '/platform-v7/open' },
-  { selector: '.entry-icon-button[aria-label="Помощь"]', href: '/platform-v7/support?role=operator' },
-  { selector: '.entry-menu-button', href: '#roles' },
-  { selector: '.entry-control-tile:nth-child(1)', href: '/platform-v7/bank' },
-  { selector: '.entry-control-tile:nth-child(2)', href: '/platform-v7/docs' },
-  { selector: '.entry-control-tile:nth-child(3)', href: '/platform-v7/logistics' },
-  { selector: '.entry-control-tile:nth-child(4)', href: '/platform-v7/lab' },
-  { selector: '.entry-process-tile:nth-child(1)', href: '/platform-v7/open' },
-  { selector: '.entry-process-tile:nth-child(2)', href: '/platform-v7/deals' },
-  { selector: '.entry-process-tile:nth-child(3)', href: '/platform-v7/logistics' },
-  { selector: '.entry-process-tile:nth-child(4)', href: '/platform-v7/elevator' },
-  { selector: '.entry-process-tile:nth-child(5)', href: '/platform-v7/docs' },
-  { selector: '.entry-process-tile:nth-child(6)', href: '/platform-v7/bank' },
-  { selector: '.entry-process-tile:nth-child(7)', href: '/platform-v7/disputes' },
-  { selector: '.entry-trust-item:nth-child(1)', href: '/platform-v7/open' },
-  { selector: '.entry-trust-item:nth-child(2)', href: '/platform-v7/disputes' },
-  { selector: '.entry-trust-item:nth-child(3)', href: '/platform-v7/docs' },
-  { selector: '.entry-trust-item:nth-child(4)', href: '/platform-v7/bank' },
-];
-
-function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.has(pathname) || pathname.startsWith('/platform-v7/role-preview');
-}
-
-function hasEntryCookie() {
-  return document.cookie.split(';').some((part) => part.trim() === `${ENTRY_COOKIE_KEY}=true`);
-}
-
-function bindClick(el: HTMLElement, href: string) {
-  if (el.dataset.entryClick === 'true') return;
-  el.dataset.entryClick = 'true';
-  el.setAttribute('tabindex', '0');
-  el.setAttribute('role', 'link');
-  el.addEventListener('click', () => {
-    if (href.startsWith('#')) document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    else window.location.assign(href);
-  });
-  el.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    el.click();
+function rewritePublicLinks(root: ParentNode) {
+  root.querySelectorAll<HTMLAnchorElement>('a[href^="/platform-v7/"]').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    if (href === '/platform-v7/login' || href === '/platform-v7/open' || href === '/platform-v7/register') return;
+    link.setAttribute('href', '/platform-v7/login');
+    if ((link.textContent || '').trim()) link.textContent = 'Войти через единый вход';
   });
 }
 
-function rewriteOpenPageLinks(root: ParentNode) {
-  const replacements = new Map([
-    ['/platform-v7/seller/batches/new', { href: '/platform-v7/#roles', label: 'Выбрать роль' }],
-    ['/platform-v7/buyer/rfq/new', { href: '/platform-v7/login', label: 'Войти в кабинет' }],
-    ['/platform-v7/role-preview', { href: '/platform-v7/role-preview', label: 'Посмотреть роли' }],
-  ]);
-  root.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
-    const current = link.getAttribute('href') || '';
-    const next = replacements.get(current);
-    if (!next) return;
-    link.setAttribute('href', next.href);
-    link.textContent = next.label;
+function ensurePublicRoles(root: ParentNode) {
+  const grid = root.querySelector<HTMLElement>('.entry-role-grid');
+  if (!grid || grid.dataset.fullRoleSet === 'true') return;
+  const existing = grid.textContent || '';
+  PUBLIC_ROLES.forEach(([title, text]) => {
+    if (existing.includes(title)) return;
+    const item = document.createElement('article');
+    item.className = 'entry-role-tile';
+    item.innerHTML = `<strong>${title}</strong><span>${text}</span><em>Доступ после единого входа</em>`;
+    grid.appendChild(item);
   });
+  grid.dataset.fullRoleSet = 'true';
 }
 
 export function PublicEntryCleanup() {
-  const pathname = usePathname() || '';
-  const router = useRouter();
-
-  React.useEffect(() => {
-    if (!pathname.startsWith('/platform-v7')) return;
-    if (pathname === '/platform-v7') {
-      window.sessionStorage.setItem(ENTRY_SESSION_KEY, 'true');
-      return;
-    }
-    if (isPublicPath(pathname)) return;
-    const approved = window.sessionStorage.getItem(ENTRY_SESSION_KEY) === 'true' || hasEntryCookie();
-    if (!approved) router.replace('/platform-v7');
-  }, [pathname, router]);
-
   React.useEffect(() => {
     function sync() {
-      const publicEntry = document.querySelector('.pc-v7-public-entry');
-      const openEntry = document.querySelector('[data-testid="platform-v7-open-walkthrough"]');
-      const entry = (publicEntry || openEntry) as HTMLElement | null;
+      const entry = document.querySelector('.pc-v7-public-entry,[data-testid="platform-v7-open-walkthrough"]') as HTMLElement | null;
       const shell = entry?.closest('.pc-shell-root-v4') as HTMLElement | null;
-      const allShells = document.querySelectorAll<HTMLElement>('.pc-shell-root-v4[data-public-entry]');
-      allShells.forEach((item) => {
+      document.querySelectorAll<HTMLElement>('.pc-shell-root-v4[data-public-entry]').forEach((item) => {
         if (item !== shell) delete item.dataset.publicEntry;
       });
       if (!shell || !entry) return;
       shell.dataset.publicEntry = 'true';
-
       const mark = entry.querySelector<HTMLElement>('.entry-brand-mark');
       if (mark && mark.dataset.brandApplied !== 'true') {
         mark.innerHTML = '';
@@ -146,12 +62,8 @@ export function PublicEntryCleanup() {
         mark.appendChild(img);
         mark.dataset.brandApplied = 'true';
       }
-
-      rewriteOpenPageLinks(entry);
-      clickTargets.forEach((target) => {
-        const el = entry.querySelector<HTMLElement>(target.selector);
-        if (el) bindClick(el, target.href);
-      });
+      rewritePublicLinks(entry);
+      ensurePublicRoles(entry);
     }
 
     sync();
