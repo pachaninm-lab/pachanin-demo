@@ -49,7 +49,6 @@ const PRIVATE_REALM = 'Prozrachnaya Cena Private';
 
 const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7',
-  '/platform-v7/roles',
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
@@ -179,10 +178,30 @@ function parseSession(raw: string | undefined): { role: string; exp: number } | 
   return null;
 }
 
+function resolvePlatformV7PathRole(pathname: string): string | null {
+  if (pathname.startsWith('/platform-v7/driver')) return 'driver';
+  if (pathname.startsWith('/platform-v7/surveyor')) return 'surveyor';
+  if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
+  if (pathname.startsWith('/platform-v7/lab')) return 'lab';
+  if (pathname.startsWith('/platform-v7/bank')) return 'bank';
+  if (pathname.startsWith('/platform-v7/arbitrator') || pathname.startsWith('/platform-v7/disputes')) return 'arbitrator';
+  if (pathname.startsWith('/platform-v7/compliance') || pathname.startsWith('/platform-v7/connectors')) return 'compliance';
+  if (pathname.startsWith('/platform-v7/buyer') || pathname.startsWith('/platform-v7/procurement')) return 'buyer';
+  if (pathname.startsWith('/platform-v7/seller') || pathname.startsWith('/platform-v7/lots')) return 'seller';
+  if (pathname.startsWith('/platform-v7/logistics')) return 'logistics';
+  if (pathname.startsWith('/platform-v7/executive') || pathname.startsWith('/platform-v7/analytics')) return 'executive';
+  if (pathname.startsWith('/platform-v7/control-tower') || pathname.startsWith('/platform-v7/operator')) return 'operator';
+  return null;
+}
+
 function resolveRole(req: NextRequest, sessionRole?: string | null) {
+  const pathRole = resolvePlatformV7PathRole(req.nextUrl.pathname);
+  if (pathRole && VALID_ROLES.has(pathRole)) return pathRole;
   if (sessionRole && VALID_ROLES.has(sessionRole)) return sessionRole;
   const cookieRole = req.cookies.get('pc-role')?.value;
   if (cookieRole && VALID_ROLES.has(cookieRole)) return cookieRole;
+  const queryRole = req.nextUrl.searchParams.get('as');
+  if (queryRole && VALID_ROLES.has(queryRole)) return queryRole;
   return 'operator';
 }
 
@@ -256,7 +275,6 @@ export function middleware(req: NextRequest) {
   if (p.startsWith('/platform-v7')) {
     const isEntry = p === '/platform-v7';
     const seenEntry = req.cookies.get(PLATFORM_V7_ENTRY_COOKIE)?.value === 'true';
-
     if (!isEntry && !isPlatformV7PublicPath(p) && !seenEntry) {
       return redirectToPlatformV7Entry(req);
     }
