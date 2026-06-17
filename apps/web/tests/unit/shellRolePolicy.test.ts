@@ -58,9 +58,15 @@ describe('shell role policy', () => {
     ['bank', '/platform-v7/bank'],
     ['arbitrator', '/platform-v7/arbitrator'],
     ['compliance', '/platform-v7/compliance'],
+  ] as Array<[PlatformRole, string]>)('blocks portal role switcher on role-scoped %s route', (role, path) => {
+    expect(canShowPortalRoleSwitcher(role, path)).toBe(false);
+    expect(getHeaderSelectableRoles(role, path)).toEqual([]);
+  });
+
+  it.each([
     ['operator', '/platform-v7/control-tower'],
     ['executive', '/platform-v7/executive'],
-  ] as Array<[PlatformRole, string]>)('allows one portal role switcher on non-field %s route', (role, path) => {
+  ] as Array<[PlatformRole, string]>)('allows one portal role switcher on control %s route', (role, path) => {
     expect(canShowPortalRoleSwitcher(role, path)).toBe(true);
     expect(getHeaderSelectableRoles(role, path)).toEqual(OPERATOR_HEADER_ROLES);
   });
@@ -80,7 +86,9 @@ describe('shell role policy', () => {
     ['/platform-v7/logistics', 'logistics'],
     ['/platform-v7/bank', 'bank'],
     ['/platform-v7/arbitrator', 'arbitrator'],
+    ['/platform-v7/disputes', 'arbitrator'],
     ['/platform-v7/compliance', 'compliance'],
+    ['/platform-v7/connectors', 'compliance'],
     ['/platform-v7/driver/field', 'driver'],
     ['/platform-v7/executive', 'executive'],
     ['/platform-v7/control-tower', 'operator'],
@@ -94,7 +102,9 @@ describe('shell role policy', () => {
     ['/platform-v7/logistics', 'logistics'],
     ['/platform-v7/bank', 'bank'],
     ['/platform-v7/arbitrator', 'arbitrator'],
+    ['/platform-v7/disputes', 'arbitrator'],
     ['/platform-v7/compliance', 'compliance'],
+    ['/platform-v7/connectors', 'compliance'],
     ['/platform-v7/driver/field', 'driver'],
     ['/platform-v7/elevator', 'elevator'],
     ['/platform-v7/lab', 'lab'],
@@ -124,9 +134,14 @@ describe('shell role policy', () => {
     ['/platform-v7/bank'],
     ['/platform-v7/arbitrator'],
     ['/platform-v7/compliance'],
+  ] as Array<[string]>)('keeps role-scoped route %s isolated from stale role header options', (path) => {
+    expect(getHeaderSelectableRoles('operator', path)).toEqual([]);
+  });
+
+  it.each([
     ['/platform-v7/control-tower'],
     ['/platform-v7/executive'],
-  ] as Array<[string]>)('uses the same full header role set on non-field route %s', (path) => {
+  ] as Array<[string]>)('uses the same full header role set on control route %s', (path) => {
     expect(getHeaderSelectableRoles('operator', path)).toEqual(OPERATOR_HEADER_ROLES);
   });
 
