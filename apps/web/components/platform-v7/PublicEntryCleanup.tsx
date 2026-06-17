@@ -11,25 +11,70 @@ const PUBLIC_ROLES = [
 ];
 
 const cleanupCss = `
+.pc-shell-root-v4:has(.pc-v7-public-entry),
 .pc-shell-root-v4[data-public-entry='true']{--pc-header-offset:0px!important;background:#fbfcf9!important}
-.pc-shell-root-v4[data-public-entry='true'] .pc-v4-header,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-bottomnav,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-drawer,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-pilot-note{display:none!important}
-.pc-shell-root-v4[data-public-entry='true'] .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#fbfcf9!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v4-header,
+.pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v4-bottomnav,
+.pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v4-drawer,
+.pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v4-pilot-note,
+.pc-shell-root-v4[data-public-entry='true'] .pc-v4-header,
+.pc-shell-root-v4[data-public-entry='true'] .pc-v4-bottomnav,
+.pc-shell-root-v4[data-public-entry='true'] .pc-v4-drawer,
+.pc-shell-root-v4[data-public-entry='true'] .pc-v4-pilot-note{display:none!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v4-main,
+.pc-shell-root-v4[data-public-entry='true'] .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#fbfcf9!important;min-height:100svh!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v7-public-entry,
 .pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-bottom:max(64px,env(safe-area-inset-bottom))!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand-mark,
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark{background:transparent!important;color:inherit!important;padding:0!important;overflow:visible!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand-mark img,
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;background:transparent!important}
 @media (max-width:640px){
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-header,
+.pc-shell-root-v4[data-public-entry='true'] .entry-header{position:sticky!important;top:0!important;min-height:64px!important;padding:10px 12px!important;gap:8px!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand small,
+.pc-shell-root-v4[data-public-entry='true'] .entry-brand small{display:none!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero,
+.pc-shell-root-v4[data-public-entry='true'] .entry-hero{min-height:0!important;padding:18px 16px 14px!important;gap:0!important;display:grid!important;grid-template-columns:1fr!important;overflow:visible!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero::before,
+.pc-shell-root-v4[data-public-entry='true'] .entry-hero::before{display:none!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero-visual,
 .pc-shell-root-v4[data-public-entry='true'] .entry-hero-visual{display:none!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero-copy,
+.pc-shell-root-v4[data-public-entry='true'] .entry-hero-copy{display:grid!important;gap:10px!important;align-self:start!important;max-width:none!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-kicker,
+.pc-shell-root-v4[data-public-entry='true'] .entry-kicker{margin-bottom:0!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero h1,
+.pc-shell-root-v4[data-public-entry='true'] .entry-hero h1{font-size:34px!important;line-height:1.02!important;letter-spacing:-.045em!important;max-width:100%!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero p,
+.pc-shell-root-v4[data-public-entry='true'] .entry-hero p{margin:0!important;font-size:15px!important;line-height:1.4!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero-actions,
+.pc-shell-root-v4[data-public-entry='true'] .entry-hero-actions{margin-top:4px!important;display:grid!important;gap:8px!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-status-note,
+.pc-shell-root-v4[data-public-entry='true'] .entry-status-note{display:none!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-control-grid,
 .pc-shell-root-v4[data-public-entry='true'] .entry-control-grid{grid-template-columns:1fr!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-process-row,
 .pc-shell-root-v4[data-public-entry='true'] .entry-process-row{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;overflow:visible!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-process-tile,
 .pc-shell-root-v4[data-public-entry='true'] .entry-process-tile{min-width:0!important;min-height:auto!important;text-align:left!important;display:grid!important;grid-template-columns:auto 1fr!important;justify-items:start!important;align-items:center!important;padding:14px 16px!important;border-radius:20px!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-process-tile:not(:last-child)::after,
 .pc-shell-root-v4[data-public-entry='true'] .entry-process-tile:not(:last-child)::after{display:none!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-process-index,
 .pc-shell-root-v4[data-public-entry='true'] .entry-process-index{grid-row:1 / span 2!important;width:28px!important;height:28px!important;display:grid!important;place-items:center!important;border-radius:999px!important;background:rgba(0,122,47,.08)!important;color:#007a2f!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-process-icon,
 .pc-shell-root-v4[data-public-entry='true'] .entry-process-icon{display:none!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-process-tile strong,
 .pc-shell-root-v4[data-public-entry='true'] .entry-process-tile strong{font-size:18px!important;line-height:1.1!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-process-tile small,
 .pc-shell-root-v4[data-public-entry='true'] .entry-process-tile small{font-size:13px!important;line-height:1.3!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-grid,
 .pc-shell-root-v4[data-public-entry='true'] .entry-role-grid{grid-template-columns:1fr!important;gap:12px!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile,
 .pc-shell-root-v4[data-public-entry='true'] .entry-role-tile{min-height:auto!important;padding:18px!important;border-radius:22px!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile strong,
 .pc-shell-root-v4[data-public-entry='true'] .entry-role-tile strong{font-size:22px!important;line-height:1.05!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile span,
 .pc-shell-root-v4[data-public-entry='true'] .entry-role-tile span{font-size:14px!important;line-height:1.35!important}
 }
 `;
@@ -65,7 +110,9 @@ function ensurePublicRoles(root: ParentNode) {
 
 export function PublicEntryCleanup() {
   React.useEffect(() => {
+    let cancelled = false;
     function sync() {
+      if (cancelled) return;
       const entry = document.querySelector('.pc-v7-public-entry,[data-testid="platform-v7-open-walkthrough"]') as HTMLElement | null;
       const shell = entry?.closest('.pc-shell-root-v4') as HTMLElement | null;
       document.querySelectorAll<HTMLElement>('.pc-shell-root-v4[data-public-entry]').forEach((item) => {
@@ -88,10 +135,13 @@ export function PublicEntryCleanup() {
       normalizeRoleCtas(entry);
     }
 
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
+    const raf = window.requestAnimationFrame(sync);
+    const timers = [80, 220, 600].map((delay) => window.setTimeout(sync, delay));
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf);
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
   }, []);
 
   return <style dangerouslySetInnerHTML={{ __html: cleanupCss }} />;
