@@ -6,6 +6,7 @@ import { Search, X } from 'lucide-react';
 import { selectRuntimeDeals, selectRuntimeDisputes } from '@/lib/domain/selectors';
 import { platformV7CommandSectionItems } from '@/lib/platform-v7/command';
 import { lots as PLATFORM_LOTS } from '@/lib/v7r/esia-fgis-data';
+import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 interface CommandItem {
   id: string;
@@ -25,7 +26,39 @@ interface RecentItem {
 
 const HISTORY_KEY = 'pc-command-history';
 
-function buildIndex(): CommandItem[] {
+const ROLE_OWNED_PREFIXES: Array<{ prefix: string; role: PlatformRole }> = [
+  { prefix: '/platform-v7/control-tower', role: 'operator' },
+  { prefix: '/platform-v7/operator', role: 'operator' },
+  { prefix: '/platform-v7/buyer', role: 'buyer' },
+  { prefix: '/platform-v7/procurement', role: 'buyer' },
+  { prefix: '/platform-v7/seller', role: 'seller' },
+  { prefix: '/platform-v7/lots', role: 'seller' },
+  { prefix: '/platform-v7/logistics', role: 'logistics' },
+  { prefix: '/platform-v7/driver', role: 'driver' },
+  { prefix: '/platform-v7/surveyor', role: 'surveyor' },
+  { prefix: '/platform-v7/elevator', role: 'elevator' },
+  { prefix: '/platform-v7/lab', role: 'lab' },
+  { prefix: '/platform-v7/bank', role: 'bank' },
+  { prefix: '/platform-v7/arbitrator', role: 'arbitrator' },
+  { prefix: '/platform-v7/disputes', role: 'arbitrator' },
+  { prefix: '/platform-v7/compliance', role: 'compliance' },
+  { prefix: '/platform-v7/connectors', role: 'compliance' },
+  { prefix: '/platform-v7/executive', role: 'executive' },
+  { prefix: '/platform-v7/analytics', role: 'executive' },
+];
+
+function roleOwnerForHref(href: string): PlatformRole | null {
+  const match = ROLE_OWNED_PREFIXES.find((item) => href === item.prefix || href.startsWith(item.prefix + '/'));
+  return match?.role ?? null;
+}
+
+function isAllowedForRole(item: CommandItem, role: PlatformRole): boolean {
+  if (item.href === '/platform-v7/roles') return false;
+  const owner = roleOwnerForHref(item.href);
+  return !owner || owner === role;
+}
+
+function buildIndex(role: PlatformRole): CommandItem[] {
   const dealItems: CommandItem[] = selectRuntimeDeals().map((deal) => ({
     id: `deal-${deal.id}`,
     group: 'Сделки' as const,
@@ -53,13 +86,13 @@ function buildIndex(): CommandItem[] {
     keywords: `${dispute.id} ${dispute.title} ${dispute.dealId} ${dispute.reasonCode}`.toLowerCase(),
   }));
 
-  return [...platformV7CommandSectionItems(), ...dealItems, ...lotItems, ...disputeItems];
+  return [...platformV7CommandSectionItems(), ...dealItems, ...lotItems, ...disputeItems].filter((item) => isAllowedForRole(item, role));
 }
 
-function readRecentItems(): RecentItem[] {
+function readRecentItems(role: PlatformRole): RecentItem[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(HISTORY_KEY);
+    const raw = window.localStorage.getItem(`${HISTORY_KEY}-${role}`);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as RecentItem[];
     return Array.isArray(parsed) ? parsed.slice(0, 6) : [];
@@ -68,21 +101,22 @@ function readRecentItems(): RecentItem[] {
   }
 }
 
-function writeRecentItem(item: CommandItem) {
+function writeRecentItem(item: CommandItem, role: PlatformRole) {
   if (typeof window === 'undefined') return;
-  const current = readRecentItems().filter((entry) => entry.href !== item.href);
+  const current = readRecentItems(role).filter((entry) => entry.href !== item.href);
   const next: RecentItem[] = [{ id: item.id, href: item.href, title: item.title, subtitle: item.subtitle }, ...current].slice(0, 6);
-  window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  window.localStorage.setItem(`${HISTORY_KEY}-${role}`, JSON.stringify(next));
 }
 
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
+  const role = usePlatformV7RStore((state) => state.role);
   const [query, setQuery] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [recentItems, setRecentItems] = React.useState<RecentItem[]>([]);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  const index = React.useMemo(() => buildIndex(), []);
+  const index = React.useMemo(() => buildIndex(role), [role]);
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return index.slice(0, 18);
@@ -98,20 +132,20 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   );
 
   const selectItem = React.useCallback((item: CommandItem) => {
-    writeRecentItem(item);
-    setRecentItems(readRecentItems());
+    writeRecentItem(item, role);
+    setRecentItems(readRecentItems(role));
     router.push(item.href);
     onClose();
-  }, [onClose, router]);
+  }, [onClose, role, router]);
 
   React.useEffect(() => {
     if (open) {
       setQuery('');
       setActiveIndex(0);
-      setRecentItems(readRecentItems());
+      setRecentItems(readRecentItems(role));
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [open]);
+  }, [open, role]);
 
   React.useEffect(() => setActiveIndex(0), [query]);
 
