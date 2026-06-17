@@ -2,7 +2,10 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/platform-v7/buyer' }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/platform-v7/buyer',
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 vi.mock('@/components/v7r/CommandPalette', () => ({ CommandPalette: () => null }));
 vi.mock('@/components/v7r/BrandMark', () => ({ BrandMark: () => null }));
 
@@ -31,13 +34,12 @@ describe('AppShellV4 cabinet shell', () => {
     expect(window.localStorage.getItem('pc-theme')).toBe('light');
   });
 
-  it('does not expose an all-roles role switcher inside a cabinet', () => {
+  it('does not expose role or cabinet switching inside a cabinet', () => {
     render(<AppShellV4 initialRole="buyer"><div>child</div></AppShellV4>);
 
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.queryByText('Сменить роль')).toBeNull();
-    // вместо переключения ролей — выход к выбору кабинета
-    expect(screen.getByRole('link', { name: /Сменить кабинет/i })).toBeInTheDocument();
+    expect(screen.queryByText('Сменить кабинет')).toBeNull();
   });
 
   it('renders a role-scoped bottom navigation bar', () => {
