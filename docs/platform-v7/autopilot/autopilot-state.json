@@ -76,6 +76,7 @@
     "Package or lockfile changes"
   ],
   "allowedCurrentScope": [
+    "apps/web/middleware.ts",
     "apps/web/tests/unit/**",
     "apps/web/tests/setup.ts",
     "apps/web/components/v7r/**",
@@ -100,6 +101,7 @@
     "docs/platform-v7/**"
   ],
   "agentWritableScope": [
+    "apps/web/middleware.ts",
     "apps/web/tests/unit/**",
     "apps/web/tests/setup.ts",
     "apps/web/components/v7r/**",
