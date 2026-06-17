@@ -1,8 +1,5 @@
 name: web-unit
 
-# VP-2.5 regression gate: полный юнит-набор apps/web должен быть зелёным
-# перед мержем в main. Эта джоба — required-гейт (full web vitest).
-
 on:
   push:
     branches: [main]
@@ -28,7 +25,7 @@ jobs:
       - name: Full web unit suite with log
         run: |
           set +e
-          pnpm --filter @pc/web test > web-unit.log 2>&1
+          pnpm --filter @pc/web exec vitest run --reporter=verbose --testTimeout=5000 --hookTimeout=5000 --teardownTimeout=5000 > web-unit.log 2>&1
           status=$?
           tail -n 260 web-unit.log
           exit $status
