@@ -24,7 +24,6 @@ function rewritePublicLinks(root: ParentNode) {
     const href = link.getAttribute('href') || '';
     if (href === '/platform-v7/login' || href === '/platform-v7/open' || href === '/platform-v7/register') return;
     link.setAttribute('href', '/platform-v7/login');
-    if ((link.textContent || '').trim()) link.textContent = 'Войти через единый вход';
   });
 }
 
@@ -34,8 +33,9 @@ function ensurePublicRoles(root: ParentNode) {
   const existing = grid.textContent || '';
   PUBLIC_ROLES.forEach(([title, text]) => {
     if (existing.includes(title)) return;
-    const item = document.createElement('article');
+    const item = document.createElement('a');
     item.className = 'entry-role-tile';
+    item.setAttribute('href', '/platform-v7/login');
     item.innerHTML = `<strong>${title}</strong><span>${text}</span><em>Доступ после единого входа</em>`;
     grid.appendChild(item);
   });
