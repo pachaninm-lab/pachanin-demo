@@ -259,6 +259,11 @@ function clearShellSession() {
   }
 }
 
+function closeLegacyDrawer() {
+  const closeButton = document.querySelector<HTMLButtonElement>('.pc-v4-drawer button[aria-label="Закрыть меню"]');
+  closeButton?.click();
+}
+
 function hasExtraMenuItems(nav: SafeLink[], dock: DockLink[]) {
   const dockHrefs = new Set(dock.map((item) => normalize(item.href)));
   return nav.some((item) => !dockHrefs.has(normalize(item.href)));
@@ -358,7 +363,7 @@ export function PlatformV7ShellUxController() {
         <nav className="pc-v7-safe-drawer-nav" aria-label="Полное меню функций роли">
           {safeNav.map((item) => {
             const active = activePath(pathname, item.href);
-            return <Link key={`${item.href}:${item.label}`} href={item.href} className="pc-v7-safe-drawer-link" data-active={active ? 'true' : 'false'}><strong>{item.label}</strong><span>{item.note}</span></Link>;
+            return <Link key={`${item.href}:${item.label}`} href={item.href} className="pc-v7-safe-drawer-link" data-active={active ? 'true' : 'false'} onClick={() => window.setTimeout(closeLegacyDrawer, 0)}><strong>{item.label}</strong><span>{item.note}</span></Link>;
           })}
         </nav>,
         drawerNode,
