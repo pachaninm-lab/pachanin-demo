@@ -242,7 +242,7 @@ const ROLE_OWNED_PREFIXES: Array<{ prefix: string; role: PlatformRole }> = [
   { prefix: '/platform-v7/analytics', role: 'executive' },
 ];
 
-const PUBLIC_SHELL_PATHS = new Set(['/platform-v7', '/platform-v7/roles']);
+const PUBLIC_SHELL_PATHS = new Set<string>(['/platform-v7', '/platform-v7/roles']);
 
 function breadcrumbs(pathname: string) {
   const parts = pathname.split('?')[0].split('/').filter(Boolean);
@@ -310,9 +310,11 @@ function isActivePath(pathname: string, href: string) {
 }
 
 export function AppShellV4({ children, initialRole = 'operator' }: { children: React.ReactNode; initialRole?: PlatformRole }) {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = rawPathname || '/platform-v7';
   const router = useRouter();
   const { role, setRole } = usePlatformV7RStore();
+  const safeInitialRole: PlatformRole = initialRole || 'operator';
   const [mounted, setMounted] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
@@ -338,7 +340,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
     document.documentElement.setAttribute('data-theme', nextTheme);
   }, []);
 
-  const displayRole: PlatformRole = mounted ? role : initialRole;
+  const displayRole: PlatformRole = mounted ? (role || safeInitialRole) : safeInitialRole;
   const items = NAV_BY_ROLE[displayRole];
   const stage = ROLE_STAGE[displayRole];
   const stageTone = stageColors(stage.tone);
@@ -351,8 +353,8 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
   React.useEffect(() => {
     if (!mounted || role) return;
-    setRole(initialRole);
-  }, [mounted, role, setRole, initialRole]);
+    setRole(safeInitialRole);
+  }, [mounted, role, setRole, safeInitialRole]);
 
   React.useEffect(() => {
     if (!mounted || !pathname.startsWith('/platform-v7')) return;
