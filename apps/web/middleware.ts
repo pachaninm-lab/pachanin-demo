@@ -60,21 +60,6 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 
-const ROLE_HOME: Record<string, string> = {
-  operator: '/platform-v7/control-tower',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
-};
-
 function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
 }
@@ -238,13 +223,6 @@ function redirectToPlatformV7Entry(req: NextRequest) {
   return applySecurityHeaders(NextResponse.redirect(u), true);
 }
 
-function redirectToOwnPlatformV7Cabinet(req: NextRequest, role: string) {
-  const u = req.nextUrl.clone();
-  u.pathname = ROLE_HOME[role] || ROLE_HOME.operator;
-  u.search = '';
-  return applySecurityHeaders(NextResponse.redirect(u), true);
-}
-
 export function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
@@ -278,10 +256,6 @@ export function middleware(req: NextRequest) {
   if (p.startsWith('/platform-v7')) {
     const isEntry = p === '/platform-v7';
     const seenEntry = req.cookies.get(PLATFORM_V7_ENTRY_COOKIE)?.value === 'true';
-
-    if (p === '/platform-v7/ai' || p.startsWith('/platform-v7/ai/')) {
-      return redirectToOwnPlatformV7Cabinet(req, resolvedRole);
-    }
 
     if (!isEntry && !isPlatformV7PublicPath(p) && !seenEntry) {
       return redirectToPlatformV7Entry(req);
