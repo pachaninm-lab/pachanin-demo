@@ -4,15 +4,17 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  AlertTriangle,
-  ArrowRight,
   Banknote,
-  Compass,
+  Bot,
+  Camera,
+  ClipboardList,
   FileCheck2,
   FlaskConical,
   Gavel,
   Landmark,
   LayoutDashboard,
+  Route,
+  Scale,
   Search,
   ShieldCheck,
   Sparkles,
@@ -23,6 +25,23 @@ import {
 } from 'lucide-react';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { trackGigaChatAsked } from '@/lib/analytics/track';
+
+const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
+
+const ROLE_HOME: Record<PlatformRole, string> = {
+  operator: '/platform-v7/control-tower',
+  buyer: '/platform-v7/buyer',
+  seller: '/platform-v7/seller',
+  logistics: '/platform-v7/logistics',
+  driver: '/platform-v7/driver',
+  surveyor: '/platform-v7/surveyor',
+  elevator: '/platform-v7/elevator',
+  lab: '/platform-v7/lab',
+  bank: '/platform-v7/bank',
+  arbitrator: '/platform-v7/arbitrator',
+  compliance: '/platform-v7/compliance',
+  executive: '/platform-v7/executive',
+};
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
   operator: 'Оператор',
@@ -39,18 +58,17 @@ const ROLE_LABELS: Record<PlatformRole, string> = {
   executive: 'Руководитель',
 };
 
+type SuggestedAction = { label: string; href: string; note: string };
 type RoleAiConfig = {
   title: string;
   subtitle: string;
   promise: string;
   icon: LucideIcon;
   questions: string[];
-  actions: Array<{ label: string; href: string; note: string }>;
+  actions: SuggestedAction[];
   scopes: string[];
   limits: string[];
 };
-
-type SuggestedAction = { label: string; href: string; note: string };
 
 type ResponseModel = {
   headline: string;
@@ -60,335 +78,262 @@ type ResponseModel = {
   actions: SuggestedAction[];
 };
 
+const ALLOWED_PREFIXES: Record<PlatformRole, string[]> = {
+  operator: ['/platform-v7/control-tower', '/platform-v7/deals', '/platform-v7/lots', '/platform-v7/procurement', '/platform-v7/logistics', '/platform-v7/bank', '/platform-v7/disputes', '/platform-v7/compliance', '/platform-v7/executive', '/platform-v7/ai'],
+  buyer: ['/platform-v7/buyer', '/platform-v7/procurement', '/platform-v7/ai'],
+  seller: ['/platform-v7/seller', '/platform-v7/ai'],
+  logistics: ['/platform-v7/logistics', '/platform-v7/ai'],
+  driver: ['/platform-v7/driver', '/platform-v7/ai'],
+  surveyor: ['/platform-v7/surveyor', '/platform-v7/ai'],
+  elevator: ['/platform-v7/elevator', '/platform-v7/ai'],
+  lab: ['/platform-v7/lab', '/platform-v7/ai'],
+  bank: ['/platform-v7/bank', '/platform-v7/ai'],
+  arbitrator: ['/platform-v7/arbitrator', '/platform-v7/ai'],
+  compliance: ['/platform-v7/compliance', '/platform-v7/ai'],
+  executive: ['/platform-v7/executive', '/platform-v7/control-tower', '/platform-v7/deals', '/platform-v7/bank', '/platform-v7/disputes', '/platform-v7/ai'],
+};
+
 const ROLE_AI: Record<PlatformRole, RoleAiConfig> = {
   operator: {
     title: 'Помощник оператора исполнения',
-    subtitle: 'Блокеры, владелец шага, документы, деньги под риском и ручные эскалации.',
-    promise: 'Даёт следующий подтверждённый ход по экрану без неподтверждённых внешних обещаний.',
+    subtitle: 'Блокеры, владелец шага, документы, деньги под риском и эскалации.',
+    promise: 'Берёт на себя только операторский контур: найти блокер, владельца шага и следующий допустимый экран.',
     icon: LayoutDashboard,
-    questions: ['Почему выпуск заблокирован?', 'Кто держит следующий шаг?', 'Каких документов не хватает?', 'Куда идти дальше?'],
+    questions: ['Кто держит следующий шаг?', 'Каких документов не хватает?', 'Где главный блокер?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Control Tower', href: '/platform-v7/control-tower', note: 'Открыть центр управления' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Перейти в реестр сделок' },
+      { label: 'Центр управления', href: '/platform-v7/control-tower', note: 'Открыть очередь блокеров' },
+      { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть реестр исполнения' },
       { label: 'Споры', href: '/platform-v7/disputes', note: 'Открыть спорный контур' },
     ],
-    scopes: ['ответственный / блокер / следующий шаг', 'полнота документов', 'удержание / выпуск / disputes'],
-    limits: ['не рисует подтверждённый внешний контур вместо проверочный контур', 'не подтверждает выплату сам', 'не закрывает спор без регламента'],
+    scopes: ['операторский обзор', 'блокер и ответственный', 'следующий шаг по сделке'],
+    limits: ['не действует от имени банка', 'не действует от имени водителя', 'не подтверждает внешние интеграции'],
   },
   buyer: {
     title: 'Помощник покупателя',
-    subtitle: 'Качество, приёмка, резерв денег и путь до расчёта.',
-    promise: 'Сводит цену риска, качество партии и шаг до банковской проверки выплаты.',
+    subtitle: 'Закупки, качество, приёмка и документы со стороны покупателя.',
+    promise: 'Берёт на себя только контур покупателя: найти закупку, риск поставки и следующий шаг покупателя.',
     icon: Banknote,
-    questions: ['Почему деньги стоят?', 'Что по качественной дельте?', 'Каких документов не хватает?', 'Куда идти дальше?'],
+    questions: ['Что мешает закупке?', 'Что по качеству?', 'Каких документов не хватает?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Кабинет покупателя', href: '/platform-v7/buyer', note: 'Открыть контекст покупателя' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки покупателя' },
-      { label: 'Банк', href: '/platform-v7/bank', note: 'Проверить резерв и выпуск' },
+      { label: 'Кабинет покупателя', href: '/platform-v7/buyer', note: 'Открыть рабочий экран покупателя' },
+      { label: 'Мои закупки', href: '/platform-v7/procurement', note: 'Открыть потребности и предложения' },
     ],
-    scopes: ['резерв / выпуск', 'качество и приёмка', 'обязательные документы'],
-    limits: ['не меняет результат лаборатории', 'не подменяет банковое решение', 'не подтверждает чужие документы'],
+    scopes: ['заявки покупателя', 'качество и приёмка', 'документы покупателя'],
+    limits: ['не открывает банк за покупателя', 'не действует за продавца', 'не идёт в чужие кабинеты'],
   },
   seller: {
     title: 'Помощник продавца',
-    subtitle: 'Документы продавца, удержания, REVIEW и путь к выплате.',
-    promise: 'Показывает, что мешает получить деньги и какой пакет закрыть первым.',
+    subtitle: 'Партии, офферы, документы продавца и следующий шаг по поставке.',
+    promise: 'Берёт на себя только контур продавца: партия, документы и что мешает движению сделки.',
     icon: Wheat,
-    questions: ['Почему лот в REVIEW?', 'Каких документов не хватает?', 'Что нужно для банковской проверки выплаты?', 'Куда идти дальше?'],
+    questions: ['Что мешает партии?', 'Какие документы нужны?', 'Какой следующий шаг продавца?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Кабинет продавца', href: '/platform-v7/seller', note: 'Открыть выплаты и пакет продавца' },
-      { label: 'Лоты', href: '/platform-v7/lots', note: 'Открыть текущие лоты' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки продавца' },
+      { label: 'Кабинет продавца', href: '/platform-v7/seller', note: 'Открыть партии и документы продавца' },
     ],
-    scopes: ['документы продавца', 'удержания и причины стопа', 'следующий подтверждённый шаг'],
-    limits: ['не обещает моментальную оплату', 'не меняет условия задним числом', 'не заменяет ЭДО и КЭП'],
+    scopes: ['партии продавца', 'документы продавца', 'следующий шаг продавца'],
+    limits: ['не действует за покупателя', 'не открывает банк', 'не меняет лабораторный результат'],
   },
   logistics: {
-    title: 'Помощник диспетчера логистики',
-    subtitle: 'Рейс, ожидаемое прибытие, отклонения маршрута, окно разгрузки и транспортные документы.',
-    promise: 'Связывает рейс с деньгами и спорностью сделки.',
+    title: 'Помощник логистики',
+    subtitle: 'Рейсы, перевозчики, маршрут, транспортные документы и отклонения.',
+    promise: 'Берёт на себя только логистический контур: рейс, маршрут, ЭПД и отклонения.',
     icon: Truck,
-    questions: ['Где главный логистический риск?', 'Что по ожидаемое прибытие и окну приёмки?', 'Какие транспортные документы обязательны?', 'Куда идти дальше?'],
+    questions: ['Где рейс?', 'Что по маршруту?', 'Какие транспортные документы нужны?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Логистика', href: '/platform-v7/logistics', note: 'Открыть диспетчерскую' },
-      { label: 'Водитель', href: '/platform-v7/driver', note: 'Перейти в маршрут водителя' },
-      { label: 'Приёмка', href: '/platform-v7/elevator', note: 'Открыть окно разгрузки' },
+      { label: 'Диспетчерская', href: '/platform-v7/logistics', note: 'Открыть рейсы и отклонения' },
     ],
-    scopes: ['маршрут / ожидаемое прибытие / arrival', 'транспортные документы', 'связь с удержание / выпуск'],
-    limits: ['не рисует неподтверждённых внешних GPS', 'не закрывает приёмку без подтверждения', 'не подтверждает выплату без следующих шагов'],
+    scopes: ['рейс', 'маршрут', 'транспортные документы'],
+    limits: ['не действует за водителя', 'не действует за элеватор', 'не открывает банк'],
   },
   driver: {
     title: 'Помощник водителя',
-    subtitle: 'Маршрут, прибытие, фотофиксация и офлайн-очередь событий.',
-    promise: 'Даёт один понятный следующий шаг по рейсу.',
+    subtitle: 'Маршрут, прибытие, фотофиксация и полевые события.',
+    promise: 'Берёт на себя только контур водителя: один понятный следующий шаг по рейсу.',
     icon: User,
-    questions: ['Что делать после прибытия?', 'Какие события надо зафиксировать?', 'Почему рейс держит следующий шаг?', 'Куда идти дальше?'],
+    questions: ['Что делать после прибытия?', 'Какие события зафиксировать?', 'Что нажать дальше?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Маршрут', href: '/platform-v7/driver', note: 'Открыть маршрут' },
-      { label: 'Логистика', href: '/platform-v7/logistics', note: 'Открыть диспетчерскую' },
-      { label: 'Сделка', href: '/platform-v7/deals/DL-9103', note: 'Открыть связанную сделку' },
+      { label: 'Мой маршрут', href: '/platform-v7/driver', note: 'Вернуться к маршруту водителя' },
     ],
-    scopes: ['arrival / unload / queue', 'обязательные фото и чеки', 'офлайн-события'],
-    limits: ['не требует лишних полей', 'не меняет рейс без подтверждения', 'не даёт финансовых обещаний'],
+    scopes: ['маршрут', 'прибытие', 'фото и события'],
+    limits: ['не открывает логистику', 'не открывает элеватор', 'не открывает сделку или банк'],
   },
   surveyor: {
     title: 'Помощник сюрвейера',
-    subtitle: 'Пакет доказательств, фото, акт осмотра и спорный контур.',
-    promise: 'Подсказывает, чего не хватает dispute pack.',
+    subtitle: 'Осмотр, факты, фото, акт и доказательный пакет.',
+    promise: 'Берёт на себя только контур сюрвейера: какие факты и доказательства собрать.',
     icon: Search,
-    questions: ['Какой пакет доказательств обязателен?', 'Что приложить к спору?', 'Кто владелец кейса сейчас?', 'Куда идти дальше?'],
+    questions: ['Какие факты собрать?', 'Что приложить к акту?', 'Чего не хватает?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Назначения', href: '/platform-v7/surveyor', note: 'Открыть текущие назначения' },
-      { label: 'Споры', href: '/platform-v7/disputes', note: 'Открыть контур спора' },
+      { label: 'Мои назначения', href: '/platform-v7/surveyor', note: 'Открыть осмотр и фиксацию фактов' },
     ],
-    scopes: ['доказательства / фото / видео', 'следующий владелец', 'денежное влияние'],
-    limits: ['не решает спор вместо арбитра', 'не меняет цену сам', 'не редактирует чужие факты'],
+    scopes: ['осмотр', 'фото', 'акт'],
+    limits: ['не решает спор за арбитра', 'не меняет цену', 'не действует за лабораторию'],
   },
   elevator: {
     title: 'Помощник приёмки',
-    subtitle: 'Окна разгрузки, очередь, вес, акт приёмки и готовность к лаборатории.',
-    promise: 'Подсказывает, какой факт должен быть зафиксирован сейчас.',
-    icon: Compass,
-    questions: ['Что подтвердить на приёмке?', 'Какие акты обязательны?', 'Что по очереди?', 'Куда идти дальше?'],
+    subtitle: 'Очередь, вес, выгрузка, акты и факт приёмки.',
+    promise: 'Берёт на себя только контур элеватора: какой факт приёмки зафиксировать сейчас.',
+    icon: Scale,
+    questions: ['Что подтвердить на приёмке?', 'Что по весу?', 'Какой акт нужен?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Приёмка', href: '/platform-v7/elevator', note: 'Открыть контур разгрузки' },
-      { label: 'Лаборатория', href: '/platform-v7/lab', note: 'Перейти к пробе и качеству' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки приёмки' },
+      { label: 'Приёмка', href: '/platform-v7/elevator', note: 'Открыть вес, очередь и акты' },
     ],
-    scopes: ['въезд / очередь / выгрузка', 'вес и акты', 'переход в лабораторию'],
-    limits: ['не подтверждает деньги', 'не меняет коммерческие условия', 'не скрывает расхождения по весу'],
+    scopes: ['очередь', 'вес', 'акт приёмки'],
+    limits: ['не открывает лабораторию', 'не открывает сделки', 'не действует за банк'],
   },
   lab: {
     title: 'Помощник лаборатории',
-    subtitle: 'Проба, протокол, повторный анализ и качественная дельта.',
-    promise: 'Связывает результат анализа со спором или выпуском денег.',
+    subtitle: 'Проба, качество, протокол, повторный анализ и дельта.',
+    promise: 'Берёт на себя только лабораторный контур: проба, протокол и влияние качества.',
     icon: FlaskConical,
-    questions: ['Что по качественной дельте?', 'Нужен ли повторный анализ?', 'Что передать в спор?', 'Куда идти дальше?'],
+    questions: ['Что по качеству?', 'Нужен ли повторный анализ?', 'Что указать в протоколе?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Лаборатория', href: '/platform-v7/lab', note: 'Открыть пробы и протоколы' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки с качеством' },
-      { label: 'Споры', href: '/platform-v7/disputes', note: 'Перейти в спорный контур' },
+      { label: 'Пробы и протоколы', href: '/platform-v7/lab', note: 'Открыть лабораторный контур' },
     ],
-    scopes: ['проба / протокол / версия', 'повторный анализ', 'влияние на расчёт'],
-    limits: ['не подтверждает выплату сам', 'не закрывает спор без процедуры', 'не подменяет независимый осмотр'],
+    scopes: ['проба', 'качество', 'протокол'],
+    limits: ['не открывает споры', 'не открывает сделки', 'не действует за элеватор'],
   },
   bank: {
     title: 'Помощник банка',
-    subtitle: 'Резерв, удержание, события банка, выпуск и конфликт статусов.',
-    promise: 'Показывает, какой банковый шаг допустим следующим.',
+    subtitle: 'Банковское основание, факторинг, эскроу, удержания и события.',
+    promise: 'Берёт на себя только банковский контур: проверить основание, статус и допустимый следующий банковский шаг.',
     icon: Landmark,
-    questions: ['Почему удержание не снят?', 'Что нужно для выпуск?', 'Есть ли конфликт событие банка?', 'Куда идти дальше?'],
+    questions: ['Что мешает основанию?', 'Что по факторингу?', 'Что по эскроу?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Банковый контур', href: '/platform-v7/bank', note: 'Открыть основание / удержание / выпуск' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки с резервом' },
-      { label: 'Удержания', href: '/platform-v7/disputes', note: 'Открыть спорные удержания' },
+      { label: 'Банковское основание', href: '/platform-v7/bank', note: 'Открыть банковский экран' },
+      { label: 'Факторинг', href: '/platform-v7/bank/factoring', note: 'Открыть факторинг' },
+      { label: 'Эскроу', href: '/platform-v7/bank/escrow', note: 'Открыть эскроу' },
     ],
-    scopes: ['основание / удержание / выпуск', 'события банка и mismatch', 'документы для банка'],
-    limits: ['не подменяет банковую систему', 'не даёт фальшивый подтверждённый внешний контур-proof', 'не проводит платёж без правил'],
+    scopes: ['основание', 'факторинг', 'эскроу'],
+    limits: ['не действует за оператора', 'не открывает сделки вне банковского контура', 'не обещает проведение платежа'],
   },
   arbitrator: {
     title: 'Помощник арбитра',
-    subtitle: 'Основание спора, пакет доказательств, сумма влияния и следующий ответственный.',
-    promise: 'Собирает dispute pack в одну картину.',
+    subtitle: 'Комната разбора, доказательства, позиция сторон и решение по регламенту.',
+    promise: 'Берёт на себя только контур арбитра: собрать доказательства и следующий шаг разбора.',
     icon: Gavel,
-    questions: ['Что входит в dispute pack?', 'Каких доказательств не хватает?', 'Кто владелец спора?', 'Что нужно для закрытия спора?'],
+    questions: ['Какие доказательства нужны?', 'Что мешает решению?', 'Кто должен ответить?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Арбитр', href: '/platform-v7/arbitrator', note: 'Открыть арбитражный контур' },
-      { label: 'Споры', href: '/platform-v7/disputes', note: 'Открыть реестр споров' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки со спором' },
+      { label: 'Комнаты разбора', href: '/platform-v7/arbitrator', note: 'Открыть арбитражный контур' },
     ],
-    scopes: ['основание и сумма спора', 'цепочка доказательств', 'следующий ответственный / срок реакции'],
-    limits: ['не обещает автоматическое решение', 'не меняет документы задним числом', 'не скрывает открытые блокеры'],
+    scopes: ['разбор', 'доказательства', 'решение по регламенту'],
+    limits: ['не меняет документы задним числом', 'не действует за банк', 'не закрывает спор без регламента'],
   },
   compliance: {
     title: 'Помощник комплаенса',
-    subtitle: 'Допуск, полномочия, stop-флаги и readiness обязательного пакета.',
-    promise: 'Помогает не открыть риск раньше времени.',
+    subtitle: 'Допуск, полномочия, стоп-факторы, документы и риск.',
+    promise: 'Берёт на себя только комплаенс-контур: допуск, риск и стоп-факторы.',
     icon: ShieldCheck,
-    questions: ['Что мешает допуску?', 'Каких полномочий не хватает?', 'Где стоп-флаг?', 'Куда идти дальше?'],
+    questions: ['Что мешает допуску?', 'Каких полномочий не хватает?', 'Где стоп-фактор?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Комплаенс', href: '/platform-v7/compliance', note: 'Открыть допуск и стоп-флаги' },
-      { label: 'Интеграции', href: '/platform-v7/connectors', note: 'Открыть readiness интеграций' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Открыть сделки под контролем' },
+      { label: 'Комплаенс', href: '/platform-v7/compliance', note: 'Открыть допуск и риски' },
     ],
-    scopes: ['допуск и полномочия', 'обязательные документы', 'граница зрелости'],
-    limits: ['не выдаёт проверочный контур за подтверждённый внешний контур', 'не заменяет юриста по конкретному кейсу', 'не закрывает AML/KYC за банк'],
+    scopes: ['допуск', 'полномочия', 'стоп-факторы'],
+    limits: ['не действует за банк', 'не открывает сделки', 'не закрывает AML/KYC за внешнюю сторону'],
   },
   executive: {
     title: 'Помощник руководителя',
-    subtitle: 'Деньги под риском, топ-блокеры, срыв пилота и прогресс контура.',
-    promise: 'Собирает управленческую картину без воды.',
+    subtitle: 'Сводка, деньги под риском, топ-блокеры и здоровье пилота.',
+    promise: 'Берёт на себя только управленческий контур: сводка, риски и следующий критический шаг.',
     icon: Sparkles,
-    questions: ['Где главный риск пилота?', 'Какие деньги под риском?', 'Что мешает следующему шагу?', 'Куда идти дальше?'],
+    questions: ['Где главный риск?', 'Какие деньги под риском?', 'Что мешает следующему шагу?', 'Куда идти дальше?'],
     actions: [
-      { label: 'Сводка', href: '/platform-v7/executive', note: 'Открыть сводку руководителя' },
-      { label: 'Control Tower', href: '/platform-v7/control-tower', note: 'Открыть операционный центр' },
-      { label: 'Банк', href: '/platform-v7/bank', note: 'Открыть деньги и удержание' },
+      { label: 'Сводка', href: '/platform-v7/executive', note: 'Открыть управленческий экран' },
+      { label: 'Центр управления', href: '/platform-v7/control-tower', note: 'Открыть операционную картину' },
+      { label: 'Банковское основание', href: '/platform-v7/bank', note: 'Открыть денежный контур' },
     ],
-    scopes: ['pilot health', 'деньги под риском', 'следующий критический шаг'],
-    limits: ['не скрывает незакрытые блокеры', 'не рисует proof без сделок', 'не завышает зрелость'],
+    scopes: ['управленческая сводка', 'деньги под риском', 'топ-блокеры'],
+    limits: ['не действует за участника сделки', 'не скрывает блокеры', 'не завышает зрелость'],
   },
 };
 
-function buildAiHref(from: string, role: PlatformRole, question?: string) {
-  const params = new URLSearchParams();
-  params.set('from', from);
-  params.set('role', role);
-  if (question) params.set('q', question);
-  return `/platform-v7/ai?${params.toString()}`;
+function readActiveRole(fallback: PlatformRole): PlatformRole {
+  if (typeof window === 'undefined') return fallback;
+  const stored = window.sessionStorage.getItem(ACTIVE_ROLE_KEY) as PlatformRole | null;
+  return stored && ROLE_HOME[stored] ? stored : fallback;
+}
+
+function allowedForRole(role: PlatformRole, href: string) {
+  const path = href.split('?')[0].replace(/\/$/, '');
+  return (ALLOWED_PREFIXES[role] ?? []).some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
+
+function filterActions(role: PlatformRole, actions: SuggestedAction[]) {
+  return actions.filter((action) => allowedForRole(role, action.href));
 }
 
 function screenLabel(from: string) {
   if (!from) return 'Текущий экран';
   if (from.includes('/control-tower')) return 'Control Tower';
-  if (from.includes('/deals/')) return 'Карточка сделки';
-  if (from.includes('/deals')) return 'Реестр сделок';
-  if (from.includes('/lots/create')) return 'Создание лота';
-  if (from.includes('/lots/')) return 'Карточка лота';
-  if (from.includes('/lots')) return 'Реестр лотов';
-  if (from.includes('/bank')) return 'Банковый контур';
-  if (from.includes('/disputes')) return 'Контур спора';
+  if (from.includes('/bank')) return 'Банковский контур';
   if (from.includes('/driver')) return 'Маршрут водителя';
   if (from.includes('/logistics')) return 'Логистика';
   if (from.includes('/seller')) return 'Кабинет продавца';
   if (from.includes('/buyer')) return 'Кабинет покупателя';
   if (from.includes('/elevator')) return 'Приёмка';
   if (from.includes('/lab')) return 'Лаборатория';
+  if (from.includes('/surveyor')) return 'Сюрвейер';
+  if (from.includes('/arbitrator')) return 'Арбитр';
   if (from.includes('/compliance')) return 'Комплаенс';
   if (from.includes('/executive')) return 'Сводка руководителя';
   return from.replace('/platform-v7/', '').replaceAll('/', ' → ');
 }
 
-function dealIdFromPath(from: string) {
-  const match = from.match(/\/deals\/([^/?#]+)/);
-  return match?.[1] ?? null;
-}
-
-function disputeIdFromPath(from: string) {
-  const match = from.match(/\/disputes\/([^/?#]+)/);
-  return match?.[1] ?? null;
+function safeFrom(role: PlatformRole, from: string) {
+  return allowedForRole(role, from) ? from : ROLE_HOME[role];
 }
 
 function inferQuery(question: string | null, role: PlatformRole, from: string) {
   return question?.trim() || ROLE_AI[role].questions[0] || `Что делать дальше на экране ${screenLabel(from)}?`;
 }
 
-function buildSuggestedActions(role: PlatformRole, question: string, from: string): SuggestedAction[] {
-  const lower = question.toLowerCase();
+function buildSuggestedActions(role: PlatformRole): SuggestedAction[] {
   const config = ROLE_AI[role] || ROLE_AI.operator;
-  const dealId = dealIdFromPath(from);
-  const disputeId = disputeIdFromPath(from);
-
-  if ((lower.includes('документ') || lower.includes('пакет')) && dealId) {
-    return [
-      { label: `Документы ${dealId}`, href: `/platform-v7/deals/${dealId}/documents`, note: 'Открыть обязательный пакет по сделке' },
-      { label: `Review ${dealId}`, href: `/platform-v7/deals/${dealId}/review`, note: 'Проверить блокер и качество по сделке' },
-      { label: 'Документы', href: '/platform-v7/documents', note: 'Открыть общий контур документов' },
-    ];
-  }
-
-  if ((lower.includes('выпуск') || lower.includes('выпуск') || lower.includes('деньг') || lower.includes('удержание')) && dealId) {
-    return [
-      { label: `Сделка ${dealId}`, href: `/platform-v7/deals/${dealId}`, note: 'Открыть ответственный, блокер и денежный статус' },
-      { label: 'Банк', href: '/platform-v7/bank', note: 'Проверить основание / удержание / выпуск' },
-      { label: disputeId ? `Спор ${disputeId}` : 'Споры', href: disputeId ? `/platform-v7/disputes/${disputeId}` : '/platform-v7/disputes', note: 'Открыть спор или удержание' },
-    ];
-  }
-
-  if ((lower.includes('кто ') || lower.includes('владел')) && dealId) {
-    return [
-      { label: `Сделка ${dealId}`, href: `/platform-v7/deals/${dealId}`, note: 'Открыть текущего ответственный и блокер' },
-      { label: 'Control Tower', href: '/platform-v7/control-tower', note: 'Посмотреть очередь и эскалации' },
-      { label: 'Споры', href: '/platform-v7/disputes', note: 'Проверить, не держит ли шаг спор' },
-    ];
-  }
-
-  if (from.includes('/driver') || role === 'driver') {
-    return [
-      { label: 'Маршрут', href: '/platform-v7/driver', note: 'Вернуться к текущему рейсу' },
-      { label: 'Логистика', href: '/platform-v7/logistics', note: 'Открыть диспетчерскую и ожидаемое прибытие' },
-      { label: 'Приёмка', href: '/platform-v7/elevator', note: 'Открыть окно разгрузки' },
-    ];
-  }
-
-  if (from.includes('/logistics') || role === 'logistics') {
-    return [
-      { label: 'Логистика', href: '/platform-v7/logistics', note: 'Открыть рейсы и отклонения' },
-      { label: 'Водитель', href: '/platform-v7/driver', note: 'Перейти к полевому контуру' },
-      { label: 'Приёмка', href: '/platform-v7/elevator', note: 'Открыть окно приёмки' },
-    ];
-  }
-
-  if (from.includes('/bank') || role === 'bank') {
-    return [
-      { label: 'Банк', href: '/platform-v7/bank', note: 'Открыть основание / удержание / выпуск' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Проверить сделки, влияющие на деньги' },
-      { label: 'Споры', href: '/platform-v7/disputes', note: 'Проверить спорные удержания' },
-    ];
-  }
-
-  if (from.includes('/disputes') || role === 'arbitrator' || role === 'surveyor') {
-    return [
-      { label: disputeId ? `Спор ${disputeId}` : 'Споры', href: disputeId ? `/platform-v7/disputes/${disputeId}` : '/platform-v7/disputes', note: 'Открыть dispute pack и ответственный' },
-      { label: 'Арбитр', href: '/platform-v7/arbitrator', note: 'Перейти в арбитражный контур' },
-      { label: 'Сделки', href: '/platform-v7/deals', note: 'Проверить связанную сделку' },
-    ];
-  }
-
-  return config.actions;
+  return filterActions(role, config.actions);
 }
 
 function buildResponse(role: PlatformRole, question: string, from: string): ResponseModel {
   const lower = question.toLowerCase();
   const roleLabel = ROLE_LABELS[role];
   const screen = screenLabel(from);
-  const actions = buildSuggestedActions(role, question, from);
+  const actions = buildSuggestedActions(role);
+  const roleBoundary = `Помощник работает только в роли «${roleLabel}». Он не открывает чужие кабинеты и не выполняет действия другой стороны сделки.`;
 
-  if (lower.includes('документ') || lower.includes('пакет')) {
+  if (lower.includes('документ') || lower.includes('пакет') || lower.includes('акт')) {
     return {
-      headline: 'Фокус на полноте пакета',
-      summary: `Помощник в роли «${roleLabel}» сначала проверяет обязательный пакет для экрана «${screen}», затем ищет, какой документ держит следующий переход и влияет ли это на деньги или спор.`,
-      sources: ['document completeness', 'ответственный / следующий шаг', 'bank / dispute dependency'],
-      steps: ['Открой обязательный пакет по объекту.', 'Сними разрыв: кто должен загрузить или подписать следующий документ.', 'Проверь, откроет ли это выпуск или только снимет REVIEW.'],
+      headline: 'Фокус на пакете своей роли',
+      summary: `${roleBoundary} На экране «${screen}» он проверяет только документы и факты, доступные этой роли.`,
+      sources: ['role scope', 'document readiness', 'next allowed action'],
+      steps: ['Открой рабочий экран своей роли.', 'Проверь обязательный факт или документ.', 'Вернись в ИИ, если нужен следующий разрешённый шаг.'],
       actions,
     };
   }
 
-  if (lower.includes('выпуск') || lower.includes('выпуск') || lower.includes('деньг') || lower.includes('удержание')) {
+  if (lower.includes('деньг') || lower.includes('удерж') || lower.includes('основан') || lower.includes('банк')) {
     return {
-      headline: 'Фокус на деньгах и блокерах',
-      summary: `Помощник проверяет основание / удержание / выпуск, затем спорность и полноту документов. На экране «${screen}» он не обещает выпуск, если контур ещё держит удержание или ручная проверка.`,
-      sources: ['основание / удержание / выпуск', 'событие банка / mismatch', 'docs / качества / спора'],
-      steps: ['Проверь, есть ли удержание или ручной блокер.', 'Сверь, закрыт ли качества / спора контур.', 'Переходи в банковый или спорный экран, который меняет статус, а не просто показывает его.'],
+      headline: 'Фокус на доступной роли части денежного контура',
+      summary: `${roleBoundary} Если текущая роль не банковская и не управленческая, помощник объясняет влияние на сделку, но не ведёт в банковский кабинет.`,
+      sources: ['role scope', 'allowed route by role', 'money impact without role leakage'],
+      steps: ['Проверь свой экран роли.', 'Зафиксируй доступный факт.', 'Не переходи в чужой денежный контур без соответствующей роли.'],
       actions,
     };
   }
 
-  if (lower.includes('кто ') || lower.includes('владел')) {
+  if (lower.includes('куда') || lower.includes('дальше') || lower.includes('что делать') || lower.includes('следующ')) {
     return {
-      headline: 'Фокус на ответственный и срок реакции',
-      summary: `Помощник в роли «${roleLabel}» отвечает через ответственный текущего шага: кто держит переход, почему именно он и что должно произойти до передачи следующему владельцу.`,
-      sources: ['ответственный / срок реакции / следующий шаг', 'current блокер', 'логика передачи шага'],
-      steps: ['Сначала открой текущего ответственный.', 'Потом проверь, что именно он должен подтвердить.', 'Только после этого переходи к деньгам, спору или документам.'],
-      actions,
-    };
-  }
-
-  if (lower.includes('куда') || lower.includes('дальше') || lower.includes('что делать')) {
-    return {
-      headline: 'Фокус на следующем ходе',
-      summary: `Помощник строит маршрут для роли «${roleLabel}»: что открыто на экране «${screen}», какой шаг следующий и в какой экран надо перейти сразу после него.`,
-      sources: ['current screen context', 'следующий шаг', 'allowed route by role'],
-      steps: ['Открой самый близкий к money / dispute / docs экран.', 'Сними первый подтверждаемый блокер.', 'Вернись в сделку и проверь, изменился ли ответственный следующего шага.'],
+      headline: 'Фокус на следующем разрешённом ходе',
+      summary: `${roleBoundary} Следующий ход строится только из разрешённых экранов роли и её нижней панели.`,
+      sources: ['active role', 'role home', 'allowed action set'],
+      steps: ['Нажми главное действие своей роли.', 'Закрой ближайший доступный блокер.', 'Используй меню роли, если нужно больше функций.'],
       actions,
     };
   }
 
   return {
-    headline: 'Фокус на текущем экране и роли',
-    summary: `Помощник даёт ответ только в контексте роли «${roleLabel}» и экрана «${screen}»: что видно сейчас, какой блокер главный и какой следующий ход даст движение без потери доказательности.`,
-    sources: ['screen context', 'role scope', 'блокер / следующий шаг / money impact'],
-    steps: ['Уточни главный блокер.', 'Спроси, кто следующий ответственный.', 'Перейди в экран, который меняет статус, а не просто показывает его.'],
+    headline: 'Фокус на текущей роли',
+    summary: `${roleBoundary} На экране «${screen}» он подсказывает только то, что может выполнить текущий ЛК.`,
+    sources: ['active role lock', 'role-specific assistant config', 'safe action filter'],
+    steps: ['Оставайся в своём кабинете.', 'Используй ИИ для следующего шага именно этой роли.', 'Все остальные функции открывай через безопасное меню роли.'],
     actions,
   };
 }
@@ -396,16 +341,22 @@ function buildResponse(role: PlatformRole, question: string, from: string): Resp
 export default function PlatformV7AiPage() {
   const searchParams = useSearchParams();
   const storeRole = usePlatformV7RStore((state) => state.role);
-  const role = ((searchParams.get('role') as PlatformRole) || storeRole || 'operator') as PlatformRole;
-  const from = searchParams.get('from') || '/platform-v7/control-tower';
-  const question = inferQuery(searchParams.get('q'), role, from);
-  const config = ROLE_AI[role] || ROLE_AI.operator;
-  const Icon = config.icon;
-  const response = buildResponse(role, question, from);
+  const [activeRole, setActiveRole] = React.useState<PlatformRole>(storeRole || 'operator');
 
   React.useEffect(() => {
-    trackGigaChatAsked(`${role}:${from}:${question}`);
-  }, [role, from, question]);
+    setActiveRole(readActiveRole(storeRole || 'operator'));
+  }, [storeRole]);
+
+  const unsafeFrom = searchParams.get('from') || ROLE_HOME[activeRole];
+  const from = safeFrom(activeRole, unsafeFrom);
+  const question = inferQuery(searchParams.get('q'), activeRole, from);
+  const config = ROLE_AI[activeRole] || ROLE_AI.operator;
+  const Icon = config.icon;
+  const response = buildResponse(activeRole, question, from);
+
+  React.useEffect(() => {
+    trackGigaChatAsked(`${activeRole}:${from}:${question}`);
+  }, [activeRole, from, question]);
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -417,110 +368,73 @@ export default function PlatformV7AiPage() {
             </div>
             <div style={{ display: 'grid', gap: 6 }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 999, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-secondary)', fontSize: 11, fontWeight: 800, width: 'fit-content' }}>
-                <Sparkles size={14} strokeWidth={2.1} /> Помощник по роли
+                <Bot size={14} strokeWidth={2.1} /> ИИ-помощник роли
               </div>
               <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--pc-text-primary)' }}>{config.title}</div>
               <div style={{ fontSize: 13, color: 'var(--pc-text-secondary)', lineHeight: 1.6, maxWidth: 920 }}>{config.subtitle}</div>
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, background: 'var(--pc-accent-bg)', border: '1px solid var(--pc-accent-border)', color: 'var(--pc-accent-strong)', fontSize: 12, fontWeight: 800 }}>
-            {ROLE_LABELS[role]} · {screenLabel(from)}
+            {ROLE_LABELS[activeRole]} · {screenLabel(from)}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
-          <div style={{ background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Контекст</div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--pc-text-primary)' }}>{screenLabel(from)}</div>
-            <div style={{ fontSize: 12, color: 'var(--pc-text-secondary)', lineHeight: 1.55 }}>{config.promise}</div>
-          </div>
-          <div style={{ background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Граница</div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary)' }}>Только подтверждённый контур</div>
-            <div style={{ fontSize: 12, color: 'var(--pc-text-secondary)', lineHeight: 1.55 }}>Помощник не рисует подтверждённый внешний контур там, где проверочный контур, не подтверждает выплату сам и не подменяет юридический или банковый контур.</div>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          <InfoCard title="Граница роли" value={config.promise} />
+          <InfoCard title="Что можно" value={config.scopes.join(' · ')} />
+          <InfoCard title="Что нельзя" value={config.limits.join(' · ')} />
         </div>
       </section>
 
       <section style={{ background: 'var(--pc-shell-surface)', border: '1px solid var(--pc-border)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 14 }}>
-        <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Текущий запрос</div>
-        <div style={{ padding: '14px 16px', borderRadius: 18, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', display: 'grid', gap: 12 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary)' }}>
-            <Search size={16} strokeWidth={2.1} /> {question}
-          </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--pc-text-primary)' }}>{response.headline}</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-secondary)', lineHeight: 1.7 }}>{response.summary}</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {response.sources.map((item) => (
-              <span key={item} style={{ display: 'inline-flex', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'var(--pc-bg-elevated)', border: '1px solid var(--pc-border)', fontSize: 11, fontWeight: 800, color: 'var(--pc-text-primary)' }}>{item}</span>
-            ))}
-          </div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {response.steps.map((item, index) => (
-              <div key={item} style={{ display: 'grid', gridTemplateColumns: '28px minmax(0, 1fr)', gap: 10, alignItems: 'start' }}>
-                <div style={{ width: 28, height: 28, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'var(--pc-accent-bg)', border: '1px solid var(--pc-accent-border)', color: 'var(--pc-accent)', fontSize: 12, fontWeight: 900 }}>{index + 1}</div>
-                <div style={{ fontSize: 13, color: 'var(--pc-text-secondary)', lineHeight: 1.6 }}>{item}</div>
-              </div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--pc-text-primary)' }}>{response.headline}</div>
+          <div style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--pc-text-secondary)' }}>{response.summary}</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <ListCard title="Опора ответа" items={response.sources} />
+          <ListCard title="Что сделать" items={response.steps} />
+        </div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Разрешённые действия</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {response.actions.map((action) => (
+              <Link key={action.href} href={action.href} style={{ display: 'grid', gap: 4, minWidth: 180, textDecoration: 'none', padding: '12px 14px', borderRadius: 16, border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface-soft)', color: 'var(--pc-text-primary)' }}>
+                <strong style={{ fontSize: 13 }}>{action.label}</strong>
+                <span style={{ fontSize: 11, color: 'var(--pc-text-muted)', lineHeight: 1.35 }}>{action.note}</span>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
-      <section style={{ background: 'var(--pc-shell-surface)', border: '1px solid var(--pc-border)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 14 }}>
-        <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Куда перейти сейчас</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-          {response.actions.map((action) => (
-            <Link key={`${action.href}-${action.label}`} href={action.href} style={{ display: 'grid', gap: 6, padding: '14px 16px', borderRadius: 16, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', textDecoration: 'none' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary)' }}>{action.label}</span>
-                <ArrowRight size={16} strokeWidth={2.1} color='var(--pc-accent)' />
-              </div>
-              <span style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--pc-text-secondary)' }}>{action.note}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-        <section style={{ background: 'var(--pc-shell-surface)', border: '1px solid var(--pc-border)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Что помощник реально делает</div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {config.scopes.map((item) => (
-              <div key={item} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 14, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)' }}>
-                <FileCheck2 size={16} strokeWidth={2.1} color='var(--pc-accent)' />
-                <div style={{ fontSize: 13, color: 'var(--pc-text-secondary)' }}>{item}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section style={{ background: 'var(--pc-shell-surface)', border: '1px solid var(--pc-border)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Что помощник не обещает</div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {config.limits.map((item) => (
-              <div key={item} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 14, background: 'rgba(255,139,144,0.08)', border: '1px solid rgba(255,139,144,0.18)' }}>
-                <AlertTriangle size={16} strokeWidth={2.1} color='var(--pc-danger)' />
-                <div style={{ fontSize: 13, color: 'var(--pc-text-secondary)' }}>{item}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <section style={{ background: 'var(--pc-shell-surface)', border: '1px solid var(--pc-border)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 14 }}>
-        <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Быстрые вопросы</div>
+      <section style={{ background: 'var(--pc-shell-surface)', border: '1px solid var(--pc-border)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--pc-text-primary)' }}>Быстрые вопросы своей роли</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {config.questions.map((item) => (
-            <Link
-              key={item}
-              href={buildAiHref(from, role, item)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 999, background: 'var(--pc-bg-elevated)', border: '1px solid var(--pc-accent-border)', color: 'var(--pc-accent)', textDecoration: 'none', fontSize: 12, fontWeight: 800 }}
-            >
-              <Search size={14} strokeWidth={2.1} /> {item}
-            </Link>
-          ))}
+          {config.questions.map((item) => {
+            const params = new URLSearchParams();
+            params.set('from', from);
+            params.set('q', item);
+            return <Link key={item} href={`/platform-v7/ai?${params.toString()}`} style={{ textDecoration: 'none', padding: '8px 10px', borderRadius: 999, border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface-soft)', color: 'var(--pc-text-secondary)', fontSize: 12, fontWeight: 800 }}>{item}</Link>;
+          })}
         </div>
       </section>
     </div>
   );
+}
+
+function InfoCard({ title, value }: { title: string; value: string }) {
+  return <div style={{ background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 8 }}>
+    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</div>
+    <div style={{ fontSize: 13, color: 'var(--pc-text-secondary)', lineHeight: 1.55 }}>{value}</div>
+  </div>;
+}
+
+function ListCard({ title, items }: { title: string; items: string[] }) {
+  return <div style={{ background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 8 }}>
+    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</div>
+    <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--pc-text-secondary)', fontSize: 13, lineHeight: 1.6 }}>
+      {items.map((item) => <li key={item}>{item}</li>)}
+    </ul>
+  </div>;
 }
