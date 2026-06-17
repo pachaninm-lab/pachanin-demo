@@ -1,17 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { AppShellV4 } from '@/components/v7r/AppShellV4';
-import { ToastProvider } from '@/components/v7r/Toast';
-import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
-import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
-import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
-import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
-import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
-import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
-import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
-import { CommandPalette } from '@/components/platform-v7/CommandPalette';
-import { PublicEntryCleanup } from '@/components/platform-v7/PublicEntryCleanup';
+import { PlatformV7LayoutClient } from '@/components/platform-v7/PlatformV7LayoutClient';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -53,14 +43,6 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   const headerStore = await headers();
   const rawRole = headerStore.get('x-pc-role');
   const initialRole: PlatformRole = rawRole && VALID_ROLES.has(rawRole as PlatformRole) ? (rawRole as PlatformRole) : 'operator';
-  return (
-    <ToastProvider>
-      <PlatformThemeSync />
-      <ShellCopyNormalizer />
-      <PublicEntryCleanup />
-      <AppShellV4 initialRole={initialRole}>
-        <><ScopedShellGuard /><PlatformV7SingleEntryGuard /><PlatformV7ShellUxController /><RbacCabinetGuard /><ShellCopyNormalizer /><SupportHeaderIcon /><CommandPalette />{children}</>
-      </AppShellV4>
-    </ToastProvider>
-  );
+
+  return <PlatformV7LayoutClient initialRole={initialRole}>{children}</PlatformV7LayoutClient>;
 }
