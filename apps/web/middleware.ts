@@ -49,6 +49,7 @@ const PRIVATE_REALM = 'Prozrachnaya Cena Private';
 
 const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7',
+  '/platform-v7/roles',
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
@@ -58,6 +59,21 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
 ]);
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
+
+const ROLE_HOME: Record<string, string> = {
+  operator: '/platform-v7/control-tower',
+  buyer: '/platform-v7/buyer',
+  seller: '/platform-v7/seller',
+  logistics: '/platform-v7/logistics',
+  driver: '/platform-v7/driver',
+  surveyor: '/platform-v7/surveyor',
+  elevator: '/platform-v7/elevator',
+  lab: '/platform-v7/lab',
+  bank: '/platform-v7/bank',
+  arbitrator: '/platform-v7/arbitrator',
+  compliance: '/platform-v7/compliance',
+  executive: '/platform-v7/executive',
+};
 
 function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
@@ -178,30 +194,10 @@ function parseSession(raw: string | undefined): { role: string; exp: number } | 
   return null;
 }
 
-function resolvePlatformV7PathRole(pathname: string): string | null {
-  if (pathname.startsWith('/platform-v7/driver')) return 'driver';
-  if (pathname.startsWith('/platform-v7/surveyor')) return 'surveyor';
-  if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
-  if (pathname.startsWith('/platform-v7/lab')) return 'lab';
-  if (pathname.startsWith('/platform-v7/bank')) return 'bank';
-  if (pathname.startsWith('/platform-v7/arbitrator') || pathname.startsWith('/platform-v7/disputes')) return 'arbitrator';
-  if (pathname.startsWith('/platform-v7/compliance') || pathname.startsWith('/platform-v7/connectors')) return 'compliance';
-  if (pathname.startsWith('/platform-v7/buyer') || pathname.startsWith('/platform-v7/procurement')) return 'buyer';
-  if (pathname.startsWith('/platform-v7/seller') || pathname.startsWith('/platform-v7/lots')) return 'seller';
-  if (pathname.startsWith('/platform-v7/logistics')) return 'logistics';
-  if (pathname.startsWith('/platform-v7/executive') || pathname.startsWith('/platform-v7/analytics')) return 'executive';
-  if (pathname.startsWith('/platform-v7/control-tower') || pathname.startsWith('/platform-v7/operator')) return 'operator';
-  return null;
-}
-
 function resolveRole(req: NextRequest, sessionRole?: string | null) {
-  const pathRole = resolvePlatformV7PathRole(req.nextUrl.pathname);
-  if (pathRole && VALID_ROLES.has(pathRole)) return pathRole;
   if (sessionRole && VALID_ROLES.has(sessionRole)) return sessionRole;
   const cookieRole = req.cookies.get('pc-role')?.value;
   if (cookieRole && VALID_ROLES.has(cookieRole)) return cookieRole;
-  const queryRole = req.nextUrl.searchParams.get('as');
-  if (queryRole && VALID_ROLES.has(queryRole)) return queryRole;
   return 'operator';
 }
 
@@ -242,6 +238,13 @@ function redirectToPlatformV7Entry(req: NextRequest) {
   return applySecurityHeaders(NextResponse.redirect(u), true);
 }
 
+function redirectToOwnPlatformV7Cabinet(req: NextRequest, role: string) {
+  const u = req.nextUrl.clone();
+  u.pathname = ROLE_HOME[role] || ROLE_HOME.operator;
+  u.search = '';
+  return applySecurityHeaders(NextResponse.redirect(u), true);
+}
+
 export function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
@@ -275,6 +278,11 @@ export function middleware(req: NextRequest) {
   if (p.startsWith('/platform-v7')) {
     const isEntry = p === '/platform-v7';
     const seenEntry = req.cookies.get(PLATFORM_V7_ENTRY_COOKIE)?.value === 'true';
+
+    if (p === '/platform-v7/ai' || p.startsWith('/platform-v7/ai/')) {
+      return redirectToOwnPlatformV7Cabinet(req, resolvedRole);
+    }
+
     if (!isEntry && !isPlatformV7PublicPath(p) && !seenEntry) {
       return redirectToPlatformV7Entry(req);
     }
