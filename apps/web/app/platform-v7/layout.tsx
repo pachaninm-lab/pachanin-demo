@@ -1,7 +1,16 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { PlatformV7LayoutClient } from '@/components/platform-v7/PlatformV7LayoutClient';
+import { AppShellV4 } from '@/components/v7r/AppShellV4';
+import { ToastProvider } from '@/components/v7r/Toast';
+import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
+import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
+import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
+import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
+import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
+import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
+import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
+import { CommandPalette } from '@/components/platform-v7/CommandPalette';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -39,10 +48,48 @@ const VALID_ROLES = new Set<PlatformRole>([
   'executive',
 ]);
 
+const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs']);
+
+function normalize(pathname: string | null) {
+  if (!pathname) return '/platform-v7';
+  return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
+}
+
+function isPublicPath(pathname: string | null) {
+  return PUBLIC_EXACT_PATHS.has(normalize(pathname));
+}
+
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const headerStore = await headers();
   const rawRole = headerStore.get('x-pc-role');
+  const pathname = headerStore.get('x-pc-pathname');
   const initialRole: PlatformRole = rawRole && VALID_ROLES.has(rawRole as PlatformRole) ? (rawRole as PlatformRole) : 'operator';
 
-  return <PlatformV7LayoutClient initialRole={initialRole}>{children}</PlatformV7LayoutClient>;
+  if (isPublicPath(pathname)) {
+    return (
+      <ToastProvider>
+        <PlatformThemeSync />
+        {children}
+      </ToastProvider>
+    );
+  }
+
+  return (
+    <ToastProvider>
+      <PlatformThemeSync />
+      <ShellCopyNormalizer />
+      <AppShellV4 initialRole={initialRole}>
+        <>
+          <ScopedShellGuard />
+          <PlatformV7SingleEntryGuard />
+          <PlatformV7ShellUxController />
+          <RbacCabinetGuard />
+          <ShellCopyNormalizer />
+          <SupportHeaderIcon />
+          <CommandPalette />
+          {children}
+        </>
+      </AppShellV4>
+    </ToastProvider>
+  );
 }
