@@ -58,8 +58,6 @@ const sellerHandoff: HandoffItem[] = [
   },
 ];
 
-
-
 const sellerLots = [
   {
     id: 'LOT-2403',
@@ -104,7 +102,6 @@ export default async function PlatformV7SellerPage() {
         }
       />
 
-      {/* ── VIL: Quiet hint — главный блокер в одну строку ── */}
       <QuietIntelligenceHint
         problem='СДИЗ и ЭТрН не закрыты — деньги стоят на проверке банка.'
         action='Закройте СДИЗ и ЭТрН, затем передайте основание банку.'
@@ -135,156 +132,160 @@ export default async function PlatformV7SellerPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
-          <PremiumCtaButton href='/platform-v7/deals/DL-9106/clean' glyph='shield-check'>Закрыть СДИЗ и ЭТрН</PremiumCtaButton>
-          <PremiumCtaButton href='/platform-v7/seller/batches/new' variant='ghost'>Создать новую партию</PremiumCtaButton>
+          <PremiumCtaButton href='#documents' glyph='shield-check'>Документы</PremiumCtaButton>
+          <PremiumCtaButton href='#parties' variant='ghost'>Партии и лоты</PremiumCtaButton>
         </div>
       </CockpitHero>
 
+      <section id='overview' style={anchorSection}>
+        <CollapsibleSection title='Обзор исполнения продавца' summary='партия · лот · статус сделки' defaultOpen>
+          <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.seller} />
+        </CollapsibleSection>
+      </section>
 
-      <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.seller} />
+      <section id='documents' style={anchorSection}>
+        <CollapsibleSection title='Документы и допуск' summary='СДИЗ · ЭТрН · акт · протокол' defaultOpen={false}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <DocumentReadinessMiniMatrix role='seller' />
+            <WorkflowActionPanel context='seller' />
+          </div>
+        </CollapsibleSection>
+      </section>
 
-      <MoneyGateRing
-        title='Деньги по сделке DL-9106'
-        totalRub={9_648_000}
-        segments={[
-          { label: 'Банк подтвердил выплату', amountRub: 0, state: 'released' },
-          { label: 'Резерв заявлен покупателем', amountRub: 9_648_000, state: 'reserved' },
-        ]}
-        caption='Резерв ожидает банковского подтверждения; выплата остановлена документными условиями (СДИЗ, ЭТрН, акт приёмки, протокол качества).'
-      />
+      <section id='money' style={anchorSection}>
+        <CollapsibleSection title='Деньги и банковское основание' summary='резерв 9,65 млн ₽ · проверка 0 ₽' defaultOpen={false}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <MoneyGateRing
+              title='Деньги по сделке DL-9106'
+              totalRub={9_648_000}
+              segments={[
+                { label: 'Банк подтвердил выплату', amountRub: 0, state: 'released' },
+                { label: 'Резерв заявлен покупателем', amountRub: 9_648_000, state: 'reserved' },
+              ]}
+              caption='Резерв ожидает банковского подтверждения; выплата остановлена документными условиями (СДИЗ, ЭТрН, акт приёмки, протокол качества).'
+            />
+            <MoneyImpactSummaryStrip
+              amountContext='резерв 9,65 млн ₽ · на проверку банку 0 ₽'
+              pilotState='waiting'
+              pilotStateLabel='контур исполнения · ожидание документов'
+              responsible='продавец · ФГИС «Зерно»'
+              nextStep='закрыть СДИЗ и ЭТрН для передачи основания банку на проверку'
+              stopReason='банковская проверка остановлена: СДИЗ и ЭТрН не закрыты'
+              requiredEvidence='закрытый СДИЗ, ЭТрН, акт приёмки и протокол качества без незакрытых расхождений'
+              afterResolved='сделка передаёт основание банку; банк проверяет выплату по своим правилам'
+              bankPlatformBoundary='платформа показывает основание и статус, банк подтверждает проверку и движение денег'
+            />
+          </div>
+        </CollapsibleSection>
+      </section>
 
-      <MoneyImpactSummaryStrip
-        amountContext='резерв 9,65 млн ₽ · на проверку банку 0 ₽'
-        pilotState='waiting'
-        pilotStateLabel='контур исполнения · ожидание документов'
-        responsible='продавец · ФГИС «Зерно»'
-        nextStep='закрыть СДИЗ и ЭТрН для передачи основания банку на проверку'
-        stopReason='банковская проверка остановлена: СДИЗ и ЭТрН не закрыты'
-        requiredEvidence='закрытый СДИЗ, ЭТрН, акт приёмки и протокол качества без незакрытых расхождений'
-        afterResolved='сделка передаёт основание банку; банк проверяет выплату по своим правилам'
-        bankPlatformBoundary='платформа показывает основание и статус, банк подтверждает проверку и движение денег'
-      />
+      <section id='blockers' style={anchorSection}>
+        <CollapsibleSection title='Блокеры и путь разблокировки' summary='причина → действие → деньги' defaultOpen={false}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <P7ActionStateChip
+              status='waiting'
+              label='пилотный сценарий'
+              nextActor='ФГИС «Зерно» и банк'
+              blocker='СДИЗ и ЭТрН не закрыты'
+              moneyEffect='банковская проверка остановлена'
+            />
+            <ConditionReasonStrip
+              condition='пилотный сценарий'
+              responsible='ФГИС «Зерно» и банк'
+              documentState='СДИЗ и ЭТрН не закрыты'
+              stopReason='банковская проверка остановлена'
+            />
+            <CauseLine
+              cause={{ text: 'СДИЗ не закрыт', tone: 'blocked' }}
+              relation='blocks'
+              effect={{ text: 'передача основания банку', tone: 'money' }}
+              moneyAmount='9,65 млн ₽'
+              moneyTone='blocked'
+            />
+            <CauseLine
+              cause={{ text: 'ЭТрН не подписан', tone: 'blocked' }}
+              relation='blocks'
+              effect={{ text: 'банковская проверка выплаты', tone: 'money' }}
+              moneyTone='blocked'
+            />
+            <UnlockPath
+              title='Чтобы деньги поступили на проверку банку:'
+              steps={[
+                { id: '1', label: 'Закрыть СДИЗ в ФГИС «Зерно»', status: 'current' },
+                { id: '2', label: 'Подписать ЭТрН', status: 'upcoming' },
+                { id: '3', label: 'Передать основание банку', status: 'upcoming' },
+              ]}
+            />
+          </div>
+        </CollapsibleSection>
+      </section>
 
-      <P7ActionStateChip
-        status='waiting'
-        label='пилотный сценарий'
-        nextActor='ФГИС «Зерно» и банк'
-        blocker='СДИЗ и ЭТрН не закрыты'
-        moneyEffect='банковская проверка остановлена'
-      />
+      <section id='actions' style={anchorSection}>
+        <CollapsibleSection title='Рабочие действия и передача' summary='действие · ответственный · журнал' defaultOpen={false}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <ActionFeedbackPreviewStrip context='seller' />
+            <RoleExecutionHandoff items={sellerHandoff} title='исполнение: что продавец отправляет и ожидает' />
+          </div>
+        </CollapsibleSection>
+      </section>
 
-      <ConditionReasonStrip
-        condition='пилотный сценарий'
-        responsible='ФГИС «Зерно» и банк'
-        documentState='СДИЗ и ЭТрН не закрыты'
-        stopReason='банковская проверка остановлена'
-      />
+      <section id='journal' style={anchorSection}>
+        <CollapsibleSection title='Журнал событий' summary='3 последних события' defaultOpen={false}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <SmartSectionSummary label='Журнал' facts={['3 последних события · СДИЗ и ЭТрН не закрыты']} />
+            <JournalPreview role='seller' maxEntries={3} />
+          </div>
+        </CollapsibleSection>
+      </section>
 
-      {/* VIL: Cause → Money цепочка */}
-      <CauseLine
-        cause={{ text: 'СДИЗ не закрыт', tone: 'blocked' }}
-        relation='blocks'
-        effect={{ text: 'передача основания банку', tone: 'money' }}
-        moneyAmount='9,65 млн ₽'
-        moneyTone='blocked'
-      />
-      <CauseLine
-        cause={{ text: 'ЭТрН не подписан', tone: 'blocked' }}
-        relation='blocks'
-        effect={{ text: 'банковская проверка выплаты', tone: 'money' }}
-        moneyTone='blocked'
-      />
+      <section id='parties' style={anchorSection}>
+        <CollapsibleSection title='Партии, лоты и маршруты продавца' summary='детали продаж' defaultOpen={false}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <section style={card}>
+              <div style={micro}>рабочие маршруты продавца</div>
+              <div style={pathGrid}>
+                {sellerPaths.map((path) => (
+                  <Link key={path.href} href={path.href} style={pathCard}>
+                    <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 16 }}>{path.title}</strong>
+                    <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.45 }}>{path.note}</span>
+                    <span style={{ color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>Открыть</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
 
-      {/* VIL: Путь разблокировки */}
-      <UnlockPath
-        title='Чтобы деньги поступили на проверку банку:'
-        steps={[
-          { id: '1', label: 'Закрыть СДИЗ в ФГИС «Зерно»', status: 'current' },
-          { id: '2', label: 'Подписать ЭТрН', status: 'upcoming' },
-          { id: '3', label: 'Передать основание банку', status: 'upcoming' },
-        ]}
-      />
-
-      <DocumentReadinessMiniMatrix role='seller' />
-
-      <WorkflowActionPanel context='seller' />
-
-      <ActionFeedbackPreviewStrip context='seller' />
-
-      <RoleExecutionHandoff items={sellerHandoff} title='исполнение: что продавец отправляет и ожидает' />
-
-      {/* VIL: Section summary перед журналом */}
-      <SmartSectionSummary
-        label='Журнал'
-        facts={['3 последних события · СДИЗ и ЭТрН не закрыты']}
-      />
-      <JournalPreview role='seller' maxEntries={3} />
-
-      <CollapsibleSection title='Маршруты и лоты продавца' summary='детали продаж' defaultOpen={false}>
-        <div style={{ display: 'grid', gap: 12 }}>
-          <section style={card}>
-            <div style={micro}>рабочие маршруты продавца</div>
-            <div style={pathGrid}>
-              {sellerPaths.map((path) => (
-                <Link key={path.href} href={path.href} style={pathCard}>
-                  <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 16 }}>{path.title}</strong>
-                  <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.45 }}>{path.note}</span>
-                  <span style={{ color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>Открыть</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-
-          <section style={card}>
-            <div style={micro}>лоты продавца</div>
-            <div style={{ display: 'grid', gap: 8 }}>
-              {sellerLots.map((lot) => (
-                <Link key={lot.id} href={lot.href} style={lotRow}>
-                  <div>
-                    <div style={idText}>{lot.id}</div>
-                    <h2 style={h2}>{lot.title}</h2>
-                  </div>
-                  <div style={rowGrid}>
-                    <Cell label='Статус' value={lot.status} />
-                    <Cell label='Деньги' value={lot.money} strong />
-                    <Cell label='Следующее действие' value={lot.next} warning />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        </div>
-      </CollapsibleSection>
+            <section style={card}>
+              <div style={micro}>лоты продавца</div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {sellerLots.map((lot) => (
+                  <Link key={lot.id} href={lot.href} style={lotRow}>
+                    <div>
+                      <div style={idText}>{lot.id}</div>
+                      <h2 style={h2}>{lot.title}</h2>
+                    </div>
+                    <div style={rowGrid}>
+                      <Cell label='Статус' value={lot.status} />
+                      <Cell label='Деньги' value={lot.money} strong />
+                      <Cell label='Следующее действие' value={lot.next} warning />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </div>
+        </CollapsibleSection>
+      </section>
     </main>
   );
 }
-
 
 function Cell({ label, value, strong = false, warning = false }: { label: string; value: string; strong?: boolean; warning?: boolean }) {
   return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div></div>;
 }
 
-function CockpitFact({ label, value, strong = false, warning = false, danger = false }: { label: string; value: string; strong?: boolean; warning?: boolean; danger?: boolean }) {
-  return (
-    <div style={cockpitFact}>
-      <div style={micro}>{label}</div>
-      <strong style={{ color: danger ? '#B91C1C' : warning ? '#B45309' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.3 }}>{value}</strong>
-    </div>
-  );
-}
-
-const hero = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 28, padding: 24, display: 'grid', gap: 14, boxShadow: '0 18px 44px rgba(15,23,42,0.08)' } as const;
 const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
-const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
 const h2 = { margin: '4px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
-const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.6 } as const;
-const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
-const primaryBtn = { textDecoration: 'none', minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 15px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(10,122,95,0.18)' } as const;
-const ghostBtn = { ...primaryBtn, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
 const blockerCard = { display: 'grid', gap: 6, minWidth: 220, maxWidth: 280, padding: 14, borderRadius: 18, background: '#FFFBEB', border: '1px solid #FDE68A', boxShadow: '0 12px 28px rgba(180,83,9,0.08)' } as const;
-const sellerCockpitGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 } as const;
-const cockpitFact = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 12, display: 'grid', gap: 5, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const pathGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 } as const;
 const pathCard = { textDecoration: 'none', minHeight: 132, display: 'grid', alignContent: 'start', gap: 8, padding: 14, borderRadius: 20, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
 const lotRow = { textDecoration: 'none', color: 'inherit', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' } as const;
@@ -292,3 +293,4 @@ const rowGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(
 const cell = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const idText = { color: '#0A7A5F', fontSize: 13, fontWeight: 950 } as const;
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
+const anchorSection = { scrollMarginTop: 86 } as const;
