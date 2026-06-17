@@ -25,5 +25,16 @@ jobs:
           node-version: '20'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - name: Full web unit suite
-        run: pnpm --filter @pc/web test
+      - name: Full web unit suite with log
+        run: |
+          set +e
+          pnpm --filter @pc/web test > web-unit.log 2>&1
+          status=$?
+          tail -n 260 web-unit.log
+          exit $status
+      - name: Upload web-unit log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-unit-log
+          path: web-unit.log
