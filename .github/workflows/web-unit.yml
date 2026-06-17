@@ -17,7 +17,7 @@ concurrency:
 jobs:
   web-unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,5 +25,16 @@ jobs:
           node-version: '20'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - name: Full web unit suite
-        run: pnpm --filter @pc/web test
+      - name: Full web unit suite with diagnostic log
+        run: |
+          set +e
+          timeout 240s pnpm --filter @pc/web test -- --reporter=verbose > web-unit.log 2>&1
+          status=$?
+          tail -n 260 web-unit.log
+          exit $status
+      - name: Upload web-unit diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-unit-log
+          path: web-unit.log
