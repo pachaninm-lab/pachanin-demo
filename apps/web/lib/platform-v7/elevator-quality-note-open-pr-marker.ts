@@ -1,0 +1,1 @@
+export const ELEVATOR_QUALITY_NOTE_OPEN_PR_MARKER = true;
