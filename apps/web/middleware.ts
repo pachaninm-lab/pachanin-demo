@@ -208,8 +208,10 @@ function resolveRole(req: NextRequest, sessionRole?: string | null) {
 function withRoleHeaders(req: NextRequest, role: string, protectedResponse = false) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
+  requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('x-pc-role', role);
+  response.headers.set('x-pc-pathname', req.nextUrl.pathname);
   return applySecurityHeaders(response, protectedResponse);
 }
 
@@ -240,18 +242,8 @@ function redirectToPlatformV7Entry(req: NextRequest) {
   return applySecurityHeaders(NextResponse.redirect(u), true);
 }
 
-function redirectToAssistant(req: NextRequest) {
-  const u = req.nextUrl.clone();
-  u.pathname = '/platform-v7/assistant';
-  return applySecurityHeaders(NextResponse.redirect(u, 308), true);
-}
-
 export function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
-
-  if (p === '/platform-v7/ai') {
-    return redirectToAssistant(req);
-  }
 
   const canonRedirect = CANON_REDIRECTS[p];
   if (canonRedirect) {
@@ -311,4 +303,4 @@ export function middleware(req: NextRequest) {
   return withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
 }
 
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'] };
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon\.ico).*)'] };
