@@ -75,25 +75,25 @@ const ROLE_HOME: Record<string, string> = {
   executive: '/platform-v7/executive',
 };
 
-const PLATFORM_V7_ROLE_ROUTES: Array<{ prefix: string; role: string }> = [
-  { prefix: '/platform-v7/control-tower', role: 'operator' },
-  { prefix: '/platform-v7/operator', role: 'operator' },
-  { prefix: '/platform-v7/buyer', role: 'buyer' },
-  { prefix: '/platform-v7/procurement', role: 'buyer' },
-  { prefix: '/platform-v7/seller', role: 'seller' },
-  { prefix: '/platform-v7/lots', role: 'seller' },
-  { prefix: '/platform-v7/logistics', role: 'logistics' },
+const PLATFORM_V7_ROLE_ROUTES: Array<{ prefix: string; role: string; also?: string[] }> = [
   { prefix: '/platform-v7/driver', role: 'driver' },
   { prefix: '/platform-v7/surveyor', role: 'surveyor' },
   { prefix: '/platform-v7/elevator', role: 'elevator' },
   { prefix: '/platform-v7/lab', role: 'lab' },
-  { prefix: '/platform-v7/bank', role: 'bank' },
+  { prefix: '/platform-v7/bank', role: 'bank', also: ['operator', 'executive'] },
   { prefix: '/platform-v7/arbitrator', role: 'arbitrator' },
-  { prefix: '/platform-v7/disputes', role: 'arbitrator' },
+  { prefix: '/platform-v7/disputes', role: 'arbitrator', also: ['surveyor', 'operator', 'bank'] },
   { prefix: '/platform-v7/compliance', role: 'compliance' },
-  { prefix: '/platform-v7/connectors', role: 'compliance' },
+  { prefix: '/platform-v7/connectors', role: 'compliance', also: ['operator'] },
+  { prefix: '/platform-v7/buyer', role: 'buyer' },
+  { prefix: '/platform-v7/procurement', role: 'buyer' },
+  { prefix: '/platform-v7/seller', role: 'seller' },
+  { prefix: '/platform-v7/lots', role: 'seller', also: ['buyer', 'operator'] },
+  { prefix: '/platform-v7/logistics', role: 'logistics', also: ['operator'] },
   { prefix: '/platform-v7/executive', role: 'executive' },
   { prefix: '/platform-v7/analytics', role: 'executive' },
+  { prefix: '/platform-v7/control-tower', role: 'operator', also: ['executive'] },
+  { prefix: '/platform-v7/operator', role: 'operator' },
 ];
 
 function isPrivateMode(): boolean {
@@ -220,6 +220,12 @@ function resolvePlatformV7PathRole(pathname: string): string | null {
   return match?.role ?? null;
 }
 
+function canAccessPlatformV7Path(pathname: string, role: string): boolean {
+  const match = PLATFORM_V7_ROLE_ROUTES.find((item) => pathname === item.prefix || pathname.startsWith(item.prefix + '/'));
+  if (!match) return true;
+  return match.role === role || Boolean(match.also?.includes(role));
+}
+
 function resolveRole(req: NextRequest, sessionRole?: string | null) {
   if (sessionRole && VALID_ROLES.has(sessionRole)) return sessionRole;
   const cookieRole = req.cookies.get('pc-role')?.value;
@@ -314,7 +320,7 @@ export function middleware(req: NextRequest) {
     }
 
     const pathRole = resolvePlatformV7PathRole(p);
-    if (!isEntry && !isPlatformV7PublicPath(p) && pathRole && pathRole !== resolvedRole) {
+    if (!isEntry && !isPlatformV7PublicPath(p) && pathRole && !canAccessPlatformV7Path(p, resolvedRole)) {
       return redirectToOwnPlatformV7Cabinet(req, resolvedRole);
     }
 
