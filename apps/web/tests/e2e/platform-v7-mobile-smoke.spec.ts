@@ -12,11 +12,12 @@ const routes = [
 ] as const;
 
 const roleCases = [
-  { role: 'driver', home: '/platform-v7/driver', requiredDock: ['Маршрут', 'ИИ'], forbiddenDock: ['Фото', 'Сигналы', 'События', 'Вес', 'Акты', 'Факторинг'] },
-  { role: 'elevator', home: '/platform-v7/elevator', requiredDock: ['Приёмка', 'ИИ'], forbiddenDock: ['Вес', 'Акты', 'Сигналы', 'Сделки', 'Банк'] },
-  { role: 'lab', home: '/platform-v7/lab', requiredDock: ['Пробы', 'ИИ'], forbiddenDock: ['Качество', 'Протокол', 'Споры', 'Сделки'] },
-  { role: 'bank', home: '/platform-v7/bank', requiredDock: ['Основание', 'Факторинг', 'Эскроу', 'ИИ'], forbiddenDock: ['Сигналы', 'Сделки', 'Споры'] },
-  { role: 'operator', home: '/platform-v7/control-tower', requiredDock: ['Центр', 'Сделки', 'Деньги', 'ИИ', 'Меню'], forbiddenDock: ['Сигналы', 'Фото', 'Вес'] },
+  { role: 'driver', home: '/platform-v7/driver', requiredDock: ['Маршрут', 'Фото', 'ИИ', 'Меню'], menuMustContain: ['Маршрут', 'Фото', 'События', 'Документы'], forbiddenMenu: ['Банк', 'Сделки'] },
+  { role: 'elevator', home: '/platform-v7/elevator', requiredDock: ['Приёмка', 'Вес', 'ИИ', 'Меню'], menuMustContain: ['Очередь', 'Вес', 'Выгрузка', 'Акты'], forbiddenMenu: ['Сделки', 'Банк'] },
+  { role: 'lab', home: '/platform-v7/lab', requiredDock: ['Пробы', 'Качество', 'ИИ', 'Меню'], menuMustContain: ['Пробы', 'Качество', 'Протокол', 'Повторный анализ'], forbiddenMenu: ['Сделки', 'Споры'] },
+  { role: 'seller', home: '/platform-v7/seller', requiredDock: ['Главная', 'Документы', 'Деньги', 'ИИ', 'Меню'], menuMustContain: ['Партии', 'Офферы', 'Документы', 'СДИЗ / ЭТрН', 'Приёмка', 'Деньги / резерв', 'Блокеры'], forbiddenMenu: ['Банковское основание'] },
+  { role: 'bank', home: '/platform-v7/bank', requiredDock: ['Основание', 'Факторинг', 'Эскроу', 'ИИ', 'Меню'], menuMustContain: ['Банковское основание', 'Факторинг', 'Эскроу', 'Документы', 'Удержания', 'Риски'], forbiddenMenu: ['Кабинет продавца'] },
+  { role: 'operator', home: '/platform-v7/control-tower', requiredDock: ['Центр', 'Сделки', 'Деньги', 'ИИ', 'Меню'], menuMustContain: ['Центр управления', 'Сделки', 'Лоты и запросы', 'Логистика', 'Деньги', 'Споры', 'Комплаенс'], forbiddenMenu: ['Кабинет продавца'] },
 ] as const;
 
 const staleMobileCopy = [
@@ -54,6 +55,7 @@ test.describe('platform-v7 mobile smoke', () => {
       expect(response?.ok(), `${route.path} should return ok response`).toBeTruthy();
 
       await expect(page.locator('body')).toContainText(route.text, { timeout: 15000 });
+      await expect(page.locator('body')).not.toContainText('Ошибка страницы');
 
       for (const copy of staleMobileCopy) {
         await expect(page.getByText(copy, { exact: false }), `${route.path} should not show stale mobile copy`).toHaveCount(0);
@@ -81,7 +83,7 @@ test.describe('platform-v7 mobile smoke', () => {
   }
 
   for (const item of roleCases) {
-    test(`role shell dock works for ${item.role}`, async ({ page }) => {
+    test(`role shell dock and full menu work for ${item.role}`, async ({ page }) => {
       await setRole(page, item.role);
       const response = await page.goto(item.home, { waitUntil: 'domcontentloaded' });
       expect(response?.ok(), `${item.role} home should load`).toBeTruthy();
@@ -90,8 +92,16 @@ test.describe('platform-v7 mobile smoke', () => {
       for (const label of item.requiredDock) {
         await expect(page.locator('.pc-v7-role-dock').getByText(label, { exact: true }), `${item.role} dock should show ${label}`).toBeVisible();
       }
-      for (const label of item.forbiddenDock) {
-        await expect(page.locator('.pc-v7-role-dock').getByText(label, { exact: true }), `${item.role} dock should not show ${label}`).toHaveCount(0);
+
+      const menuButton = page.locator('.pc-v7-role-dock').getByText('Меню', { exact: true });
+      await expect(menuButton, `${item.role} should expose full function menu`).toBeVisible();
+      await menuButton.click();
+      await expect(page.locator('.pc-v7-safe-drawer-nav')).toBeVisible();
+      for (const label of item.menuMustContain) {
+        await expect(page.locator('.pc-v7-safe-drawer-nav').getByText(label, { exact: true }), `${item.role} menu should contain ${label}`).toBeVisible();
+      }
+      for (const label of item.forbiddenMenu) {
+        await expect(page.locator('.pc-v7-safe-drawer-nav').getByText(label, { exact: true }), `${item.role} menu should not contain ${label}`).toHaveCount(0);
       }
 
       await page.locator('.pc-v7-role-dock').getByText('ИИ', { exact: true }).click();
@@ -107,12 +117,7 @@ test.describe('platform-v7 mobile smoke', () => {
       await page.getByLabel('Открыть уведомления роли').click();
       await expect(page.locator('.pc-v7-notice-panel')).toBeVisible();
       await expect(page.locator('.pc-v7-notice-panel')).toContainText('Уведомления роли');
-
-      const menuButton = page.locator('.pc-v7-role-dock').getByText('Меню', { exact: true });
-      if (await menuButton.count()) {
-        await menuButton.click();
-        await expect(page.locator('.pc-v7-safe-drawer-nav')).toBeVisible();
-      }
+      await expect(page.locator('body')).not.toContainText('Ошибка страницы');
 
       await noHorizontalOverflow(page, `${item.role} shell`);
     });
