@@ -1,0 +1,45 @@
+/* Stable role cockpit card grids for protected platform-v7 cabinets. */
+.pc-v4-main {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+}
+
+.pc-v4-main [style*="repeat(auto-fit, minmax(170px, 1fr))"] {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+@media (max-width: 640px) {
+  .pc-v4-main [style*="repeat(auto-fit, minmax(170px, 1fr))"] {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .pc-v4-main [style*="repeat(auto-fit, minmax(170px, 1fr))"] > * {
+    min-width: 0 !important;
+    width: auto !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .pc-v4-main [style*="repeat(auto-fit, minmax(170px, 1fr))"] {
+    gap: 10px !important;
+  }
+
+  .pc-v4-main [style*="repeat(auto-fit, minmax(170px, 1fr))"] > * {
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .pc-v4-main [style*="repeat(auto-fit, minmax(170px, 1fr))"] strong {
+    font-size: 14px !important;
+    line-height: 1.28 !important;
+  }
+
+  .pc-v4-main [style*="repeat(auto-fit, minmax(170px, 1fr))"] span {
+    font-size: 11.5px !important;
+    line-height: 1.34 !important;
+  }
+}
