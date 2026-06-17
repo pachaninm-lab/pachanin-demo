@@ -9,7 +9,6 @@ import {
   Bell,
   Briefcase,
   Building2,
-  CheckCircle2,
   FileCheck,
   FileText,
   FlaskConical,
@@ -33,6 +32,24 @@ import { BrandMark } from '@/components/v7r/BrandMark';
 import { NOTIFICATIONS, NOTIFICATION_GROUPS, type NotificationGroup } from '@/lib/v7r/data';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { PLATFORM_V7_LIGHT_DEFAULT_VERSION, PLATFORM_V7_THEME_VERSION_KEY } from '@/components/v7r/PlatformThemeSync';
+
+type SectionKey =
+  | 'dashboard'
+  | 'deals'
+  | 'lots'
+  | 'create'
+  | 'logistics'
+  | 'analytics'
+  | 'integrations'
+  | 'bank'
+  | 'disputes'
+  | 'cabinet'
+  | 'procurement'
+  | 'receiving'
+  | 'lab';
+
+type NavItem = { href: string; label: string; icon: SectionKey; note?: string };
+type RouteOwner = { prefix: string; role: PlatformRole; also?: PlatformRole[] };
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
   operator: 'Оператор',
@@ -64,35 +81,20 @@ const ROLE_STAGE: Record<PlatformRole, { label: string; tone: 'pilot' | 'test' |
   lab: { label: 'Полевой режим', tone: 'field' },
 };
 
-const ROLE_ICONS: Record<PlatformRole, LucideIcon> = {
-  operator: LayoutDashboard,
-  buyer: Briefcase,
-  seller: Wheat,
-  logistics: Truck,
-  driver: User,
-  surveyor: ShieldCheck,
-  elevator: Building2,
-  lab: FlaskConical,
-  bank: Landmark,
-  arbitrator: Gavel,
-  compliance: ShieldCheck,
-  executive: BarChart3,
+const ROLE_HOME: Record<PlatformRole, string> = {
+  operator: '/platform-v7/control-tower',
+  buyer: '/platform-v7/buyer',
+  seller: '/platform-v7/seller',
+  logistics: '/platform-v7/logistics',
+  driver: '/platform-v7/driver',
+  surveyor: '/platform-v7/surveyor',
+  elevator: '/platform-v7/elevator',
+  lab: '/platform-v7/lab',
+  bank: '/platform-v7/bank',
+  arbitrator: '/platform-v7/arbitrator',
+  compliance: '/platform-v7/compliance',
+  executive: '/platform-v7/executive',
 };
-
-type SectionKey =
-  | 'dashboard'
-  | 'deals'
-  | 'lots'
-  | 'create'
-  | 'logistics'
-  | 'analytics'
-  | 'integrations'
-  | 'bank'
-  | 'disputes'
-  | 'cabinet'
-  | 'procurement'
-  | 'receiving'
-  | 'lab';
 
 const SECTION_ICONS: Record<SectionKey, LucideIcon> = {
   dashboard: LayoutDashboard,
@@ -110,56 +112,50 @@ const SECTION_ICONS: Record<SectionKey, LucideIcon> = {
   lab: FlaskConical,
 };
 
-const ROLE_HOME: Record<PlatformRole, string> = {
-  operator: '/platform-v7/control-tower',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
+const ROLE_ICONS: Record<PlatformRole, LucideIcon> = {
+  operator: LayoutDashboard,
+  buyer: Briefcase,
+  seller: Wheat,
+  logistics: Truck,
+  driver: User,
+  surveyor: ShieldCheck,
+  elevator: Building2,
+  lab: FlaskConical,
+  bank: Landmark,
+  arbitrator: Gavel,
+  compliance: ShieldCheck,
+  executive: BarChart3,
 };
 
-const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; icon: SectionKey; note?: string }>> = {
+const NAV_BY_ROLE: Record<PlatformRole, NavItem[]> = {
   operator: [
-    { href: '/platform-v7/control-tower', label: 'Центр управления', icon: 'dashboard', note: 'блокеры и следующий шаг' },
+    { href: '/platform-v7/control-tower', label: 'Центр', icon: 'dashboard', note: 'блокеры и следующий шаг' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'реестр и статусы' },
-    { href: '/platform-v7/lots', label: 'Лоты и запросы', icon: 'lots', note: 'предсделочный контур' },
     { href: '/platform-v7/logistics', label: 'Логистика', icon: 'logistics', note: 'рейсы и отклонения' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и банковская проверка' },
+    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и проверка' },
     { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'удержания и доказательства' },
-    { href: '/platform-v7/connectors', label: 'Подключения', icon: 'integrations', note: 'ФГИС, банк, ЭДО' },
-    { href: '/platform-v7/executive', label: 'Сводка', icon: 'analytics', note: 'управленческий срез' },
   ],
   buyer: [
     { href: '/platform-v7/buyer', label: 'Кабинет', icon: 'cabinet', note: 'мои заявки и сделки' },
     { href: '/platform-v7/procurement', label: 'Закупки', icon: 'procurement', note: 'потребности и предложения' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'исполнение и документы' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и условия банка' },
   ],
   seller: [
     { href: '/platform-v7/seller', label: 'Кабинет', icon: 'cabinet', note: 'мои партии и офферы' },
-    { href: '/platform-v7/lots', label: 'Лоты и запросы', icon: 'lots', note: 'заявки и партии' },
-    { href: '/platform-v7/lots/create', label: 'Создать лот', icon: 'create', note: 'партия к продаже' },
+    { href: '/platform-v7/lots', label: 'Лоты', icon: 'lots', note: 'заявки и партии' },
+    { href: '/platform-v7/lots/create', label: 'Создать', icon: 'create', note: 'партия к продаже' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'исполнение и деньги' },
   ],
   logistics: [
     { href: '/platform-v7/logistics', label: 'Диспетчерская', icon: 'logistics', note: 'заявки и рейсы' },
-    { href: '/platform-v7/driver', label: 'Водитель', icon: 'cabinet', note: 'маршрут и события' },
-    { href: '/platform-v7/elevator', label: 'Приёмка', icon: 'receiving', note: 'вес и документы' },
-    { href: '/platform-v7/lab', label: 'Лаборатория', icon: 'lab', note: 'пробы и качество' },
+    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'рейсы в сделках' },
   ],
   driver: [
     { href: '/platform-v7/driver', label: 'Маршрут', icon: 'logistics', note: 'рейс, фото, GPS' },
     { href: '/platform-v7/deals/DL-9103', label: 'Сделка', icon: 'deals', note: 'только свой рейс' },
   ],
   surveyor: [
-    { href: '/platform-v7/surveyor', label: 'Назначения', icon: 'cabinet', note: 'осмотр и фиксация' },
+    { href: '/platform-v7/surveyor', label: 'Осмотр', icon: 'cabinet', note: 'фиксация фактов' },
     { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'доказательства' },
   ],
   elevator: [
@@ -171,11 +167,10 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; ico
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'привязка к рейсам' },
   ],
   bank: [
-    { href: '/platform-v7/bank', label: 'Банковый контур', icon: 'bank', note: 'резерв, удержание, подтверждение' },
+    { href: '/platform-v7/bank', label: 'Банк', icon: 'bank', note: 'резерв, удержание, основание' },
     { href: '/platform-v7/bank/factoring', label: 'Факторинг', icon: 'bank', note: 'заявка и статус' },
     { href: '/platform-v7/bank/escrow', label: 'Эскроу', icon: 'bank', note: 'условия удержания' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'проверка условий' },
-    { href: '/platform-v7/disputes', label: 'Удержания', icon: 'disputes', note: 'споры по деньгам' },
   ],
   arbitrator: [
     { href: '/platform-v7/arbitrator', label: 'Разбор', icon: 'analytics', note: 'решение по спору' },
@@ -183,95 +178,51 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; ico
   ],
   compliance: [
     { href: '/platform-v7/compliance', label: 'Допуск', icon: 'cabinet', note: 'контрагенты и правила' },
-    { href: '/platform-v7/connectors', label: 'Подключения', icon: 'integrations', note: 'внешние системы' },
+    { href: '/platform-v7/connectors', label: 'Подключения', icon: 'integrations', note: 'ФГИС, банк, ЭДО' },
     { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'проверка рисков' },
   ],
   executive: [
     { href: '/platform-v7/executive', label: 'Сводка', icon: 'analytics', note: 'деньги и риски' },
-    { href: '/platform-v7/control-tower', label: 'Центр управления', icon: 'dashboard', note: 'операционная картина' },
+    { href: '/platform-v7/control-tower', label: 'Центр', icon: 'dashboard', note: 'операционная картина' },
     { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и основания' },
   ],
 };
 
-const CRUMB_LABELS: Record<string, string> = {
-  'platform-v7': 'Прозрачная Цена',
-  'control-tower': 'Центр управления',
-  deals: 'Сделки',
-  lots: 'Лоты',
-  create: 'Создание',
-  buyer: 'Покупатель',
-  seller: 'Продавец',
-  logistics: 'Логистика',
-  field: 'Поле и приёмка',
-  bank: 'Банк',
-  disputes: 'Споры',
-  compliance: 'Комплаенс',
-  analytics: 'Сводка',
-  executive: 'Сводка',
-  procurement: 'Закупки',
-  driver: 'Водитель',
-  surveyor: 'Сюрвейер',
-  elevator: 'Элеватор',
-  lab: 'Лаборатория',
-  arbitrator: 'Арбитр',
-  connectors: 'Подключения',
-  investor: 'Инвестор',
-  demo: 'Сценарий сделки',
-  market: 'Лоты и запросы',
-  notifications: 'Уведомления',
-};
-
-const ROLE_OWNED_PREFIXES: Array<{ prefix: string; role: PlatformRole }> = [
-  { prefix: '/platform-v7/control-tower', role: 'operator' },
-  { prefix: '/platform-v7/operator', role: 'operator' },
-  { prefix: '/platform-v7/buyer', role: 'buyer' },
-  { prefix: '/platform-v7/procurement', role: 'buyer' },
-  { prefix: '/platform-v7/seller', role: 'seller' },
-  { prefix: '/platform-v7/lots', role: 'seller' },
-  { prefix: '/platform-v7/logistics', role: 'logistics' },
+const ROUTE_OWNERS: RouteOwner[] = [
   { prefix: '/platform-v7/driver', role: 'driver' },
   { prefix: '/platform-v7/surveyor', role: 'surveyor' },
   { prefix: '/platform-v7/elevator', role: 'elevator' },
   { prefix: '/platform-v7/lab', role: 'lab' },
-  { prefix: '/platform-v7/bank', role: 'bank' },
+  { prefix: '/platform-v7/bank', role: 'bank', also: ['operator', 'executive'] },
   { prefix: '/platform-v7/arbitrator', role: 'arbitrator' },
-  { prefix: '/platform-v7/disputes', role: 'arbitrator' },
+  { prefix: '/platform-v7/disputes', role: 'arbitrator', also: ['surveyor', 'operator', 'bank'] },
   { prefix: '/platform-v7/compliance', role: 'compliance' },
-  { prefix: '/platform-v7/connectors', role: 'compliance' },
+  { prefix: '/platform-v7/connectors', role: 'compliance', also: ['operator'] },
+  { prefix: '/platform-v7/buyer', role: 'buyer' },
+  { prefix: '/platform-v7/procurement', role: 'buyer' },
+  { prefix: '/platform-v7/seller', role: 'seller' },
+  { prefix: '/platform-v7/lots', role: 'seller', also: ['buyer', 'operator'] },
+  { prefix: '/platform-v7/logistics', role: 'logistics', also: ['operator'] },
   { prefix: '/platform-v7/executive', role: 'executive' },
   { prefix: '/platform-v7/analytics', role: 'executive' },
+  { prefix: '/platform-v7/control-tower', role: 'operator', also: ['executive'] },
+  { prefix: '/platform-v7/operator', role: 'operator' },
 ];
 
 const PUBLIC_SHELL_PATHS = new Set<string>(['/platform-v7', '/platform-v7/roles']);
 
-function breadcrumbs(pathname: string) {
-  const parts = pathname.split('?')[0].split('/').filter(Boolean);
-  return parts.map((part, index) => ({
-    href: '/' + parts.slice(0, index + 1).join('/'),
-    label: CRUMB_LABELS[part] ?? part,
-    isLast: index === parts.length - 1,
-  }));
-}
-
-function roleOwnerForPath(pathname: string): PlatformRole | null {
-  const match = ROLE_OWNED_PREFIXES.find((item) => pathname === item.prefix || pathname.startsWith(item.prefix + '/'));
-  return match?.role ?? null;
-}
-
-function isSharedRolePath(pathname: string, role: PlatformRole) {
-  if (role === 'operator' && ['/platform-v7/bank', '/platform-v7/disputes', '/platform-v7/logistics', '/platform-v7/lots', '/platform-v7/connectors', '/platform-v7/executive'].some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'))) return true;
-  if (role === 'executive' && ['/platform-v7/bank', '/platform-v7/control-tower'].some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'))) return true;
-  if (role === 'logistics' && ['/platform-v7/driver', '/platform-v7/elevator', '/platform-v7/lab'].some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'))) return true;
-  if (role === 'surveyor' && (pathname === '/platform-v7/disputes' || pathname.startsWith('/platform-v7/disputes/'))) return true;
-  if (role === 'bank' && (pathname === '/platform-v7/disputes' || pathname.startsWith('/platform-v7/disputes/'))) return true;
-  if (role === 'buyer' && (pathname === '/platform-v7/bank' || pathname.startsWith('/platform-v7/bank/'))) return true;
-  return false;
+function routeMatches(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(prefix + '/');
 }
 
 function isForeignRolePath(pathname: string, role: PlatformRole) {
-  if (isSharedRolePath(pathname, role)) return false;
-  const owner = roleOwnerForPath(pathname);
-  return Boolean(owner && owner !== role);
+  const owner = ROUTE_OWNERS.find((item) => routeMatches(pathname, item.prefix));
+  if (!owner) return false;
+  return owner.role !== role && !owner.also?.includes(role);
+}
+
+function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(href + '/');
 }
 
 function stageColors(tone: 'pilot' | 'test' | 'field') {
@@ -301,12 +252,13 @@ function groupNotifications() {
   }, {} as Record<NotificationGroup, typeof NOTIFICATIONS>);
 }
 
-function iconTone(active: boolean) {
-  return active ? 'var(--pc-accent)' : 'var(--pc-text-muted)';
-}
-
-function isActivePath(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(href + '/');
+function crumbs(pathname: string) {
+  const parts = pathname.split('?')[0].split('/').filter(Boolean);
+  return parts.map((part, index) => ({
+    href: '/' + parts.slice(0, index + 1).join('/'),
+    label: part === 'platform-v7' ? 'Прозрачная Цена' : part,
+    isLast: index === parts.length - 1,
+  }));
 }
 
 export function AppShellV4({ children, initialRole = 'operator' }: { children: React.ReactNode; initialRole?: PlatformRole }) {
@@ -319,7 +271,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
   const [alertsSeen, setAlertsSeen] = React.useState(false);
-  const hasUnread = !alertsSeen && NOTIFICATIONS.length > 0;
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
 
@@ -344,17 +295,18 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const items = NAV_BY_ROLE[displayRole];
   const stage = ROLE_STAGE[displayRole];
   const stageTone = stageColors(stage.tone);
-  const crumbs = breadcrumbs(pathname);
   const showProtectedChrome = !PUBLIC_SHELL_PATHS.has(pathname);
-  const showCrumbs = showProtectedChrome && crumbs.length > 1;
+  const breadcrumbItems = crumbs(pathname);
+  const showCrumbs = showProtectedChrome && breadcrumbItems.length > 1;
   const statuses = systemStatus(pathname);
   const groupedNotifications = React.useMemo(() => groupNotifications(), []);
   const RoleIcon = ROLE_ICONS[displayRole];
+  const hasUnread = !alertsSeen && NOTIFICATIONS.length > 0;
 
   React.useEffect(() => {
     if (!mounted || role) return;
     setRole(safeInitialRole);
-  }, [mounted, role, setRole, safeInitialRole]);
+  }, [mounted, role, safeInitialRole, setRole]);
 
   React.useEffect(() => {
     if (!mounted || !pathname.startsWith('/platform-v7')) return;
@@ -365,7 +317,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
     if (!PUBLIC_SHELL_PATHS.has(pathname) && isForeignRolePath(pathname, displayRole)) {
       router.replace(ROLE_HOME[displayRole]);
     }
-  }, [mounted, pathname, router, displayRole]);
+  }, [displayRole, mounted, pathname, router]);
 
   React.useEffect(() => {
     setSidebarOpen(false);
@@ -387,7 +339,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         setPaletteOpen(true);
       }
     }
-
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
@@ -499,7 +450,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
             const Icon = SECTION_ICONS[item.icon];
             return (
               <Link key={item.href} href={item.href} className='pc-v4-nav-item' data-active={active ? 'true' : 'false'} aria-current={active ? 'page' : undefined} onClick={() => setSidebarOpen(false)}>
-                <span style={{ color: iconTone(active), display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={18} /></span>
+                <span style={{ color: active ? 'var(--pc-accent)' : 'var(--pc-text-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={18} /></span>
                 <span style={{ minWidth: 0 }}>
                   <span className='pc-v4-nav-label'>{item.label}</span>
                   {item.note ? <span className='pc-v4-nav-note'>{item.note}</span> : null}
@@ -568,7 +519,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
           <div className='pc-v4-meta'>
             <nav className='pc-v4-crumbs' aria-label='Путь'>
-              {showCrumbs ? crumbs.map((crumb, index) => (
+              {showCrumbs ? breadcrumbItems.map((crumb, index) => (
                 <React.Fragment key={crumb.href}>
                   {index > 0 ? <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>/</span> : null}
                   {crumb.isLast ? <span style={{ color: 'var(--pc-text-primary)', fontSize: 12, fontWeight: 900 }}>{crumb.label}</span> : <span style={{ color: 'var(--pc-text-muted)', fontSize: 12, fontWeight: 750 }}>{crumb.label}</span>}
