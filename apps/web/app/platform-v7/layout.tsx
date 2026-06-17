@@ -50,12 +50,12 @@ const VALID_ROLES = new Set<PlatformRole>([
 
 const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs']);
 
-function normalize(pathname: string | null) {
-  if (!pathname) return '/platform-v7';
+function normalize(pathname: string) {
   return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
 }
 
 function isPublicPath(pathname: string | null) {
+  if (!pathname) return false;
   return PUBLIC_EXACT_PATHS.has(normalize(pathname));
 }
 
