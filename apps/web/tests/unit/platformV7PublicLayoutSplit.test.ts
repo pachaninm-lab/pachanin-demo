@@ -3,31 +3,38 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const layout = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/layout.tsx'), 'utf8');
-const client = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7LayoutClient.tsx'), 'utf8');
+const middleware = fs.readFileSync(path.join(process.cwd(), 'apps/web/middleware.ts'), 'utf8');
 
 describe('platform-v7 public layout split', () => {
-  it('does not mount AppShellV4 directly in the server layout', () => {
-    expect(layout).toContain('PlatformV7LayoutClient');
-    expect(layout).not.toContain('AppShellV4');
+  it('passes pathname from middleware to the server layout', () => {
+    expect(middleware).toContain("requestHeaders.set('x-pc-pathname', req.nextUrl.pathname)");
+    expect(middleware).toContain("response.headers.set('x-pc-pathname', req.nextUrl.pathname)");
+    expect(layout).toContain("headerStore.get('x-pc-pathname')");
+  });
+
+  it('renders public routes without the protected app shell on the server', () => {
+    expect(layout).toContain('PUBLIC_EXACT_PATHS');
+    expect(layout).toContain("'/platform-v7'");
+    expect(layout).toContain("'/platform-v7/open'");
+    expect(layout).toContain("'/platform-v7/login'");
+    expect(layout).toContain("'/platform-v7/register'");
+    expect(layout).toContain('if (isPublicPath(pathname))');
+    const publicBranch = layout.slice(layout.indexOf('if (isPublicPath(pathname))'), layout.indexOf('return (', layout.indexOf('if (isPublicPath(pathname))') + 1));
+    expect(publicBranch).not.toContain('AppShellV4');
+    expect(publicBranch).not.toContain('PlatformV7ShellUxController');
     expect(layout).not.toContain('PublicEntryCleanup');
   });
 
-  it('renders public routes without the protected app shell', () => {
-    expect(client).toContain("'/platform-v7'");
-    expect(client).toContain("'/platform-v7/open'");
-    expect(client).toContain("'/platform-v7/login'");
-    expect(client).toContain("'/platform-v7/register'");
-    expect(client).toContain('if (publicPath)');
-    const publicBranch = client.slice(client.indexOf('if (publicPath)'), client.indexOf('return (', client.indexOf('if (publicPath)') + 1));
-    expect(publicBranch).not.toContain('AppShellV4');
-    expect(publicBranch).not.toContain('PlatformV7ShellUxController');
+  it('keeps protected routes inside AppShellV4 with guards and role shell controls', () => {
+    expect(layout).toContain('<AppShellV4 initialRole={initialRole}>');
+    expect(layout).toContain('<PlatformV7SingleEntryGuard />');
+    expect(layout).toContain('<PlatformV7ShellUxController />');
+    expect(layout).toContain('<RbacCabinetGuard />');
+    expect(layout).toContain('<CommandPalette />');
   });
 
-  it('keeps protected routes inside AppShellV4 with guards and role shell controls', () => {
-    expect(client).toContain('<AppShellV4 initialRole={initialRole}>');
-    expect(client).toContain('<PlatformV7SingleEntryGuard />');
-    expect(client).toContain('<PlatformV7ShellUxController />');
-    expect(client).toContain('<RbacCabinetGuard />');
-    expect(client).toContain('<CommandPalette />');
+  it('does not redirect the AI route to a stale assistant route', () => {
+    expect(middleware).not.toContain("p === '/platform-v7/ai'");
+    expect(middleware).not.toContain("'/platform-v7/assistant'");
   });
 });
