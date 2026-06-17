@@ -22,6 +22,18 @@ jobs:
           node-version: '20'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck
+      - name: Run typecheck with diagnostic log
+        run: |
+          set +e
+          pnpm run typecheck > typecheck.log 2>&1
+          status=$?
+          tail -n 200 typecheck.log
+          exit $status
+      - name: Upload typecheck diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-ci-typecheck-log
+          path: typecheck.log
       - run: pnpm run test
       - run: pnpm run build
