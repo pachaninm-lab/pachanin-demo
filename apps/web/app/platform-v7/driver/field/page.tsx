@@ -6,6 +6,7 @@ import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { DriverMissionRouteCard } from '@/components/platform-v7/DriverMissionRouteCard';
 import { getPlatformV7DriverCockpitState } from '@/lib/platform-v7/runtime/driver-cockpit-state';
 import { CockpitHero, OfflineSyncBanner } from '@/components/platform-v7/premium';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 
 export default async function DriverFieldPage() {
@@ -48,16 +49,14 @@ export default async function DriverFieldPage() {
           .driver-field-hero{padding:16px!important;border-radius:24px!important;gap:10px!important}
           .driver-field-hero p{display:none!important}
           .driver-field-quick-links{grid-template-columns:1fr!important}
-          .driver-field-quick-links a:nth-child(n+2){display:none!important}
           .driver-field-status-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
-          .driver-field-status-grid > div:nth-child(3){display:none!important}
         }
       ` }} />
       <CockpitHero
         className="driver-field-hero"
         eyebrow="Водитель · один рейс · одно действие"
         title="Текущий рейс"
-        lead="На экране только маршрут, связь, прибытие, фото, пломба и отклонение. Остальной контекст скрыт."
+        lead="На экране только маршрут, связь, прибытие, фото, пломба и отклонение. Остальной контекст разложен ниже по разделам."
         aside={
           <div style={{ border: '1px solid #CBD5E1', borderRadius: 999, background: '#fff', color: 'var(--pc-text-secondary, #475569)', padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>
             Полевой режим
@@ -75,33 +74,42 @@ export default async function DriverFieldPage() {
         </div>
       </CockpitHero>
 
-      <section className="driver-field-status-grid" aria-label="Полевой статус рейса" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
-        <div style={miniStatusCard}>
-          <span style={miniLabel}>следующее</span>
-          <strong style={miniValue}>прибытие</strong>
-        </div>
-        <div style={miniStatusCard}>
-          <span style={miniLabel}>очередь</span>
-          <strong style={miniValue}>локально сохранится</strong>
-        </div>
-        <div style={miniStatusCard}>
-          <span style={miniLabel}>доступ</span>
-          <strong style={miniValue}>только свой рейс</strong>
-        </div>
-      </section>
+      <CollapsibleSection title='Статус рейса' summary='следующее · очередь · доступ' defaultOpen>
+        <section className="driver-field-status-grid" aria-label="Полевой статус рейса" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
+          <div style={miniStatusCard}>
+            <span style={miniLabel}>следующее</span>
+            <strong style={miniValue}>прибытие</strong>
+          </div>
+          <div style={miniStatusCard}>
+            <span style={miniLabel}>очередь</span>
+            <strong style={miniValue}>локально сохранится</strong>
+          </div>
+          <div style={miniStatusCard}>
+            <span style={miniLabel}>доступ</span>
+            <strong style={miniValue}>только свой рейс</strong>
+          </div>
+        </section>
+      </CollapsibleSection>
 
-      <DriverMissionRouteCard
-        tripId={mission.tripId}
-        route={mission.route}
-        progressPercent={mission.progressPercent}
-        stageLabel={mission.stageLabel}
-        photoChecklist={mission.photoChecklist}
-      />
+      <CollapsibleSection title='Маршрут и прогресс' summary='TRIP · точки · ETA' defaultOpen={false}>
+        <DriverMissionRouteCard
+          tripId={mission.tripId}
+          route={mission.route}
+          progressPercent={mission.progressPercent}
+          stageLabel={mission.stageLabel}
+          photoChecklist={mission.photoChecklist}
+        />
+      </CollapsibleSection>
 
-      <DriverBigTileIsland />
+      <CollapsibleSection title='Фото, пломба и полевые действия' summary='доказательства · следующий факт' defaultOpen={false}>
+        <DriverBigTileIsland />
+      </CollapsibleSection>
+
+      <CollapsibleSection title='Полевой runtime и синхронизация' summary='очередь · события · офлайн' defaultOpen={false}>
+        <FieldDriverRuntime compact />
+      </CollapsibleSection>
 
       <RoleRouteHint role="driver" route="/platform-v7/driver/field" />
-      <FieldDriverRuntime compact />
     </main>
   );
 }
