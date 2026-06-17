@@ -1,1 +1,0 @@
-export const ELEVATOR_QUALITY_NOTE_FINAL_MARKER = true;
