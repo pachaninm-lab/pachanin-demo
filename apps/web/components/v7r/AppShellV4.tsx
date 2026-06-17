@@ -26,7 +26,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
-import { CommandPalette } from '@/components/v7r/CommandPalette';
 import { PLATFORM_V7_LIGHT_DEFAULT_VERSION, PLATFORM_V7_THEME_VERSION_KEY } from '@/components/v7r/PlatformThemeSync';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -46,7 +45,6 @@ type SectionKey =
   | 'lab';
 
 type NavItem = { href: string; label: string; icon: SectionKey; note?: string };
-
 type RouteOwner = { prefix: string; role: PlatformRole; also?: PlatformRole[] };
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
@@ -221,7 +219,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const roleSelected = usePlatformV7RStore((state) => state.roleSelected);
   const setRole = usePlatformV7RStore((state) => state.setRole);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
   const displayRole = roleSelected ? role : initialRole;
   const navItems = NAV_BY_ROLE[displayRole] ?? NAV_BY_ROLE.operator;
@@ -253,7 +250,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
   React.useEffect(() => {
     setSidebarOpen(false);
-    setPaletteOpen(false);
   }, [pathname]);
 
   const toggleTheme = React.useCallback(() => {
@@ -307,7 +303,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
                 <span className="pc-v4-subtitle">Кабинет: {ROLE_LABELS[displayRole]}</span>
               </span>
             </Link>
-            <button type="button" className="pc-v4-search" onClick={() => setPaletteOpen(true)}>
+            <button type="button" className="pc-v4-search" aria-label="Поиск по платформе">
               <Search size={17} />
               <strong>Поиск</strong>
             </button>
@@ -366,8 +362,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           </div>
         </nav>
       ) : null}
-
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }
