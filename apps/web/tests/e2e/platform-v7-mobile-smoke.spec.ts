@@ -11,6 +11,14 @@ const routes = [
   { path: '/platform-v7/bank/release-safety', text: 'Проверка безопасности выпуска денег' },
 ] as const;
 
+const roleCases = [
+  { role: 'driver', home: '/platform-v7/driver', requiredDock: ['Маршрут', 'ИИ'], forbiddenDock: ['Фото', 'Сигналы', 'События', 'Вес', 'Акты', 'Факторинг'] },
+  { role: 'elevator', home: '/platform-v7/elevator', requiredDock: ['Приёмка', 'ИИ'], forbiddenDock: ['Вес', 'Акты', 'Сигналы', 'Сделки', 'Банк'] },
+  { role: 'lab', home: '/platform-v7/lab', requiredDock: ['Пробы', 'ИИ'], forbiddenDock: ['Качество', 'Протокол', 'Споры', 'Сделки'] },
+  { role: 'bank', home: '/platform-v7/bank', requiredDock: ['Основание', 'Факторинг', 'Эскроу', 'ИИ'], forbiddenDock: ['Сигналы', 'Сделки', 'Споры'] },
+  { role: 'operator', home: '/platform-v7/control-tower', requiredDock: ['Центр', 'Сделки', 'Деньги', 'ИИ', 'Меню'], forbiddenDock: ['Сигналы', 'Фото', 'Вес'] },
+] as const;
+
 const staleMobileCopy = [
   ['Controlled', 'pilot'].join(' '),
   ['Control', 'Tower'].join(' '),
@@ -24,6 +32,18 @@ const staleMobileCopy = [
   ['mo', 'ck'].join(''),
   ['de', 'bug'].join(''),
 ] as const;
+
+async function setRole(page: any, role: string) {
+  await page.addInitScript((value: string) => {
+    window.sessionStorage.setItem('pc-v7-active-role', value);
+    document.cookie = `pc-role=${value}; Path=/; SameSite=Lax`;
+  }, role);
+}
+
+async function noHorizontalOverflow(page: any, label: string) {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow, `${label} should not overflow horizontally`).toBeLessThanOrEqual(8);
+}
 
 test.describe('platform-v7 mobile smoke', () => {
   test.use({ viewport: { width: 375, height: 812 }, isMobile: true });
@@ -57,6 +77,44 @@ test.describe('platform-v7 mobile smoke', () => {
       );
 
       expect(brokenImages, `${route.path} should not have broken visible images on mobile`).toEqual([]);
+    });
+  }
+
+  for (const item of roleCases) {
+    test(`role shell dock works for ${item.role}`, async ({ page }) => {
+      await setRole(page, item.role);
+      const response = await page.goto(item.home, { waitUntil: 'domcontentloaded' });
+      expect(response?.ok(), `${item.role} home should load`).toBeTruthy();
+      await expect(page.locator('.pc-v7-role-dock')).toBeVisible({ timeout: 15000 });
+
+      for (const label of item.requiredDock) {
+        await expect(page.locator('.pc-v7-role-dock').getByText(label, { exact: true }), `${item.role} dock should show ${label}`).toBeVisible();
+      }
+      for (const label of item.forbiddenDock) {
+        await expect(page.locator('.pc-v7-role-dock').getByText(label, { exact: true }), `${item.role} dock should not show ${label}`).toHaveCount(0);
+      }
+
+      await page.locator('.pc-v7-role-dock').getByText('ИИ', { exact: true }).click();
+      await expect(page).toHaveURL(/\/platform-v7\/ai/);
+      await expect(page.locator('body')).toContainText('ИИ-помощник роли');
+      await expect(page.locator('body')).toContainText('только');
+
+      await page.locator('.pc-v4-brand').first().click();
+      await expect(page).toHaveURL(/\/platform-v7$/);
+
+      await setRole(page, item.role);
+      await page.goto(item.home, { waitUntil: 'domcontentloaded' });
+      await page.getByLabel('Открыть уведомления роли').click();
+      await expect(page.locator('.pc-v7-notice-panel')).toBeVisible();
+      await expect(page.locator('.pc-v7-notice-panel')).toContainText('Уведомления роли');
+
+      const menuButton = page.locator('.pc-v7-role-dock').getByText('Меню', { exact: true });
+      if (await menuButton.count()) {
+        await menuButton.click();
+        await expect(page.locator('.pc-v7-safe-drawer-nav')).toBeVisible();
+      }
+
+      await noHorizontalOverflow(page, `${item.role} shell`);
     });
   }
 });
