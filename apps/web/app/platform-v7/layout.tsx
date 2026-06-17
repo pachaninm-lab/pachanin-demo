@@ -8,6 +8,7 @@ import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
+import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { CommandPalette } from '@/components/platform-v7/CommandPalette';
 import { PublicEntryCleanup } from '@/components/platform-v7/PublicEntryCleanup';
@@ -58,7 +59,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
       <ShellCopyNormalizer />
       <PublicEntryCleanup />
       <AppShellV4 initialRole={initialRole}>
-        <><ScopedShellGuard /><PlatformV7SingleEntryGuard /><RbacCabinetGuard /><ShellCopyNormalizer /><SupportHeaderIcon /><CommandPalette />{children}</>
+        <><ScopedShellGuard /><PlatformV7SingleEntryGuard /><PlatformV7ShellUxController /><RbacCabinetGuard /><ShellCopyNormalizer /><SupportHeaderIcon /><CommandPalette />{children}</>
       </AppShellV4>
     </ToastProvider>
   );
