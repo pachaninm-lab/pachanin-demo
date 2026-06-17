@@ -12,6 +12,12 @@ describe('platform-v7 public layout split', () => {
     expect(layout).toContain("headerStore.get('x-pc-pathname')");
   });
 
+  it('does not treat a missing pathname as the public entry', () => {
+    expect(layout).toContain('function isPublicPath(pathname: string | null)');
+    expect(layout).toContain('if (!pathname) return false;');
+    expect(layout).not.toContain("if (!pathname) return '/platform-v7'");
+  });
+
   it('renders public routes without the protected app shell on the server', () => {
     expect(layout).toContain('PUBLIC_EXACT_PATHS');
     expect(layout).toContain("'/platform-v7'");
