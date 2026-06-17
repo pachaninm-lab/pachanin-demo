@@ -246,7 +246,17 @@ function roleOwnerForPath(pathname: string): PlatformRole | null {
   return match?.role ?? null;
 }
 
+function isSharedRolePath(pathname: string, role: PlatformRole) {
+  if (role === 'operator' && ['/platform-v7/bank', '/platform-v7/disputes', '/platform-v7/logistics', '/platform-v7/lots'].some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'))) return true;
+  if (role === 'executive' && ['/platform-v7/bank', '/platform-v7/control-tower'].some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'))) return true;
+  if (role === 'surveyor' && (pathname === '/platform-v7/disputes' || pathname.startsWith('/platform-v7/disputes/'))) return true;
+  if (role === 'bank' && (pathname === '/platform-v7/disputes' || pathname.startsWith('/platform-v7/disputes/'))) return true;
+  if (role === 'buyer' && (pathname === '/platform-v7/lots' || pathname.startsWith('/platform-v7/lots/'))) return true;
+  return false;
+}
+
 function isForeignRolePath(pathname: string, role: PlatformRole) {
+  if (isSharedRolePath(pathname, role)) return false;
   const owner = roleOwnerForPath(pathname);
   return Boolean(owner && owner !== role);
 }
@@ -463,7 +473,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--pc-text-primary)', fontSize: 14, fontWeight: 950 }}><RoleIcon size={17} />{ROLE_LABELS[displayRole]}</span>
               <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
             </div>
-            <p style={{ margin: 0, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Роль зафиксирована после входа. Переход в чужой кабинет возвращает в свой контур.</p>
+            <p style={{ margin: 0, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Роль зафиксирована после входа. Чужой кабинет возвращает пользователя в свой контур.</p>
           </div>
         </div>
 
@@ -485,7 +495,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
         <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid var(--pc-border)', display: 'grid', gap: 10 }}>
           <div style={{ border: '1px solid var(--pc-border)', borderRadius: 16, background: 'var(--pc-bg-elevated)', padding: 12, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.45 }}>
-            Доступ ограничен функциями текущей роли. Смена кабинета в интерфейсе удалена.
+            Доступ ограничен функциями текущей роли.
           </div>
           <Link href='/platform-v7/execution-map' style={drawerUtilityLink} onClick={() => setSidebarOpen(false)}>Карта исполнения</Link>
         </div>
