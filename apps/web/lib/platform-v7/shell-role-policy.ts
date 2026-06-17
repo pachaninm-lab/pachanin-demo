@@ -23,8 +23,8 @@ export function inferPlatformRoleFromPath(pathname: string, fallback: PlatformRo
   if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
   if (pathname.startsWith('/platform-v7/lab')) return 'lab';
   if (pathname.startsWith('/platform-v7/bank')) return 'bank';
-  if (pathname.startsWith('/platform-v7/arbitrator')) return 'arbitrator';
-  if (pathname.startsWith('/platform-v7/compliance')) return 'compliance';
+  if (pathname.startsWith('/platform-v7/arbitrator') || pathname.startsWith('/platform-v7/disputes')) return 'arbitrator';
+  if (pathname.startsWith('/platform-v7/compliance') || pathname.startsWith('/platform-v7/connectors')) return 'compliance';
   return fallback;
 }
 
