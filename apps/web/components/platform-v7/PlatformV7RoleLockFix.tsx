@@ -40,13 +40,19 @@ export function PlatformV7RoleLockFix() {
     };
 
     restoreLockedRole();
-    const timer = window.setInterval(restoreLockedRole, 250);
+    const frame = window.requestAnimationFrame(restoreLockedRole);
+    const shortTimer = window.setTimeout(restoreLockedRole, 0);
+    const timer = window.setInterval(restoreLockedRole, 50);
     window.addEventListener('popstate', restoreLockedRole);
     window.addEventListener('hashchange', restoreLockedRole);
+    window.addEventListener('focus', restoreLockedRole);
     return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(shortTimer);
       window.clearInterval(timer);
       window.removeEventListener('popstate', restoreLockedRole);
       window.removeEventListener('hashchange', restoreLockedRole);
+      window.removeEventListener('focus', restoreLockedRole);
     };
   }, [pathname, role, setRole]);
 
