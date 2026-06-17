@@ -12,30 +12,62 @@ interface Command {
   action?: () => void;
 }
 
-function buildCommands(role: PlatformRole, router: ReturnType<typeof useRouter>): Command[] {
-  const base: Command[] = [
-    { id: 'ct', label: 'Центр управления', hint: 'dashboard', href: '/platform-v7/control-tower' },
-    { id: 'deals', label: 'Сделки', hint: 'реестр', href: '/platform-v7/deals' },
-    { id: 'bank', label: 'Банк', hint: 'резерв и проверка', href: '/platform-v7/bank' },
-    { id: 'release', label: 'Проверка выплаты', hint: 'банковские условия', href: '/platform-v7/bank/release-safety' },
-    { id: 'disputes', label: 'Споры', hint: 'удержания', href: '/platform-v7/disputes' },
-    { id: 'money', label: 'Деньги', hint: 'контур', href: '/platform-v7/money' },
-    { id: 'docs', label: 'Документы', hint: 'СДИЗ, ЭТрН, КЭП', href: '/platform-v7/documents' },
-    { id: 'logistics', label: 'Логистика', hint: 'рейсы и груз', href: '/platform-v7/logistics' },
-    { id: 'dl9106', label: 'DL-9106', hint: 'Пшеница 3 кл.', href: '/platform-v7/deals/DL-9106/clean' },
-    { id: 'dl9102', label: 'DL-9102', hint: 'Пшеница 4 кл.', href: '/platform-v7/deals/DL-9102/clean' },
-  ];
+const ROLE_COMMANDS: Record<PlatformRole, Command[]> = {
+  operator: [
+    { id: 'ct', label: 'Центр управления', hint: 'блокеры и следующий шаг', href: '/platform-v7/control-tower' },
+    { id: 'deals', label: 'Сделки', hint: 'реестр исполнения', href: '/platform-v7/deals' },
+    { id: 'lots', label: 'Лоты', hint: 'партии и допуск', href: '/platform-v7/lots' },
+    { id: 'procurement', label: 'Закупки', hint: 'заявки покупателя', href: '/platform-v7/procurement' },
+    { id: 'logistics', label: 'Логистика', hint: 'рейсы и отклонения', href: '/platform-v7/logistics' },
+    { id: 'bank', label: 'Банковское основание', hint: 'резерв и проверка', href: '/platform-v7/bank' },
+    { id: 'disputes', label: 'Споры', hint: 'доказательства и разбор', href: '/platform-v7/disputes' },
+    { id: 'compliance', label: 'Комплаенс', hint: 'допуск и риски', href: '/platform-v7/compliance' },
+    { id: 'executive', label: 'Сводка руководителя', hint: 'управленческий срез', href: '/platform-v7/executive' },
+  ],
+  buyer: [
+    { id: 'buyer-home', label: 'Кабинет покупателя', hint: 'мои закупки и поставки', href: '/platform-v7/buyer' },
+    { id: 'buyer-procurement', label: 'Мои закупки', hint: 'потребности и предложения', href: '/platform-v7/procurement' },
+  ],
+  seller: [
+    { id: 'seller-home', label: 'Кабинет продавца', hint: 'партии, офферы, документы', href: '/platform-v7/seller' },
+  ],
+  logistics: [
+    { id: 'logistics-home', label: 'Диспетчерская', hint: 'рейсы и перевозчики', href: '/platform-v7/logistics' },
+  ],
+  driver: [
+    { id: 'driver-home', label: 'Мой маршрут', hint: 'рейс, прибытие, фото', href: '/platform-v7/driver' },
+  ],
+  surveyor: [
+    { id: 'surveyor-home', label: 'Мои назначения', hint: 'осмотр и факты', href: '/platform-v7/surveyor' },
+  ],
+  elevator: [
+    { id: 'elevator-home', label: 'Приёмка', hint: 'вес, очередь, выгрузка', href: '/platform-v7/elevator' },
+  ],
+  lab: [
+    { id: 'lab-home', label: 'Пробы и протоколы', hint: 'качество и результат', href: '/platform-v7/lab' },
+  ],
+  bank: [
+    { id: 'bank-home', label: 'Банковское основание', hint: 'проверка документов и статусов', href: '/platform-v7/bank' },
+    { id: 'bank-factoring', label: 'Факторинг', hint: 'статус заявки', href: '/platform-v7/bank/factoring' },
+    { id: 'bank-escrow', label: 'Эскроу', hint: 'условия удержания', href: '/platform-v7/bank/escrow' },
+  ],
+  arbitrator: [
+    { id: 'arbitrator-home', label: 'Комнаты разбора', hint: 'спор и доказательства', href: '/platform-v7/arbitrator' },
+  ],
+  compliance: [
+    { id: 'compliance-home', label: 'Комплаенс', hint: 'допуск и стоп-факторы', href: '/platform-v7/compliance' },
+  ],
+  executive: [
+    { id: 'exec-home', label: 'Сводка', hint: 'деньги, риски, статус', href: '/platform-v7/executive' },
+    { id: 'exec-ct', label: 'Центр управления', hint: 'операционная картина', href: '/platform-v7/control-tower' },
+    { id: 'exec-deals', label: 'Сделки', hint: 'реестр исполнения', href: '/platform-v7/deals' },
+    { id: 'exec-bank', label: 'Банковское основание', hint: 'основания и удержания', href: '/platform-v7/bank' },
+    { id: 'exec-disputes', label: 'Споры', hint: 'разбор и доказательства', href: '/platform-v7/disputes' },
+  ],
+};
 
-  const byRole: Partial<Record<PlatformRole, Command[]>> = {
-    driver: [{ id: 'driver', label: 'Маршрут водителя', href: '/platform-v7/driver' }],
-    surveyor: [{ id: 'surveyor', label: 'Кабинет сюрвейера', href: '/platform-v7/surveyor' }],
-    bank: [{ id: 'bankp', label: 'Кабинет банка', href: '/platform-v7/bank' }],
-    compliance: [{ id: 'comp', label: 'Комплаенс', href: '/platform-v7/compliance' }],
-    arbitrator: [{ id: 'arb', label: 'Арбитр', href: '/platform-v7/arbitrator' }],
-    executive: [{ id: 'exec', label: 'Управленческий срез', href: '/platform-v7/executive' }],
-  };
-
-  return [...(byRole[role] ?? []), ...base];
+function buildCommands(role: PlatformRole): Command[] {
+  return ROLE_COMMANDS[role] ?? ROLE_COMMANDS.operator;
 }
 
 export function CommandPalette() {
@@ -45,7 +77,7 @@ export function CommandPalette() {
   const role = usePlatformV7RStore((s) => s.role);
   const router = useRouter();
 
-  const commands = buildCommands(role, router);
+  const commands = buildCommands(role);
 
   const filtered = query.trim()
     ? commands.filter(
@@ -91,7 +123,7 @@ export function CommandPalette() {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Найти экран или сделку…"
+            placeholder="Найти экран своей роли…"
             style={inputStyle}
             aria-label="Поиск команд"
             onKeyDown={(e) => {
