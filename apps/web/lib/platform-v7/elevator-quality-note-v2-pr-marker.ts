@@ -1,1 +1,0 @@
-export const ELEVATOR_QUALITY_NOTE_V2_PR_MARKER = true;
