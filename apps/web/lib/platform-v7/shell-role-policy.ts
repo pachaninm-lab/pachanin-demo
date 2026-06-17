@@ -8,7 +8,7 @@ export const ROLE_SCOPED_SHELL_PATHS = ['/platform-v7/buyer', '/platform-v7/sell
 
 export const COMMERCIAL_HEADER_ROLES = ['seller', 'buyer', 'logistics', 'driver'] as const satisfies readonly PlatformRole[];
 export const CONTROL_HEADER_ROLES = ['bank', 'arbitrator', 'compliance'] as const satisfies readonly PlatformRole[];
-export const OPERATOR_HEADER_ROLES = ['operator', 'executive', 'seller', 'buyer', 'logistics', 'driver', 'bank', 'arbitrator', 'compliance'] as const satisfies readonly PlatformRole[];
+export const OPERATOR_HEADER_ROLES = ['operator', 'executive'] as const satisfies readonly PlatformRole[];
 
 export type ShellPolicy = 'field' | 'role-scoped' | 'operator';
 
@@ -23,8 +23,8 @@ export function inferPlatformRoleFromPath(pathname: string, fallback: PlatformRo
   if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
   if (pathname.startsWith('/platform-v7/lab')) return 'lab';
   if (pathname.startsWith('/platform-v7/bank')) return 'bank';
-  if (pathname.startsWith('/platform-v7/arbitrator') || pathname.startsWith('/platform-v7/disputes')) return 'arbitrator';
-  if (pathname.startsWith('/platform-v7/compliance') || pathname.startsWith('/platform-v7/connectors')) return 'compliance';
+  if (pathname.startsWith('/platform-v7/arbitrator')) return 'arbitrator';
+  if (pathname.startsWith('/platform-v7/compliance')) return 'compliance';
   return fallback;
 }
 
@@ -37,28 +37,29 @@ export function getShellPolicy(role: PlatformRole, pathname: string): ShellPolic
 export function getHeaderSelectableRoles(role: PlatformRole, pathname: string): readonly PlatformRole[] {
   const pathRole = inferPlatformRoleFromPath(pathname, role);
   const pathPolicy = getShellPolicy(pathRole, pathname);
-  if (pathPolicy === 'field') return [];
+  if (pathPolicy !== 'operator') return [];
+  if (role !== 'operator' && role !== 'executive') return [];
   return OPERATOR_HEADER_ROLES;
 }
 
 export function canShowRoleSwitcher(role: PlatformRole, pathname: string): boolean {
-  return getShellPolicy(role, pathname) === 'operator';
+  return getShellPolicy(role, pathname) === 'operator' && (role === 'operator' || role === 'executive');
 }
 
 export function canShowGlobalSearch(role: PlatformRole, pathname: string): boolean {
-  return getShellPolicy(role, pathname) === 'operator';
+  return getShellPolicy(role, pathname) === 'operator' && (role === 'operator' || role === 'executive');
 }
 
 export function canShowGlobalStatuses(role: PlatformRole, pathname: string): boolean {
-  return getShellPolicy(role, pathname) === 'operator';
+  return getShellPolicy(role, pathname) === 'operator' && (role === 'operator' || role === 'executive');
 }
 
 export function canShowDrawer(role: PlatformRole, pathname: string): boolean {
-  return getShellPolicy(role, pathname) === 'operator';
+  return getShellPolicy(role, pathname) === 'operator' && (role === 'operator' || role === 'executive');
 }
 
 export function canShowPortalRoleSwitcher(role: PlatformRole, pathname: string): boolean {
   const selectableRoles = getHeaderSelectableRoles(role, pathname);
   const pathPolicy = getShellPolicy(inferPlatformRoleFromPath(pathname, role), pathname);
-  return pathPolicy !== 'field' && selectableRoles.length > 1;
+  return pathPolicy === 'operator' && selectableRoles.length > 1;
 }
