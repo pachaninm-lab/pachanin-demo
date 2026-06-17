@@ -1,0 +1,34 @@
+/* Emergency mobile guard for platform-v7 shell. */
+.pc-v7-role-dock-item[data-active='true'] {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--pc-text-muted) !important;
+}
+
+.pc-v7-role-dock-item:active,
+.pc-v7-role-dock-item:focus:not(:focus-visible) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.pc-v7-safe-drawer-link[data-active='true'] {
+  background: var(--pc-bg-elevated) !important;
+  border-color: var(--pc-border) !important;
+  color: var(--pc-text-primary) !important;
+}
+
+.pc-v7-safe-drawer-link:active,
+.pc-v7-safe-drawer-link:focus:not(:focus-visible) {
+  box-shadow: none !important;
+}
+
+.pc-v7-role-dock-item[href='/platform-v7/ai'],
+.pc-v7-safe-drawer-link[href='/platform-v7/ai'] {
+  pointer-events: none !important;
+  opacity: .58 !important;
+}
+
+.pc-v7-role-dock-item[href='/platform-v7/ai'] span::after,
+.pc-v7-safe-drawer-link[href='/platform-v7/ai'] span::after {
+  content: ' · скоро внутри ЛК';
+}
