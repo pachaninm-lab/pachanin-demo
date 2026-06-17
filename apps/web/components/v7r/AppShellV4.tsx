@@ -2,50 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import {
-  BarChart3,
-  Bell,
-  Briefcase,
-  FileCheck,
-  FileText,
-  FlaskConical,
-  FolderOpen,
-  Gavel,
-  Landmark,
-  LayoutDashboard,
-  Menu,
-  Moon,
-  Search,
-  ShieldCheck,
-  Sun,
-  Truck,
-  User,
-  Wheat,
-  X,
-  type LucideIcon,
-} from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Bell, LayoutDashboard, Menu, Moon, Search, Sun, X } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
 import { PLATFORM_V7_LIGHT_DEFAULT_VERSION, PLATFORM_V7_THEME_VERSION_KEY } from '@/components/v7r/PlatformThemeSync';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
-type SectionKey =
-  | 'dashboard'
-  | 'deals'
-  | 'lots'
-  | 'create'
-  | 'logistics'
-  | 'analytics'
-  | 'integrations'
-  | 'bank'
-  | 'disputes'
-  | 'cabinet'
-  | 'procurement'
-  | 'receiving'
-  | 'lab';
-
-type NavItem = { href: string; label: string; icon: SectionKey; note?: string };
-type RouteOwner = { prefix: string; role: PlatformRole; also?: PlatformRole[] };
+type NavItem = { href: string; label: string; note?: string };
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
   operator: 'Оператор',
@@ -77,129 +40,67 @@ const ROLE_HOME: Record<PlatformRole, string> = {
   executive: '/platform-v7/executive',
 };
 
-const ROLE_ICONS: Record<PlatformRole, LucideIcon> = {
-  operator: LayoutDashboard,
-  buyer: Briefcase,
-  seller: Wheat,
-  logistics: Truck,
-  driver: User,
-  surveyor: ShieldCheck,
-  elevator: Briefcase,
-  lab: FlaskConical,
-  bank: Landmark,
-  arbitrator: Gavel,
-  compliance: ShieldCheck,
-  executive: BarChart3,
-};
-
-const SECTION_ICONS: Record<SectionKey, LucideIcon> = {
-  dashboard: LayoutDashboard,
-  deals: FolderOpen,
-  lots: Wheat,
-  create: FileCheck,
-  logistics: Truck,
-  analytics: BarChart3,
-  integrations: ShieldCheck,
-  bank: Landmark,
-  disputes: ShieldCheck,
-  cabinet: Briefcase,
-  procurement: FileText,
-  receiving: Briefcase,
-  lab: FlaskConical,
-};
-
 const NAV_BY_ROLE: Record<PlatformRole, NavItem[]> = {
   operator: [
-    { href: '/platform-v7/control-tower', label: 'Центр', icon: 'dashboard', note: 'блокеры и следующий шаг' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'реестр и статусы' },
-    { href: '/platform-v7/logistics', label: 'Логистика', icon: 'logistics', note: 'рейсы и отклонения' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и проверка' },
-    { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'удержания и доказательства' },
+    { href: '/platform-v7/control-tower', label: 'Центр', note: 'блокеры и следующий шаг' },
+    { href: '/platform-v7/deals', label: 'Сделки', note: 'реестр и статусы' },
+    { href: '/platform-v7/logistics', label: 'Логистика', note: 'рейсы и отклонения' },
+    { href: '/platform-v7/bank', label: 'Деньги', note: 'резерв и проверка' },
+    { href: '/platform-v7/disputes', label: 'Споры', note: 'доказательства' },
   ],
   buyer: [
-    { href: '/platform-v7/buyer', label: 'Кабинет', icon: 'cabinet', note: 'мои заявки и сделки' },
-    { href: '/platform-v7/procurement', label: 'Закупки', icon: 'procurement', note: 'потребности и предложения' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'исполнение и документы' },
+    { href: '/platform-v7/buyer', label: 'Кабинет', note: 'мои заявки и сделки' },
+    { href: '/platform-v7/procurement', label: 'Закупки', note: 'потребности и предложения' },
+    { href: '/platform-v7/deals', label: 'Сделки', note: 'исполнение и документы' },
   ],
   seller: [
-    { href: '/platform-v7/seller', label: 'Кабинет', icon: 'cabinet', note: 'мои партии и офферы' },
-    { href: '/platform-v7/lots', label: 'Лоты', icon: 'lots', note: 'заявки и партии' },
-    { href: '/platform-v7/lots/create', label: 'Создать', icon: 'create', note: 'партия к продаже' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'исполнение и деньги' },
+    { href: '/platform-v7/seller', label: 'Кабинет', note: 'мои партии и офферы' },
+    { href: '/platform-v7/lots', label: 'Лоты', note: 'заявки и партии' },
+    { href: '/platform-v7/deals', label: 'Сделки', note: 'исполнение и деньги' },
   ],
   logistics: [
-    { href: '/platform-v7/logistics', label: 'Диспетчерская', icon: 'logistics', note: 'заявки и рейсы' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'рейсы в сделках' },
+    { href: '/platform-v7/logistics', label: 'Диспетчерская', note: 'заявки и рейсы' },
+    { href: '/platform-v7/deals', label: 'Сделки', note: 'рейсы в сделках' },
   ],
   driver: [
-    { href: '/platform-v7/driver', label: 'Маршрут', icon: 'logistics', note: 'рейс, фото, GPS' },
-    { href: '/platform-v7/deals/DL-9103', label: 'Сделка', icon: 'deals', note: 'только свой рейс' },
+    { href: '/platform-v7/driver', label: 'Маршрут', note: 'рейс, фото, GPS' },
+    { href: '/platform-v7/deals/DL-9103', label: 'Сделка', note: 'только свой рейс' },
   ],
   surveyor: [
-    { href: '/platform-v7/surveyor', label: 'Осмотр', icon: 'cabinet', note: 'фиксация фактов' },
-    { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'доказательства' },
+    { href: '/platform-v7/surveyor', label: 'Осмотр', note: 'фиксация фактов' },
+    { href: '/platform-v7/disputes', label: 'Споры', note: 'доказательства' },
   ],
   elevator: [
-    { href: '/platform-v7/elevator', label: 'Приёмка', icon: 'receiving', note: 'вес и допуск' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'связанные поставки' },
+    { href: '/platform-v7/elevator', label: 'Приёмка', note: 'вес и допуск' },
+    { href: '/platform-v7/deals', label: 'Сделки', note: 'связанные поставки' },
   ],
   lab: [
-    { href: '/platform-v7/lab', label: 'Пробы', icon: 'lab', note: 'качество и протоколы' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'привязка к рейсам' },
+    { href: '/platform-v7/lab', label: 'Пробы', note: 'качество и протоколы' },
+    { href: '/platform-v7/deals', label: 'Сделки', note: 'привязка к рейсам' },
   ],
   bank: [
-    { href: '/platform-v7/bank', label: 'Банк', icon: 'bank', note: 'резерв, удержание, основание' },
-    { href: '/platform-v7/bank/factoring', label: 'Факторинг', icon: 'bank', note: 'заявка и статус' },
-    { href: '/platform-v7/bank/escrow', label: 'Эскроу', icon: 'bank', note: 'условия удержания' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'проверка условий' },
+    { href: '/platform-v7/bank', label: 'Банк', note: 'резерв и основание' },
+    { href: '/platform-v7/bank/factoring', label: 'Факторинг', note: 'заявка и статус' },
+    { href: '/platform-v7/bank/escrow', label: 'Эскроу', note: 'условия удержания' },
+    { href: '/platform-v7/deals', label: 'Сделки', note: 'проверка условий' },
   ],
   arbitrator: [
-    { href: '/platform-v7/arbitrator', label: 'Разбор', icon: 'analytics', note: 'решение по спору' },
-    { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'очередь арбитража' },
+    { href: '/platform-v7/arbitrator', label: 'Разбор', note: 'решение по спору' },
+    { href: '/platform-v7/disputes', label: 'Споры', note: 'очередь арбитража' },
   ],
   compliance: [
-    { href: '/platform-v7/compliance', label: 'Допуск', icon: 'cabinet', note: 'контрагенты и правила' },
-    { href: '/platform-v7/connectors', label: 'Подключения', icon: 'integrations', note: 'ФГИС, банк, ЭДО' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'проверка рисков' },
+    { href: '/platform-v7/compliance', label: 'Допуск', note: 'контрагенты и правила' },
+    { href: '/platform-v7/connectors', label: 'Подключения', note: 'ФГИС, банк, ЭДО' },
+    { href: '/platform-v7/deals', label: 'Сделки', note: 'проверка рисков' },
   ],
   executive: [
-    { href: '/platform-v7/executive', label: 'Сводка', icon: 'analytics', note: 'деньги и риски' },
-    { href: '/platform-v7/control-tower', label: 'Центр', icon: 'dashboard', note: 'операционная картина' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и основания' },
+    { href: '/platform-v7/executive', label: 'Сводка', note: 'деньги и риски' },
+    { href: '/platform-v7/control-tower', label: 'Центр', note: 'операционная картина' },
+    { href: '/platform-v7/bank', label: 'Деньги', note: 'резерв и основания' },
   ],
 };
 
-const ROUTE_OWNERS: RouteOwner[] = [
-  { prefix: '/platform-v7/driver', role: 'driver' },
-  { prefix: '/platform-v7/surveyor', role: 'surveyor' },
-  { prefix: '/platform-v7/elevator', role: 'elevator' },
-  { prefix: '/platform-v7/lab', role: 'lab' },
-  { prefix: '/platform-v7/bank', role: 'bank', also: ['operator', 'executive'] },
-  { prefix: '/platform-v7/arbitrator', role: 'arbitrator' },
-  { prefix: '/platform-v7/disputes', role: 'arbitrator', also: ['surveyor', 'operator', 'bank'] },
-  { prefix: '/platform-v7/compliance', role: 'compliance' },
-  { prefix: '/platform-v7/connectors', role: 'compliance', also: ['operator'] },
-  { prefix: '/platform-v7/buyer', role: 'buyer' },
-  { prefix: '/platform-v7/procurement', role: 'buyer' },
-  { prefix: '/platform-v7/seller', role: 'seller' },
-  { prefix: '/platform-v7/lots', role: 'seller', also: ['buyer', 'operator'] },
-  { prefix: '/platform-v7/logistics', role: 'logistics', also: ['operator'] },
-  { prefix: '/platform-v7/executive', role: 'executive' },
-  { prefix: '/platform-v7/analytics', role: 'executive' },
-  { prefix: '/platform-v7/control-tower', role: 'operator', also: ['executive'] },
-];
-
 const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/roles']);
-
-function routeMatches(pathname: string, prefix: string) {
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
-}
-
-function isForeignRolePath(pathname: string, role: PlatformRole) {
-  const owner = ROUTE_OWNERS.find((item) => routeMatches(pathname, item.prefix));
-  if (!owner) return false;
-  return owner.role !== role && !owner.also?.includes(role);
-}
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -214,7 +115,6 @@ function resolveThemeFromStorage(): 'light' | 'dark' {
 
 export function AppShellV4({ children, initialRole = 'operator' }: { children: React.ReactNode; initialRole?: PlatformRole }) {
   const pathname = usePathname() || '/platform-v7';
-  const router = useRouter();
   const role = usePlatformV7RStore((state) => state.role);
   const roleSelected = usePlatformV7RStore((state) => state.roleSelected);
   const setRole = usePlatformV7RStore((state) => state.setRole);
@@ -222,7 +122,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
   const displayRole = roleSelected ? role : initialRole;
   const navItems = NAV_BY_ROLE[displayRole] ?? NAV_BY_ROLE.operator;
-  const RoleIcon = ROLE_ICONS[displayRole] ?? LayoutDashboard;
   const showProtectedChrome = !PUBLIC_PATHS.has(pathname);
 
   React.useEffect(() => {
@@ -236,17 +135,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   React.useEffect(() => {
     if (!roleSelected) setRole(initialRole);
   }, [initialRole, roleSelected, setRole]);
-
-  React.useEffect(() => {
-    if (!pathname.startsWith('/platform-v7')) return;
-    if (pathname.startsWith('/platform-v7/ai')) {
-      router.replace(ROLE_HOME[displayRole]);
-      return;
-    }
-    if (showProtectedChrome && isForeignRolePath(pathname, displayRole)) {
-      router.replace(ROLE_HOME[displayRole]);
-    }
-  }, [displayRole, pathname, router, showProtectedChrome]);
 
   React.useEffect(() => {
     setSidebarOpen(false);
@@ -308,7 +196,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
               <strong>Поиск</strong>
             </button>
             <div className="pc-v4-actions">
-              <span className="pc-v4-stage"><RoleIcon size={15} /> controlled pilot</span>
+              <span className="pc-v4-stage"><LayoutDashboard size={15} /> controlled pilot</span>
               <button type="button" className="pc-v4-iconbtn" aria-label={theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'} onClick={toggleTheme}>
                 {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               </button>
@@ -329,18 +217,15 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           <button type="button" className="pc-v4-iconbtn" aria-label="Закрыть меню" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
         </div>
         <nav className="pc-v4-nav" aria-label="Навигация роли">
-          {navItems.map((item) => {
-            const Icon = SECTION_ICONS[item.icon];
-            return (
-              <Link key={item.href} href={item.href} className="pc-v4-nav-item" data-active={isActivePath(pathname, item.href)}>
-                <Icon size={18} />
-                <span>
-                  <span className="pc-v4-nav-label">{item.label}</span>
-                  {item.note ? <span className="pc-v4-nav-note">{item.note}</span> : null}
-                </span>
-              </Link>
-            );
-          })}
+          {navItems.map((item) => (
+            <Link key={item.href} href={item.href} className="pc-v4-nav-item" data-active={isActivePath(pathname, item.href)}>
+              <LayoutDashboard size={18} />
+              <span>
+                <span className="pc-v4-nav-label">{item.label}</span>
+                {item.note ? <span className="pc-v4-nav-note">{item.note}</span> : null}
+              </span>
+            </Link>
+          ))}
         </nav>
         <p style={{ margin: 'auto 14px 14px', color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Доступ ограничен функциями текущей роли.</p>
       </aside>
@@ -350,15 +235,12 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
       {showProtectedChrome ? (
         <nav className="pc-v4-bottomnav" aria-label="Навигация кабинета">
           <div className="pc-v4-bottomnav-inner">
-            {navItems.slice(0, 5).map((item) => {
-              const Icon = SECTION_ICONS[item.icon];
-              return (
-                <Link key={item.href} href={item.href} className="pc-v4-bn-item" data-active={isActivePath(pathname, item.href)}>
-                  <Icon size={18} />
-                  <span className="pc-v4-bn-label">{item.label}</span>
-                </Link>
-              );
-            })}
+            {navItems.slice(0, 5).map((item) => (
+              <Link key={item.href} href={item.href} className="pc-v4-bn-item" data-active={isActivePath(pathname, item.href)}>
+                <LayoutDashboard size={18} />
+                <span className="pc-v4-bn-label">{item.label}</span>
+              </Link>
+            ))}
           </div>
         </nav>
       ) : null}
