@@ -2,32 +2,49 @@
 
 Дата: 2026-06-17
 Контур: platform-v7 / «Прозрачная Цена»
-Статус: external controlled pilot is blocked until fresh deploy is confirmed.
+Статус: external controlled pilot is blocked until fresh Netlify deploy is confirmed.
+
+## 0. Deployment source of truth
+
+Netlify is the only deployment source of truth for platform-v7.
+
+Operational rule:
+
+- use Netlify for live checks;
+- use Netlify for pilot links;
+- use Netlify for external participant access;
+- do not use other hosting statuses as pilot readiness evidence;
+- do not distribute external pilot links until Netlify shows the latest main commit.
+
+Primary Netlify site:
+
+- site id: `7e5e0e35-418e-4a82-bb4f-e608dd4aa5c4`
+- site name: `vermillion-kitsune-0e7b97`
 
 ## 1. Founder decision
 
-Do not distribute live links to external participants until the live deploy shows the latest main commit.
+Do not distribute live links to external participants until the Netlify deploy shows the latest main commit.
 
 Required latest code checkpoint:
 
 - role-lock PR merged: #1872
-- merge commit: `a022621d6d6113039b510d30283c003c42556a4c`
+- role leakage hotfix commit: `48ef176d495cd692d937a1f69a1f1b3777f671ac` or newer
 
 Current rule:
 
 - internal founder rehearsal: allowed;
-- external participant run: blocked until deploy confirmation;
+- external participant run: blocked until Netlify deploy confirmation;
 - production or fully live claim: forbidden.
 
 ## 2. Minimum go-live gate before sharing links
 
-Before sending any link to a seller, buyer, elevator, carrier, lab, bank or observer, confirm all items below:
+Before sending any link to a seller, buyer, elevator, carrier, lab, bank or observer, confirm all items below on Netlify:
 
-- [ ] live deploy commit is `a022621d6d6113039b510d30283c003c42556a4c` or newer;
+- [ ] Netlify live deploy commit is `48ef176d495cd692d937a1f69a1f1b3777f671ac` or newer;
 - [ ] `/platform-v7` opens without stale UI;
 - [ ] `/platform-v7/login` opens and shows one role selection entry;
 - [ ] role selection locks current session;
-- [ ] direct URL to another cabinet redirects back to the selected role home;
+- [ ] direct URL to another cabinet redirects back to the selected role home or unified login;
 - [ ] driver role does not see bank/commercial control;
 - [ ] bank role sees bank basis, not platform payment release;
 - [ ] elevator role sees acceptance/weight/documents only;
@@ -81,7 +98,7 @@ Use the single entry first:
 - public entry: `/platform-v7`
 - role entry: `/platform-v7/login`
 
-Do not send direct cabinet links to external users until the direct URL redirect behavior is verified on live deploy.
+Do not send direct cabinet links to external users until the direct URL redirect behavior is verified on Netlify.
 
 After verification, controlled direct role paths may be used only as operator-assisted links:
 
@@ -229,7 +246,7 @@ Measure during the run:
 
 Stop the pilot if:
 
-- live deploy is stale;
+- Netlify live deploy is stale;
 - participant enters wrong cabinet and stays there;
 - bank/payment copy says or implies that the platform releases money;
 - user can access another role without returning to login;
@@ -243,7 +260,7 @@ After the run, fill:
 
 - pilot date;
 - participants;
-- deploy commit;
+- Netlify deploy commit;
 - scenario used;
 - pass/fail by role;
 - blockers found;
@@ -256,13 +273,10 @@ After the run, fill:
 
 ## 10. Current external blocker
 
-As of this runbook creation, external sharing remains blocked until the fresh live deploy is confirmed.
+As of this runbook update, external sharing remains blocked until the fresh Netlify live deploy is confirmed.
 
-Known infrastructure blockers:
+Known deployment blocker:
 
-- Vercel deployment is blocked externally;
-- Deno deploy is failing;
-- Railway deploy is failing;
-- Netlify direct deploy tool returned a CLI command instead of completing a deploy.
+- Netlify direct deploy tool returned a CLI command instead of completing a deploy in chat.
 
-Do not treat these as closed until a live URL proves the latest commit is running.
+Do not treat the deployment as closed until the Netlify live URL proves the latest commit is running.
