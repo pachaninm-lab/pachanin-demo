@@ -31,14 +31,18 @@ export function PlatformV7RoleLockFix() {
   const role = usePlatformV7RStore((state) => state.role);
   const setRole = usePlatformV7RStore((state) => state.setRole);
 
-  React.useEffect(() => {
-    const restoreLockedRole = () => {
-      const locked = lockedRoleFromSession();
-      if (!locked || role === locked) return;
-      setRole(locked);
-      document.cookie = `pc-role=${locked}; Path=/; SameSite=Lax`;
-    };
+  const restoreLockedRole = React.useCallback(() => {
+    const locked = lockedRoleFromSession();
+    if (!locked || role === locked) return;
+    setRole(locked);
+    document.cookie = `pc-role=${locked}; Path=/; SameSite=Lax`;
+  }, [role, setRole]);
 
+  React.useLayoutEffect(() => {
+    restoreLockedRole();
+  }, [pathname, restoreLockedRole]);
+
+  React.useEffect(() => {
     restoreLockedRole();
     const frame = window.requestAnimationFrame(restoreLockedRole);
     const shortTimer = window.setTimeout(restoreLockedRole, 0);
@@ -54,7 +58,7 @@ export function PlatformV7RoleLockFix() {
       window.removeEventListener('hashchange', restoreLockedRole);
       window.removeEventListener('focus', restoreLockedRole);
     };
-  }, [pathname, role, setRole]);
+  }, [pathname, restoreLockedRole]);
 
   return null;
 }
