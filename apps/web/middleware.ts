@@ -75,27 +75,6 @@ const ROLE_HOME: Record<string, string> = {
   executive: '/platform-v7/executive',
 };
 
-const PLATFORM_V7_ROLE_ROUTES: Array<{ prefix: string; role: string; also?: string[] }> = [
-  { prefix: '/platform-v7/driver', role: 'driver' },
-  { prefix: '/platform-v7/surveyor', role: 'surveyor' },
-  { prefix: '/platform-v7/elevator', role: 'elevator' },
-  { prefix: '/platform-v7/lab', role: 'lab' },
-  { prefix: '/platform-v7/bank', role: 'bank', also: ['operator', 'executive'] },
-  { prefix: '/platform-v7/arbitrator', role: 'arbitrator' },
-  { prefix: '/platform-v7/disputes', role: 'arbitrator', also: ['surveyor', 'operator', 'bank'] },
-  { prefix: '/platform-v7/compliance', role: 'compliance' },
-  { prefix: '/platform-v7/connectors', role: 'compliance', also: ['operator'] },
-  { prefix: '/platform-v7/buyer', role: 'buyer' },
-  { prefix: '/platform-v7/procurement', role: 'buyer' },
-  { prefix: '/platform-v7/seller', role: 'seller' },
-  { prefix: '/platform-v7/lots', role: 'seller', also: ['buyer', 'operator'] },
-  { prefix: '/platform-v7/logistics', role: 'logistics', also: ['operator'] },
-  { prefix: '/platform-v7/executive', role: 'executive' },
-  { prefix: '/platform-v7/analytics', role: 'executive' },
-  { prefix: '/platform-v7/control-tower', role: 'operator', also: ['executive'] },
-  { prefix: '/platform-v7/operator', role: 'operator' },
-];
-
 function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
 }
@@ -215,17 +194,6 @@ function parseSession(raw: string | undefined): { role: string; exp: number } | 
   return null;
 }
 
-function resolvePlatformV7PathRole(pathname: string): string | null {
-  const match = PLATFORM_V7_ROLE_ROUTES.find((item) => pathname === item.prefix || pathname.startsWith(item.prefix + '/'));
-  return match?.role ?? null;
-}
-
-function canAccessPlatformV7Path(pathname: string, role: string): boolean {
-  const match = PLATFORM_V7_ROLE_ROUTES.find((item) => pathname === item.prefix || pathname.startsWith(item.prefix + '/'));
-  if (!match) return true;
-  return match.role === role || Boolean(match.also?.includes(role));
-}
-
 function resolveRole(req: NextRequest, sessionRole?: string | null) {
   if (sessionRole && VALID_ROLES.has(sessionRole)) return sessionRole;
   const cookieRole = req.cookies.get('pc-role')?.value;
@@ -277,6 +245,26 @@ function redirectToOwnPlatformV7Cabinet(req: NextRequest, role: string) {
   return applySecurityHeaders(NextResponse.redirect(u), true);
 }
 
+function routeStarts(p: string, prefix: string) {
+  return p === prefix || p.startsWith(prefix + '/');
+}
+
+function canAccessPlatformV7Path(p: string, role: string): boolean {
+  if (role === 'operator') return true;
+  if (role === 'executive' && (routeStarts(p, '/platform-v7/executive') || routeStarts(p, '/platform-v7/control-tower') || routeStarts(p, '/platform-v7/bank'))) return true;
+  if (role === 'bank' && (routeStarts(p, '/platform-v7/bank') || routeStarts(p, '/platform-v7/deals') || routeStarts(p, '/platform-v7/disputes'))) return true;
+  if (role === 'buyer' && (routeStarts(p, '/platform-v7/buyer') || routeStarts(p, '/platform-v7/procurement') || routeStarts(p, '/platform-v7/deals') || routeStarts(p, '/platform-v7/lots'))) return true;
+  if (role === 'seller' && (routeStarts(p, '/platform-v7/seller') || routeStarts(p, '/platform-v7/lots') || routeStarts(p, '/platform-v7/deals'))) return true;
+  if (role === 'logistics' && (routeStarts(p, '/platform-v7/logistics') || routeStarts(p, '/platform-v7/deals'))) return true;
+  if (role === 'driver' && (routeStarts(p, '/platform-v7/driver') || routeStarts(p, '/platform-v7/deals/DL-9103'))) return true;
+  if (role === 'surveyor' && (routeStarts(p, '/platform-v7/surveyor') || routeStarts(p, '/platform-v7/disputes'))) return true;
+  if (role === 'elevator' && (routeStarts(p, '/platform-v7/elevator') || routeStarts(p, '/platform-v7/deals'))) return true;
+  if (role === 'lab' && (routeStarts(p, '/platform-v7/lab') || routeStarts(p, '/platform-v7/deals'))) return true;
+  if (role === 'arbitrator' && (routeStarts(p, '/platform-v7/arbitrator') || routeStarts(p, '/platform-v7/disputes'))) return true;
+  if (role === 'compliance' && (routeStarts(p, '/platform-v7/compliance') || routeStarts(p, '/platform-v7/connectors') || routeStarts(p, '/platform-v7/deals'))) return true;
+  return false;
+}
+
 export function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
@@ -319,8 +307,7 @@ export function middleware(req: NextRequest) {
       return redirectToPlatformV7Entry(req);
     }
 
-    const pathRole = resolvePlatformV7PathRole(p);
-    if (!isEntry && !isPlatformV7PublicPath(p) && pathRole && !canAccessPlatformV7Path(p, resolvedRole)) {
+    if (!isEntry && !isPlatformV7PublicPath(p) && !canAccessPlatformV7Path(p, resolvedRole)) {
       return redirectToOwnPlatformV7Cabinet(req, resolvedRole);
     }
 
