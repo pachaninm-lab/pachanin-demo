@@ -3,6 +3,7 @@ import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7I
 import '@/styles/platform-v7-public-entry-stable.css';
 import '@/styles/platform-v7-role-cards-stable.css';
 import '@/styles/platform-v7-protected-grid-stable.css';
+import '@/styles/platform-v7-stable-shell.css';
 
 export default function PlatformV7Template({ children }: { children: ReactNode }) {
   return (
