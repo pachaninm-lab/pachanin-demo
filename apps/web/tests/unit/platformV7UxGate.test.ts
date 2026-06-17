@@ -35,8 +35,10 @@ describe('PR-5 UX gate', () => {
     expect(shell).toContain('pc-v4-bottomnav');
     expect(shell).toContain('Навигация кабинета');
     expect(shell).toContain('toggleTheme');
-    // в кабинете нет переключателя всех ролей
+    // в кабинете нет переключателя всех ролей и смены кабинета
     expect(shell).not.toContain("aria-label='Сменить роль'");
+    expect(shell).not.toContain('Сменить кабинет');
+    expect(shell).not.toContain('inferRoleFromPath');
   });
 
   it('protects mobile from horizontal overflow via grid-shrink rule', () => {
