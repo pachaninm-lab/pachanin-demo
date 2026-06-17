@@ -1,0 +1,1 @@
+typecheck finding: elevator page used item.note on ElevatorQualityMetric. The type exposes item.limit. Fix is to render limit.
