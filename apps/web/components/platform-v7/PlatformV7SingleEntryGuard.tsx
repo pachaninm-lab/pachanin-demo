@@ -23,19 +23,45 @@ const ROLE_HOME: Record<PlatformRole, string> = {
   executive: '/platform-v7/executive',
 };
 
+// Strict role boundary for controlled pilot: participant roles stay inside their
+// own cabinet tree. Shared cross-role workspaces such as deals/disputes/bank
+// are operator/executive surfaces unless a dedicated role-scoped page exists.
 const ALLOWED: Record<PlatformRole, readonly string[]> = {
-  operator: ['/platform-v7/control-tower', '/platform-v7/deals', '/platform-v7/lots', '/platform-v7/logistics', '/platform-v7/bank', '/platform-v7/disputes', '/platform-v7/connectors', '/platform-v7/executive'],
-  buyer: ['/platform-v7/buyer', '/platform-v7/procurement', '/platform-v7/deals', '/platform-v7/bank'],
-  seller: ['/platform-v7/seller', '/platform-v7/lots', '/platform-v7/deals'],
-  logistics: ['/platform-v7/logistics', '/platform-v7/driver', '/platform-v7/elevator', '/platform-v7/lab'],
+  operator: [
+    '/platform-v7/control-tower',
+    '/platform-v7/deals',
+    '/platform-v7/lots',
+    '/platform-v7/procurement',
+    '/platform-v7/logistics',
+    '/platform-v7/bank',
+    '/platform-v7/disputes',
+    '/platform-v7/compliance',
+    '/platform-v7/connectors',
+    '/platform-v7/trust',
+    '/platform-v7/reports',
+    '/platform-v7/executive',
+  ],
+  buyer: ['/platform-v7/buyer', '/platform-v7/procurement'],
+  seller: ['/platform-v7/seller'],
+  logistics: ['/platform-v7/logistics'],
   driver: ['/platform-v7/driver'],
-  surveyor: ['/platform-v7/surveyor', '/platform-v7/disputes'],
-  elevator: ['/platform-v7/elevator', '/platform-v7/deals'],
-  lab: ['/platform-v7/lab', '/platform-v7/deals'],
-  bank: ['/platform-v7/bank', '/platform-v7/deals', '/platform-v7/disputes'],
-  arbitrator: ['/platform-v7/arbitrator', '/platform-v7/disputes'],
-  compliance: ['/platform-v7/compliance', '/platform-v7/connectors', '/platform-v7/deals'],
-  executive: ['/platform-v7/executive', '/platform-v7/control-tower', '/platform-v7/bank'],
+  surveyor: ['/platform-v7/surveyor'],
+  elevator: ['/platform-v7/elevator'],
+  lab: ['/platform-v7/lab'],
+  bank: ['/platform-v7/bank'],
+  arbitrator: ['/platform-v7/arbitrator'],
+  compliance: ['/platform-v7/compliance'],
+  executive: [
+    '/platform-v7/executive',
+    '/platform-v7/control-tower',
+    '/platform-v7/deals',
+    '/platform-v7/logistics',
+    '/platform-v7/bank',
+    '/platform-v7/disputes',
+    '/platform-v7/compliance',
+    '/platform-v7/trust',
+    '/platform-v7/reports',
+  ],
 };
 
 function normalize(pathname: string): string {
