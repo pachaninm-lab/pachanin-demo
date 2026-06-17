@@ -24,18 +24,18 @@ const ROLE_HOME: Record<PlatformRole, string> = {
 };
 
 const ALLOWED: Record<PlatformRole, readonly string[]> = {
-  operator: ['/platform-v7/control-tower', '/platform-v7/deals', '/platform-v7/lots', '/platform-v7/logistics', '/platform-v7/bank', '/platform-v7/disputes', '/platform-v7/connectors', '/platform-v7/executive'],
-  buyer: ['/platform-v7/buyer', '/platform-v7/procurement', '/platform-v7/deals', '/platform-v7/bank'],
-  seller: ['/platform-v7/seller', '/platform-v7/lots', '/platform-v7/deals'],
-  logistics: ['/platform-v7/logistics', '/platform-v7/driver', '/platform-v7/elevator', '/platform-v7/lab'],
+  operator: ['/platform-v7/control-tower'],
+  buyer: ['/platform-v7/buyer', '/platform-v7/procurement'],
+  seller: ['/platform-v7/seller', '/platform-v7/lots'],
+  logistics: ['/platform-v7/logistics'],
   driver: ['/platform-v7/driver'],
-  surveyor: ['/platform-v7/surveyor', '/platform-v7/disputes'],
-  elevator: ['/platform-v7/elevator', '/platform-v7/deals'],
-  lab: ['/platform-v7/lab', '/platform-v7/deals'],
-  bank: ['/platform-v7/bank', '/platform-v7/deals', '/platform-v7/disputes'],
-  arbitrator: ['/platform-v7/arbitrator', '/platform-v7/disputes'],
-  compliance: ['/platform-v7/compliance', '/platform-v7/connectors', '/platform-v7/deals'],
-  executive: ['/platform-v7/executive', '/platform-v7/control-tower', '/platform-v7/bank'],
+  surveyor: ['/platform-v7/surveyor'],
+  elevator: ['/platform-v7/elevator'],
+  lab: ['/platform-v7/lab'],
+  bank: ['/platform-v7/bank'],
+  arbitrator: ['/platform-v7/arbitrator'],
+  compliance: ['/platform-v7/compliance', '/platform-v7/connectors'],
+  executive: ['/platform-v7/executive'],
 };
 
 function normalize(pathname: string): string {
@@ -62,8 +62,20 @@ export function platformV7RoleHome(role: PlatformRole): string {
 function roleAllows(role: PlatformRole, pathname: string): boolean {
   const path = normalize(pathname);
   if (isPublicPath(path)) return true;
-  if (path === '/platform-v7/ai') return true;
   return ALLOWED[role].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
+
+function hideForeignCabinetLinks(role: PlatformRole) {
+  document.querySelectorAll<HTMLAnchorElement>('a[href^="/platform-v7/"]').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    if (roleAllows(role, href)) {
+      link.hidden = false;
+      link.removeAttribute('aria-hidden');
+      return;
+    }
+    link.hidden = true;
+    link.setAttribute('aria-hidden', 'true');
+  });
 }
 
 export function PlatformV7SingleEntryGuard() {
@@ -83,8 +95,18 @@ export function PlatformV7SingleEntryGuard() {
       return;
     }
     if (role !== activeRole) setRole(activeRole);
+    hideForeignCabinetLinks(activeRole);
     if (!roleAllows(activeRole, path)) router.replace(platformV7RoleHome(activeRole));
   }, [pathname, role, router, setRole]);
+
+  React.useEffect(() => {
+    const activeRole = readActiveRole();
+    if (!activeRole) return;
+    hideForeignCabinetLinks(activeRole);
+    const observer = new MutationObserver(() => hideForeignCabinetLinks(activeRole));
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
+    return () => observer.disconnect();
+  }, [pathname]);
 
   return <style>{`.pc-v4-switch-cabinet{display:none!important;}`}</style>;
 }
