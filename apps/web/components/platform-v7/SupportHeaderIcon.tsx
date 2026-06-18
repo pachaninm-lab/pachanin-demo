@@ -55,6 +55,7 @@ export function SupportHeaderIcon() {
         .pc-v4-main{padding-bottom:calc(env(safe-area-inset-bottom) + 98px)!important}
         @media(max-width:767px){
           .pc-v4-search{display:none!important}
+          .pc-v4-main{padding-bottom:calc(env(safe-area-inset-bottom) + 176px)!important}
           .pc-v4-header-inner{position:relative!important}
           .pc-v4-top{position:relative!important;width:100%!important;display:grid!important;grid-template-columns:52px 52px minmax(0,1fr)!important;gap:8px!important;align-items:center!important;min-height:44px!important}
           .pc-v4-top > button[aria-label='Открыть меню']{grid-column:1!important;justify-self:start!important;display:inline-flex!important;visibility:visible!important;opacity:1!important}
@@ -69,7 +70,7 @@ export function SupportHeaderIcon() {
           .p7-role-support.pc-v4-iconbtn{width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;min-height:42px!important;border-radius:13px!important}
           .pc-v4-drawer{width:min(344px,84vw)!important;max-width:84vw!important;border-top-right-radius:24px!important;border-bottom-right-radius:24px!important;overflow:hidden!important}
           .pc-v4-drawer[data-open='true']{box-shadow:14px 0 34px rgba(15,23,42,.08)!important}
-          .pc-v7-role-dock{padding:7px 10px calc(env(safe-area-inset-bottom) + 7px)!important;background:color-mix(in srgb,var(--pc-bg-header) 98%,transparent)!important;backdrop-filter:blur(18px)!important;border-top:1px solid var(--pc-border)!important;box-shadow:0 -10px 28px rgba(3,8,7,.10)!important}
+          .pc-v7-role-dock{bottom:calc(env(safe-area-inset-bottom) + 72px)!important;padding:7px 10px calc(env(safe-area-inset-bottom) + 7px)!important;background:color-mix(in srgb,var(--pc-bg-header) 98%,transparent)!important;backdrop-filter:blur(18px)!important;border-top:1px solid var(--pc-border)!important;box-shadow:0 -10px 28px rgba(3,8,7,.10)!important}
         }
         @media(max-width:374px){.pc-v4-actions{right:6px!important;gap:5px!important;max-width:calc(100vw - 124px)!important}.p7-role-support.pc-v4-iconbtn,.pc-v4-actions button[aria-label='Идентификация и настройки']{width:40px!important;min-width:40px!important;max-width:40px!important;height:40px!important;min-height:40px!important}}
       ` }} />
