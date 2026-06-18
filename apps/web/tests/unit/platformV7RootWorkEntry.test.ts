@@ -11,10 +11,13 @@ describe('platform-v7 root working entry', () => {
     expect(page).toContain('entry-role-grid');
   });
 
-  it('shows stable public entry routes', () => {
-    expect(page).toContain('/platform-v7/seller');
-    expect(page).toContain('/platform-v7/buyer');
-    expect(page).toContain('/platform-v7/open');
+  it('routes public role cards through login instead of direct cabinets', () => {
+    expect(page).toContain('/platform-v7/login');
+    expect(page).not.toContain("href: '/platform-v7/seller'");
+    expect(page).not.toContain("href: '/platform-v7/buyer'");
+    expect(page).not.toContain("href: '/platform-v7/bank'");
+    expect(page).not.toContain("key={role.href}");
+    expect(page).toContain("key={role.title}");
   });
 
   it('keeps maturity language guarded', () => {
