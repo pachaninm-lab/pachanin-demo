@@ -31,13 +31,12 @@ describe('AppShellV4 cabinet shell', () => {
     expect(window.localStorage.getItem('pc-theme')).toBe('light');
   });
 
-  it('does not expose an all-roles role switcher inside a cabinet', () => {
+  it('does not expose role or cabinet switching inside a cabinet', () => {
     render(<AppShellV4 initialRole="buyer"><div>child</div></AppShellV4>);
 
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.queryByText('Сменить роль')).toBeNull();
-    // вместо переключения ролей — выход к выбору кабинета
-    expect(screen.getByRole('link', { name: /Сменить кабинет/i })).toBeInTheDocument();
+    expect(screen.queryByText('Сменить кабинет')).toBeNull();
   });
 
   it('renders a role-scoped bottom navigation bar', () => {

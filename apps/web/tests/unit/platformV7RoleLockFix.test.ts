@@ -19,13 +19,10 @@ describe('platform-v7 active role lock', () => {
     expect(lockFix).toContain('document.cookie = `pc-role=${locked}; Path=/; SameSite=Lax`;');
   });
 
-  it('corrects the known AppShellV4 url-inferred role drift before visible paint', () => {
-    expect(appShell).toContain('setRole(inferred)');
-    expect(lockFix).toContain('lockedRoleFromSession');
-    expect(lockFix).toContain('React.useLayoutEffect');
-    expect(lockFix).toContain('window.requestAnimationFrame(restoreLockedRole)');
-    expect(lockFix).toContain('window.setTimeout(restoreLockedRole, 0)');
-    expect(lockFix).toContain('window.setInterval(restoreLockedRole, 50)');
-    expect(lockFix).toContain("window.addEventListener('focus', restoreLockedRole)");
+  it('does not infer active role from the current URL inside AppShellV4', () => {
+    expect(appShell).not.toContain('inferRoleFromPath');
+    expect(appShell).not.toContain('setRole(inferred)');
+    expect(appShell).toContain('platformV7NavByRole(displayRole)');
+    expect(appShell).toContain('platformV7RoleRoute(displayRole)');
   });
 });

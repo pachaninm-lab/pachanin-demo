@@ -57,6 +57,7 @@ export const PLATFORM_V7_SIMULATOR_ROUTE = '/platform-v7/simulator';
 export const PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE = '/platform-v7/demo/execution-flow';
 export const PLATFORM_V7_REPORTS_ROUTE = '/platform-v7/reports';
 export const PLATFORM_V7_PILOT_RUNBOOK_ROUTE = '/platform-v7/pilot-runbook';
+export const PLATFORM_V7_AI_ROUTE = '/platform-v7/ai';
 
 export const PLATFORM_V7R_ROLES_ROUTE = '/platform-v7r/roles';
 export const PLATFORM_V7R_DRIVER_ROUTE = '/platform-v7r/driver';
@@ -136,6 +137,7 @@ export const PLATFORM_V7_COMMAND_ROUTE_SURFACE = [
   PLATFORM_V7_SIMULATOR_ROUTE,
   PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE,
   PLATFORM_V7_REPORTS_ROUTE,
+  PLATFORM_V7_AI_ROUTE,
 ] as const;
 
 export const PLATFORM_V7_SHELL_ROUTE_SURFACE = [
@@ -182,6 +184,7 @@ export const PLATFORM_V7_SHELL_ROUTE_SURFACE = [
   PLATFORM_V7_ELEVATOR_ROUTE,
   PLATFORM_V7_LAB_ROUTE,
   PLATFORM_V7_ARBITRATOR_ROUTE,
+  PLATFORM_V7_AI_ROUTE,
   PLATFORM_V7R_ROLES_ROUTE,
   PLATFORM_V7R_DRIVER_ROUTE,
   PLATFORM_V7R_SURVEYOR_ROUTE,
