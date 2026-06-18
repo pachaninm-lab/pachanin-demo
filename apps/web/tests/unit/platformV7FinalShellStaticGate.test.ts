@@ -71,4 +71,10 @@ describe('platform-v7 final shell static gate', () => {
     expect(entryFixCss).toContain('.p7-calc-widget .pc-v4-iconbtn{display:inline-flex!important');
     expect(supportHeader).not.toContain('.p7-calc-widget{display:none');
   });
+
+  it('keeps header help on an existing shared route', () => {
+    expect(supportHeader).toContain('/platform-v7/status?role=');
+    expect(supportHeader).not.toContain('/platform-v7/support?role=');
+    expect(shellRoutes).toContain('PLATFORM_V7_STATUS_ROUTE');
+  });
 });
