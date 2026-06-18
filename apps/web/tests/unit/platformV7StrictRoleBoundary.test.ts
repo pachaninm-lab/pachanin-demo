@@ -16,22 +16,29 @@ describe('platform-v7 strict role boundaries', () => {
     expect(rbac).toContain("redirectTo: '/platform-v7/login'");
   });
 
-  it('keeps driver in driver cabinet only', () => {
-    expect(guard).toContain("driver: ['/platform-v7/driver']");
-    expect(nav).toContain("driver: [");
-    expect(nav).toContain("{ href: PLATFORM_V7_DRIVER_FIELD_CANONICAL_ROUTE, label: 'Мой маршрут' }");
+  it('uses the canonical role registry for single-entry role boundaries', () => {
+    expect(guard).toContain('platformV7RoleRoute');
+    expect(guard).toContain('platformV7RoleCanOpenHref');
+    expect(guard).not.toContain('const ROLE_HOME');
+    expect(guard).not.toContain('const ALLOWED');
   });
 
-  it('does not expose deals or disputes in participant nav blocks', () => {
+  it('keeps driver home on the field route through the canonical registry', () => {
+    expect(nav).toContain('driver: {');
+    expect(nav).toContain('home: PLATFORM_V7_DRIVER_FIELD_ROUTE');
+    expect(guard).toContain('platformV7RoleHome(role: PlatformRole)');
+    expect(guard).toContain('return platformV7RoleRoute(role);');
+  });
+
+  it('does not expose deals or disputes in participant bottom navigation blocks', () => {
     for (const role of participantRoles) {
-      const start = nav.indexOf(`${role}: [`);
+      const start = nav.indexOf(`${role}: {`);
       expect(start).toBeGreaterThan(-1);
-      const end = nav.indexOf('\n  ],', start);
-      const block = nav.slice(start, end);
-      if (role !== 'operator' && role !== 'executive') {
-        expect(block).not.toContain('PLATFORM_V7_DEALS_ROUTE');
-        expect(block).not.toContain('PLATFORM_V7_DISPUTES_ROUTE');
-      }
+      const bottomStart = nav.indexOf('bottom: [', start);
+      const bottomEnd = nav.indexOf('],', bottomStart);
+      const block = nav.slice(bottomStart, bottomEnd);
+      expect(block).not.toContain('PLATFORM_V7_DEALS_ROUTE');
+      expect(block).not.toContain('PLATFORM_V7_DISPUTES_ROUTE');
     }
   });
 

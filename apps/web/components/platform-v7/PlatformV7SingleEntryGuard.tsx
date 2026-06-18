@@ -2,67 +2,27 @@
 
 import * as React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { platformV7RoleCanOpenHref, platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export const PLATFORM_V7_ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 
 const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
 
-const ROLE_HOME: Record<PlatformRole, string> = {
-  operator: '/platform-v7/control-tower',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
-};
-
-// Strict role boundary for controlled pilot: participant roles stay inside their
-// own cabinet tree. Shared cross-role workspaces such as deals/disputes/bank
-// are operator/executive surfaces unless a dedicated role-scoped page exists.
-const ALLOWED: Record<PlatformRole, readonly string[]> = {
-  operator: [
-    '/platform-v7/control-tower',
-    '/platform-v7/deals',
-    '/platform-v7/lots',
-    '/platform-v7/procurement',
-    '/platform-v7/logistics',
-    '/platform-v7/bank',
-    '/platform-v7/disputes',
-    '/platform-v7/compliance',
-    '/platform-v7/connectors',
-    '/platform-v7/trust',
-    '/platform-v7/reports',
-    '/platform-v7/executive',
-  ],
-  buyer: ['/platform-v7/buyer', '/platform-v7/procurement'],
-  seller: ['/platform-v7/seller'],
-  logistics: ['/platform-v7/logistics'],
-  driver: ['/platform-v7/driver'],
-  surveyor: ['/platform-v7/surveyor'],
-  elevator: ['/platform-v7/elevator'],
-  lab: ['/platform-v7/lab'],
-  bank: ['/platform-v7/bank'],
-  arbitrator: ['/platform-v7/arbitrator'],
-  compliance: ['/platform-v7/compliance'],
-  executive: [
-    '/platform-v7/executive',
-    '/platform-v7/control-tower',
-    '/platform-v7/deals',
-    '/platform-v7/logistics',
-    '/platform-v7/bank',
-    '/platform-v7/disputes',
-    '/platform-v7/compliance',
-    '/platform-v7/trust',
-    '/platform-v7/reports',
-  ],
-};
+const PLATFORM_ROLES: readonly PlatformRole[] = [
+  'operator',
+  'buyer',
+  'seller',
+  'logistics',
+  'driver',
+  'surveyor',
+  'elevator',
+  'lab',
+  'bank',
+  'arbitrator',
+  'compliance',
+  'executive',
+];
 
 function normalize(pathname: string): string {
   return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
@@ -72,9 +32,14 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.has(normalize(pathname));
 }
 
+function isPlatformRole(value: string | null): value is PlatformRole {
+  return PLATFORM_ROLES.includes(value as PlatformRole);
+}
+
 function readActiveRole(): PlatformRole | null {
   if (typeof globalThis === 'undefined') return null;
-  return globalThis.sessionStorage?.getItem(PLATFORM_V7_ACTIVE_ROLE_KEY) as PlatformRole | null;
+  const stored = globalThis.sessionStorage?.getItem(PLATFORM_V7_ACTIVE_ROLE_KEY) ?? null;
+  return isPlatformRole(stored) ? stored : null;
 }
 
 function loginHref(pathname: string): string {
@@ -82,14 +47,13 @@ function loginHref(pathname: string): string {
 }
 
 export function platformV7RoleHome(role: PlatformRole): string {
-  return ROLE_HOME[role];
+  return platformV7RoleRoute(role);
 }
 
 function roleAllows(role: PlatformRole, pathname: string): boolean {
   const path = normalize(pathname);
   if (isPublicPath(path)) return true;
-  if (path === '/platform-v7/ai') return true;
-  return ALLOWED[role].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+  return platformV7RoleCanOpenHref(role, path);
 }
 
 export function PlatformV7SingleEntryGuard() {
