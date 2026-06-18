@@ -22,6 +22,21 @@ describe('platform-v7 public entry link policy', () => {
     'Открытый просмотр',
   ];
 
+  const fullRoleSet = [
+    'Продавец',
+    'Покупатель',
+    'Логистика',
+    'Водитель',
+    'Элеватор',
+    'Лаборатория',
+    'Сюрвейер',
+    'Банк',
+    'Комплаенс',
+    'Арбитр',
+    'Оператор',
+    'Руководитель',
+  ];
+
   it('keeps public entry screens free of direct cabinet action CTAs', () => {
     const leaks = publicEntryFiles.flatMap((file) => {
       const source = read(file);
@@ -31,12 +46,28 @@ describe('platform-v7 public entry link policy', () => {
     expect(leaks).toEqual([]);
   });
 
-  it('keeps the client entry gate in place for cabinet routes', () => {
+  it('mounts the public entry cleanup in the platform-v7 template', () => {
+    const source = read('apps/web/app/platform-v7/template.tsx');
+
+    expect(source).toContain('PublicEntryCleanup');
+    expect(source).toContain('<PublicEntryCleanup />');
+  });
+
+  it('routes public role cards through the single login gate at runtime', () => {
     const source = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
 
-    expect(source).toContain("const ENTRY_SESSION_KEY = 'pc-v7-entry-approved'");
-    expect(source).toContain("pathname === '/platform-v7'");
-    expect(source).toContain("router.replace('/platform-v7')");
-    expect(source).toContain("'/platform-v7/role-preview'");
+    expect(source).toContain("link.setAttribute('href', '/platform-v7/login')");
+    expect(source).toContain("item.setAttribute('href', '/platform-v7/login')");
+    expect(source).toContain('Доступ после единого входа');
+  });
+
+  it('keeps all 12 role labels available on the public role catalog', () => {
+    const source = [
+      read('apps/web/app/platform-v7/page.tsx'),
+      read('apps/web/components/platform-v7/PublicEntryCleanup.tsx'),
+    ].join('\n');
+
+    const missing = fullRoleSet.filter((role) => !source.includes(role));
+    expect(missing).toEqual([]);
   });
 });
