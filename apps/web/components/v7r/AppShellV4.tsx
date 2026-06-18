@@ -9,8 +9,6 @@ import {
   Bell,
   Briefcase,
   Building2,
-  CheckCircle2,
-  FileCheck,
   FileText,
   FlaskConical,
   FolderOpen,
@@ -31,6 +29,8 @@ import {
 import { CommandPalette } from '@/components/v7r/CommandPalette';
 import { BrandMark } from '@/components/v7r/BrandMark';
 import { NOTIFICATIONS, NOTIFICATION_GROUPS, type NotificationGroup } from '@/lib/v7r/data';
+import { platformV7NavByRole, platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
+import { PLATFORM_V7_AI_ROUTE } from '@/lib/platform-v7/routes';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { PLATFORM_V7_LIGHT_DEFAULT_VERSION, PLATFORM_V7_THEME_VERSION_KEY } from '@/components/v7r/PlatformThemeSync';
 
@@ -79,105 +79,6 @@ const ROLE_ICONS: Record<PlatformRole, LucideIcon> = {
   executive: BarChart3,
 };
 
-type SectionKey =
-  | 'dashboard'
-  | 'deals'
-  | 'lots'
-  | 'create'
-  | 'logistics'
-  | 'analytics'
-  | 'integrations'
-  | 'bank'
-  | 'disputes'
-  | 'cabinet'
-  | 'procurement'
-  | 'receiving'
-  | 'lab';
-
-const SECTION_ICONS: Record<SectionKey, LucideIcon> = {
-  dashboard: LayoutDashboard,
-  deals: FolderOpen,
-  lots: Wheat,
-  create: FileCheck,
-  logistics: Truck,
-  analytics: BarChart3,
-  integrations: ShieldCheck,
-  bank: Landmark,
-  disputes: AlertTriangle,
-  cabinet: Briefcase,
-  procurement: FileText,
-  receiving: Building2,
-  lab: FlaskConical,
-};
-
-const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string; icon: SectionKey; note?: string }>> = {
-  operator: [
-    { href: '/platform-v7/control-tower', label: 'Центр управления', icon: 'dashboard', note: 'блокеры и следующий шаг' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'реестр и статусы' },
-    { href: '/platform-v7/lots', label: 'Лоты и запросы', icon: 'lots', note: 'предсделочный контур' },
-    { href: '/platform-v7/logistics', label: 'Логистика', icon: 'logistics', note: 'рейсы и отклонения' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и банковская проверка' },
-    { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'удержания и доказательства' },
-    { href: '/platform-v7/connectors', label: 'Подключения', icon: 'integrations', note: 'ФГИС, банк, ЭДО' },
-    { href: '/platform-v7/executive', label: 'Сводка', icon: 'analytics', note: 'управленческий срез' },
-  ],
-  buyer: [
-    { href: '/platform-v7/buyer', label: 'Кабинет', icon: 'cabinet', note: 'мои заявки и сделки' },
-    { href: '/platform-v7/procurement', label: 'Закупки', icon: 'procurement', note: 'потребности и предложения' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'исполнение и документы' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и условия банка' },
-  ],
-  seller: [
-    { href: '/platform-v7/seller', label: 'Кабинет', icon: 'cabinet', note: 'мои партии и офферы' },
-    { href: '/platform-v7/lots', label: 'Лоты и запросы', icon: 'lots', note: 'заявки и партии' },
-    { href: '/platform-v7/lots/create', label: 'Создать лот', icon: 'create', note: 'партия к продаже' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'исполнение и деньги' },
-  ],
-  logistics: [
-    { href: '/platform-v7/logistics', label: 'Диспетчерская', icon: 'logistics', note: 'заявки и рейсы' },
-    { href: '/platform-v7/driver', label: 'Водитель', icon: 'cabinet', note: 'маршрут и события' },
-    { href: '/platform-v7/elevator', label: 'Приёмка', icon: 'receiving', note: 'вес и документы' },
-    { href: '/platform-v7/lab', label: 'Лаборатория', icon: 'lab', note: 'пробы и качество' },
-  ],
-  driver: [
-    { href: '/platform-v7/driver', label: 'Маршрут', icon: 'logistics', note: 'рейс, фото, GPS' },
-    { href: '/platform-v7/deals/DL-9103', label: 'Сделка', icon: 'deals', note: 'только свой рейс' },
-  ],
-  surveyor: [
-    { href: '/platform-v7/surveyor', label: 'Назначения', icon: 'cabinet', note: 'осмотр и фиксация' },
-    { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'доказательства' },
-  ],
-  elevator: [
-    { href: '/platform-v7/elevator', label: 'Приёмка', icon: 'receiving', note: 'вес и допуск' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'связанные поставки' },
-  ],
-  lab: [
-    { href: '/platform-v7/lab', label: 'Пробы', icon: 'lab', note: 'качество и протоколы' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'привязка к рейсам' },
-  ],
-  bank: [
-    { href: '/platform-v7/bank', label: 'Банковый контур', icon: 'bank', note: 'резерв, удержание, подтверждение' },
-    { href: '/platform-v7/bank/factoring', label: 'Факторинг', icon: 'bank', note: 'заявка и статус' },
-    { href: '/platform-v7/bank/escrow', label: 'Эскроу', icon: 'bank', note: 'условия удержания' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'проверка условий' },
-    { href: '/platform-v7/disputes', label: 'Удержания', icon: 'disputes', note: 'споры по деньгам' },
-  ],
-  arbitrator: [
-    { href: '/platform-v7/arbitrator', label: 'Разбор', icon: 'analytics', note: 'решение по спору' },
-    { href: '/platform-v7/disputes', label: 'Споры', icon: 'disputes', note: 'очередь арбитража' },
-  ],
-  compliance: [
-    { href: '/platform-v7/compliance', label: 'Допуск', icon: 'cabinet', note: 'контрагенты и правила' },
-    { href: '/platform-v7/connectors', label: 'Подключения', icon: 'integrations', note: 'внешние системы' },
-    { href: '/platform-v7/deals', label: 'Сделки', icon: 'deals', note: 'проверка рисков' },
-  ],
-  executive: [
-    { href: '/platform-v7/executive', label: 'Сводка', icon: 'analytics', note: 'деньги и риски' },
-    { href: '/platform-v7/control-tower', label: 'Центр управления', icon: 'dashboard', note: 'операционная картина' },
-    { href: '/platform-v7/bank', label: 'Деньги', icon: 'bank', note: 'резерв и основания' },
-  ],
-};
-
 const CRUMB_LABELS: Record<string, string> = {
   'platform-v7': 'Прозрачная Цена',
   'control-tower': 'Центр управления',
@@ -204,6 +105,7 @@ const CRUMB_LABELS: Record<string, string> = {
   demo: 'Сценарий сделки',
   market: 'Лоты и запросы',
   notifications: 'Уведомления',
+  ai: 'AI-помощник',
 };
 
 function breadcrumbs(pathname: string) {
@@ -213,22 +115,6 @@ function breadcrumbs(pathname: string) {
     label: CRUMB_LABELS[part] ?? part,
     isLast: index === parts.length - 1,
   }));
-}
-
-function inferRoleFromPath(pathname: string, currentRole: PlatformRole): PlatformRole {
-  if (pathname.startsWith('/platform-v7/control-tower')) return 'operator';
-  if (pathname.startsWith('/platform-v7/buyer') || pathname.startsWith('/platform-v7/procurement')) return 'buyer';
-  if (pathname.startsWith('/platform-v7/seller') || pathname.startsWith('/platform-v7/lots')) return 'seller';
-  if (pathname.startsWith('/platform-v7/logistics')) return 'logistics';
-  if (pathname.startsWith('/platform-v7/driver')) return 'driver';
-  if (pathname.startsWith('/platform-v7/surveyor')) return 'surveyor';
-  if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
-  if (pathname.startsWith('/platform-v7/lab')) return 'lab';
-  if (pathname.startsWith('/platform-v7/bank')) return 'bank';
-  if (pathname.startsWith('/platform-v7/arbitrator')) return 'arbitrator';
-  if (pathname.startsWith('/platform-v7/compliance')) return 'compliance';
-  if (pathname.startsWith('/platform-v7/analytics') || pathname.startsWith('/platform-v7/executive')) return 'executive';
-  return currentRole;
 }
 
 function stageColors(tone: 'pilot' | 'test' | 'field') {
@@ -277,6 +163,24 @@ function iconTone(active: boolean) {
   return active ? 'var(--pc-accent)' : 'var(--pc-text-muted)';
 }
 
+function iconForHref(href: string): LucideIcon {
+  if (href.includes('/control-tower')) return LayoutDashboard;
+  if (href.includes('/deals')) return FolderOpen;
+  if (href.includes('/lots') || href.includes('/seller')) return Wheat;
+  if (href.includes('/procurement')) return FileText;
+  if (href.includes('/logistics')) return Truck;
+  if (href.includes('/driver')) return User;
+  if (href.includes('/surveyor')) return ShieldCheck;
+  if (href.includes('/elevator')) return Building2;
+  if (href.includes('/lab')) return FlaskConical;
+  if (href.includes('/bank')) return Landmark;
+  if (href.includes('/arbitrator')) return Gavel;
+  if (href.includes('/compliance') || href.includes('/trust')) return ShieldCheck;
+  if (href.includes('/executive') || href.includes('/reports')) return BarChart3;
+  if (href === PLATFORM_V7_AI_ROUTE || href.includes('/ai')) return Search;
+  return LayoutDashboard;
+}
+
 export function AppShellV4({ children, initialRole = 'operator' }: { children: React.ReactNode; initialRole?: PlatformRole }) {
   const pathname = usePathname();
   const { role, setRole } = usePlatformV7RStore();
@@ -306,10 +210,9 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   }, []);
 
   React.useEffect(() => {
-    if (!mounted) return;
-    const inferred = inferRoleFromPath(pathname, role || initialRole);
-    if (inferred !== role) setRole(inferred);
-  }, [pathname, role, setRole, mounted, initialRole]);
+    if (!mounted || role) return;
+    setRole(initialRole);
+  }, [mounted, role, setRole, initialRole]);
 
   React.useEffect(() => {
     setSidebarOpen(false);
@@ -348,8 +251,8 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
     });
   }, []);
 
-  const displayRole: PlatformRole = mounted ? role : initialRole;
-  const items = NAV_BY_ROLE[displayRole];
+  const displayRole: PlatformRole = mounted ? (role || initialRole) : initialRole;
+  const items = platformV7NavByRole(displayRole);
   const stage = ROLE_STAGE[displayRole];
   const stageTone = stageColors(stage.tone);
   const crumbs = breadcrumbs(pathname);
@@ -357,6 +260,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const statuses = systemStatus(pathname);
   const groupedNotifications = React.useMemo(() => groupNotifications(), []);
   const RoleIcon = ROLE_ICONS[displayRole];
+  const roleHomeHref = platformV7RoleRoute(displayRole);
 
   return (
     <div className='pc-shell-root-v4' style={{ minHeight: '100dvh', background: 'var(--pc-bg)', overflowX: 'hidden' }}>
@@ -375,7 +279,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         .pc-v4-iconbtn:hover { color: var(--pc-text-primary); border-color: var(--pc-border-light); }
         .pc-v4-search { min-height: 44px; min-width: 260px; border-radius: 14px; border: 1px solid var(--pc-border); background: var(--pc-bg-card); color: var(--pc-text-secondary); display: inline-flex; align-items: center; gap: 10px; padding: 0 14px; cursor: pointer; box-shadow: var(--pc-shadow-sm); }
         .pc-v4-search strong { color: var(--pc-text-primary); font-size: 13px; }
-        .pc-v4-select { min-height: 44px; min-width: 164px; border: 1px solid var(--pc-border); border-radius: 14px; background: var(--pc-bg-card); color: var(--pc-text-primary); padding: 0 12px; font-size: 13px; font-weight: 800; box-shadow: var(--pc-shadow-sm); }
         .pc-v4-stage { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; border-radius: 999px; padding: 0 11px; border: 1px solid var(--stage-border); background: var(--stage-bg); color: var(--stage-color); font-size: 11px; font-weight: 900; white-space: nowrap; }
         .pc-v4-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
         .pc-v4-crumbs { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
@@ -391,18 +294,21 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         .pc-v4-nav-item[data-active='true'] { background: var(--pc-accent-bg); border-color: var(--pc-accent-border); color: var(--pc-accent-strong); }
         .pc-v4-nav-label { font-size: 13px; font-weight: 900; color: var(--pc-text-primary); }
         .pc-v4-nav-note { font-size: 11px; color: var(--pc-text-muted); margin-top: 2px; line-height: 1.35; }
-        .pc-v4-role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .pc-v4-role-btn { min-height: 42px; border-radius: 12px; border: 1px solid var(--pc-border); background: var(--pc-bg-elevated); color: var(--pc-text-primary); font-size: 12px; font-weight: 850; cursor: pointer; }
-        .pc-v4-role-btn[data-active='true'] { background: var(--pc-accent-bg); border-color: var(--pc-accent-border); color: var(--pc-accent-strong); }
         .pc-v4-alert-panel { position: absolute; right: 0; top: 50px; width: 370px; max-width: calc(100vw - 32px); max-height: 70vh; overflow: auto; border-radius: 18px; border: 1px solid var(--pc-border); background: var(--pc-bg-card); box-shadow: var(--pc-shadow-lg); padding: 12px; display: grid; gap: 10px; }
         .pc-v4-notification { display: grid; gap: 4px; padding: 10px 11px; border-radius: 14px; border: 1px solid var(--pc-border); background: var(--pc-bg-elevated); text-decoration: none; }
-        .pc-v4-mobile-role { display: none; }
+        .pc-v4-bottomnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 96; padding: 7px 10px calc(env(safe-area-inset-bottom) + 7px); background: color-mix(in srgb, var(--pc-bg-header) 96%, transparent); backdrop-filter: blur(18px); border-top: 1px solid var(--pc-border); box-shadow: 0 -10px 28px rgba(3,8,7,0.10); }
+        .pc-v4-bottomnav-inner { max-width: 720px; margin: 0 auto; width: 100%; display: flex; gap: 4px; justify-content: space-around; }
+        .pc-v4-bn-item { flex: 1 1 0; min-width: 0; display: grid; justify-items: center; gap: 3px; padding: 6px 4px; border-radius: 14px; text-decoration: none; color: var(--pc-text-muted); border: 1px solid transparent; transition: background 0.15s ease, color 0.15s ease; }
+        .pc-v4-bn-item:hover { color: var(--pc-text-primary); }
+        .pc-v4-bn-item[data-active='true'] { color: var(--pc-accent-strong); background: var(--pc-accent-bg); border-color: var(--pc-accent-border); }
+        .pc-v4-bn-icon { display: inline-flex; align-items: center; justify-content: center; }
+        .pc-v4-bn-label { font-size: 10.5px; font-weight: 850; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
+        .pc-v4-main { padding-bottom: calc(env(safe-area-inset-bottom) + 84px) !important; }
         @media (max-width: 980px) {
           .pc-shell-root-v4 { --pc-header-offset: 92px; }
           .pc-v4-search { min-width: 44px; padding: 0 12px; }
           .pc-v4-search strong, .pc-v4-search span { display: none; }
-          .pc-v4-select, .pc-v4-stage { display: none; }
-          .pc-v4-mobile-role { display: inline-flex; align-items: center; justify-content: center; max-width: 138px; min-height: 44px; padding: 0 12px; border-radius: 14px; border: 1px solid var(--pc-border); background: var(--pc-bg-card); color: var(--pc-text-primary); font-size: 12px; font-weight: 850; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; box-shadow: var(--pc-shadow-sm); }
+          .pc-v4-stage { display: none; }
           .pc-v4-statuses { display: none; }
         }
         @media (max-width: 640px) {
@@ -413,24 +319,12 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           .pc-v4-subtitle, .pc-v4-crumbs { display: none; }
           .pc-v4-title { font-size: 14px; }
           .pc-v4-actions { gap: 6px; }
-          .pc-v4-iconbtn, .pc-v4-search, .pc-v4-mobile-role { min-width: 42px; min-height: 42px; border-radius: 13px; }
-          .pc-v4-mobile-role { max-width: 112px; }
+          .pc-v4-iconbtn, .pc-v4-search { min-width: 42px; min-height: 42px; border-radius: 13px; }
           .pc-v4-meta { display: none; }
           .pc-v4-main { padding: calc(var(--pc-header-offset) + 10px) 10px 20px; }
           .pc-v4-pilot-note { font-size: 11px; padding: 9px 11px; }
           .pc-v4-alert-panel { position: fixed; left: 10px; right: 10px; top: calc(env(safe-area-inset-top) + 62px); width: auto; max-width: none; }
         }
-        .pc-v4-switch-cabinet { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border-radius: 14px; border: 1px solid var(--pc-accent-border); background: var(--pc-accent-bg); color: var(--pc-accent-strong); font-size: 13px; font-weight: 900; text-decoration: none; }
-        .pc-v4-switch-cabinet:hover { filter: brightness(1.03); }
-        .pc-v4-bottomnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 96; padding: 7px 10px calc(env(safe-area-inset-bottom) + 7px); background: color-mix(in srgb, var(--pc-bg-header) 96%, transparent); backdrop-filter: blur(18px); border-top: 1px solid var(--pc-border); box-shadow: 0 -10px 28px rgba(3,8,7,0.10); }
-        .pc-v4-bottomnav-inner { max-width: 720px; margin: 0 auto; width: 100%; display: flex; gap: 4px; justify-content: space-around; }
-        .pc-v4-bn-item { flex: 1 1 0; min-width: 0; display: grid; justify-items: center; gap: 3px; padding: 6px 4px; border-radius: 14px; text-decoration: none; color: var(--pc-text-muted); border: 1px solid transparent; transition: background 0.15s ease, color 0.15s ease; }
-        .pc-v4-bn-item:hover { color: var(--pc-text-primary); }
-        .pc-v4-bn-item[data-active='true'] { color: var(--pc-accent-strong); background: var(--pc-accent-bg); border-color: var(--pc-accent-border); }
-        .pc-v4-bn-icon { display: inline-flex; align-items: center; justify-content: center; }
-        .pc-v4-bn-label { font-size: 10.5px; font-weight: 850; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
-        .pc-v4-main { padding-bottom: calc(env(safe-area-inset-bottom) + 84px) !important; }
-        @media (min-width: 981px) { .pc-v4-bottomnav-inner { max-width: 860px; } .pc-v4-bn-label { font-size: 12px; } }
       ` }} />
 
       {sidebarOpen ? <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(3,8,7,0.62)', zIndex: 110 }} aria-hidden /> : null}
@@ -438,7 +332,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
       <aside className='pc-v4-drawer' data-open={sidebarOpen ? 'true' : 'false'} aria-label='Основное меню'>
         <div style={{ padding: 16, borderBottom: '1px solid var(--pc-border)', display: 'grid', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-            <Link href='/platform-v7' className='pc-v4-brand' aria-label='Прозрачная Цена — на главный экран' onClick={() => setSidebarOpen(false)}>
+            <Link href={roleHomeHref} className='pc-v4-brand' aria-label='Прозрачная Цена — в мой кабинет' onClick={() => setSidebarOpen(false)}>
               <BrandMark size={36} />
               <span style={{ minWidth: 0 }}>
                 <span className='pc-v4-title'>Прозрачная Цена</span>
@@ -453,38 +347,24 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--pc-text-primary)', fontSize: 14, fontWeight: 950 }}><RoleIcon size={17} />{ROLE_LABELS[displayRole]}</span>
               <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
             </div>
-            <p style={{ margin: 0, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Боевой контур не заявляется без подтверждённых подключений и реальных сделок.</p>
+            <p style={{ margin: 0, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.</p>
           </div>
         </div>
 
         <nav className='pc-v4-nav'>
           {items.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + '/');
-            const Icon = SECTION_ICONS[item.icon];
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const Icon = iconForHref(item.href);
             return (
               <Link key={item.href} href={item.href} className='pc-v4-nav-item' data-active={active ? 'true' : 'false'}>
                 <span style={{ color: iconTone(active), display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={18} /></span>
                 <span style={{ minWidth: 0 }}>
                   <span className='pc-v4-nav-label'>{item.label}</span>
-                  {item.note ? <span className='pc-v4-nav-note'>{item.note}</span> : null}
                 </span>
               </Link>
             );
           })}
         </nav>
-
-        <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid var(--pc-border)', display: 'grid', gap: 10 }}>
-          <Link href='/platform-v7' className='pc-v4-switch-cabinet' onClick={() => setSidebarOpen(false)}>
-            <LayoutDashboard size={16} /> Сменить кабинет
-          </Link>
-
-          <details style={{ border: '1px solid var(--pc-border)', borderRadius: 16, background: 'var(--pc-bg-elevated)', padding: 10 }}>
-            <summary style={{ cursor: 'pointer', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 900 }}>Дополнительно</summary>
-            <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-              <Link href='/platform-v7/execution-map' style={drawerUtilityLink}>Карта исполнения</Link>
-            </div>
-          </details>
-        </div>
       </aside>
 
       <header className='pc-v4-header'>
@@ -492,7 +372,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           <div className='pc-v4-top'>
             <button className='pc-v4-iconbtn' onClick={() => setSidebarOpen(true)} aria-label='Открыть меню'><Menu size={19} /></button>
 
-            <Link href='/platform-v7' className='pc-v4-brand' aria-label='Прозрачная Цена — на главный экран'>
+            <Link href={roleHomeHref} className='pc-v4-brand' aria-label='Прозрачная Цена — в мой кабинет'>
               <BrandMark size={38} />
               <span style={{ minWidth: 0 }}>
                 <span className='pc-v4-title'>Прозрачная Цена</span>
@@ -541,9 +421,13 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
               {showCrumbs ? crumbs.map((crumb, index) => (
                 <React.Fragment key={crumb.href}>
                   {index > 0 ? <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>/</span> : null}
-                  {crumb.isLast ? <span style={{ color: 'var(--pc-text-primary)', fontSize: 12, fontWeight: 900 }}>{crumb.label}</span> : <Link href={crumb.href} style={{ color: 'var(--pc-text-muted)', fontSize: 12, fontWeight: 750, textDecoration: 'none' }}>{crumb.label}</Link>}
+                  {crumb.isLast || crumb.href === '/platform-v7' ? (
+                    <span style={{ color: crumb.isLast ? 'var(--pc-text-primary)' : 'var(--pc-text-muted)', fontSize: 12, fontWeight: crumb.isLast ? 900 : 750 }}>{crumb.label}</span>
+                  ) : (
+                    <Link href={crumb.href} style={{ color: 'var(--pc-text-muted)', fontSize: 12, fontWeight: 750, textDecoration: 'none' }}>{crumb.label}</Link>
+                  )}
                 </React.Fragment>
-              )) : <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>Главный экран</span>}
+              )) : <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>Мой кабинет</span>}
             </nav>
             <div className='pc-v4-statuses'>
               {statuses.map((item) => {
@@ -571,8 +455,8 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         <nav className='pc-v4-bottomnav' aria-label='Навигация кабинета'>
           <div className='pc-v4-bottomnav-inner'>
             {items.slice(0, 5).map((item) => {
-              const active = pathname === item.href || pathname.startsWith(item.href + '/');
-              const Icon = SECTION_ICONS[item.icon];
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const Icon = iconForHref(item.href);
               return (
                 <Link
                   key={item.href}
@@ -594,14 +478,3 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
     </div>
   );
 }
-
-const drawerUtilityLink = {
-  textDecoration: 'none',
-  padding: '10px 11px',
-  borderRadius: 12,
-  border: '1px solid var(--pc-border)',
-  background: 'var(--pc-bg-card)',
-  color: 'var(--pc-text-primary)',
-  fontSize: 12,
-  fontWeight: 850,
-} as const;
