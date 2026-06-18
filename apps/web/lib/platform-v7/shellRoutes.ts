@@ -1,6 +1,7 @@
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import {
   PLATFORM_V7_AI_ROUTE,
+  PLATFORM_V7_BANK_ROUTE,
   PLATFORM_V7_BANK_CLEAN_ROUTE,
   PLATFORM_V7_BANK_EVENTS_ROUTE,
   PLATFORM_V7_BUYER_ROUTE,
@@ -58,6 +59,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
     { href: PLATFORM_V7_PROCUREMENT_ROUTE, label: 'Закупки' },
     { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Логистика' },
+    { href: PLATFORM_V7_BANK_ROUTE, label: 'Банк' },
     { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Банковское основание' },
     { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'События банка' },
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
@@ -97,6 +99,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     AI_ITEM,
   ],
   bank: [
+    { href: PLATFORM_V7_BANK_ROUTE, label: 'Банк' },
     { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Банковское основание' },
     { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'События банка' },
     AI_ITEM,
@@ -114,6 +117,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7ShellNavIte
     { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр управления' },
     { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
     { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Логистика' },
+    { href: PLATFORM_V7_BANK_ROUTE, label: 'Банк' },
     { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Банковское основание' },
     { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
     { href: PLATFORM_V7_TRUST_ROUTE, label: 'Центр доверия' },
