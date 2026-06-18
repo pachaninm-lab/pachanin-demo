@@ -6,20 +6,15 @@
 // workspaces such as deals/disputes into another cabinet.
 
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
-import { PLATFORM_V7_NAV_BY_ROLE, PLATFORM_V7_ROLE_ROUTES } from './shellRoutes';
-import { PLATFORM_V7_AI_ROUTE } from './routes';
+import { platformV7RoleCanOpenHref, platformV7RoleRoute } from './shellRoutes';
 
 export const PLATFORM_V7_RBAC_FLAG = 'NEXT_PUBLIC_PLATFORM_V7_RBAC';
 
 // Надзорные роли с доступом ко всем кабинетам (операторский/управленческий просмотр).
 const OVERSIGHT_ROLES: ReadonlySet<PlatformRole> = new Set(['operator', 'executive']);
 
-// Маршруты, открытые без выбора роли: вход, регистрация, открытая карточка.
-const SHARED_PATHS = ['/platform-v7/roles', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register'];
-
-// Role-neutral route inside the platform shell. It must stay within platform-v7
-// and must not be treated as a cabinet switch.
-const ROLE_NEUTRAL_SHELL_PATHS = [PLATFORM_V7_AI_ROUTE];
+// Маршруты, открытые без выбора роли: главная, открытая карточка, вход, регистрация.
+const SHARED_PATHS = ['/platform-v7/open', '/platform-v7/login', '/platform-v7/register'];
 
 export function platformV7RbacEnforced(): boolean {
   // Controlled pilot now requires strict route boundaries by default. The old
@@ -41,24 +36,12 @@ function isSharedPath(pathname: string): boolean {
   return SHARED_PATHS.some((p) => matchesPath(clean, p));
 }
 
-function isRoleNeutralShellPath(pathname: string): boolean {
-  const clean = normalize(pathname);
-  return ROLE_NEUTRAL_SHELL_PATHS.some((p) => matchesPath(clean, p));
-}
-
-function isRouteInRoleNavigation(role: PlatformRole, pathname: string): boolean {
-  const clean = normalize(pathname);
-  const items = PLATFORM_V7_NAV_BY_ROLE[role] || [];
-  return items.some((item) => matchesPath(clean, item.href));
-}
-
 export function canRoleAccessCabinet(role: PlatformRole, pathname: string): boolean {
   const clean = normalize(pathname);
   if (!clean.startsWith('/platform-v7')) return true;
   if (isSharedPath(clean)) return true;
-  if (isRoleNeutralShellPath(clean)) return true;
   if (OVERSIGHT_ROLES.has(role)) return true;
-  return isRouteInRoleNavigation(role, clean);
+  return platformV7RoleCanOpenHref(role, clean);
 }
 
 export interface CabinetAccessDecision {
@@ -80,7 +63,7 @@ export function cabinetAccessDecision(
   return {
     allowed: false,
     enforced,
-    redirectTo: PLATFORM_V7_ROLE_ROUTES[role] ?? '/platform-v7/login',
+    redirectTo: platformV7RoleRoute(role) ?? '/platform-v7/login',
     reason: `Роль «${role}» не имеет доступа к ${clean}; возврат в свой кабинет.`,
   };
 }
