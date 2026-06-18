@@ -12,6 +12,7 @@ import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7S
 import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { CalculatorHeaderWidget } from '@/components/platform-v7/CalculatorHeaderWidget';
+import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidget';
 import { CommandPalette } from '@/components/platform-v7/CommandPalette';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -52,6 +53,7 @@ export function PlatformV7LayoutClient({ children, initialRole }: { children: Re
           <ShellCopyNormalizer />
           <CalculatorHeaderWidget />
           <SupportHeaderIcon />
+          <RoleAssistantWidget />
           <CommandPalette />
           {children}
         </>
