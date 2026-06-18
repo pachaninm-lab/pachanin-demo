@@ -13,7 +13,6 @@ import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { CalculatorHeaderWidget } from '@/components/platform-v7/CalculatorHeaderWidget';
 import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidget';
-import { CommandPalette } from '@/components/platform-v7/CommandPalette';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs']);
@@ -54,7 +53,6 @@ export function PlatformV7LayoutClient({ children, initialRole }: { children: Re
           <CalculatorHeaderWidget />
           <SupportHeaderIcon />
           <RoleAssistantWidget />
-          <CommandPalette />
           {children}
         </>
       </AppShellV4>
