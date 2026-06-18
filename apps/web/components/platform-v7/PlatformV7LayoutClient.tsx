@@ -11,6 +11,7 @@ import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
+import { CalculatorHeaderWidget } from '@/components/platform-v7/CalculatorHeaderWidget';
 import { CommandPalette } from '@/components/platform-v7/CommandPalette';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -49,6 +50,7 @@ export function PlatformV7LayoutClient({ children, initialRole }: { children: Re
           <PlatformV7ShellUxController />
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
+          <CalculatorHeaderWidget />
           <SupportHeaderIcon />
           <CommandPalette />
           {children}
