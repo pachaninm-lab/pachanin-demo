@@ -10,6 +10,7 @@ const shellUx = read('apps/web/components/platform-v7/PlatformV7ShellUxControlle
 const supportHeader = read('apps/web/components/platform-v7/SupportHeaderIcon.tsx');
 const entryFixCss = read('apps/web/styles/platform-v7-entry-fix.css');
 const shellRoutes = read('apps/web/lib/platform-v7/shellRoutes.ts');
+const statusPage = read('apps/web/app/platform-v7/status/page.tsx');
 
 function roleDockBlock() {
   const start = shellUx.indexOf('<nav className="pc-v7-role-dock"');
@@ -76,5 +77,15 @@ describe('platform-v7 final shell static gate', () => {
     expect(supportHeader).toContain('/platform-v7/status?role=');
     expect(supportHeader).not.toContain('/platform-v7/support?role=');
     expect(shellRoutes).toContain('PLATFORM_V7_STATUS_ROUTE');
+  });
+
+  it('keeps status page wording aligned with pre-integration maturity', () => {
+    expect(statusPage).toContain('Controlled-pilot / pre-integration');
+    expect(statusPage).toContain('Требует проверки');
+    expect(statusPage).not.toContain('99.4%');
+    expect(statusPage).not.toContain('97.8%');
+    expect(statusPage).not.toContain('проходят штатно');
+    expect(statusPage).not.toContain('Проверка партий и источников работает');
+    expect(statusPage).not.toContain('уже встроены в платформу');
   });
 });

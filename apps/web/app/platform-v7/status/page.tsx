@@ -4,67 +4,67 @@ const SERVICES = [
   {
     id: 'fgis',
     name: 'ФГИС / СДИЗ',
-    status: 'ok',
-    uptime: '99.4%',
-    note: 'Проверка партий и источников работает. Возможны редкие ручные перепроверки.',
-    incidents: ['2026-04-11 · краткая деградация ответа внешней системы', '2026-04-03 · ручная сверка по 1 партии'],
+    status: 'degraded',
+    uptime: 'Проверка',
+    note: 'Предынтеграционная сверка партий и источников. Нужны доступы, ключи и подтверждение на реальных партиях.',
+    incidents: ['Проверить доступ к внешнему контуру', 'Сверить пилотную партию и расхождения'],
   },
   {
     id: 'bank',
-    name: 'Банк / события внешней системы',
+    name: 'Банк / события оплаты',
     status: 'degraded',
-    uptime: '97.8%',
-    note: 'Часть операций может уходить на ручную проверку.',
-    incidents: ['2026-04-18 · ручная проверка выпуска по 2 сделкам', '2026-04-09 · задержка события банка до 14 мин'],
+    uptime: 'Ручной контур',
+    note: 'Показываем основания, блокеры и ручную сверку. Банковские операции требуют договора и согласованного регламента.',
+    incidents: ['Согласовать банковский договор', 'Описать удержание, выпуск и сверку событий'],
   },
   {
-    id: 'spark',
-    name: 'СПАРК / контрагенты',
-    status: 'ok',
-    uptime: '99.1%',
-    note: 'Проверка карточек контрагентов проходит штатно.',
-    incidents: ['2026-04-07 · обновление профилей'],
+    id: 'edo',
+    name: 'ЭДО / ЭПД',
+    status: 'test_mode',
+    uptime: 'Контур',
+    note: 'Маршрут документов есть в интерфейсе. Подписание, обмен и исправления требуют внешних доступов.',
+    incidents: ['Закрепить матрицу документов', 'Подтвердить роли подписантов'],
   },
   {
     id: 'labs',
     name: 'Лаборатории / протоколы',
     status: 'test_mode',
     uptime: 'Контур',
-    note: 'Тестовый режим. Часть протоколов ещё загружается вручную.',
-    incidents: ['2026-04-15 · ручной ввод протокола по тестовой сделке'],
+    note: 'Качество и протоколы отражены как controlled-pilot сценарий. Часть данных требует ручного сопровождения.',
+    incidents: ['Утвердить формат протокола', 'Описать повторный анализ'],
   },
 ];
 
 const MODULES = [
   {
-    title: 'Auth / вход компании',
-    readiness: 'Встроено в платформу',
-    note: 'Есть login, register, auth hub и связка с каноническим входом.',
-    href: '/platform-v7/auth',
+    title: 'Вход и роль',
+    readiness: 'UI-контур',
+    note: 'Есть login, register, auth hub и role-lock на уровне интерфейса. Server-side RBAC остаётся отдельным этапом.',
+    href: '/platform-v7/profile',
   },
   {
-    title: 'Онбординг компании',
-    readiness: 'Рабочий интерфейс',
-    note: 'Есть 6-шаговый вход от компании до первого лота.',
-    href: '/platform-v7/onboarding',
-  },
-  {
-    title: 'Факторинг и эскроу',
-    readiness: 'Встроено в банк',
-    note: 'Новые банковые поверхности доступны из bank и меню роли банка.',
+    title: 'Банк и удержания',
+    readiness: 'Предынтеграционно',
+    note: 'Банковские поверхности показывают основание проверки, но договор и регламент остаются внешним условием.',
     href: '/platform-v7/bank',
   },
   {
     title: 'Доверительный слой',
-    readiness: 'Расширен',
-    note: 'Карточки контрагентов, команда компании и отзывы по сделкам уже внутри платформы.',
+    readiness: 'UI-контур',
+    note: 'Карточки контрагентов, команда и отзывы помогают проверке, но требуют подтверждения на реальных сделках.',
     href: '/platform-v7/profile',
+  },
+  {
+    title: 'Помощь роли',
+    readiness: 'Сопровождение',
+    note: 'Иконка помощи ведёт на этот статусный экран без смены личного кабинета.',
+    href: '/platform-v7/status',
   },
 ];
 
 function serviceTone(status: string) {
   if (status === 'ok') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ОК' };
-  if (status === 'degraded') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Нестабильно' };
+  if (status === 'degraded') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Требует проверки' };
   return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB', label: 'Тестовый режим' };
 }
 
@@ -72,24 +72,24 @@ export default function StatusPage() {
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Статус сервисов</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Статус контура</div>
         <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Операционный статус интеграций и внешних контуров. Здесь видно: где всё ок, где есть деградация и что ещё работает в тестовом режиме.
+          Честный статус интеграций и внешних контуров. Здесь видно: что собрано в интерфейсе, что требует ручной проверки, а что ждёт договоров, доступов и пилотной сверки.
         </div>
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-        <Metric title='ОК' value='2' note='ФГИС и СПАРК проходят штатно.' />
-        <Metric title='Нестабильно' value='1' note='Банк иногда уводит кейсы в ручную проверку.' />
-        <Metric title='Тестовый режим' value='1' note='Лабораторный контур требует ручного сопровождения.' />
-        <Metric title='Режим' value='Контур' note='Честная стадия: контур исполнения с сопровождением.' />
+        <Metric title='Подключено' value='0' note='Внешние подключения требуют подтверждения.' />
+        <Metric title='Требует проверки' value='2' note='ФГИС/СДИЗ и банк требуют доступа и сверки.' />
+        <Metric title='Тестовый режим' value='2' note='ЭДО/ЭПД и лабораторный контур требуют сопровождения.' />
+        <Metric title='Режим' value='Контур' note='Controlled-pilot / pre-integration.' />
       </div>
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Новые модули и готовность</div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Модули и готовность</div>
           <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
-            Помимо core-интеграций здесь виден статус новых поверхностей, которые уже встроены в платформу и доступны пользователю.
+            Здесь показан статус рабочих поверхностей, которые помогают исполнению сделки, но не подменяют договоры, банк и внешние системы.
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
@@ -122,12 +122,12 @@ export default function StatusPage() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                <Cell label='Доступность' value={service.uptime} />
-                <Cell label='Последнее состояние' value={tone.label} />
+                <Cell label='Состояние' value={service.uptime} />
+                <Cell label='Последний статус' value={tone.label} />
               </div>
 
               <div style={{ display: 'grid', gap: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Последние события</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующие проверки</div>
                 {service.incidents.map((incident) => (
                   <div key={incident} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#F8FAFB', fontSize: 12, color: 'var(--pc-text-secondary, #475569)' }}>
                     {incident}
@@ -141,7 +141,7 @@ export default function StatusPage() {
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Link href='/platform-v7/connectors' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          Открыть интеграции
+          Проверить интеграции
         </Link>
         <Link href='/platform-v7/control-tower' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
           Вернуться в Центр управления
