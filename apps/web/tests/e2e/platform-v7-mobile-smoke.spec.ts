@@ -46,6 +46,13 @@ async function noHorizontalOverflow(page: any, label: string) {
   expect(overflow, `${label} should not overflow horizontally`).toBeLessThanOrEqual(8);
 }
 
+async function assertProtectedMobileShell(page: any, label: string) {
+  await expect(page.locator('.pc-v4-header'), `${label} should keep header visible`).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.pc-v7-role-dock'), `${label} should keep role dock visible`).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.pc-v4-bottomnav'), `${label} should not show legacy bottom navigation`).toHaveCount(0);
+  await expect(page.getByLabel('Открыть калькулятор'), `${label} should expose calculator in header`).toBeVisible();
+}
+
 test.describe('platform-v7 mobile smoke', () => {
   test.use({ viewport: { width: 375, height: 812 }, isMobile: true });
 
@@ -57,6 +64,8 @@ test.describe('platform-v7 mobile smoke', () => {
 
       await expect(page.locator('body')).toContainText(route.text, { timeout: 15000 });
       await expect(page.locator('body')).not.toContainText('Ошибка страницы');
+
+      if ('role' in route) await assertProtectedMobileShell(page, route.path);
 
       for (const copy of staleMobileCopy) {
         await expect(page.getByText(copy, { exact: false }), `${route.path} should not show stale mobile copy`).toHaveCount(0);
@@ -88,7 +97,7 @@ test.describe('platform-v7 mobile smoke', () => {
       await setRole(page, item.role);
       const response = await page.goto(item.home, { waitUntil: 'domcontentloaded' });
       expect(response?.ok(), `${item.role} home should load`).toBeTruthy();
-      await expect(page.locator('.pc-v7-role-dock')).toBeVisible({ timeout: 15000 });
+      await assertProtectedMobileShell(page, `${item.role} shell`);
 
       for (const label of item.requiredDock) {
         await expect(page.locator('.pc-v7-role-dock').getByText(label, { exact: true }), `${item.role} dock should show ${label}`).toBeVisible();
