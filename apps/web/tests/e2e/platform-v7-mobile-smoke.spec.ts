@@ -2,22 +2,22 @@ import { expect, test } from '@playwright/test';
 
 const routes = [
   { path: '/platform-v7', text: 'Прозрачная Цена' },
-  { path: '/platform-v7/control-tower', text: 'Центр управления' },
-  { path: '/platform-v7/driver', text: 'Полевой экран водителя' },
-  { path: '/platform-v7/elevator', text: 'Приёмка как доказательство сделки' },
-  { path: '/platform-v7/lab', text: 'Лаборатория как доказательство качества' },
-  { path: '/platform-v7/surveyor', text: 'Независимая фиксация на площадке' },
-  { path: '/platform-v7/deals/DL-9102/clean', text: 'Карточка сделки · пилотный контур' },
-  { path: '/platform-v7/bank/release-safety', text: 'Проверка безопасности выпуска денег' },
+  { path: '/platform-v7/control-tower', text: 'Центр управления', role: 'operator' },
+  { path: '/platform-v7/driver/field', text: 'Полевой экран водителя', role: 'driver' },
+  { path: '/platform-v7/elevator', text: 'Приёмка как доказательство сделки', role: 'elevator' },
+  { path: '/platform-v7/lab', text: 'Лаборатория как доказательство качества', role: 'lab' },
+  { path: '/platform-v7/surveyor', text: 'Независимая фиксация на площадке', role: 'surveyor' },
+  { path: '/platform-v7/deals/DL-9102/clean', text: 'Карточка сделки · пилотный контур', role: 'operator' },
+  { path: '/platform-v7/bank/release-safety', text: 'Проверка безопасности выпуска денег', role: 'bank' },
 ] as const;
 
 const roleCases = [
-  { role: 'driver', home: '/platform-v7/driver', requiredDock: ['Маршрут', 'Фото', 'ИИ', 'Меню'], menuMustContain: ['Маршрут', 'Фото', 'События', 'Документы'], forbiddenMenu: ['Банк', 'Сделки'] },
-  { role: 'elevator', home: '/platform-v7/elevator', requiredDock: ['Приёмка', 'Вес', 'ИИ', 'Меню'], menuMustContain: ['Очередь', 'Вес', 'Выгрузка', 'Акты'], forbiddenMenu: ['Сделки', 'Банк'] },
-  { role: 'lab', home: '/platform-v7/lab', requiredDock: ['Пробы', 'Качество', 'ИИ', 'Меню'], menuMustContain: ['Пробы', 'Качество', 'Протокол', 'Повторный анализ'], forbiddenMenu: ['Сделки', 'Споры'] },
-  { role: 'seller', home: '/platform-v7/seller', requiredDock: ['Главная', 'Документы', 'Деньги', 'ИИ', 'Меню'], menuMustContain: ['Партии', 'Офферы', 'Документы', 'СДИЗ / ЭТрН', 'Приёмка', 'Деньги / резерв', 'Блокеры'], forbiddenMenu: ['Банковское основание'] },
-  { role: 'bank', home: '/platform-v7/bank', requiredDock: ['Основание', 'Факторинг', 'Эскроу', 'ИИ', 'Меню'], menuMustContain: ['Банковское основание', 'Факторинг', 'Эскроу', 'Документы', 'Удержания', 'Риски'], forbiddenMenu: ['Кабинет продавца'] },
-  { role: 'operator', home: '/platform-v7/control-tower', requiredDock: ['Центр', 'Сделки', 'Деньги', 'ИИ', 'Меню'], menuMustContain: ['Центр управления', 'Сделки', 'Лоты и запросы', 'Логистика', 'Деньги', 'Споры', 'Комплаенс'], forbiddenMenu: ['Кабинет продавца'] },
+  { role: 'driver', home: '/platform-v7/driver/field', requiredDock: ['Рейс', 'Маршрут', 'Фото', 'Статус', 'Связь'], menuMustContain: ['Рейс', 'Маршрут', 'Фото', 'Статус', 'Связь'], forbiddenMenu: ['Банк', 'Сделки', 'Меню', 'ИИ'] },
+  { role: 'elevator', home: '/platform-v7/elevator', requiredDock: ['Приёмка', 'Очередь', 'Вес', 'Акты', 'Расхождения'], menuMustContain: ['Приёмка', 'Очередь', 'Вес', 'Акты', 'Расхождения'], forbiddenMenu: ['Сделки', 'Банк', 'Меню', 'ИИ'] },
+  { role: 'lab', home: '/platform-v7/lab', requiredDock: ['Пробы', 'Качество', 'Протокол', 'Дельта', 'Спорность'], menuMustContain: ['Пробы', 'Качество', 'Протокол', 'Дельта', 'Спорность'], forbiddenMenu: ['Сделки', 'Споры', 'Меню', 'ИИ'] },
+  { role: 'seller', home: '/platform-v7/seller', requiredDock: ['Кабинет', 'Партии', 'Документы', 'Деньги', 'Блокеры'], menuMustContain: ['Кабинет', 'Партии', 'Документы', 'Деньги', 'Блокеры', 'Офферы', 'СДИЗ / ЭТрН', 'Приёмка'], forbiddenMenu: ['Банковское основание', 'Меню', 'ИИ'] },
+  { role: 'bank', home: '/platform-v7/bank', requiredDock: ['Основание', 'Документы', 'Риски', 'Удержания', 'События'], menuMustContain: ['Основание', 'Документы', 'Риски', 'Удержания', 'События', 'Факторинг', 'Эскроу'], forbiddenMenu: ['Кабинет продавца', 'Меню', 'ИИ'] },
+  { role: 'operator', home: '/platform-v7/control-tower', requiredDock: ['Центр', 'Сделки', 'Блокеры', 'Очереди', 'Контроль'], menuMustContain: ['Центр', 'Сделки', 'Блокеры', 'Очереди', 'Контроль', 'Лоты и запросы', 'Логистика', 'Деньги', 'Споры'], forbiddenMenu: ['Кабинет продавца', 'Меню', 'ИИ'] },
 ] as const;
 
 const staleMobileCopy = [
@@ -51,6 +51,7 @@ test.describe('platform-v7 mobile smoke', () => {
 
   for (const route of routes) {
     test(`${route.path} renders at 375px without horizontal overflow`, async ({ page }) => {
+      if ('role' in route) await setRole(page, route.role);
       const response = await page.goto(route.path, { waitUntil: 'domcontentloaded' });
       expect(response?.ok(), `${route.path} should return ok response`).toBeTruthy();
 
@@ -93,27 +94,16 @@ test.describe('platform-v7 mobile smoke', () => {
         await expect(page.locator('.pc-v7-role-dock').getByText(label, { exact: true }), `${item.role} dock should show ${label}`).toBeVisible();
       }
 
-      const menuButton = page.locator('.pc-v7-role-dock').getByText('Меню', { exact: true });
-      await expect(menuButton, `${item.role} should expose full function menu`).toBeVisible();
-      await menuButton.click();
+      await page.getByLabel('Открыть меню').click();
       await expect(page.locator('.pc-v7-safe-drawer-nav')).toBeVisible();
       for (const label of item.menuMustContain) {
         await expect(page.locator('.pc-v7-safe-drawer-nav').getByText(label, { exact: true }), `${item.role} menu should contain ${label}`).toBeVisible();
       }
       for (const label of item.forbiddenMenu) {
         await expect(page.locator('.pc-v7-safe-drawer-nav').getByText(label, { exact: true }), `${item.role} menu should not contain ${label}`).toHaveCount(0);
+        await expect(page.locator('.pc-v7-role-dock').getByText(label, { exact: true }), `${item.role} dock should not contain ${label}`).toHaveCount(0);
       }
 
-      await page.locator('.pc-v7-role-dock').getByText('ИИ', { exact: true }).click();
-      await expect(page).toHaveURL(/\/platform-v7\/ai/);
-      await expect(page.locator('body')).toContainText('ИИ-помощник роли');
-      await expect(page.locator('body')).toContainText('только');
-
-      await page.locator('.pc-v4-brand').first().click();
-      await expect(page).toHaveURL(/\/platform-v7$/);
-
-      await setRole(page, item.role);
-      await page.goto(item.home, { waitUntil: 'domcontentloaded' });
       await page.getByLabel('Открыть уведомления роли').click();
       await expect(page.locator('.pc-v7-notice-panel')).toBeVisible();
       await expect(page.locator('.pc-v7-notice-panel')).toContainText('Уведомления роли');
