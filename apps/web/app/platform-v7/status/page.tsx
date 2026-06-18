@@ -72,7 +72,7 @@ export default function StatusPage() {
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Статус сервисов</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Статус контура</div>
         <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
           Операционный статус интеграций и внешних контуров. Здесь видно: где всё ок, где есть деградация и что ещё работает в тестовом режиме.
         </div>
