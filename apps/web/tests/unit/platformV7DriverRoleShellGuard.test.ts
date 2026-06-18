@@ -20,7 +20,7 @@ describe('platform-v7 driver role shell guard', () => {
     expect(source).toContain("if (pathname.startsWith('/platform-v7/driver')) return 'driver';");
     expect(source).toContain("export const FIELD_SHELL_ROLES = ['driver', 'surveyor', 'elevator', 'lab']");
     expect(source).toContain("export const FIELD_SHELL_PATHS = ['/platform-v7/driver'");
-    expect(source).toContain("if (pathPolicy === 'field') return [];");
-    expect(source).toContain("return pathPolicy !== 'field' && selectableRoles.length > 1;");
+    expect(source).toContain("if (pathPolicy !== 'operator') return [];");
+    expect(source).toContain("return pathPolicy === 'operator' && selectableRoles.length > 1;");
   });
 });

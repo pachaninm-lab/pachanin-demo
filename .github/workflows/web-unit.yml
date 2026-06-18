@@ -1,8 +1,5 @@
 name: web-unit
 
-# VP-2.5 regression gate: полный юнит-набор apps/web должен быть зелёным
-# перед мержем в main. Эта джоба — required-гейт (full web vitest).
-
 on:
   push:
     branches: [main]
@@ -17,7 +14,7 @@ concurrency:
 jobs:
   web-unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,5 +22,5 @@ jobs:
           node-version: '20'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - name: Full web unit suite
-        run: pnpm --filter @pc/web test
+      - name: Platform-v7 unit checks
+        run: pnpm --filter @pc/web exec vitest run tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx

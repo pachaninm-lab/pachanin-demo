@@ -34,7 +34,7 @@ export function platformV7RoleOptions(): PlatformV7RoleOption[] {
     return {
       role,
       label: platformV7RoleLabel(role),
-      route: platformV7RoleRoute(role),
+      route: role === 'bank' ? '/platform-v7/bank' : platformV7RoleRoute(role),
       stageLabel: stage.label,
       stageTone: stage.tone,
     };
