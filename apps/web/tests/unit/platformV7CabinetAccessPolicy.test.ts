@@ -11,14 +11,16 @@ describe('cabinet access policy (cabinet-level RBAC)', () => {
     expect(platformV7RbacEnforced()).toBe(true);
   });
 
-  it('restricts participant roles to their own cabinet routes', () => {
+  it('restricts participant roles to their own registry-approved cabinet routes', () => {
     expect(canRoleAccessCabinet('buyer', '/platform-v7/buyer')).toBe(true);
+    expect(canRoleAccessCabinet('buyer', '/platform-v7/procurement')).toBe(true);
     expect(canRoleAccessCabinet('buyer', '/platform-v7/bank')).toBe(false);
     expect(canRoleAccessCabinet('seller', '/platform-v7/seller')).toBe(true);
     expect(canRoleAccessCabinet('seller', '/platform-v7/buyer')).toBe(false);
     expect(canRoleAccessCabinet('driver', '/platform-v7/driver/field')).toBe(true);
     expect(canRoleAccessCabinet('driver', '/platform-v7/bank/clean')).toBe(false);
     expect(canRoleAccessCabinet('bank', '/platform-v7/bank/clean')).toBe(true);
+    expect(canRoleAccessCabinet('bank', '/platform-v7/bank/factoring')).toBe(true);
     expect(canRoleAccessCabinet('bank', '/platform-v7/driver/field')).toBe(false);
   });
 
@@ -29,7 +31,7 @@ describe('cabinet access policy (cabinet-level RBAC)', () => {
     expect(cabinetAccessDecision('driver', '/platform-v7/bank').redirectTo).toBe('/platform-v7/driver/field');
   });
 
-  it('keeps the AI route inside platform-v7 without treating it as a cabinet switch', () => {
+  it('keeps role-neutral shell routes inside platform-v7 without treating them as cabinet switches', () => {
     expect(canRoleAccessCabinet('buyer', '/platform-v7/ai')).toBe(true);
     expect(canRoleAccessCabinet('seller', '/platform-v7/ai')).toBe(true);
     expect(canRoleAccessCabinet('driver', '/platform-v7/ai')).toBe(true);
@@ -48,9 +50,9 @@ describe('cabinet access policy (cabinet-level RBAC)', () => {
     }
   });
 
-  it('always allows public entry routes for any role', () => {
+  it('allows public entry routes but does not allow role migration screen inside protected shell', () => {
     expect(canRoleAccessCabinet('driver', '/platform-v7')).toBe(true);
-    expect(canRoleAccessCabinet('lab', '/platform-v7/roles')).toBe(true);
+    expect(canRoleAccessCabinet('lab', '/platform-v7/roles')).toBe(false);
     expect(canRoleAccessCabinet('buyer', '/platform-v7/login')).toBe(true);
     expect(canRoleAccessCabinet('seller', '/platform-v7/register')).toBe(true);
   });
