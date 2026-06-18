@@ -4,8 +4,9 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, X } from 'lucide-react';
 import { selectRuntimeDeals, selectRuntimeDisputes } from '@/lib/domain/selectors';
-import { platformV7CommandSectionItems } from '@/lib/platform-v7/command';
+import { platformV7CommandNavByRole, platformV7RoleCanOpenHref } from '@/lib/platform-v7/shellRoutes';
 import { lots as PLATFORM_LOTS } from '@/lib/v7r/esia-fgis-data';
+import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 interface CommandItem {
   id: string;
@@ -25,7 +26,20 @@ interface RecentItem {
 
 const HISTORY_KEY = 'pc-command-history';
 
-function buildIndex(): CommandItem[] {
+function roleSafe(role: PlatformRole, item: { href: string }) {
+  return platformV7RoleCanOpenHref(role, item.href);
+}
+
+function buildIndex(role: PlatformRole): CommandItem[] {
+  const sectionItems: CommandItem[] = platformV7CommandNavByRole(role).map((item, index) => ({
+    id: `section-${index}-${item.href.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase()}`,
+    group: 'Разделы' as const,
+    title: item.label,
+    subtitle: item.note ?? 'Раздел роли',
+    href: item.href,
+    keywords: `${item.label} ${item.note ?? ''} ${item.href}`.toLowerCase(),
+  }));
+
   const dealItems: CommandItem[] = selectRuntimeDeals().map((deal) => ({
     id: `deal-${deal.id}`,
     group: 'Сделки' as const,
@@ -53,36 +67,38 @@ function buildIndex(): CommandItem[] {
     keywords: `${dispute.id} ${dispute.title} ${dispute.dealId} ${dispute.reasonCode}`.toLowerCase(),
   }));
 
-  return [...platformV7CommandSectionItems(), ...dealItems, ...lotItems, ...disputeItems];
+  return [...sectionItems, ...dealItems, ...lotItems, ...disputeItems].filter((item) => roleSafe(role, item));
 }
 
-function readRecentItems(): RecentItem[] {
+function readRecentItems(role: PlatformRole): RecentItem[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(HISTORY_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as RecentItem[];
-    return Array.isArray(parsed) ? parsed.slice(0, 6) : [];
+    return Array.isArray(parsed) ? parsed.filter((item) => roleSafe(role, item)).slice(0, 6) : [];
   } catch {
     return [];
   }
 }
 
-function writeRecentItem(item: CommandItem) {
+function writeRecentItem(role: PlatformRole, item: CommandItem) {
   if (typeof window === 'undefined') return;
-  const current = readRecentItems().filter((entry) => entry.href !== item.href);
+  if (!roleSafe(role, item)) return;
+  const current = readRecentItems(role).filter((entry) => entry.href !== item.href);
   const next: RecentItem[] = [{ id: item.id, href: item.href, title: item.title, subtitle: item.subtitle }, ...current].slice(0, 6);
   window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
 }
 
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
+  const role = usePlatformV7RStore((state) => state.role);
   const [query, setQuery] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [recentItems, setRecentItems] = React.useState<RecentItem[]>([]);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  const index = React.useMemo(() => buildIndex(), []);
+  const index = React.useMemo(() => buildIndex(role), [role]);
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return index.slice(0, 18);
@@ -98,20 +114,21 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   );
 
   const selectItem = React.useCallback((item: CommandItem) => {
-    writeRecentItem(item);
-    setRecentItems(readRecentItems());
+    if (!roleSafe(role, item)) return;
+    writeRecentItem(role, item);
+    setRecentItems(readRecentItems(role));
     router.push(item.href);
     onClose();
-  }, [onClose, router]);
+  }, [onClose, role, router]);
 
   React.useEffect(() => {
     if (open) {
       setQuery('');
       setActiveIndex(0);
-      setRecentItems(readRecentItems());
+      setRecentItems(readRecentItems(role));
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [open]);
+  }, [open, role]);
 
   React.useEffect(() => setActiveIndex(0), [query]);
 
@@ -188,7 +205,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder='Найти сделку, лот, спор или раздел'
+            placeholder='Найти доступный раздел, сделку, лот или спор'
             style={{
               flex: 1,
               minWidth: 0,
@@ -213,13 +230,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           {!query.trim() && recentItems.length > 0 ? (
             <ResultGroup title='Недавние переходы'>
               {recentItems.map((item) => (
-                <ResultButton key={item.id} title={item.title} subtitle={item.subtitle} onClick={() => { router.push(item.href); onClose(); }} />
+                <ResultButton key={item.id} title={item.title} subtitle={item.subtitle} onClick={() => { if (roleSafe(role, item)) { router.push(item.href); onClose(); } }} />
               ))}
             </ResultGroup>
           ) : null}
 
           {filtered.length === 0 ? (
-            <div style={{ padding: 28, textAlign: 'center', color: 'var(--pc-text-muted)', fontSize: 13 }}>Ничего не найдено. Введите номер сделки, лота, спора или название раздела.</div>
+            <div style={{ padding: 28, textAlign: 'center', color: 'var(--pc-text-muted)', fontSize: 13 }}>Ничего не найдено среди доступных для роли разделов.</div>
           ) : Object.entries(groups).map(([group, items]) => (
             <ResultGroup key={group} title={group}>
               {items.map((item) => {
