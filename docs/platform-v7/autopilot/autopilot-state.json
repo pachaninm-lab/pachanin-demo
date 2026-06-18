@@ -78,6 +78,7 @@
   "allowedCurrentScope": [
     "apps/web/tests/unit/**",
     "apps/web/tests/setup.ts",
+    "apps/web/tests/platform-v7-public-entry-links.test.ts",
     "apps/web/components/v7r/**",
     "apps/web/components/platform-v7/**",
     "apps/web/app/platform-v7/**",
@@ -102,6 +103,7 @@
   "agentWritableScope": [
     "apps/web/tests/unit/**",
     "apps/web/tests/setup.ts",
+    "apps/web/tests/platform-v7-public-entry-links.test.ts",
     "apps/web/components/v7r/**",
     "apps/web/components/platform-v7/**",
     "apps/web/app/platform-v7/**",
