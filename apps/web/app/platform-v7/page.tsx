@@ -45,14 +45,14 @@ const processSteps: ProcessStep[] = [
 ];
 
 const roles: RoleCard[] = [
-  { title: 'Продавец', text: 'Партия, рейс, приёмка и основание для оплаты.', href: '/platform-v7/seller', Icon: Wheat, cta: 'Показать сценарий продавца' },
-  { title: 'Покупатель', text: 'Поставка, качество, документы и риски оплаты.', href: '/platform-v7/buyer', Icon: UserRound, cta: 'Показать сценарий покупателя' },
-  { title: 'Логистика', text: 'Рейсы, водители, статусы движения и отклонения.', href: '/platform-v7/logistics', Icon: Truck, cta: 'Показать сценарий логистики' },
-  { title: 'Элеватор', text: 'Приёмка, отгрузка, хранение, вес и статусы партии.', href: '/platform-v7/elevator', Icon: Building2, cta: 'Показать сценарий элеватора' },
-  { title: 'Банк', text: 'Проверяемое основание для финансирования и расчётов.', href: '/platform-v7/bank', Icon: Landmark, cta: 'Показать банковский контур' },
-  { title: 'Лаборатория', text: 'Анализы, показатели качества и связка с приёмкой.', href: '/platform-v7/lab', Icon: FlaskConical, cta: 'Показать сценарий лаборатории' },
-  { title: 'Сюрвейер', text: 'Осмотр, фиксация фактов и независимый доказательный слой.', href: '/platform-v7/surveyor', Icon: ShieldCheck, cta: 'Показать сценарий сюрвейера' },
-  { title: 'Арбитр', text: 'Спор, расхождения, evidence pack и решение по фактам.', href: '/platform-v7/arbitrator', Icon: Scale, cta: 'Показать сценарий арбитра' },
+  { title: 'Продавец', text: 'Партия, рейс, приёмка и основание для оплаты.', href: '/platform-v7/login', Icon: Wheat, cta: 'Доступ после единого входа' },
+  { title: 'Покупатель', text: 'Поставка, качество, документы и риски оплаты.', href: '/platform-v7/login', Icon: UserRound, cta: 'Доступ после единого входа' },
+  { title: 'Логистика', text: 'Рейсы, водители, статусы движения и отклонения.', href: '/platform-v7/login', Icon: Truck, cta: 'Доступ после единого входа' },
+  { title: 'Элеватор', text: 'Приёмка, отгрузка, хранение, вес и статусы партии.', href: '/platform-v7/login', Icon: Building2, cta: 'Доступ после единого входа' },
+  { title: 'Банк', text: 'Проверяемое основание для финансирования и расчётов.', href: '/platform-v7/login', Icon: Landmark, cta: 'Доступ после единого входа' },
+  { title: 'Лаборатория', text: 'Анализы, показатели качества и связка с приёмкой.', href: '/platform-v7/login', Icon: FlaskConical, cta: 'Доступ после единого входа' },
+  { title: 'Сюрвейер', text: 'Осмотр, фиксация фактов и независимый доказательный слой.', href: '/platform-v7/login', Icon: ShieldCheck, cta: 'Доступ после единого входа' },
+  { title: 'Арбитр', text: 'Спор, расхождения, evidence pack и решение по фактам.', href: '/platform-v7/login', Icon: Scale, cta: 'Доступ после единого входа' },
 ];
 
 const trustItems: TrustItem[] = [
@@ -134,7 +134,7 @@ export default function PlatformV7RootPage() {
           <h2 id='roles-title'>Выберите свою роль в сделке</h2>
           <p>Показываем сценарий роли до перехода в рабочий кабинет. Операционные действия доступны после входа.</p>
         </div>
-        <div className='entry-role-grid'>{roles.map((role) => <RoleTile key={role.href} role={role} />)}</div>
+        <div className='entry-role-grid'>{roles.map((role) => <RoleTile key={role.title} role={role} />)}</div>
       </section>
 
       <section className='entry-trust-strip' aria-label='Доверие и контроль'>
