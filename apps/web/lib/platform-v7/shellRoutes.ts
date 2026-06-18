@@ -283,6 +283,10 @@ for (const role of Object.keys(PLATFORM_V7_ROLE_NAVIGATION) as PlatformRole[]) {
   entry.command = [...entry.bottom, ...entry.drawer];
 }
 
+export const PLATFORM_V7_NAV_BY_ROLE = Object.fromEntries(
+  (Object.keys(PLATFORM_V7_ROLE_NAVIGATION) as PlatformRole[]).map((role) => [role, PLATFORM_V7_ROLE_NAVIGATION[role].bottom]),
+) as Record<PlatformRole, PlatformV7ShellNavItem[]>;
+
 function normalizeHref(href: string) {
   return href.split('?')[0].split('#')[0].replace(/\/$/, '') || '/platform-v7';
 }
