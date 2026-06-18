@@ -4,212 +4,37 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, Bot, ClipboardList, Gavel, Home, Landmark, LogOut, Menu, Package, Route, ShieldCheck, Truck, Wheat, type LucideIcon } from 'lucide-react';
+import { Bell, ClipboardList, Gavel, Home, Landmark, LogOut, Package, Route, ShieldCheck, Truck, type LucideIcon } from 'lucide-react';
+import {
+  platformV7DrawerNavByRole,
+  platformV7NavByRole,
+  platformV7RoleCanOpenHref,
+  platformV7RoleRoute,
+  type PlatformV7RoleNavItem,
+} from '@/lib/platform-v7/shellRoutes';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
-const AI_HREF = '/platform-v7/ai';
 const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
 
-const ROLE_HOME: Record<PlatformRole, string> = {
-  operator: '/platform-v7/control-tower',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
-};
+const PLATFORM_ROLES: readonly PlatformRole[] = [
+  'operator',
+  'buyer',
+  'seller',
+  'logistics',
+  'driver',
+  'surveyor',
+  'elevator',
+  'lab',
+  'bank',
+  'arbitrator',
+  'compliance',
+  'executive',
+];
 
-type SafeLink = { href: string; label: string; note: string };
 type DockLink = { id: string; href: string; label: string; icon: LucideIcon };
 type RoleNotice = { id: string; title: string; note: string; href: string };
-
-function hash(home: string, id: string) {
-  return `${home}#${id}`;
-}
-
-const SAFE_NAV_BY_ROLE: Record<PlatformRole, SafeLink[]> = {
-  operator: [
-    { href: '/platform-v7/control-tower', label: 'Центр управления', note: 'блокеры, ответственные, следующий шаг' },
-    { href: '/platform-v7/deals', label: 'Сделки', note: 'реестр исполнения и статусы' },
-    { href: '/platform-v7/lots', label: 'Лоты и запросы', note: 'предсделочный контур' },
-    { href: '/platform-v7/procurement', label: 'Закупки', note: 'заявки и потребности' },
-    { href: '/platform-v7/logistics', label: 'Логистика', note: 'рейсы и отклонения' },
-    { href: '/platform-v7/bank', label: 'Деньги', note: 'резерв, удержания, проверка' },
-    { href: '/platform-v7/disputes', label: 'Споры', note: 'доказательства и разбор' },
-    { href: '/platform-v7/compliance', label: 'Комплаенс', note: 'допуск и риски' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'роль, блокер, следующий шаг' },
-    { href: '/platform-v7/executive', label: 'Сводка', note: 'управленческий срез' },
-  ],
-  buyer: [
-    { href: '/platform-v7/buyer', label: 'Кабинет покупателя', note: 'заявка, резерв, поставка' },
-    { href: '/platform-v7/procurement', label: 'Закупки', note: 'потребности и предложения' },
-    { href: hash('/platform-v7/buyer', 'reserve'), label: 'Резерв', note: 'запрос и подтверждение резерва' },
-    { href: hash('/platform-v7/buyer', 'documents'), label: 'Документы', note: 'пакет для исполнения и банка' },
-    { href: hash('/platform-v7/buyer', 'acceptance'), label: 'Приёмка', note: 'вес, качество, расхождения' },
-    { href: hash('/platform-v7/buyer', 'money'), label: 'Деньги', note: 'удержания и условия оплаты' },
-    { href: hash('/platform-v7/buyer', 'blockers'), label: 'Блокеры', note: 'почему сделка остановлена' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'закупка, качество, документы' },
-  ],
-  seller: [
-    { href: '/platform-v7/seller', label: 'Кабинет продавца', note: 'партии, офферы, документы продавца' },
-    { href: hash('/platform-v7/seller', 'parties'), label: 'Партии', note: 'зерно, объём, допуск, статус' },
-    { href: hash('/platform-v7/seller', 'offers'), label: 'Офферы', note: 'условия продажи и заявки' },
-    { href: hash('/platform-v7/seller', 'documents'), label: 'Документы', note: 'СДИЗ, ЭТрН, договор, спецификация' },
-    { href: hash('/platform-v7/seller', 'fgis-epd'), label: 'СДИЗ / ЭТрН', note: 'основание для движения и оплаты' },
-    { href: hash('/platform-v7/seller', 'acceptance'), label: 'Приёмка', note: 'вес, качество, акт' },
-    { href: hash('/platform-v7/seller', 'money'), label: 'Деньги / резерв', note: 'резерв покупателя и удержания' },
-    { href: hash('/platform-v7/seller', 'blockers'), label: 'Блокеры', note: 'что мешает передать основание банку' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'документы, удержания, следующий шаг' },
-  ],
-  logistics: [
-    { href: '/platform-v7/logistics', label: 'Диспетчерская', note: 'рейсы, перевозчики, отклонения' },
-    { href: hash('/platform-v7/logistics', 'routes'), label: 'Рейсы', note: 'назначение и движение' },
-    { href: hash('/platform-v7/logistics', 'drivers'), label: 'Водители', note: 'назначения и события' },
-    { href: hash('/platform-v7/logistics', 'documents'), label: 'ЭПД / документы', note: 'транспортный пакет' },
-    { href: hash('/platform-v7/logistics', 'deviations'), label: 'Отклонения', note: 'простои, геозоны, задержки' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'маршрут, документы, отклонения' },
-  ],
-  driver: [
-    { href: '/platform-v7/driver', label: 'Мой маршрут', note: 'рейс, прибытие, фото, события' },
-    { href: hash('/platform-v7/driver', 'route'), label: 'Маршрут', note: 'следующая точка и статус' },
-    { href: hash('/platform-v7/driver', 'photo'), label: 'Фото', note: 'полевое подтверждение события' },
-    { href: hash('/platform-v7/driver', 'events'), label: 'События', note: 'прибытие, загрузка, выгрузка' },
-    { href: hash('/platform-v7/driver', 'documents'), label: 'Документы', note: 'транспортный пакет рейса' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'следующий шаг по рейсу' },
-  ],
-  surveyor: [
-    { href: '/platform-v7/surveyor', label: 'Мои назначения', note: 'осмотр и фиксация фактов' },
-    { href: hash('/platform-v7/surveyor', 'inspection'), label: 'Осмотр', note: 'факты на площадке' },
-    { href: hash('/platform-v7/surveyor', 'evidence'), label: 'Доказательства', note: 'фото, гео, время, комментарии' },
-    { href: hash('/platform-v7/surveyor', 'act'), label: 'Акт', note: 'результат осмотра' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'пакет доказательств' },
-  ],
-  elevator: [
-    { href: '/platform-v7/elevator', label: 'Приёмка', note: 'вес, очередь, выгрузка, акты' },
-    { href: hash('/platform-v7/elevator', 'queue'), label: 'Очередь', note: 'назначение и прибытие' },
-    { href: hash('/platform-v7/elevator', 'weight'), label: 'Вес', note: 'брутто, тара, нетто, расхождения' },
-    { href: hash('/platform-v7/elevator', 'unloading'), label: 'Выгрузка', note: 'факт приёмки' },
-    { href: hash('/platform-v7/elevator', 'acts'), label: 'Акты', note: 'документы приёмки' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'приёмка, вес, следующий факт' },
-  ],
-  lab: [
-    { href: '/platform-v7/lab', label: 'Пробы и протоколы', note: 'качество и лабораторный результат' },
-    { href: hash('/platform-v7/lab', 'samples'), label: 'Пробы', note: 'отбор и статус' },
-    { href: hash('/platform-v7/lab', 'quality'), label: 'Качество', note: 'показатели и допуск' },
-    { href: hash('/platform-v7/lab', 'protocol'), label: 'Протокол', note: 'лабораторное основание' },
-    { href: hash('/platform-v7/lab', 'repeat'), label: 'Повторный анализ', note: 'арбитражное качество' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'качество, дельта, повторный анализ' },
-  ],
-  bank: [
-    { href: '/platform-v7/bank', label: 'Банковское основание', note: 'проверка документов и статусов' },
-    { href: '/platform-v7/bank/factoring', label: 'Факторинг', note: 'заявка и статус проверки' },
-    { href: '/platform-v7/bank/escrow', label: 'Эскроу', note: 'условия удержания' },
-    { href: hash('/platform-v7/bank', 'documents'), label: 'Документы', note: 'пакет основания' },
-    { href: hash('/platform-v7/bank', 'holds'), label: 'Удержания', note: 'спорная часть и причины' },
-    { href: hash('/platform-v7/bank', 'risks'), label: 'Риски', note: 'ручная проверка и стоп-факторы' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'основание, удержания, события' },
-  ],
-  arbitrator: [
-    { href: '/platform-v7/arbitrator', label: 'Комнаты разбора', note: 'спор и доказательства по роли' },
-    { href: hash('/platform-v7/arbitrator', 'disputes'), label: 'Споры', note: 'очередь разбора' },
-    { href: hash('/platform-v7/arbitrator', 'evidence'), label: 'Доказательства', note: 'документы, фото, вес, качество' },
-    { href: hash('/platform-v7/arbitrator', 'decision'), label: 'Решение', note: 'основание для финансового шага' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'доказательства и решение' },
-  ],
-  compliance: [
-    { href: '/platform-v7/compliance', label: 'Комплаенс', note: 'допуск, стоп-факторы, риски' },
-    { href: hash('/platform-v7/compliance', 'admission'), label: 'Допуск', note: 'статус участника' },
-    { href: hash('/platform-v7/compliance', 'powers'), label: 'Полномочия', note: 'роль, документы, право подписи' },
-    { href: hash('/platform-v7/compliance', 'risks'), label: 'Риски', note: 'стоп-факторы и ручная проверка' },
-    { href: hash('/platform-v7/compliance', 'documents'), label: 'Документы', note: 'пакет проверки' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'риски, допуск, блокеры' },
-  ],
-  executive: [
-    { href: '/platform-v7/executive', label: 'Сводка', note: 'деньги, риски, статус контура' },
-    { href: '/platform-v7/control-tower', label: 'Центр управления', note: 'операционная картина' },
-    { href: '/platform-v7/deals', label: 'Сделки', note: 'реестр исполнения' },
-    { href: '/platform-v7/bank', label: 'Деньги', note: 'основания и удержания' },
-    { href: '/platform-v7/disputes', label: 'Споры', note: 'разбор и доказательства' },
-    { href: hash('/platform-v7/executive', 'risks'), label: 'Риски', note: 'главные угрозы пилота' },
-    { href: hash('/platform-v7/executive', 'blockers'), label: 'Блокеры', note: 'что мешает закрыть сделки' },
-    { href: AI_HREF, label: 'ИИ-помощник', note: 'управленческий следующий шаг' },
-  ],
-};
-
-const DOCK_BY_ROLE: Record<PlatformRole, DockLink[]> = {
-  operator: [
-    { id: 'home', href: '/platform-v7/control-tower', label: 'Центр', icon: Home },
-    { id: 'deals', href: '/platform-v7/deals', label: 'Сделки', icon: ClipboardList },
-    { id: 'bank', href: '/platform-v7/bank', label: 'Деньги', icon: Landmark },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  buyer: [
-    { id: 'home', href: '/platform-v7/buyer', label: 'Главная', icon: Home },
-    { id: 'procurement', href: '/platform-v7/procurement', label: 'Закупки', icon: ClipboardList },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  seller: [
-    { id: 'home', href: '/platform-v7/seller', label: 'Главная', icon: Home },
-    { id: 'docs', href: hash('/platform-v7/seller', 'documents'), label: 'Документы', icon: ClipboardList },
-    { id: 'money', href: hash('/platform-v7/seller', 'money'), label: 'Деньги', icon: Landmark },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  logistics: [
-    { id: 'home', href: '/platform-v7/logistics', label: 'Рейсы', icon: Truck },
-    { id: 'docs', href: hash('/platform-v7/logistics', 'documents'), label: 'ЭПД', icon: ClipboardList },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  driver: [
-    { id: 'home', href: '/platform-v7/driver', label: 'Маршрут', icon: Route },
-    { id: 'photo', href: hash('/platform-v7/driver', 'photo'), label: 'Фото', icon: ClipboardList },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  surveyor: [
-    { id: 'home', href: '/platform-v7/surveyor', label: 'Осмотр', icon: ClipboardList },
-    { id: 'evidence', href: hash('/platform-v7/surveyor', 'evidence'), label: 'Факты', icon: ShieldCheck },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  elevator: [
-    { id: 'home', href: '/platform-v7/elevator', label: 'Приёмка', icon: Home },
-    { id: 'weight', href: hash('/platform-v7/elevator', 'weight'), label: 'Вес', icon: ClipboardList },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  lab: [
-    { id: 'home', href: '/platform-v7/lab', label: 'Пробы', icon: ClipboardList },
-    { id: 'quality', href: hash('/platform-v7/lab', 'quality'), label: 'Качество', icon: ShieldCheck },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  bank: [
-    { id: 'home', href: '/platform-v7/bank', label: 'Основание', icon: Landmark },
-    { id: 'factoring', href: '/platform-v7/bank/factoring', label: 'Факторинг', icon: Package },
-    { id: 'escrow', href: '/platform-v7/bank/escrow', label: 'Эскроу', icon: ShieldCheck },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  arbitrator: [
-    { id: 'home', href: '/platform-v7/arbitrator', label: 'Разбор', icon: Gavel },
-    { id: 'evidence', href: hash('/platform-v7/arbitrator', 'evidence'), label: 'Доказ.', icon: ShieldCheck },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  compliance: [
-    { id: 'home', href: '/platform-v7/compliance', label: 'Допуск', icon: ShieldCheck },
-    { id: 'risks', href: hash('/platform-v7/compliance', 'risks'), label: 'Риски', icon: ClipboardList },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-  executive: [
-    { id: 'home', href: '/platform-v7/executive', label: 'Сводка', icon: Home },
-    { id: 'control', href: '/platform-v7/control-tower', label: 'Центр', icon: ClipboardList },
-    { id: 'bank', href: '/platform-v7/bank', label: 'Деньги', icon: Landmark },
-    { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot },
-  ],
-};
 
 const NOTICES_BY_ROLE: Record<PlatformRole, RoleNotice[]> = {
   operator: [
@@ -217,9 +42,9 @@ const NOTICES_BY_ROLE: Record<PlatformRole, RoleNotice[]> = {
     { id: 'op-2', title: 'Нужна проверка документов', note: 'Есть сделки с незакрытым пакетом.', href: '/platform-v7/deals' },
   ],
   buyer: [{ id: 'buyer-1', title: 'Проверь закупки', note: 'Есть шаги по заявке покупателя.', href: '/platform-v7/procurement' }],
-  seller: [{ id: 'seller-1', title: 'Проверь документы', note: 'СДИЗ и ЭТрН должны закрыть основание для банка.', href: hash('/platform-v7/seller', 'documents') }],
+  seller: [{ id: 'seller-1', title: 'Проверь документы', note: 'СДИЗ и ЭТрН должны закрыть основание для банка.', href: '/platform-v7/seller#documents' }],
   logistics: [{ id: 'log-1', title: 'Проверь рейсы', note: 'Есть маршрут или отклонение по логистике.', href: '/platform-v7/logistics' }],
-  driver: [{ id: 'driver-1', title: 'Проверь маршрут', note: 'Зафиксируй ближайшее событие рейса.', href: '/platform-v7/driver' }],
+  driver: [{ id: 'driver-1', title: 'Проверь маршрут', note: 'Зафиксируй ближайшее событие рейса.', href: '/platform-v7/driver/field' }],
   surveyor: [{ id: 'surveyor-1', title: 'Проверь осмотр', note: 'Есть назначение на фиксацию фактов.', href: '/platform-v7/surveyor' }],
   elevator: [{ id: 'elevator-1', title: 'Проверь приёмку', note: 'Есть действие по весу или акту.', href: '/platform-v7/elevator' }],
   lab: [{ id: 'lab-1', title: 'Проверь протокол', note: 'Есть действие по пробе или качеству.', href: '/platform-v7/lab' }],
@@ -243,10 +68,14 @@ function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.has(normalize(pathname));
 }
 
+function isPlatformRole(value: string | null): value is PlatformRole {
+  return PLATFORM_ROLES.includes(value as PlatformRole);
+}
+
 function readActiveRole(role: PlatformRole): PlatformRole {
   if (typeof window === 'undefined') return role;
-  const stored = window.sessionStorage.getItem(ACTIVE_ROLE_KEY) as PlatformRole | null;
-  return stored && ROLE_HOME[stored] ? stored : role;
+  const stored = window.sessionStorage.getItem(ACTIVE_ROLE_KEY);
+  return isPlatformRole(stored) ? stored : role;
 }
 
 function clearShellSession() {
@@ -264,9 +93,28 @@ function closeLegacyDrawer() {
   closeButton?.click();
 }
 
-function hasExtraMenuItems(nav: SafeLink[], dock: DockLink[]) {
-  const dockHrefs = new Set(dock.map((item) => normalize(item.href)));
-  return nav.some((item) => !dockHrefs.has(normalize(item.href)));
+function iconFor(item: PlatformV7RoleNavItem, index: number): LucideIcon {
+  const text = `${item.label} ${item.note ?? ''} ${item.href}`.toLowerCase();
+  if (index === 0 || text.includes('кабинет') || text.includes('сводка') || text.includes('центр')) return Home;
+  if (text.includes('банк') || text.includes('деньг') || text.includes('резерв') || text.includes('удерж')) return Landmark;
+  if (text.includes('рейс') || text.includes('логист') || text.includes('водител') || text.includes('маршрут')) return text.includes('маршрут') ? Route : Truck;
+  if (text.includes('спор') || text.includes('арбитр') || text.includes('решение')) return Gavel;
+  if (text.includes('риск') || text.includes('допуск') || text.includes('качество') || text.includes('evidence') || text.includes('факт')) return ShieldCheck;
+  if (text.includes('лот') || text.includes('парт')) return Package;
+  return ClipboardList;
+}
+
+function toDockLinks(role: PlatformRole, nav: PlatformV7RoleNavItem[]): DockLink[] {
+  return nav.map((item, index) => ({
+    id: `${role}-${index}-${item.href.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase()}`,
+    href: item.href,
+    label: item.label,
+    icon: iconFor(item, index),
+  }));
+}
+
+function safeRoleNav(role: PlatformRole, items: PlatformV7RoleNavItem[]) {
+  return items.filter((item) => platformV7RoleCanOpenHref(role, item.href));
 }
 
 export function PlatformV7ShellUxController() {
@@ -283,13 +131,13 @@ export function PlatformV7ShellUxController() {
   React.useEffect(() => setMounted(true), []);
 
   const activeRole = mounted ? readActiveRole(role) : role;
-  const roleHome = ROLE_HOME[activeRole] ?? '/platform-v7/login';
+  const roleHome = platformV7RoleRoute(activeRole) ?? '/platform-v7/login';
   const publicPath = isPublicPath(pathname ?? '/platform-v7');
-  const safeNav = SAFE_NAV_BY_ROLE[activeRole] ?? [{ href: roleHome, label: 'Главная', note: 'Домашний экран роли' }];
-  const dockLinks = DOCK_BY_ROLE[activeRole] ?? [{ id: 'home', href: roleHome, label: 'Главная', icon: Home }, { id: 'ai', href: AI_HREF, label: 'ИИ', icon: Bot }];
-  const showMenuButton = hasExtraMenuItems(safeNav, dockLinks);
-  const notices = NOTICES_BY_ROLE[activeRole] ?? [];
-  const dockCount = dockLinks.length + (showMenuButton ? 1 : 0);
+  const bottomNav = safeRoleNav(activeRole, platformV7NavByRole(activeRole));
+  const drawerNav = safeRoleNav(activeRole, [...bottomNav, ...platformV7DrawerNavByRole(activeRole)]);
+  const dockLinks = toDockLinks(activeRole, bottomNav.length ? bottomNav : [{ href: roleHome, label: 'Главная', note: 'Домашний экран роли' }]);
+  const notices = (NOTICES_BY_ROLE[activeRole] ?? []).filter((item) => platformV7RoleCanOpenHref(activeRole, item.href));
+  const dockCount = dockLinks.length;
 
   React.useEffect(() => {
     setActionsNode(document.querySelector<HTMLElement>('.pc-v4-header .pc-v4-actions'));
@@ -361,7 +209,7 @@ export function PlatformV7ShellUxController() {
 
       {showShellControls && drawerNode ? createPortal(
         <nav className="pc-v7-safe-drawer-nav" aria-label="Полное меню функций роли">
-          {safeNav.map((item) => {
+          {drawerNav.map((item) => {
             const active = activePath(pathname, item.href);
             return <Link key={`${item.href}:${item.label}`} href={item.href} className="pc-v7-safe-drawer-link" data-active={active ? 'true' : 'false'} onClick={() => window.setTimeout(closeLegacyDrawer, 0)}><strong>{item.label}</strong><span>{item.note}</span></Link>;
           })}
@@ -377,7 +225,6 @@ export function PlatformV7ShellUxController() {
               const active = activePath(pathname, item.href);
               return <Link key={item.id} href={item.href} className="pc-v7-role-dock-item" data-active={active ? 'true' : 'false'}><Icon /><span>{item.label}</span></Link>;
             })}
-            {showMenuButton ? <button type="button" className="pc-v7-role-dock-item" onClick={() => document.querySelector<HTMLButtonElement>('button[aria-label="Открыть меню"]')?.click()}><Menu /><span>Меню</span></button> : null}
           </div>
         </nav>
       ) : null}
