@@ -24,6 +24,10 @@ const PLATFORM_ROLES: PlatformRole[] = [
   'executive',
 ];
 
+function routeWithoutAnchor(href: string) {
+  return href.split('#')[0];
+}
+
 describe('platform-v7 shell route registry', () => {
   it('keeps a landing route for every platform role', () => {
     expect(Object.keys(PLATFORM_V7_ROLE_ROUTES).sort()).toEqual([...PLATFORM_ROLES].sort());
@@ -51,8 +55,9 @@ describe('platform-v7 shell route registry', () => {
 
     for (const role of PLATFORM_ROLES) {
       for (const item of platformV7NavByRole(role)) {
-        const isDealDetailRoute = item.href.startsWith(`${PLATFORM_V7_DEALS_ROUTE}/`);
-        expect(shellRoutes.has(item.href) || isDealDetailRoute, `${role}: ${item.href} must be approved`).toBe(true);
+        const baseHref = routeWithoutAnchor(item.href);
+        const isDealDetailRoute = baseHref.startsWith(`${PLATFORM_V7_DEALS_ROUTE}/`);
+        expect(shellRoutes.has(baseHref) || isDealDetailRoute, `${role}: ${item.href} must be approved`).toBe(true);
       }
     }
   });
