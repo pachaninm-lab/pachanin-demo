@@ -36,7 +36,10 @@ describe('platform-v7 public layout split', () => {
     expect(layout).toContain('<PlatformV7SingleEntryGuard />');
     expect(layout).toContain('<PlatformV7ShellUxController />');
     expect(layout).toContain('<RbacCabinetGuard />');
-    expect(layout).toContain('<CommandPalette />');
+    expect(layout).toContain('<CalculatorHeaderWidget />');
+    expect(layout).toContain('<SupportHeaderIcon />');
+    expect(layout).toContain('<RoleAssistantWidget />');
+    expect(layout).not.toContain('<CommandPalette />');
   });
 
   it('does not redirect the AI route to a stale assistant route', () => {
