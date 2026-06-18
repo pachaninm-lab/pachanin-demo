@@ -6,19 +6,19 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
-const SUPPORT_BY_ROLE: Record<PlatformRole, { href: string; label: string }> = {
-  operator: { href: '/platform-v7/support?role=operator', label: 'Поддержка оператора' },
-  buyer: { href: '/platform-v7/support?role=buyer', label: 'Поддержка покупателя' },
-  seller: { href: '/platform-v7/support?role=seller', label: 'Поддержка продавца' },
-  logistics: { href: '/platform-v7/support?role=logistics', label: 'Поддержка логистики' },
-  driver: { href: '/platform-v7/support?role=driver', label: 'Связь с диспетчером' },
-  surveyor: { href: '/platform-v7/support?role=surveyor', label: 'Поддержка сюрвейера' },
-  elevator: { href: '/platform-v7/support?role=elevator', label: 'Поддержка приёмки' },
-  lab: { href: '/platform-v7/support?role=lab', label: 'Поддержка лаборатории' },
-  bank: { href: '/platform-v7/support?role=bank', label: 'Поддержка банковской проверки' },
-  arbitrator: { href: '/platform-v7/support?role=arbitrator', label: 'Поддержка арбитража' },
-  compliance: { href: '/platform-v7/support?role=compliance', label: 'Поддержка комплаенса' },
-  executive: { href: '/platform-v7/support?role=executive', label: 'Поддержка руководителя' },
+const SUPPORT_BY_ROLE: Record<PlatformRole, { label: string }> = {
+  operator: { label: 'Статус и помощь оператора' },
+  buyer: { label: 'Статус и помощь покупателя' },
+  seller: { label: 'Статус и помощь продавца' },
+  logistics: { label: 'Статус и помощь логистики' },
+  driver: { label: 'Статус и помощь водителя' },
+  surveyor: { label: 'Статус и помощь сюрвейера' },
+  elevator: { label: 'Статус и помощь приёмки' },
+  lab: { label: 'Статус и помощь лаборатории' },
+  bank: { label: 'Статус и помощь банковской проверки' },
+  arbitrator: { label: 'Статус и помощь арбитража' },
+  compliance: { label: 'Статус и помощь комплаенса' },
+  executive: { label: 'Статус и помощь руководителя' },
 };
 
 function useHeaderActionsMount() {
@@ -38,7 +38,7 @@ export function SupportHeaderIcon() {
   const support = SUPPORT_BY_ROLE[role];
   const mount = useHeaderActionsMount();
   const button = (
-    <Link href={support.href} className='p7-role-support pc-v4-iconbtn' aria-label={support.label} title={support.label}>
+    <Link href={`/platform-v7/status?role=${role}`} className='p7-role-support pc-v4-iconbtn' aria-label={support.label} title={support.label}>
       <CircleHelp size={18} strokeWidth={2.35} />
     </Link>
   );
