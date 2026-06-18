@@ -506,9 +506,13 @@ const entryCss = `
   .entry-control-tile strong { font-size: 17px; }
   .entry-control-tile span { font-size: 12.5px; }
 
-  .entry-process-row { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 4px; scroll-snap-type: x mandatory; }
-  .entry-process-tile { min-width: 128px; scroll-snap-align: start; }
+  .entry-process-row { display: grid; grid-template-columns: 1fr; gap: 12px; overflow: visible; padding-bottom: 0; scroll-snap-type: none; }
+  .entry-process-tile { min-width: 0; width: 100%; min-height: auto; grid-template-columns: auto auto minmax(0, 1fr); justify-items: start; align-items: center; text-align: left; padding: 16px; }
   .entry-process-tile:not(:last-child)::after { display: none; }
+  .entry-process-index { grid-column: 1; }
+  .entry-process-icon { grid-column: 2; }
+  .entry-process-tile strong { grid-column: 3; font-size: 16px; }
+  .entry-process-tile small { grid-column: 3; font-size: 12.5px; }
 
   .entry-role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .entry-role-tile { min-height: 164px; padding: 15px; border-radius: 20px; }
