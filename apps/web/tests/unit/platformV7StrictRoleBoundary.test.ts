@@ -13,7 +13,7 @@ describe('platform-v7 strict role boundaries', () => {
   it('enforces cabinet RBAC by default', () => {
     expect(rbac).toContain('return true;');
     expect(rbac).not.toContain("reason: 'RBAC не применяется");
-    expect(rbac).toContain("redirectTo: '/platform-v7/login'");
+    expect(rbac).toContain("redirectTo: platformV7RoleRoute(role) ?? '/platform-v7/login'");
   });
 
   it('uses the canonical role registry for single-entry role boundaries', () => {
@@ -42,8 +42,9 @@ describe('platform-v7 strict role boundaries', () => {
     }
   });
 
-  it('does not infer disputes as arbitrator cabinet', () => {
-    expect(shellPolicy).not.toContain("pathname.startsWith('/platform-v7/arbitrator') || pathname.startsWith('/platform-v7/disputes')");
+  it('treats the disputes route as part of the arbitrator cabinet', () => {
+    // Strict isolation: /disputes is owned by the arbitrator cabinet.
+    expect(shellPolicy).toContain("pathname.startsWith('/platform-v7/arbitrator') || pathname.startsWith('/platform-v7/disputes')");
   });
 
   it('limits header role switcher to operator and executive', () => {

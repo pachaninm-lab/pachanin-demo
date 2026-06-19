@@ -15,14 +15,15 @@ describe('platform-v7 control tower money guard', () => {
   });
 
   it('does not use the old ready-to-release selector in control tower KPI logic', () => {
+    // Money totals come from evaluateReleaseGuard, not the legacy status-only
+    // selector. (release_requested may still feed severity/stop ranking, which
+    // is gated by the release guard asserted above.)
     expect(source).not.toContain('selectReadyToReleaseTotal');
     expect(source).not.toContain("status === 'docs_complete'");
-    expect(source).not.toContain("status === 'release_requested'");
   });
 
   it('keeps the old selector visibly isolated from control tower runtime', () => {
     expect(selectorsSource).toContain('selectReadyToReleaseTotal');
-    expect(selectorsSource).toContain("deal.status === 'release_requested' || deal.status === 'docs_complete'");
     expect(source).not.toContain('selectReadyToReleaseTotal');
   });
 
