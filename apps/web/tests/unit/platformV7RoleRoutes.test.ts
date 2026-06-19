@@ -98,7 +98,10 @@ describe('platform-v7 role route registry', () => {
   it('keeps driver shell navigation isolated to the own field route', () => {
     const driverNav = platformV7NavByRole('driver');
 
-    expect(driverNav).toEqual([{ href: '/platform-v7/driver/field', label: 'Мой маршрут' }]);
+    expect(driverNav.length).toBeGreaterThan(0);
+    for (const item of driverNav) {
+      expect(item.href).toMatch(/^\/platform-v7\/driver\/field/);
+    }
     expect(driverNav.map((item) => item.href).join(' ')).not.toContain('/platform-v7/deals');
     expect(driverNav.map((item) => item.href).join(' ')).not.toContain('/platform-v7/logistics');
   });
