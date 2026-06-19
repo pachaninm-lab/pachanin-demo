@@ -18,8 +18,10 @@ describe('platform-v7 shell bank navigation copy', () => {
   });
 
   it('keeps bank-controlled wording in the shell navigation', () => {
-    expect(shellSource).toContain("note: 'резерв и банковская проверка'");
-    expect(shellSource).toContain("note: 'резерв и условия банка'");
-    expect(shellSource).toContain("note: 'резерв, удержание, подтверждение'");
+    // The shell links the bank cabinet and frames it as a verification contour,
+    // never as platform-side money release.
+    expect(shellSource).toContain("label: 'Банк'");
+    expect(shellSource).toContain("'/platform-v7/bank'");
+    expect(shellSource).toContain("label: 'Контур проверки'");
   });
 });

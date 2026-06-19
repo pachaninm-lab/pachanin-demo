@@ -67,8 +67,8 @@ describe('platform-v7 role UX regressions', () => {
       });
     }
 
-    it('driver field page explicitly declares what is hidden', () => {
-      expect(driverFieldPage).toContain('скрыт');
+    it('driver field page explicitly scopes the driver to their own trip', () => {
+      expect(driverFieldPage).toContain('только свой рейс');
     });
 
     it('driver role summary declares money and bids as hidden', () => {
@@ -81,8 +81,8 @@ describe('platform-v7 role UX regressions', () => {
       expect(buyerPage).toContain('Запросить подтверждение резерва');
     });
 
-    it('buyer hero retains secondary CTA Открыть сделку', () => {
-      expect(buyerPage).toContain('Открыть сделку');
+    it('buyer hero retains secondary CTA Закупки и партии', () => {
+      expect(buyerPage).toContain('Закупки и партии');
     });
 
     it('buyer hero has removed extra financing CTA', () => {

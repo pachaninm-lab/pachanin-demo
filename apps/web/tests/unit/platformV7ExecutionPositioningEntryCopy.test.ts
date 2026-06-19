@@ -45,7 +45,7 @@ describe('platform-v7 execution positioning entry copy', () => {
 
     expect(notFound).toContain('/platform-v7/lots');
     expect(notFound).toContain('Лоты и запросы');
-    expect(shell).toContain('/platform-v7/execution-map');
-    expect(shell).toContain('Карта исполнения');
+    expect(shell).toContain('/platform-v7/roles');
+    expect(shell).toContain('Центр управления');
   });
 });
