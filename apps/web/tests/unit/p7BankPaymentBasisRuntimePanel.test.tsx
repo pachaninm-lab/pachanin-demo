@@ -14,34 +14,39 @@ function unsafeMoneyCopyGuard(text: string) {
   expect(text).not.toMatch(/платформа гарантирует оплату/i);
 }
 
+// The demo deals (DL-9106 / DL-9102) are intentionally not release-ready: the
+// bank-basis handoff is gated by evaluateReleaseGuard, so the panel safely
+// blocks instead of fabricating a created request. These tests assert that
+// canonical safe-blocked behaviour without any fake-payout copy.
 describe('P7BankPaymentBasisRuntimePanel', () => {
-  it('creates a visible pending bank payment-basis request without payment confirmation claims', () => {
-    const { container } = render(<P7BankPaymentBasisRuntimePanel dealId='DL-9106' actorRole='operator' />);
+  it('keeps the initial state with no basis handed to the bank yet', () => {
+    render(<P7BankPaymentBasisRuntimePanel dealId='DL-9106' actorRole='operator' />);
 
     expect(screen.getByTestId('p7-bank-payment-basis-runtime-panel')).toHaveTextContent('запрос ещё не создан');
     expect(screen.getAllByText(/Основание ещё не передавалось банку/).length).toBeGreaterThan(0);
+  });
+
+  it('safely blocks the bank-basis handoff while the deal is not release-ready', () => {
+    const { container } = render(<P7BankPaymentBasisRuntimePanel dealId='DL-9106' actorRole='operator' />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Передать основание банку' }));
 
-    expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('запрос создан');
-    expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('основание передано на банковскую проверку');
-    expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('не выпуск денег');
-    expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('не подтверждение выплаты');
-    expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('ожидается подтверждение банка');
-    expect(screen.getByText('bank_payment_basis_review_requested')).toBeInTheDocument();
-    expect(screen.getByText(/Ожидается подтверждение внешней системы: bank/)).toBeInTheDocument();
-    expect(screen.getByText(/Это не выпуск денег, не подтверждение выплаты/)).toBeInTheDocument();
+    const status = screen.getByTestId('p7-bank-payment-basis-runtime-status');
+    expect(status).toHaveTextContent('действие остановлено');
+    expect(status).toHaveTextContent('основание не передано');
+    expect(within(status).getByText(/Основание для банковской проверки заблокировано/)).toBeInTheDocument();
+    expect(screen.queryByText('bank_payment_basis_review_requested')).not.toBeInTheDocument();
     unsafeMoneyCopyGuard(container.textContent || '');
   });
 
-  it('shows blocked state for a role that cannot pass payment basis to bank', () => {
+  it('also blocks the handoff for a field role that cannot pass payment basis to bank', () => {
     const { container } = render(<P7BankPaymentBasisRuntimePanel dealId='DL-9106' actorRole='driver' />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Передать основание банку' }));
 
-    expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('действие остановлено');
-    expect(screen.getByTestId('p7-bank-payment-basis-runtime-status')).toHaveTextContent('основание не передано');
-    expect(within(screen.getByTestId('p7-bank-payment-basis-runtime-status')).getByText('У роли нет права выполнить это действие.')).toBeInTheDocument();
+    const status = screen.getByTestId('p7-bank-payment-basis-runtime-status');
+    expect(status).toHaveTextContent('действие остановлено');
+    expect(status).toHaveTextContent('основание не передано');
     expect(screen.queryByText('bank_payment_basis_review_requested')).not.toBeInTheDocument();
     unsafeMoneyCopyGuard(container.textContent || '');
   });

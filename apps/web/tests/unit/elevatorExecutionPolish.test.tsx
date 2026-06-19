@@ -26,10 +26,10 @@ describe('platform-v7 elevator execution polish', () => {
 
     expect(screen.getByText('Кабинет приёмки')).toBeInTheDocument();
     expect(screen.getByText(/Вес, качество и основание для проверки выплаты/i)).toBeInTheDocument();
-    expect(screen.getByText(/основание для банковской проверки/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/банку на проверку выплаты/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Условия приёмки, влияющие на банковскую проверку/i)).toBeInTheDocument();
     expect(screen.getByText(/без акта основание не передаётся банку/i)).toBeInTheDocument();
-    expect(screen.getByText(/Передача основания банку на проверку выплаты не продолжается/i)).toBeInTheDocument();
+    expect(screen.getByText(/Передача основания банку не продолжается/i)).toBeInTheDocument();
   });
 
   it('keeps elevator source free from direct payout and bank event wording', () => {
