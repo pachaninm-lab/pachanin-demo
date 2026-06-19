@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getHeaderSelectableRoles, inferPlatformRoleFromPath, OPERATOR_HEADER_ROLES } from '@/lib/platform-v7/shell-role-policy';
+import { getHeaderSelectableRoles, inferPlatformRoleFromPath } from '@/lib/platform-v7/shell-role-policy';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const ROLE_HEADER_CASES: Array<{ path: string; expectedRole: PlatformRole; expectedOptions: readonly PlatformRole[] }> = [
@@ -19,9 +19,9 @@ describe('role-header', () => {
     }
   });
 
-  it('keeps the unified switcher list inside role-scoped cabinets', () => {
+  it('hides the role switcher inside role-scoped cabinets (strict isolation)', () => {
     for (const item of ROLE_HEADER_CASES.filter((entry) => entry.expectedRole !== 'operator')) {
-      expect(getHeaderSelectableRoles('operator', item.path)).toEqual([...OPERATOR_HEADER_ROLES]);
+      expect(getHeaderSelectableRoles('operator', item.path)).toEqual([]);
     }
   });
 
