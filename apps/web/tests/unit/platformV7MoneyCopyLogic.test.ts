@@ -19,11 +19,16 @@ const forbiddenMoneyClaims = [
 ] as const;
 
 describe('platform-v7 money copy logic', () => {
+  // Honest controlled-pilot copy must be able to say what the platform does
+  // NOT do ("не выпускает деньги без подписания"), so a claim only counts as a
+  // leak when it is stated affirmatively (not directly negated by "не ").
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   it('does not imply that the platform itself releases or guarantees money', () => {
     const leaks = checkedFiles.flatMap((file) => {
       const source = fs.readFileSync(path.join(process.cwd(), file), 'utf8').toLowerCase();
       return forbiddenMoneyClaims
-        .filter((claim) => source.includes(claim.toLowerCase()))
+        .filter((claim) => new RegExp(`(?<!не\\s)${escapeRegExp(claim.toLowerCase())}`).test(source))
         .map((claim) => `${file}: ${claim}`);
     });
 
