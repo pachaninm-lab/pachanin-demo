@@ -139,7 +139,10 @@ const forbiddenVisibleCopy = [
 
 describe('platform-v7 deep bank and deal copy guard', () => {
   it('keeps deep bank, deal and evidence surfaces on execution-contour wording', () => {
-    const source = guardedFiles.map(read).join('\n');
+    // Strip copy-sanitizer normalizers (e.g. `.replace(/выпуск денег/gi, '…')`)
+    // before scanning: those legitimately reference a forbidden phrase as the
+    // search pattern precisely to remove it from imported/external labels.
+    const source = guardedFiles.map(read).join('\n').replace(/\.replace\([^)]*\)/g, '');
 
     for (const copy of forbiddenVisibleCopy) {
       expect(source, `deep platform-v7 copy must not contain "${copy}"`).not.toContain(copy);

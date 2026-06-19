@@ -30,7 +30,11 @@ const FORBIDDEN_COPY = [
   /ФГИС\s+подключ[её]н/i,
   /ЭДО\s+подключ[её]н/i,
   /ГИС\s+ЭПД\s+подключ[её]н/i,
-  /боев(?:ой|ая|ое|ые)\s+(?:контур|интеграц|подключ)/i,
+  // Only an affirmative "live contour is active" boast is forbidden. Honest
+  // controlled-pilot framing must be able to mention "боевой контур"/"боевые
+  // интеграции" precisely to disclaim them ("не заявляется", "требует договоров",
+  // "missing"), so we require an active-state word rather than the bare mention.
+  /боев(?:ой|ая|ое|ые)\s+(?:контур|интеграци\w*|подключени\w*)\s+(?:активн\w*|запущен\w*|включ[её]н\w*|работает|готов\w*\s+к\s+(?:работе|бою))/i,
   /реальн(?:ая|ое|ые)\s+подключени(?:е|я)\s+активн/i,
   /все\s+интеграции\s+готовы/i,
   /юридически\s+значим(?:ый|ая|ое)\s+документооборот\s+полностью/i,

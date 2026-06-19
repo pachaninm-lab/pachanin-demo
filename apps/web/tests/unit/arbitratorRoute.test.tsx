@@ -29,9 +29,10 @@ describe('PlatformV7ArbitratorPage', () => {
     expect(screen.getByText('Пакет доказательств (4/5)')).toBeInTheDocument();
     expect(screen.getByText('Хроника событий')).toBeInTheDocument();
     expect(screen.getByText('Решение арбитра')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Выпустить полностью/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Частичный выпуск/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Вернуть средства покупателю/ })).toBeInTheDocument();
+    // Money actions are framed as bank-basis records, not autonomous payouts.
+    expect(screen.getByRole('button', { name: /Зафиксировать основание для банка/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Частичное основание/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /основание для возврата покупателю/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Продлить сбор доказательств/ })).toBeInTheDocument();
   });
 });
