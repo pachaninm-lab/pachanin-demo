@@ -88,7 +88,7 @@ const ROLE_LABELS: Record<PlatformRole, string> = {
   executive: 'Руководитель',
 };
 
-const ROLE_CALCULATORS: Record<PlatformRole, RoleCalculatorPreset> = {
+const ROLE_CALCULATORS: Partial<Record<PlatformRole, RoleCalculatorPreset>> = {
   operator: {
     title: 'Операционный маржинальный расчёт',
     subtitle: 'Проверяет сделку по цене, себестоимости, удержаниям и рейсам.',
@@ -179,49 +179,6 @@ const ROLE_CALCULATORS: Record<PlatformRole, RoleCalculatorPreset> = {
       ];
     },
   },
-  driver: {
-    title: 'Расчёт выплаты водителю',
-    subtitle: 'Километры, ставка, бонусы и штрафы в одном месте.',
-    formula: 'Выплата = км × ставка + бонус − штраф − простой без оплаты',
-    fields: [
-      { key: 'km', label: 'Километры', suffix: 'км', defaultValue: '420' },
-      { key: 'rate', label: 'Ставка за км', suffix: '₽/км', defaultValue: '38' },
-      { key: 'bonus', label: 'Бонус', suffix: '₽', defaultValue: '3000' },
-      { key: 'penalty', label: 'Штраф', suffix: '₽', defaultValue: '0' },
-      { key: 'unpaidIdle', label: 'Неоплаченный простой', suffix: '₽', defaultValue: '0' },
-      { key: 'fuel', label: 'Топливо/аванс', suffix: '₽', defaultValue: '7000' },
-    ],
-    compute: (v) => {
-      const gross = v.km * v.rate + v.bonus;
-      const net = gross - v.penalty - v.unpaidIdle - v.fuel;
-      return [
-        { label: 'Начислено', value: formatMoney(gross) },
-        { label: 'Удержано', value: formatMoney(v.penalty + v.unpaidIdle + v.fuel) },
-        { label: 'К выплате', value: formatMoney(net), tone: 'strong' },
-      ];
-    },
-  },
-  surveyor: {
-    title: 'Стоимость сюрвейерского контроля',
-    subtitle: 'Партии, часы, фотофиксация и выезд.',
-    formula: 'Контроль = партии × ставка + часы × ставка + фото + выезд',
-    fields: [
-      { key: 'lots', label: 'Партии', suffix: 'шт', defaultValue: '4' },
-      { key: 'lotRate', label: 'Ставка за партию', suffix: '₽', defaultValue: '9000' },
-      { key: 'hours', label: 'Часы работы', suffix: 'ч', defaultValue: '7' },
-      { key: 'hourRate', label: 'Ставка за час', suffix: '₽/ч', defaultValue: '1800' },
-      { key: 'photo', label: 'Фото/доказательства', suffix: '₽', defaultValue: '5000' },
-      { key: 'visit', label: 'Выезд', suffix: '₽', defaultValue: '8000' },
-    ],
-    compute: (v) => {
-      const total = v.lots * v.lotRate + v.hours * v.hourRate + v.photo + v.visit;
-      return [
-        { label: 'Контроль партий', value: formatMoney(v.lots * v.lotRate) },
-        { label: 'Рабочее время', value: formatMoney(v.hours * v.hourRate) },
-        { label: 'Итого контроль', value: formatMoney(total), tone: 'strong' },
-      ];
-    },
-  },
   elevator: {
     title: 'Элеватор: хранение и доработка',
     subtitle: 'Считает хранение, сушку, очистку и потери массы.',
@@ -242,28 +199,6 @@ const ROLE_CALCULATORS: Record<PlatformRole, RoleCalculatorPreset> = {
         { label: 'Хранение', value: formatMoney(storage) },
         { label: 'Потеря массы', value: formatPlain(lossTons, ' т') },
         { label: 'Итого услуги', value: formatMoney(total), tone: 'strong' },
-      ];
-    },
-  },
-  lab: {
-    title: 'Лабораторный расчёт',
-    subtitle: 'Пробы, параметры, срочность и повторная проверка.',
-    formula: 'Стоимость = пробы × ставка + параметры × ставка + срочность + повтор',
-    fields: [
-      { key: 'samples', label: 'Пробы', suffix: 'шт', defaultValue: '8' },
-      { key: 'sampleRate', label: 'Ставка за пробу', suffix: '₽', defaultValue: '2500' },
-      { key: 'params', label: 'Параметры', suffix: 'шт', defaultValue: '6' },
-      { key: 'paramRate', label: 'Ставка за параметр', suffix: '₽', defaultValue: '900' },
-      { key: 'urgent', label: 'Срочность', suffix: '₽', defaultValue: '6000' },
-      { key: 'repeat', label: 'Повторная проверка', suffix: '₽', defaultValue: '0' },
-    ],
-    compute: (v) => {
-      const sampleCost = v.samples * v.sampleRate;
-      const paramsCost = v.params * v.paramRate;
-      return [
-        { label: 'Пробы', value: formatMoney(sampleCost) },
-        { label: 'Параметры', value: formatMoney(paramsCost) },
-        { label: 'Итого лаборатория', value: formatMoney(sampleCost + paramsCost + v.urgent + v.repeat), tone: 'strong' },
       ];
     },
   },
@@ -312,28 +247,6 @@ const ROLE_CALCULATORS: Record<PlatformRole, RoleCalculatorPreset> = {
       ];
     },
   },
-  compliance: {
-    title: 'Комплаенс: стоимость риска',
-    subtitle: 'Документы, ручная проверка, риск-процент и KYC.',
-    formula: 'Риск = сумма × риск% + пробелы × штраф + ручная проверка + KYC',
-    fields: [
-      { key: 'dealAmount', label: 'Сумма сделки', suffix: '₽', defaultValue: '7250000' },
-      { key: 'riskPercent', label: 'Риск-фактор', suffix: '%', defaultValue: '1.5' },
-      { key: 'gaps', label: 'Пробелы в документах', suffix: 'шт', defaultValue: '3' },
-      { key: 'gapCost', label: 'Цена пробела', suffix: '₽', defaultValue: '15000' },
-      { key: 'manualReview', label: 'Ручная проверка', suffix: '₽', defaultValue: '25000' },
-      { key: 'kyc', label: 'KYC/AML', suffix: '₽', defaultValue: '18000' },
-    ],
-    compute: (v) => {
-      const risk = v.dealAmount * v.riskPercent / 100;
-      const gaps = v.gaps * v.gapCost;
-      return [
-        { label: 'Денежный риск', value: formatMoney(risk) },
-        { label: 'Документные пробелы', value: formatMoney(gaps) },
-        { label: 'Итого риск-контур', value: formatMoney(risk + gaps + v.manualReview + v.kyc), tone: 'strong' },
-      ];
-    },
-  },
   executive: {
     title: 'Руководитель: портфельная экономика',
     subtitle: 'Сделки, средняя маржа, операционные расходы и конверсия.',
@@ -367,17 +280,21 @@ function CalculatorPanel({ role, onClose }: { role: PlatformRole; onClose: () =>
   const [roleValues, setRoleValues] = useState<Record<string, string>>({});
 
   const shownOperator = useMemo(() => operator ?? '—', [operator]);
-  const rolePreset = ROLE_CALCULATORS[role] ?? ROLE_CALCULATORS.operator;
+  const rolePreset = ROLE_CALCULATORS[role];
 
   useEffect(() => {
+    if (!rolePreset) {
+      setRoleValues({});
+      return;
+    }
     setRoleValues(Object.fromEntries(rolePreset.fields.map((field) => [field.key, field.defaultValue])));
   }, [rolePreset]);
 
   const numericRoleValues = useMemo(
-    () => Object.fromEntries(rolePreset.fields.map((field) => [field.key, readNumber(roleValues[field.key])])),
+    () => rolePreset ? Object.fromEntries(rolePreset.fields.map((field) => [field.key, readNumber(roleValues[field.key])])) : {},
     [rolePreset, roleValues]
   );
-  const roleResults = useMemo(() => rolePreset.compute(numericRoleValues), [numericRoleValues, rolePreset]);
+  const roleResults = useMemo(() => rolePreset ? rolePreset.compute(numericRoleValues) : [], [numericRoleValues, rolePreset]);
 
   const inputDigit = (digit: string) => {
     setDisplay((value) => {
@@ -434,6 +351,7 @@ function CalculatorPanel({ role, onClose }: { role: PlatformRole; onClose: () =>
   };
 
   const resetRoleValues = () => {
+    if (!rolePreset) return;
     setRoleValues(Object.fromEntries(rolePreset.fields.map((field) => [field.key, field.defaultValue])));
   };
 
@@ -444,7 +362,7 @@ function CalculatorPanel({ role, onClose }: { role: PlatformRole; onClose: () =>
       <div className='p7-calc-head'>
         <div>
           <strong>Калькулятор</strong>
-          <span>{ROLE_LABELS[role]} · обычный + ролевой расчёт</span>
+          <span>{rolePreset ? `${ROLE_LABELS[role]} · обычный + ролевой расчёт` : `${ROLE_LABELS[role]} · обычный расчёт`}</span>
         </div>
         <button type='button' onClick={onClose} aria-label='Закрыть калькулятор'><X size={15} /></button>
       </div>
@@ -473,41 +391,43 @@ function CalculatorPanel({ role, onClose }: { role: PlatformRole; onClose: () =>
           </button>
         ))}
       </div>
-      <section className='p7-role-calc' aria-label={`Ролевой расчёт: ${ROLE_LABELS[role]}`}>
-        <div className='p7-role-calc-title'>
-          <div>
-            <strong>{rolePreset.title}</strong>
-            <span>{rolePreset.subtitle}</span>
-          </div>
-          <button type='button' onClick={resetRoleValues}>Сброс</button>
-        </div>
-        <div className='p7-role-calc-fields'>
-          {rolePreset.fields.map((field) => (
-            <label key={field.key}>
-              <span>{field.label}</span>
-              <div>
-                <input
-                  inputMode='decimal'
-                  value={roleValues[field.key] ?? ''}
-                  onChange={(event) => setRoleValues((values) => ({ ...values, [field.key]: event.target.value }))}
-                  aria-label={field.label}
-                />
-                <em>{field.suffix}</em>
-              </div>
-            </label>
-          ))}
-        </div>
-        <div className='p7-role-calc-results'>
-          {roleResults.map((result) => (
-            <div key={result.label} className={result.tone === 'strong' ? 'p7-role-calc-result p7-role-calc-result-strong' : 'p7-role-calc-result'}>
-              <span>{result.label}</span>
-              <strong>{result.value}</strong>
-              {result.hint ? <small>{result.hint}</small> : null}
+      {rolePreset ? (
+        <section className='p7-role-calc' aria-label={`Ролевой расчёт: ${ROLE_LABELS[role]}`}>
+          <div className='p7-role-calc-title'>
+            <div>
+              <strong>{rolePreset.title}</strong>
+              <span>{rolePreset.subtitle}</span>
             </div>
-          ))}
-        </div>
-        <p>{rolePreset.formula}</p>
-      </section>
+            <button type='button' onClick={resetRoleValues}>Сброс</button>
+          </div>
+          <div className='p7-role-calc-fields'>
+            {rolePreset.fields.map((field) => (
+              <label key={field.key}>
+                <span>{field.label}</span>
+                <div>
+                  <input
+                    inputMode='decimal'
+                    value={roleValues[field.key] ?? ''}
+                    onChange={(event) => setRoleValues((values) => ({ ...values, [field.key]: event.target.value }))}
+                    aria-label={field.label}
+                  />
+                  <em>{field.suffix}</em>
+                </div>
+              </label>
+            ))}
+          </div>
+          <div className='p7-role-calc-results'>
+            {roleResults.map((result) => (
+              <div key={result.label} className={result.tone === 'strong' ? 'p7-role-calc-result p7-role-calc-result-strong' : 'p7-role-calc-result'}>
+                <span>{result.label}</span>
+                <strong>{result.value}</strong>
+                {result.hint ? <small>{result.hint}</small> : null}
+              </div>
+            ))}
+          </div>
+          <p>{rolePreset.formula}</p>
+        </section>
+      ) : null}
     </div>
   );
 }
