@@ -17,7 +17,7 @@ describe('platform-v7 navigation', () => {
     expect(platformV7RoleLabel('seller')).toBe('Продавец');
     expect(platformV7RoleRoute('seller')).toBe('/platform-v7/seller');
     expect(platformV7RoleLabel('bank')).toBe('Банк');
-    expect(platformV7RoleRoute('bank')).toBe('/platform-v7/bank');
+    expect(platformV7RoleRoute('bank')).toBe('/platform-v7/bank/clean');
   });
 
   it('routes driver entry to the field shell', () => {
