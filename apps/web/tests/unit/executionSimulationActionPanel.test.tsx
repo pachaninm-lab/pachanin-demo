@@ -1,71 +1,36 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { ExecutionSimulationActionPanel } from '@/components/v7r/ExecutionSimulationActionPanel';
 
-function cardByTitle(title: string): HTMLElement {
-  const titleNode = screen.getByText(title);
-  const card = titleNode.parentElement;
-  if (!card) throw new Error(`Card not found for title: ${title}`);
-  return card;
-}
-
-function clickCardAction(title: string) {
-  const card = cardByTitle(title);
-  const button = within(card).getByRole('button', { name: 'Выполнить' });
-  fireEvent.click(button);
-}
-
+// The interactive domain-core action engine is intentionally disabled for the
+// Netlify build ("Интерактивные команды временно отключены…"); the panel
+// currently renders a compact pre-integration verification scenario. These
+// tests assert that canonical compact panel.
 describe('ExecutionSimulationActionPanel', () => {
-  it('renders simulation KPIs, action cards and disabled reasons from domain-core', () => {
+  it('renders the compact pre-integration verification panel', () => {
     render(<ExecutionSimulationActionPanel />);
 
     expect(screen.getByTestId('execution-simulation-action-panel')).toBeInTheDocument();
-    expect(screen.getByText('Оборот сценария')).toBeInTheDocument();
-    expect(screen.getByText('К выпуску')).toBeInTheDocument();
-    expect(screen.getByText('Открытых споров')).toBeInTheDocument();
-    expect(screen.getByText('Текущий статус')).toBeInTheDocument();
-
-    expect(screen.getByText('1. Создать лот')).toBeInTheDocument();
-    expect(screen.getByText('5. Запросить резерв')).toBeInTheDocument();
-    expect(screen.getByText('10. Открыть спор')).toBeInTheDocument();
-
-    expect(screen.getByText('Сначала создай лот')).toBeInTheDocument();
-    expect(screen.getByText('Банк подтверждает только запрошенный резерв')).toBeInTheDocument();
-    expect(screen.getByText('Лаборатория доступна после подтверждения веса')).toBeInTheDocument();
+    expect(screen.getByText('Проверочные действия сделки')).toBeInTheDocument();
+    expect(screen.getByText('Сценарий проверки')).toBeInTheDocument();
   });
 
-  it('runs a reserve request through the new domain-core action engine and writes UI/audit/timeline', () => {
+  it('lists the five verification steps', () => {
     render(<ExecutionSimulationActionPanel />);
 
-    clickCardAction('5. Запросить резерв');
-
-    expect(screen.getAllByText('Запрошен резерв средств в предынтеграционном контуре').length).toBeGreaterThan(0);
-    expect(screen.getByText(/5\. Запросить резерв: Запрошен резерв средств в предынтеграционном контуре/)).toBeInTheDocument();
-    expect(screen.getByText('DL-9113 · requestReserve')).toBeInTheDocument();
-    expect(screen.getAllByText('Запрошен резерв средств в предынтеграционном контуре').length).toBeGreaterThan(0);
-    expect(screen.getByText('Reserve requested')).toBeInTheDocument();
+    expect(screen.getByText('1. Лот')).toBeInTheDocument();
+    expect(screen.getByText('2. Сделка')).toBeInTheDocument();
+    expect(screen.getByText('3. Рейс')).toBeInTheDocument();
+    expect(screen.getByText('4. Качество')).toBeInTheDocument();
+    expect(screen.getByText('5. Разбор')).toBeInTheDocument();
   });
 
-  it('unlocks the next banking action after reserve request and writes the next audit event', () => {
+  it('signals that interactive commands are temporarily disabled', () => {
     render(<ExecutionSimulationActionPanel />);
 
-    clickCardAction('5. Запросить резерв');
-    clickCardAction('6. Подтвердить резерв');
-
-    expect(screen.getAllByText('Резерв средств подтверждён в предынтеграционном контуре').length).toBeGreaterThan(0);
-    expect(screen.getByText(/6\. Подтвердить резерв: Резерв средств подтверждён в предынтеграционном контуре/)).toBeInTheDocument();
-    expect(screen.getByText('DL-9113 · confirmReserve')).toBeInTheDocument();
-    expect(screen.getByText('Reserve confirmed')).toBeInTheDocument();
-  });
-
-  it('keeps unavailable actions disabled instead of allowing an invalid transition', () => {
-    render(<ExecutionSimulationActionPanel />);
-
-    const disputeCard = cardByTitle('10. Открыть спор');
-    const disputeButton = within(disputeCard).getByRole('button', { name: 'Выполнить' });
-
-    expect(disputeButton).toBeDisabled();
-    expect(within(disputeCard).getByText('Спор открывается после лаборатории или приёмки')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Интерактивные команды временно отключены/),
+    ).toBeInTheDocument();
   });
 });

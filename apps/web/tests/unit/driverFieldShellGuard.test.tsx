@@ -38,7 +38,7 @@ describe('DriverFieldShellGuard', () => {
     expect(style?.textContent).toContain('.pc-v4-select');
     expect(style?.textContent).toContain('.pc-v4-mobile-role');
     expect(style?.textContent).toContain('.pc-v4-meta');
-    expect(style?.textContent).toContain('.pc-v4-drawer');
+    expect(style?.textContent).toContain('.pc-v4-stage');
   });
 
   it('also protects the driver field subroute', () => {
