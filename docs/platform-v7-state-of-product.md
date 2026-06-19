@@ -3,7 +3,7 @@
 **Updated:** 2026-04-27  
 **Branch:** `main`  
 **Production URL:** `https://pachanin-web.vercel.app/platform-v7/`  
-**Current production commit after safe passes:** `959dd29d773b70985596d48432f69eb7e5c92069`  
+**Current production commit after safe passes:** `2f4d478` (add release safety navigation)  
 **Scope:** controlled-pilot execution layer for off-exchange grain deal execution.
 
 ---
@@ -19,6 +19,8 @@
 | Live FGIS calls | not claimed |
 | Live bank payments | not claimed |
 | Live EDO / ETRN | not claimed |
+| Live logistics / GPS | not claimed |
+| Live scoring / credit | not claimed |
 
 ---
 
@@ -33,13 +35,64 @@
 | #206 | Guarded reason affordance in action button |
 | #207 | UI props adapter for guarded action buttons |
 | #208 | Reusable guarded action button wrapper |
-| #210 | Sandbox-only FGIS and logistics domain layer clean-transfer from Claude Code |
+| #210 | Sandbox-only FGIS and logistics domain layer clean-transfer |
+| #211 | Market/RFQ command palette entry |
+| #212 | Market/RFQ sandbox page (`/platform-v7/market-rfq`) |
+| #213 | Deal workspace tabs component |
+| #214 | Bank audit route (`/platform-v7/bank/release-safety`) |
+| #215 | Seller quick link to Market/RFQ |
+| #216 | Bank quick link |
+| #217 | Buyer financing page |
+| #218 | Seller FGIS-parties page |
+| #219 | Logistics page enhancement |
+| #223 | Bank release-safety page |
+| #224 | Deal workspace tabs |
+| #225 | Release safety command entry |
+| #226 | Operator cabinet audit quick link |
+| #232 | Release-safety page navigation links (bank / operator / control-tower) |
 
-Absolute task progress after #210: **8/150 = 5.33% done / 94.67% remaining**.
+> PRs #220, #221, #222 — closed without merge. **Do not count.**  
+> PR #209 — old Claude mega-PR. Not merged as a whole. Domain code transferred incrementally.  
+> PRs #229, #230, #231 — closed as superseded. **Do not count.**  
+> PR #237 — closed as stale (pre-#232 revert risk). Replaced by this doc.
+
+**Absolute task progress after #232: 22/150 = 14.67% done / 85.33% remaining.**
 
 ---
 
-## 3. Claude Code PR handling
+## 3. Confirmed navigation landmarks (on main)
+
+| Route | Status |
+|---|---|
+| `/platform-v7/market-rfq` | exists · sandbox · pre-deal intake |
+| `/platform-v7/bank/release-safety` | exists · read-only audit with operator / control-tower nav |
+| `/platform-v7/bank` | exists · bank circuit |
+| `/platform-v7/seller` | exists · seller cabinet with Market/RFQ quick link |
+| `/platform-v7/operator` | exists · operator cabinet with release-safety audit link |
+| `/platform-v7/buyer` | exists · buyer cabinet (Market/RFQ quick link pending PR #227 merge) |
+| `/platform-v7/roles` | exists · roles hub (Market/RFQ entry pending PR #228 merge) |
+| `/platform-v7/control-tower` | exists · operator dashboard (release-safety signal pending PR #233 merge) |
+
+Command palette entries confirmed: `sec-market-rfq`, `sec-release-safety`.
+
+---
+
+## 4. PRs open for review (not yet merged — not counted toward progress)
+
+| Branch | Task | GitHub PR |
+|---|---|---|
+| `codex-safe/buyer-market-link` | Buyer cabinet quick link to Market/RFQ | #227 |
+| `codex-safe/roles-market-entry` | Roles page Market/RFQ entry card | #228 |
+| `codex-safe/control-release-safety-link` | Control Tower release-safety signal | #233 |
+| `codex-safe/market-rfq-contract-test` | Route contract test for Market/RFQ | #234 |
+| `codex-safe/release-safety-contract-test` | Route contract test for release-safety | #235 |
+| `codex-safe/ui-primitives-runtime` | Shared UI primitives (P7Notice used in release-safety) | #236 |
+
+Progress counter advances only after each PR is merged and deployed to production.
+
+---
+
+## 5. Claude Code PR handling
 
 Claude Code PR #209 is not merged as a whole. It is large and touches runtime UI zones that overlap with guarded money-release work.
 
@@ -57,18 +110,9 @@ Transferred from Claude Code so far:
 - `apps/web/tests/unit/platformV7FgisDomain.test.ts`
 - `apps/web/tests/unit/platformV7LogisticsDomain.test.ts`
 
-Not transferred yet:
-
-- Seller FGIS-first UI
-- Buyer financing UI
-- Logistics orchestrator UI
-- Bank Hub panels
-- Deal Workspace tabs
-- Market/RFQ UI
-
 ---
 
-## 4. Protected zones
+## 6. Protected zones
 
 | Zone | Rule |
 |---|---|
@@ -83,7 +127,7 @@ Not transferred yet:
 
 ---
 
-## 5. Current architecture backbone
+## 7. Current architecture backbone
 
 ```
 FGISParty
@@ -93,11 +137,6 @@ FGISParty
  -> Deal
     -> MoneyPlan / ReleaseGuard
     -> LogisticsOrder
-       -> TransportPack
-       -> RouteLeg
-       -> DriverTask
-       -> FieldEvent
-       -> LogisticsIncident
     -> DocumentRegistry
     -> LabProtocol
     -> EvidencePack
@@ -105,27 +144,9 @@ FGISParty
     -> AuditEvent
 ```
 
-Every module must trace back to Deal or be explicitly marked as pre-deal intake.
-
 ---
 
-## 6. Remaining safe order
-
-1. Seller FGIS-first UI, adapted to sandbox labels and no live FGIS claims.
-2. Buyer financing UI, buyer-only and sandbox-labelled.
-3. Logistics orchestrator UI, deal-linked and guarded by transport status.
-4. Bank Hub panels, with no live-bank claims and no bypass of release guards.
-5. Deal Workspace tabs, wired to existing guarded actions.
-6. Market/RFQ UI, with explicit pre-deal status and no automatic deal creation without gates.
-7. Field execution foundation.
-8. Dispute decision engine.
-9. Security and anti-fraud layer.
-10. Investor / AI / reputation layer.
-11. World-class final gate.
-
----
-
-## 7. Honesty labels
+## 8. Honesty labels
 
 | Label | Meaning |
 |---|---|
