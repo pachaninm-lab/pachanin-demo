@@ -11,7 +11,7 @@ describe('EvidencePackOperationsQueue', () => {
     expect(screen.getByText('Средняя готовность')).toBeInTheDocument();
     expect(screen.getAllByText('Удержано').length).toBeGreaterThan(0);
     expect(screen.getAllByText('На проверке').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('К выпуску').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Готово к банку').length).toBeGreaterThan(0);
   });
 
   it('renders decision controls and visible count', () => {
@@ -21,7 +21,7 @@ describe('EvidencePackOperationsQueue', () => {
     expect(screen.getByRole('link', { name: 'Все' })).toHaveAttribute('href', '/platform-v7/evidence-pack');
     expect(screen.getByRole('link', { name: 'Удержано' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Hold');
     expect(screen.getByRole('link', { name: 'На проверке' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Review');
-    expect(screen.getByRole('link', { name: 'К выпуску' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Can%20release');
+    expect(screen.getByRole('link', { name: 'Готово к банку' })).toHaveAttribute('href', '/platform-v7/evidence-pack?decision=Can%20release');
   });
 
   it('renders row-level missing hints', () => {
