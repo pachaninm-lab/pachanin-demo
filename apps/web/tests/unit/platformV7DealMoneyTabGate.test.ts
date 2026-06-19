@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx'), 'utf8');
+const source = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/P7DealWorkspaceTabs.tsx'), 'utf8');
 
 describe('platform-v7 deal money tab gate', () => {
   it('keeps the money tab behind the full deal matrix, not just blockers and hold amount', () => {

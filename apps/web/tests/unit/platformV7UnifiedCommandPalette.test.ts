@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const layoutClient = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7LayoutClient.tsx'), 'utf8');
-const appLayout = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/layout.tsx'), 'utf8');
-const shellPalette = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/v7r/CommandPalette.tsx'), 'utf8');
+const layoutClient = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/PlatformV7LayoutClient.tsx'), 'utf8');
+const appLayout = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/layout.tsx'), 'utf8');
+const shellPalette = fs.readFileSync(path.join(process.cwd(), 'components/v7r/CommandPalette.tsx'), 'utf8');
 
 describe('platform-v7 unified command palette ownership', () => {
   it('does not mount a second platform-v7 command palette from layout wrappers', () => {

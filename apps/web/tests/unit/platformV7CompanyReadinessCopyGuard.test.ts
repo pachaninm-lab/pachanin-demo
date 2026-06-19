@@ -8,7 +8,7 @@ function read(file: string) {
 
 describe('platform-v7 company and readiness copy guard', () => {
   it('keeps company profile money copy bank-framed', () => {
-    const source = read('apps/web/app/platform-v7/companies/[inn]/page.tsx');
+    const source = read('app/platform-v7/companies/[inn]/page.tsx');
 
     expect(source).toContain('Основание готово к банковской проверке');
     expect(source).toContain('От сделки до банковского подтверждения');
@@ -18,7 +18,7 @@ describe('platform-v7 company and readiness copy guard', () => {
   });
 
   it('keeps readiness page framed as execution and bank basis readiness', () => {
-    const source = read('apps/web/app/platform-v7/readiness/page.tsx');
+    const source = read('app/platform-v7/readiness/page.tsx');
 
     expect(source).toContain('Матрица готовности · контрольный контур');
     expect(source).toContain('Готовность сделки к исполнению и банковскому основанию');

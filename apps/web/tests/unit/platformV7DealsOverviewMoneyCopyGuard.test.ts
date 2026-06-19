@@ -8,7 +8,7 @@ function read(file: string) {
 
 describe('platform-v7 deals overview money copy guard', () => {
   it('keeps deals overview framed around bank basis and external confirmation', () => {
-    const source = read('apps/web/components/v7r/DealsOverviewRuntime.tsx');
+    const source = read('components/v7r/DealsOverviewRuntime.tsx');
 
     expect(source).toContain('Ожидают банк');
     expect(source).toContain('внешнего банковского подтверждения');
@@ -18,7 +18,7 @@ describe('platform-v7 deals overview money copy guard', () => {
   });
 
   it('keeps live deal runtime copy away from autonomous money movement claims', () => {
-    const source = read('apps/web/stores/useLiveDealRuntimeStore.ts');
+    const source = read('stores/useLiveDealRuntimeStore.ts');
 
     expect(source).toContain('довести контур до банковского шага');
     expect(source).toContain('Получено банковское подтверждение');
@@ -28,8 +28,8 @@ describe('platform-v7 deals overview money copy guard', () => {
 
   it('does not reintroduce release/payment claims or pilot/demo language in the overview path', () => {
     const combined = [
-      read('apps/web/components/v7r/DealsOverviewRuntime.tsx'),
-      read('apps/web/stores/useLiveDealRuntimeStore.ts'),
+      read('components/v7r/DealsOverviewRuntime.tsx'),
+      read('stores/useLiveDealRuntimeStore.ts'),
     ].join('\n');
 
     expect(combined).not.toContain('Ожидают выпуск');

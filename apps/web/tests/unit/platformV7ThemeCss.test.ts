@@ -44,7 +44,7 @@ const REQUIRED_P7_COLOR_VARIABLES = [
 ] as const;
 
 function readThemeCss(): string {
-  const candidates = [join(process.cwd(), 'styles/theme.css'), join(process.cwd(), 'apps/web/styles/theme.css')];
+  const candidates = [join(process.cwd(), 'styles/theme.css'), join(process.cwd(), 'styles/theme.css')];
   const path = candidates.find((candidate) => existsSync(candidate));
 
   if (!path) {

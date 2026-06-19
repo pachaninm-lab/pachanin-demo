@@ -3,14 +3,14 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const visibleRuntimeFiles = [
-  'apps/web/components/v7r/DocumentsDropzone.tsx',
-  'apps/web/components/v7r/DomainDealsSummary.tsx',
-  'apps/web/components/v7r/LiveDealDetailRuntime.tsx',
-  'apps/web/components/v7r/LiveDealInvestorRuntime.tsx',
-  'apps/web/components/v7r/ControlTowerOperatorPanel.tsx',
-  'apps/web/components/v7r/EvidencePackOperationsQueue.tsx',
-  'apps/web/components/v7r/ExecutionSimulationActionPanel.tsx',
-  'apps/web/components/v7r/CatchAllPage.tsx',
+  'components/v7r/DocumentsDropzone.tsx',
+  'components/v7r/DomainDealsSummary.tsx',
+  'components/v7r/LiveDealDetailRuntime.tsx',
+  'components/v7r/LiveDealInvestorRuntime.tsx',
+  'components/v7r/ControlTowerOperatorPanel.tsx',
+  'components/v7r/EvidencePackOperationsQueue.tsx',
+  'components/v7r/ExecutionSimulationActionPanel.tsx',
+  'components/v7r/CatchAllPage.tsx',
 ] as const;
 
 function read(file: string) {

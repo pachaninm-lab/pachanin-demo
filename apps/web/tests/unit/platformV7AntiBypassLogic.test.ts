@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const antiBypassSource = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/anti-bypass/page.tsx'), 'utf8');
-const workflowSource = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/workflow-source-of-truth.ts'), 'utf8');
+const antiBypassSource = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/anti-bypass/page.tsx'), 'utf8');
+const workflowSource = fs.readFileSync(path.join(process.cwd(), 'lib/platform-v7/workflow-source-of-truth.ts'), 'utf8');
 
 describe('platform-v7 anti-bypass logic', () => {
   it('keeps public market visibility separated from contact disclosure', () => {

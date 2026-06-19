@@ -4,13 +4,13 @@ import { describe, expect, it } from 'vitest';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 
-const appLayout = read('apps/web/app/platform-v7/layout.tsx');
-const clientLayout = read('apps/web/components/platform-v7/PlatformV7LayoutClient.tsx');
-const shellUx = read('apps/web/components/platform-v7/PlatformV7ShellUxController.tsx');
-const supportHeader = read('apps/web/components/platform-v7/SupportHeaderIcon.tsx');
-const entryFixCss = read('apps/web/styles/platform-v7-entry-fix.css');
-const shellRoutes = read('apps/web/lib/platform-v7/shellRoutes.ts');
-const statusPage = read('apps/web/app/platform-v7/status/page.tsx');
+const appLayout = read('app/platform-v7/layout.tsx');
+const clientLayout = read('components/platform-v7/PlatformV7LayoutClient.tsx');
+const shellUx = read('components/platform-v7/PlatformV7ShellUxController.tsx');
+const supportHeader = read('components/platform-v7/SupportHeaderIcon.tsx');
+const entryFixCss = read('styles/platform-v7-entry-fix.css');
+const shellRoutes = read('lib/platform-v7/shellRoutes.ts');
+const statusPage = read('app/platform-v7/status/page.tsx');
 
 function roleDockBlock() {
   const start = shellUx.indexOf('<nav className="pc-v7-role-dock"');

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const file = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/ai/page.tsx'), 'utf8');
+const file = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/ai/page.tsx'), 'utf8');
 
 function block(name: string, next: string) {
   return file.slice(file.indexOf(`${name}: {`), file.indexOf(`${next}: {`));

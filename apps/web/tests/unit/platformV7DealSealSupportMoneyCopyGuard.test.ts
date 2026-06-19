@@ -8,7 +8,7 @@ function read(file: string) {
 
 describe('platform-v7 deal seal and support money copy guard', () => {
   it('keeps DealSeal framed as bank basis and external bank confirmation', () => {
-    const source = read('apps/web/components/platform-v7/DealSeal.tsx');
+    const source = read('components/platform-v7/DealSeal.tsx');
 
     expect(source).toContain('К банковскому шагу');
     expect(source).toContain('Платформа фиксирует момент и основание сделки');
@@ -20,7 +20,7 @@ describe('platform-v7 deal seal and support money copy guard', () => {
   });
 
   it('keeps support-data money cases framed as blocked bank step, not platform money release', () => {
-    const source = read('apps/web/lib/platform-v7/support-data.ts');
+    const source = read('lib/platform-v7/support-data.ts');
 
     expect(source).toContain('Банковский шаг остановлен из-за незакрытой приёмки');
     expect(source).toContain('сумма к банковской проверке');

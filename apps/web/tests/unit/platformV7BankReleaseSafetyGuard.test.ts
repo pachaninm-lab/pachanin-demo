@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/bank/release-safety/page.tsx'), 'utf8');
+const source = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/bank/release-safety/page.tsx'), 'utf8');
 
 describe('platform-v7 bank release-safety guard', () => {
   it('keeps bank release-safety wired to the domain release guard', () => {

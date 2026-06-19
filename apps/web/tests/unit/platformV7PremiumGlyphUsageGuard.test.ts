@@ -3,9 +3,9 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const runtimeRoots = [
-  'apps/web/app/platform-v7',
-  'apps/web/components/platform-v7',
-  'apps/web/components/v7r',
+  'app/platform-v7',
+  'components/platform-v7',
+  'components/v7r',
 ] as const;
 
 const allowedGlyphs = new Set([

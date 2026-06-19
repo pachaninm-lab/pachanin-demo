@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/v7r/BankRuntime.tsx'), 'utf8');
+const source = fs.readFileSync(path.join(process.cwd(), 'components/v7r/BankRuntime.tsx'), 'utf8');
 const renderSource = source.replace(/function normalizeBankMoneyCopy[\s\S]*?\n}\n\nfunction badge/, 'function badge');
 
 describe('platform-v7 bank runtime copy guard', () => {

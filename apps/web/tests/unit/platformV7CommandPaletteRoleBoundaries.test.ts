@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const file = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/CommandPalette.tsx'), 'utf8');
-const shellRoutes = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/shellRoutes.ts'), 'utf8');
+const file = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/CommandPalette.tsx'), 'utf8');
+const shellRoutes = fs.readFileSync(path.join(process.cwd(), 'lib/platform-v7/shellRoutes.ts'), 'utf8');
 
 describe('platform-v7 command palette role boundaries', () => {
   it('sources commands from the canonical role navigation registry', () => {

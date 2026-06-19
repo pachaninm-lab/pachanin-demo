@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/middleware.ts'), 'utf8');
+const source = fs.readFileSync(path.join(process.cwd(), 'middleware.ts'), 'utf8');
 
 describe('platform-v7 middleware role precedence', () => {
   it('keeps path and session roles stronger than query ?as fallback', () => {

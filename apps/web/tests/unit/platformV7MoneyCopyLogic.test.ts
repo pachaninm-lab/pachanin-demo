@@ -3,10 +3,10 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const checkedFiles = [
-  'apps/web/lib/platform-v7/workflow-source-of-truth.ts',
-  'apps/web/components/platform-v7/WorkflowActionPanel.tsx',
-  'apps/web/components/v7r/BankRuntime.tsx',
-  'apps/web/lib/platform-v7/deal-execution-source-of-truth.ts',
+  'lib/platform-v7/workflow-source-of-truth.ts',
+  'components/platform-v7/WorkflowActionPanel.tsx',
+  'components/v7r/BankRuntime.tsx',
+  'lib/platform-v7/deal-execution-source-of-truth.ts',
 ] as const;
 
 const forbiddenMoneyClaims = [

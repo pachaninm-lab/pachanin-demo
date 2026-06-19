@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const tsconfigPath = path.join(process.cwd(), 'apps/web/tsconfig.json');
+const tsconfigPath = path.join(process.cwd(), 'tsconfig.json');
 const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, 'utf8')) as { exclude?: string[] };
 
 describe('platform-v7 deploy build boundary', () => {

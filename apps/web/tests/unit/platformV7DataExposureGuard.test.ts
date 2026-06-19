@@ -3,14 +3,14 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const roots = [
-  'apps/web/app/platform-v7',
-  'apps/web/components/platform-v7',
-  'apps/web/components/v7r',
-  'apps/web/lib/platform-v7',
+  'app/platform-v7',
+  'components/platform-v7',
+  'components/v7r',
+  'lib/platform-v7',
 ] as const;
 
 const allowedFiles = new Set([
-  'apps/web/tests/unit/platformV7DataExposureGuard.test.ts',
+  'tests/unit/platformV7DataExposureGuard.test.ts',
 ]);
 
 const directPhonePattern = /(?:\+7|8)[\s\-()]?\d{3}[\s\-()]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/;
@@ -44,10 +44,10 @@ describe('platform-v7 data exposure guard', () => {
   });
 
   it('keeps platform language around masked contacts and controlled disclosure', () => {
-    const antiBypass = fs.existsSync('apps/web/app/platform-v7/anti-bypass/page.tsx')
-      ? fs.readFileSync('apps/web/app/platform-v7/anti-bypass/page.tsx', 'utf8')
+    const antiBypass = fs.existsSync('app/platform-v7/anti-bypass/page.tsx')
+      ? fs.readFileSync('app/platform-v7/anti-bypass/page.tsx', 'utf8')
       : '';
-    const sourceOfTruth = fs.readFileSync('apps/web/lib/platform-v7/workflow-source-of-truth.ts', 'utf8');
+    const sourceOfTruth = fs.readFileSync('lib/platform-v7/workflow-source-of-truth.ts', 'utf8');
 
     expect(`${antiBypass}\n${sourceOfTruth}`).toMatch(/контакт|Контакт|контакты|Контакты/);
     expect(sourceOfTruth).toContain('Контактные данные замаскированы');

@@ -23,7 +23,7 @@ describe('platform-v7 strict settlement gate', () => {
   });
 
   it('keeps strict settlement gate tied to FGIS and quality readiness in source code', () => {
-    const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/deal-money-release-gate.ts'), 'utf8');
+    const source = fs.readFileSync(path.join(process.cwd(), 'lib/platform-v7/deal-money-release-gate.ts'), 'utf8');
 
     expect(source).toContain("readiness.fgis.status === 'готово'");
     expect(source).toContain("readiness.quality.status === 'готово'");

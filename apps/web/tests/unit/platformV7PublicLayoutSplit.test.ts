@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const layout = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/layout.tsx'), 'utf8');
-const middleware = fs.readFileSync(path.join(process.cwd(), 'apps/web/middleware.ts'), 'utf8');
+const layout = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/layout.tsx'), 'utf8');
+const middleware = fs.readFileSync(path.join(process.cwd(), 'middleware.ts'), 'utf8');
 
 describe('platform-v7 public layout split', () => {
   it('passes pathname from middleware to the server layout', () => {

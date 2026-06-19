@@ -8,7 +8,7 @@ function read(file: string) {
 
 describe('platform-v7 money selector usage guard', () => {
   it('keeps DomainMoneySummary tied to the strict release guard', () => {
-    const source = read('apps/web/components/v7r/DomainMoneySummary.tsx');
+    const source = read('components/v7r/DomainMoneySummary.tsx');
 
     expect(source).toContain('evaluateReleaseGuard');
     expect(source).toContain('canExecuteRelease');
@@ -20,7 +20,7 @@ describe('platform-v7 money selector usage guard', () => {
   });
 
   it('keeps selectReadyToReleaseTotal stricter than status-only readiness', () => {
-    const source = read('apps/web/lib/domain/selectors.ts');
+    const source = read('lib/domain/selectors.ts');
     const selectorStart = source.indexOf('export function selectReadyToReleaseTotal');
     const selectorEnd = source.indexOf('export function selectDomainTotals');
     const selector = source.slice(selectorStart, selectorEnd);

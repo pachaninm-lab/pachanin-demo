@@ -3,8 +3,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const uiFiles = [
-  'apps/web/app/platform-v7/readiness/page.tsx',
-  'apps/web/app/platform-v7/data-room/page.tsx',
+  'app/platform-v7/readiness/page.tsx',
+  'app/platform-v7/data-room/page.tsx',
 ] as const;
 
 describe('platform-v7 strict settlement UI wiring', () => {
@@ -21,8 +21,8 @@ describe('platform-v7 strict settlement UI wiring', () => {
   }
 
   it('keeps the public execution cards tied to DL-9106 naming', () => {
-    const readiness = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/readiness/page.tsx'), 'utf8');
-    const dataRoom = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/data-room/page.tsx'), 'utf8');
+    const readiness = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/readiness/page.tsx'), 'utf8');
+    const dataRoom = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/data-room/page.tsx'), 'utf8');
 
     expect(readiness).toContain('DL9106ReadinessCard');
     expect(dataRoom).toContain('DL9106ExecutionConsistencyCard');

@@ -8,7 +8,7 @@ function read(file: string) {
 
 describe('platform-v7 audit surface and money halo copy guard', () => {
   it('keeps MoneyLockHalo framed as bank basis and bank confirmation', () => {
-    const source = read('apps/web/components/platform-v7/visual/MoneyLockHalo.tsx');
+    const source = read('components/platform-v7/visual/MoneyLockHalo.tsx');
 
     expect(source).toContain('основание готово');
     expect(source).toContain('банк подтвердил');
@@ -17,7 +17,7 @@ describe('platform-v7 audit surface and money halo copy guard', () => {
   });
 
   it('keeps AuditSurfaceSummary framed as bank basis, not fake money release', () => {
-    const source = read('apps/web/components/platform-v7/AuditSurfaceSummary.tsx');
+    const source = read('components/platform-v7/AuditSurfaceSummary.tsx');
 
     expect(source).toContain('нет ложного банковского подтверждения');
     expect(source).toContain('банковская проверка основания');

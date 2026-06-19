@@ -10,8 +10,8 @@ function stripNormalizer(source: string) {
   return source.replace(/function normalizeDraftMoneyText[\s\S]*?\n}\n\nexport function/, 'export function');
 }
 
-const draftV1 = read('apps/web/components/v7r/DealDraftDetailRuntime.tsx');
-const draftV2 = read('apps/web/components/v7r/DealDraftDetailRuntimeV2.tsx');
+const draftV1 = read('components/v7r/DealDraftDetailRuntime.tsx');
+const draftV2 = read('components/v7r/DealDraftDetailRuntimeV2.tsx');
 const renderV1 = stripNormalizer(draftV1);
 const renderV2 = stripNormalizer(draftV2);
 const renderedSources = [renderV1, renderV2].join('\n');

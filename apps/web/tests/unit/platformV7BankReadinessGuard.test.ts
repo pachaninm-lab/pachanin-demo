@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const bankBasisSource = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/bank-basis.ts'), 'utf8');
-const bankBasisTestSource = fs.readFileSync(path.join(process.cwd(), 'apps/web/tests/unit/platformV7BankBasis.test.ts'), 'utf8');
+const bankBasisSource = fs.readFileSync(path.join(process.cwd(), 'lib/platform-v7/bank-basis.ts'), 'utf8');
+const bankBasisTestSource = fs.readFileSync(path.join(process.cwd(), 'tests/unit/platformV7BankBasis.test.ts'), 'utf8');
 
 describe('platform-v7 bank readiness guard', () => {
   it('keeps bank confirmation tied to bank officer, bank organization, reference and trace ids', () => {

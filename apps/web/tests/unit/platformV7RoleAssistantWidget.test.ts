@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const widgetFile = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/RoleAssistantWidget.tsx'), 'utf8');
-const layoutFile = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7LayoutClient.tsx'), 'utf8');
+const widgetFile = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/RoleAssistantWidget.tsx'), 'utf8');
+const layoutFile = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/PlatformV7LayoutClient.tsx'), 'utf8');
 
 describe('platform-v7 role assistant widget', () => {
   it('mounts the assistant from the protected platform shell', () => {

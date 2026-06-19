@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/v7r/DealDetailRuntime.tsx'), 'utf8');
+const source = fs.readFileSync(path.join(process.cwd(), 'components/v7r/DealDetailRuntime.tsx'), 'utf8');
 
 describe('platform-v7 deal detail money copy guard', () => {
   it('keeps deal detail money copy framed as bank review and external confirmation', () => {

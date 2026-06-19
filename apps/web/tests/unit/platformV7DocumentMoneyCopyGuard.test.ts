@@ -8,7 +8,7 @@ function read(file: string) {
 
 describe('platform-v7 document money copy guard', () => {
   it('keeps document page framed as bank basis, not platform-side money release', () => {
-    const source = read('apps/web/app/platform-v7/deals/[id]/documents/page.tsx');
+    const source = read('app/platform-v7/deals/[id]/documents/page.tsx');
 
     expect(source).toContain('готовность основания для банка');
     expect(source).toContain('Основание готово для банка');
@@ -18,7 +18,7 @@ describe('platform-v7 document money copy guard', () => {
   });
 
   it('keeps reason code copy framed around bank review and external confirmation', () => {
-    const source = read('apps/web/lib/i18n/reason-codes.ts');
+    const source = read('lib/i18n/reason-codes.ts');
 
     expect(source).toContain('Банк проверяет основание');
     expect(source).toContain('внешним банковским подтверждением');
@@ -28,8 +28,8 @@ describe('platform-v7 document money copy guard', () => {
 
   it('does not reintroduce old autonomous money-release copy in document/reason paths', () => {
     const combined = [
-      read('apps/web/app/platform-v7/deals/[id]/documents/page.tsx'),
-      read('apps/web/lib/i18n/reason-codes.ts'),
+      read('app/platform-v7/deals/[id]/documents/page.tsx'),
+      read('lib/i18n/reason-codes.ts'),
     ].join('\n');
 
     expect(combined).not.toContain('готовность к выпуску денег');

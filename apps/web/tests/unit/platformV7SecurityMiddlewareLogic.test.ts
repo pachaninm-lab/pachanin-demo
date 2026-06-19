@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/middleware.ts'), 'utf8');
+const source = fs.readFileSync(path.join(process.cwd(), 'middleware.ts'), 'utf8');
 
 describe('platform-v7 security middleware logic', () => {
   it('keeps baseline security headers in the middleware', () => {

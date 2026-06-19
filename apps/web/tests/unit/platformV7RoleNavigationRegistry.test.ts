@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const shellRoutes = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/shellRoutes.ts'), 'utf8');
-const assistantWidget = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/RoleAssistantWidget.tsx'), 'utf8');
+const shellRoutes = fs.readFileSync(path.join(process.cwd(), 'lib/platform-v7/shellRoutes.ts'), 'utf8');
+const assistantWidget = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/RoleAssistantWidget.tsx'), 'utf8');
 
 const roles = ['operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive'];
 

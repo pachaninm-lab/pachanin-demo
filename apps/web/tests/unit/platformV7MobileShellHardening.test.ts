@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const entryFixCss = fs.readFileSync(path.join(process.cwd(), 'apps/web/styles/platform-v7-entry-fix.css'), 'utf8');
-const shellUx = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7ShellUxController.tsx'), 'utf8');
-const layout = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/layout.tsx'), 'utf8');
-const supportHeaderIcon = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/SupportHeaderIcon.tsx'), 'utf8');
+const entryFixCss = fs.readFileSync(path.join(process.cwd(), 'styles/platform-v7-entry-fix.css'), 'utf8');
+const shellUx = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/PlatformV7ShellUxController.tsx'), 'utf8');
+const layout = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/layout.tsx'), 'utf8');
+const supportHeaderIcon = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/SupportHeaderIcon.tsx'), 'utf8');
 
 describe('platform-v7 mobile shell hardening', () => {
   it('keeps active header and role dock visible above content on mobile', () => {

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/v7r/BuyerProcurementRuntimeV2.tsx'), 'utf8');
+const source = fs.readFileSync(path.join(process.cwd(), 'components/v7r/BuyerProcurementRuntimeV2.tsx'), 'utf8');
 const renderSource = source.replace(/function normalizeDraftNextStep[\s\S]*?\n}\n\nexport function/, 'export function');
 
 describe('platform-v7 procurement money copy guard', () => {

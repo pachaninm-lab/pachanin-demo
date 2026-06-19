@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const guard = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx'), 'utf8');
-const nav = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/shellRoutes.ts'), 'utf8');
-const rbac = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/cabinet-access-policy.ts'), 'utf8');
-const shellPolicy = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/shell-role-policy.ts'), 'utf8');
+const guard = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/PlatformV7SingleEntryGuard.tsx'), 'utf8');
+const nav = fs.readFileSync(path.join(process.cwd(), 'lib/platform-v7/shellRoutes.ts'), 'utf8');
+const rbac = fs.readFileSync(path.join(process.cwd(), 'lib/platform-v7/cabinet-access-policy.ts'), 'utf8');
+const shellPolicy = fs.readFileSync(path.join(process.cwd(), 'lib/platform-v7/shell-role-policy.ts'), 'utf8');
 
 const participantRoles = ['driver', 'elevator', 'lab', 'surveyor', 'seller', 'buyer', 'logistics', 'bank', 'arbitrator', 'compliance'];
 

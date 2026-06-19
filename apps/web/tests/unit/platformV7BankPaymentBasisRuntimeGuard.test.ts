@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildPlatformV7BankPaymentBasisRuntimeAction } from '@/lib/platform-v7/bank-payment-basis-runtime-action';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/bank-payment-basis-runtime-action.ts'), 'utf8');
+const source = fs.readFileSync(path.join(process.cwd(), 'lib/platform-v7/bank-payment-basis-runtime-action.ts'), 'utf8');
 
 describe('platform-v7 bank payment basis runtime guard', () => {
   it('blocks DL-9106 basis handoff while the full bank-check matrix is not closed', () => {
