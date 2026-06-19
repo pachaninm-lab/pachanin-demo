@@ -22,12 +22,14 @@ describe('PR-5 UX gate', () => {
 
   it('keeps mobile focus (свёрнутый хвост) for heavy cabinets in ScopedShellGuard', () => {
     const guard = read('components/platform-v7/ScopedShellGuard.tsx');
-    for (const rule of ['buyerMobile', 'sellerMobile', 'bankMobile', 'complianceMobile', 'operatorMobile']) {
-      expect(guard, `ScopedShellGuard must define ${rule}`).toContain(rule);
-    }
+    // Mobile focus is enforced via a shared content-integrity rule applied
+    // through per-policy shells, not per-role dead-code rules.
+    expect(guard).toContain('roleMobileContentIntegrity');
+    expect(guard).toContain('RoleScopedShellPolicy');
+    expect(guard).toContain('OperatorShellPolicy');
+    expect(guard).toContain('FieldShellPolicy');
     // правила должны быть применены в маршрутизации, а не лежать мёртвым кодом
-    expect(guard).toContain('roleScopedExtra');
-    expect(guard).toContain('operatorMobile}');
+    expect(guard).toContain("shellPolicy==='role-scoped'");
   });
 
   it('keeps role-scoped bottom navigation and theme toggle in the shell', () => {

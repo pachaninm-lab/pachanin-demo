@@ -18,7 +18,8 @@ describe('platform-v7 strict settlement gate', () => {
     expect(blockers).toContain('лаборатор');
     expect(blockers).toContain('слот');
     expect(blockers).toContain('сдиз');
-    expect(blockers).toContain('банк');
+    // The bank/settlement contour surfaces as the money-reserve blocker.
+    expect(blockers).toContain('резерв денег');
     expect(blockers).toContain('суммы');
   });
 

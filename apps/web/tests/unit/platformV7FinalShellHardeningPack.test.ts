@@ -51,7 +51,10 @@ describe('platform-v7 final shell hardening pack', () => {
   it('keeps role nav item hrefs and labels trimmed', () => {
     for (const items of Object.values(PLATFORM_V7_NAV_BY_ROLE)) {
       for (const item of items) {
-        expectSafeRoute(item.href);
+        // Nav hrefs may carry same-page section anchors (#blockers etc.);
+        // validate the base route and that the href itself is trimmed.
+        expectSafeRoute(item.href.split('#')[0]);
+        expect(item.href.trim()).toBe(item.href);
         expect(item.label.trim()).toBe(item.label);
         expect(item.label.length).toBeGreaterThan(0);
       }

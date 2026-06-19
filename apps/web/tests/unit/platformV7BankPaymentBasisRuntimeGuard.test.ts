@@ -23,7 +23,8 @@ describe('platform-v7 bank payment basis runtime guard', () => {
 
   it('keeps runtime handoff tied to evaluateReleaseGuard before creating action events', () => {
     const guardIndex = source.indexOf('evaluateReleaseGuard(deal)');
-    const eventIndex = source.indexOf('buildPlatformV7RuntimeActionEvent');
+    // Use the call site (with paren), not the import, to compare ordering.
+    const eventIndex = source.indexOf('buildPlatformV7RuntimeActionEvent(');
 
     expect(source).toContain('canonicalDomainDeals.find');
     expect(source).toContain('check.canRequestRelease');

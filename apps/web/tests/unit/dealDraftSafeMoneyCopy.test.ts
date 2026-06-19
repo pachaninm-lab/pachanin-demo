@@ -21,7 +21,7 @@ describe('platform-v7 deal draft safe money copy', () => {
     for (const copy of forbiddenCopy) expect(source).not.toContain(copy);
     expect(source).toContain('Подготовить основание банку');
     expect(source).toContain('Отметить подтверждение банка');
-    expect(source).toContain('Банковское подтверждение выпуска отмечено в текущем сценарии.');
+    expect(source).toContain('Внешнее банковское подтверждение отмечено в текущем сценарии.');
   });
 
   it('keeps technical draft/runtime/blocker labels out of the user-facing screen', () => {
