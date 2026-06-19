@@ -5,20 +5,8 @@ import { describe, expect, it } from 'vitest';
 const layoutSource = readFileSync(resolve(__dirname, '../../components/platform-v7/PlatformV7LayoutClient.tsx'), 'utf8');
 const widgetSource = readFileSync(resolve(__dirname, '../../components/platform-v7/CalculatorHeaderWidget.tsx'), 'utf8');
 
-const roles = [
-  'operator',
-  'buyer',
-  'seller',
-  'logistics',
-  'driver',
-  'surveyor',
-  'elevator',
-  'lab',
-  'bank',
-  'arbitrator',
-  'compliance',
-  'executive',
-];
+const rolesWithAdvancedTools = ['operator', 'buyer', 'seller', 'logistics', 'elevator', 'bank', 'arbitrator', 'executive'];
+const rolesWithoutAdvancedTools = ['driver', 'surveyor', 'lab', 'compliance'];
 
 describe('platform-v7 calculator header widget', () => {
   it('mounts the calculator widget inside the cabinet shell only', () => {
@@ -36,20 +24,32 @@ describe('platform-v7 calculator header widget', () => {
     expect(widgetSource).not.toContain('new Function');
   });
 
-  it('adds role-specific calculation presets for every platform role', () => {
+  it('keeps advanced role calculations only for roles that need them', () => {
     expect(widgetSource).toContain('ROLE_CALCULATORS');
+    expect(widgetSource).toContain('Partial<Record<PlatformRole, RoleCalculatorPreset>>');
     expect(widgetSource).toContain('usePlatformV7RStore');
-    for (const role of roles) {
+    expect(widgetSource).toContain('rolePreset ?');
+
+    for (const role of rolesWithAdvancedTools) {
       expect(widgetSource).toContain(`${role}: {`);
     }
+
+    for (const role of rolesWithoutAdvancedTools) {
+      expect(widgetSource).not.toContain(`${role}: {`);
+    }
+
     expect(widgetSource).toContain('Операционный маржинальный расчёт');
     expect(widgetSource).toContain('Итоговая стоимость закупки');
     expect(widgetSource).toContain('Чистая сумма продавца');
     expect(widgetSource).toContain('Стоимость перевозки');
-    expect(widgetSource).toContain('Расчёт выплаты водителю');
     expect(widgetSource).toContain('Элеватор: хранение и доработка');
     expect(widgetSource).toContain('Банк: резерв и выпуск средств');
     expect(widgetSource).toContain('Арбитраж: сумма спора');
-    expect(widgetSource).toContain('Комплаенс: стоимость риска');
+    expect(widgetSource).toContain('Руководитель: портфельная экономика');
+
+    expect(widgetSource).not.toContain('Расчёт выплаты водителю');
+    expect(widgetSource).not.toContain('Стоимость сюрвейерского контроля');
+    expect(widgetSource).not.toContain('Лабораторный расчёт');
+    expect(widgetSource).not.toContain('Комплаенс: стоимость риска');
   });
 });
