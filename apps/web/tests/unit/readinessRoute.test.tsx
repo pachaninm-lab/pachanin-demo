@@ -7,8 +7,8 @@ describe('PlatformV7ReadinessPage', () => {
   it('renders readiness sandbox/operator boundary', () => {
     render(<PlatformV7ReadinessPage />);
 
-    expect(screen.getByText('Готовность сделки к исполнению и выпуску денег')).toBeInTheDocument();
-    expect(screen.getByText(/Матрица готовности · песочница/)).toBeInTheDocument();
+    expect(screen.getByText('Готовность сделки к исполнению и банковскому основанию')).toBeInTheDocument();
+    expect(screen.getByText(/Матрица готовности · контрольный контур/)).toBeInTheDocument();
     expect(screen.getByText(/Это не платёжный механизм/)).toBeInTheDocument();
     expect(screen.getByText(/проверочная панель оператора/)).toBeInTheDocument();
   });
@@ -16,7 +16,7 @@ describe('PlatformV7ReadinessPage', () => {
   it('renders readiness metrics and execution strip', () => {
     render(<PlatformV7ReadinessPage />);
 
-    expect(screen.getByText('Готовы полностью')).toBeInTheDocument();
+    expect(screen.getByText('Готовы к банку')).toBeInTheDocument();
     expect(screen.getByText('С блокерами')).toBeInTheDocument();
     expect(screen.getByText('Под удержанием')).toBeInTheDocument();
     expect(screen.getAllByText(/ФГИС/).length).toBeGreaterThan(0);
@@ -29,8 +29,8 @@ describe('PlatformV7ReadinessPage', () => {
     render(<PlatformV7ReadinessPage />);
 
     expect(screen.getByText(/DL-9102/)).toBeInTheDocument();
-    expect(screen.getByText(/Демо-сделка/)).toBeInTheDocument();
-    expect(screen.getByText(/Выпуск:/)).toBeInTheDocument();
+    expect(screen.getAllByText(/сделка ·/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Банк:/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Блокеры:/).length).toBeGreaterThan(0);
   });
 
@@ -38,7 +38,7 @@ describe('PlatformV7ReadinessPage', () => {
     render(<PlatformV7ReadinessPage />);
 
     expect(screen.getByRole('link', { name: 'Центр управления' })).toHaveAttribute('href', '/platform-v7/control-tower');
-    expect(screen.getByRole('link', { name: 'Проверка денег' })).toHaveAttribute('href', '/platform-v7/bank/release-safety');
+    expect(screen.getByRole('link', { name: 'Проверка основания' })).toHaveAttribute('href', '/platform-v7/bank/release-safety');
     expect(screen.getAllByRole('link').some((link) => link.getAttribute('href')?.startsWith('/platform-v7/deals/'))).toBe(true);
   });
 });
