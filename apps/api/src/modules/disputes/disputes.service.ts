@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject } from '@nestjs/common';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { DecideDisputeDto } from './dto/decide-dispute.dto';
 import { RequestUser, Role } from '../../common/types/request-user';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { DISPUTE_REPOSITORY, type DisputeRepository } from './dispute.repository';
 
 export type DisputeStatus =
   | 'OPEN'
@@ -64,107 +64,21 @@ const INITIATE_ROLES: Set<Role> = new Set([Role.BUYER, Role.FARMER, Role.LAB, Ro
 
 @Injectable()
 export class DisputesService {
-  private readonly logger = new Logger(DisputesService.name);
-  private readonly store: Dispute[] = [];
   private counter = 10;
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {
-    this.store.push(
-      {
-        id: 'DISPUTE-001',
-        dealId: 'DEAL-001',
-        status: 'UNDER_REVIEW',
-        type: 'quality',
-        claimAmountRub: 127500,
-        description: 'Влажность зерна 15.2% вместо заявленных 13%',
-        initiatorOrgId: 'org-buyer-1',
-        severity: 'MEDIUM',
-        createdAt: '2026-04-01T14:00:00Z',
-        evidence: [],
-        owner: 'operator@demo.ru',
-        slaMinutes: 180,
-        slaDeadline: new Date('2026-04-01T14:00:00Z').toISOString(),
-        moneyHold: {
-          amountRub: 127500,
-          reason: 'Удержание по спору качества',
-          heldAt: '2026-04-01T14:05:00Z',
-        },
-      },
-      {
-        id: 'DISPUTE-002',
-        dealId: 'DEAL-002',
-        status: 'OPEN',
-        type: 'weight',
-        claimAmountRub: 86250,
-        description: 'Расхождение веса на 7.5 тонн по весовой квитанции',
-        initiatorOrgId: 'org-buyer-2',
-        severity: 'HIGH',
-        createdAt: '2026-04-03T09:00:00Z',
-        evidence: [],
-        slaMinutes: 30,
-        slaDeadline: new Date('2026-04-03T09:30:00Z').toISOString(),
-        moneyHold: {
-          amountRub: 86250,
-          reason: 'Удержание по спору веса',
-          heldAt: '2026-04-03T09:05:00Z',
-        },
-      },
-    );
-  }
+  constructor(
+    @Inject(DISPUTE_REPOSITORY) private readonly disputes: DisputeRepository,
+  ) {}
 
   async list(user: RequestUser): Promise<Dispute[]> {
-    if (this.prisma) {
-      try {
-        const rows = await this.prisma.dispute.findMany({
-          include: { evidence: true, moneyHold: true },
-          orderBy: { createdAt: 'desc' },
-        });
-        if (rows.length > 0) {
-          const mapped = rows.map((r) => this.prismaRowToDispute(r));
-          if (user.role === Role.BUYER || user.role === Role.FARMER) {
-            return mapped.filter((d) => d.initiatorOrgId === user.orgId);
-          }
-          return mapped;
-        }
-      } catch { /* fall through to in-memory */ }
-    }
+    const all = await this.disputes.list();
     if (user.role === Role.SUPPORT_MANAGER || user.role === Role.ADMIN) {
-      return [...this.store];
+      return all;
     }
     if (user.role === Role.BUYER || user.role === Role.FARMER) {
-      return this.store.filter((d) => d.initiatorOrgId === user.orgId);
+      return all.filter((d) => d.initiatorOrgId === user.orgId);
     }
-    return [...this.store];
-  }
-
-  private prismaRowToDispute(r: any): Dispute {
-    return {
-      id: r.id,
-      dealId: r.dealId,
-      shipmentId: r.shipmentId ?? undefined,
-      status: r.status as DisputeStatus,
-      type: r.type,
-      claimAmountRub: r.claimAmountRub ?? undefined,
-      description: r.description,
-      initiatorOrgId: r.initiatorOrgId,
-      severity: (r.severity ?? 'MEDIUM') as any,
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt?.toISOString(),
-      resolvedAt: r.resolvedAt?.toISOString(),
-      outcome: r.outcome as DisputeOutcome | undefined,
-      evidence: (r.evidence ?? []).map((e: any) => ({
-        id: e.id,
-        type: e.type as any,
-        description: e.description,
-        source: e.submittedBy,
-        uploadedAt: e.submittedAt.toISOString(),
-        uploadedBy: e.submittedBy,
-        trusted: e.trusted,
-      })),
-      moneyHold: r.moneyHold
-        ? { amountRub: r.moneyHold.amountRub, reason: r.moneyHold.reason, heldAt: r.moneyHold.heldAt.toISOString() }
-        : undefined,
-    };
+    return all;
   }
 
   getOne(id: string, user: RequestUser): Dispute {
@@ -206,36 +120,8 @@ export class DisputesService {
           }
         : undefined,
     };
-    this.store.push(dispute);
-    this.persistCreate(dispute).catch((e) => this.logger.debug(`Dispute DB write skipped: ${e.message}`));
+    this.disputes.add(dispute);
     return dispute;
-  }
-
-  private async persistCreate(dispute: Dispute) {
-    if (!this.prisma) return;
-    await this.prisma.dispute.create({
-      data: {
-        id: dispute.id,
-        dealId: dispute.dealId,
-        shipmentId: dispute.shipmentId,
-        type: dispute.type,
-        status: dispute.status,
-        description: dispute.description,
-        initiatorOrgId: dispute.initiatorOrgId,
-        claimAmountRub: dispute.claimAmountRub,
-        severity: dispute.severity,
-        slaMinutes: dispute.slaMinutes,
-        moneyHold: dispute.moneyHold
-          ? {
-              create: {
-                amountRub: dispute.moneyHold.amountRub,
-                reason: dispute.moneyHold.reason,
-                heldAt: new Date(dispute.moneyHold.heldAt),
-              },
-            }
-          : undefined,
-      },
-    });
   }
 
   triage(id: string, user: RequestUser): Dispute {
@@ -292,11 +178,6 @@ export class DisputesService {
 
     const moneyInstruction = this.buildMoneyInstruction(dispute, dto);
 
-    this.prisma?.dispute.update({
-      where: { id: dispute.id },
-      data: { status: 'RESOLVED', outcome: dispute.outcome, resolvedAt: new Date(), updatedAt: new Date() },
-    }).catch((e) => this.logger.debug(`Dispute resolve DB write skipped: ${e.message}`));
-
     return { ...dispute, moneyInstruction };
   }
 
@@ -339,7 +220,7 @@ export class DisputesService {
   }
 
   private findOrThrow(id: string): Dispute {
-    const dispute = this.store.find((d) => d.id === id);
+    const dispute = this.disputes.getById(id);
     if (!dispute) throw new NotFoundException(`Спор ${id} не найден`);
     return dispute;
   }

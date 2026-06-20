@@ -29,6 +29,7 @@ Backend / DB / runtime persistence expansion
 - apps/api/src/modules/settlement-engine/**
 - apps/api/src/modules/logistics/**
 - apps/api/src/modules/labs/**
+- apps/api/src/modules/disputes/**
 - apps/api/src/modules/documents/**
 - apps/api/src/modules/runtime-core/**
 - apps/api/src/common/prisma/**
@@ -62,6 +63,7 @@ CURRENT ALLOWED:
 - apps/api/src/modules/documents/**
 - apps/api/src/modules/logistics/**
 - apps/api/src/modules/labs/**
+- apps/api/src/modules/disputes/**
 - apps/api/src/modules/runtime-core/**
 - apps/api/src/common/prisma/**
 - apps/api/prisma/**
