@@ -171,11 +171,19 @@ flipped on as the migration lands.
 the §5.2–§5.5 invariants. No schema change, no field rename, no MoneyEngine edit;
 nothing in the runtime imports it yet — behavior-neutral foundation.
 
-**PR-B (NOT STARTED — requires a separate, explicit owner approval) —
-MoneyEngine / SettlementEngine internal arithmetic in kopecks:** compute in
-integer kopecks internally while still exposing `*Rub` via the mapper; the
-settlement money-flow spec stays green. Still **no** Prisma migration. This is
-the first step that **changes live money arithmetic**, so it is gated — see §8.
+**PR-B — internal arithmetic in kopecks (owner-approved; behavior-preserving):**
+- **Slice 1 — `settlement-calculation.ts`: ✅ DONE.** Internal accumulation moved
+  to exact integer kopecks via the shared money helper; rouble-denominated
+  snapshot fields unchanged (`round2(x) ≡ fromKopecks(toKopecks(x))`, so every
+  characterization-pinned value is reproduced — the spec stays green unedited).
+  This module is standalone (not yet wired into the live money path), so the
+  slice is float-safety groundwork with no live-runtime behavior change.
+- **Slice 2 — RuntimeCore payment path / RuntimeMoneyEngine (NOT started):**
+  carrying integer kopecks through the wired `payments[]` object and the
+  decision ladder while still exposing `*Rub` via a mapper. This is the slice
+  that touches the **live** money path; it must keep the money-flow and
+  characterization specs green and obey the §8 gate. Still **no** Prisma
+  migration.
 
 **PR-C (separate, explicitly approved, with data migration) — schema Float→Int
 kopecks columns + backfill.** The only step that touches Prisma; stays **locked**
