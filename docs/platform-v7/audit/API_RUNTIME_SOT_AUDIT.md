@@ -26,7 +26,7 @@ the authoritative path in pilot mode.
 | Deal | ✅ `DealRepository` | `RuntimeDealRepository` | `PrismaDealRepository` (disabled skeleton) |
 | Payment (reads) | ✅ `PaymentRepository` | `RuntimePaymentRepository` | `PrismaPaymentRepository` (disabled skeleton) |
 | Document | ✅ `DocumentRepository` | `RuntimeDocumentRepository` | `PrismaDocumentRepository` (disabled skeleton) |
-| Shipment / Logistics | ❌ not yet | — | — |
+| Shipment / Logistics | ✅ `ShipmentRepository` | `RuntimeShipmentRepository` | `PrismaShipmentRepository` (disabled skeleton) |
 | Lab | ❌ not yet | — | — |
 | Dispute | ❌ not yet | — | — |
 | Evidence | ❌ not yet | — | — |
@@ -94,6 +94,25 @@ callback into a domain service and any DB-backed write path.
 - `DocumentsService` reads through the repository and keeps the document-matrix
   / release-gate / completeness logic. No behavior change; document
   completeness and release-blocker behavior are unchanged.
+
+### Shipment / logistics boundary (this change)
+
+- `shipment.repository.ts` — `SHIPMENT_REPOSITORY` token + `ShipmentRepository`
+  interface (`list`, `getById`, `workspace`, `create`, `transition`,
+  `recordCheckpoint`, `verifyPin`).
+- `runtime-shipment.repository.ts` — default adapter, wraps RuntimeCore shipment
+  methods with no behavior change.
+- `prisma-shipment.repository.ts` — disabled DB-backed skeleton: `list`/`getById`
+  snapshots only; workspace/create/transition/recordCheckpoint/verifyPin fail
+  loudly. Requires `PrismaService`. No live GPS / telematics.
+- `shipment-repository.factory.ts` / `selectShipmentRepository` — runtime by
+  default; Prisma only under explicit `PLATFORM_V7_SHIPMENT_REPOSITORY=prisma`.
+- `LogisticsService` reads through the repository and keeps driver-isolation
+  access checks (a driver can only access their own shipment) and the
+  best-effort checkpoint DB snapshot. The previous **silent Prisma-first** read
+  path for shipment list/getOne is removed (documented hardening): pilot/
+  degraded behavior is unchanged (runtime serves shipments), Prisma read path
+  reachable only via the explicit flag.
 
 ## Still owned by RuntimeCore (future split candidates)
 
