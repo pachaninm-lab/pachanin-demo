@@ -1,55 +1,35 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CreateSampleDto } from './dto/create-sample.dto';
 import { RecordTestDto } from './dto/record-test.dto';
-import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { LAB_REPOSITORY, type LabRepository } from './lab.repository';
 
 @Injectable()
 export class LabsService {
   constructor(
-    private readonly runtime: RuntimeCoreService,
-    @Optional() private readonly prisma?: PrismaService,
+    @Inject(LAB_REPOSITORY) private readonly labs: LabRepository,
   ) {}
 
   async list(_user: any) {
-    if (this.prisma) {
-      try {
-        const rows = await this.prisma.labSample.findMany({
-          include: { tests: true },
-          orderBy: { createdAt: 'desc' },
-        });
-        if (rows.length > 0) return rows;
-      } catch { /* fall through */ }
-    }
-    return this.runtime.listSamples();
+    return this.labs.list();
   }
 
   async getOne(id: string, _user: any) {
-    if (this.prisma) {
-      try {
-        const row = await this.prisma.labSample.findUnique({
-          where: { id },
-          include: { tests: true },
-        });
-        if (row) return row;
-      } catch { /* fall through */ }
-    }
-    return this.runtime.getSample(id);
+    return this.labs.getById(id);
   }
 
   create(dto: CreateSampleDto, user: any) {
-    return this.runtime.createSample(dto, user);
+    return this.labs.create(dto, user);
   }
 
   collect(id: string, user: any) {
-    return this.runtime.collectSample(id, user);
+    return this.labs.collect(id, user);
   }
 
   recordTest(id: string, dto: RecordTestDto, user: any) {
-    return this.runtime.recordTest(id, dto, user);
+    return this.labs.recordTest(id, dto, user);
   }
 
   finalize(id: string, user: any) {
-    return this.runtime.finalizeSample(id, user);
+    return this.labs.finalize(id, user);
   }
 }
