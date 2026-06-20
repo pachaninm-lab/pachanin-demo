@@ -1,4 +1,4 @@
-# Review current task — API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.
+# Review current task — API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -19,6 +19,8 @@ Review the diff, not the agent report.
 
 - apps/api/src/modules/deals/**
 - apps/api/src/modules/settlement-engine/**
+- apps/api/src/modules/documents/**
+- apps/api/src/modules/runtime-core/**
 - apps/api/src/common/prisma/**
 - apps/api/prisma/**
 - apps/api/package.json
@@ -28,17 +30,19 @@ Review the diff, not the agent report.
 
 ## Transition guard
 
-- BLOCKED: API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations. is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion.
+- BLOCKED: API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations. is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion.
 
 ## Queue snapshot
 
 # platform-v7 execution queue
 
-CURRENT: API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.
+CURRENT: API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.
 
 CURRENT ALLOWED:
 - apps/api/src/modules/deals/**
 - apps/api/src/modules/settlement-engine/**
+- apps/api/src/modules/documents/**
+- apps/api/src/modules/runtime-core/**
 - apps/api/src/common/prisma/**
 - apps/api/prisma/**
 - apps/api/package.json
@@ -82,6 +86,6 @@ RULES:
 
 ## Review brief
 
-Review API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations. strictly against the state allowed scope and queue.
+Review API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations. strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.

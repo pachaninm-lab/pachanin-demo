@@ -1,24 +1,24 @@
-import { Injectable } from '@nestjs/common';
-import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
+import { Inject, Injectable } from '@nestjs/common';
+import { DOCUMENT_REPOSITORY, type DocumentRepository } from './document.repository';
 import { DocumentMatrixService } from './document-matrix.service';
 
 @Injectable()
 export class DocumentsService {
   constructor(
-    private readonly runtime: RuntimeCoreService,
+    @Inject(DOCUMENT_REPOSITORY) private readonly documents: DocumentRepository,
     private readonly matrix: DocumentMatrixService,
   ) {}
 
   list(_user: any) {
-    return this.runtime.listDocuments();
+    return this.documents.list();
   }
 
   getOne(id: string, _user: any) {
-    return this.runtime.getDocument(id);
+    return this.documents.getById(id);
   }
 
-  getSignedAccess(id: string, _user: any) {
-    const doc = this.runtime.getDocument(id);
+  async getSignedAccess(id: string, _user: any) {
+    const doc = await this.documents.getById(id);
     return {
       documentId: doc.id,
       accessUrl: doc.url,
@@ -28,7 +28,7 @@ export class DocumentsService {
   }
 
   async streamContent(id: string, _user: any) {
-    const doc = this.runtime.getDocument(id);
+    const doc = await this.documents.getById(id);
     return {
       file: {
         documentId: doc.id,
@@ -40,11 +40,11 @@ export class DocumentsService {
   }
 
   upload(file: any, dto: any, user: any) {
-    return this.runtime.uploadDocument(file, dto, user);
+    return this.documents.upload(file, dto, user);
   }
 
-  download(id: string, _user: any) {
-    const doc = this.runtime.getDocument(id);
+  async download(id: string, _user: any) {
+    const doc = await this.documents.getById(id);
     return {
       documentId: doc.id,
       downloadUrl: doc.url,
@@ -55,15 +55,15 @@ export class DocumentsService {
   }
 
   signDocument(id: string, user: any) {
-    return this.runtime.signDocument(id, user);
+    return this.documents.sign(id, user);
   }
 
   generateDealPackage(dealId: string, user: any) {
-    return this.runtime.generateDealPackage(dealId, user);
+    return this.documents.generateDealPackage(dealId, user);
   }
 
-  getPreview(id: string, _user: any) {
-    const doc = this.runtime.getDocument(id);
+  async getPreview(id: string, _user: any) {
+    const doc = await this.documents.getById(id);
     return {
       documentId: doc.id,
       name: doc.name,
@@ -72,8 +72,8 @@ export class DocumentsService {
     };
   }
 
-  getReleaseGate(dealId: string, _user: any) {
-    const docs = this.runtime.listDocuments().filter((d: any) => d.dealId === dealId);
+  async getReleaseGate(dealId: string, _user: any) {
+    const docs = (await this.documents.list()).filter((d: any) => d.dealId === dealId);
     const presentDocs = this.matrix.toPresentDocs(docs);
     const gate = this.matrix.releaseReadiness(presentDocs);
     return {
@@ -84,8 +84,8 @@ export class DocumentsService {
     };
   }
 
-  getCorrectionPlan(id: string, _user: any) {
-    const doc = this.runtime.getDocument(id);
+  async getCorrectionPlan(id: string, _user: any) {
+    const doc = await this.documents.getById(id);
     return {
       documentId: doc.id,
       status: doc.status,

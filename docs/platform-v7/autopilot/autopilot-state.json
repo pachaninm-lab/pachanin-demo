@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.",
+  "current": "API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.",
   "fullTzReadinessPercent": 100,
   "openPr": null,
   "lastClosed": [
@@ -78,6 +78,8 @@
   "allowedCurrentScope": [
     "apps/api/src/modules/deals/**",
     "apps/api/src/modules/settlement-engine/**",
+    "apps/api/src/modules/documents/**",
+    "apps/api/src/modules/runtime-core/**",
     "apps/api/src/common/prisma/**",
     "apps/api/prisma/**",
     "apps/api/package.json",
@@ -88,6 +90,8 @@
   "agentWritableScope": [
     "apps/api/src/modules/deals/**",
     "apps/api/src/modules/settlement-engine/**",
+    "apps/api/src/modules/documents/**",
+    "apps/api/src/modules/runtime-core/**",
     "apps/api/src/common/prisma/**",
     "apps/api/prisma/**",
     "apps/api/package.json",
