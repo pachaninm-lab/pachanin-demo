@@ -1,28 +1,16 @@
 # platform-v7 execution queue
 
-CURRENT: Owner-side live-интеграции (§43) — договоры, доступы, credentials, security/legal review, реальные пилот-сделки; код controlled-pilot готов (M3-1…M3-7 и 10-PR закрыты)
+CURRENT: API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.
 
 CURRENT ALLOWED:
-- apps/web/tests/unit/**
-- apps/web/tests/setup.ts
-- apps/web/components/v7r/**
-- apps/web/components/platform-v7/**
-- apps/web/app/platform-v7/**
-- apps/web/lib/platform-v7/**
-- apps/web/lib/v7r/**
-- apps/web/styles/**
-- packages/domain-core/src/execution-simulation/**
-- .github/workflows/dependency-review.yml
-- .github/workflows/automerge.yml
-- .github/workflows/platform-v7-autopilot-guard.yml
-- .github/workflows/platform-v7-autopilot-issue-executor-dry-run.yml
-- .github/workflows/platform-v7-autopilot-executor-wiring.yml
-- .github/workflows/web-unit.yml
-- scripts/p7-autopilot-issue-executor-dry-run.mjs
-- scripts/p7-autopilot-issue-executor-pr-wiring.mjs
+- apps/api/src/modules/deals/**
+- apps/api/src/modules/settlement-engine/**
+- apps/api/src/common/prisma/**
+- apps/api/prisma/**
+- apps/api/package.json
+- docs/platform-v7/audit/**
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
-- docs/platform-v7/**
 
 DONE:
 - VP-1: Visible Execution Entry Cockpit

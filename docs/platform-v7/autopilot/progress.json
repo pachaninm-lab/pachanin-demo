@@ -1,13 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 100,
-  "currentStep": "Code-ready for controlled pilot / pre-integration partner onboarding",
-  "lastCompletedStep": "10-PR план закрыт: PR-1 tenant/RBAC, PR-2 DB persistence adapter, PR-3 bank callback/reconciliation, PR-4 real-adapter shells, PR-5 UX-gate, PR-6 observability health screens, PR-7 BI runtime binding, PR-8 unified deal lifecycle + offline/conflict, PR-9 access status, PR-10 readiness audit + SOT",
+  "currentStep": "API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.",
+  "lastCompletedStep": "Integration seam: adapter-factory mock↔real, bank-adapter-real + bank-callback, cabinet-level RBAC за флагом",
   "openPr": null,
-  "blockedBy": [],
-  "nextStep": "Остаётся только owner-side: договоры, API-доступы, credentials, номинальный счёт, внешние стенды, security/legal review и первая controlled pilot сделка",
-  "statement": "platform-v7 is code-ready for controlled pilot / pre-integration partner onboarding. Remaining blockers are owner-side contracts, credentials, live API access, security/legal review and real pilot transactions.",
-  "updatedAt": "2026-06-15T00:08:00.000Z",
+  "blockedBy": [
+    "API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations. is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion."
+  ],
+  "nextStep": "API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.",
+  "updatedAt": "2026-06-20T06:28:20.269Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
