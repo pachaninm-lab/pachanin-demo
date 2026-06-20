@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { RuntimeStateMachine } from './runtime-state-machine';
 import { RuntimeCompletenessChecker } from './runtime-completeness-checker';
+import { RuntimeBlockerResolver, type DealStateSnapshot } from './runtime-blocker-resolver';
 
 export type DealStatus =
   | 'DRAFT'
@@ -46,6 +47,8 @@ export class RuntimeCoreService {
   private readonly stateMachine = new RuntimeStateMachine();
   // Step 2: document completeness computation lives in a stateless engine.
   private readonly completenessChecker = new RuntimeCompletenessChecker();
+  // Step 3: blocker / owner / next-action derivation lives in a stateless engine.
+  private readonly blockerResolver = new RuntimeBlockerResolver();
 
   private dealCounter = 100;
   private docCounter = 100;
@@ -824,47 +827,28 @@ export class RuntimeCoreService {
     };
   }
 
+  // RuntimeCore assembles the state snapshot; the stateless RuntimeBlockerResolver
+  // derives owner / next-action / blockers from it.
+  private dealStateSnapshot(dealId: string): DealStateSnapshot {
+    return {
+      deal: this.findDeal(dealId),
+      payment: this.ensurePayment(dealId),
+      completeness: this.documentCompleteness(dealId),
+      shipment: this.shipments.find((item) => item.dealId === dealId),
+      sample: this.samples.find((item) => item.dealId === dealId),
+    };
+  }
+
   private resolveOwner(dealId: string) {
-    const deal = this.findDeal(dealId);
-    if (deal.status === 'DISPUTE_OPEN') return 'Контроль';
-    if (deal.status === 'QUALITY_CHECK') return 'Лаборатория';
-    const shipment = this.shipments.find((item) => item.dealId === dealId);
-    if (shipment && ['IN_TRANSIT', 'AT_UNLOADING'].includes(shipment.status)) return 'Логистика';
-    const completeness = this.documentCompleteness(dealId);
-    if (!completeness.isComplete) return 'Документы';
-    const payment = this.ensurePayment(dealId);
-    if (['RESERVE_PENDING', 'CALLBACK_PENDING', 'MISMATCH', 'MANUAL_REVIEW'].includes(payment.status)) return 'Банк';
-    return deal.owner ?? 'Сделка';
+    return this.blockerResolver.resolveOwner(this.dealStateSnapshot(dealId));
   }
 
   private resolveNextAction(dealId: string) {
-    const payment = this.ensurePayment(dealId);
-    const completeness = this.documentCompleteness(dealId);
-    const sample = this.samples.find((item) => item.dealId === dealId);
-    const shipment = this.shipments.find((item) => item.dealId === dealId);
-    if (payment.status === 'RESERVE_PENDING') return 'Дождаться callback по резерву';
-    if (!completeness.isComplete) return `Закрыть документы: ${completeness.missing.join(', ')}`;
-    if (shipment && shipment.status === 'AT_UNLOADING' && !shipment.handoff.lab) return 'Передать партию в лабораторию';
-    if (!sample || !['FINALIZED', 'ANALYZED'].includes(sample.status)) return 'Финализировать лабораторный протокол';
-    if (payment.status === 'READY_FOR_RELEASE') return 'Выпустить деньги или подтвердить release';
-    if (payment.status === 'MISMATCH') return 'Открыть ручную сверку';
-    return this.findDeal(dealId).nextAction ?? 'Продолжить исполнение сделки';
+    return this.blockerResolver.resolveNextAction(this.dealStateSnapshot(dealId));
   }
 
   private resolveBlockers(dealId: string) {
-    const blockers: string[] = [];
-    const payment = this.ensurePayment(dealId);
-    const completeness = this.documentCompleteness(dealId);
-    const deal = this.findDeal(dealId);
-    const shipment = this.shipments.find((item) => item.dealId === dealId);
-    const sample = this.samples.find((item) => item.dealId === dealId);
-    if (payment.callbackState === 'PENDING') blockers.push('Нет callback банка');
-    if (!completeness.isComplete) blockers.push(`Нет документов: ${completeness.missing.join(', ')}`);
-    if (shipment && !['AT_UNLOADING', 'DELIVERED', 'COMPLETED'].includes(shipment.status)) blockers.push('Рейс не передан в приёмку');
-    if (!sample || !['FINALIZED', 'ANALYZED'].includes(sample.status)) blockers.push('Нет финального протокола качества');
-    if (deal.status === 'DISPUTE_OPEN') blockers.push('Есть открытый спор');
-    if (payment.status === 'MISMATCH') blockers.push('Есть банковое расхождение');
-    return blockers;
+    return this.blockerResolver.resolveBlockers(this.dealStateSnapshot(dealId));
   }
 
   private moneyImpact(dealId: string) {
@@ -994,12 +978,7 @@ export class RuntimeCoreService {
   }
 
   private resolveShipmentBlockers(id: string) {
-    const shipment = this.findShipment(id);
-    const blockers: string[] = [];
-    if (!shipment.pinVerified) blockers.push('ПИН водителя не подтверждён');
-    if (!shipment.checkpoints.length) blockers.push('Нет контрольных точек');
-    if (!shipment.handoff.receiving && shipment.status === 'AT_UNLOADING') blockers.push('Нет передачи в приёмку');
-    return blockers;
+    return this.blockerResolver.resolveShipmentBlockers(this.findShipment(id));
   }
 
   private findDeal(id: string) {
