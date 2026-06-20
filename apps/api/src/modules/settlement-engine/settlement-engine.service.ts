@@ -1,9 +1,11 @@
-import { ForbiddenException, Injectable, Logger, Optional } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
+import { PAYMENT_REPOSITORY, type PaymentRepository } from './payment.repository';
+import { RuntimePaymentRepository } from './runtime-payment.repository';
 
 const MONEY_MUTATION_ROLES: Set<Role> = new Set([
   Role.ADMIN,
@@ -15,31 +17,41 @@ const MONEY_MUTATION_ROLES: Set<Role> = new Set([
 export class SettlementEngineService {
   private readonly logger = new Logger(SettlementEngineService.name);
 
+  /**
+   * Payment READ boundary. Defaults to the runtime adapter when not injected
+   * (e.g. direct instantiation in tests); the module selects runtime/prisma by
+   * flag. Money mutations never go through this — they stay on RuntimeCore.
+   */
+  private readonly payments: PaymentRepository;
+
   constructor(
     private readonly runtime: RuntimeCoreService,
     private readonly executor: ActionExecutorService,
     private readonly outbox: OutboxService,
     @Optional() private readonly prisma?: PrismaService,
-  ) {}
+    @Optional() @Inject(PAYMENT_REPOSITORY) payments?: PaymentRepository,
+  ) {
+    this.payments = payments ?? new RuntimePaymentRepository(runtime);
+  }
 
   worksheet(dealId: string) {
-    return this.runtime.worksheet(dealId);
+    return this.payments.worksheet(dealId);
   }
 
   bankWorkspace(dealId: string) {
-    return this.runtime.bankWorkspace(dealId);
+    return this.payments.bankWorkspace(dealId);
   }
 
-  listPayments(user: RequestUser) {
-    return this.runtime.listPayments();
+  async listPayments(user: RequestUser) {
+    return this.payments.list();
   }
 
-  paymentDetail(id: string, user: RequestUser) {
-    return this.runtime.paymentDetail(id);
+  async paymentDetail(id: string, user: RequestUser) {
+    return this.payments.detail(id);
   }
 
   async exportDeals(_params: any, _user: RequestUser) {
-    const payments = this.runtime.listPayments();
+    const payments = await this.payments.list();
     const rows = [
       ['dealId', 'status', 'amountRub', 'callbackState'],
       ...payments.map((p: any) => [p.dealId, p.status, String(p.amountRub), p.callbackState ?? '']),
@@ -53,8 +65,8 @@ export class SettlementEngineService {
 
   async exportContractors(_user: RequestUser) {
     const rows = [['dealId', 'beneficiaryId', 'role', 'bankStatus']];
-    for (const payment of this.runtime.listPayments()) {
-      const bank = this.runtime.bankWorkspace((payment as any).dealId);
+    for (const payment of await this.payments.list()) {
+      const bank = this.payments.bankWorkspace((payment as any).dealId);
       for (const beneficiary of bank.beneficiaries) {
         rows.push([(payment as any).dealId, beneficiary.id, beneficiary.role, beneficiary.bankStatus]);
       }
@@ -73,7 +85,7 @@ export class SettlementEngineService {
    */
   async requestReserve(dealId: string, user: RequestUser) {
     this.assertMoneyMutationRole(user);
-    const ws = this.runtime.worksheet(dealId);
+    const ws = this.payments.worksheet(dealId);
     const { result } = await this.executor.execute({
       user,
       action: 'money.reserve.request',
@@ -89,7 +101,7 @@ export class SettlementEngineService {
       fn: () => this.runtime.reservePrepayment(dealId, user),
     });
     const outboxEntries = this.outbox.getByDeal(dealId);
-    const ws2 = this.runtime.worksheet(dealId);
+    const ws2 = this.payments.worksheet(dealId);
     this.upsertPayment(dealId, ws2.payment).catch((e) => this.logger.debug(`Payment DB write skipped: ${e.message}`));
     return { ...result, outboxStatus: 'PENDING', outboxId: outboxEntries.at(-1)?.id };
   }
@@ -187,7 +199,7 @@ export class SettlementEngineService {
     }
     const result = this.runtime.registerSafeDealsCallback(payload);
     if (payload?.dealId) {
-      const ws = this.runtime.worksheet(payload.dealId);
+      const ws = this.payments.worksheet(payload.dealId);
       this.upsertPayment(payload.dealId, ws.payment).catch((e) =>
         this.logger.debug(`Payment DB callback write skipped: ${e.message}`),
       );

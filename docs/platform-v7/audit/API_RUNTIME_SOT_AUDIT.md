@@ -24,7 +24,7 @@ the authoritative path in pilot mode.
 | Domain | Boundary | Default adapter | DB-backed adapter |
 |---|---|---|---|
 | Deal | ✅ `DealRepository` | `RuntimeDealRepository` | `PrismaDealRepository` (disabled skeleton) |
-| Payment | ❌ not yet | — | — |
+| Payment (reads) | ✅ `PaymentRepository` | `RuntimePaymentRepository` | `PrismaPaymentRepository` (disabled skeleton) |
 | Document | ❌ not yet | — | — |
 | Shipment / Logistics | ❌ not yet | — | — |
 | Lab | ❌ not yet | — | — |
@@ -57,6 +57,27 @@ project safety rules. The boundary removes it:
   unchanged — the runtime store serves deals, exactly as before.
 - The Prisma read path is now reachable **only** via the explicit flag, and
   never silently falls back between adapters.
+
+### Payment read boundary (this change)
+
+- `payment.repository.ts` — `PAYMENT_REPOSITORY` token + `PaymentRepository`
+  interface (read surface: `list`, `detail`, `worksheet`, `bankWorkspace`).
+- `runtime-payment.repository.ts` — default adapter, wraps RuntimeCore payment
+  reads with no behavior change.
+- `prisma-payment.repository.ts` — disabled DB-backed read skeleton. `list`/
+  `detail` snapshots only; `worksheet`/`bankWorkspace` fail loudly. Requires
+  `PrismaService` or throws.
+- `payment-repository.factory.ts` / `selectPaymentRepository` — runtime adapter
+  by default; Prisma only under explicit `PLATFORM_V7_PAYMENT_REPOSITORY=prisma`.
+- `SettlementEngineService` routes its read surface through the repository and
+  defaults to the runtime adapter when not injected (tests / direct
+  instantiation). **Money mutations are NOT moved** — reserve, release, bank
+  callback, confirm, adjust, importBankStatement and the `upsertPayment`
+  snapshot all remain on RuntimeCore. The platform still never self-confirms a
+  reserve or self-releases money; release stays bank-callback driven.
+
+Deferred to a future MoneyEngine + idempotency PR: extracting reserve/release/
+callback into a domain service and any DB-backed write path.
 
 ## Still owned by RuntimeCore (future split candidates)
 
