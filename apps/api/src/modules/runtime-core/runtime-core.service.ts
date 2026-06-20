@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { RuntimeStateMachine } from './runtime-state-machine';
 
 export type DealStatus =
   | 'DRAFT'
@@ -40,6 +41,9 @@ type SampleStatus = 'PENDING' | 'COLLECTED' | 'ANALYSIS_IN_PROGRESS' | 'FINALIZE
 
 @Injectable()
 export class RuntimeCoreService {
+  // RuntimeCore decomposition Step 1: transition legality lives in a stateless engine.
+  private readonly stateMachine = new RuntimeStateMachine();
+
   private dealCounter = 100;
   private docCounter = 100;
   private shipmentCounter = 100;
@@ -323,7 +327,7 @@ export class RuntimeCoreService {
 
   transitionDeal(id: string, nextState: string, user: any, comment?: string) {
     const deal = this.findDeal(id);
-    this.assertAllowedTransition(deal.status, nextState);
+    this.stateMachine.assertDealTransition(deal.status, nextState);
     deal.status = nextState as DealStatus;
     deal.updatedAt = new Date().toISOString();
     if (nextState === 'SIGNED' && !deal.signedAt) deal.signedAt = deal.updatedAt;
@@ -496,7 +500,7 @@ export class RuntimeCoreService {
     const shipment = this.findShipment(id);
     return {
       shipment: this.getShipment(id),
-      availableTransitions: this.getAvailableShipmentTransitions(shipment.status),
+      availableTransitions: this.stateMachine.availableShipmentTransitions(shipment.status),
       checkpoints: shipment.checkpoints,
       handoff: shipment.handoff,
       evidence: this.evidence.filter((e) => e.shipmentId === id),
@@ -534,10 +538,7 @@ export class RuntimeCoreService {
 
   transitionShipment(id: string, dto: any, user: any) {
     const shipment = this.findShipment(id);
-    const allowed = this.getAvailableShipmentTransitions(shipment.status);
-    if (!allowed.includes(dto.nextState)) {
-      throw new BadRequestException(`Переход рейса ${shipment.status} → ${dto.nextState} не разрешён`);
-    }
+    this.stateMachine.assertShipmentTransition(shipment.status, dto.nextState);
     shipment.status = dto.nextState as ShipmentStatus;
     shipment.lastTransitionAt = new Date().toISOString();
     shipment.lastChangedByUserId = user?.sub ?? user?.id ?? null;
@@ -996,42 +997,6 @@ export class RuntimeCoreService {
     payment.status = 'REQUIRES_BANK';
     deal.owner = 'Банк';
     deal.nextAction = 'Создать банковый event';
-  }
-
-  private assertAllowedTransition(from: string, to: string) {
-    const map: Record<string, string[]> = {
-      DRAFT: ['AWAITING_SIGN', 'CANCELLATION'],
-      AWAITING_SIGN: ['SIGNED', 'CANCELLATION'],
-      SIGNED: ['PREPAYMENT_RESERVED', 'DISPUTE_OPEN', 'CANCELLATION'],
-      PREPAYMENT_RESERVED: ['LOADING', 'DISPUTE_OPEN'],
-      LOADING: ['IN_TRANSIT', 'DISPUTE_OPEN'],
-      IN_TRANSIT: ['ARRIVED', 'DISPUTE_OPEN'],
-      ARRIVED: ['QUALITY_CHECK', 'DISPUTE_OPEN'],
-      QUALITY_CHECK: ['ACCEPTED', 'DISPUTE_OPEN', 'EXPERTISE'],
-      ACCEPTED: ['FINAL_PAYMENT', 'PARTIAL_SETTLEMENT', 'DISPUTE_OPEN'],
-      PARTIAL_SETTLEMENT: ['FINAL_PAYMENT', 'DISPUTE_OPEN'],
-      FINAL_PAYMENT: ['SETTLED', 'DISPUTE_OPEN'],
-      SETTLED: ['CLOSED'],
-      DISPUTE_OPEN: ['EXPERTISE', 'ARBITRATION_DECISION', 'PARTIAL_SETTLEMENT'],
-      EXPERTISE: ['ARBITRATION_DECISION', 'PARTIAL_SETTLEMENT'],
-      ARBITRATION_DECISION: ['FINAL_PAYMENT', 'CANCELLATION', 'PARTIAL_SETTLEMENT'],
-    };
-    if (!(map[from] ?? []).includes(to)) {
-      throw new BadRequestException(`Переход ${from} → ${to} не разрешён`);
-    }
-  }
-
-  private getAvailableShipmentTransitions(status: string) {
-    const transitions: Record<string, string[]> = {
-      PENDING: ['IN_TRANSIT', 'CANCELLED'],
-      IN_TRANSIT: ['AT_UNLOADING', 'ROUTE_DEVIATION_ALERT', 'CANCELLED'],
-      AT_UNLOADING: ['DELIVERED', 'COMPLETED', 'CANCELLED'],
-      ROUTE_DEVIATION_ALERT: ['IN_TRANSIT', 'CANCELLED'],
-      DELIVERED: ['COMPLETED'],
-      COMPLETED: [],
-      CANCELLED: [],
-    };
-    return transitions[status] ?? [];
   }
 
   private resolveShipmentBlockers(id: string) {
