@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { RuntimeStateMachine } from './runtime-state-machine';
 import { RuntimeCompletenessChecker } from './runtime-completeness-checker';
 import { RuntimeBlockerResolver, type DealStateSnapshot } from './runtime-blocker-resolver';
+import { RuntimeTimelineBuilder } from './runtime-timeline-builder';
 
 export type DealStatus =
   | 'DRAFT'
@@ -49,6 +50,8 @@ export class RuntimeCoreService {
   private readonly completenessChecker = new RuntimeCompletenessChecker();
   // Step 3: blocker / owner / next-action derivation lives in a stateless engine.
   private readonly blockerResolver = new RuntimeBlockerResolver();
+  // Step 4: read-only timeline / passport projections live in a stateless engine.
+  private readonly timelineBuilder = new RuntimeTimelineBuilder();
 
   private dealCounter = 100;
   private docCounter = 100;
@@ -370,43 +373,11 @@ export class RuntimeCoreService {
   }
 
   dealPassport(id: string) {
-    const deal = this.findDeal(id);
-    const payment = this.ensurePayment(id);
-    return {
-      id: deal.id,
-      status: deal.status,
-      parties: {
-        seller: { orgId: deal.sellerOrgId },
-        buyer: { orgId: deal.buyerOrgId },
-      },
-      metrics: {
-        volumeTons: deal.volumeTons,
-        pricePerTon: deal.pricePerTon,
-        totalRub: deal.totalRub,
-        currency: deal.currency,
-      },
-      lot: { id: deal.lotId, culture: deal.culture, region: deal.region },
-      money: {
-        status: payment.status,
-        amountRub: payment.amountRub,
-        disputedAmountRub: payment.disputedAmountRub,
-        undisputedAmountRub: payment.undisputedAmountRub,
-        bankEventId: payment.bankEventId,
-      },
-      dates: { createdAt: deal.createdAt, signedAt: deal.signedAt ?? null, updatedAt: deal.updatedAt ?? null },
-    };
+    return this.timelineBuilder.buildPassport(this.findDeal(id), this.ensurePayment(id));
   }
 
   dealTimeline(id: string) {
-    const deal = this.findDeal(id);
-    const statuses = ['DRAFT','AWAITING_SIGN','SIGNED','PREPAYMENT_RESERVED','LOADING','IN_TRANSIT','ARRIVED','QUALITY_CHECK','ACCEPTED','FINAL_PAYMENT','SETTLED','CLOSED'];
-    const currentIdx = Math.max(statuses.indexOf(deal.status), 0);
-    return statuses.slice(0, currentIdx + 1).map((status, idx) => ({
-      status,
-      label: status,
-      timestamp: new Date(new Date(deal.createdAt).getTime() + idx * 2 * 60 * 60 * 1000).toISOString(),
-      actor: idx === currentIdx ? deal.owner : 'system',
-    }));
+    return this.timelineBuilder.buildTimeline(this.findDeal(id));
   }
 
   listDocuments() {
