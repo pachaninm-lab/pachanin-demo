@@ -136,9 +136,12 @@ extracting an engine it delegates to (same pattern as the repository boundaries:
 extract, delegate, prove unchanged via existing specs + a new engine spec). No
 DB activation, no money behavior change.
 
-1. **StateMachine** (§3.1) — pure transition maps. No state reads/writes; safest
-   first move. Extract `assertAllowedTransition` + shipment transitions into a
-   `DealStateMachine` / `ShipmentStateMachine` with a focused spec.
+1. **StateMachine** (§3.1) — ✅ **DONE**. `assertAllowedTransition` and
+   `getAvailableShipmentTransitions` extracted verbatim into a stateless
+   `RuntimeStateMachine` (`runtime-state-machine.ts`) with `DEAL_TRANSITIONS` /
+   `SHIPMENT_TRANSITIONS` maps and a focused spec; RuntimeCore delegates via a
+   single private instance. Maps and thrown messages unchanged; all existing
+   apps/api specs stay green.
 2. **CompletenessChecker** (§3.3) — pure over `documents[]`. Inject the document
    read; prove `documentCompleteness` output identical.
 3. **BlockerResolver** (§3.2) — read-only aggregator. Extract once StateMachine
