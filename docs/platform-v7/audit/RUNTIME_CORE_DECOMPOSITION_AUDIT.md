@@ -163,11 +163,30 @@ DB activation, no money behavior change.
    money summary plus the other engines (resolveOwner/nextAction/blockers/
    moneyImpact), so extracting it would add coupling without benefit and touch
    the money path; it stays put until the MoneyEngine step.
-5. **MoneyEngine** (§3.4) **including** `refreshDealRuntime` (§4) — **last and
-   most careful**. Extract behind an interface, keep the priority ladder
-   verbatim, and gate the PR on the **unchanged** settlement money-flow spec
-   plus the `releasedRub === 0` pilot invariant. Idempotency / DB-backed money
-   writes remain **out of scope** and locked.
+5. **MoneyEngine** (§3.4) **including** `refreshDealRuntime` (§4) — ✅ **DONE**
+   (behavior-preserving slice). The pure money *computations* and the
+   *decision ladder* are extracted into a stateless `RuntimeMoneyEngine`
+   (`runtime-money-engine.ts`): `sampleMoneyDelta`, `moneyImpact`, and
+   `decideDealRuntime` (returns a discriminated branch). RuntimeCore applies the
+   matching field writes and, in the `HOLD_BLOCKERS` branch, resolves owner /
+   next-action *after* the status is set — preserving the original ordering. The
+   priority ladder, strings and money invariants are unchanged: release stays
+   bank-callback driven and blocker-gated, no self-confirm / self-release, and
+   the settlement money-flow spec stays green unedited. **Deliberately left in
+   RuntimeCore:** payment / money-event storage and id generation
+   (`ensurePayment`, `pushMoneyEvent`, the `payments[]` / `moneyEvents[]` arrays
+   and counters) — that is a repository/DB concern a future DB-backed path will
+   own, not a stateless engine. **Idempotency / DB-backed money writes remain
+   out of scope and locked.**
+
+### Phase status: in-memory engine extraction complete
+
+All five steps are done. RuntimeCore is now a façade over six repositories plus
+five stateless engines (StateMachine, CompletenessChecker, BlockerResolver,
+TimelineBuilder, MoneyEngine) and retains only the in-memory stores + id
+generation. The next phases — DB-backed activation, MoneyEngine idempotency /
+persistence, minor-units migration, live integrations — stay locked and need an
+explicit owner decision (§7).
 
 ## 6. Invariants the decomposition must not break
 

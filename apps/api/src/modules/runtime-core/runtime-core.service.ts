@@ -3,6 +3,7 @@ import { RuntimeStateMachine } from './runtime-state-machine';
 import { RuntimeCompletenessChecker } from './runtime-completeness-checker';
 import { RuntimeBlockerResolver, type DealStateSnapshot } from './runtime-blocker-resolver';
 import { RuntimeTimelineBuilder } from './runtime-timeline-builder';
+import { RuntimeMoneyEngine } from './runtime-money-engine';
 
 export type DealStatus =
   | 'DRAFT'
@@ -52,6 +53,9 @@ export class RuntimeCoreService {
   private readonly blockerResolver = new RuntimeBlockerResolver();
   // Step 4: read-only timeline / passport projections live in a stateless engine.
   private readonly timelineBuilder = new RuntimeTimelineBuilder();
+  // Step 5: pure money computations + the refreshDealRuntime decision ladder.
+  // Payment / money-event storage and id generation stay in RuntimeCore.
+  private readonly moneyEngine = new RuntimeMoneyEngine();
 
   private dealCounter = 100;
   private docCounter = 100;
@@ -825,13 +829,7 @@ export class RuntimeCoreService {
   private moneyImpact(dealId: string) {
     const payment = this.ensurePayment(dealId);
     const sample = this.samples.find((item) => item.dealId === dealId);
-    return {
-      amountRub: payment.amountRub,
-      disputedAmountRub: payment.disputedAmountRub ?? 0,
-      undisputedAmountRub: payment.undisputedAmountRub ?? payment.amountRub,
-      qualityDeltaRub: sample?.moneyDeltaRub ?? 0,
-      bankEventId: payment.bankEventId,
-    };
+    return this.moneyEngine.moneyImpact(payment, sample);
   }
 
   // RuntimeCore retains only the state access; the pure completeness
@@ -846,8 +844,7 @@ export class RuntimeCoreService {
   }
 
   private calculateSampleMoneyDelta(sample: any) {
-    const failed = sample.tests.filter((test: any) => test.passed === false).length;
-    return failed * -125000;
+    return this.moneyEngine.sampleMoneyDelta(sample);
   }
 
   private pushMoneyEvent(dealId: string, paymentId: string, type: string, amountRub: number) {
@@ -904,48 +901,58 @@ export class RuntimeCoreService {
       payment.disputedAmountRub = Math.max(0, -(sample.moneyDeltaRub ?? 0));
       payment.undisputedAmountRub = Math.max(0, payment.amountRub - payment.disputedAmountRub);
     }
-    if (payment.status === 'MISMATCH') {
-      payment.manualReviewRequired = true;
-      deal.owner = 'Банк';
-      deal.nextAction = 'Открыть ручную сверку';
-      return;
+    // The decision ladder is pure (RuntimeMoneyEngine); RuntimeCore applies the
+    // matching field writes. Ordering is preserved — in HOLD_BLOCKERS the status
+    // is set before resolveOwner/resolveNextAction read it.
+    const decision = this.moneyEngine.decideDealRuntime({
+      paymentStatus: payment.status,
+      dealStatus: deal.status,
+      releasedRub: payment.releasedRub,
+      callbackState: payment.callbackState,
+      reserveConfirmedAt: payment.reserveConfirmedAt,
+      reserveRequestedAt: payment.reserveRequestedAt,
+      blockers,
+    });
+    switch (decision) {
+      case 'MISMATCH_HOLD':
+        payment.manualReviewRequired = true;
+        deal.owner = 'Банк';
+        deal.nextAction = 'Открыть ручную сверку';
+        return;
+      case 'DISPUTE_HOLD':
+        payment.status = 'HOLD_ACTIVE';
+        payment.holdReason = 'Открыт спор';
+        deal.owner = 'Контроль';
+        deal.nextAction = 'Собрать evidence pack';
+        return;
+      case 'RELEASED':
+        payment.status = 'RELEASED';
+        deal.owner = 'Сделка';
+        deal.nextAction = 'Закрыть сделку';
+        return;
+      case 'READY_FOR_RELEASE':
+        payment.status = 'READY_FOR_RELEASE';
+        payment.holdReason = null;
+        deal.owner = 'Бухгалтерия';
+        deal.nextAction = 'Выпустить деньги';
+        return;
+      case 'RESERVE_PENDING':
+        payment.status = 'RESERVE_PENDING';
+        deal.owner = 'Банк';
+        deal.nextAction = 'Дождаться подтверждения резерва';
+        return;
+      case 'HOLD_BLOCKERS':
+        payment.status = 'HOLD_ACTIVE';
+        payment.holdReason = blockers.join('; ');
+        deal.owner = this.resolveOwner(dealId);
+        deal.nextAction = this.resolveNextAction(dealId);
+        return;
+      case 'REQUIRES_BANK':
+        payment.status = 'REQUIRES_BANK';
+        deal.owner = 'Банк';
+        deal.nextAction = 'Создать банковый event';
+        return;
     }
-    if (deal.status === 'DISPUTE_OPEN') {
-      payment.status = 'HOLD_ACTIVE';
-      payment.holdReason = 'Открыт спор';
-      deal.owner = 'Контроль';
-      deal.nextAction = 'Собрать evidence pack';
-      return;
-    }
-    if (payment.releasedRub > 0 && payment.callbackState === 'CONFIRMED') {
-      payment.status = 'RELEASED';
-      deal.owner = 'Сделка';
-      deal.nextAction = 'Закрыть сделку';
-      return;
-    }
-    if (payment.reserveConfirmedAt && blockers.filter((item) => item !== 'Нет callback банка').length === 0) {
-      payment.status = 'READY_FOR_RELEASE';
-      payment.holdReason = null;
-      deal.owner = 'Бухгалтерия';
-      deal.nextAction = 'Выпустить деньги';
-      return;
-    }
-    if (payment.reserveRequestedAt && !payment.reserveConfirmedAt) {
-      payment.status = 'RESERVE_PENDING';
-      deal.owner = 'Банк';
-      deal.nextAction = 'Дождаться подтверждения резерва';
-      return;
-    }
-    if (blockers.length > 0) {
-      payment.status = 'HOLD_ACTIVE';
-      payment.holdReason = blockers.join('; ');
-      deal.owner = this.resolveOwner(dealId);
-      deal.nextAction = this.resolveNextAction(dealId);
-      return;
-    }
-    payment.status = 'REQUIRES_BANK';
-    deal.owner = 'Банк';
-    deal.nextAction = 'Создать банковый event';
   }
 
   private resolveShipmentBlockers(id: string) {
