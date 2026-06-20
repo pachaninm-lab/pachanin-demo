@@ -1,41 +1,22 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CreateDealDto } from './dto/create-deal.dto';
-import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
+import { DEAL_REPOSITORY, type DealRepository } from './deal.repository';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
-import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser } from '../../common/types/request-user';
 
 @Injectable()
 export class DealsService {
   constructor(
-    private readonly runtime: RuntimeCoreService,
+    @Inject(DEAL_REPOSITORY) private readonly deals: DealRepository,
     private readonly executor: ActionExecutorService,
-    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   async list(user: RequestUser) {
-    if (this.prisma) {
-      try {
-        const rows = await this.prisma.deal.findMany({ orderBy: { createdAt: 'desc' } });
-        if (rows.length > 0) return rows;
-      } catch {
-        // fall through to in-memory
-      }
-    }
-    return this.runtime.listDeals(user);
+    return this.deals.list(user);
   }
 
   async getOne(id: string, user: RequestUser) {
-    let deal: any;
-    if (this.prisma) {
-      try {
-        const row = await this.prisma.deal.findUnique({ where: { id } });
-        if (row) deal = row;
-      } catch {
-        // fall through
-      }
-    }
-    if (!deal) deal = this.runtime.getDeal(id);
+    const deal = await this.deals.getById(id);
     this.executor.assertObjectScope(user, 'deal.view', {
       objectType: 'deal',
       objectId: id,
@@ -47,7 +28,7 @@ export class DealsService {
 
   workspace(id: string, user: RequestUser) {
     this.executor.assertPermission(user, 'deal.view');
-    const ws = this.runtime.dealWorkspace(id);
+    const ws = this.deals.workspace(id);
     this.executor.assertObjectScope(user, 'deal.view', {
       objectType: 'deal',
       objectId: id,
@@ -58,11 +39,11 @@ export class DealsService {
   }
 
   passport(id: string, user: RequestUser) {
-    return this.runtime.dealPassport(id);
+    return this.deals.passport(id);
   }
 
   timeline(id: string, user: RequestUser) {
-    return this.runtime.dealTimeline(id);
+    return this.deals.timeline(id);
   }
 
   async create(dto: CreateDealDto, user: RequestUser) {
@@ -70,7 +51,7 @@ export class DealsService {
       user,
       action: 'deal.create',
       scope: { objectType: 'deal', objectId: 'new', ownerOrgId: user.orgId },
-      fn: () => this.runtime.createDeal(dto, user),
+      fn: () => this.deals.create(dto, user),
     });
     return result;
   }
@@ -80,7 +61,7 @@ export class DealsService {
     dto: { nextState: string; comment?: string },
     user: RequestUser,
   ) {
-    const deal = this.runtime.getDeal(id);
+    const deal = await this.deals.getById(id);
 
     // Determine state gates based on target state
     const gates: import('../../common/action-executor/action-executor.service').StateGates = {
@@ -89,7 +70,7 @@ export class DealsService {
 
     // Release actions require documents + no dispute + reserve confirmed
     if (dto.nextState === 'SETTLED' || dto.nextState === 'FINAL_PAYMENT') {
-      const ws = this.runtime.dealWorkspace(id);
+      const ws = this.deals.workspace(id);
       gates.documentsComplete = ws.completeness?.isComplete ?? false;
       gates.disputeOpen = deal.status === 'DISPUTE_OPEN';
       gates.reserveConfirmed =
@@ -106,7 +87,7 @@ export class DealsService {
         counterpartyOrgId: deal.buyerOrgId,
       },
       gates,
-      fn: () => this.runtime.transitionDeal(id, dto.nextState, user, dto.comment),
+      fn: () => this.deals.transition(id, dto.nextState, user, dto.comment),
     });
 
     return { ...result, auditId };
