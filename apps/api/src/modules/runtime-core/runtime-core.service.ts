@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { RuntimeStateMachine } from './runtime-state-machine';
+import { RuntimeCompletenessChecker } from './runtime-completeness-checker';
 
 export type DealStatus =
   | 'DRAFT'
@@ -43,6 +44,8 @@ type SampleStatus = 'PENDING' | 'COLLECTED' | 'ANALYSIS_IN_PROGRESS' | 'FINALIZE
 export class RuntimeCoreService {
   // RuntimeCore decomposition Step 1: transition legality lives in a stateless engine.
   private readonly stateMachine = new RuntimeStateMachine();
+  // Step 2: document completeness computation lives in a stateless engine.
+  private readonly completenessChecker = new RuntimeCompletenessChecker();
 
   private dealCounter = 100;
   private docCounter = 100;
@@ -876,24 +879,15 @@ export class RuntimeCoreService {
     };
   }
 
+  // RuntimeCore retains only the state access; the pure completeness
+  // computation lives in the stateless RuntimeCompletenessChecker engine.
   private documentCompleteness(dealId: string) {
     const docs = this.documents.filter((item) => item.dealId === dealId);
-    const required = this.requiredDocTypes();
-    const present = new Set(docs.filter((doc) => ['SIGNED', 'GENERATED', 'UPLOADED'].includes(doc.status)).map((doc) => doc.type));
-    const missing = required.filter((type) => !present.has(type));
-    return {
-      dealId,
-      required,
-      missing,
-      isComplete: missing.length === 0,
-      bankRequiredMissing: missing,
-      releaseRequiredMissing: missing,
-      completionRate: Math.round(((required.length - missing.length) / required.length) * 100),
-    };
+    return this.completenessChecker.completeness(dealId, docs);
   }
 
   private requiredDocTypes() {
-    return ['contract', 'transport_waybill', 'quality_certificate', 'acceptance_act'];
+    return this.completenessChecker.requiredDocTypes();
   }
 
   private calculateSampleMoneyDelta(sample: any) {

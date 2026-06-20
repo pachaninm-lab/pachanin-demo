@@ -142,8 +142,12 @@ DB activation, no money behavior change.
    `SHIPMENT_TRANSITIONS` maps and a focused spec; RuntimeCore delegates via a
    single private instance. Maps and thrown messages unchanged; all existing
    apps/api specs stay green.
-2. **CompletenessChecker** (§3.3) — pure over `documents[]`. Inject the document
-   read; prove `documentCompleteness` output identical.
+2. **CompletenessChecker** (§3.3) — ✅ **DONE**. Extracted into a stateless,
+   source-agnostic `RuntimeCompletenessChecker` (`runtime-completeness-checker.ts`)
+   that computes completeness from the documents passed in; RuntimeCore retains
+   only the `documents[]` filter and delegates. Required types / present
+   statuses / missing set / completion rate unchanged, with a focused spec.
+   Designed to run over a DB-backed document source later without a rewrite.
 3. **BlockerResolver** (§3.2) — read-only aggregator. Extract once StateMachine
    + CompletenessChecker exist (it consumes both). Snapshot-test owner /
    next-action / blockers across the seeded deals.
