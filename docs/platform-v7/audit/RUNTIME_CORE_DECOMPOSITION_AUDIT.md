@@ -148,9 +148,13 @@ DB activation, no money behavior change.
    only the `documents[]` filter and delegates. Required types / present
    statuses / missing set / completion rate unchanged, with a focused spec.
    Designed to run over a DB-backed document source later without a rewrite.
-3. **BlockerResolver** (§3.2) — read-only aggregator. Extract once StateMachine
-   + CompletenessChecker exist (it consumes both). Snapshot-test owner /
-   next-action / blockers across the seeded deals.
+3. **BlockerResolver** (§3.2) — ✅ **DONE**. Extracted into a stateless
+   `RuntimeBlockerResolver` (`runtime-blocker-resolver.ts`) that derives owner /
+   next-action / blockers / shipment-blockers from a `DealStateSnapshot` passed
+   in; RuntimeCore assembles the snapshot and delegates. Priority ladders and
+   strings unchanged (the settlement money-flow spec, which consumes blockers
+   via `refreshDealRuntime`, stays green), with a focused snapshot spec. Snapshot
+   shape is DB-source-ready for scaling.
 4. **TimelineBuilder** (§3.5) — read-only projections; low risk, deferrable.
 5. **MoneyEngine** (§3.4) **including** `refreshDealRuntime` (§4) — **last and
    most careful**. Extract behind an interface, keep the priority ladder
