@@ -162,34 +162,68 @@ flipped on as the migration lands.
 
 ---
 
-## 6. Recommended next code PR (after this audit)
+## 6. Migration roadmap & status
 
 **PR-A — `money` kopecks helper + invariants (behavior-neutral, no renames):**
-- Add `apps/api/src/common/money/money.ts` with `toKopecks` / `fromKopecks` /
-  `formatRub` / `splitKopecks` and an `assertMoneyInvariants(snapshot)` helper.
-- Add `money.spec.ts` covering §5.6 rounding rules and the §5.2–§5.5 invariants
-  as pure-function tests.
-- No schema change, no field rename, no MoneyEngine edit — just a tested utility
-  the later PRs depend on. Lowest risk; unblocks everything.
+✅ **DONE** (merged). `apps/api/src/common/money/money.ts` ships `toKopecks` /
+`fromKopecks` / `formatRub` / `splitKopecks` / `isWholeKopecks` and
+`assertMoneyInvariants`, with `money.spec.ts` covering §5.6 rounding rules and
+the §5.2–§5.5 invariants. No schema change, no field rename, no MoneyEngine edit;
+nothing in the runtime imports it yet — behavior-neutral foundation.
 
-**PR-B (separate, later approval) — MoneyEngine internal arithmetic in kopecks:**
-compute in integer kopecks internally while still exposing `*Rub` via the
-mapper; settlement-flow spec stays green. Still **no** Prisma migration.
+**PR-B (NOT STARTED — requires a separate, explicit owner approval) —
+MoneyEngine / SettlementEngine internal arithmetic in kopecks:** compute in
+integer kopecks internally while still exposing `*Rub` via the mapper; the
+settlement money-flow spec stays green. Still **no** Prisma migration. This is
+the first step that **changes live money arithmetic**, so it is gated — see §8.
 
 **PR-C (separate, explicitly approved, with data migration) — schema Float→Int
-kopecks columns + backfill.** This is the only step that touches Prisma; it
-stays locked until PR-A/PR-B are merged and green.
+kopecks columns + backfill.** The only step that touches Prisma; stays **locked**
+until PR-A and PR-B are merged and green.
 
 ---
 
-## 7. Honest status
+## 7. Honest status (checkpoint after PR-A)
 
-This is a **migration plan, not a migration**. As of today:
-- Money is floating-point roubles end-to-end; rounding drift, over/double
-  release, and unclamped adjustments are **possible** (see §2).
-- There is no idempotency, no persistence, and no enforced invariant
-  (`disputed + held + released <= total`) in the runtime.
-- The money runtime is **not production-grade** and remains sandbox /
+This is a **migration plan plus a tested foundation, not a migration**. As of
+this checkpoint:
+- ✅ minor-units audit complete; ✅ common money helper merged; ✅ money invariant
+  tests merged.
+- **Platform behavior is unchanged** — the helper is not wired into any runtime
+  path; MoneyEngine and SettlementEngine are **untouched**.
+- Money is still floating-point roubles end-to-end in the runtime; rounding
+  drift, over/double release and unclamped adjustments remain **possible** (§2).
+- There is no idempotency, no persistence, and no enforced
+  `disputed + held + released <= total` in the runtime.
+- The runtime money flow is **not production-grade** and remains sandbox /
   pre-integration. DB-backed activation, MoneyEngine persistence/idempotency and
   the schema migration stay **locked** pending explicit owner approval, in the
-  order PR-A → PR-B → PR-C above.
+  order PR-A (done) → PR-B → PR-C.
+
+---
+
+## 8. Decision gate — PR-B (internal money arithmetic) requires owner approval
+
+**Stop point.** PR-A is the agreed end of the autonomous run. PR-B is the first
+change that touches **live money arithmetic** inside MoneyEngine /
+SettlementEngine and therefore must NOT begin without a separate, explicit owner
+decision.
+
+PR-B may only start once **all** of the following admission conditions hold:
+
+1. **All current tests are green** on `main` (apps/api + web, settlement
+   money-flow spec included).
+2. **No change to the external `*Rub` contract** — API responses keep exposing
+   roubles; kopecks stay internal behind the mapper.
+3. **A rollback path exists** — the change is revertible in a single PR with no
+   data/schema dependency (PR-B introduces no migration).
+4. **Characterization tests of the current behavior are added first** — snapshot
+   the existing money outputs (worksheet / bankWorkspace / moneyImpact /
+   settlement snapshot / dispute instructions) before any arithmetic change, so
+   any drift is caught.
+5. **No schema migration** (Prisma untouched; that is PR-C).
+6. **No DB-backed activation** (adapters stay disabled behind their flags).
+7. **No live integrations** (bank / FGIS / EDO / signature remain sandbox).
+
+Until an owner explicitly approves PR-B against this gate, the money runtime
+stays exactly as it is today. This document is the record of that boundary.
