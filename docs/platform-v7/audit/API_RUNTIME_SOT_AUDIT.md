@@ -29,7 +29,7 @@ the authoritative path in pilot mode.
 | Shipment / Logistics | ✅ `ShipmentRepository` | `RuntimeShipmentRepository` | `PrismaShipmentRepository` (disabled skeleton) |
 | Lab | ✅ `LabRepository` | `RuntimeLabRepository` | `PrismaLabRepository` (disabled skeleton) |
 | Dispute | ✅ `DisputeRepository` | `RuntimeDisputeRepository` | `PrismaDisputeRepository` (disabled skeleton) |
-| Evidence | ❌ not yet | — | — |
+| Evidence | ⏭️ N/A by design (see below) | — (DB-first integrity store) | — |
 
 ### Deal repository boundary (this change)
 
@@ -163,13 +163,46 @@ Both are silent Prisma activations and are removed:
   money-bearing mutation path is never silently mirrored to the DB. No live
   payout, no bank release — disputes only emit money *instructions* as before.
 
+### Evidence: boundary pattern deliberately NOT applied
+
+`EvidencePackService` (`apps/api/src/modules/evidence-pack`) is intentionally
+excluded from the runtime-default / Prisma-disabled boundary pattern. It is a
+**DB-first hash-chain integrity store**: each evidence file is sha256-hashed and
+linked to the previous entry via `prevHash`, and `verifyChain` validates the
+chain. Prisma is the **intended primary** store; the in-memory `Map` is an
+explicit, honest *degraded fallback* used only when the DB is unavailable, and
+it returns `chainIntact: false` / `chainVerified: false` so callers can see the
+integrity guarantee is not in force.
+
+Applying the per-domain boundary inversion here (making an in-memory adapter the
+default and disabling Prisma behind a flag) would be **wrong**: it would weaken
+the integrity/audit story rather than harden it, and would invert a module whose
+correct behavior is already DB-first with a transparent fallback. Evidence is
+therefore marked N/A by design, not "pending a boundary". Any future change to
+evidence belongs to a dedicated integrity/audit hardening track (e.g. signed
+chain anchoring), not to this repository-boundary phase.
+
+### Boundary phase — status
+
+The repository-boundary phase is substantively complete for every API domain
+where the pattern fits: **Deal, Payment (reads), Document, Shipment, Lab,
+Dispute**. Each extracts data access into a per-domain repository with the
+in-memory runtime adapter as the default and a disabled, fail-loud Prisma
+skeleton behind an explicit `PLATFORM_V7_*_REPOSITORY=prisma` flag. No DB-backed
+path is active; no live integration; money mutations remain on RuntimeCore /
+their owning services. The DB-backed activation, MoneyEngine extraction and
+RuntimeCore decomposition remain locked (`lockedUntilCurrentGreen`) and need an
+explicit owner decision before they start — they are larger than a single
+narrow reviewable change.
+
 ## Still owned by RuntimeCore (future split candidates)
 
 State transitions, blockers, money impact, document completeness, evidence
 append, synthetic timelines — all still live inside `RuntimeCoreService`.
 Recommended next splits (docs-only until each has its own narrow PR):
-`StateMachine`, `MoneyEngine`, `BlockerResolver`, `TimelineBuilder`, and the
-remaining repository boundary (Evidence).
+`StateMachine`, `MoneyEngine`, `BlockerResolver`, `TimelineBuilder`. (The
+repository-boundary phase itself is complete; Evidence is N/A by design — see
+above.)
 
 ## External blockers (unchanged, explicit)
 
