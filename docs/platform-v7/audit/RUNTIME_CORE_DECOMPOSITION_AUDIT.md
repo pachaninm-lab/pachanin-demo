@@ -155,7 +155,14 @@ DB activation, no money behavior change.
    strings unchanged (the settlement money-flow spec, which consumes blockers
    via `refreshDealRuntime`, stays green), with a focused snapshot spec. Snapshot
    shape is DB-source-ready for scaling.
-4. **TimelineBuilder** (§3.5) — read-only projections; low risk, deferrable.
+4. **TimelineBuilder** (§3.5) — ✅ **DONE**. The pure projections `dealTimeline`
+   and `dealPassport` are extracted into a stateless `RuntimeTimelineBuilder`
+   (`runtime-timeline-builder.ts`) taking the deal (and payment) passed in;
+   RuntimeCore fetches and delegates. Output unchanged, with a focused spec.
+   `decorateDealCard` is intentionally left in RuntimeCore — it orchestrates the
+   money summary plus the other engines (resolveOwner/nextAction/blockers/
+   moneyImpact), so extracting it would add coupling without benefit and touch
+   the money path; it stays put until the MoneyEngine step.
 5. **MoneyEngine** (§3.4) **including** `refreshDealRuntime` (§4) — **last and
    most careful**. Extract behind an interface, keep the priority ladder
    verbatim, and gate the PR on the **unchanged** settlement money-flow spec
