@@ -217,10 +217,13 @@ PR-B may only start once **all** of the following admission conditions hold:
    roubles; kopecks stay internal behind the mapper.
 3. **A rollback path exists** — the change is revertible in a single PR with no
    data/schema dependency (PR-B introduces no migration).
-4. **Characterization tests of the current behavior are added first** — snapshot
-   the existing money outputs (worksheet / bankWorkspace / moneyImpact /
-   settlement snapshot / dispute instructions) before any arithmetic change, so
-   any drift is caught.
+4. **Characterization tests of the current behavior are added first** — ✅
+   **DONE**. `settlement-calculation.characterization.spec.ts` and
+   `money-flow.characterization.spec.ts` pin the current float behavior (reserve
+   amount, release allowed/blocked, dispute hold, partial-release shape, quality
+   delta, repeated callback/release non-idempotency, `round2` rounding, and the
+   external `*Rub` contract shape), including known weak spots. PR-B must change
+   these deliberately, never incidentally.
 5. **No schema migration** (Prisma untouched; that is PR-C).
 6. **No DB-backed activation** (adapters stay disabled behind their flags).
 7. **No live integrations** (bank / FGIS / EDO / signature remain sandbox).
