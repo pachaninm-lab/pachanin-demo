@@ -27,7 +27,7 @@ the authoritative path in pilot mode.
 | Payment (reads) | ✅ `PaymentRepository` | `RuntimePaymentRepository` | `PrismaPaymentRepository` (disabled skeleton) |
 | Document | ✅ `DocumentRepository` | `RuntimeDocumentRepository` | `PrismaDocumentRepository` (disabled skeleton) |
 | Shipment / Logistics | ✅ `ShipmentRepository` | `RuntimeShipmentRepository` | `PrismaShipmentRepository` (disabled skeleton) |
-| Lab | ❌ not yet | — | — |
+| Lab | ✅ `LabRepository` | `RuntimeLabRepository` | `PrismaLabRepository` (disabled skeleton) |
 | Dispute | ❌ not yet | — | — |
 | Evidence | ❌ not yet | — | — |
 
@@ -113,6 +113,22 @@ callback into a domain service and any DB-backed write path.
   path for shipment list/getOne is removed (documented hardening): pilot/
   degraded behavior is unchanged (runtime serves shipments), Prisma read path
   reachable only via the explicit flag.
+
+### Lab boundary (this change)
+
+- `lab.repository.ts` — `LAB_REPOSITORY` token + `LabRepository` interface
+  (`list`, `getById`, `create`, `collect`, `recordTest`, `finalize`).
+- `runtime-lab.repository.ts` — default adapter, wraps RuntimeCore lab methods
+  with no behavior change.
+- `prisma-lab.repository.ts` — disabled DB-backed skeleton: `list`/`getById`
+  snapshots only; create/collect/recordTest/finalize fail loudly. Requires
+  `PrismaService`. No live lab integration / external protocol upload;
+  quality-delta semantics stay on RuntimeCore.
+- `lab-repository.factory.ts` / `selectLabRepository` — runtime by default;
+  Prisma only under explicit `PLATFORM_V7_LAB_REPOSITORY=prisma`.
+- `LabsService` reads through the repository. Removes the previous silent
+  Prisma-first read path for list/getOne (pilot/degraded behavior unchanged;
+  finalize-protocol and quality-delta behavior unchanged).
 
 ## Still owned by RuntimeCore (future split candidates)
 
