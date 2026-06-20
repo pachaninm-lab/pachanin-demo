@@ -74,6 +74,13 @@ DONE:
 - MASTER-ТЗ 3+ M3-0…M3-8: gap-аудит + premium-герой/Smart Collapse по всем ролям, витрина входа, фокусный мобильный вид, доступность WCAG AA, устранение гидратации, микро-анимации
 - 10-PR техдоводка: PR-1 tenant/RBAC, PR-2 DB persistence adapter, PR-3 bank callback/reconciliation, PR-4 real-adapter shells, PR-5 UX-gate, PR-6 observability health screens, PR-7 BI runtime binding, PR-8 unified deal lifecycle + offline/conflict, PR-9 access status, PR-10 readiness audit + SOT
 - Integration seam: adapter-factory mock↔real, bank-adapter-real + bank-callback, cabinet-level RBAC за фиче-флагом
+- API repository boundary: per-domain adapters (Deal, Payment reads, Document, Shipment, Lab, Dispute); runtime default, Prisma disabled behind flags (#1918–#1923); Evidence N/A by design (#1924)
+- RuntimeCore decomposition: 5 stateless engines — StateMachine (#1926), CompletenessChecker (#1927), BlockerResolver (#1928), TimelineBuilder (#1929), MoneyEngine decision ladder (#1930); behavior-preserving, money-flow spec unchanged
+- Money minor-units: audit (#1931) + kopecks helper & invariants (PR-A, #1932) — behavior-neutral, MoneyEngine/SettlementEngine untouched
+
+GATED (owner approval required before code starts):
+- minor-units PR-B — internal MoneyEngine/SettlementEngine arithmetic in kopecks. STOP: changes live money arithmetic. Admission gate in docs/platform-v7/audit/MONEY_MINOR_UNITS_AUDIT.md §8 (all tests green; no external *Rub contract change; rollback path; characterization tests added first; no schema migration; no DB-backed activation; no live integrations)
+- minor-units PR-C — Prisma Float→Int kopecks schema migration + backfill (locked until PR-B green)
 
 NEXT (owner-side only — вне кода):
 - отметить web-unit как required check в branch protection main
