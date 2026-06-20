@@ -1,5 +1,6 @@
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { DisputesService } from './disputes.service';
+import { RuntimeDisputeRepository } from './runtime-dispute.repository';
 import { RequestUser, Role } from '../../common/types/request-user';
 
 function makeUser(role: Role, extra?: Partial<RequestUser>): RequestUser {
@@ -16,7 +17,7 @@ describe('DisputesService — access control', () => {
   let svc: DisputesService;
 
   beforeEach(() => {
-    svc = new DisputesService();
+    svc = new DisputesService(new RuntimeDisputeRepository());
   });
 
   it('BUYER can only see own org disputes', async () => {
@@ -63,7 +64,7 @@ describe('DisputesService — triage', () => {
   let svc: DisputesService;
 
   beforeEach(() => {
-    svc = new DisputesService();
+    svc = new DisputesService(new RuntimeDisputeRepository());
   });
 
   it('SUPPORT_MANAGER can triage OPEN dispute', () => {
@@ -88,7 +89,7 @@ describe('DisputesService — decision with money instructions', () => {
   let svc: DisputesService;
 
   beforeEach(() => {
-    svc = new DisputesService();
+    svc = new DisputesService(new RuntimeDisputeRepository());
   });
 
   it('BUYER_WIN decision generates REFUND_BUYER instruction', () => {
@@ -141,7 +142,7 @@ describe('DisputesService — evidence', () => {
   let svc: DisputesService;
 
   beforeEach(() => {
-    svc = new DisputesService();
+    svc = new DisputesService(new RuntimeDisputeRepository());
   });
 
   it('LAB evidence is marked as trusted', () => {

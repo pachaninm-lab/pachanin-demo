@@ -28,7 +28,7 @@ the authoritative path in pilot mode.
 | Document | ✅ `DocumentRepository` | `RuntimeDocumentRepository` | `PrismaDocumentRepository` (disabled skeleton) |
 | Shipment / Logistics | ✅ `ShipmentRepository` | `RuntimeShipmentRepository` | `PrismaShipmentRepository` (disabled skeleton) |
 | Lab | ✅ `LabRepository` | `RuntimeLabRepository` | `PrismaLabRepository` (disabled skeleton) |
-| Dispute | ❌ not yet | — | — |
+| Dispute | ✅ `DisputeRepository` | `RuntimeDisputeRepository` | `PrismaDisputeRepository` (disabled skeleton) |
 | Evidence | ❌ not yet | — | — |
 
 ### Deal repository boundary (this change)
@@ -130,14 +130,46 @@ callback into a domain service and any DB-backed write path.
   Prisma-first read path for list/getOne (pilot/degraded behavior unchanged;
   finalize-protocol and quality-delta behavior unchanged).
 
+### Dispute boundary (this change)
+
+- `dispute.repository.ts` — `DISPUTE_REPOSITORY` token + `DisputeRepository`
+  interface (`list`, `getById`, `add`). `list` is async (future DB adapter);
+  `getById`/`add` stay synchronous because the in-memory store returns a live
+  object reference that the service mutates in place (triage / evidence /
+  decision), preserving the existing synchronous controller semantics.
+- `runtime-dispute.repository.ts` — default adapter. Owns the in-memory dispute
+  store and its pilot seed (moved verbatim out of `DisputesService`).
+- `prisma-dispute.repository.ts` — disabled DB-backed skeleton: `list` read
+  snapshot only (via `dispute` with evidence + moneyHold relations);
+  `getById`/`add` fail loudly. Requires `PrismaService` or throws.
+- `dispute-repository.factory.ts` / `selectDisputeRepository` — runtime by
+  default; Prisma only under explicit `PLATFORM_V7_DISPUTE_REPOSITORY=prisma`.
+- `DisputesService` reads/appends through the repository and keeps **all** money
+  logic in place: money-hold creation on dispute open and the decision
+  `MoneyInstruction` builder (REFUND_BUYER / RELEASE_TO_SELLER / SPLIT_RELEASE)
+  are **not moved** into any adapter. Consistent with Payment money-safety, the
+  boundary abstracts dispute DATA ACCESS only.
+
+#### Deliberate hardening (documented behavior change)
+
+`DisputesService` previously preferred a **silent Prisma-first** read in `list()`
+(falling back to the in-memory store on empty/error) and issued fire-and-forget
+Prisma mirror writes on create/decision whenever `PrismaService` was injected.
+Both are silent Prisma activations and are removed:
+- In pilot / degraded mode (no flag / DB down) the effective behavior is
+  unchanged — the in-memory store serves and stores disputes exactly as before,
+  including money holds and decision money instructions.
+- The Prisma read path is reachable **only** via the explicit flag; the
+  money-bearing mutation path is never silently mirrored to the DB. No live
+  payout, no bank release — disputes only emit money *instructions* as before.
+
 ## Still owned by RuntimeCore (future split candidates)
 
 State transitions, blockers, money impact, document completeness, evidence
 append, synthetic timelines — all still live inside `RuntimeCoreService`.
 Recommended next splits (docs-only until each has its own narrow PR):
 `StateMachine`, `MoneyEngine`, `BlockerResolver`, `TimelineBuilder`, and the
-remaining repository boundaries (Payment, Document, Shipment, Lab, Dispute,
-Evidence).
+remaining repository boundary (Evidence).
 
 ## External blockers (unchanged, explicit)
 
