@@ -24,6 +24,7 @@ Review the diff, not the agent report.
 - apps/api/src/modules/disputes/**
 - apps/api/src/modules/documents/**
 - apps/api/src/modules/runtime-core/**
+- apps/api/src/common/money/**
 - apps/api/src/common/prisma/**
 - apps/api/prisma/**
 - apps/api/package.json
@@ -49,6 +50,7 @@ CURRENT ALLOWED:
 - apps/api/src/modules/labs/**
 - apps/api/src/modules/disputes/**
 - apps/api/src/modules/runtime-core/**
+- apps/api/src/common/money/**
 - apps/api/src/common/prisma/**
 - apps/api/prisma/**
 - apps/api/package.json
