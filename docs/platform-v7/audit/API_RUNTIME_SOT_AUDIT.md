@@ -25,7 +25,7 @@ the authoritative path in pilot mode.
 |---|---|---|---|
 | Deal | ✅ `DealRepository` | `RuntimeDealRepository` | `PrismaDealRepository` (disabled skeleton) |
 | Payment (reads) | ✅ `PaymentRepository` | `RuntimePaymentRepository` | `PrismaPaymentRepository` (disabled skeleton) |
-| Document | ❌ not yet | — | — |
+| Document | ✅ `DocumentRepository` | `RuntimeDocumentRepository` | `PrismaDocumentRepository` (disabled skeleton) |
 | Shipment / Logistics | ❌ not yet | — | — |
 | Lab | ❌ not yet | — | — |
 | Dispute | ❌ not yet | — | — |
@@ -78,6 +78,22 @@ project safety rules. The boundary removes it:
 
 Deferred to a future MoneyEngine + idempotency PR: extracting reserve/release/
 callback into a domain service and any DB-backed write path.
+
+### Document read/write boundary (this change)
+
+- `document.repository.ts` — `DOCUMENT_REPOSITORY` token + `DocumentRepository`
+  interface (`list`, `getById`, `upload`, `sign`, `generateDealPackage`).
+- `runtime-document.repository.ts` — default adapter, wraps RuntimeCore document
+  methods with no behavior change.
+- `prisma-document.repository.ts` — disabled DB-backed skeleton: `list`/`getById`
+  snapshots only (via `dealDocument`); `upload`/`sign`/`generateDealPackage`
+  fail loudly. Requires `PrismaService` or throws. No file storage / signature
+  integration.
+- `document-repository.factory.ts` / `selectDocumentRepository` — runtime by
+  default; Prisma only under explicit `PLATFORM_V7_DOCUMENT_REPOSITORY=prisma`.
+- `DocumentsService` reads through the repository and keeps the document-matrix
+  / release-gate / completeness logic. No behavior change; document
+  completeness and release-blocker behavior are unchanged.
 
 ## Still owned by RuntimeCore (future split candidates)
 

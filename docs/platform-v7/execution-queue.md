@@ -1,10 +1,12 @@
 # platform-v7 execution queue
 
-CURRENT: API repository boundary (controlled-pilot / pre-integration): DealRepository + PaymentRepository read boundaries over RuntimeCore; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.
+CURRENT: API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.
 
 CURRENT ALLOWED:
 - apps/api/src/modules/deals/**
 - apps/api/src/modules/settlement-engine/**
+- apps/api/src/modules/documents/**
+- apps/api/src/modules/runtime-core/**
 - apps/api/src/common/prisma/**
 - apps/api/prisma/**
 - apps/api/package.json
