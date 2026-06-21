@@ -16,6 +16,8 @@ CURRENT ALLOWED:
 - apps/web/next.config.mjs
 - apps/web/components/platform-v7/PlatformV7RoleLockFix.tsx
 - apps/web/tests/unit/platformV7RoleLockFix.test.ts
+- apps/web/lib/platform-v7/cabinet-access-policy.ts
+- apps/web/tests/unit/platformV7SupportInvestorRoutePolicy.test.ts
 - TRIGGER_PRODUCTION_REDEPLOY.txt
 - notes_ui_test.txt
 - ok.txt
@@ -67,7 +69,8 @@ DONE:
 - RuntimeCore decomposition: 5 stateless engines — StateMachine (#1926), CompletenessChecker (#1927), BlockerResolver (#1928), TimelineBuilder (#1929), MoneyEngine decision ladder (#1930); behavior-preserving, money-flow spec unchanged
 - Money minor-units: audit (#1931) + kopecks helper & invariants (PR-A, #1932) — behavior-neutral, MoneyEngine/SettlementEngine untouched
 - Maturity audits (docs-only): Professional Codebase (#1944), Role Cockpit (#1949), End-to-End Sandbox Deal Flow (#1950)
-- Phase 2 / PR-1 Role Shell Consistency (role-lock de-polling): removed the 50ms setInterval from PlatformV7RoleLockFix — enforcement stays event-/state-driven (pathname + role reactivity, popstate/hashchange/focus, rAF/timeout hydration race), behavior-preserving for the lock; anti-regression test added. Narrow owner-approved carve-out of two named files from the components/platform-v7 forbidden zone (broad zone stays forbidden); no cabinet rewrite, no business-logic change
+- Phase 2 / PR-1 Role Shell Consistency (role-lock de-polling, #1951): removed the 50ms setInterval from PlatformV7RoleLockFix — enforcement stays event-/state-driven (pathname + role reactivity, popstate/hashchange/focus, rAF/timeout hydration race), behavior-preserving for the lock; anti-regression test added. Narrow owner-approved carve-out of two named files from the components/platform-v7 forbidden zone (broad zone stays forbidden); no cabinet rewrite, no business-logic change
+- Phase 2 / PR-2 support/investor routing decision: support classified as internal oversight-only contour (not a participant cabinet, not a PlatformRole); investor classified as non-core oversight-only aggregate route (not an execution role, not a PlatformRole). cabinet-access-policy.ts now denies both to non-oversight roles explicitly (isPlatformV7InternalRoute / isPlatformV7NonCoreRoute) instead of incidental allowedPrefixes fallthrough — behavior-preserving, covered by platformV7SupportInvestorRoutePolicy.test.ts; no participant-visible route-switch (dead/unmounted switchers confirmed). Narrow owner-approved carve-out of two named files from the lib/platform-v7 forbidden zone (route/access policy only; broad zone stays forbidden); no cabinet rewrite, no business-logic change, no server-side RBAC. Server-side cabinet enforcement remains gated. ROLE_COCKPIT_AUDIT.md §3/§5 updated
 
 GATED (owner approval required before code starts):
 - minor-units PR-B — internal MoneyEngine/SettlementEngine arithmetic in kopecks. STOP: changes live money arithmetic. Admission gate in docs/platform-v7/audit/MONEY_MINOR_UNITS_AUDIT.md §8 (all tests green; no external *Rub contract change; rollback path; characterization tests added first; no schema migration; no DB-backed activation; no live integrations)

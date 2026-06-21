@@ -16,6 +16,20 @@ const OVERSIGHT_ROLES: ReadonlySet<PlatformRole> = new Set(['operator', 'executi
 // Маршруты, открытые без выбора роли: главная, открытая карточка, вход, регистрация.
 const SHARED_PATHS = ['/platform-v7/open', '/platform-v7/login', '/platform-v7/register'];
 
+// Внутренний контур поддержки. `support` — это внутренняя роль поддержки, а НЕ
+// кабинет участника: его открывают только надзорные роли (operator/executive).
+// Участники подают/отслеживают обращения через action-level `support.create_case`
+// (см. action-permission-boundary.ts), а не через вход в этот кабинет. `support`
+// не входит в перечень PlatformRole и не выбирается как кабинет сделки.
+const INTERNAL_OVERSIGHT_ROUTES = ['/platform-v7/support'];
+
+// Non-core маршрут. `investor` НЕ является исполнительной ролью platform-v7 — это
+// read-only агрегатный режим, доступный только надзорным ролям. Он не входит в
+// перечень PlatformRole, не является кабинетом сделки и никогда не добавляется как
+// полноценная роль сделки. Маршрут остаётся зарегистрированным (надзорный обзор),
+// но классифицирован как non-core и закрыт для участников.
+const NON_CORE_OVERSIGHT_ROUTES = ['/platform-v7/investor'];
+
 export function platformV7RbacEnforced(): boolean {
   // Controlled pilot now requires strict route boundaries by default. The old
   // pilot-open mode allowed participants to enter shared cross-role surfaces.
@@ -36,11 +50,26 @@ function isSharedPath(pathname: string): boolean {
   return SHARED_PATHS.some((p) => matchesPath(clean, p));
 }
 
+// Внутренний контур поддержки (support) — оверсайт-онли.
+export function isPlatformV7InternalRoute(pathname: string): boolean {
+  const clean = normalize(pathname);
+  return INTERNAL_OVERSIGHT_ROUTES.some((route) => matchesPath(clean, route));
+}
+
+// Non-core маршрут (investor) — оверсайт-онли, не исполнительная роль.
+export function isPlatformV7NonCoreRoute(pathname: string): boolean {
+  const clean = normalize(pathname);
+  return NON_CORE_OVERSIGHT_ROUTES.some((route) => matchesPath(clean, route));
+}
+
 export function canRoleAccessCabinet(role: PlatformRole, pathname: string): boolean {
   const clean = normalize(pathname);
   if (!clean.startsWith('/platform-v7')) return true;
   if (isSharedPath(clean)) return true;
   if (OVERSIGHT_ROLES.has(role)) return true;
+  // support (внутренний) и investor (non-core) — только надзорные роли. Явный
+  // запрет для участников, без неявного провала сквозь allowedPrefixes.
+  if (isPlatformV7InternalRoute(clean) || isPlatformV7NonCoreRoute(clean)) return false;
   return platformV7RoleCanOpenHref(role, clean);
 }
 
