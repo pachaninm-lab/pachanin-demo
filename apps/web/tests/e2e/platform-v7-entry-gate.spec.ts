@@ -42,7 +42,8 @@ test.describe('platform-v7 entry gate', () => {
 
   test('cabinet routes are reachable after visiting the public entry', async ({ page }) => {
     await page.goto('/platform-v7', { waitUntil: 'networkidle' });
+    // /bank/clean is a legacy alias that redirects to the canonical bank cabinet.
     await page.goto('/platform-v7/bank/clean', { waitUntil: 'networkidle' });
-    expect(new URL(page.url()).pathname).toBe('/platform-v7/bank/clean');
+    expect(new URL(page.url()).pathname).toBe('/platform-v7/bank');
   });
 });

@@ -91,6 +91,15 @@
     "apps/web/tests/unit/platformV7RoleLockFix.test.ts",
     "apps/web/lib/platform-v7/cabinet-access-policy.ts",
     "apps/web/tests/unit/platformV7SupportInvestorRoutePolicy.test.ts",
+    "apps/web/app/platform-v7/bank/clean/page.tsx",
+    "apps/web/lib/platform-v7/shellRoutes.ts",
+    "apps/web/lib/platform-v7/navigation.ts",
+    "apps/web/tests/unit/platformV7BankCanonicalRoute.test.ts",
+    "apps/web/tests/unit/bankCleanRoom.test.tsx",
+    "apps/web/tests/unit/platformV7ControlledPilotNav.test.ts",
+    "apps/web/tests/unit/platformV7CabinetAccessPolicy.test.ts",
+    "apps/web/tests/e2e/platform-v7-entry-gate.spec.ts",
+    "apps/web/tests/e2e/platform-v7-route-audit.spec.ts",
     "TRIGGER_PRODUCTION_REDEPLOY.txt",
     "notes_ui_test.txt",
     "ok.txt",
@@ -127,6 +136,22 @@
         "apps/web/tests/unit/platformV7SupportInvestorRoutePolicy.test.ts"
       ],
       "note": "Narrow, owner-approved carve-out from the apps/web/lib/platform-v7 forbidden zone for exactly these two files (route/access policy only). The broad zone stays forbidden (default-deny). Operator-only — deliberately NOT added to agentWritableScope. Routing/access policy only: support classified internal (oversight-only), investor classified non-core (oversight-only); behavior-preserving (participants were already denied), now explicit + tested. No cabinet rewrite, no business-logic change, no server-side RBAC."
+    },
+    {
+      "layer": "Phase 2 / PR-3 dual bank entry routing decision",
+      "approvedBy": "owner",
+      "files": [
+        "apps/web/app/platform-v7/bank/clean/page.tsx",
+        "apps/web/lib/platform-v7/shellRoutes.ts",
+        "apps/web/lib/platform-v7/navigation.ts",
+        "apps/web/tests/unit/platformV7BankCanonicalRoute.test.ts",
+        "apps/web/tests/unit/bankCleanRoom.test.tsx",
+        "apps/web/tests/unit/platformV7ControlledPilotNav.test.ts",
+        "apps/web/tests/unit/platformV7CabinetAccessPolicy.test.ts",
+        "apps/web/tests/e2e/platform-v7-entry-gate.spec.ts",
+        "apps/web/tests/e2e/platform-v7-route-audit.spec.ts"
+      ],
+      "note": "Narrow, owner-approved carve-out (routing/access policy + the bank/clean route file only) for the dual-bank-entry decision. Canonical bank cabinet = /platform-v7/bank; /platform-v7/bank/clean becomes a thin redirect alias. Bank role home + nav repointed to canonical; allowedPrefixes keeps the alias reachable. The broad apps/web/components/platform-v7 + lib/platform-v7 + app/platform-v7 zones stay forbidden (default-deny). Operator-only — NOT in agentWritableScope. No bank cockpit rewrite, no money/MoneyEngine/SettlementEngine change, no server-side RBAC, no live bank integration."
     }
   ],
   "agentWritableScope": [

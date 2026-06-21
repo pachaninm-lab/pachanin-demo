@@ -18,7 +18,7 @@ export const PLATFORM_V7_ROLE_STAGE: Record<PlatformRole, { label: string; tone:
 };
 
 export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
-  operator: '/platform-v7/control-tower', buyer: '/platform-v7/buyer', seller: '/platform-v7/seller', logistics: '/platform-v7/logistics', driver: '/platform-v7/driver/field', surveyor: '/platform-v7/surveyor', elevator: '/platform-v7/elevator', lab: '/platform-v7/lab', bank: '/platform-v7/bank/clean', arbitrator: '/platform-v7/arbitrator', compliance: '/platform-v7/compliance', executive: '/platform-v7/executive',
+  operator: '/platform-v7/control-tower', buyer: '/platform-v7/buyer', seller: '/platform-v7/seller', logistics: '/platform-v7/logistics', driver: '/platform-v7/driver/field', surveyor: '/platform-v7/surveyor', elevator: '/platform-v7/elevator', lab: '/platform-v7/lab', bank: '/platform-v7/bank', arbitrator: '/platform-v7/arbitrator', compliance: '/platform-v7/compliance', executive: '/platform-v7/executive',
 };
 
 export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> = {
@@ -65,7 +65,7 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
   elevator: [{ href: '/platform-v7/elevator', label: PLATFORM_V7_LEXICON.nav.receiving, icon: 'receiving' }],
   lab: [{ href: '/platform-v7/lab', label: 'Пробы', icon: 'lab' }],
   bank: [
-    { href: '/platform-v7/bank/clean', label: 'Деньги по сделкам', icon: 'bank' },
+    { href: '/platform-v7/bank', label: 'Деньги по сделкам', icon: 'bank' },
     { href: '/platform-v7/bank/events', label: 'События банка', icon: 'bank' },
     { href: '/platform-v7/deals/grain-release', label: 'Основания выпуска', icon: 'bank' },
     { href: '/platform-v7/deals/grain-sdiz', label: 'СДИЗ и документы', icon: 'integrations' },
