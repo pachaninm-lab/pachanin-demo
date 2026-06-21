@@ -1,6 +1,6 @@
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
-import ArbitratorPage from '@/app/platform-v7r/arbitrator/page';
+import { ArbitratorDisputeRoom } from '@/components/platform-v7/ArbitratorDisputeRoom';
 import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -80,7 +80,7 @@ export default async function Page() {
       />
 
       <JournalPreview role="arbitrator" />
-      <ArbitratorPage />
+      <ArbitratorDisputeRoom />
     </div>
   );
 }

@@ -100,6 +100,10 @@
     "apps/web/tests/unit/platformV7CabinetAccessPolicy.test.ts",
     "apps/web/tests/e2e/platform-v7-entry-gate.spec.ts",
     "apps/web/tests/e2e/platform-v7-route-audit.spec.ts",
+    "apps/web/app/platform-v7/arbitrator/page.tsx",
+    "apps/web/components/platform-v7/ArbitratorDisputeRoom.tsx",
+    "apps/web/tests/unit/platformV7ArbitratorCanonicalImport.test.ts",
+    "apps/web/tests/unit/arbitratorDecisionPolish.test.tsx",
     "TRIGGER_PRODUCTION_REDEPLOY.txt",
     "notes_ui_test.txt",
     "ok.txt",
@@ -152,6 +156,17 @@
         "apps/web/tests/e2e/platform-v7-route-audit.spec.ts"
       ],
       "note": "Narrow, owner-approved carve-out (routing/access policy + the bank/clean route file only) for the dual-bank-entry decision. Canonical bank cabinet = /platform-v7/bank; /platform-v7/bank/clean becomes a thin redirect alias. Bank role home + nav repointed to canonical; allowedPrefixes keeps the alias reachable. The broad apps/web/components/platform-v7 + lib/platform-v7 + app/platform-v7 zones stay forbidden (default-deny). Operator-only — NOT in agentWritableScope. No bank cockpit rewrite, no money/MoneyEngine/SettlementEngine change, no server-side RBAC, no live bank integration."
+    },
+    {
+      "layer": "Phase 2 / PR-4 arbitrator legacy import cleanup",
+      "approvedBy": "owner",
+      "files": [
+        "apps/web/app/platform-v7/arbitrator/page.tsx",
+        "apps/web/components/platform-v7/ArbitratorDisputeRoom.tsx",
+        "apps/web/tests/unit/platformV7ArbitratorCanonicalImport.test.ts",
+        "apps/web/tests/unit/arbitratorDecisionPolish.test.tsx"
+      ],
+      "note": "Narrow, owner-approved carve-out (import/wrapper boundary only) for the arbitrator legacy-import cleanup. The active /platform-v7/arbitrator page no longer imports a page default-export from the legacy app/platform-v7r route tree; the dispute-room cockpit was relocated byte-identically into a canonical components/platform-v7 component (no UI/logic change). The legacy v7r route is left untouched (read-only, dead duplicate). The broad cockpit/lib/app zones stay forbidden (default-deny). Operator-only — NOT in agentWritableScope. No cockpit rewrite, no dispute/arbitration business-logic change, no server-side RBAC, no live integration."
     }
   ],
   "agentWritableScope": [

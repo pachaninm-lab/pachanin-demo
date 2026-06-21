@@ -11,8 +11,8 @@ vi.mock('@/components/platform-v7/RoleExecutionSummary', () => ({
 vi.mock('@/components/platform-v7/JournalPreview', () => ({
   JournalPreview: () => <div data-testid="journal-preview" />,
 }));
-vi.mock('@/app/platform-v7r/arbitrator/page', () => ({
-  default: () => <div data-testid="arbitrator-runtime" />,
+vi.mock('@/components/platform-v7/ArbitratorDisputeRoom', () => ({
+  ArbitratorDisputeRoom: () => <div data-testid="arbitrator-runtime" />,
 }));
 
 const source = readFileSync(resolve(__dirname, '../../app/platform-v7/arbitrator/page.tsx'), 'utf8');
