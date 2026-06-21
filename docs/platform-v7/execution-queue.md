@@ -11,6 +11,7 @@ CURRENT ALLOWED:
 - apps/api/src/modules/disputes/**
 - apps/api/src/modules/runtime-core/**
 - apps/api/src/common/money/**
+- apps/api/src/common/guards/**
 - apps/api/src/common/prisma/**
 - apps/api/prisma/**
 - apps/api/package.json
