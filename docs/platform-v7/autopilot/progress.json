@@ -8,7 +8,7 @@
     "API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations. is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion."
   ],
   "nextStep": "API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.",
-  "updatedAt": "2026-06-21T06:26:49.146Z",
+  "updatedAt": "2026-06-21T06:34:45.824Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
