@@ -74,6 +74,19 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 
+NEXT:
+- Layer: platform-v7 professional maturity hardening (controlled-pilot / pre-integration): codebase, role-cockpit and end-to-end sandbox audits plus safe anti-vibe cleanups; DB-backed path stays behind flags; no live integrations, no money-path change, no schema migration.
+- Allowed files:
+  - docs/platform-v7/audit/**
+  - docs/platform-v7/autopilot/**
+  - docs/platform-v7/execution-queue.md
+  - apps/api/src/**
+- Success criteria:
+  - Professional codebase audit and role-cockpit audit recorded under docs/platform-v7/audit/.
+  - Static guards for forbidden fake-live copy and AI/generation traces are added and green.
+  - All apps/api tests green; autopilot-guard green; no runtime/money/schema/live change.
+- Readiness becomes ready.
+
 DONE:
 - VP-1: Visible Execution Entry Cockpit
 - VP-2: Runtime QA Stabilization (slice 1 merged)
