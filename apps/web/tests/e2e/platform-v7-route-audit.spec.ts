@@ -164,9 +164,10 @@ test.describe('platform-v7 route audit baseline', () => {
     await expect(page.getByRole('heading', { name: 'Карточка сделки' })).toBeVisible();
     await expect(page.getByText('Стабильная пилотная карточка исполнения сделки.')).toBeVisible();
 
+    // /bank/clean is a legacy alias that now redirects to the canonical bank cabinet.
     await page.goto('/platform-v7/bank/clean', { waitUntil: 'networkidle' });
-    await expect(page.getByRole('heading', { name: 'Деньги по сделкам' })).toBeVisible();
-    await expect(page.getByText('Стабильная пилотная страница контроля денег по сделке.')).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe('/platform-v7/bank');
+    await expect(page.getByRole('heading', { name: 'Кабинет банка' })).toBeVisible();
   });
 
   test('seller and buyer actions mutate visible state and audit journal', async ({ page }) => {

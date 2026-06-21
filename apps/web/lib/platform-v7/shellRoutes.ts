@@ -62,7 +62,7 @@ export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
   surveyor: PLATFORM_V7_SURVEYOR_ROUTE,
   elevator: PLATFORM_V7_ELEVATOR_ROUTE,
   lab: PLATFORM_V7_LAB_ROUTE,
-  bank: PLATFORM_V7_BANK_CLEAN_ROUTE,
+  bank: PLATFORM_V7_BANK_ROUTE,
   arbitrator: PLATFORM_V7_ARBITRATOR_ROUTE,
   compliance: PLATFORM_V7_COMPLIANCE_ROUTE,
   executive: PLATFORM_V7_EXECUTIVE_ROUTE,
@@ -216,12 +216,12 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     allowedPrefixes: [PLATFORM_V7_LAB_ROUTE],
   },
   bank: {
-    home: PLATFORM_V7_BANK_CLEAN_ROUTE,
+    home: PLATFORM_V7_BANK_ROUTE,
     bottom: [
-      { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Основание', note: 'Пакет проверки' },
-      { href: hash(PLATFORM_V7_BANK_CLEAN_ROUTE, 'documents'), label: 'Документы', note: 'СДИЗ, ЭПД, акты' },
-      { href: hash(PLATFORM_V7_BANK_CLEAN_ROUTE, 'risks'), label: 'Риски', note: 'Стоп-факторы' },
-      { href: hash(PLATFORM_V7_BANK_CLEAN_ROUTE, 'holds'), label: 'Удержания', note: 'Спорная часть' },
+      { href: PLATFORM_V7_BANK_ROUTE, label: 'Основание', note: 'Пакет проверки' },
+      { href: hash(PLATFORM_V7_BANK_ROUTE, 'documents'), label: 'Документы', note: 'СДИЗ, ЭПД, акты' },
+      { href: hash(PLATFORM_V7_BANK_ROUTE, 'risks'), label: 'Риски', note: 'Стоп-факторы' },
+      { href: hash(PLATFORM_V7_BANK_ROUTE, 'holds'), label: 'Удержания', note: 'Спорная часть' },
       { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'События', note: 'Журнал банка' },
     ],
     drawer: [

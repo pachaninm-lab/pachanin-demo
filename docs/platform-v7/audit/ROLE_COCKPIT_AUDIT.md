@@ -145,8 +145,20 @@ not a missing shell.
    - **Still gated** (not this PR): server-side enforcement of cabinet boundaries
      (the §1/§2 client-only gap), and removing the dead `support`/`investor` link
      sites is a later web cleanup.
-6. **Dual bank entry**: both `/bank` (385 lines) and `/bank/clean` (the role
-   home) exist.
+6. **Dual bank entry** — **resolved in PR-3** as a routing decision (routing only,
+   no bank cockpit rewrite, no money/business-logic change):
+   - **Canonical bank cabinet = `/platform-v7/bank`** ("Кабинет банка") — the page
+     linked from ~20 cross-app CTAs and rendered by ~13 component tests.
+   - **`/platform-v7/bank/clean`** is reclassified as a **legacy "clean room"
+     alias** and is now a thin server `redirect()` → `/platform-v7/bank`, not a
+     second bank cockpit version.
+   - The bank **role home** (`PLATFORM_V7_ROLE_ROUTES.bank`) and bank bottom-nav now
+     point at the canonical `/bank` (in both `shellRoutes.ts` and the legacy
+     `navigation.ts`); `allowedPrefixes` keeps `/bank/clean` so the alias stays
+     reachable (it redirects). Covered by `platformV7BankCanonicalRoute.test.ts`.
+   - Residual (harmless): a legacy command-palette entry in the unused `command.ts`
+     still references `/bank/clean`; it resolves to canonical via the redirect.
+     Physically collapsing the two page files is a later web cleanup.
 7. Most cockpits lack `loading.tsx`/`error.tsx`; Surveyor/Compliance use static
    arrays with no empty/error path.
 

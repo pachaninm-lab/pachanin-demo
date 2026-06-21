@@ -27,7 +27,7 @@ describe('cabinet access policy (cabinet-level RBAC)', () => {
   it('redirects foreign cabinet attempts back to the active role home route', () => {
     expect(cabinetAccessDecision('buyer', '/platform-v7/bank').redirectTo).toBe('/platform-v7/buyer');
     expect(cabinetAccessDecision('seller', '/platform-v7/buyer').redirectTo).toBe('/platform-v7/seller');
-    expect(cabinetAccessDecision('bank', '/platform-v7/driver/field').redirectTo).toBe('/platform-v7/bank/clean');
+    expect(cabinetAccessDecision('bank', '/platform-v7/driver/field').redirectTo).toBe('/platform-v7/bank');
     expect(cabinetAccessDecision('driver', '/platform-v7/bank').redirectTo).toBe('/platform-v7/driver/field');
   });
 

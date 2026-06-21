@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PLATFORM_V7_BANK_CLEAN_ROUTE,
+  PLATFORM_V7_BANK_ROUTE,
   PLATFORM_V7_BANK_EVENTS_ROUTE,
   PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE,
   PLATFORM_V7_REPORTS_ROUTE,
@@ -18,8 +19,8 @@ describe('platform-v7 controlled pilot nav', () => {
     expect(nav('operator')).toContain(PLATFORM_V7_TRUST_ROUTE);
     expect(nav('operator')).toContain(PLATFORM_V7_REPORTS_ROUTE);
 
-    expect(platformV7RoleRoute('bank')).toBe(PLATFORM_V7_BANK_CLEAN_ROUTE);
-    expect(nav('bank')).toContain(PLATFORM_V7_BANK_CLEAN_ROUTE);
+    expect(platformV7RoleRoute('bank')).toBe(PLATFORM_V7_BANK_ROUTE);
+    expect(nav('bank')).toContain(PLATFORM_V7_BANK_ROUTE);
     expect(nav('bank')).toContain(PLATFORM_V7_BANK_EVENTS_ROUTE);
     expect(nav('bank')).toContain(PLATFORM_V7_TRUST_ROUTE);
     expect(nav('bank')).toContain(PLATFORM_V7_REPORTS_ROUTE);
