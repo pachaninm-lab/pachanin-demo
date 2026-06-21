@@ -19,6 +19,13 @@ describe('platform-v7 active role lock', () => {
     expect(lockFix).toContain('document.cookie = `pc-role=${locked}; Path=/; SameSite=Lax`;');
   });
 
+  it('enforces the lock without polling — no setInterval, only events + state', () => {
+    expect(lockFix).not.toContain('setInterval');
+    expect(lockFix).toContain("window.addEventListener('popstate', restoreLockedRole)");
+    expect(lockFix).toContain("window.addEventListener('hashchange', restoreLockedRole)");
+    expect(lockFix).toContain("window.addEventListener('focus', restoreLockedRole)");
+  });
+
   it('does not infer active role from the current URL inside AppShellV4', () => {
     expect(appShell).not.toContain('inferRoleFromPath');
     expect(appShell).not.toContain('setRole(inferred)');
