@@ -1,4 +1,0 @@
-/preview-ui/roles
-/preview-ui/roles/farmer
-/preview-ui/finance-screen
-/preview-ui/ops1

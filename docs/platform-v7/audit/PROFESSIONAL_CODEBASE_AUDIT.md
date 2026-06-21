@@ -37,13 +37,21 @@ done in this docs PR.
 
 ## 2. Verified findings
 
-### 2.1 Repo-root + web scratch / marker files (junk) — confirmed
-Leftover redeploy-trigger / scratch files tracked in the repo:
-`ok.txt`, `zzz.txt`, `tmp_test.txt`, `tmp-test.txt`, `notes_ui_test.txt`,
-`tmp-control-fix-marker.txt`, `redeploy.txt`, `trigger-20260411-1925.txt`,
-`TRIGGER_PRODUCTION_REDEPLOY.txt`, `ui_preview_routes.txt`, and
-`apps/web/tmp_route_switch_test.txt`.
-→ Pure noise; a strong reviewer reads these as an unprofessional working tree.
+### 2.1 Repo-root + web scratch / marker files (junk) — ✅ C1 DONE
+Removed 11 confirmed-unused scratch/marker files (each verified unreferenced by
+scripts/tests/build/config before deletion): `ok.txt`, `zzz.txt`, `tmp_test.txt`,
+`tmp-test.txt`, `notes_ui_test.txt`, `tmp-control-fix-marker.txt`, `redeploy.txt`,
+`trigger-20260411-1925.txt`, `TRIGGER_PRODUCTION_REDEPLOY.txt`,
+`ui_preview_routes.txt`, and `apps/web/tmp_route_switch_test.txt`.
+
+**Left in place (out of C1 scope — noted, not deleted here):**
+- `apps/web/public/deploy-trigger*.txt` + `apps/web/public/p1-batch-note.txt` —
+  under `public/` (served static assets); deletion belongs to a separate,
+  scoped step.
+- `apps/web/app/api/commercial/expansion.txt` — under the autopilot **forbidden**
+  zone `apps/web/app/api`; not touched.
+- `.github/test.txt`, `docs/ops/deploy-trigger-2026-04-18.txt` — outside the C1
+  allowed scope (root + the one apps/web scratch file).
 
 ### 2.2 Two conflicting Next configs — confirmed
 `apps/web/next.config.js` **and** `apps/web/next.config.mjs` both exist. Only one
