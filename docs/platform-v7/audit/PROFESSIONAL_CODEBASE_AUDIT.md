@@ -53,12 +53,18 @@ scripts/tests/build/config before deletion): `ok.txt`, `zzz.txt`, `tmp_test.txt`
 - `.github/test.txt`, `docs/ops/deploy-trigger-2026-04-18.txt` — outside the C1
   allowed scope (root + the one apps/web scratch file).
 
-### 2.2 Two conflicting Next configs — confirmed
-`apps/web/next.config.js` **and** `apps/web/next.config.mjs` both exist. Only one
-is used by the build; the other is dead and misleading. `next.config.mjs` sets
-`ignoreBuildErrors` / `ignoreDuringBuilds`, which — if it is the active one —
-hides type/lint failures. **Risk: medium** (a maintainer can edit the dead one
-and see no effect; or build errors are silently ignored).
+### 2.2 Two conflicting Next configs — ✅ C3 DONE
+`apps/web/next.config.js` **and** `apps/web/next.config.mjs` both existed.
+Next 14 resolves config in the fixed order `next.config.js` → `.mjs` → `.ts` and
+loads the first found, so **`.js` was active and `.mjs` was dead-ignored** (the
+build was green with both present, confirming `.js` was picked). The dead `.mjs`
+additionally carried `ignoreBuildErrors` / `ignoreDuringBuilds` (which were never
+active) and a `/`→control-tower redirect that is moot because `apps/web/app/page.tsx`
+exists and `middleware.ts` owns routing. Removed the dead `next.config.mjs`,
+keeping the active `next.config.js` (build gates remain ON — no
+`ignoreBuildErrors`). Behavior-neutral. Resolves the existing DD findings
+TECH-001 / TECH-002 (`01-TECHNICAL_DD.md`) and SEC-008 (`02-CYBERSECURITY_DD.md`,
+`SECURITY_READINESS.md`, `AUDIT_REPORT.md`).
 
 ### 2.3 Unrouted legacy `v9` UI tree — confirmed
 `apps/web/components/v9/**` (Sidebar, RoleSwitcher, PhaseTimeline,

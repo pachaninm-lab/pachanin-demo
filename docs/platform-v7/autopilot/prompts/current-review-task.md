@@ -27,6 +27,7 @@ Review the diff, not the agent report.
 - apps/api/src/common/money/**
 - apps/api/src/common/guards/**
 - apps/web/lib/observability.ts
+- apps/web/next.config.mjs
 - TRIGGER_PRODUCTION_REDEPLOY.txt
 - notes_ui_test.txt
 - ok.txt
@@ -66,6 +67,7 @@ CURRENT ALLOWED:
 - apps/api/src/common/money/**
 - apps/api/src/common/guards/**
 - apps/web/lib/observability.ts
+- apps/web/next.config.mjs
 - TRIGGER_PRODUCTION_REDEPLOY.txt
 - notes_ui_test.txt
 - ok.txt
