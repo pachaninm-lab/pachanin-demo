@@ -42,18 +42,23 @@ export function PlatformV7RoleLockFix() {
     restoreLockedRole();
   }, [pathname, restoreLockedRole]);
 
+  // Lock enforcement is event- and state-driven — no polling. `restoreLockedRole`
+  // closes over `role`, so any store mutation recreates the callback and re-runs
+  // this effect, reverting an out-of-lock role immediately (the same reactive
+  // path PlatformV7SingleEntryGuard relies on). The rAF + setTimeout(0) cover the
+  // post-hydration race before the store is populated, and popstate/hashchange/
+  // focus cover history and tab-visibility changes. This replaces a 50ms polling
+  // timer, which only re-ran the identical no-op restore on a busy schedule.
   React.useEffect(() => {
     restoreLockedRole();
     const frame = window.requestAnimationFrame(restoreLockedRole);
     const shortTimer = window.setTimeout(restoreLockedRole, 0);
-    const timer = window.setInterval(restoreLockedRole, 50);
     window.addEventListener('popstate', restoreLockedRole);
     window.addEventListener('hashchange', restoreLockedRole);
     window.addEventListener('focus', restoreLockedRole);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(shortTimer);
-      window.clearInterval(timer);
       window.removeEventListener('popstate', restoreLockedRole);
       window.removeEventListener('hashchange', restoreLockedRole);
       window.removeEventListener('focus', restoreLockedRole);

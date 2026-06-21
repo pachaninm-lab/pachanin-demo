@@ -14,6 +14,8 @@ CURRENT ALLOWED:
 - apps/api/src/common/guards/**
 - apps/web/lib/observability.ts
 - apps/web/next.config.mjs
+- apps/web/components/platform-v7/PlatformV7RoleLockFix.tsx
+- apps/web/tests/unit/platformV7RoleLockFix.test.ts
 - TRIGGER_PRODUCTION_REDEPLOY.txt
 - notes_ui_test.txt
 - ok.txt
@@ -64,6 +66,8 @@ DONE:
 - API repository boundary: per-domain adapters (Deal, Payment reads, Document, Shipment, Lab, Dispute); runtime default, Prisma disabled behind flags (#1918–#1923); Evidence N/A by design (#1924)
 - RuntimeCore decomposition: 5 stateless engines — StateMachine (#1926), CompletenessChecker (#1927), BlockerResolver (#1928), TimelineBuilder (#1929), MoneyEngine decision ladder (#1930); behavior-preserving, money-flow spec unchanged
 - Money minor-units: audit (#1931) + kopecks helper & invariants (PR-A, #1932) — behavior-neutral, MoneyEngine/SettlementEngine untouched
+- Maturity audits (docs-only): Professional Codebase (#1944), Role Cockpit (#1949), End-to-End Sandbox Deal Flow (#1950)
+- Phase 2 / PR-1 Role Shell Consistency (role-lock de-polling): removed the 50ms setInterval from PlatformV7RoleLockFix — enforcement stays event-/state-driven (pathname + role reactivity, popstate/hashchange/focus, rAF/timeout hydration race), behavior-preserving for the lock; anti-regression test added. Narrow owner-approved carve-out of two named files from the components/platform-v7 forbidden zone (broad zone stays forbidden); no cabinet rewrite, no business-logic change
 
 GATED (owner approval required before code starts):
 - minor-units PR-B — internal MoneyEngine/SettlementEngine arithmetic in kopecks. STOP: changes live money arithmetic. Admission gate in docs/platform-v7/audit/MONEY_MINOR_UNITS_AUDIT.md §8 (all tests green; no external *Rub contract change; rollback path; characterization tests added first; no schema migration; no DB-backed activation; no live integrations)
