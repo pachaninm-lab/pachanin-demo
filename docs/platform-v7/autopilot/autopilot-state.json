@@ -89,6 +89,8 @@
     "apps/web/next.config.mjs",
     "apps/web/components/platform-v7/PlatformV7RoleLockFix.tsx",
     "apps/web/tests/unit/platformV7RoleLockFix.test.ts",
+    "apps/web/lib/platform-v7/cabinet-access-policy.ts",
+    "apps/web/tests/unit/platformV7SupportInvestorRoutePolicy.test.ts",
     "TRIGGER_PRODUCTION_REDEPLOY.txt",
     "notes_ui_test.txt",
     "ok.txt",
@@ -116,6 +118,15 @@
         "apps/web/tests/unit/platformV7RoleLockFix.test.ts"
       ],
       "note": "Narrow, owner-approved carve-out from the apps/web/components/platform-v7 forbidden zone for exactly these two files. The broad zone stays forbidden (default-deny). Operator-only — deliberately NOT added to agentWritableScope. No cabinet rewrite, no business-logic change."
+    },
+    {
+      "layer": "Phase 2 / PR-2 support/investor routing decision",
+      "approvedBy": "owner",
+      "files": [
+        "apps/web/lib/platform-v7/cabinet-access-policy.ts",
+        "apps/web/tests/unit/platformV7SupportInvestorRoutePolicy.test.ts"
+      ],
+      "note": "Narrow, owner-approved carve-out from the apps/web/lib/platform-v7 forbidden zone for exactly these two files (route/access policy only). The broad zone stays forbidden (default-deny). Operator-only — deliberately NOT added to agentWritableScope. Routing/access policy only: support classified internal (oversight-only), investor classified non-core (oversight-only); behavior-preserving (participants were already denied), now explicit + tested. No cabinet rewrite, no business-logic change, no server-side RBAC."
     }
   ],
   "agentWritableScope": [

@@ -82,9 +82,10 @@ found.
 **Role-switch dangers:** (a) middleware infers role from URL (so SSR "becomes"
 the target role — §2); (b) oversight roles can deep-link into every cabinet;
 (c) `RoleHeaderSwitcher.tsx` exists but is **unmounted** (dead) — not an active
-switch path; (d) `support` and `investor` cabinets exist but are in **no
-participant role's `allowedPrefixes`** and are not shared paths, so normal roles
-are bounced — reachable only by oversight (likely unintended dead corners).
+switch path; (d) `support` and `investor` — **resolved in PR-2** (see §5 #5):
+both are now classified explicitly as oversight-only (support = internal contour,
+investor = non-core aggregate) and participants are denied by policy, not by
+incidental `allowedPrefixes` fallthrough.
 
 ## 4. Per-role cockpit table (12 roles)
 
@@ -114,15 +115,36 @@ not a missing shell.
 
 1. **Client-only role isolation** (§2) — the highest-priority gap; a "locked
    cabinet" is not enforced server-side.
-2. `PlatformV7RoleLockFix.tsx:49` runs a **50ms `setInterval`** forcing the store
-   role — perf/jank + a smell that the lock fights itself.
+2. ~~`PlatformV7RoleLockFix.tsx:49` runs a **50ms `setInterval`**~~ — **resolved in
+   PR-1 (#1951)**: the polling timer was removed; the lock is now event-/state-driven
+   (navigation + role reactivity + popstate/hashchange/focus), behavior-preserving.
 3. **Embedded legacy**: `arbitrator/page.tsx:3` imports
    `@/app/platform-v7r/arbitrator/page` — the canonical v7 cockpit depends on the
    legacy `v7r` tree that middleware otherwise redirects away.
 4. **Large duplicate surface** (deals/lots/batches/rfq + ~25 grain pages) —
    orphan/confusion risk, inconsistent cockpits.
-5. **`support`/`investor`** are shaped like cabinets (global support header icon)
-   but are unreachable by participant roles — broken mental model.
+5. **`support`/`investor`** — **resolved in PR-2** as a routing/access decision
+   (routing only, no cabinet rewrite):
+   - **`support`** is an **internal support contour**, not a participant cabinet.
+     Only oversight roles (operator/executive) open `/platform-v7/support*`;
+     participants file/track cases via action-level `support.create_case`
+     (`action-permission-boundary.ts`), not by entering the cabinet. `support` is
+     **not** a `PlatformRole`.
+   - **`investor`** is a **non-core, read-only aggregate route** — explicitly **not**
+     a platform-v7 execution role and **not** a `PlatformRole`. The route stays
+     registered for oversight aggregate view but is classified non-core and closed
+     to participants. It is never added as a full deal role.
+   - Enforcement: `cabinet-access-policy.ts` now denies both to non-oversight roles
+     **explicitly** (`isPlatformV7InternalRoute` / `isPlatformV7NonCoreRoute`) rather
+     than relying on incidental `allowedPrefixes` fallthrough; covered by
+     `platformV7SupportInvestorRoutePolicy.test.ts`.
+   - No participant-visible route-switch: confirmed no live nav/header links a
+     participant into support/investor (`RoleHeaderSwitcher`, `AppShellV2/V3`,
+     `MobileHeaderUtilities` are all **unmounted/dead**; the investor CTA in
+     `RoleExecutionSummary` renders only inside the investor's own oversight view).
+   - **Still gated** (not this PR): server-side enforcement of cabinet boundaries
+     (the §1/§2 client-only gap), and removing the dead `support`/`investor` link
+     sites is a later web cleanup.
 6. **Dual bank entry**: both `/bank` (385 lines) and `/bank/clean` (the role
    home) exist.
 7. Most cockpits lack `loading.tsx`/`error.tsx`; Surveyor/Compliance use static
