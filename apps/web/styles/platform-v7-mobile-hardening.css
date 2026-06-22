@@ -1,0 +1,117 @@
+/* Platform-v7 mobile hardening: route-backed app shell and public entry safety. */
+
+.pc-v7-public-entry,
+.pc-v7-public-entry * {
+  max-width: 100%;
+}
+
+.pc-v7-public-entry .entry-process-row {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)) !important;
+  overflow: visible !important;
+  min-width: 0 !important;
+}
+
+.pc-v7-public-entry .entry-process-tile {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.pc-v7-public-entry .entry-section,
+.pc-v7-public-entry .entry-role-grid,
+.pc-v7-public-entry .entry-control-grid {
+  min-width: 0 !important;
+  overflow-x: clip !important;
+}
+
+html body .pc-shell-root-v4 .pc-v4-main {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 160px) !important;
+}
+
+html body .pc-shell-root-v4 .pc-v7-role-dock {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 14px) !important;
+}
+
+html body .pc-shell-root-v4 .pc-v7-role-dock-inner {
+  max-width: min(720px, calc(100vw - 16px)) !important;
+}
+
+@media (max-width: 980px) {
+  .pc-v7-public-entry .entry-process-row {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    padding: 0 !important;
+    scroll-snap-type: none !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile {
+    width: 100% !important;
+    min-height: auto !important;
+    grid-template-columns: auto auto minmax(0, 1fr) !important;
+    justify-items: start !important;
+    align-items: center !important;
+    text-align: left !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile::after {
+    display: none !important;
+  }
+
+  .pc-v7-public-entry .entry-process-index {
+    grid-column: 1 !important;
+  }
+
+  .pc-v7-public-entry .entry-process-icon {
+    grid-column: 2 !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile strong,
+  .pc-v7-public-entry .entry-process-tile small {
+    grid-column: 3 !important;
+    overflow-wrap: anywhere !important;
+  }
+}
+
+@media (max-width: 767px) {
+  html body .pc-shell-root-v4 .pc-v4-main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 176px) !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-actions {
+    gap: 5px !important;
+    max-width: calc(100vw - 132px) !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-actions .p7-role-support {
+    display: none !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-role-dock-item {
+    min-height: 58px !important;
+  }
+
+  .pc-v7-public-entry .entry-section h2,
+  .pc-v7-public-entry .entry-hero h1,
+  .pc-v7-login-single .login-head h1 {
+    overflow-wrap: anywhere !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .pc-v7-public-entry .entry-role-grid,
+  .pc-v7-public-entry .entry-control-grid,
+  .pc-v7-login-single .login-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .pc-v7-login-single {
+    padding-top: max(22px, env(safe-area-inset-top)) !important;
+    padding-bottom: 84px !important;
+  }
+
+  .pc-v7-login-single .login-card {
+    min-height: auto !important;
+  }
+}
