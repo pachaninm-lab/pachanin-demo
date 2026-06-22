@@ -142,6 +142,9 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         <Link href='/platform-v7/deals' style={linkStyle()}>Все сделки</Link>
         <Link href='/platform-v7/bank/release-safety' style={linkStyle()}>Проверка денег</Link>
         <Link href={`/platform-v7/deals/${deal.id}/documents`} style={linkStyle()}>Документы сделки</Link>
+        {deal.status === 'closed' || !hasBlockers ? (
+          <Link href={`/platform-v7/deals/${deal.id}/close`} style={linkStyle('accent')}>Закрытие сделки</Link>
+        ) : null}
         <Link href='/platform-v7/disputes' style={linkStyle('danger')}>Споры</Link>
       </section>
     </main>
@@ -214,6 +217,9 @@ function stateColor(state: Deal360State, part: 'bg' | 'border' | 'text') {
   return part === 'bg' ? '#F8FAFB' : part === 'border' ? border : muted;
 }
 
-function linkStyle(tone: 'default' | 'danger' = 'default'): React.CSSProperties {
+function linkStyle(tone: 'default' | 'danger' | 'accent' = 'default'): React.CSSProperties {
+  if (tone === 'accent') {
+    return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: '#fff', background: green, border: `1px solid ${green}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, boxShadow: '0 12px 26px rgba(10,122,95,0.18)' };
+  }
   return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
 }

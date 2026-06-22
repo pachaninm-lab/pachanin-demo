@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { DEAL360_SCENARIOS } from '@/lib/platform-v7/deal360-source-of-truth';
+import { selectRuntimeDeals } from '@/lib/domain/selectors';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+
+const closedDeals = selectRuntimeDeals().filter((deal) => deal.status === 'closed');
 
 const dealSnapshots = Object.values(DEAL360_SCENARIOS).map((s) => ({
   id: s.dealId,
@@ -97,6 +100,26 @@ export default function PlatformV7DealsPage() {
           ))}
         </div>
       </section>
+
+      {closedDeals.length > 0 && (
+        <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+            <div style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Закрытые сделки · архив исполнения</div>
+            <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12 }}>{closedDeals.length} закрыто</span>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {closedDeals.map((deal) => (
+              <Link key={deal.id} href={`/platform-v7/deals/${deal.id}/close`} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: '12px 14px', background: '#fff' }}>
+                <div style={{ minWidth: 0 }}>
+                  <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{deal.id}</span>
+                  <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 900, marginTop: 2 }}>{deal.grain} · {deal.quantity} {deal.unit}</div>
+                </div>
+                <span style={{ flexShrink: 0, padding: '5px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 }}>расчёт завершён →</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
