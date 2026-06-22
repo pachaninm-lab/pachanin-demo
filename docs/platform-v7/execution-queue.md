@@ -38,6 +38,8 @@ CURRENT ALLOWED:
 - apps/web/app/platform-v7/arbitrator/loading.tsx
 - apps/web/app/platform-v7/support/loading.tsx
 - apps/web/tests/unit/platformV7RoleCockpitLoading.test.ts
+- apps/web/app/platform-v7/surveyor/page.tsx
+- apps/web/tests/unit/platformV7SurveyorEmptyState.test.ts
 - TRIGGER_PRODUCTION_REDEPLOY.txt
 - notes_ui_test.txt
 - ok.txt
@@ -97,6 +99,8 @@ DONE:
 - Phase 2 / PR-4 arbitrator legacy import cleanup: the active /platform-v7/arbitrator page no longer imports a page default-export from the legacy app/platform-v7r route tree. The dispute-room cockpit was relocated byte-identically (verified diff: identical body) into a canonical component components/platform-v7/ArbitratorDisputeRoom.tsx; the page imports/renders that instead. Legacy v7r route left untouched (read-only dead duplicate). New platformV7ArbitratorCanonicalImport.test.ts asserts the import boundary + no fake-live copy; arbitratorDecisionPolish mock retargeted. Narrow owner-approved carve-out (import/wrapper boundary only); broad cockpit/lib/app zones stay forbidden; operator-only. No cockpit rewrite, no dispute/arbitration business-logic change, no server-side RBAC, no live integration. ROLE_COCKPIT_AUDIT.md §5 #3 updated
 
 - Phase 2 / PR-5 role cabinet loading-state consistency: the five role segments without a dedicated layout.tsx (lab, surveyor, compliance, arbitrator, support) now each have an additive route-level loading.tsx rendering a shared neutral cockpit skeleton (components/platform-v7/RoleCockpitLoading.tsx, built on the canonical Skeleton primitive). Error stays uniform via the existing root app/platform-v7/error.tsx (no redundant per-role error.tsx). Covered by platformV7RoleCockpitLoading.test.ts. No cabinet content/redesign/business-logic change; empty-state for static-array cabinets (Surveyor/Compliance) left as a later content-level follow-up. ROLE_COCKPIT_AUDIT.md §5 #7 updated
+
+- Phase 2 / PR-6 surveyor empty-state: the Surveyor cabinet's static assignment list now renders the canonical EmptyState when there are no assignments (content-local additive ternary; non-empty render preserved). Covered by platformV7SurveyorEmptyState.test.ts. Compliance has no page-local list (shared always-populated cockpit components) — intentionally untouched; shared-cockpit empty path is a broader cross-role item, deferred. No redesign, no business-logic change. ROLE_COCKPIT_AUDIT.md §5 #7 updated
 
 GATED (owner approval required before code starts):
 - minor-units PR-B — internal MoneyEngine/SettlementEngine arithmetic in kopecks. STOP: changes live money arithmetic. Admission gate in docs/platform-v7/audit/MONEY_MINOR_UNITS_AUDIT.md §8 (all tests green; no external *Rub contract change; rollback path; characterization tests added first; no schema migration; no DB-backed activation; no live integrations)

@@ -2,6 +2,7 @@ import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSumm
 import { BatonStrip } from '@/components/platform-v7/BatonStrip';
 import { CockpitHero } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { EmptyState } from '@/components/platform-v7/EmptyState';
 
 const surveyorSteps = [
   { label: 'Осмотр', value: 'фото и состояние', note: 'что видно на площадке без пересказа сторон' },
@@ -32,7 +33,12 @@ export default function Page() {
       <CollapsibleSection title='Назначения на осмотр' summary='акты · площадка · время' defaultOpen={false}>
         <section style={{ background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
           <div style={micro}>Назначения</div>
-          {ASSIGNMENTS.map((a) => (
+          {ASSIGNMENTS.length === 0 ? (
+            <EmptyState
+              title='Назначений на осмотр нет'
+              description='Когда логистика передаст рейс и груз на площадку, назначения на независимый осмотр появятся здесь.'
+            />
+          ) : ASSIGNMENTS.map((a) => (
             <a key={a.id} href={`/platform-v7/surveyor/acts/${a.id}`} style={assignmentCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div>
