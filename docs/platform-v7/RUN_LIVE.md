@@ -84,8 +84,10 @@ curl -X PATCH localhost:4000/api/deals/DEAL-004/transition -H "Authorization: Be
    - ✅ **Реестр сделок на живых данных.** `/platform-v7/deals` тянет `getDealsCanonical()` и
      показывает реальные строки из БД («Живые данные · API») с переходом в карточку; при
      недоступном бэкенде — фоллбэк на сценарную витрину.
-   - ⏳ **Карточка сделки.** `/deals/[id]/clean` и close ещё на фикстурах
-     (`deal360-source-of-truth.ts`) — перевести на `/api/deals/:id/workspace` с маппингом форм.
+   - ✅ **Карточка сделки на живом workspace.** `/deals/[id]/clean` сначала тянет
+     `/api/deals/:id/workspace` и рендерит реальные данные (статус, деньги, документы, рейсы,
+     блокеры, журнал); для фикстурных `DL-*` id и при недоступном бэкенде — фоллбэк на сценарий.
+     Это чинит и переход из живого реестра (DB-сделки `DEAL-*` теперь открываются, а не «не найдена»).
 3. ✅ **DB-backed `workspace`/`passport`.** `PrismaDealRepository.workspace/passport` собирают
    реальный агрегат из `Deal`+`DealDocument`+`Shipment`+`LabSample`+`Payment`+`AuditEvent` с
    производными money/completeness/blockers. Проверено: `/api/deals/:id/workspace` → `source: db`.
