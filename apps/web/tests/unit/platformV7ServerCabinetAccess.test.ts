@@ -95,18 +95,27 @@ describe('observeServerCabinetAccess — request-layer convenience is non-throwi
   it('off by default → unknown, no emit', () => {
     delete process.env[PLATFORM_V7_SERVER_CABINET_RBAC_FLAG];
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const r = observeServerCabinetAccess({ pathname: '/platform-v7/bank', sessionRole: 'seller' });
+    const r = observeServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole: 'seller' });
     expect(r.mode).toBe('off');
     expect(r.enforced).toBe(false);
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('report + foreign cabinet with a verified session role → observes would-deny', () => {
+  it('report + foreign cabinet with a verified role → observes would-deny', () => {
     process.env[PLATFORM_V7_SERVER_CABINET_RBAC_FLAG] = 'report';
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const r = observeServerCabinetAccess({ pathname: '/platform-v7/bank', sessionRole: 'seller' });
+    const r = observeServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole: 'seller' });
     expect(r.status).toBe('would-deny');
     expect(r.enforced).toBe(false);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('report + unverified (null) role → unknown, never blocks, no emit', () => {
+    process.env[PLATFORM_V7_SERVER_CABINET_RBAC_FLAG] = 'report';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = observeServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole: null });
+    expect(r.status).toBe('unknown');
+    expect(r.enforced).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { observeServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
+import { observeServerCabinetAccess, serverCabinetRbacMode } from '@/lib/platform-v7/server-cabinet-access';
+import { readVerifiedCabinetRole } from '@/lib/platform-v7/verified-session';
+
+// Access-token cookie (apps/web/lib/auth-cookies ACCESS_COOKIE). The verified-JWT
+// role is the ONLY server-trusted identity for cabinet RBAC observation.
+const ACCESS_TOKEN_COOKIE = 'pc_access_token';
 
 const PUBLIC_EXACT = new Set(['/', '/login', '/register']);
 const PUBLIC_PREFIX = [
@@ -243,7 +248,7 @@ function redirectToPlatformV7Entry(req: NextRequest) {
   return applySecurityHeaders(NextResponse.redirect(u), true);
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
   const canonRedirect = CANON_REDIRECTS[p];
@@ -283,11 +288,20 @@ export function middleware(req: NextRequest) {
     const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
     persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
-    // Phase 4B — report-only cabinet RBAC observation (flag-gated, off by default).
-    // Uses ONLY the trusted session-cookie role (never path/pc-role/query). Never
-    // blocks, redirects, or alters this response — it only observes would-be-denies.
+    // Phase 4C-pre — report-only cabinet RBAC observation (flag-gated, off by default).
+    // The role comes ONLY from a cryptographically verified JWT (never path / pc-role /
+    // query / client guard / the unverified pc_session_present cookie). An unverified or
+    // demo token resolves to null → unknown → never blocked. Never blocks/redirects/
+    // alters this response.
     try {
-      observeServerCabinetAccess({ pathname: p, sessionRole: session?.role ?? null });
+      if (serverCabinetRbacMode() === 'report') {
+        const verifiedRole = await readVerifiedCabinetRole(
+          req.cookies.get(ACCESS_TOKEN_COOKIE)?.value ?? null,
+          process.env.JWT_SECRET ?? '',
+          Math.floor(Date.now() / 1000),
+        );
+        observeServerCabinetAccess({ pathname: p, verifiedRole });
+      }
     } catch {
       // A report must never affect the request.
     }

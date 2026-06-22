@@ -116,6 +116,8 @@
     "apps/web/lib/platform-v7/server-cabinet-access.ts",
     "apps/web/middleware.ts",
     "apps/web/tests/unit/platformV7ServerCabinetAccess.test.ts",
+    "apps/web/lib/platform-v7/verified-session.ts",
+    "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
     "TRIGGER_PRODUCTION_REDEPLOY.txt",
     "notes_ui_test.txt",
     "ok.txt",
@@ -212,6 +214,18 @@
         "apps/web/tests/unit/platformV7ServerCabinetAccess.test.ts"
       ],
       "note": "Narrow, owner-approved carve-out (report-only scaffold). Adds a pure resolveServerCabinetAccess + observeServerCabinetAccess helper and wires it into the web route layer (middleware platform-v7 block) NON-BLOCKING behind PLATFORM_V7_SERVER_CABINET_RBAC=report (off by default → zero effect). Reads ONLY the trusted session-cookie role (never path/pc-role/query/client guard); unverified session = unknown, never blocked; emits a diagnostic only on would-be-deny. enforced is always false — there is no block-mode, no redirect, no UX change, no route deletion, no auth rewrite, no layout.tsx change, no apps/landing change. Block-mode (4C, one cabinet, bank) requires a separate explicit approval. Operator-only — NOT in agentWritableScope."
+    },
+    {
+      "layer": "Phase 4C-pre verified session identity (still report-only)",
+      "approvedBy": "owner",
+      "files": [
+        "apps/web/lib/platform-v7/verified-session.ts",
+        "apps/web/lib/platform-v7/server-cabinet-access.ts",
+        "apps/web/middleware.ts",
+        "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
+        "apps/web/tests/unit/platformV7ServerCabinetAccess.test.ts"
+      ],
+      "note": "Narrow, owner-approved carve-out (verified-identity hardening, still report-only). Adds an edge-safe Web-Crypto HS256 verifier (verifyHs256Jwt / readVerifiedCabinetRole) + API→cabinet role map; the report-only middleware observation now derives the role ONLY from a cryptographically verified JWT in pc_access_token — the unverified pc_session_present cookie role is no longer trusted, and demo/fake/bad-signature/wrong-secret/expired/unmapped tokens resolve to null = unknown = never blocked. Reads nothing from path/query/pc-role/client guards. Middleware became async but verifies ONLY under PLATFORM_V7_SERVER_CABINET_RBAC=report (off by default → zero effect). No block-mode, no redirect, no UX change, no route deletion, no auth rewrite, no layout.tsx change, no apps/landing change. Block-mode (4C, bank only) requires separate explicit approval after report metrics from a verified-session deployment. Operator-only — NOT in agentWritableScope."
     }
   ],
   "agentWritableScope": [

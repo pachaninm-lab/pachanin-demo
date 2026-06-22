@@ -112,15 +112,17 @@ export function reportServerCabinetAccess(result: ServerCabinetAccessResult): vo
 
 /**
  * Convenience for the web route layer: resolve + report in one call, fully guarded.
- * Returns the result (callers ignore it today) and never throws.
+ * `verifiedRole` MUST already come from a verified JWT (see verified-session.ts) —
+ * never from URL/query/pc-role/client guards. Returns the result (callers ignore it
+ * today) and never throws.
  */
 export function observeServerCabinetAccess(input: {
   readonly pathname: string;
-  readonly sessionRole: string | null | undefined;
+  readonly verifiedRole: PlatformRole | null;
 }): ServerCabinetAccessResult {
   const result = resolveServerCabinetAccess({
     pathname: input.pathname,
-    verifiedRole: asVerifiedRole(input.sessionRole),
+    verifiedRole: input.verifiedRole,
   });
   reportServerCabinetAccess(result);
   return result;

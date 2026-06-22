@@ -43,6 +43,8 @@ CURRENT ALLOWED:
 - apps/web/lib/platform-v7/server-cabinet-access.ts
 - apps/web/middleware.ts
 - apps/web/tests/unit/platformV7ServerCabinetAccess.test.ts
+- apps/web/lib/platform-v7/verified-session.ts
+- apps/web/tests/unit/platformV7VerifiedSession.test.ts
 - TRIGGER_PRODUCTION_REDEPLOY.txt
 - notes_ui_test.txt
 - ok.txt
@@ -112,6 +114,8 @@ DONE:
 - Phase 4A server-side cabinet enforcement DESIGN (docs-only): designs binding web cabinet access to the verified JWT identity the API already trusts (auth.service JWT, RolesGuard, ActionExecutorService.assertObjectScope cross-org denial + audit). Current gap = platform-v7 web route layer derives role from URL/pc-role cookie, not a verified session. Flag-gated, report-only-first rollout (PLATFORM_V7_SERVER_CABINET_RBAC): 4A design → 4B report-only scaffold → 4C one-cabinet block-mode (bank) → 4D all-role, each gated. Recorded in docs/platform-v7/audit/PHASE_4_SERVER_SIDE_ROLE_ENFORCEMENT_DESIGN.md. No product code, no backend impl, no route rewrite — implementation deferred to gated 4B-4D
 
 - Phase 4B server-side cabinet enforcement — report-only scaffold (shipped, off by default): apps/web/lib/platform-v7/server-cabinet-access.ts (pure resolveServerCabinetAccess: mode off|report, status allowed|would-deny|unknown, enforced always false) + observeServerCabinetAccess wired NON-BLOCKING into middleware platform-v7 block behind PLATFORM_V7_SERVER_CABINET_RBAC=report. Reads only the trusted session-cookie role (never path/pc-role/query/client guard); unverified session = unknown, never blocked; emits a diagnostic only on would-be-deny. No block-mode, no redirect, no UX change, no route deletion, no auth rewrite, no layout.tsx, no apps/landing. Covered by platformV7ServerCabinetAccess.test.ts (12). Block-mode (4C, one cabinet = bank) requires separate explicit approval after report metrics review
+
+- Phase 4C-pre verified session identity (still report-only): apps/web/lib/platform-v7/verified-session.ts — edge-safe Web-Crypto HS256 verifier (verifyHs256Jwt / readVerifiedCabinetRole) + API→cabinet role map. The report-only middleware observation now derives the role ONLY from a cryptographically verified JWT in pc_access_token; the unverified pc_session_present cookie role is no longer trusted; demo/fake/bad-sig/wrong-secret/expired/unmapped → null = unknown = never blocked; nothing read from path/query/pc-role/client guards. Middleware became async but verifies ONLY under =report (off by default → zero effect). Covered by platformV7VerifiedSession.test.ts (15) + updated platformV7ServerCabinetAccess.test.ts. No block-mode, no redirect, no UX change, no auth rewrite, no layout.tsx, no apps/landing. Block-mode (4C, bank only) requires separate explicit approval after report metrics from a verified-session deployment
 
 GATED (owner approval required before code starts):
 - minor-units PR-B — internal MoneyEngine/SettlementEngine arithmetic in kopecks. STOP: changes live money arithmetic. Admission gate in docs/platform-v7/audit/MONEY_MINOR_UNITS_AUDIT.md §8 (all tests green; no external *Rub contract change; rollback path; characterization tests added first; no schema migration; no DB-backed activation; no live integrations)
