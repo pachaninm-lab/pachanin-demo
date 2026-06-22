@@ -154,9 +154,23 @@ Strictly incremental, reversible, flag-gated — never a big-bang switch:
   is `unknown` and never blocked; it emits a structured diagnostic **only** on a
   would-be-deny. No redirect, no block, no UX change; off by default → zero effect.
   Note: there is **no block-mode code** in this scaffold. Hardening the session signal
-  to a cryptographically verified JWT is a prerequisite for 4C.
+  to a cryptographically verified JWT is a prerequisite for 4C — done in 4C-pre.
+- **Phase 4C-pre — Verified session identity. ✅ SHIPPED (still report-only).**
+  `apps/web/lib/platform-v7/verified-session.ts` adds an edge-safe Web-Crypto HS256
+  verifier (`verifyHs256Jwt` / `readVerifiedCabinetRole`) + an API→cabinet role map.
+  The middleware report-only observation now derives the role **only** from a
+  cryptographically verified JWT in the `pc_access_token` cookie — the **unverified
+  `pc_session_present` cookie role is no longer trusted**, and demo/fake tokens
+  (`demo.<base64>`), bad signatures, wrong-secret, expired, or unmapped roles all
+  resolve to `null` → `unknown` → never blocked. Reads nothing from path / query /
+  `pc-role` / client guards. Middleware became `async` but the verify runs **only**
+  under `=report` (off by default → zero effect). Still report-only; no block, no
+  redirect. Honest consequence: in the current demo deployment (fake tokens), the
+  observation is `unknown` until a real verified JWT session is issued — which is the
+  precondition this phase enforces before any block-mode.
 - **Phase 4C — One-role/one-cabinet enforcement.** Block-mode for a single cabinet
-  (bank) behind the flag; full §6 test suite; owner-approved.
+  (bank) behind the flag; full §6 test suite; owner-approved — only after report
+  metrics from a verified-session deployment are reviewed.
 - **Phase 4D — All-role rollout.** Expand block-mode role-by-role after approval, flag
   as rollback; only then update the honesty status to "server-side cabinet enforcement
   enforced for «…»".
