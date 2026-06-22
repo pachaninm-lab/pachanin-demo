@@ -104,6 +104,13 @@
     "apps/web/components/platform-v7/ArbitratorDisputeRoom.tsx",
     "apps/web/tests/unit/platformV7ArbitratorCanonicalImport.test.ts",
     "apps/web/tests/unit/arbitratorDecisionPolish.test.tsx",
+    "apps/web/components/platform-v7/RoleCockpitLoading.tsx",
+    "apps/web/app/platform-v7/lab/loading.tsx",
+    "apps/web/app/platform-v7/surveyor/loading.tsx",
+    "apps/web/app/platform-v7/compliance/loading.tsx",
+    "apps/web/app/platform-v7/arbitrator/loading.tsx",
+    "apps/web/app/platform-v7/support/loading.tsx",
+    "apps/web/tests/unit/platformV7RoleCockpitLoading.test.ts",
     "TRIGGER_PRODUCTION_REDEPLOY.txt",
     "notes_ui_test.txt",
     "ok.txt",
@@ -167,6 +174,20 @@
         "apps/web/tests/unit/arbitratorDecisionPolish.test.tsx"
       ],
       "note": "Narrow, owner-approved carve-out (import/wrapper boundary only) for the arbitrator legacy-import cleanup. The active /platform-v7/arbitrator page no longer imports a page default-export from the legacy app/platform-v7r route tree; the dispute-room cockpit was relocated byte-identically into a canonical components/platform-v7 component (no UI/logic change). The legacy v7r route is left untouched (read-only, dead duplicate). The broad cockpit/lib/app zones stay forbidden (default-deny). Operator-only — NOT in agentWritableScope. No cockpit rewrite, no dispute/arbitration business-logic change, no server-side RBAC, no live integration."
+    },
+    {
+      "layer": "Phase 2 / PR-5 role cabinet loading-state consistency",
+      "approvedBy": "owner",
+      "files": [
+        "apps/web/components/platform-v7/RoleCockpitLoading.tsx",
+        "apps/web/app/platform-v7/lab/loading.tsx",
+        "apps/web/app/platform-v7/surveyor/loading.tsx",
+        "apps/web/app/platform-v7/compliance/loading.tsx",
+        "apps/web/app/platform-v7/arbitrator/loading.tsx",
+        "apps/web/app/platform-v7/support/loading.tsx",
+        "apps/web/tests/unit/platformV7RoleCockpitLoading.test.ts"
+      ],
+      "note": "Narrow, owner-approved carve-out (additive route-level loading.tsx only) for the five role segments without a dedicated layout.tsx (lab, surveyor, compliance, arbitrator, support). Each loading.tsx renders a shared neutral cockpit skeleton built on the canonical Skeleton primitive; no page/cabinet content is touched and no error.tsx is added (error already covered uniformly by the existing root app/platform-v7/error.tsx). The broad cockpit/app zones stay forbidden (default-deny). Operator-only — NOT in agentWritableScope. No cabinet rewrite, no redesign, no business-logic change, no server-side RBAC. Empty-state for static-array cabinets (Surveyor/Compliance) remains a later content-level follow-up."
     }
   ],
   "agentWritableScope": [

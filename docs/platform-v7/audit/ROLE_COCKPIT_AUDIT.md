@@ -164,8 +164,17 @@ not a missing shell.
    - Residual (harmless): a legacy command-palette entry in the unused `command.ts`
      still references `/bank/clean`; it resolves to canonical via the redirect.
      Physically collapsing the two page files is a later web cleanup.
-7. Most cockpits lack `loading.tsx`/`error.tsx`; Surveyor/Compliance use static
-   arrays with no empty/error path.
+7. **Loading/error consistency** — **partially resolved in PR-5** (additive, no
+   cabinet rewrite): the five role segments without a dedicated `layout.tsx` (lab,
+   surveyor, compliance, arbitrator, support) now each have a route-level
+   `loading.tsx` rendering a shared neutral cockpit skeleton
+   (`components/platform-v7/RoleCockpitLoading.tsx`, built on the canonical
+   `Skeleton`). Error handling was already uniform via the root
+   `app/platform-v7/error.tsx`, so no per-role `error.tsx` was added (would be
+   redundant divergence). Covered by `platformV7RoleCockpitLoading.test.ts`.
+   **Still open** (content-level, deliberately out of this narrow PR): Surveyor/
+   Compliance use static arrays with **no empty-state path** — adding empty states
+   touches cabinet content and is a later, scoped follow-up.
 
 No fake-live copy and no obviously broken buttons (`#`/no-op) were found in the
 inspected role pages — the C2 guard covers backend; a web-scoped copy guard is a
