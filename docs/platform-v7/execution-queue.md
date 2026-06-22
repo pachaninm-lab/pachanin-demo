@@ -106,6 +106,8 @@ DONE:
 
 - Phase 3 route inventory (docs-only): full /platform-v7/** route map (181 routes, 10 existing alias/redirects, 20 grain template clones, 1 catch-all) with evidence-based, reversible disposition proposals (canonical / alias / orphan? / keep) and a prioritized gated migration backlog. Recorded in docs/platform-v7/audit/PHASE_3_ROUTE_INVENTORY.md. No code, no route change — each Phase 5 cleanup stays gated, one cluster per PR, alias-not-delete, with full link+test verification first
 
+- Phase 4A server-side cabinet enforcement DESIGN (docs-only): designs binding web cabinet access to the verified JWT identity the API already trusts (auth.service JWT, RolesGuard, ActionExecutorService.assertObjectScope cross-org denial + audit). Current gap = platform-v7 web route layer derives role from URL/pc-role cookie, not a verified session. Flag-gated, report-only-first rollout (PLATFORM_V7_SERVER_CABINET_RBAC): 4A design → 4B report-only scaffold → 4C one-cabinet block-mode (bank) → 4D all-role, each gated. Recorded in docs/platform-v7/audit/PHASE_4_SERVER_SIDE_ROLE_ENFORCEMENT_DESIGN.md. No product code, no backend impl, no route rewrite — implementation deferred to gated 4B-4D
+
 GATED (owner approval required before code starts):
 - minor-units PR-B — internal MoneyEngine/SettlementEngine arithmetic in kopecks. STOP: changes live money arithmetic. Admission gate in docs/platform-v7/audit/MONEY_MINOR_UNITS_AUDIT.md §8 (all tests green; no external *Rub contract change; rollback path; characterization tests added first; no schema migration; no DB-backed activation; no live integrations)
 - minor-units PR-C — Prisma Float→Int kopecks schema migration + backfill (locked until PR-B green)
