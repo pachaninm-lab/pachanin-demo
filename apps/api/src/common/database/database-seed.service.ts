@@ -1,6 +1,7 @@
 import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RuntimeCoreService } from '../../modules/runtime-core/runtime-core.service';
+import { DEMO_ORGS, DEMO_USERS } from '../../modules/auth/user.repository';
 
 @Injectable()
 export class DatabaseSeedService implements OnApplicationBootstrap {
@@ -13,6 +14,8 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap() {
     try {
+      await this.seedOrganizations();
+      await this.seedUsers();
       await this.seedDeals();
       await this.seedShipments();
       await this.seedDocuments();
@@ -20,6 +23,39 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
     } catch (err) {
       this.logger.warn(`DB seed skipped: ${(err as Error).message}`);
     }
+  }
+
+  private async seedOrganizations() {
+    const existing = await this.prisma.organization.count();
+    if (existing > 0) return;
+    for (const org of DEMO_ORGS) {
+      await this.prisma.organization.upsert({
+        where: { id: org.id },
+        update: {},
+        create: { id: org.id, name: org.name, inn: org.inn, kind: org.kind },
+      });
+    }
+    this.logger.log(`Seeded ${DEMO_ORGS.length} organizations`);
+  }
+
+  private async seedUsers() {
+    const existing = await this.prisma.user.count();
+    if (existing > 0) return;
+    for (const user of DEMO_USERS) {
+      await this.prisma.user.upsert({
+        where: { id: user.id },
+        update: {},
+        create: {
+          id: user.id,
+          email: user.email.toLowerCase(),
+          passwordHash: user.passwordHash,
+          role: user.role,
+          orgId: user.orgId,
+          fullName: user.fullName,
+        },
+      });
+    }
+    this.logger.log(`Seeded ${DEMO_USERS.length} users`);
   }
 
   private async seedDeals() {

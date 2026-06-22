@@ -285,3 +285,39 @@ model AuditEvent {
   @@index([action])
   @@map("audit_events")
 }
+
+// ── Identity ──────────────────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id
+  name      String
+  inn       String?
+  kind      String?
+  createdAt DateTime @default(now())
+
+  @@map("organizations")
+}
+
+model User {
+  id           String   @id
+  email        String   @unique
+  passwordHash String
+  role         String
+  orgId        String
+  fullName     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([orgId])
+  @@map("users")
+}
+
+model RefreshToken {
+  token     String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}

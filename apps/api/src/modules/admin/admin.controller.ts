@@ -16,18 +16,18 @@ export class AdminController {
   }
 
   @Patch('users/:id/role')
-  updateRole(@Param('id') id: string, @Body() body: { role: Role }) {
+  async updateRole(@Param('id') id: string, @Body() body: { role: Role }) {
     try {
-      return this.auth.updateUserRole(id, body.role);
+      return await this.auth.updateUserRole(id, body.role);
     } catch {
       throw new NotFoundException(`User ${id} not found`);
     }
   }
 
   @Patch('users/:id/org')
-  updateOrg(@Param('id') id: string, @Body() body: { orgId: string }) {
+  async updateOrg(@Param('id') id: string, @Body() body: { orgId: string }) {
     try {
-      return this.auth.updateUserOrg(id, body.orgId);
+      return await this.auth.updateUserOrg(id, body.orgId);
     } catch {
       throw new NotFoundException(`User ${id} not found`);
     }

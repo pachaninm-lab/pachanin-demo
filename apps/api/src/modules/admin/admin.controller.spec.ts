@@ -24,14 +24,14 @@ describe('AdminController', () => {
   });
 
   describe('listUsers()', () => {
-    it('returns all users', () => {
-      const result = ctrl.listUsers();
+    it('returns all users', async () => {
+      const result = await ctrl.listUsers();
       expect(result).toHaveLength(2);
       expect(result[0].email).toBe('admin@demo.ru');
     });
 
-    it('does not expose password hashes', () => {
-      const result = ctrl.listUsers();
+    it('does not expose password hashes', async () => {
+      const result = await ctrl.listUsers();
       for (const u of result) {
         expect((u as any).passwordHash).toBeUndefined();
       }
@@ -39,20 +39,20 @@ describe('AdminController', () => {
   });
 
   describe('updateRole()', () => {
-    it('delegates to AuthService', () => {
-      ctrl.updateRole('user-farmer-001', { role: Role.LOGISTICIAN });
+    it('delegates to AuthService', async () => {
+      await ctrl.updateRole('user-farmer-001', { role: Role.LOGISTICIAN });
       expect(auth.updateUserRole).toHaveBeenCalledWith('user-farmer-001', Role.LOGISTICIAN);
     });
 
-    it('throws NotFoundException when user not found', () => {
-      auth.updateUserRole.mockImplementation(() => { throw new Error('not found'); });
-      expect(() => ctrl.updateRole('bad-id', { role: Role.ADMIN })).toThrow(NotFoundException);
+    it('throws NotFoundException when user not found', async () => {
+      auth.updateUserRole.mockRejectedValue(new Error('not found'));
+      await expect(ctrl.updateRole('bad-id', { role: Role.ADMIN })).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('updateOrg()', () => {
-    it('delegates to AuthService', () => {
-      ctrl.updateOrg('user-farmer-001', { orgId: 'org-new' });
+    it('delegates to AuthService', async () => {
+      await ctrl.updateOrg('user-farmer-001', { orgId: 'org-new' });
       expect(auth.updateUserOrg).toHaveBeenCalledWith('user-farmer-001', 'org-new');
     });
   });
