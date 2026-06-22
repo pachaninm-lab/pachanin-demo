@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { observeServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
 
 const PUBLIC_EXACT = new Set(['/', '/login', '/register']);
 const PUBLIC_PREFIX = [
@@ -282,6 +283,14 @@ export function middleware(req: NextRequest) {
     const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
     persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
+    // Phase 4B — report-only cabinet RBAC observation (flag-gated, off by default).
+    // Uses ONLY the trusted session-cookie role (never path/pc-role/query). Never
+    // blocks, redirects, or alters this response — it only observes would-be-denies.
+    try {
+      observeServerCabinetAccess({ pathname: p, sessionRole: session?.role ?? null });
+    } catch {
+      // A report must never affect the request.
+    }
     return response;
   }
 

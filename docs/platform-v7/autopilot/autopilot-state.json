@@ -113,6 +113,9 @@
     "apps/web/tests/unit/platformV7RoleCockpitLoading.test.ts",
     "apps/web/app/platform-v7/surveyor/page.tsx",
     "apps/web/tests/unit/platformV7SurveyorEmptyState.test.ts",
+    "apps/web/lib/platform-v7/server-cabinet-access.ts",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/platformV7ServerCabinetAccess.test.ts",
     "TRIGGER_PRODUCTION_REDEPLOY.txt",
     "notes_ui_test.txt",
     "ok.txt",
@@ -199,6 +202,16 @@
         "apps/web/tests/unit/platformV7SurveyorEmptyState.test.ts"
       ],
       "note": "Narrow, owner-approved carve-out (one content-local empty-state guard) for the Surveyor cabinet's static assignment list: renders the canonical EmptyState when there are no assignments, otherwise the existing list (non-empty render preserved). Additive ternary only — no redesign, no business-logic change. Compliance has no page-local list (shared always-populated cockpit components) so it is intentionally not touched; a shared-cockpit empty path is a broader cross-role item, deferred. The broad cockpit/app zones stay forbidden (default-deny). Operator-only — NOT in agentWritableScope."
+    },
+    {
+      "layer": "Phase 4B server-side cabinet enforcement — report-only scaffold",
+      "approvedBy": "owner",
+      "files": [
+        "apps/web/lib/platform-v7/server-cabinet-access.ts",
+        "apps/web/middleware.ts",
+        "apps/web/tests/unit/platformV7ServerCabinetAccess.test.ts"
+      ],
+      "note": "Narrow, owner-approved carve-out (report-only scaffold). Adds a pure resolveServerCabinetAccess + observeServerCabinetAccess helper and wires it into the web route layer (middleware platform-v7 block) NON-BLOCKING behind PLATFORM_V7_SERVER_CABINET_RBAC=report (off by default → zero effect). Reads ONLY the trusted session-cookie role (never path/pc-role/query/client guard); unverified session = unknown, never blocked; emits a diagnostic only on would-be-deny. enforced is always false — there is no block-mode, no redirect, no UX change, no route deletion, no auth rewrite, no layout.tsx change, no apps/landing change. Block-mode (4C, one cabinet, bank) requires a separate explicit approval. Operator-only — NOT in agentWritableScope."
     }
   ],
   "agentWritableScope": [

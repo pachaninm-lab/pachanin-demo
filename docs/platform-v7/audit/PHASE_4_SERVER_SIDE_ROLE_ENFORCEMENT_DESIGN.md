@@ -144,9 +144,17 @@ Strictly incremental, reversible, flag-gated — never a big-bang switch:
 ## 7. Migration plan (phased, gated)
 
 - **Phase 4A — Design (this doc).** docs-only. ✅
-- **Phase 4B — Report-only scaffold.** Behind `PLATFORM_V7_SERVER_CABINET_RBAC=report`:
-  server reads the verified session, computes the cabinet decision, emits audit events
-  on would-be-denials; **no redirect/block**. Smallest code surface; reversible by flag.
+- **Phase 4B — Report-only scaffold. ✅ SHIPPED (report-only, off by default).**
+  `apps/web/lib/platform-v7/server-cabinet-access.ts` adds a pure
+  `resolveServerCabinetAccess(...)` (mode `off | report`; status `allowed |
+  would-deny | unknown`; `enforced: false` always) plus `observeServerCabinetAccess`,
+  wired into the web route layer (`middleware.ts`, platform-v7 block) **non-blocking**
+  behind `PLATFORM_V7_SERVER_CABINET_RBAC=report`. It reads **only** the trusted
+  session-cookie role (never path/`pc-role`/query/client guard); an unverified session
+  is `unknown` and never blocked; it emits a structured diagnostic **only** on a
+  would-be-deny. No redirect, no block, no UX change; off by default → zero effect.
+  Note: there is **no block-mode code** in this scaffold. Hardening the session signal
+  to a cryptographically verified JWT is a prerequisite for 4C.
 - **Phase 4C — One-role/one-cabinet enforcement.** Block-mode for a single cabinet
   (bank) behind the flag; full §6 test suite; owner-approved.
 - **Phase 4D — All-role rollout.** Expand block-mode role-by-role after approval, flag
