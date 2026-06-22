@@ -59,11 +59,41 @@ describe('PrismaDealRepository (disabled DB-backed skeleton)', () => {
     await expect(repo.getById('X')).rejects.toThrow(/not found/);
   });
 
-  it('workspace/passport still fail loudly (served by the runtime view-model adapter)', () => {
-    const prisma = { deal: {} } as any;
+  it('workspace assembles a real aggregate with derived money/blockers from DB entities', async () => {
+    const prisma = {
+      deal: { findUnique: jest.fn().mockResolvedValue({ id: 'DB1', status: 'SIGNED', totalRub: 1000, owner: 'O', nextAction: 'N', slaAt: null }) },
+      dealDocument: { findMany: jest.fn().mockResolvedValue([{ type: 'SDIZ', signedAt: null, bankRequired: true, bankAcceptance: 'PENDING' }]) },
+      shipment: { findMany: jest.fn().mockResolvedValue([{ id: 'SH1', blockers: '["вес -1.2т"]' }]) },
+      labSample: { findMany: jest.fn().mockResolvedValue([]) },
+      payment: { findMany: jest.fn().mockResolvedValue([{ status: 'HELD', amountRub: 1000, holdAmountRub: 200 }]) },
+      auditEvent: { findMany: jest.fn().mockResolvedValue([{ id: 'A1' }]) },
+    } as any;
     const repo = new PrismaDealRepository(prisma);
-    expect(() => repo.workspace()).toThrow(/not supported/);
-    expect(() => repo.passport()).toThrow(/not supported/);
+    const ws = await repo.workspace('DB1');
+    expect(ws.source).toBe('db');
+    expect(ws.completeness).toEqual({ total: 1, signed: 0, bankRequired: 1, bankAccepted: 0, isComplete: false });
+    expect(ws.blockers).toContain('Документ SDIZ не принят банком');
+    expect(ws.blockers).toContain('Рейс SH1: вес -1.2т');
+    expect(ws.blockers.some((b: string) => b.includes('Удержание'))).toBe(true);
+    expect(ws.moneyImpact.holdAmountRub).toBe(200);
+    expect(ws.timeline).toEqual({ dealId: 'DB1', events: [{ id: 'A1' }] });
+  });
+
+  it('passport returns a compact DB summary and 404s when the deal is missing', async () => {
+    const prisma = {
+      deal: { findUnique: jest.fn().mockResolvedValue({ id: 'DB1', status: 'SIGNED', sellerOrgId: 's', buyerOrgId: 'b', totalRub: 1000, currency: 'RUB' }) },
+      dealDocument: { count: jest.fn().mockResolvedValue(3) },
+      shipment: { count: jest.fn().mockResolvedValue(1) },
+      payment: { findFirst: jest.fn().mockResolvedValue({ status: 'RESERVED', amountRub: 1000, holdAmountRub: 0 }) },
+    } as any;
+    const repo = new PrismaDealRepository(prisma);
+    const passport = await repo.passport('DB1');
+    expect(passport.counts).toEqual({ documents: 3, shipments: 1 });
+    expect(passport.payment.status).toBe('RESERVED');
+    expect(passport.source).toBe('db');
+
+    const missing = { deal: { findUnique: jest.fn().mockResolvedValue(null) } } as any;
+    await expect(new PrismaDealRepository(missing).passport('X')).rejects.toThrow(/not found/);
   });
 
   it('create persists a DRAFT deal with a sequential id derived from existing rows', async () => {

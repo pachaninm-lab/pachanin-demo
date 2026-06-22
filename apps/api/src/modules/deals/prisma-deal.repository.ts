@@ -14,9 +14,9 @@ import { RuntimeStateMachine } from '../runtime-core/runtime-state-machine';
  * is the same single source of truth as the runtime adapter
  * (`RuntimeStateMachine`), so legality is identical across adapters.
  *
- * `workspace`/`passport` assemble rich runtime view-models and are still served
- * by the runtime adapter; they fail loudly here rather than returning a partial
- * shape, so there is no silent/half-built DB view.
+ * `workspace`/`passport` assemble a real aggregate from the persisted entities
+ * (deal + documents + shipments + samples + payment + audit timeline) with
+ * derived money/completeness/blocker summaries — no fixtures, no partial stub.
  */
 @Injectable()
 export class PrismaDealRepository implements DealRepository {
@@ -50,12 +50,102 @@ export class PrismaDealRepository implements DealRepository {
     return row;
   }
 
-  workspace(): any {
-    throw new Error('PrismaDealRepository.workspace is not supported — DB-backed deal workspace path is not active.');
+  async workspace(id: string): Promise<any> {
+    const deal = await this.db.deal.findUnique({ where: { id } });
+    if (!deal) {
+      throw new NotFoundException(`Deal ${id} not found.`);
+    }
+    const [documents, shipments, samples, payments, events] = await Promise.all([
+      this.db.dealDocument.findMany({ where: { dealId: id }, orderBy: { uploadedAt: 'desc' } }),
+      this.db.shipment.findMany({ where: { dealId: id }, orderBy: { createdAt: 'desc' } }),
+      this.db.labSample.findMany({ where: { dealId: id }, include: { tests: true }, orderBy: { createdAt: 'desc' } }),
+      this.db.payment.findMany({ where: { dealId: id }, orderBy: { createdAt: 'desc' } }),
+      this.db.auditEvent.findMany({ where: { dealId: id }, orderBy: { createdAt: 'desc' } }),
+    ]);
+    const payment = payments[0] ?? null;
+
+    const blockers: string[] = [];
+    for (const doc of documents) {
+      if (doc.bankRequired && doc.bankAcceptance !== 'ACCEPTED') {
+        blockers.push(`Документ ${doc.type} не принят банком`);
+      }
+    }
+
+    const completeness = {
+      total: documents.length,
+      signed: documents.filter((d) => d.signedAt != null).length,
+      bankRequired: documents.filter((d) => d.bankRequired).length,
+      bankAccepted: documents.filter((d) => d.bankRequired && d.bankAcceptance === 'ACCEPTED').length,
+      // Document side is complete when every bank-required document is accepted.
+      isComplete: documents.length > 0 && documents.every((d) => !d.bankRequired || d.bankAcceptance === 'ACCEPTED'),
+    };
+    for (const ship of shipments) {
+      for (const reason of parseJsonArray(ship.blockers)) {
+        blockers.push(`Рейс ${ship.id}: ${reason}`);
+      }
+    }
+    if (payment && payment.status !== 'RELEASED' && (payment.holdAmountRub ?? 0) > 0) {
+      blockers.push(`Удержание ${payment.holdAmountRub} ₽ до закрытия условий`);
+    }
+
+    const moneyImpact = {
+      amountRub: payment?.amountRub ?? deal.totalRub ?? null,
+      status: payment?.status ?? 'NONE',
+      reservedAt: payment?.reservedAt ?? null,
+      releasedAt: payment?.releasedAt ?? null,
+      holdAmountRub: payment?.holdAmountRub ?? 0,
+      callbackState: payment?.callbackState ?? 'NONE',
+    };
+
+    return {
+      ...deal,
+      documents,
+      shipments,
+      samples,
+      payment,
+      moneyImpact,
+      completeness,
+      blockers,
+      owner: deal.owner,
+      nextAction: deal.nextAction,
+      slaAt: deal.slaAt,
+      timeline: { dealId: id, events },
+      source: 'db',
+    };
   }
 
-  passport(): any {
-    throw new Error('PrismaDealRepository.passport is not supported — DB-backed deal passport path is not active.');
+  async passport(id: string): Promise<any> {
+    const deal = await this.db.deal.findUnique({ where: { id } });
+    if (!deal) {
+      throw new NotFoundException(`Deal ${id} not found.`);
+    }
+    const [documentCount, shipmentCount, payment] = await Promise.all([
+      this.db.dealDocument.count({ where: { dealId: id } }),
+      this.db.shipment.count({ where: { dealId: id } }),
+      this.db.payment.findFirst({ where: { dealId: id }, orderBy: { createdAt: 'desc' } }),
+    ]);
+    return {
+      id: deal.id,
+      lotId: deal.lotId,
+      status: deal.status,
+      parties: { sellerOrgId: deal.sellerOrgId, buyerOrgId: deal.buyerOrgId },
+      culture: deal.culture,
+      region: deal.region,
+      volumeTons: deal.volumeTons,
+      pricePerTon: deal.pricePerTon,
+      totalRub: deal.totalRub,
+      currency: deal.currency,
+      owner: deal.owner,
+      nextAction: deal.nextAction,
+      signedAt: deal.signedAt,
+      closedAt: deal.closedAt,
+      createdAt: deal.createdAt,
+      counts: { documents: documentCount, shipments: shipmentCount },
+      payment: payment
+        ? { status: payment.status, amountRub: payment.amountRub, holdAmountRub: payment.holdAmountRub ?? 0 }
+        : null,
+      source: 'db',
+    };
   }
 
   async timeline(id: string): Promise<any> {
@@ -116,5 +206,16 @@ export class PrismaDealRepository implements DealRepository {
       return Number.isFinite(n) && n > max ? n : max;
     }, 0);
     return `DEAL-${String(maxNum + 1).padStart(3, '0')}`;
+  }
+}
+
+/** Parse a stored JSON-array string (e.g. shipment blockers) defensively. */
+function parseJsonArray(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map((item) => String(item)) : [];
+  } catch {
+    return [];
   }
 }

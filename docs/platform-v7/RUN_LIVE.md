@@ -81,11 +81,14 @@ curl -X PATCH localhost:4000/api/deals/DEAL-004/transition -H "Authorization: Be
      учётку на бэкенде (bcrypt+JWT) и ставит реальную cookie-сессию. Демо-режим остаётся только
      офлайн-фоллбэком, когда бэкенд недоступен. Для боевого входа задать `NEXT_PUBLIC_API_URL`
      (напр. `http://localhost:4000/api`) — иначе фронт уходит в офлайн-демо.
-   - ⏳ **Данные.** Экраны platform-v7 (`/deals`, workspace, close) ещё читают фикстуры
-     (`lib/v7r/data.ts`, `deal360-source-of-truth.ts`) — перевести на `getDealsCanonical()` и
-     API-эндпоинты с маппингом форм.
-3. **DB-backed `workspace`/`passport`.** Сейчас их обслуживает runtime-view-model адаптер; собрать
-   на Prisma из `Deal`+`DealDocument`+`Payment`+`AuditEvent`.
+   - ✅ **Реестр сделок на живых данных.** `/platform-v7/deals` тянет `getDealsCanonical()` и
+     показывает реальные строки из БД («Живые данные · API») с переходом в карточку; при
+     недоступном бэкенде — фоллбэк на сценарную витрину.
+   - ⏳ **Карточка сделки.** `/deals/[id]/clean` и close ещё на фикстурах
+     (`deal360-source-of-truth.ts`) — перевести на `/api/deals/:id/workspace` с маппингом форм.
+3. ✅ **DB-backed `workspace`/`passport`.** `PrismaDealRepository.workspace/passport` собирают
+   реальный агрегат из `Deal`+`DealDocument`+`Shipment`+`LabSample`+`Payment`+`AuditEvent` с
+   производными money/completeness/blockers. Проверено: `/api/deals/:id/workspace` → `source: db`.
 4. **Postgres вместо SQLite** для конкурентного доступа (план: `audit/SR2_POSTGRES_MIGRATION_PLAN.md`).
 5. **Масштаб под тысячи**: Redis rate-limit/WebSocket (SR5), очереди (SR7), observability (SR3),
    нагрузочное + SLO (SR8), outbox/idempotency (SR4 — модель `OutboxEntry` уже есть).

@@ -26,9 +26,9 @@ export class DealsService {
     return deal;
   }
 
-  workspace(id: string, user: RequestUser) {
+  async workspace(id: string, user: RequestUser) {
     this.executor.assertPermission(user, 'deal.view');
-    const ws = this.deals.workspace(id);
+    const ws = await this.deals.workspace(id);
     this.executor.assertObjectScope(user, 'deal.view', {
       objectType: 'deal',
       objectId: id,
@@ -70,7 +70,7 @@ export class DealsService {
 
     // Release actions require documents + no dispute + reserve confirmed
     if (dto.nextState === 'SETTLED' || dto.nextState === 'FINAL_PAYMENT') {
-      const ws = this.deals.workspace(id);
+      const ws = await this.deals.workspace(id);
       gates.documentsComplete = ws.completeness?.isComplete ?? false;
       gates.disputeOpen = deal.status === 'DISPUTE_OPEN';
       gates.reserveConfirmed =

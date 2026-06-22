@@ -45,11 +45,11 @@ describe('DealsService (repository boundary)', () => {
     expect(result.id).toBe('D1');
   });
 
-  it('workspace() checks permission and object scope via repository', () => {
+  it('workspace() checks permission and object scope via repository', async () => {
     const repo = makeRepo();
     const exec = makeExecutor();
     const svc = new DealsService(repo, exec);
-    const ws = svc.workspace('D1', adminUser);
+    const ws = await svc.workspace('D1', adminUser);
     expect(exec.assertPermission).toHaveBeenCalledWith(adminUser, 'deal.view');
     expect(repo.workspace).toHaveBeenCalledWith('D1');
     expect(ws.sellerOrgId).toBe('S1');

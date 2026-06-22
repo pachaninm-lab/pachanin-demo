@@ -2,8 +2,47 @@ import Link from 'next/link';
 import { DEAL360_SCENARIOS } from '@/lib/platform-v7/deal360-source-of-truth';
 import { selectRuntimeDeals } from '@/lib/domain/selectors';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+import { getDealsCanonical } from '@/lib/deals-server';
 
 const closedDeals = selectRuntimeDeals().filter((deal) => deal.status === 'closed');
+
+// API deal statuses → human labels + tone for the live registry.
+const LIVE_STATUS: Record<string, { label: string; tone: keyof typeof stateColor }> = {
+  DRAFT: { label: 'Черновик', tone: 'manual' },
+  AWAITING_SIGN: { label: 'Ожидает подписания', tone: 'wait' },
+  SIGNED: { label: 'Подписана', tone: 'ok' },
+  PREPAYMENT_RESERVED: { label: 'Резерв подтверждён', tone: 'ok' },
+  LOADING: { label: 'Погрузка', tone: 'wait' },
+  IN_TRANSIT: { label: 'В пути', tone: 'wait' },
+  ARRIVED: { label: 'Прибытие', tone: 'wait' },
+  QUALITY_CHECK: { label: 'Контроль качества', tone: 'wait' },
+  ACCEPTED: { label: 'Принято', tone: 'ok' },
+  PARTIAL_SETTLEMENT: { label: 'Частичный расчёт', tone: 'wait' },
+  FINAL_PAYMENT: { label: 'Финальная оплата', tone: 'wait' },
+  SETTLED: { label: 'Рассчитана', tone: 'ok' },
+  CLOSED: { label: 'Закрыта', tone: 'ok' },
+  DISPUTE_OPEN: { label: 'Спор', tone: 'stop' },
+  EXPERTISE: { label: 'Экспертиза', tone: 'stop' },
+  ARBITRATION_DECISION: { label: 'Решение арбитра', tone: 'wait' },
+  CANCELLED: { label: 'Отменена', tone: 'stop' },
+};
+
+type LiveDeal = {
+  id: string;
+  status?: string;
+  culture?: string | null;
+  volumeTons?: number | null;
+  totalRub?: number | null;
+  sellerOrgId?: string;
+  buyerOrgId?: string;
+  owner?: string | null;
+  nextAction?: string | null;
+};
+
+function rub(value?: number | null): string {
+  if (value == null) return '—';
+  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(value);
+}
 
 const dealSnapshots = Object.values(DEAL360_SCENARIOS).map((s) => ({
   id: s.dealId,
@@ -24,7 +63,11 @@ const stateColor = {
   manual: { border: 'rgba(100,116,139,0.18)', bg: 'rgba(100,116,139,0.06)', text: 'var(--pc-text-secondary, #475569)' },
 } as const;
 
-export default function PlatformV7DealsPage() {
+export default async function PlatformV7DealsPage() {
+  const liveDealsRaw = (await getDealsCanonical().catch(() => [])) as LiveDeal[];
+  const liveDeals = Array.isArray(liveDealsRaw) ? liveDealsRaw : [];
+  const hasLive = liveDeals.length > 0;
+
   const stoppedDeals = dealSnapshots.filter((d) => d.cannotHappenReason || d.money.state === 'stop');
   const primaryDeal = stoppedDeals.find((deal) => deal.id === 'DL-9106') ?? stoppedDeals[0] ?? dealSnapshots[0];
 
@@ -47,6 +90,21 @@ export default function PlatformV7DealsPage() {
           .pc-deals-primary-cta{width:100%;justify-content:center;min-height:52px!important}
         }
       ` }} />
+
+      {hasLive && (
+        <section style={{ background: '#fff', border: '1px solid rgba(10,122,95,0.22)', borderRadius: 22, padding: 18, display: 'grid', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981', boxShadow: '0 0 0 3px rgba(16,185,129,0.18)' }} />
+              <span style={{ color: '#0A7A5F', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Живые данные · API</span>
+            </div>
+            <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12 }}>{liveDeals.length} сделок из базы</span>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {liveDeals.map((deal) => <LiveDealRow key={deal.id} deal={deal} />)}
+          </div>
+        </section>
+      )}
 
       <section className='pc-deals-shell' style={{ background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFB 60%, #EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 22, display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -120,6 +178,39 @@ export default function PlatformV7DealsPage() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function LiveDealRow({ deal }: { deal: LiveDeal }) {
+  const status = LIVE_STATUS[deal.status ?? ''] ?? { label: deal.status ?? '—', tone: 'manual' as const };
+  const c = stateColor[status.tone];
+  const isClosed = deal.status === 'CLOSED';
+  const href = `/platform-v7/deals/${deal.id}/${isClosed ? 'close' : 'clean'}`;
+  const title = [deal.culture, deal.volumeTons != null ? `${deal.volumeTons} т` : null].filter(Boolean).join(' · ') || deal.id;
+  return (
+    <Link href={href} style={{ textDecoration: 'none', display: 'grid', gap: 8, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: '12px 14px', background: '#fff' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ minWidth: 0 }}>
+          <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{deal.id}</span>
+          <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 900, marginTop: 2 }}>{title}</div>
+        </div>
+        <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 900, borderRadius: 999, padding: '4px 10px', border: `1px solid ${c.border}`, background: c.bg, color: c.text }}>{status.label}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
+        <Field label='Сумма' value={rub(deal.totalRub)} />
+        <Field label='Стороны' value={`${deal.sellerOrgId ?? '—'} → ${deal.buyerOrgId ?? '—'}`} />
+        <Field label='Следующее действие' value={deal.nextAction ?? deal.owner ?? '—'} />
+      </div>
+    </Link>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 10, padding: '7px 10px', minWidth: 0 }}>
+      <div style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
+      <div style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 800, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
     </div>
   );
 }
