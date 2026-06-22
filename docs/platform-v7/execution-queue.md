@@ -104,6 +104,8 @@ DONE:
 
 - Phase 2 closeout (docs-only): Phase 2 closed as a narrow, safe role-cockpit pass — PR-1 role-lock de-polling (#1951), PR-2 support/investor routing (#1952), PR-3 canonical bank route (#1953), PR-4 arbitrator legacy import (#1954), PR-5 loading consistency (#1955), PR-6 surveyor empty-state (#1956). Closeout + next-phase roadmap recorded in docs/platform-v7/audit/PHASE_2_CLOSEOUT_AND_ROADMAP.md. High-risk items GATED, no code: #1 server-side cabinet enforcement, #4 duplicate route/surface cleanup, generic cross-role empty-path in RoleExecutionCockpitContent. Next steps are docs-only design phases (Phase 3 route inventory, Phase 4 server-side enforcement design) before any Phase 5 controlled cleanup PRs
 
+- Phase 3 route inventory (docs-only): full /platform-v7/** route map (181 routes, 10 existing alias/redirects, 20 grain template clones, 1 catch-all) with evidence-based, reversible disposition proposals (canonical / alias / orphan? / keep) and a prioritized gated migration backlog. Recorded in docs/platform-v7/audit/PHASE_3_ROUTE_INVENTORY.md. No code, no route change — each Phase 5 cleanup stays gated, one cluster per PR, alias-not-delete, with full link+test verification first
+
 GATED (owner approval required before code starts):
 - minor-units PR-B — internal MoneyEngine/SettlementEngine arithmetic in kopecks. STOP: changes live money arithmetic. Admission gate in docs/platform-v7/audit/MONEY_MINOR_UNITS_AUDIT.md §8 (all tests green; no external *Rub contract change; rollback path; characterization tests added first; no schema migration; no DB-backed activation; no live integrations)
 - minor-units PR-C — Prisma Float→Int kopecks schema migration + backfill (locked until PR-B green)
