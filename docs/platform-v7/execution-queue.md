@@ -102,6 +102,8 @@ DONE:
 
 - Phase 2 / PR-6 surveyor empty-state: the Surveyor cabinet's static assignment list now renders the canonical EmptyState when there are no assignments (content-local additive ternary; non-empty render preserved). Covered by platformV7SurveyorEmptyState.test.ts. Compliance has no page-local list (shared always-populated cockpit components) — intentionally untouched; shared-cockpit empty path is a broader cross-role item, deferred. No redesign, no business-logic change. ROLE_COCKPIT_AUDIT.md §5 #7 updated
 
+- Phase 2 closeout (docs-only): Phase 2 closed as a narrow, safe role-cockpit pass — PR-1 role-lock de-polling (#1951), PR-2 support/investor routing (#1952), PR-3 canonical bank route (#1953), PR-4 arbitrator legacy import (#1954), PR-5 loading consistency (#1955), PR-6 surveyor empty-state (#1956). Closeout + next-phase roadmap recorded in docs/platform-v7/audit/PHASE_2_CLOSEOUT_AND_ROADMAP.md. High-risk items GATED, no code: #1 server-side cabinet enforcement, #4 duplicate route/surface cleanup, generic cross-role empty-path in RoleExecutionCockpitContent. Next steps are docs-only design phases (Phase 3 route inventory, Phase 4 server-side enforcement design) before any Phase 5 controlled cleanup PRs
+
 GATED (owner approval required before code starts):
 - minor-units PR-B — internal MoneyEngine/SettlementEngine arithmetic in kopecks. STOP: changes live money arithmetic. Admission gate in docs/platform-v7/audit/MONEY_MINOR_UNITS_AUDIT.md §8 (all tests green; no external *Rub contract change; rollback path; characterization tests added first; no schema migration; no DB-backed activation; no live integrations)
 - minor-units PR-C — Prisma Float→Int kopecks schema migration + backfill (locked until PR-B green)
