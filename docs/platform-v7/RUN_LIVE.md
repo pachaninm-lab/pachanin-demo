@@ -99,8 +99,37 @@ curl -X PATCH localhost:4000/api/deals/DEAL-004/transition -H "Authorization: Be
      `A:200 B:409`. Логика provider-agnostic (корректна и на Postgres).
 5. **Postgres вместо SQLite** для конкурентного доступа (план: `audit/SR2_POSTGRES_MIGRATION_PLAN.md`).
    SQLite — единственный писатель; под тысячи параллельных записей нужен Postgres.
+   Готовая инфраструктура (НЕ запускалась в sandbox — нет Postgres-сервера): см. ниже.
 6. **Масштаб под тысячи**: Redis rate-limit/WebSocket (SR5), очереди (SR7), observability (SR3),
    нагрузочное + SLO (SR8), outbox/idempotency (SR4 — модель `OutboxEntry` уже есть).
+
+## Перевод на Postgres (под тысячи одновременных пользователей)
+
+> Конкурентная логика write-пути уже provider-agnostic и проверена. Ниже — как
+> поднять Postgres и переключить API. Эти шаги **не выполнялись в build-sandbox**
+> (там нет Postgres) — выполнить на хосте с Docker.
+
+```bash
+# 1) Поднять Postgres
+docker compose -f infra/postgres/docker-compose.yml up -d
+
+# 2) Переключить Prisma на Postgres
+#    в apps/api/prisma/schema.prisma: datasource.provider "sqlite" → "postgresql"
+cp apps/api/.env.postgres.example apps/api/.env   # задать секреты
+
+# 3) Сгенерировать Postgres-миграции против живой БД и применить
+cd apps/api
+pnpm exec prisma migrate dev --name init_postgres   # генерит PG-DDL (TIMESTAMP/DOUBLE PRECISION)
+# в проде: pnpm exec prisma migrate deploy
+
+# 4) Поднять API в боевом режиме (сид орг/пользователей/сделок выполнится на старте)
+pnpm dev
+```
+
+Почему миграции нужно генерить на месте: текущие миграции — SQLite-DDL
+(`DATETIME`/`REAL`); Prisma для Postgres выпускает другой DDL и валидирует его по
+живой БД, поэтому корректные PG-миграции создаются только при запущенном Postgres.
+Пул соединений настраивается в `DATABASE_URL` (`connection_limit`, `pool_timeout`).
 
 ## Внешние боевые подключения (вне инженерного контроля)
 

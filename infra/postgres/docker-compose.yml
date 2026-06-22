@@ -1,0 +1,33 @@
+# Local Postgres for platform-v7 — the concurrent-write backend for production
+# (SQLite is single-writer and cannot serve thousands of simultaneous users).
+#
+# This is operational scaffolding. It was NOT executed in the build sandbox
+# (no Postgres server there) — run it on a host with Docker. See SR-2 plan:
+# docs/platform-v7/audit/SR2_POSTGRES_MIGRATION_PLAN.md and the runbook in
+# docs/platform-v7/RUN_LIVE.md.
+#
+# Usage:
+#   docker compose -f infra/postgres/docker-compose.yml up -d
+#   # then point the API at it (see apps/api/.env.postgres.example)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pachanin-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pachanin
+      POSTGRES_PASSWORD: pachanin
+      POSTGRES_DB: pachanin
+    ports:
+      - "5432:5432"
+    volumes:
+      - pachanin_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pachanin -d pachanin"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pachanin_pgdata:
