@@ -172,9 +172,14 @@ not a missing shell.
    `Skeleton`). Error handling was already uniform via the root
    `app/platform-v7/error.tsx`, so no per-role `error.tsx` was added (would be
    redundant divergence). Covered by `platformV7RoleCockpitLoading.test.ts`.
-   **Still open** (content-level, deliberately out of this narrow PR): Surveyor/
-   Compliance use static arrays with **no empty-state path** — adding empty states
-   touches cabinet content and is a later, scoped follow-up.
+   **Empty-state — resolved in PR-6 for the one real page-local gap**: the Surveyor
+   cabinet's static assignment list now renders the canonical `EmptyState` when
+   there are no assignments (content-local, additive, no redesign; covered by
+   `platformV7SurveyorEmptyState.test.ts`). **Compliance** has **no page-local list**
+   — its lists are rendered by shared, always-populated cockpit components
+   (`RoleExecutionCockpitContent`, `ComplianceRuntime`), so there is no narrow
+   page-level empty gap; a generic empty path for the shared cockpit would affect all
+   five cockpit roles and is a separate, broader consistency item (not bundled here).
 
 No fake-live copy and no obviously broken buttons (`#`/no-op) were found in the
 inspected role pages — the C2 guard covers backend; a web-scoped copy guard is a
