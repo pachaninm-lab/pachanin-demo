@@ -34,11 +34,11 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { email = '', password = '', redirectTo = '' } = body;
 
-  // Skip backend entirely for demo emails — always use demo mode
-  const isDemoEmail = email.toLowerCase().endsWith('@demo.ru') || email.toLowerCase().endsWith('@demo.test');
-
-  // Try real backend first (if configured and not a demo email)
-  if (API_URL && !isDemoEmail) {
+  // Real authentication first: when the API is configured, every login is
+  // validated against the backend (bcrypt + JWT). Demo mode below is only a
+  // resilience fallback for when the backend is unreachable or unconfigured —
+  // it is not the default path and is never preferred over a reachable backend.
+  if (API_URL) {
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       jar.set(CSRF_COOKIE, generateCsrfToken(), csrfCookieSecurity());
       return NextResponse.json({ ok: true, user: payload.user || null });
     } catch {
-      // Fall through to demo mode
+      // Backend unreachable — fall through to the offline demo fallback below.
     }
   }
 

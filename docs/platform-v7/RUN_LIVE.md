@@ -75,9 +75,15 @@ curl -X PATCH localhost:4000/api/deals/DEAL-004/transition -H "Authorization: Be
 1. ~~**Идентичность в БД.**~~ ✅ Сделано: модели `User`/`Organization`/`RefreshToken` в Prisma,
    `PrismaUserRepository` за флагом `PLATFORM_V7_USER_REPOSITORY=prisma`, сид орг/пользователей,
    refresh-токены в БД. Проверено: вход seed-пользователя, регистрация с повторным входом, refresh.
-2. **Веб на живой API.** Экраны platform-v7 (`/deals`, workspace, close) читают фикстуры
-   (`lib/v7r/data.ts`, `deal360-source-of-truth.ts`) — перевести на `getDealsCanonical()` и
-   API-эндпоинты с маппингом форм.
+2. **Веб на живой API.**
+   - ✅ **Вход (auth) — боевой.** Экран `/platform-v7/login` теперь форма с email+паролем и
+     один-клик-доступы по seed-аккаунтам; всё уходит в `/api/auth/login`, который проверяет
+     учётку на бэкенде (bcrypt+JWT) и ставит реальную cookie-сессию. Демо-режим остаётся только
+     офлайн-фоллбэком, когда бэкенд недоступен. Для боевого входа задать `NEXT_PUBLIC_API_URL`
+     (напр. `http://localhost:4000/api`) — иначе фронт уходит в офлайн-демо.
+   - ⏳ **Данные.** Экраны platform-v7 (`/deals`, workspace, close) ещё читают фикстуры
+     (`lib/v7r/data.ts`, `deal360-source-of-truth.ts`) — перевести на `getDealsCanonical()` и
+     API-эндпоинты с маппингом форм.
 3. **DB-backed `workspace`/`passport`.** Сейчас их обслуживает runtime-view-model адаптер; собрать
    на Prisma из `Deal`+`DealDocument`+`Payment`+`AuditEvent`.
 4. **Postgres вместо SQLite** для конкурентного доступа (план: `audit/SR2_POSTGRES_MIGRATION_PLAN.md`).
