@@ -118,6 +118,8 @@
     "apps/web/tests/unit/platformV7ServerCabinetAccess.test.ts",
     "apps/web/lib/platform-v7/verified-session.ts",
     "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/styles/platform-v7-mobile-hardening.css",
     "TRIGGER_PRODUCTION_REDEPLOY.txt",
     "notes_ui_test.txt",
     "ok.txt",
@@ -226,6 +228,15 @@
         "apps/web/tests/unit/platformV7ServerCabinetAccess.test.ts"
       ],
       "note": "Narrow, owner-approved carve-out (verified-identity hardening, still report-only). Adds an edge-safe Web-Crypto HS256 verifier (verifyHs256Jwt / readVerifiedCabinetRole) + API→cabinet role map; the report-only middleware observation now derives the role ONLY from a cryptographically verified JWT in pc_access_token — the unverified pc_session_present cookie role is no longer trusted, and demo/fake/bad-signature/wrong-secret/expired/unmapped tokens resolve to null = unknown = never blocked. Reads nothing from path/query/pc-role/client guards. Middleware became async but verifies ONLY under PLATFORM_V7_SERVER_CABINET_RBAC=report (off by default → zero effect). No block-mode, no redirect, no UX change, no route deletion, no auth rewrite, no layout.tsx change, no apps/landing change. Block-mode (4C, bank only) requires separate explicit approval after report metrics from a verified-session deployment. Operator-only — NOT in agentWritableScope."
+    },
+    {
+      "layer": "Mobile hardening pass after route-backed navigation",
+      "approvedBy": "owner",
+      "files": [
+        "apps/web/app/platform-v7/layout.tsx",
+        "apps/web/styles/platform-v7-mobile-hardening.css"
+      ],
+      "note": "Narrow, owner-approved visual hardening carve-out for the remaining mobile defects visible on live screenshots after PR #1963: public process cards must collapse vertically on phone viewports, internal cabinets need additional bottom safe-area clearance above the fixed role dock and mobile browser chrome, and the mobile header must avoid action crowding. No apps/landing, no backend/DB/payment/live integration, no maturity claim changes."
     }
   ],
   "agentWritableScope": [
