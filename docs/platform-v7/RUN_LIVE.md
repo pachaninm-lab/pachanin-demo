@@ -89,8 +89,15 @@ curl -X PATCH localhost:4000/api/deals/DEAL-004/transition -H "Authorization: Be
 3. ✅ **DB-backed `workspace`/`passport`.** `PrismaDealRepository.workspace/passport` собирают
    реальный агрегат из `Deal`+`DealDocument`+`Shipment`+`LabSample`+`Payment`+`AuditEvent` с
    производными money/completeness/blockers. Проверено: `/api/deals/:id/workspace` → `source: db`.
-4. **Postgres вместо SQLite** для конкурентного доступа (план: `audit/SR2_POSTGRES_MIGRATION_PLAN.md`).
-5. **Масштаб под тысячи**: Redis rate-limit/WebSocket (SR5), очереди (SR7), observability (SR3),
+4. ✅ **Конкурентная безопасность write-пути** (для тысяч одновременных пользователей):
+   - `create` устойчив к гонке id: при коллизии уникального PK пересчитывает `DEAL-NNN` и
+     повторяет (а не падает 500).
+   - `transition` — compare-and-set: пишет только если статус не изменился с момента чтения;
+     иначе `409 Conflict`, без потери обновления. Проверено вживую: два одновременных перехода →
+     `A:200 B:409`. Логика provider-agnostic (корректна и на Postgres).
+5. **Postgres вместо SQLite** для конкурентного доступа (план: `audit/SR2_POSTGRES_MIGRATION_PLAN.md`).
+   SQLite — единственный писатель; под тысячи параллельных записей нужен Postgres.
+6. **Масштаб под тысячи**: Redis rate-limit/WebSocket (SR5), очереди (SR7), observability (SR3),
    нагрузочное + SLO (SR8), outbox/idempotency (SR4 — модель `OutboxEntry` уже есть).
 
 ## Внешние боевые подключения (вне инженерного контроля)

@@ -115,29 +115,62 @@ describe('PrismaDealRepository (disabled DB-backed skeleton)', () => {
     expect(prisma.deal.create).toHaveBeenCalledTimes(1);
   });
 
-  it('transition enforces the shared state machine and sets closedAt on CLOSED', async () => {
+  it('transition enforces the shared state machine and sets closedAt on CLOSED (compare-and-set)', async () => {
     const prisma = {
       deal: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'DB1', status: 'SETTLED', signedAt: null, closedAt: null }),
-        update: jest.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'DB1', ...data })),
+        findUnique: jest.fn()
+          .mockResolvedValueOnce({ id: 'DB1', status: 'SETTLED', signedAt: null, closedAt: null })
+          .mockResolvedValueOnce({ id: 'DB1', status: 'CLOSED' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     } as any;
     const repo = new PrismaDealRepository(prisma);
     const row = await repo.transition('DB1', 'CLOSED', { id: 'u1', orgId: 'org-1', role: 'ADMIN' } as any);
     expect(row.status).toBe('CLOSED');
-    expect(prisma.deal.update.mock.calls[0][0].data.closedAt).toBeInstanceOf(Date);
+    // compare-and-set: only writes when status is still the validated value
+    expect(prisma.deal.updateMany.mock.calls[0][0].where).toEqual({ id: 'DB1', status: 'SETTLED' });
+    expect(prisma.deal.updateMany.mock.calls[0][0].data.closedAt).toBeInstanceOf(Date);
+  });
+
+  it('transition is lost-update safe: a concurrent change yields a conflict, not an overwrite', async () => {
+    const prisma = {
+      deal: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'DB1', status: 'SETTLED', signedAt: null, closedAt: null }),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }), // someone else already moved it
+      },
+    } as any;
+    const repo = new PrismaDealRepository(prisma);
+    await expect(repo.transition('DB1', 'CLOSED', { id: 'u1', orgId: 'org-1', role: 'ADMIN' } as any)).rejects.toThrow(/concurrently/);
   });
 
   it('transition rejects an illegal status jump (same legality as runtime)', async () => {
     const prisma = {
       deal: {
         findUnique: jest.fn().mockResolvedValue({ id: 'DB1', status: 'DRAFT', signedAt: null, closedAt: null }),
-        update: jest.fn(),
+        updateMany: jest.fn(),
       },
     } as any;
     const repo = new PrismaDealRepository(prisma);
     await expect(repo.transition('DB1', 'SIGNED', { id: 'u1', orgId: 'org-1', role: 'ADMIN' } as any)).rejects.toThrow(/не разрешён/);
-    expect(prisma.deal.update).not.toHaveBeenCalled();
+    expect(prisma.deal.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('create retries id allocation on a duplicate-id collision under concurrency', async () => {
+    let calls = 0;
+    const prisma = {
+      deal: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'DEAL-003' }]),
+        create: jest.fn().mockImplementation(({ data }: any) => {
+          calls += 1;
+          if (calls === 1) return Promise.reject({ code: 'P2002' }); // lost the id race once
+          return Promise.resolve(data);
+        }),
+      },
+    } as any;
+    const repo = new PrismaDealRepository(prisma);
+    const row = await repo.create({ lotId: 'LOT-1', winnerBidId: 'BID-1' } as any, { id: 'u1', orgId: 'org-1', role: 'BUYER' } as any);
+    expect(row.id).toBe('DEAL-004');
+    expect(prisma.deal.create).toHaveBeenCalledTimes(2);
   });
 
   it('timeline reads audit events for the deal from the database', async () => {
