@@ -5,6 +5,7 @@ import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels';
 import { getDeal360Scenario, type Deal360State, type Deal360Cockpit } from '@/lib/platform-v7/deal360-source-of-truth';
 import { getDealWorkspaceCanonical } from '@/lib/deals-server';
+import { LiveDealWorkspace, type LiveWorkspace } from '@/components/platform-v7/LiveDealWorkspace';
 
 const border = 'var(--pc-border, #E4E6EA)';
 const text = 'var(--pc-text-primary, #0F1419)';
@@ -20,142 +21,14 @@ function rub(value: number) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(value);
 }
 
-const LIVE_STATUS_LABEL: Record<string, string> = {
-  DRAFT: 'Черновик', AWAITING_SIGN: 'Ожидает подписания', SIGNED: 'Подписана',
-  PREPAYMENT_RESERVED: 'Резерв подтверждён', LOADING: 'Погрузка', IN_TRANSIT: 'В пути',
-  ARRIVED: 'Прибытие', QUALITY_CHECK: 'Контроль качества', ACCEPTED: 'Принято',
-  PARTIAL_SETTLEMENT: 'Частичный расчёт', FINAL_PAYMENT: 'Финальная оплата', SETTLED: 'Рассчитана',
-  CLOSED: 'Закрыта', DISPUTE_OPEN: 'Спор', EXPERTISE: 'Экспертиза',
-  ARBITRATION_DECISION: 'Решение арбитра', CANCELLED: 'Отменена',
-};
-
 export default async function PlatformV7CleanDealPage({ params }: { params: { id: string } }) {
-  // Prefer real DB-backed workspace from the API; fall back to the scenario
+  // Prefer the real DB-backed workspace from the API; fall back to the scenario
   // view for fixture (DL-*) ids or when the backend is unavailable.
   const live = await getDealWorkspaceCanonical(params.id).catch(() => null);
   if (live && typeof live === 'object' && (live as { id?: string }).id) {
-    return <LiveDealWorkspaceView data={live as LiveWorkspace} />;
+    return <LiveDealWorkspace ws={live as LiveWorkspace} />;
   }
   return <ScenarioDealView params={params} />;
-}
-
-type LiveDoc = { type?: string; status?: string; name?: string; bankRequired?: boolean; bankAcceptance?: string; signedAt?: string | null };
-type LiveShipment = { id: string; status?: string; routeFrom?: string | null; routeTo?: string | null; nextAction?: string | null };
-type LiveEvent = { id: string; action?: string; actorRole?: string; outcome?: string; createdAt?: string };
-type LiveWorkspace = {
-  id: string; status?: string; lotId?: string | null; culture?: string | null; region?: string | null;
-  volumeTons?: number | null; pricePerTon?: number | null; totalRub?: number | null;
-  sellerOrgId?: string; buyerOrgId?: string; owner?: string | null; nextAction?: string | null;
-  documents?: LiveDoc[]; shipments?: LiveShipment[]; blockers?: string[];
-  completeness?: { total: number; signed: number; bankRequired: number; bankAccepted: number; isComplete: boolean };
-  moneyImpact?: { amountRub?: number | null; status?: string; holdAmountRub?: number };
-  timeline?: { events?: LiveEvent[] };
-};
-
-function LiveDealWorkspaceView({ data }: { data: LiveWorkspace }) {
-  const statusLabel = LIVE_STATUS_LABEL[data.status ?? ''] ?? data.status ?? '—';
-  const blockers = data.blockers ?? [];
-  const hasBlockers = blockers.length > 0;
-  const docs = data.documents ?? [];
-  const shipments = data.shipments ?? [];
-  const events = data.timeline?.events ?? [];
-  const hold = data.moneyImpact?.holdAmountRub ?? 0;
-  const amount = data.moneyImpact?.amountRub ?? data.totalRub ?? null;
-  const isClosed = data.status === 'CLOSED';
-
-  return (
-    <main style={{ display: 'grid', gap: 16 }}>
-      <section style={card()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 999, background: '#10B981', boxShadow: '0 0 0 3px rgba(16,185,129,0.18)' }} />
-              <span style={{ color: green, fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Живые данные · API</span>
-            </div>
-            <h1 style={{ margin: 0, fontSize: 28, color: text }}>{data.id}{data.lotId ? ` · ${data.lotId}` : ''}</h1>
-          </div>
-          <span style={{ borderRadius: 999, padding: '6px 10px', background: hasBlockers ? redBg : greenBg, color: hasBlockers ? red : green, fontSize: 12, fontWeight: 900 }}>{statusLabel}</span>
-        </div>
-      </section>
-
-      <section style={grid()}>
-        <Cell label='Культура' value={data.culture || '—'} />
-        <Cell label='Объём' value={data.volumeTons != null ? `${data.volumeTons} т` : '—'} />
-        <Cell label='Сумма сделки' value={amount != null ? rub(amount) : '—'} accent={!hasBlockers} />
-        <Cell label='Удержание' value={rub(hold)} danger={hold > 0} />
-      </section>
-
-      <section style={grid()}>
-        <Cell label='Продавец' value={data.sellerOrgId || '—'} />
-        <Cell label='Покупатель' value={data.buyerOrgId || '—'} />
-        <Cell label='Ответственный' value={data.owner || '—'} />
-        <Cell label='Документы' value={data.completeness ? `${data.completeness.bankAccepted}/${data.completeness.bankRequired} принято банком` : '—'} accent={data.completeness?.isComplete} />
-      </section>
-
-      {hasBlockers ? (
-        <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
-          <p style={{ margin: 0, color: red, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Что блокирует</p>
-          <ul style={{ margin: '8px 0 0', paddingLeft: 18, color: text, lineHeight: 1.6 }}>
-            {blockers.map((b, i) => <li key={i}>{b}</li>)}
-          </ul>
-        </section>
-      ) : null}
-
-      <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Документы</p>
-        <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-          {docs.length ? docs.map((d, i) => (
-            <div key={`${d.type}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center', border: `1px solid ${d.bankRequired && d.bankAcceptance !== 'ACCEPTED' ? 'rgba(220,38,38,0.18)' : border}`, background: d.bankRequired && d.bankAcceptance !== 'ACCEPTED' ? redBg : '#fff', borderRadius: 14, padding: '10px 12px' }}>
-              <span style={{ color: text, fontSize: 13, fontWeight: 900 }}>{d.name || d.type}</span>
-              <span style={{ color: d.bankAcceptance === 'ACCEPTED' ? green : amber, fontSize: 12, fontWeight: 900 }}>{d.bankAcceptance === 'ACCEPTED' ? 'принят банком' : (d.status || 'в работе')}</span>
-            </div>
-          )) : <p style={{ margin: 0, color: muted, fontSize: 13 }}>Документы по сделке ещё не загружены.</p>}
-        </div>
-      </section>
-
-      {shipments.length ? (
-        <section style={card()}>
-          <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Рейсы</p>
-          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-            {shipments.map((s) => (
-              <div key={s.id} style={{ display: 'grid', gap: 4, border: `1px solid ${border}`, borderRadius: 14, padding: '10px 12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ color: green, fontSize: 13, fontWeight: 900 }}>{s.id}</span>
-                  <span style={{ color: muted, fontSize: 12, fontWeight: 800 }}>{s.status}</span>
-                </div>
-                {(s.routeFrom || s.routeTo) ? <span style={{ color: muted, fontSize: 12 }}>{s.routeFrom ?? '—'} → {s.routeTo ?? '—'}</span> : null}
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section style={card()}>
-        <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Журнал событий</p>
-        <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-          {events.length ? events.slice(0, 12).map((e) => (
-            <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', borderBottom: `1px solid ${border}`, paddingBottom: 6 }}>
-              <span style={{ color: text, fontSize: 13, fontWeight: 800 }}>{e.action}{e.actorRole ? ` · ${e.actorRole}` : ''}</span>
-              <span style={{ color: muted, fontSize: 12 }}>{e.createdAt ? new Date(e.createdAt).toLocaleString('ru-RU') : ''}{e.outcome ? ` · ${e.outcome}` : ''}</span>
-            </div>
-          )) : <p style={{ margin: 0, color: muted, fontSize: 13 }}>Событий по сделке пока нет.</p>}
-        </div>
-      </section>
-
-      {data.nextAction ? (
-        <section style={{ ...card(), background: hasBlockers ? amberBg : greenBg, borderColor: hasBlockers ? 'rgba(180,83,9,0.18)' : 'rgba(10,122,95,0.18)' }}>
-          <p style={{ margin: 0, color: hasBlockers ? amber : green, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</p>
-          <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>{data.nextAction}</p>
-        </section>
-      ) : null}
-
-      <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7/deals' style={linkStyle()}>Все сделки</Link>
-        <Link href={`/platform-v7/deals/${data.id}/documents`} style={linkStyle()}>Документы сделки</Link>
-        {isClosed ? <Link href={`/platform-v7/deals/${data.id}/close`} style={linkStyle('accent')}>Закрытие сделки</Link> : null}
-      </section>
-    </main>
-  );
 }
 
 function ScenarioDealView({ params }: { params: { id: string } }) {
