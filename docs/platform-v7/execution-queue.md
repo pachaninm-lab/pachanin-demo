@@ -27,6 +27,10 @@ CURRENT ALLOWED:
 - apps/web/tests/unit/platformV7CabinetAccessPolicy.test.ts
 - apps/web/tests/e2e/platform-v7-entry-gate.spec.ts
 - apps/web/tests/e2e/platform-v7-route-audit.spec.ts
+- apps/web/app/platform-v7/arbitrator/page.tsx
+- apps/web/components/platform-v7/ArbitratorDisputeRoom.tsx
+- apps/web/tests/unit/platformV7ArbitratorCanonicalImport.test.ts
+- apps/web/tests/unit/arbitratorDecisionPolish.test.tsx
 - TRIGGER_PRODUCTION_REDEPLOY.txt
 - notes_ui_test.txt
 - ok.txt
@@ -82,6 +86,8 @@ DONE:
 - Phase 2 / PR-2 support/investor routing decision: support classified as internal oversight-only contour (not a participant cabinet, not a PlatformRole); investor classified as non-core oversight-only aggregate route (not an execution role, not a PlatformRole). cabinet-access-policy.ts now denies both to non-oversight roles explicitly (isPlatformV7InternalRoute / isPlatformV7NonCoreRoute) instead of incidental allowedPrefixes fallthrough — behavior-preserving, covered by platformV7SupportInvestorRoutePolicy.test.ts; no participant-visible route-switch (dead/unmounted switchers confirmed). Narrow owner-approved carve-out of two named files from the lib/platform-v7 forbidden zone (route/access policy only; broad zone stays forbidden); no cabinet rewrite, no business-logic change, no server-side RBAC. Server-side cabinet enforcement remains gated. ROLE_COCKPIT_AUDIT.md §3/§5 updated
 
 - Phase 2 / PR-3 dual bank entry routing decision: canonical bank cabinet = /platform-v7/bank ("Кабинет банка", ~20 cross-app links + ~13 component tests); /platform-v7/bank/clean reclassified as a legacy "clean room" alias and converted to a thin server redirect → /bank (no second cockpit, no money logic). Bank role home + bottom-nav repointed to canonical in shellRoutes.ts and legacy navigation.ts (also fixing a pre-existing contradictory test); allowedPrefixes keeps the alias reachable. Covered by platformV7BankCanonicalRoute.test.ts; bankCleanRoom + cabinet-access + entry-gate/route-audit e2e updated to the alias contract. Narrow owner-approved carve-out (routing + the bank/clean route file); broad cockpit/lib/app zones stay forbidden; operator-only. No bank cockpit rewrite, no MoneyEngine/SettlementEngine change, no server-side RBAC, no live bank integration. ROLE_COCKPIT_AUDIT.md §5 #6 updated
+
+- Phase 2 / PR-4 arbitrator legacy import cleanup: the active /platform-v7/arbitrator page no longer imports a page default-export from the legacy app/platform-v7r route tree. The dispute-room cockpit was relocated byte-identically (verified diff: identical body) into a canonical component components/platform-v7/ArbitratorDisputeRoom.tsx; the page imports/renders that instead. Legacy v7r route left untouched (read-only dead duplicate). New platformV7ArbitratorCanonicalImport.test.ts asserts the import boundary + no fake-live copy; arbitratorDecisionPolish mock retargeted. Narrow owner-approved carve-out (import/wrapper boundary only); broad cockpit/lib/app zones stay forbidden; operator-only. No cockpit rewrite, no dispute/arbitration business-logic change, no server-side RBAC, no live integration. ROLE_COCKPIT_AUDIT.md §5 #3 updated
 
 GATED (owner approval required before code starts):
 - minor-units PR-B — internal MoneyEngine/SettlementEngine arithmetic in kopecks. STOP: changes live money arithmetic. Admission gate in docs/platform-v7/audit/MONEY_MINOR_UNITS_AUDIT.md §8 (all tests green; no external *Rub contract change; rollback path; characterization tests added first; no schema migration; no DB-backed activation; no live integrations)

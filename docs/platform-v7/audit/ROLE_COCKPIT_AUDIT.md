@@ -118,9 +118,14 @@ not a missing shell.
 2. ~~`PlatformV7RoleLockFix.tsx:49` runs a **50ms `setInterval`**~~ — **resolved in
    PR-1 (#1951)**: the polling timer was removed; the lock is now event-/state-driven
    (navigation + role reactivity + popstate/hashchange/focus), behavior-preserving.
-3. **Embedded legacy**: `arbitrator/page.tsx:3` imports
-   `@/app/platform-v7r/arbitrator/page` — the canonical v7 cockpit depends on the
-   legacy `v7r` tree that middleware otherwise redirects away.
+3. ~~**Embedded legacy**: `arbitrator/page.tsx` imports
+   `@/app/platform-v7r/arbitrator/page`~~ — **resolved in PR-4** (routing/import only,
+   no cockpit rewrite): the dispute-room cockpit was relocated **verbatim** (byte-identical
+   UI/logic) into a canonical component `@/components/platform-v7/ArbitratorDisputeRoom`,
+   and the active page now imports that instead of a page default-export from the legacy
+   `v7r` route tree. Covered by `platformV7ArbitratorCanonicalImport.test.ts`. Residual:
+   the dead `app/platform-v7r/arbitrator` route still holds its own copy (untouched,
+   read-only); removing the legacy `v7r` tree is a later gated cleanup.
 4. **Large duplicate surface** (deals/lots/batches/rfq + ~25 grain pages) —
    orphan/confusion risk, inconsistent cockpits.
 5. **`support`/`investor`** — **resolved in PR-2** as a routing/access decision
