@@ -12,8 +12,13 @@ const NORMALIZED_RUNTIME_COPY = new Map([
   ['пилотный сценарий', 'рабочий сценарий'],
   ['Пилотный сценарий', 'Рабочий сценарий'],
   ['по документу пилота', 'по документу сделки'],
-  ['Данные статичные — API недоступен', 'Источники данных требуют подключения'],
+  ['API-контур недоступен · показан локальный сценарий', 'Источники подключаются · показан рабочий сценарий'],
+  ['API-контур доступен · данные текущего сценария', 'Рабочий контур · данные текущего сценария'],
+  ['Данные статичные — API недоступен', 'Внешние источники требуют подключения'],
+  ['Данные статичные', 'Внешние источники требуют подключения'],
   ['API недоступен', 'источник данных требует подключения'],
+  ['FARMER · Кабинет продавца', 'Продавец · кабинет сделки'],
+  ['FARMER', 'Продавец'],
 ]);
 
 const CHIP_TONE_SURFACES: Record<Exclude<ChipTone, 'neutral'>, string> = {
@@ -95,6 +100,8 @@ function normalizeRuntimeCopy(root: ParentNode) {
 }
 
 export function stabilizeDarkSurfaces(root: ParentNode = document) {
+  normalizeRuntimeCopy(root);
+
   const theme = document.documentElement.dataset.theme;
   if (theme === 'light' || theme === 'high-contrast') return;
 
@@ -113,8 +120,6 @@ export function stabilizeDarkSurfaces(root: ParentNode = document) {
       if (tone !== 'neutral') el.style.setProperty('--p7-chip-tone-surface', CHIP_TONE_SURFACES[tone]);
     }
   }
-
-  normalizeRuntimeCopy(root);
 }
 
 export function ShellCopyNormalizer() {
