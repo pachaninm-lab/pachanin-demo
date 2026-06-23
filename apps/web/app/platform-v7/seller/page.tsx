@@ -84,6 +84,37 @@ const sellerPaths = [
   { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, пакет для банка и статус проверки' },
 ] as const;
 
+const sellerFirstScreenFacts = [
+  {
+    label: 'Что произошло',
+    value: 'LOT-2403 принят в сделку DL-9106',
+    note: 'Покупатель заявил резерв, но пакет ещё не готов к банковской проверке.',
+  },
+  {
+    label: 'Что заблокировано',
+    value: 'СДИЗ, ЭТрН и акт приёмки',
+    note: 'Без закрытых документов банк не получает проверяемое основание.',
+    warning: true,
+  },
+  {
+    label: 'Деньги под риском',
+    value: '9,65 млн ₽ резерва',
+    note: 'К проверке банком сейчас 0 ₽; платформа не подтверждает движение денег.',
+    strong: true,
+  },
+  {
+    label: 'Ответственный',
+    value: 'Продавец · ФГИС · перевозчик',
+    note: 'Продавец собирает пакет, внешние контуры подтверждают документы.',
+  },
+  {
+    label: 'Следующее действие',
+    value: 'Закрыть документы и открыть сделку',
+    note: 'Маршрут ведёт в deal-clean, где видны документы, рейс и банковская проверка.',
+    warning: true,
+  },
+] as const;
+
 export default async function PlatformV7SellerPage() {
   const [deals, disputes] = await Promise.all([getDealsCanonical(), getDisputes()]);
   const apiOnline = deals.length > 0;
@@ -136,6 +167,27 @@ export default async function PlatformV7SellerPage() {
           <PremiumCtaButton href='#parties' variant='ghost'>Открыть партии и лоты</PremiumCtaButton>
         </div>
       </CockpitHero>
+
+      <section id='first-screen' style={anchorSection} aria-label='Первый экран продавца: факты, блокер, деньги и следующий шаг'>
+        <div style={card}>
+          <div style={{ display: 'grid', gap: 6 }}>
+            <div style={micro}>контроль первого экрана</div>
+            <h2 style={h2}>Продавец видит сделку, блокер, деньги и ответственного без прокрутки</h2>
+            <p style={paragraph}>
+              Это не сообщение о готовой выплате: текущий статус — подготовка доказуемого пакета для банковской проверки.
+            </p>
+          </div>
+          <div style={factGrid}>
+            {sellerFirstScreenFacts.map((fact) => (
+              <Cell key={fact.label} label={fact.label} value={fact.value} strong={fact.strong} warning={fact.warning} note={fact.note} />
+            ))}
+          </div>
+          <div style={firstScreenActions}>
+            <Link href='/platform-v7/deals/DL-9106/clean' style={primaryAction}>Открыть сделку DL-9106</Link>
+            <Link href='#documents' style={secondaryAction}>Перейти к документам</Link>
+          </div>
+        </div>
+      </section>
 
       <section id='overview' style={anchorSection}>
         <CollapsibleSection title='Состояние сделки продавца' summary='партия · лот · блокер · следующий шаг' defaultOpen>
@@ -279,18 +331,42 @@ export default async function PlatformV7SellerPage() {
   );
 }
 
-function Cell({ label, value, strong = false, warning = false }: { label: string; value: string; strong?: boolean; warning?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div></div>;
+function Cell({
+  label,
+  value,
+  note,
+  strong = false,
+  warning = false,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  strong?: boolean;
+  warning?: boolean;
+}) {
+  return (
+    <div style={cell}>
+      <div style={micro}>{label}</div>
+      <div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div>
+      {note ? <div style={noteText}>{note}</div> : null}
+    </div>
+  );
 }
 
 const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
 const h2 = { margin: '4px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
+const paragraph = { margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 } as const;
 const blockerCard = { display: 'grid', gap: 6, minWidth: 220, maxWidth: 280, padding: 14, borderRadius: 18, background: '#FFFBEB', border: '1px solid #FDE68A', boxShadow: '0 12px 28px rgba(180,83,9,0.08)' } as const;
 const pathGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 } as const;
+const factGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(175px,1fr))', gap: 8 } as const;
 const pathCard = { textDecoration: 'none', minHeight: 132, display: 'grid', alignContent: 'start', gap: 8, padding: 14, borderRadius: 20, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
 const lotRow = { textDecoration: 'none', color: 'inherit', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' } as const;
 const rowGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 8 } as const;
+const firstScreenActions = { display: 'flex', flexWrap: 'wrap', gap: 8 } as const;
+const primaryAction = { textDecoration: 'none', display: 'inline-flex', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 999, padding: '0 16px', background: '#0A7A5F', color: '#fff', fontSize: 13, fontWeight: 950, boxShadow: '0 12px 24px rgba(10,122,95,0.18)' } as const;
+const secondaryAction = { textDecoration: 'none', display: 'inline-flex', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 999, padding: '0 16px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 950 } as const;
 const cell = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const idText = { color: '#0A7A5F', fontSize: 13, fontWeight: 950 } as const;
+const noteText = { marginTop: 6, color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.4 } as const;
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const anchorSection = { scrollMarginTop: 86 } as const;
