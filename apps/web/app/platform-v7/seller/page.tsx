@@ -25,7 +25,7 @@ const sellerHandoff: HandoffItem[] = [
   {
     direction: 'sends',
     role: 'продавец → покупатель',
-    requirement: 'публикует лот и ждёт встречного предложения от покупателя',
+    requirement: 'публикует лот и ожидает подтверждённое предложение покупателя',
     entity: 'LOT-2403',
     href: '/platform-v7/lots/LOT-2403',
     documentImpact: true,
@@ -33,13 +33,13 @@ const sellerHandoff: HandoffItem[] = [
   {
     direction: 'awaits',
     role: 'от покупателя и банка',
-    requirement: 'резерв ожидает банковского подтверждения',
+    requirement: 'резерв ожидает банковской проверки документов',
     moneyImpact: true,
   },
   {
     direction: 'awaits',
     role: 'от ФГИС «Зерно»',
-    requirement: 'СДИЗ ожидает закрытия — без этого основание не передаётся на банковскую проверку',
+    requirement: 'СДИЗ не закрыт — пакет документов ещё нельзя отправить банку',
     moneyImpact: true,
     documentImpact: true,
   },
@@ -51,7 +51,7 @@ const sellerHandoff: HandoffItem[] = [
   },
   {
     direction: 'next',
-    requirement: 'закрыть СДИЗ, ЭТрН и акт приёмки для передачи основания на банковскую проверку',
+    requirement: 'закрыть СДИЗ, ЭТрН и акт приёмки, затем отправить пакет документов в банк',
     entity: 'DL-9106',
     href: '/platform-v7/deals/DL-9106/clean',
     moneyImpact: true,
@@ -63,7 +63,7 @@ const sellerLots = [
     id: 'LOT-2403',
     title: 'Пшеница 4 класса · 600 т · EXW',
     status: 'предложение принято',
-    money: 'резерв 9,65 млн ₽ · на проверку банку 0 ₽',
+    money: 'резерв 9,65 млн ₽ · к проверке банком 0 ₽',
     next: 'закрыть СДИЗ, ЭТрН и приёмку',
     href: '/platform-v7/lots/LOT-2403',
   },
@@ -80,8 +80,8 @@ const sellerLots = [
 const sellerPaths = [
   { title: 'Создать партию', href: '/platform-v7/seller/batches/new', note: 'культура, объём, качество, документы, ФГИС' },
   { title: 'Опубликовать лот', href: '/platform-v7/seller/lots/new', note: 'управляемая публикация без раскрытия контактов' },
-  { title: 'Проверить запросы', href: '/platform-v7/seller/rfq', note: 'сравнение спроса, netback и рисков покупателя' },
-  { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, основание и банковская проверка' },
+  { title: 'Проверить запросы', href: '/platform-v7/seller/rfq', note: 'спрос, netback и риск покупателя' },
+  { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, пакет для банка и статус проверки' },
 ] as const;
 
 export default async function PlatformV7SellerPage() {
@@ -98,53 +98,53 @@ export default async function PlatformV7SellerPage() {
         summary={
           apiOnline
             ? `${deals.length} сделок · ${disputeCount} открытых споров`
-            : 'Данные статичные — API недоступен'
+            : 'Показан локальный сценарий · внешние подключения не активны'
         }
       />
 
       <QuietIntelligenceHint
-        problem='СДИЗ и ЭТрН не закрыты — деньги стоят на проверке банка.'
-        action='Закройте СДИЗ и ЭТрН, затем передайте основание банку.'
-        outcome='После закрытия документов банк получит основание для проверки выплаты.'
+        problem='СДИЗ и ЭТрН не закрыты — выплата ожидает проверки документов.'
+        action='Закройте СДИЗ и ЭТрН, затем отправьте пакет документов в банк.'
+        outcome='После закрытия документов банк сможет проверить основание для выплаты.'
       />
 
       <CockpitHero
-        eyebrow='Кабинет продавца · сделка → документы → деньги'
-        title='Закрыть документы, чтобы передать основание банку'
-        lead='Продавец видит не витрину лотов, а контур исполнения: партия, лот, резерв покупателя, СДИЗ, ЭТрН, приёмка и причина, почему деньги ещё не переданы на банковскую проверку.'
+        eyebrow='Кабинет продавца · сделка → документы → проверка выплаты'
+        title='Подготовьте пакет документов для проверки банком'
+        lead='Первый экран продавца показывает состояние сделки: что произошло, что блокирует выплату, сколько денег под риском, кто отвечает и какое действие нужно выполнить следующим.'
         aside={
           <div style={blockerCard}>
-            <div style={micro}>главный блокер</div>
+            <div style={micro}>что мешает выплате</div>
             <strong style={{ color: 'var(--pc-prem-warn, #B45309)', fontSize: 18, lineHeight: 1.2 }}>СДИЗ и ЭТрН не закрыты</strong>
-            <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.45 }}>на проверку банку сейчас 0 ₽</span>
+            <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.45 }}>к проверке банком сейчас 0 ₽</span>
           </div>
         }
       >
         <div className='pc-prem-kpis' aria-label='Ключевые показатели продавца'>
           <PremiumStatCard glyph='bag' tone='info' value={String(deals.length)} label='Сделок в работе' />
           <PremiumStatCard glyph='coins' tone='success' value='9,65 млн ₽' label='Резерв · не выплата' />
-          <PremiumStatCard glyph='doc' tone='warning' value='0 ₽' label='На проверку банку сейчас' />
+          <PremiumStatCard glyph='doc' tone='warning' value='0 ₽' label='К проверке банком' />
           <PremiumStatCard glyph='alert' tone={disputeCount > 0 ? 'danger' : 'neutral'} value={String(disputeCount)} label='Открытых споров' />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <TrustDot state='test' size='sm' label='Контур исполнения · Внешние подключения требуют договоров' />
+          <TrustDot state='test' size='sm' label='Контур исполнения · внешние подключения требуют договоров' />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
-          <PremiumCtaButton href='#documents' glyph='shield-check'>Документы</PremiumCtaButton>
-          <PremiumCtaButton href='#parties' variant='ghost'>Партии и лоты</PremiumCtaButton>
+          <PremiumCtaButton href='#documents' glyph='shield-check'>Подготовить документы</PremiumCtaButton>
+          <PremiumCtaButton href='#parties' variant='ghost'>Открыть партии и лоты</PremiumCtaButton>
         </div>
       </CockpitHero>
 
       <section id='overview' style={anchorSection}>
-        <CollapsibleSection title='Обзор исполнения продавца' summary='партия · лот · статус сделки' defaultOpen>
+        <CollapsibleSection title='Состояние сделки продавца' summary='партия · лот · блокер · следующий шаг' defaultOpen>
           <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.seller} />
         </CollapsibleSection>
       </section>
 
       <section id='documents' style={anchorSection}>
-        <CollapsibleSection title='Документы и допуск' summary='СДИЗ · ЭТрН · акт · протокол' defaultOpen={false}>
+        <CollapsibleSection title='Документы для проверки' summary='СДИЗ · ЭТрН · акт · протокол' defaultOpen={false}>
           <div style={{ display: 'grid', gap: 12 }}>
             <DocumentReadinessMiniMatrix role='seller' />
             <WorkflowActionPanel context='seller' />
@@ -153,7 +153,7 @@ export default async function PlatformV7SellerPage() {
       </section>
 
       <section id='money' style={anchorSection}>
-        <CollapsibleSection title='Деньги и банковское основание' summary='резерв 9,65 млн ₽ · проверка 0 ₽' defaultOpen={false}>
+        <CollapsibleSection title='Деньги и банковская проверка' summary='резерв 9,65 млн ₽ · к проверке 0 ₽' defaultOpen={false}>
           <div style={{ display: 'grid', gap: 12 }}>
             <MoneyGateRing
               title='Деньги по сделке DL-9106'
@@ -162,25 +162,25 @@ export default async function PlatformV7SellerPage() {
                 { label: 'Банк подтвердил выплату', amountRub: 0, state: 'released' },
                 { label: 'Резерв заявлен покупателем', amountRub: 9_648_000, state: 'reserved' },
               ]}
-              caption='Резерв ожидает банковского подтверждения; выплата остановлена документными условиями (СДИЗ, ЭТрН, акт приёмки, протокол качества).'
+              caption='Резерв ожидает банковской проверки; выплата остановлена документными условиями (СДИЗ, ЭТрН, акт приёмки, протокол качества).'
             />
             <MoneyImpactSummaryStrip
-              amountContext='резерв 9,65 млн ₽ · на проверку банку 0 ₽'
+              amountContext='резерв 9,65 млн ₽ · к проверке банком 0 ₽'
               pilotState='waiting'
               pilotStateLabel='контур исполнения · ожидание документов'
               responsible='продавец · ФГИС «Зерно»'
-              nextStep='закрыть СДИЗ и ЭТрН для передачи основания банку на проверку'
+              nextStep='закрыть СДИЗ и ЭТрН, затем отправить пакет документов в банк'
               stopReason='банковская проверка остановлена: СДИЗ и ЭТрН не закрыты'
               requiredEvidence='закрытый СДИЗ, ЭТрН, акт приёмки и протокол качества без незакрытых расхождений'
-              afterResolved='сделка передаёт основание банку; банк проверяет выплату по своим правилам'
-              bankPlatformBoundary='платформа показывает основание и статус, банк подтверждает проверку и движение денег'
+              afterResolved='пакет документов передаётся банку; банк проверяет выплату по своим правилам'
+              bankPlatformBoundary='платформа показывает пакет документов и статус; банк подтверждает проверку и движение денег'
             />
           </div>
         </CollapsibleSection>
       </section>
 
       <section id='blockers' style={anchorSection}>
-        <CollapsibleSection title='Блокеры и путь разблокировки' summary='причина → действие → деньги' defaultOpen={false}>
+        <CollapsibleSection title='Что мешает выплате' summary='причина → действие → проверка' defaultOpen={false}>
           <div style={{ display: 'grid', gap: 12 }}>
             <P7ActionStateChip
               status='waiting'
@@ -198,22 +198,22 @@ export default async function PlatformV7SellerPage() {
             <CauseLine
               cause={{ text: 'СДИЗ не закрыт', tone: 'blocked' }}
               relation='blocks'
-              effect={{ text: 'передача основания банку', tone: 'money' }}
+              effect={{ text: 'отправку пакета документов в банк', tone: 'money' }}
               moneyAmount='9,65 млн ₽'
               moneyTone='blocked'
             />
             <CauseLine
               cause={{ text: 'ЭТрН не подписан', tone: 'blocked' }}
               relation='blocks'
-              effect={{ text: 'банковская проверка выплаты', tone: 'money' }}
+              effect={{ text: 'банковскую проверку выплаты', tone: 'money' }}
               moneyTone='blocked'
             />
             <UnlockPath
-              title='Чтобы деньги поступили на проверку банку:'
+              title='Чтобы передать сделку на проверку банком:'
               steps={[
                 { id: '1', label: 'Закрыть СДИЗ в ФГИС «Зерно»', status: 'current' },
                 { id: '2', label: 'Подписать ЭТрН', status: 'upcoming' },
-                { id: '3', label: 'Передать основание банку', status: 'upcoming' },
+                { id: '3', label: 'Отправить пакет документов в банк', status: 'upcoming' },
               ]}
             />
           </div>
