@@ -31,6 +31,17 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 
+NEXT:
+- Layer: Role cabinet pass result audit.
+- Allowed files:
+  - docs/platform-v7/audit/**
+  - docs/platform-v7/autopilot/**
+  - docs/platform-v7/execution-queue.md
+- Success criteria:
+  - current role-pass result is recorded without changing maturity beyond controlled-pilot / pre-integration;
+  - no apps/landing, backend, DB, auth/session/API, package or lockfile changes;
+  - readiness remains 72% unless a real functional cabinet pass has merged.
+
 ORDER:
 1. Seller cabinet functional pass.
 2. Buyer cabinet functional pass.
