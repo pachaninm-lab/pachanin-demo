@@ -118,6 +118,8 @@
     "apps/web/tests/unit/platformV7ServerCabinetAccess.test.ts",
     "apps/web/lib/platform-v7/verified-session.ts",
     "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
+    "apps/web/app/api/platform-v7/cabinet-session/route.ts",
+    "apps/web/app/platform-v7/login/page.tsx",
     "apps/web/app/platform-v7/layout.tsx",
     "apps/web/styles/platform-v7-mobile-hardening.css",
     "apps/web/components/v7r/ShellCopyNormalizer.tsx",
@@ -246,6 +248,18 @@
         "apps/web/components/v7r/ShellCopyNormalizer.tsx"
       ],
       "note": "Narrow owner-approved copy-normalization carve-out for removing immature demo/pilot/static-data wording from the platform-v7 shell runtime layer. No apps/landing, no backend, no DB, no live auth/integration, no payment, no package or lockfile changes. This does not claim that external integrations are live."
+    },
+    {
+      "layer": "Phase 4D-pre verified JWT session issuance (still report-only)",
+      "approvedBy": "owner",
+      "files": [
+        "apps/web/lib/platform-v7/verified-session.ts",
+        "apps/web/app/api/platform-v7/cabinet-session/route.ts",
+        "apps/web/app/platform-v7/login/page.tsx",
+        "apps/web/middleware.ts",
+        "apps/web/tests/unit/platformV7VerifiedSession.test.ts"
+      ],
+      "note": "Narrow, owner-approved carve-out (verified JWT session issuance, still report-only). Adds signCabinetSession + readVerifiedCabinetSessionRole (HS256 cab claim) and a POST /api/platform-v7/cabinet-session route that validates the role server-side against the 12-role allowlist and sets a dedicated httpOnly signed cookie pc_v7_cabinet. DELIBERATELY isolated from pc_access_token (Bearer-forwarded to API + demo. routing) to avoid breaking the demo data flow — a safe deviation from the literal pc_access_token instruction. The platform-v7 login fires the issuance fire-and-forget (never gates entry). Report-only middleware resolves the verified role from pc_v7_cabinet (fallback to a real API JWT in pc_access_token). Covers all 12 cabinets incl. surveyor/bank/arbitrator/compliance. No block-mode, no redirect, no UX change, no auth rewrite, no layout.tsx change, no apps/landing change; the resolver trusts ONLY the signature, never URL/query/pc-role/client guards. Block-mode (4C, bank only) requires separate explicit approval after report metrics. Operator-only — NOT in agentWritableScope. Carve-out includes two CRITICAL_FORBIDDEN_ZONES files (apps/web/app/api/platform-v7/cabinet-session/route.ts, apps/web/app/platform-v7/login/page.tsx) by named-file exception; the broad zones stay forbidden."
     }
   ],
   "agentWritableScope": [

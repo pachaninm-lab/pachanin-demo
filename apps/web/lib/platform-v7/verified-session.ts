@@ -30,6 +30,12 @@ const API_ROLE_TO_CABINET: Readonly<Record<string, PlatformRole>> = {
   ADMIN: 'operator',
 };
 
+// The 12 platform-v7 cabinet roles — the only valid `cab` claim values.
+const VALID_CABINET_ROLES: ReadonlySet<string> = new Set<PlatformRole>([
+  'operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor',
+  'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive',
+]);
+
 /** Maps a verified API role claim to a platform-v7 cabinet role, or null if unmapped. */
 export function mapApiRoleToCabinetRole(apiRole: unknown): PlatformRole | null {
   if (typeof apiRole !== 'string') return null;
@@ -113,4 +119,61 @@ export async function readVerifiedCabinetRole(
   if (typeof claims.exp === 'number' && claims.exp <= nowSeconds) return null; // expired
   if (typeof claims.nbf === 'number' && claims.nbf > nowSeconds) return null; // not yet valid
   return mapApiRoleToCabinetRole(claims.role);
+}
+
+// --- Phase 4D-pre: dedicated platform-v7 cabinet session (isolated from pc_access_token) ---
+//
+// The platform-v7 shell session carries the cabinet role directly in a `cab` claim of a
+// dedicated, server-signed cookie (see /api/platform-v7/cabinet-session). This is kept
+// separate from `pc_access_token` on purpose: that cookie is Bearer-forwarded to the API
+// and its `demo.` prefix routes demo↔real, so it must not be repurposed. Verifying the
+// cabinet role from this dedicated token covers all 12 cabinets (including surveyor /
+// bank / arbitrator / compliance, which have no 1:1 API role).
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+/**
+ * Signs a dedicated platform-v7 cabinet session token (HS256, `cab` claim). Returns null
+ * for an unknown role or missing secret. Edge-safe (Web Crypto). Never throws.
+ */
+export async function signCabinetSession(
+  role: string,
+  secret: string,
+  opts: { readonly nowSeconds: number; readonly ttlSeconds: number },
+): Promise<string | null> {
+  if (!secret || !VALID_CABINET_ROLES.has(role)) return null;
+  try {
+    const enc = new TextEncoder();
+    const header = bytesToBase64Url(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+    const payload = bytesToBase64Url(
+      enc.encode(JSON.stringify({ cab: role, iat: opts.nowSeconds, exp: opts.nowSeconds + opts.ttlSeconds })),
+    );
+    const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const signature = await crypto.subtle.sign('HMAC', key, enc.encode(`${header}.${payload}`));
+    return `${header}.${payload}.${bytesToBase64Url(new Uint8Array(signature))}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves the cabinet role from a verified dedicated session token (`cab` claim). Returns
+ * null (→ unknown) for any missing/invalid/expired/unknown-role case. Never throws.
+ */
+export async function readVerifiedCabinetSessionRole(
+  token: string | null | undefined,
+  secret: string,
+  nowSeconds: number,
+): Promise<PlatformRole | null> {
+  if (!token) return null;
+  const claims = await verifyHs256Jwt(token, secret);
+  if (!claims) return null;
+  if (typeof claims.exp === 'number' && claims.exp <= nowSeconds) return null; // expired
+  if (typeof claims.nbf === 'number' && claims.nbf > nowSeconds) return null; // not yet valid
+  const cab = claims.cab;
+  return typeof cab === 'string' && VALID_CABINET_ROLES.has(cab) ? (cab as PlatformRole) : null;
 }

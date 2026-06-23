@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { observeServerCabinetAccess, serverCabinetRbacMode } from '@/lib/platform-v7/server-cabinet-access';
-import { readVerifiedCabinetRole } from '@/lib/platform-v7/verified-session';
+import { readVerifiedCabinetRole, readVerifiedCabinetSessionRole } from '@/lib/platform-v7/verified-session';
 
-// Access-token cookie (apps/web/lib/auth-cookies ACCESS_COOKIE). The verified-JWT
-// role is the ONLY server-trusted identity for cabinet RBAC observation.
+// The verified-JWT role is the ONLY server-trusted identity for cabinet RBAC observation.
+// Prefer the dedicated platform-v7 cabinet session (pc_v7_cabinet, `cab` claim); fall back
+// to a real API JWT in pc_access_token (real-backend logins). Never path/pc-role/query.
+const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const ACCESS_TOKEN_COOKIE = 'pc_access_token';
 
 const PUBLIC_EXACT = new Set(['/', '/login', '/register']);
@@ -295,11 +297,11 @@ export async function middleware(req: NextRequest) {
     // alters this response.
     try {
       if (serverCabinetRbacMode() === 'report') {
-        const verifiedRole = await readVerifiedCabinetRole(
-          req.cookies.get(ACCESS_TOKEN_COOKIE)?.value ?? null,
-          process.env.JWT_SECRET ?? '',
-          Math.floor(Date.now() / 1000),
-        );
+        const secret = process.env.JWT_SECRET ?? '';
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const verifiedRole =
+          (await readVerifiedCabinetSessionRole(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, nowSeconds))
+          ?? (await readVerifiedCabinetRole(req.cookies.get(ACCESS_TOKEN_COOKIE)?.value ?? null, secret, nowSeconds));
         observeServerCabinetAccess({ pathname: p, verifiedRole });
       }
     } catch {
