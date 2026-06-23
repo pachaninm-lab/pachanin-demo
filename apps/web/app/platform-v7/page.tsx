@@ -83,8 +83,17 @@ export default function PlatformV7RootPage() {
         <div className='entry-header-actions'>
           <Link href='/platform-v7/login' className='entry-login'><LogIn size={17} />Войти</Link>
           <Link href='/platform-v7/open' className='entry-demo'>Демо</Link>
-          <button type='button' className='entry-icon-button' aria-label='Помощь'><HelpCircle size={21} /></button>
-          <button type='button' className='entry-icon-button entry-menu-button' aria-label='Меню'><Menu size={22} /></button>
+          <Link href='/platform-v7/support' className='entry-icon-button' aria-label='Помощь'><HelpCircle size={21} /></Link>
+          <details className='entry-menu'>
+            <summary className='entry-icon-button entry-menu-button' aria-label='Открыть меню'><Menu size={22} /></summary>
+            <nav className='entry-menu-panel' aria-label='Меню'>
+              <Link href='/platform-v7/open'>Как это работает</Link>
+              <a href='#control'>Что контролирует</a>
+              <a href='#roles'>Роли</a>
+              <Link href='/platform-v7/docs'>Документы</Link>
+              <Link href='/platform-v7/login'>Войти в кабинет</Link>
+            </nav>
+          </details>
         </div>
       </header>
 
@@ -237,8 +246,34 @@ const entryCss = `
 }
 .entry-login { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; color: #007a2f; }
 .entry-demo { display: inline-flex; align-items: center; padding: 0 18px; background: #007a2f; color: #fff; border-color: #007a2f; }
-.entry-icon-button { display: inline-grid; place-items: center; width: 44px; cursor: default; }
-.entry-menu-button { display: none; }
+.entry-icon-button { display: inline-grid; place-items: center; width: 44px; cursor: pointer; }
+.entry-icon-button:hover { border-color: rgba(0, 122, 47, .35); color: #007a2f; }
+.entry-menu { position: relative; display: none; }
+.entry-menu > summary { list-style: none; }
+.entry-menu > summary::-webkit-details-marker { display: none; }
+.entry-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 30;
+  display: grid;
+  gap: 2px;
+  min-width: 220px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid rgba(7, 22, 17, .1);
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 18px 42px rgba(7, 22, 17, .14);
+  backdrop-filter: blur(12px);
+}
+.entry-menu-panel a {
+  padding: 11px 12px;
+  border-radius: 11px;
+  color: #17251f;
+  font-size: 15px;
+  font-weight: 800;
+}
+.entry-menu-panel a:hover { background: rgba(0, 122, 47, .08); color: #007a2f; }
 
 .entry-hero {
   position: relative;
@@ -475,7 +510,7 @@ const entryCss = `
 @media (max-width: 980px) {
   .entry-header { grid-template-columns: 1fr auto; min-height: 68px; padding: 12px 16px; gap: 12px; }
   .entry-desktop-nav, .entry-demo { display: none; }
-  .entry-menu-button { display: inline-grid; }
+  .entry-menu { display: inline-block; }
   .entry-login { padding: 0 12px; }
   .entry-login svg { display: none; }
 
@@ -532,5 +567,13 @@ const entryCss = `
   .entry-icon-button { width: 42px; min-height: 42px; }
   .entry-control-grid { grid-template-columns: 1fr; }
   .entry-role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-v7-public-entry *, .pc-v7-public-entry *::before, .pc-v7-public-entry *::after {
+    transition-duration: .001ms !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 `;
