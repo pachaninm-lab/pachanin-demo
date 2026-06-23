@@ -115,3 +115,214 @@ html body .pc-shell-root-v4 .pc-v7-role-dock-inner {
     min-height: auto !important;
   }
 }
+
+/* PR-A: adult mobile execution shell pass. Fixes live defects from 390px class devices. */
+html body .pc-shell-root-v4,
+html body .pc-shell-root-v4 * {
+  min-width: 0;
+}
+
+html body .pc-shell-root-v4 h1,
+html body .pc-shell-root-v4 h2,
+html body .pc-shell-root-v4 h3,
+html body .pc-shell-root-v4 strong,
+html body .pc-shell-root-v4 p,
+html body .pc-shell-root-v4 span,
+html body .pc-shell-root-v4 small,
+html body .pc-v7-public-entry h1,
+html body .pc-v7-public-entry h2,
+html body .pc-v7-public-entry h3,
+html body .pc-v7-public-entry strong,
+html body .pc-v7-public-entry p,
+html body .pc-v7-public-entry span,
+html body .pc-v7-public-entry small {
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  hyphens: manual !important;
+}
+
+@media (max-width: 980px) {
+  html body .pc-v7-public-entry .entry-process-row,
+  html body .entry-process-row {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    scroll-snap-type: none !important;
+  }
+
+  html body .pc-v7-public-entry .entry-process-tile,
+  html body .entry-process-tile {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    display: grid !important;
+    grid-template-columns: 34px minmax(0, 1fr) !important;
+    align-items: start !important;
+    justify-items: stretch !important;
+    gap: 4px 12px !important;
+    padding: 14px 16px !important;
+    text-align: left !important;
+  }
+
+  html body .pc-v7-public-entry .entry-process-tile:not(:last-child)::after,
+  html body .entry-process-tile:not(:last-child)::after {
+    display: none !important;
+  }
+
+  html body .pc-v7-public-entry .entry-process-icon,
+  html body .entry-process-icon {
+    display: none !important;
+  }
+
+  html body .pc-v7-public-entry .entry-process-index,
+  html body .entry-process-index {
+    grid-column: 1 !important;
+    grid-row: 1 / span 2 !important;
+    width: 28px !important;
+    height: 28px !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 999px !important;
+    background: rgba(0, 122, 47, .08) !important;
+    color: #007a2f !important;
+    font-size: 12px !important;
+    font-weight: 950 !important;
+  }
+
+  html body .pc-v7-public-entry .entry-process-tile strong,
+  html body .entry-process-tile strong {
+    grid-column: 2 !important;
+    color: #071611 !important;
+    font-size: 17px !important;
+    line-height: 1.15 !important;
+    letter-spacing: -.02em !important;
+    white-space: normal !important;
+  }
+
+  html body .pc-v7-public-entry .entry-process-tile small,
+  html body .entry-process-tile small {
+    grid-column: 2 !important;
+    color: #66736e !important;
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+    white-space: normal !important;
+  }
+}
+
+@media (max-width: 767px) {
+  html body .pc-shell-root-v4 {
+    --pc-header-offset: 112px !important;
+    overflow-x: clip !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-header {
+    min-height: calc(env(safe-area-inset-top) + 78px) !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-header-inner {
+    padding: calc(env(safe-area-inset-top) + 7px) 10px 8px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main {
+    padding-top: calc(var(--pc-header-offset) + 18px) !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 238px) !important;
+    overflow-x: clip !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-pilot-note {
+    margin-bottom: 12px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-bottomnav {
+    padding: 8px 10px calc(env(safe-area-inset-bottom) + 14px) !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-bottomnav-inner {
+    gap: 6px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-bn-item {
+    min-height: 64px !important;
+    padding: 7px 3px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-bn-label {
+    font-size: 10.5px !important;
+    line-height: 1.12 !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-assistant-widget {
+    right: 12px !important;
+    bottom: calc(env(safe-area-inset-bottom) + 116px) !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    border-radius: 18px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-assistant-widget span {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-assistant-widget svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  html body .pc-v7-public-entry .entry-role-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  html body .pc-v7-public-entry .entry-role-tile {
+    min-height: 136px !important;
+    padding: 12px !important;
+    border-radius: 18px !important;
+    gap: 7px !important;
+  }
+
+  html body .pc-v7-public-entry .entry-role-tile svg {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  html body .pc-v7-public-entry .entry-role-tile strong {
+    font-size: 14px !important;
+    line-height: 1.08 !important;
+  }
+
+  html body .pc-v7-public-entry .entry-role-tile span {
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 3 !important;
+    overflow: hidden !important;
+    font-size: 10.8px !important;
+    line-height: 1.28 !important;
+  }
+
+  html body .pc-v7-public-entry .entry-role-tile em {
+    font-size: 10.4px !important;
+    line-height: 1.15 !important;
+  }
+
+  html body .pc-v7-public-entry .entry-control-grid,
+  html body .pc-v7-login-single .login-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
