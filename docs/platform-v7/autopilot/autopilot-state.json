@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Role cabinet functional pass: first-screen clarity for role pages, with one next action, blocker, money impact, responsible party and evidence basis.",
+  "current": "Role cabinet functional pass.",
   "fullTzReadinessPercent": 72,
   "openPr": null,
   "lastClosed": ["#1966", "#1968", "#1969"],
@@ -60,7 +60,17 @@
     "docs/platform-v7/execution-queue.md"
   ],
   "controlledActions": { "enabled": true },
-  "forbiddenZones": ["apps/landing", "package-lock.json", "pnpm-lock.yaml"],
+  "forbiddenZones": [
+    "apps/landing",
+    "apps/web/app/platform-v7",
+    "apps/web/components/platform-v7",
+    "apps/web/components/v7r",
+    "apps/web/lib/platform-v7",
+    "apps/web/app/api",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml"
+  ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": [],
   "readiness": "72% honest readiness after UX shell stabilization; role cabinet functional pass is next."
