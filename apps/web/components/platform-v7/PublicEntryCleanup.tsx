@@ -69,13 +69,25 @@ const cleanupCss = `
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-process-tile small,
 .pc-shell-root-v4[data-public-entry='true'] .entry-process-tile small{font-size:13px!important;line-height:1.3!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-grid,
-.pc-shell-root-v4[data-public-entry='true'] .entry-role-grid{grid-template-columns:1fr!important;gap:12px!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-role-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile,
-.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile{min-height:auto!important;padding:18px!important;border-radius:22px!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile{min-height:138px!important;padding:12px!important;border-radius:18px!important;gap:7px!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile svg,
+.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile svg{width:24px!important;height:24px!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile strong,
-.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile strong{font-size:22px!important;line-height:1.05!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile strong{font-size:14px!important;line-height:1.05!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile span,
-.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile span{font-size:14px!important;line-height:1.35!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile span{font-size:10.8px!important;line-height:1.28!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile small,
+.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile small{display:none!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile em,
+.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile em{font-size:10.5px!important;line-height:1.15!important}
+}
+@media (max-width:360px){
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-grid,
+.pc-shell-root-v4[data-public-entry='true'] .entry-role-grid{grid-template-columns:1fr!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-role-tile,
+.pc-shell-root-v4[data-public-entry='true'] .entry-role-tile{min-height:auto!important}
 }
 `;
 
