@@ -120,6 +120,7 @@
     "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
     "apps/web/app/platform-v7/layout.tsx",
     "apps/web/styles/platform-v7-mobile-hardening.css",
+    "apps/web/components/v7r/ShellCopyNormalizer.tsx",
     "TRIGGER_PRODUCTION_REDEPLOY.txt",
     "notes_ui_test.txt",
     "ok.txt",
@@ -237,6 +238,14 @@
         "apps/web/styles/platform-v7-mobile-hardening.css"
       ],
       "note": "Narrow, owner-approved visual hardening carve-out for the remaining mobile defects visible on live screenshots after PR #1963: public process cards must collapse vertically on phone viewports, internal cabinets need additional bottom safe-area clearance above the fixed role dock and mobile browser chrome, and the mobile header must avoid action crowding. No apps/landing, no backend/DB/payment/live integration, no maturity claim changes."
+    },
+    {
+      "layer": "Shell copy maturity normalization",
+      "approvedBy": "owner",
+      "files": [
+        "apps/web/components/v7r/ShellCopyNormalizer.tsx"
+      ],
+      "note": "Narrow owner-approved copy-normalization carve-out for removing immature demo/pilot/static-data wording from the platform-v7 shell runtime layer. No apps/landing, no backend, no DB, no live auth/integration, no payment, no package or lockfile changes. This does not claim that external integrations are live."
     }
   ],
   "agentWritableScope": [
