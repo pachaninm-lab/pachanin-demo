@@ -1,14 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 100,
-  "currentStep": "API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.",
-  "lastCompletedStep": "Integration seam: adapter-factory mock↔real, bank-adapter-real + bank-callback, cabinet-level RBAC за флагом",
+  "fullTzReadinessPercent": 72,
+  "currentStep": "Role cabinet functional pass: first-screen clarity for role pages, with one next action, blocker, money impact, responsible party and evidence basis.",
+  "lastCompletedStep": "#1969 role-cabinet workspace density CSS pass",
   "openPr": null,
-  "blockedBy": [
-    "API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations. is not green/closed/mergeable. Dispatcher will not advance to Backend / DB / runtime persistence expansion."
-  ],
-  "nextStep": "API repository boundary (controlled-pilot / pre-integration): extracting RuntimeCore data access into per-domain repository adapters; runtime adapter default, Prisma adapters disabled behind explicit flags. DB-backed path not active, no live integrations.",
-  "updatedAt": "2026-06-21T10:59:36.251Z",
+  "blockedBy": [],
+  "nextStep": "Seller cabinet functional pass, then buyer, bank, operator, compliance, lab/elevator and field roles in small PRs.",
+  "updatedAt": "2026-06-23T07:45:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
