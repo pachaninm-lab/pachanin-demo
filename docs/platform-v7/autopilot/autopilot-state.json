@@ -31,6 +31,7 @@
     "apps/web/tests/unit/platformV7UxGate.test.ts",
     "apps/web/tests/unit/roleContinuityLayouts.test.tsx",
     "apps/web/tests/unit/platformV7FieldRolesIsolation.test.ts",
+    "apps/web/tests/unit/platformV7BankPageBasisGuard.test.ts",
     "docs/platform-v7/audit/**",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
@@ -55,6 +56,7 @@
     "apps/web/tests/unit/platformV7UxGate.test.ts",
     "apps/web/tests/unit/roleContinuityLayouts.test.tsx",
     "apps/web/tests/unit/platformV7FieldRolesIsolation.test.ts",
+    "apps/web/tests/unit/platformV7BankPageBasisGuard.test.ts",
     "docs/platform-v7/audit/**",
     "docs/platform-v7/autopilot/**",
     "docs/platform-v7/execution-queue.md"
