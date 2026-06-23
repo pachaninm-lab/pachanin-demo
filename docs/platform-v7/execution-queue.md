@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Role cabinet functional pass.
+CURRENT: Role cabinet functional pass: first-screen clarity for role pages, with one next action, blocker, money impact, responsible party and evidence basis.
 
 GOAL: every role cabinet must show within the first screen: what happened, what is blocked, money impact, responsible party, evidence basis and one next action.
 
@@ -30,6 +30,18 @@ CURRENT ALLOWED:
 - docs/platform-v7/audit/**
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
+
+NEXT:
+- Layer: Role cabinet regression audit (docs-only): record remaining role-cabinet defects after the functional pass and prepare the next narrow cleanup lane.
+- Allowed files:
+  - docs/platform-v7/audit/**
+  - docs/platform-v7/autopilot/**
+  - docs/platform-v7/execution-queue.md
+- Success criteria:
+  - Remaining role-cabinet defects are recorded.
+  - Next cleanup lane stays narrow.
+  - No app, backend, external connectivity, package or lockfile change.
+- Readiness remains 72%.
 
 ORDER:
 1. Seller cabinet functional pass.
