@@ -3,12 +3,13 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Role cabinet functional pass.",
+  "current": "Protected shell tools gate: calculator, notepad and support order before continuing role cabinet pass.",
   "fullTzReadinessPercent": 72,
-  "openPr": null,
-  "lastClosed": ["#1966", "#1968", "#1969"],
+  "openPr": "#1994",
+  "lastClosed": ["#1966", "#1968", "#1969", "#1985"],
   "lockedUntilCurrentGreen": ["External connectivity", "Persistence expansion", "Lockfile changes", "apps/landing changes"],
   "allowedCurrentScope": [
+    "apps/web/app/platform-v7/layout.tsx",
     "apps/web/app/platform-v7/seller/page.tsx",
     "apps/web/app/platform-v7/buyer/page.tsx",
     "apps/web/app/platform-v7/bank/page.tsx",
@@ -25,6 +26,7 @@
     "apps/web/components/platform-v7/LiveApiStatusBar.tsx",
     "apps/web/styles/platform-v7-mobile-hardening.css",
     "apps/web/components/v7r/ShellCopyNormalizer.tsx",
+    "apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts",
     "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
     "apps/web/tests/unit/platformV7OperationalRoleCockpit.test.tsx",
     "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
@@ -37,6 +39,7 @@
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
+    "apps/web/app/platform-v7/layout.tsx",
     "apps/web/app/platform-v7/seller/page.tsx",
     "apps/web/app/platform-v7/buyer/page.tsx",
     "apps/web/app/platform-v7/bank/page.tsx",
@@ -50,6 +53,7 @@
     "apps/web/app/platform-v7/field/page.tsx",
     "apps/web/styles/platform-v7-mobile-hardening.css",
     "apps/web/components/v7r/ShellCopyNormalizer.tsx",
+    "apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts",
     "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
     "apps/web/tests/unit/platformV7OperationalRoleCockpit.test.tsx",
     "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
@@ -75,5 +79,5 @@
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": [],
-  "readiness": "72% honest readiness after UX shell stabilization; role cabinet functional pass is next."
+  "readiness": "72% honest readiness after UX shell stabilization; protected shell tools gate is active before role cabinet functional pass continues."
 }
