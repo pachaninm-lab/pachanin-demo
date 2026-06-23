@@ -10,6 +10,7 @@ import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
 import { CalculatorHeaderWidget } from '@/components/platform-v7/CalculatorHeaderWidget';
+import { NotepadHeaderWidget } from '@/components/platform-v7/NotepadHeaderWidget';
 import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidget';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
@@ -88,6 +89,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
           <CalculatorHeaderWidget />
+          <NotepadHeaderWidget />
           <SupportHeaderIcon />
           <RoleAssistantWidget />
           {children}

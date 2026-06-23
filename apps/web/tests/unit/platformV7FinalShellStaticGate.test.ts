@@ -18,6 +18,12 @@ function roleDockBlock() {
   return shellUx.slice(start, end);
 }
 
+function protectedShellBlock(source: string) {
+  const start = source.indexOf('<AppShellV4 initialRole=');
+  const end = source.indexOf('</AppShellV4>', start);
+  return source.slice(start, end);
+}
+
 describe('platform-v7 final shell static gate', () => {
   it('keeps protected layouts on the same shell contract', () => {
     for (const source of [appLayout, clientLayout]) {
@@ -26,9 +32,24 @@ describe('platform-v7 final shell static gate', () => {
       expect(source).toContain('<PlatformV7ShellUxController />');
       expect(source).toContain('<RbacCabinetGuard />');
       expect(source).toContain('<CalculatorHeaderWidget />');
+      expect(source).toContain('<NotepadHeaderWidget />');
       expect(source).toContain('<SupportHeaderIcon />');
       expect(source).toContain('<RoleAssistantWidget />');
       expect(source).not.toContain('<CommandPalette />');
+    }
+  });
+
+  it('keeps notepad and calculator inside protected shell only', () => {
+    for (const source of [appLayout, clientLayout]) {
+      const shell = protectedShellBlock(source);
+      const publicBlock = source.slice(source.indexOf('if (isPublicPath'), source.indexOf('<AppShellV4 initialRole='));
+
+      expect(shell).toContain('<CalculatorHeaderWidget />');
+      expect(shell).toContain('<NotepadHeaderWidget />');
+      expect(shell.indexOf('<CalculatorHeaderWidget />')).toBeLessThan(shell.indexOf('<NotepadHeaderWidget />'));
+      expect(shell.indexOf('<NotepadHeaderWidget />')).toBeLessThan(shell.indexOf('<SupportHeaderIcon />'));
+      expect(publicBlock).not.toContain('CalculatorHeaderWidget');
+      expect(publicBlock).not.toContain('NotepadHeaderWidget');
     }
   });
 
