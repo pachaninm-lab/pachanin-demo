@@ -4,6 +4,8 @@ import {
   mapApiRoleToCabinetRole,
   verifyHs256Jwt,
   readVerifiedCabinetRole,
+  signCabinetSession,
+  readVerifiedCabinetSessionRole,
 } from '@/lib/platform-v7/verified-session';
 import { resolveServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
 
@@ -85,5 +87,34 @@ describe('readVerifiedCabinetRole', () => {
     const r = resolveServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole: null, mode: 'report' });
     expect(r.status).toBe('unknown');
     expect(r.enforced).toBe(false);
+  });
+});
+
+describe('Phase 4D-pre — dedicated cabinet session (signCabinetSession / readVerifiedCabinetSessionRole)', () => {
+  it('signs a cabinet session that verifies back to the same cabinet role (incl. roles with no API role)', async () => {
+    for (const role of ['bank', 'surveyor', 'arbitrator', 'compliance', 'seller', 'operator'] as const) {
+      const token = await signCabinetSession(role, SECRET, { nowSeconds: NOW, ttlSeconds: 3600 });
+      expect(token).toBeTruthy();
+      expect(await readVerifiedCabinetSessionRole(token, SECRET, NOW)).toBe(role);
+    }
+  });
+
+  it('refuses to sign an unknown role or without a secret', async () => {
+    expect(await signCabinetSession('hacker', SECRET, { nowSeconds: NOW, ttlSeconds: 3600 })).toBeNull();
+    expect(await signCabinetSession('bank', '', { nowSeconds: NOW, ttlSeconds: 3600 })).toBeNull();
+  });
+
+  it('rejects wrong secret, expired, tampered and demo tokens → null (unknown)', async () => {
+    const token = await signCabinetSession('bank', SECRET, { nowSeconds: NOW, ttlSeconds: 3600 });
+    expect(await readVerifiedCabinetSessionRole(token, 'wrong-secret', NOW)).toBeNull();
+    const expired = await signCabinetSession('bank', SECRET, { nowSeconds: NOW - 7200, ttlSeconds: 3600 });
+    expect(await readVerifiedCabinetSessionRole(expired, SECRET, NOW)).toBeNull();
+    expect(await readVerifiedCabinetSessionRole('demo.' + b64url(JSON.stringify({ cab: 'bank' })), SECRET, NOW)).toBeNull();
+    expect(await readVerifiedCabinetSessionRole(null, SECRET, NOW)).toBeNull();
+  });
+
+  it('ignores an API-role JWT here (this resolver only trusts the signed `cab` claim)', async () => {
+    // a token without a valid `cab` claim is not a cabinet session
+    expect(await readVerifiedCabinetSessionRole(mintJwt({ role: 'BUYER', exp: NOW + 3600 }), SECRET, NOW)).toBeNull();
   });
 });

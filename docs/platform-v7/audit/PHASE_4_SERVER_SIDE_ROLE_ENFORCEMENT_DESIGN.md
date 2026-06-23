@@ -168,6 +168,19 @@ Strictly incremental, reversible, flag-gated — never a big-bang switch:
   redirect. Honest consequence: in the current demo deployment (fake tokens), the
   observation is `unknown` until a real verified JWT session is issued — which is the
   precondition this phase enforces before any block-mode.
+- **Phase 4D-pre — Verified JWT session issuance. ✅ SHIPPED (still report-only).**
+  The platform-v7 shell now issues a **dedicated, server-signed** cabinet session
+  cookie `pc_v7_cabinet` (HS256, `cab` claim) via `POST /api/platform-v7/cabinet-session`
+  — kept **separate** from `pc_access_token` on purpose (that cookie is Bearer-forwarded
+  to the API and its `demo.` prefix routes demo↔real, so repurposing it would risk the
+  demo data flow). The role is validated server-side against the 12-role allowlist, signed,
+  and set `httpOnly` (client JS cannot read/forge it). The report-only middleware now
+  resolves the verified role from `pc_v7_cabinet` (falling back to a real API JWT in
+  `pc_access_token`). This covers all 12 cabinets, incl. surveyor/bank/arbitrator/
+  compliance which have no 1:1 API role. Still report-only: no block, no redirect, no UX
+  change; issuance is fire-and-forget from login and never gates entry. Honest note: in a
+  demo the persona is user-selected, but the role is now server-validated + signed and the
+  resolver trusts **only** the signature — never URL/query/`pc-role`/client guards.
 - **Phase 4C — One-role/one-cabinet enforcement.** Block-mode for a single cabinet
   (bank) behind the flag; full §6 test suite; owner-approved — only after report
   metrics from a verified-session deployment are reviewed.

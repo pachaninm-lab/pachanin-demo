@@ -28,6 +28,15 @@ export default function LoginPage() {
   function enter(role: PlatformRole) {
     globalThis.sessionStorage?.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
     setRole(role);
+    // Phase 4D-pre: issue a server-signed cabinet session so the report-only server
+    // RBAC observation can resolve a verified role. Fire-and-forget — never blocks
+    // entry, and a failure leaves the report-only observation as `unknown` (safe).
+    void fetch('/api/platform-v7/cabinet-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+      keepalive: true,
+    }).catch(() => {});
     router.replace(platformV7RoleHome(role));
   }
 
