@@ -3,9 +3,9 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  CRITICAL_FORBIDDEN_ZONES,
   DEFAULT_QUEUE_PATH,
   DEFAULT_STATE_PATH,
+  FORBIDDEN_ALLOWED_SCOPE,
   REQUIRED_MATURITY_LANGUAGE,
   scopeMatches,
   validateAutopilotState,
@@ -80,7 +80,7 @@ function layerFromPullRequest(pullRequest) {
 function assertNextScopeSafe(nextAllowedFiles) {
   const unsafe = [];
   for (const file of nextAllowedFiles) {
-    for (const forbidden of CRITICAL_FORBIDDEN_ZONES) {
+    for (const forbidden of FORBIDDEN_ALLOWED_SCOPE) {
       if (scopeMatches(forbidden, file) || scopeMatches(file, forbidden)) {
         unsafe.push(file);
       }
