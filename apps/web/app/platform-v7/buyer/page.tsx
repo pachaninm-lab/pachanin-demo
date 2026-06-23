@@ -50,6 +50,14 @@ const buyerPaths = [
   { title: 'Резерв денег', href: '/platform-v7/deals/DL-9106/money', note: 'готовность денег без преждевременного движения денег' },
 ] as const;
 
+const buyerFirstScreenFacts = [
+  { label: 'Что произошло', value: 'ставка по LOT-2403 принята, сделка DL-9106 собрана к исполнению' },
+  { label: 'Что блокирует', value: 'банк ещё не подтвердил резерв — логистика не стартует' },
+  { label: 'Деньги под риском', value: '9,65 млн ₽ резерв · 624 тыс. ₽ удержание по весу', warning: true },
+  { label: 'Ответственный', value: 'покупатель запрашивает подтверждение, банк фиксирует статус' },
+  { label: 'Следующий шаг', value: 'открыть деньги сделки и запросить банковское подтверждение', href: '/platform-v7/deals/DL-9106/money' },
+] as const;
+
 const buyerSdizInitialState = {
   ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
   dealId: 'DL-9106',
@@ -121,6 +129,37 @@ export default async function PlatformV7BuyerPage() {
         </div>
         <TrustDot state='test' size='sm' label='Контур исполнения · Внешние подключения требуют договоров' />
       </CockpitHero>
+
+      <section aria-label='Первый экран контроля покупателя' style={firstScreenCard}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={micro}>операционный срез покупателя</div>
+          <h2 style={{ ...h2, margin: 0 }}>Что делать сейчас</h2>
+          <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>
+            Экран отделяет текущий пилотный статус от целевой готовности: платформа показывает причину, деньги и маршрут, но не выпускает деньги без банковского подтверждения.
+          </p>
+        </div>
+        <div style={factGrid}>
+          {buyerFirstScreenFacts.map((fact) => {
+            const content = (
+              <>
+                <div style={micro}>{fact.label}</div>
+                <div style={{ marginTop: 6, color: fact.warning ? '#B45309' : 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.4, fontWeight: 900 }}>{fact.value}</div>
+                {'href' in fact ? <div style={{ marginTop: 10, color: '#2563EB', fontSize: 12, fontWeight: 900 }}>Открыть маршрут</div> : null}
+              </>
+            );
+
+            return 'href' in fact ? (
+              <Link key={fact.label} href={fact.href} style={factCardLink}>
+                {content}
+              </Link>
+            ) : (
+              <div key={fact.label} style={factCard}>
+                {content}
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       <section id='overview' style={anchorSection}>
         <CollapsibleSection title='Обзор закупки' summary='заявка · партия · статус' defaultOpen>
@@ -262,6 +301,10 @@ function Cell({ label, value, strong = false, warning = false }: { label: string
 const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
 const h2 = { margin: '4px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
 const blockerCard = { display: 'grid', gap: 6, minWidth: 220, maxWidth: 280, padding: 14, borderRadius: 18, background: '#FFFBEB', border: '1px solid #FDE68A', boxShadow: '0 12px 28px rgba(180,83,9,0.08)' } as const;
+const firstScreenCard = { background: 'linear-gradient(135deg, rgba(255,251,235,0.84), rgba(255,255,255,0.92))', border: '1px solid #FDE68A', borderRadius: 28, padding: 18, display: 'grid', gap: 14, boxShadow: '0 18px 40px rgba(180,83,9,0.08)' } as const;
+const factGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 } as const;
+const factCard = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, minHeight: 116, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
+const factCardLink = { ...factCard, textDecoration: 'none', color: 'inherit' } as const;
 const pathGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 } as const;
 const pathCard = { textDecoration: 'none', minHeight: 132, display: 'grid', alignContent: 'start', gap: 8, padding: 14, borderRadius: 20, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
 const lotRow = { textDecoration: 'none', color: 'inherit', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' } as const;
