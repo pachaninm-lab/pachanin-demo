@@ -326,3 +326,127 @@ html body .pc-v7-public-entry small {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* PR-B: role-cabinet workspace density and action hierarchy. */
+html body .pc-shell-root-v4 .pc-v4-main > main:not(.pc-v7-public-entry):not(.pc-v7-login-single) {
+  width: 100% !important;
+  max-width: min(1180px, calc(100vw - 32px)) !important;
+  margin-inline: auto !important;
+}
+
+html body .pc-shell-root-v4 .pc-v4-main > main:not(.pc-v7-public-entry):not(.pc-v7-login-single) > section,
+html body .pc-shell-root-v4 .pc-v4-main > main:not(.pc-v7-public-entry):not(.pc-v7-login-single) > article {
+  min-width: 0 !important;
+  overflow-x: clip !important;
+}
+
+html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) a,
+html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) button {
+  touch-action: manipulation !important;
+}
+
+html body .pc-shell-root-v4 .pc-prem-kpis,
+html body .pc-shell-root-v4 [aria-label*='Ключевые показатели'],
+html body .pc-shell-root-v4 [aria-label*='показатели'] {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)) !important;
+  gap: 10px !important;
+}
+
+html body .pc-shell-root-v4 .pc-prem-kpis > *,
+html body .pc-shell-root-v4 [aria-label*='Ключевые показатели'] > *,
+html body .pc-shell-root-v4 [aria-label*='показатели'] > * {
+  min-width: 0 !important;
+  min-height: 112px !important;
+}
+
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='grid-template-columns'] {
+  min-width: 0 !important;
+}
+
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='repeat(auto-fit'] {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)) !important;
+}
+
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(210px'],
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(190px'],
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(155px'] {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)) !important;
+}
+
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='box-shadow'] {
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06) !important;
+}
+
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='border-radius: 24'],
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='border-radius:24'] {
+  border-radius: 20px !important;
+}
+
+@media (max-width: 767px) {
+  html body .pc-shell-root-v4 .pc-v4-main > main:not(.pc-v7-public-entry):not(.pc-v7-login-single) {
+    max-width: 100% !important;
+    display: grid !important;
+    gap: 12px !important;
+    padding-top: 0 !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) h1 {
+    font-size: clamp(30px, 9.2vw, 40px) !important;
+    line-height: 1.02 !important;
+    letter-spacing: -0.055em !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) h2 {
+    font-size: clamp(22px, 6.6vw, 30px) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.04em !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) p {
+    font-size: 15px !important;
+    line-height: 1.42 !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) section[id] {
+    scroll-margin-top: calc(var(--pc-header-offset) + 18px) !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='padding: 18'],
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='padding:18'] {
+    padding: 14px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minHeight: 132'],
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='min-height: 132'] {
+    min-height: 108px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-prem-kpis,
+  html body .pc-shell-root-v4 [aria-label*='Ключевые показатели'],
+  html body .pc-shell-root-v4 [aria-label*='показатели'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-prem-kpis > *,
+  html body .pc-shell-root-v4 [aria-label*='Ключевые показатели'] > *,
+  html body .pc-shell-root-v4 [aria-label*='показатели'] > * {
+    min-height: 104px !important;
+    padding: 12px !important;
+    border-radius: 18px !important;
+  }
+
+  html body .pc-shell-root-v4 [data-state],
+  html body .pc-shell-root-v4 [aria-expanded] {
+    scroll-margin-top: calc(var(--pc-header-offset) + 18px) !important;
+  }
+}
+
+@media (max-width: 390px) {
+  html body .pc-shell-root-v4 .pc-prem-kpis,
+  html body .pc-shell-root-v4 [aria-label*='Ключевые показатели'],
+  html body .pc-shell-root-v4 [aria-label*='показатели'] {
+    grid-template-columns: 1fr !important;
+  }
+}
