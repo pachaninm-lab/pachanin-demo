@@ -96,15 +96,11 @@ describe('PrismaDealRepository (disabled DB-backed skeleton)', () => {
     await expect(new PrismaDealRepository(missing).passport('X')).rejects.toThrow(/not found/);
   });
 
-  it('create persists a DRAFT deal with a sequential id derived from existing rows', async () => {
-    const created: any[] = [];
+  it('create allocates the id from the atomic Postgres sequence (nextval)', async () => {
     const prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([{ nextval: 4 }]),
       deal: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'DEAL-003' }]),
-        create: jest.fn().mockImplementation(({ data }: any) => {
-          created.push(data);
-          return Promise.resolve(data);
-        }),
+        create: jest.fn().mockImplementation(({ data }: any) => Promise.resolve(data)),
       },
     } as any;
     const repo = new PrismaDealRepository(prisma);
@@ -112,6 +108,7 @@ describe('PrismaDealRepository (disabled DB-backed skeleton)', () => {
     expect(row.id).toBe('DEAL-004');
     expect(row.status).toBe('DRAFT');
     expect(row.sellerOrgId).toBe('org-1');
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(prisma.deal.create).toHaveBeenCalledTimes(1);
   });
 
@@ -155,11 +152,11 @@ describe('PrismaDealRepository (disabled DB-backed skeleton)', () => {
     expect(prisma.deal.updateMany).not.toHaveBeenCalled();
   });
 
-  it('create retries id allocation on a duplicate-id collision under concurrency', async () => {
+  it('create retries id allocation on a duplicate-id collision (defence in depth)', async () => {
     let calls = 0;
     const prisma = {
+      $queryRaw: jest.fn().mockResolvedValueOnce([{ nextval: 4 }]).mockResolvedValueOnce([{ nextval: 5 }]),
       deal: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'DEAL-003' }]),
         create: jest.fn().mockImplementation(({ data }: any) => {
           calls += 1;
           if (calls === 1) return Promise.reject({ code: 'P2002' }); // lost the id race once
@@ -169,7 +166,7 @@ describe('PrismaDealRepository (disabled DB-backed skeleton)', () => {
     } as any;
     const repo = new PrismaDealRepository(prisma);
     const row = await repo.create({ lotId: 'LOT-1', winnerBidId: 'BID-1' } as any, { id: 'u1', orgId: 'org-1', role: 'BUYER' } as any);
-    expect(row.id).toBe('DEAL-004');
+    expect(row.id).toBe('DEAL-005');
     expect(prisma.deal.create).toHaveBeenCalledTimes(2);
   });
 

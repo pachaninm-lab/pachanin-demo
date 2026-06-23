@@ -219,17 +219,15 @@ export class PrismaDealRepository implements DealRepository {
     return this.db.deal.findUnique({ where: { id } });
   }
 
-  /** Next sequential `DEAL-NNN` id, derived from the max existing suffix. */
+  /**
+   * Next `DEAL-NNN` id from an atomic Postgres sequence. `nextval` is
+   * contention-free even under thousands of concurrent creates — unlike a
+   * `max()+1` scan, which makes parallel requests collide on the same id.
+   */
   private async nextDealId(): Promise<string> {
-    const rows = await this.db.deal.findMany({
-      where: { id: { startsWith: 'DEAL-' } },
-      select: { id: true },
-    });
-    const maxNum = rows.reduce((max, row) => {
-      const n = Number.parseInt(row.id.slice('DEAL-'.length), 10);
-      return Number.isFinite(n) && n > max ? n : max;
-    }, 0);
-    return `DEAL-${String(maxNum + 1).padStart(3, '0')}`;
+    const rows = await this.db.$queryRaw<Array<{ nextval: bigint }>>`SELECT nextval('deal_seq') AS nextval`;
+    const n = Number(rows[0]?.nextval ?? 0);
+    return `DEAL-${String(n).padStart(3, '0')}`;
   }
 }
 

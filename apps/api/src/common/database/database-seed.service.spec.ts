@@ -1,7 +1,15 @@
 import { DatabaseSeedService } from './database-seed.service';
 
-function makePrisma(counts: { deal?: number; shipment?: number; dealDocument?: number; labSample?: number } = {}) {
+function makePrisma(counts: { deal?: number; shipment?: number; dealDocument?: number; labSample?: number; organization?: number; user?: number } = {}) {
   return {
+    organization: {
+      count: jest.fn().mockResolvedValue(counts.organization ?? 0),
+      upsert: jest.fn().mockResolvedValue({}),
+    },
+    user: {
+      count: jest.fn().mockResolvedValue(counts.user ?? 0),
+      upsert: jest.fn().mockResolvedValue({}),
+    },
     deal: {
       count: jest.fn().mockResolvedValue(counts.deal ?? 0),
       upsert: jest.fn().mockResolvedValue({}),
@@ -45,6 +53,8 @@ describe('DatabaseSeedService', () => {
     const svc = new DatabaseSeedService(prisma, runtime);
     await svc.onApplicationBootstrap();
 
+    expect(prisma.organization.upsert).toHaveBeenCalled();
+    expect(prisma.user.upsert).toHaveBeenCalled();
     expect(prisma.deal.upsert).toHaveBeenCalledTimes(1);
     expect(prisma.shipment.upsert).toHaveBeenCalledTimes(1);
     expect(prisma.dealDocument.upsert).toHaveBeenCalledTimes(1);

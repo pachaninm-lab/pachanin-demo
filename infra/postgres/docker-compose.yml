@@ -1,10 +1,10 @@
 # Local Postgres for platform-v7 — the concurrent-write backend for production
 # (SQLite is single-writer and cannot serve thousands of simultaneous users).
 #
-# This is operational scaffolding. It was NOT executed in the build sandbox
-# (no Postgres server there) — run it on a host with Docker. See SR-2 plan:
-# docs/platform-v7/audit/SR2_POSTGRES_MIGRATION_PLAN.md and the runbook in
-# docs/platform-v7/RUN_LIVE.md.
+# One option for Postgres (Docker). On Debian/Ubuntu the bundled cluster works
+# too: `pg_ctlcluster 16 main start`. The app's concurrency was verified against
+# a real Postgres 16. See docs/platform-v7/RUN_LIVE.md and the SR-2 plan:
+# docs/platform-v7/audit/SR2_POSTGRES_MIGRATION_PLAN.md.
 #
 # Usage:
 #   docker compose -f infra/postgres/docker-compose.yml up -d

@@ -1,11 +1,13 @@
-// Pachanin Demo — full SQLite persistence layer
+// Pachanin Demo — Postgres persistence layer (concurrent writers for scale).
+// Local dev: start the bundled cluster (pg_ctlcluster 16 main start) or
+// infra/postgres/docker-compose.yml. See docs/platform-v7/RUN_LIVE.md.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
