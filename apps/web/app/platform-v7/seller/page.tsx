@@ -84,7 +84,15 @@ const sellerPaths = [
   { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, пакет для банка и статус проверки' },
 ] as const;
 
-const sellerFirstScreenFacts = [
+type SellerFirstScreenFact = {
+  label: string;
+  value: string;
+  note: string;
+  strong?: boolean;
+  warning?: boolean;
+};
+
+const sellerFirstScreenFacts: SellerFirstScreenFact[] = [
   {
     label: 'Что произошло',
     value: 'LOT-2403 принят в сделку DL-9106',
@@ -113,7 +121,7 @@ const sellerFirstScreenFacts = [
     note: 'Маршрут ведёт в deal-clean, где видны документы, рейс и банковская проверка.',
     warning: true,
   },
-] as const;
+];
 
 export default async function PlatformV7SellerPage() {
   const [deals, disputes] = await Promise.all([getDealsCanonical(), getDisputes()]);
