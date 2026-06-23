@@ -24,4 +24,14 @@ describe('platform-v7 bank page basis guard', () => {
     expect(source).not.toContain('деньги автоматически выпускаются');
     expect(source).not.toContain('банк подключён');
   });
+
+  it('keeps the first screen aligned with the role-cabinet operating standard', () => {
+    expect(source).toContain('DL-9106 · проверка выплаты остановлена');
+    expect(source).toContain('СДИЗ, ЭТрН, УПД, акт, качество');
+    expect(source).toContain('резерв ожидает банковского подтверждения · к передаче 0 ₽');
+    expect(source).toContain('оператор + ответственный за документ');
+    expect(source).toContain('Следующее действие фиксируется в сделке и журнале');
+    expect(source).toContain("href='/platform-v7/bank/release-safety'");
+    expect(source).toContain('Карточка сделки');
+  });
 });
