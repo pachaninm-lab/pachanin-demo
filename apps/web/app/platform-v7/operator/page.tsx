@@ -23,6 +23,14 @@ const STATIC_BLOCKERS = [
   { deal: 'DL-9102', lot: 'LOT-2402', reason: 'Отклонение веса', source: 'приёмка', amount: '624 тыс. ₽', owner: 'оператор', next: deal9102.nextAction, href: '/platform-v7/deals/DL-9102/clean', severity: 'stop' as const },
 ];
 
+const OPERATOR_CONTROL = [
+  { label: 'Что произошло', value: 'DL-9106 остановлен на СДИЗ, ЭТрН и протоколе качества', danger: true },
+  { label: 'Что заблокировано', value: 'Выплата не идёт дальше до закрытия обязательных доказательств', danger: true },
+  { label: 'Деньги под риском', value: '15,89 млн ₽ под контролем оператора', danger: true },
+  { label: 'Кто отвечает', value: 'продавец → грузополучатель → лаборатория → оператор' },
+  { label: 'Следующее действие', value: 'разобрать DL-9106 и закрыть блокеры в порядке влияния на деньги', strong: true },
+] as const;
+
 const quickLinks = [
   { title: 'Проверка выплаты', href: '/platform-v7/bank/release-safety', note: 'условия выпуска денег' },
   { title: 'Документы', href: '/platform-v7/documents', note: 'УПД, ЭТрН, СДИЗ, акт, протокол' },
@@ -117,6 +125,15 @@ export default async function PlatformV7OperatorPage() {
           <PremiumCtaButton href='/platform-v7/documents' variant='ghost'>Матрица документов</PremiumCtaButton>
         </div>
       </CockpitHero>
+
+      <section style={card} aria-label='Операционный контроль первого экрана'>
+        <div style={micro}>Контроль первого экрана</div>
+        <div style={{ ...grid2, gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
+          {OPERATOR_CONTROL.map((item) => (
+            <Cell key={item.label} label={item.label} value={item.value} danger={'danger' in item ? item.danger : false} strong={'strong' in item ? item.strong : false} />
+          ))}
+        </div>
+      </section>
 
       <section style={card}>
         <div style={micro}>Очередь блокеров</div>
