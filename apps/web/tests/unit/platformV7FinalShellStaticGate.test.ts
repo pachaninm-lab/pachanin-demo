@@ -9,6 +9,7 @@ const clientLayout = read('apps/web/components/platform-v7/PlatformV7LayoutClien
 const shellUx = read('apps/web/components/platform-v7/PlatformV7ShellUxController.tsx');
 const supportHeader = read('apps/web/components/platform-v7/SupportHeaderIcon.tsx');
 const entryFixCss = read('apps/web/styles/platform-v7-entry-fix.css');
+const mobileReflowCss = read('apps/web/styles/platform-v7-mobile-reflow-p0.css');
 const shellRoutes = read('apps/web/lib/platform-v7/shellRoutes.ts');
 const statusPage = read('apps/web/app/platform-v7/status/page.tsx');
 
@@ -63,6 +64,17 @@ describe('platform-v7 final shell static gate', () => {
     expect(supportHeader).toContain('.pc-v7-role-dock{display:block!important');
     expect(entryFixCss).toContain('html body .pc-v7-role-dock{display:block!important');
     expect(shellUx).toContain('.pc-v7-role-dock{position:fixed;left:0;right:0;bottom:0;');
+  });
+
+  it('keeps protected mobile shell chrome visible above viewport content', () => {
+    expect(mobileReflowCss).toContain('.pc-shell-root-v4 .pc-v4-header {');
+    expect(mobileReflowCss).toContain('display: block !important;');
+    expect(mobileReflowCss).toContain('position: fixed !important;');
+    expect(mobileReflowCss).toContain('z-index: 4000 !important;');
+    expect(mobileReflowCss).toContain('.pc-shell-root-v4 .pc-v7-role-dock {');
+    expect(mobileReflowCss).toContain('z-index: 3990 !important;');
+    expect(mobileReflowCss).toContain('padding-top: calc(env(safe-area-inset-top) + 90px) !important;');
+    expect(mobileReflowCss).toContain('padding-bottom: calc(env(safe-area-inset-bottom) + 122px) !important;');
   });
 
   it('keeps utility actions out of the lower role dock', () => {
