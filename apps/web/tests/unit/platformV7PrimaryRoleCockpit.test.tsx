@@ -80,4 +80,17 @@ describe('platform-v7 primary role execution cockpit', () => {
     expect(source).toContain('/platform-v7/bank/release-safety');
     expect(source).toContain('Нет заявления о выплате без банковского подтверждения');
   });
+
+  it('keeps the compliance cabinet first screen on an explicit risk-admission boundary', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/compliance/page.tsx'), 'utf8');
+
+    expect(source).toContain('data-platform-v7-compliance-cockpit-pass');
+    expect(source).toContain('допуск → риск → документы → решение');
+    expect(source).toContain('контрагент ждёт ручного допуска');
+    expect(source).toContain('сделка не двигается до решения по допуску');
+    expect(source).toContain('Контрагента на проверке');
+    expect(source).toContain('Стоп-фактор риска');
+    expect(source).toContain('Ручной допуск и риск');
+    expect(source).toContain('Комплаенс runtime и проверки');
+  });
 });
