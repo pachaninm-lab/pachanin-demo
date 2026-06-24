@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Protected shell tools gate: calculator, notepad and support order before continuing role cabinet pass.",
+  "current": "Seller cabinet functional pass under #1976 after protected shell tools gate merged.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#1994",
-  "lastClosed": ["#1966", "#1968", "#1969", "#1985"],
+  "openPr": null,
+  "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994"],
   "lockedUntilCurrentGreen": ["External connectivity", "Persistence expansion", "Lockfile changes", "apps/landing changes"],
   "allowedCurrentScope": [
     "apps/web/app/platform-v7/layout.tsx",
@@ -79,5 +79,5 @@
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": [],
-  "readiness": "72% honest readiness after UX shell stabilization; protected shell tools gate is active before role cabinet functional pass continues."
+  "readiness": "72% honest readiness after UX shell stabilization and protected shell tools gate; seller cabinet functional pass is active next."
 }
