@@ -126,8 +126,8 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <NotepadHeaderWidget />
           <SupportHeaderIcon />
           <RoleAssistantWidget />
-          <style dangerouslySetInnerHTML={{ __html: shellRestoreCss }} />
           {children}
+          <style dangerouslySetInnerHTML={{ __html: shellRestoreCss }} />
         </>
       </AppShellV4>
     </ToastProvider>
