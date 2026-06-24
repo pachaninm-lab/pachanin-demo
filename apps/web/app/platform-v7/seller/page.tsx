@@ -79,8 +79,8 @@ const sellerLots = [
 
 const sellerPaths = [
   { title: 'Создать партию', href: '/platform-v7/seller/batches/new', note: 'культура, объём, качество, документы, ФГИС' },
-  { title: 'Опубликовать лот', href: '/platform-v7/seller/lots/new', note: 'управляемая публикация без раскрытия контактов' },
-  { title: 'Проверить запросы', href: '/platform-v7/seller/rfq', note: 'спрос, netback и риск покупателя' },
+  { title: 'Опубликовать лот', href: '/platform-v7/seller/lots', note: 'управляемая публикация через рабочую поверхность лотов' },
+  { title: 'Проверить запросы', href: '/platform-v7/seller/matches', note: 'спрос, netback и риск покупателя' },
   { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, пакет для банка и статус проверки' },
 ] as const;
 

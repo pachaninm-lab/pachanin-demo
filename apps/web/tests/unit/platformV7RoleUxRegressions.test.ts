@@ -103,6 +103,18 @@ describe('platform-v7 role UX regressions', () => {
     });
   });
 
+  describe('seller route cards stay on available seller surfaces', () => {
+    it('does not link route cards to absent seller create-lot or RFQ pages', () => {
+      expect(sellerPage).not.toContain('/platform-v7/seller/lots/new');
+      expect(sellerPage).not.toContain('/platform-v7/seller/rfq');
+    });
+
+    it('keeps seller route cards on the existing lots and matches surfaces', () => {
+      expect(sellerPage).toContain('/platform-v7/seller/lots');
+      expect(sellerPage).toContain('/platform-v7/seller/matches');
+    });
+  });
+
   describe('elevator quality wording stays pilot-safe', () => {
     it('quality section uses pilot wording, not simulation or external-confirmed wording', () => {
       expect(elevatorPage).toContain('пилотный протокол качества');
