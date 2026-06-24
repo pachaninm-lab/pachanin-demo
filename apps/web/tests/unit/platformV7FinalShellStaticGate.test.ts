@@ -94,6 +94,13 @@ describe('platform-v7 final shell static gate', () => {
     expect(supportHeader).not.toContain('.p7-calc-widget{display:none');
   });
 
+  it('keeps mobile entry copy inside the 390px viewport contract', () => {
+    expect(entryFixCss).toContain('overflow-wrap:anywhere');
+    expect(entryFixCss).toContain('.entry-role-tile-exact strong{max-width:100%;overflow:visible;text-overflow:clip;white-space:normal');
+    expect(entryFixCss).toContain('.entry-title span:last-child{color:var(--green);white-space:normal}');
+    expect(entryFixCss).not.toContain('.entry-role-tile-exact strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
+  });
+
   it('keeps header help on an existing shared route', () => {
     expect(supportHeader).toContain('/platform-v7/status?role=');
     expect(supportHeader).not.toContain('/platform-v7/support?role=');
