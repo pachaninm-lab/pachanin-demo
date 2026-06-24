@@ -15,6 +15,7 @@ export interface P7PageProps {
 export function P7Page({ children, title, subtitle, eyebrow, actions, testId, maxWidth = 1440 }: P7PageProps) {
   return (
     <main
+      className='p7-page'
       data-testid={testId}
       style={{
         display: 'grid',
@@ -22,7 +23,9 @@ export function P7Page({ children, title, subtitle, eyebrow, actions, testId, ma
         width: '100%',
         maxWidth,
         margin: '0 auto',
+        minWidth: 0,
         minHeight: '100%',
+        overflowX: 'clip',
         background: P7_THEME_CSS.color.background,
         color: P7_THEME_CSS.color.textPrimary,
         fontFamily: PLATFORM_V7_TOKENS.typography.fontSans,
@@ -30,17 +33,21 @@ export function P7Page({ children, title, subtitle, eyebrow, actions, testId, ma
     >
       {(title || subtitle || eyebrow || actions) && (
         <header
+          className='p7-page-header'
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             gap: PLATFORM_V7_TOKENS.spacing.lg,
             alignItems: 'flex-start',
             flexWrap: 'wrap',
+            minWidth: 0,
+            maxWidth: '100%',
           }}
         >
-          <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs, minWidth: 260, maxWidth: 860 }}>
+          <div className='p7-page-header-copy' style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs, minWidth: 0, maxWidth: 860 }}>
             {eyebrow && (
               <div
+                className='p7-page-eyebrow'
                 style={{
                   color: P7_THEME_CSS.color.textMuted,
                   fontSize: PLATFORM_V7_TOKENS.typography.micro.size,
@@ -55,6 +62,7 @@ export function P7Page({ children, title, subtitle, eyebrow, actions, testId, ma
             )}
             {title && (
               <h1
+                className='p7-page-title'
                 style={{
                   margin: 0,
                   color: P7_THEME_CSS.color.textPrimary,
@@ -62,6 +70,7 @@ export function P7Page({ children, title, subtitle, eyebrow, actions, testId, ma
                   lineHeight: PLATFORM_V7_TOKENS.typography.h1.lineHeight,
                   fontWeight: PLATFORM_V7_TOKENS.typography.h1.weight,
                   letterSpacing: PLATFORM_V7_TOKENS.typography.h1.letterSpacing,
+                  overflowWrap: 'break-word',
                 }}
               >
                 {title}
@@ -69,19 +78,21 @@ export function P7Page({ children, title, subtitle, eyebrow, actions, testId, ma
             )}
             {subtitle && (
               <div
+                className='p7-page-subtitle'
                 style={{
                   color: P7_THEME_CSS.color.textSecondary,
                   fontSize: PLATFORM_V7_TOKENS.typography.body.size,
                   lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight,
                   fontWeight: PLATFORM_V7_TOKENS.typography.body.weight,
                   maxWidth: 760,
+                  minWidth: 0,
                 }}
               >
                 {subtitle}
               </div>
             )}
           </div>
-          {actions && <div>{actions}</div>}
+          {actions && <div className='p7-page-actions' style={{ minWidth: 0, maxWidth: '100%' }}>{actions}</div>}
         </header>
       )}
       {children}
