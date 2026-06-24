@@ -30,6 +30,7 @@ import '@/styles/platform-v7-living-deal.css';
 import '@/styles/platform-v7-premium-cockpit.css';
 import '@/styles/platform-v7-entry-fix.css';
 import '@/styles/platform-v7-mobile-hardening.css';
+import '@/styles/platform-v7-mobile-reflow-p0.css';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена',

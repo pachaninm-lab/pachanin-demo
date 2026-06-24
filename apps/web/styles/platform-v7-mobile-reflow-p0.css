@@ -1,0 +1,239 @@
+.pc-v7-public-entry,
+.pc-shell-root-v4,
+.pc-shell-root-v4 .pc-v4-main {
+  inline-size: 100% !important;
+  max-inline-size: 100% !important;
+  overflow-x: clip !important;
+}
+
+.pc-v7-public-entry *,
+.pc-shell-root-v4 .pc-v4-main *,
+.pc-shell-root-v4 .pc-v4-header *,
+.pc-shell-root-v4 .pc-v7-role-dock * {
+  box-sizing: border-box !important;
+  min-inline-size: 0 !important;
+}
+
+.pc-v7-public-entry h1,
+.pc-v7-public-entry h2,
+.pc-v7-public-entry h3,
+.pc-v7-public-entry p,
+.pc-v7-public-entry strong,
+.pc-v7-public-entry small,
+.pc-v7-public-entry span,
+.pc-shell-root-v4 .pc-v4-main h1,
+.pc-shell-root-v4 .pc-v4-main h2,
+.pc-shell-root-v4 .pc-v4-main h3,
+.pc-shell-root-v4 .pc-v4-main p,
+.pc-shell-root-v4 .pc-v4-main strong,
+.pc-shell-root-v4 .pc-v4-main small,
+.pc-shell-root-v4 .pc-v4-main span {
+  max-inline-size: 100% !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+}
+
+.pc-v7-public-entry .entry-header,
+.pc-v7-public-entry .entry-hero,
+.pc-v7-public-entry .entry-section,
+.pc-v7-public-entry .entry-trust-strip,
+.pc-shell-root-v4 .pc-v4-main > main,
+.pc-shell-root-v4 .pc-v4-main > main > section,
+.pc-shell-root-v4 .pc-v4-main > main > article {
+  inline-size: 100% !important;
+  max-inline-size: 100% !important;
+  overflow-x: clip !important;
+}
+
+@media (max-width: 767px) {
+  .pc-v7-public-entry .entry-header {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+    padding-inline: 12px !important;
+    overflow: hidden !important;
+  }
+
+  .pc-v7-public-entry .entry-brand,
+  .pc-v7-public-entry .entry-brand > span:last-child {
+    min-inline-size: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .pc-v7-public-entry .entry-brand strong {
+    display: block !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .pc-v7-public-entry .entry-brand small,
+  .pc-v7-public-entry .entry-menu-button {
+    display: none !important;
+  }
+
+  .pc-v7-public-entry .entry-header-actions {
+    min-inline-size: 0 !important;
+    gap: 6px !important;
+  }
+
+  .pc-v7-public-entry .entry-hero,
+  .pc-v7-public-entry .entry-section {
+    padding-inline: 14px !important;
+  }
+
+  .pc-v7-public-entry .entry-hero h1 {
+    font-size: clamp(32px, 9.4vw, 40px) !important;
+    line-height: 1.02 !important;
+    letter-spacing: -0.045em !important;
+  }
+
+  .pc-v7-public-entry .entry-section h2 {
+    font-size: clamp(24px, 7.8vw, 32px) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.04em !important;
+  }
+
+  .pc-v7-public-entry .entry-process-row,
+  .pc-v7-public-entry .entry-role-grid,
+  .pc-v7-public-entry .entry-control-grid {
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    overflow-x: clip !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile {
+    grid-template-columns: 34px minmax(0, 1fr) !important;
+    padding: 14px 16px !important;
+    border-radius: 22px !important;
+    background: rgba(255, 255, 255, 0.88) !important;
+    border: 1px solid rgba(7, 22, 17, 0.08) !important;
+    box-shadow: 0 14px 34px rgba(7, 22, 17, 0.06) !important;
+  }
+
+  .pc-v7-public-entry .entry-process-icon {
+    display: none !important;
+  }
+
+  .pc-v7-public-entry .entry-process-index {
+    grid-column: 1 !important;
+    grid-row: 1 / span 2 !important;
+    display: grid !important;
+    place-items: center !important;
+    inline-size: 32px !important;
+    block-size: 32px !important;
+    border-radius: 999px !important;
+    background: rgba(0, 122, 47, 0.08) !important;
+    color: #007a2f !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile strong,
+  .pc-v7-public-entry .entry-process-tile small {
+    grid-column: 2 !important;
+    min-inline-size: 0 !important;
+    text-align: left !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-header,
+  .pc-shell-root-v4 .pc-v4-header-inner {
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-actions {
+    flex: 0 1 auto !important;
+    min-inline-size: 0 !important;
+    max-inline-size: calc(100vw - 128px) !important;
+    overflow: hidden !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main {
+    padding-inline: 12px !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 238px) !important;
+    background: linear-gradient(180deg, #fbfcf9 0%, #f5f3ec 100%) !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main > main {
+    display: grid !important;
+    gap: 14px !important;
+    inline-size: 100% !important;
+    max-inline-size: calc(100vw - 24px) !important;
+    margin-inline: auto !important;
+    overflow-x: clip !important;
+    transform: none !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main > main > section,
+  .pc-shell-root-v4 .pc-v4-main > main > article {
+    display: grid !important;
+    gap: 12px !important;
+    padding: 18px !important;
+    border-radius: 24px !important;
+    background: rgba(255, 255, 255, 0.86) !important;
+    border: 1px solid rgba(7, 22, 17, 0.08) !important;
+    box-shadow: 0 18px 42px rgba(7, 22, 17, 0.07) !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main main [style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main main [class*='grid'],
+  .pc-shell-root-v4 .pc-v4-main main [class*='cards'],
+  .pc-shell-root-v4 .pc-v4-main main [class*='row'] {
+    min-inline-size: 0 !important;
+    max-inline-size: 100% !important;
+    overflow-x: clip !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main main [style*='box-shadow'],
+  .pc-shell-root-v4 .pc-v4-main main [style*='border-radius'] {
+    max-inline-size: 100% !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main h1 {
+    font-size: clamp(28px, 8.4vw, 38px) !important;
+    line-height: 1.06 !important;
+    letter-spacing: -0.045em !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main h2 {
+    font-size: clamp(22px, 6.8vw, 30px) !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.035em !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main a,
+  .pc-shell-root-v4 .pc-v4-main button {
+    max-inline-size: 100% !important;
+    min-block-size: 46px !important;
+    border-radius: 16px !important;
+    white-space: normal !important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main a[href],
+  .pc-shell-root-v4 .pc-v4-main button:not(:disabled) {
+    touch-action: manipulation !important;
+  }
+
+  .pc-shell-root-v4 .pc-v7-role-dock,
+  .pc-shell-root-v4 .pc-v7-role-dock-inner {
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    overflow: hidden !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .pc-v7-public-entry .entry-role-grid,
+  .pc-v7-public-entry .entry-control-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .pc-v7-public-entry .entry-primary-cta,
+  .pc-v7-public-entry .entry-secondary-cta,
+  .pc-v7-public-entry .entry-login {
+    min-inline-size: 0 !important;
+  }
+}
