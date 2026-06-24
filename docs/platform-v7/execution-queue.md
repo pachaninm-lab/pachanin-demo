@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Seller mobile inline style text leak fix; next role pass remains elevator cabinet functional review.
+CURRENT: Reserve deployment refresh after seller mobile CSS text leak fix; next role pass remains elevator cabinet functional review.
 
 GOAL: keep role cabinets stable on mobile with visible shell, role dock, no horizontal overflow, and clear first-screen execution context.
 
@@ -69,5 +69,6 @@ RULES:
 DONE:
 - #2028 seller CSS leak guard.
 - #2029 state sync after mobile shell stabilization.
+- #2031 seller mobile CSS text leak fix.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
