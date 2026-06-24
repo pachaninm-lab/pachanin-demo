@@ -14,13 +14,14 @@
   html body .pc-shell-root-v4:has(.pc-v7-entry-exact) .pc-v4-main{max-width:1440px!important;margin:0 auto!important;padding:calc(var(--pc-header-offset) + 10px) 0 20px!important;background:#fff!important}
 }
 html body .pc-v7-entry-exact{--green:#008b2e;--deep:#061a16;position:relative;overflow:hidden;min-height:calc(100dvh - var(--pc-header-offset,82px));padding:0 18px 42px!important;background:#fff;color:var(--deep);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',Inter,system-ui,sans-serif}
+html body .pc-v7-entry-exact :where(.entry-hero,.entry-roles,.entry-trust,.entry-title,.entry-lead,.entry-primary-action,.entry-auth-buttons,.entry-function-grid,.entry-role-grid-exact,.entry-function-link,.entry-role-tile-exact,.entry-trust-copy){min-width:0;max-width:100%;overflow-wrap:anywhere}
 html body .pc-v7-entry-exact .entry-soft{position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,255,255,.9) 46%,#fff);pointer-events:none}
 html body .pc-v7-entry-exact .entry-bg-field{position:absolute;z-index:0;top:54px;left:0;right:0;height:310px;opacity:.16;background:linear-gradient(90deg,rgba(0,139,46,.18),transparent 38%),radial-gradient(circle at 82% 24%,rgba(0,139,46,.18),transparent 28%),repeating-linear-gradient(108deg,rgba(0,139,46,.16) 0 8px,rgba(197,150,38,.1) 8px 18px,transparent 18px 34px);filter:blur(.2px)}
 html body .pc-v7-entry-exact .entry-bg-field:after{content:'';position:absolute;right:14px;top:10px;width:46%;height:190px;opacity:.32;background:linear-gradient(180deg,rgba(15,23,42,.28),rgba(15,23,42,.08));clip-path:polygon(14% 100%,14% 40%,26% 40%,26% 18%,72% 18%,72% 40%,86% 40%,86% 100%)}
 html body .pc-v7-entry-exact .entry-hero,html body .pc-v7-entry-exact .entry-roles,html body .pc-v7-entry-exact .entry-trust{position:relative;z-index:1;width:min(100%,430px);margin:0 auto}
 html body .pc-v7-entry-exact .entry-hero{display:grid;gap:14px;padding-top:18px}
 html body .pc-v7-entry-exact .entry-title{margin:0;display:grid;gap:2px;max-width:370px;font-size:clamp(38px,10vw,46px);line-height:.94;letter-spacing:-.07em;font-weight:950;color:#061a16}
-html body .pc-v7-entry-exact .entry-title span:last-child{color:var(--green);white-space:nowrap}
+html body .pc-v7-entry-exact .entry-title span:last-child{color:var(--green);white-space:normal}
 html body .pc-v7-entry-exact .entry-lead{margin:0;max-width:370px;color:#5f6874;font-size:clamp(16.5px,4.35vw,18px);line-height:1.48;font-weight:560;letter-spacing:-.022em}
 html body .pc-v7-entry-exact .entry-primary-action{min-height:62px;width:100%;border-radius:17px;display:flex;align-items:center;justify-content:center;gap:14px;padding:0 26px;color:#fff;text-decoration:none;background:linear-gradient(180deg,#00a83b,#008b2e);box-shadow:0 18px 36px rgba(0,139,46,.22);font-size:18px;font-weight:900}
 html body .pc-v7-entry-exact .entry-primary-action b{margin-left:auto;font-size:31px;line-height:1;font-weight:760}
@@ -35,7 +36,7 @@ html body .pc-v7-entry-exact .entry-roles h2{margin:0;font-size:19px;line-height
 html body .pc-v7-entry-exact .entry-role-grid-exact{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;width:100%;min-width:0}
 html body .pc-v7-entry-exact .entry-role-tile-exact{min-width:0;width:100%;min-height:112px;padding:12px 6px 10px;border-radius:16px;border:1px solid rgba(15,23,42,.065);background:rgba(255,255,255,.95);box-shadow:0 10px 22px rgba(15,23,42,.055);color:#061a16;text-decoration:none;display:grid!important;grid-template-columns:1fr!important;justify-items:center;align-content:start;gap:6px;text-align:center}
 html body .pc-v7-entry-exact .entry-role-tile-exact svg{color:var(--green)}
-html body .pc-v7-entry-exact .entry-role-tile-exact strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#061a16;font-size:12.4px;line-height:1.05;font-weight:920;letter-spacing:-.035em}
+html body .pc-v7-entry-exact .entry-role-tile-exact strong{max-width:100%;overflow:visible;text-overflow:clip;white-space:normal;color:#061a16;font-size:12.4px;line-height:1.05;font-weight:920;letter-spacing:-.035em}
 html body .pc-v7-entry-exact .entry-role-tile-exact span{color:#66717c;font-size:10.1px;line-height:1.2;font-weight:560}
 html body .pc-v7-entry-exact .entry-trust{margin-top:16px;min-height:90px;display:grid;grid-template-columns:auto minmax(0,1fr) 58px;align-items:center;gap:13px;padding:13px;border-radius:18px;background:linear-gradient(180deg,rgba(241,252,244,.92),rgba(255,255,255,.95));border:1px solid rgba(0,139,46,.11);box-shadow:0 10px 24px rgba(15,23,42,.052)}
 html body .pc-v7-entry-exact .entry-trust-shield{width:48px;height:48px;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(180deg,#19b84d,#008b2e);box-shadow:0 9px 20px rgba(0,139,46,.22)}
