@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-lab.css';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { FieldLabRuntime } from '@/components/v7r/FieldLabRuntime';
 import { RoleContinuityPanel } from '@/components/v7r/RoleContinuityPanel';
@@ -39,7 +40,6 @@ export default async function Page() {
         role="ЛАБОРАТОРИЯ · ЛАБОРАТОРНЫЙ КОНТУР"
         summary={apiOnline ? `${samples.length} проб · ${pending.length} ожидают финализации · ${moneyImpact !== 0 ? (moneyImpact / 1_000_000).toFixed(2) + ' млн ₽ влияние' : 'нет денежного влияния'}` : 'Внешние источники требуют подключения'}
       />
-      <style dangerouslySetInnerHTML={{ __html: `@media(max-width:767px){[data-testid='platform-v7-lab-page']{gap:10px!important}.p7-lab-hero{padding:16px!important;border-radius:24px!important;gap:10px!important}.p7-lab-hero h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}.p7-lab-hero p{display:none!important}.p7-lab-steps{grid-template-columns:1fr 1fr!important;gap:8px!important}.p7-lab-step{padding:13px!important;border-radius:16px!important;gap:5px!important}.p7-lab-step strong{font-size:14px!important;line-height:1.25!important}}` }} />
       <QuietIntelligenceHint problem="Сорная примесь 2,4% превышает допуск 2% — протокол качества не закрыт." action="Зафиксировать показатели и выдать протокол с допуском или отказом." outcome="Протокол уйдёт в контур документов как основание для дальнейшей проверки." />
       <CockpitHero className='p7-lab-hero' eyebrow='Лаборатория · качество и протокол' title='Проба, показатели и протокол качества' lead='Лабораторный экран показывает пробу, показатели качества, отклонения и итоговый допуск. Финансовое решение, спор и банковская проверка остаются вне роли лаборатории.'>
         <div className="p7-lab-steps" style={stepsGrid}>

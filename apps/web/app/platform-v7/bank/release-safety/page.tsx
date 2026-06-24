@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-bank-release-safety.css';
 import Link from 'next/link';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
@@ -72,31 +73,6 @@ export default function BankReleaseSafetyPage() {
 
   return (
     <div data-testid="platform-v7-bank-release-safety-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media(max-width:767px){
-          [data-testid='platform-v7-bank-release-safety-page']{gap:10px!important;padding:0!important}
-          [data-testid='bank-release-hero'] > section{padding:16px!important;border-radius:24px!important}
-          [data-testid='bank-release-hero'] > section > div{display:grid!important;gap:10px!important}
-          [data-testid='bank-release-hero'] > section > div > div:first-child > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
-          [data-testid='bank-release-hero'] > section > div > div:first-child > div:nth-child(3){display:none!important}
-          [data-testid='bank-release-hero'] a{width:100%!important;min-height:54px!important;border-radius:16px!important}
-          [data-testid='bank-release-hero'] a:nth-of-type(n+3){display:none!important}
-          [data-testid='bank-release-metrics'] > div{grid-template-columns:1fr 1fr!important;gap:8px!important}
-          [data-testid='bank-release-metrics'] section{padding:12px!important;border-radius:16px!important}
-          [data-testid='bank-release-metrics'] section:nth-child(3){display:none!important}
-          [data-testid='bank-release-grain'] > section{padding:14px!important;border-radius:20px!important}
-          [data-testid='bank-release-grain'] > section > div{display:grid!important;gap:10px!important}
-          [data-testid='bank-release-grain'] > section > div > div:first-child > div:nth-child(3){display:none!important}
-          [data-testid='bank-release-grain'] a{width:100%!important;min-height:52px!important;border-radius:16px!important}
-          [data-testid='bank-release-grain'] a:nth-of-type(2){display:none!important}
-          [data-testid='bank-release-rows'] > section{padding:14px!important;border-radius:20px!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2){gap:8px!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div{padding:12px!important;border-radius:16px!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div:nth-child(n+7){display:none!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:7px!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div > div:nth-child(2) > div:nth-child(n+4){display:none!important}
-        }
-      ` }} />
       <div data-testid="bank-release-hero">
         <P7PanelShell>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>

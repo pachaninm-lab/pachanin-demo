@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-transport-sim.css';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SberKorusBadge } from '@/components/v7r/SberKorusBadge';
@@ -42,18 +43,6 @@ export default function TransportSimulationPage({ params }: { params: { id: stri
 
   return (
     <div className='transport-sim-shell'>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .transport-sim-shell{display:grid;gap:16px;max-width:1120px;margin:0 auto;overflow-x:hidden}
-        .transport-sim-card{background:#fff;border:1px solid var(--pc-border, #E4E6EA);border-radius:18px;padding:18px;min-width:0;overflow:hidden}
-        .transport-sim-hero{display:grid;gap:12px}
-        .transport-sim-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
-        .transport-sim-main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:16px}
-        .transport-sim-main > *{min-width:0}
-        .transport-sim-actions{display:flex;gap:8px;flex-wrap:wrap}
-        .transport-sim-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:48px}
-        @media (max-width: 980px){.transport-sim-main{grid-template-columns:1fr}}
-        @media (max-width: 640px){.transport-sim-card{padding:16px;border-radius:16px}.transport-sim-head{display:grid}.transport-sim-actions{display:grid;grid-template-columns:1fr}.transport-sim-actions a{width:100%}}
-      ` }} />
 
       <section className='transport-sim-card transport-sim-hero'>
         <div className='transport-sim-head'>

@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-deals.css';
 import Link from 'next/link';
 import { DEAL360_SCENARIOS } from '@/lib/platform-v7/deal360-source-of-truth';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
@@ -27,23 +28,6 @@ export default function PlatformV7DealsPage() {
 
   return (
     <div data-testid='platform-v7-deals-page' style={{ display: 'grid', gap: 18 }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media(max-width:767px){
-          [data-testid='platform-v7-deals-page']{gap:12px!important}
-          .pc-deals-shell{padding:16px!important;border-radius:24px!important;gap:12px!important}
-          .pc-deals-kicker,.pc-deals-summary,.pc-deals-secondary-cta,.pc-deals-gates{display:none!important}
-          .pc-deals-title{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}
-          .pc-deals-list{gap:8px!important}
-          .pc-deals-list > a:nth-child(n+6){display:none!important}
-          .pc-deal-row{padding:13px!important;border-radius:16px!important;gap:7px!important}
-          .pc-deal-row-top{align-items:flex-start!important;gap:8px!important}
-          .pc-deal-row-id{font-size:10px!important}
-          .pc-deal-row-stage{font-size:13px!important;line-height:1.25!important}
-          .pc-deal-row-money{font-size:11px!important;padding:4px 9px!important;max-width:48vw;text-align:center}
-          .pc-deal-row-stop{font-size:11px!important;line-height:1.35!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-          .pc-deals-primary-cta{width:100%;justify-content:center;min-height:52px!important}
-        }
-      ` }} />
 
       <section className='pc-deals-shell' style={{ background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFB 60%, #EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 22, display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>

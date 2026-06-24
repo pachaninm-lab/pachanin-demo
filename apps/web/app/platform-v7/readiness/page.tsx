@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-readiness.css';
 import Link from 'next/link';
 import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
 import { selectAllDeals } from '@/lib/domain/selectors';
@@ -62,30 +63,6 @@ export default function PlatformV7ReadinessPage() {
 
   return (
     <div data-testid="platform-v7-readiness-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media(max-width:767px){
-          [data-testid='platform-v7-readiness-page']{gap:10px!important;padding:0!important}
-          [data-testid='platform-v7-readiness-hero']{padding:16px!important;border-radius:24px!important}
-          [data-testid='platform-v7-readiness-hero'] > div{display:grid!important;gap:10px!important}
-          [data-testid='platform-v7-readiness-hero'] > div > div:first-child > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
-          [data-testid='platform-v7-readiness-hero'] > div > div:first-child > div:nth-child(3){display:none!important}
-          [data-testid='platform-v7-readiness-hero'] a{width:100%!important;min-height:54px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important}
-          [data-testid='platform-v7-readiness-hero'] a:nth-of-type(2){display:none!important}
-          [data-testid='platform-v7-readiness-metrics']{grid-template-columns:1fr 1fr!important;gap:8px!important}
-          [data-testid='platform-v7-readiness-metrics'] > div{padding:12px!important;border-radius:16px!important}
-          [data-testid='platform-v7-readiness-metrics'] > div:nth-child(3){display:none!important}
-          [data-testid='platform-v7-readiness-demo']{padding:14px!important;border-radius:20px!important;gap:10px!important}
-          [data-testid='platform-v7-readiness-demo'] > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:7px!important}
-          [data-testid='platform-v7-readiness-demo'] > div:nth-child(2) > div:nth-child(n+5){display:none!important}
-          [data-testid='platform-v7-readiness-demo'] > div:nth-child(3){gap:8px!important;font-size:11px!important}
-          [data-testid='platform-v7-readiness-list']{padding:14px!important;border-radius:20px!important;gap:9px!important}
-          [data-testid='platform-v7-readiness-list'] > div:nth-of-type(n+5){display:none!important}
-          [data-testid='platform-v7-readiness-list'] > div:not(:first-child){padding:12px!important;border-radius:16px!important;gap:8px!important}
-          [data-testid='platform-v7-readiness-list'] > div:not(:first-child) > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:7px!important}
-          [data-testid='platform-v7-readiness-list'] > div:not(:first-child) > div:nth-child(2) > div:nth-child(n+4){display:none!important}
-          [data-testid='platform-v7-readiness-list'] > div:not(:first-child) > div:nth-child(3){font-size:11px!important;line-height:1.35!important}
-        }
-      ` }} />
       <section data-testid="platform-v7-readiness-hero" style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>

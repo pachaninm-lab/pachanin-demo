@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-control-tower.css';
 import Link from 'next/link';
 import { P7Page } from '@/components/platform-v7/P7Page';
 import { P7Section } from '@/components/platform-v7/P7Section';
@@ -177,26 +178,6 @@ export default function PlatformV7ControlTowerPage() {
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .ct-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
-        .ct-priority{background:var(--pc-bg-card);border:1px solid var(--pc-border, #E4E6EA);border-radius:26px;padding:20px;display:grid;gap:16px;box-shadow:0 18px 44px rgba(15,23,42,.07)}
-        .ct-priority-main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:16px;align-items:stretch}
-        .ct-priority-panel{border:1px solid var(--pc-border, #E4E6EA);border-radius:22px;background:var(--pc-bg-card);padding:16px;display:grid;gap:10px;box-shadow:0 10px 26px rgba(15,23,42,.045)}
-        .ct-metric{background:var(--pc-bg-card);border:1px solid var(--pc-border, #E4E6EA);border-radius:20px;padding:16px;display:block;text-decoration:none;color:inherit;box-shadow:0 12px 28px rgba(15,23,42,.05)}
-        .ct-metric-title{font-size:11px;color:var(--pc-text-muted, #6B778C);font-weight:850;text-transform:uppercase;letter-spacing:.07em}
-        .ct-metric-value{margin-top:8px;font-size:28px;line-height:1.05;font-weight:950;color:var(--pc-text-primary, #0F1419);letter-spacing:-.035em}
-        .ct-metric-note{margin-top:9px;font-size:12px;color:var(--pc-text-muted, #6B778C);line-height:1.5}
-        .ct-queue{background:var(--pc-bg-card);border:1px solid var(--pc-border, #E4E6EA);border-radius:24px;padding:16px;display:grid;gap:10px;box-shadow:0 14px 34px rgba(15,23,42,.055)}
-        .ct-queue-item{border:1px solid var(--pc-border, #E4E6EA);border-radius:18px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--pc-bg-card);box-shadow:0 8px 20px rgba(15,23,42,.04)}
-        .ct-queue-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-        .ct-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-        .ct-title{font-size:19px;font-weight:900;color:var(--pc-text-primary, #0F1419);letter-spacing:-.02em}
-        .ct-sub{font-size:13px;color:var(--pc-text-muted, #6B778C);line-height:1.5}
-        .ct-badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:850;box-shadow:0 1px 0 rgba(15,23,42,.03)}
-        .ct-two{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
-        @media (max-width:1100px){.ct-two,.ct-priority-main{grid-template-columns:1fr}}
-        @media (max-width:768px){.ct-queue-item{grid-template-columns:1fr}.ct-queue-actions{justify-content:flex-start}.ct-metric-value{font-size:25px}.ct-priority{padding:14px;border-radius:22px}.ct-priority-panel{padding:13px;border-radius:18px}}
-      ` }} />
       <P7Page
         title='Центр управления'
         subtitle='Операторский экран: деньги, главный блокер, ответственный и одно действие.'

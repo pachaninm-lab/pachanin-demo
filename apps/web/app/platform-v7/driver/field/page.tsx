@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-driver-field.css';
 import Link from 'next/link';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
@@ -42,16 +43,6 @@ export default async function DriverFieldPage() {
         summary={`${shipmentCount} активных рейсов · ${blockedShipments.length} с блокерами`}
       />
       <OfflineSyncBanner />
-      <style dangerouslySetInnerHTML={{ __html: `
-        [data-testid='platform-v7-role-route-hint']{display:none!important}
-        @media(max-width:767px){
-          [data-testid='platform-v7-driver-field-shell']{gap:10px!important;padding-top:0!important}
-          .driver-field-hero{padding:16px!important;border-radius:24px!important;gap:10px!important}
-          .driver-field-hero p{display:none!important}
-          .driver-field-quick-links{grid-template-columns:1fr!important}
-          .driver-field-status-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
-        }
-      ` }} />
       <CockpitHero
         className="driver-field-hero"
         eyebrow="Водитель · один рейс · одно действие"
