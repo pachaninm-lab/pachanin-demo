@@ -9,6 +9,8 @@ import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-exec
 const operationalRoles = ['logistics', 'driver', 'elevator', 'lab', 'surveyor', 'arbitrator', 'executive'] as const;
 
 const platformActionTargetPattern = /^(\/platform-v7\/|#[a-z0-9-]+$)/;
+const placeholderActionLabelPattern = /^(открыть|перейти|смотреть|подробнее|действие|action|todo)$/i;
+const moneyReleaseActionLabelPattern = /выпустить деньги|разблокировать деньги|подтвердить выплату|approve payment|release money/i;
 
 const operationalRolePageFiles = [
   'app/platform-v7/logistics/page.tsx',
@@ -59,6 +61,20 @@ describe('platform-v7 operational role execution cockpit', () => {
         expect(action.label.trim().length).toBeGreaterThan(3);
         expect(action.href ?? '').toMatch(platformActionTargetPattern);
         expect(action.href ?? '').not.toMatch(/^javascript:|^mailto:|^tel:|^https?:|^#$/i);
+      }
+    }
+  });
+
+  it('keeps operational action labels concrete and inside role authority', () => {
+    for (const role of operationalRoles) {
+      const cockpit = OPERATIONAL_ROLE_EXECUTION_COCKPITS[role];
+
+      for (const operation of cockpit.operations) {
+        const label = operation.action.label.trim();
+
+        expect(label).not.toMatch(placeholderActionLabelPattern);
+        expect(label).not.toMatch(moneyReleaseActionLabelPattern);
+        expect(label).not.toMatch(/\.\.\.$|…$/);
       }
     }
   });
