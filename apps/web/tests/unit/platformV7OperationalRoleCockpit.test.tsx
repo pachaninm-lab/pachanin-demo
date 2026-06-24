@@ -87,4 +87,19 @@ describe('platform-v7 operational role execution cockpit', () => {
     expect(source).toContain('Назначения на осмотр');
     expect(source).toContain('Требует акта');
   });
+
+  it('keeps the arbitrator cabinet inside the dispute decision boundary', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/arbitrator/page.tsx'), 'utf8');
+
+    expect(source).toContain('platform-v7-arbitrator-decision-guard');
+    expect(source).toContain('Арбитр · рамка решения');
+    expect(source).toContain('Решение арбитра создаёт основание для ручной проверки');
+    expect(source).toContain('сумму спора, доказательства, причину остановки и рекомендуемое действие');
+    expect(source).toContain('ручной сверки основания оператором');
+    expect(source).toContain('Акт расхождения DL-9102 не закрыт');
+    expect(source).toContain('Удержание не снимается');
+    expect(source).toContain('624 тыс. ₽');
+    expect(source).toContain('Предынтеграционный контур · Арбитраж требует реальных договоров');
+    expect(source).toContain('ArbitratorDisputeRoom');
+  });
 });
