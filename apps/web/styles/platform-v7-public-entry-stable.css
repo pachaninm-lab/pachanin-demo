@@ -31,15 +31,12 @@
   }
 
   .pc-v7-public-entry .entry-process-row {
-    display: flex !important;
-    grid-template-columns: none !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    gap: 10px !important;
-    padding-bottom: 8px !important;
-    scroll-snap-type: x mandatory !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    overflow: visible !important;
+    gap: 12px !important;
+    padding-bottom: 0 !important;
+    scroll-snap-type: none !important;
   }
 
   .pc-v7-public-entry .entry-process-row::-webkit-scrollbar {
@@ -47,17 +44,37 @@
   }
 
   .pc-v7-public-entry .entry-process-tile {
-    flex: 0 0 calc((100vw - 64px) / 3) !important;
-    width: calc((100vw - 64px) / 3) !important;
-    min-width: 104px !important;
-    max-width: 132px !important;
-    min-height: 176px !important;
-    padding: 14px 10px !important;
-    scroll-snap-align: start !important;
+    flex: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    min-height: auto !important;
+    display: grid !important;
+    grid-template-columns: auto auto minmax(0, 1fr) !important;
+    align-items: center !important;
+    justify-items: start !important;
+    text-align: left !important;
+    padding: 16px !important;
+    scroll-snap-align: none !important;
   }
 
   .pc-v7-public-entry .entry-process-tile:not(:last-child)::after {
     display: none !important;
+  }
+
+  .pc-v7-public-entry .entry-process-index {
+    grid-column: 1 !important;
+  }
+
+  .pc-v7-public-entry .entry-process-icon {
+    grid-column: 2 !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile strong,
+  .pc-v7-public-entry .entry-process-tile small {
+    grid-column: 3 !important;
+    max-width: 100% !important;
+    overflow-wrap: anywhere !important;
   }
 }
 
@@ -95,8 +112,7 @@
   }
 
   .pc-v7-public-entry .entry-process-tile {
-    flex-basis: calc((100vw - 52px) / 3) !important;
-    width: calc((100vw - 52px) / 3) !important;
-    min-width: 96px !important;
+    width: 100% !important;
+    min-width: 0 !important;
   }
 }

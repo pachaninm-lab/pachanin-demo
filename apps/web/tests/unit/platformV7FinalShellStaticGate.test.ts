@@ -9,6 +9,7 @@ const clientLayout = read('apps/web/components/platform-v7/PlatformV7LayoutClien
 const shellUx = read('apps/web/components/platform-v7/PlatformV7ShellUxController.tsx');
 const supportHeader = read('apps/web/components/platform-v7/SupportHeaderIcon.tsx');
 const entryFixCss = read('apps/web/styles/platform-v7-entry-fix.css');
+const publicEntryStableCss = read('apps/web/styles/platform-v7-public-entry-stable.css');
 const shellRoutes = read('apps/web/lib/platform-v7/shellRoutes.ts');
 const statusPage = read('apps/web/app/platform-v7/status/page.tsx');
 
@@ -65,6 +66,13 @@ describe('platform-v7 final shell static gate', () => {
     expect(shellUx).toContain('.pc-v7-role-dock{position:fixed;left:0;right:0;bottom:0;');
   });
 
+  it('keeps mobile role dock above mobile browser chrome', () => {
+    expect(entryFixCss).toContain('.pc-v7-role-dock{bottom:calc(env(safe-area-inset-bottom) + 72px)!important');
+    expect(supportHeader).toContain('.pc-v7-role-dock{bottom:calc(env(safe-area-inset-bottom) + 72px)!important');
+    expect(entryFixCss).toContain('.pc-v4-main{padding-bottom:calc(env(safe-area-inset-bottom) + 176px)!important}');
+    expect(supportHeader).toContain('.pc-v4-main{padding-bottom:calc(env(safe-area-inset-bottom) + 176px)!important}');
+  });
+
   it('keeps utility actions out of the lower role dock', () => {
     const dock = roleDockBlock();
     expect(dock).toContain('dockLinks.map');
@@ -92,6 +100,18 @@ describe('platform-v7 final shell static gate', () => {
     expect(entryFixCss).toContain('order:30!important');
     expect(entryFixCss).toContain('.p7-calc-widget .pc-v4-iconbtn{display:inline-flex!important');
     expect(supportHeader).not.toContain('.p7-calc-widget{display:none');
+  });
+
+  it('keeps public process cards readable instead of clipped horizontal cards', () => {
+    expect(publicEntryStableCss).toContain('.pc-v7-public-entry .entry-process-row {');
+    expect(publicEntryStableCss).toContain('grid-template-columns: 1fr !important');
+    expect(publicEntryStableCss).toContain('overflow: visible !important');
+    expect(publicEntryStableCss).not.toContain('overflow-x: auto !important');
+    expect(publicEntryStableCss).not.toContain('flex: 0 0 calc');
+  });
+
+  it('keeps seller cockpit from showing the legacy API status banner above the hero', () => {
+    expect(entryFixCss).toContain("[data-platform-v7-seller-cockpit-pass='true'] > div:first-child{display:none!important}");
   });
 
   it('keeps header help on an existing shared route', () => {
