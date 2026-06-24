@@ -133,4 +133,8 @@ describe('platform-v7 final shell static gate', () => {
     expect(loginPage).toContain("await fetch('/api/platform-v7/cabinet-session'");
     expect(loginPage.indexOf("await fetch('/api/platform-v7/cabinet-session'")).toBeLessThan(loginPage.indexOf('router.replace(platformV7RoleHome(nextRole))'));
   });
+
+  it('keeps in-shell style tags hidden so CSS is never shown as page text', () => {
+    expect(appLayout).toContain('html body .pc-shell-root-v4 style{display:none!important}');
+  });
 });
