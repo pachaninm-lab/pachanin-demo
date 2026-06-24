@@ -8,6 +8,9 @@ import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RS
 
 type Workspace = { role: PlatformRole; title: string; scope: string };
 
+const PLATFORM_V7_ENTRY_COOKIE = 'pc_v7_entry_seen';
+const PLATFORM_V7_ENTRY_TTL_SECONDS = 60 * 60 * 4;
+
 const workspaces: Workspace[] = [
   { role: 'operator', title: 'Оператор', scope: 'Сделки, блокеры, SLA, ручные действия' },
   { role: 'buyer', title: 'Покупатель', scope: 'Закупка, качество, документы, деньги' },
@@ -23,6 +26,12 @@ const workspaces: Workspace[] = [
   { role: 'executive', title: 'Руководитель', scope: 'Деньги под риском, управленческий срез' },
 ];
 
+function markEntrySeen() {
+  if (typeof document === 'undefined') return;
+  const secure = globalThis.location?.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${PLATFORM_V7_ENTRY_COOKIE}=true; Path=/; Max-Age=${PLATFORM_V7_ENTRY_TTL_SECONDS}; SameSite=Lax${secure}`;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const setStoreRole = usePlatformV7RStore((state) => state.setRole);
@@ -32,15 +41,18 @@ export default function LoginPage() {
   const [role, setRole] = React.useState<PlatformRole>('operator');
   const [error, setError] = React.useState('');
 
-  function openWorkspace(nextRole: PlatformRole) {
+  async function openWorkspace(nextRole: PlatformRole) {
     globalThis.sessionStorage?.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, nextRole);
+    markEntrySeen();
     setStoreRole(nextRole);
-    void fetch('/api/platform-v7/cabinet-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: nextRole }),
-      keepalive: true,
-    }).catch(() => {});
+    try {
+      await fetch('/api/platform-v7/cabinet-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: nextRole }),
+        keepalive: true,
+      });
+    } catch {}
     router.replace(platformV7RoleHome(nextRole));
   }
 
@@ -51,7 +63,7 @@ export default function LoginPage() {
       return;
     }
     setError('');
-    openWorkspace(role);
+    void openWorkspace(role);
   }
 
   const selected = workspaces.find((item) => item.role === role) ?? workspaces[0];
