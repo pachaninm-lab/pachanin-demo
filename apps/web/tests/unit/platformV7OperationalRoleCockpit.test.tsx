@@ -60,6 +60,23 @@ describe('platform-v7 operational role execution cockpit', () => {
     expect(source).not.toMatch(/банк|банков|деньг|инвестор|центр управления|control tower|другие сделки/i);
   });
 
+  it('keeps the driver field cabinet inside the one-trip offline-evidence boundary', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/driver/field/page.tsx'), 'utf8');
+
+    expect(source).toContain('data-testid="platform-v7-driver-field-shell"');
+    expect(source).toContain('Водитель · один рейс · одно действие');
+    expect(source).toContain('Текущий рейс');
+    expect(source).toContain('маршрут, связь, прибытие, фото, пломба и отклонение');
+    expect(source).toContain('Подтвердить следующее действие по рейсу');
+    expect(source).toContain('Связь / очередь');
+    expect(source).toContain('Фото / пломба');
+    expect(source).toContain('Статус рейса');
+    expect(source).toContain('только свой рейс');
+    expect(source).toContain('FieldDriverRuntime');
+    expect(source).toContain('DriverMissionRouteCard');
+    expect(source).not.toMatch(/releaseMoney|approvePayment|confirmBank|создать акт|выпустить деньги|портфель|BI/i);
+  });
+
   it('keeps the lab cabinet first screen inside the quality-protocol boundary', () => {
     const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/lab/page.tsx'), 'utf8');
 
