@@ -55,6 +55,7 @@ const VALID_ROLES = new Set<PlatformRole>([
 const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs']);
 
 const shellRestoreCss = `
+html body .pc-shell-root-v4 style{display:none!important}
 @media (max-width:767px){
   html body .pc-shell-root-v4 .pc-v4-header-inner{position:relative!important;overflow:visible!important;padding:calc(env(safe-area-inset-top) + 7px) 10px 7px!important}
   html body .pc-shell-root-v4 .pc-v4-top{display:grid!important;grid-template-columns:42px 48px minmax(0,1fr)!important;gap:8px!important;align-items:center!important;inline-size:100%!important;max-inline-size:100%!important;min-block-size:44px!important;overflow:visible!important}
