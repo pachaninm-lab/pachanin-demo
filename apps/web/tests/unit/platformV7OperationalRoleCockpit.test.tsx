@@ -66,7 +66,6 @@ describe('platform-v7 operational role execution cockpit', () => {
     expect(source).toContain("data-testid='platform-v7-elevator-page'");
     expect(source).toContain('Кабинет приёмки');
     expect(source).toContain('Вес, качество и основание для проверки выплаты');
-    expect(source).toContain('Вес, качество и основание для проверки выплаты');
     expect(source).toContain('Отклонение веса -1,2 т');
     expect(source).toContain('Акт расхождения по весу не подписан');
     expect(source).toContain('Основание не передаётся банку');
