@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Role cabinet functional pass: seller first-screen control and route-card continuity are merged; continue buyer, bank, operator, compliance, lab/elevator and field roles in small PRs.",
-  "lastCompletedStep": "#1998 seller route-card continuity fix after #1996 operator first-screen control and #1997 seller handoff continuity.",
+  "currentStep": "Role cabinet functional pass: seller/operator controls, seller route-card continuity and buyer/bank/compliance/lab guards are merged; continue elevator and field-role passes in small PRs.",
+  "lastCompletedStep": "#2003 lab quality-protocol boundary guard after #2000 buyer, #2001 bank and #2002 compliance first-screen guards.",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Continue role cabinet functional pass with the next exact allowed role surface; do not start runtime, persistence, backend, auth, API, package or lockfile changes inside UI PRs.",
-  "updatedAt": "2026-06-24T03:11:21.000Z",
+  "nextStep": "Continue role cabinet functional pass with elevator and field-role exact surfaces; do not start runtime, persistence, backend, auth, API, package or lockfile changes inside UI PRs.",
+  "updatedAt": "2026-06-24T06:07:39.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

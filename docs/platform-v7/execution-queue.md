@@ -21,6 +21,7 @@ CURRENT ALLOWED:
 - apps/web/components/platform-v7/LiveApiStatusBar.tsx
 - apps/web/styles/platform-v7-mobile-hardening.css
 - apps/web/components/v7r/ShellCopyNormalizer.tsx
+- apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts
 - apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx
 - apps/web/tests/unit/platformV7OperationalRoleCockpit.test.tsx
 - apps/web/tests/unit/platformV7RoleUxRegressions.test.ts
@@ -32,7 +33,7 @@ CURRENT ALLOWED:
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: continue role cabinet functional pass after seller route-card continuity.
+- Layer: continue role cabinet functional pass after buyer, bank, compliance and lab boundary guards.
 - Allowed files:
   - exact role page from CURRENT ALLOWED;
   - matching unit/static guard from CURRENT ALLOWED;
@@ -47,11 +48,11 @@ NEXT:
 
 ORDER:
 1. Seller cabinet functional pass — first-screen control, handoff continuity and route-card continuity merged through #1998.
-2. Buyer cabinet functional pass.
-3. Bank cabinet functional pass.
-4. Operator / executive control pass where exact files exist.
-5. Compliance pass.
-6. Lab / elevator pass.
+2. Buyer cabinet functional pass — first-screen control guard merged in #2000.
+3. Bank cabinet functional pass — money-boundary guard merged in #2001.
+4. Operator / executive control pass where exact files exist — operator first-screen control merged in #1996.
+5. Compliance pass — risk/admission boundary guard merged in #2002.
+6. Lab / elevator pass — lab quality-protocol boundary guard merged in #2003; elevator remains next.
 7. Driver / field pass.
 8. Regression tests and route/button audit.
 
@@ -72,5 +73,10 @@ DONE:
 - #1996 operator first-screen control.
 - #1997 seller handoff continuity.
 - #1998 seller route-card continuity.
+- #1999 state after seller/operator pass.
+- #2000 buyer first-screen control guard.
+- #2001 bank money-boundary guard.
+- #2002 compliance risk/admission boundary guard.
+- #2003 lab quality-protocol boundary guard.
 
-READINESS: 72% honest readiness. UX shell and seller/operator cabinet clarity improved, but runtime layers and the remaining role-by-role functional passes are still incomplete.
+READINESS: 72% honest readiness. UX shell, seller/operator cabinet clarity and buyer/bank/compliance/lab guard coverage improved, but runtime layers and remaining role-by-role functional passes are still incomplete.
