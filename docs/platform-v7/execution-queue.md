@@ -41,12 +41,11 @@ CURRENT ALLOWED:
 NEXT:
 - Layer: elevator cabinet functional review after mobile shell stabilization.
 - Allowed files:
-  - apps/web/app/platform-v7/elevator/page.tsx
-  - apps/web/styles/platform-v7-shell-restore.css
-  - apps/web/tests/unit/platformV7MobileShellHardening.test.ts
-  - docs/platform-v7/audit/**
-  - docs/platform-v7/autopilot/**
-  - docs/platform-v7/execution-queue.md
+  - exact elevator role page from CURRENT ALLOWED;
+  - exact platform-v7 CSS file from CURRENT ALLOWED;
+  - matching unit/static guard from CURRENT ALLOWED;
+  - docs/platform-v7/audit/** only when recording audit evidence;
+  - docs/platform-v7/autopilot/** and docs/platform-v7/execution-queue.md only for state updates.
 - Success criteria:
   - mobile shell keeps header logo, menu, work tools and role dock visible without horizontal overflow;
   - elevator cabinet keeps first-screen status, blocker, money impact, responsible party and next action clear;
