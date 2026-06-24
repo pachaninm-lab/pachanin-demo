@@ -102,4 +102,19 @@ describe('platform-v7 operational role execution cockpit', () => {
     expect(source).toContain('Предынтеграционный контур · Арбитраж требует реальных договоров');
     expect(source).toContain('ArbitratorDisputeRoom');
   });
+
+  it('keeps the executive cabinet read-only and honest about operational control', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/executive/page.tsx'), 'utf8');
+
+    expect(source).toContain('Руководитель · только просмотр');
+    expect(source).toContain('Исполнительная панель: деньги, споры, блокеры и портфель без права действия');
+    expect(source).toContain('Деньги в блоке');
+    expect(source).toContain('Главный блокер');
+    expect(source).toContain('Банк ожидает');
+    expect(source).toContain('Юнит-экономика (BI)');
+    expect(source).toContain('из runtime-сделок');
+    expect(source).toContain('Когда сделки появятся в контуре исполнения');
+    expect(source).toContain('LiveApiStatusBar');
+    expect(source).not.toMatch(/releaseMoney|approvePayment|confirmBank|создать акт|выпустить деньги/i);
+  });
 });
