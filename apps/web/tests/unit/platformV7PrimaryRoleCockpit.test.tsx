@@ -52,4 +52,18 @@ describe('platform-v7 primary role execution cockpit', () => {
       expect(source).toContain(marker);
     }
   });
+
+  it('keeps the buyer cabinet first screen on a real control contract', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/buyer/page.tsx'), 'utf8');
+
+    expect(source).toContain('buyerFirstScreenFacts');
+    expect(source).toContain('Что произошло');
+    expect(source).toContain('Что блокирует');
+    expect(source).toContain('Деньги под риском');
+    expect(source).toContain('Ответственный');
+    expect(source).toContain('Следующий шаг');
+    expect(source).toContain('банк ещё не подтвердил резерв');
+    expect(source).toContain('/platform-v7/deals/DL-9106/money');
+    expect(source).toContain('платформа показывает причину, деньги и маршрут, но не выпускает деньги без банковского подтверждения');
+  });
 });
