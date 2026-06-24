@@ -1,0 +1,1 @@
+Mobile protected shell must keep the app header and role dock visible on phone screens. This note does not change product maturity.
