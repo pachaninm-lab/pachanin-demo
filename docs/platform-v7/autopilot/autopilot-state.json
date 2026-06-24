@@ -3,7 +3,7 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Seller cabinet first-screen and route continuity pass merged; continue role cabinet functional pass with buyer, bank, operator, compliance, lab/elevator and field roles in small PRs.",
+  "current": "Role cabinet functional pass.",
   "fullTzReadinessPercent": 72,
   "openPr": null,
   "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994", "#1995", "#1996", "#1997", "#1998"],
