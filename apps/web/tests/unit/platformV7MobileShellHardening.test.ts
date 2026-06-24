@@ -23,6 +23,12 @@ describe('platform-v7 mobile shell hardening', () => {
     expect(entryFixCss).toContain("html body .pc-v4-search,html body .pc-v4-theme-toggle,html body .pc-v4-actions button[aria-label='Открыть уведомления']{display:none!important}");
   });
 
+  it('keeps seller inline style tags hidden while reflowing direct content children', () => {
+    expect(layout).toContain('html body .pc-shell-root-v4 .seller-cockpit>style{display:none!important;visibility:hidden!important');
+    expect(layout).toContain('html body .pc-shell-root-v4 .seller-cockpit>:not(style){display:block!important');
+    expect(layout).not.toContain('html body .pc-shell-root-v4 .seller-cockpit>*{display:block!important');
+  });
+
   it('prevents header support styles from restoring the legacy bottom navigation', () => {
     expect(supportHeaderIcon).toContain('.pc-v4-bottomnav{display:none!important}');
     expect(supportHeaderIcon).toContain('.pc-v7-role-dock{display:block!important');
