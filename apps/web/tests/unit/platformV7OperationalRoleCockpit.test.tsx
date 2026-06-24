@@ -38,6 +38,20 @@ describe('platform-v7 operational role execution cockpit', () => {
     expect(screen.getByRole('link', { name: /Открыть рейс водителя/i })).toHaveAttribute('href', '/platform-v7/driver/field');
   });
 
+  it('keeps the logistics cabinet inside the route-document boundary', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/logistics/page.tsx'), 'utf8');
+
+    expect(source).toContain('Логистика · рейс → водитель → ЭТрН → приёмка');
+    expect(source).toContain('План перевозки DL-9106');
+    expect(source).toContain('исполнение: что логистика отправляет и ожидает');
+    expect(source).toContain('ЭТрН ожидает подписи грузополучателя');
+    expect(source).toContain('СДИЗ ожидает закрытия');
+    expect(source).toContain('Плановый объём');
+    expect(source).toContain('ГИС ЭПД');
+    expect(source).toContain('/platform-v7/driver/field');
+    expect(source).not.toMatch(/releaseMoney|approvePayment|confirmBank|выпустить деньги|создать акт расхождения/i);
+  });
+
   it('keeps driver page source scoped to one field trip without cross-role language', () => {
     const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/driver/field/page.tsx'), 'utf8');
 
