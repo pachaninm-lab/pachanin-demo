@@ -59,4 +59,18 @@ describe('platform-v7 operational role execution cockpit', () => {
     expect(source).toContain('Пакет документов по качеству не закрыт');
     expect(source).toContain('Лабораторный runtime');
   });
+
+  it('keeps the elevator cabinet first screen inside the receiving boundary', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/elevator/page.tsx'), 'utf8');
+
+    expect(source).toContain("data-testid='platform-v7-elevator-page'");
+    expect(source).toContain('Кабинет приёмки');
+    expect(source).toContain('Вес, качество и основание для проверки выплаты');
+    expect(source).toContain('Отклонение веса -1,2 т');
+    expect(source).toContain('Акт расхождения по весу не подписан');
+    expect(source).toContain('Основание не передаётся банку');
+    expect(source).toContain('Зафиксировать вес');
+    expect(source).toContain('Передать пробу в лабораторию');
+    expect(source).toContain('Runtime приёмки');
+  });
 });
