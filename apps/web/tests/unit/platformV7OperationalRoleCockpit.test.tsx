@@ -8,6 +8,8 @@ import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-exec
 
 const operationalRoles = ['logistics', 'driver', 'elevator', 'lab', 'surveyor', 'arbitrator', 'executive'] as const;
 
+const platformActionTargetPattern = /^(\/platform-v7\/|#[a-z0-9-]+$)/;
+
 describe('platform-v7 operational role execution cockpit', () => {
   it('keeps operational roles on the shared title/status/fact/blocker/next/action grammar', () => {
     for (const role of operationalRoles) {
@@ -25,6 +27,20 @@ describe('platform-v7 operational role execution cockpit', () => {
         expect(operation.blocker).toBeTruthy();
         expect(operation.nextStep).toBeTruthy();
         expect(operation.action.label).toBeTruthy();
+      }
+    }
+  });
+
+  it('keeps operational cockpit actions on explicit platform targets', () => {
+    for (const role of operationalRoles) {
+      const cockpit = OPERATIONAL_ROLE_EXECUTION_COCKPITS[role];
+
+      for (const operation of cockpit.operations) {
+        const { action } = operation;
+
+        expect(action.label.trim().length).toBeGreaterThan(3);
+        expect(action.href ?? '').toMatch(platformActionTargetPattern);
+        expect(action.href ?? '').not.toMatch(/^javascript:|^mailto:|^tel:|^https?:|^#$/i);
       }
     }
   });
