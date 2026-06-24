@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Mobile shell header restore.",
+  "current": "State sync after mobile shell stabilization; next role pass is elevator cabinet functional review.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2022",
-  "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994", "#1995", "#1996", "#1997", "#1998", "#1999", "#2000", "#2001", "#2002", "#2003", "#2004", "#2005", "#2006", "#2007", "#2008", "#2009", "#2010", "#2011", "#2015", "#2016", "#2017", "#2018", "#2019", "#2020"],
+  "openPr": "#2029",
+  "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994", "#1995", "#1996", "#1997", "#1998", "#1999", "#2000", "#2001", "#2002", "#2003", "#2004", "#2005", "#2006", "#2007", "#2008", "#2009", "#2010", "#2011", "#2015", "#2016", "#2017", "#2018", "#2019", "#2020", "#2021", "#2022", "#2023", "#2024", "#2025", "#2026", "#2027", "#2028"],
   "lockedUntilCurrentGreen": ["External connectivity", "Persistence expansion", "Lockfile changes", "apps/landing changes"],
   "allowedCurrentScope": [
     "apps/web/app/platform-v7/layout.tsx",
@@ -87,5 +87,5 @@
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": [],
-  "readiness": "72% honest readiness after UX shell stabilization, protected shell tools gate, primary-role controls and operational-role guard coverage. Runtime layers are still required before live readiness."
+  "readiness": "72% honest readiness after UX shell stabilization, protected shell tools gate, primary-role controls, operational-role guard coverage and mobile shell leak fixes. Runtime layers are still required before live readiness."
 }

@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Mobile shell header restore.
+CURRENT: State sync after mobile shell stabilization; next role pass is elevator cabinet functional review.
 
 GOAL: every role cabinet must keep a stable mobile shell: visible logo, menu, required work tools, role dock, no horizontal overflow, and first-screen execution context.
 
@@ -38,9 +38,9 @@ CURRENT ALLOWED:
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: finish mobile shell header restore, then continue role cabinet functional pass.
+- Layer: elevator cabinet functional review after mobile shell stabilization.
 - Allowed files:
-  - exact role page from CURRENT ALLOWED;
+  - exact elevator role page from CURRENT ALLOWED;
   - exact platform-v7 CSS file from CURRENT ALLOWED;
   - matching unit/static guard from CURRENT ALLOWED;
   - docs/platform-v7/audit/** only when recording audit evidence;
@@ -89,5 +89,13 @@ DONE:
 - #2018 mobile cockpit viewport alignment.
 - #2019 mobile shell overflow hardening.
 - #2020 seller mobile cockpit reflow.
+- #2021 public mobile reflow.
+- #2022 mobile shell header restore.
+- #2023 mobile shell controls.
+- #2024 mobile seller shell reflow.
+- #2025 final mobile shell reflow.
+- #2026 mobile reflow order.
+- #2027 login cabinet redirect.
+- #2028 seller CSS leak guard.
 
-READINESS: 72% honest readiness. UX shell, seller/operator cabinet clarity and buyer/bank/compliance/lab guard coverage improved, but runtime layers and remaining role-by-role functional passes are still incomplete.
+READINESS: 72% honest readiness. UX shell, seller/operator cabinet clarity, buyer/bank/compliance/lab guard coverage and mobile shell stabilization improved, but runtime layers and remaining role-by-role functional passes are still incomplete.
