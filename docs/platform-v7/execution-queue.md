@@ -1,10 +1,11 @@
 # platform-v7 execution queue
 
-CURRENT: Role cabinet functional pass.
+CURRENT: Mobile shell header restore.
 
-GOAL: every role cabinet must show within the first screen: what happened, what is blocked, money impact, responsible party, evidence basis and one next action.
+GOAL: every role cabinet must keep a stable mobile shell: visible logo, menu, required work tools, role dock, no horizontal overflow, and first-screen execution context.
 
 CURRENT ALLOWED:
+- apps/web/app/platform-v7/layout.tsx
 - apps/web/app/platform-v7/seller/page.tsx
 - apps/web/app/platform-v7/buyer/page.tsx
 - apps/web/app/platform-v7/bank/page.tsx
@@ -19,7 +20,10 @@ CURRENT ALLOWED:
 - apps/web/components/platform-v7/RoleExecutionCockpit.tsx
 - apps/web/components/platform-v7/RoleExecutionSummary.tsx
 - apps/web/components/platform-v7/LiveApiStatusBar.tsx
+- apps/web/styles/platform-v7-entry-fix.css
 - apps/web/styles/platform-v7-mobile-hardening.css
+- apps/web/styles/platform-v7-mobile-reflow-p0.css
+- apps/web/styles/platform-v7-shell-restore.css
 - apps/web/components/v7r/ShellCopyNormalizer.tsx
 - apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts
 - apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx
@@ -28,18 +32,21 @@ CURRENT ALLOWED:
 - apps/web/tests/unit/platformV7UxGate.test.ts
 - apps/web/tests/unit/roleContinuityLayouts.test.tsx
 - apps/web/tests/unit/platformV7FieldRolesIsolation.test.ts
+- apps/web/tests/unit/platformV7BankPageBasisGuard.test.ts
 - docs/platform-v7/audit/**
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: continue role cabinet functional pass after buyer, bank, compliance and lab boundary guards.
+- Layer: finish mobile shell header restore, then continue role cabinet functional pass.
 - Allowed files:
   - exact role page from CURRENT ALLOWED;
+  - exact platform-v7 CSS file from CURRENT ALLOWED;
   - matching unit/static guard from CURRENT ALLOWED;
   - docs/platform-v7/audit/** only when recording audit evidence;
   - docs/platform-v7/autopilot/** and docs/platform-v7/execution-queue.md only for state updates.
 - Success criteria:
+  - mobile shell keeps header logo, menu, work tools and role dock visible without horizontal overflow;
   - touched cabinet shows first-screen facts: what happened, blocker, money impact, responsible party, evidence basis and one next action;
   - actions route to real page/action/section or have a clear disabled reason;
   - current status remains controlled-pilot / pre-integration;
@@ -47,7 +54,7 @@ NEXT:
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
-1. Seller cabinet functional pass — first-screen control, handoff continuity and route-card continuity merged through #1998.
+1. Seller cabinet functional pass — first-screen control, handoff continuity and route-card continuity merged through #2020.
 2. Buyer cabinet functional pass — first-screen control guard merged in #2000.
 3. Bank cabinet functional pass — money-boundary guard merged in #2001.
 4. Operator / executive control pass where exact files exist — operator first-screen control merged in #1996.
@@ -78,5 +85,9 @@ DONE:
 - #2001 bank money-boundary guard.
 - #2002 compliance risk/admission boundary guard.
 - #2003 lab quality-protocol boundary guard.
+- #2017 operational cockpit action-label guard.
+- #2018 mobile cockpit viewport alignment.
+- #2019 mobile shell overflow hardening.
+- #2020 seller mobile cockpit reflow.
 
 READINESS: 72% honest readiness. UX shell, seller/operator cabinet clarity and buyer/bank/compliance/lab guard coverage improved, but runtime layers and remaining role-by-role functional passes are still incomplete.
