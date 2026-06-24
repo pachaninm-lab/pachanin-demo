@@ -66,4 +66,18 @@ describe('platform-v7 primary role execution cockpit', () => {
     expect(source).toContain('/platform-v7/deals/DL-9106/money');
     expect(source).toContain('платформа показывает причину, деньги и маршрут, но не выпускает деньги без банковского подтверждения');
   });
+
+  it('keeps the bank cabinet first screen on an honest money boundary', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/bank/page.tsx'), 'utf8');
+
+    expect(source).toContain('data-platform-v7-bank-cockpit-pass');
+    expect(source).toContain('Сначала основание, потом банковская проверка');
+    expect(source).toContain('Деньги не двигаются, пока нет основания');
+    expect(source).toContain('Что блокирует');
+    expect(source).toContain('СДИЗ, ЭТрН, УПД, акт, качество');
+    expect(source).toContain('Кто следующий');
+    expect(source).toContain('оператор + ответственный за документ');
+    expect(source).toContain('/platform-v7/bank/release-safety');
+    expect(source).toContain('Нет заявления о выплате без банковского подтверждения');
+  });
 });
