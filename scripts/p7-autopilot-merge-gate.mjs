@@ -106,7 +106,7 @@ function lineIsClaimDenylistEntry(line, claim) {
     .replace(/^\+/, '')
     .trim()
     .replace(/,$/, '')
-    .replace(/^[\'"]|[\'"]$/g, '')
+    .replace(/^['"]|['"]$/g, '')
     .toLowerCase();
   return stripped === claim.toLowerCase();
 }
