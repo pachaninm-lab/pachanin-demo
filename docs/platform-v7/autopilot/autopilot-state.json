@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Seller mobile inline style text leak fix; next role pass remains elevator cabinet functional review.",
+  "current": "Reserve deployment refresh after seller mobile CSS text leak fix; next role pass remains elevator cabinet functional review.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2031",
-  "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994", "#1995", "#1996", "#1997", "#1998", "#1999", "#2000", "#2001", "#2002", "#2003", "#2004", "#2005", "#2006", "#2007", "#2008", "#2009", "#2010", "#2011", "#2015", "#2016", "#2017", "#2018", "#2019", "#2020", "#2021", "#2022", "#2023", "#2024", "#2025", "#2026", "#2027", "#2028", "#2029"],
+  "openPr": "#2032",
+  "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994", "#1995", "#1996", "#1997", "#1998", "#1999", "#2000", "#2001", "#2002", "#2003", "#2004", "#2005", "#2006", "#2007", "#2008", "#2009", "#2010", "#2011", "#2015", "#2016", "#2017", "#2018", "#2019", "#2020", "#2021", "#2022", "#2023", "#2024", "#2025", "#2026", "#2027", "#2028", "#2029", "#2031"],
   "lockedUntilCurrentGreen": ["External connectivity", "Persistence expansion", "Lockfile changes", "apps/landing changes"],
   "allowedCurrentScope": [
     "apps/web/app/platform-v7/layout.tsx",
