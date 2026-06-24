@@ -73,4 +73,18 @@ describe('platform-v7 operational role execution cockpit', () => {
     expect(source).toContain('Передать пробу в лабораторию');
     expect(source).toContain('Runtime приёмки');
   });
+
+  it('keeps the surveyor cabinet inside the independent evidence boundary', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/surveyor/page.tsx'), 'utf8');
+
+    expect(source).toContain('Независимая фиксация на площадке');
+    expect(source).toContain('Осмотр, фото, расхождение и заключение');
+    expect(source).toContain('фото, состояние груза, расхождения, замечания по приёмке и заключение');
+    expect(source).toContain('Деньги, банк и решение спора остаются вне этой роли');
+    expect(source).toContain('логистика → осмотр → оператор');
+    expect(source).toContain('осмотр, фото, расхождение, акт');
+    expect(source).toContain('/platform-v7/disputes');
+    expect(source).toContain('Назначения на осмотр');
+    expect(source).toContain('Требует акта');
+  });
 });
