@@ -10,6 +10,24 @@ const operationalRoles = ['logistics', 'driver', 'elevator', 'lab', 'surveyor', 
 
 const platformActionTargetPattern = /^(\/platform-v7\/|#[a-z0-9-]+$)/;
 
+const operationalRolePageFiles = [
+  'app/platform-v7/logistics/page.tsx',
+  'app/platform-v7/driver/field/page.tsx',
+  'app/platform-v7/elevator/page.tsx',
+  'app/platform-v7/lab/page.tsx',
+  'app/platform-v7/surveyor/page.tsx',
+  'app/platform-v7/arbitrator/page.tsx',
+  'app/platform-v7/executive/page.tsx',
+];
+
+const unsupportedLiveReadinessClaims = [
+  /готов[а-я\s-]*к промышленной эксплуатации/i,
+  /production[-\s]?ready|live[-\s]?ready/i,
+  /реальные интеграции подключены/i,
+  /автоматическ[а-я\s-]*выплат[а-я\s-]*подключен[а-я]*/i,
+  /боевой контур исполнения/i,
+];
+
 describe('platform-v7 operational role execution cockpit', () => {
   it('keeps operational roles on the shared title/status/fact/blocker/next/action grammar', () => {
     for (const role of operationalRoles) {
@@ -41,6 +59,16 @@ describe('platform-v7 operational role execution cockpit', () => {
         expect(action.label.trim().length).toBeGreaterThan(3);
         expect(action.href ?? '').toMatch(platformActionTargetPattern);
         expect(action.href ?? '').not.toMatch(/^javascript:|^mailto:|^tel:|^https?:|^#$/i);
+      }
+    }
+  });
+
+  it('keeps operational role pages honest about pre-integration readiness', () => {
+    for (const file of operationalRolePageFiles) {
+      const source = readFileSync(path.join(process.cwd(), file), 'utf8');
+
+      for (const claim of unsupportedLiveReadinessClaims) {
+        expect(source, `${file} must not claim unsupported live readiness: ${claim}`).not.toMatch(claim);
       }
     }
   });
