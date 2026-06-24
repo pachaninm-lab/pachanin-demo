@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Role cabinet functional pass: first-screen clarity for role pages, with one next action, blocker, money impact, responsible party and evidence basis.",
-  "lastCompletedStep": "#1969 role-cabinet workspace density CSS pass",
+  "currentStep": "Role cabinet functional pass: seller first-screen control and route-card continuity are merged; continue buyer, bank, operator, compliance, lab/elevator and field roles in small PRs.",
+  "lastCompletedStep": "#1998 seller route-card continuity fix after #1996 operator first-screen control and #1997 seller handoff continuity.",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "Seller cabinet functional pass, then buyer, bank, operator, compliance, lab/elevator and field roles in small PRs.",
-  "updatedAt": "2026-06-23T07:45:00.000Z",
+  "nextStep": "Continue role cabinet functional pass with the next exact allowed role surface; do not start runtime, persistence, backend, auth, API, package or lockfile changes inside UI PRs.",
+  "updatedAt": "2026-06-24T03:11:21.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
