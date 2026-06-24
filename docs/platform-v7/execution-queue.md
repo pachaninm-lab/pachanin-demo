@@ -32,18 +32,21 @@ CURRENT ALLOWED:
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: Role cabinet pass result audit.
+- Layer: continue role cabinet functional pass after seller route-card continuity.
 - Allowed files:
-  - docs/platform-v7/audit/**
-  - docs/platform-v7/autopilot/**
-  - docs/platform-v7/execution-queue.md
+  - exact role page from CURRENT ALLOWED;
+  - matching unit/static guard from CURRENT ALLOWED;
+  - docs/platform-v7/audit/** only when recording audit evidence;
+  - docs/platform-v7/autopilot/** and docs/platform-v7/execution-queue.md only for state updates.
 - Success criteria:
-  - current role-pass result is recorded without changing maturity beyond controlled-pilot / pre-integration;
+  - touched cabinet shows first-screen facts: what happened, blocker, money impact, responsible party, evidence basis and one next action;
+  - actions route to real page/action/section or have a clear disabled reason;
+  - current status remains controlled-pilot / pre-integration;
   - no apps/landing, backend, DB, auth/session/API, package or lockfile changes;
-  - readiness remains 72% unless a real functional cabinet pass has merged.
+  - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
-1. Seller cabinet functional pass.
+1. Seller cabinet functional pass — first-screen control, handoff continuity and route-card continuity merged through #1998.
 2. Buyer cabinet functional pass.
 3. Bank cabinet functional pass.
 4. Operator / executive control pass where exact files exist.
@@ -65,5 +68,9 @@ DONE:
 - #1966 entry surface mobile gap audit.
 - #1968 mobile shell and runtime copy hardening.
 - #1969 role-cabinet workspace density CSS pass.
+- #1995 state advanced to seller cabinet functional pass.
+- #1996 operator first-screen control.
+- #1997 seller handoff continuity.
+- #1998 seller route-card continuity.
 
-READINESS: 72% honest readiness. UX shell is more stable, but role-by-role functional structure is not complete yet.
+READINESS: 72% honest readiness. UX shell and seller/operator cabinet clarity improved, but runtime layers and the remaining role-by-role functional passes are still incomplete.
