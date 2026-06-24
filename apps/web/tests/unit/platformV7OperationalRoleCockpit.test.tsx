@@ -45,4 +45,18 @@ describe('platform-v7 operational role execution cockpit', () => {
     expect(OPERATIONAL_ROLE_EXECUTION_COCKPITS.driver.operations[0].action.label).toBe('Подтвердить прибытие');
     expect(source).not.toMatch(/банк|банков|деньг|инвестор|центр управления|control tower|другие сделки/i);
   });
+
+  it('keeps the lab cabinet first screen inside the quality-protocol boundary', () => {
+    const source = readFileSync(path.join(process.cwd(), 'app/platform-v7/lab/page.tsx'), 'utf8');
+
+    expect(source).toContain('data-testid="platform-v7-lab-page"');
+    expect(source).toContain('Лаборатория · качество и протокол');
+    expect(source).toContain('Проба, показатели и протокол качества');
+    expect(source).toContain('Финансовое решение, спор и банковская проверка остаются вне роли лаборатории');
+    expect(source).toContain('Сорная примесь');
+    expect(source).toContain('превышение требует протокола с допуском или отказом');
+    expect(source).toContain('Протокол качества не выдан');
+    expect(source).toContain('Пакет документов по качеству не закрыт');
+    expect(source).toContain('Лабораторный runtime');
+  });
 });
