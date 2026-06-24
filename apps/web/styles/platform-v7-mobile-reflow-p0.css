@@ -288,3 +288,259 @@
     border-radius: 20px !important;
   }
 }
+
+/* Final correction for 390×844 cabinet screens: keep the app shell real, not a clipped desktop board. */
+@media (max-width: 767px) {
+  html,
+  body {
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  html body .pc-shell-root-v4,
+  html body .pc-shell-root-v4 .pc-v4-header,
+  html body .pc-shell-root-v4 .pc-v4-main,
+  html body .pc-shell-root-v4 .pc-v7-role-dock {
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  @supports (overflow: clip) {
+    html body .pc-shell-root-v4,
+    html body .pc-shell-root-v4 .pc-v4-header,
+    html body .pc-shell-root-v4 .pc-v4-main,
+    html body .pc-shell-root-v4 .pc-v7-role-dock,
+    html body .pc-shell-root-v4 .pc-v4-main > main {
+      overflow-x: clip !important;
+    }
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-header {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 0 auto 0 !important;
+    z-index: 720 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-bottomnav {
+    display: none !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-role-dock {
+    display: block !important;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 700 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    padding: 7px 8px calc(env(safe-area-inset-bottom) + 7px) !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-header-inner {
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    min-block-size: calc(env(safe-area-inset-top) + 58px) !important;
+    height: auto !important;
+    margin-inline: 0 !important;
+    padding: calc(env(safe-area-inset-top) + 7px) 10px 7px !important;
+    overflow: visible !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-top {
+    display: grid !important;
+    grid-template-columns: 42px 44px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    align-items: center !important;
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    overflow: visible !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-brand {
+    inline-size: 44px !important;
+    max-inline-size: 44px !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end !important;
+    justify-self: end !important;
+    gap: 5px !important;
+    min-inline-size: 0 !important;
+    max-inline-size: calc(100vw - 104px) !important;
+    overflow: visible !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-search,
+  html body .pc-shell-root-v4 .pc-v4-stage,
+  html body .pc-shell-root-v4 .pc-v4-theme-toggle,
+  html body .pc-shell-root-v4 .pc-v4-actions button[aria-label='Открыть уведомления'] {
+    display: none !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-iconbtn,
+  html body .pc-shell-root-v4 .pc-v4-actions > button,
+  html body .pc-shell-root-v4 .pc-v4-actions > a {
+    flex: 0 0 40px !important;
+    inline-size: 40px !important;
+    min-inline-size: 40px !important;
+    max-inline-size: 40px !important;
+    block-size: 40px !important;
+    min-block-size: 40px !important;
+    padding: 0 !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main {
+    margin-inline: 0 !important;
+    padding-top: calc(env(safe-area-inset-top) + 74px) !important;
+    padding-inline: 12px !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 112px) !important;
+    background: linear-gradient(180deg, #fbfcf9 0%, #f5f3ec 100%) !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-pilot-note {
+    display: none !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main > main {
+    display: grid !important;
+    gap: 14px !important;
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    min-inline-size: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    transform: none !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main > main > header {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main > main > header > div {
+    inline-size: 100% !important;
+    min-inline-size: 0 !important;
+    max-inline-size: 100% !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main > main > header h1 {
+    font-size: clamp(30px, 9vw, 36px) !important;
+    line-height: 1.03 !important;
+    letter-spacing: -0.055em !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main > main > header [data-testid='control-tower-toolbar'] {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    min-block-size: 0 !important;
+    padding: 12px !important;
+    border-radius: 20px !important;
+  }
+
+  html body .pc-shell-root-v4 [data-testid='control-tower-toolbar'] > * {
+    inline-size: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-prem-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-prem-kpi {
+    min-inline-size: 0 !important;
+    padding: 14px 12px !important;
+    border-radius: 20px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-prem-kpi__value {
+    font-size: clamp(24px, 8.5vw, 32px) !important;
+    letter-spacing: -0.04em !important;
+  }
+
+  html body .pc-shell-root-v4 .ct-priority,
+  html body .pc-shell-root-v4 .ct-priority-main,
+  html body .pc-shell-root-v4 .ct-two,
+  html body .pc-shell-root-v4 .ct-summary-grid,
+  html body .pc-shell-root-v4 .ct-queue,
+  html body .pc-shell-root-v4 .ct-queue-item {
+    grid-template-columns: 1fr !important;
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    min-inline-size: 0 !important;
+  }
+
+  html body .pc-shell-root-v4 .ct-priority,
+  html body .pc-shell-root-v4 .ct-queue {
+    padding: 14px !important;
+    border-radius: 22px !important;
+  }
+
+  html body .pc-shell-root-v4 .ct-priority-panel,
+  html body .pc-shell-root-v4 .ct-metric,
+  html body .pc-shell-root-v4 .ct-queue-item {
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    min-inline-size: 0 !important;
+    overflow: hidden !important;
+  }
+
+  html body .pc-shell-root-v4 .ct-row,
+  html body .pc-shell-root-v4 .ct-queue-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    min-inline-size: 0 !important;
+    max-inline-size: 100% !important;
+  }
+
+  html body .pc-shell-root-v4 .ct-queue-actions > a,
+  html body .pc-shell-root-v4 .ct-row > a {
+    flex: 1 1 100% !important;
+    text-align: center !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-role-dock-inner {
+    inline-size: 100% !important;
+    max-inline-size: 720px !important;
+    margin-inline: auto !important;
+    gap: 5px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-role-dock-item {
+    min-inline-size: 0 !important;
+    min-block-size: 52px !important;
+    border-radius: 15px !important;
+  }
+}
+
+@media (max-width: 374px) {
+  html body .pc-shell-root-v4 .pc-prem-kpis {
+    grid-template-columns: 1fr !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-actions > *:nth-child(n+4) {
+    display: none !important;
+  }
+}
