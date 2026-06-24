@@ -79,3 +79,16 @@ hr {
   border: 0;
   border-top: 1px solid var(--pc-border);
 }
+
+/* ============================================================
+   RSC style-tag safety — prevents <style dangerouslySetInnerHTML>
+   from rendering as visible text in body on iOS Safari / mobile
+   browsers when React hydration hasn't completed yet.
+   The UA already sets display:none on <style>, but RSC streaming
+   can briefly show content before hydration; this hardens it.
+   ============================================================ */
+body style {
+  display: none !important;
+  visibility: hidden !important;
+  contain: strict;
+}

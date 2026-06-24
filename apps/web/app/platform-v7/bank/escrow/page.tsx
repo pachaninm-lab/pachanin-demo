@@ -164,7 +164,7 @@ export default function BankEscrowPage() {
             </div>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 800 }}>
-            Контур исполнения · локальный сценарий
+            Контур исполнения · рабочий сценарий
           </div>
         </div>
       </section>

@@ -95,11 +95,11 @@ export default async function PlatformV7OperatorPage() {
         pendingBankOps={outbox.totalPending}
         openDisputes={disputeCount}
         activeShipments={shipmentCount}
-        role="SUPPORT_MANAGER · Центр управления"
+        role="ОПЕРАТОР · ЦЕНТР УПРАВЛЕНИЯ"
         summary={
           apiOnline
             ? `${deals.length} сделок · ${disputeCount} открытых споров · ${formatMoney(heldRub)} удержано · ${shipmentCount} активных рейсов`
-            : 'Данные статичные — API недоступен'
+            : 'Внешние источники требуют подключения'
         }
       />
 

@@ -145,11 +145,11 @@ export default async function LogisticsPage() {
         apiOnline={apiOnline}
         blockers={liveBlockers}
         activeShipments={shipmentCount}
-        role="LOGISTICIAN · Логистика"
+        role="ЛОГИСТ · ЛОГИСТИКА"
         summary={
           apiOnline
             ? `${shipmentCount} активных рейсов · ${blockedShipments.length} с блокерами`
-            : 'Данные статичные — API недоступен'
+            : 'Внешние источники требуют подключения'
         }
       />
 

@@ -134,7 +134,7 @@ export default async function PlatformV7DisputesPage() {
         apiOnline={liveDisputes.some((d) => d.id.startsWith('DSP') && !d.id.includes('MOCK'))}
         blockers={liveBlockers}
         openDisputes={disputeCount}
-        role="ARBITRATOR · Управление спорами"
+        role="АРБИТР · УПРАВЛЕНИЕ СПОРАМИ"
         summary={
           disputeCount > 0
             ? `${disputeCount} открытых споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`

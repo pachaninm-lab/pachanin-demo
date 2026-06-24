@@ -81,11 +81,11 @@ export default async function PlatformV7BuyerPage() {
       <LiveApiStatusBar
         apiOnline={apiOnline}
         openDisputes={disputeCount}
-        role="BUYER · Кабинет покупателя"
+        role="ПОКУПАТЕЛЬ · КАБИНЕТ ПОКУПАТЕЛЯ"
         summary={
           apiOnline
             ? `${deals.length} сделок · ${disputeCount} споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`
-            : 'Данные статичные — API недоступен'
+            : 'Внешние источники требуют подключения'
         }
       />
 

@@ -58,11 +58,11 @@ export default async function PlatformV7AuditLogPage() {
     <main style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto', padding: '4px 0 24px' }}>
       <LiveApiStatusBar
         apiOnline={apiOnline}
-        role="ADMIN · Журнал аудита"
+        role="АДМИНИСТРАТОР · ЖУРНАЛ АУДИТА"
         summary={
           apiOnline
             ? `${liveLog.length} записей из БД · последняя: ${liveLog[0] ? new Date(liveLog[0].createdAt).toLocaleTimeString('ru') : '-'}`
-            : 'Данные статичные — API или БД недоступны'
+            : 'Внешние источники требуют подключения'
         }
       />
       <CockpitHero

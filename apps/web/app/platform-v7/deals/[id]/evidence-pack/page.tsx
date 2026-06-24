@@ -11,11 +11,11 @@ export default async function DealEvidencePackPage({ params }: { params: { id: s
     <div style={{ display: 'grid', gap: 18 }}>
       <LiveApiStatusBar
         apiOnline={files.length > 0}
-        role="EVIDENCE PACK · Доказательный пакет"
+        role="ДОКАЗАТЕЛЬНЫЙ ПАКЕТ"
         summary={
           files.length > 0
             ? `${files.length} файлов · цепочка хэшей ${chainVerified ? '✓ верна' : 'не проверена'}`
-            : 'Доказательных файлов нет — API недоступен или пакет пуст'
+            : 'Внешние источники требуют подключения'
         }
       />
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>

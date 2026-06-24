@@ -36,7 +36,7 @@ export default async function Page() {
         apiOnline={disputeCount > 0}
         blockers={liveBlockers}
         openDisputes={disputeCount}
-        role="ARBITRATOR · Арбитраж"
+        role="АРБИТР · АРБИТРАЖ"
         summary={
           disputeCount > 0
             ? `${disputeCount} открытых споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'без удержания'}`

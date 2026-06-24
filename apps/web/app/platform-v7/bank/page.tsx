@@ -138,11 +138,11 @@ export default async function PlatformV7BankPage() {
         liveStops={liveStops}
         pendingBankOps={outbox.totalPending}
         openDisputes={disputeCount}
-        role="BANK · Проверка выплаты"
+        role="БАНК · ПРОВЕРКА ВЫПЛАТЫ"
         summary={
           apiOnline
             ? `${outbox.totalPending} операций в очереди · ${disputeCount} открытых споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`
-            : 'Данные статичные — API недоступен'
+            : 'Внешние источники требуют подключения'
         }
       />
       <BatonStrip

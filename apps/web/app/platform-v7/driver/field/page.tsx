@@ -38,7 +38,7 @@ export default async function DriverFieldPage() {
         apiOnline={apiOnline}
         blockers={liveBlockers}
         activeShipments={shipmentCount}
-        role="DRIVER · Полевой режим"
+        role="ВОДИТЕЛЬ · ПОЛЕВОЙ РЕЖИМ"
         summary={`${shipmentCount} активных рейсов · ${blockedShipments.length} с блокерами`}
       />
       <OfflineSyncBanner />
