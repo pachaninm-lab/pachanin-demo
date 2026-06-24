@@ -15,7 +15,6 @@ import { CockpitHero, PremiumStatCard, PremiumCtaButton } from '@/components/pla
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
-import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
@@ -94,32 +93,26 @@ type SellerFirstScreenFact = {
 
 const sellerFirstScreenFacts: SellerFirstScreenFact[] = [
   {
-    label: 'Что произошло',
-    value: 'LOT-2403 принят в сделку DL-9106',
-    note: 'Покупатель заявил резерв, но пакет ещё не готов к банковской проверке.',
+    label: 'Сделка',
+    value: 'LOT-2403 → DL-9106',
+    note: 'Покупатель заявил резерв, но пакет ещё не готов к проверке банком.',
   },
   {
-    label: 'Что заблокировано',
-    value: 'СДИЗ, ЭТрН и акт приёмки',
-    note: 'Без закрытых документов банк не получает проверяемое основание.',
+    label: 'Блокер',
+    value: 'СДИЗ, ЭТрН и акт',
+    note: 'Без закрытых документов банк не получает основание.',
     warning: true,
   },
   {
-    label: 'Деньги под риском',
+    label: 'Деньги',
     value: '9,65 млн ₽ резерва',
-    note: 'К проверке банком сейчас 0 ₽; платформа не подтверждает движение денег.',
+    note: 'К проверке банком сейчас 0 ₽. Это не подтверждённая выплата.',
     strong: true,
   },
   {
     label: 'Ответственный',
-    value: 'Продавец · ФГИС · перевозчик',
-    note: 'Продавец собирает пакет, внешние контуры подтверждают документы.',
-  },
-  {
-    label: 'Следующее действие',
-    value: 'Закрыть документы и открыть сделку',
-    note: 'Маршрут ведёт в deal-clean, где видны документы, рейс и банковская проверка.',
-    warning: true,
+    value: 'Продавец',
+    note: 'Собрать пакет и закрыть транспортную цепочку.',
   },
 ];
 
@@ -129,28 +122,43 @@ export default async function PlatformV7SellerPage() {
   const disputeCount = openDisputeCount(disputes);
 
   return (
-    <main data-platform-v7-seller-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+    <main className='seller-cockpit' data-platform-v7-seller-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <style dangerouslySetInnerHTML={{ __html: sellerMobileCss }} />
       <LiveApiStatusBar
         apiOnline={apiOnline}
         openDisputes={disputeCount}
-        role="FARMER · Кабинет продавца"
+        role="ПРОДАВЕЦ · КАБИНЕТ СДЕЛКИ"
         summary={
           apiOnline
             ? `${deals.length} сделок · ${disputeCount} открытых споров`
-            : 'Показан локальный сценарий · внешние подключения не активны'
+            : 'Тестовый контур · внешние подключения не активны'
         }
       />
 
-      <QuietIntelligenceHint
-        problem='СДИЗ и ЭТрН не закрыты — выплата ожидает проверки документов.'
-        action='Закройте СДИЗ и ЭТрН, затем отправьте пакет документов в банк.'
-        outcome='После закрытия документов банк сможет проверить основание для выплаты.'
-      />
+      <section className='seller-command-card' aria-label='Главный рабочий статус продавца'>
+        <div className='seller-command-head'>
+          <span className='seller-command-kicker'>Главный блокер</span>
+          <span className='seller-command-status'>остановлено · ждёт ЭТрН</span>
+        </div>
+        <h1>СДИЗ и ЭТрН не закрыты</h1>
+        <p>Резерв виден, но банк не получает основание для проверки выплаты.</p>
+        <div className='seller-command-facts'>
+          <div><span>Деньги</span><strong>9,65 млн ₽</strong><small>резерв · не выплата</small></div>
+          <div><span>К проверке</span><strong>0 ₽</strong><small>пакет не передан</small></div>
+          <div><span>Ответственный</span><strong>продавец</strong><small>закрыть документы</small></div>
+        </div>
+        <div className='seller-command-actions'>
+          <Link href='/platform-v7/deals/DL-9106/clean'>Открыть сделку</Link>
+          <Link href='#documents' data-secondary='true'>Документы</Link>
+        </div>
+      </section>
 
       <CockpitHero
+        className='seller-detail-hero'
         eyebrow='Кабинет продавца · сделка → документы → проверка выплаты'
-        title='Подготовьте пакет документов для проверки банком'
-        lead='Первый экран продавца показывает состояние сделки: что произошло, что блокирует выплату, сколько денег под риском, кто отвечает и какое действие нужно выполнить следующим.'
+        title='Закройте документы'
+        accent='для банка'
+        lead='Первый экран показывает статус сделки, блокер, деньги под риском, ответственного и следующий безопасный шаг.'
         aside={
           <div style={blockerCard}>
             <div style={micro}>что мешает выплате</div>
@@ -159,38 +167,36 @@ export default async function PlatformV7SellerPage() {
           </div>
         }
       >
-        <div className='pc-prem-kpis' aria-label='Ключевые показатели продавца'>
+        <div className='pc-prem-kpis seller-kpis' aria-label='Ключевые показатели продавца'>
           <PremiumStatCard glyph='bag' tone='info' value={String(deals.length)} label='Сделок в работе' />
           <PremiumStatCard glyph='coins' tone='success' value='9,65 млн ₽' label='Резерв · не выплата' />
           <PremiumStatCard glyph='doc' tone='warning' value='0 ₽' label='К проверке банком' />
           <PremiumStatCard glyph='alert' tone={disputeCount > 0 ? 'danger' : 'neutral'} value={String(disputeCount)} label='Открытых споров' />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className='seller-trust-row'>
           <TrustDot state='test' size='sm' label='Контур исполнения · внешние подключения требуют договоров' />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+        <div className='seller-hero-actions'>
           <PremiumCtaButton href='#documents' glyph='shield-check'>Подготовить документы</PremiumCtaButton>
-          <PremiumCtaButton href='#parties' variant='ghost'>Открыть партии и лоты</PremiumCtaButton>
+          <PremiumCtaButton href='#parties' variant='ghost'>Партии и лоты</PremiumCtaButton>
         </div>
       </CockpitHero>
 
       <section id='first-screen' style={anchorSection} aria-label='Первый экран продавца: факты, блокер, деньги и следующий шаг'>
-        <div style={card}>
+        <div style={card} className='seller-facts-card'>
           <div style={{ display: 'grid', gap: 6 }}>
             <div style={micro}>контроль первого экрана</div>
-            <h2 style={h2}>Продавец видит сделку, блокер, деньги и ответственного без прокрутки</h2>
-            <p style={paragraph}>
-              Это не сообщение о готовой выплате: текущий статус — подготовка доказуемого пакета для банковской проверки.
-            </p>
+            <h2 style={h2}>Что важно продавцу сейчас</h2>
+            <p style={paragraph}>Статус не говорит о готовой выплате. Сначала нужен закрытый пакет документов.</p>
           </div>
-          <div style={factGrid}>
+          <div style={factGrid} className='seller-fact-grid'>
             {sellerFirstScreenFacts.map((fact) => (
               <Cell key={fact.label} label={fact.label} value={fact.value} strong={fact.strong} warning={fact.warning} note={fact.note} />
             ))}
           </div>
-          <div style={firstScreenActions}>
+          <div style={firstScreenActions} className='seller-inline-actions'>
             <Link href='/platform-v7/deals/DL-9106/clean' style={primaryAction}>Открыть сделку DL-9106</Link>
             <Link href='#documents' style={secondaryAction}>Перейти к документам</Link>
           </div>
@@ -244,13 +250,13 @@ export default async function PlatformV7SellerPage() {
           <div style={{ display: 'grid', gap: 12 }}>
             <P7ActionStateChip
               status='waiting'
-              label='пилотный сценарий'
+              label='рабочий сценарий'
               nextActor='ФГИС «Зерно» и банк'
               blocker='СДИЗ и ЭТрН не закрыты'
               moneyEffect='банковская проверка остановлена'
             />
             <ConditionReasonStrip
-              condition='пилотный сценарий'
+              condition='рабочий сценарий'
               responsible='ФГИС «Зерно» и банк'
               documentState='СДИЗ и ЭТрН не закрыты'
               stopReason='банковская проверка остановлена'
@@ -303,7 +309,7 @@ export default async function PlatformV7SellerPage() {
           <div style={{ display: 'grid', gap: 12 }}>
             <section style={card}>
               <div style={micro}>рабочие маршруты продавца</div>
-              <div style={pathGrid}>
+              <div style={pathGrid} className='seller-path-grid'>
                 {sellerPaths.map((path) => (
                   <Link key={path.href} href={path.href} style={pathCard}>
                     <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 16 }}>{path.title}</strong>
@@ -323,7 +329,7 @@ export default async function PlatformV7SellerPage() {
                       <div style={idText}>{lot.id}</div>
                       <h2 style={h2}>{lot.title}</h2>
                     </div>
-                    <div style={rowGrid}>
+                    <div style={rowGrid} className='seller-lot-grid'>
                       <Cell label='Статус' value={lot.status} />
                       <Cell label='Деньги' value={lot.money} strong />
                       <Cell label='Следующее действие' value={lot.next} warning />
@@ -353,7 +359,7 @@ function Cell({
   warning?: boolean;
 }) {
   return (
-    <div style={cell}>
+    <div style={cell} className='seller-cell'>
       <div style={micro}>{label}</div>
       <div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div>
       {note ? <div style={noteText}>{note}</div> : null}
@@ -378,3 +384,16 @@ const idText = { color: '#0A7A5F', fontSize: 13, fontWeight: 950 } as const;
 const noteText = { marginTop: 6, color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.4 } as const;
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const anchorSection = { scrollMarginTop: 86 } as const;
+
+const sellerMobileCss = `
+.seller-cockpit{inline-size:100%;max-inline-size:100%;overflow-x:clip;user-select:none;-webkit-user-select:none;touch-action:pan-y}
+.seller-cockpit a,.seller-cockpit button{user-select:none;-webkit-user-select:none}
+.seller-command-card{display:grid;gap:14px;padding:18px;border-radius:26px;border:1px solid rgba(10,122,95,.16);background:linear-gradient(180deg,rgba(241,253,247,.96),rgba(255,255,255,.96));box-shadow:0 18px 44px rgba(15,23,42,.07);overflow:hidden}
+.seller-command-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.seller-command-kicker{color:#0A7A5F;font-size:12px;font-weight:950;text-transform:uppercase;letter-spacing:.06em}.seller-command-status{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:0 12px;border-radius:999px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.18);color:#B91C1C;font-size:12px;font-weight:950;white-space:nowrap}
+.seller-command-card h1{margin:0;color:var(--pc-text-primary,#0F1419);font-size:clamp(30px,7vw,46px);line-height:1.02;letter-spacing:-.055em;font-weight:950}.seller-command-card p{margin:0;color:var(--pc-text-secondary,#475569);font-size:15px;line-height:1.5;font-weight:650}.seller-command-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.seller-command-facts div{display:grid;gap:4px;min-width:0;padding:12px;border-radius:18px;background:#fff;border:1px solid rgba(15,23,42,.08);box-shadow:0 8px 18px rgba(15,23,42,.04)}.seller-command-facts span{color:var(--pc-text-muted,#64748B);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}.seller-command-facts strong{color:var(--pc-text-primary,#0F1419);font-size:17px;line-height:1.12;font-weight:950;overflow-wrap:anywhere}.seller-command-facts small{color:var(--pc-text-muted,#64748B);font-size:11px;line-height:1.3;font-weight:700}.seller-command-actions{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:8px}.seller-command-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;border-radius:16px;text-decoration:none;background:#0A7A5F;color:#fff;font-size:14px;font-weight:950;box-shadow:0 12px 24px rgba(10,122,95,.18)}.seller-command-actions a[data-secondary='true']{background:#fff;color:var(--pc-text-primary,#0F1419);border:1px solid rgba(15,23,42,.1);box-shadow:0 8px 18px rgba(15,23,42,.045)}
+.seller-detail-hero{overflow:hidden}.seller-trust-row{display:flex;align-items:center;gap:8px}.seller-hero-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}.seller-cell{overflow:hidden}.seller-fact-grid,.seller-path-grid,.seller-lot-grid{min-width:0;max-width:100%}.seller-inline-actions a{flex:1 1 180px;text-align:center}
+@media(max-width:767px){
+  .pc-shell-root-v4:has(.seller-cockpit) .pc-v4-main{padding-top:calc(env(safe-area-inset-top) + 70px)!important;padding-bottom:calc(env(safe-area-inset-bottom) + 118px)!important;overflow-x:clip!important}.pc-shell-root-v4:has(.seller-cockpit) .pc-v4-actions{gap:4px!important;max-width:calc(100vw - 112px)!important}.pc-shell-root-v4:has(.seller-cockpit) .pc-v4-theme-toggle,.pc-shell-root-v4:has(.seller-cockpit) .p7-role-support{display:none!important}.pc-shell-root-v4:has(.seller-cockpit) .pc-v7-assistant-widget{right:14px!important;bottom:calc(env(safe-area-inset-bottom) + 112px)!important;inline-size:48px!important;block-size:48px!important;min-height:48px!important;max-width:48px!important;padding:0!important;border-radius:18px!important}.pc-shell-root-v4:has(.seller-cockpit) .pc-v7-assistant-widget span{display:none!important}.pc-shell-root-v4:has(.seller-cockpit) .pc-v7-role-dock{padding-top:6px!important;padding-bottom:calc(env(safe-area-inset-bottom) + 6px)!important}.pc-shell-root-v4:has(.seller-cockpit) .pc-v7-role-dock-item{min-height:48px!important;border-radius:14px!important;font-size:9.8px!important}.seller-cockpit{gap:12px!important;padding-top:0!important}.seller-cockpit>*{max-inline-size:100%!important}.seller-command-card{padding:16px!important;border-radius:24px!important;gap:12px!important}.seller-command-card h1{font-size:clamp(30px,9vw,38px)!important;line-height:1.02!important}.seller-command-card p{font-size:14px!important;line-height:1.45!important}.seller-command-status{min-height:30px;font-size:11.5px}.seller-command-facts{grid-template-columns:1fr!important}.seller-command-facts div{grid-template-columns:minmax(0,1fr) auto!important;align-items:center;padding:11px 12px}.seller-command-facts small{grid-column:1/-1}.seller-command-actions{grid-template-columns:1fr!important}.seller-detail-hero{padding:16px!important;border-radius:24px!important;gap:12px!important}.seller-detail-hero>div:first-child{display:grid!important;grid-template-columns:1fr!important;gap:12px!important}.seller-detail-hero>div:first-child>div,.seller-detail-hero>div:first-child>div+div{max-inline-size:100%!important;inline-size:100%!important}.seller-detail-hero .pc-prem-hero__eyebrow{font-size:11px!important;line-height:1.25!important;padding:6px 9px!important}.seller-detail-hero .pc-prem-hero__title{font-size:clamp(28px,8.8vw,36px)!important;line-height:1.02!important;letter-spacing:-.052em!important}.seller-detail-hero .pc-prem-hero__lead{font-size:13px!important;line-height:1.45!important}.seller-detail-hero .pc-prem-kpis,.seller-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}.seller-detail-hero .pc-prem-kpi{padding:12px!important;border-radius:18px!important}.seller-detail-hero .pc-prem-kpi__value{font-size:clamp(22px,7vw,28px)!important}.seller-hero-actions{grid-template-columns:1fr!important}.seller-facts-card{padding:14px!important;border-radius:22px!important}.seller-fact-grid,.seller-path-grid,.seller-lot-grid{grid-template-columns:1fr!important}.seller-cell{padding:11px!important}.seller-inline-actions{display:grid!important;grid-template-columns:1fr!important}.seller-inline-actions a{inline-size:100%;min-height:46px}.seller-cockpit h2{font-size:clamp(20px,6vw,25px)!important;line-height:1.1!important}.seller-cockpit section{scroll-margin-top:82px!important}.seller-cockpit [style*='minWidth: 220'],.seller-cockpit [style*='min-width: 220']{min-width:0!important;max-width:100%!important}
+}
+@media(max-width:374px){.seller-detail-hero .pc-prem-kpis,.seller-kpis{grid-template-columns:1fr!important}.seller-command-card h1{font-size:30px!important}.seller-detail-hero .pc-prem-hero__title{font-size:28px!important}}
+`;
