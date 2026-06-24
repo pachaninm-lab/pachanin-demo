@@ -129,3 +129,8 @@ html body .pc-v7-role-dock{display:block!important;position:fixed!important;left
   html body .pc-v7-public-entry .entry-hero h1{font-size:32px!important}
   html body .pc-v7-login-single .login-copy h1{font-size:32px!important}
 }
+
+/* Public registration CTA: keep the header login for existing users and make the hero access action a real visible registration entry. */
+html body .pc-v7-public-entry .entry-text-cta{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:50px!important;border-radius:16px!important;padding:0 18px!important;background:#071611!important;color:#fff!important;border:1px solid rgba(7,22,17,.12)!important;box-shadow:0 14px 30px rgba(7,22,17,.16)!important;font-size:0!important;font-weight:900!important;line-height:1!important;text-align:center!important}
+html body .pc-v7-public-entry .entry-text-cta::before{content:'Зарегистрироваться';font-size:15px!important;font-weight:900!important;line-height:1.1!important;letter-spacing:-.01em!important}
+@media(max-width:767px){html body .pc-v7-public-entry .entry-text-cta{width:100%!important;min-height:52px!important;background:#071611!important;color:#fff!important}html body .pc-v7-public-entry .entry-text-cta::before{font-size:15px!important}}
