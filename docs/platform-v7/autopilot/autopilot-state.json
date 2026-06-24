@@ -10,6 +10,7 @@
   "lockedUntilCurrentGreen": ["External connectivity", "Persistence expansion", "Lockfile changes", "apps/landing changes"],
   "allowedCurrentScope": [
     "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/login/page.tsx",
     "apps/web/app/platform-v7/seller/page.tsx",
     "apps/web/app/platform-v7/buyer/page.tsx",
     "apps/web/app/platform-v7/bank/page.tsx",
@@ -42,6 +43,7 @@
   ],
   "agentWritableScope": [
     "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/login/page.tsx",
     "apps/web/app/platform-v7/seller/page.tsx",
     "apps/web/app/platform-v7/buyer/page.tsx",
     "apps/web/app/platform-v7/bank/page.tsx",
