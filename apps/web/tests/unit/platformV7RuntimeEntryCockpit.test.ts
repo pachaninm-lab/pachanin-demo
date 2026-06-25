@@ -19,14 +19,13 @@ describe('platform-v7 runtime entry cockpit', () => {
     expect(state.maturityNotice).toContain('live-интеграциях');
   });
 
-  it('keeps operational arrays out of the page component', () => {
+  it('keeps operational runtime arrays out of the page component', () => {
     const src = pageSource();
 
-    // Мобильная главная берёт роли из role-directory, без inline операционных массивов.
-    expect(src).toContain('platformV7RolesByGroup');
+    // Публичная главная может хранить карточки ролей, но не должна тащить runtime-массивы cockpit state.
+    expect(src).toContain('/platform-v7/login?role=operator');
     expect(src).not.toMatch(/const\s+blockers\s*=/);
     expect(src).not.toMatch(/const\s+lanes\s*=/);
-    expect(src).not.toMatch(/const\s+roles\s*=/);
     expect(src).not.toMatch(/const\s+executionPath\s*=/);
     expect(src).not.toMatch(/const\s+proofItems\s*=/);
   });
