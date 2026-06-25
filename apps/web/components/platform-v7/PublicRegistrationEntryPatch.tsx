@@ -4,16 +4,21 @@ import * as React from 'react';
 import { usePathname } from 'next/navigation';
 
 const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs']);
+const PENDING_ROLE_KEY = 'pc_v7_pending_role';
 
-const roleRegistrationParams: Record<string, string> = {
+const roleByTitle: Record<string, string> = {
   'Продавец': 'seller',
   'Покупатель': 'buyer',
   'Логистика': 'logistics',
+  'Водитель': 'driver',
   'Элеватор': 'elevator',
   'Банк': 'bank',
   'Лаборатория': 'lab',
   'Сюрвейер': 'surveyor',
   'Арбитр': 'arbitrator',
+  'Комплаенс': 'compliance',
+  'Оператор': 'operator',
+  'Руководитель': 'executive',
 };
 
 function normalize(pathname: string | null) {
@@ -33,6 +38,11 @@ function syncShellChrome(pathname: string | null) {
     return;
   }
   delete shell.dataset.publicEntry;
+}
+
+function persistPendingRole(link: HTMLAnchorElement, role: string) {
+  link.dataset.entryRole = role;
+  link.onclick = () => window.sessionStorage?.setItem(PENDING_ROLE_KEY, role);
 }
 
 function ensureRegistrationEntry(root: ParentNode) {
@@ -61,12 +71,13 @@ function ensureRegistrationEntry(root: ParentNode) {
 
   root.querySelectorAll<HTMLAnchorElement>('.entry-role-tile').forEach((tile) => {
     const title = tile.querySelector('strong')?.textContent?.trim();
-    const role = title ? roleRegistrationParams[title] : undefined;
+    const role = title ? roleByTitle[title] : undefined;
     if (!role) return;
-    tile.href = `/platform-v7/register?role=${role}`;
-    tile.dataset.entryRegister = 'role';
+    tile.href = `/platform-v7/login?role=${role}`;
+    tile.dataset.entryRegister = 'role-login';
+    persistPendingRole(tile, role);
     const cta = tile.querySelector('em');
-    if (cta) cta.textContent = 'Подать заявку на роль';
+    if (cta) cta.textContent = 'Продолжить вход в этот ЛК';
   });
 }
 
