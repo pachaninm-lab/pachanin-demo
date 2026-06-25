@@ -1,7 +1,7 @@
 import { CockpitHero, PremiumCtaButton, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 
 type Field = { label: string; placeholder: string; type?: string };
-type RegisterSearchParams = { role?: string | string[] };
+type RegisterSearchParams = Record<string, string | string[] | undefined>;
 
 const ROLE_OPTIONS = [
   { value: 'seller', label: 'Продавец' },
@@ -106,8 +106,9 @@ function RoleField({ selectedRole }: { selectedRole: string }) {
   );
 }
 
-export default function RegisterPage({ searchParams }: { searchParams?: RegisterSearchParams }) {
-  const selectedRole = getSelectedRole(searchParams);
+export default async function RegisterPage({ searchParams }: { searchParams?: Promise<RegisterSearchParams> | RegisterSearchParams }) {
+  const params = await Promise.resolve(searchParams ?? {});
+  const selectedRole = getSelectedRole(params);
 
   return (
     <main style={{ display: 'grid', gap: 16, maxWidth: 980, margin: '0 auto', padding: '8px 0 28px' }}>
