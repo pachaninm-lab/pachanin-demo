@@ -1,6 +1,25 @@
+'use client';
+
+import * as React from 'react';
 import { CockpitHero, PremiumCtaButton, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 
 type Field = { label: string; placeholder: string; type?: string };
+type RegistrationRole = 'operator' | 'buyer' | 'seller' | 'logistics' | 'driver' | 'elevator' | 'lab' | 'surveyor' | 'bank' | 'compliance' | 'arbitrator' | 'executive';
+
+const ROLE_LABELS: Record<RegistrationRole, string> = {
+  operator: 'Оператор',
+  buyer: 'Покупатель',
+  seller: 'Продавец',
+  logistics: 'Логистика',
+  driver: 'Водитель',
+  elevator: 'Элеватор',
+  lab: 'Лаборатория',
+  surveyor: 'Сюрвейер',
+  bank: 'Банк',
+  compliance: 'Комплаенс',
+  arbitrator: 'Арбитр',
+  executive: 'Руководитель',
+};
 
 const PARTICIPANT_FIELDS: readonly Field[] = [
   { label: 'Роль участника', placeholder: 'Продавец / Покупатель / Логист / Элеватор / Лаборатория …' },
@@ -56,6 +75,16 @@ const micro: React.CSSProperties = {
   color: 'var(--pc-prem-text-muted, #64748B)',
 };
 
+function isRegistrationRole(value: string | null): value is RegistrationRole {
+  return Boolean(value && value in ROLE_LABELS);
+}
+
+function requestedRoleFromUrl(): RegistrationRole | null {
+  if (typeof window === 'undefined') return null;
+  const value = new URLSearchParams(window.location.search).get('role');
+  return isRegistrationRole(value) ? value : null;
+}
+
 function FieldGroup({ title, fields }: { title: string; fields: readonly Field[] }) {
   return (
     <section style={card} aria-label={title}>
@@ -73,17 +102,38 @@ function FieldGroup({ title, fields }: { title: string; fields: readonly Field[]
 }
 
 export default function RegisterPage() {
+  const initialRole = requestedRoleFromUrl();
+  const [selectedRole, setSelectedRole] = React.useState<RegistrationRole | null>(initialRole);
+
+  React.useEffect(() => {
+    const nextRole = requestedRoleFromUrl();
+    if (nextRole) setSelectedRole(nextRole);
+  }, []);
+
+  const participantFields = selectedRole ? PARTICIPANT_FIELDS.filter((field) => field.label !== 'Роль участника') : PARTICIPANT_FIELDS;
+  const loginHref = selectedRole ? `/platform-v7/login?role=${selectedRole}` : '/platform-v7/login';
+
   return (
     <main style={{ display: 'grid', gap: 16, maxWidth: 980, margin: '0 auto', padding: '8px 0 28px' }}>
       <CockpitHero
         eyebrow='Регистрация участника'
         title='Подключение компании к'
         accent='контуру сделки'
-        lead='Профиль, реквизиты, ответственный и согласия. После отправки заявка уходит на проверку участника — доступ в кабинет открывается после статуса «Допущен».'
+        lead={selectedRole ? `Заявка открыта для роли «${ROLE_LABELS[selectedRole]}». После проверки доступ должен открываться именно в этот рабочий кабинет.` : 'Профиль, реквизиты, ответственный и согласия. После отправки заявка уходит на проверку участника — доступ в кабинет открывается после статуса «Допущен».'}
         aside={<StatusPill tone='info'>Заявка → проверка → допуск</StatusPill>}
       />
 
-      <FieldGroup title='Участник' fields={PARTICIPANT_FIELDS} />
+      {selectedRole ? (
+        <section style={card} aria-label='Выбранное рабочее место'>
+          <span style={micro}>Рабочее место выбрано</span>
+          <strong style={{ color: 'var(--pc-prem-text, #0F1419)', fontSize: 20, fontWeight: 850 }}>{ROLE_LABELS[selectedRole]}</strong>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--pc-prem-text-muted, #64748B)' }}>
+            Повторно выбирать роль не нужно. Заявка и вход сохраняют один и тот же кабинет.
+          </p>
+        </section>
+      ) : null}
+
+      <FieldGroup title='Участник' fields={participantFields} />
       <FieldGroup title='Реквизиты и ответственный' fields={REQUISITE_FIELDS} />
 
       <section style={card} aria-label='Согласия'>
@@ -110,7 +160,7 @@ export default function RegisterPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
         <PremiumCtaButton href='/platform-v7/onboarding' glyph='shield-check'>Отправить заявку на проверку</PremiumCtaButton>
-        <PremiumCtaButton href='/platform-v7/login' variant='ghost'>Уже есть доступ — войти</PremiumCtaButton>
+        <PremiumCtaButton href={loginHref} variant='ghost'>Уже есть доступ — войти</PremiumCtaButton>
       </div>
     </main>
   );
