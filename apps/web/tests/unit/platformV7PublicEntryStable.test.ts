@@ -34,4 +34,12 @@ describe('platform-v7 public entry stable mobile layout', () => {
     expect(stableCss).toContain('font-size: 21px !important;');
     expect(stableCss).toContain('max-width: calc(100% - 30px) !important;');
   });
+
+  it('beats older mobile hardening selectors that previously cancelled the carousel', () => {
+    expect(stableCss).toContain('html body .pc-shell-root-v4 .pc-v7-public-entry .entry-process-row');
+    expect(stableCss).toContain('html body .pc-shell-root-v4 .pc-v7-public-entry .entry-process-tile');
+    expect(stableCss).toContain('flex: 0 0 min(320px, calc(100vw - 72px)) !important;');
+    expect(stableCss).toContain('html body .pc-shell-root-v4 .pc-v7-public-entry .entry-process-icon');
+    expect(stableCss).toContain('display: grid !important;');
+  });
 });
