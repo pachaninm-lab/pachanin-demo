@@ -32,13 +32,15 @@ describe('platform-v7 public registration and role-locked login', () => {
     expect(cleanup).not.toContain("item.setAttribute('href', '/platform-v7/login');");
   });
 
-  it('does not expose a role selector on the login page', () => {
+  it('does not expose a role selector or demo-like missing-role panel on the login page', () => {
     expect(login).toContain('function readLockedRole(): PlatformRole | null');
     expect(login).toContain("new URLSearchParams(window.location.search).get('role')");
     expect(login).toContain("window.sessionStorage?.getItem(PLATFORM_V7_PENDING_ROLE_KEY)");
-    expect(login).toContain('Сначала выбери рабочее место на главной странице. На входе роль повторно не выбирается.');
+    expect(login).toContain('Авторизуйтесь по корпоративным данным. Рабочее место определяется маршрутом доступа.');
     expect(login).toContain("<Link href={registerHref} className='login-register'>Зарегистрироваться</Link>");
     expect(login).not.toContain('<select');
-    expect(login).not.toContain('onChange={(event) => { setRole');
+    expect(login).not.toContain('роль не выбрана');
+    expect(login).not.toContain('Сначала выбери кабинет на главной');
+    expect(login).not.toContain('Это защищает от повторного выбора');
   });
 });
