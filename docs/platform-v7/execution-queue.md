@@ -6,6 +6,7 @@ GOAL: keep platform-v7 moving toward real execution readiness without mixing UI 
 
 CURRENT ALLOWED:
 - apps/web/app/platform-v7/page.tsx
+- apps/web/tests/unit/platformV7VisibleEntry.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
@@ -13,6 +14,7 @@ CURRENT CHECKS:
 - replace generic or AI-like public entry wording with direct B2B execution copy;
 - keep the approved hero headline and lead unchanged;
 - keep public copy focused on post-price execution risk: рейс, приёмка, документы, качество, основание для оплаты;
+- visible-entry guard verifies the new human copy and blocks the old AI-like phrase;
 - avoid marketplace positioning, fake-live claims and maturity uplift;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
@@ -44,7 +46,7 @@ ORDER:
 10. Netlify root entry redirect recovery is active from root-entry-redirect.
 11. Public hero copy polish is active from #2067/#2068/#2070/#2071.
 12. Driver field route anchor hardening is active in #2072 after stale #2061 was superseded.
-13. Public entry human copy pass is active in #2074.
+13. Public entry human copy pass is active in #2075.
 
 RULES:
 - one PR = one narrow layer;
