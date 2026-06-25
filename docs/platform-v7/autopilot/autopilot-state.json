@@ -25,7 +25,17 @@
     "docs/platform-v7/execution-queue.md"
   ],
   "controlledActions": { "enabled": true },
-  "forbiddenZones": ["apps/landing", "package.json", "package-lock.json", "pnpm-lock.yaml"],
+  "forbiddenZones": [
+    "apps/landing",
+    "apps/web/app/platform-v7",
+    "apps/web/components/platform-v7",
+    "apps/web/components/v7r",
+    "apps/web/lib/platform-v7",
+    "apps/web/app/api",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml"
+  ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": [],
   "readiness": "72% honest readiness. Runtime layers are still required before live readiness."
