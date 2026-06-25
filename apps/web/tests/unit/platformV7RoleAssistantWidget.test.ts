@@ -9,7 +9,7 @@ const layoutClientFile = fs.readFileSync(path.join(process.cwd(), 'apps/web/comp
 
 describe('platform-v7 role assistant widget', () => {
   it('mounts the assistant from the protected platform shell', () => {
-    expect(layoutClientFile).toContain("import { RoleAssistantWidget }");
+    expect(layoutClientFile).toContain('import { RoleAssistantWidget }');
     expect(layoutClientFile).toContain('<RoleAssistantWidget />');
   });
 
@@ -26,13 +26,15 @@ describe('platform-v7 role assistant widget', () => {
     expect(widgetFile).toContain(".pc-v4-bottomnav a[href='/platform-v7/ai']");
   });
 
-  it('mounts a deterministic viewport-anchored mobile action rail', () => {
-    expect(layoutFile).toContain("import { MobileHeaderActionRail }");
+  it('mounts a deterministic header-anchored mobile action rail', () => {
+    expect(layoutFile).toContain('import { MobileHeaderActionRail }');
     expect(layoutFile).toContain('<MobileHeaderActionRail />');
     expect(railFile).toContain("className='p7-mobile-action-rail'");
-    expect(railFile).toContain("document.querySelector<HTMLElement>('.pc-shell-root-v4 .pc-v4-top')");
-    expect(railFile).toContain('document.body');
-    expect(railFile).toContain('position:fixed!important');
+    expect(railFile).toContain("document.querySelector('.pc-v4-header .pc-v4-actions')");
+    expect(railFile).toContain('mount,');
+    expect(railFile).not.toContain('document.body');
+    expect(railFile).not.toContain('position:fixed!important;display:grid!important;grid-template-columns:repeat(7,30px)!important');
+    expect(railFile).toContain('position:relative!important');
     expect(railFile).toContain('grid-template-columns:repeat(7,30px)!important');
     expect(railFile).toContain("aria-label='Открыть поиск'");
     expect(railFile).toContain("aria-label='Открыть блокнот'");
