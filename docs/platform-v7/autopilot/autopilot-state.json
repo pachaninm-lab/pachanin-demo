@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "Public entry hero copy polish scope before merge.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2063",
+  "openPr": "#2067",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "root-entry-redirect"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
