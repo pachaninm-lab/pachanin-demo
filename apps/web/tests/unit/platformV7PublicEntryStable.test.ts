@@ -16,11 +16,22 @@ describe('platform-v7 public entry stable mobile layout', () => {
     expect(stableCss).not.toContain('.entry-control-grid { grid-template-columns: 1fr; }');
   });
 
-  it('keeps the process strip as a three-card horizontal strip on mobile', () => {
+  it('keeps the process strip as a premium single-card snap carousel on mobile', () => {
     expect(stableCss).toContain('.pc-v7-public-entry .entry-process-row');
     expect(stableCss).toContain('display: flex !important;');
     expect(stableCss).toContain('grid-template-columns: none !important;');
-    expect(stableCss).toContain('flex: 0 0 calc((100vw - 64px) / 3) !important;');
+    expect(stableCss).toContain('overflow-x: auto !important;');
     expect(stableCss).toContain('scroll-snap-type: x mandatory !important;');
+    expect(stableCss).toContain('flex: 0 0 clamp(248px, calc(100vw - 72px), 320px) !important;');
+    expect(stableCss).toContain('scroll-snap-align: center !important;');
+    expect(stableCss).toContain('scroll-snap-stop: always !important;');
+  });
+
+  it('keeps process card text readable without clipped badges', () => {
+    expect(stableCss).toContain('.pc-v7-public-entry .entry-process-index');
+    expect(stableCss).toContain('inline-size: 34px !important;');
+    expect(stableCss).toContain('.pc-v7-public-entry .entry-process-tile strong');
+    expect(stableCss).toContain('font-size: 21px !important;');
+    expect(stableCss).toContain('max-width: calc(100% - 30px) !important;');
   });
 });

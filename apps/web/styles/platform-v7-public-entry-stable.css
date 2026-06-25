@@ -11,6 +11,10 @@
   max-width: 100% !important;
 }
 
+.pc-v7-public-entry .entry-process-section {
+  position: relative !important;
+}
+
 @media (max-width: 980px) {
   .pc-v7-public-entry .entry-section {
     padding-left: 16px !important;
@@ -30,14 +34,22 @@
     border-radius: 20px !important;
   }
 
+  .pc-v7-public-entry .entry-process-section {
+    padding-top: 20px !important;
+    padding-bottom: 18px !important;
+  }
+
   .pc-v7-public-entry .entry-process-row {
     display: flex !important;
     grid-template-columns: none !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
-    gap: 10px !important;
-    padding-bottom: 8px !important;
+    gap: 14px !important;
+    margin: 0 -4px !important;
+    padding: 2px 4px 14px !important;
     scroll-snap-type: x mandatory !important;
+    scroll-padding-inline: 4px !important;
+    overscroll-behavior-x: contain !important;
     -webkit-overflow-scrolling: touch !important;
     scrollbar-width: none !important;
   }
@@ -47,21 +59,92 @@
   }
 
   .pc-v7-public-entry .entry-process-tile {
-    flex: 0 0 calc((100vw - 64px) / 3) !important;
-    width: calc((100vw - 64px) / 3) !important;
-    min-width: 104px !important;
-    max-width: 132px !important;
-    min-height: 176px !important;
-    padding: 14px 10px !important;
-    scroll-snap-align: start !important;
+    flex: 0 0 clamp(248px, calc(100vw - 72px), 320px) !important;
+    width: clamp(248px, calc(100vw - 72px), 320px) !important;
+    min-width: 248px !important;
+    max-width: none !important;
+    min-height: 164px !important;
+    padding: 18px !important;
+    border-radius: 26px !important;
+    scroll-snap-align: center !important;
+    scroll-snap-stop: always !important;
+    text-align: left !important;
+    display: grid !important;
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    justify-items: start !important;
+    align-content: start !important;
+    gap: 8px 14px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,251,247,.92)) !important;
+    border: 1px solid rgba(7, 22, 17, .075) !important;
+    box-shadow: 0 16px 34px rgba(7, 22, 17, .065) !important;
   }
 
   .pc-v7-public-entry .entry-process-tile:not(:last-child)::after {
     display: none !important;
   }
+
+  .pc-v7-public-entry .entry-process-index {
+    position: absolute !important;
+    top: 16px !important;
+    right: 16px !important;
+    display: inline-grid !important;
+    place-items: center !important;
+    inline-size: 34px !important;
+    block-size: 34px !important;
+    border-radius: 999px !important;
+    background: rgba(0, 122, 47, .10) !important;
+    color: #087a3b !important;
+    font-size: 15px !important;
+    line-height: 1 !important;
+    font-weight: 950 !important;
+  }
+
+  .pc-v7-public-entry .entry-process-icon {
+    grid-column: 1 !important;
+    grid-row: 1 / span 2 !important;
+    display: grid !important;
+    place-items: center !important;
+    inline-size: 48px !important;
+    block-size: 48px !important;
+    border-radius: 17px !important;
+    color: #087a3b !important;
+    background: rgba(0, 122, 47, .08) !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile strong {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    max-width: calc(100% - 30px) !important;
+    color: #071611 !important;
+    font-size: 21px !important;
+    line-height: 1.03 !important;
+    letter-spacing: -.045em !important;
+    font-weight: 950 !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile small {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    max-width: 100% !important;
+    color: #5f6b65 !important;
+    font-size: 14px !important;
+    line-height: 1.32 !important;
+    font-weight: 680 !important;
+  }
+
+  .pc-v7-public-entry .entry-role-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
 }
 
 @media (max-width: 420px) {
+  .pc-v7-public-entry .entry-section {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
   .pc-v7-public-entry .entry-control-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
@@ -73,6 +156,21 @@
   .pc-v7-public-entry .entry-control-tile span {
     font-size: 12.5px !important;
     line-height: 1.42 !important;
+  }
+
+  .pc-v7-public-entry .entry-process-row {
+    gap: 12px !important;
+    margin: 0 -2px !important;
+    padding: 2px 2px 14px !important;
+    scroll-padding-inline: 2px !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile {
+    flex: 0 0 clamp(248px, calc(100vw - 72px), 320px) !important;
+    width: clamp(248px, calc(100vw - 72px), 320px) !important;
+    min-height: 162px !important;
+    padding: 17px !important;
+    border-radius: 24px !important;
   }
 
   .pc-v7-public-entry .entry-role-grid {
@@ -95,8 +193,17 @@
   }
 
   .pc-v7-public-entry .entry-process-tile {
-    flex-basis: calc((100vw - 52px) / 3) !important;
-    width: calc((100vw - 52px) / 3) !important;
-    min-width: 96px !important;
+    flex-basis: calc(100vw - 64px) !important;
+    width: calc(100vw - 64px) !important;
+    min-width: 236px !important;
+    padding: 16px !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile strong {
+    font-size: 19px !important;
+  }
+
+  .pc-v7-public-entry .entry-process-tile small {
+    font-size: 13px !important;
   }
 }

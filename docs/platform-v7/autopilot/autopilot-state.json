@@ -3,16 +3,20 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Select driver field regression route audit scope before code changes.",
+  "current": "Public entry process carousel polish scope before merge.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2060",
+  "openPr": "#2062",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
+    "apps/web/styles/platform-v7-public-entry-stable.css",
+    "apps/web/tests/unit/platformV7PublicEntryStable.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
+    "apps/web/styles/platform-v7-public-entry-stable.css",
+    "apps/web/tests/unit/platformV7PublicEntryStable.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
