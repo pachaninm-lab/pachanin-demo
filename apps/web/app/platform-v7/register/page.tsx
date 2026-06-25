@@ -1,9 +1,21 @@
 import { CockpitHero, PremiumCtaButton, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 
 type Field = { label: string; placeholder: string; type?: string };
+type RegisterSearchParams = { role?: string | string[] };
+
+const ROLE_OPTIONS = [
+  { value: 'seller', label: 'Продавец' },
+  { value: 'buyer', label: 'Покупатель' },
+  { value: 'logistics', label: 'Логистика' },
+  { value: 'elevator', label: 'Элеватор' },
+  { value: 'lab', label: 'Лаборатория' },
+  { value: 'surveyor', label: 'Сюрвейер' },
+  { value: 'bank', label: 'Банк' },
+  { value: 'arbitrator', label: 'Арбитр' },
+  { value: 'operator', label: 'Оператор' },
+] as const;
 
 const PARTICIPANT_FIELDS: readonly Field[] = [
-  { label: 'Роль участника', placeholder: 'Продавец / Покупатель / Логист / Элеватор / Лаборатория …' },
   { label: 'Тип участника', placeholder: 'Юр. лицо / ИП / КФХ' },
   { label: 'Название организации', placeholder: 'ООО «АгроГрейн»' },
   { label: 'Регион', placeholder: 'Тамбовская область' },
@@ -56,6 +68,11 @@ const micro: React.CSSProperties = {
   color: 'var(--pc-prem-text-muted, #64748B)',
 };
 
+function getSelectedRole(searchParams?: RegisterSearchParams) {
+  const rawRole = Array.isArray(searchParams?.role) ? searchParams?.role[0] : searchParams?.role;
+  return ROLE_OPTIONS.some((role) => role.value === rawRole) ? rawRole : 'seller';
+}
+
 function FieldGroup({ title, fields }: { title: string; fields: readonly Field[] }) {
   return (
     <section style={card} aria-label={title}>
@@ -72,7 +89,26 @@ function FieldGroup({ title, fields }: { title: string; fields: readonly Field[]
   );
 }
 
-export default function RegisterPage() {
+function RoleField({ selectedRole }: { selectedRole: string }) {
+  return (
+    <section style={card} aria-label='Роль участника'>
+      <span style={micro}>Роль участника</span>
+      <label style={{ display: 'grid', gap: 5 }}>
+        <span style={labelStyle}>Заявляемая роль</span>
+        <select style={fieldStyle} defaultValue={selectedRole}>
+          {ROLE_OPTIONS.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+        </select>
+      </label>
+      <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-prem-text-muted, #64748B)', lineHeight: 1.5 }}>
+        Доступ в кабинет открывается только после проверки и допуска. Выбор роли здесь не обходит role-lock и не создаёт рабочую сессию.
+      </p>
+    </section>
+  );
+}
+
+export default function RegisterPage({ searchParams }: { searchParams?: RegisterSearchParams }) {
+  const selectedRole = getSelectedRole(searchParams);
+
   return (
     <main style={{ display: 'grid', gap: 16, maxWidth: 980, margin: '0 auto', padding: '8px 0 28px' }}>
       <CockpitHero
@@ -83,6 +119,7 @@ export default function RegisterPage() {
         aside={<StatusPill tone='info'>Заявка → проверка → допуск</StatusPill>}
       />
 
+      <RoleField selectedRole={selectedRole} />
       <FieldGroup title='Участник' fields={PARTICIPANT_FIELDS} />
       <FieldGroup title='Реквизиты и ответственный' fields={REQUISITE_FIELDS} />
 
