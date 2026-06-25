@@ -20,7 +20,7 @@ describe('platform-v7 root working entry', () => {
     expect(page).not.toContain("href: '/platform-v7/buyer'");
     expect(page).not.toContain("href: '/platform-v7/bank'");
     expect(page).not.toContain('Рабочее место выбирается внутри формы');
-    expect(page).toContain('Роль выбирается здесь один раз');
+    expect(page).toContain('Сначала выберите роль участника сделки');
     expect(page).not.toContain('key={role.href}');
     expect(page).toContain('key={role.title}');
   });

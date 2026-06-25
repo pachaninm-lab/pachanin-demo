@@ -1,27 +1,29 @@
 # platform-v7 execution queue
 
-CURRENT: Driver field route anchor hardening from current main.
+CURRENT: Public entry human copy pass from current main.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/driver/field/page.tsx
-- apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts
+- apps/web/app/platform-v7/page.tsx
+- apps/web/tests/unit/platformV7VisibleEntry.test.ts
+- apps/web/tests/unit/platformV7RootWorkEntry.test.ts
+- apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- all visible driver / field actions point to real in-page sections, real routes, or explicit disabled states;
-- no driver screen link exposes bank, buyer, price, payout, release or unrelated role control;
-- first-screen content remains above workflow details;
-- mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
-- driver money copy does not imply payout or release control;
+- replace generic or AI-like public entry wording with direct B2B execution copy;
+- keep the approved hero headline and lead unchanged;
+- keep public copy focused on post-price execution risk: рейс, приёмка, документы, качество, основание для оплаты;
+- visible-entry and root-entry static guards verify the new human copy and block the old AI-like phrase;
+- avoid marketplace positioning, fake-live claims and maturity uplift;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
-- no public landing, backend, API, DB, auth, session, package or lockfile changes.
+- no apps/landing, backend, API, DB, auth, session, package or lockfile changes.
 
 NEXT:
-- Layer: Driver / field follow-up audit after route anchor hardening.
+- Layer: return to Driver / field follow-up audit after public copy pass.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
@@ -46,6 +48,7 @@ ORDER:
 10. Netlify root entry redirect recovery is active from root-entry-redirect.
 11. Public hero copy polish is active from #2067/#2068/#2070/#2071.
 12. Driver field route anchor hardening is active in #2072 after stale #2061 was superseded.
+13. Public entry human copy pass is active in #2075.
 
 RULES:
 - one PR = one narrow layer;
@@ -83,6 +86,7 @@ DONE:
 - #2068 public hero mobile composition.
 - #2070 public hero mobile sizing.
 - #2071 public entry copy proofread.
+- #2072 driver field route anchor hardening.
 - root-entry-redirect Netlify root entry redirect recovery.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.

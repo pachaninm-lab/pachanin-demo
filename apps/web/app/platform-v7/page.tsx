@@ -26,42 +26,42 @@ type RoleCard = { title: string; text: string; href: string; Icon: LucideIcon; c
 type TrustItem = { title: string; text: string; Icon: LucideIcon };
 
 const controlCards: ControlCard[] = [
-  { title: 'Деньги', text: 'Видно, что блокирует оплату и когда можно продолжить расчёт.', Icon: Banknote },
-  { title: 'Документы', text: 'Договор, СДИЗ, ЭДО, транспортные и приёмочные документы в едином доказательном следе.', Icon: FileCheck2 },
+  { title: 'Деньги', text: 'Что удерживает оплату и какое основание нужно для расчёта.', Icon: Banknote },
+  { title: 'Документы', text: 'Договор, СДИЗ, ЭДО, транспортные и приёмочные документы в одной проверяемой цепочке.', Icon: FileCheck2 },
   { title: 'Логистика', text: 'Рейс, водитель, маршрут, контрольные точки и отклонения от плана.', Icon: Truck },
-  { title: 'Качество', text: 'Лаборатория, приёмка, расхождения и доказательства для спора.', Icon: FlaskConical },
+  { title: 'Качество', text: 'Приёмка, лаборатория, расхождения и доказательства по качеству.', Icon: FlaskConical },
 ];
 
 const processSteps: ProcessStep[] = [
   { label: 'Цена', text: 'Цена, объём, базис и допуски качества зафиксированы до рейса.', Icon: Leaf },
-  { label: 'Сделка', text: 'Стороны, партия и условия исполнения собраны в единый контур.', Icon: ClipboardCheck },
+  { label: 'Сделка', text: 'Стороны, партия и условия исполнения сведены в единый контур.', Icon: ClipboardCheck },
   { label: 'Рейс', text: 'Маршрут, водитель, транспорт и контрольные точки назначены.', Icon: Truck },
   { label: 'Приёмка', text: 'Вес, факт поставки и расхождения фиксируются на элеваторе.', Icon: Building2 },
   { label: 'Документы', text: 'СДИЗ, ЭДО, ТТН и акты сверяются с событиями сделки.', Icon: FileCheck2 },
-  { label: 'Оплата', text: 'Банк видит основание: что подтверждено и что блокирует расчёт.', Icon: Banknote },
+  { label: 'Оплата', text: 'Банк видит, что подтверждено и что мешает расчёту.', Icon: Banknote },
   { label: 'Спор', text: 'Пакет доказательств показывает факты, ответственных и основание решения.', Icon: Scale },
 ];
 
 const roles: RoleCard[] = [
-  { title: 'Оператор', text: 'Сделки, блокеры, SLA и ручные действия.', href: '/platform-v7/login?role=operator', Icon: ClipboardCheck, cta: 'Войти как оператор' },
+  { title: 'Оператор', text: 'Сделки, блокеры, SLA и контрольные действия.', href: '/platform-v7/login?role=operator', Icon: ClipboardCheck, cta: 'Войти как оператор' },
   { title: 'Покупатель', text: 'Поставка, качество, документы и риски оплаты.', href: '/platform-v7/login?role=buyer', Icon: UserRound, cta: 'Войти как покупатель' },
   { title: 'Продавец', text: 'Партия, рейс, приёмка и основание для оплаты.', href: '/platform-v7/login?role=seller', Icon: Wheat, cta: 'Войти как продавец' },
-  { title: 'Логистика', text: 'Рейсы, водители, статусы движения и отклонения.', href: '/platform-v7/login?role=logistics', Icon: Truck, cta: 'Войти как логистика' },
+  { title: 'Логистика', text: 'Рейсы, водители, движение и отклонения по маршруту.', href: '/platform-v7/login?role=logistics', Icon: Truck, cta: 'Войти как логистика' },
   { title: 'Водитель', text: 'Маршрут, точки рейса, фото и офлайн-доказательства.', href: '/platform-v7/login?role=driver', Icon: Truck, cta: 'Войти как водитель' },
   { title: 'Элеватор', text: 'Приёмка, отгрузка, хранение, вес и статусы партии.', href: '/platform-v7/login?role=elevator', Icon: Building2, cta: 'Войти как элеватор' },
   { title: 'Лаборатория', text: 'Анализы, показатели качества и связь с приёмкой.', href: '/platform-v7/login?role=lab', Icon: FlaskConical, cta: 'Войти как лаборатория' },
   { title: 'Сюрвейер', text: 'Осмотр, фиксация фактов и независимый доказательный слой.', href: '/platform-v7/login?role=surveyor', Icon: ShieldCheck, cta: 'Войти как сюрвейер' },
-  { title: 'Банк', text: 'Проверяемое основание для финансирования и расчётов.', href: '/platform-v7/login?role=bank', Icon: Landmark, cta: 'Войти как банк' },
+  { title: 'Банк', text: 'Основания для финансирования и расчётов по подтверждённым событиям.', href: '/platform-v7/login?role=bank', Icon: Landmark, cta: 'Войти как банк' },
   { title: 'Комплаенс', text: 'Риск обхода, доступы, действия участников и контроль правил.', href: '/platform-v7/login?role=compliance', Icon: ShieldCheck, cta: 'Войти как комплаенс' },
   { title: 'Арбитр', text: 'Спор, расхождения, пакет доказательств и решение по фактам.', href: '/platform-v7/login?role=arbitrator', Icon: Scale, cta: 'Войти как арбитр' },
-  { title: 'Руководитель', text: 'Расчёты, блокеры, роли, споры и карта исполнения.', href: '/platform-v7/login?role=executive', Icon: Banknote, cta: 'Войти как руководитель' },
+  { title: 'Руководитель', text: 'Расчёты, блокеры, роли, споры и ход исполнения.', href: '/platform-v7/login?role=executive', Icon: Banknote, cta: 'Войти как руководитель' },
 ];
 
 const trustItems: TrustItem[] = [
-  { title: 'Прозрачный статус сделки', text: 'Единая картина по этапам и участникам.', Icon: ShieldCheck },
+  { title: 'Статус без догадок', text: 'Единая картина по этапам и участникам.', Icon: ShieldCheck },
   { title: 'Юридически значимый след', text: 'События и документы связаны с исполнением сделки.', Icon: BadgeCheck },
   { title: 'Контроль документов', text: 'Комплектность, версии, сроки и ответственные под контролем.', Icon: LockKeyhole },
-  { title: 'Основа для расчётов', text: 'Расчёты привязаны к подтверждаемым событиям, а не к устным договорённостям.', Icon: Calculator },
+  { title: 'Основа для расчётов', text: 'Расчёт опирается на подтверждённые события, а не на устные договорённости.', Icon: Calculator },
 ];
 
 export default function PlatformV7RootPage() {
@@ -116,7 +116,7 @@ export default function PlatformV7RootPage() {
       <section id='control' className='entry-section' aria-labelledby='control-title'>
         <div className='entry-section-head'>
           <h2 id='control-title'>Что контролирует платформа</h2>
-          <p>Не поиск зерна ради поиска. Контур показывает, где сделка застряла и что нужно сделать дальше.</p>
+          <p>После согласования цены под контролем остаётся главное: рейс, приёмка, документы, качество и основание для оплаты.</p>
         </div>
         <div className='entry-control-grid'>{controlCards.map((item) => <ControlTile key={item.title} item={item} />)}</div>
       </section>
@@ -124,7 +124,7 @@ export default function PlatformV7RootPage() {
       <section id='process' className='entry-section entry-process-section' aria-labelledby='process-title'>
         <div className='entry-section-head compact'>
           <h2 id='process-title'>Как проходит сделка</h2>
-          <p>Каждый этап показывает статус, блокер, ответственного и следующий шаг.</p>
+          <p>На каждом этапе видно, что уже подтверждено, что мешает движению сделки и кто должен действовать.</p>
         </div>
         <div className='entry-process-row'>{processSteps.map((step, index) => <ProcessTile key={step.label} step={step} index={index} />)}</div>
       </section>
@@ -132,7 +132,7 @@ export default function PlatformV7RootPage() {
       <section id='roles' className='entry-section' aria-labelledby='roles-title'>
         <div className='entry-section-head'>
           <h2 id='roles-title'>Выберите свою роль в сделке</h2>
-          <p>Роль выбирается здесь один раз. Дальше вход выполняется по логину, паролю и организации.</p>
+          <p>Сначала выберите роль участника сделки. После этого вход выполняется по логину, паролю и организации.</p>
         </div>
         <div className='entry-role-grid'>{roles.map((role) => <RoleTile key={role.title} role={role} />)}</div>
       </section>
