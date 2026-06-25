@@ -3,20 +3,16 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Tighten the driver field first screen so the role sees the operational contract before workflow details.",
+  "current": "Select driver field regression route audit scope before code changes.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2059",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058"],
+  "openPr": "#2060",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
-    "apps/web/app/platform-v7/driver/field/page.tsx",
-    "apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/web/app/platform-v7/driver/field/page.tsx",
-    "apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],

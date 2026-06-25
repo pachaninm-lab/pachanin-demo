@@ -1,31 +1,32 @@
 # platform-v7 execution queue
 
-CURRENT: Tighten the driver field first screen so the role sees the operational contract before workflow details.
+CURRENT: Select driver field regression route audit scope before code changes.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/driver/field/page.tsx
-- apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- first screen shows what happened, what is blocked, money boundary, accountable role and next action;
-- visible first-screen actions route to real in-page sections;
-- driver sees own-trip / field context only and no bank, buyer, price, payout or unrelated role control;
-- mobile 390x844 remains single-column, no horizontal overflow, bottom-safe and touch-safe;
+- audit scope is selected before code changes;
+- the next layer is limited to the driver / field route and its unit guard;
+- route audit covers visible action wiring, role isolation, shell consistency and mobile 390x844 constraints;
 - maturity remains controlled-pilot / pre-integration;
+- readiness remains 72% until runtime or a broader verified functional layer is merged;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes.
 
 NEXT:
-- Layer: Driver field route regression audit.
+- Layer: Driver field route regression fix.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
+- Scope intent for the next code PR: driver / field route only, plus its matching unit guard and autopilot docs.
 - Success criteria:
-  - exact next route/component/test scope is selected before code changes;
-  - route audit covers visible action wiring, role isolation, shell consistency and mobile 390x844 constraints;
+  - all visible driver / field actions point to real in-page sections, real routes, or explicit disabled states;
+  - no driver screen link exposes bank, buyer, price, payout, release or unrelated role control;
+  - first-screen content remains above workflow details;
+  - mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
   - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
@@ -36,7 +37,7 @@ ORDER:
 4. Public mobile brand title recovery is active from #2056.
 5. Elevator first-screen pass is active from #2057.
 6. Driver / field first-screen scope is active from #2058.
-7. Driver / field first-screen pass is current.
+7. Driver / field first-screen pass is active from #2059.
 8. Then driver field regression route audit.
 
 RULES:
@@ -69,5 +70,6 @@ DONE:
 - #2056 public mobile brand title recovery.
 - #2057 elevator first-screen pass.
 - #2058 driver field first-screen scope selection.
+- #2059 driver field first-screen pass.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
