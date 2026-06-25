@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { CircleHelp, LogIn, LogOut, Wheat } from 'lucide-react';
 import { CockpitHero, PremiumCtaButton, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 
 type Field = { label: string; placeholder: string; type?: string };
@@ -41,6 +43,93 @@ const STATUSES: readonly { label: string; tone: PremiumTone }[] = [
   { label: 'Заблокирован', tone: 'danger' },
 ];
 
+const pageShell: React.CSSProperties = {
+  display: 'grid',
+  gap: 16,
+  maxWidth: 980,
+  margin: '0 auto',
+  padding: 'max(10px, env(safe-area-inset-top)) 0 28px',
+};
+
+const registerHeader: React.CSSProperties = {
+  position: 'sticky',
+  top: 0,
+  zIndex: 30,
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto',
+  alignItems: 'center',
+  gap: 12,
+  margin: '0 0 2px',
+  padding: '10px 14px',
+  border: '1px solid var(--pc-prem-border, rgba(15,23,42,0.09))',
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.92)',
+  boxShadow: '0 14px 34px rgba(15,23,42,0.07)',
+  backdropFilter: 'blur(18px)',
+};
+
+const brandLink: React.CSSProperties = {
+  minWidth: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 10,
+  color: 'var(--pc-prem-text, #0F1419)',
+  textDecoration: 'none',
+};
+
+const brandMark: React.CSSProperties = {
+  flex: '0 0 auto',
+  display: 'inline-grid',
+  placeItems: 'center',
+  width: 40,
+  height: 40,
+  borderRadius: 14,
+  color: '#087a3b',
+  background: 'linear-gradient(145deg, rgba(0, 122, 47, .12), rgba(0, 122, 47, .03))',
+  boxShadow: 'inset 0 0 0 1px rgba(0,122,47,.08)',
+};
+
+const brandText: React.CSSProperties = {
+  overflow: 'hidden',
+  whiteSpace: 'nowrap',
+  textOverflow: 'ellipsis',
+  fontSize: 18,
+  lineHeight: 1,
+  fontWeight: 900,
+  letterSpacing: '-0.03em',
+};
+
+const headerActions: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: 8,
+  flexWrap: 'wrap',
+};
+
+const headerAction: React.CSSProperties = {
+  minHeight: 40,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 7,
+  padding: '0 13px',
+  borderRadius: 14,
+  border: '1px solid var(--pc-prem-border, rgba(15,23,42,0.09))',
+  background: 'rgba(255,255,255,0.86)',
+  color: 'var(--pc-prem-text, #0F1419)',
+  fontSize: 13,
+  fontWeight: 850,
+  textDecoration: 'none',
+};
+
+const exitAction: React.CSSProperties = {
+  ...headerAction,
+  color: '#087a3b',
+  background: 'rgba(0,122,47,0.07)',
+  borderColor: 'rgba(0,122,47,0.16)',
+};
+
 const fieldStyle: React.CSSProperties = {
   minHeight: 44,
   borderRadius: 12,
@@ -73,6 +162,22 @@ function getSelectedRole(searchParams?: RegisterSearchParams) {
   return ROLE_OPTIONS.some((role) => role.value === rawRole) ? rawRole : 'seller';
 }
 
+function RegisterHeader() {
+  return (
+    <header style={registerHeader} aria-label='Навигация регистрации участника'>
+      <Link href='/platform-v7' style={brandLink} aria-label='На главную Прозрачная Цена'>
+        <span style={brandMark}><Wheat size={24} strokeWidth={2.4} /></span>
+        <span style={brandText}>Прозрачная Цена</span>
+      </Link>
+      <nav style={headerActions} aria-label='Действия регистрации'>
+        <Link href='/platform-v7/support?role=operator' style={headerAction}><CircleHelp size={16} />Помощь</Link>
+        <Link href='/platform-v7/login' style={headerAction}><LogIn size={16} />Войти</Link>
+        <Link href='/platform-v7' style={exitAction}><LogOut size={16} />Выход</Link>
+      </nav>
+    </header>
+  );
+}
+
 function FieldGroup({ title, fields }: { title: string; fields: readonly Field[] }) {
   return (
     <section style={card} aria-label={title}>
@@ -100,7 +205,7 @@ function RoleField({ selectedRole }: { selectedRole: string }) {
         </select>
       </label>
       <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-prem-text-muted, #64748B)', lineHeight: 1.5 }}>
-        Доступ в кабинет открывается только после проверки и допуска. Выбор роли здесь не обходит role-lock и не создаёт рабочую сессию.
+        Роль указывается в заявке. Доступ в рабочий кабинет открывается только после проверки и допуска участника.
       </p>
     </section>
   );
@@ -111,7 +216,9 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
   const selectedRole = getSelectedRole(params);
 
   return (
-    <main style={{ display: 'grid', gap: 16, maxWidth: 980, margin: '0 auto', padding: '8px 0 28px' }}>
+    <main style={pageShell}>
+      <RegisterHeader />
+
       <CockpitHero
         eyebrow='Регистрация участника'
         title='Подключение компании к'
