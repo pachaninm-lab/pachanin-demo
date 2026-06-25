@@ -26,24 +26,22 @@ function useViewportRailPosition() {
 
   useEffect(() => {
     setMounted(true);
-
     const sync = () => {
       const top = document.querySelector<HTMLElement>('.pc-shell-root-v4 .pc-v4-top');
       const rect = top?.getBoundingClientRect();
       if (!rect) return;
-      setPosition({
+      const next = {
         top: Math.max(6, Math.round(rect.top + rect.height / 2 - 15)),
         right: Math.max(6, Math.round(window.innerWidth - rect.right)),
-      });
+      };
+      setPosition((prev) => (prev.top === next.top && prev.right === next.right ? prev : next));
     };
-
     sync();
     window.addEventListener('resize', sync);
     window.addEventListener('orientationchange', sync);
     window.addEventListener('scroll', sync, { passive: true });
     const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-
+    observer.observe(document.body, { childList: true, subtree: true });
     return () => {
       window.removeEventListener('resize', sync);
       window.removeEventListener('orientationchange', sync);
@@ -84,11 +82,7 @@ export function MobileHeaderActionRail() {
     <>
       <style dangerouslySetInnerHTML={{ __html: css }} />
       {createPortal(
-        <nav
-          className='p7-mobile-action-rail'
-          aria-label='Инструменты кабинета'
-          style={{ top: `${position.top}px`, right: `${position.right}px` }}
-        >
+        <nav className='p7-mobile-action-rail' aria-label='Инструменты кабинета' style={{ top: `${position.top}px`, right: `${position.right}px` }}>
           <button type='button' className='p7-mobile-action-btn' aria-label='Открыть поиск' onClick={() => clickNative('.pc-v4-search')}><Search size={16} /></button>
           <button type='button' className='p7-mobile-action-btn' aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'} onClick={toggleTheme}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</button>
           <button type='button' className='p7-mobile-action-btn' aria-label='Открыть блокнот' onClick={() => clickNative('.p7-note-widget button[aria-label="Открыть блокнот"]')}><FileText size={16} /></button>
