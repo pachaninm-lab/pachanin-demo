@@ -2,6 +2,17 @@
 
 import * as React from 'react';
 
+const roleRegistrationParams: Record<string, string> = {
+  'Продавец': 'seller',
+  'Покупатель': 'buyer',
+  'Логистика': 'logistics',
+  'Элеватор': 'elevator',
+  'Банк': 'bank',
+  'Лаборатория': 'lab',
+  'Сюрвейер': 'surveyor',
+  'Арбитр': 'arbitrator',
+};
+
 function ensureRegistrationEntry(root: ParentNode) {
   const headerActions = root.querySelector<HTMLElement>('.entry-header-actions');
   if (headerActions && !headerActions.querySelector('[data-entry-register="header"]')) {
@@ -15,14 +26,26 @@ function ensureRegistrationEntry(root: ParentNode) {
   }
 
   const heroActions = root.querySelector<HTMLElement>('.entry-hero-actions');
-  if (!heroActions) return;
-  const heroLink = heroActions.querySelector<HTMLAnchorElement>('.entry-text-cta,.entry-register-cta');
-  if (!heroLink) return;
-  heroLink.href = '/platform-v7/register';
-  heroLink.classList.remove('entry-text-cta');
-  heroLink.classList.add('entry-register-cta');
-  heroLink.dataset.entryRegister = 'hero';
-  heroLink.textContent = 'Зарегистрироваться';
+  if (heroActions) {
+    const heroLink = heroActions.querySelector<HTMLAnchorElement>('.entry-text-cta,.entry-register-cta');
+    if (heroLink) {
+      heroLink.href = '/platform-v7/register';
+      heroLink.classList.remove('entry-text-cta');
+      heroLink.classList.add('entry-register-cta');
+      heroLink.dataset.entryRegister = 'hero';
+      heroLink.textContent = 'Зарегистрироваться';
+    }
+  }
+
+  root.querySelectorAll<HTMLAnchorElement>('.entry-role-tile').forEach((tile) => {
+    const title = tile.querySelector('strong')?.textContent?.trim();
+    const role = title ? roleRegistrationParams[title] : undefined;
+    if (!role) return;
+    tile.href = `/platform-v7/register?role=${role}`;
+    tile.dataset.entryRegister = 'role';
+    const cta = tile.querySelector('em');
+    if (cta) cta.textContent = 'Подать заявку на роль';
+  });
 }
 
 const css = `
