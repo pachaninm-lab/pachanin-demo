@@ -7,6 +7,8 @@ GOAL: keep platform-v7 moving toward real execution readiness without mixing UI 
 CURRENT ALLOWED:
 - apps/web/app/platform-v7/page.tsx
 - apps/web/tests/unit/platformV7VisibleEntry.test.ts
+- apps/web/tests/unit/platformV7RootWorkEntry.test.ts
+- apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
@@ -14,7 +16,7 @@ CURRENT CHECKS:
 - replace generic or AI-like public entry wording with direct B2B execution copy;
 - keep the approved hero headline and lead unchanged;
 - keep public copy focused on post-price execution risk: рейс, приёмка, документы, качество, основание для оплаты;
-- visible-entry guard verifies the new human copy and blocks the old AI-like phrase;
+- visible-entry and root-entry static guards verify the new human copy and block the old AI-like phrase;
 - avoid marketplace positioning, fake-live claims and maturity uplift;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
