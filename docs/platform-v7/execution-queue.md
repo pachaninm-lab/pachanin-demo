@@ -1,32 +1,33 @@
 # platform-v7 execution queue
 
-CURRENT: Tighten the elevator cabinet first screen so the role sees the operational contract before workflow details.
+CURRENT: Select exact driver field first-screen scope before code changes.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/elevator/page.tsx
-- apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- first screen shows what happened, what is blocked, money at risk, accountable roles and next action;
-- visible first-screen actions route to real in-page sections;
-- elevator cabinet does not claim live readiness;
+- driver / field route scope is selected before code changes;
+- first screen criteria remain explicit: what happened, what is blocked, money at risk, owner and next action;
+- every visible action must route to a real route/action/section or have a clear disabled reason;
 - shell, mobile layout and role isolation remain stable;
+- maturity remains controlled-pilot / pre-integration;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes.
 
 NEXT:
-- Layer: Driver / field role functional first-screen review.
+- Layer: Tighten driver field first screen so the driver sees one trip, blocker, money boundary, owner and next action before workflow details.
 - Allowed files:
+  - apps/web/app/platform-v7/driver/field/page.tsx
+  - apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - next execution layer names the exact driver or field route/component/test scope before code changes;
-  - first screen criteria remain explicit: what happened, what is blocked, money at risk, owner and next action;
-  - every visible action must route to a real route/action/section or have a clear disabled reason;
-  - shell, mobile layout and role isolation remain stable;
+  - first screen shows what happened, what is blocked, money boundary, accountable role and next action;
+  - visible actions route to real in-page sections or disabled states with clear reasons;
+  - driver sees own-trip / field context only and no bank, buyer, price, payout or unrelated role control;
+  - mobile 390x844 remains single-column, no horizontal overflow, bottom-safe and touch-safe;
   - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
@@ -35,8 +36,9 @@ ORDER:
 2. Role-locked login handoff is active from #2036/#2037.
 3. Mobile protected header action recovery is active from #2055.
 4. Public mobile brand title recovery is active from #2056.
-5. Elevator first-screen pass is current.
-6. Then driver / field and regression route audit.
+5. Elevator first-screen pass is active from #2057.
+6. Driver / field first-screen scope is current.
+7. Then logistics / field and regression route audit.
 
 RULES:
 - one PR = one narrow layer;
@@ -66,5 +68,6 @@ DONE:
 - #2053 docs queue sync.
 - #2055 protected mobile header action recovery.
 - #2056 public mobile brand title recovery.
+- #2057 elevator first-screen pass.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
