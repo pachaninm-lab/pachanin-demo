@@ -53,8 +53,6 @@ const VALID_ROLES = new Set<PlatformRole>([
   'executive',
 ]);
 
-const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs']);
-
 const shellRestoreCss = `
 html body .pc-shell-root-v4 style{display:none!important}
 @media (max-width:767px){
@@ -90,29 +88,10 @@ html body .pc-shell-root-v4 style{display:none!important}
 }
 `;
 
-function normalize(pathname: string) {
-  return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
-}
-
-function isPublicPath(pathname: string | null) {
-  if (!pathname) return false;
-  return PUBLIC_EXACT_PATHS.has(normalize(pathname));
-}
-
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const headerStore = await headers();
   const rawRole = headerStore.get('x-pc-role');
-  const pathname = headerStore.get('x-pc-pathname');
   const initialRole: PlatformRole = rawRole && VALID_ROLES.has(rawRole as PlatformRole) ? (rawRole as PlatformRole) : 'operator';
-
-  if (isPublicPath(pathname)) {
-    return (
-      <ToastProvider>
-        <PlatformThemeSync />
-        {children}
-      </ToastProvider>
-    );
-  }
 
   return (
     <ToastProvider>
