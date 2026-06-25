@@ -19,15 +19,14 @@ CURRENT CHECKS:
 - no live-readiness or unsupported maturity claims.
 
 NEXT:
-- Layer: driver / field cabinet first-screen pass.
+- Layer: Queue driver / field cabinet first-screen pass.
 - Allowed files:
-  - apps/web/app/platform-v7/driver/page.tsx
-  - apps/web/tests/unit/platformV7DriverFirstScreen.test.ts
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - driver first screen shows trip fact, blocker, money/document impact, owner and next action;
-  - all visible actions route to real route/action/section or explain disabled state;
+  - next execution layer names the exact driver / field route and guard-test scope before code changes;
+  - first-screen criteria remain explicit: trip fact, blocker, money/document impact, owner and next action;
+  - all visible actions must route to real route/action/section or explain disabled state;
   - shell, mobile layout and role isolation remain stable;
   - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
@@ -38,8 +37,9 @@ ORDER:
 3. Mobile protected header action recovery is complete.
 4. Public mobile entry regression is repaired in #2053.
 5. Elevator first-screen pass is current.
-6. Then driver / field first-screen pass.
-7. Then regression route audit.
+6. Queue driver / field exact first-screen scope next.
+7. Then execute the driver / field pass in a separate narrow PR.
+8. Then regression route audit.
 
 RULES:
 - one PR = one narrow layer;
