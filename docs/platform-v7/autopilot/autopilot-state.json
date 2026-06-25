@@ -3,20 +3,20 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Stabilize protected mobile header actions so icons stay visible and actions open reliably across role cabinets.",
+  "current": "Fix public platform-v7 mobile header brand truncation while keeping the single-entry login flow stable.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2054",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053"],
+  "openPr": "#2056",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
-    "apps/web/components/platform-v7/MobileHeaderActionRail.tsx",
-    "apps/web/tests/unit/platformV7RoleAssistantWidget.test.ts",
+    "apps/web/components/platform-v7/PublicEntryCleanup.tsx",
+    "apps/web/tests/platform-v7-public-entry-links.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/web/components/platform-v7/MobileHeaderActionRail.tsx",
-    "apps/web/tests/unit/platformV7RoleAssistantWidget.test.ts",
+    "apps/web/components/platform-v7/PublicEntryCleanup.tsx",
+    "apps/web/tests/platform-v7-public-entry-links.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
