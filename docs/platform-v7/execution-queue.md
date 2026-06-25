@@ -1,20 +1,17 @@
 # platform-v7 execution queue
 
-CURRENT: Public entry process carousel polish scope before merge.
+CURRENT: Public entry process stage copy polish scope before merge.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/styles/platform-v7-public-entry-stable.css
-- apps/web/tests/unit/platformV7PublicEntryStable.test.ts
+- apps/web/app/platform-v7/page.tsx
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- public mobile process carousel is converted from cramped multi-card strip to single-card snap carousel;
-- cards keep readable title, text, icon and number badge without clipping on 360-420px widths;
-- native horizontal swipe remains available without horizontal page overflow;
-- unit guard covers the new carousel contract;
+- public process carousel gives slightly more useful context per stage without becoming heavy;
+- each process card remains one compact explanation line;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes.
@@ -41,8 +38,9 @@ ORDER:
 5. Elevator first-screen pass is active from #2057.
 6. Driver / field first-screen scope is active from #2058.
 7. Driver / field first-screen pass is active from #2059.
-8. Public mobile process carousel polish is active in #2062.
-9. Then driver field regression route audit.
+8. Public mobile process carousel polish is active in #2062/#2064.
+9. Public process stage copy polish is active in #2065.
+10. Then driver field regression route audit.
 
 RULES:
 - one PR = one narrow layer;
