@@ -109,7 +109,6 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <PlatformV7SingleEntryGuard />
           <PlatformV7ShellUxController />
           <RbacCabinetGuard />
-          <ShellCopyNormalizer />
           <CalculatorHeaderWidget />
           <NotepadHeaderWidget />
           <SupportHeaderIcon />
