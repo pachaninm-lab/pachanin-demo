@@ -1,17 +1,19 @@
 # platform-v7 execution queue
 
-CURRENT: Public entry process stage copy polish scope before merge.
+CURRENT: Netlify root entry redirect recovery scope before merge.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/page.tsx
+- apps/web/app/page.tsx
+- apps/web/next.config.js
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- public process carousel gives slightly more useful context per stage without becoming heavy;
-- each process card remains one compact explanation line;
+- root `/` no longer points users through protected `/platform-v7/control-tower`;
+- root `/` routes directly to the public platform-v7 entry;
+- root redirect is also declared in Next redirects for host-level recovery;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes.
@@ -40,7 +42,8 @@ ORDER:
 7. Driver / field first-screen pass is active from #2059.
 8. Public mobile process carousel polish is active in #2062/#2064.
 9. Public process stage copy polish is active in #2065.
-10. Then driver field regression route audit.
+10. Netlify root entry redirect recovery is active in the current PR.
+11. Then driver field regression route audit.
 
 RULES:
 - one PR = one narrow layer;
@@ -73,5 +76,6 @@ DONE:
 - #2057 elevator first-screen pass.
 - #2058 driver field first-screen scope selection.
 - #2059 driver field first-screen pass.
+- #2065 public process stage copy polish.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
