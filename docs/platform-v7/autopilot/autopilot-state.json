@@ -3,20 +3,20 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Public role selection is preserved through registration and login as form context without opening protected cabinets.",
+  "current": "The platform-v7 shell stays mounted across public-to-cabinet navigation; public chrome is hidden by the client pathname controller without replacing the shell tree.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2037",
-  "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994", "#1995", "#1996", "#1997", "#1998", "#1999", "#2000", "#2001", "#2002", "#2003", "#2004", "#2005", "#2006", "#2007", "#2008", "#2009", "#2010", "#2011", "#2015", "#2016", "#2017", "#2018", "#2019", "#2020", "#2021", "#2022", "#2023", "#2024", "#2025", "#2026", "#2027", "#2028", "#2029", "#2031", "#2032", "#2034", "#2036"],
+  "openPr": "#2038",
+  "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994", "#1995", "#1996", "#1997", "#1998", "#1999", "#2000", "#2001", "#2002", "#2003", "#2004", "#2005", "#2006", "#2007", "#2008", "#2009", "#2010", "#2011", "#2015", "#2016", "#2017", "#2018", "#2019", "#2020", "#2021", "#2022", "#2023", "#2024", "#2025", "#2026", "#2027", "#2028", "#2029", "#2031", "#2032", "#2034", "#2036", "#2037"],
   "lockedUntilCurrentGreen": ["External connectivity", "Persistence expansion", "Lockfile changes", "apps/landing changes"],
   "allowedCurrentScope": [
-    "apps/web/app/platform-v7/login/page.tsx",
-    "apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/web/app/platform-v7/login/page.tsx",
-    "apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
