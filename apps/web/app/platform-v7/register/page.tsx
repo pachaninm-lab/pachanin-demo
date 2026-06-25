@@ -154,7 +154,7 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
   const selectedRole = getSelectedRole(params);
 
   return (
-    <main style={pageShell}>
+    <main className='p7-register-page' style={pageShell}>
       <style>{registerCss}</style>
       <RegisterHeader />
       <RegisterHero />
@@ -194,6 +194,23 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
 }
 
 const registerCss = `
+.pc-shell-root-v4:has(.p7-register-page) {
+  --pc-header-offset: 0px !important;
+  background: #f7faf6 !important;
+}
+.pc-shell-root-v4:has(.p7-register-page) .pc-v4-header,
+.pc-shell-root-v4:has(.p7-register-page) .pc-v4-bottomnav,
+.pc-shell-root-v4:has(.p7-register-page) .pc-v4-drawer,
+.pc-shell-root-v4:has(.p7-register-page) .pc-v4-pilot-note {
+  display: none !important;
+}
+.pc-shell-root-v4:has(.p7-register-page) .pc-v4-main {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 24px 28px !important;
+  background: #f7faf6 !important;
+  min-height: 100svh !important;
+}
 .p7-register-header {
   position: sticky;
   top: max(8px, env(safe-area-inset-top));
@@ -332,6 +349,7 @@ const registerCss = `
   gap: 8px;
 }
 @media (max-width: 720px) {
+  .pc-shell-root-v4:has(.p7-register-page) .pc-v4-main { padding: 0 12px 24px !important; }
   .p7-register-header {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
@@ -345,6 +363,7 @@ const registerCss = `
   .p7-register-action { min-width: 78px; min-height: 40px; font-size: 12.5px; padding: 0 9px; border-radius: 15px; }
 }
 @media (max-width: 374px) {
+  .pc-shell-root-v4:has(.p7-register-page) .pc-v4-main { padding: 0 10px 22px !important; }
   .p7-register-header { padding: 10px; gap: 6px; }
   .p7-register-brand-mark { width: 36px; height: 36px; }
   .p7-register-brand-text { font-size: 14.5px; }
