@@ -3,24 +3,16 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Public role cards hand off exactly one selected role to login; login no longer exposes repeat cabinet selection and keeps registration separate.",
+  "current": "Elevator cabinet functional review: verify first-screen execution context, blocked actions, responsible owner, next action, shell/mobile stability and honest pre-integration copy.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2041",
-  "lastClosed": ["#2038"],
+  "openPr": null,
+  "lastClosed": ["#2038", "#2041", "#2042"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes"],
   "allowedCurrentScope": [
-    "apps/web/app/platform-v7/login/page.tsx",
-    "apps/web/components/platform-v7/PublicEntryCleanup.tsx",
-    "apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx",
-    "apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/web/app/platform-v7/login/page.tsx",
-    "apps/web/components/platform-v7/PublicEntryCleanup.tsx",
-    "apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx",
-    "apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
