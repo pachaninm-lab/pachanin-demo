@@ -2,34 +2,32 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "in_progress",
-  "current": "Polish the public platform-v7 entry page and preserve the one-time role selection flow into login.",
+  "currentStatus": "queued",
+  "current": "Queue the next exact elevator cabinet functional review after public entry and login polish landed.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2050",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049"],
+  "openPr": "pending",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2050", "#2051"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
-    "apps/web/app/platform-v7/page.tsx",
-    "apps/web/app/platform-v7/login/page.tsx",
-    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/web/app/platform-v7/page.tsx",
-    "apps/web/app/platform-v7/login/page.tsx",
-    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
+  ],
+  "queuedExecutionScope": [
+    "apps/web/app/platform-v7/elevator/page.tsx",
+    "apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts"
   ],
   "controlledActions": { "enabled": true },
   "forbiddenZones": [
     "apps/landing",
-    "apps/web/app/platform-v7",
-    "apps/web/components/platform-v7",
-    "apps/web/components/v7r",
-    "apps/web/lib/platform-v7",
     "apps/web/app/api",
+    "backend",
+    "db",
+    "auth",
+    "session",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml"
