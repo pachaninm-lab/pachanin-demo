@@ -1,11 +1,13 @@
 # platform-v7 execution queue
 
-CURRENT: Reserve deployment refresh after seller mobile CSS text leak fix; next role pass remains elevator cabinet functional review.
+CURRENT: Public registration CTA recovery after mobile entry showed login as the primary action.
 
-GOAL: keep role cabinets stable on mobile with visible shell, role dock, no horizontal overflow, and clear first-screen execution context.
+GOAL: keep the public entry, login and registration routes coherent without creating role-lock bypasses; protected role cabinets remain strict and readiness remains honest.
 
 CURRENT ALLOWED:
 - apps/web/app/platform-v7/layout.tsx
+- apps/web/app/platform-v7/template.tsx
+- apps/web/app/platform-v7/login/page.tsx
 - apps/web/app/platform-v7/seller/page.tsx
 - apps/web/app/platform-v7/buyer/page.tsx
 - apps/web/app/platform-v7/bank/page.tsx
@@ -17,6 +19,7 @@ CURRENT ALLOWED:
 - apps/web/app/platform-v7/surveyor/page.tsx
 - apps/web/app/platform-v7/driver/field/page.tsx
 - apps/web/app/platform-v7/field/page.tsx
+- apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx
 - apps/web/components/platform-v7/RoleExecutionCockpit.tsx
 - apps/web/components/platform-v7/RoleExecutionSummary.tsx
 - apps/web/components/platform-v7/LiveApiStatusBar.tsx
@@ -34,12 +37,13 @@ CURRENT ALLOWED:
 - apps/web/tests/unit/roleContinuityLayouts.test.tsx
 - apps/web/tests/unit/platformV7FieldRolesIsolation.test.ts
 - apps/web/tests/unit/platformV7BankPageBasisGuard.test.ts
+- apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts
 - docs/platform-v7/audit/**
 - docs/platform-v7/autopilot/**
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: elevator cabinet functional review after mobile shell stabilization.
+- Layer: elevator cabinet functional review after public entry registration path is green.
 - Allowed files:
   - exact elevator role page from CURRENT ALLOWED;
   - exact platform-v7 CSS file from CURRENT ALLOWED;
@@ -47,17 +51,19 @@ NEXT:
   - docs/platform-v7/audit/** only when recording audit evidence;
   - docs/platform-v7/autopilot/** and docs/platform-v7/execution-queue.md only for state updates.
 - Success criteria:
-  - mobile shell keeps header logo, menu, work tools and role dock visible without horizontal overflow;
-  - elevator cabinet keeps first-screen status, blocker, money impact, responsible party and next action clear;
-  - actions route to real page/action/section or have a clear disabled reason;
+  - public entry primary CTA leads to registration, not login;
+  - existing users still have a login action;
+  - registration route is explicit and does not create role-lock bypass;
+  - mobile 390x844 keeps safe area and no horizontal overflow;
   - maturity remains controlled-pilot / pre-integration;
   - no apps/landing, package or lockfile changes;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
-1. Seller, buyer, bank, operator, compliance and lab guards are already covered.
-2. Elevator remains next.
-3. Then driver / field and regression route audit.
+1. Public entry registration source fix is active in #2034.
+2. Seller, buyer, bank, operator, compliance and lab guards are already covered.
+3. Elevator remains next.
+4. Then driver / field and regression route audit.
 
 RULES:
 - one PR = one narrow layer;
@@ -70,5 +76,6 @@ DONE:
 - #2028 seller CSS leak guard.
 - #2029 state sync after mobile shell stabilization.
 - #2031 seller mobile CSS text leak fix.
+- #2032 mobile shell stabilization follow-up.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
