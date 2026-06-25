@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { CircleHelp, LogIn, LogOut, Wheat } from 'lucide-react';
+import { LogIn, LogOut } from 'lucide-react';
 import { PremiumCtaButton, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
+import { BrandMark } from '@/components/v7r/BrandMark';
 
 type Field = { label: string; placeholder: string; type?: string };
 type RegisterSearchParams = Record<string, string | string[] | undefined>;
@@ -90,11 +91,10 @@ function RegisterHeader() {
   return (
     <header className='p7-register-header' aria-label='Навигация регистрации участника'>
       <Link href='/platform-v7' className='p7-register-brand' aria-label='На главную Прозрачная Цена'>
-        <span className='p7-register-brand-mark'><Wheat size={23} strokeWidth={2.45} /></span>
+        <span className='p7-register-brand-mark'><BrandMark size={44} /></span>
         <span className='p7-register-brand-text'>Прозрачная Цена</span>
       </Link>
       <nav className='p7-register-actions' aria-label='Действия регистрации'>
-        <Link href='/platform-v7/support?role=operator' className='p7-register-action'><CircleHelp size={16} />Помощь</Link>
         <Link href='/platform-v7/login' className='p7-register-action'><LogIn size={16} />Войти</Link>
         <Link href='/platform-v7' className='p7-register-action p7-register-action-exit'><LogOut size={16} />Выход</Link>
       </nav>
@@ -199,9 +199,10 @@ const registerCss = `
   top: max(8px, env(safe-area-inset-top));
   z-index: 30;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
-  padding: 14px;
+  padding: 13px 14px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 26px;
   background: rgba(255,255,255,0.93);
@@ -212,42 +213,44 @@ const registerCss = `
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   color: #111827;
   text-decoration: none;
 }
 .p7-register-brand-mark {
   flex: 0 0 auto;
-  display: inline-grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 16px;
-  color: #087a3b;
-  background: rgba(8,122,59,0.08);
-  box-shadow: inset 0 0 0 1px rgba(8,122,59,0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  overflow: visible;
 }
 .p7-register-brand-text {
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1;
   font-weight: 920;
   letter-spacing: -0.035em;
 }
 .p7-register-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  min-width: 0;
 }
 .p7-register-action {
   min-height: 42px;
+  min-width: 92px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 16px;
   border: 1px solid rgba(15,23,42,0.10);
   background: rgba(255,255,255,0.84);
@@ -256,6 +259,7 @@ const registerCss = `
   font-weight: 860;
   text-decoration: none;
   box-shadow: 0 8px 18px rgba(15,23,42,0.035);
+  white-space: nowrap;
 }
 .p7-register-action-exit {
   color: #087a3b;
@@ -327,20 +331,28 @@ const registerCss = `
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 8px;
 }
-@media (min-width: 720px) {
+@media (max-width: 720px) {
   .p7-register-header {
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    padding: 12px 14px;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 24px;
   }
-  .p7-register-actions { grid-template-columns: repeat(3, auto); }
-  .p7-register-action { min-width: 104px; }
+  .p7-register-brand { gap: 8px; }
+  .p7-register-brand-mark { width: 40px; height: 40px; }
+  .p7-register-brand-text { font-size: 16px; }
+  .p7-register-actions { gap: 6px; }
+  .p7-register-action { min-width: 78px; min-height: 40px; font-size: 12.5px; padding: 0 9px; border-radius: 15px; }
+}
+@media (max-width: 374px) {
+  .p7-register-header { padding: 10px; gap: 6px; }
+  .p7-register-brand-mark { width: 36px; height: 36px; }
+  .p7-register-brand-text { font-size: 14.5px; }
+  .p7-register-actions { gap: 5px; }
+  .p7-register-action { min-width: 68px; min-height: 38px; font-size: 11.5px; padding: 0 7px; }
+  .p7-register-action svg { display: none; }
 }
 @media (max-width: 520px) {
-  .p7-register-header { gap: 10px; padding: 13px; border-radius: 24px; }
-  .p7-register-brand-mark { width: 40px; height: 40px; border-radius: 15px; }
-  .p7-register-brand-text { font-size: 18px; }
-  .p7-register-action { min-height: 40px; font-size: 12px; padding: 0 8px; border-radius: 15px; }
   .p7-register-hero { padding: 22px 18px; border-radius: 26px; gap: 14px; }
   .p7-register-kicker { padding: 8px 12px; font-size: 12.5px; }
   .p7-register-hero h1 { font-size: clamp(31px, 8.4vw, 36px); line-height: 1.03; }
