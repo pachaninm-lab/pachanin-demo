@@ -46,7 +46,7 @@ ORDER:
 8. Public mobile process carousel polish is active in #2062/#2064.
 9. Public process stage copy polish is active from #2065.
 10. Netlify root entry redirect recovery is active from root-entry-redirect.
-11. Public hero copy polish is active in #2063.
+11. Public hero copy polish is active in #2067.
 12. Then driver field regression route audit.
 
 RULES:
