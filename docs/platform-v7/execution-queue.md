@@ -34,7 +34,7 @@ NEXT:
 ORDER:
 1. Stable shell boundary is active from #2038.
 2. Role-locked login handoff is active from #2036/#2037.
-3. Mobile protected header action recovery is complete.
+3. Mobile protected header action recovery is complete from #2045/#2046/#2055.
 4. Public mobile entry regression is repaired in #2053.
 5. Elevator first-screen pass is current.
 6. Queue driver / field exact first-screen scope next.
@@ -65,5 +65,6 @@ DONE:
 - #2048/#2049 login/register entry polish.
 - #2051 role login flow polish.
 - #2053 public mobile entry regression repair.
+- #2055 stable protected mobile header actions.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
