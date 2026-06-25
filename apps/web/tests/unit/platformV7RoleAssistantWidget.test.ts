@@ -26,10 +26,13 @@ describe('platform-v7 role assistant widget', () => {
     expect(widgetFile).toContain(".pc-v4-bottomnav a[href='/platform-v7/ai']");
   });
 
-  it('mounts a deterministic mobile action rail after legacy header tools', () => {
+  it('mounts a deterministic viewport-anchored mobile action rail', () => {
     expect(layoutFile).toContain("import { MobileHeaderActionRail }");
     expect(layoutFile).toContain('<MobileHeaderActionRail />');
     expect(railFile).toContain("className='p7-mobile-action-rail'");
+    expect(railFile).toContain("document.querySelector<HTMLElement>('.pc-shell-root-v4 .pc-v4-top')");
+    expect(railFile).toContain('document.body');
+    expect(railFile).toContain('position:fixed!important');
     expect(railFile).toContain('grid-template-columns:repeat(7,30px)!important');
     expect(railFile).toContain("aria-label='Открыть поиск'");
     expect(railFile).toContain("aria-label='Открыть блокнот'");
