@@ -10,6 +10,7 @@ CURRENT ALLOWED:
 
 CURRENT CHECKS:
 - driver / field route scope is selected before code changes;
+- exact next code scope is named as apps/web/app/platform-v7/driver/field/page.tsx plus apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts;
 - first screen criteria remain explicit: what happened, what is blocked, money at risk, owner and next action;
 - every visible action must route to a real route/action/section or have a clear disabled reason;
 - shell, mobile layout and role isolation remain stable;
@@ -17,17 +18,16 @@ CURRENT CHECKS:
 - no public landing, backend, API, DB, auth, session, package or lockfile changes.
 
 NEXT:
-- Layer: Tighten driver field first screen so the driver sees one trip, blocker, money boundary, owner and next action before workflow details.
+- Layer: Queue driver field code pass after exact scope selection.
 - Allowed files:
-  - apps/web/app/platform-v7/driver/field/page.tsx
-  - apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - first screen shows what happened, what is blocked, money boundary, accountable role and next action;
-  - visible actions route to real in-page sections or disabled states with clear reasons;
-  - driver sees own-trip / field context only and no bank, buyer, price, payout or unrelated role control;
-  - mobile 390x844 remains single-column, no horizontal overflow, bottom-safe and touch-safe;
+  - next execution layer preserves the exact code scope: apps/web/app/platform-v7/driver/field/page.tsx and apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts;
+  - first screen criteria remain explicit: what happened, what is blocked, money boundary, accountable role and next action;
+  - visible actions must route to real in-page sections or disabled states with clear reasons;
+  - driver must see own-trip / field context only and no bank, buyer, price, payout or unrelated role control;
+  - mobile 390x844 must remain single-column, no horizontal overflow, bottom-safe and touch-safe;
   - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
@@ -38,7 +38,7 @@ ORDER:
 4. Public mobile brand title recovery is active from #2056.
 5. Elevator first-screen pass is active from #2057.
 6. Driver / field first-screen scope is current.
-7. Then logistics / field and regression route audit.
+7. Then driver field code pass and regression route audit.
 
 RULES:
 - one PR = one narrow layer;
