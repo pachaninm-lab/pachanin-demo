@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "Public role cards hand off exactly one selected role to login; login no longer exposes repeat cabinet selection and keeps registration separate.",
   "fullTzReadinessPercent": 72,
-  "openPr": "role-locked-login-handoff",
+  "openPr": "#2041",
   "lastClosed": ["#2038"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes"],
   "allowedCurrentScope": [
