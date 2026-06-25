@@ -3,12 +3,29 @@
 import * as React from 'react';
 import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
+const ROLE_BY_TITLE = {
+  'Продавец': 'seller',
+  'Покупатель': 'buyer',
+  'Логистика': 'logistics',
+  'Водитель': 'driver',
+  'Элеватор': 'elevator',
+  'Банк': 'bank',
+  'Лаборатория': 'lab',
+  'Сюрвейер': 'surveyor',
+  'Арбитр': 'arbitrator',
+  'Комплаенс': 'compliance',
+  'Оператор': 'operator',
+  'Руководитель': 'executive',
+} as const;
+
 const PUBLIC_ROLES = [
   ['Водитель', 'Маршрут, прибытие, фото и полевые события.'],
   ['Комплаенс', 'Допуск, полномочия, стоп-факторы и контроль рисков.'],
   ['Оператор', 'Центр управления, блокеры, ответственные и следующий шаг.'],
   ['Руководитель', 'Деньги под риском, статус контура и управленческий срез.'],
-];
+] as const;
+
+const PENDING_ROLE_KEY = 'pc_v7_pending_role';
 
 const cleanupCss = `
 .pc-shell-root-v4:has(.pc-v7-public-entry),
@@ -79,17 +96,43 @@ const cleanupCss = `
 }
 `;
 
+function roleFromTitle(title: string) {
+  return ROLE_BY_TITLE[title.trim() as keyof typeof ROLE_BY_TITLE];
+}
+
+function roleLoginHref(title: string) {
+  const role = roleFromTitle(title);
+  return role ? `/platform-v7/login?role=${role}` : '/platform-v7/login';
+}
+
+function persistPendingRole(link: HTMLAnchorElement, role: string) {
+  link.dataset.entryRole = role;
+  link.onclick = () => window.sessionStorage?.setItem(PENDING_ROLE_KEY, role);
+}
+
 function rewritePublicLinks(root: ParentNode) {
   root.querySelectorAll<HTMLAnchorElement>('a[href^="/platform-v7/"]').forEach((link) => {
     const href = link.getAttribute('href') || '';
-    if (href === '/platform-v7/login' || href === '/platform-v7/open' || href === '/platform-v7/register') return;
+    if (href === '/platform-v7/login' || href.startsWith('/platform-v7/login?')) return;
+    if (href === '/platform-v7/open' || href === '/platform-v7/register' || href.startsWith('/platform-v7/register?')) return;
     link.setAttribute('href', '/platform-v7/login');
   });
 }
 
 function normalizeRoleCtas(root: ParentNode) {
   root.querySelectorAll<HTMLElement>('.entry-role-tile em').forEach((item) => {
-    item.textContent = 'Доступ после единого входа';
+    item.textContent = 'Продолжить вход в этот ЛК';
+  });
+}
+
+function applyRoleLoginHandoff(root: ParentNode) {
+  root.querySelectorAll<HTMLAnchorElement>('.entry-role-tile').forEach((link) => {
+    const title = link.querySelector('strong')?.textContent?.trim() || '';
+    const role = roleFromTitle(title);
+    if (!role) return;
+    link.setAttribute('href', roleLoginHref(title));
+    link.setAttribute('aria-label', `${title}: перейти ко входу в выбранный кабинет`);
+    persistPendingRole(link, role);
   });
 }
 
@@ -101,8 +144,8 @@ function ensurePublicRoles(root: ParentNode) {
     if (existing.includes(title)) return;
     const item = document.createElement('a');
     item.className = 'entry-role-tile';
-    item.setAttribute('href', '/platform-v7/login');
-    item.innerHTML = `<strong>${title}</strong><span>${text}</span><em>Доступ после единого входа</em>`;
+    item.setAttribute('href', roleLoginHref(title));
+    item.innerHTML = `<strong>${title}</strong><span>${text}</span><em>Продолжить вход в этот ЛК</em>`;
     grid.appendChild(item);
   });
   grid.dataset.fullRoleSet = 'true';
@@ -130,8 +173,9 @@ export function PublicEntryCleanup() {
         mark.appendChild(img);
         mark.dataset.brandApplied = 'true';
       }
-      rewritePublicLinks(entry);
       ensurePublicRoles(entry);
+      applyRoleLoginHandoff(entry);
+      rewritePublicLinks(entry);
       normalizeRoleCtas(entry);
     }
 
