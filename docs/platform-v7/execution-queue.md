@@ -18,6 +18,9 @@ CURRENT CHECKS:
 
 NEXT:
 - Layer: Driver field route regression fix.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
 - Scope intent for the next code PR: driver / field route only, plus its matching unit guard and autopilot docs.
 - Success criteria:
   - all visible driver / field actions point to real in-page sections, real routes, or explicit disabled states;
