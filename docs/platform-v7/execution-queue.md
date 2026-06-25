@@ -1,17 +1,20 @@
 # platform-v7 execution queue
 
-CURRENT: Select driver field regression route audit scope before code changes.
+CURRENT: Public entry process carousel polish scope before merge.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
+- apps/web/styles/platform-v7-public-entry-stable.css
+- apps/web/tests/unit/platformV7PublicEntryStable.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- audit scope is selected before code changes;
-- the next layer is limited to the driver / field route and its unit guard;
-- route audit covers visible action wiring, role isolation, shell consistency and mobile 390x844 constraints;
+- public mobile process carousel is converted from cramped multi-card strip to single-card snap carousel;
+- cards keep readable title, text, icon and number badge without clipping on 360-420px widths;
+- native horizontal swipe remains available without horizontal page overflow;
+- unit guard covers the new carousel contract;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes.
@@ -38,7 +41,8 @@ ORDER:
 5. Elevator first-screen pass is active from #2057.
 6. Driver / field first-screen scope is active from #2058.
 7. Driver / field first-screen pass is active from #2059.
-8. Then driver field regression route audit.
+8. Public mobile process carousel polish is active in #2062.
+9. Then driver field regression route audit.
 
 RULES:
 - one PR = one narrow layer;
