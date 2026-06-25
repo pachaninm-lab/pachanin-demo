@@ -11,13 +11,26 @@ describe('platform-v7 root working entry', () => {
     expect(page).toContain('entry-role-grid');
   });
 
-  it('routes public role cards through login instead of direct cabinets', () => {
-    expect(page).toContain('/platform-v7/login');
+  it('routes public role cards through role-selected login instead of direct cabinets', () => {
+    expect(page).toContain('/platform-v7/login?role=seller');
+    expect(page).toContain('/platform-v7/login?role=buyer');
+    expect(page).toContain('/platform-v7/login?role=operator');
+    expect(page).toContain('/platform-v7/login?role=executive');
     expect(page).not.toContain("href: '/platform-v7/seller'");
     expect(page).not.toContain("href: '/platform-v7/buyer'");
     expect(page).not.toContain("href: '/platform-v7/bank'");
-    expect(page).not.toContain("key={role.href}");
-    expect(page).toContain("key={role.title}");
+    expect(page).not.toContain('Рабочее место выбирается внутри формы');
+    expect(page).toContain('Роль выбирается здесь один раз');
+    expect(page).not.toContain('key={role.href}');
+    expect(page).toContain('key={role.title}');
+  });
+
+  it('keeps mobile entry polish guarded', () => {
+    expect(page).toContain('.entry-header { min-height: 60px; padding: 8px 14px; }');
+    expect(page).toContain('scroll-snap-type: x mandatory');
+    expect(page).toContain("className='entry-register-cta'");
+    expect(page).toContain("href='/platform-v7/register'");
+    expect(page).toContain('color: #fff !important; background: #087a3b');
   });
 
   it('keeps maturity language guarded', () => {
