@@ -5,13 +5,14 @@
   "currentStatus": "in_progress",
   "current": "Restore the complete protected mobile header action set with a stable compact order and logout pinned to the far right.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2045",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042"],
+  "openPr": "#2048",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
     "apps/web/app/platform-v7/layout.tsx",
     "apps/web/components/platform-v7/RoleAssistantWidget.tsx",
     "apps/web/components/platform-v7/SupportHeaderIcon.tsx",
+    "apps/web/components/platform-v7/MobileHeaderActionRail.tsx",
     "apps/web/tests/unit/platformV7RoleAssistantWidget.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
@@ -20,6 +21,7 @@
     "apps/web/app/platform-v7/layout.tsx",
     "apps/web/components/platform-v7/RoleAssistantWidget.tsx",
     "apps/web/components/platform-v7/SupportHeaderIcon.tsx",
+    "apps/web/components/platform-v7/MobileHeaderActionRail.tsx",
     "apps/web/tests/unit/platformV7RoleAssistantWidget.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"

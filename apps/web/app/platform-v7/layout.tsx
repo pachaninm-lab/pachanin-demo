@@ -10,6 +10,7 @@ import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
 import { CalculatorHeaderWidget } from '@/components/platform-v7/CalculatorHeaderWidget';
+import { MobileHeaderActionRail } from '@/components/platform-v7/MobileHeaderActionRail';
 import { NotepadHeaderWidget } from '@/components/platform-v7/NotepadHeaderWidget';
 import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidget';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
@@ -64,12 +65,8 @@ html body .pc-shell-root-v4 style{display:none!important}
   html body .pc-shell-root-v4 .pc-v4-brand>span[aria-hidden]{display:inline-flex!important;inline-size:38px!important;min-inline-size:38px!important;max-inline-size:38px!important;block-size:38px!important;min-block-size:38px!important;max-block-size:38px!important;flex:0 0 38px!important;visibility:visible!important;opacity:1!important;overflow:visible!important}
   html body .pc-shell-root-v4 .pc-v4-brand>span[aria-hidden] img{display:block!important;inline-size:100%!important;block-size:100%!important;max-inline-size:none!important;visibility:visible!important;opacity:1!important}
   html body .pc-shell-root-v4 .pc-v4-brand>span:not([aria-hidden]){display:none!important}
-  html body .pc-shell-root-v4 .pc-v4-actions{grid-column:3!important;position:static!important;display:grid!important;grid-template-columns:repeat(7,30px)!important;grid-auto-flow:column!important;align-items:center!important;justify-content:end!important;gap:3px!important;inline-size:100%!important;max-inline-size:100%!important;min-inline-size:0!important;overflow:visible!important;visibility:visible!important;opacity:1!important}
+  html body .pc-shell-root-v4 .pc-v4-actions{grid-column:3!important;position:static!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:0!important;inline-size:100%!important;max-inline-size:100%!important;min-inline-size:0!important;overflow:visible!important;visibility:visible!important;opacity:1!important}
   html body .pc-shell-root-v4 .pc-v4-stage,html body .pc-shell-root-v4 .pc-v4-actions button[aria-label='Открыть уведомления']{display:none!important}
-  html body .pc-shell-root-v4 .pc-v4-search,html body .pc-shell-root-v4 .pc-v4-theme-toggle,html body .pc-shell-root-v4 .p7-note-widget,html body .pc-shell-root-v4 .pc-v7-notice-wrap,html body .pc-shell-root-v4 .p7-role-support,html body .pc-shell-root-v4 .p7-calc-widget,html body .pc-shell-root-v4 .pc-v7-logout-btn{display:inline-flex!important;flex:0 0 30px!important;inline-size:30px!important;min-inline-size:30px!important;max-inline-size:30px!important;block-size:30px!important;min-block-size:30px!important;max-block-size:30px!important;visibility:visible!important;opacity:1!important;overflow:visible!important}
-  html body .pc-shell-root-v4 .pc-v4-search{order:10!important;grid-column:1!important}html body .pc-shell-root-v4 .pc-v4-theme-toggle{order:20!important;grid-column:2!important}html body .pc-shell-root-v4 .p7-note-widget{order:30!important;grid-column:3!important}html body .pc-shell-root-v4 .pc-v7-notice-wrap{order:40!important;grid-column:4!important;position:relative!important}html body .pc-shell-root-v4 .p7-role-support{order:50!important;grid-column:5!important}html body .pc-shell-root-v4 .p7-calc-widget{order:60!important;grid-column:6!important}html body .pc-shell-root-v4 .pc-v7-logout-btn{order:100!important;grid-column:7!important}
-  html body .pc-shell-root-v4 .pc-v4-search,html body .pc-shell-root-v4 .pc-v4-theme-toggle,html body .pc-shell-root-v4 .p7-note-widget .pc-v4-iconbtn,html body .pc-shell-root-v4 .pc-v7-notice-wrap .pc-v4-iconbtn,html body .pc-shell-root-v4 .p7-role-support.pc-v4-iconbtn,html body .pc-shell-root-v4 .pc-v7-logout-btn,html body .pc-shell-root-v4 .p7-calc-widget .pc-v4-iconbtn{display:inline-flex!important;inline-size:30px!important;min-inline-size:30px!important;max-inline-size:30px!important;block-size:30px!important;min-block-size:30px!important;max-block-size:30px!important;border-radius:11px!important;padding:0!important;align-items:center!important;justify-content:center!important}
-  html body .pc-shell-root-v4 .pc-v4-search svg,html body .pc-shell-root-v4 .pc-v4-theme-toggle svg,html body .pc-shell-root-v4 .p7-note-widget svg,html body .pc-shell-root-v4 .pc-v7-notice-wrap svg,html body .pc-shell-root-v4 .p7-role-support svg,html body .pc-shell-root-v4 .p7-calc-widget svg,html body .pc-shell-root-v4 .pc-v7-logout-btn svg{inline-size:17px!important;block-size:17px!important;max-inline-size:17px!important;max-block-size:17px!important}
   html body .pc-shell-root-v4 .pc-v4-search strong,html body .pc-shell-root-v4 .pc-v4-search span{display:none!important}
   html body .pc-shell-root-v4 .pc-v7-notice-panel,html body .pc-shell-root-v4 .p7-note-panel,html body .pc-shell-root-v4 .p7-calc-panel{position:fixed!important;left:10px!important;right:10px!important;top:64px!important;width:auto!important;max-width:none!important;z-index:900!important}
   html body .pc-shell-root-v4 .pc-v7-role-dock{display:block!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;z-index:700!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}
@@ -89,8 +86,6 @@ html body .pc-shell-root-v4 style{display:none!important}
   html body .pc-shell-root-v4 .pc-v4-header{min-block-size:54px!important;max-block-size:58px!important}
   html body .pc-shell-root-v4 .pc-v4-header-inner{padding:7px 6px!important;min-block-size:52px!important;max-block-size:56px!important}
   html body .pc-shell-root-v4 .pc-v4-top{grid-template-columns:34px 38px minmax(0,1fr)!important;gap:4px!important}
-  html body .pc-shell-root-v4 .pc-v4-actions{grid-template-columns:repeat(7,28px)!important;gap:2px!important}
-  html body .pc-shell-root-v4 .pc-v4-top>button[aria-label='Открыть меню'],html body .pc-shell-root-v4 .pc-v4-search,html body .pc-shell-root-v4 .pc-v4-theme-toggle,html body .pc-shell-root-v4 .p7-note-widget,html body .pc-shell-root-v4 .pc-v7-notice-wrap,html body .pc-shell-root-v4 .p7-role-support,html body .pc-shell-root-v4 .pc-v7-logout-btn,html body .pc-shell-root-v4 .p7-calc-widget,html body .pc-shell-root-v4 .p7-note-widget .pc-v4-iconbtn,html body .pc-shell-root-v4 .pc-v7-notice-wrap .pc-v4-iconbtn,html body .pc-shell-root-v4 .p7-role-support.pc-v4-iconbtn,html body .pc-shell-root-v4 .p7-calc-widget .pc-v4-iconbtn{flex-basis:28px!important;inline-size:28px!important;min-inline-size:28px!important;max-inline-size:28px!important;block-size:28px!important;min-block-size:28px!important;max-block-size:28px!important}
 }
 `;
 
@@ -113,6 +108,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <CalculatorHeaderWidget />
           <NotepadHeaderWidget />
           <SupportHeaderIcon />
+          <MobileHeaderActionRail />
           <RoleAssistantWidget />
           {children}
           <style dangerouslySetInnerHTML={{ __html: shellRestoreCss }} />
