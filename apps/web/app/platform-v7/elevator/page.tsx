@@ -25,6 +25,14 @@ const elevatorHandoff: HandoffItem[] = [
 const receiving = DL_9106_ELEVATOR_RECEIVING.snapshot;
 const quality = DL_9106_ELEVATOR_RECEIVING.quality;
 
+const firstScreen = [
+  { label: 'Что произошло', value: 'TRIP-2403-001 прибыл на приёмку', note: 'Физический факт уже в работе: рейс, партия, вес и лабораторная проба.' },
+  { label: 'Что заблокировано', value: 'акт расхождения и протокол качества', note: 'Отклонение веса и сорная примесь выше допуска не дают передать основание банку.' },
+  { label: 'Деньги под риском', value: '9,65 млн ₽ удержание', note: 'Выплата не должна уходить дальше до закрытия веса, качества и документов.' },
+  { label: 'Кто отвечает', value: 'элеватор · лаборатория · оператор', note: 'Приёмка фиксирует вес, лаборатория закрывает протокол, оператор контролирует передачу основания.' },
+  { label: 'Следующее действие', value: 'зафиксировать вес и передать пробу', note: 'Действия ведут в реальные секции текущего кабинета: #weight и #quality.' },
+] as const;
+
 const receivingSummary = [
   { label: 'Что сейчас', value: 'TRIP-2403-001 прибыл на приёмку', note: 'Приёмка фиксирует физический факт: вес, качество, акт и отклонения.' },
   { label: 'Где груз', value: 'элеватор ВРЖ-08 · партия LOT-2403', note: 'Видна только партия и рейс, без коммерческой цены сделки.' },
@@ -50,11 +58,21 @@ export default async function Page() {
   return (
     <main data-testid='platform-v7-elevator-page' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <LiveApiStatusBar apiOnline={apiOnline} blockers={liveBlockers} activeShipments={shipmentCount} role="ELEVATOR · Приёмка" summary={apiOnline ? `${shipmentCount} рейсов на приёмке · ${pendingSamples.length} проб ожидают протокола` : 'Данные статичные — API недоступен'} />
-      <style dangerouslySetInnerHTML={{ __html: `@media(max-width:767px){[data-testid='platform-v7-elevator-page']{gap:10px!important;padding-top:0!important}.p7-elevator-hero{padding:16px!important;border-radius:24px!important;gap:8px!important}.p7-elevator-hero h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}.p7-elevator-hero p{display:none!important}.p7-elevator-active{padding:14px!important;border-radius:22px!important;gap:10px!important}.p7-elevator-active h2{font-size:20px!important;line-height:1.1!important}.p7-elevator-active-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}.p7-elevator-active-actions{display:grid!important;grid-template-columns:1fr!important}.p7-elevator-active-actions a{width:100%!important;min-height:54px!important}.p7-elevator-quality{padding:14px!important;border-radius:22px!important;gap:10px!important}.p7-elevator-quality-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}.p7-elevator-quality .p7-elevator-notice{font-size:12px!important;line-height:1.4!important}}` }} />
+      <style dangerouslySetInnerHTML={{ __html: `@media(max-width:767px){[data-testid='platform-v7-elevator-page']{gap:10px!important;padding-top:0!important}.p7-elevator-hero{padding:16px!important;border-radius:24px!important;gap:8px!important}.p7-elevator-hero h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.04!important}.p7-elevator-hero p{display:none!important}.p7-elevator-first-screen{padding:14px!important;border-radius:22px!important;gap:10px!important}.p7-elevator-first-screen h2{font-size:20px!important;line-height:1.1!important}.p7-elevator-first-grid{grid-template-columns:1fr!important;gap:8px!important}.p7-elevator-first-actions{display:grid!important;grid-template-columns:1fr!important}.p7-elevator-first-actions a{width:100%!important;min-height:52px!important}.p7-elevator-active{padding:14px!important;border-radius:22px!important;gap:10px!important}.p7-elevator-active h2{font-size:20px!important;line-height:1.1!important}.p7-elevator-active-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}.p7-elevator-active-actions{display:grid!important;grid-template-columns:1fr!important}.p7-elevator-active-actions a{width:100%!important;min-height:54px!important}.p7-elevator-quality{padding:14px!important;border-radius:22px!important;gap:10px!important}.p7-elevator-quality-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}.p7-elevator-quality .p7-elevator-notice{font-size:12px!important;line-height:1.4!important}}` }} />
       <QuietIntelligenceHint problem='Отклонение веса -1,2 т и превышение по сорной примеси — акт расхождения не подписан.' action='Зафиксировать вес, подписать акт приёмки и акт расхождения, передать пробу в лабораторию.' outcome='После закрытия актов основание уйдёт в контур документов и банку на проверку выплаты.' />
       <CockpitHero className='p7-elevator-hero' eyebrow='Кабинет приёмки' title='Вес, качество и основание для проверки выплаты' lead='Приёмка видит груз, рейс, вес, лабораторию, документы и отклонения. Деньги, ставки, резерв, кредит и покупательская аналитика не раскрываются.'>
         <ProcessStepper ariaLabel='Этапы приёмки' steps={[{ label: 'Сделка', state: 'done' }, { label: 'Партия', state: 'done' }, { label: 'Приёмка', state: 'current' }, { label: 'Лаборатория', state: 'upcoming' }, { label: 'Документы', state: 'upcoming' }, { label: 'Готово', state: 'upcoming' }]} />
       </CockpitHero>
+
+      <section className='p7-elevator-first-screen' data-testid='platform-v7-elevator-first-screen' style={card}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={micro}>первый экран · контроль сделки</div>
+          <h2 style={h2}>Что важно для приёмки прямо сейчас</h2>
+          <p style={muted}>Экран сначала показывает факт, блокер, деньги под риском, владельца и следующее действие. Это не live-ready claim: данные остаются controlled-pilot / pre-integration.</p>
+        </div>
+        <div className='p7-elevator-first-grid' style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 10 }}>{firstScreen.map((item) => <FirstScreenCell key={item.label} item={item} />)}</div>
+        <div className='p7-elevator-first-actions' style={actions}><a href='#weight' style={primaryBtn}>Открыть фиксацию веса</a><a href='#quality' style={ghostBtn}>Открыть качество</a></div>
+      </section>
 
       <CollapsibleSection title='Обзор приёмки' summary='рейс · вес · качество · следующий шаг' defaultOpen>
         <section style={darkCard}>
@@ -64,7 +82,7 @@ export default async function Page() {
       </CollapsibleSection>
 
       <CollapsibleSection title='Вес и активная приёмка' summary='598,8 т · отклонение -1,2 т' defaultOpen={false}>
-        <section className='p7-elevator-active' style={card}>
+        <section id='weight' className='p7-elevator-active' style={card}>
           <div style={micro}>Активная приёмка</div>
           <div style={rowHead}><div><div style={idText}>{receiving.tripId} · {receiving.dealId}</div><h2 style={h2}>{receiving.crop} · {receiving.declaredWeight}</h2><p style={muted}>{receiving.lotId} · прибыл на элеватор ВРЖ-08</p></div><span style={statusPill}>в работе</span></div>
           <WeighStationPanel tripId={receiving.tripId} declaredTons={600} acceptedTons={598.8} toleranceTons={0.5} note='Отклонение фиксируется актом расхождения; без него основание не передаётся банку на проверку выплаты.' />
@@ -76,7 +94,7 @@ export default async function Page() {
       <CollapsibleSection title='Качество и условия допуска' summary='примесь · акт · протокол' defaultOpen={false}>
         <div style={{ display: 'grid', gap: 12 }}>
           <section style={card}><div style={micro}>Условия приёмки, влияющие на банковскую проверку</div><div style={grid2}>{gates.map((gate) => <Gate key={`${gate.title}-${gate.value}`} gate={gate} />)}</div></section>
-          <section className='p7-elevator-quality' style={card}><div style={micro}>Качество партии · пилотный протокол качества</div><div className='p7-elevator-quality-grid' style={grid2}>{quality.map((item) => <QualityCell key={item.label} item={item} />)}</div><div className='p7-elevator-notice' style={notice}>При отклонении веса или качества платформа создаёт акт расхождения, удержание и задачу оператору. Передача основания банку не продолжается до закрытия акта и протокола.</div></section>
+          <section id='quality' className='p7-elevator-quality' style={card}><div style={micro}>Качество партии · пилотный протокол качества</div><div className='p7-elevator-quality-grid' style={grid2}>{quality.map((item) => <QualityCell key={item.label} item={item} />)}</div><div className='p7-elevator-notice' style={notice}>При отклонении веса или качества платформа создаёт акт расхождения, удержание и задачу оператору. Передача основания банку не продолжается до закрытия акта и протокола.</div></section>
         </div>
       </CollapsibleSection>
 
@@ -108,6 +126,7 @@ const ghostBtn = { ...primaryBtn, background: 'var(--pc-bg-card)', color: 'var(-
 const actions = { display: 'flex', gap: 10, flexWrap: 'wrap' } as const;
 const notice = { border: '1px solid #FECACA', background: '#FEF2F2', color: '#B91C1C', borderRadius: 18, padding: 14, fontSize: 13, lineHeight: 1.45, fontWeight: 900 } as const;
 
+function FirstScreenCell({ item }: { item: (typeof firstScreen)[number] }) { return <div style={{ border: '1px solid var(--pc-border)', borderRadius: 18, padding: 14, display: 'grid', gap: 6 }}><span style={micro}>{item.label}</span><strong style={{ color: item.label === 'Деньги под риском' || item.label === 'Что заблокировано' ? '#B91C1C' : 'var(--pc-text-primary)', fontSize: 17, lineHeight: 1.2 }}>{item.value}</strong><span style={{ color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.4 }}>{item.note}</span></div>; }
 function Cell({ label, value, strong, danger }: { label: string; value: string; strong?: boolean; danger?: boolean }) { return <div style={{ border: '1px solid var(--pc-border)', borderRadius: 18, padding: 14, display: 'grid', gap: 6 }}><span style={micro}>{label}</span><strong style={{ color: danger ? '#B91C1C' : strong ? '#047857' : 'var(--pc-text-primary)', fontSize: 18, lineHeight: 1.2 }}>{value}</strong></div>; }
 function Gate({ gate }: { gate: (typeof gates)[number] }) { return <div style={{ border: `1px solid ${gate.state === 'stop' ? '#FECACA' : '#FED7AA'}`, background: gate.state === 'stop' ? '#FEF2F2' : '#FFF7ED', borderRadius: 18, padding: 14, display: 'grid', gap: 6 }}><span style={{ ...micro, color: gate.state === 'stop' ? '#B91C1C' : '#C2410C' }}>{gate.title}</span><strong style={{ color: 'var(--pc-text-primary)', fontSize: 16 }}>{gate.value}</strong><span style={{ color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.4 }}>{gate.impact}</span></div>; }
 function QualityCell({ item }: { item: (typeof quality)[number] }) { return <div style={{ border: `1px solid ${item.state === 'stop' ? '#FECACA' : '#FED7AA'}`, background: item.state === 'stop' ? '#FEF2F2' : '#FFFBEB', borderRadius: 18, padding: 14, display: 'grid', gap: 6 }}><span style={{ ...micro, color: item.state === 'stop' ? '#B91C1C' : '#B45309' }}>{item.label}</span><strong style={{ color: 'var(--pc-text-primary)', fontSize: 18 }}>{item.value}</strong><span style={{ color: item.state === 'stop' ? '#B91C1C' : '#B45309', fontSize: 12 }}>{item.limit}</span></div>; }
