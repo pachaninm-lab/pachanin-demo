@@ -3,36 +3,30 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "The platform-v7 shell stays mounted across public-to-cabinet navigation; public chrome is hidden by the client pathname controller without replacing the shell tree.",
+  "current": "Public role cards hand off exactly one selected role to login; login no longer exposes repeat cabinet selection and keeps registration separate.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2038",
-  "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994", "#1995", "#1996", "#1997", "#1998", "#1999", "#2000", "#2001", "#2002", "#2003", "#2004", "#2005", "#2006", "#2007", "#2008", "#2009", "#2010", "#2011", "#2015", "#2016", "#2017", "#2018", "#2019", "#2020", "#2021", "#2022", "#2023", "#2024", "#2025", "#2026", "#2027", "#2028", "#2029", "#2031", "#2032", "#2034", "#2036", "#2037"],
-  "lockedUntilCurrentGreen": ["External connectivity", "Persistence expansion", "Lockfile changes", "apps/landing changes"],
+  "openPr": "role-locked-login-handoff",
+  "lastClosed": ["#2038"],
+  "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes"],
   "allowedCurrentScope": [
-    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/login/page.tsx",
+    "apps/web/components/platform-v7/PublicEntryCleanup.tsx",
     "apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx",
+    "apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/login/page.tsx",
+    "apps/web/components/platform-v7/PublicEntryCleanup.tsx",
     "apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx",
+    "apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "controlledActions": { "enabled": true },
-  "forbiddenZones": [
-    "apps/landing",
-    "apps/web/app/platform-v7",
-    "apps/web/components/platform-v7",
-    "apps/web/components/v7r",
-    "apps/web/lib/platform-v7",
-    "apps/web/app/api",
-    "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml"
-  ],
+  "forbiddenZones": ["apps/landing", "package.json", "package-lock.json", "pnpm-lock.yaml"],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": [],
-  "readiness": "72% honest readiness after UX shell stabilization, protected shell tools gate, primary-role controls, operational-role guard coverage, mobile shell leak fixes and public registration/login recovery. Runtime layers are still required before live readiness."
+  "readiness": "72% honest readiness. Runtime layers are still required before live readiness."
 }
