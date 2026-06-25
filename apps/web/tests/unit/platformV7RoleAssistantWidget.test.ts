@@ -25,11 +25,16 @@ describe('platform-v7 role assistant widget', () => {
     expect(widgetFile).toContain(".pc-v4-bottomnav a[href='/platform-v7/ai']");
   });
 
-  it('keeps logout visible as the far-right mobile header action', () => {
+  it('keeps every mobile header action in one compact ordered row', () => {
     expect(widgetFile).not.toContain('.pc-v7-logout-btn{display:none!important}');
-    expect(layoutFile).toContain('.pc-v7-logout-btn{order:100!important}');
-    expect(layoutFile).toContain('.pc-v4-search{order:10!important}');
-    expect(layoutFile).toContain('.p7-role-support{order:50!important}');
-    expect(layoutFile).toContain('html body .pc-shell-root-v4 .pc-v4-search,html body .pc-shell-root-v4 .pc-v4-theme-toggle');
+    expect(layoutFile).toContain('grid-template-columns:repeat(7,30px)!important');
+    expect(layoutFile).toContain('.pc-v4-search{order:10!important;grid-column:1!important}');
+    expect(layoutFile).toContain('.pc-v4-theme-toggle{order:20!important;grid-column:2!important}');
+    expect(layoutFile).toContain('.p7-note-widget{order:30!important;grid-column:3!important}');
+    expect(layoutFile).toContain('.pc-v7-notice-wrap{order:40!important;grid-column:4!important');
+    expect(layoutFile).toContain('.p7-role-support{order:50!important;grid-column:5!important}');
+    expect(layoutFile).toContain('.p7-calc-widget{order:60!important;grid-column:6!important}');
+    expect(layoutFile).toContain('.pc-v7-logout-btn{order:100!important;grid-column:7!important}');
+    expect(layoutFile).toContain('inline-size:30px!important;min-inline-size:30px!important;max-inline-size:30px!important');
   });
 });
