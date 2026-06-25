@@ -1,19 +1,22 @@
 # platform-v7 execution queue
 
-CURRENT: Netlify root entry redirect recovery scope before merge.
+CURRENT: Public entry hero copy polish scope before merge.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/app/page.tsx
-- apps/web/next.config.js
+- apps/web/app/platform-v7/page.tsx
+- apps/web/app/platform-v7/open/page.tsx
+- apps/web/tests/unit/platformV7VisibleEntry.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- root `/` no longer points users through protected `/platform-v7/control-tower`;
-- root `/` routes directly to the public platform-v7 entry;
-- root redirect is also declared in Next redirects for host-level recovery;
+- public hero copy states the post-price execution risk without implying live readiness;
+- `/platform-v7` and `/platform-v7/open` use the same controlled-pilot execution-contour positioning;
+- longer hero headline remains balanced on mobile and desktop without horizontal overflow;
+- primary public action stays role selection, not a role-lock bypass;
+- unit guard covers the visible public hero copy;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes.
@@ -41,9 +44,10 @@ ORDER:
 6. Driver / field first-screen scope is active from #2058.
 7. Driver / field first-screen pass is active from #2059.
 8. Public mobile process carousel polish is active in #2062/#2064.
-9. Public process stage copy polish is active in #2065.
-10. Netlify root entry redirect recovery is active in the current PR.
-11. Then driver field regression route audit.
+9. Public process stage copy polish is active from #2065.
+10. Netlify root entry redirect recovery is active from root-entry-redirect.
+11. Public hero copy polish is active in #2067.
+12. Then driver field regression route audit.
 
 RULES:
 - one PR = one narrow layer;
@@ -77,5 +81,6 @@ DONE:
 - #2058 driver field first-screen scope selection.
 - #2059 driver field first-screen pass.
 - #2065 public process stage copy polish.
+- root-entry-redirect Netlify root entry redirect recovery.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.

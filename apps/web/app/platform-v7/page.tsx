@@ -91,8 +91,8 @@ export default function PlatformV7RootPage() {
       <section className='entry-hero' aria-labelledby='entry-hero-title'>
         <div className='entry-hero-copy'>
           <span className='entry-kicker'>Единый вход в контур сделки</span>
-          <h1 id='entry-hero-title'>После цены начинается главный риск сделки</h1>
-          <p>Контролируйте качество, вес, логистику, документы, приёмку, оплату и спор в одном рабочем контуре.</p>
+          <h1 id='entry-hero-title'>Главный риск сделки начинается после согласования цены</h1>
+          <p>Прозрачная Цена — цифровой контур исполнения зерновой сделки: рейс, приёмка, качество, документы, деньги, спор и доказательства в одном процессе.</p>
 
           <div className='entry-hero-actions'>
             <a href='#roles' className='entry-primary-cta'>Выбрать роль<ArrowRight size={20} /></a>
@@ -275,8 +275,8 @@ const entryCss = `
   letter-spacing: .045em;
   text-transform: uppercase;
 }
-.entry-hero h1 { margin: 0; max-width: 760px; font-size: clamp(43px, 5.4vw, 82px); line-height: .98; letter-spacing: -.062em; font-weight: 950; }
-.entry-hero p { margin: 20px 0 0; max-width: 590px; color: #3e4a45; font-size: clamp(18px, 1.5vw, 22px); line-height: 1.42; font-weight: 620; }
+.entry-hero h1 { margin: 0; max-width: 780px; font-size: clamp(40px, 4.85vw, 72px); line-height: 1.02; letter-spacing: -.058em; font-weight: 950; text-wrap: balance; }
+.entry-hero p { margin: 20px 0 0; max-width: 650px; color: #3e4a45; font-size: clamp(17px, 1.35vw, 20px); line-height: 1.46; font-weight: 620; text-wrap: pretty; }
 .entry-hero-actions { display: grid; grid-template-columns: 1.1fr .9fr 1fr; align-items: center; gap: 10px; margin-top: 28px; }
 .entry-primary-cta, .entry-secondary-cta, .entry-register-cta {
   display: inline-flex;
@@ -354,8 +354,8 @@ const entryCss = `
   .entry-hero::before { inset: auto -20vw 6px 0; height: 230px; opacity: .48; }
   .entry-hero-copy { max-width: none; padding: 24px 22px; border-radius: 30px; }
   .entry-kicker { margin-bottom: 14px; padding: 7px 11px; font-size: 10.5px; letter-spacing: .055em; }
-  .entry-hero h1 { font-size: clamp(38px, 10.7vw, 54px); line-height: 1.01; letter-spacing: -.058em; max-width: 520px; }
-  .entry-hero p { margin-top: 16px; font-size: 18px; line-height: 1.4; }
+  .entry-hero h1 { font-size: clamp(31px, 9.2vw, 46px); line-height: 1.06; letter-spacing: -.05em; max-width: 560px; }
+  .entry-hero p { margin-top: 16px; font-size: 16.5px; line-height: 1.47; }
   .entry-hero-actions { grid-template-columns: 1fr; gap: 10px; margin-top: 22px; }
   .entry-primary-cta, .entry-secondary-cta, .entry-register-cta { width: 100%; min-height: 56px; border-radius: 18px; }
   .entry-hero-visual { display: none; }
@@ -388,7 +388,7 @@ const entryCss = `
   .entry-login { min-height: 42px; padding: 0 15px; }
   .entry-hero { padding: 14px 0 12px; }
   .entry-hero-copy { border-radius: 28px; padding: 22px 18px; }
-  .entry-hero h1 { font-size: clamp(37px, 11.2vw, 49px); }
+  .entry-hero h1 { font-size: clamp(30px, 9.4vw, 40px); }
   .entry-control-grid { grid-template-columns: 1fr; }
 }
 `;
