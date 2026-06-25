@@ -5,16 +5,18 @@
   "currentStatus": "in_progress",
   "current": "Public entry human copy pass from current main.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2074",
+  "openPr": "#2075",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "root-entry-redirect"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
     "apps/web/app/platform-v7/page.tsx",
+    "apps/web/tests/unit/platformV7VisibleEntry.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
     "apps/web/app/platform-v7/page.tsx",
+    "apps/web/tests/unit/platformV7VisibleEntry.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
