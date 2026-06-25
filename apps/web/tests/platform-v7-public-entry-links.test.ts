@@ -53,12 +53,16 @@ describe('platform-v7 public entry link policy', () => {
     expect(source).toContain('<PublicEntryCleanup />');
   });
 
-  it('routes public role cards through the single login gate at runtime', () => {
-    const source = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
+  it('routes public role cards through the single login gate with the selected role', () => {
+    const page = read('apps/web/app/platform-v7/page.tsx');
+    const cleanup = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
 
-    expect(source).toContain("link.setAttribute('href', '/platform-v7/login')");
-    expect(source).toContain("item.setAttribute('href', '/platform-v7/login')");
-    expect(source).toContain('Доступ после единого входа');
+    expect(page).toContain('/platform-v7/login?role=seller');
+    expect(page).toContain('/platform-v7/login?role=buyer');
+    expect(page).toContain('/platform-v7/login?role=operator');
+    expect(cleanup).toContain('link.setAttribute(\'href\', roleLoginHref(title));');
+    expect(cleanup).toContain('window.sessionStorage?.setItem(PENDING_ROLE_KEY, role)');
+    expect(cleanup).toContain("href === '/platform-v7/docs'");
   });
 
   it('keeps all 12 role labels available on the public role catalog', () => {
