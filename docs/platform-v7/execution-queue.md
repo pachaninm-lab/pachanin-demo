@@ -1,36 +1,34 @@
 # platform-v7 execution queue
 
-CURRENT: Driver field route anchor hardening from current main.
+CURRENT: Driver / field follow-up audit after route anchor hardening.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/driver/field/page.tsx
-- apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- all visible driver / field actions point to real in-page sections, real routes, or explicit disabled states;
-- no driver screen link exposes bank, buyer, price, payout, release or unrelated role control;
-- first-screen content remains above workflow details;
-- mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
-- driver money copy does not imply payout or release control;
-- maturity remains controlled-pilot / pre-integration;
+- #2072 is merged and driver / field visible anchors remain guarded by unit coverage;
+- identify any remaining driver / field 390x844 touch, spacing, safe-area or overflow defects;
+- confirm no calculator, notepad or control affordance appears out of context;
+- keep every visible driver / field action mapped to a real route, real section or disabled state with a reason;
+- keep maturity controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes.
 
 NEXT:
-- Layer: Driver / field follow-up audit after route anchor hardening.
+- Layer: Driver / field mobile touch and tool placement code pass if the audit finds a narrow defect.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-- Scope intent for the next code PR: keep driver / field only unless a new role-specific defect is found.
+- Scope intent for the next code PR: keep driver / field only unless a new role-specific defect is found; do not widen to all platform-v7 routes.
 - Success criteria:
-  - identify any remaining 390x844 touch, spacing, safe-area or overflow defects;
-  - confirm no calculator/notepad/control affordance appears out of context;
-  - keep buttons mapped to real routes, real sections or disabled states with reasons;
-  - keep maturity controlled-pilot / pre-integration;
+  - first screen still answers what happened, what is blocked, money at risk, owner and next action;
+  - mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
+  - buttons remain real, route-backed, section-backed or explicitly disabled;
+  - no driver copy implies payout, price, bank, release or unrelated role control;
+  - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
@@ -45,7 +43,8 @@ ORDER:
 9. Public process stage copy polish is active from #2065.
 10. Netlify root entry redirect recovery is active from root-entry-redirect.
 11. Public hero copy polish is active from #2067/#2068/#2070/#2071.
-12. Driver field route anchor hardening is active in #2072 after stale #2061 was superseded.
+12. Driver field route anchor hardening is active from #2072.
+13. Driver / field follow-up audit is queued here.
 
 RULES:
 - one PR = one narrow layer;
@@ -83,6 +82,7 @@ DONE:
 - #2068 public hero mobile composition.
 - #2070 public hero mobile sizing.
 - #2071 public entry copy proofread.
+- #2072 driver field route anchor hardening.
 - root-entry-redirect Netlify root entry redirect recovery.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
