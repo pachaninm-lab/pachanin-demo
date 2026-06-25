@@ -1,33 +1,29 @@
 # platform-v7 execution queue
 
-CURRENT: Public role cards hand off exactly one selected role to login; login no longer exposes repeat cabinet selection and keeps registration separate.
+CURRENT: Elevator cabinet functional review after merged public entry, role-locked login, registration CTA and stable shell boundary fixes.
 
 GOAL: keep public entry, login, registration and protected cabinets on one stable platform shell boundary without creating role-lock bypasses or false readiness claims.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/login/page.tsx
-- apps/web/components/platform-v7/PublicEntryCleanup.tsx
-- apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx
-- apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: elevator cabinet functional review after role-locked login handoff is green and merged.
+- Layer: elevator cabinet functional review.
 - Success criteria:
-  - role is selected only on the public main role grid;
-  - login receives the role through `?role=` or the pending-role session handoff;
-  - login does not render a role select/dropdown;
-  - registration remains visible as a separate button;
-  - protected cabinet routes keep header, shell tools and bottom navigation after public/login navigation;
+  - first screen states what happened, what is blocked, who owns the next step and what action is available;
+  - blocked actions have clear reasons and do not imply live release or automatic integration;
+  - calculator and notepad remain shell tools only where the protected cabinet shell is active;
+  - mobile 390x844 has no horizontal overflow or bottom-tool collision;
+  - role-lock is not bypassed from public login or registration handoff;
   - maturity remains controlled-pilot / pre-integration;
   - no apps/landing, package or lockfile changes;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
 1. Stable shell boundary is active in #2038.
-2. Role-locked login handoff is current.
-3. Seller, buyer, bank, operator, compliance and lab guards are already covered.
+2. Role-locked login handoff is merged in #2041.
+3. Login access copy polish is merged in #2042.
 4. Elevator remains next.
 5. Then driver / field and regression route audit.
 
@@ -47,5 +43,7 @@ DONE:
 - #2036 public role-scoped registration handoff.
 - #2037 public login role handoff.
 - #2038 stable shell boundary.
+- #2041 role-locked login from public role grid.
+- #2042 login access copy polish.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
