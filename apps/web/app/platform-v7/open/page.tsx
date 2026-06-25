@@ -20,10 +20,11 @@ export default function PlatformV7OpenPage() {
   return (
     <main data-testid='platform-v7-open-walkthrough' className='pc-v7-public-entry' style={page}>
       <CockpitHero
+        className='pc-v7-open-hero'
         eyebrow='Прозрачная Цена · контур исполнения сделки'
-        title='Одна сделка.'
-        accent='Полный контроль.'
-        lead='Не доска объявлений, а сквозной контур: цена и допуск → документы → рейс → приёмка → качество → деньги → спор и доказательства. Видно, что блокирует деньги и кто следующий.'
+        title='Главный риск сделки начинается'
+        accent='после согласования цены'
+        lead='Прозрачная Цена — цифровой контур исполнения зерновой сделки: рейс, приёмка, качество, документы, деньги, спор и доказательства в одном процессе.'
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
           <PremiumCtaButton href='/platform-v7/#roles' glyph='users'>Выбрать роль</PremiumCtaButton>
