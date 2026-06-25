@@ -9,9 +9,9 @@ const pageSource = () => readFileSync(resolve(__dirname, '../../app/platform-v7/
 describe('platform-v7 visible entry (mobile home)', () => {
   it('shows the hero and a single primary action', () => {
     const page = pageSource();
-    expect(page).toContain('Одна сделка.');
-    expect(page).toContain('Полный контроль.');
-    expect(page).toContain('Создать сделку');
+    expect(page).toContain('Главный риск сделки начинается после согласования цены');
+    expect(page).toContain('Прозрачная Цена — цифровой контур исполнения зерновой сделки');
+    expect(page).toContain('Выбрать роль');
   });
 
   it('shows role entry points from the role directory', () => {
