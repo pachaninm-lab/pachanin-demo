@@ -18,7 +18,8 @@ describe('platform-v7 public registration role selection', () => {
   it('keeps registration role choice as an application field, not a cabinet unlock', () => {
     expect(registerPage).toContain('RegisterSearchParams');
     expect(registerPage).toContain('ROLE_OPTIONS');
-    expect(registerPage).toContain('getSelectedRole(searchParams)');
+    expect(registerPage).toContain('await Promise.resolve(searchParams ?? {})');
+    expect(registerPage).toContain('getSelectedRole(params)');
     expect(registerPage).toContain('defaultValue={selectedRole}');
     expect(registerPage).toContain('Выбор роли здесь не обходит role-lock');
   });
