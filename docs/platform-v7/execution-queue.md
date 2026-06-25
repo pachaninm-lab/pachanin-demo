@@ -1,19 +1,17 @@
 # platform-v7 execution queue
 
-CURRENT: Public role cards now enter registration as role-scoped applications without opening protected cabinets.
+CURRENT: Public role selection is preserved through registration and login as form context without opening protected cabinets.
 
 GOAL: keep the public entry, login and registration routes coherent without creating role-lock bypasses; protected role cabinets remain strict and readiness remains honest.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/register/page.tsx
-- apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx
-- apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts
-- apps/web/tests/unit/platformV7PublicRegisterRoleSelection.test.ts
+- apps/web/app/platform-v7/login/page.tsx
+- apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: elevator cabinet functional review after public registration role selection is green.
+- Layer: elevator cabinet functional review after login role handoff is green.
 - Allowed files:
   - exact elevator role page from next autopilot scope;
   - exact platform-v7 CSS file when needed for mobile/shell correction;
@@ -22,17 +20,19 @@ NEXT:
   - docs/platform-v7/autopilot/** and docs/platform-v7/execution-queue.md only for state updates.
 - Success criteria:
   - public role cards lead to registration with the selected role preserved;
-  - existing users still have a login action;
-  - registration role choice is an application field, not a role-lock bypass;
+  - existing users can enter login with the selected role preserved as form context;
+  - role is fixed to session only after login succeeds;
+  - public role choice never opens a protected cabinet;
   - maturity remains controlled-pilot / pre-integration;
   - no apps/landing, package or lockfile changes;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
-1. Public role-scoped registration handoff is active in #2036.
-2. Seller, buyer, bank, operator, compliance and lab guards are already covered.
-3. Elevator remains next.
-4. Then driver / field and regression route audit.
+1. Public role-scoped registration handoff is merged in #2036.
+2. Login role handoff is active in #2037.
+3. Seller, buyer, bank, operator, compliance and lab guards are already covered.
+4. Elevator remains next.
+5. Then driver / field and regression route audit.
 
 RULES:
 - one PR = one narrow layer;
@@ -47,5 +47,6 @@ DONE:
 - #2031 seller mobile CSS text leak fix.
 - #2032 mobile shell stabilization follow-up.
 - #2034 public registration CTA recovery.
+- #2036 public role-scoped registration handoff.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
