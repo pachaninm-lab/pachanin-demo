@@ -11,12 +11,16 @@
   "allowedCurrentScope": [
     "apps/web/app/platform-v7/page.tsx",
     "apps/web/tests/unit/platformV7VisibleEntry.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
     "apps/web/app/platform-v7/page.tsx",
     "apps/web/tests/unit/platformV7VisibleEntry.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
