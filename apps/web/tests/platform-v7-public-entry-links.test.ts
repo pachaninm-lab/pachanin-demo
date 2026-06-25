@@ -74,4 +74,14 @@ describe('platform-v7 public entry link policy', () => {
     const missing = fullRoleSet.filter((role) => !source.includes(role));
     expect(missing).toEqual([]);
   });
+
+  it('keeps the public mobile brand title visible next to the login button', () => {
+    const cleanup = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
+
+    expect(cleanup).toContain('max-width:calc(100% - 104px)!important;flex:1 1 auto!important;overflow:visible!important');
+    expect(cleanup).toContain('.entry-brand > span:not(.entry-brand-mark)');
+    expect(cleanup).toContain('white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;max-width:none!important');
+    expect(cleanup).toContain('min-width:88px!important;flex:0 0 auto!important');
+    expect(cleanup).not.toContain('text-overflow:ellipsis!important');
+  });
 });
