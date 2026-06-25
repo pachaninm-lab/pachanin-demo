@@ -1,22 +1,21 @@
 # platform-v7 execution queue
 
-CURRENT: Restore the complete protected mobile header action set with a stable compact order and logout pinned to the far right.
+CURRENT: Keep a single protected shell copy normalizer before AppShellV4 without changing routes, runtime or maturity.
 
-GOAL: keep protected platform-v7 cabinets usable on mobile without hiding required work tools or creating role-lock, shell, route or maturity regressions.
+GOAL: keep protected platform-v7 cabinets readable and stable by preventing duplicate shell copy normalization while preserving the current mobile header action recovery.
 
 CURRENT ALLOWED:
 - apps/web/app/platform-v7/layout.tsx
-- apps/web/components/platform-v7/RoleAssistantWidget.tsx
-- apps/web/components/platform-v7/SupportHeaderIcon.tsx
-- apps/web/tests/unit/platformV7RoleAssistantWidget.test.ts
+- apps/web/components/platform-v7/PlatformV7LayoutClient.tsx
+- apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- mobile header actions stay visible in compact order: search, theme, notepad, role notices, support, calculator, logout;
-- logout remains the far-right action;
-- role assistant no longer hides logout on mobile;
-- support/search are available in the protected mobile shell;
+- server and client protected layouts mount exactly one ShellCopyNormalizer;
+- the normalizer stays before AppShellV4;
+- protected shell tools keep the current order: calculator, notepad, support, role assistant, page content;
+- the compact mobile header action recovery from #2046 remains intact;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes;
 - no live-readiness or unsupported maturity claims.
 
@@ -34,12 +33,13 @@ NEXT:
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
-1. Stable shell boundary is active in #2038.
+1. Stable shell boundary is active from #2038.
 2. Role-locked login handoff is active from #2036/#2037.
-3. Mobile protected header action recovery is current.
-4. Queue the exact elevator cabinet scope next.
-5. Then execute the elevator pass in a separate narrow PR.
-6. Then driver / field and regression route audit.
+3. Mobile protected header action recovery is active from #2046.
+4. Single shell copy normalizer is current.
+5. Queue the exact elevator cabinet scope next.
+6. Then execute the elevator pass in a separate narrow PR.
+7. Then driver / field and regression route audit.
 
 RULES:
 - one PR = one narrow layer;
@@ -58,8 +58,8 @@ DONE:
 - #2036 public role-scoped registration handoff.
 - #2037 public login role handoff.
 - #2038 stable shell boundary.
-- #2040 single shell copy normalizer.
 - #2041 public role cards login handoff.
 - #2042 access copy polish.
+- #2046 protected mobile header action recovery.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
