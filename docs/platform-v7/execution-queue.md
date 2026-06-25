@@ -29,7 +29,7 @@ NEXT:
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
-1. Public role-scoped registration handoff is active in #2035.
+1. Public role-scoped registration handoff is active in #2036.
 2. Seller, buyer, bank, operator, compliance and lab guards are already covered.
 3. Elevator remains next.
 4. Then driver / field and regression route audit.
