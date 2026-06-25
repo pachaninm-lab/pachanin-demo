@@ -18,17 +18,22 @@
   min-height: 100svh !important;
 }
 
+.p7-register-header,
 .pc-shell-root-v4:has(.p7-register-page) .p7-register-header {
+  position: sticky !important;
+  top: max(8px, env(safe-area-inset-top)) !important;
+  z-index: 30 !important;
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
-  min-height: 90px !important;
+  min-height: 74px !important;
   padding: 13px 14px !important;
 }
 
+.p7-register-brand,
 .pc-shell-root-v4:has(.p7-register-page) .p7-register-brand {
   flex: 1 1 auto !important;
   min-width: 0 !important;
@@ -38,6 +43,7 @@
   overflow: hidden !important;
 }
 
+.p7-register-brand-mark,
 .pc-shell-root-v4:has(.p7-register-page) .p7-register-brand-mark {
   flex: 0 0 auto !important;
   width: 44px !important;
@@ -47,6 +53,7 @@
   justify-content: center !important;
 }
 
+.p7-register-brand-text,
 .pc-shell-root-v4:has(.p7-register-page) .p7-register-brand-text {
   min-width: 0 !important;
   overflow: hidden !important;
@@ -54,6 +61,7 @@
   text-overflow: ellipsis !important;
 }
 
+.p7-register-actions,
 .pc-shell-root-v4:has(.p7-register-page) .p7-register-actions {
   flex: 0 0 auto !important;
   display: inline-flex !important;
@@ -67,6 +75,7 @@
   align-self: center !important;
 }
 
+.p7-register-action,
 .pc-shell-root-v4:has(.p7-register-page) .p7-register-action {
   display: inline-flex !important;
   align-items: center !important;
@@ -81,6 +90,7 @@
     padding: 0 12px 24px !important;
   }
 
+  .p7-register-header,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-header {
     display: flex !important;
     flex-direction: row !important;
@@ -88,29 +98,34 @@
     align-items: center !important;
     justify-content: space-between !important;
     gap: 8px !important;
-    min-height: 72px !important;
+    min-height: 64px !important;
     padding: 10px 12px !important;
   }
 
+  .p7-register-brand,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-brand {
     flex: 1 1 auto !important;
     gap: 8px !important;
   }
 
+  .p7-register-brand-mark,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-brand-mark {
     width: 40px !important;
     height: 40px !important;
   }
 
+  .p7-register-brand-text,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-brand-text {
     font-size: 16px !important;
   }
 
+  .p7-register-actions,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-actions {
     flex: 0 0 auto !important;
     gap: 6px !important;
   }
 
+  .p7-register-action,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-action {
     min-width: 78px !important;
     min-height: 40px !important;
@@ -124,29 +139,35 @@
     padding: 0 10px 22px !important;
   }
 
+  .p7-register-header,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-header {
     gap: 5px !important;
-    min-height: 64px !important;
+    min-height: 60px !important;
     padding: 9px !important;
   }
 
+  .p7-register-brand,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-brand {
     gap: 6px !important;
   }
 
+  .p7-register-brand-mark,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-brand-mark {
     width: 34px !important;
     height: 34px !important;
   }
 
+  .p7-register-brand-text,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-brand-text {
     font-size: 13.5px !important;
   }
 
+  .p7-register-actions,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-actions {
     gap: 4px !important;
   }
 
+  .p7-register-action,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-action {
     min-width: 60px !important;
     min-height: 36px !important;
@@ -154,6 +175,7 @@
     font-size: 11px !important;
   }
 
+  .p7-register-action svg,
   .pc-shell-root-v4:has(.p7-register-page) .p7-register-action svg {
     display: none !important;
   }
