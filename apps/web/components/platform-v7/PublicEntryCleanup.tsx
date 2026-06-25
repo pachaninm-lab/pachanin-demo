@@ -41,7 +41,7 @@ const cleanupCss = `
 .pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v7-public-entry,
 .pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-bottom:max(64px,env(safe-area-inset-bottom))!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand-mark,
-pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark{background:transparent!important;color:inherit!important;padding:0!important;overflow:visible!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark{background:transparent!important;color:inherit!important;padding:0!important;overflow:visible!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand-mark img,
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;background:transparent!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-register,
