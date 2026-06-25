@@ -1,17 +1,17 @@
 # platform-v7 execution queue
 
-CURRENT: Public role selection is preserved through registration and login as form context without opening protected cabinets.
+CURRENT: The platform-v7 shell stays mounted across public-to-cabinet navigation; public chrome is hidden by the client pathname controller without replacing the shell tree.
 
-GOAL: keep the public entry, login and registration routes coherent without creating role-lock bypasses; protected role cabinets remain strict and readiness remains honest.
+GOAL: keep public entry, login, registration and protected cabinets on one stable platform shell boundary without creating role-lock bypasses or false readiness claims.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/login/page.tsx
-- apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts
+- apps/web/app/platform-v7/layout.tsx
+- apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: elevator cabinet functional review after login role handoff is green.
+- Layer: elevator cabinet functional review after #2038 is green and merged.
 - Allowed files:
   - exact elevator role page from next autopilot scope;
   - exact platform-v7 CSS file when needed for mobile/shell correction;
@@ -19,20 +19,21 @@ NEXT:
   - docs/platform-v7/audit/** only when recording audit evidence;
   - docs/platform-v7/autopilot/** and docs/platform-v7/execution-queue.md only for state updates.
 - Success criteria:
-  - public role cards lead to registration with the selected role preserved;
-  - existing users can enter login with the selected role preserved as form context;
-  - role is fixed to session only after login succeeds;
-  - public role choice never opens a protected cabinet;
+  - public routes render without visible shell chrome;
+  - protected cabinet routes keep header, shell tools and bottom navigation after public/login navigation;
+  - AppShellV4 remains mounted at the platform-v7 segment boundary;
+  - role-lock remains strict and public role choice never opens a protected cabinet;
   - maturity remains controlled-pilot / pre-integration;
   - no apps/landing, package or lockfile changes;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
 1. Public role-scoped registration handoff is merged in #2036.
-2. Login role handoff is active in #2037.
-3. Seller, buyer, bank, operator, compliance and lab guards are already covered.
-4. Elevator remains next.
-5. Then driver / field and regression route audit.
+2. Login role handoff is merged in #2037.
+3. Stable shell boundary is active in #2038.
+4. Seller, buyer, bank, operator, compliance and lab guards are already covered.
+5. Elevator remains next.
+6. Then driver / field and regression route audit.
 
 RULES:
 - one PR = one narrow layer;
@@ -48,5 +49,6 @@ DONE:
 - #2032 mobile shell stabilization follow-up.
 - #2034 public registration CTA recovery.
 - #2036 public role-scoped registration handoff.
+- #2037 public login role handoff.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
