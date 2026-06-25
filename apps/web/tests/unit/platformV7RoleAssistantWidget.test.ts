@@ -36,5 +36,8 @@ describe('platform-v7 role assistant widget', () => {
     expect(layoutFile).toContain('.p7-calc-widget{order:60!important;grid-column:6!important}');
     expect(layoutFile).toContain('.pc-v7-logout-btn{order:100!important;grid-column:7!important}');
     expect(layoutFile).toContain('inline-size:30px!important;min-inline-size:30px!important;max-inline-size:30px!important');
+    expect(layoutFile).toContain('.pc-v4-header{min-block-size:58px!important;max-block-size:64px!important}');
+    expect(layoutFile).toContain('.pc-v4-header-inner{position:relative!important;overflow:visible!important;padding:8px!important;min-block-size:56px!important;max-block-size:60px!important}');
+    expect(layoutFile).not.toContain('padding:calc(env(safe-area-inset-top) + 7px) 8px!important');
   });
 });
