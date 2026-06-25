@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Public registration CTA recovery after mobile entry showed login as the primary action.
+CURRENT: Role-aware public entry, login and registration handoff after registration CTA recovery.
 
 GOAL: keep the public entry, login and registration routes coherent without creating role-lock bypasses; protected role cabinets remain strict and readiness remains honest.
 
@@ -8,6 +8,7 @@ CURRENT ALLOWED:
 - apps/web/app/platform-v7/layout.tsx
 - apps/web/app/platform-v7/template.tsx
 - apps/web/app/platform-v7/login/page.tsx
+- apps/web/app/platform-v7/register/page.tsx
 - apps/web/app/platform-v7/seller/page.tsx
 - apps/web/app/platform-v7/buyer/page.tsx
 - apps/web/app/platform-v7/bank/page.tsx
@@ -34,6 +35,7 @@ CURRENT ALLOWED:
 - apps/web/tests/unit/platformV7RoleUxRegressions.test.ts
 - apps/web/tests/unit/platformV7UxGate.test.ts
 - apps/web/tests/unit/platformV7MobileShellHardening.test.ts
+- apps/web/tests/unit/platformV7EntryRoleHandoff.test.ts
 - apps/web/tests/unit/roleContinuityLayouts.test.tsx
 - apps/web/tests/unit/platformV7FieldRolesIsolation.test.ts
 - apps/web/tests/unit/platformV7BankPageBasisGuard.test.ts
@@ -43,7 +45,7 @@ CURRENT ALLOWED:
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: elevator cabinet functional review after public entry registration path is green.
+- Layer: elevator cabinet functional review after role-aware registration/login handoff is green.
 - Allowed files:
   - exact elevator role page from CURRENT ALLOWED;
   - exact platform-v7 CSS file from CURRENT ALLOWED;
@@ -51,19 +53,21 @@ NEXT:
   - docs/platform-v7/audit/** only when recording audit evidence;
   - docs/platform-v7/autopilot/** and docs/platform-v7/execution-queue.md only for state updates.
 - Success criteria:
-  - public entry primary CTA leads to registration, not login;
-  - existing users still have a login action;
+  - selected public role survives entry, login and registration handoff;
+  - duplicate login role selector stays hidden when a role is already selected;
   - registration route is explicit and does not create role-lock bypass;
+  - existing users still have a login path;
   - mobile 390x844 keeps safe area and no horizontal overflow;
   - maturity remains controlled-pilot / pre-integration;
   - no apps/landing, package or lockfile changes;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
-1. Public entry registration source fix is active in #2034.
-2. Seller, buyer, bank, operator, compliance and lab guards are already covered.
-3. Elevator remains next.
-4. Then driver / field and regression route audit.
+1. Public registration CTA recovery is closed in #2034.
+2. Role-aware login/register handoff is active in #2030.
+3. Seller, buyer, bank, operator, compliance and lab guards are already covered.
+4. Elevator remains next.
+5. Then driver / field and regression route audit.
 
 RULES:
 - one PR = one narrow layer;
@@ -77,5 +81,6 @@ DONE:
 - #2029 state sync after mobile shell stabilization.
 - #2031 seller mobile CSS text leak fix.
 - #2032 mobile shell stabilization follow-up.
+- #2034 public registration CTA recovery.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
