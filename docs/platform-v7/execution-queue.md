@@ -21,10 +21,14 @@ CURRENT CHECKS:
 - no live-readiness or unsupported maturity claims.
 
 NEXT:
-- Layer: elevator cabinet functional review after #2045 is green and merged.
+- Layer: Queue elevator cabinet functional review.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - first screen answers what happened, what is blocked, money at risk, owner and next action;
-  - every visible action routes to a real route/action/section or has a clear disabled reason;
+  - next execution layer names the exact elevator route/component/test scope before code changes;
+  - first screen criteria remain explicit: what happened, what is blocked, money at risk, owner and next action;
+  - every visible action must route to a real route/action/section or have a clear disabled reason;
   - shell, mobile layout and role isolation remain stable;
   - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
@@ -33,8 +37,9 @@ ORDER:
 1. Stable shell boundary is active in #2038.
 2. Role-locked login handoff is active from #2036/#2037.
 3. Mobile protected header action recovery is current.
-4. Elevator remains next.
-5. Then driver / field and regression route audit.
+4. Queue the exact elevator cabinet scope next.
+5. Then execute the elevator pass in a separate narrow PR.
+6. Then driver / field and regression route audit.
 
 RULES:
 - one PR = one narrow layer;
