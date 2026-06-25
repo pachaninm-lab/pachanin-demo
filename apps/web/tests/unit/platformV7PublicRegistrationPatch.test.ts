@@ -32,11 +32,13 @@ describe('platform-v7 public registration and role-locked login', () => {
     expect(cleanup).not.toContain("item.setAttribute('href', '/platform-v7/login');");
   });
 
-  it('uses a compact workspace heading after handoff and a chooser only for direct login', () => {
-    expect(login).toContain('const [entryRole, setEntryRole]');
-    expect(login).toContain('const [directRole, setDirectRole]');
+  it('uses a compact workspace heading after handoff and an icon grid only for direct login', () => {
+    expect(login).toContain('type Workspace = { role: PlatformRole; title: string; Icon: LucideIcon };');
+    expect(login).toContain('const Icon = item.Icon;');
+    expect(login).toContain('<Icon size={20} strokeWidth={2.35} />');
     expect(login).toContain("login-workspace-heading");
     expect(login).toContain("login-workspace-picker");
+    expect(login).toContain('grid-template-columns:repeat(2,minmax(0,1fr))');
     expect(login).toContain('Введите корпоративные данные для доступа к рабочему контуру.');
     expect(login).toContain("<Link href={registerHref} className='login-register'>Зарегистрироваться</Link>");
     expect(login).not.toContain('login-selected-missing');
