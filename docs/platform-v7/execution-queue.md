@@ -1,44 +1,41 @@
 # platform-v7 execution queue
 
-CURRENT: Restore the complete protected mobile header action set with a stable compact order and logout pinned to the far right.
+CURRENT: Queue the exact elevator cabinet functional review after public entry, registration and login role-handoff polish reached `main`.
 
-GOAL: keep protected platform-v7 cabinets usable on mobile without hiding required work tools or creating role-lock, shell, route or maturity regressions.
+GOAL: make the next elevator pass narrow, reviewable and tied to first-screen execution criteria before any code change touches the cabinet.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/layout.tsx
-- apps/web/components/platform-v7/RoleAssistantWidget.tsx
-- apps/web/components/platform-v7/SupportHeaderIcon.tsx
-- apps/web/tests/unit/platformV7RoleAssistantWidget.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- mobile header actions stay visible in compact order: search, theme, notepad, role notices, support, calculator, logout;
-- logout remains the far-right action;
-- role assistant no longer hides logout on mobile;
-- support/search are available in the protected mobile shell;
+- docs-only state transition;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes;
-- no live-readiness or unsupported maturity claims.
+- no live-readiness or unsupported maturity claims;
+- readiness remains 72% / controlled-pilot / pre-integration.
 
 NEXT:
-- Layer: Queue elevator cabinet functional review.
+- Layer: Elevator cabinet first-screen execution review.
 - Allowed files:
+  - apps/web/app/platform-v7/elevator/page.tsx
+  - apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - next execution layer names the exact elevator route/component/test scope before code changes;
-  - first screen criteria remain explicit: what happened, what is blocked, money at risk, owner and next action;
-  - every visible action must route to a real route/action/section or have a clear disabled reason;
+  - the first screen states what happened, what is blocked, money at risk, owner and next action without opening collapsed sections;
+  - weight and quality blockers are visible above the fold on mobile 390x844;
+  - every visible action routes to a real route/action/section or has a clear disabled reason;
+  - elevator does not expose buyer pricing, credit or unrelated counterparty data;
   - shell, mobile layout and role isolation remain stable;
   - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
-1. Stable shell boundary is active in #2038.
-2. Role-locked login handoff is active from #2036/#2037.
-3. Mobile protected header action recovery is current.
-4. Queue the exact elevator cabinet scope next.
-5. Then execute the elevator pass in a separate narrow PR.
+1. Stable shell boundary is active from #2038.
+2. Role-locked registration and login handoff are active from #2036/#2037.
+3. Mobile protected header recovery and public entry polish are active through #2046/#2048/#2051.
+4. Queue the exact elevator cabinet scope now.
+5. Execute the elevator first-screen pass in a separate narrow PR.
 6. Then driver / field and regression route audit.
 
 RULES:
@@ -61,5 +58,9 @@ DONE:
 - #2040 single shell copy normalizer.
 - #2041 public role cards login handoff.
 - #2042 access copy polish.
+- #2045/#2046 mobile protected header action recovery.
+- #2048 public entry work CTA polish.
+- #2049/#2050 single shell normalizer cleanup.
+- #2051 public entry and role login flow polish.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
