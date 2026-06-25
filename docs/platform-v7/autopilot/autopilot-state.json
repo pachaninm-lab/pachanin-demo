@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "Public role cards now enter registration as role-scoped applications without opening protected cabinets.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2035",
+  "openPr": "#2036",
   "lastClosed": ["#1966", "#1968", "#1969", "#1985", "#1994", "#1995", "#1996", "#1997", "#1998", "#1999", "#2000", "#2001", "#2002", "#2003", "#2004", "#2005", "#2006", "#2007", "#2008", "#2009", "#2010", "#2011", "#2015", "#2016", "#2017", "#2018", "#2019", "#2020", "#2021", "#2022", "#2023", "#2024", "#2025", "#2026", "#2027", "#2028", "#2029", "#2031", "#2032", "#2034"],
   "lockedUntilCurrentGreen": ["External connectivity", "Persistence expansion", "Lockfile changes", "apps/landing changes"],
   "allowedCurrentScope": [
