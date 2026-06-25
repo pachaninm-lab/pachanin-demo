@@ -134,3 +134,13 @@ html body .pc-v7-role-dock{display:block!important;position:fixed!important;left
 html body .pc-v7-public-entry .entry-text-cta{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:50px!important;border-radius:16px!important;padding:0 18px!important;background:#071611!important;color:#fff!important;border:1px solid rgba(7,22,17,.12)!important;box-shadow:0 14px 30px rgba(7,22,17,.16)!important;font-size:0!important;font-weight:900!important;line-height:1!important;text-align:center!important}
 html body .pc-v7-public-entry .entry-text-cta::before{content:'Зарегистрироваться';font-size:15px!important;font-weight:900!important;line-height:1.1!important;letter-spacing:-.01em!important}
 @media(max-width:767px){html body .pc-v7-public-entry .entry-text-cta{width:100%!important;min-height:52px!important;background:#071611!important;color:#fff!important}html body .pc-v7-public-entry .entry-text-cta::before{font-size:15px!important}}
+
+/* Public hero premium mobile pass: keep the risk message strong without poster-sized wrapping. */
+@media(max-width:767px){
+  html body .pc-v7-public-entry .entry-hero-copy{padding:20px 17px 19px!important;border-radius:27px!important}
+  html body .pc-v7-public-entry .entry-hero h1{max-width:350px!important;font-size:clamp(30px,8vw,34px)!important;line-height:1.02!important;letter-spacing:-.043em!important;font-weight:920!important;gap:4px!important;overflow-wrap:normal!important}
+  html body .pc-v7-public-entry .entry-hero h1 span{display:block!important;overflow-wrap:normal!important}
+  html body .pc-v7-public-entry .entry-hero h1 span:last-child{color:#087a3b!important}
+  html body .pc-v7-public-entry .entry-hero p{margin-top:13px!important;font-size:15.2px!important;line-height:1.4!important;font-weight:620!important}
+}
+@media(max-width:374px){html body .pc-v7-public-entry .entry-hero h1{font-size:30px!important;max-width:320px!important}}
