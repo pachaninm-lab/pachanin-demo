@@ -40,6 +40,17 @@ describe('platform-v7 final shell static gate', () => {
     }
   });
 
+  it('keeps one copy normalizer before the protected shell', () => {
+    for (const source of [appLayout, clientLayout]) {
+      const normalizerMounts = source.match(/<ShellCopyNormalizer \/>/g) ?? [];
+      const shell = protectedShellBlock(source);
+
+      expect(normalizerMounts).toHaveLength(1);
+      expect(source.indexOf('<ShellCopyNormalizer />')).toBeLessThan(source.indexOf('<AppShellV4 initialRole='));
+      expect(shell).not.toContain('<ShellCopyNormalizer />');
+    }
+  });
+
   it('keeps notepad and calculator inside protected shell only', () => {
     for (const source of [appLayout, clientLayout]) {
       const shell = protectedShellBlock(source);
