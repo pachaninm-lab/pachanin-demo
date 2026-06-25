@@ -1,38 +1,36 @@
 # platform-v7 execution queue
 
-CURRENT: Public entry hero copy polish scope before merge.
+CURRENT: Driver field route anchor hardening from current main.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/page.tsx
-- apps/web/app/platform-v7/open/page.tsx
-- apps/web/tests/unit/platformV7VisibleEntry.test.ts
+- apps/web/app/platform-v7/driver/field/page.tsx
+- apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- public hero copy states the post-price execution risk without implying live readiness;
-- `/platform-v7` and `/platform-v7/open` use the same controlled-pilot execution-contour positioning;
-- longer hero headline remains balanced on mobile and desktop without horizontal overflow;
-- primary public action stays role selection, not a role-lock bypass;
-- unit guard covers the visible public hero copy;
+- all visible driver / field actions point to real in-page sections, real routes, or explicit disabled states;
+- no driver screen link exposes bank, buyer, price, payout, release or unrelated role control;
+- first-screen content remains above workflow details;
+- mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
+- driver money copy does not imply payout or release control;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
 - no public landing, backend, API, DB, auth, session, package or lockfile changes.
 
 NEXT:
-- Layer: Driver field route regression fix.
+- Layer: Driver / field follow-up audit after route anchor hardening.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-- Scope intent for the next code PR: driver / field route only, plus its matching unit guard and autopilot docs.
+- Scope intent for the next code PR: keep driver / field only unless a new role-specific defect is found.
 - Success criteria:
-  - all visible driver / field actions point to real in-page sections, real routes, or explicit disabled states;
-  - no driver screen link exposes bank, buyer, price, payout, release or unrelated role control;
-  - first-screen content remains above workflow details;
-  - mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
-  - maturity remains controlled-pilot / pre-integration;
+  - identify any remaining 390x844 touch, spacing, safe-area or overflow defects;
+  - confirm no calculator/notepad/control affordance appears out of context;
+  - keep buttons mapped to real routes, real sections or disabled states with reasons;
+  - keep maturity controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
@@ -46,8 +44,8 @@ ORDER:
 8. Public mobile process carousel polish is active in #2062/#2064.
 9. Public process stage copy polish is active from #2065.
 10. Netlify root entry redirect recovery is active from root-entry-redirect.
-11. Public hero copy polish is active in #2067.
-12. Then driver field regression route audit.
+11. Public hero copy polish is active from #2067/#2068/#2070/#2071.
+12. Driver field route anchor hardening is active in #2072 after stale #2061 was superseded.
 
 RULES:
 - one PR = one narrow layer;
@@ -81,6 +79,10 @@ DONE:
 - #2058 driver field first-screen scope selection.
 - #2059 driver field first-screen pass.
 - #2065 public process stage copy polish.
+- #2067 public hero copy polish.
+- #2068 public hero mobile composition.
+- #2070 public hero mobile sizing.
+- #2071 public entry copy proofread.
 - root-entry-redirect Netlify root entry redirect recovery.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
