@@ -3,6 +3,21 @@
 import * as React from 'react';
 import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
+const ROLE_BY_TITLE = {
+  'Продавец': 'seller',
+  'Покупатель': 'buyer',
+  'Логистика': 'logistics',
+  'Водитель': 'driver',
+  'Элеватор': 'elevator',
+  'Банк': 'bank',
+  'Лаборатория': 'lab',
+  'Сюрвейер': 'surveyor',
+  'Арбитр': 'arbitrator',
+  'Комплаенс': 'compliance',
+  'Оператор': 'operator',
+  'Руководитель': 'executive',
+} as const;
+
 const PUBLIC_ROLES = [
   ['Водитель', 'Маршрут, прибытие, фото и полевые события.'],
   ['Комплаенс', 'Допуск, полномочия, стоп-факторы и контроль рисков.'],
@@ -26,9 +41,13 @@ const cleanupCss = `
 .pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v7-public-entry,
 .pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-bottom:max(64px,env(safe-area-inset-bottom))!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand-mark,
-.pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark{background:transparent!important;color:inherit!important;padding:0!important;overflow:visible!important}
+pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark{background:transparent!important;color:inherit!important;padding:0!important;overflow:visible!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand-mark img,
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;background:transparent!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-register,
+.pc-shell-root-v4[data-public-entry='true'] .entry-register{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:44px!important;padding:0 16px!important;border-radius:15px!important;border:1px solid rgba(0,122,47,.2)!important;background:#f3faf5!important;color:#007a2f!important;font-size:14px!important;font-weight:900!important;text-decoration:none!important;white-space:nowrap!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-register-cta,
+.pc-shell-root-v4[data-public-entry='true'] .entry-register-cta{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:56px!important;padding:0 22px!important;border-radius:17px!important;border:1px solid rgba(0,122,47,.24)!important;background:#fff!important;color:#007a2f!important;font-size:16px!important;font-weight:900!important;text-decoration:none!important;box-shadow:0 14px 30px rgba(7,22,17,.07)!important}
 @media (max-width:640px){
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-header,
 .pc-shell-root-v4[data-public-entry='true'] .entry-header{position:sticky!important;top:0!important;min-height:64px!important;padding:10px 12px!important;gap:8px!important}
@@ -50,6 +69,8 @@ const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true'] .entry-hero p{margin:0!important;font-size:15px!important;line-height:1.4!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero-actions,
 .pc-shell-root-v4[data-public-entry='true'] .entry-hero-actions{margin-top:4px!important;display:grid!important;gap:8px!important}
+.pc-shell-root-v4:has(.pc-v7-public-entry) .entry-register-cta,
+.pc-shell-root-v4[data-public-entry='true'] .entry-register-cta{min-height:52px!important;width:100%!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-status-note,
 .pc-shell-root-v4[data-public-entry='true'] .entry-status-note{display:none!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-control-grid,
@@ -79,10 +100,20 @@ const cleanupCss = `
 }
 `;
 
+function roleFromTitle(title: string) {
+  return ROLE_BY_TITLE[title.trim() as keyof typeof ROLE_BY_TITLE];
+}
+
+function roleLoginHref(title: string) {
+  const role = roleFromTitle(title);
+  return role ? `/platform-v7/login?role=${role}` : '/platform-v7/login';
+}
+
 function rewritePublicLinks(root: ParentNode) {
   root.querySelectorAll<HTMLAnchorElement>('a[href^="/platform-v7/"]').forEach((link) => {
     const href = link.getAttribute('href') || '';
-    if (href === '/platform-v7/login' || href === '/platform-v7/open' || href === '/platform-v7/register') return;
+    if (href === '/platform-v7/open' || href === '/platform-v7/register') return;
+    if (href === '/platform-v7/login' || href.startsWith('/platform-v7/login?')) return;
     link.setAttribute('href', '/platform-v7/login');
   });
 }
@@ -93,6 +124,41 @@ function normalizeRoleCtas(root: ParentNode) {
   });
 }
 
+function applyRoleLoginHandoff(root: ParentNode) {
+  root.querySelectorAll<HTMLAnchorElement>('.entry-role-tile').forEach((link) => {
+    const title = link.querySelector('strong')?.textContent?.trim() || '';
+    const role = roleFromTitle(title);
+    if (!role) return;
+    link.setAttribute('href', roleLoginHref(title));
+    link.dataset.entryRole = role;
+    link.setAttribute('aria-label', `${title}: перейти к входу в этот кабинет`);
+  });
+}
+
+function ensurePublicRegistrationEntry(root: ParentNode) {
+  const headerActions = root.querySelector<HTMLElement>('.entry-header-actions');
+  if (headerActions && !headerActions.querySelector('[data-entry-register="header"]')) {
+    const headerLink = document.createElement('a');
+    headerLink.href = '/platform-v7/register';
+    headerLink.className = 'entry-register';
+    headerLink.dataset.entryRegister = 'header';
+    headerLink.textContent = 'Регистрация';
+    const loginLink = headerActions.querySelector('.entry-login');
+    loginLink?.after(headerLink) ?? headerActions.prepend(headerLink);
+  }
+
+  const heroActions = root.querySelector<HTMLElement>('.entry-hero-actions');
+  if (heroActions && !heroActions.querySelector('[data-entry-register="hero"]')) {
+    const heroLink = document.createElement('a');
+    heroLink.href = '/platform-v7/register';
+    heroLink.className = 'entry-register-cta';
+    heroLink.dataset.entryRegister = 'hero';
+    heroLink.textContent = 'Зарегистрироваться';
+    const textLink = heroActions.querySelector('.entry-text-cta');
+    textLink?.before(heroLink) ?? heroActions.appendChild(heroLink);
+  }
+}
+
 function ensurePublicRoles(root: ParentNode) {
   const grid = root.querySelector<HTMLElement>('.entry-role-grid');
   if (!grid || grid.dataset.fullRoleSet === 'true') return;
@@ -101,7 +167,7 @@ function ensurePublicRoles(root: ParentNode) {
     if (existing.includes(title)) return;
     const item = document.createElement('a');
     item.className = 'entry-role-tile';
-    item.setAttribute('href', '/platform-v7/login');
+    item.setAttribute('href', roleLoginHref(title));
     item.innerHTML = `<strong>${title}</strong><span>${text}</span><em>Доступ после единого входа</em>`;
     grid.appendChild(item);
   });
@@ -130,8 +196,10 @@ export function PublicEntryCleanup() {
         mark.appendChild(img);
         mark.dataset.brandApplied = 'true';
       }
+      ensurePublicRegistrationEntry(entry);
       rewritePublicLinks(entry);
       ensurePublicRoles(entry);
+      applyRoleLoginHandoff(entry);
       normalizeRoleCtas(entry);
     }
 
