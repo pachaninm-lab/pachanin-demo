@@ -26,20 +26,20 @@ type RoleCard = { title: string; text: string; href: string; Icon: LucideIcon; c
 type TrustItem = { title: string; text: string; Icon: LucideIcon };
 
 const controlCards: ControlCard[] = [
-  { title: 'Деньги', text: 'Видно, что блокирует оплату и когда расчёт можно продолжать.', Icon: Banknote },
-  { title: 'Документы', text: 'Договор, СДИЗ, ЭДО, транспортные и приёмочные документы в одном следе.', Icon: FileCheck2 },
-  { title: 'Логистика', text: 'Рейс, водитель, маршрут, точки контроля и отклонения от плана.', Icon: Truck },
+  { title: 'Деньги', text: 'Видно, что блокирует оплату и когда можно продолжить расчёт.', Icon: Banknote },
+  { title: 'Документы', text: 'Договор, СДИЗ, ЭДО, транспортные и приёмочные документы в едином доказательном следе.', Icon: FileCheck2 },
+  { title: 'Логистика', text: 'Рейс, водитель, маршрут, контрольные точки и отклонения от плана.', Icon: Truck },
   { title: 'Качество', text: 'Лаборатория, приёмка, расхождения и доказательства для спора.', Icon: FlaskConical },
 ];
 
 const processSteps: ProcessStep[] = [
   { label: 'Цена', text: 'Цена, объём, базис и допуски качества зафиксированы до рейса.', Icon: Leaf },
-  { label: 'Сделка', text: 'Стороны, партия и условия исполнения собраны в один контур.', Icon: ClipboardCheck },
-  { label: 'Рейс', text: 'Маршрут, водитель, машина и контрольные точки назначены.', Icon: Truck },
-  { label: 'Приёмка', text: 'Вес, факт поставки и расхождения фиксируются у элеватора.', Icon: Building2 },
+  { label: 'Сделка', text: 'Стороны, партия и условия исполнения собраны в единый контур.', Icon: ClipboardCheck },
+  { label: 'Рейс', text: 'Маршрут, водитель, транспорт и контрольные точки назначены.', Icon: Truck },
+  { label: 'Приёмка', text: 'Вес, факт поставки и расхождения фиксируются на элеваторе.', Icon: Building2 },
   { label: 'Документы', text: 'СДИЗ, ЭДО, ТТН и акты сверяются с событиями сделки.', Icon: FileCheck2 },
   { label: 'Оплата', text: 'Банк видит основание: что подтверждено и что блокирует расчёт.', Icon: Banknote },
-  { label: 'Спор', text: 'Evidence pack показывает факты, ответственных и основание решения.', Icon: Scale },
+  { label: 'Спор', text: 'Пакет доказательств показывает факты, ответственных и основание решения.', Icon: Scale },
 ];
 
 const roles: RoleCard[] = [
@@ -47,21 +47,21 @@ const roles: RoleCard[] = [
   { title: 'Покупатель', text: 'Поставка, качество, документы и риски оплаты.', href: '/platform-v7/login?role=buyer', Icon: UserRound, cta: 'Войти как покупатель' },
   { title: 'Продавец', text: 'Партия, рейс, приёмка и основание для оплаты.', href: '/platform-v7/login?role=seller', Icon: Wheat, cta: 'Войти как продавец' },
   { title: 'Логистика', text: 'Рейсы, водители, статусы движения и отклонения.', href: '/platform-v7/login?role=logistics', Icon: Truck, cta: 'Войти как логистика' },
-  { title: 'Водитель', text: 'Маршрут, точка, фото и офлайн-доказательства.', href: '/platform-v7/login?role=driver', Icon: Truck, cta: 'Войти как водитель' },
+  { title: 'Водитель', text: 'Маршрут, точки рейса, фото и офлайн-доказательства.', href: '/platform-v7/login?role=driver', Icon: Truck, cta: 'Войти как водитель' },
   { title: 'Элеватор', text: 'Приёмка, отгрузка, хранение, вес и статусы партии.', href: '/platform-v7/login?role=elevator', Icon: Building2, cta: 'Войти как элеватор' },
-  { title: 'Лаборатория', text: 'Анализы, показатели качества и связка с приёмкой.', href: '/platform-v7/login?role=lab', Icon: FlaskConical, cta: 'Войти как лаборатория' },
+  { title: 'Лаборатория', text: 'Анализы, показатели качества и связь с приёмкой.', href: '/platform-v7/login?role=lab', Icon: FlaskConical, cta: 'Войти как лаборатория' },
   { title: 'Сюрвейер', text: 'Осмотр, фиксация фактов и независимый доказательный слой.', href: '/platform-v7/login?role=surveyor', Icon: ShieldCheck, cta: 'Войти как сюрвейер' },
   { title: 'Банк', text: 'Проверяемое основание для финансирования и расчётов.', href: '/platform-v7/login?role=bank', Icon: Landmark, cta: 'Войти как банк' },
-  { title: 'Комплаенс', text: 'Риск обхода, доступы, действия и контроль правил.', href: '/platform-v7/login?role=compliance', Icon: ShieldCheck, cta: 'Войти как комплаенс' },
-  { title: 'Арбитр', text: 'Спор, расхождения, evidence pack и решение по фактам.', href: '/platform-v7/login?role=arbitrator', Icon: Scale, cta: 'Войти как арбитр' },
-  { title: 'Руководитель', text: 'Деньги, блокеры, роли, споры и карта исполнения.', href: '/platform-v7/login?role=executive', Icon: Banknote, cta: 'Войти как руководитель' },
+  { title: 'Комплаенс', text: 'Риск обхода, доступы, действия участников и контроль правил.', href: '/platform-v7/login?role=compliance', Icon: ShieldCheck, cta: 'Войти как комплаенс' },
+  { title: 'Арбитр', text: 'Спор, расхождения, пакет доказательств и решение по фактам.', href: '/platform-v7/login?role=arbitrator', Icon: Scale, cta: 'Войти как арбитр' },
+  { title: 'Руководитель', text: 'Расчёты, блокеры, роли, споры и карта исполнения.', href: '/platform-v7/login?role=executive', Icon: Banknote, cta: 'Войти как руководитель' },
 ];
 
 const trustItems: TrustItem[] = [
   { title: 'Прозрачный статус сделки', text: 'Единая картина по этапам и участникам.', Icon: ShieldCheck },
-  { title: 'Юридически значимый след', text: 'События и документы не живут отдельно от сделки.', Icon: BadgeCheck },
+  { title: 'Юридически значимый след', text: 'События и документы связаны с исполнением сделки.', Icon: BadgeCheck },
   { title: 'Контроль документов', text: 'Комплектность, версии, сроки и ответственные под контролем.', Icon: LockKeyhole },
-  { title: 'Основа для расчётов', text: 'Деньги привязаны к подтверждаемым событиям, а не к звонкам.', Icon: Calculator },
+  { title: 'Основа для расчётов', text: 'Расчёты привязаны к подтверждаемым событиям, а не к устным договорённостям.', Icon: Calculator },
 ];
 
 export default function PlatformV7RootPage() {
@@ -132,7 +132,7 @@ export default function PlatformV7RootPage() {
       <section id='roles' className='entry-section' aria-labelledby='roles-title'>
         <div className='entry-section-head'>
           <h2 id='roles-title'>Выберите свою роль в сделке</h2>
-          <p>Роль выбирается здесь один раз. На странице входа останется только логин, пароль и организация.</p>
+          <p>Роль выбирается здесь один раз. Дальше вход выполняется по логину, паролю и организации.</p>
         </div>
         <div className='entry-role-grid'>{roles.map((role) => <RoleTile key={role.title} role={role} />)}</div>
       </section>
