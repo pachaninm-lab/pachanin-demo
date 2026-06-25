@@ -1,6 +1,6 @@
 # platform-v7 execution queue
 
-CURRENT: Select exact driver field regression route audit scope before code changes.
+CURRENT: Select driver field regression route audit scope before code changes.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing UI polish with runtime, data, money, documents, integrations, load or ops layers.
 
@@ -10,7 +10,7 @@ CURRENT ALLOWED:
 
 CURRENT CHECKS:
 - audit scope is selected before code changes;
-- exact next route/component/test scope is named before the code PR opens;
+- the next layer is limited to the driver / field route and its unit guard;
 - route audit covers visible action wiring, role isolation, shell consistency and mobile 390x844 constraints;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
@@ -18,11 +18,7 @@ CURRENT CHECKS:
 
 NEXT:
 - Layer: Driver field route regression fix.
-- Proposed files for the next code PR:
-  - apps/web/app/platform-v7/driver/field/page.tsx
-  - apps/web/tests/unit/platformV7DriverFieldRouteRegression.test.ts
-  - docs/platform-v7/autopilot/autopilot-state.json
-  - docs/platform-v7/execution-queue.md
+- Scope intent for the next code PR: driver / field route only, plus its matching unit guard and autopilot docs.
 - Success criteria:
   - all visible driver / field actions point to real in-page sections, real routes, or explicit disabled states;
   - no driver screen link exposes bank, buyer, price, payout, release or unrelated role control;
