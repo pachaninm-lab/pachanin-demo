@@ -15,20 +15,22 @@ CURRENT CHECKS:
 - readiness remains 72% / controlled-pilot / pre-integration.
 
 NEXT:
-- Layer: Elevator cabinet first-screen execution review.
+- Layer: Confirm elevator cabinet implementation scope before code change.
 - Allowed files:
-  - apps/web/app/platform-v7/elevator/page.tsx
-  - apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - the first screen states what happened, what is blocked, money at risk, owner and next action without opening collapsed sections;
-  - weight and quality blockers are visible above the fold on mobile 390x844;
-  - every visible action routes to a real route/action/section or has a clear disabled reason;
-  - elevator does not expose buyer pricing, credit or unrelated counterparty data;
+  - next execution layer names the exact elevator route/component/test scope before code changes;
+  - target code scope remains limited to `apps/web/app/platform-v7/elevator/page.tsx` and `apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts` unless the audit proves a smaller component scope is safer;
+  - first-screen criteria remain explicit: what happened, what is blocked, money at risk, owner and next action;
+  - every visible action must route to a real route/action/section or have a clear disabled reason;
   - shell, mobile layout and role isolation remain stable;
   - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
+
+QUEUED CODE SCOPE:
+- apps/web/app/platform-v7/elevator/page.tsx
+- apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts
 
 ORDER:
 1. Stable shell boundary is active from #2038.
