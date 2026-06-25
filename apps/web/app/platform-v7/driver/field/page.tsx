@@ -30,7 +30,9 @@ export default async function DriverFieldPage() {
         display: 'grid',
         gap: 14,
         maxWidth: 760,
+        minWidth: 0,
         margin: '0 auto',
+        overflowX: 'clip',
         padding: '6px 0 24px',
       }}
     >
@@ -44,6 +46,7 @@ export default async function DriverFieldPage() {
       <OfflineSyncBanner />
       <style dangerouslySetInnerHTML={{ __html: `
         [data-testid='platform-v7-role-route-hint']{display:none!important}
+        [data-testid='platform-v7-driver-field-shell'] *{min-width:0}
         @media(max-width:767px){
           [data-testid='platform-v7-driver-field-shell']{gap:10px!important;padding-top:0!important}
           .driver-field-hero{padding:16px!important;border-radius:24px!important;gap:10px!important}
@@ -78,7 +81,7 @@ export default async function DriverFieldPage() {
         </div>
         <div style={firstScreenCard}>
           <span style={firstScreenLabel}>Деньги под риском</span>
-          <strong style={firstScreenValue}>нет доступа к выплатам</strong>
+          <strong style={firstScreenValue}>нет доступа к денежному контуру</strong>
         </div>
         <div style={firstScreenCard}>
           <span style={firstScreenLabel}>Кто отвечает</span>
@@ -116,7 +119,7 @@ export default async function DriverFieldPage() {
         </div>
       </CockpitHero>
 
-      <section id="driver-next-action">
+      <section id="driver-next-action" style={driverFieldSection}>
         <CollapsibleSection title='Статус рейса' summary='следующее · очередь · доступ' defaultOpen>
           <section className="driver-field-status-grid" aria-label="Полевой статус рейса" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
             <div style={miniStatusCard}>
@@ -135,7 +138,7 @@ export default async function DriverFieldPage() {
         </CollapsibleSection>
       </section>
 
-      <section id="driver-route-status">
+      <section id="driver-route-status" style={driverFieldSection}>
         <CollapsibleSection title='Маршрут и прогресс' summary='TRIP · точки · ETA' defaultOpen={false}>
           <DriverMissionRouteCard
             tripId={mission.tripId}
@@ -147,13 +150,13 @@ export default async function DriverFieldPage() {
         </CollapsibleSection>
       </section>
 
-      <section id="driver-photo-seal">
+      <section id="driver-photo-seal" style={driverFieldSection}>
         <CollapsibleSection title='Фото, пломба и полевые действия' summary='доказательства · следующий факт' defaultOpen={false}>
           <DriverBigTileIsland />
         </CollapsibleSection>
       </section>
 
-      <section id="driver-offline-events">
+      <section id="driver-offline-events" style={driverFieldSection}>
         <CollapsibleSection title='Полевой runtime и синхронизация' summary='очередь · события · офлайн' defaultOpen={false}>
           <FieldDriverRuntime compact />
         </CollapsibleSection>
@@ -266,4 +269,9 @@ const compactGhostAction = {
   border: '1px solid #CBD5E1',
   background: '#fff',
   color: 'var(--pc-text-primary, #0F1419)',
+} as const;
+
+const driverFieldSection = {
+  minWidth: 0,
+  scrollMarginTop: 92,
 } as const;
