@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "Keep a single protected shell copy normalizer before AppShellV4 without changing routes, runtime or maturity.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2040",
+  "openPr": "#2047",
   "lastClosed": ["#2038", "#2041", "#2042", "#2046"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
