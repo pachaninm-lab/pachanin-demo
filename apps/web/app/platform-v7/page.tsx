@@ -33,13 +33,13 @@ const controlCards: ControlCard[] = [
 ];
 
 const processSteps: ProcessStep[] = [
-  { label: 'Цена', text: 'Согласованы базовые условия', Icon: Leaf },
-  { label: 'Сделка', text: 'Зафиксированы стороны и допуски', Icon: ClipboardCheck },
-  { label: 'Рейс', text: 'Назначены маршрут и исполнитель', Icon: Truck },
-  { label: 'Приёмка', text: 'Подтверждены вес и факт поставки', Icon: Building2 },
-  { label: 'Документы', text: 'Собран обязательный комплект', Icon: FileCheck2 },
-  { label: 'Оплата', text: 'Расчёт идёт по подтверждённым событиям', Icon: Banknote },
-  { label: 'Спор', text: 'Есть доказательная база', Icon: Scale },
+  { label: 'Цена', text: 'Цена, объём, базис и допуски качества зафиксированы до рейса.', Icon: Leaf },
+  { label: 'Сделка', text: 'Стороны, партия и условия исполнения собраны в один контур.', Icon: ClipboardCheck },
+  { label: 'Рейс', text: 'Маршрут, водитель, машина и контрольные точки назначены.', Icon: Truck },
+  { label: 'Приёмка', text: 'Вес, факт поставки и расхождения фиксируются у элеватора.', Icon: Building2 },
+  { label: 'Документы', text: 'СДИЗ, ЭДО, ТТН и акты сверяются с событиями сделки.', Icon: FileCheck2 },
+  { label: 'Оплата', text: 'Банк видит основание: что подтверждено и что блокирует расчёт.', Icon: Banknote },
+  { label: 'Спор', text: 'Evidence pack показывает факты, ответственных и основание решения.', Icon: Scale },
 ];
 
 const roles: RoleCard[] = [
