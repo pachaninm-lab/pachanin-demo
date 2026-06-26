@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 RBAC / tenant scope / object scope source-of-truth selection.
+CURRENT: P0 RBAC / tenant scope / object scope implementation boundary.
 
-GOAL: keep platform-v7 moving toward real execution readiness without mixing RBAC/tenant/object scope selection with money, ledger, audit, outbox, storage, runtime rewrites or live integrations.
+GOAL: add a narrow server-side permission boundary for RBAC, tenant scope and object scope without mixing in auth-module edits, money, ledger, audit, outbox, storage, runtime rewrites or live integrations.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -11,43 +11,38 @@ CURRENT STATUS:
 - #2115 remains open: backend register role assignment hardening implementation is blocked by the current auth-file write path.
 - #2117 is merged: mobile header controls fix is active.
 - #2119 is merged: autopilot source-of-truth is synced after #2117.
-- The current lane continues only with independent docs/state source-of-truth selection; no auth implementation files are changed here.
+- #2120 is merged: RBAC / tenant scope / object scope source-of-truth selection is complete.
+- The current lane may create only isolated platform-v7 RBAC/tenant/object scope boundary files and matching tests.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- apps/api/src/platform-v7/rbac/**
+- apps/api/src/platform-v7/tenant-scope/**
+- apps/api/src/platform-v7/object-scope/**
+- apps/api/test/platform-v7/rbac/**
+- apps/api/test/platform-v7/tenant-scope/**
+- apps/api/test/platform-v7/object-scope/**
 
 CURRENT CHECKS:
-- choose the RBAC / tenant scope / object scope source-of-truth layer only;
-- define the next implementation boundary without touching code;
-- keep auth register hardening tracked as blocked by #2115;
-- no web login rewrite, no durable session rewrite and no server RBAC implementation in this PR;
+- central permission matrix boundary is explicit and deterministic;
+- tenant guard rejects cross-tenant access unless the permission scope allows tenant-wide or platform-wide access;
+- object guard rejects foreign object access unless the actor owns the object or has tenant/platform scope;
+- implementation is isolated under `apps/api/src/platform-v7/**` and tests under `apps/api/test/platform-v7/**`;
+- auth register hardening remains tracked as blocked by #2115;
+- no auth module edits, web login rewrite, durable session rewrite, money, ledger, audit, outbox, storage or live integration changes;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
-- no apps/landing, package or lockfile changes;
-- no broad backend/API/DB/auth/session/runtime/money/storage changes.
+- no apps/landing, package or lockfile changes.
 
 CURRENT NOTES:
 - #2115 is not closed by this layer; it still requires a safe maintainer/Codex path to write `apps/api/src/modules/auth/auth.service.ts` and related auth tests.
 - #2113 requires repository settings/branch protection verification and should not change platform code.
-- This PR is intentionally docs/state-only to keep the autonomous lane moving while implementation writes remain blocked.
+- This layer is a foundation boundary only; wiring into existing backend routes must be a later PR after green checks.
 
 NEXT:
-- Layer: P0 RBAC / tenant scope / object scope implementation boundary.
-- Allowed files:
-  - docs/platform-v7/autopilot/autopilot-state.json
-  - docs/platform-v7/execution-queue.md
-  - apps/api/src/platform-v7/rbac/**
-  - apps/api/src/platform-v7/tenant-scope/**
-  - apps/api/src/platform-v7/object-scope/**
-  - apps/api/test/platform-v7/rbac/**
-  - apps/api/test/platform-v7/tenant-scope/**
-  - apps/api/test/platform-v7/object-scope/**
-- Success criteria:
-  - central permission matrix boundary is selected without touching money, ledger, audit, outbox, storage or live integrations;
-  - tenant and object-scope guard sources are narrow, server-side and test-backed;
-  - auth register hardening remains blocked by #2115 unless auth-file write access becomes explicitly available;
-  - readiness remains 72% and maturity remains controlled-pilot / pre-integration.
+- Layer: P0 RBAC / tenant scope / object scope route wiring selection.
+- Allowed files will be selected only after this boundary PR is green and merged.
 - Keep it separate from money, ledger, audit, outbox, storage and live integrations.
 
 ORDER:
@@ -72,7 +67,8 @@ ORDER:
 19. P0 auth/session cabinet session body-role guard is active from #2111.
 20. P0 mobile header controls fix is active from #2117.
 21. P0 backend register role assignment hardening remains blocked by #2115.
-22. P0 RBAC / tenant scope / object scope source-of-truth selection is current.
+22. P0 RBAC / tenant scope / object scope source-of-truth selection is active from #2120.
+23. P0 RBAC / tenant scope / object scope implementation boundary is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -80,7 +76,7 @@ RULES:
 - no package or lockfiles;
 - no fake-live integration claims;
 - no production-ready claims;
-- no broad backend/API/DB/auth/session/runtime/money/storage rewrite inside the current docs-only selection layer;
+- no broad backend/API/DB/auth/session/runtime/money/storage rewrite inside the current boundary layer;
 - Netlify plus GitHub Actions green before merge;
 - Vercel and Deno deprecated external statuses are not active gate for platform-v7 unless branch protection still requires them.
 
@@ -123,5 +119,6 @@ DONE:
 - #2111 P0 auth/session cabinet session body-role guard.
 - #2117 P0 mobile header controls fix.
 - #2119 docs/platform-v7 autopilot state sync after #2117.
+- #2120 docs/platform-v7 RBAC / tenant scope / object scope source-of-truth selection.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
