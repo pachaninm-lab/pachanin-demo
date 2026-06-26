@@ -13,6 +13,7 @@ CURRENT STATUS:
 CURRENT ALLOWED:
 - apps/api/src/modules/auth/auth.service.ts
 - apps/api/src/modules/auth/dto/register.dto.ts
+- apps/api/src/modules/auth/*.spec.ts
 - apps/api/src/modules/auth/**/*.spec.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
