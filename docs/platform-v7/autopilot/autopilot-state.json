@@ -2,7 +2,7 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "mergeable",
+  "currentStatus": "ready",
   "current": "P0 RBAC / tenant scope / object scope route wiring boundary implementation.",
   "fullTzReadinessPercent": 72,
   "openPr": "#2123",
@@ -62,10 +62,7 @@
     "apps/web/components/v7r",
     "apps/web/lib/platform-v7",
     "apps/web/app/api",
-    "apps/api/src/modules/auth/auth.service.ts",
-    "apps/api/src/modules/auth/dto/register.dto.ts",
-    "apps/api/src/modules/auth/*.spec.ts",
-    "apps/api/src/modules/auth/**/*.spec.ts",
+    "apps/api/src/modules/auth/**",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml"
@@ -77,8 +74,7 @@
     "fully integrated",
     "bank connected",
     "FGIS connected",
-    "EDO connected",
-    "guarantees payment"
+    "EDO connected"
   ],
   "readiness": "72% honest readiness. Runtime layers are still required before live readiness. Backend register role assignment hardening remains blocked by #2115 until an allowed auth-file write path is available."
 }
