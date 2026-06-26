@@ -32,8 +32,9 @@ describe('platform-v7 role assistant widget', () => {
     expect(railFile).toContain("className='p7-mobile-action-rail'");
     expect(railFile).toContain("document.querySelector('.pc-v4-header .pc-v4-actions')");
     expect(railFile).toContain('mount,');
-    expect(railFile).not.toContain('document.body');
-    expect(railFile).not.toContain('position:fixed!important;display:grid!important;grid-template-columns:repeat(7,30px)!important');
+    expect(railFile).toContain('useIsMobile');
+    expect(railFile).toContain('keepRailActive');
+    expect(railFile).toContain('html body .pc-shell-root-v4 .pc-v4-actions > .p7-mobile-action-rail');
     expect(railFile).toContain('position:relative!important');
     expect(railFile).toContain('grid-template-columns:repeat(7,30px)!important');
     expect(railFile).toContain("aria-label='Открыть поиск'");
