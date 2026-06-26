@@ -21,7 +21,7 @@ CURRENT CHECKS:
 
 NEXT:
 - Layer: Elevator / grain touch target hardening.
-- Allowed files for this docs-only PR:
+- Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Intended code scope for the next PR:
