@@ -184,7 +184,7 @@ const primaryAction = {
 } as const;
 
 const secondaryChip = {
-  minHeight: 42,
+  minHeight: 46,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -252,7 +252,7 @@ const firstScreenValue = {
 } as const;
 
 const compactAction = {
-  minHeight: 34,
+  minHeight: 46,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
