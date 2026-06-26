@@ -69,14 +69,19 @@ function keepRailActive(actions: Element | null) {
 
   for (const selector of ['.p7-note-widget', '.p7-calc-widget', '.pc-v7-notice-wrap']) {
     const node = actions.querySelector<HTMLElement>(selector);
-    if (node) node.style.setProperty('display', 'contents', 'important');
+    if (node) {
+      node.style.setProperty('display', 'inline-flex', 'important');
+      node.style.setProperty('width', '0', 'important');
+      node.style.setProperty('minWidth', '0', 'important');
+      node.style.setProperty('maxWidth', '0', 'important');
+      node.style.setProperty('overflow', 'hidden', 'important');
+    }
   }
 }
 
 function clearShellSession() {
   window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
   window.localStorage.removeItem(STORE_KEY);
-  document.cookie = 'pc-role=; Max-Age=0; Path=/; SameSite=Lax';
 }
 
 export function MobileHeaderActionRail() {
@@ -147,6 +152,7 @@ export function MobileHeaderActionRail() {
 const css = `
 @media(max-width:767px){
   html body .pc-shell-root-v4 .pc-v4-actions > .p7-mobile-action-rail{display:grid!important;grid-template-columns:repeat(7,30px)!important;gap:3px!important;align-items:center!important;justify-content:end!important;inline-size:max-content!important;max-inline-size:100%!important;z-index:4!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;flex:0 0 auto!important;position:relative!important}
+  html body .pc-shell-root-v4 .pc-v4-actions>.p7-note-widget,html body .pc-shell-root-v4 .pc-v4-actions>.p7-calc-widget,html body .pc-shell-root-v4 .pc-v4-actions>.pc-v7-notice-wrap{display:inline-flex!important;width:0!important;min-width:0!important;max-width:0!important;overflow:hidden!important}
   html body .p7-mobile-action-btn{inline-size:30px!important;block-size:30px!important;min-inline-size:30px!important;min-block-size:30px!important;max-inline-size:30px!important;max-block-size:30px!important;border-radius:11px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-card)!important;color:var(--pc-text-secondary)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0!important;text-decoration:none!important;box-shadow:var(--pc-shadow-sm)!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}
   html body .p7-mobile-action-btn svg{inline-size:16px!important;block-size:16px!important;max-inline-size:16px!important;max-block-size:16px!important}
   html body .p7-mobile-action-logout{color:#9f1d1d!important;border-color:rgba(159,29,29,.22)!important;background:rgba(159,29,29,.06)!important}
