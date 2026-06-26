@@ -22,6 +22,26 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
+  "forbiddenZones": [
+    "apps/landing",
+    "apps/web/app/platform-v7",
+    "apps/web/components/platform-v7",
+    "apps/web/components/v7r",
+    "apps/web/lib/platform-v7",
+    "apps/web/app/api",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml"
+  ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
+  "forbiddenClaims": [
+    "production-ready",
+    "fully live",
+    "fully integrated",
+    "bank connected",
+    "FGIS connected",
+    "EDO connected",
+    "guarantees payment"
+  ],
   "readiness": "72% honest readiness. Runtime layers are still required before live readiness."
 }
