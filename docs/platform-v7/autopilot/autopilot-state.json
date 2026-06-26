@@ -3,20 +3,32 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 RBAC / tenant scope / object scope source-of-truth selection.",
+  "current": "P0 RBAC / tenant scope / object scope implementation boundary.",
   "fullTzReadinessPercent": 72,
   "openPr": null,
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119"],
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120"],
   "openBlockers": ["#2113", "#2115"],
-  "blockerNotes": "#2113 is a repository settings cleanup item for deprecated Vercel/Deno required checks. #2115 keeps the backend register role assignment hardening implementation blocked in this runtime; independent docs-only RBAC/tenant/object scope selection may continue without readiness uplift.",
+  "blockerNotes": "#2113 is a repository settings cleanup item for deprecated Vercel/Deno required checks. #2115 keeps backend register role assignment hardening blocked; this RBAC/tenant/object scope boundary does not edit auth module files and does not close #2115.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/auth/session/runtime/money/storage changes"],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    "apps/api/src/platform-v7/rbac/**",
+    "apps/api/src/platform-v7/tenant-scope/**",
+    "apps/api/src/platform-v7/object-scope/**",
+    "apps/api/test/platform-v7/rbac/**",
+    "apps/api/test/platform-v7/tenant-scope/**",
+    "apps/api/test/platform-v7/object-scope/**"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    "apps/api/src/platform-v7/rbac/**",
+    "apps/api/src/platform-v7/tenant-scope/**",
+    "apps/api/src/platform-v7/object-scope/**",
+    "apps/api/test/platform-v7/rbac/**",
+    "apps/api/test/platform-v7/tenant-scope/**",
+    "apps/api/test/platform-v7/object-scope/**"
   ],
   "forbiddenZones": [
     "apps/landing",
