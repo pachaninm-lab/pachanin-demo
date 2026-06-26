@@ -1,40 +1,41 @@
 # platform-v7 execution queue
 
-CURRENT: Elevator / grain mobile touch target hardening.
+CURRENT: P0 auth/session cabinet session body-role guard.
 
-GOAL: keep platform-v7 moving toward real execution readiness without mixing public visual polish with runtime, data, money, documents, integrations, load or ops layers.
+GOAL: keep platform-v7 moving toward real execution readiness without mixing this P0 auth/session boundary with broad backend, runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/elevator/grain/page.tsx
-- apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts
+- apps/web/app/api/platform-v7/cabinet-session/route.ts
+- apps/web/tests/unit/platformV7CabinetSessionRoute.static.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- #2109 is merged and selected the elevator / grain touch target code pass;
-- elevator / grain primary and ghost first-screen actions are the only product surface changed here;
-- raise visible action targets from 44px to 46px to match the field-role touch-safe baseline;
-- add a unit guard that prevents primary / ghost action targets from regressing to 44px;
-- do not widen into all elevator or platform-v7 routes;
-- keep calculator, notepad and unrelated money controls out of the elevator / grain surface;
-- no copy may imply payout, price, bank release or unrelated money control;
-- keep maturity controlled-pilot / pre-integration;
-- readiness remains 72% until runtime or a broader verified functional layer is merged;
-- no apps/landing, backend, API, DB, auth, session, package or lockfile changes.
+- #2111 is a narrow P0 auth/session hardening PR;
+- direct `body.role` must not remain an unconditional trusted source for cabinet session issuance;
+- verified backend role is preferred when available;
+- direct body-role issuance is allowed only behind explicit controlled-pilot/demo/dev-test boundaries;
+- production-like mode rejects direct body-role issuance unless a verified backend role exists;
+- keep current controlled-pilot / pre-integration maturity language;
+- readiness remains 72% until broader runtime/security layers are merged and verified;
+- no apps/landing, package or lockfile changes;
+- no broad backend/API/DB/auth/session rewrite in this PR.
 
 NEXT:
-- Layer: Field roles follow-up audit after elevator / grain touch target hardening.
+- Layer: P0 backend register role assignment hardening.
 - Allowed files:
+  - apps/api/src/modules/auth/auth.service.ts
+  - apps/api/src/modules/auth/dto/register.dto.ts
+  - apps/api/src/modules/auth/**/*.spec.ts
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-- Scope intent for the next PR: audit lab / logistics / field-role surfaces for the next single narrow defect class; do not widen to all platform-v7 routes.
 - Success criteria:
-  - first screen keeps answering what happened, what is blocked, money at risk, owner and next action;
-  - mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
-  - buttons remain real, route-backed, section-backed or explicitly disabled;
-  - no copy implies payout, price, bank, release or unrelated role control;
+  - production-like register flow must not accept privileged role assignment directly from request DTO;
+  - controlled-pilot/demo role assignment must be explicit and isolated;
+  - existing demo auth tests must stay green;
+  - no web login rewrite, no durable session rewrite and no server RBAC enforce in the same PR;
   - maturity remains controlled-pilot / pre-integration;
-  - readiness remains 72% until runtime or a broader verified functional layer is merged.
+  - readiness remains 72%.
 
 ORDER:
 1. Stable shell boundary is active from #2038.
@@ -55,14 +56,15 @@ ORDER:
 16. Driver / field follow-up audit is active from #2078.
 17. Driver / field mobile touch target hardening is active from #2079.
 18. Field roles follow-up audit is active from #2080.
-19. Elevator / grain touch target scope is active from #2109.
-20. Elevator / grain touch target hardening is active here.
+19. P0 auth/session cabinet session body-role guard is active here.
 
 RULES:
 - one PR = one narrow layer;
 - no apps/landing;
-- no backend/API/DB/auth/session changes inside UI PRs;
 - no package or lockfiles;
+- no fake-live integration claims;
+- no production-ready claims;
+- no broad backend/API/DB/auth/session rewrite inside #2111;
 - Netlify plus GitHub Actions green before merge;
 - Vercel and Deno deprecated external statuses are not active gate for platform-v7.
 
@@ -101,7 +103,6 @@ DONE:
 - #2078 driver field follow-up audit.
 - #2079 driver field mobile touch target hardening.
 - #2080 field roles follow-up audit.
-- #2109 elevator grain touch target scope.
 - root-entry-redirect Netlify root entry redirect recovery.
 
-READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
+READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
