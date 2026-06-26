@@ -44,10 +44,13 @@ CURRENT NOTES:
 - This layer adds an isolated route-scope adapter only; it does not wire broad controllers or frontend routes.
 
 NEXT:
-- Layer: P0 route-scope review and merge if checks are green.
+- Layer: P0 route-scope state sync after merge.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - changed files stay inside current allowed scope;
-  - GitHub Actions / Netlify acceptable for this backend-boundary PR;
+  - mark the route-scope boundary as merged only after acceptable checks;
+  - keep #2113 and #2115 as open blockers unless source-of-truth changes;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
   - readiness remains 72%.
