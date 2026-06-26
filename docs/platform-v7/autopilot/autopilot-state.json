@@ -24,6 +24,10 @@
   "forbiddenZones": [
     "apps/landing",
     "apps/web/app/api",
+    "apps/web/app/platform-v7",
+    "apps/web/components/platform-v7",
+    "apps/web/components/v7r",
+    "apps/web/lib/platform-v7",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml"
