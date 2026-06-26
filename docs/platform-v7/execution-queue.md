@@ -42,8 +42,15 @@ CURRENT NOTES:
 
 NEXT:
 - Layer: P0 RBAC / tenant scope / object scope route wiring selection.
-- Allowed files will be selected only after this boundary PR is green and merged.
-- Keep it separate from money, ledger, audit, outbox, storage and live integrations.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
+- Success criteria:
+  - select a narrow route wiring target set without editing route code in the selection PR;
+  - keep auth module files, money, ledger, audit, outbox, storage, runtime and live integrations out of scope;
+  - keep status controlled-pilot / pre-integration;
+  - readiness remains 72%.
+- Keep implementation separate from money, ledger, audit, outbox, storage and live integrations.
 
 ORDER:
 1. Stable shell boundary is active from #2038.
