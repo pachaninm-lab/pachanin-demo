@@ -53,21 +53,11 @@ function normalize(pathname: string | null) {
   return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
 }
 
-function useHeaderActionsMount() {
-  const [mount, setMount] = useState<Element | null>(null);
+function useBodyMount() {
+  const [mount, setMount] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    const sync = () => setMount(document.querySelector('.pc-v4-header .pc-v4-actions'));
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('resize', sync);
-    window.addEventListener('orientationchange', sync);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', sync);
-      window.removeEventListener('orientationchange', sync);
-    };
+    setMount(document.body);
   }, []);
 
   return mount;
@@ -97,9 +87,9 @@ function parkActionHost(node: HTMLElement | null) {
   node.style.setProperty('height', '0', 'important');
   node.style.setProperty('min-height', '0', 'important');
   node.style.setProperty('max-height', '0', 'important');
-  node.style.setProperty('overflow', 'visible', 'important');
-  node.style.setProperty('visibility', 'visible', 'important');
-  node.style.setProperty('opacity', '1', 'important');
+  node.style.setProperty('overflow', 'hidden', 'important');
+  node.style.setProperty('visibility', 'hidden', 'important');
+  node.style.setProperty('opacity', '0', 'important');
 }
 
 function hideSourceAction(node: HTMLElement | null) {
@@ -118,16 +108,9 @@ function hideSourceAction(node: HTMLElement | null) {
   node.style.setProperty('overflow', 'hidden', 'important');
 }
 
-function keepRailActive(actions: Element | null) {
+function suppressNativeHeaderActions() {
+  const actions = document.querySelector<HTMLElement>('.pc-v4-header .pc-v4-actions');
   if (!(actions instanceof HTMLElement)) return;
-
-  const rail = actions.querySelector<HTMLElement>('.p7-mobile-action-rail');
-  if (rail) {
-    rail.style.setProperty('display', 'grid', 'important');
-    rail.style.setProperty('visibility', 'visible', 'important');
-    rail.style.setProperty('opacity', '1', 'important');
-    rail.style.setProperty('pointer-events', 'auto', 'important');
-  }
 
   for (const selector of ['.p7-note-widget', '.p7-calc-widget', '.pc-v7-notice-wrap']) {
     parkActionHost(actions.querySelector<HTMLElement>(selector));
@@ -176,7 +159,7 @@ export function MobileHeaderActionRail() {
   const role = usePlatformV7RStore((state) => state.role) || 'operator';
   const clearRoleSelection = usePlatformV7RStore((state) => state.clearRoleSelection);
   const path = normalize(pathname);
-  const mount = useHeaderActionsMount();
+  const mount = useBodyMount();
   const isMobile = useIsMobile();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [panel, setPanel] = useState<MobilePanel>(null);
@@ -198,7 +181,7 @@ export function MobileHeaderActionRail() {
 
   useEffect(() => {
     if (!isMobile) return;
-    const apply = () => keepRailActive(document.querySelector('.pc-v4-header .pc-v4-actions'));
+    const apply = () => suppressNativeHeaderActions();
     apply();
     const observer = new MutationObserver(apply);
     observer.observe(document.body, { childList: true, subtree: true });
@@ -328,14 +311,13 @@ export function MobileHeaderActionRail() {
 const css = `
 @media(max-width:767px){
   html body .pc-shell-root-v4 .pc-v4-actions{overflow:visible!important}
-  html body .pc-shell-root-v4 .pc-v4-actions > .p7-mobile-action-rail{display:grid!important;grid-template-columns:repeat(7,30px)!important;gap:3px!important;align-items:center!important;justify-content:end!important;inline-size:max-content!important;max-inline-size:100%!important;z-index:4!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;flex:0 0 auto!important;position:relative!important}
-  html body .pc-shell-root-v4 .pc-v4-actions>.p7-note-widget,html body .pc-shell-root-v4 .pc-v4-actions>.p7-calc-widget,html body .pc-shell-root-v4 .pc-v4-actions>.pc-v7-notice-wrap{display:inline-flex!important;position:relative!important;width:0!important;min-width:0!important;max-width:0!important;height:0!important;min-height:0!important;max-height:0!important;overflow:visible!important;visibility:visible!important;opacity:1!important}
+  html body .p7-mobile-action-rail{position:fixed!important;top:8px!important;right:8px!important;z-index:5000!important;display:grid!important;grid-template-columns:repeat(7,30px)!important;gap:3px!important;align-items:center!important;justify-content:end!important;inline-size:max-content!important;max-inline-size:calc(100vw - 92px)!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}
+  html body .pc-shell-root-v4 .pc-v4-actions>.p7-note-widget,html body .pc-shell-root-v4 .pc-v4-actions>.p7-calc-widget,html body .pc-shell-root-v4 .pc-v4-actions>.pc-v7-notice-wrap{display:inline-flex!important;position:relative!important;width:0!important;min-width:0!important;max-width:0!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important}
   html body .pc-shell-root-v4 .pc-v4-actions .pc-v4-search,html body .pc-shell-root-v4 .pc-v4-actions .pc-v4-theme-toggle,html body .pc-shell-root-v4 .pc-v4-actions .p7-role-support,html body .pc-shell-root-v4 .pc-v4-actions .pc-v7-logout-btn,html body .pc-shell-root-v4 .pc-v4-actions .p7-note-widget>button,html body .pc-shell-root-v4 .pc-v4-actions .p7-calc-widget>button,html body .pc-shell-root-v4 .pc-v4-actions .pc-v7-notice-wrap>button,html body .pc-shell-root-v4 .pc-v4-actions button[aria-label='Открыть уведомления']{position:absolute!important;width:1px!important;min-width:1px!important;max-width:1px!important;height:1px!important;min-height:1px!important;max-height:1px!important;padding:0!important;margin:0!important;opacity:0!important;pointer-events:none!important;overflow:hidden!important}
-  html body .pc-shell-root-v4 .pc-v7-notice-panel,html body .pc-shell-root-v4 .p7-note-panel,html body .pc-shell-root-v4 .p7-calc-panel,html body .pc-shell-root-v4 .pc-v4-alert-panel{position:fixed!important;left:10px!important;right:10px!important;top:64px!important;width:auto!important;max-width:none!important;z-index:960!important;opacity:1!important;clip-path:none!important;pointer-events:auto!important}
-  html body .p7-mobile-action-btn{inline-size:30px!important;block-size:30px!important;min-inline-size:30px!important;min-block-size:30px!important;max-inline-size:30px!important;max-block-size:30px!important;border-radius:11px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-card)!important;color:var(--pc-text-secondary)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0!important;text-decoration:none!important;box-shadow:var(--pc-shadow-sm)!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}
-  html body .p7-mobile-action-btn svg{inline-size:16px!important;block-size:16px!important;max-inline-size:16px!important;max-block-size:16px!important}
+  html body .p7-mobile-action-btn{inline-size:30px!important;block-size:30px!important;min-inline-size:30px!important;min-block-size:30px!important;max-inline-size:30px!important;max-block-size:30px!important;border-radius:11px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-card)!important;color:var(--pc-text-secondary)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0!important;text-decoration:none!important;box-shadow:var(--pc-shadow-sm)!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important;pointer-events:auto!important;position:relative!important;z-index:5001!important}
+  html body .p7-mobile-action-btn svg{inline-size:16px!important;block-size:16px!important;max-inline-size:16px!important;max-block-size:16px!important;pointer-events:none!important}
   html body .p7-mobile-action-logout{color:#9f1d1d!important;border-color:rgba(159,29,29,.22)!important;background:rgba(159,29,29,.06)!important}
-  html body .p7-mobile-tool-panel{position:fixed!important;left:10px!important;right:10px!important;top:64px!important;z-index:990!important;display:grid!important;gap:10px!important;padding:12px!important;border:1px solid var(--pc-border)!important;border-radius:20px!important;background:var(--pc-bg-card)!important;box-shadow:var(--pc-shadow-lg)!important;color:var(--pc-text-primary)!important;max-height:calc(100dvh - 150px)!important;overflow:auto!important}
+  html body .p7-mobile-tool-panel{position:fixed!important;left:10px!important;right:10px!important;top:64px!important;z-index:5010!important;display:grid!important;gap:10px!important;padding:12px!important;border:1px solid var(--pc-border)!important;border-radius:20px!important;background:var(--pc-bg-card)!important;box-shadow:var(--pc-shadow-lg)!important;color:var(--pc-text-primary)!important;max-height:calc(100dvh - 150px)!important;overflow:auto!important;pointer-events:auto!important}
   html body .p7-mobile-tool-panel header{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important}
   html body .p7-mobile-tool-panel header strong{font-size:14px!important;font-weight:950!important}
   html body .p7-mobile-tool-panel header button{inline-size:32px!important;block-size:32px!important;border-radius:12px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-elevated)!important;color:var(--pc-text-secondary)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0!important}
@@ -353,7 +335,7 @@ const css = `
   html body .p7-mobile-calc-grid button{height:42px!important;border-radius:14px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-elevated)!important;color:var(--pc-text-primary)!important;font-size:16px!important;font-weight:900!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
 }
 @media(max-width:374px){
-  html body .pc-shell-root-v4 .pc-v4-actions > .p7-mobile-action-rail{grid-template-columns:repeat(7,28px)!important;gap:2px!important}
+  html body .p7-mobile-action-rail{grid-template-columns:repeat(7,28px)!important;gap:2px!important;right:6px!important;max-inline-size:calc(100vw - 84px)!important}
   html body .p7-mobile-action-btn{inline-size:28px!important;block-size:28px!important;min-inline-size:28px!important;min-block-size:28px!important;max-inline-size:28px!important;max-block-size:28px!important}
   html body .p7-mobile-action-btn svg{inline-size:15px!important;block-size:15px!important}
 }
