@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 RBAC / tenant scope / object scope implementation boundary.
+CURRENT: P0 RBAC / tenant scope / object scope route wiring selection.
 
-GOAL: add a narrow server-side permission boundary for RBAC, tenant scope and object scope without mixing in auth-module edits, money, ledger, audit, outbox, storage, runtime rewrites or live integrations.
+GOAL: select the next narrow backend route-wiring boundary after #2121 without editing route code in this selection PR.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -12,42 +12,43 @@ CURRENT STATUS:
 - #2117 is merged: mobile header controls fix is active.
 - #2119 is merged: autopilot source-of-truth is synced after #2117.
 - #2120 is merged: RBAC / tenant scope / object scope source-of-truth selection is complete.
-- The current lane may create only isolated platform-v7 RBAC/tenant/object scope boundary files and matching tests.
+- #2121 is merged: isolated RBAC / tenant scope / object scope backend boundary is active.
+- The current lane is docs/state-only selection for the next implementation target.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
-- apps/api/src/platform-v7/rbac/**
-- apps/api/src/platform-v7/tenant-scope/**
-- apps/api/src/platform-v7/object-scope/**
-- apps/api/test/platform-v7/rbac/**
-- apps/api/test/platform-v7/tenant-scope/**
-- apps/api/test/platform-v7/object-scope/**
 
 CURRENT CHECKS:
-- central permission matrix boundary is explicit and deterministic;
-- tenant guard rejects cross-tenant access unless the permission scope allows tenant-wide or platform-wide access;
-- object guard rejects foreign object access unless the actor owns the object or has tenant/platform scope;
-- implementation is isolated under `apps/api/src/platform-v7/**` and tests under `apps/api/test/platform-v7/**`;
-- auth register hardening remains tracked as blocked by #2115;
-- no auth module edits, web login rewrite, durable session rewrite, money, ledger, audit, outbox, storage or live integration changes;
+- select route-wiring target set without editing route code;
+- keep auth module files blocked by #2115 out of scope;
+- keep apps/landing, apps/web, money, ledger, audit, outbox, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
-- no apps/landing, package or lockfile changes.
+- no package or lockfile changes.
 
 CURRENT NOTES:
 - #2115 is not closed by this layer; it still requires a safe maintainer/Codex path to write `apps/api/src/modules/auth/auth.service.ts` and related auth tests.
 - #2113 requires repository settings/branch protection verification and should not change platform code.
-- This layer is a foundation boundary only; wiring into existing backend routes must be a later PR after green checks.
+- #2121 provides helper boundaries only; the next implementation should introduce an isolated route-scope adapter before wiring any broad API surface.
 
 NEXT:
-- Layer: P0 RBAC / tenant scope / object scope route wiring selection.
+- Layer: P0 RBAC / tenant scope / object scope route wiring boundary.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
+  - apps/api/src/platform-v7/rbac/**
+  - apps/api/src/platform-v7/tenant-scope/**
+  - apps/api/src/platform-v7/object-scope/**
+  - apps/api/src/platform-v7/route-scope/**
+  - apps/api/test/platform-v7/rbac/**
+  - apps/api/test/platform-v7/tenant-scope/**
+  - apps/api/test/platform-v7/object-scope/**
+  - apps/api/test/platform-v7/route-scope/**
 - Success criteria:
-  - select a narrow route wiring target set without editing route code in the selection PR;
-  - keep auth module files, money, ledger, audit, outbox, storage, runtime and live integrations out of scope;
+  - add an isolated route guard adapter boundary that resolves role + action + tenant + object decisions through the #2121 helpers;
+  - include deterministic unit tests for seller, buyer, bank, logistics, driver, elevator, lab, arbitrator, compliance, executive, operator and support decisions;
+  - do not edit auth module files, broad backend routes, money, ledger, audit, outbox, storage, runtime or live integrations;
   - keep status controlled-pilot / pre-integration;
   - readiness remains 72%.
 - Keep implementation separate from money, ledger, audit, outbox, storage and live integrations.
@@ -75,7 +76,8 @@ ORDER:
 20. P0 mobile header controls fix is active from #2117.
 21. P0 backend register role assignment hardening remains blocked by #2115.
 22. P0 RBAC / tenant scope / object scope source-of-truth selection is active from #2120.
-23. P0 RBAC / tenant scope / object scope implementation boundary is current.
+23. P0 RBAC / tenant scope / object scope implementation boundary is active from #2121.
+24. P0 RBAC / tenant scope / object scope route wiring selection is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -127,5 +129,6 @@ DONE:
 - #2117 P0 mobile header controls fix.
 - #2119 docs/platform-v7 autopilot state sync after #2117.
 - #2120 docs/platform-v7 RBAC / tenant scope / object scope source-of-truth selection.
+- #2121 P0 RBAC / tenant scope / object scope implementation boundary.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
