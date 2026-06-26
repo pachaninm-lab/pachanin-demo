@@ -1,17 +1,20 @@
 # platform-v7 execution queue
 
-CURRENT: Elevator / grain mobile touch target scope after field roles audit.
+CURRENT: Elevator / grain mobile touch target hardening.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing public visual polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
+- apps/web/app/platform-v7/elevator/grain/page.tsx
+- apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- #2080 is merged and the field roles follow-up audit selected a narrow elevator / grain defect class;
-- observed defect candidate: `apps/web/app/platform-v7/elevator/grain/page.tsx` still has 44px primary / ghost action targets while adjacent field surfaces have moved to touch-safe 46px minimums;
-- keep this PR docs-only and use it only to lock the next code scope;
+- #2109 is merged and selected the elevator / grain touch target code pass;
+- elevator / grain primary and ghost first-screen actions are the only product surface changed here;
+- raise visible action targets from 44px to 46px to match the field-role touch-safe baseline;
+- add a unit guard that prevents primary / ghost action targets from regressing to 44px;
 - do not widen into all elevator or platform-v7 routes;
 - keep calculator, notepad and unrelated money controls out of the elevator / grain surface;
 - no copy may imply payout, price, bank release or unrelated money control;
@@ -20,16 +23,11 @@ CURRENT CHECKS:
 - no apps/landing, backend, API, DB, auth, session, package or lockfile changes.
 
 NEXT:
-- Layer: Elevator / grain touch target hardening.
+- Layer: Field roles follow-up audit after elevator / grain touch target hardening.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-- Intended code scope for the next PR:
-  - apps/web/app/platform-v7/elevator/grain/page.tsx
-  - apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts
-  - docs/platform-v7/autopilot/autopilot-state.json
-  - docs/platform-v7/execution-queue.md
-- Scope intent for the next code PR: raise only elevator / grain first-screen visible action minimum touch targets from 44px to 46px and add / update a guard that prevents regression.
+- Scope intent for the next PR: audit lab / logistics / field-role surfaces for the next single narrow defect class; do not widen to all platform-v7 routes.
 - Success criteria:
   - first screen keeps answering what happened, what is blocked, money at risk, owner and next action;
   - mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
@@ -57,7 +55,8 @@ ORDER:
 16. Driver / field follow-up audit is active from #2078.
 17. Driver / field mobile touch target hardening is active from #2079.
 18. Field roles follow-up audit is active from #2080.
-19. Elevator / grain touch target scope is active here.
+19. Elevator / grain touch target scope is active from #2109.
+20. Elevator / grain touch target hardening is active here.
 
 RULES:
 - one PR = one narrow layer;
@@ -102,6 +101,7 @@ DONE:
 - #2078 driver field follow-up audit.
 - #2079 driver field mobile touch target hardening.
 - #2080 field roles follow-up audit.
+- #2109 elevator grain touch target scope.
 - root-entry-redirect Netlify root entry redirect recovery.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.

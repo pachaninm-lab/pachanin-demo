@@ -3,16 +3,20 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Elevator / grain mobile touch target scope after field roles audit.",
+  "current": "Elevator / grain mobile touch target hardening.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2109",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect"],
+  "openPr": "#2110",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "#2109", "root-entry-redirect"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
+    "apps/web/app/platform-v7/elevator/grain/page.tsx",
+    "apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
+    "apps/web/app/platform-v7/elevator/grain/page.tsx",
+    "apps/web/tests/unit/platformV7ElevatorFirstScreen.test.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
