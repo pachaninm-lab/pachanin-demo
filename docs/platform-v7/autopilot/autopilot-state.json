@@ -3,18 +3,14 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 backend register role assignment hardening.",
+  "current": "P0 RBAC / tenant scope / object scope source-of-truth selection.",
   "fullTzReadinessPercent": 72,
   "openPr": null,
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117"],
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119"],
   "openBlockers": ["#2113", "#2115"],
-  "blockerNotes": "#2113 is a repository settings cleanup item for deprecated Vercel/Deno required checks. #2115 records a prior chat-runtime/tool-safety write limitation for the auth hardening files; it does not change the repo source-of-truth current layer or readiness.",
-  "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/auth/session changes"],
+  "blockerNotes": "#2113 is a repository settings cleanup item for deprecated Vercel/Deno required checks. #2115 keeps the backend register role assignment hardening implementation blocked in this runtime; independent docs-only RBAC/tenant/object scope selection may continue without readiness uplift.",
+  "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/auth/session/runtime/money/storage changes"],
   "allowedCurrentScope": [
-    "apps/api/src/modules/auth/auth.service.ts",
-    "apps/api/src/modules/auth/dto/register.dto.ts",
-    "apps/api/src/modules/auth/*.spec.ts",
-    "apps/api/src/modules/auth/**/*.spec.ts",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
@@ -29,6 +25,10 @@
     "apps/web/components/v7r",
     "apps/web/lib/platform-v7",
     "apps/web/app/api",
+    "apps/api/src/modules/auth/auth.service.ts",
+    "apps/api/src/modules/auth/dto/register.dto.ts",
+    "apps/api/src/modules/auth/*.spec.ts",
+    "apps/api/src/modules/auth/**/*.spec.ts",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml"
@@ -43,5 +43,5 @@
     "EDO connected",
     "guarantees payment"
   ],
-  "readiness": "72% honest readiness. Runtime layers are still required before live readiness."
+  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. Backend register role assignment hardening remains blocked by #2115 until an allowed auth-file write path is available."
 }
