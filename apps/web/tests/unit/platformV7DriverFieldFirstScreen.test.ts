@@ -34,6 +34,14 @@ describe('platform-v7 driver field first screen', () => {
     }
   });
 
+  it('keeps driver field touch targets usable on mobile', () => {
+    expect(driverFieldPage).toContain('const primaryAction = {\n  minHeight: 58');
+    expect(driverFieldPage).toContain('const secondaryChip = {\n  minHeight: 46');
+    expect(driverFieldPage).toContain('const compactAction = {\n  minHeight: 46');
+    expect(driverFieldPage).not.toContain('minHeight: 34');
+    expect(driverFieldPage).not.toContain('minHeight: 42');
+  });
+
   it('keeps the driver field pass mobile-bounded and role-scoped', () => {
     expect(driverFieldPage).toContain('controlled-pilot / pre-integration');
     expect(driverFieldPage).toContain('только свой рейс');
