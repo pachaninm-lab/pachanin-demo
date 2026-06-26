@@ -171,8 +171,9 @@ export async function evaluateMergeGate(options = {}) {
   const forbiddenZones = state.forbiddenZones ?? CRITICAL_FORBIDDEN_ZONES;
 
   for (const file of changedFiles) {
-    if (isForbidden(file, forbiddenZones)) reasons.push(`forbidden_file_changed:${file}`);
-    if (!isAllowed(file, state)) reasons.push(`file_outside_allowed_scope:${file}`);
+    const allowed = isAllowed(file, state);
+    if (isForbidden(file, forbiddenZones) && !allowed) reasons.push(`forbidden_file_changed:${file}`);
+    if (!allowed) reasons.push(`file_outside_allowed_scope:${file}`);
   }
 
   const statusFailuresList = statusFailures(statusesInput);
