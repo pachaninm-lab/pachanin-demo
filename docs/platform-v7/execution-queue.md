@@ -34,12 +34,20 @@ CURRENT NOTES:
 
 NEXT:
 - Layer: P0 RBAC / tenant scope / object scope implementation boundary.
-- Allowed files to be selected in the next source-of-truth update only after this docs layer is green:
-  - central permission matrix source;
-  - server-side guard source;
-  - tenant/object-scope tests;
-  - docs/platform-v7/autopilot/autopilot-state.json;
-  - docs/platform-v7/execution-queue.md.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
+  - apps/api/src/platform-v7/rbac/**
+  - apps/api/src/platform-v7/tenant-scope/**
+  - apps/api/src/platform-v7/object-scope/**
+  - apps/api/test/platform-v7/rbac/**
+  - apps/api/test/platform-v7/tenant-scope/**
+  - apps/api/test/platform-v7/object-scope/**
+- Success criteria:
+  - central permission matrix boundary is selected without touching money, ledger, audit, outbox, storage or live integrations;
+  - tenant and object-scope guard sources are narrow, server-side and test-backed;
+  - auth register hardening remains blocked by #2115 unless auth-file write access becomes explicitly available;
+  - readiness remains 72% and maturity remains controlled-pilot / pre-integration.
 - Keep it separate from money, ledger, audit, outbox, storage and live integrations.
 
 ORDER:
