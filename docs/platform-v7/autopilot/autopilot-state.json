@@ -2,21 +2,46 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "in_progress",
-  "current": "P0 mobile header controls.",
+  "currentStatus": "ready",
+  "current": "P0 backend register role assignment hardening.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2117",
-  "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes"],
+  "openPr": null,
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117"],
+  "openBlockers": ["#2113", "#2115"],
+  "blockerNotes": "#2113 is a repository settings cleanup item for deprecated Vercel/Deno required checks. #2115 records a prior chat-runtime/tool-safety write limitation for the auth hardening files; it does not change the repo source-of-truth current layer or readiness.",
+  "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/auth/session changes"],
   "allowedCurrentScope": [
-    "apps/web/components/platform-v7/MobileHeaderActionRail.tsx",
-    "apps/web/tests/unit/platformV7RoleAssistantWidget.test.ts",
-    "docs/platform-v7/autopilot/autopilot-state.json"
+    "apps/api/src/modules/auth/auth.service.ts",
+    "apps/api/src/modules/auth/dto/register.dto.ts",
+    "apps/api/src/modules/auth/*.spec.ts",
+    "apps/api/src/modules/auth/**/*.spec.ts",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/web/components/platform-v7/MobileHeaderActionRail.tsx",
-    "apps/web/tests/unit/platformV7RoleAssistantWidget.test.ts",
-    "docs/platform-v7/autopilot/autopilot-state.json"
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/execution-queue.md"
+  ],
+  "forbiddenZones": [
+    "apps/landing",
+    "apps/web/app/platform-v7",
+    "apps/web/components/platform-v7",
+    "apps/web/components/v7r",
+    "apps/web/lib/platform-v7",
+    "apps/web/app/api",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml"
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
+  "forbiddenClaims": [
+    "production-ready",
+    "fully live",
+    "fully integrated",
+    "bank connected",
+    "FGIS connected",
+    "EDO connected",
+    "guarantees payment"
+  ],
   "readiness": "72% honest readiness. Runtime layers are still required before live readiness."
 }
