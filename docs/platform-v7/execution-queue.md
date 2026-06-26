@@ -1,34 +1,37 @@
 # platform-v7 execution queue
 
-CURRENT: Driver / field follow-up audit after public register visual system pass.
+CURRENT: Driver / field mobile touch target hardening.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing public visual polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
+- apps/web/app/platform-v7/driver/field/page.tsx
+- apps/web/tests/unit/platformV7DriverFieldFirstScreen.test.ts
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- #2077 is merged and the public register visual system pass is recorded as closed;
-- return to driver / field after the public register interruption without widening scope;
-- identify any remaining driver / field 390x844 touch, spacing, safe-area or overflow defects;
-- confirm no calculator, notepad or control affordance appears out of context;
-- keep every visible driver / field action mapped to a real route, real section or disabled state with a reason;
+- #2078 is merged and driver / field follow-up audit moved into a narrow code pass;
+- fix only driver / field mobile touch target defects found in the audit;
+- keep first-screen actions route-backed or section-backed;
+- keep mobile 390x844 single-column, safe-area aware and without horizontal overflow;
+- keep calculator, notepad and unrelated role controls out of the driver field surface;
+- no driver copy implies payout, price, bank release or unrelated money control;
 - keep maturity controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
 - no apps/landing, backend, API, DB, auth, session, package or lockfile changes.
 
 NEXT:
-- Layer: Driver / field mobile touch and tool placement code pass if the audit finds a narrow defect.
+- Layer: Driver / field follow-up audit closure or next role-specific field role pass after this PR is green.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-- Scope intent for the next code PR: keep driver / field only unless a new role-specific defect is found; do not widen to all platform-v7 routes.
+- Scope intent for the next code PR: move only if a concrete role-specific defect is found; do not widen to all platform-v7 routes.
 - Success criteria:
   - first screen still answers what happened, what is blocked, money at risk, owner and next action;
   - mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
   - buttons remain real, route-backed, section-backed or explicitly disabled;
-  - no driver copy implies payout, price, bank, release or unrelated role control;
+  - no copy implies payout, price, bank, release or unrelated role control;
   - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
@@ -48,7 +51,8 @@ ORDER:
 13. Public entry human copy pass is active from #2075.
 14. Public register header actions pass is active from #2076.
 15. Public register visual system pass is active from #2077.
-16. Driver / field follow-up audit is queued here.
+16. Driver / field follow-up audit is active from #2078.
+17. Driver / field mobile touch target hardening is active here.
 
 RULES:
 - one PR = one narrow layer;
@@ -90,6 +94,7 @@ DONE:
 - #2075 public entry human copy pass.
 - #2076 public register header actions pass.
 - #2077 public register visual system pass.
+- #2078 driver field follow-up audit.
 - root-entry-redirect Netlify root entry redirect recovery.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
