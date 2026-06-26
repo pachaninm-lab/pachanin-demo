@@ -34,6 +34,10 @@ describe('platform-v7 role assistant widget', () => {
     expect(railFile).toContain('mount,');
     expect(railFile).toContain('useIsMobile');
     expect(railFile).toContain('keepRailActive');
+    expect(railFile).toContain('parkActionHost');
+    expect(railFile).toContain('hideSourceAction');
+    expect(railFile).toContain("node.style.setProperty('overflow', 'visible', 'important')");
+    expect(railFile).toContain('html body .pc-shell-root-v4 .pc-v4-actions{overflow:visible!important}');
     expect(railFile).toContain('html body .pc-shell-root-v4 .pc-v4-actions > .p7-mobile-action-rail');
     expect(railFile).toContain('position:relative!important');
     expect(railFile).toContain('grid-template-columns:repeat(7,30px)!important');
@@ -44,6 +48,16 @@ describe('platform-v7 role assistant widget', () => {
     expect(railFile).toContain("aria-label='Открыть калькулятор'");
     expect(railFile).toContain("aria-label='Выйти из кабинета'");
     expect(railFile).toContain('.p7-mobile-action-logout');
+  });
+
+  it('keeps mobile tool panels visible while source buttons are visually suppressed', () => {
+    expect(railFile).toContain('.p7-note-widget>button');
+    expect(railFile).toContain('.p7-calc-widget>button');
+    expect(railFile).toContain('.pc-v7-notice-wrap>button');
+    expect(railFile).toContain('opacity:0!important;pointer-events:none!important');
+    expect(railFile).toContain('.pc-v7-notice-panel,html body .pc-shell-root-v4 .p7-note-panel,html body .pc-shell-root-v4 .p7-calc-panel');
+    expect(railFile).toContain('position:fixed!important;left:10px!important;right:10px!important;top:64px!important');
+    expect(railFile).not.toContain('overflow:hidden!important}\n  html body .p7-mobile-action-btn');
   });
 
   it('keeps compact mobile header height', () => {
