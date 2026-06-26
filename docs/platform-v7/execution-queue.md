@@ -1,37 +1,35 @@
 # platform-v7 execution queue
 
-CURRENT: Public register visual system pass.
+CURRENT: Driver / field follow-up audit after public register visual system pass.
 
 GOAL: keep platform-v7 moving toward real execution readiness without mixing public visual polish with runtime, data, money, documents, integrations, load or ops layers.
 
 CURRENT ALLOWED:
-- apps/web/app/platform-v7/register/page.tsx
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- unify `/platform-v7/register` with the public visual system;
-- header must be compact, sticky, card-aligned and show all actions on mobile: help, login, exit;
-- register hero must use the same card rhythm, green accent and neutral typography;
-- remove the blue journey/status pill from the first screen;
-- keep field cards, labels, inputs and select visually consistent;
-- participant fields collapse to one column on small mobile screens;
-- avoid marketplace positioning, fake-live claims and maturity uplift;
-- maturity remains controlled-pilot / pre-integration;
+- #2077 is merged and the public register visual system pass is recorded as closed;
+- return to driver / field after the public register interruption without widening scope;
+- identify any remaining driver / field 390x844 touch, spacing, safe-area or overflow defects;
+- confirm no calculator, notepad or control affordance appears out of context;
+- keep every visible driver / field action mapped to a real route, real section or disabled state with a reason;
+- keep maturity controlled-pilot / pre-integration;
 - readiness remains 72% until runtime or a broader verified functional layer is merged;
 - no apps/landing, backend, API, DB, auth, session, package or lockfile changes.
 
 NEXT:
-- Layer: return to Driver / field follow-up audit after public register visual system pass.
+- Layer: Driver / field mobile touch and tool placement code pass if the audit finds a narrow defect.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-- Scope intent for the next code PR: keep driver / field only unless a new role-specific defect is found.
+- Scope intent for the next code PR: keep driver / field only unless a new role-specific defect is found; do not widen to all platform-v7 routes.
 - Success criteria:
-  - identify any remaining 390x844 touch, spacing, safe-area or overflow defects;
-  - confirm no calculator/notepad/control affordance appears out of context;
-  - keep buttons mapped to real routes, real sections or disabled states with reasons;
-  - keep maturity controlled-pilot / pre-integration;
+  - first screen still answers what happened, what is blocked, money at risk, owner and next action;
+  - mobile 390x844 remains single-column, touch-safe, safe-area aware and without horizontal overflow;
+  - buttons remain real, route-backed, section-backed or explicitly disabled;
+  - no driver copy implies payout, price, bank, release or unrelated role control;
+  - maturity remains controlled-pilot / pre-integration;
   - readiness remains 72% until runtime or a broader verified functional layer is merged.
 
 ORDER:
@@ -46,10 +44,11 @@ ORDER:
 9. Public process stage copy polish is active from #2065.
 10. Netlify root entry redirect recovery is active from root-entry-redirect.
 11. Public hero copy polish is active from #2067/#2068/#2070/#2071.
-12. Driver field route anchor hardening is active in #2072 after stale #2061 was superseded.
+12. Driver field route anchor hardening is active from #2072 after stale #2061 was superseded.
 13. Public entry human copy pass is active from #2075.
 14. Public register header actions pass is active from #2076.
-15. Public register visual system pass is active in #2077.
+15. Public register visual system pass is active from #2077.
+16. Driver / field follow-up audit is queued here.
 
 RULES:
 - one PR = one narrow layer;
@@ -90,6 +89,7 @@ DONE:
 - #2072 driver field route anchor hardening.
 - #2075 public entry human copy pass.
 - #2076 public register header actions pass.
+- #2077 public register visual system pass.
 - root-entry-redirect Netlify root entry redirect recovery.
 
 READINESS: 72% honest readiness. Runtime layers and remaining role-by-role functional passes are still incomplete.
