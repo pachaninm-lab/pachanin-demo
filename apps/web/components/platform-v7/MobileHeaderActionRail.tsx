@@ -69,14 +69,13 @@ function keepRailActive(actions: Element | null) {
 
   for (const selector of ['.p7-note-widget', '.p7-calc-widget', '.pc-v7-notice-wrap']) {
     const node = actions.querySelector<HTMLElement>(selector);
-    if (node) node.style.setProperty('display', 'contents', 'important');
+    if (node) node.style.setProperty('display', 'inline-flex', 'important');
   }
 }
 
 function clearShellSession() {
   window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
   window.localStorage.removeItem(STORE_KEY);
-  document.cookie = 'pc-role=; Max-Age=0; Path=/; SameSite=Lax';
 }
 
 export function MobileHeaderActionRail() {
