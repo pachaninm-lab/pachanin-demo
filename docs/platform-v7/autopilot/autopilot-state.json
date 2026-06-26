@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "Elevator / grain mobile touch target scope after field roles audit.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2081",
+  "openPr": "#2109",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect"],
   "lockedUntilCurrentGreen": ["apps/landing changes", "backend/API/DB/auth/session changes", "package or lockfile changes"],
   "allowedCurrentScope": [
