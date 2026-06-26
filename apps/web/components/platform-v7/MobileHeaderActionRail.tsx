@@ -58,6 +58,37 @@ function clickNative(selector: string) {
   return true;
 }
 
+function parkActionHost(node: HTMLElement | null) {
+  if (!node) return;
+  node.style.setProperty('display', 'inline-flex', 'important');
+  node.style.setProperty('position', 'relative', 'important');
+  node.style.setProperty('width', '0', 'important');
+  node.style.setProperty('minWidth', '0', 'important');
+  node.style.setProperty('maxWidth', '0', 'important');
+  node.style.setProperty('height', '0', 'important');
+  node.style.setProperty('minHeight', '0', 'important');
+  node.style.setProperty('maxHeight', '0', 'important');
+  node.style.setProperty('overflow', 'visible', 'important');
+  node.style.setProperty('visibility', 'visible', 'important');
+  node.style.setProperty('opacity', '1', 'important');
+}
+
+function hideSourceAction(node: HTMLElement | null) {
+  if (!node) return;
+  node.style.setProperty('position', 'absolute', 'important');
+  node.style.setProperty('width', '1px', 'important');
+  node.style.setProperty('minWidth', '1px', 'important');
+  node.style.setProperty('maxWidth', '1px', 'important');
+  node.style.setProperty('height', '1px', 'important');
+  node.style.setProperty('minHeight', '1px', 'important');
+  node.style.setProperty('maxHeight', '1px', 'important');
+  node.style.setProperty('padding', '0', 'important');
+  node.style.setProperty('margin', '0', 'important');
+  node.style.setProperty('opacity', '0', 'important');
+  node.style.setProperty('pointerEvents', 'none', 'important');
+  node.style.setProperty('overflow', 'hidden', 'important');
+}
+
 function keepRailActive(actions: Element | null) {
   if (!(actions instanceof HTMLElement)) return;
 
@@ -65,17 +96,25 @@ function keepRailActive(actions: Element | null) {
   if (rail) {
     rail.style.setProperty('display', 'grid', 'important');
     rail.style.setProperty('visibility', 'visible', 'important');
+    rail.style.setProperty('opacity', '1', 'important');
+    rail.style.setProperty('pointerEvents', 'auto', 'important');
   }
 
   for (const selector of ['.p7-note-widget', '.p7-calc-widget', '.pc-v7-notice-wrap']) {
-    const node = actions.querySelector<HTMLElement>(selector);
-    if (node) {
-      node.style.setProperty('display', 'inline-flex', 'important');
-      node.style.setProperty('width', '0', 'important');
-      node.style.setProperty('minWidth', '0', 'important');
-      node.style.setProperty('maxWidth', '0', 'important');
-      node.style.setProperty('overflow', 'hidden', 'important');
-    }
+    parkActionHost(actions.querySelector<HTMLElement>(selector));
+  }
+
+  for (const selector of [
+    '.pc-v4-search',
+    '.pc-v4-theme-toggle',
+    '.p7-role-support',
+    '.pc-v7-logout-btn',
+    '.p7-note-widget > button',
+    '.p7-calc-widget > button',
+    '.pc-v7-notice-wrap > button',
+    'button[aria-label="Открыть уведомления"]',
+  ]) {
+    hideSourceAction(actions.querySelector<HTMLElement>(selector));
   }
 }
 
@@ -151,8 +190,11 @@ export function MobileHeaderActionRail() {
 
 const css = `
 @media(max-width:767px){
+  html body .pc-shell-root-v4 .pc-v4-actions{overflow:visible!important}
   html body .pc-shell-root-v4 .pc-v4-actions > .p7-mobile-action-rail{display:grid!important;grid-template-columns:repeat(7,30px)!important;gap:3px!important;align-items:center!important;justify-content:end!important;inline-size:max-content!important;max-inline-size:100%!important;z-index:4!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;flex:0 0 auto!important;position:relative!important}
-  html body .pc-shell-root-v4 .pc-v4-actions>.p7-note-widget,html body .pc-shell-root-v4 .pc-v4-actions>.p7-calc-widget,html body .pc-shell-root-v4 .pc-v4-actions>.pc-v7-notice-wrap{display:inline-flex!important;width:0!important;min-width:0!important;max-width:0!important;overflow:hidden!important}
+  html body .pc-shell-root-v4 .pc-v4-actions>.p7-note-widget,html body .pc-shell-root-v4 .pc-v4-actions>.p7-calc-widget,html body .pc-shell-root-v4 .pc-v4-actions>.pc-v7-notice-wrap{display:inline-flex!important;position:relative!important;width:0!important;min-width:0!important;max-width:0!important;height:0!important;min-height:0!important;max-height:0!important;overflow:visible!important;visibility:visible!important;opacity:1!important}
+  html body .pc-shell-root-v4 .pc-v4-actions .pc-v4-search,html body .pc-shell-root-v4 .pc-v4-actions .pc-v4-theme-toggle,html body .pc-shell-root-v4 .pc-v4-actions .p7-role-support,html body .pc-shell-root-v4 .pc-v4-actions .pc-v7-logout-btn,html body .pc-shell-root-v4 .pc-v4-actions .p7-note-widget>button,html body .pc-shell-root-v4 .pc-v4-actions .p7-calc-widget>button,html body .pc-shell-root-v4 .pc-v4-actions .pc-v7-notice-wrap>button,html body .pc-shell-root-v4 .pc-v4-actions button[aria-label='Открыть уведомления']{position:absolute!important;width:1px!important;min-width:1px!important;max-width:1px!important;height:1px!important;min-height:1px!important;max-height:1px!important;padding:0!important;margin:0!important;opacity:0!important;pointer-events:none!important;overflow:hidden!important}
+  html body .pc-shell-root-v4 .pc-v7-notice-panel,html body .pc-shell-root-v4 .p7-note-panel,html body .pc-shell-root-v4 .p7-calc-panel,html body .pc-shell-root-v4 .pc-v4-alert-panel{position:fixed!important;left:10px!important;right:10px!important;top:64px!important;width:auto!important;max-width:none!important;z-index:960!important;opacity:1!important;clip-path:none!important;pointer-events:auto!important}
   html body .p7-mobile-action-btn{inline-size:30px!important;block-size:30px!important;min-inline-size:30px!important;min-block-size:30px!important;max-inline-size:30px!important;max-block-size:30px!important;border-radius:11px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-card)!important;color:var(--pc-text-secondary)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0!important;text-decoration:none!important;box-shadow:var(--pc-shadow-sm)!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}
   html body .p7-mobile-action-btn svg{inline-size:16px!important;block-size:16px!important;max-inline-size:16px!important;max-block-size:16px!important}
   html body .p7-mobile-action-logout{color:#9f1d1d!important;border-color:rgba(159,29,29,.22)!important;background:rgba(159,29,29,.06)!important}
