@@ -2,7 +2,7 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "ready",
+  "currentStatus": "mergeable",
   "current": "P0 RBAC / tenant scope / object scope route wiring boundary implementation.",
   "fullTzReadinessPercent": 72,
   "openPr": "#2123",
