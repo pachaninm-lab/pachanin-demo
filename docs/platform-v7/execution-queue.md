@@ -8,7 +8,7 @@ CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
 - #2112 is closed as completed.
 - #2113 remains open: branch protection/settings cleanup for deprecated Vercel/Deno required checks.
-- #2115 remains open: tool safety blocks the current backend register role hardening write path.
+- #2115 remains open as a prior chat-runtime/tool-safety blocker for this auth write path; it does not change the repo source-of-truth current layer.
 
 CURRENT ALLOWED:
 - apps/api/src/modules/auth/auth.service.ts
@@ -26,12 +26,16 @@ CURRENT CHECKS:
 - readiness remains 72%;
 - no apps/landing, package or lockfile changes.
 
-CURRENT BLOCKERS:
-- #2115 blocks the allowed auth file write path for the current P0 backend register role hardening layer.
+CURRENT NOTES:
+- #2115 documents a prior automation/tool write limitation for `apps/api/src/modules/auth/auth.service.ts`.
+- If the current runtime still cannot write the allowed auth files, record the blocker and continue only with independent safe work.
 - #2113 requires repository settings/branch protection verification and should not change platform code.
 
-NEXT AFTER CURRENT GREEN:
+NEXT:
 - Layer: P0 RBAC / tenant scope / object scope source-of-truth selection.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
 - Keep it separate from money, ledger, audit, outbox, storage and live integrations.
 
 ORDER:
@@ -54,7 +58,7 @@ ORDER:
 17. Driver / field mobile touch target hardening is active from #2079.
 18. Field roles follow-up audit is active from #2080.
 19. P0 auth/session cabinet session body-role guard is active from #2111.
-20. P0 backend register role assignment hardening is current and blocked by #2115 until the auth file write path is available.
+20. P0 backend register role assignment hardening is current.
 
 RULES:
 - one PR = one narrow layer;
