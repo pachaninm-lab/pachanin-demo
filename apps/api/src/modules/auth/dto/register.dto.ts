@@ -27,12 +27,12 @@ export class RegisterDto {
   orgInn?: string;
 
   @IsOptional()
-  @IsOptional()
   @IsString()
   orgType?: OrgType;
 
+  @IsOptional()
   @IsEnum(Role)
-  role!: Role;
+  role?: Role;
 
   @IsString()
   @MinLength(8)
