@@ -584,6 +584,120 @@ paths:
         "200":
           description: Сводный отчёт сверки
 
+  /api/bank/reconciliation/match:
+    post:
+      summary: Ручное сопоставление платежа со сделкой
+      tags: [BankReconciliation]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentId, dealId]
+              properties:
+                paymentId: { type: string, description: "ID платежа (PAY-000001)" }
+                dealId: { type: string, description: "ID сделки для сопоставления" }
+      responses:
+        "200":
+          description: Платёж сопоставлен вручную
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  matchedDealId: { type: string }
+                  matchStatus: { type: string, enum: [MATCHED, MANUAL] }
+        "403":
+          description: Недостаточно прав (только ADMIN/ACCOUNTING/EXECUTIVE)
+
+  /api/integration-events:
+    get:
+      summary: Журнал событий интеграций (входящие/исходящие)
+      tags: [IntegrationEvents]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: adapter
+          in: query
+          schema: { type: string }
+          description: "Фильтр по адаптеру (DIADOK, FGIS_ZERNO, GPS, ...)"
+        - name: direction
+          in: query
+          schema: { type: string, enum: [INBOUND, OUTBOUND] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [SUCCESS, ERROR, PENDING, TIMEOUT] }
+        - name: dealId
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: take
+          in: query
+          schema: { type: integer, default: 100, maximum: 500 }
+      responses:
+        "200":
+          description: Список событий интеграций
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        adapterName: { type: string }
+                        direction: { type: string }
+                        eventType: { type: string }
+                        status: { type: string }
+                        durationMs: { type: integer }
+                        createdAt: { type: string }
+                  total: { type: integer }
+        "403":
+          description: Доступ только для ADMIN/SUPPORT_MANAGER/COMPLIANCE_OFFICER/EXECUTIVE
+
+  /api/integration-events/stats:
+    get:
+      summary: Статистика событий интеграций по адаптерам и статусам
+      tags: [IntegrationEvents]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Сводная статистика
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  byAdapter: { type: object, additionalProperties: { type: integer } }
+                  byStatus: { type: object, additionalProperties: { type: integer } }
+
+  /api/integration-events/{id}:
+    get:
+      summary: Детали события интеграции
+      tags: [IntegrationEvents]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Полная запись события интеграции с payload
+        "403":
+          description: Событие не найдено или нет доступа
+
   /api/exports/regulatory:
     post:
       summary: Регуляторный отчёт (Минсельхоз, Росстат, ФНС, Росфинмониторинг)
