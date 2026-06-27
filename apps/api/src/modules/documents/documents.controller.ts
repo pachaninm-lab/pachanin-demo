@@ -112,4 +112,23 @@ export class DocumentsController {
   ) {
     return this.templates.generateDocument(templateId as TemplateId, variables);
   }
+
+  @Post('batch-sign')
+  async batchSign(
+    @Body() body: { documentIds: string[]; certificateId?: string },
+    @CurrentUser() user: any,
+  ) {
+    if (body.documentIds.length > 50) {
+      return { error: 'Batch signing limit is 50 documents' };
+    }
+    const results = await Promise.all(
+      body.documentIds.map(id => this.documents.edoSign(id, body.certificateId, user).catch(err => ({ id, error: String(err) })))
+    );
+    return {
+      processed: results.length,
+      signed: results.filter((r: any) => !r.error).length,
+      failed: results.filter((r: any) => r.error).length,
+      results,
+    };
+  }
 }
