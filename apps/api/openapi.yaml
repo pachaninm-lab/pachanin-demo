@@ -89,6 +89,67 @@ components:
           type: array
           items: { type: string }
 
+    GeoPoint:
+      type: object
+      required: [lat, lon]
+      properties:
+        lat: { type: number, description: Широта }
+        lon: { type: number, description: Долгота }
+        recordedAt: { type: string, format: date-time }
+
+    Geofence:
+      type: object
+      required: [id, name, type, kind]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type:
+          type: string
+          enum: [CIRCLE, POLYGON]
+        center:
+          $ref: '#/components/schemas/GeoPoint'
+        radiusMeters: { type: number, description: Радиус в метрах (для CIRCLE) }
+        polygon:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeoPoint'
+        dealId: { type: string }
+        shipmentId: { type: string }
+        kind:
+          type: string
+          enum: [LOADING, UNLOADING, ELEVATOR, PORT, CHECKPOINT]
+        meta: { type: object }
+
+    GeofenceAlert:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [LATE_ARRIVAL, ROUTE_DEVIATION, IDLE_TOO_LONG]
+        message: { type: string }
+        severity:
+          type: string
+          enum: [WARNING, CRITICAL]
+
+    GeofenceEvent:
+      type: object
+      properties:
+        geofenceId: { type: string }
+        vehicleId: { type: string }
+        shipmentId: { type: string }
+        dealId: { type: string }
+        eventType:
+          type: string
+          enum: [ENTER, EXIT]
+        kind:
+          type: string
+          enum: [LOADING, UNLOADING, ELEVATOR, PORT, CHECKPOINT]
+        position:
+          $ref: '#/components/schemas/GeoPoint'
+        timestamp: { type: string, format: date-time }
+        alert:
+          $ref: '#/components/schemas/GeofenceAlert'
+
 security:
   - BearerAuth: []
 
@@ -3272,3 +3333,163 @@ paths:
                   allowed: { type: boolean }
                   matchedPolicy: { type: string }
                   reasons: { type: array, items: { type: string } }
+
+  # ── ТЗ 9.2 Геозоны ──────────────────────────────────────────────────────────
+  /api/logistics/geofences:
+    get:
+      summary: Список геозон
+      tags: [Logistics]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: dealId
+          in: query
+          schema: { type: string }
+          description: Фильтр по сделке
+      responses:
+        "200":
+          description: Список геозон
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Geofence'
+
+    post:
+      summary: Создать или обновить геозону
+      tags: [Logistics]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Geofence'
+      responses:
+        "201":
+          description: Геозона создана / обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Geofence'
+
+  /api/logistics/geofences/deal/{dealId}:
+    post:
+      summary: Создать геозоны для сделки по координатам
+      tags: [Logistics]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                coordinates:
+                  type: array
+                  items:
+                    type: object
+                    required: [kind, lat, lon]
+                    properties:
+                      kind:
+                        type: string
+                        enum: [LOADING, UNLOADING, ELEVATOR, PORT, CHECKPOINT]
+                      lat: { type: number }
+                      lon: { type: number }
+      responses:
+        "201":
+          description: Созданные геозоны
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Geofence'
+
+  /api/logistics/geofences/{id}:
+    delete:
+      summary: Удалить геозону
+      tags: [Logistics]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Результат удаления
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: boolean }
+
+  /api/logistics/vehicles/{vehicleId}/gps-evaluate:
+    post:
+      summary: Оценить GPS-точку по геозонам (ENTER/EXIT события)
+      description: |
+        ТЗ 9.2 — автоматически определяет вход/выход транспортного средства
+        в геозоны и генерирует алерты (опоздание, отклонение, простой).
+      tags: [Logistics]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lat, lon]
+              properties:
+                lat: { type: number }
+                lon: { type: number }
+                recordedAt: { type: string, format: date-time }
+                shipmentId: { type: string }
+      responses:
+        "201":
+          description: Список сработавших событий геозон
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GeofenceEvent'
+
+  /api/logistics/vehicles/{vehicleId}/state:
+    get:
+      summary: Текущее состояние ТС (геозоны, последняя позиция, idle)
+      tags: [Logistics]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Состояние транспортного средства
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vehicleId: { type: string }
+                  insideGeofenceIds:
+                    type: array
+                    items: { type: string }
+                  lastPosition:
+                    $ref: '#/components/schemas/GeoPoint'
+                  lastMoveAt: { type: string, format: date-time, nullable: true }
+                  idleMinutes: { type: integer }
+                  isIdle: { type: boolean }

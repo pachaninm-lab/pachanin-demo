@@ -1,10 +1,11 @@
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UseGuards } from '@nestjs/common';
+import { Delete, Query, UseGuards } from '@nestjs/common';
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { LogisticsService } from './logistics.service';
 import { EtnService } from './etn.service';
+import { GeofenceService, Geofence } from './geofence.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { TransitionShipmentDto } from './dto/transition-shipment.dto';
 
@@ -15,6 +16,7 @@ export class LogisticsController {
   constructor(
     private readonly logistics: LogisticsService,
     private readonly etn: EtnService,
+    private readonly geofence: GeofenceService,
   ) {}
 
   @Get('summary')
@@ -117,5 +119,42 @@ export class LogisticsController {
     @CurrentUser() user: any,
   ) {
     return this.etn.signEtn(id, body.signerRole, body.certificateId ?? `cert-${user.id}`, user);
+  }
+
+  /** ТЗ 9.2 — Геозоны */
+  @Post('geofences')
+  createGeofence(@Body() body: Geofence) {
+    return this.geofence.upsert(body);
+  }
+
+  @Get('geofences')
+  listGeofences(@Query('dealId') dealId?: string) {
+    return this.geofence.listFences(dealId);
+  }
+
+  @Post('geofences/deal/:dealId')
+  createForDeal(
+    @Param('dealId') dealId: string,
+    @Body() body: { coordinates?: Array<{ kind: Geofence['kind']; lat: number; lon: number }> },
+  ) {
+    return this.geofence.createForDeal(dealId, body);
+  }
+
+  @Delete('geofences/:id')
+  deleteGeofence(@Param('id') id: string) {
+    return { deleted: this.geofence.deleteFence(id) };
+  }
+
+  @Post('vehicles/:vehicleId/gps-evaluate')
+  evaluateGpsPoint(
+    @Param('vehicleId') vehicleId: string,
+    @Body() body: { lat: number; lon: number; recordedAt?: string; shipmentId?: string },
+  ) {
+    return this.geofence.evaluatePoint(vehicleId, body, body.shipmentId);
+  }
+
+  @Get('vehicles/:vehicleId/state')
+  getVehicleState(@Param('vehicleId') vehicleId: string) {
+    return this.geofence.getVehicleState(vehicleId);
   }
 }

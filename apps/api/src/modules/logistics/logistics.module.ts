@@ -7,6 +7,7 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
 import { LogisticsController } from './logistics.controller';
 import { LogisticsService } from './logistics.service';
 import { EtnService } from './etn.service';
+import { GeofenceService } from './geofence.service';
 import { SHIPMENT_REPOSITORY } from './shipment.repository';
 import { selectShipmentRepository } from './shipment-repository.factory';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
@@ -30,7 +31,7 @@ const shipmentRepositoryProvider: Provider = {
 @Module({
   imports: [AuditModule, NotificationsModule, IntegrationsModule, AntiFraudModule],
   controllers: [LogisticsController],
-  providers: [LogisticsService, EtnService, AccessScopeService, shipmentRepositoryProvider],
-  exports: [LogisticsService, EtnService]
+  providers: [LogisticsService, EtnService, GeofenceService, AccessScopeService, shipmentRepositoryProvider],
+  exports: [LogisticsService, EtnService, GeofenceService]
 })
 export class LogisticsModule {}
