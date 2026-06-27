@@ -154,6 +154,57 @@ export class AntiFraudService {
     return 0;
   }
 
+  async checkOffPlatformSettlement(params: {
+    dealId: string;
+    buyerOrgId: string;
+    sellerOrgId: string;
+    indicator: 'external_payment_mentioned' | 'deal_cancelled_after_delivery' | 'reputation_drop_post_cancel' | 'counterparty_comment_flag';
+    evidence?: string;
+    actorId?: string;
+  }): Promise<FraudCheckResult> {
+    const reasons: string[] = [];
+    let score = 0;
+
+    switch (params.indicator) {
+      case 'external_payment_mentioned':
+        score = 85;
+        reasons.push('Упоминание внеплатформенного расчёта в сообщениях/комментариях к сделке');
+        break;
+      case 'deal_cancelled_after_delivery':
+        score = 75;
+        reasons.push('Сделка отменена после факта доставки — признак внеплатформенного расчёта');
+        break;
+      case 'reputation_drop_post_cancel':
+        score = 40;
+        reasons.push('Резкое снижение активности после отмены серии сделок — возможный обход платформы');
+        break;
+      case 'counterparty_comment_flag':
+        score = 55;
+        reasons.push(`Контрагент сообщил о попытке обхода платформы: ${params.evidence ?? 'без деталей'}`);
+        break;
+    }
+
+    const flagged = score >= 50;
+    if (flagged) {
+      await this.persistFlag(params.dealId, {
+        dealId: params.dealId,
+        sellerOrgId: params.sellerOrgId,
+        buyerOrgId: params.buyerOrgId,
+        actorId: params.actorId,
+        actorRole: 'SYSTEM',
+      }, score, reasons);
+    }
+
+    return {
+      flagged,
+      score,
+      reasons,
+      entityId: params.dealId,
+      entityType: 'off_platform_bypass',
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
   private async persistFlag(entityId: string, ctx: DealContext, score: number, reasons: string[]): Promise<void> {
     if (!this.prisma) return;
     await this.prisma.auditEvent.create({
