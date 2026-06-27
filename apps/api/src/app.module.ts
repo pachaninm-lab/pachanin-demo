@@ -23,6 +23,11 @@ import { BusinessReputationModule } from './modules/business-reputation/business
 import { RuntimeCoreModule } from './modules/runtime-core/runtime-core.module';
 import { DatabaseModule } from './common/database/database.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { MfaModule } from './modules/mfa/mfa.module';
+import { ComplianceModule } from './modules/compliance/compliance.module';
+import { ArbitratorModule } from './modules/arbitrator/arbitrator.module';
+import { IntegrationEventsModule } from './modules/integration-events/integration-events.module';
+import { ExportsModule } from './modules/exports/exports.module';
 
 @Module({
   imports: [
@@ -48,6 +53,11 @@ import { AdminModule } from './modules/admin/admin.module';
     AntiFraudModule,
     LedgerModule,
     BusinessReputationModule,
+    MfaModule,
+    ComplianceModule,
+    ArbitratorModule,
+    IntegrationEventsModule,
+    ExportsModule,
   ],
   providers: [
     {

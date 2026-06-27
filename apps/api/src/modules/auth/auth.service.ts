@@ -38,6 +38,8 @@ const demoUsers: StoredUser[] = [
   { id: 'user-executive-001', email: 'executive@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.EXECUTIVE, orgId: DEMO_ORG_ID, fullName: 'Demo Executive' },
   { id: 'user-operator-001', email: 'operator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.SUPPORT_MANAGER, orgId: DEMO_ORG_ID, fullName: 'Demo Operator' },
   { id: 'user-admin-001', email: 'admin@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ADMIN, orgId: DEMO_ORG_ID, fullName: 'Demo Admin' },
+  { id: 'user-compliance-001', email: 'compliance@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.COMPLIANCE_OFFICER, orgId: DEMO_ORG_ID, fullName: 'Demo Compliance Officer' },
+  { id: 'user-arbitrator-001', email: 'arbitrator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ARBITRATOR, orgId: DEMO_ORG_ID, fullName: 'Demo Arbitrator' },
 ];
 
 const usersStore: StoredUser[] = [...demoUsers];
