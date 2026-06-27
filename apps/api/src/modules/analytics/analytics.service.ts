@@ -147,6 +147,56 @@ export class AnalyticsService {
     };
   }
 
+  calculateCommission(params: {
+    dealAmountKopecks: number;
+    culture?: string;
+    volumeTons?: number;
+    isSubscriber?: boolean;
+  }): {
+    dealAmountKopecks: number;
+    dealAmountRub: number;
+    sellerCommissionKopecks: number;
+    buyerCommissionKopecks: number;
+    edoFeeKopecks: number;
+    vatOnCommissionKopecks: number;
+    totalPlatformFeeKopecks: number;
+    sellerNetKopecks: number;
+    sellerNetRub: number;
+    breakdown: Array<{ label: string; amountKopecks: number }>;
+  } {
+    const { dealAmountKopecks, volumeTons, isSubscriber } = params;
+    const baseRatePct = isSubscriber ? 0.25 : 0.5;
+
+    // Volume discount: >1000 tons → 10% off commission
+    const volumeDiscount = volumeTons && volumeTons > 1000 ? 0.9 : 1.0;
+    const effectiveRatePct = baseRatePct * volumeDiscount;
+
+    const sellerCommission = Math.round(dealAmountKopecks * effectiveRatePct / 100);
+    const buyerCommission = Math.round(dealAmountKopecks * effectiveRatePct / 100);
+    const edoFee = 30_00; // 30 RUB fixed per deal
+    const vatOnCommission = Math.round((sellerCommission + buyerCommission + edoFee) * 0.2);
+    const totalPlatformFee = sellerCommission + buyerCommission + edoFee + vatOnCommission;
+    const sellerNet = dealAmountKopecks - sellerCommission - Math.round(vatOnCommission / 2);
+
+    return {
+      dealAmountKopecks,
+      dealAmountRub: Math.round(dealAmountKopecks / 100),
+      sellerCommissionKopecks: sellerCommission,
+      buyerCommissionKopecks: buyerCommission,
+      edoFeeKopecks: edoFee,
+      vatOnCommissionKopecks: vatOnCommission,
+      totalPlatformFeeKopecks: totalPlatformFee,
+      sellerNetKopecks: sellerNet,
+      sellerNetRub: Math.round(sellerNet / 100),
+      breakdown: [
+        { label: `Комиссия продавца (${effectiveRatePct.toFixed(2)}%)`, amountKopecks: sellerCommission },
+        { label: `Комиссия покупателя (${effectiveRatePct.toFixed(2)}%)`, amountKopecks: buyerCommission },
+        { label: 'ЭДО (фикс.)', amountKopecks: edoFee },
+        { label: 'НДС 20% на комиссию', amountKopecks: vatOnCommission },
+      ],
+    };
+  }
+
   async getLedgerSummary(user: RequestUser): Promise<{
     totalEscrowKopecks: number;
     totalReleasedKopecks: number;

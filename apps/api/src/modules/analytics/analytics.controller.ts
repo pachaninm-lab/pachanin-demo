@@ -23,6 +23,22 @@ export class AnalyticsController {
     return this.analytics.getLedgerSummary(user);
   }
 
+  @Get('commission-preview')
+  commissionPreview(
+    @Query('amount') amount: string,
+    @Query('volumeTons') volumeTons?: string,
+    @Query('culture') culture?: string,
+    @Query('isSubscriber') isSubscriber?: string,
+  ) {
+    const dealAmountKopecks = Math.round(Number(amount ?? 0) * 100);
+    return this.analytics.calculateCommission({
+      dealAmountKopecks,
+      culture,
+      volumeTons: volumeTons ? Number(volumeTons) : undefined,
+      isSubscriber: isSubscriber === 'true',
+    });
+  }
+
   @Get('price-prediction')
   pricePrediction(
     @Query('culture') culture: string,

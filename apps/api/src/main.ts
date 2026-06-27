@@ -54,6 +54,29 @@ async function bootstrap() {
     });
   });
 
+  app.getHttpAdapter().get('/metrics', (_req: any, res: any) => {
+    const mem = process.memoryUsage();
+    const uptime = process.uptime();
+    const metrics = [
+      '# HELP process_uptime_seconds Process uptime in seconds',
+      '# TYPE process_uptime_seconds gauge',
+      `process_uptime_seconds ${uptime.toFixed(3)}`,
+      '# HELP process_heap_bytes Node.js heap used bytes',
+      '# TYPE process_heap_bytes gauge',
+      `process_heap_bytes ${mem.heapUsed}`,
+      `process_heap_total_bytes ${mem.heapTotal}`,
+      `process_rss_bytes ${mem.rss}`,
+      '# HELP nodejs_version_info Node.js version info',
+      '# TYPE nodejs_version_info gauge',
+      `nodejs_version_info{version="${process.version}"} 1`,
+      '# HELP grainflow_api_info Application info',
+      '# TYPE grainflow_api_info gauge',
+      `grainflow_api_info{version="${process.env.APP_VERSION ?? '3.0.0'}",env="${process.env.NODE_ENV ?? 'development'}"} 1`,
+    ].join('\n') + '\n';
+    res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    res.send(metrics);
+  });
+
   app.getHttpAdapter().get('/health/detailed', async (_req: any, res: any) => {
     const { integrationRegistry } = await import('../../../packages/integration-sdk/src/registry');
     const adapterHealth = await integrationRegistry.healthCheckAll().catch(() => ({}));

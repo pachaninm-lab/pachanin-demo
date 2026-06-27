@@ -33,6 +33,9 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { PartnerApiModule } from './modules/partner-api/partner-api.module';
 import { SagaModule } from './modules/saga/saga.module';
+import { OutboxModule } from './common/outbox/outbox.module';
+import { FactoringModule } from './modules/factoring/factoring.module';
+import { BankReconciliationModule } from './modules/bank-reconciliation/bank-reconciliation.module';
 
 @Module({
   imports: [
@@ -68,6 +71,9 @@ import { SagaModule } from './modules/saga/saga.module';
     AnalyticsModule,
     PartnerApiModule,
     SagaModule,
+    OutboxModule,
+    FactoringModule,
+    BankReconciliationModule,
   ],
   providers: [
     {

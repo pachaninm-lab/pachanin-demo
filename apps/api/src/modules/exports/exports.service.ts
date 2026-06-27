@@ -116,4 +116,127 @@ export class ExportsService {
       entries: entries.slice(0, 100),
     };
   }
+
+  async exportRegulatoryReport(
+    user: RequestUser,
+    params: { type: 'msh' | 'rosstat' | 'fns' | 'rosfinmonitoring'; from?: string; to?: string },
+  ): Promise<{ format: string; filename: string; content: string }> {
+    this.assertExportRole(user);
+    const from = params.from ? new Date(params.from) : new Date(Date.now() - 30 * 24 * 3600_000);
+    const to = params.to ? new Date(params.to) : new Date();
+
+    const deals = await this.prisma.deal.findMany({
+      where: { createdAt: { gte: from, lte: to } },
+      select: {
+        id: true, dealNumber: true, status: true, culture: true, region: true,
+        volumeTons: true, totalRub: true, totalKopecks: true,
+        sellerOrgId: true, buyerOrgId: true, createdAt: true, closedAt: true,
+      },
+    }).catch(() => []);
+
+    switch (params.type) {
+      case 'msh':
+        return this.buildMshXml(deals, from, to);
+      case 'rosstat':
+        return this.buildRosstatCsv(deals, from, to);
+      case 'fns':
+        return this.buildFnsXml(deals, from, to);
+      case 'rosfinmonitoring':
+        return this.buildRosfinXml(deals, from, to);
+      default:
+        throw new Error('Unknown report type');
+    }
+  }
+
+  private buildMshXml(deals: any[], from: Date, to: Date): { format: string; filename: string; content: string } {
+    const rows = deals.map(d => `
+    <Сделка>
+      <НомерСделки>${d.dealNumber ?? d.id}</НомерСделки>
+      <Статус>${d.status}</Статус>
+      <Культура>${d.culture ?? ''}</Культура>
+      <Регион>${d.region ?? ''}</Регион>
+      <ОбъёмТонн>${d.volumeTons ?? 0}</ОбъёмТонн>
+      <СуммаРуб>${d.totalRub ?? 0}</СуммаРуб>
+      <ДатаСоздания>${d.createdAt.toISOString()}</ДатаСоздания>
+      <ДатаЗакрытия>${d.closedAt?.toISOString() ?? ''}</ДатаЗакрытия>
+    </Сделка>`).join('');
+
+    const content = `<?xml version="1.0" encoding="UTF-8"?>
+<ОтчётМСХ xmlns="urn:grainflow:msh:1.0"
+  ДатаОт="${from.toISOString().split('T')[0]}"
+  ДатаДо="${to.toISOString().split('T')[0]}"
+  ДатаФормирования="${new Date().toISOString()}"
+  КоличествоСделок="${deals.length}">
+  <Сделки>${rows}
+  </Сделки>
+</ОтчётМСХ>`;
+
+    return { format: 'xml', filename: `msh-report-${Date.now()}.xml`, content };
+  }
+
+  private buildRosstatCsv(deals: any[], from: Date, to: Date): { format: string; filename: string; content: string } {
+    const closedDeals = deals.filter(d => d.status === 'CLOSED' || d.status === 'SETTLED');
+    const totalVol = closedDeals.reduce((s, d) => s + (d.volumeTons ?? 0), 0);
+    const totalRub = closedDeals.reduce((s, d) => s + (d.totalRub ?? 0), 0);
+
+    const header = 'Форма 29-СХ,Период,Количество сделок,Объём (т),Сумма (руб)\n';
+    const row = `"GrainFlow","${from.toISOString().split('T')[0]} - ${to.toISOString().split('T')[0]}","${closedDeals.length}","${totalVol}","${totalRub}"\n`;
+
+    const cultureSummary = Object.entries(
+      deals.reduce((acc, d) => {
+        const c = d.culture ?? 'Не указана';
+        acc[c] = (acc[c] ?? 0) + (d.volumeTons ?? 0);
+        return acc;
+      }, {} as Record<string, number>)
+    ).map(([c, v]) => `"${c}","${v}"`).join('\n');
+
+    const content = header + row + '\nКультура,Объём (т)\n' + cultureSummary;
+    return { format: 'csv', filename: `rosstat-29sx-${Date.now()}.csv`, content };
+  }
+
+  private buildFnsXml(deals: any[], from: Date, to: Date): { format: string; filename: string; content: string } {
+    const taxableDeals = deals.filter(d => d.status === 'CLOSED' || d.status === 'SETTLED');
+    const totalBase = taxableDeals.reduce((s, d) => s + (d.totalRub ?? 0), 0);
+    const vatAmount = Math.round(totalBase * 0.2 * 100) / 100;
+
+    const content = `<?xml version="1.0" encoding="UTF-8"?>
+<Файл xmlns="urn:grainflow:fns:onf:1.0"
+  ИдФайл="GF-${Date.now()}"
+  ДатаФайл="${new Date().toISOString().split('T')[0]}">
+  <ОтчётныйПериод ДатаНачала="${from.toISOString().split('T')[0]}" ДатаОкончания="${to.toISOString().split('T')[0]}"/>
+  <СведенияОреализации>
+    <КоличествоОпераций>${taxableDeals.length}</КоличествоОпераций>
+    <ОбщаяСумма>${totalBase.toFixed(2)}</ОбщаяСумма>
+    <НДС>${vatAmount.toFixed(2)}</НДС>
+  </СведенияОреализации>
+</Файл>`;
+
+    return { format: 'xml', filename: `fns-onf-${Date.now()}.xml`, content };
+  }
+
+  private buildRosfinXml(deals: any[], from: Date, to: Date): { format: string; filename: string; content: string } {
+    const threshold = 600_000;
+    const largeDeals = deals.filter(d => (d.totalRub ?? 0) >= threshold);
+
+    const rows = largeDeals.map(d => `
+  <Операция>
+    <КодОперации>1010</КодОперации>
+    <Дата>${d.createdAt.toISOString().split('T')[0]}</Дата>
+    <Сумма>${d.totalRub ?? 0}</Сумма>
+    <Валюта>RUB</Валюта>
+    <НомерДокумента>${d.dealNumber ?? d.id}</НомерДокумента>
+    <ПродавецОргИд>${d.sellerOrgId}</ПродавецОргИд>
+    <ПокупательОргИд>${d.buyerOrgId}</ПокупательОргИд>
+  </Операция>`).join('');
+
+    const content = `<?xml version="1.0" encoding="UTF-8"?>
+<ФЭС407 xmlns="urn:grainflow:rosfinmon:407:1.0"
+  ДатаФормирования="${new Date().toISOString()}"
+  КоличествоОпераций="${largeDeals.length}">
+  <Операции>${rows}
+  </Операции>
+</ФЭС407>`;
+
+    return { format: 'xml', filename: `rosfinmon-fes407-${Date.now()}.xml`, content };
+  }
 }

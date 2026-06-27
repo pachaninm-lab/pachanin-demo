@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Param, UseGuards, Res } from '@nestjs/common';
+import { Controller, Get, Post, Query, Param, Body, UseGuards, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { ExportsService } from './exports.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -44,5 +44,18 @@ export class ExportsController {
   @Get('outbox-status')
   exportOutboxStatus(@CurrentUser() user: RequestUser) {
     return this.exports.exportOutboxStatus(user);
+  }
+
+  @Post('regulatory')
+  async regulatoryReport(
+    @Body() body: { type: 'msh' | 'rosstat' | 'fns' | 'rosfinmonitoring'; from?: string; to?: string },
+    @CurrentUser() user: RequestUser,
+    @Res() res: Response,
+  ) {
+    const result = await this.exports.exportRegulatoryReport(user, body);
+    const mime = result.format === 'xml' ? 'application/xml' : 'text/csv';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.send(result.content);
   }
 }
