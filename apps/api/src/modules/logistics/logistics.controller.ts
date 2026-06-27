@@ -4,6 +4,7 @@ import { UseGuards } from '@nestjs/common';
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { LogisticsService } from './logistics.service';
+import { EtnService } from './etn.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { TransitionShipmentDto } from './dto/transition-shipment.dto';
 
@@ -11,7 +12,10 @@ import { TransitionShipmentDto } from './dto/transition-shipment.dto';
 @Roles('LOGISTICIAN', 'DRIVER', 'SUPPORT_MANAGER', 'ADMIN')
 @Controller('logistics')
 export class LogisticsController {
-  constructor(private readonly logistics: LogisticsService) {}
+  constructor(
+    private readonly logistics: LogisticsService,
+    private readonly etn: EtnService,
+  ) {}
 
   @Get('summary')
   summary(@CurrentUser() user: any) {
@@ -70,5 +74,48 @@ export class LogisticsController {
   @Get('shipments/:id/gps/track')
   getGpsTrack(@Param('id') id: string, @CurrentUser() user: any) {
     return this.logistics.getGpsTrack(id, user);
+  }
+
+  /** ГИС ЭПД (Минтранс) — Электронные транспортные накладные (ЭТН) */
+  @Post('etn')
+  createEtn(
+    @Body() body: {
+      dealId: string;
+      shipper: { name: string; inn: string; address: string };
+      consignee: { name: string; inn: string; address: string };
+      carrier: { name: string; inn: string };
+      vehicleNumber: string;
+      driverName: string;
+      driverLicenseNumber: string;
+      loadingAddress: string;
+      unloadingAddress: string;
+      cargoDescription: string;
+      weightTons: number;
+      volumeM3?: number;
+      loadingDate: string;
+      deliveryDatePlan: string;
+    },
+    @CurrentUser() user: any,
+  ) {
+    return this.etn.createEtn(body, user);
+  }
+
+  @Get('etn/deal/:dealId')
+  listEtnByDeal(@Param('dealId') dealId: string) {
+    return this.etn.listByDeal(dealId);
+  }
+
+  @Get('etn/:id')
+  getEtnStatus(@Param('id') id: string) {
+    return this.etn.getEtnStatus(id);
+  }
+
+  @Post('etn/:id/sign')
+  signEtn(
+    @Param('id') id: string,
+    @Body() body: { signerRole: 'SHIPPER' | 'CARRIER' | 'CONSIGNEE'; certificateId?: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.etn.signEtn(id, body.signerRole, body.certificateId ?? `cert-${user.id}`, user);
   }
 }

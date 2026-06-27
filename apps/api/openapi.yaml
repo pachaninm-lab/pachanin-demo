@@ -796,3 +796,898 @@ paths:
       responses:
         "200":
           description: Результат проверки с записью в аудит при скоре >= 50
+
+  # ── ДОКУМЕНТЫ: batch-sign, verify-signature, certificates ──────────────
+
+  /api/documents/batch-sign:
+    post:
+      summary: Пакетное подписание УКЭП до 50 документов
+      tags: [Documents, УКЭП]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [documentIds]
+              properties:
+                documentIds:
+                  type: array
+                  items: { type: string }
+                  maxItems: 50
+                  description: Список ID документов для подписания (до 50 штук)
+                certificateId:
+                  type: string
+                  description: ID сертификата УКЭП (если не указан — используется первый активный)
+      responses:
+        "200":
+          description: Результаты пакетного подписания
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed: { type: integer }
+                  signed: { type: integer }
+                  failed: { type: integer }
+                  results: { type: array, items: { type: object } }
+
+  /api/documents/{id}/verify-signature:
+    post:
+      summary: Верификация УКЭП документа через КриптоПро DSS
+      tags: [Documents, УКЭП]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signatureBase64, certificateId]
+              properties:
+                signatureBase64: { type: string }
+                certificateId: { type: string }
+                documentHash: { type: string, description: "SHA-256 хеш документа (вычисляется автоматически, если не указан)" }
+      responses:
+        "200":
+          description: Результат верификации подписи
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documentId: { type: string }
+                  valid: { type: boolean }
+                  signerCn: { type: string }
+                  signedAt: { type: string, format: date-time }
+                  algorithm: { type: string }
+
+  /api/documents/certificates/my:
+    get:
+      summary: Список УКЭП сертификатов текущего пользователя
+      tags: [Documents, УКЭП]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список активных сертификатов КриптоПро DSS
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    thumbprint: { type: string }
+                    subject: { type: string }
+                    validFrom: { type: string, format: date-time }
+                    validTo: { type: string, format: date-time }
+                    status: { type: string, enum: [valid, revoked, expired] }
+
+  /api/documents/certificates/{certId}/status:
+    get:
+      summary: Проверка статуса УКЭП сертификата через OCSP
+      tags: [Documents, УКЭП]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: certId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Статус сертификата по OCSP
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  certificateId: { type: string }
+                  status: { type: string, enum: [valid, revoked, expired, unknown] }
+
+  /api/documents/templates:
+    get:
+      summary: Список шаблонов документов
+      tags: [Documents]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Доступные шаблоны документов (7 типов)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    requiredVariables: { type: array, items: { type: string } }
+
+  /api/documents/templates/{id}/generate:
+    post:
+      summary: Генерация документа из шаблона
+      tags: [Documents]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            enum: [CONTRACT, SPECIFICATION, ETN, ACCEPTANCE_ACT, QUALITY_CERTIFICATE, INVOICE, RECONCILIATION_ACT]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Переменные для заполнения шаблона (зависят от типа документа)
+              additionalProperties:
+                oneOf:
+                  - { type: string }
+                  - { type: number }
+      responses:
+        "200":
+          description: Сгенерированный документ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templateId: { type: string }
+                  content: { type: string }
+                  hash: { type: string }
+                  generatedAt: { type: string, format: date-time }
+
+  # ── МОНИТОРИНГ СЕРТИФИКАТОВ ──────────────────────────────────────────
+
+  /api/certificates/my:
+    get:
+      summary: Список УКЭП сертификатов текущего пользователя (certificate-monitor)
+      tags: [CertificateMonitor, УКЭП]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список сертификатов с датами истечения и статусами
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    userId: { type: string }
+                    orgId: { type: string }
+                    thumbprint: { type: string }
+                    subject: { type: string }
+                    issuer: { type: string }
+                    validFrom: { type: string, format: date-time }
+                    validTo: { type: string, format: date-time }
+                    status: { type: string, enum: [ACTIVE, REVOKED, EXPIRED] }
+                    daysUntilExpiry: { type: integer }
+
+  /api/certificates/org/{orgId}:
+    get:
+      summary: Все сертификаты организации (ADMIN, COMPLIANCE_OFFICER, EXECUTIVE)
+      tags: [CertificateMonitor, УКЭП]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: orgId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Список сертификатов организации
+
+  /api/certificates/register:
+    post:
+      summary: Зарегистрировать новый УКЭП сертификат
+      tags: [CertificateMonitor, УКЭП]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, orgId, thumbprint, subject, issuer, validFrom, validTo]
+              properties:
+                userId: { type: string }
+                orgId: { type: string }
+                thumbprint: { type: string }
+                subject: { type: string }
+                issuer: { type: string }
+                validFrom: { type: string, format: date-time }
+                validTo: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Сертификат зарегистрирован
+
+  /api/certificates/{id}/revoke:
+    delete:
+      summary: Отозвать сертификат (самостоятельно)
+      tags: [CertificateMonitor, УКЭП]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Сертификат отозван
+
+  /api/certificates/check-now:
+    post:
+      summary: Немедленная проверка истечения сертификатов (ADMIN)
+      tags: [CertificateMonitor, УКЭП]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Результат проверки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checked: { type: integer }
+                  notified: { type: integer }
+                  expired: { type: integer }
+
+  # ── ФГИС ЗЕРНО (Saga Steps) ──────────────────────────────────────────
+
+  /api/saga/deals/{dealId}/execute/fgis_register:
+    post:
+      summary: Выполнить шаг регистрации в ФГИС Зерно для сделки
+      tags: [Saga, ФГИС]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [culture, volumeTons, producerInn, harvestYear, region]
+              properties:
+                culture: { type: string, example: "wheat" }
+                volumeTons: { type: number }
+                producerInn: { type: string }
+                harvestYear: { type: integer }
+                region: { type: string }
+      responses:
+        "200":
+          description: Результат регистрации в ФГИС Зерно
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dealId: { type: string }
+                  fgisLotId: { type: string }
+                  fgisCertificate: { type: object }
+                  sagaStep: { type: string }
+                  sagaStatus: { type: string }
+
+  /api/saga/deals/{dealId}/fgis/confirm-shipment:
+    post:
+      summary: Подтверждение отгрузки в ФГИС Зерно
+      tags: [Saga, ФГИС]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fgisLotId, vehicleNumber, driverName]
+              properties:
+                fgisLotId: { type: string }
+                vehicleNumber: { type: string }
+                driverName: { type: string }
+                shipmentDate: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Подтверждение отгрузки зафиксировано в ФГИС
+
+  /api/saga/deals/{dealId}/fgis/confirm-acceptance:
+    post:
+      summary: Подтверждение приёмки в ФГИС Зерно
+      tags: [Saga, ФГИС]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fgisLotId, acceptedTons, qualityCertNumber]
+              properties:
+                fgisLotId: { type: string }
+                acceptedTons: { type: number }
+                qualityCertNumber: { type: string }
+      responses:
+        "200":
+          description: Приёмка подтверждена в ФГИС
+
+  /api/saga/fgis/crops:
+    get:
+      summary: Классификатор культур ФГИС Зерно
+      tags: [Saga, ФГИС]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список культур с кодами ФГИС
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    code: { type: string }
+                    name: { type: string }
+                    classes: { type: array, items: { type: integer } }
+
+  # ── ЖЕЛЕЗНОДОРОЖНАЯ ЛОГИСТИКА ────────────────────────────────────────
+
+  /api/railway/wagons:
+    get:
+      summary: Список вагонов (ж/д парк)
+      tags: [Railway, Logistics]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список вагонов с типами и статусами
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    wagonNumber: { type: string }
+                    type: { type: string, enum: [HOPPER, COVERED, PLATFORM, TANK] }
+                    capacityTons: { type: number }
+                    status: { type: string, enum: [FREE, ASSIGNED, IN_TRANSIT, MAINTENANCE] }
+                    ownerOrgId: { type: string }
+    post:
+      summary: Зарегистрировать вагон
+      tags: [Railway, Logistics]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wagonNumber, type, capacityTons, ownerOrgId]
+              properties:
+                wagonNumber: { type: string }
+                type: { type: string, enum: [HOPPER, COVERED, PLATFORM, TANK] }
+                capacityTons: { type: number }
+                ownerOrgId: { type: string }
+      responses:
+        "201":
+          description: Вагон зарегистрирован
+
+  /api/railway/wagons/{id}/status:
+    patch:
+      summary: Обновить статус вагона
+      tags: [Railway, Logistics]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [FREE, ASSIGNED, IN_TRANSIT, MAINTENANCE] }
+                dealId: { type: string }
+                note: { type: string }
+      responses:
+        "200":
+          description: Статус вагона обновлён
+
+  /api/railway/gu12:
+    get:
+      summary: Список заявок ГУ-12 (заявки на перевозку)
+      tags: [Railway, Logistics]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список заявок ГУ-12
+    post:
+      summary: Создать заявку ГУ-12
+      tags: [Railway, Logistics]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wagonId, dealId, loadStationCode, destStationCode, cargoCodes, volumeTons, loadDatePlan]
+              properties:
+                wagonId: { type: string }
+                dealId: { type: string }
+                loadStationCode: { type: string, description: "Код станции погрузки (6 цифр)" }
+                destStationCode: { type: string, description: "Код станции назначения (6 цифр)" }
+                cargoCodes:
+                  type: array
+                  items: { type: string }
+                  description: "Коды ЕТСНГ (ГНГР) грузов"
+                volumeTons: { type: number }
+                loadDatePlan: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Заявка ГУ-12 создана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  gu12Number: { type: string }
+                  status: { type: string, enum: [DRAFT, SUBMITTED, APPROVED, REJECTED, EXECUTED] }
+
+  /api/railway/gu12/{id}/submit:
+    post:
+      summary: Подать заявку ГУ-12 в ЭТРАН
+      tags: [Railway, Logistics]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Заявка подана в ЭТРАН, ожидает подтверждения
+
+  /api/railway/demurrage:
+    post:
+      summary: Рассчитать демередж (простой вагона)
+      tags: [Railway, Logistics]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wagonId, arrivalAt, departureAt]
+              properties:
+                wagonId: { type: string }
+                dealId: { type: string }
+                arrivalAt: { type: string, format: date-time }
+                departureAt: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Расчёт демереджа
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wagonId: { type: string }
+                  totalHours: { type: number }
+                  freeTimeHours: { type: integer, description: "Бесплатное время (24 ч)" }
+                  chargeableHours: { type: number }
+                  demurrageKopecks: { type: integer, description: "Сумма в копейках" }
+                  demurrageRub: { type: number }
+
+  # ── ЭКСПОРТНАЯ ТОРГОВЛЯ (Incoterms, мультивалюта, таможня, РСХН) ────
+
+  /api/export-trade/incoterms:
+    get:
+      summary: Список условий Incoterms 2020 (11 терминов)
+      tags: [ExportTrade]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: 11 терминов Incoterms 2020 с описаниями перехода рисков
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    code: { type: string, enum: [EXW, FCA, CPT, CIP, DAP, DPU, DDP, FAS, FOB, CFR, CIF] }
+                    name: { type: string }
+                    riskTransferPoint: { type: string }
+                    sellerPays: { type: array, items: { type: string } }
+                    buyerPays: { type: array, items: { type: string } }
+
+  /api/export-trade/incoterms/calculate:
+    post:
+      summary: Расчёт цены по Incoterms
+      tags: [ExportTrade]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priceRub, incoterms, currency]
+              properties:
+                priceRub: { type: number }
+                incoterms: { type: string, enum: [EXW, FCA, CPT, CIP, DAP, DPU, DDP, FAS, FOB, CFR, CIF] }
+                currency: { type: string, enum: [RUB, USD, EUR, CNY] }
+                distanceKm: { type: number }
+                volumeTons: { type: number }
+                includeInsurancePct: { type: number }
+      responses:
+        "200":
+          description: Расчёт цены с фрахтом и страхованием
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  basePriceRub: { type: number }
+                  freightRub: { type: number }
+                  insuranceRub: { type: number }
+                  totalRub: { type: number }
+                  totalInCurrency: { type: number }
+                  currency: { type: string }
+                  exchangeRate: { type: number }
+
+  /api/export-trade/exchange-rates:
+    get:
+      summary: Курсы валют (ЦБ РФ)
+      tags: [ExportTrade]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Курсы USD, EUR, CNY к рублю
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rates: { type: object, additionalProperties: { type: number } }
+                  source: { type: string }
+                  updatedAt: { type: string, format: date-time }
+
+  /api/export-trade/convert:
+    post:
+      summary: Конвертация суммы из рублей в выбранную валюту
+      tags: [ExportTrade]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountRub, toCurrency]
+              properties:
+                amountRub: { type: number }
+                toCurrency: { type: string, enum: [RUB, USD, EUR, CNY] }
+      responses:
+        "200":
+          description: Конвертированная сумма
+
+  /api/export-trade/customs/{dtNumber}:
+    get:
+      summary: Статус таможенной декларации (ФТС)
+      tags: [ExportTrade, Customs]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: dtNumber
+          required: true
+          schema: { type: string, description: "Номер ДТ (10203040/200626/1234567)" }
+      responses:
+        "200":
+          description: Статус и этапы таможенного оформления
+
+  /api/export-trade/customs/submit:
+    post:
+      summary: Подать таможенную декларацию (ФТС)
+      tags: [ExportTrade, Customs]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goodsDescription, tnvedCode, totalValueRub]
+              properties:
+                goodsDescription: { type: string }
+                tnvedCode: { type: string, description: "Код ТН ВЭД" }
+                totalValueRub: { type: number }
+      responses:
+        "201":
+          description: Декларация подана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  declarationId: { type: string }
+                  dtNumber: { type: string }
+                  status: { type: string }
+                  submittedAt: { type: string, format: date-time }
+
+  /api/export-trade/phyto/apply:
+    post:
+      summary: Заявка на фитосанитарный сертификат (Россельхознадзор)
+      tags: [ExportTrade, Phyto]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [culture, volumeTons, producerInn, destinationCountry]
+              properties:
+                culture: { type: string }
+                volumeTons: { type: number }
+                producerInn: { type: string }
+                destinationCountry: { type: string, description: "ISO 3166-1 alpha-2" }
+      responses:
+        "201":
+          description: Заявка подана в Россельхознадзор
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  applicationId: { type: string }
+                  certId: { type: string }
+                  status: { type: string }
+
+  /api/export-trade/phyto/{certId}:
+    get:
+      summary: Статус фитосанитарного сертификата
+      tags: [ExportTrade, Phyto]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: certId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Статус и данные фитосанитарного сертификата
+
+  /api/export-trade/phyto:
+    get:
+      summary: Список фитосанитарных сертификатов по ИНН производителя
+      tags: [ExportTrade, Phyto]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: query
+          name: producerInn
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Список сертификатов
+
+  /api/export-trade/sanctions/{country}:
+    get:
+      summary: Проверка страны на санкционные ограничения
+      tags: [ExportTrade, Compliance]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: country
+          required: true
+          schema: { type: string, description: "ISO 3166-1 alpha-2 код страны" }
+      responses:
+        "200":
+          description: Результат проверки санкций
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  country: { type: string }
+                  sanctioned: { type: boolean }
+                  lists: { type: array, items: { type: string } }
+                  allowedWithPermit: { type: boolean }
+
+  # ── ГИС ЭПД (Минтранс) — ЭТН ─────────────────────────────────────
+
+  /api/logistics/etn:
+    post:
+      summary: Создать электронную транспортную накладную (ЭТН) в ГИС ЭПД
+      tags: [Logistics, GIS-EPD]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealId, shipper, consignee, carrier, vehicleNumber, driverName, driverLicenseNumber, loadingAddress, unloadingAddress, cargoDescription, weightTons, loadingDate, deliveryDatePlan]
+              properties:
+                dealId: { type: string }
+                shipper:
+                  type: object
+                  properties:
+                    name: { type: string }
+                    inn: { type: string }
+                    address: { type: string }
+                consignee:
+                  type: object
+                  properties:
+                    name: { type: string }
+                    inn: { type: string }
+                    address: { type: string }
+                carrier:
+                  type: object
+                  properties:
+                    name: { type: string }
+                    inn: { type: string }
+                vehicleNumber: { type: string }
+                driverName: { type: string }
+                driverLicenseNumber: { type: string }
+                loadingAddress: { type: string }
+                unloadingAddress: { type: string }
+                cargoDescription: { type: string }
+                weightTons: { type: number }
+                volumeM3: { type: number }
+                loadingDate: { type: string, format: date-time }
+                deliveryDatePlan: { type: string, format: date-time }
+      responses:
+        "201":
+          description: ЭТН создана в ГИС ЭПД
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  etnNumber: { type: string }
+                  status: { type: string, enum: [DRAFT, SIGNED, SENT, RECEIVED, COMPLETED, REJECTED] }
+                  dealId: { type: string }
+                  createdAt: { type: string, format: date-time }
+
+  /api/logistics/etn/deal/{dealId}:
+    get:
+      summary: Список ЭТН по сделке
+      tags: [Logistics, GIS-EPD]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Список ЭТН для сделки
+
+  /api/logistics/etn/{id}:
+    get:
+      summary: Статус конкретной ЭТН
+      tags: [Logistics, GIS-EPD]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Детали и статус ЭТН
+
+  /api/logistics/etn/{id}/sign:
+    post:
+      summary: Подписание ЭТН стороной (SHIPPER / CARRIER / CONSIGNEE)
+      tags: [Logistics, GIS-EPD, УКЭП]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signerRole]
+              properties:
+                signerRole:
+                  type: string
+                  enum: [SHIPPER, CARRIER, CONSIGNEE]
+                certificateId: { type: string }
+      responses:
+        "200":
+          description: ЭТН подписана, статус обновлён
+
+  # ── ВЕБХУКИ (Partner API) ───────────────────────────────────────────
+
+  /api/partner/webhooks/{id}/test:
+    post:
+      summary: Тестовая отправка webhook-события (HMAC-SHA256 подписанное)
+      tags: [PartnerAPI]
+      security: [{ BearerAuth: [] }, { ApiKey: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eventType: { type: string, example: "deal.status_changed" }
+                testData: { type: object }
+      responses:
+        "200":
+          description: Результат тестовой доставки webhook
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscriptionId: { type: string }
+                  url: { type: string }
+                  delivered: { type: boolean }
+                  httpStatus: { type: integer }
+                  durationMs: { type: integer }
+                  signedWith: { type: string, description: "HMAC-SHA256" }

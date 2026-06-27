@@ -1,5 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
+import { MockRzdEtranAdapter } from '../../../../../packages/integration-sdk/src/adapters/rzd-etran.adapter';
 
 export type WagonType = 'HOPPER' | 'COVERED' | 'PLATFORM' | 'TANK';
 export type WagonStatus = 'FREE' | 'ASSIGNED' | 'IN_TRANSIT' | 'MAINTENANCE';
@@ -52,9 +54,14 @@ const DEMURRAGE_RATE_KOPECKS = 150_00; // 150 rubles/hour per wagon
 
 @Injectable()
 export class RailwayService {
+  private readonly logger = new Logger(RailwayService.name);
   private readonly wagons = new Map<string, Wagon>();
   private readonly gu12Requests = new Map<string, GU12Request>();
   private readonly demurrageRecords = new Map<string, DemurrageRecord>();
+
+  private get etran(): MockRzdEtranAdapter {
+    return integrationRegistry.get<MockRzdEtranAdapter>('RZD_ETRAN');
+  }
 
   constructor() {
     this.seedDemoWagons();
@@ -136,15 +143,34 @@ export class RailwayService {
     return req;
   }
 
-  submitGU12(requestId: string): GU12Request {
+  async submitGU12(requestId: string): Promise<GU12Request> {
     const req = this.gu12Requests.get(requestId);
     if (!req) throw new NotFoundException(`GU-12 request ${requestId} not found`);
     if (req.status !== 'DRAFT') throw new BadRequestException('Only DRAFT requests can be submitted');
 
     req.status = 'SUBMITTED';
-    req.etranId = `ETRAN-${Date.now()}`;
 
-    // Mock auto-approval after submission
+    try {
+      const wagon = req.wagons[0] ? this.wagons.get(req.wagons[0]) : null;
+      const waybill = await this.etran.createWaybill({
+        wagonNumber: wagon?.wagonNumber ?? req.wagons[0] ?? 'UNKNOWN',
+        loadStationCode: req.departureStation,
+        destStationCode: req.destinationStation,
+        senderId: req.requestorOrgId,
+        receiverId: req.dealId,
+        cargoCode: '011001',
+        weightTons: req.volumeTons,
+        loadDate: req.requestedDepartureAt,
+        dealId: req.dealId,
+      });
+      req.etranId = waybill.gu29Number;
+      this.logger.log(`GU-12 ${requestId} submitted to ЭТРАН: ${waybill.gu29Number}`);
+    } catch (err) {
+      this.logger.warn(`ЭТРАН submission failed for GU-12 ${requestId}: ${(err as Error).message}`);
+      req.etranId = `ETRAN-MOCK-${Date.now()}`;
+    }
+
+    // Auto-approve after 100ms (simulates ЭТРАН async response)
     setTimeout(() => {
       req.status = 'APPROVED';
       req.approvedAt = new Date().toISOString();

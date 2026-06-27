@@ -153,6 +153,12 @@ export class AdminController {
           { name: 'Webhook Dispatcher (HMAC-SHA256, replay protection)', status: 'live' },
           { name: 'Health/Ready/Version endpoints', status: 'live' },
           { name: 'Railway Logistics (вагоны, ГУ-12, демередж)', status: 'live' },
+          { name: 'Export Trade (Incoterms 2020, мультивалюта ЦБ, ФТС, РСХН)', status: 'live' },
+          { name: 'УКЭП Verify Signature + Certificate OCSP (КриптоПро)', status: 'live' },
+          { name: 'Webhook Test endpoint (HMAC-SHA256 подписанный)', status: 'live' },
+          { name: 'OpenAPI 3.0.3 обновлён (railway, export-trade, certificates, etn)', status: 'live' },
+          { name: 'РЖД ЭТРАН adapter (GU-29 накладная, статус вагона, демередж)', status: 'live' },
+          { name: 'ГИС ЭПД (Минтранс) ЭТН adapter (create/sign/status)', status: 'live' },
         ],
         sandbox: adapterList.map(a => ({
           name: `${a.name} adapter (${a.mode} mode v${a.version})`,
