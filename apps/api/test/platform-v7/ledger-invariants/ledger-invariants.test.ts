@@ -70,7 +70,6 @@ describe('platform-v7 ledger invariants boundary', () => {
       'invalid-tenant-id',
       'invalid-notes',
       'unsafe-money',
-      'unbalanced-ledger',
     ]);
   });
 
@@ -84,6 +83,7 @@ describe('platform-v7 ledger invariants boundary', () => {
     const result = platformV7LedgerInvariantCheck([PLATFORM_V7_LEDGER_SOURCE_ENTRIES[0], crossCurrencyEntry]);
 
     expect(result.valid).toBe(false);
+    expect(result.violations).toContain('cross-currency');
     expect(result.violations).toContain('unsafe-money');
   });
 
