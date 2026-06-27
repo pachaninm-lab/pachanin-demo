@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 state sync after #2129.",
+  "current": "P0 ledger source-of-truth selection only.",
   "fullTzReadinessPercent": 72,
   "openPr": null,
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129"],
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130"],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is repository settings cleanup. #2115 remains blocked by the current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/auth/session/runtime/money/storage changes"],
@@ -22,15 +22,16 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "stateSyncAfter2129": {
-    "layer": "P0 docs/state sync after #2129",
+  "stateSyncAfter2130": {
+    "layer": "P0 ledger source-of-truth selection only",
     "completedTargets": [
-      "record #2129 as merged",
+      "record #2130 as merged",
+      "select ledger source-of-truth as docs-only next boundary",
       "keep #2113 and #2115 as open blockers",
       "keep readiness at 72%",
       "keep controlled-pilot / pre-integration maturity language"
     ],
-    "nextCandidate": "P0 ledger source-of-truth selection only"
+    "nextCandidate": "P0 ledger source-of-truth implementation boundary"
   },
   "forbiddenZones": [
     "apps/landing",
