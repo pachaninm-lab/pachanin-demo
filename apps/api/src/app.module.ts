@@ -42,6 +42,7 @@ import { SupportModule } from './modules/support/support.module';
 import { KycModule } from './modules/kyc/kyc.module';
 import { CertificateMonitorModule } from './modules/certificate-monitor/certificate-monitor.module';
 import { RailwayModule } from './modules/railway/railway.module';
+import { ExportTradeModule } from './modules/export-trade/export-trade.module';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { RailwayModule } from './modules/railway/railway.module';
     KycModule,
     CertificateMonitorModule,
     RailwayModule,
+    ExportTradeModule,
   ],
   controllers: [HealthController],
   providers: [
