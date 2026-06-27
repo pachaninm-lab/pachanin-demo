@@ -1717,6 +1717,124 @@ paths:
                   lists: { type: array, items: { type: string } }
                   allowedWithPermit: { type: boolean }
 
+  # ── MarineTraffic (суда) ──────────────────────────────────────────
+
+  /api/export-trade/vessels:
+    get:
+      summary: Поиск судов по названию / MMSI / типу (MarineTraffic)
+      tags: [ExportTrade]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string, enum: [BULK_CARRIER, CONTAINER, GENERAL_CARGO, TANKER] }
+      responses:
+        "200":
+          description: Список судов с позицией и статусом
+
+  /api/export-trade/vessels/{mmsi}:
+    get:
+      summary: Позиция судна по MMSI (MarineTraffic)
+      tags: [ExportTrade]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: mmsi
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Текущая позиция и скорость судна
+
+  /api/export-trade/vessels/{mmsi}/route:
+    get:
+      summary: Маршрут судна — откуда/куда, дистанция, ETA (MarineTraffic)
+      tags: [ExportTrade]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: mmsi
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Маршрут с историей заходов в порты
+
+  /api/export-trade/vessels/{mmsi}/port-calls:
+    get:
+      summary: История заходов в порты для судна (MarineTraffic)
+      tags: [ExportTrade]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: mmsi
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Список заходов в порты
+
+  # ── СМЭВ — ФНС ЕГРЮЛ, верификация ИНН ───────────────────────────
+
+  /api/kyc/egrul/{inn}:
+    get:
+      summary: Выписка из ЕГРЮЛ через СМЭВ по ИНН
+      tags: [KYC, SMEV]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: inn
+          required: true
+          schema: { type: string, description: "ИНН юридического лица (10 цифр) или ИП (12 цифр)" }
+      responses:
+        "200":
+          description: Данные из ЕГРЮЛ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inn: { type: string }
+                  ogrn: { type: string }
+                  kpp: { type: string }
+                  fullName: { type: string }
+                  shortName: { type: string }
+                  status: { type: string, enum: [ACTIVE, LIQUIDATED, REORGANIZING] }
+                  registrationDate: { type: string }
+                  address: { type: string }
+                  okved: { type: string }
+                  okvedDescription: { type: string }
+
+  /api/kyc/verify-inn:
+    post:
+      summary: Верификация ИНН через СМЭВ (ФНС)
+      tags: [KYC, SMEV]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inn]
+              properties:
+                inn: { type: string }
+                ogrn: { type: string }
+      responses:
+        "200":
+          description: Результат верификации ИНН
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid: { type: boolean }
+                  inn: { type: string }
+                  status: { type: string }
+
   # ── ГИС ЭПД (Минтранс) — ЭТН ─────────────────────────────────────
 
   /api/logistics/etn:
