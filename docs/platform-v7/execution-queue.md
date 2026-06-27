@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 audit read-model boundary implementation.
+CURRENT: P0 audit read-model state sync after #2138 merge.
 
-GOAL: add a deterministic read-only audit read-model boundary without widening platform-v7 scope.
+GOAL: record the merged audit read-model boundary and select the next narrow docs-first queue layer without widening platform-v7 scope.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -27,34 +27,30 @@ CURRENT STATUS:
 - #2135 is merged: isolated read-only ledger invariants boundary is active.
 - #2136 is merged: ledger invariants state sync after #2135 is complete.
 - #2137 is merged: audit read-model boundary selection is complete.
-- Current layer is isolated audit read-model boundary implementation.
+- #2138 is merged: isolated audit read-model boundary is active.
+- Current layer is docs-only audit read-model state sync.
 
 CURRENT ALLOWED:
-- apps/api/src/platform-v7/audit-read-model/**
-- apps/api/test/platform-v7/audit-read-model/**
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- record #2137 as merged;
+- record #2138 as merged;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
-- add read-only audit events with actor, target, reason, evidence references and timestamps;
-- gate audit reads through canonical auditEntry policy;
-- derive held-money signal from ledger read-model only where needed;
-- keep apps/landing, apps/web, API controllers, DB, audit mutation, outbox, storage, runtime and live integrations out of scope;
+- select the next narrow docs-first queue layer;
+- keep apps/landing, apps/web, API controllers, DB, audit mutation, outbox implementation, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
 - no package or lockfile changes.
 
 NEXT:
-- Layer: P0 audit read-model state sync after #2138 merge.
+- Layer: P0 outbox boundary selection.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - record #2138 as merged after checks pass;
-  - select the next narrow docs-first queue layer;
-  - no outbox, storage, DB persistence, runtime mutation or live integrations;
+  - select an isolated outbox source/read boundary before any implementation;
+  - no DB persistence, queue runner, webhook sender, live integration, storage or runtime mutation;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
   - readiness remains 72%.
@@ -89,7 +85,8 @@ ORDER:
 27. P0 ledger invariants implementation boundary is active from #2135.
 28. P0 ledger invariants state sync after #2135 merge is active from #2136.
 29. P0 audit read-model boundary selection is active from #2137.
-30. P0 audit read-model boundary implementation is current.
+30. P0 audit read-model boundary implementation is active from #2138.
+31. P0 audit read-model state sync after #2138 merge is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -122,5 +119,6 @@ DONE:
 - #2135 P0 ledger invariants implementation boundary.
 - #2136 P0 ledger invariants state sync after #2135 merge.
 - #2137 P0 audit read-model boundary selection.
+- #2138 P0 audit read-model boundary implementation.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger mutation, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
