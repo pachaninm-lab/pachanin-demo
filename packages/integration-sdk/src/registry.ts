@@ -7,8 +7,9 @@ import { MockBankAdapter } from './adapters/bank.adapter';
 import { MockGpsAdapter } from './adapters/gps.adapter';
 import { MockFtsAdapter } from './adapters/fts.adapter';
 import { MockRshnAdapter } from './adapters/rshn.adapter';
+import { MockAmlAdapter } from './adapters/aml.adapter';
 
-export type AdapterName = 'FGIS_ZERNO' | 'FNS' | 'DIADOK' | 'CRYPTOPRO_DSS' | 'BANK' | 'GPS' | 'FTS' | 'RSHN';
+export type AdapterName = 'FGIS_ZERNO' | 'FNS' | 'DIADOK' | 'CRYPTOPRO_DSS' | 'BANK' | 'GPS' | 'FTS' | 'RSHN' | 'AML_ROSFINMONITORING';
 
 class IntegrationRegistry {
   private readonly adapters = new Map<AdapterName, IntegrationAdapter>();
@@ -66,3 +67,4 @@ integrationRegistry.register('BANK', new MockBankAdapter());
 integrationRegistry.register('GPS', new MockGpsAdapter());
 integrationRegistry.register('FTS', new MockFtsAdapter());
 integrationRegistry.register('RSHN', new MockRshnAdapter());
+integrationRegistry.register('AML_ROSFINMONITORING', new MockAmlAdapter());

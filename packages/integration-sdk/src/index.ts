@@ -7,5 +7,6 @@ export * from './adapters/bank.adapter';
 export * from './adapters/gps.adapter';
 export * from './adapters/fts.adapter';
 export * from './adapters/rshn.adapter';
+export * from './adapters/aml.adapter';
 export * from './security/webhook-security';
 export * from './registry';

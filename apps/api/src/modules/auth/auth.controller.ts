@@ -1,7 +1,7 @@
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UseGuards } from '@nestjs/common';
-import { Body, Controller, Get, Headers, Ip, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Ip, Post, Query, HttpCode } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -74,5 +74,16 @@ export class AuthController {
   @Get('oidc/authorization-url')
   oidcAuthorizationUrl() {
     return this.authService.oidcAuthorizationUrl();
+  }
+
+  @Get('me/data-export')
+  dataExport(@CurrentUser() user: RequestUser) {
+    return this.authService.getUserData(user.id);
+  }
+
+  @HttpCode(200)
+  @Post('me/anonymize')
+  anonymize(@CurrentUser() user: RequestUser) {
+    return this.authService.anonymizeUser(user.id);
   }
 }
