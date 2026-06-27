@@ -22,4 +22,18 @@ export class AnalyticsController {
   ledgerSummary(@CurrentUser() user: RequestUser) {
     return this.analytics.getLedgerSummary(user);
   }
+
+  @Get('price-prediction')
+  pricePrediction(
+    @Query('culture') culture: string,
+    @Query('region') region: string,
+    @Query('cropClass') cropClass?: string,
+    @Query('volumeTons') volumeTons?: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.analytics.getPricePrediction(
+      { culture: culture ?? 'пшеница', region: region ?? 'Краснодарский край', cropClass, volumeTons: volumeTons ? Number(volumeTons) : undefined },
+      user,
+    );
+  }
 }
