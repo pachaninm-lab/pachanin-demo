@@ -1,62 +1,47 @@
 # platform-v7 execution queue
 
-CURRENT: P0 money integer basis boundary implementation.
+CURRENT: P0 state sync after #2129.
 
-GOAL: add the next narrow value-boundary layer for money integer arithmetic without ledger, settlement, DB, runtime or live banking behavior.
+GOAL: record #2129 as merged and select the next narrow docs-only layer.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
 - #2112 is closed as completed.
-- #2113 remains open: branch protection/settings cleanup for deprecated Vercel/Deno required checks.
-- #2115 remains open: backend register role assignment hardening implementation is blocked by the current auth-file write path.
-- #2117 is merged: mobile header controls fix is active.
-- #2119 is merged: autopilot source-of-truth is synced after #2117.
+- #2113 remains open: repository settings cleanup.
+- #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 - #2120 is merged: RBAC / tenant scope / object scope source-of-truth selection is complete.
 - #2121 is merged: isolated RBAC / tenant scope / object scope backend boundary is active.
 - #2122 is merged: route wiring lane selection is complete.
 - #2123 is merged: isolated route-scope boundary is active.
 - #2124 is merged: route-scope state sync after #2123 is complete.
-- #2125 is merged: canonical data source-of-truth boundary selection is complete.
-- #2126 is merged: canonical data source-of-truth implementation boundary is active.
+- #2125 is merged: canonical data boundary selection is complete.
+- #2126 is merged: canonical data implementation boundary is active.
 - #2127 is merged: canonical data state sync after #2126 is complete.
 - #2128 is merged: money integer basis boundary selection is complete.
-- Current layer is pure value-boundary implementation only.
+- #2129 is merged: money integer basis boundary implementation is active.
+- Current layer is docs/state sync only.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
-- apps/api/src/platform-v7/money-integer/**
-- apps/api/test/platform-v7/money-integer/**
 
 CURRENT CHECKS:
-- mark #2128 as merged in autopilot-state and queue;
-- add typed minor-unit money values;
-- add deterministic add/subtract/compare helpers;
-- reject unsafe floats and cross-currency arithmetic;
-- keep ledger, bank release/hold/refund/commission flows out of scope;
+- record #2129 as merged in autopilot-state and queue;
+- select the next narrow layer only in docs/state;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
-- keep auth module files blocked by #2115 out of scope;
 - keep apps/landing, apps/web, API controllers, DB, ledger, audit, outbox, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
 - no package or lockfile changes.
 
-CURRENT NOTES:
-- #2115 is not closed by this layer; it still requires a safe maintainer/Codex path to write auth service and related auth tests.
-- #2113 requires repository settings/branch protection verification and should not change platform code.
-- #2126 added a typed canonical-data boundary without persistence, controller wiring or live source integration.
-- #2128 selected the money integer lane in docs/state only.
-- This implementation adds a pure integer-money value boundary only; it does not implement ledger, reserve, hold, release, refund, commission, DB persistence, runtime orchestration or live banking.
-
 NEXT:
-- Layer: P0 money integer state sync after merge.
+- Layer: P0 ledger source-of-truth selection only.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - record this money integer boundary as merged only after checks are green and merge completes;
-  - select the next narrow layer only in docs/state;
-  - keep #2113 and #2115 as open blockers unless source-of-truth changes;
+  - select the next boundary in docs/state only;
+  - no implementation in the selection PR;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
   - readiness remains 72%.
@@ -69,30 +54,21 @@ ORDER:
 5. Elevator first-screen pass is active from #2057.
 6. Driver / field first-screen scope is active from #2058.
 7. Driver / field first-screen pass is active from #2059.
-8. Public mobile process carousel polish is active in #2062/#2064.
-9. Public process stage copy polish is active from #2065.
-10. Netlify root entry redirect recovery is active from root-entry-redirect.
-11. Public hero copy polish is active from #2067/#2068/#2070/#2071.
-12. Driver field route anchor hardening is active from #2072 after stale #2061 was superseded.
-13. Public entry human copy pass is active from #2075.
-14. Public register header actions pass is active from #2076.
-15. Public register visual system pass is active from #2077.
-16. Driver / field follow-up audit is active from #2078.
-17. Driver / field mobile touch target hardening is active from #2079.
-18. Field roles follow-up audit is active from #2080.
-19. P0 auth/session cabinet session body-role guard is active from #2111.
-20. P0 mobile header controls fix is active from #2117.
-21. P0 backend register role assignment hardening remains blocked by #2115.
-22. P0 RBAC / tenant scope / object scope source-of-truth selection is active from #2120.
-23. P0 RBAC / tenant scope / object scope implementation boundary is active from #2121.
-24. P0 RBAC / tenant scope / object scope route wiring selection is active from #2122.
-25. P0 RBAC / tenant scope / object scope route wiring boundary implementation is active from #2123.
-26. P0 route-scope state sync after #2123 merge is active from #2124.
-27. P0 canonical data boundary selection is active from #2125.
-28. P0 canonical data source-of-truth implementation boundary is active from #2126.
-29. P0 canonical data state sync after #2126 merge is active from #2127.
-30. P0 money integer basis boundary selection is active from #2128.
-31. P0 money integer basis boundary implementation is current.
+8. Netlify root entry redirect recovery is active from root-entry-redirect.
+9. P0 auth/session cabinet session body-role guard is active from #2111.
+10. P0 mobile header controls fix is active from #2117.
+11. P0 backend register role assignment hardening remains blocked by #2115.
+12. P0 RBAC / tenant scope / object scope source-of-truth selection is active from #2120.
+13. P0 RBAC / tenant scope / object scope implementation boundary is active from #2121.
+14. P0 route wiring selection is active from #2122.
+15. P0 route-scope boundary implementation is active from #2123.
+16. P0 route-scope state sync is active from #2124.
+17. P0 canonical data boundary selection is active from #2125.
+18. P0 canonical data implementation boundary is active from #2126.
+19. P0 canonical data state sync is active from #2127.
+20. P0 money integer basis boundary selection is active from #2128.
+21. P0 money integer basis boundary implementation is active from #2129.
+22. P0 state sync after #2129 is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -101,46 +77,9 @@ RULES:
 - no fake-live integration claims;
 - no production-ready claims;
 - no broad backend/API/DB/auth/session/runtime/money/storage rewrite inside the current boundary layer;
-- money work is allowed only when selected as a narrow pure integer value boundary and must not include ledger, reserve, hold, release, refund, commission, DB persistence, API wiring, runtime or live banking;
-- Netlify plus GitHub Actions green before merge;
-- Vercel and Deno deprecated external statuses are not active gate for platform-v7 unless branch protection still requires them.
+- Netlify plus GitHub Actions green before merge.
 
 DONE:
-- #2028 seller CSS leak guard.
-- #2029 state sync after mobile shell stabilization.
-- #2031 seller mobile CSS text leak fix.
-- #2032 mobile shell stabilization follow-up.
-- #2034 public registration CTA recovery.
-- #2036 public role-scoped registration handoff.
-- #2037 public login role handoff.
-- #2038 stable shell boundary.
-- #2040 single shell copy normalizer.
-- #2041 public role cards login handoff.
-- #2042 access copy polish.
-- #2045 mobile header pass.
-- #2046 protected mobile header recovery.
-- #2048 shell copy normalizer replacement.
-- #2049 public entry login split.
-- #2051 registration completion route guard.
-- #2053 docs queue sync.
-- #2055 protected mobile header action recovery.
-- #2056 public mobile brand title recovery.
-- #2057 elevator first-screen pass.
-- #2058 driver field first-screen scope selection.
-- #2059 driver field first-screen pass.
-- #2065 public process stage copy polish.
-- #2067 public hero copy polish.
-- #2068 public hero mobile composition.
-- #2070 public hero mobile sizing.
-- #2071 public entry copy proofread.
-- #2072 driver field route anchor hardening.
-- #2075 public entry human copy pass.
-- #2076 public register header actions pass.
-- #2077 public register visual system pass.
-- #2078 driver field follow-up audit.
-- #2079 driver field mobile touch target hardening.
-- #2080 field roles follow-up audit.
-- root-entry-redirect Netlify root entry redirect recovery.
 - #2111 P0 auth/session cabinet session body-role guard.
 - #2117 P0 mobile header controls fix.
 - #2119 docs/platform-v7 autopilot state sync after #2117.
@@ -153,5 +92,6 @@ DONE:
 - #2126 P0 canonical data source-of-truth implementation boundary.
 - #2127 P0 canonical data state sync after #2126 merge.
 - #2128 P0 money integer basis boundary selection.
+- #2129 P0 money integer basis boundary implementation.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
