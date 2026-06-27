@@ -25,6 +25,13 @@ export type PlatformV7LedgerInvariantResult = Readonly<{
 }>;
 
 const ZERO_RUB = platformV7MoneyInteger(0);
+const FORBIDDEN_LEDGER_NOTE_PATTERNS = [
+  /production[- ]ready/i,
+  /fully\s+live/i,
+  /bank\s+connected/i,
+  /fully\s+integrated/i,
+  /payment\s+guarantee/i,
+] as const;
 
 function uniqueViolations(violations: readonly PlatformV7LedgerInvariantViolation[]): readonly PlatformV7LedgerInvariantViolation[] {
   return Object.freeze([...new Set(violations)]);
@@ -36,6 +43,10 @@ function hasSafeMinorUnits(amount: PlatformV7MoneyInteger): boolean {
 
 function isSupportedMoney(amount: PlatformV7MoneyInteger): boolean {
   return amount.currency === 'RUB' && hasSafeMinorUnits(amount);
+}
+
+function hasForbiddenLedgerNote(notes: string): boolean {
+  return FORBIDDEN_LEDGER_NOTE_PATTERNS.some((pattern) => pattern.test(notes));
 }
 
 function addViolation(
@@ -75,7 +86,7 @@ export function platformV7LedgerInvariantCheck(entries: readonly PlatformV7Ledge
       addViolation(violations, 'invalid-source');
     }
 
-    if (/production-ready|fully live|bank connected|fully integrated|payment guarantee/i.test(entry.notes)) {
+    if (hasForbiddenLedgerNote(entry.notes)) {
       addViolation(violations, 'invalid-notes');
     }
 
