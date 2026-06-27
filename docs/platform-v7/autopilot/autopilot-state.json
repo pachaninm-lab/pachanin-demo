@@ -3,38 +3,32 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 audit read-model boundary implementation.",
+  "current": "P0 audit read-model state sync after #2138 merge.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2138",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137"],
+  "openPr": "#2139",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138"],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is repository settings cleanup. #2115 remains blocked by the current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
   "allowedCurrentScope": [
-    "apps/api/src/platform-v7/audit-read-model/**",
-    "apps/api/test/platform-v7/audit-read-model/**",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/api/src/platform-v7/audit-read-model/**",
-    "apps/api/test/platform-v7/audit-read-model/**",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "auditReadModelImplementation2138": {
-    "layer": "P0 audit read-model boundary implementation",
+  "auditReadModelStateSync2139": {
+    "layer": "P0 audit read-model state sync after #2138 merge",
     "completedTargets": [
-      "record #2137 as merged",
-      "add deterministic read-only audit events with actors, targets, reasons, evidence references and timestamps",
-      "gate audit reads through canonical auditEntry access",
-      "derive held-money signal from the existing ledger source boundary without mutating ledger state",
-      "keep audit mutation, outbox, DB persistence, storage, runtime settlement and live integrations out of scope",
+      "record #2138 as merged",
       "keep #2113 and #2115 as open blockers",
+      "select the next narrow docs-first queue layer",
+      "keep outbox, storage, DB persistence, runtime mutation and live integrations out of scope",
       "keep readiness at 72%",
       "keep controlled-pilot / pre-integration maturity language"
     ],
-    "nextCandidate": "P0 audit read-model state sync after #2138 merge"
+    "nextCandidate": "P0 outbox boundary selection"
   },
   "forbiddenZones": [
     "apps/landing",
