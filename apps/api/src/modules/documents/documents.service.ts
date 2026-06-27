@@ -90,7 +90,7 @@ export class DocumentsService {
   async edoSend(id: string, params: { recipientInn: string; recipientBoxId?: string }, user: any) {
     const doc = await this.documents.getById(id);
     try {
-      const diadok = integrationRegistry.get('diadok') as any;
+      const diadok = integrationRegistry.get('DIADOK') as any;
       const result = await diadok.execute({
         action: 'sendDocument',
         documentId: id,
@@ -110,14 +110,11 @@ export class DocumentsService {
   async edoSign(id: string, certificateId: string | undefined, user: any) {
     const doc = await this.documents.getById(id);
     try {
-      const cryptopro = integrationRegistry.get('cryptopro') as any;
-      const signResult = await cryptopro.execute({
-        action: 'signDocument',
-        documentId: id,
-        certificateId: certificateId ?? `cert-${user.id}`,
-        content: Buffer.from(`Document ${id}`).toString('base64'),
-      });
-      return { documentId: id, signature: signResult.signature, certificateId: signResult.certificateId, signedAt: new Date().toISOString() };
+      const cryptopro = integrationRegistry.get('CRYPTOPRO_DSS') as any;
+      const certId = certificateId ?? `cert-${user.id}-001`;
+      const docHash = require('crypto').createHash('sha256').update(`Document ${id}`).digest('hex');
+      const signature = await cryptopro.signDocument(docHash, certId);
+      return { documentId: id, signature: signature.signatureBase64, certificateId: certId, documentHash: docHash, signedAt: signature.signedAt };
     } catch (err) {
       this.logger.warn(`EDO sign failed for doc ${id}: ${(err as Error).message}`);
       return { documentId: id, signed: false, error: (err as Error).message };
@@ -126,7 +123,7 @@ export class DocumentsService {
 
   async edoGetStatus(id: string, _user: any) {
     try {
-      const diadok = integrationRegistry.get('diadok') as any;
+      const diadok = integrationRegistry.get('DIADOK') as any;
       const result = await diadok.execute({ action: 'getDocumentStatus', externalId: `ext-${id}` });
       return { documentId: id, ...result };
     } catch (err) {
