@@ -3,37 +3,32 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 canonical data source-of-truth implementation boundary.",
+  "current": "P0 canonical data state sync after #2126 merge.",
   "fullTzReadinessPercent": 72,
   "openPr": null,
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125"],
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126"],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is a repository settings cleanup item for deprecated Vercel/Deno required checks. #2115 keeps backend register role assignment hardening blocked; no auth module files are selected in this lane.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/auth/session/runtime/money/storage changes"],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md",
-    "apps/api/src/platform-v7/canonical-data/**",
-    "apps/api/test/platform-v7/canonical-data/**"
+    "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md",
-    "apps/api/src/platform-v7/canonical-data/**",
-    "apps/api/test/platform-v7/canonical-data/**"
+    "docs/platform-v7/execution-queue.md"
   ],
   "selectedNextImplementationScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "canonicalDataBoundary": {
-    "implementationLayer": "P0 canonical data source-of-truth implementation boundary",
-    "policy": "add a typed canonical-data source registry and role-scoped read/write decisions without app route wiring, API controllers, DB, auth, session, runtime, money, storage or live integration changes",
+  "canonicalDataStateSync": {
+    "implementationLayer": "P0 canonical data state sync after #2126 merge",
+    "policy": "record #2126 as merged and keep the next layer as docs-only selection until checks are green; do not edit app, API, DB, auth, session, runtime, money, storage or live integration code in this sync lane",
     "firstTargets": [
-      "record #2125 as merged",
-      "add typed canonical entity registry",
-      "add canonical read/write boundary decisions",
-      "keep money basis and audit entries read-only",
+      "record #2126 as merged",
+      "keep #2113 and #2115 open",
+      "select the next narrow layer in docs/state only after this sync is green",
       "keep readiness at 72%",
       "keep controlled-pilot / pre-integration maturity language"
     ],
