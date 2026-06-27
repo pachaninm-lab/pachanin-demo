@@ -10,8 +10,9 @@ import { MockRshnAdapter } from './adapters/rshn.adapter';
 import { MockAmlAdapter } from './adapters/aml.adapter';
 import { MockRzdEtranAdapter } from './adapters/rzd-etran.adapter';
 import { MockGisEpdAdapter } from './adapters/gis-epd.adapter';
+import { MockBkiAdapter } from './adapters/bki.adapter';
 
-export type AdapterName = 'FGIS_ZERNO' | 'FNS' | 'DIADOK' | 'CRYPTOPRO_DSS' | 'BANK' | 'GPS' | 'FTS' | 'RSHN' | 'AML_ROSFINMONITORING' | 'RZD_ETRAN' | 'GIS_EPD';
+export type AdapterName = 'FGIS_ZERNO' | 'FNS' | 'DIADOK' | 'CRYPTOPRO_DSS' | 'BANK' | 'GPS' | 'FTS' | 'RSHN' | 'AML_ROSFINMONITORING' | 'RZD_ETRAN' | 'GIS_EPD' | 'BKI_NBKI';
 
 class IntegrationRegistry {
   private readonly adapters = new Map<AdapterName, IntegrationAdapter>();
@@ -72,3 +73,4 @@ integrationRegistry.register('RSHN', new MockRshnAdapter());
 integrationRegistry.register('AML_ROSFINMONITORING', new MockAmlAdapter());
 integrationRegistry.register('RZD_ETRAN', new MockRzdEtranAdapter());
 integrationRegistry.register('GIS_EPD', new MockGisEpdAdapter());
+integrationRegistry.register('BKI_NBKI', new MockBkiAdapter());

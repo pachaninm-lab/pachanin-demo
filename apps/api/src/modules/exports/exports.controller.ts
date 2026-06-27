@@ -46,6 +46,11 @@ export class ExportsController {
     return this.exports.exportOutboxStatus(user);
   }
 
+  @Get('deal-report/:dealId')
+  getDealReport(@Param('dealId') dealId: string, @CurrentUser() user: RequestUser) {
+    return this.exports.exportDealReport(dealId, user);
+  }
+
   @Post('regulatory')
   async regulatoryReport(
     @Body() body: { type: 'msh' | 'rosstat' | 'fns' | 'rosfinmonitoring'; from?: string; to?: string },

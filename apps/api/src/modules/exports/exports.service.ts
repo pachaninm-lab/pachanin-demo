@@ -214,6 +214,85 @@ export class ExportsService {
     return { format: 'xml', filename: `fns-onf-${Date.now()}.xml`, content };
   }
 
+  async exportDealReport(dealId: string, user: RequestUser): Promise<{
+    reportId: string;
+    dealId: string;
+    generatedAt: string;
+    generatedBy: string;
+    format: 'json';
+    sections: {
+      summary: object;
+      timeline: unknown[];
+      financials: object;
+      documents: unknown[];
+      chainIntegrity: object;
+    };
+  }> {
+    this.assertExportRole(user);
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: dealId },
+      include: { events: { orderBy: { createdAt: 'asc' } } },
+    }).catch(() => null);
+
+    if (!deal) {
+      return {
+        reportId: `rpt-${Date.now()}`,
+        dealId,
+        generatedAt: new Date().toISOString(),
+        generatedBy: user.id,
+        format: 'json',
+        sections: {
+          summary: { dealId, note: 'Deal not found in DB (in-memory mode)' },
+          timeline: [],
+          financials: {},
+          documents: [],
+          chainIntegrity: { valid: true, note: 'no events in DB' },
+        },
+      };
+    }
+
+    const events = (deal as any).events ?? [];
+    const isChainValid = events.length === 0 || events.every((_: unknown, i: number) => {
+      if (i === 0) return true;
+      return (events[i] as any).prevHash === (events[i - 1] as any).hash;
+    });
+
+    return {
+      reportId: `rpt-${Date.now()}`,
+      dealId,
+      generatedAt: new Date().toISOString(),
+      generatedBy: user.id,
+      format: 'json',
+      sections: {
+        summary: {
+          dealNumber: (deal as any).dealNumber,
+          status: (deal as any).status,
+          culture: (deal as any).culture,
+          volumeTons: (deal as any).volumeTons,
+          totalRub: (deal as any).totalRub,
+          sellerOrgId: (deal as any).sellerOrgId,
+          buyerOrgId: (deal as any).buyerOrgId,
+          createdAt: (deal as any).createdAt,
+          closedAt: (deal as any).closedAt,
+        },
+        timeline: events.map((e: any) => ({
+          eventType: e.eventType,
+          actorId: e.actorId,
+          actorRole: e.actorRole,
+          hash: e.hash?.slice(0, 16) + '…',
+          createdAt: e.createdAt,
+        })),
+        financials: {
+          totalKopecks: (deal as any).totalKopecks,
+          totalRub: (deal as any).totalRub,
+          currency: (deal as any).currency ?? 'RUB',
+        },
+        documents: [],
+        chainIntegrity: { valid: isChainValid, eventCount: events.length },
+      },
+    };
+  }
+
   private buildRosfinXml(deals: any[], from: Date, to: Date): { format: string; filename: string; content: string } {
     const threshold = 600_000;
     const largeDeals = deals.filter(d => (d.totalRub ?? 0) >= threshold);

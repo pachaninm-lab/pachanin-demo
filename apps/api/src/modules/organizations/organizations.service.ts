@@ -20,7 +20,7 @@ export class OrganizationsService {
 
   async lookupByInn(inn: string): Promise<{ inn: string; name: string; ogrn?: string; address?: string; taxStatus?: string }> {
     try {
-      const fns = integrationRegistry.get('fns') as any;
+      const fns = integrationRegistry.get('FNS') as any;
       const result = await fns.execute({ action: 'getOrganizationByInn', inn });
       return { inn: result.inn, name: result.name, ogrn: result.ogrn, address: result.address, taxStatus: result.taxStatus };
     } catch (err) {
