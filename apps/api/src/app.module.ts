@@ -41,6 +41,7 @@ import { BankReconciliationModule } from './modules/bank-reconciliation/bank-rec
 import { SupportModule } from './modules/support/support.module';
 import { KycModule } from './modules/kyc/kyc.module';
 import { CertificateMonitorModule } from './modules/certificate-monitor/certificate-monitor.module';
+import { RailwayModule } from './modules/railway/railway.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { CertificateMonitorModule } from './modules/certificate-monitor/certific
     SupportModule,
     KycModule,
     CertificateMonitorModule,
+    RailwayModule,
   ],
   controllers: [HealthController],
   providers: [
