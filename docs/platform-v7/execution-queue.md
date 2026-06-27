@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 audit read-model state sync after #2138 merge.
+CURRENT: P0 outbox boundary selection.
 
-GOAL: record the merged audit read-model boundary and select the next narrow docs-first queue layer without widening platform-v7 scope.
+GOAL: select an isolated outbox source/read boundary before implementation without widening platform-v7 scope.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -28,28 +28,31 @@ CURRENT STATUS:
 - #2136 is merged: ledger invariants state sync after #2135 is complete.
 - #2137 is merged: audit read-model boundary selection is complete.
 - #2138 is merged: isolated audit read-model boundary is active.
-- Current layer is docs-only audit read-model state sync.
+- #2139 is merged: audit read-model state sync after #2138 is complete.
+- Current layer is docs-only outbox boundary selection.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- record #2138 as merged;
+- record #2139 as merged;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
-- select the next narrow docs-first queue layer;
-- keep apps/landing, apps/web, API controllers, DB, audit mutation, outbox implementation, storage, runtime and live integrations out of scope;
+- select an isolated outbox source/read boundary before implementation;
+- keep apps/landing, apps/web, API controllers, DB, audit mutation, outbox implementation, queue runner, webhook sender, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
 - no package or lockfile changes.
 
 NEXT:
-- Layer: P0 outbox boundary selection.
-- Allowed files:
+- Layer: P0 outbox boundary implementation.
+- Candidate allowed files:
+  - apps/api/src/platform-v7/outbox-boundary/**
+  - apps/api/test/platform-v7/outbox-boundary/**
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - select an isolated outbox source/read boundary before any implementation;
+  - add an isolated in-memory/read-only outbox boundary for pending domain events;
   - no DB persistence, queue runner, webhook sender, live integration, storage or runtime mutation;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
@@ -86,7 +89,8 @@ ORDER:
 28. P0 ledger invariants state sync after #2135 merge is active from #2136.
 29. P0 audit read-model boundary selection is active from #2137.
 30. P0 audit read-model boundary implementation is active from #2138.
-31. P0 audit read-model state sync after #2138 merge is current.
+31. P0 audit read-model state sync after #2138 merge is active from #2139.
+32. P0 outbox boundary selection is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -120,5 +124,6 @@ DONE:
 - #2136 P0 ledger invariants state sync after #2135 merge.
 - #2137 P0 audit read-model boundary selection.
 - #2138 P0 audit read-model boundary implementation.
+- #2139 P0 audit read-model state sync after #2138 merge.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger mutation, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
