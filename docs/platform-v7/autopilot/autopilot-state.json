@@ -3,12 +3,12 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 route-scope state sync after #2123 merge.",
+  "current": "P0 canonical data boundary selection after #2124 merge.",
   "fullTzReadinessPercent": 72,
   "openPr": null,
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123"],
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124"],
   "openBlockers": ["#2113", "#2115"],
-  "blockerNotes": "#2113 is a repository settings cleanup item for deprecated Vercel/Deno required checks. #2115 keeps backend register role assignment hardening blocked; the merged route-scope boundary did not edit auth module files and did not close #2115.",
+  "blockerNotes": "#2113 is a repository settings cleanup item for deprecated Vercel/Deno required checks. #2115 keeps backend register role assignment hardening blocked; no auth module files are selected in this lane.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/auth/session/runtime/money/storage changes"],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -22,21 +22,23 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "routeWiringSelection": {
-    "implementationLayer": "P0 RBAC / tenant scope / object scope route wiring boundary",
-    "policy": "route-scope boundary merged in #2123; current lane is state synchronization only before selecting the next narrow layer",
+  "canonicalDataSelection": {
+    "implementationLayer": "P0 canonical data source-of-truth boundary selection",
+    "policy": "select the next narrow canonical-data layer in docs/state only before any implementation PR; do not edit app, API, DB, auth, runtime, money, storage or live integration code in this selection lane",
     "firstTargets": [
-      "record #2123 as merged",
+      "record #2124 as merged",
       "keep #2113 and #2115 open",
+      "define canonical-data boundary as the next candidate layer",
       "keep readiness at 72%",
       "keep controlled-pilot / pre-integration maturity language"
     ],
     "explicitlyNotSelected": [
       "auth register hardening remains blocked by #2115",
-      "no live provider integration",
+      "no database schema or persistence rewrite",
       "no money or ledger mutation",
-      "no storage/runtime rewrite",
-      "no apps/web route rewiring in this lane"
+      "no runtime orchestration rewrite",
+      "no live provider integration",
+      "no frontend route rewiring in this lane"
     ]
   },
   "forbiddenZones": [
