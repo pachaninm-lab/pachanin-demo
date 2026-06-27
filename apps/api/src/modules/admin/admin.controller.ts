@@ -278,4 +278,24 @@ export class AdminController {
       summary: 'E2E deal simulation passed (mock mode). All 21 steps completed successfully.',
     };
   }
+
+  /** Policy Engine introspection (ТЗ 5.2) — list all ABAC rules */
+  @Get('policy-engine/rules')
+  listPolicyRules() {
+    const { PolicyEngineService } = require('../../common/security/policy-engine.service');
+    const engine = new PolicyEngineService();
+    return { rules: engine.listRules() };
+  }
+
+  /** Evaluate a policy (ТЗ 5.2) — for compliance debugging */
+  @Post('policy-engine/evaluate')
+  evaluatePolicy(@Body() body: { action: string; user: Record<string, unknown>; resource: Record<string, unknown> }) {
+    const { PolicyEngineService } = require('../../common/security/policy-engine.service');
+    const engine = new PolicyEngineService();
+    return engine.evaluate({
+      action: body.action,
+      user: body.user as any,
+      resource: body.resource as any,
+    });
+  }
 }

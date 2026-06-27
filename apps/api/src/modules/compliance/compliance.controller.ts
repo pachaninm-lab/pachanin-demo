@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { ComplianceService } from './compliance.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -71,5 +71,20 @@ export class ComplianceController {
   @Get('integrations/status')
   getIntegrationStatus(@CurrentUser() user: RequestUser) {
     return this.compliance.getIntegrationStatus(user);
+  }
+
+  /** Список регуляторных отчётов (ТЗ 12.3) */
+  @Get('regulatory-reports')
+  listRegulatoryReports(@CurrentUser() user: RequestUser) {
+    return this.compliance.listRegulatoryReports(user);
+  }
+
+  /** Генерация регуляторного отчёта (ТЗ 12.3) */
+  @Post('regulatory-reports/generate')
+  generateRegulatoryReport(
+    @Body() body: { reportType: string; period?: string; from?: string; to?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.compliance.generateRegulatoryReport(body.reportType, body, user);
   }
 }

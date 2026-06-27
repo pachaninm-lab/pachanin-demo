@@ -59,6 +59,36 @@ components:
         disputeRate: { type: number }
         successRate: { type: number }
 
+    EconomicsScenarioYear:
+      type: object
+      properties:
+        gmvRub: { type: integer }
+        revenueRub: { type: integer }
+        dealsCount: { type: integer }
+        activeOrgs: { type: integer }
+        conversionRate: { type: number }
+
+    EconomicsScenario:
+      type: object
+      properties:
+        label: { type: string }
+        description: { type: string }
+        assumptions: { type: object }
+        year1: { $ref: '#/components/schemas/EconomicsScenarioYear' }
+        year2: { $ref: '#/components/schemas/EconomicsScenarioYear' }
+        year3: { $ref: '#/components/schemas/EconomicsScenarioYear' }
+        unitEconomics:
+          type: object
+          properties:
+            ltv: { type: integer }
+            cac: { type: integer }
+            ltvCacRatio: { type: number }
+            costPerDeal: { type: integer }
+            contributionMarginPct: { type: number }
+        risks:
+          type: array
+          items: { type: string }
+
 security:
   - BearerAuth: []
 
@@ -2951,3 +2981,294 @@ paths:
       responses:
         "201":
           description: Демередж рассчитан
+
+  # ─── Unit Economics Scenarios (ТЗ 12.4) ────────────────────────────────────
+
+  /api/analytics/unit-economics/scenarios:
+    get:
+      summary: Unit Economics — сценарии (base / conservative / stress) (ТЗ 12.4)
+      description: Возвращает три прогноза на 3 года с допущениями, GMV, Revenue и Unit Economics.
+      tags: [Analytics]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: baseGmvRub
+          in: query
+          schema: { type: number }
+          description: Начальный GMV для расчётов (по умолчанию 500 000 000 ₽)
+        - name: takeRatePct
+          in: query
+          schema: { type: number }
+          description: Take rate платформы в % (по умолчанию 1.5%)
+      responses:
+        "200":
+          description: Сценарии Unit Economics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  horizon: { type: string, example: "3 года" }
+                  asOf: { type: string, format: date-time }
+                  scenarios:
+                    type: object
+                    properties:
+                      base: { $ref: '#/components/schemas/EconomicsScenario' }
+                      conservative: { $ref: '#/components/schemas/EconomicsScenario' }
+                      stress: { $ref: '#/components/schemas/EconomicsScenario' }
+
+  # ─── Incoming ЭДО Webhook (ТЗ 10.4) ────────────────────────────────────────
+
+  /api/webhooks/edo:
+    post:
+      summary: Входящий webhook от ЭДО-оператора (ТЗ 10.4)
+      description: |
+        Принимает события от ЭДО-операторов (Диадок, Такском, СБИС).
+        Аутентификация: HMAC-SHA256 подпись в заголовке X-Signature.
+        Replay-protection: проверка X-Timestamp (допуск ±5 мин).
+        Идемпотентность: X-Event-Id используется для дедупликации.
+      tags: [Webhooks]
+      parameters:
+        - name: X-Signature
+          in: header
+          required: true
+          schema: { type: string }
+          description: "sha256=<hmac_hex>"
+        - name: X-Timestamp
+          in: header
+          schema: { type: string }
+          description: Unix timestamp (секунды)
+        - name: X-Event-Id
+          in: header
+          schema: { type: string }
+          description: Уникальный ID события для идемпотентности
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventType]
+              properties:
+                eventType:
+                  type: string
+                  enum: [document.sent, document.delivered, document.signed, document.rejected, upd.received]
+                externalId: { type: string }
+                dealId: { type: string }
+                payload: { type: object }
+      responses:
+        "200":
+          description: Событие принято
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [accepted, already_processed] }
+                  eventId: { type: string, nullable: true }
+                  processedAt: { type: string, format: date-time }
+        "401":
+          description: Неверная подпись или устаревший timestamp
+
+  /api/webhooks/fgis:
+    post:
+      summary: Входящий webhook от ФГИС Зерно (ТЗ 10.3)
+      description: Принимает статусы партий от ФГИС. Аутентификация по HMAC-SHA256.
+      tags: [Webhooks]
+      parameters:
+        - name: X-Signature
+          in: header
+          required: true
+          schema: { type: string }
+        - name: X-Timestamp
+          in: header
+          schema: { type: string }
+        - name: X-Event-Id
+          in: header
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lotId: { type: string }
+                status: { type: string }
+                payload: { type: object }
+      responses:
+        "200":
+          description: Webhook принят
+
+  # ─── Health endpoints (ТЗ 13.4) ─────────────────────────────────────────────
+
+  /health/detailed:
+    get:
+      summary: Детальный health check (ТЗ 13.4)
+      description: Возвращает статус всех подсистем (DB, Kafka, Redis, интеграции).
+      tags: [Health]
+      responses:
+        "200":
+          description: Детальный статус системы
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded, down] }
+                  checks:
+                    type: object
+                    properties:
+                      api: { type: string }
+                      database: { type: string }
+                      outbox: { type: string }
+                      kafka: { type: string }
+                      redis: { type: string }
+                      integrations: { type: object }
+                  details:
+                    type: object
+                    properties:
+                      outboxDeadCount: { type: integer }
+                      uptime: { type: integer }
+                      memoryMb: { type: integer }
+                  timestamp: { type: string, format: date-time }
+
+  /metrics:
+    get:
+      summary: Prometheus-формат метрик (ТЗ 13.4)
+      description: Возвращает метрики в формате Prometheus text exposition для Grafana.
+      tags: [Health]
+      responses:
+        "200":
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema: { type: string }
+
+  # ─── Compliance Regulatory Reports (ТЗ 12.3) ─────────────────────────────
+
+  /api/compliance/regulatory-reports:
+    get:
+      summary: Список регуляторных отчётов (ТЗ 12.3)
+      description: Возвращает календарь регуляторных отчётов (Минсельхоз, Росстат, ФНС, Росфинмониторинг).
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список отчётов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    type: { type: string }
+                    recipient: { type: string }
+                    period: { type: string }
+                    status: { type: string, enum: [PENDING, DRAFT, SUBMITTED, ERROR] }
+                    generatedAt: { type: string, format: date-time, nullable: true }
+                    submittedAt: { type: string, format: date-time, nullable: true }
+                    format: { type: string }
+                    deadline: { type: string }
+
+  /api/compliance/regulatory-reports/generate:
+    post:
+      summary: Сгенерировать регуляторный отчёт (ТЗ 12.3)
+      description: Генерирует отчёт для указанного регулятора за период.
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reportType]
+              properties:
+                reportType:
+                  type: string
+                  enum: [MINSELHHOZ_MONTHLY, ROSSTAT_QUARTERLY, FNS_QUARTERLY, ROSFINMONITORING_THRESHOLD]
+                period: { type: string, example: "2026-05" }
+                from: { type: string, format: date-time }
+                to: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Отчёт сгенерирован
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportId: { type: string }
+                  type: { type: string }
+                  generatedAt: { type: string, format: date-time }
+                  rowCount: { type: integer }
+                  format: { type: string }
+                  downloadUrl: { type: string, nullable: true }
+
+  # ─── Policy Engine (ТЗ 5.2) ─────────────────────────────────────────────────
+
+  /admin/policy-engine/rules:
+    get:
+      summary: Список ABAC-правил Policy Engine (ТЗ 5.2)
+      description: Возвращает все правила политики доступа (deny/allow) для инспекции.
+      tags: [Admin]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список правил
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        effect: { type: string, enum: [allow, deny] }
+                        reason: { type: string }
+
+  /admin/policy-engine/evaluate:
+    post:
+      summary: Оценить политику для запроса (ТЗ 5.2)
+      description: Debugging endpoint — проверяет, разрешён ли доступ для заданных параметров.
+      tags: [Admin]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, user, resource]
+              properties:
+                action: { type: string, example: "deal:read" }
+                user:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    role: { type: string }
+                    organizationId: { type: string }
+                    mfaVerified: { type: boolean }
+                resource:
+                  type: object
+                  properties:
+                    type: { type: string }
+                    id: { type: string }
+                    sellerOrgId: { type: string }
+                    buyerOrgId: { type: string }
+      responses:
+        "200":
+          description: Результат оценки политики
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allowed: { type: boolean }
+                  matchedPolicy: { type: string }
+                  reasons: { type: array, items: { type: string } }

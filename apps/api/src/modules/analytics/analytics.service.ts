@@ -308,6 +308,79 @@ export class AnalyticsService {
     };
   }
 
+  /**
+   * Unit Economics Scenarios per ТЗ 12.4.
+   * Returns base, conservative, and stress projections for a 12-month horizon.
+   */
+  getUnitEconomicsScenarios(user: RequestUser, params?: { baseGmvRub?: number; takeRatePct?: number }): {
+    horizon: string;
+    asOf: string;
+    scenarios: Record<'base' | 'conservative' | 'stress', {
+      label: string;
+      description: string;
+      assumptions: Record<string, unknown>;
+      year1: { gmvRub: number; revenueRub: number; dealsCount: number; activeOrgs: number; conversionRate: number };
+      year2: { gmvRub: number; revenueRub: number; dealsCount: number; activeOrgs: number; conversionRate: number };
+      year3: { gmvRub: number; revenueRub: number; dealsCount: number; activeOrgs: number; conversionRate: number };
+      unitEconomics: { ltv: number; cac: number; ltvCacRatio: number; costPerDeal: number; contributionMarginPct: number };
+      risks: string[];
+    }>;
+  } {
+    this.assertRole(user);
+    const takeRate = (params?.takeRatePct ?? TAKE_RATE_PCT) / 100;
+    const now = new Date().toISOString();
+
+    const project = (
+      year1GmvRub: number,
+      growthY2: number,
+      growthY3: number,
+      conversion: number,
+      orgsYear1: number,
+      orgGrowthY2: number,
+      orgGrowthY3: number,
+    ) => {
+      const y1 = { gmvRub: year1GmvRub, dealsCount: Math.round(year1GmvRub / 2_500_000), activeOrgs: orgsYear1, conversionRate: conversion, revenueRub: Math.round(year1GmvRub * takeRate) };
+      const y2 = { gmvRub: Math.round(year1GmvRub * growthY2), dealsCount: Math.round(year1GmvRub * growthY2 / 2_000_000), activeOrgs: Math.round(orgsYear1 * orgGrowthY2), conversionRate: conversion, revenueRub: Math.round(year1GmvRub * growthY2 * takeRate) };
+      const y3 = { gmvRub: Math.round(year1GmvRub * growthY2 * growthY3), dealsCount: Math.round(year1GmvRub * growthY2 * growthY3 / 1_500_000), activeOrgs: Math.round(orgsYear1 * orgGrowthY2 * orgGrowthY3), conversionRate: conversion, revenueRub: Math.round(year1GmvRub * growthY2 * growthY3 * takeRate) };
+      return { year1: y1, year2: y2, year3: y3 };
+    };
+
+    const base = project(500_000_000, 20, 10, 0.40, 500, 10, 10);
+    const conservative = project(300_000_000, 8, 5, 0.25, 300, 5, 5);
+    const stress = project(200_000_000, 4, 2, 0.15, 200, 2, 2);
+
+    return {
+      horizon: '3 года',
+      asOf: now,
+      scenarios: {
+        base: {
+          label: 'Базовый',
+          description: 'Органический рост, конверсия заявка→сделка 40%, 500 орг в Год 1',
+          assumptions: { conversionRate: 0.40, churnRate: 0.05, avgDealRub: 2_500_000, takeRatePct: TAKE_RATE_PCT, marketGrowthPct: 15 },
+          ...base,
+          unitEconomics: { ltv: 4_200_000, cac: 85_000, ltvCacRatio: 49, costPerDeal: 1_200, contributionMarginPct: 62 },
+          risks: ['Сезонность АПК', 'Зависимость от ключевых клиентов', 'Регуляторный риск'],
+        },
+        conservative: {
+          label: 'Консервативный',
+          description: 'Медленный онбординг, 25% конверсия, высокий CAC',
+          assumptions: { conversionRate: 0.25, churnRate: 0.12, avgDealRub: 2_000_000, takeRatePct: TAKE_RATE_PCT * 0.8, marketGrowthPct: 5 },
+          ...conservative,
+          unitEconomics: { ltv: 2_100_000, cac: 140_000, ltvCacRatio: 15, costPerDeal: 2_100, contributionMarginPct: 38 },
+          risks: ['Сложный процесс продажи', 'Долгий онбординг', 'Конкуренция от старых игроков', 'Малый бюджет на маркетинг'],
+        },
+        stress: {
+          label: 'Стрессовый',
+          description: 'Крупный конкурент + отток 20% ключевых клиентов, 15% конверсия',
+          assumptions: { conversionRate: 0.15, churnRate: 0.25, avgDealRub: 1_500_000, takeRatePct: TAKE_RATE_PCT * 0.6, marketGrowthPct: 0 },
+          ...stress,
+          unitEconomics: { ltv: 800_000, cac: 200_000, ltvCacRatio: 4, costPerDeal: 4_500, contributionMarginPct: 12 },
+          risks: ['Выход крупного конкурента', 'Отток ключевых клиентов', 'Падение цен на зерно', 'Ужесточение регулирования', 'Отказ банков-партнёров'],
+        },
+      },
+    };
+  }
+
   private mockEconomics(from: Date, to: Date): UnitEconomics {
     const gmvKopecks = 125_000_000_00;
     const takeRateKopecks = Math.round(gmvKopecks * TAKE_RATE_PCT / 100);

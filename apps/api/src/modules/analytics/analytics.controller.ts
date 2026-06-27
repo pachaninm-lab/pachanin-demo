@@ -68,6 +68,18 @@ export class AnalyticsController {
     });
   }
 
+  @Get('unit-economics/scenarios')
+  unitEconomicsScenarios(
+    @CurrentUser() user: RequestUser,
+    @Query('baseGmvRub') baseGmvRub?: string,
+    @Query('takeRatePct') takeRatePct?: string,
+  ) {
+    return this.analytics.getUnitEconomicsScenarios(user, {
+      baseGmvRub: baseGmvRub ? Number(baseGmvRub) : undefined,
+      takeRatePct: takeRatePct ? Number(takeRatePct) : undefined,
+    });
+  }
+
   @Get('price-prediction')
   pricePrediction(
     @Query('culture') culture: string,

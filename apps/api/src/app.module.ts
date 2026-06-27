@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
+import { LogMaskingMiddleware } from './common/middleware/log-masking.middleware';
 import { AppAuthGuard } from './common/guards/auth.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { EvidencePackModule } from './modules/evidence-pack/evidence-pack.module';
@@ -97,6 +98,6 @@ import { ExportTradeModule } from './modules/export-trade/export-trade.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RateLimitMiddleware).forRoutes('*');
+    consumer.apply(LogMaskingMiddleware, RateLimitMiddleware).forRoutes('*');
   }
 }
