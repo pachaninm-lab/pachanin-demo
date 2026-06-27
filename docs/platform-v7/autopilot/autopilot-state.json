@@ -3,42 +3,36 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 ledger source-of-truth implementation boundary.",
+  "current": "P0 ledger source state sync after #2132 merge.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2132",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131"],
+  "openPr": "#2133",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132"],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is repository settings cleanup. #2115 remains blocked by the current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/auth/session/runtime/money/storage changes"],
   "allowedCurrentScope": [
-    "apps/api/src/platform-v7/ledger-source/**",
-    "apps/api/test/platform-v7/ledger-source/**",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/api/src/platform-v7/ledger-source/**",
-    "apps/api/test/platform-v7/ledger-source/**",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "selectedNextImplementationScope": [
-    "apps/api/src/platform-v7/ledger-source/**",
-    "apps/api/test/platform-v7/ledger-source/**",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "ledgerSourceBoundary2132": {
-    "layer": "P0 ledger source-of-truth implementation boundary",
+  "ledgerSourceStateSync2133": {
+    "layer": "P0 ledger source state sync after #2132 merge",
     "completedTargets": [
-      "record #2131 as merged",
-      "add isolated controlled-pilot ledger read-model source boundary",
-      "keep ledger mutation, runtime settlement, DB persistence, audit/outbox, storage and live integrations out of scope",
+      "record #2132 as merged",
+      "close the ledger source boundary implementation lane",
+      "select the next narrow boundary in docs/state only",
       "keep #2113 and #2115 as open blockers",
       "keep readiness at 72%",
       "keep controlled-pilot / pre-integration maturity language"
     ],
-    "nextCandidate": "P0 ledger source state sync after merge"
+    "nextCandidate": "P0 ledger invariants boundary selection"
   },
   "forbiddenZones": [
     "apps/landing",
