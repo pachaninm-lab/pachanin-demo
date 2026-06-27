@@ -5,6 +5,7 @@ import { RequestUser, Role } from '../../common/types/request-user';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 import { MockFnsAdapter } from '../../../../../packages/integration-sdk/src/adapters/fns.adapter';
 import { MockAmlAdapter } from '../../../../../packages/integration-sdk/src/adapters/aml.adapter';
+import type { MockSmevAdapter } from '../../../../../packages/integration-sdk/src/adapters/smev.adapter';
 
 const KYC_ROLES: Role[] = [Role.COMPLIANCE_OFFICER, Role.ADMIN];
 
@@ -34,6 +35,18 @@ export class KycService {
 
   private get amlAdapter() {
     return integrationRegistry.get<MockAmlAdapter>('AML_ROSFINMONITORING');
+  }
+
+  private get smevAdapter() {
+    return integrationRegistry.get<MockSmevAdapter>('SMEV');
+  }
+
+  async getEgrul(inn: string) {
+    return this.smevAdapter.getEgrul(inn);
+  }
+
+  async verifyInn(inn: string, ogrn?: string) {
+    return this.smevAdapter.verifyInn(inn, ogrn);
   }
 
   async verifyOrganization(params: {

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 import type { MockFtsAdapter } from '../../../../../packages/integration-sdk/src/adapters/fts.adapter';
 import type { MockRshnAdapter } from '../../../../../packages/integration-sdk/src/adapters/rshn.adapter';
+import type { MockMarineAdapter } from '../../../../../packages/integration-sdk/src/adapters/marine.adapter';
 
 export type IncotermsCode = 'EXW' | 'FCA' | 'CPT' | 'CIP' | 'DAP' | 'DPU' | 'DDP' | 'FAS' | 'FOB' | 'CFR' | 'CIF';
 export type Currency = 'RUB' | 'USD' | 'EUR' | 'CNY';
@@ -145,5 +146,25 @@ export class ExportTradeService {
   async checkSanctionedCountry(country: string) {
     const adapter = integrationRegistry.get<MockFtsAdapter>('FTS');
     return adapter.getSanctionList(country);
+  }
+
+  async getVesselPosition(mmsi: string) {
+    const marine = integrationRegistry.get<MockMarineAdapter>('MARINE_TRAFFIC');
+    return marine.getVesselPosition(mmsi);
+  }
+
+  async searchVessels(query: string, type?: string) {
+    const marine = integrationRegistry.get<MockMarineAdapter>('MARINE_TRAFFIC');
+    return marine.searchVessels(query, type as any);
+  }
+
+  async getVesselRoute(mmsi: string) {
+    const marine = integrationRegistry.get<MockMarineAdapter>('MARINE_TRAFFIC');
+    return marine.getVesselRoute(mmsi);
+  }
+
+  async getVesselPortCalls(mmsi: string) {
+    const marine = integrationRegistry.get<MockMarineAdapter>('MARINE_TRAFFIC');
+    return marine.getPortCalls(mmsi);
   }
 }

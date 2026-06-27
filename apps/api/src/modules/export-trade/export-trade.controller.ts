@@ -73,4 +73,24 @@ export class ExportTradeController {
   checkSanctions(@Param('country') country: string) {
     return this.exportTrade.checkSanctionedCountry(country);
   }
+
+  @Get('vessels/:mmsi')
+  getVesselPosition(@Param('mmsi') mmsi: string) {
+    return this.exportTrade.getVesselPosition(mmsi);
+  }
+
+  @Get('vessels/:mmsi/route')
+  getVesselRoute(@Param('mmsi') mmsi: string) {
+    return this.exportTrade.getVesselRoute(mmsi);
+  }
+
+  @Get('vessels/:mmsi/port-calls')
+  getVesselPortCalls(@Param('mmsi') mmsi: string) {
+    return this.exportTrade.getVesselPortCalls(mmsi);
+  }
+
+  @Get('vessels')
+  searchVessels(@Query('q') query: string, @Query('type') type?: string) {
+    return this.exportTrade.searchVessels(query ?? '', type);
+  }
 }

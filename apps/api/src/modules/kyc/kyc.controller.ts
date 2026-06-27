@@ -66,4 +66,14 @@ export class KycController {
   ) {
     return this.kyc.generateRknIncidentNotification(body);
   }
+
+  @Get('egrul/:inn')
+  getEgrul(@Param('inn') inn: string) {
+    return this.kyc.getEgrul(inn);
+  }
+
+  @Post('verify-inn')
+  verifyInn(@Body() body: { inn: string; ogrn?: string }) {
+    return this.kyc.verifyInn(body.inn, body.ogrn);
+  }
 }

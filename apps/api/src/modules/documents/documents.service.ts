@@ -175,4 +175,24 @@ export class DocumentsService {
         : [],
     };
   }
+
+  async edoSendViaTakskom(id: string, params: { senderInn: string; recipientInn: string }, user: any) {
+    const doc = await this.documents.getById(id);
+    try {
+      const takskom = integrationRegistry.get('TAKSKOM') as any;
+      const result = await takskom.execute({
+        action: 'sendDocument',
+        type: doc.type === 'INVOICE' ? 'SF' : doc.type === 'ACT' ? 'ACT' : 'UPD',
+        senderInn: params.senderInn,
+        recipientInn: params.recipientInn,
+        title: doc.name,
+        content: JSON.stringify({ documentId: id }),
+        dealId: doc.dealId,
+      });
+      return { documentId: id, edoExternalId: result.externalId, operator: 'TAKSKOM', edoStatus: result.status, sentAt: new Date().toISOString() };
+    } catch (err) {
+      this.logger.warn(`Такском send failed for doc ${id}: ${(err as Error).message}`);
+      return { documentId: id, edoStatus: 'SEND_FAILED', operator: 'TAKSKOM', error: (err as Error).message };
+    }
+  }
 }
