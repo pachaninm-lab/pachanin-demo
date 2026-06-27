@@ -2374,6 +2374,298 @@ paths:
         "200":
           description: Health всех интеграционных адаптеров
 
+  # ── COMPLIANCE COCKPIT (ТЗ 5.3 / 11.2) ──────────────────────────────────
+
+  /api/compliance/kyc-queue:
+    get:
+      summary: Очередь KYC/AML проверок (только COMPLIANCE_OFFICER/ADMIN)
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, IN_REVIEW, APPROVED, REJECTED] }
+        - name: assignedTo
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Список организаций в очереди KYC
+
+  /api/compliance/kyc-queue/{id}/assign:
+    patch:
+      summary: Назначить заявку KYC офицеру
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assigneeId: { type: string }
+      responses:
+        "200":
+          description: Назначено
+
+  /api/compliance/kyc-queue/{id}/resolve:
+    patch:
+      summary: Одобрить или отклонить KYC
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [APPROVED, REJECTED] }
+                reason: { type: string }
+      responses:
+        "200":
+          description: KYC обработан
+
+  /api/compliance/sanction-flags:
+    get:
+      summary: Флаги санкционного скрининга (OFAC, ЕС, Росфинмониторинг)
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Организации с активными sanction-флагами
+
+  /api/compliance/block-org/{orgId}:
+    post:
+      summary: Заблокировать организацию (с audit-записью)
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+                blockType: { type: string, enum: [TEMPORARY, PERMANENT] }
+      responses:
+        "201":
+          description: Организация заблокирована
+
+  /api/compliance/audit-log:
+    get:
+      summary: Аудит-лог действий в системе (COMPLIANCE_OFFICER/ADMIN)
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: actorId
+          in: query
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: take
+          in: query
+          schema: { type: integer, default: 100 }
+      responses:
+        "200":
+          description: Записи аудита с hash-chain
+
+  /api/compliance/audit-log/export:
+    get:
+      summary: Экспорт аудит-лога в CSV/JSON для регулятора
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - name: format
+          in: query
+          schema: { type: string, enum: [csv, json], default: csv }
+      responses:
+        "200":
+          description: Файл аудит-лога
+
+  /api/compliance/integrations/status:
+    get:
+      summary: Статусы всех интеграций (мониторинг Compliance)
+      tags: [Compliance]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Статус каждого адаптера
+
+  # ── ARBITRATOR COCKPIT (ТЗ 5.3) ──────────────────────────────────────────
+
+  /api/arbitrator/disputes:
+    get:
+      summary: Назначенные арбитру споры (только ARBITRATOR/ADMIN)
+      tags: [Arbitrator]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, IN_REVIEW, WAITING_EVIDENCE, RESOLVED] }
+      responses:
+        "200":
+          description: Список дел с приоритетом
+
+  /api/arbitrator/disputes/{id}/assign:
+    post:
+      summary: Принять спор в работу (ARBITRATOR)
+      tags: [Arbitrator]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Спор назначен текущему арбитру
+
+  /api/arbitrator/disputes/{id}/case:
+    get:
+      summary: Полное дело спора: доказательства, переписка, история сделки
+      tags: [Arbitrator]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Полное дело
+
+  /api/arbitrator/disputes/{id}/note:
+    patch:
+      summary: Добавить внутреннюю заметку арбитра
+      tags: [Arbitrator]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string }
+      responses:
+        "200":
+          description: Заметка добавлена
+
+  /api/arbitrator/disputes/{id}/resolve:
+    post:
+      summary: Вынести решение арбитра → автоисполнение через settlement engine
+      tags: [Arbitrator]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [verdict, refundKopecks, guiltyParty, rationale]
+              properties:
+                verdict: { type: string, enum: [BUYER_WINS, SELLER_WINS, SPLIT] }
+                refundKopecks: { type: integer }
+                guiltyParty: { type: string, enum: [SELLER, BUYER, BOTH, NONE] }
+                rationale: { type: string, description: "Обоснование решения" }
+      responses:
+        "201":
+          description: Решение вынесено и исполнено
+
+  # ── AUDIT TRAIL (ТЗ 11.5) ────────────────────────────────────────────────
+
+  /audit:
+    get:
+      summary: Append-only аудит-лог с hash-chain (ADMIN/COMPLIANCE_OFFICER)
+      tags: [Audit]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: dealId
+          in: query
+          schema: { type: string }
+        - name: actorUserId
+          in: query
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: take
+          in: query
+          schema: { type: integer, default: 100 }
+      responses:
+        "200":
+          description: Записи аудита
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        timestamp: { type: string }
+                        actorUserId: { type: string }
+                        actorRole: { type: string }
+                        action: { type: string }
+                        entityType: { type: string }
+                        entityId: { type: string }
+                        hash: { type: string }
+                        prevHash: { type: string }
+                  total: { type: integer }
+
   # ── SETTLEMENT ENGINE ──────────────────────────────────────────────────────
 
   /settlement-engine/deal/{id}:
