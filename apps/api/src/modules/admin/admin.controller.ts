@@ -167,6 +167,13 @@ export class AdminController {
           { name: 'СМЭВ 3.0 adapter (ФНС ИНН, ЕГРЮЛ, Росреестр, Госуслуги)', status: 'live' },
           { name: 'OpenAPI 3.0.3 обновлён (factoring credit-report, exports full suite)', status: 'live' },
           { name: 'k6 Production Load Test (TZ 15.3: 1500 VU, p95<500ms)', status: 'live' },
+          { name: 'RequiresMfaGuard (MFA enforcement on financial ops, ТЗ 11.1)', status: 'live' },
+          { name: 'Factoring Overdue Monitor (4h interval, blocks new deals, ТЗ 7.7)', status: 'live' },
+          { name: 'E2E Security Tests (TЗ 15.2 №5,6,8 — unauthorized, double-release, MFA)', status: 'live' },
+          { name: 'OpenAPI 3.0.3 обновлён: Compliance/Arbitrator/Audit/Settlement/Saga/Railway (2953 строк)', status: 'live' },
+          { name: 'Notification templates: ЭДО, ETN, factoring:overdue/due_soon, BKI (ТЗ 8.3)', status: 'live' },
+          { name: 'СМЭВ 3.0: GET /api/kyc/egrul/:inn + POST /api/kyc/verify-inn', status: 'live' },
+          { name: 'GET /api/factoring/org-block-status/:orgId + POST /api/factoring/check-overdue', status: 'live' },
         ],
         sandbox: adapterList.map(a => ({
           name: `${a.name} adapter (${a.mode} mode v${a.version})`,
