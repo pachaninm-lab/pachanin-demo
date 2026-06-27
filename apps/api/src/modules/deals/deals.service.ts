@@ -4,6 +4,20 @@ import { DEAL_REPOSITORY, type DealRepository } from './deal.repository';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { RequestUser } from '../../common/types/request-user';
 import { DealEventService } from './deal-event.service';
+import { DealSagaService, SagaStepId } from '../saga/deal-saga.service';
+
+const STATE_TO_SAGA_STEP: Record<string, SagaStepId> = {
+  PUBLISHED: 'publish_lot',
+  OFFER_ACCEPTED: 'match_offer',
+  CONTRACT_SIGNED: 'sign_contract',
+  PAYMENT_RESERVED: 'reserve_payment',
+  LOGISTICS_ASSIGNED: 'assign_logistics',
+  SHIPMENT_STARTED: 'start_shipment',
+  DELIVERED: 'deliver',
+  QUALITY_ACCEPTED: 'lab_result',
+  PAYMENT_RELEASED: 'release_payment',
+  CLOSED: 'close',
+};
 
 const STATE_TO_EVENT: Record<string, string> = {
   PUBLISHED: 'PUBLISHED',
@@ -31,6 +45,7 @@ export class DealsService {
     @Inject(DEAL_REPOSITORY) private readonly deals: DealRepository,
     private readonly executor: ActionExecutorService,
     @Optional() private readonly dealEvents?: DealEventService,
+    @Optional() private readonly saga?: DealSagaService,
   ) {}
 
   async list(user: RequestUser) {
@@ -76,8 +91,9 @@ export class DealsService {
       fn: () => this.deals.create(dto, user),
     });
     const dealId = (result as any)?.id;
-    if (dealId && this.dealEvents) {
-      this.dealEvents.emit({ dealId, eventType: 'CREATED', actorId: user.id, actorRole: user.role, payload: { culture: dto.culture } }).catch(() => {});
+    if (dealId) {
+      this.dealEvents?.emit({ dealId, eventType: 'CREATED', actorId: user.id, actorRole: user.role, payload: { culture: dto.culture } }).catch(() => {});
+      this.saga?.init(dealId);
     }
     return result;
   }
@@ -116,7 +132,8 @@ export class DealsService {
       fn: () => this.deals.transition(id, dto.nextState, user, dto.comment),
     });
 
-    const eventType = STATE_TO_EVENT[dto.nextState?.toUpperCase()];
+    const upperState = dto.nextState?.toUpperCase();
+    const eventType = STATE_TO_EVENT[upperState];
     if (eventType && this.dealEvents) {
       this.dealEvents.emit({
         dealId: id,
@@ -125,6 +142,11 @@ export class DealsService {
         actorRole: user.role,
         payload: { nextState: dto.nextState, comment: dto.comment },
       }).catch(() => {});
+    }
+    const sagaStep = STATE_TO_SAGA_STEP[upperState];
+    if (sagaStep && this.saga) {
+      this.saga.advance(id, sagaStep);
+      this.saga.complete(id, sagaStep, { state: dto.nextState });
     }
 
     return { ...result, auditId };

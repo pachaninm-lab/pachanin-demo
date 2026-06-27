@@ -31,6 +31,8 @@ import { ExportsModule } from './modules/exports/exports.module';
 import { ElevatorModule } from './modules/elevator/elevator.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { PartnerApiModule } from './modules/partner-api/partner-api.module';
+import { SagaModule } from './modules/saga/saga.module';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     ElevatorModule,
     OrganizationsModule,
     AnalyticsModule,
+    PartnerApiModule,
+    SagaModule,
   ],
   providers: [
     {
