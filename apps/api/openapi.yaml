@@ -806,6 +806,154 @@ paths:
         "200":
           description: Список тикетов по приоритету
 
+  /api/support/tickets/stats:
+    get:
+      summary: Статистика тикетов поддержки (только Support/Admin)
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Сводная статистика по статусам и приоритетам
+
+  /api/support/tickets/{id}:
+    get:
+      summary: Детали тикета
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Тикет с комментариями и историей
+
+  /api/support/tickets/{id}/assign:
+    patch:
+      summary: Назначить тикет оператору
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assigneeId]
+              properties:
+                assigneeId: { type: string }
+      responses:
+        "200":
+          description: Тикет назначен
+
+  /api/support/tickets/{id}/resolve:
+    patch:
+      summary: Закрыть тикет с решением
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resolution]
+              properties:
+                resolution: { type: string }
+      responses:
+        "200":
+          description: Тикет закрыт
+
+  /api/support/tickets/{id}/escalate:
+    patch:
+      summary: Эскалировать тикет к Admin
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: Тикет эскалирован
+
+  /api/support/tickets/{id}/comments:
+    post:
+      summary: Добавить комментарий к тикету
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+                isInternal: { type: boolean, description: "true — внутренняя заметка, не видна пользователю" }
+      responses:
+        "201":
+          description: Комментарий добавлен
+
+  /api/support/deals/{dealId}:
+    get:
+      summary: Просмотр сделки от имени пользователя (read-only, с audit-записью) — только Support
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Данные сделки (без финансовых операций)
+        "403":
+          description: Только SUPPORT_MANAGER/ADMIN
+
+  /api/support/users/{userId}/reset-password:
+    post:
+      summary: Сброс пароля пользователя (только Support/Admin)
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Временный пароль сгенерирован
+        "403":
+          description: Только SUPPORT_MANAGER/ADMIN
+
   /api/reputation/orgs/{id}:
     get:
       summary: Скор надёжности контрагента
@@ -2225,3 +2373,289 @@ paths:
       responses:
         "200":
           description: Health всех интеграционных адаптеров
+
+  # ── SETTLEMENT ENGINE ──────────────────────────────────────────────────────
+
+  /settlement-engine/deal/{id}:
+    get:
+      summary: Финансовое состояние сделки в settlement engine
+      tags: [Settlement]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Сумма, статус резерва, платежи
+
+  /settlement-engine/deal/{id}/bank-workspace:
+    get:
+      summary: Workspace для банка — данные для верификации выпуска средств
+      tags: [Settlement]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Чеклист условий выпуска
+
+  /settlement-engine/deal/{id}/reserve:
+    post:
+      summary: Зарезервировать деньги (escrow hold)
+      tags: [Settlement]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: integer, description: "Сумма в копейках" }
+      responses:
+        "201":
+          description: Резерв выставлен
+        "400":
+          description: Недостаточно средств или неверный статус сделки
+
+  /settlement-engine/deal/{id}/release:
+    post:
+      summary: Выпустить средства продавцу (после принятия качества + подписания акта)
+      tags: [Settlement]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Средства зачислены продавцу
+        "400":
+          description: Условия не выполнены или двойной release
+
+  /settlement-engine/deal/{id}/confirm:
+    post:
+      summary: Подтвердить все условия выпуска (покупатель + элеватор + лаборатория)
+      tags: [Settlement]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Условия подтверждены
+
+  /settlement-engine/payments:
+    get:
+      summary: Реестр платежей (ADMIN/ACCOUNTING)
+      tags: [Settlement]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список платежей
+
+  /settlement-engine/outbox:
+    get:
+      summary: Outbox записи settlement engine
+      tags: [Settlement]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Записи для relay в Kafka
+
+  # ── SAGA ORCHESTRATOR ─────────────────────────────────────────────────────
+
+  /api/saga/{dealId}:
+    get:
+      summary: Текущее состояние Saga для сделки
+      tags: [Saga]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Состояние и шаги Saga
+
+  /api/saga/{dealId}/step:
+    post:
+      summary: Продвинуть Saga на следующий шаг (Admin/System)
+      tags: [Saga]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stepId]
+              properties:
+                stepId: { type: string }
+                metadata: { type: object }
+      responses:
+        "201":
+          description: Шаг выполнен
+
+  /api/saga/{dealId}/pause:
+    post:
+      summary: Приостановить Saga (Human Intervention)
+      tags: [Saga]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Saga приостановлена
+
+  /api/saga/{dealId}/resume:
+    post:
+      summary: Возобновить приостановленную Saga
+      tags: [Saga]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Saga возобновлена
+
+  # ── RAILWAY / РЖД ЭТРАН ──────────────────────────────────────────────────
+
+  /api/railway/wagons:
+    get:
+      summary: Список вагонов организации
+      tags: [Railway]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список вагонов с текущим статусом
+
+    post:
+      summary: Зарегистрировать вагон
+      tags: [Railway]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wagonNumber, type, capacityTons, ownerOrgId]
+              properties:
+                wagonNumber: { type: string }
+                type: { type: string, enum: [HOPPER, COVERED, PLATFORM, TANK] }
+                capacityTons: { type: number }
+                ownerOrgId: { type: string }
+      responses:
+        "201":
+          description: Вагон зарегистрирован
+
+  /api/railway/wagons/{id}/assign:
+    post:
+      summary: Назначить вагон на сделку
+      tags: [Railway]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealId]
+              properties:
+                dealId: { type: string }
+      responses:
+        "201":
+          description: Вагон назначен
+
+  /api/railway/gu12:
+    post:
+      summary: Создать заявку ГУ-12 (заявка на перевозку РЖД)
+      tags: [Railway]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealId, wagons, departureStation, destinationStation, cargo, volumeTons, requestedDepartureAt]
+              properties:
+                dealId: { type: string }
+                wagons: { type: array, items: { type: string } }
+                departureStation: { type: string }
+                destinationStation: { type: string }
+                cargo: { type: string }
+                volumeTons: { type: number }
+                requestedDepartureAt: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Заявка ГУ-12 создана и отправлена в РЖД ЭТРАН
+
+  /api/railway/gu12/{id}/submit-to-etran:
+    post:
+      summary: Отправить заявку в РЖД ЭТРАН
+      tags: [Railway]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Заявка отправлена в ЭТРАН
+
+  /api/railway/demurrage/{wagonId}:
+    post:
+      summary: Рассчитать демередж (штраф за простой вагона)
+      tags: [Railway]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: wagonId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [arrivedAt, dealId]
+              properties:
+                arrivedAt: { type: string, format: date-time }
+                dealId: { type: string }
+      responses:
+        "201":
+          description: Демередж рассчитан
