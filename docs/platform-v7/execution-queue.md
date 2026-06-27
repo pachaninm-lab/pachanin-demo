@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 ledger invariants boundary selection.
+CURRENT: P0 ledger invariants implementation boundary.
 
-GOAL: select the next isolated ledger invariants implementation boundary in docs/state only before code changes.
+GOAL: add deterministic read-only ledger invariant checks for the controlled-pilot ledger read model without mutating ledger state.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -23,16 +23,19 @@ CURRENT STATUS:
 - #2131 is merged: ledger source-of-truth selection is complete.
 - #2132 is merged: isolated ledger source boundary implementation is active.
 - #2133 is merged: ledger source state sync after #2132 is complete.
-- Current layer is docs/state selection only.
+- #2134 is merged: ledger invariants implementation scope selection is complete.
+- Current layer is isolated ledger invariants implementation.
 
 CURRENT ALLOWED:
+- apps/api/src/platform-v7/ledger-invariants/**
+- apps/api/test/platform-v7/ledger-invariants/**
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- record #2133 as merged in autopilot-state and queue;
-- select the ledger invariants implementation boundary without implementation changes;
-- define allowed future implementation scope narrowly before code changes;
+- add deterministic read-only ledger invariant checks for controlled-pilot ledger entries;
+- verify integer-money compatibility and balanced debit/credit constraints without mutating ledger state;
+- reject empty-ledger, unsafe-money, cross-currency, unbalanced, invalid-entry and stale-summary cases at the boundary;
 - keep ledger mutation, runtime settlement, DB persistence, audit/outbox, storage and live integrations out of scope;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
 - keep apps/landing, apps/web, API controllers, DB, ledger mutation, audit, outbox, storage, runtime and live integrations out of scope;
@@ -41,17 +44,13 @@ CURRENT CHECKS:
 - no package or lockfile changes.
 
 NEXT:
-- Layer: P0 ledger invariants implementation boundary.
+- Layer: P0 ledger invariants state sync after merge.
 - Allowed files:
-  - apps/api/src/platform-v7/ledger-invariants/**
-  - apps/api/test/platform-v7/ledger-invariants/**
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - add deterministic read-only ledger invariants checks for controlled-pilot ledger entries;
-  - verify integer-money compatibility and balanced debit/credit constraints without mutating ledger state;
-  - reject cross-currency, unsafe-money, unbalanced and invalid-entry cases at the boundary;
-  - keep ledger mutation, runtime settlement, DB persistence, audit/outbox, storage and live integrations out of scope;
+  - record ledger invariants implementation PR as merged;
+  - select the next narrow non-auth, non-forbidden queue layer;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
   - readiness remains 72%.
@@ -65,7 +64,7 @@ ORDER:
 6. Driver / field first-screen scope is active from #2058.
 7. Driver / field first-screen pass is active from #2059.
 8. Netlify root entry redirect recovery is active from root-entry-redirect.
-9. P0 auth/session cabinet session body-role guard is active from #2111.
+9. P0 auth/session cabinet-session body-role guard is active from #2111.
 10. P0 mobile header controls fix is active from #2117.
 11. P0 backend register role assignment hardening remains blocked by #2115.
 12. P0 RBAC / tenant scope / object scope source-of-truth selection is active from #2120.
@@ -82,7 +81,8 @@ ORDER:
 23. P0 ledger source-of-truth selection is active from #2131.
 24. P0 ledger source-of-truth implementation boundary is active from #2132.
 25. P0 ledger source state sync after #2132 merge is active from #2133.
-26. P0 ledger invariants boundary selection is current.
+26. P0 ledger invariants boundary selection is active from #2134.
+27. P0 ledger invariants implementation boundary is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -111,5 +111,6 @@ DONE:
 - #2131 P0 ledger source-of-truth selection.
 - #2132 P0 ledger source-of-truth implementation boundary.
 - #2133 P0 ledger source state sync after #2132 merge.
+- #2134 P0 ledger invariants boundary selection.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger mutation, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
