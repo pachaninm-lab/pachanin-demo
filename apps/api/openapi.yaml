@@ -1,0 +1,585 @@
+openapi: "3.0.3"
+info:
+  title: GrainFlow API
+  description: |
+    Федеральная платформа цифровизации зерновых сделок.
+    Все операции с деньгами используют копейки (integer). Никакого float для денег.
+  version: "3.0.0"
+  contact:
+    name: GrainFlow Platform
+servers:
+  - url: http://localhost:4000
+    description: Local development
+  - url: https://api.grainflow.ru
+    description: Production
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        message: { type: string }
+        statusCode: { type: integer }
+
+    Deal:
+      type: object
+      properties:
+        id: { type: string }
+        dealNumber: { type: string }
+        status: { type: string, enum: [DRAFT, PUBLISHED, NEGOTIATING, CONTRACT_PENDING, CONTRACT_SIGNED, PAYMENT_AWAITING, PAYMENT_RESERVED, LOGISTICS_ASSIGNED, IN_TRANSIT, DELIVERED, QUALITY_CHECK, QUALITY_ACCEPTED, QUALITY_DISPUTED, DOCUMENTS_PENDING, DOCUMENTS_SIGNED, SETTLEMENT_PENDING, SETTLED, CLOSED, DISPUTED, ARBITRATION, ARBITRATION_RESOLVED, CANCELLED] }
+        culture: { type: string }
+        region: { type: string }
+        volumeTons: { type: number }
+        totalRub: { type: number }
+        totalKopecks: { type: integer }
+        sellerOrgId: { type: string }
+        buyerOrgId: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    UnitEconomics:
+      type: object
+      properties:
+        period: { type: object, properties: { from: { type: string }, to: { type: string } } }
+        gmvKopecks: { type: integer }
+        gmvRub: { type: integer }
+        dealsCount: { type: integer }
+        takeRateKopecks: { type: integer }
+        commissionKopecks: { type: integer }
+        contributionMarginKopecks: { type: integer }
+        disputeRate: { type: number }
+        successRate: { type: number }
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      tags: [System]
+      responses:
+        "200":
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  ts: { type: string }
+
+  /ready:
+    get:
+      summary: Readiness probe
+      security: []
+      tags: [System]
+      responses:
+        "200":
+          description: Service ready
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      security: []
+      tags: [System]
+      responses:
+        "200":
+          description: Prometheus text format
+          content:
+            text/plain:
+              schema: { type: string }
+
+  /version:
+    get:
+      summary: Application version
+      security: []
+      tags: [System]
+      responses:
+        "200":
+          description: Version info
+
+  /api/auth/register:
+    post:
+      summary: Регистрация пользователя
+      security: []
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, role]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                role: { type: string }
+                fullName: { type: string }
+                orgId: { type: string }
+      responses:
+        "201":
+          description: Пользователь создан
+        "429":
+          description: Превышен лимит попыток
+
+  /api/auth/login:
+    post:
+      summary: Вход в систему
+      security: []
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+                mfaCode: { type: string, description: "TOTP код (если MFA включена)" }
+      responses:
+        "200":
+          description: Токен доступа
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  user: { type: object }
+        "429":
+          description: Заблокировано после 5 неудачных попыток
+
+  /api/mfa/setup:
+    post:
+      summary: Настройка TOTP MFA
+      tags: [Auth, MFA]
+      responses:
+        "200":
+          description: QR код и секрет для аутентификатора
+
+  /api/mfa/verify:
+    post:
+      summary: Верификация TOTP кода
+      tags: [Auth, MFA]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token: { type: string }
+      responses:
+        "200":
+          description: MFA подтверждена
+
+  /deals:
+    get:
+      summary: Список сделок
+      tags: [Deals]
+      responses:
+        "200":
+          description: Массив сделок
+    post:
+      summary: Создать сделку
+      tags: [Deals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                culture: { type: string }
+                region: { type: string }
+                volumeTons: { type: number }
+                pricePerTonRub: { type: number }
+                cropClass: { type: string }
+      responses:
+        "201":
+          description: Сделка создана
+
+  /deals/{id}/transition:
+    patch:
+      summary: Изменение статуса сделки
+      tags: [Deals]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string }
+                comment: { type: string }
+      responses:
+        "200":
+          description: Статус обновлён
+
+  /api/analytics/unit-economics:
+    get:
+      summary: Unit Economics (GMV, Take Rate, Contribution Margin)
+      tags: [Analytics]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Unit economics report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnitEconomics" }
+
+  /api/analytics/commission-preview:
+    get:
+      summary: Предварительный расчёт комиссии (до подтверждения сделки)
+      tags: [Analytics]
+      parameters:
+        - name: amount
+          in: query
+          required: true
+          schema: { type: number }
+          description: Сумма сделки в рублях
+        - name: volumeTons
+          in: query
+          schema: { type: number }
+        - name: isSubscriber
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Разбивка комиссии
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dealAmountRub: { type: integer }
+                  sellerCommissionKopecks: { type: integer }
+                  buyerCommissionKopecks: { type: integer }
+                  edoFeeKopecks: { type: integer }
+                  vatOnCommissionKopecks: { type: integer }
+                  sellerNetRub: { type: integer }
+                  breakdown: { type: array, items: { type: object } }
+
+  /api/analytics/price-prediction:
+    get:
+      summary: ML-прогноз цены на культуру
+      tags: [Analytics, ML]
+      parameters:
+        - name: culture
+          in: query
+          required: true
+          schema: { type: string }
+        - name: region
+          in: query
+          required: true
+          schema: { type: string }
+        - name: cropClass
+          in: query
+          schema: { type: string }
+        - name: volumeTons
+          in: query
+          schema: { type: number }
+      responses:
+        "200":
+          description: Прогноз цены с доверительным интервалом
+
+  /api/analytics/yield-forecast:
+    get:
+      summary: ML-прогноз урожайности
+      tags: [Analytics, ML]
+      parameters:
+        - name: region
+          in: query
+          required: true
+          schema: { type: string }
+        - name: culture
+          in: query
+          required: true
+          schema: { type: string }
+        - name: areaSqHa
+          in: query
+          required: true
+          schema: { type: number }
+      responses:
+        "200":
+          description: Прогноз урожая
+
+  /api/analytics/deal-duration-forecast:
+    get:
+      summary: Прогноз срока закрытия сделки
+      tags: [Analytics, ML]
+      parameters:
+        - name: culture
+          in: query
+          schema: { type: string }
+        - name: region
+          in: query
+          schema: { type: string }
+        - name: volumeTons
+          in: query
+          schema: { type: number }
+      responses:
+        "200":
+          description: Оценка срока и разбивка по стадиям
+
+  /api/factoring/applications:
+    post:
+      summary: Подать заявку на факторинг
+      tags: [Factoring]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealId, organizationId, factorName, requestedAmountKopecks]
+              properties:
+                dealId: { type: string }
+                organizationId: { type: string }
+                factorName: { type: string }
+                requestedAmountKopecks: { type: integer }
+      responses:
+        "201":
+          description: Заявка создана с авто-скорингом
+
+    get:
+      summary: Список заявок на факторинг
+      tags: [Factoring]
+      responses:
+        "200":
+          description: Список заявок
+
+  /api/bank/reconciliation/import:
+    post:
+      summary: Импорт банковской выписки MT940
+      tags: [BankReconciliation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content: { type: string, description: "Содержимое файла MT940" }
+      responses:
+        "201":
+          description: Импортировано и сопоставлено
+
+  /api/bank/reconciliation/unmatched:
+    get:
+      summary: Несопоставленные платежи
+      tags: [BankReconciliation]
+      responses:
+        "200":
+          description: Список несопоставленных платежей
+
+  /api/bank/reconciliation/report:
+    get:
+      summary: Отчёт сверки за период
+      tags: [BankReconciliation]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Сводный отчёт сверки
+
+  /api/exports/regulatory:
+    post:
+      summary: Регуляторный отчёт (Минсельхоз, Росстат, ФНС, Росфинмониторинг)
+      tags: [Exports]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [msh, rosstat, fns, rosfinmonitoring]
+                from:
+                  type: string
+                  format: date
+                to:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Файл отчёта (XML или CSV)
+          content:
+            application/xml:
+              schema: { type: string }
+            text/csv:
+              schema: { type: string }
+
+  /api/support/tickets:
+    post:
+      summary: Создать тикет поддержки
+      tags: [Support]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject, description, category]
+              properties:
+                subject: { type: string }
+                description: { type: string }
+                category: { type: string }
+                priority: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+                dealId: { type: string }
+      responses:
+        "201":
+          description: Тикет создан
+
+    get:
+      summary: Очередь тикетов (только Support/Admin)
+      tags: [Support]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: priority
+          in: query
+          schema: { type: string }
+        - name: assignedTo
+          in: query
+          schema: { type: string, description: "me | unassigned | userId" }
+      responses:
+        "200":
+          description: Список тикетов по приоритету
+
+  /api/reputation/orgs/{id}:
+    get:
+      summary: Скор надёжности контрагента
+      tags: [BusinessReputation]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Скор и tier (AAA/AA/A/B/C/D/UNRATED)
+
+  /api/partner/api-keys:
+    post:
+      summary: Выпустить партнёрский API-ключ
+      tags: [PartnerAPI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                scopes: { type: array, items: { type: string } }
+                expiresInDays: { type: integer }
+      responses:
+        "201":
+          description: API-ключ (показывается один раз)
+
+  /api/partner/webhooks:
+    post:
+      summary: Подписаться на webhook-события
+      tags: [PartnerAPI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, events]
+              properties:
+                url: { type: string, format: uri }
+                events: { type: array, items: { type: string } }
+      responses:
+        "201":
+          description: Webhook создан с HMAC-секретом
+
+  /api/saga/deals/{dealId}:
+    get:
+      summary: Состояние Saga-оркестратора сделки
+      tags: [Saga]
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Текущий шаг и состояние всех шагов
+
+  /api/elevator/weighing-acts:
+    post:
+      summary: Создать акт взвешивания
+      tags: [Elevator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                shipmentId: { type: string }
+                grossTons: { type: number }
+                tareTons: { type: number }
+                moisturePct: { type: number }
+                impurityPct: { type: number }
+      responses:
+        "201":
+          description: Акт взвешивания с расчётом чистого веса
+
+  /api/notifications:
+    get:
+      summary: Уведомления текущего пользователя
+      tags: [Notifications]
+      responses:
+        "200":
+          description: Список уведомлений
+
+  /api/notifications/unread-count:
+    get:
+      summary: Количество непрочитанных уведомлений
+      tags: [Notifications]
+      responses:
+        "200":
+          description: Счётчик
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }

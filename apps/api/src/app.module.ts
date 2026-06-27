@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { AppAuthGuard } from './common/guards/auth.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { EvidencePackModule } from './modules/evidence-pack/evidence-pack.module';
@@ -84,4 +85,8 @@ import { SupportModule } from './modules/support/support.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RateLimitMiddleware).forRoutes('*');
+  }
+}
