@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 state sync after #2129.
+CURRENT: P0 ledger source-of-truth selection only.
 
-GOAL: record #2129 as merged and select the next narrow docs-only layer.
+GOAL: record #2130 as merged and select the next narrow docs-only layer.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -19,28 +19,29 @@ CURRENT STATUS:
 - #2127 is merged: canonical data state sync after #2126 is complete.
 - #2128 is merged: money integer basis boundary selection is complete.
 - #2129 is merged: money integer basis boundary implementation is active.
-- Current layer is docs/state sync only.
+- #2130 is merged: money integer state sync after #2129 is complete.
+- Current layer is docs/state selection only.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- record #2129 as merged in autopilot-state and queue;
+- record #2130 as merged in autopilot-state and queue;
 - select the next narrow layer only in docs/state;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
-- keep apps/landing, apps/web, API controllers, DB, ledger, audit, outbox, storage, runtime and live integrations out of scope;
+- keep apps/landing, apps/web, API controllers, DB, ledger implementation, audit, outbox, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
 - no package or lockfile changes.
 
 NEXT:
-- Layer: P0 ledger source-of-truth selection only.
+- Layer: P0 ledger source-of-truth implementation boundary.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - select the next boundary in docs/state only;
+  - select the implementation boundary in docs/state only;
   - no implementation in the selection PR;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
@@ -68,7 +69,8 @@ ORDER:
 19. P0 canonical data state sync is active from #2127.
 20. P0 money integer basis boundary selection is active from #2128.
 21. P0 money integer basis boundary implementation is active from #2129.
-22. P0 state sync after #2129 is current.
+22. P0 money integer state sync after #2129 is active from #2130.
+23. P0 ledger source-of-truth selection is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -93,5 +95,6 @@ DONE:
 - #2127 P0 canonical data state sync after #2126 merge.
 - #2128 P0 money integer basis boundary selection.
 - #2129 P0 money integer basis boundary implementation.
+- #2130 P0 money integer state sync after #2129 merge.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
