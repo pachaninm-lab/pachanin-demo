@@ -1981,3 +1981,93 @@ paths:
                   httpStatus: { type: integer }
                   durationMs: { type: integer }
                   signedWith: { type: string, description: "HMAC-SHA256" }
+
+
+  # ── Admin Ops ─────────────────────────────────────────────────────────
+
+  /admin/readiness-passport:
+    get:
+      summary: Readiness Passport — что live, sandbox, planned (ТЗ 17.1)
+      tags: [Admin]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Паспорт готовности платформы
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  generatedAt: { type: string, format: date-time }
+                  version: { type: string }
+                  environment: { type: string }
+                  components:
+                    type: object
+                    properties:
+                      live: { type: array, items: { type: object } }
+                      sandbox: { type: array, items: { type: object } }
+                      planned: { type: array, items: { type: object } }
+
+  /admin/simulate-deal:
+    post:
+      summary: E2E Deal Simulation — 21-шаговый цикл в mock-режиме (ТЗ 6.4)
+      tags: [Admin]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "201":
+          description: Результат симуляции с детализацией каждого шага
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  simulationId: { type: string }
+                  completedAt: { type: string, format: date-time }
+                  totalSteps: { type: integer, example: 21 }
+                  passed: { type: integer, example: 21 }
+                  steps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        step: { type: integer }
+                        name: { type: string }
+                        status: { type: string, enum: [ok, skip, fail] }
+                        detail: { type: string }
+                  summary: { type: string }
+
+  /admin/system:
+    get:
+      summary: Системный статус (uptime, memory, version)
+      tags: [Admin]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Статус системы
+
+  /admin/users:
+    get:
+      summary: Список всех пользователей (только ADMIN)
+      tags: [Admin]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Список пользователей
+
+  /admin/outbox:
+    get:
+      summary: Список Outbox записей (DEAD/FAILED для ручного вмешательства)
+      tags: [Admin]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Outbox записи
+
+  /admin/health:
+    get:
+      summary: Агрегированный health всех адаптеров (ADMIN)
+      tags: [Admin]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Health всех интеграционных адаптеров
