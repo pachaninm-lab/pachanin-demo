@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 canonical data state sync after #2126 merge.",
+  "current": "P0 money integer basis boundary selection.",
   "fullTzReadinessPercent": 72,
   "openPr": null,
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126"],
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127"],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is a repository settings cleanup item for deprecated Vercel/Deno required checks. #2115 keeps backend register role assignment hardening blocked; no auth module files are selected in this lane.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/auth/session/runtime/money/storage changes"],
@@ -20,25 +20,29 @@
   ],
   "selectedNextImplementationScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    "apps/api/src/platform-v7/money-integer/**",
+    "apps/api/test/platform-v7/money-integer/**"
   ],
-  "canonicalDataStateSync": {
-    "implementationLayer": "P0 canonical data state sync after #2126 merge",
-    "policy": "record #2126 as merged and keep the next layer as docs-only selection until checks are green; do not edit app, API, DB, auth, session, runtime, money, storage or live integration code in this sync lane",
+  "moneyIntegerBoundarySelection": {
+    "implementationLayer": "P0 money integer basis boundary",
+    "policy": "select a narrow pure integer-money value boundary only; do not wire ledgers, reserves, holds, releases, refunds, commissions, DB persistence, runtime orchestration, API controllers, auth, session, storage or live banking integration",
     "firstTargets": [
-      "record #2126 as merged",
-      "keep #2113 and #2115 open",
-      "select the next narrow layer in docs/state only after this sync is green",
+      "record #2127 as merged",
+      "select a typed minor-unit money basis",
+      "select deterministic arithmetic and currency mismatch guards",
+      "keep ledger and bank actions out of scope",
       "keep readiness at 72%",
       "keep controlled-pilot / pre-integration maturity language"
     ],
     "explicitlyNotSelected": [
-      "auth register hardening remains blocked by #2115",
+      "no ledger mutations",
+      "no bank release or hold workflow",
+      "no live banking or settlement integration",
       "no database schema or persistence rewrite",
-      "no money or ledger mutation",
       "no runtime orchestration rewrite",
-      "no live provider integration",
-      "no frontend route rewiring in this lane"
+      "no frontend route rewiring in this lane",
+      "auth register hardening remains blocked by #2115"
     ]
   },
   "forbiddenZones": [
@@ -62,5 +66,5 @@
     "FGIS connected",
     "EDO connected"
   ],
-  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. Backend register role assignment hardening remains blocked by #2115 until an allowed auth-file write path is available."
+  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. Backend register role assignment hardening remains blocked by #2115 until an allowed auth-file write path is available. Money integer selection is a pure value-boundary selection only and does not implement ledger, hold, release, settlement or live banking behavior."
 }
