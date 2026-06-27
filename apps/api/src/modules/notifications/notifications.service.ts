@@ -34,6 +34,20 @@ const TYPE_TEMPLATES: Record<string, { title: string; messageTemplate: string }>
   'support:ticket_update': { title: 'Обновление тикета', messageTemplate: 'Тикет {ref} обновлён: {status}' },
   'certificate:expiring_soon': { title: 'Сертификат УКЭП истекает', messageTemplate: 'Сертификат {subjectName} истекает через {days} дн.' },
   'certificate:expired': { title: 'Сертификат УКЭП истёк', messageTemplate: 'Сертификат {subjectName} истёк. Обновите сертификат.' },
+  // ЭДО статусы
+  'edo:sent': { title: 'Документ отправлен в ЭДО', messageTemplate: 'УПД по сделке {ref} отправлен через {operator}' },
+  'edo:delivered': { title: 'ЭДО: документ доставлен', messageTemplate: 'Документ по сделке {ref} доставлен получателю' },
+  'edo:signed': { title: 'ЭДО: документ подписан', messageTemplate: 'Документ по сделке {ref} подписан контрагентом' },
+  'edo:rejected': { title: 'ЭДО: отклонено', messageTemplate: 'Документ по сделке {ref} отклонён: {reason}' },
+  // Факторинг
+  'factoring:overdue': { title: 'Просрочка факторинга', messageTemplate: 'Задолженность по факторинговому договору {ref} просрочена. Новые сделки заблокированы.' },
+  'factoring:due_soon': { title: 'Скоро дедлайн факторинга', messageTemplate: 'Погашение по договору {ref} через {days} дн.' },
+  // ETN (ГИС ЭПД)
+  'etn:created': { title: 'ЭТН создана', messageTemplate: 'Электронная транспортная накладная создана по сделке {ref}' },
+  'etn:signed': { title: 'ЭТН подписана', messageTemplate: 'ЭТН по сделке {ref} подписана ({role})' },
+  'etn:completed': { title: 'ЭТН завершена', messageTemplate: 'ЭТН по сделке {ref} завершена — все стороны подписали' },
+  // BKI
+  'bki:credit_check': { title: 'Кредитный отчёт получен', messageTemplate: 'Кредитный отчёт НБКИ для организации {orgName}: рейтинг {rating}' },
 };
 
 @Injectable()
