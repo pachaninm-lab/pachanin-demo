@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 ledger invariants implementation boundary.
+CURRENT: P0 ledger invariants state sync after #2135 merge.
 
-GOAL: add deterministic read-only ledger invariant checks for the controlled-pilot ledger read model without mutating ledger state.
+GOAL: record the merged ledger invariants boundary and select the next narrow docs-first queue layer without widening platform-v7 scope.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -24,33 +24,30 @@ CURRENT STATUS:
 - #2132 is merged: isolated ledger source boundary implementation is active.
 - #2133 is merged: ledger source state sync after #2132 is complete.
 - #2134 is merged: ledger invariants implementation scope selection is complete.
-- Current layer is isolated ledger invariants implementation.
+- #2135 is merged: isolated read-only ledger invariants boundary is active.
+- Current layer is docs-only ledger invariants state sync.
 
 CURRENT ALLOWED:
-- apps/api/src/platform-v7/ledger-invariants/**
-- apps/api/test/platform-v7/ledger-invariants/**
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- add deterministic read-only ledger invariant checks for controlled-pilot ledger entries;
-- verify integer-money compatibility and balanced debit/credit constraints without mutating ledger state;
-- reject empty-ledger, unsafe-money, cross-currency, unbalanced, invalid-entry and stale-summary cases at the boundary;
-- keep ledger mutation, runtime settlement, DB persistence, audit/outbox, storage and live integrations out of scope;
+- record #2135 as merged;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
-- keep apps/landing, apps/web, API controllers, DB, ledger mutation, audit, outbox, storage, runtime and live integrations out of scope;
+- select the next narrow docs-first queue layer;
+- keep apps/landing, apps/web, API controllers, DB, ledger mutation, audit outbox, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
 - no package or lockfile changes.
 
 NEXT:
-- Layer: P0 ledger invariants state sync after merge.
+- Layer: P0 audit read-model boundary selection.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - record ledger invariants implementation PR as merged;
-  - select the next narrow non-auth, non-forbidden queue layer;
+  - select an isolated read-only audit boundary for a later implementation layer;
+  - no outbox, storage, DB persistence, runtime mutation or live integrations;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
   - readiness remains 72%.
@@ -82,7 +79,8 @@ ORDER:
 24. P0 ledger source-of-truth implementation boundary is active from #2132.
 25. P0 ledger source state sync after #2132 merge is active from #2133.
 26. P0 ledger invariants boundary selection is active from #2134.
-27. P0 ledger invariants implementation boundary is current.
+27. P0 ledger invariants implementation boundary is active from #2135.
+28. P0 ledger invariants state sync after #2135 merge is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -112,5 +110,6 @@ DONE:
 - #2132 P0 ledger source-of-truth implementation boundary.
 - #2133 P0 ledger source state sync after #2132 merge.
 - #2134 P0 ledger invariants boundary selection.
+- #2135 P0 ledger invariants implementation boundary.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger mutation, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
