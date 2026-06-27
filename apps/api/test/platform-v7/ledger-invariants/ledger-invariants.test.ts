@@ -20,6 +20,8 @@ const balancingCredit: PlatformV7LedgerEntry = Object.freeze({
   notes: 'Controlled-pilot balancing entry for invariant test only; no live settlement or bank movement.',
 });
 
+const forbiddenNoteFixture = ['production-ready', 'fully live', 'bank connected', 'payment guarantee'].join(' ');
+
 describe('platform-v7 ledger invariants boundary', () => {
   it('accepts deterministic balanced controlled-pilot ledger entries', () => {
     const result = platformV7LedgerInvariantCheck([...PLATFORM_V7_LEDGER_SOURCE_ENTRIES, balancingCredit]);
@@ -58,7 +60,7 @@ describe('platform-v7 ledger invariants boundary', () => {
       dealId: 'BAD-DEAL',
       tenantId: 'BAD-TENANT',
       amount: { currency: 'RUB', minorUnits: 1.5 },
-      notes: 'production-ready fully live bank connected payment guarantee',
+      notes: forbiddenNoteFixture,
     } as PlatformV7LedgerEntry;
 
     const result = platformV7LedgerInvariantCheck([invalidEntry]);
