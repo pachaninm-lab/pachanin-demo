@@ -1,4 +1,98 @@
 groups:
+  # ── SLO алерты (ТЗ 13.3) ─────────────────────────────────────────────
+  - name: grainflow-slo
+    rules:
+      - alert: ApiErrorRateHigh
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "P1: API error rate выше 1%"
+          description: "Error rate = {{ $value | humanizePercentage }}. SLO нарушен (target < 1%). Runbook: docs/runbooks/P2-high-error-rate.md"
+
+      - alert: ApiLatencyP95High
+        expr: histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m])) > 500
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "P2: p95 latency выше 500ms"
+          description: "p95 = {{ $value }}ms. SLO нарушен (target < 500ms). Проверить нагрузку на БД и интеграции."
+
+      - alert: ApiLatencyP99High
+        expr: histogram_quantile(0.99, rate(http_request_duration_ms_bucket[5m])) > 2000
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "P1: p99 latency выше 2000ms"
+          description: "p99 = {{ $value }}ms. Критическое замедление. Runbook: docs/runbooks/P1-api-down.md"
+
+      - alert: DealApiLatencyHigh
+        expr: histogram_quantile(0.95, rate(http_request_duration_ms_bucket{handler=~".*/deals.*"}[5m])) > 500
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "P2: Deal API p95 выше 500ms"
+          description: "Deal endpoints деградируют. p95 = {{ $value }}ms."
+
+      - alert: PaymentOperationsDown
+        expr: increase(grainflow_settlement_failures_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "P1: Финансовые операции падают"
+          description: "Settlement failures обнаружены. Немедленная эскалация CFO. Runbook: docs/runbooks/P1-payment-stuck.md"
+
+      - alert: OutboxDeadLettersPresent
+        expr: grainflow_outbox_dead_total > 0
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "P2: Outbox DLQ не пуст"
+          description: "{{ $value }} событий в Dead Letter Queue. Проверить: GET /api/exports/outbox-status"
+
+      - alert: IntegrationAdapterDown
+        expr: grainflow_integration_health{status="down"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          team: integrations
+        annotations:
+          summary: "P2: Интеграция {{ $labels.adapter }} недоступна"
+          description: "Адаптер {{ $labels.adapter }} вернул status=down. Runbook: docs/runbooks/P2-integration-degraded.md"
+
+      - alert: CertificateExpiringSoon
+        expr: grainflow_certificate_expiry_days < 14
+        for: 0m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "УКЭП сертификат истекает через {{ $value }} дней"
+          description: "Сертификат {{ $labels.certificateId }} для пользователя {{ $labels.userId }} требует обновления."
+
+      - alert: CertificateCriticalExpiry
+        expr: grainflow_certificate_expiry_days < 3
+        for: 0m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "P1: УКЭП сертификат истекает через {{ $value }} дней"
+          description: "Критично: сертификат {{ $labels.certificateId }} истекает. Немедленное обновление через КриптоПро DSS."
+
+  # ── Runtime (исходные) ───────────────────────────────────────────────
   - name: runtime-operating-layer
     rules:
       - alert: RuntimeOutboxDeadLettersHigh
