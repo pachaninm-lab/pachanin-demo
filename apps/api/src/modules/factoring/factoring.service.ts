@@ -1,8 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { integrationRegistry } from '@grainflow/integration-sdk';
 import type { MockBkiAdapter } from '@grainflow/integration-sdk/src/adapters/bki.adapter';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export type FactoringStatus = 'PENDING' | 'SCORING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'REPAID' | 'OVERDUE';
 
@@ -27,13 +28,72 @@ export interface FactoringApplication {
 
 const FINANCE_ROLES: Role[] = [Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE, Role.FARMER, Role.BUYER];
 const ALLOWED_FACTORS = ['Сбербанк Факторинг', 'ВТБ Факторинг', 'Альфа-Банк', 'Открытие Факторинг', 'ПСБ Факторинг'];
+const DUE_SOON_DAYS = [7, 3];
+const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 @Injectable()
-export class FactoringService {
+export class FactoringService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(FactoringService.name);
   private readonly apps: FactoringApplication[] = [];
   private counter = 0;
+  private timer: NodeJS.Timeout | null = null;
+  private readonly overdueOrgs = new Set<string>();
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(
+    @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly notifications?: NotificationsService,
+  ) {}
+
+  onModuleInit() {
+    this.timer = setInterval(() => this.checkOverdue(), CHECK_INTERVAL_MS);
+  }
+
+  onModuleDestroy() {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  checkOverdue(): { checked: number; overdue: number; dueSoon: number } {
+    const now = new Date();
+    let overdue = 0;
+    let dueSoon = 0;
+
+    for (const app of this.apps) {
+      if (app.status !== 'ACTIVE' || !app.dueDate) continue;
+      const due = new Date(app.dueDate);
+      const daysLeft = Math.round((due.getTime() - now.getTime()) / 86400_000);
+
+      if (daysLeft < 0 && app.status === 'ACTIVE') {
+        app.status = 'OVERDUE';
+        overdue++;
+        this.overdueOrgs.add(app.organizationId);
+        this.logger.warn(`Factoring OVERDUE: appId=${app.id} org=${app.organizationId}`);
+        this.notifications?.send(
+          app.createdBy,
+          `Задолженность по факторинговому договору ${app.id} просрочена. Новые сделки заблокированы до погашения.`,
+          'factoring:overdue',
+          { dealId: app.dealId },
+        );
+      } else if (DUE_SOON_DAYS.includes(daysLeft)) {
+        dueSoon++;
+        this.notifications?.send(
+          app.createdBy,
+          `Погашение по договору ${app.id} через ${daysLeft} ${daysLeft === 1 ? 'день' : 'дня'}. Сумма: ${Math.round((app.approvedAmountKopecks ?? 0) / 100).toLocaleString('ru-RU')} ₽.`,
+          'factoring:due_soon',
+          { dealId: app.dealId },
+        );
+      }
+    }
+
+    return { checked: this.apps.length, overdue, dueSoon };
+  }
+
+  isOrganizationBlocked(organizationId: string): boolean {
+    return this.overdueOrgs.has(organizationId);
+  }
+
+  unblockAfterRepayment(organizationId: string): void {
+    this.overdueOrgs.delete(organizationId);
+  }
 
   async createApplication(params: {
     dealId: string;
@@ -209,8 +269,11 @@ export class FactoringService {
 
   markRepaid(id: string, user: RequestUser): FactoringApplication {
     const app = this.getOne(id, user);
-    if (app.status !== 'ACTIVE') throw new ForbiddenException('Только ACTIVE задолженности можно погасить');
+    if (!['ACTIVE', 'OVERDUE'].includes(app.status)) throw new ForbiddenException('Только ACTIVE/OVERDUE задолженности можно погасить');
     app.status = 'REPAID';
+    // Снять блокировку если больше нет просроченных заявок этой организации
+    const stillOverdue = this.apps.some(a => a.organizationId === app.organizationId && a.status === 'OVERDUE' && a.id !== id);
+    if (!stillOverdue) this.unblockAfterRepayment(app.organizationId);
     return app;
   }
 
