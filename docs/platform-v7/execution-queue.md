@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 ledger source-of-truth selection only.
+CURRENT: P0 ledger source-of-truth implementation boundary.
 
-GOAL: record #2130 as merged and select the next narrow docs-only layer.
+GOAL: add an isolated controlled-pilot ledger read-model source boundary without ledger mutation, runtime settlement, DB persistence, audit/outbox, storage or live integrations.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -20,29 +20,35 @@ CURRENT STATUS:
 - #2128 is merged: money integer basis boundary selection is complete.
 - #2129 is merged: money integer basis boundary implementation is active.
 - #2130 is merged: money integer state sync after #2129 is complete.
-- Current layer is docs/state selection only.
+- #2131 is merged: ledger source-of-truth selection is complete.
+- Current layer is isolated API ledger source boundary implementation.
 
 CURRENT ALLOWED:
+- apps/api/src/platform-v7/ledger-source/**
+- apps/api/test/platform-v7/ledger-source/**
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- record #2130 as merged in autopilot-state and queue;
-- select the next narrow layer only in docs/state;
+- record #2131 as merged in autopilot-state and queue;
+- add deterministic ledger source read-model boundary only;
+- use integer money values from money-integer boundary;
+- keep role access tied to canonical moneyBasis owner roles;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
-- keep apps/landing, apps/web, API controllers, DB, ledger implementation, audit, outbox, storage, runtime and live integrations out of scope;
+- keep apps/landing, apps/web, API controllers, DB, ledger mutation, audit, outbox, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
 - no package or lockfile changes.
 
 NEXT:
-- Layer: P0 ledger source-of-truth implementation boundary.
+- Layer: P0 ledger source state sync after merge.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - select the implementation boundary in docs/state only;
-  - no implementation in the selection PR;
+  - record the ledger source boundary PR as merged;
+  - select the next narrow boundary in docs/state only;
+  - no implementation in the state-sync PR;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
   - readiness remains 72%.
@@ -70,7 +76,8 @@ ORDER:
 20. P0 money integer basis boundary selection is active from #2128.
 21. P0 money integer basis boundary implementation is active from #2129.
 22. P0 money integer state sync after #2129 is active from #2130.
-23. P0 ledger source-of-truth selection is current.
+23. P0 ledger source-of-truth selection is active from #2131.
+24. P0 ledger source-of-truth implementation boundary is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -96,5 +103,6 @@ DONE:
 - #2128 P0 money integer basis boundary selection.
 - #2129 P0 money integer basis boundary implementation.
 - #2130 P0 money integer state sync after #2129 merge.
+- #2131 P0 ledger source-of-truth selection.
 
-READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
+READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger mutation, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
