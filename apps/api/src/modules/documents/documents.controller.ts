@@ -113,6 +113,25 @@ export class DocumentsController {
     return this.templates.generateDocument(templateId as TemplateId, variables);
   }
 
+  @Post(':id/verify-signature')
+  verifySignature(
+    @Param('id') id: string,
+    @Body() body: { signatureBase64: string; certificateId: string; documentHash?: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.documents.verifySignature(id, body, user);
+  }
+
+  @Get('certificates/my')
+  getUserCertificates(@CurrentUser() user: any) {
+    return this.documents.getUserCertificates(user);
+  }
+
+  @Get('certificates/:certId/status')
+  checkCertStatus(@Param('certId') certId: string) {
+    return this.documents.checkCertificateStatus(certId);
+  }
+
   @Post('batch-sign')
   async batchSign(
     @Body() body: { documentIds: string[]; certificateId?: string },

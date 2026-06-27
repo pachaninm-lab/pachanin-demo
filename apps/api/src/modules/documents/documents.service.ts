@@ -131,6 +131,38 @@ export class DocumentsService {
     }
   }
 
+  async verifySignature(id: string, body: { signatureBase64: string; certificateId: string; documentHash?: string }, _user: any) {
+    try {
+      const cryptopro = integrationRegistry.get('CRYPTOPRO_DSS') as any;
+      const docHash = body.documentHash ?? require('crypto').createHash('sha256').update(`Document ${id}`).digest('hex');
+      const result = await cryptopro.verifySignature(docHash, {
+        documentHash: docHash,
+        signatureBase64: body.signatureBase64,
+        certificateId: body.certificateId,
+        signedAt: new Date().toISOString(),
+        algorithm: 'GOST_R_34_10_2012',
+      });
+      return { documentId: id, ...result };
+    } catch (err) {
+      return { documentId: id, valid: false, error: (err as Error).message };
+    }
+  }
+
+  async getUserCertificates(user: any) {
+    try {
+      const cryptopro = integrationRegistry.get('CRYPTOPRO_DSS') as any;
+      return cryptopro.getCertificates(user.id);
+    } catch (err) {
+      return [];
+    }
+  }
+
+  async checkCertificateStatus(certificateId: string) {
+    const cryptopro = integrationRegistry.get('CRYPTOPRO_DSS') as any;
+    const status = await cryptopro.checkCertificateStatus(certificateId);
+    return { certificateId, status };
+  }
+
   async getCorrectionPlan(id: string, _user: any) {
     const doc = await this.documents.getById(id);
     return {
