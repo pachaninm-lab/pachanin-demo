@@ -583,3 +583,216 @@ paths:
                 type: object
                 properties:
                   count: { type: integer }
+
+  /api/auth/me/data-export:
+    get:
+      summary: Экспорт данных пользователя (152-ФЗ, Data Portability)
+      tags: [Auth, Compliance]
+      responses:
+        "200":
+          description: Все данные пользователя в JSON (профиль, согласие, статус)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exportedAt: { type: string, format: date-time }
+                  exportVersion: { type: string }
+                  subject: { type: string }
+                  profile: { type: object }
+                  consent: { type: object }
+                  accountStatus: { type: object }
+        "403":
+          description: Аккаунт уже анонимизирован
+
+  /api/auth/me/anonymize:
+    post:
+      summary: Анонимизация аккаунта (152-ФЗ, Right to be Forgotten)
+      tags: [Auth, Compliance]
+      responses:
+        "200":
+          description: Аккаунт анонимизирован, все токены отозваны
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  anonymizedAt: { type: string, format: date-time }
+        "409":
+          description: Аккаунт уже анонимизирован
+
+  /api/kyc/verify:
+    post:
+      summary: KYC верификация организации (ФНС + AML Росфинмониторинг)
+      tags: [KYC, Compliance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inn]
+              properties:
+                inn: { type: string, description: "ИНН юридического лица (10 цифр) или ИП (12 цифр)" }
+                organizationName: { type: string }
+                bik: { type: string, description: "БИК банка для проверки реквизитов" }
+                bankAccount: { type: string, description: "Расчётный счёт" }
+      responses:
+        "200":
+          description: Результат KYC с разбивкой по проверкам
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  passed: { type: boolean }
+                  overallRisk: { type: string, enum: [LOW, MEDIUM, HIGH, BLOCKED] }
+                  verifiedAt: { type: string, format: date-time }
+                  checks:
+                    type: object
+                    properties:
+                      innVerification: { type: object }
+                      sanctionScreening: { type: object }
+                      bankDetailsCheck: { type: object }
+
+  /api/kyc/transaction/aml-check:
+    post:
+      summary: AML проверка транзакции (115-ФЗ, порог 600 000 ₽)
+      tags: [KYC, Compliance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transactionId, amountKopecks]
+              properties:
+                transactionId: { type: string }
+                amountKopecks: { type: integer, description: "Сумма в копейках (600 000 ₽ = 60 000 000 копеек)" }
+                payerInn: { type: string }
+                receiverInn: { type: string }
+                dealId: { type: string }
+      responses:
+        "200":
+          description: Результат AML проверки с флагами подозрительной активности
+
+  /api/kyc/initiate:
+    post:
+      summary: Инициировать KYC процесс для организации
+      tags: [KYC, Compliance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organizationId, inn]
+              properties:
+                organizationId: { type: string }
+                inn: { type: string }
+                notes: { type: string }
+      responses:
+        "201":
+          description: KYC задача создана
+
+  /api/kyc/status/{organizationId}:
+    get:
+      summary: Статус KYC для организации
+      tags: [KYC, Compliance]
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Последние KYC задачи и статус
+
+  /api/kyc/rkn-incident:
+    post:
+      summary: Генерация уведомления об инциденте для РКН (152-ФЗ, 72 часа)
+      tags: [KYC, Compliance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [incidentType, description, affectedSubjectsCount, detectedAt, reporterFullName, reporterPosition]
+              properties:
+                incidentType: { type: string, example: "Несанкционированный доступ к ПДн" }
+                description: { type: string }
+                affectedSubjectsCount: { type: integer }
+                detectedAt: { type: string, format: date-time }
+                reporterFullName: { type: string }
+                reporterPosition: { type: string }
+      responses:
+        "200":
+          description: XML-уведомление для подачи в РКН и дедлайн уведомления
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  xml: { type: string }
+                  deadlineAt: { type: string, format: date-time }
+
+  /api/anti-fraud/check:
+    post:
+      summary: Проверка сделки на мошенничество
+      tags: [AntiFraud, Compliance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dealId: { type: string }
+                sellerOrgId: { type: string }
+                buyerOrgId: { type: string }
+                volumeTons: { type: number }
+                totalRub: { type: number }
+                pricePerTon: { type: number }
+                culture: { type: string }
+                actorRole: { type: string }
+                previousStatus: { type: string }
+                newStatus: { type: string }
+      responses:
+        "200":
+          description: Результат антифрод проверки со скором и причинами
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flagged: { type: boolean }
+                  score: { type: integer, description: "0-100, >= 50 = флаг" }
+                  reasons: { type: array, items: { type: string } }
+                  entityId: { type: string }
+                  entityType: { type: string }
+                  checkedAt: { type: string, format: date-time }
+
+  /api/anti-fraud/off-platform:
+    post:
+      summary: Сообщить о признаке внеплатформенного расчёта
+      tags: [AntiFraud, Compliance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealId, buyerOrgId, sellerOrgId, indicator]
+              properties:
+                dealId: { type: string }
+                buyerOrgId: { type: string }
+                sellerOrgId: { type: string }
+                indicator:
+                  type: string
+                  enum: [external_payment_mentioned, deal_cancelled_after_delivery, reputation_drop_post_cancel, counterparty_comment_flag]
+                evidence: { type: string }
+      responses:
+        "200":
+          description: Результат проверки с записью в аудит при скоре >= 50

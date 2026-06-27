@@ -38,6 +38,7 @@ import { OutboxModule } from './common/outbox/outbox.module';
 import { FactoringModule } from './modules/factoring/factoring.module';
 import { BankReconciliationModule } from './modules/bank-reconciliation/bank-reconciliation.module';
 import { SupportModule } from './modules/support/support.module';
+import { KycModule } from './modules/kyc/kyc.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { SupportModule } from './modules/support/support.module';
     FactoringModule,
     BankReconciliationModule,
     SupportModule,
+    KycModule,
   ],
   providers: [
     {
