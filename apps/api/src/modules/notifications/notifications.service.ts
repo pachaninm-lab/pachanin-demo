@@ -32,6 +32,8 @@ const TYPE_TEMPLATES: Record<string, { title: string; messageTemplate: string }>
   'mfa:enabled': { title: 'MFA включена', messageTemplate: 'Двухфакторная аутентификация активирована' },
   'system:outbox_dead': { title: 'Ошибка доставки события', messageTemplate: 'Событие {ref} не удалось доставить после {retries} попыток' },
   'support:ticket_update': { title: 'Обновление тикета', messageTemplate: 'Тикет {ref} обновлён: {status}' },
+  'certificate:expiring_soon': { title: 'Сертификат УКЭП истекает', messageTemplate: 'Сертификат {subjectName} истекает через {days} дн.' },
+  'certificate:expired': { title: 'Сертификат УКЭП истёк', messageTemplate: 'Сертификат {subjectName} истёк. Обновите сертификат.' },
 };
 
 @Injectable()

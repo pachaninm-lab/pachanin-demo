@@ -39,6 +39,7 @@ import { FactoringModule } from './modules/factoring/factoring.module';
 import { BankReconciliationModule } from './modules/bank-reconciliation/bank-reconciliation.module';
 import { SupportModule } from './modules/support/support.module';
 import { KycModule } from './modules/kyc/kyc.module';
+import { CertificateMonitorModule } from './modules/certificate-monitor/certificate-monitor.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { KycModule } from './modules/kyc/kyc.module';
     BankReconciliationModule,
     SupportModule,
     KycModule,
+    CertificateMonitorModule,
   ],
   providers: [
     {
