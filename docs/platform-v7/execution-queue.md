@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 money integer basis boundary selection.
+CURRENT: P0 money integer basis boundary implementation.
 
-GOAL: select the next narrow value-boundary layer for money integer arithmetic without ledger, settlement, DB, runtime or live banking behavior.
+GOAL: add the next narrow value-boundary layer for money integer arithmetic without ledger, settlement, DB, runtime or live banking behavior.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -19,15 +19,21 @@ CURRENT STATUS:
 - #2125 is merged: canonical data source-of-truth boundary selection is complete.
 - #2126 is merged: canonical data source-of-truth implementation boundary is active.
 - #2127 is merged: canonical data state sync after #2126 is complete.
-- Current layer is docs/state selection only.
+- #2128 is merged: money integer basis boundary selection is complete.
+- Current layer is pure value-boundary implementation only.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- apps/api/src/platform-v7/money-integer/**
+- apps/api/test/platform-v7/money-integer/**
 
 CURRENT CHECKS:
-- mark #2127 as merged in autopilot-state and queue;
-- select the next narrow implementation layer only in docs/state;
+- mark #2128 as merged in autopilot-state and queue;
+- add typed minor-unit money values;
+- add deterministic add/subtract/compare helpers;
+- reject unsafe floats and cross-currency arithmetic;
+- keep ledger, bank release/hold/refund/commission flows out of scope;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
 - keep auth module files blocked by #2115 out of scope;
 - keep apps/landing, apps/web, API controllers, DB, ledger, audit, outbox, storage, runtime and live integrations out of scope;
@@ -39,20 +45,17 @@ CURRENT NOTES:
 - #2115 is not closed by this layer; it still requires a safe maintainer/Codex path to write auth service and related auth tests.
 - #2113 requires repository settings/branch protection verification and should not change platform code.
 - #2126 added a typed canonical-data boundary without persistence, controller wiring or live source integration.
-- The next selected money layer must be a pure integer-money value boundary only; it must not implement ledger, reserve, hold, release, refund, commission, DB persistence, runtime orchestration or live banking.
+- #2128 selected the money integer lane in docs/state only.
+- This implementation adds a pure integer-money value boundary only; it does not implement ledger, reserve, hold, release, refund, commission, DB persistence, runtime orchestration or live banking.
 
 NEXT:
-- Layer: P0 money integer basis boundary implementation.
+- Layer: P0 money integer state sync after merge.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-  - apps/api/src/platform-v7/money-integer/**
-  - apps/api/test/platform-v7/money-integer/**
 - Success criteria:
-  - add typed minor-unit money values;
-  - add deterministic add/subtract/compare helpers;
-  - reject unsafe floats and cross-currency arithmetic;
-  - keep ledger, bank release/hold/refund/commission flows out of scope;
+  - record this money integer boundary as merged only after checks are green and merge completes;
+  - select the next narrow layer only in docs/state;
   - keep #2113 and #2115 as open blockers unless source-of-truth changes;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
@@ -88,7 +91,8 @@ ORDER:
 27. P0 canonical data boundary selection is active from #2125.
 28. P0 canonical data source-of-truth implementation boundary is active from #2126.
 29. P0 canonical data state sync after #2126 merge is active from #2127.
-30. P0 money integer basis boundary selection is current.
+30. P0 money integer basis boundary selection is active from #2128.
+31. P0 money integer basis boundary implementation is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -148,5 +152,6 @@ DONE:
 - #2125 P0 canonical data boundary selection.
 - #2126 P0 canonical data source-of-truth implementation boundary.
 - #2127 P0 canonical data state sync after #2126 merge.
+- #2128 P0 money integer basis boundary selection.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
