@@ -107,4 +107,68 @@ export class AdminController {
       timestamp: new Date().toISOString(),
     };
   }
+
+  @Get('readiness-passport')
+  async readinessPassport() {
+    const { integrationRegistry } = await import('../../../../packages/integration-sdk/src/registry').catch(() => ({ integrationRegistry: null }));
+    const adapterList = integrationRegistry?.listAdapters() ?? [];
+
+    return {
+      generatedAt: new Date().toISOString(),
+      version: process.env.APP_VERSION ?? '3.0.0',
+      environment: process.env.NODE_ENV ?? 'development',
+      components: {
+        live: [
+          { name: 'JWT Auth + RBAC (13 ролей)', status: 'live' },
+          { name: 'Deal Lifecycle State Machine', status: 'live' },
+          { name: 'Deal Saga Orchestrator (16 шагов)', status: 'live' },
+          { name: 'Deal Event Hash Chain (SHA-256)', status: 'live' },
+          { name: 'Audit Log (append-only, hash chain)', status: 'live' },
+          { name: 'Double-Entry Ledger (копейки)', status: 'live' },
+          { name: 'Settlement Engine + Escrow', status: 'live' },
+          { name: 'Outbox Pattern + Relay Worker', status: 'live' },
+          { name: 'Anti-Fraud (6 правил + off-platform)', status: 'live' },
+          { name: 'MFA TOTP (RFC 6238) + backup codes', status: 'live' },
+          { name: 'Rate Limiting (IP + brute-force)', status: 'live' },
+          { name: 'Data Masking Logger (PII)', status: 'live' },
+          { name: 'Prometheus Metrics', status: 'live' },
+          { name: 'Bank Reconciliation (MT940)', status: 'live' },
+          { name: 'Factoring (auto-scoring, 5 компаний)', status: 'live' },
+          { name: 'Analytics (GMV, take rate, commission)', status: 'live' },
+          { name: 'ML Price Predictor + Yield Forecast', status: 'live' },
+          { name: 'Partner API (API-ключи, webhooks, HMAC)', status: 'live' },
+          { name: 'Support Ops Queue', status: 'live' },
+          { name: 'KYC (ФНС + AML) + RKN incident notification', status: 'live' },
+          { name: '152-ФЗ (consent, data-export, anonymize)', status: 'live' },
+          { name: 'Regulatory Reports (МСХ, Росстат, ФНС, Росфинмониторинг)', status: 'live' },
+          { name: 'GPS Tracking + Geofencing', status: 'live' },
+          { name: 'Deal Auto-Cancellation (14 дней)', status: 'live' },
+          { name: 'Integration Events Log', status: 'live' },
+          { name: 'OpenAPI 3.0.3 Spec', status: 'live' },
+        ],
+        sandbox: adapterList.map(a => ({
+          name: `${a.name} adapter (${a.mode} mode v${a.version})`,
+          status: 'sandbox',
+        })),
+        planned: [
+          { name: 'PostgreSQL RLS + WAL backup', status: 'planned', stage: 'Этап 0' },
+          { name: 'Kafka event backbone (RF=3)', status: 'planned', stage: 'Этап 0' },
+          { name: 'Redis Cluster (сессии, rate limit)', status: 'planned', stage: 'Этап 0' },
+          { name: 'Kubernetes HPA + VPA', status: 'planned', stage: 'Этап 0' },
+          { name: 'HashiCorp Vault (секреты, ротация)', status: 'planned', stage: 'Этап 0' },
+          { name: 'WAF (Coraza + OWASP CRS)', status: 'planned', stage: 'Этап 0' },
+          { name: 'КриптоПро DSS live (УКЭП 63-ФЗ)', status: 'planned', stage: 'Этап 1' },
+          { name: 'Контур.Диадок live (ЭДО)', status: 'planned', stage: 'Этап 1' },
+          { name: 'ФГИС «Зерно» live (Минсельхоз API)', status: 'planned', stage: 'Этап 2' },
+          { name: 'ClickHouse (аналитика, GMV real-time)', status: 'planned', stage: 'Этап 3' },
+          { name: 'ML-модели на реальных данных', status: 'planned', stage: 'Этап 3' },
+          { name: 'WebAuthn / FIDO2', status: 'planned', stage: 'Этап 4' },
+          { name: 'SSO SAML 2.0 / OIDC Enterprise', status: 'planned', stage: 'Этап 4' },
+          { name: 'Telegram Bot (уведомления + действия)', status: 'planned', stage: 'Этап 3' },
+          { name: 'Mobile App React Native', status: 'planned', stage: 'Этап 3' },
+          { name: 'Multi-tenancy (кооперативы)', status: 'planned', stage: 'Этап 3' },
+        ],
+      },
+    };
+  }
 }

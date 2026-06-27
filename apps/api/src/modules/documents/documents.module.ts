@@ -7,6 +7,7 @@ import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
 import { DocumentUploadPolicyService } from './document-upload-policy.service';
 import { DocumentMatrixService } from './document-matrix.service';
+import { DocumentTemplateService } from './document-template.service';
 import { DOCUMENT_REPOSITORY } from './document.repository';
 import { selectDocumentRepository } from './document-repository.factory';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
@@ -30,7 +31,7 @@ const documentRepositoryProvider: Provider = {
 @Module({
   imports: [AuditModule, StorageModule, AntiFraudModule],
   controllers: [DocumentsController],
-  providers: [DocumentsService, AccessScopeService, DocumentUploadPolicyService, DocumentMatrixService, documentRepositoryProvider],
-  exports: [DocumentsService, DocumentMatrixService]
+  providers: [DocumentsService, AccessScopeService, DocumentUploadPolicyService, DocumentMatrixService, DocumentTemplateService, documentRepositoryProvider],
+  exports: [DocumentsService, DocumentMatrixService, DocumentTemplateService]
 })
 export class DocumentsModule {}

@@ -7,6 +7,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { DocumentsService } from './documents.service';
 import { DocumentMatrixService } from './document-matrix.service';
+import { DocumentTemplateService, TemplateId } from './document-template.service';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 
 @UseGuards(RolesGuard)
@@ -16,6 +17,7 @@ export class DocumentsController {
   constructor(
     private readonly documents: DocumentsService,
     private readonly matrix: DocumentMatrixService,
+    private readonly templates: DocumentTemplateService,
   ) {}
 
   @Get()
@@ -96,5 +98,18 @@ export class DocumentsController {
   @Get(':id/edo/status')
   edoStatus(@Param('id') id: string, @CurrentUser() user: any) {
     return this.documents.edoGetStatus(id, user);
+  }
+
+  @Get('templates')
+  listTemplates() {
+    return this.templates.listTemplates();
+  }
+
+  @Post('templates/:id/generate')
+  generateFromTemplate(
+    @Param('id') templateId: string,
+    @Body() variables: Record<string, string | number>,
+  ) {
+    return this.templates.generateDocument(templateId as TemplateId, variables);
   }
 }
