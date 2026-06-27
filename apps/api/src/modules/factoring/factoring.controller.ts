@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { RequestUser } from '../../common/types/request-user';
+import { RequestUser, Role } from '../../common/types/request-user';
 import { FactoringService } from './factoring.service';
+import { ForbiddenException } from '@nestjs/common';
 
 @Controller('api/factoring')
 @UseGuards(JwtAuthGuard)
@@ -51,5 +52,23 @@ export class FactoringController {
   @Get('credit-report/:organizationId')
   getCreditReport(@Param('organizationId') organizationId: string, @CurrentUser() user: RequestUser) {
     return this.factoring.getCreditReport(organizationId, user);
+  }
+
+  /** Проверить, заблокирована ли организация из-за просрочки факторинга */
+  @Get('org-block-status/:organizationId')
+  getOrgBlockStatus(@Param('organizationId') organizationId: string) {
+    return {
+      organizationId,
+      blocked: this.factoring.isOrganizationBlocked(organizationId),
+    };
+  }
+
+  /** Ручной запуск проверки просрочек (ADMIN/ACCOUNTING) */
+  @Post('check-overdue')
+  checkOverdue(@CurrentUser() user: RequestUser) {
+    if (![Role.ADMIN, Role.ACCOUNTING].includes(user.role as Role)) {
+      throw new ForbiddenException('Только ADMIN/ACCOUNTING');
+    }
+    return this.factoring.checkOverdue();
   }
 }

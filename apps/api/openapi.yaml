@@ -447,6 +447,46 @@ paths:
                   bureau: { type: string }
                   checkedAt: { type: string, format: date-time }
 
+  /api/factoring/org-block-status/{organizationId}:
+    get:
+      summary: Статус блокировки организации из-за просрочки факторинга
+      tags: [Factoring]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Статус блокировки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizationId: { type: string }
+                  blocked: { type: boolean, description: "true если есть просроченный факторинг — новые сделки запрещены" }
+
+  /api/factoring/check-overdue:
+    post:
+      summary: Ручной запуск проверки просроченных факторинговых задолженностей (ADMIN/ACCOUNTING)
+      tags: [Factoring]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "201":
+          description: Результат проверки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checked: { type: integer }
+                  overdue: { type: integer, description: "Кол-во переведённых в OVERDUE" }
+                  dueSoon: { type: integer, description: "Кол-во уведомлений due_soon отправлено" }
+        "403":
+          description: Только ADMIN/ACCOUNTING
+
   /api/exports/deals:
     get:
       summary: Экспорт сделок в CSV
