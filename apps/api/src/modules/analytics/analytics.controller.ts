@@ -23,6 +23,35 @@ export class AnalyticsController {
     return this.analytics.getLedgerSummary(user);
   }
 
+  @Get('yield-forecast')
+  yieldForecast(
+    @Query('region') region: string,
+    @Query('culture') culture: string,
+    @Query('areaSqHa') areaSqHa: string,
+    @Query('season') season?: string,
+  ) {
+    return this.analytics.getYieldForecast({
+      region: region ?? 'Краснодарский край',
+      culture: culture ?? 'пшеница',
+      areaSqHa: Number(areaSqHa ?? 100),
+      season: season ? Number(season) : undefined,
+    });
+  }
+
+  @Get('deal-duration-forecast')
+  dealDurationForecast(
+    @Query('culture') culture?: string,
+    @Query('region') region?: string,
+    @Query('volumeTons') volumeTons?: string,
+    @Query('dealType') dealType?: string,
+    @CurrentUser() user?: RequestUser,
+  ) {
+    return this.analytics.getDealDurationForecast(
+      { culture, region, volumeTons: volumeTons ? Number(volumeTons) : undefined, dealType },
+      user!,
+    );
+  }
+
   @Get('commission-preview')
   commissionPreview(
     @Query('amount') amount: string,

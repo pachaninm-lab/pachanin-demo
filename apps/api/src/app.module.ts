@@ -36,6 +36,7 @@ import { SagaModule } from './modules/saga/saga.module';
 import { OutboxModule } from './common/outbox/outbox.module';
 import { FactoringModule } from './modules/factoring/factoring.module';
 import { BankReconciliationModule } from './modules/bank-reconciliation/bank-reconciliation.module';
+import { SupportModule } from './modules/support/support.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { BankReconciliationModule } from './modules/bank-reconciliation/bank-rec
     OutboxModule,
     FactoringModule,
     BankReconciliationModule,
+    SupportModule,
   ],
   providers: [
     {

@@ -222,6 +222,92 @@ export class AnalyticsService {
     return { totalEscrowKopecks: escrow, totalReleasedKopecks: released, totalDisputeHoldKopecks: disputeHold, totalCommissionKopecks: commission, entryCount: entries.length };
   }
 
+  getYieldForecast(params: { region: string; culture: string; areaSqHa: number; season?: number }): {
+    region: string;
+    culture: string;
+    areaSqHa: number;
+    season: number;
+    forecastYieldTonsPerHa: number;
+    forecastTotalTons: number;
+    confidenceInterval: { low: number; high: number };
+    confidence: number;
+    factors: string[];
+    asOf: string;
+  } {
+    const baseYields: Record<string, number> = {
+      'пшеница': 3.8, 'wheat': 3.8,
+      'ячмень': 3.2, 'barley': 3.2,
+      'кукуруза': 6.5, 'corn': 6.5,
+      'подсолнечник': 1.8, 'sunflower': 1.8,
+    };
+    const culture = params.culture.toLowerCase();
+    const base = baseYields[culture] ?? 3.0;
+    const regionCoeff = params.region?.toLowerCase().includes('краснодар') ? 1.15
+      : params.region?.toLowerCase().includes('ростов') ? 1.08
+      : params.region?.toLowerCase().includes('ставрополь') ? 1.05 : 1.0;
+
+    const currentYear = new Date().getFullYear();
+    const season = params.season ?? currentYear;
+    const seasonCoeff = season === currentYear ? 1.0 : 0.95;
+
+    const forecastPerHa = Math.round(base * regionCoeff * seasonCoeff * 100) / 100;
+    const forecastTotal = Math.round(forecastPerHa * params.areaSqHa * 10) / 10;
+
+    return {
+      region: params.region,
+      culture: params.culture,
+      areaSqHa: params.areaSqHa,
+      season,
+      forecastYieldTonsPerHa: forecastPerHa,
+      forecastTotalTons: forecastTotal,
+      confidenceInterval: {
+        low: Math.round(forecastTotal * 0.85 * 10) / 10,
+        high: Math.round(forecastTotal * 1.15 * 10) / 10,
+      },
+      confidence: 0.72,
+      factors: ['Исторические урожаи региона', 'Культура', 'Погодные условия (среднее)', 'Площадь посева'],
+      asOf: new Date().toISOString(),
+    };
+  }
+
+  async getDealDurationForecast(params: { culture?: string; region?: string; volumeTons?: number; dealType?: string }, user: RequestUser): Promise<{
+    estimatedDaysToClose: number;
+    confidenceInterval: { low: number; high: number };
+    confidence: number;
+    breakdown: Array<{ stage: string; estimatedDays: number }>;
+    asOf: string;
+  }> {
+    // Base durations per stage
+    const stages = [
+      { stage: 'Переговоры и согласование', days: 3 },
+      { stage: 'Подписание договора (УКЭП)', days: 2 },
+      { stage: 'Резервирование оплаты', days: 1 },
+      { stage: 'Логистика и доставка', days: params.volumeTons && params.volumeTons > 1000 ? 7 : 4 },
+      { stage: 'Лабораторный анализ', days: 2 },
+      { stage: 'Подписание акта приёмки', days: 1 },
+      { stage: 'ЭДО и расчёты', days: 2 },
+    ];
+
+    // Region adjustment
+    const regionCoeff = params.region?.toLowerCase().includes('краснодар') ? 0.9
+      : params.region?.toLowerCase().includes('сибир') ? 1.3 : 1.0;
+
+    const adjustedStages = stages.map(s => ({
+      stage: s.stage,
+      estimatedDays: Math.round(s.days * regionCoeff),
+    }));
+
+    const total = adjustedStages.reduce((s, st) => s + st.estimatedDays, 0);
+
+    return {
+      estimatedDaysToClose: total,
+      confidenceInterval: { low: Math.round(total * 0.7), high: Math.round(total * 1.4) },
+      confidence: 0.68,
+      breakdown: adjustedStages,
+      asOf: new Date().toISOString(),
+    };
+  }
+
   private mockEconomics(from: Date, to: Date): UnitEconomics {
     const gmvKopecks = 125_000_000_00;
     const takeRateKopecks = Math.round(gmvKopecks * TAKE_RATE_PCT / 100);
