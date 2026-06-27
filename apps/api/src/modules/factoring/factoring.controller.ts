@@ -47,4 +47,9 @@ export class FactoringController {
   repay(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.factoring.markRepaid(id, user);
   }
+
+  @Get('credit-report/:organizationId')
+  getCreditReport(@Param('organizationId') organizationId: string, @CurrentUser() user: RequestUser) {
+    return this.factoring.getCreditReport(organizationId, user);
+  }
 }

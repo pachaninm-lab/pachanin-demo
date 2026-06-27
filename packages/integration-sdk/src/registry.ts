@@ -11,8 +11,11 @@ import { MockAmlAdapter } from './adapters/aml.adapter';
 import { MockRzdEtranAdapter } from './adapters/rzd-etran.adapter';
 import { MockGisEpdAdapter } from './adapters/gis-epd.adapter';
 import { MockBkiAdapter } from './adapters/bki.adapter';
+import { MockTakskomAdapter } from './adapters/takskom.adapter';
+import { MockMarineAdapter } from './adapters/marine.adapter';
+import { MockSmevAdapter } from './adapters/smev.adapter';
 
-export type AdapterName = 'FGIS_ZERNO' | 'FNS' | 'DIADOK' | 'CRYPTOPRO_DSS' | 'BANK' | 'GPS' | 'FTS' | 'RSHN' | 'AML_ROSFINMONITORING' | 'RZD_ETRAN' | 'GIS_EPD' | 'BKI_NBKI';
+export type AdapterName = 'FGIS_ZERNO' | 'FNS' | 'DIADOK' | 'CRYPTOPRO_DSS' | 'BANK' | 'GPS' | 'FTS' | 'RSHN' | 'AML_ROSFINMONITORING' | 'RZD_ETRAN' | 'GIS_EPD' | 'BKI_NBKI' | 'TAKSKOM' | 'MARINE_TRAFFIC' | 'SMEV';
 
 class IntegrationRegistry {
   private readonly adapters = new Map<AdapterName, IntegrationAdapter>();
@@ -74,3 +77,6 @@ integrationRegistry.register('AML_ROSFINMONITORING', new MockAmlAdapter());
 integrationRegistry.register('RZD_ETRAN', new MockRzdEtranAdapter());
 integrationRegistry.register('GIS_EPD', new MockGisEpdAdapter());
 integrationRegistry.register('BKI_NBKI', new MockBkiAdapter());
+integrationRegistry.register('TAKSKOM', new MockTakskomAdapter('TAKSKOM'));
+integrationRegistry.register('MARINE_TRAFFIC', new MockMarineAdapter());
+integrationRegistry.register('SMEV', new MockSmevAdapter());

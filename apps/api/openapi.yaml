@@ -373,6 +373,178 @@ paths:
         "200":
           description: Список заявок
 
+  /api/factoring/applications/{id}:
+    get:
+      summary: Заявка на факторинг по ID
+      tags: [Factoring]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Детали заявки
+
+  /api/factoring/applications/{id}/activate:
+    post:
+      summary: Активировать факторинговую линию (перевести APPROVED → ACTIVE)
+      tags: [Factoring]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Статус обновлён
+
+  /api/factoring/applications/{id}/repay:
+    post:
+      summary: Отметить задолженность погашенной (ACTIVE → REPAID)
+      tags: [Factoring]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Статус обновлён
+
+  /api/factoring/credit-report/{organizationId}:
+    get:
+      summary: Кредитный отчёт НБКИ по организации (БКИ скоринг)
+      tags: [Factoring]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Кредитный отчёт НБКИ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizationId: { type: string }
+                  inn: { type: string }
+                  organizationName: { type: string }
+                  creditScore: { type: integer, description: "Скоринговый балл 300–850" }
+                  rating: { type: string, enum: [A+, A, B+, B, C, D, UNRATED] }
+                  openLoans: { type: integer }
+                  totalDebtKopecks: { type: integer }
+                  overdueDebtKopecks: { type: integer }
+                  maxCreditLimitKopecks: { type: integer }
+                  utilizationPct: { type: number }
+                  flags: { type: array, items: { type: string } }
+                  bureau: { type: string }
+                  checkedAt: { type: string, format: date-time }
+
+  /api/exports/deals:
+    get:
+      summary: Экспорт сделок в CSV
+      tags: [Exports]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: CSV-файл со сделками
+          content:
+            text/csv:
+              schema: { type: string }
+
+  /api/exports/deal-report/{dealId}:
+    get:
+      summary: Полный JSON-отчёт по сделке с проверкой hash-цепочки
+      tags: [Exports]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: JSON-отчёт по сделке
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportId: { type: string }
+                  dealId: { type: string }
+                  generatedAt: { type: string, format: date-time }
+                  generatedBy: { type: string }
+                  format: { type: string, example: json }
+                  sections:
+                    type: object
+                    properties:
+                      summary: { type: object }
+                      timeline: { type: array, items: { type: object } }
+                      financials: { type: object }
+                      documents: { type: array, items: { type: object } }
+                      chainIntegrity:
+                        type: object
+                        properties:
+                          valid: { type: boolean }
+                          eventCount: { type: integer }
+
+  /api/exports/evidence/{dealId}:
+    get:
+      summary: Пакет доказательств с hash-цепочкой для сделки
+      tags: [Exports]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Манифест и список файлов с hash-цепочкой
+
+  /api/exports/ledger/{dealId}:
+    get:
+      summary: Экспорт бухгалтерской книги по сделке в CSV
+      tags: [Exports]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: dealId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: CSV-файл с записями в бухкниге
+          content:
+            text/csv:
+              schema: { type: string }
+
+  /api/exports/outbox-status:
+    get:
+      summary: Статус Outbox (pending/sent/dead/failed)
+      tags: [Exports]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Статистика outbox и последние 100 записей
+
   /api/bank/reconciliation/import:
     post:
       summary: Импорт банковской выписки MT940

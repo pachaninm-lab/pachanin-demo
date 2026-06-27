@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
+import { integrationRegistry } from '@grainflow/integration-sdk';
+import type { MockBkiAdapter } from '@grainflow/integration-sdk/src/adapters/bki.adapter';
 
 export type FactoringStatus = 'PENDING' | 'SCORING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'REPAID' | 'OVERDUE';
 
@@ -87,6 +89,8 @@ export class FactoringService {
     let totalDeals = 0;
     let disputeCount = 0;
     let totalVolumeKopecks = 0;
+    let orgInn: string | undefined;
+    let orgName: string | undefined;
 
     if (this.prisma) {
       const deals = await this.prisma.deal.findMany({
@@ -99,26 +103,58 @@ export class FactoringService {
       totalVolumeKopecks = deals.reduce((s, d) => s + (d.totalKopecks ?? Math.round((d.totalRub ?? 0) * 100)), 0);
 
       disputeCount = await this.prisma.dispute.count({ where: { createdAt: { gte: new Date(Date.now() - 365 * 24 * 3600_000) } } }).catch(() => 0);
+
+      const org = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { inn: true, name: true } }).catch(() => null);
+      orgInn = org?.inn;
+      orgName = org?.name;
     } else {
       totalDeals = 12;
       closedDeals = 10;
       totalVolumeKopecks = 5_000_000_00;
       disputeCount = 1;
+      orgInn = '7712345678';
     }
 
     const successRate = totalDeals > 0 ? closedDeals / totalDeals : 0;
     const disputeRate = totalDeals > 0 ? disputeCount / totalDeals : 0;
-    const volumeScore = Math.min(totalVolumeKopecks / 100_000_000, 1); // up to 1M RUB = max
+    const volumeScore = Math.min(totalVolumeKopecks / 100_000_000, 1);
 
-    const score = Math.round(
+    const platformScore = Math.round(
       successRate * 40 +
       (1 - Math.min(disputeRate, 1)) * 30 +
       volumeScore * 20 +
       (totalDeals >= 5 ? 10 : totalDeals * 2),
     );
 
+    // BKI credit bureau scoring — enriches platform score
+    let bkiReport: Record<string, unknown> = {};
+    let bkiWeight = 0;
+    if (orgInn && integrationRegistry.has('BKI_NBKI')) {
+      try {
+        const bki = integrationRegistry.get<MockBkiAdapter>('BKI_NBKI');
+        const report = await bki.getCreditReport(orgInn, orgName);
+        bkiReport = {
+          creditScore: report.creditScore,
+          rating: report.rating,
+          openLoans: report.openLoans,
+          utilizationPct: report.utilizationPct,
+          flags: report.flags,
+          bureau: report.bureau,
+        };
+        // Map BKI score (300-850) to 0-100 points (weight: 30 points out of combined)
+        bkiWeight = Math.round(((report.creditScore - 300) / 550) * 30);
+        if (report.flags.includes('overdue_90d')) bkiWeight = Math.max(0, bkiWeight - 20);
+      } catch {
+        // BKI unavailable — fall back to platform score only
+      }
+    }
+
+    const combined = bkiWeight > 0
+      ? Math.round(platformScore * 0.7 + bkiWeight)
+      : platformScore;
+
     return {
-      score: Math.min(score, 100),
+      score: Math.min(combined, 100),
       details: {
         totalDeals,
         closedDeals,
@@ -126,8 +162,25 @@ export class FactoringService {
         disputeCount,
         disputeRatePct: Math.round(disputeRate * 100),
         totalVolumeRub: Math.round(totalVolumeKopecks / 100),
+        platformScore,
+        bki: bkiReport,
       },
     };
+  }
+
+  async getCreditReport(organizationId: string, user: RequestUser): Promise<Record<string, unknown>> {
+    if (![Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE, Role.FARMER, Role.BUYER].includes(user.role as Role)) {
+      throw new ForbiddenException();
+    }
+    let inn = '7712345678';
+    let name: string | undefined;
+    if (this.prisma) {
+      const org = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { inn: true, name: true } }).catch(() => null);
+      if (org) { inn = org.inn; name = org.name; }
+    }
+    const bki = integrationRegistry.get<MockBkiAdapter>('BKI_NBKI');
+    const report = await bki.getCreditReport(inn, name);
+    return { organizationId, ...report };
   }
 
   list(user: RequestUser): FactoringApplication[] {
