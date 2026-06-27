@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 RBAC / tenant scope / object scope route wiring boundary implementation.
+CURRENT: P0 route-scope state sync after #2123 merge.
 
-GOAL: add an isolated backend route-scope adapter after #2121 without editing auth module files or broad API/runtime layers.
+GOAL: record the merged route-scope boundary and keep the next implementation layer gated until this docs/state lane is green.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -14,24 +14,16 @@ CURRENT STATUS:
 - #2120 is merged: RBAC / tenant scope / object scope source-of-truth selection is complete.
 - #2121 is merged: isolated RBAC / tenant scope / object scope backend boundary is active.
 - #2122 is merged: route wiring lane selection is complete.
-- Current implementation adds a route-scope boundary only.
+- #2123 is merged: isolated route-scope boundary is active.
+- Current implementation is docs/state sync only.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
-- apps/api/src/platform-v7/rbac/**
-- apps/api/src/platform-v7/tenant-scope/**
-- apps/api/src/platform-v7/object-scope/**
-- apps/api/src/platform-v7/route-scope/**
-- apps/api/test/platform-v7/rbac/**
-- apps/api/test/platform-v7/tenant-scope/**
-- apps/api/test/platform-v7/object-scope/**
-- apps/api/test/platform-v7/route-scope/**
 
 CURRENT CHECKS:
-- route ids resolve to #2121 RBAC actions;
-- route decisions evaluate role + action + tenant + object scope;
-- seller, buyer, bank, logistics, driver, elevator, lab, arbitrator, compliance, executive, operator and support are covered by unit tests;
+- mark #2123 as merged in autopilot-state;
+- keep #2113 and #2115 as open blockers unless source-of-truth changes;
 - keep auth module files blocked by #2115 out of scope;
 - keep apps/landing, apps/web, money, ledger, audit, outbox, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
@@ -41,15 +33,15 @@ CURRENT CHECKS:
 CURRENT NOTES:
 - #2115 is not closed by this layer; it still requires a safe maintainer/Codex path to write auth service and related auth tests.
 - #2113 requires repository settings/branch protection verification and should not change platform code.
-- This layer adds an isolated route-scope adapter only; it does not wire broad controllers or frontend routes.
+- #2123 added an isolated route-scope adapter only; it did not wire broad controllers or frontend routes.
 
 NEXT:
-- Layer: P0 route-scope state sync after merge.
+- Layer: P0 route-scope follow-up selection.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - mark the route-scope boundary as merged only after acceptable checks;
+  - select the next narrow layer only after this state sync is green;
   - keep #2113 and #2115 as open blockers unless source-of-truth changes;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
@@ -80,7 +72,8 @@ ORDER:
 22. P0 RBAC / tenant scope / object scope source-of-truth selection is active from #2120.
 23. P0 RBAC / tenant scope / object scope implementation boundary is active from #2121.
 24. P0 RBAC / tenant scope / object scope route wiring selection is active from #2122.
-25. P0 RBAC / tenant scope / object scope route wiring boundary implementation is current.
+25. P0 RBAC / tenant scope / object scope route wiring boundary implementation is active from #2123.
+26. P0 route-scope state sync after #2123 merge is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -134,5 +127,6 @@ DONE:
 - #2120 docs/platform-v7 RBAC / tenant scope / object scope source-of-truth selection.
 - #2121 P0 RBAC / tenant scope / object scope implementation boundary.
 - #2122 P0 RBAC / tenant scope / object scope route wiring selection.
+- #2123 P0 RBAC / tenant scope / object scope route wiring boundary implementation.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
