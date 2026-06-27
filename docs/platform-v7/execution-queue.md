@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 canonical data boundary selection after #2124 merge.
+CURRENT: P0 canonical data source-of-truth implementation boundary.
 
-GOAL: record the merged route-scope state sync and select the next narrow canonical-data source-of-truth lane without touching implementation code.
+GOAL: add a typed canonical-data boundary without wiring controllers, DB, runtime, money, storage or live integrations.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -16,17 +16,21 @@ CURRENT STATUS:
 - #2122 is merged: route wiring lane selection is complete.
 - #2123 is merged: isolated route-scope boundary is active.
 - #2124 is merged: route-scope state sync after #2123 is complete.
-- Current implementation is docs/state selection only.
+- #2125 is merged: canonical data source-of-truth boundary selection is complete.
+- Current implementation is the canonical-data boundary only.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- apps/api/src/platform-v7/canonical-data/**
+- apps/api/test/platform-v7/canonical-data/**
 
 CURRENT CHECKS:
-- mark #2124 as merged in autopilot-state and queue;
+- mark #2125 as merged in autopilot-state and queue;
+- add typed canonical entity registry;
+- add canonical read/write boundary decisions;
+- keep money basis and audit entries read-only;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
-- select canonical data source-of-truth boundary as the next candidate layer;
-- keep implementation code out of scope for this selection lane;
 - keep auth module files blocked by #2115 out of scope;
 - keep apps/landing, apps/web, API controllers, DB, money, ledger, audit, outbox, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
@@ -37,18 +41,15 @@ CURRENT NOTES:
 - #2115 is not closed by this layer; it still requires a safe maintainer/Codex path to write auth service and related auth tests.
 - #2113 requires repository settings/branch protection verification and should not change platform code.
 - #2123 added an isolated route-scope adapter only; it did not wire broad controllers or frontend routes.
-- Canonical data selection is docs/state only in this PR; implementation must be a separate narrow PR after this lane is green.
+- #2125 selected canonical data only; this implementation adds a typed boundary without persistence or live source integration.
 
 NEXT:
-- Layer: P0 canonical data source-of-truth implementation boundary.
+- Layer: P0 canonical data state sync.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-  - apps/api/src/platform-v7/canonical-data/**
-  - apps/api/test/platform-v7/canonical-data/**
 - Success criteria:
-  - add typed canonical-data boundary only if this selection lane is green;
-  - do not wire broad controllers, DB, auth, session, runtime, money, ledger, storage or live integrations;
+  - select the next narrow layer only after this canonical-data boundary is green;
   - keep #2113 and #2115 as open blockers unless source-of-truth changes;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
@@ -81,7 +82,8 @@ ORDER:
 24. P0 RBAC / tenant scope / object scope route wiring selection is active from #2122.
 25. P0 RBAC / tenant scope / object scope route wiring boundary implementation is active from #2123.
 26. P0 route-scope state sync after #2123 merge is active from #2124.
-27. P0 canonical data boundary selection is current.
+27. P0 canonical data boundary selection is active from #2125.
+28. P0 canonical data source-of-truth implementation boundary is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -137,5 +139,6 @@ DONE:
 - #2122 P0 RBAC / tenant scope / object scope route wiring selection.
 - #2123 P0 RBAC / tenant scope / object scope route wiring boundary implementation.
 - #2124 P0 route-scope state sync after #2123 merge.
+- #2125 P0 canonical data boundary selection.
 
 READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
