@@ -30,8 +30,12 @@ function uniqueViolations(violations: readonly PlatformV7LedgerInvariantViolatio
   return Object.freeze([...new Set(violations)]);
 }
 
-function isSafeMoney(amount: PlatformV7MoneyInteger): boolean {
-  return amount.currency === 'RUB' && Number.isSafeInteger(amount.minorUnits) && amount.minorUnits >= 0;
+function hasSafeMinorUnits(amount: PlatformV7MoneyInteger): boolean {
+  return Number.isSafeInteger(amount.minorUnits) && amount.minorUnits >= 0;
+}
+
+function isSupportedMoney(amount: PlatformV7MoneyInteger): boolean {
+  return amount.currency === 'RUB' && hasSafeMinorUnits(amount);
 }
 
 function addViolation(
@@ -75,17 +79,16 @@ export function platformV7LedgerInvariantCheck(entries: readonly PlatformV7Ledge
       addViolation(violations, 'invalid-notes');
     }
 
-    if (!isSafeMoney(entry.amount)) {
-      addViolation(violations, 'unsafe-money');
-      continue;
-    }
-
-    if (currency === null) {
+    if (currency === null && entry.amount.currency === 'RUB') {
       currency = entry.amount.currency;
     }
 
-    if (currency !== entry.amount.currency) {
+    if (currency !== null && entry.amount.currency !== currency) {
       addViolation(violations, 'cross-currency');
+    }
+
+    if (!isSupportedMoney(entry.amount)) {
+      addViolation(violations, 'unsafe-money');
       continue;
     }
 
@@ -167,7 +170,7 @@ function sumKind(
   kind: PlatformV7LedgerEntry['kind'],
 ): PlatformV7MoneyInteger {
   return entries
-    .filter((entry) => entry.kind === kind && isSafeMoney(entry.amount))
+    .filter((entry) => entry.kind === kind && isSupportedMoney(entry.amount))
     .reduce((total, entry) => platformV7MoneyAdd(total, entry.amount), ZERO_RUB);
 }
 
