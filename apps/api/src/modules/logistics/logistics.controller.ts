@@ -57,4 +57,18 @@ export class LogisticsController {
   verifyPin(@Param('id') id: string, @Body() body: { pin?: string }, @CurrentUser() user: any) {
     return this.logistics.verifyPin(id, String(body?.pin || ''), user);
   }
+
+  @Post('shipments/:id/gps')
+  updateGps(
+    @Param('id') id: string,
+    @Body() body: { lat: number; lng: number; speedKmh?: number; headingDeg?: number; accuracyM?: number },
+    @CurrentUser() user: any,
+  ) {
+    return this.logistics.updateGps(id, body, user);
+  }
+
+  @Get('shipments/:id/gps/track')
+  getGpsTrack(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.logistics.getGpsTrack(id, user);
+  }
 }

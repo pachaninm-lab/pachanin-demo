@@ -28,6 +28,9 @@ import { ComplianceModule } from './modules/compliance/compliance.module';
 import { ArbitratorModule } from './modules/arbitrator/arbitrator.module';
 import { IntegrationEventsModule } from './modules/integration-events/integration-events.module';
 import { ExportsModule } from './modules/exports/exports.module';
+import { ElevatorModule } from './modules/elevator/elevator.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -58,6 +61,9 @@ import { ExportsModule } from './modules/exports/exports.module';
     ArbitratorModule,
     IntegrationEventsModule,
     ExportsModule,
+    ElevatorModule,
+    OrganizationsModule,
+    AnalyticsModule,
   ],
   providers: [
     {

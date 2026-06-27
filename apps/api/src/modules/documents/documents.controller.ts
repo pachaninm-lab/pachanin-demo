@@ -82,4 +82,19 @@ export class DocumentsController {
   releaseGate(@Param('dealId') dealId: string, @CurrentUser() user: any) {
     return this.documents.getReleaseGate(dealId, user);
   }
+
+  @Post(':id/edo/send')
+  edoSend(@Param('id') id: string, @Body() body: { recipientInn: string; recipientBoxId?: string }, @CurrentUser() user: any) {
+    return this.documents.edoSend(id, body, user);
+  }
+
+  @Post(':id/edo/sign')
+  edoSign(@Param('id') id: string, @Body() body: { certificateId?: string }, @CurrentUser() user: any) {
+    return this.documents.edoSign(id, body.certificateId, user);
+  }
+
+  @Get(':id/edo/status')
+  edoStatus(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.documents.edoGetStatus(id, user);
+  }
 }

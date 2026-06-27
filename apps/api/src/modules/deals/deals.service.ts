@@ -1,14 +1,36 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { DEAL_REPOSITORY, type DealRepository } from './deal.repository';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { RequestUser } from '../../common/types/request-user';
+import { DealEventService } from './deal-event.service';
+
+const STATE_TO_EVENT: Record<string, string> = {
+  PUBLISHED: 'PUBLISHED',
+  OFFER_SENT: 'OFFER_SENT',
+  OFFER_ACCEPTED: 'OFFER_ACCEPTED',
+  COUNTER_OFFER: 'COUNTER_OFFER',
+  CONTRACT_GENERATED: 'CONTRACT_GENERATED',
+  CONTRACT_SIGNED: 'CONTRACT_SIGNED',
+  PAYMENT_RESERVED: 'PAYMENT_RESERVED',
+  LOGISTICS_ASSIGNED: 'LOGISTICS_ASSIGNED',
+  SHIPMENT_STARTED: 'SHIPMENT_STARTED',
+  DELIVERED: 'DELIVERED',
+  QUALITY_ACCEPTED: 'QUALITY_ACCEPTED',
+  QUALITY_DISPUTED: 'QUALITY_DISPUTED',
+  PAYMENT_RELEASED: 'PAYMENT_RELEASED',
+  DISPUTE_OPENED: 'DISPUTE_OPENED',
+  DISPUTE_RESOLVED: 'DISPUTE_RESOLVED',
+  CANCELLED: 'CANCELLED',
+  CLOSED: 'CLOSED',
+};
 
 @Injectable()
 export class DealsService {
   constructor(
     @Inject(DEAL_REPOSITORY) private readonly deals: DealRepository,
     private readonly executor: ActionExecutorService,
+    @Optional() private readonly dealEvents?: DealEventService,
   ) {}
 
   async list(user: RequestUser) {
@@ -53,6 +75,10 @@ export class DealsService {
       scope: { objectType: 'deal', objectId: 'new', ownerOrgId: user.orgId },
       fn: () => this.deals.create(dto, user),
     });
+    const dealId = (result as any)?.id;
+    if (dealId && this.dealEvents) {
+      this.dealEvents.emit({ dealId, eventType: 'CREATED', actorId: user.id, actorRole: user.role, payload: { culture: dto.culture } }).catch(() => {});
+    }
     return result;
   }
 
@@ -89,6 +115,17 @@ export class DealsService {
       gates,
       fn: () => this.deals.transition(id, dto.nextState, user, dto.comment),
     });
+
+    const eventType = STATE_TO_EVENT[dto.nextState?.toUpperCase()];
+    if (eventType && this.dealEvents) {
+      this.dealEvents.emit({
+        dealId: id,
+        eventType: eventType as any,
+        actorId: user.id,
+        actorRole: user.role,
+        payload: { nextState: dto.nextState, comment: dto.comment },
+      }).catch(() => {});
+    }
 
     return { ...result, auditId };
   }
