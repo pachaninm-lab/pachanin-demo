@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 route-scope state sync after #2123 merge.
+CURRENT: P0 canonical data boundary selection after #2124 merge.
 
-GOAL: record the merged route-scope boundary and keep the next implementation layer gated until this docs/state lane is green.
+GOAL: record the merged route-scope state sync and select the next narrow canonical-data source-of-truth lane without touching implementation code.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -15,17 +15,20 @@ CURRENT STATUS:
 - #2121 is merged: isolated RBAC / tenant scope / object scope backend boundary is active.
 - #2122 is merged: route wiring lane selection is complete.
 - #2123 is merged: isolated route-scope boundary is active.
-- Current implementation is docs/state sync only.
+- #2124 is merged: route-scope state sync after #2123 is complete.
+- Current implementation is docs/state selection only.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- mark #2123 as merged in autopilot-state;
+- mark #2124 as merged in autopilot-state and queue;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
+- select canonical data source-of-truth boundary as the next candidate layer;
+- keep implementation code out of scope for this selection lane;
 - keep auth module files blocked by #2115 out of scope;
-- keep apps/landing, apps/web, money, ledger, audit, outbox, storage, runtime and live integrations out of scope;
+- keep apps/landing, apps/web, API controllers, DB, money, ledger, audit, outbox, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
 - no package or lockfile changes.
@@ -34,14 +37,18 @@ CURRENT NOTES:
 - #2115 is not closed by this layer; it still requires a safe maintainer/Codex path to write auth service and related auth tests.
 - #2113 requires repository settings/branch protection verification and should not change platform code.
 - #2123 added an isolated route-scope adapter only; it did not wire broad controllers or frontend routes.
+- Canonical data selection is docs/state only in this PR; implementation must be a separate narrow PR after this lane is green.
 
 NEXT:
-- Layer: P0 route-scope follow-up selection.
+- Layer: P0 canonical data source-of-truth implementation boundary.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
+  - apps/api/src/platform-v7/canonical-data/**
+  - apps/api/test/platform-v7/canonical-data/**
 - Success criteria:
-  - select the next narrow layer only after this state sync is green;
+  - add typed canonical-data boundary only if this selection lane is green;
+  - do not wire broad controllers, DB, auth, session, runtime, money, ledger, storage or live integrations;
   - keep #2113 and #2115 as open blockers unless source-of-truth changes;
   - no forbidden zone, fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
@@ -73,7 +80,8 @@ ORDER:
 23. P0 RBAC / tenant scope / object scope implementation boundary is active from #2121.
 24. P0 RBAC / tenant scope / object scope route wiring selection is active from #2122.
 25. P0 RBAC / tenant scope / object scope route wiring boundary implementation is active from #2123.
-26. P0 route-scope state sync after #2123 merge is current.
+26. P0 route-scope state sync after #2123 merge is active from #2124.
+27. P0 canonical data boundary selection is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -128,5 +136,6 @@ DONE:
 - #2121 P0 RBAC / tenant scope / object scope implementation boundary.
 - #2122 P0 RBAC / tenant scope / object scope route wiring selection.
 - #2123 P0 RBAC / tenant scope / object scope route wiring boundary implementation.
+- #2124 P0 route-scope state sync after #2123 merge.
 
-READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
+READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
