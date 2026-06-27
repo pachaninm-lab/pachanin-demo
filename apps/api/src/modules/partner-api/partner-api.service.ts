@@ -125,6 +125,12 @@ export class PartnerApiService {
     return { deleted: true };
   }
 
+  getActiveSubscriptionsForEvent(eventType: string): Array<{ id: string; url: string; secret: string }> {
+    return Array.from(this.webhooks.values())
+      .filter(w => w.active && (w.events.includes('*') || w.events.includes(eventType)))
+      .map(w => ({ id: w.id, url: w.url, secret: w.secret }));
+  }
+
   getPartnerDealStatus(dealId: string, apiKey: ApiKey): { dealId: string; status: string; updatedAt: string } {
     if (!apiKey.scopes.includes('deals:read')) throw new ForbiddenException('API key missing deals:read scope');
     return { dealId, status: 'PUBLISHED', updatedAt: new Date().toISOString() };

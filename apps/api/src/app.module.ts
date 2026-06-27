@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { AppAuthGuard } from './common/guards/auth.guard';
@@ -82,6 +83,7 @@ import { CertificateMonitorModule } from './modules/certificate-monitor/certific
     KycModule,
     CertificateMonitorModule,
   ],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
