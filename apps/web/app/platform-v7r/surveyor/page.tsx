@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useToast } from '@/components/v7r/Toast';
+import { useRuntimeSnapshot } from '@/hooks/useRuntimeSnapshot';
 
 interface Assignment {
   id: string;
@@ -12,7 +13,7 @@ interface Assignment {
   status: string;
 }
 
-const ASSIGNMENTS: Assignment[] = [
+const FALLBACK_ASSIGNMENTS: Assignment[] = [
   { id: 'QC-DL-9102', deal: 'DL-9102', cargo: 'Пшеница 4 кл.', location: 'Элеватор Тамбов', time: '11:00', status: 'Требует акта' },
   { id: 'QC-DL-9108', deal: 'DL-9108', cargo: 'Ячмень 3 кл.', location: 'Склад Курск', time: '14:30', status: 'Ожидает' },
 ];
@@ -30,6 +31,20 @@ interface ActForm {
 
 export default function SurveyorPage() {
   const toast = useToast();
+  const { snapshot } = useRuntimeSnapshot();
+
+  const assignments: Assignment[] = React.useMemo(() => {
+    if (!snapshot?.logistics?.length) return FALLBACK_ASSIGNMENTS;
+    return snapshot.logistics.map(l => ({
+      id: `QC-${l.id}`,
+      deal: l.dealId ?? '—',
+      cargo: '—',
+      location: '—',
+      time: l.eta ?? '—',
+      status: l.status ?? 'Ожидает',
+    }));
+  }, [snapshot]);
+
   const [openAct, setOpenAct] = React.useState<string | null>(null);
   const [signed, setSigned] = React.useState<Set<string>>(new Set());
   const [forms, setForms] = React.useState<Record<string, ActForm>>({});
@@ -63,7 +78,7 @@ export default function SurveyorPage() {
       {/* Метрики */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         {[
-          ['Назначений сегодня', String(ASSIGNMENTS.length)],
+          ['Назначений сегодня', String(assignments.length)],
           ['Актов подписано', String(signedCount)],
         ].map(([label, value]) => (
           <div key={label} style={{ background: '#fff', border: '1px solid #E4E6EA', borderRadius: 16, padding: 16 }}>
@@ -74,7 +89,7 @@ export default function SurveyorPage() {
       </div>
 
       {/* Список назначений */}
-      {ASSIGNMENTS.map(a => (
+      {assignments.map(a => (
         <div key={a.id} style={{ background: '#fff', border: `1px solid ${signed.has(a.id) ? '#BBF7D0' : '#E4E6EA'}`, borderRadius: 18, padding: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
             <div>

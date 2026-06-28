@@ -406,6 +406,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <button onClick={() => setCommandOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 10, padding: '8px 12px', cursor: 'pointer' }} aria-label="Быстрый переход"><Mark text="⌕" /><span style={{ fontSize: 12, color: '#495057', fontWeight: 700 }}>Найти</span></button>
+              <Link href={`/platform-v7/ai?from=${encodeURIComponent(pathname)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, textDecoration: 'none', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 10, padding: '8px 12px', color: '#0A7A5F' }} aria-label="ИИ-помощник роли"><Mark text="✦" /><span style={{ fontSize: 12, fontWeight: 700 }}>ИИ</span></Link>
               <button onClick={() => setShortcutsOpen(true)} style={{ background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 10, padding: 8, cursor: 'pointer' }} aria-label="Сочетания клавиш"><Mark text="?" /></button>
               <button
                 onClick={() => {

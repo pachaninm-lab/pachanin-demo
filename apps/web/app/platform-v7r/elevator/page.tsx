@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useToast } from '@/components/v7r/Toast';
+import { useRuntimeSnapshot } from '@/hooks/useRuntimeSnapshot';
 
 interface QueueItem {
   plate: string;
@@ -11,7 +12,7 @@ interface QueueItem {
   status: string;
 }
 
-const INITIAL_QUEUE: QueueItem[] = [
+const FALLBACK_QUEUE: QueueItem[] = [
   { plate: 'А777ВВ136', deal: 'DL-9103', weight: 150, arrived: '13:45', status: 'Ожидает допуска' },
   { plate: 'В123КК52',  deal: 'DL-9105', weight: 120, arrived: '14:10', status: 'Ожидает' },
   { plate: 'Е888ОО36',  deal: 'DL-9108', weight: 60,  arrived: null,   status: 'В пути · ETA 15:00' },
@@ -27,7 +28,24 @@ interface Reception {
 
 export default function ElevatorPage() {
   const toast = useToast();
-  const [queue, setQueue] = React.useState<QueueItem[]>(INITIAL_QUEUE);
+  const { snapshot } = useRuntimeSnapshot();
+
+  const runtimeQueue: QueueItem[] = React.useMemo(() => {
+    if (!snapshot?.queue?.length) return FALLBACK_QUEUE;
+    return snapshot.queue.map(q => ({
+      plate: q.plate ?? '—',
+      deal: q.dealId ?? '—',
+      weight: typeof q.weight === 'number' ? q.weight : 0,
+      arrived: q.arrived ?? null,
+      status: q.status ?? 'Ожидает',
+    }));
+  }, [snapshot]);
+
+  const [queue, setQueue] = React.useState<QueueItem[]>(FALLBACK_QUEUE);
+
+  React.useEffect(() => {
+    setQueue(runtimeQueue);
+  }, [runtimeQueue]);
   const [receptions, setReceptions] = React.useState<Record<string, Reception>>({});
   const [openReception, setOpenReception] = React.useState<string | null>(null);
   const [completed, setCompleted] = React.useState<Set<string>>(new Set());

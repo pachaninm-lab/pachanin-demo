@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { useToast } from '@/components/v7r/Toast';
+import { useRuntimeSnapshot } from '@/hooks/useRuntimeSnapshot';
 
-const trip = {
+const FALLBACK_TRIP = {
   id: 'ТМБ-14',
   deal: 'DL-9103',
   cargo: 'Кукуруза 3 кл. · 150 т',
@@ -21,6 +22,21 @@ const trip = {
 
 export default function DriverPage() {
   const toast = useToast();
+  const { snapshot } = useRuntimeSnapshot();
+
+  const trip = React.useMemo(() => {
+    const rt = snapshot?.logistics?.[0];
+    if (!rt) return FALLBACK_TRIP;
+    return {
+      ...FALLBACK_TRIP,
+      id: rt.id ?? FALLBACK_TRIP.id,
+      deal: rt.dealId ?? FALLBACK_TRIP.deal,
+      plate: rt.plate ?? FALLBACK_TRIP.plate,
+      eta: rt.eta ?? FALLBACK_TRIP.eta,
+      status: rt.status ?? FALLBACK_TRIP.status,
+    };
+  }, [snapshot]);
+
   const [arrived, setArrived] = React.useState(false);
   const [showDeviation, setShowDeviation] = React.useState(false);
   const [deviationText, setDeviationText] = React.useState('');
