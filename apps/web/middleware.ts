@@ -54,6 +54,7 @@ const SESSION_COOKIE = 'pc_session_present';
 const OWNER_COOKIE = 'pc_owner_access';
 const PLATFORM_V7_ENTRY_COOKIE = 'pc_v7_entry_seen';
 const PRIVATE_REALM = 'Prozrachnaya Cena Private';
+const CABINET_LOCK_REALM = 'Prozrachnaya Cena Cabinets';
 
 const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7',
@@ -71,6 +72,10 @@ function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
 }
 
+function isCabinetLockMode(): boolean {
+  return process.env.PC_CABINET_LOCK_MODE === 'on';
+}
+
 function isPublicAsset(p: string): boolean {
   return PUBLIC_PREFIX.some((x) => p.startsWith(x));
 }
@@ -81,6 +86,14 @@ function isPublic(p: string): boolean {
 
 function isPlatformV7PublicPath(p: string): boolean {
   return PLATFORM_V7_PUBLIC_EXACT.has(p) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => p.startsWith(x));
+}
+
+function isCabinetLockedPath(p: string): boolean {
+  if (isPublicAsset(p)) return false;
+  if (p.startsWith('/api/runtime-')) return true;
+  if (p.startsWith('/api/platform-v7') || p.startsWith('/api/cabinet')) return true;
+  if (!p.startsWith('/platform-v7')) return false;
+  return !isPlatformV7PublicPath(p);
 }
 
 function isProtectedPath(p: string): boolean {
@@ -118,6 +131,10 @@ function hasPrivateCredentials(): boolean {
   return Boolean(readEnv('PC_PRIVATE_PASSWORD') || readEnv('PC_OWNER_KEY'));
 }
 
+function hasCabinetLockCredentials(): boolean {
+  return Boolean(readEnv('PC_CABINET_LOCK_PASSWORD'));
+}
+
 function isOwnerAuthorized(req: NextRequest): boolean {
   const ownerKey = readEnv('PC_OWNER_KEY');
   const requestKey = req.headers.get('x-pc-owner-key') || req.cookies.get(OWNER_COOKIE)?.value || '';
@@ -130,6 +147,16 @@ function isOwnerAuthorized(req: NextRequest): boolean {
   if (!basic) return false;
 
   return safeEqual(basic.user, privateUser) && safeEqual(basic.password, privatePassword);
+}
+
+function isCabinetLockAuthorized(req: NextRequest): boolean {
+  const lockPassword = readEnv('PC_CABINET_LOCK_PASSWORD');
+  if (!lockPassword) return false;
+  const lockUser = readEnv('PC_CABINET_LOCK_USER') || 'owner';
+  const basic = parseBasicAuth(req.headers.get('authorization'));
+  if (!basic) return false;
+
+  return safeEqual(basic.user, lockUser) && safeEqual(basic.password, lockPassword);
 }
 
 function applySecurityHeaders(response: NextResponse, protectedResponse = false) {
@@ -165,6 +192,25 @@ function privateUnauthorizedResponse() {
     headers: {
       'content-type': 'text/plain; charset=utf-8',
       'www-authenticate': `Basic realm="${PRIVATE_REALM}", charset="UTF-8"`,
+    },
+  });
+  return applySecurityHeaders(response, true);
+}
+
+function cabinetLockMissingCredentialsResponse() {
+  const response = new NextResponse('Cabinet lock is enabled but credentials are missing.', {
+    status: 503,
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  });
+  return applySecurityHeaders(response, true);
+}
+
+function cabinetLockUnauthorizedResponse() {
+  const response = new NextResponse('Cabinet access required.', {
+    status: 401,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'www-authenticate': `Basic realm="${CABINET_LOCK_REALM}", charset="UTF-8"`,
     },
   });
   return applySecurityHeaders(response, true);
@@ -277,6 +323,18 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  const cabinetLockEnabled = isCabinetLockMode();
+  const cabinetLockedPath = isCabinetLockedPath(p);
+  const lockProtectedResponse = (privateModeEnabled && protectedPath) || (cabinetLockEnabled && cabinetLockedPath);
+  if (cabinetLockEnabled && cabinetLockedPath) {
+    if (!hasCabinetLockCredentials()) {
+      return cabinetLockMissingCredentialsResponse();
+    }
+    if (!isCabinetLockAuthorized(req)) {
+      return cabinetLockUnauthorizedResponse();
+    }
+  }
+
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
   const resolvedRole = resolveRole(req, session?.role ?? null);
 
@@ -287,7 +345,7 @@ export async function middleware(req: NextRequest) {
       return redirectToPlatformV7Entry(req);
     }
 
-    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+    const response = withRoleHeaders(req, resolvedRole, lockProtectedResponse);
     persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
     // Phase 4C-pre — report-only cabinet RBAC observation (flag-gated, off by default).
@@ -311,21 +369,21 @@ export async function middleware(req: NextRequest) {
   }
 
   if (isPublic(p) || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
-    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+    const response = withRoleHeaders(req, resolvedRole, lockProtectedResponse);
     persistRoleCookie(req, response, resolvedRole);
     return response;
   }
 
   if (!session) {
     if (p.startsWith('/api/')) {
-      return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), privateModeEnabled);
+      return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), lockProtectedResponse);
     }
     const u = req.nextUrl.clone();
     u.pathname = '/platform-v7';
-    return applySecurityHeaders(NextResponse.redirect(u), privateModeEnabled);
+    return applySecurityHeaders(NextResponse.redirect(u), lockProtectedResponse);
   }
 
-  return withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+  return withRoleHeaders(req, resolvedRole, lockProtectedResponse);
 }
 
 export const config = { matcher: ['/((?!_next/static|_next/image|favicon\.ico).*)'] };
