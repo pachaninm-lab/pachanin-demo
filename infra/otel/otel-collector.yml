@@ -1,0 +1,108 @@
+# OpenTelemetry Collector — GrainFlow (ТЗ 13.2)
+# Receives traces/metrics/logs from API and forwards to Tempo/Prometheus/Loki
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Prometheus metrics scrape (self-monitoring)
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: otel-collector
+          static_configs:
+            - targets: [0.0.0.0:8888]
+
+processors:
+  # Батчинг для эффективной отправки
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+  # Добавляем environment атрибуты
+  resource:
+    attributes:
+      - key: service.environment
+        value: ${ENVIRONMENT:-production}
+        action: upsert
+      - key: service.cluster
+        value: grainflow-k8s
+        action: upsert
+
+  # Фильтрация health/metrics эндпоинтов из трейсов
+  filter/health:
+    traces:
+      span:
+        - 'attributes["http.route"] == "/health"'
+        - 'attributes["http.route"] == "/ready"'
+        - 'attributes["http.route"] == "/metrics"'
+
+  # Маскировка ПДн в атрибутах трейсов
+  transform/mask_pdn:
+    trace_statements:
+      - context: span
+        statements:
+          - replace_pattern(attributes["user.inn"], "\\d{10,12}", "***INN***")
+          - replace_pattern(attributes["user.phone"], "\\+?7\\d{10}", "***PHONE***")
+
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  # Трейсы → Grafana Tempo
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Метрики → Prometheus (remote write)
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    tls:
+      insecure_skip_verify: true
+
+  # Логи → Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    labels:
+      resource:
+        service.name: "service_name"
+        service.version: "service_version"
+      attributes:
+        level: "severity"
+
+  # Debug (отключить в production)
+  logging:
+    loglevel: warn
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/health, transform/mask_pdn, resource, batch]
+      exporters: [otlp/tempo]
+
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheusremotewrite]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [loki]

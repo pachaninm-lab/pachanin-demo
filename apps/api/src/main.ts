@@ -1,3 +1,5 @@
+import './tracing';
+import './sentry';
 import 'reflect-metadata';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';

@@ -1,0 +1,94 @@
+{
+  "project": "grainflow",
+  "environments": ["development", "staging", "production"],
+  "features": [
+    {
+      "name": "ml_price_prediction",
+      "description": "Использовать ML-модель для предсказания цены (вместо эвристики)",
+      "type": "STANDARD",
+      "default_enabled": false,
+      "environments": {
+        "development": false,
+        "staging": true,
+        "production": false
+      }
+    },
+    {
+      "name": "fraud_ml_model",
+      "description": "Использовать LightGBM для fraud detection (вместо rule-based)",
+      "type": "STANDARD",
+      "default_enabled": false,
+      "environments": {
+        "development": false,
+        "staging": false,
+        "production": false
+      }
+    },
+    {
+      "name": "elasticsearch_search",
+      "description": "Полнотекстовый поиск заявок через Elasticsearch",
+      "type": "STANDARD",
+      "default_enabled": true,
+      "environments": {
+        "development": true,
+        "staging": true,
+        "production": true
+      }
+    },
+    {
+      "name": "factoring_enabled",
+      "description": "Факторинг — раннее финансирование сделок",
+      "type": "STANDARD",
+      "default_enabled": true,
+      "environments": {
+        "development": true,
+        "staging": true,
+        "production": true
+      }
+    },
+    {
+      "name": "new_driver_ui",
+      "description": "Новый интерфейс водителя v2",
+      "type": "STANDARD",
+      "default_enabled": false,
+      "environments": {
+        "development": true,
+        "staging": true,
+        "production": false
+      }
+    },
+    {
+      "name": "export_quota_check",
+      "description": "Проверка квот на экспорт зерна (Минсельхоз)",
+      "type": "STANDARD",
+      "default_enabled": false,
+      "environments": {
+        "development": false,
+        "staging": false,
+        "production": false
+      }
+    },
+    {
+      "name": "push_notifications",
+      "description": "Push-уведомления для мобильных устройств",
+      "type": "STANDARD",
+      "default_enabled": true,
+      "environments": {
+        "development": false,
+        "staging": true,
+        "production": true
+      }
+    },
+    {
+      "name": "counterparty_scoring_v2",
+      "description": "Новый алгоритм скоринга контрагентов v2",
+      "type": "STANDARD",
+      "default_enabled": false,
+      "environments": {
+        "development": true,
+        "staging": false,
+        "production": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+# Promtail — собирает логи из Docker контейнеров → Loki
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker-containers
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: [grainflow]
+    relabel_configs:
+      - source_labels: [__meta_docker_container_name]
+        target_label: container
+      - source_labels: [__meta_docker_container_log_stream]
+        target_label: stream
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: service
+    pipeline_stages:
+      # JSON парсинг для структурированных логов NestJS
+      - json:
+          expressions:
+            level: level
+            message: message
+            context: context
+            timestamp: timestamp
+      - labels:
+          level:
+          context:
+      # Маскировка ПДн в логах
+      - replace:
+          expression: '(\d{10,12})'
+          replace: '***INN***'
+      - replace:
+          expression: '(\+?7\d{10})'
+          replace: '***PHONE***'
+      - replace:
+          expression: '([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})'
+          replace: '***EMAIL***'
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano

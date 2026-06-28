@@ -31,7 +31,22 @@
     "rxjs": "^7.8.1",
     "@nestjs/websockets": "^10.4.5",
     "@nestjs/platform-socket.io": "^10.4.5",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "@nestjs/elasticsearch": "^10.0.1",
+    "@elastic/elasticsearch": "^8.13.0",
+    "@sentry/node": "^8.18.0",
+    "@sentry/profiling-node": "^8.18.0",
+    "@opentelemetry/sdk-node": "^0.52.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.52.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.52.0",
+    "@opentelemetry/sdk-metrics": "^1.25.0",
+    "@opentelemetry/resources": "^1.25.0",
+    "@opentelemetry/semantic-conventions": "^1.25.0",
+    "@opentelemetry/sdk-trace-node": "^1.25.0",
+    "@opentelemetry/instrumentation-http": "^0.52.0",
+    "@opentelemetry/instrumentation-express": "^0.42.0",
+    "@opentelemetry/instrumentation-nestjs-core": "^0.40.0",
+    "@opentelemetry/instrumentation-pg": "^0.43.0"
   },
   "devDependencies": {
     "@nestjs/testing": "^10.4.5",
