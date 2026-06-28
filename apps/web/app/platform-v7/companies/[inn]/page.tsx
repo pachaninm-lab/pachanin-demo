@@ -62,7 +62,7 @@ const COMPANIES: Record<string, {
   '7701234567': {
     name: 'ПромАгро АО',
     inn: '7701234567',
-    ogrn: '1187700003333',
+    ogrn: '1197700003333',
     region: 'Москва',
     rating: '4.4 / 5',
     deals: '21',

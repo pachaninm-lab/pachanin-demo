@@ -19,7 +19,7 @@ export function TestModeSystemsPanel() {
       <div>
         <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Внешние подключения · тестовый режим</div>
         <div style={{ marginTop: 4, fontSize: 22, lineHeight: 1.12, fontWeight: 950, color: 'var(--pc-text-primary, #0F1419)' }}>Проверочные ответы</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-muted, #64748B)', lineHeight: 1.55 }}>Боевые подключения здесь не используются. Экран показывает тестовые ответы и следующий шаг по сделке.</div>
+        <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-muted, #64748B)', lineHeight: 1.55 }}>Промышленные подключения здесь не используются. Экран показывает тестовые ответы и следующий шаг по сделке.</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>

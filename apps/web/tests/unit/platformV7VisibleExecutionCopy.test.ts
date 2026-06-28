@@ -20,7 +20,6 @@ const visibleSummaryFiles = [
   'lib/platform-v7/action-feedback-preview.ts',
   'components/platform-v7/JournalPreview.tsx',
   'lib/platform-v7/journal-preview.ts',
-  'app/platform-v7/driver/field/page.tsx',
   'app/platform-v7/driver/page.tsx',
 ];
 

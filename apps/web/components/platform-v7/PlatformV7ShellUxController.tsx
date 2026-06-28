@@ -16,6 +16,7 @@ import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RS
 
 const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
+
 const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
 
 const PLATFORM_ROLES: readonly PlatformRole[] = [
@@ -131,7 +132,7 @@ export function PlatformV7ShellUxController() {
   React.useEffect(() => setMounted(true), []);
 
   const activeRole = mounted ? readActiveRole(role) : role;
-  const roleHome = platformV7RoleRoute(activeRole) ?? '/platform-v7/login';
+  const roleHome = platformV7RoleRoute(activeRole);
   const publicPath = isPublicPath(pathname ?? '/platform-v7');
   const bottomNav = safeRoleNav(activeRole, platformV7NavByRole(activeRole));
   const drawerNav = safeRoleNav(activeRole, [...bottomNav, ...platformV7DrawerNavByRole(activeRole)]);

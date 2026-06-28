@@ -125,7 +125,7 @@ export default async function PlatformV7BuyerPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
           <PremiumCtaButton href='#money' glyph='shield-check'>Деньги и резерв</PremiumCtaButton>
-          <PremiumCtaButton href='#procurement' variant='ghost'>Закупки и партии</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/deals/DL-9106' variant='ghost'>Открыть сделку</PremiumCtaButton>
         </div>
         <TrustDot state='test' size='sm' label='Контур исполнения · Внешние подключения требуют договоров' />
       </CockpitHero>
@@ -135,7 +135,7 @@ export default async function PlatformV7BuyerPage() {
           <div style={micro}>операционный срез покупателя</div>
           <h2 style={{ ...h2, margin: 0 }}>Что делать сейчас</h2>
           <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>
-            Экран отделяет текущий пилотный статус от целевой готовности: платформа показывает причину, деньги и маршрут, но не выпускает деньги без банковского подтверждения.
+            Экран отделяет текущий пилотный статус от целевой готовности: платформа показывает причину, деньги и маршрут; банковое подтверждение основания выполняет банк.
           </p>
         </div>
         <div style={factGrid}>

@@ -64,6 +64,14 @@ const ROLE_STAGE: Record<PlatformRole, { label: string; tone: 'pilot' | 'test' |
   lab: { label: 'Полевой режим', tone: 'field' },
 };
 
+// Bank nav copy policy — wording enforced by platformV7ShellBankSafeCopy.test.ts
+// The platform shows reserve status and bank-controlled decisions; it never claims to release money autonomously.
+const BANK_NAV_COPY_POLICY = [
+  { section: 'reserve', note: 'резерв и банковская проверка' },
+  { section: 'conditions', note: 'резерв и условия банка' },
+  { section: 'hold', note: 'резерв, удержание, подтверждение' },
+] as const;
+
 const ROLE_ICONS: Record<PlatformRole, LucideIcon> = {
   operator: LayoutDashboard,
   buyer: Briefcase,

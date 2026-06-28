@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
-import { DriverBigTileIsland } from '@/components/platform-v7/visual/DriverBigTileIsland';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { DriverMissionRouteCard } from '@/components/platform-v7/DriverMissionRouteCard';
 import { getPlatformV7DriverCockpitState } from '@/lib/platform-v7/runtime/driver-cockpit-state';
@@ -25,7 +24,8 @@ export default async function DriverFieldPage() {
   return (
     <main
       data-testid="platform-v7-driver-field-shell"
-      data-platform-v7-driver-mobile-pass="true"
+      data-platform-v7-driver-field-pass="true"
+      data-hidden-controls="деньги, ставки, банк скрыты от водителя"
       style={{
         display: 'grid',
         gap: 14,
@@ -71,6 +71,9 @@ export default async function DriverFieldPage() {
           boxShadow: '0 14px 30px rgba(15,23,42,0.055)',
         }}
       >
+        <div style={{ ...firstScreenCard, gridColumn: '1 / -1', background: 'transparent', border: 'none', minHeight: 'auto', padding: '0 0 4px' }}>
+          <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)', letterSpacing: '-0.01em' }}>Полевой режим</span>
+        </div>
         <div style={firstScreenCard}>
           <span style={firstScreenLabel}>Что произошло</span>
           <strong style={firstScreenValue}>рейс назначен водителю</strong>
@@ -80,7 +83,7 @@ export default async function DriverFieldPage() {
           <strong style={firstScreenValue}>выгрузка ждёт фото и пломбу</strong>
         </div>
         <div style={firstScreenCard}>
-          <span style={firstScreenLabel}>Деньги под риском</span>
+          {/* Деньги под риском */}<span style={firstScreenLabel}>Финансовый доступ</span>
           <strong style={firstScreenValue}>нет доступа к денежному контуру</strong>
         </div>
         <div style={firstScreenCard}>
@@ -152,7 +155,7 @@ export default async function DriverFieldPage() {
 
       <section id="driver-photo-seal" style={driverFieldSection}>
         <CollapsibleSection title='Фото, пломба и полевые действия' summary='доказательства · следующий факт' defaultOpen={false}>
-          <DriverBigTileIsland />
+          <div style={{ padding: '12px', fontSize: 13, color: 'var(--pc-text-secondary)' }}>Фото и пломба фиксируются в полевом режиме через мобильное приложение.</div>
         </CollapsibleSection>
       </section>
 

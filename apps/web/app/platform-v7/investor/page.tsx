@@ -207,7 +207,7 @@ export default function InvestorPage() {
           <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Запросить материалы по сценарию</div>
           <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>Финансовая модель, план роста и проверочный пакет</div>
         </div>
-        <a href="mailto:invest@pachanin.ru" style={{ display: 'inline-flex', alignItems: 'center', padding: '10px 18px', borderRadius: 12, background: '#0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, textDecoration: 'none' }}>
+        <a href="mailto:invest@pachanin.рф" style={{ display: 'inline-flex', alignItems: 'center', padding: '10px 18px', borderRadius: 12, background: '#0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, textDecoration: 'none' }}>
           Написать →
         </a>
       </div>

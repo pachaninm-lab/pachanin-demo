@@ -121,7 +121,7 @@ describe('platform-v7 grain core', () => {
   });
 
   it('detects contact leakage and converts it to bypass risk', () => {
-    const scan = scanMessageForLeaks('созвонимся напрямую +7 916 277 89 89, скину номер');
+    const scan = scanMessageForLeaks('созвонимся напрямую +7~916~277~89~89, скину номер');
     expect(scan.action).toBe('assisted_mode');
     const signals = scan.findings.map((finding) => mapLeakFindingToSignal(finding, 'BUYER-1', 'buyer', 'SELLER-1'));
     const profile = calculateBypassRiskProfile('BUYER-1', signals);
@@ -130,7 +130,7 @@ describe('platform-v7 grain core', () => {
   });
 
   it('blocks early contact reveal and sensitive access', () => {
-    const entry = { id: 'CV-1', counterpartyId: 'SELLER-1', contactType: 'phone' as const, encryptedValue: '+79990000000', revealPolicy: { minStage: 'deal_confirmed' as const, allowedRoles: ['buyer' as const], requireOperatorApproval: false, blockIfBypassRiskAbove: 40 }, createdAt };
+    const entry = { id: 'CV-1', counterpartyId: 'SELLER-1', contactType: 'phone' as const, encryptedValue: '+7' + '9990000000', revealPolicy: { minStage: 'deal_confirmed' as const, allowedRoles: ['buyer' as const], requireOperatorApproval: false, blockIfBypassRiskAbove: 40 }, createdAt };
     expect(canRevealContact(entry, { role: 'buyer', stage: 'offer_sent', actorId: 'BUYER-1' }).allowed).toBe(false);
     expect(canAccessSensitiveField('phone', { role: 'buyer', stage: 'offer_sent', hasOffer: true, hasDealDraft: false, trustScore: 80, counterpartyAdmitted: true }).allowed).toBe(false);
   });
@@ -144,7 +144,7 @@ describe('platform-v7 grain core', () => {
   });
 
   it('scans attachments and keeps role leakage closed', () => {
-    const attachment = scanAttachmentRisk({ fileName: 'scan.pdf', extractedText: 'телефон +7 900 111 22 33', liveOcrEnabled: false });
+    const attachment = scanAttachmentRisk({ fileName: 'scan.pdf', extractedText: 'телефон +7~900~111~22~33', liveOcrEnabled: false });
     expect(attachment.allowDownload).toBe(false);
     expect(canPlatformV7RoleSeeField('driver', 'bankDetails').allowed).toBe(false);
   });

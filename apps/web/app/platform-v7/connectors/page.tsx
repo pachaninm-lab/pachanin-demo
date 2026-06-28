@@ -94,7 +94,7 @@ export default async function PlatformV7ConnectorsPage() {
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ ...micro, color: '#A7F3D0' }}>статус подключений</div>
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Экран честно отделяет проверочный контур, предынтеграционную готовность и боевое подключение, которое требует договоров и доступа.</p>
+          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Экран честно отделяет проверочный контур, предынтеграционную готовность и промышленное подключение, которое требует договоров и доступа.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {connectorSummary.map((item) => <SummaryCard key={item.label} item={item} />)}

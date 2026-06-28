@@ -15,6 +15,7 @@ import {
   formatTons,
 } from '@/lib/platform-v7/deal-execution-source-of-truth';
 import { canRequestStrictMoneyRelease, strictMoneyReleaseBlockers } from '@/lib/platform-v7/deal-money-release-gate';
+import { READINESS_SANDBOX_LABEL, READINESS_HERO_TITLE_LEGACY, READINESS_METRIC_READY_LABEL, DL9102_CARD_SCENARIO_LABEL, MONEY_RELEASE_COLUMN_LABEL } from '@/lib/platform-v7/readiness-copy';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -48,7 +49,7 @@ function gatesForDeal(deal: Deal): Gate[] {
 }
 
 export default function PlatformV7ReadinessPage() {
-  const deals = selectAllDeals().slice(0, 14);
+  const deals = selectAllDeals().filter((d) => d.id !== 'DL-9102').slice(0, 14);
   const rows = deals.map((deal) => {
     const gates = gatesForDeal(deal);
     const readyCount = gates.filter((gate) => gate.ready).length;
@@ -90,14 +91,16 @@ export default function PlatformV7ReadinessPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица готовности · контрольный контур</div>
+            <div data-readiness-context="alt" style={{ fontSize: 10, color: M, fontWeight: 800, letterSpacing: '0.04em', marginTop: 2, textTransform: 'uppercase' }}>{READINESS_SANDBOX_LABEL}</div>
             <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Готовность сделки к исполнению и банковскому основанию</div>
+            <div data-readiness-context="legacy-title" style={{ fontSize: 12, color: M, marginTop: 2 }}>{READINESS_HERO_TITLE_LEGACY}</div>
             <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 900 }}>
               Один экран показывает, где сделка застряла: ФГИС, документы, логистика, банк или спор. Это не платёжный механизм, а проверочная панель оператора.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href={PLATFORM_V7_CONTROL_TOWER_ROUTE} style={btn()}>Центр управления</Link>
-            <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверка основания</Link>
+            <Link href={PLATFORM_V7_RELEASE_SAFETY_ROUTE} style={btn()}>Проверка денег</Link>
           </div>
         </div>
       </section>
@@ -105,10 +108,13 @@ export default function PlatformV7ReadinessPage() {
       <P7ExecutionMachineReadOnlyStrip />
 
       <div data-testid="platform-v7-readiness-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
-        <Metric label='Готовы к банку' value={String(readyForBank)} tone='good' />
+        {/* Готовы к банку */}
+        <Metric label={READINESS_METRIC_READY_LABEL} value={String(readyForBank)} tone='good' />
         <Metric label='С блокерами' value={String(blocked)} tone={blocked > 0 ? 'bad' : 'good'} />
         <Metric label='Под удержанием' value={formatCompactMoney(hold)} tone={hold > 0 ? 'bad' : 'good'} />
       </div>
+
+      <DL9102ReadinessCard />
 
       <DL9106ReadinessCard />
 
@@ -141,6 +147,29 @@ export default function PlatformV7ReadinessPage() {
         ))}
       </section>
     </div>
+  );
+}
+
+function DL9102ReadinessCard() {
+  const deal = selectAllDeals().find((d) => d.id === 'DL-9102');
+  if (!deal) return null;
+  return (
+    <section data-testid="platform-v7-readiness-dl9102" style={{ background: S, border: `1px solid ${WARN}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Контрольный блокер · спор по качеству</div>
+          <div style={{ fontSize: 12, color: M, marginTop: 2 }}>{DL9102_CARD_SCENARIO_LABEL}</div>
+          <div style={{ marginTop: 4, fontSize: 20, fontWeight: 900, color: T }}>DL-9102 · {deal.grain}</div>
+        </div>
+        <span style={{ padding: '6px 12px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.18)`, color: ERR, fontSize: 14, fontWeight: 900 }}>заблокировано</span>
+      </div>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: M }}>
+        <span>Резерв: <b style={{ color: T }}>{formatCompactMoney(deal.reservedAmount)}</b></span>
+        <span>Удержано: <b style={{ color: ERR }}>{formatCompactMoney(deal.holdAmount)}</b></span>
+        <span>{MONEY_RELEASE_COLUMN_LABEL} <b style={{ color: deal.releaseAmount > 0 ? BRAND : ERR }}>{formatCompactMoney(deal.releaseAmount ?? 0)}</b></span>
+        <span>Блокеры: <b style={{ color: WARN }}>{deal.blockers.join(', ')}</b></span>
+      </div>
+    </section>
   );
 }
 

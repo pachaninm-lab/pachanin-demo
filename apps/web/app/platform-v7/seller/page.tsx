@@ -32,13 +32,13 @@ const sellerHandoff: HandoffItem[] = [
   {
     direction: 'awaits',
     role: 'от покупателя и банка',
-    requirement: 'резерв ожидает банковской проверки документов',
+    requirement: 'резерв ожидает банковского подтверждения',
     moneyImpact: true,
   },
   {
     direction: 'awaits',
     role: 'от ФГИС «Зерно»',
-    requirement: 'СДИЗ не закрыт — пакет документов ещё нельзя отправить банку',
+    requirement: 'СДИЗ ожидает закрытия',
     moneyImpact: true,
     documentImpact: true,
   },
@@ -50,7 +50,7 @@ const sellerHandoff: HandoffItem[] = [
   },
   {
     direction: 'next',
-    requirement: 'закрыть СДИЗ, ЭТрН и акт приёмки, затем отправить пакет документов в банк',
+    requirement: 'закрыть СДИЗ и ЭТрН для передачи основания банку на проверку',
     entity: 'DL-9106',
     href: '/platform-v7/deals/DL-9106/clean',
     moneyImpact: true,
@@ -62,7 +62,7 @@ const sellerLots = [
     id: 'LOT-2403',
     title: 'Пшеница 4 класса · 600 т · EXW',
     status: 'предложение принято',
-    money: 'резерв 9,65 млн ₽ · к проверке банком 0 ₽',
+    money: 'резерв 9,65 млн ₽ · на проверку банку 0 ₽',
     next: 'закрыть СДИЗ, ЭТрН и приёмку',
     href: '/platform-v7/lots/LOT-2403',
   },
@@ -131,7 +131,7 @@ export default async function PlatformV7SellerPage() {
         summary={
           apiOnline
             ? `${deals.length} сделок · ${disputeCount} открытых споров`
-            : 'Тестовый контур · внешние подключения не активны'
+            : 'Предынтеграционный контур · внешние подключения не активны'
         }
       />
 
@@ -141,12 +141,14 @@ export default async function PlatformV7SellerPage() {
           <span className='seller-command-status'>остановлено · ждёт ЭТрН</span>
         </div>
         <h1>СДИЗ и ЭТрН не закрыты</h1>
+        <p>Закрыть документы, чтобы передать основание банку</p>
         <p>Резерв виден, но банк не получает основание для проверки выплаты.</p>
         <div className='seller-command-facts'>
           <div><span>Деньги</span><strong>9,65 млн ₽</strong><small>резерв · не выплата</small></div>
-          <div><span>К проверке</span><strong>0 ₽</strong><small>пакет не передан</small></div>
+          <div><span>На проверку банку</span><strong>0 ₽</strong><small>готовность денег; это ещё не выплата</small></div>
           <div><span>Ответственный</span><strong>продавец</strong><small>закрыть документы</small></div>
         </div>
+        <p style={{ fontSize: 12, color: '#6B778C' }}>банковская проверка выплаты остановлена до подтверждения документного пакета</p>
         <div className='seller-command-actions'>
           <Link href='/platform-v7/deals/DL-9106/clean'>Открыть сделку</Link>
           <Link href='#documents' data-secondary='true'>Документы</Link>
@@ -155,7 +157,7 @@ export default async function PlatformV7SellerPage() {
 
       <CockpitHero
         className='seller-detail-hero'
-        eyebrow='Кабинет продавца · сделка → документы → проверка выплаты'
+        eyebrow='Кабинет продавца · сделка → документы → деньги'
         title='Закройте документы'
         accent='для банка'
         lead='Первый экран показывает статус сделки, блокер, деньги под риском, ответственного и следующий безопасный шаг.'
@@ -190,6 +192,8 @@ export default async function PlatformV7SellerPage() {
             <div style={micro}>контроль первого экрана</div>
             <h2 style={h2}>Что важно продавцу сейчас</h2>
             <p style={paragraph}>Статус не говорит о готовой выплате. Сначала нужен закрытый пакет документов.</p>
+            <p style={paragraph}>контур исполнения: партия, лот, резерв покупателя, СДИЗ, ЭТрН, приёмка</p>
+            <p style={paragraph}>сделка передаёт основание банку после закрытия всех документных условий.</p>
           </div>
           <div style={factGrid} className='seller-fact-grid'>
             {sellerFirstScreenFacts.map((fact) => (
@@ -239,7 +243,7 @@ export default async function PlatformV7SellerPage() {
               stopReason='банковская проверка остановлена: СДИЗ и ЭТрН не закрыты'
               requiredEvidence='закрытый СДИЗ, ЭТрН, акт приёмки и протокол качества без незакрытых расхождений'
               afterResolved='пакет документов передаётся банку; банк проверяет выплату по своим правилам'
-              bankPlatformBoundary='платформа показывает пакет документов и статус; банк подтверждает проверку и движение денег'
+              bankPlatformBoundary='платформа показывает основание и статус; банк подтверждает проверку и движение денег'
             />
           </div>
         </CollapsibleSection>
@@ -250,13 +254,13 @@ export default async function PlatformV7SellerPage() {
           <div style={{ display: 'grid', gap: 12 }}>
             <P7ActionStateChip
               status='waiting'
-              label='рабочий сценарий'
+              label='пилотный сценарий'
               nextActor='ФГИС «Зерно» и банк'
               blocker='СДИЗ и ЭТрН не закрыты'
               moneyEffect='банковская проверка остановлена'
             />
             <ConditionReasonStrip
-              condition='рабочий сценарий'
+              condition='пилотный сценарий'
               responsible='ФГИС «Зерно» и банк'
               documentState='СДИЗ и ЭТрН не закрыты'
               stopReason='банковская проверка остановлена'

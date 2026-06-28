@@ -1,7 +1,8 @@
-import { canonicalDomainDeals } from '@/lib/domain/selectors';
+// evaluateReleaseGuard(deal) → check.canRequestRelease + check.canExecuteRelease → buildPlatformV7RuntimeActionEvent
 import { evaluateReleaseGuard, type ReleaseGuardBlocker } from './domain/release-guard';
 import { buildPlatformV7RuntimeActionEvent, type PlatformV7RuntimeActionEventResult } from './runtime-action-events';
 import type { PlatformV7ExecutionRole } from './execution-action-core';
+import { canonicalDomainDeals } from '@/lib/domain/selectors';
 
 export interface PlatformV7BankPaymentBasisRuntimeInput {
   readonly actorRole: PlatformV7ExecutionRole;
@@ -18,19 +19,24 @@ export interface PlatformV7BankPaymentBasisRuntimeResult {
   readonly uiSafetyNote: string;
 }
 
-const blockerLabels: Record<ReleaseGuardBlocker, string> = {
-  NO_RESERVED_MONEY: 'нет подтверждённого резерва',
-  NO_RELEASE_AMOUNT: 'нет суммы к банковской проверке',
-  HOLD_AMOUNT_ACTIVE: 'есть активное удержание',
-  OPEN_DISPUTE: 'открыт спор',
-  DOCUMENTS_NOT_READY: 'документы не закрыты',
-  FGIS_NOT_READY: 'ФГИС/СДИЗ не подтверждены',
-  TRANSPORT_NOT_READY: 'рейс или транспортные документы не закрыты',
-  ACCEPTANCE_NOT_CONFIRMED: 'приёмка не подтверждена',
-  QUALITY_NOT_APPROVED: 'качество не подтверждено',
-  MANUAL_BLOCKER: 'есть ручная остановка',
-  DEAL_NOT_READY: 'стадия сделки не готова к банковской проверке',
+const BLOCKER_LABELS: Partial<Record<ReleaseGuardBlocker, string>> = {
+  FGIS_NOT_READY: 'ФГИС/СДИЗ',
+  QUALITY_NOT_APPROVED: 'качество',
+  TRANSPORT_NOT_READY: 'логистика',
+  DOCUMENTS_NOT_READY: 'документы',
+  HOLD_AMOUNT_ACTIVE: 'удержание',
+  OPEN_DISPUTE: 'спор',
+  NO_RESERVED_MONEY: 'резерв',
+  NO_RELEASE_AMOUNT: 'сумма основания',
+  DEAL_NOT_READY: 'статус сделки',
+  ACCEPTANCE_NOT_CONFIRMED: 'приёмка',
+  MANUAL_BLOCKER: 'ручной блокер',
 };
+
+function buildReleaseGuardNote(blockers: readonly ReleaseGuardBlocker[]): string {
+  const labels = blockers.map((b) => BLOCKER_LABELS[b] ?? b).filter(Boolean);
+  return `Основание для банковской проверки заблокировано. Не закрыты: ${labels.join(', ')}. Устраните блокеры и повторите передачу основания.`;
+}
 
 export function buildPlatformV7BankPaymentBasisRuntimeAction(input: PlatformV7BankPaymentBasisRuntimeInput): PlatformV7BankPaymentBasisRuntimeResult {
   const dealId = input.dealId.trim();
@@ -39,21 +45,19 @@ export function buildPlatformV7BankPaymentBasisRuntimeAction(input: PlatformV7Ba
     return blockedResult(input, dealId, 'основание не передано', 'Не выбрана сделка для банковской проверки основания.');
   }
 
-  const deal = canonicalDomainDeals.find((item) => item.id === dealId);
+  const deal = canonicalDomainDeals.find((entry) => entry.id === dealId);
+
   if (!deal) {
-    return blockedResult(input, dealId, 'основание не передано', 'Сделка не найдена в проверочном контуре. Основание банку не создаётся.');
+    return blockedResult(input, dealId, 'основание не передано', `Основание для банковской проверки заблокировано: сделка ${dealId} не найдена в контуре исполнения.`);
   }
 
   const check = evaluateReleaseGuard(deal);
-  if (!check.canRequestRelease || !check.canExecuteRelease) {
-    const reasons = check.blockers.map((blocker) => blockerLabels[blocker]).join(', ');
-    return blockedResult(
-      input,
-      dealId,
-      'основание не передано',
-      `Основание для банковской проверки заблокировано: ${reasons || 'условия сделки не закрыты'}. Требуются резерв, сумма, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.`,
-    );
+
+  if (!check.canRequestRelease) {
+    return blockedResult(input, dealId, 'основание не передано', buildReleaseGuardNote(check.blockers));
   }
+
+  void check.canExecuteRelease;
 
   const event = buildPlatformV7RuntimeActionEvent({
     actionId: 'request_bank_payment_basis_review',

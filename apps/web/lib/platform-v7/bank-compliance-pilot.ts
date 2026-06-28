@@ -63,7 +63,7 @@ export const PLATFORM_V7_COMPLIANCE_PROFILES: readonly PlatformV7ComplianceCount
     role: 'seller',
     companyName: 'КФХ «Северное поле»',
     inn: '6829000001',
-    ogrn: '326682900000001',
+    ogrn: '326692900000001',
     egrulStatus: 'действует · ручная проверка выписки',
     director: 'Паханин С.П.',
     representative: 'Паханин С.П.',

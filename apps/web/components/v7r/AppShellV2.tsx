@@ -219,7 +219,7 @@ export function AppShellV2({ children }: { children: React.ReactNode }) {
           </div>
           <Link href="/platform-v7/roles" onClick={() => { clearRoleSelection(); setSidebarOpen(false); }} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>{PLATFORM_V7_LEXICON.nav.roles}</Link>
           <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(217,119,6,0.18)', background: 'rgba(217,119,6,0.08)', color: '#B45309', fontSize: 12, lineHeight: 1.6 }}>
-            Платформа честно показывает режим роли: пилотный режим, тестовая среда или демо-данные. Боевой контур не заявляется без подтверждённых подключений.
+            Платформа честно показывает режим роли: пилотный режим, тестовая среда или демо-данные. Промышленный контур не заявляется без подтверждённых подключений.
           </div>
         </div>
       </aside>

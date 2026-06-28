@@ -7,6 +7,7 @@ import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-exec
 import { formatTons, selectDealLogisticsTripPlan } from '@/lib/platform-v7/deal-execution-source-of-truth';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 
+// Кабинет логистики: Логистика · рейс → водитель → ЭТрН → приёмка
 const logisticsHandoff: HandoffItem[] = [
   {
     direction: 'sends',

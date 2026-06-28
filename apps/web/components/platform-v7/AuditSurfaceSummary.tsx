@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { P7Badge } from '@/components/platform-v7/P7Badge';
 import { PLATFORM_V7_TOKENS, getPlatformV7ToneTokens, type PlatformV7Tone } from '@/lib/platform-v7/design/tokens';
+import { AUDIT_SURFACE_DISPLAY } from '@/lib/platform-v7/audit-surface-display';
 
 type AuditSurface = 'bank' | 'documents' | 'disputes';
 
@@ -65,10 +66,14 @@ export const PLATFORM_V7_AUDIT_SURFACES: Record<AuditSurface, AuditSurfaceConfig
 export function AuditSurfaceSummary({ surface }: { surface: AuditSurface }) {
   const config = PLATFORM_V7_AUDIT_SURFACES[surface];
   const tone = getPlatformV7ToneTokens(config.tone);
+  const display = AUDIT_SURFACE_DISPLAY[surface];
+  const displayStatus = display?.status ?? config.status;
+  const displayBlocker = display?.blocker ?? config.blocker;
+  const displayCta = display?.cta ?? config.cta;
   const rows = [
     ['Что происходит сейчас', config.now],
     ['Где деньги', config.money],
-    ['Что блокирует', config.blocker],
+    ['Что блокирует', displayBlocker],
     ['Доказательства', config.evidence],
     ['Кто следующий', config.next],
   ] as const;
@@ -106,11 +111,11 @@ export function AuditSurfaceSummary({ surface }: { surface: AuditSurface }) {
             {config.title}: деньги, основание, блокер и действие
           </h1>
           <p style={{ margin: 0, color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: PLATFORM_V7_TOKENS.typography.body.size, lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight }}>
-            {config.status}. {config.hidden}.
+            {displayStatus}. {config.hidden}.
           </p>
         </div>
         <Link href={config.href} style={{ ...primaryActionStyle, background: tone.fg }}>
-          {config.cta}
+          {displayCta}
         </Link>
       </header>
 

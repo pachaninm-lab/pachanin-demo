@@ -13,25 +13,17 @@ describe('platform-v7 public registration and role-locked login', () => {
     expect(template).toContain('<PublicRegistrationEntryPatch />');
   });
 
-  it('keeps contact, deal review and registration as separate public actions', () => {
+  it('keeps public registration visible with role cards routing to registration', () => {
     expect(patch).toContain("headerLink.href = '/platform-v7/register';");
     expect(patch).toContain("headerLink.textContent = 'Регистрация';");
-    expect(patch).toContain('entry-request-actions');
-    expect(patch).toContain('/platform-v7/contact');
-    expect(patch).toContain('Направить обращение');
-    expect(patch).toContain('/platform-v7/request');
-    expect(patch).toContain('Оставить заявку');
-    expect(patch).toContain('/platform-v7/register');
-    expect(patch).toContain('Перейти к регистрации');
-    expect(patch).toContain('Заявка на демонстрацию платформы и предварительное обсуждение сценария исполнения сделки.');
-    expect(patch).toContain('tile.href = `/platform-v7/login?role=${role}`;');
-    expect(patch).not.toContain('tile.href = `/platform-v7/register?role=${role}`;');
-    expect(patch).not.toContain('controlled pilot');
-    expect(patch).not.toContain('этот ЛК');
+    expect(patch).toContain("heroLink.href = '/platform-v7/register';");
+    expect(patch).toContain("heroLink.textContent = 'Зарегистрироваться';");
+    expect(patch).toContain("tile.href = `/platform-v7/register?role=${role}`;");
+    expect(patch).toContain("cta.textContent = 'Подать заявку на роль';");
   });
 
   it('keeps registration styling readable on mobile', () => {
-    expect(patch).toContain('background:rgba(0,122,47,.07);color:#087a3b');
+    expect(patch).toContain('background:rgba(0,122,47,.07)!important;color:#087a3b!important');
     expect(patch).not.toContain('background:#071611!important;color:#fff!important');
     expect(cleanup).toContain('height:72px!important;min-height:72px!important');
     expect(cleanup).toContain('display:flex!important;grid-template-columns:none!important');

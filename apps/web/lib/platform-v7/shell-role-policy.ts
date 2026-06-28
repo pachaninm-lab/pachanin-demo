@@ -23,7 +23,8 @@ export function inferPlatformRoleFromPath(pathname: string, fallback: PlatformRo
   if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
   if (pathname.startsWith('/platform-v7/lab')) return 'lab';
   if (pathname.startsWith('/platform-v7/bank')) return 'bank';
-  if (pathname.startsWith('/platform-v7/arbitrator') || pathname.startsWith('/platform-v7/disputes')) return 'arbitrator';
+  if (pathname.startsWith('/platform-v7/arbitrator')) return 'arbitrator';
+  if (pathname.startsWith('/platform-v7/disputes')) return 'arbitrator';
   if (pathname.startsWith('/platform-v7/compliance') || pathname.startsWith('/platform-v7/connectors')) return 'compliance';
   return fallback;
 }
@@ -37,8 +38,11 @@ export function getShellPolicy(role: PlatformRole, pathname: string): ShellPolic
 export function getHeaderSelectableRoles(role: PlatformRole, pathname: string): readonly PlatformRole[] {
   const pathRole = inferPlatformRoleFromPath(pathname, role);
   const pathPolicy = getShellPolicy(pathRole, pathname);
-  if (pathPolicy !== 'operator') return [];
-  if (role !== 'operator' && role !== 'executive') return [];
+  if (role !== 'operator' && role !== 'executive') {
+    if (pathPolicy !== 'operator') return [];
+    return [];
+  }
+  if (pathPolicy === 'field') return [];
   return OPERATOR_HEADER_ROLES;
 }
 

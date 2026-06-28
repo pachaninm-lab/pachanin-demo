@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 const ROUTES: Record<string, { id: string; from: string; to: string; status: string; driver: string; plate: string; eta: string; dealId: string; cargo: string; km: number }> = {
-  'ТМБ-14': { id: 'ТМБ-14', from: 'Тамбов', to: 'Воронеж',    status: 'В пути',     driver: 'Иванов С.П.',   plate: 'А234ВС68', eta: '14:30', dealId: 'DL-9102', cargo: 'Пшеница 4 кл.',    km: 142 },
+  'ТМБ-14': { id: 'ТМБ-14', from: 'Тамбов', to: 'Воронеж',    status: 'В пути',     driver: 'Иванов С.П.',   plate: 'А234-ВС-68', eta: '14:30', dealId: 'DL-9102', cargo: 'Пшеница 4 кл.',    km: 142 },
   'ВРЖ-08': { id: 'ВРЖ-08', from: 'Воронеж', to: 'Липецк',    status: 'Прибыл',     driver: 'Петров А.Н.',   plate: 'В567ДЕ36', eta: '—',     dealId: 'DL-9105', cargo: 'Ячмень 2 кл.',     km: 0   },
   'КРС-03': { id: 'КРС-03', from: 'Курск',   to: 'Тамбов',    status: 'Погрузка',   driver: 'Сидоров В.К.',  plate: 'Е890ЖЗ46', eta: '18:00', dealId: 'DL-9108', cargo: 'Подсолнечник',     km: 218 },
   'ВРЖ-12': { id: 'ВРЖ-12', from: 'Воронеж', to: 'Ростов',    status: 'В пути',     driver: 'Козлов М.И.',   plate: 'З123ИК36', eta: '21:45', dealId: 'DL-9110', cargo: 'Кукуруза 3 кл.',   km: 389 },

@@ -27,16 +27,36 @@ const roleMobileContentIntegrity = `
   }
 `;
 
-function FieldShellPolicy(){return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}.pc-v4-search,.pc-v4-select,.pc-v4-mobile-role,.pc-v4-stage,.pc-v4-meta,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(env(safe-area-inset-top) + 66px)!important}` }} />}
-function RoleScopedShellPolicy(){return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}.pc-v4-search,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(var(--pc-header-offset) + 8px)!important}` }} />}
-function OperatorShellPolicy(){return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}` }} />}
+const buyerMobile = `@media(max-width:767px){.pc-v7-buyer-rfq-list{gap:8px!important}.pc-v7-buyer-kpi{grid-template-columns:1fr 1fr!important}}`;
+const sellerMobile = `@media(max-width:767px){.pc-v7-seller-lots{gap:8px!important}.pc-v7-seller-kpi{grid-template-columns:1fr 1fr!important}}`;
+const bankMobile = `@media(max-width:767px){.pc-v7-bank-basis{gap:8px!important}.pc-v7-bank-kpi{grid-template-columns:1fr 1fr!important}}`;
+const complianceMobile = `@media(max-width:767px){.pc-v7-compliance-list{gap:8px!important}.pc-v7-compliance-kpi{grid-template-columns:1fr 1fr!important}}`;
+const operatorMobile = `@media(max-width:767px){.pc-v7-control-tower{gap:8px!important}.pc-v7-operator-kpi{grid-template-columns:1fr 1fr!important}}`;
 
-export function ScopedShellGuard(){
+function FieldShellPolicy() {
+  return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}.pc-v4-search,.pc-v4-select,.pc-v4-mobile-role,.pc-v4-stage,.pc-v4-meta,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(env(safe-area-inset-top) + 66px)!important}` }} />;
+}
+
+function RoleScopedShellPolicy({ roleScopedExtra }: { roleScopedExtra: string }) {
+  return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}${roleScopedExtra}.pc-v4-search,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(var(--pc-header-offset) + 8px)!important}` }} />;
+}
+
+function OperatorShellPolicy() {
+  return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}${operatorMobile}` }} />;
+}
+
+export function ScopedShellGuard() {
   const pathname = usePathname();
-  const role = usePlatformV7RStore((state)=>state.role);
+  const role = usePlatformV7RStore((state) => state.role);
   const shellPolicy = getShellPolicy(role, pathname);
-  if(shellPolicy==='field') return <FieldShellPolicy/>;
-  if(shellPolicy==='role-scoped') return <RoleScopedShellPolicy/>;
-  if(pathname.startsWith('/platform-v7/control-tower') || pathname.startsWith('/platform-v7/operator')) return <OperatorShellPolicy/>;
-  return <OperatorShellPolicy/>;
+
+  const roleScopedExtra =
+    role === 'buyer' ? buyerMobile :
+    role === 'seller' ? sellerMobile :
+    role === 'bank' ? bankMobile :
+    role === 'compliance' ? complianceMobile : '';
+
+  if (shellPolicy === 'field') return <FieldShellPolicy />;
+  if (shellPolicy === 'role-scoped') return <RoleScopedShellPolicy roleScopedExtra={roleScopedExtra} />;
+  return <OperatorShellPolicy />;
 }
