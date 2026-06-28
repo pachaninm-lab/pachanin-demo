@@ -4,7 +4,7 @@ import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import Script from 'next/script';
 
-const SITE_URL = 'https://pachanin-web.vercel.app';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
