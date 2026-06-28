@@ -342,6 +342,7 @@ services:
       MODEL_PATH: /opt/ml/models
     volumes:
       - ./infra/airflow/dags:/opt/airflow/dags:ro
+      - ./infra/airflow/requirements.txt:/opt/airflow/requirements.txt:ro
       - ./apps/ml:/opt/ml:ro
       - ml_models:/opt/ml/models
       - airflow_logs:/opt/airflow/logs
@@ -352,6 +353,7 @@ services:
         condition: service_healthy
     command: >
       bash -c "
+        pip install --no-deps -r /opt/airflow/requirements.txt --quiet 2>/dev/null || true &&
         airflow db migrate &&
         airflow users create --username admin --password grainflow --firstname Admin --lastname GrainFlow --role Admin --email admin@grainflow.ru 2>/dev/null || true &&
         airflow webserver --port 8080 &
