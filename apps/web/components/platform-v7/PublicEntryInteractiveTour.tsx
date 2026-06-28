@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   ArrowRight,
@@ -112,7 +112,7 @@ export function PublicEntryInteractiveTour() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open]);
 
-  const trapFocus = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+  const trapFocus = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Tab' || !dialogRef.current) return;
     const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector)).filter((node) => !node.hasAttribute('disabled'));
     if (focusable.length === 0) return;
@@ -168,7 +168,7 @@ export function PublicEntryInteractiveTour() {
             </div>
 
             <div className='p7-public-tour-body'>
-              <div className='p7-public-tour-stage' aria-hidden='true'>
+              <div className='p7-public-tour-stage' aria-label='Этапы тура'>
                 {tourSteps.map((step, index) => {
                   const StepIcon = step.Icon;
                   const done = index < activeIndex;
@@ -180,6 +180,7 @@ export function PublicEntryInteractiveTour() {
                       className={`p7-public-tour-node ${active ? 'active' : ''} ${done ? 'done' : ''}`}
                       onClick={() => setActiveIndex(index)}
                       aria-label={`Шаг тура: ${step.title}`}
+                      aria-current={active ? 'step' : undefined}
                     >
                       {done ? <CheckCircle2 size={17} /> : <StepIcon size={17} />}
                     </button>
