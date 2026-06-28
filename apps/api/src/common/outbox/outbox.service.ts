@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-export type OutboxStatus = 'PENDING' | 'SENT' | 'CONFIRMED' | 'FAILED' | 'MANUAL_REVIEW';
+export type OutboxStatus = 'PENDING' | 'SENT' | 'CONFIRMED' | 'FAILED' | 'MANUAL_REVIEW' | 'DEAD';
 
 export interface OutboxEntry {
   id: string;
@@ -10,6 +10,9 @@ export interface OutboxEntry {
   payload: any;
   status: OutboxStatus;
   triggeredByUserId?: string;
+  idempotencyKey?: string;
+  maxRetries: number;
+  nextRetryAt?: string;
   createdAt: string;
   sentAt?: string;
   confirmedAt?: string;
@@ -17,7 +20,7 @@ export interface OutboxEntry {
   lastError?: string;
 }
 
-const MAX_AUTO_RETRIES = 3;
+const DEFAULT_MAX_RETRIES = 5;
 
 @Injectable()
 export class OutboxService {
@@ -32,7 +35,13 @@ export class OutboxService {
     dealId?: string;
     payload: any;
     triggeredByUserId?: string;
+    idempotencyKey?: string;
+    maxRetries?: number;
   }): OutboxEntry {
+    if (params.idempotencyKey) {
+      const existing = this.entries.find((e) => e.idempotencyKey === params.idempotencyKey && e.status !== 'DEAD');
+      if (existing) return existing;
+    }
     const entry: OutboxEntry = {
       id: `OUTBOX-${String(++this.counter).padStart(4, '0')}`,
       type: params.type,
@@ -40,6 +49,8 @@ export class OutboxService {
       payload: params.payload,
       status: 'PENDING',
       triggeredByUserId: params.triggeredByUserId,
+      idempotencyKey: params.idempotencyKey,
+      maxRetries: params.maxRetries ?? DEFAULT_MAX_RETRIES,
       createdAt: new Date().toISOString(),
       retryCount: 0,
     };
@@ -51,6 +62,8 @@ export class OutboxService {
         dealId: entry.dealId,
         payload: JSON.stringify(entry.payload),
         status: entry.status,
+        idempotencyKey: entry.idempotencyKey,
+        maxRetries: entry.maxRetries,
       },
     }).catch((e) => this.logger.debug(`Outbox DB write skipped: ${e.message}`));
     return entry;
@@ -76,8 +89,27 @@ export class OutboxService {
     const entry = this.findOrThrow(id);
     entry.retryCount += 1;
     entry.lastError = error;
-    // After max retries, escalate to manual review rather than blocking
-    entry.status = entry.retryCount >= MAX_AUTO_RETRIES ? 'MANUAL_REVIEW' : 'FAILED';
+    if (entry.retryCount >= entry.maxRetries) {
+      entry.status = 'DEAD';
+      this.prisma?.outboxEntry.update({ where: { id }, data: { status: 'DEAD' } }).catch(() => {});
+    } else {
+      const backoffMs = Math.min(1000 * 2 ** entry.retryCount, 3_600_000);
+      entry.nextRetryAt = new Date(Date.now() + backoffMs).toISOString();
+      entry.status = 'FAILED';
+    }
+    return entry;
+  }
+
+  listDead(): OutboxEntry[] {
+    return this.entries.filter((e) => e.status === 'DEAD');
+  }
+
+  requeue(id: string): OutboxEntry {
+    const entry = this.findOrThrow(id);
+    entry.status = 'PENDING';
+    entry.retryCount = 0;
+    entry.nextRetryAt = undefined;
+    entry.lastError = undefined;
     return entry;
   }
 

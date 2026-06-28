@@ -1,14 +1,51 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { DEAL_REPOSITORY, type DealRepository } from './deal.repository';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { RequestUser } from '../../common/types/request-user';
+import { DealEventService } from './deal-event.service';
+import { DealSagaService, SagaStepId } from '../saga/deal-saga.service';
+
+const STATE_TO_SAGA_STEP: Record<string, SagaStepId> = {
+  PUBLISHED: 'publish_lot',
+  OFFER_ACCEPTED: 'match_offer',
+  CONTRACT_SIGNED: 'sign_contract',
+  PAYMENT_RESERVED: 'reserve_payment',
+  LOGISTICS_ASSIGNED: 'assign_logistics',
+  SHIPMENT_STARTED: 'start_shipment',
+  DELIVERED: 'deliver',
+  QUALITY_ACCEPTED: 'lab_result',
+  PAYMENT_RELEASED: 'release_payment',
+  CLOSED: 'close',
+};
+
+const STATE_TO_EVENT: Record<string, string> = {
+  PUBLISHED: 'PUBLISHED',
+  OFFER_SENT: 'OFFER_SENT',
+  OFFER_ACCEPTED: 'OFFER_ACCEPTED',
+  COUNTER_OFFER: 'COUNTER_OFFER',
+  CONTRACT_GENERATED: 'CONTRACT_GENERATED',
+  CONTRACT_SIGNED: 'CONTRACT_SIGNED',
+  PAYMENT_RESERVED: 'PAYMENT_RESERVED',
+  LOGISTICS_ASSIGNED: 'LOGISTICS_ASSIGNED',
+  SHIPMENT_STARTED: 'SHIPMENT_STARTED',
+  DELIVERED: 'DELIVERED',
+  QUALITY_ACCEPTED: 'QUALITY_ACCEPTED',
+  QUALITY_DISPUTED: 'QUALITY_DISPUTED',
+  PAYMENT_RELEASED: 'PAYMENT_RELEASED',
+  DISPUTE_OPENED: 'DISPUTE_OPENED',
+  DISPUTE_RESOLVED: 'DISPUTE_RESOLVED',
+  CANCELLED: 'CANCELLED',
+  CLOSED: 'CLOSED',
+};
 
 @Injectable()
 export class DealsService {
   constructor(
     @Inject(DEAL_REPOSITORY) private readonly deals: DealRepository,
     private readonly executor: ActionExecutorService,
+    @Optional() private readonly dealEvents?: DealEventService,
+    @Optional() private readonly saga?: DealSagaService,
   ) {}
 
   async list(user: RequestUser) {
@@ -53,6 +90,11 @@ export class DealsService {
       scope: { objectType: 'deal', objectId: 'new', ownerOrgId: user.orgId },
       fn: () => this.deals.create(dto, user),
     });
+    const dealId = (result as any)?.id;
+    if (dealId) {
+      this.dealEvents?.emit({ dealId, eventType: 'CREATED', actorId: user.id, actorRole: user.role, payload: { culture: dto.culture } }).catch(() => {});
+      this.saga?.init(dealId);
+    }
     return result;
   }
 
@@ -89,6 +131,23 @@ export class DealsService {
       gates,
       fn: () => this.deals.transition(id, dto.nextState, user, dto.comment),
     });
+
+    const upperState = dto.nextState?.toUpperCase();
+    const eventType = STATE_TO_EVENT[upperState];
+    if (eventType && this.dealEvents) {
+      this.dealEvents.emit({
+        dealId: id,
+        eventType: eventType as any,
+        actorId: user.id,
+        actorRole: user.role,
+        payload: { nextState: dto.nextState, comment: dto.comment },
+      }).catch(() => {});
+    }
+    const sagaStep = STATE_TO_SAGA_STEP[upperState];
+    if (sagaStep && this.saga) {
+      this.saga.advance(id, sagaStep);
+      this.saga.complete(id, sagaStep, { state: dto.nextState });
+    }
 
     return { ...result, auditId };
   }

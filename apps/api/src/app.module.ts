@@ -1,5 +1,8 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
+import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
+import { LogMaskingMiddleware } from './common/middleware/log-masking.middleware';
 import { AppAuthGuard } from './common/guards/auth.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { EvidencePackModule } from './modules/evidence-pack/evidence-pack.module';
@@ -23,6 +26,24 @@ import { BusinessReputationModule } from './modules/business-reputation/business
 import { RuntimeCoreModule } from './modules/runtime-core/runtime-core.module';
 import { DatabaseModule } from './common/database/database.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { MfaModule } from './modules/mfa/mfa.module';
+import { ComplianceModule } from './modules/compliance/compliance.module';
+import { ArbitratorModule } from './modules/arbitrator/arbitrator.module';
+import { IntegrationEventsModule } from './modules/integration-events/integration-events.module';
+import { ExportsModule } from './modules/exports/exports.module';
+import { ElevatorModule } from './modules/elevator/elevator.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { PartnerApiModule } from './modules/partner-api/partner-api.module';
+import { SagaModule } from './modules/saga/saga.module';
+import { OutboxModule } from './common/outbox/outbox.module';
+import { FactoringModule } from './modules/factoring/factoring.module';
+import { BankReconciliationModule } from './modules/bank-reconciliation/bank-reconciliation.module';
+import { SupportModule } from './modules/support/support.module';
+import { KycModule } from './modules/kyc/kyc.module';
+import { CertificateMonitorModule } from './modules/certificate-monitor/certificate-monitor.module';
+import { RailwayModule } from './modules/railway/railway.module';
+import { ExportTradeModule } from './modules/export-trade/export-trade.module';
 
 @Module({
   imports: [
@@ -48,7 +69,26 @@ import { AdminModule } from './modules/admin/admin.module';
     AntiFraudModule,
     LedgerModule,
     BusinessReputationModule,
+    MfaModule,
+    ComplianceModule,
+    ArbitratorModule,
+    IntegrationEventsModule,
+    ExportsModule,
+    ElevatorModule,
+    OrganizationsModule,
+    AnalyticsModule,
+    PartnerApiModule,
+    SagaModule,
+    OutboxModule,
+    FactoringModule,
+    BankReconciliationModule,
+    SupportModule,
+    KycModule,
+    CertificateMonitorModule,
+    RailwayModule,
+    ExportTradeModule,
   ],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
@@ -56,4 +96,8 @@ import { AdminModule } from './modules/admin/admin.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LogMaskingMiddleware, RateLimitMiddleware).forRoutes('*');
+  }
+}

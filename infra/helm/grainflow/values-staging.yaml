@@ -1,0 +1,25 @@
+# GrainFlow Helm Values — Staging overrides
+# Usage: helm upgrade --install grainflow ./infra/helm/grainflow \
+#          -f infra/helm/grainflow/values.yaml \
+#          -f infra/helm/grainflow/values-staging.yaml \
+#          -n grainflow-staging
+
+api:
+  replicaCount: 1
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 3
+  env:
+    NODE_ENV: staging
+    LOG_LEVEL: debug
+
+web:
+  replicaCount: 1
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 3
+
+namespace:
+  name: grainflow-staging
+  labels:
+    environment: staging

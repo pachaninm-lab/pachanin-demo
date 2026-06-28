@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
@@ -10,6 +10,8 @@ const ACCESS_TOKEN_TTL = '8h';
 const REFRESH_TOKEN_TTL = '30d';
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+const CURRENT_CONSENT_VERSION = '1.2';
+
 interface StoredUser {
   id: string;
   email: string;
@@ -17,6 +19,11 @@ interface StoredUser {
   role: Role;
   orgId: string;
   fullName: string;
+  phone?: string;
+  consentVersion?: string;
+  consentAt?: string;
+  anonymized?: boolean;
+  createdAt?: string;
 }
 
 interface RefreshTokenRecord {
@@ -38,6 +45,8 @@ const demoUsers: StoredUser[] = [
   { id: 'user-executive-001', email: 'executive@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.EXECUTIVE, orgId: DEMO_ORG_ID, fullName: 'Demo Executive' },
   { id: 'user-operator-001', email: 'operator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.SUPPORT_MANAGER, orgId: DEMO_ORG_ID, fullName: 'Demo Operator' },
   { id: 'user-admin-001', email: 'admin@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ADMIN, orgId: DEMO_ORG_ID, fullName: 'Demo Admin' },
+  { id: 'user-compliance-001', email: 'compliance@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.COMPLIANCE_OFFICER, orgId: DEMO_ORG_ID, fullName: 'Demo Compliance Officer' },
+  { id: 'user-arbitrator-001', email: 'arbitrator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ARBITRATOR, orgId: DEMO_ORG_ID, fullName: 'Demo Arbitrator' },
 ];
 
 const usersStore: StoredUser[] = [...demoUsers];
@@ -93,6 +102,10 @@ export class AuthService {
       role: (dto.role as Role) || Role.GUEST,
       orgId: dto.orgId || `org-${randomUUID()}`,
       fullName: dto.fullName || dto.email,
+      phone: dto.phone,
+      consentVersion: dto.consentVersion || CURRENT_CONSENT_VERSION,
+      consentAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
     usersStore.push(newUser);
     return this.issueTokens(newUser);
@@ -197,5 +210,55 @@ export class AuthService {
     if (!user) throw new Error(`User ${userId} not found`);
     user.orgId = orgId;
     return { id: user.id, orgId: user.orgId };
+  }
+
+  getUserData(requestingUserId: string) {
+    const user = usersStore.find((u) => u.id === requestingUserId);
+    if (!user) throw new NotFoundException('User not found');
+    if (user.anonymized) throw new ForbiddenException('Account has been anonymized');
+    return {
+      exportedAt: new Date().toISOString(),
+      exportVersion: '1.0',
+      subject: '152-ФЗ Data Portability Export',
+      profile: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        phone: user.phone ?? null,
+        role: user.role,
+        orgId: user.orgId,
+        createdAt: user.createdAt ?? null,
+      },
+      consent: {
+        version: user.consentVersion ?? null,
+        recordedAt: user.consentAt ?? null,
+        currentPolicyVersion: CURRENT_CONSENT_VERSION,
+      },
+      accountStatus: {
+        anonymized: user.anonymized ?? false,
+      },
+    };
+  }
+
+  anonymizeUser(requestingUserId: string): { success: boolean; anonymizedAt: string } {
+    const user = usersStore.find((u) => u.id === requestingUserId);
+    if (!user) throw new NotFoundException('User not found');
+    if (user.anonymized) throw new ConflictException('Account already anonymized');
+
+    const anonymizedAt = new Date().toISOString();
+    user.email = `anon-${user.id}@deleted.invalid`;
+    user.fullName = 'Anonymized User';
+    user.phone = undefined;
+    user.passwordHash = '';
+    user.anonymized = true;
+
+    // Revoke all refresh tokens for this user
+    for (const [key, rec] of refreshTokensStore.entries()) {
+      if (rec.userId === requestingUserId) {
+        refreshTokensStore.delete(key);
+      }
+    }
+
+    return { success: true, anonymizedAt };
   }
 }

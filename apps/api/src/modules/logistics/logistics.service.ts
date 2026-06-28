@@ -5,11 +5,22 @@ import { SHIPMENT_REPOSITORY, type ShipmentRepository } from './shipment.reposit
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 
+interface GpsPoint {
+  lat: number;
+  lng: number;
+  speedKmh?: number;
+  headingDeg?: number;
+  accuracyM?: number;
+  recordedAt: string;
+  driverId: string;
+}
+
 @Injectable()
 export class LogisticsService {
+  private readonly gpsTrack = new Map<string, GpsPoint[]>();
+
   constructor(
     @Inject(SHIPMENT_REPOSITORY) private readonly shipments: ShipmentRepository,
-    // Kept only for the best-effort checkpoint DB snapshot below.
     @Optional() private readonly prisma?: PrismaService,
   ) {}
 
@@ -84,6 +95,39 @@ export class LogisticsService {
     const shipment = await this.shipments.getById(id);
     this.assertShipmentAccess(shipment, user);
     return this.shipments.verifyPin(id, pin);
+  }
+
+  async updateGps(
+    id: string,
+    point: { lat: number; lng: number; speedKmh?: number; headingDeg?: number; accuracyM?: number },
+    user: RequestUser,
+  ) {
+    const shipment = await this.shipments.getById(id);
+    this.assertShipmentAccess(shipment, user);
+    const gpsPoint: GpsPoint = { ...point, recordedAt: new Date().toISOString(), driverId: user.id };
+    const track = this.gpsTrack.get(id) ?? [];
+    track.push(gpsPoint);
+    if (track.length > 500) track.splice(0, track.length - 500);
+    this.gpsTrack.set(id, track);
+
+    this.prisma?.shipment.update({
+      where: { id },
+      data: { geoLat: point.lat, geoLng: point.lng, lastGeoAt: new Date() },
+    }).catch(() => {});
+
+    return { shipmentId: id, ...gpsPoint, trackLength: track.length };
+  }
+
+  async getGpsTrack(id: string, user: RequestUser) {
+    const shipment = await this.shipments.getById(id);
+    this.assertShipmentAccess(shipment, user);
+    const track = this.gpsTrack.get(id) ?? [];
+    return {
+      shipmentId: id,
+      pointCount: track.length,
+      lastPoint: track.at(-1) ?? null,
+      track,
+    };
   }
 
   private assertShipmentAccess(shipment: any, user: RequestUser): void {

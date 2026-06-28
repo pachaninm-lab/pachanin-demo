@@ -1,0 +1,173 @@
+# GrainFlow Helm Values — Production Defaults (ТЗ 4.3, 13.2)
+# Переопределить для staging: --values values-staging.yaml
+
+# ── API Service ───────────────────────────────────────────────────────────────
+api:
+  image:
+    repository: cr.yandex/grainflow/api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "2000m"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # Environment variables (секреты — из Vault / K8s Secret)
+  env:
+    NODE_ENV: production
+    PORT: "3001"
+    LOG_LEVEL: info
+    VAULT_ADDR: "http://vault.grainflow-prod.svc.cluster.local:8200"
+    KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+    S3_BUCKET: "grainflow-documents"
+
+  # Secrets (mounted from Kubernetes Secret named grainflow-api-secrets)
+  secretEnvFrom:
+    - secretRef:
+        name: grainflow-api-secrets
+
+  # Probes
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 3001
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 3001
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    httpGet:
+      path: /health
+      port: 3001
+    failureThreshold: 12
+    periodSeconds: 10
+
+  service:
+    type: ClusterIP
+    port: 3001
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+      nginx.ingress.kubernetes.io/modsecurity-snippet: |
+        SecRuleEngine On
+    hosts:
+      - host: api.grainflow.ru
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: grainflow-api-tls
+        hosts:
+          - api.grainflow.ru
+
+  # Anti-affinity — распределить по нодам
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values: [grainflow-api]
+            topologyKey: kubernetes.io/hostname
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    fsGroup: 1001
+    readOnlyRootFilesystem: true
+
+# ── Web Frontend ──────────────────────────────────────────────────────────────
+web:
+  image:
+    repository: cr.yandex/grainflow/web
+    tag: "latest"
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  service:
+    type: ClusterIP
+    port: 3000
+  ingress:
+    enabled: true
+    hosts:
+      - host: app.grainflow.ru
+
+# ── Vault Agent Injector ──────────────────────────────────────────────────────
+vault:
+  agentInjector:
+    enabled: true
+  annotations:
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/role: "grainflow-api"
+    vault.hashicorp.com/agent-inject-secret-db: "database/creds/grainflow-app-role"
+    vault.hashicorp.com/agent-inject-template-db: |
+      {{- with secret "database/creds/grainflow-app-role" -}}
+      DATABASE_URL=postgresql://{{ .Data.username }}:{{ .Data.password }}@postgres:5432/grainflow?sslmode=require
+      {{- end }}
+
+# ── Monitoring ────────────────────────────────────────────────────────────────
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: grainflow-monitoring
+    interval: 15s
+    path: /metrics
+
+# ── Network Policy ────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: true
+  # Zero-trust: deny-all по умолчанию, разрешаем явно
+  denyAll: true
+  allowIngressFromNamespaces:
+    - ingress-nginx
+  allowEgressToServices:
+    - postgresql: 5432
+    - redis: 6379
+    - kafka: 9092
+    - vault: 8200
+
+# ── Namespace ─────────────────────────────────────────────────────────────────
+namespace:
+  create: true
+  name: grainflow-prod
+  labels:
+    environment: production
+    team: grainflow

@@ -8,6 +8,10 @@ import { LedgerModule } from '../ledger/ledger.module';
 import { ActionExecutorModule } from '../../common/action-executor/action-executor.module';
 import { DealsController } from './deals.controller';
 import { DealsService } from './deals.service';
+import { DealEventService } from './deal-event.service';
+import { DealAutoService } from './deal-auto.service';
+import { SagaModule } from '../saga/saga.module';
+import { OutboxModule } from '../../common/outbox/outbox.module';
 import { DEAL_REPOSITORY } from './deal.repository';
 import { selectDealRepository } from './deal-repository.factory';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
@@ -29,9 +33,9 @@ const dealRepositoryProvider: Provider = {
 };
 
 @Module({
-  imports: [AuditModule, AntiFraudModule, NotificationsModule, IntegrationsModule, LedgerModule, ActionExecutorModule],
+  imports: [AuditModule, AntiFraudModule, NotificationsModule, IntegrationsModule, LedgerModule, ActionExecutorModule, SagaModule, OutboxModule],
   controllers: [DealsController],
-  providers: [DealsService, AccessScopeService, dealRepositoryProvider],
-  exports: [DealsService],
+  providers: [DealsService, DealEventService, DealAutoService, AccessScopeService, dealRepositoryProvider],
+  exports: [DealsService, DealEventService],
 })
 export class DealsModule {}

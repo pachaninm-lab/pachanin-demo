@@ -8,6 +8,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { SettlementEngineService } from './settlement-engine.service';
 import { RequestUser } from '../../common/types/request-user';
+import { RequiresMfaGuard } from '../../common/guards/mfa.guard';
 
 const BANK_HMAC_SECRET = process.env.BANK_HMAC_SECRET ?? 'pachanin-demo-bank-secret-dev';
 
@@ -70,8 +71,9 @@ export class SettlementEngineController {
     return this.settlementEngine.requestReserve(id, user);
   }
 
-  /** Request bank release — creates outbox entry, does NOT self-release */
+  /** Request bank release — creates outbox entry, does NOT self-release; MFA required per ТЗ 11.1 */
   @Post('deal/:id/release')
+  @UseGuards(RequiresMfaGuard)
   async requestRelease(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.settlementEngine.requestRelease(id, user);
   }

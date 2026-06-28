@@ -1,4 +1,4 @@
-// Pachanin Demo — full SQLite persistence layer
+// Pachanin Demo — GrainFlow v3 persistence layer
 
 generator client {
   provider = "prisma-client-js"
@@ -9,26 +9,115 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Organizations & Users (persistent, replaces in-memory) ────────────────────
+
+model Organization {
+  id           String   @id @default(cuid())
+  inn          String   @unique
+  ogrn         String?
+  name         String
+  type         String   @default("LEGAL") // LEGAL | INDIVIDUAL | COOPERATIVE
+  status       String   @default("PENDING") // PENDING | VERIFIED | SUSPENDED | BLOCKED
+  tenantId     String   @default(cuid())
+  verifiedAt   DateTime?
+  bankDetails  String?  // JSON: bik, account, bankName
+  address      String?
+  kycStatus    String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  amlStatus    String   @default("CLEAR")   // CLEAR | FLAGGED | BLOCKED
+  sanctionHit  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users        UserOrg[]
+  @@index([tenantId])
+  @@index([inn])
+  @@map("organizations")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  fullName     String
+  status       String   @default("ACTIVE") // ACTIVE | SUSPENDED | BLOCKED
+  mfaEnabled   Boolean  @default(false)
+  mfaSecret    String?  // TOTP secret (encrypted)
+  mfaBackup    String?  // JSON: backup codes hashed
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  orgs         UserOrg[]
+  ukepCerts    UkepCertificate[]
+  @@map("users")
+}
+
+model UserOrg {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String   // FARMER | BUYER | LOGISTICIAN | DRIVER | LAB | ELEVATOR | ACCOUNTING | EXECUTIVE | SUPPORT_MANAGER | ADMIN | COMPLIANCE_OFFICER | ARBITRATOR
+  isDefault      Boolean  @default(false)
+  joinedAt       DateTime @default(now())
+
+  user           User         @relation(fields: [userId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("user_orgs")
+}
+
+// ── УКЭП Certificates ─────────────────────────────────────────────────────────
+
+model UkepCertificate {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String   // CRYPTOPRO_DSS | KONTUR | TAXKOM
+  externalId   String   // ID в системе провайдера
+  thumbprint   String
+  subject      String
+  issuer       String
+  validFrom    DateTime
+  validUntil   DateTime
+  status       String   @default("VALID") // VALID | REVOKED | EXPIRED
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id])
+  @@index([userId])
+  @@index([thumbprint])
+  @@map("ukep_certificates")
+}
+
 // ── Deals ─────────────────────────────────────────────────────────────────────
 
 model Deal {
   id            String   @id
   lotId         String?
+  dealNumber    String?  @unique
   status        String   @default("DRAFT")
+  tenantId      String?
   sellerOrgId   String
   buyerOrgId    String
   volumeTons    Float?
   pricePerTon   Float?
   totalRub      Float?
+  totalKopecks  Int?
   currency      String   @default("RUB")
   culture       String?
+  cropClass     String?
+  gost          String?
   region        String?
+  incoterms     String?
   fundingChoice String?
   owner         String?
   nextAction    String?
   slaAt         DateTime?
   signedAt      DateTime?
   closedAt      DateTime?
+  sagaState     String?  // JSON: current saga step, retry count
+  sagaStep      String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   meta          String?  // JSON for paymentTerms etc.
@@ -36,11 +125,33 @@ model Deal {
   shipments     Shipment[]
   documents     DealDocument[]
   payments      Payment[]
+  labSamples    LabSample[]
+  dealEvents    DealEvent[]
 
   @@index([sellerOrgId])
   @@index([buyerOrgId])
   @@index([status])
+  @@index([tenantId])
   @@map("deals")
+}
+
+// ── Deal Events (append-only evidence chain) ──────────────────────────────────
+
+model DealEvent {
+  id          String   @id @default(cuid())
+  dealId      String
+  eventType   String
+  actorId     String
+  actorRole   String
+  tenantId    String?
+  payload     String   // JSON
+  hash        String   // SHA-256(id+dealId+eventType+payload+prevHash)
+  prevHash    String?  // previous event hash in this deal's chain
+  createdAt   DateTime @default(now())
+
+  deal        Deal     @relation(fields: [dealId], references: [id])
+  @@index([dealId])
+  @@map("deal_events")
 }
 
 // ── Shipments ─────────────────────────────────────────────────────────────────
@@ -52,6 +163,7 @@ model Shipment {
   driverUserId  String?
   driverName    String?
   vehicleNumber String?
+  vehicleType   String?  // TRUCK | WAGON | VESSEL
   carrierOrgId  String?
   carrierName   String?
   routeFrom     String?
@@ -61,10 +173,13 @@ model Shipment {
   pinVerified   Boolean  @default(false)
   nextAction    String?
   blockers      String?  // JSON array
+  geoLat        Float?
+  geoLng        Float?
+  lastGeoAt     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  deal          Deal     @relation(fields: [dealId], references: [id])
+  deal          Deal       @relation(fields: [dealId], references: [id])
   checkpoints   Checkpoint[]
 
   @@index([dealId])
@@ -81,6 +196,8 @@ model Checkpoint {
   lat         Float?
   lng         Float?
   note        String?
+  photoUrl    String?
+  actorId     String?
 
   shipment    Shipment @relation(fields: [shipmentId], references: [id])
   @@index([shipmentId])
@@ -96,13 +213,20 @@ model DealDocument {
   status           String   @default("DRAFT")
   name             String
   mimeType         String?
+  s3Key            String?
+  sizeBytes        Int?
+  hash             String?  // SHA-256 of file content
   uploadedAt       DateTime @default(now())
   uploadedByUserId String?
   signedAt         DateTime?
+  signatories      String?  // JSON: [{userId, role, signedAt, thumbprint}]
   bankRequired     Boolean  @default(false)
   releaseRequired  Boolean  @default(false)
   bankAcceptance   String   @default("PENDING")
+  edoStatus        String?  // SENT | DELIVERED | SIGNED | REJECTED
+  edoExternalId    String?  // ID в системе ЭДО
   version          Int      @default(1)
+  isImmutable      Boolean  @default(false) // true after signing
 
   deal             Deal     @relation(fields: [dealId], references: [id])
   @@index([dealId])
@@ -110,18 +234,23 @@ model DealDocument {
   @@map("deal_documents")
 }
 
-// ── Payments ──────────────────────────────────────────────────────────────────
+// ── Payments & Ledger ─────────────────────────────────────────────────────────
 
 model Payment {
   id              String   @id @default(cuid())
   dealId          String
-  status          String   @default("PENDING")
-  amountRub       Float?
+  status          String   @default("PENDING") // PENDING | RESERVED | HELD | RELEASED | REFUNDED | FAILED
+  amountRub       Float?   // deprecated: use amountKopecks
+  amountKopecks   Int?
   reservedAt      DateTime?
   releasedAt      DateTime?
-  holdAmountRub   Float?
+  holdAmountKopecks Int?
+  refundedKopecks Int?
+  commissionKopecks Int?
   callbackState   String   @default("NONE")
   bankRef         String?
+  escrowAccount   String?
+  idempotencyKey  String?  @unique
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
 
@@ -130,22 +259,48 @@ model Payment {
   @@map("payments")
 }
 
+model LedgerEntry {
+  id                String   @id @default(cuid())
+  dealId            String?
+  entryType         String   // RESERVE | HOLD | RELEASE | REFUND | COMMISSION | PLATFORM_FEE | PENALTY
+  debitAccount      String   // org_id or system account
+  creditAccount     String
+  amountKopecks     Int      // always positive
+  currency          String   @default("RUB")
+  reference         String?  // payment reference / bank ref
+  idempotencyKey    String   @unique
+  description       String?
+  createdAt         DateTime @default(now())
+  createdByUserId   String?
+
+  @@index([dealId])
+  @@index([debitAccount])
+  @@index([creditAccount])
+  @@map("ledger_entries")
+}
+
 // ── Lab Samples ───────────────────────────────────────────────────────────────
 
 model LabSample {
-  id           String   @id
-  dealId       String
-  shipmentId   String?
-  status       String   @default("PENDING")
-  culture      String?
-  protocol     String?
-  labId        String?
-  collectedAt  DateTime?
-  finalizedAt  DateTime?
-  moneyDeltaRub Float?
-  createdAt    DateTime @default(now())
+  id              String   @id
+  dealId          String
+  shipmentId      String?
+  status          String   @default("PENDING") // PENDING | COLLECTED | TESTING | DONE | REJECTED
+  culture         String?
+  protocol        String?
+  gost            String?
+  labId           String?
+  labName         String?
+  collectedAt     DateTime?
+  finalizedAt     DateTime?
+  moneyDeltaRub   Float?
+  moneyDeltaKopecks Int?
+  certificateDocId String?
+  version         Int      @default(1)
+  createdAt       DateTime @default(now())
 
-  tests        LabTest[]
+  tests           LabTest[]
+  deal            Deal      @relation(fields: [dealId], references: [id])
   @@index([dealId])
   @@map("lab_samples")
 }
@@ -153,11 +308,13 @@ model LabSample {
 model LabTest {
   id         String   @id @default(cuid())
   sampleId   String
-  parameter  String
+  parameter  String   // moisture | protein | gluten | impurity | fallNumber | idi | etc.
   value      Float
   unit       String?
-  norm       String?
+  normMin    Float?
+  normMax    Float?
   passed     Boolean  @default(true)
+  gradeDelta Float?   // price adjustment coefficient
   recordedAt DateTime @default(now())
 
   sample     LabSample @relation(fields: [sampleId], references: [id])
@@ -168,19 +325,22 @@ model LabTest {
 // ── Outbox ────────────────────────────────────────────────────────────────────
 
 model OutboxEntry {
-  id          String   @id @default(cuid())
-  type        String
-  dealId      String?
-  payload     String
-  status      String   @default("PENDING")
-  retryCount  Int      @default(0)
-  lastError   String?
-  createdAt   DateTime @default(now())
-  sentAt      DateTime?
-  confirmedAt DateTime?
-  failedAt    DateTime?
+  id             String   @id @default(cuid())
+  type           String
+  dealId         String?
+  payload        String
+  status         String   @default("PENDING") // PENDING | SENT | CONFIRMED | FAILED | DEAD
+  idempotencyKey String?  @unique
+  maxRetries     Int      @default(5)
+  retryCount     Int      @default(0)
+  nextRetryAt    DateTime @default(now())
+  lastError      String?
+  createdAt      DateTime @default(now())
+  sentAt         DateTime?
+  confirmedAt    DateTime?
+  failedAt       DateTime?
 
-  @@index([status])
+  @@index([status, nextRetryAt])
   @@index([dealId])
   @@map("outbox_entries")
 }
@@ -188,39 +348,47 @@ model OutboxEntry {
 // ── Disputes ──────────────────────────────────────────────────────────────────
 
 model Dispute {
-  id              String   @id @default(cuid())
-  dealId          String
-  shipmentId      String?
-  type            String
-  status          String   @default("OPEN")
-  description     String
-  initiatorOrgId  String
-  respondentOrgId String?
-  claimAmountRub  Float?
-  severity        String   @default("MEDIUM")
-  slaMinutes      Int?
-  outcome         String?
-  resolvedAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(cuid())
+  dealId           String
+  shipmentId       String?
+  type             String
+  status           String   @default("OPEN") // OPEN | ARBITRATION | RESOLVED | CANCELLED
+  description      String
+  initiatorOrgId   String
+  respondentOrgId  String?
+  claimAmountRub   Float?
+  claimAmountKopecks Int?
+  severity         String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  slaMinutes       Int?
+  arbitratorId     String?
+  arbitratorNotes  String?
+  outcome          String?  // BUYER_WINS | SELLER_WINS | SPLIT | CANCELLED
+  outcomeSplitPct  Int?     // % of claim returned to buyer (0–100)
+  resolvedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  moneyHold       DisputeMoneyHold?
-  evidence        DisputeEvidence[]
-  auditEvents     AuditEvent[]
+  moneyHold        DisputeMoneyHold?
+  evidence         DisputeEvidence[]
+  auditEvents      AuditEvent[]
 
   @@index([dealId])
   @@index([status])
+  @@index([arbitratorId])
   @@map("disputes")
 }
 
 model DisputeMoneyHold {
-  id         String   @id @default(cuid())
-  disputeId  String   @unique
-  amountRub  Float
-  reason     String
-  heldAt     DateTime @default(now())
+  id              String   @id @default(cuid())
+  disputeId       String   @unique
+  amountRub       Float?
+  amountKopecks   Int?
+  reason          String
+  heldAt          DateTime @default(now())
+  releasedAt      DateTime?
+  releaseReason   String?
 
-  dispute    Dispute  @relation(fields: [disputeId], references: [id])
+  dispute         Dispute  @relation(fields: [disputeId], references: [id])
   @@map("dispute_money_holds")
 }
 
@@ -228,12 +396,13 @@ model DisputeEvidence {
   id          String   @id @default(cuid())
   disputeId   String
   fileId      String?
-  type        String
+  type        String   // PHOTO | DOCUMENT | LAB_RESULT | GPS_TRACK | STATEMENT | OTHER
   description String
   trusted     Boolean  @default(false)
   submittedBy String
   submittedAt DateTime @default(now())
   hash        String?
+  prevHash    String?
 
   dispute     Dispute  @relation(fields: [disputeId], references: [id])
   @@index([disputeId])
@@ -251,31 +420,38 @@ model EvidenceFile {
   filename    String
   mimeType    String
   sizeBytes   Int
-  hash        String
-  prevHash    String?
+  hash        String   // SHA-256 of content
+  prevHash    String?  // previous evidence hash for chain
+  s3Key       String?
   uploadedBy  String
   uploadedAt  DateTime @default(now())
-  metadata    String?
+  metadata    String?  // JSON: geoLat, geoLng, deviceId, etc.
 
   @@index([dealId])
   @@index([disputeId])
   @@map("evidence_files")
 }
 
-// ── Audit Events ──────────────────────────────────────────────────────────────
+// ── Audit Events (append-only, hash chain) ────────────────────────────────────
 
 model AuditEvent {
   id          String   @id @default(cuid())
   action      String
   actorUserId String
   actorRole   String
+  tenantId    String?
+  orgId       String?
   dealId      String?
   disputeId   String?
   objectType  String?
   objectId    String?
+  beforeState String?  // JSON snapshot
+  afterState  String?  // JSON snapshot
   outcome     String
   reason      String?
-  metadata    String?
+  metadata    String?  // JSON: ip, userAgent, sessionId
+  hash        String   @default("") // SHA-256(all fields + prevHash)
+  prevHash    String?
   createdAt   DateTime @default(now())
 
   dispute     Dispute? @relation(fields: [disputeId], references: [id])
@@ -283,5 +459,64 @@ model AuditEvent {
   @@index([dealId])
   @@index([actorUserId])
   @@index([action])
+  @@index([tenantId])
   @@map("audit_events")
+}
+
+// ── Integration Events (log of all adapter calls) ─────────────────────────────
+
+model IntegrationEvent {
+  id              String   @id @default(cuid())
+  adapterName     String   // FGIS_ZERNO | FNS | DIADOK | CRYPTOPRO | BANK | GPS | FTS
+  direction       String   // INBOUND | OUTBOUND
+  eventType       String
+  externalId      String?
+  dealId          String?
+  requestPayload  String?  // JSON
+  responsePayload String?  // JSON
+  status          String   // SUCCESS | ERROR | PENDING | TIMEOUT
+  errorMessage    String?
+  httpStatus      Int?
+  durationMs      Int?
+  idempotencyKey  String?
+  createdAt       DateTime @default(now())
+
+  @@index([adapterName, status])
+  @@index([dealId])
+  @@index([externalId])
+  @@map("integration_events")
+}
+
+// ── Webhook Security ──────────────────────────────────────────────────────────
+
+model WebhookIdempotency {
+  id           String   @id @default(cuid())
+  eventId      String   @unique
+  adapterName  String
+  processedAt  DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([expiresAt])
+  @@map("webhook_idempotency")
+}
+
+// ── KYC / AML Queue ───────────────────────────────────────────────────────────
+
+model KycTask {
+  id             String   @id @default(cuid())
+  organizationId String
+  type           String   // INITIAL | PERIODIC | TRIGGERED
+  status         String   @default("PENDING") // PENDING | IN_REVIEW | APPROVED | REJECTED
+  assignedTo     String?  // compliance officer userId
+  notes          String?
+  fnsResponse    String?  // JSON от ФНС
+  sanctionResult String?  // JSON
+  amlResult      String?  // JSON
+  resolvedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([organizationId])
+  @@map("kyc_tasks")
 }

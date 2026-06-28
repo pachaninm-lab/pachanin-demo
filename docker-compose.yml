@@ -1,0 +1,252 @@
+# GrainFlow — Docker Compose для локальной разработки
+# Запуск: docker compose up -d
+# Включает: PostgreSQL, Redis, Kafka (KRaft), Vault, ClickHouse, MinIO (S3)
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: grainflow
+      POSTGRES_USER: grainflow_admin
+      POSTGRES_PASSWORD: grainflow_local_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/sql/production-rls-policies.sql:/docker-entrypoint-initdb.d/99-rls.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grainflow_admin -d grainflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Kafka (KRaft mode, single node for local dev) ──────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_HOME: /usr/bin
+    volumes:
+      - ./infra/kafka/create-topics.sh:/create-topics.sh:ro
+    command: bash /create-topics.sh kafka:9092
+    restart: on-failure
+
+  # ── HashiCorp Vault (dev mode для локальной разработки) ───────────────────
+  vault:
+    image: hashicorp/vault:1.16
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: grainflow-dev-root-token
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    cap_add:
+      - IPC_LOCK
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  vault-init:
+    image: hashicorp/vault:1.16
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: grainflow-dev-root-token
+      POSTGRES_ADMIN_USER: grainflow_admin
+      POSTGRES_ADMIN_PASSWORD: grainflow_local_secret
+    volumes:
+      - ./infra/vault/vault-init.sh:/vault-init.sh:ro
+      - ./infra/vault/policy-grainflow-api.hcl:/vault/policies/policy-grainflow-api.hcl:ro
+    command: bash /vault-init.sh
+    restart: on-failure
+
+  # ── MinIO (S3-compatible, заменяет Yandex Object Storage локально) ────────
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: grainflow
+      MINIO_ROOT_PASSWORD: grainflow_minio_secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"   # MinIO Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 grainflow grainflow_minio_secret;
+      mc mb --ignore-existing local/grainflow-docs;
+      mc mb --ignore-existing local/grainflow-signed;
+      mc mb --ignore-existing local/grainflow-evidence;
+      echo 'MinIO buckets created';
+      "
+
+  # ── ClickHouse (аналитика) ─────────────────────────────────────────────────
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # Native (конфликт с MinIO — используйте 9100 если MinIO на 9000)
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./infra/clickhouse/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    environment:
+      CLICKHOUSE_DB: grainflow
+      CLICKHOUSE_USER: grainflow
+      CLICKHOUSE_PASSWORD: grainflow_ch_secret
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── GrainFlow API ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://grainflow_admin:grainflow_local_secret@postgres:5432/grainflow
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: grainflow-dev-root-token
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: grainflow-docs
+      S3_ACCESS_KEY: grainflow
+      S3_SECRET_KEY: grainflow_minio_secret
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./apps/api:/app/apps/api:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── GrainFlow Web ──────────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ── Prometheus ─────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/runtime-alert-rules.yml:/etc/prometheus/runtime-alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+
+  # ── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: grainflow_grafana
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3030:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  kafka_data:
+  minio_data:
+  clickhouse_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: grainflow-dev

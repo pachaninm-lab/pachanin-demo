@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
+import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 
 @Injectable()
 export class IntegrationsService {
+  private readonly logger = new Logger(IntegrationsService.name);
+
   constructor(private readonly runtime: RuntimeCoreService) {}
 
   jobs(_user: any) {
@@ -16,8 +19,14 @@ export class IntegrationsService {
     };
   }
 
-  health() {
-    return this.runtime.integrationHealth();
+  async health() {
+    const runtimeHealth = this.runtime.integrationHealth();
+    const sdkHealth = await integrationRegistry.healthCheckAll().catch(() => ({}));
+    return { ...runtimeHealth, adapters: sdkHealth };
+  }
+
+  async adapterHealthAll() {
+    return integrationRegistry.healthCheckAll();
   }
 
   hardening() {
@@ -44,15 +53,17 @@ export class IntegrationsService {
     };
   }
 
-  pushFgis(dealId: string, user: any) {
-    return {
-      dealId,
-      connector: 'FGIS_ZERNO',
-      status: 'SANDBOX_ONLY',
-      jobId: `JOB-FGIS-${dealId}-${Date.now()}`,
-      initiatedByUserId: user?.sub ?? user?.id ?? null,
-      initiatedAt: new Date().toISOString(),
-    };
+  async pushFgis(dealId: string, user: any) {
+    const jobId = `JOB-FGIS-${dealId}-${Date.now()}`;
+    try {
+      const fgis = integrationRegistry.get('fgis-zerno') as any;
+      const result = await fgis.execute({ action: 'registerLot', dealId, culture: 'wheat', volumeTons: 100, ownerId: user.orgId ?? user.id });
+      this.logger.log(`FGIS lot registered: ${result.sdizNumber} for deal ${dealId}`);
+      return { dealId, connector: 'FGIS_ZERNO', status: 'MOCK_OK', jobId, sdizNumber: result.sdizNumber, initiatedAt: new Date().toISOString() };
+    } catch (err) {
+      this.logger.warn(`FGIS push failed for deal ${dealId}: ${(err as Error).message}`);
+      return { dealId, connector: 'FGIS_ZERNO', status: 'FAILED', jobId, error: (err as Error).message, initiatedAt: new Date().toISOString() };
+    }
   }
 
   reservePrepayment(dealId: string, user: any) {
