@@ -45,6 +45,9 @@ import { CertificateMonitorModule } from './modules/certificate-monitor/certific
 import { RailwayModule } from './modules/railway/railway.module';
 import { ExportTradeModule } from './modules/export-trade/export-trade.module';
 import { SearchModule } from './modules/search/search.module';
+import { MlClientModule } from './modules/ml-client/ml-client.module';
+import { KafkaModule } from './common/kafka/kafka.module';
+import { VaultModule } from './common/vault/vault.module';
 
 @Module({
   imports: [
@@ -89,6 +92,9 @@ import { SearchModule } from './modules/search/search.module';
     RailwayModule,
     ExportTradeModule,
     SearchModule,
+    MlClientModule,
+    KafkaModule,
+    VaultModule,
   ],
   controllers: [HealthController],
   providers: [
