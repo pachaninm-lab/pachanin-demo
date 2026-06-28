@@ -31,6 +31,11 @@ def _load_model():
 
 _load_model()
 
+
+def _reload_model():
+    _load_model()
+
+
 router = APIRouter()
 
 # Регионы России — базовые цены (в копейках за тонну, мягкая пшеница 4 класс)

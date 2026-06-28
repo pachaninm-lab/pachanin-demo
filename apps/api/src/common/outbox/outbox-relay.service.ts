@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { KafkaProducerService } from '../kafka/kafka-producer.service';
 import { OutboxService } from './outbox.service';
 
 const RELAY_INTERVAL_MS = 5_000;
@@ -14,6 +15,7 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly outbox: OutboxService,
     @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly kafka?: KafkaProducerService,
   ) {}
 
   onModuleInit() {
@@ -38,13 +40,11 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
         if (entry.nextRetryAt && new Date(entry.nextRetryAt) > new Date()) continue;
         try {
           this.outbox.markSent(entry.id);
-          // In production: await kafka.produce(entry.type, entry.payload, { key: entry.idempotencyKey })
-          // For now: simulate delivery for non-bank events
-          if (!entry.type.startsWith('BANK_')) {
-            this.outbox.confirm(entry.id);
-            if (this.prisma) {
-              await this.prisma.outboxEntry.update({ where: { id: entry.id }, data: { status: 'SENT', sentAt: new Date() } }).catch(() => {});
-            }
+          const topic = entry.type.startsWith('BANK_') ? 'grainflow.bank.events' : 'grainflow.domain.events';
+          await this.kafka?.send({ topic, key: entry.idempotencyKey, value: entry.payload as Record<string, unknown> });
+          this.outbox.confirm(entry.id);
+          if (this.prisma) {
+            await this.prisma.outboxEntry.update({ where: { id: entry.id }, data: { status: 'SENT', sentAt: new Date() } }).catch(() => {});
           }
           processed++;
         } catch (err) {

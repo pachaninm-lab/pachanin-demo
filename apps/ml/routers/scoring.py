@@ -28,6 +28,11 @@ def _load_model():
 
 _load_model()
 
+
+def _reload_model():
+    _load_model()
+
+
 router = APIRouter()
 
 
