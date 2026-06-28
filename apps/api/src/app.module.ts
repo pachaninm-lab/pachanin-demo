@@ -49,6 +49,7 @@ import { SearchModule } from './modules/search/search.module';
 import { MlClientModule } from './modules/ml-client/ml-client.module';
 import { KafkaModule } from './common/kafka/kafka.module';
 import { VaultModule } from './common/vault/vault.module';
+import { AiInsightsModule } from './modules/ai-insights/ai-insights.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { VaultModule } from './common/vault/vault.module';
     MlClientModule,
     KafkaModule,
     VaultModule,
+    AiInsightsModule,
   ],
   controllers: [HealthController],
   providers: [
