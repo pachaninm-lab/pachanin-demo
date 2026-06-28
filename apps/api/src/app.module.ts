@@ -50,6 +50,7 @@ import { MlClientModule } from './modules/ml-client/ml-client.module';
 import { KafkaModule } from './common/kafka/kafka.module';
 import { VaultModule } from './common/vault/vault.module';
 import { AiInsightsModule } from './modules/ai-insights/ai-insights.module';
+import { RuntimeSnapshotModule } from './modules/runtime-snapshot/runtime-snapshot.module';
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import { AiInsightsModule } from './modules/ai-insights/ai-insights.module';
     KafkaModule,
     VaultModule,
     AiInsightsModule,
+    RuntimeSnapshotModule,
   ],
   controllers: [HealthController],
   providers: [
