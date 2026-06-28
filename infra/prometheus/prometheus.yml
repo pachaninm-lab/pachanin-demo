@@ -1,0 +1,120 @@
+# GrainFlow — Prometheus Configuration (ТЗ 13.2)
+# Метрики: Prometheus → Grafana (бизнес, сервисы, инфраструктура)
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster:     'grainflow-prod'
+    environment: 'production'
+
+# ── Alert rules ───────────────────────────────────────────────────────────────
+rule_files:
+  - "runtime-alert-rules.yml"
+
+# ── Alertmanager ──────────────────────────────────────────────────────────────
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+# ── Scrape configs ─────────────────────────────────────────────────────────────
+scrape_configs:
+
+  # GrainFlow API service
+  - job_name: 'grainflow-api'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['grainflow-prod', 'grainflow-staging']
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        regex: grainflow-api
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        regex: 'true'
+        action: keep
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # PostgreSQL (postgres_exporter)
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          service: postgresql
+
+  # Redis (redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          service: redis
+
+  # Kafka (kafka_exporter / JMX exporter)
+  - job_name: 'kafka'
+    static_configs:
+      - targets:
+          - 'kafka-1:9308'
+          - 'kafka-2:9308'
+          - 'kafka-3:9308'
+        labels:
+          service: kafka
+
+  # Kubernetes nodes (node_exporter)
+  - job_name: 'kubernetes-nodes'
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/$1/proxy/metrics
+
+  # Kubernetes API server
+  - job_name: 'kubernetes-apiserver'
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: ['default']
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        regex: kubernetes;https
+        action: keep
+
+  # Nginx WAF metrics (stub_status)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+        labels:
+          service: nginx-waf
+
+  # ClickHouse
+  - job_name: 'clickhouse'
+    static_configs:
+      - targets: ['clickhouse:9363']
+        labels:
+          service: clickhouse
+
+  # HashiCorp Vault
+  - job_name: 'vault'
+    metrics_path: '/v1/sys/metrics'
+    params:
+      format: ['prometheus']
+    bearer_token_file: /etc/prometheus/vault-token
+    static_configs:
+      - targets: ['vault:8200']
+        labels:
+          service: vault
