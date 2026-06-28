@@ -150,6 +150,20 @@ components:
         alert:
           $ref: '#/components/schemas/GeofenceAlert'
 
+    StoredFile:
+      type: object
+      description: Запись о файле в S3 (ТЗ 8.4)
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        mimeType: { type: string }
+        sizeBytes: { type: integer }
+        s3Key: { type: string }
+        sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        uploadedBy: { type: string }
+        dealId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+
 security:
   - BearerAuth: []
 
@@ -3493,3 +3507,163 @@ paths:
                   lastMoveAt: { type: string, format: date-time, nullable: true }
                   idleMinutes: { type: integer }
                   isIdle: { type: boolean }
+
+  # ── Document Storage (ТЗ 8.4 — S3 Presigned URL Architecture) ────────────────
+
+  /api/storage/request-upload:
+    post:
+      summary: Запросить presigned S3 URL для загрузки файла
+      description: |
+        Шаг 1 upload flow. Клиент получает presigned PUT URL и fileId.
+        Файл загружается напрямую в S3 (минуя API).
+      tags: [Storage]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, mimeType]
+              properties:
+                filename: { type: string, example: "contract-001.pdf" }
+                mimeType: { type: string, example: "application/pdf" }
+                sizeBytes: { type: integer, example: 524288 }
+                dealId: { type: string, format: uuid }
+                uploadedBy: { type: string }
+      responses:
+        "201":
+          description: Presigned upload URL выдан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fileId: { type: string, format: uuid }
+                  uploadUrl: { type: string, description: "Presigned PUT URL, TTL 15 мин" }
+                  s3Key: { type: string }
+
+  /api/storage/confirm-upload/{fileId}:
+    post:
+      summary: Подтвердить завершение загрузки файла
+      description: |
+        Шаг 2 upload flow. Клиент передаёт SHA-256 хеш загруженного файла.
+        API финализирует запись в БД. Hash проверяется при каждом скачивании.
+      tags: [Storage]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sha256]
+              properties:
+                sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+      responses:
+        "200":
+          description: Запись файла финализирована
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoredFile'
+        "404":
+          description: FileId не найден
+
+  /api/storage/download/{fileId}:
+    get:
+      summary: Получить presigned S3 URL для скачивания файла
+      description: |
+        API проверяет права пользователя, возвращает presigned GET URL (TTL 15 мин).
+        Клиент скачивает напрямую из S3.
+      tags: [Storage]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: ttl
+          in: query
+          schema: { type: integer, default: 900, description: "TTL в секундах (макс 3600)" }
+      responses:
+        "200":
+          description: Presigned download URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  downloadUrl: { type: string }
+                  expiresAt: { type: string, format: date-time }
+                  file:
+                    $ref: '#/components/schemas/StoredFile'
+        "404":
+          description: Файл не найден
+
+  /api/storage/{fileId}/integrity:
+    get:
+      summary: Проверка целостности файла по SHA-256
+      tags: [Storage]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Результат проверки целостности
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid: { type: boolean }
+                  storedHash: { type: string }
+
+  /api/storage:
+    get:
+      summary: Список файлов по сделке
+      tags: [Storage]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: dealId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Список файлов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StoredFile'
+
+  /api/storage/{fileId}:
+    delete:
+      summary: Удалить файл
+      tags: [Storage]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Файл удалён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  deleted: { type: boolean }

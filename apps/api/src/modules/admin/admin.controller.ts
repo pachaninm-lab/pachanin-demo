@@ -185,6 +185,9 @@ export class AdminController {
           { name: 'Webhook HMAC-SHA256 + replay protection ±5min + idempotency store (ТЗ 10.4)', status: 'live' },
           { name: 'Data Masking Middleware (ИНН, ОГРН, БИК, телефон, email, карты, ТЗ 11.3)', status: 'live' },
           { name: 'Health /health /ready /health/detailed /metrics /version (ТЗ 13.4)', status: 'live' },
+          { name: 'S3 Presigned URL architecture (request-upload/confirm/download/integrity, ТЗ 8.4)', status: 'live' },
+          { name: 'Nginx WAF config (Coraza + OWASP CRS + rate limit + security headers, ТЗ 11.4)', status: 'live' },
+          { name: 'ADR-007 S3 Storage + ADR-008 WAF Coraza', status: 'live' },
         ],
         sandbox: adapterList.map(a => ({
           name: `${a.name} adapter (${a.mode} mode v${a.version})`,
@@ -196,7 +199,7 @@ export class AdminController {
           { name: 'Redis Cluster (сессии, rate limit)', status: 'planned', stage: 'Этап 0' },
           { name: 'Kubernetes VPA (VerticalPodAutoscaler)', status: 'planned', stage: 'Этап 0' },
           { name: 'HashiCorp Vault (секреты, ротация)', status: 'planned', stage: 'Этап 0' },
-          { name: 'WAF (Coraza + OWASP CRS)', status: 'planned', stage: 'Этап 0' },
+          { name: 'WAF (Coraza + OWASP CRS) — config в infra/nginx/', status: 'planned', stage: 'Этап 0' },
           { name: 'КриптоПро DSS live (УКЭП 63-ФЗ)', status: 'planned', stage: 'Этап 1' },
           { name: 'Контур.Диадок live (ЭДО)', status: 'planned', stage: 'Этап 1' },
           { name: 'ФГИС «Зерно» live (Минсельхоз API)', status: 'planned', stage: 'Этап 2' },
