@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { PushNotificationBanner } from '@/components/platform-v7/PushNotificationBanner';
 import { PriceChart } from '@/components/platform-v7/PriceChart';
+import { SellerInlineLotEditor } from '@/components/platform-v7/SellerInlineLotEditor';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -357,6 +358,11 @@ export default async function PlatformV7SellerPage() {
           </div>
         </CollapsibleSection>
       </section>
+      <section style={{ background: 'var(--p7-color-surface, #fff)', border: '1px solid var(--p7-color-border, #E4E6EA)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Мои лоты — inline-редактирование</div>
+        <SellerInlineLotEditor />
+      </section>
+
       <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
         <PriceChart cultures={['wheat_3', 'wheat_4', 'barley']} defaultPeriod={12} title='Динамика закупочных цен' />
       </section>

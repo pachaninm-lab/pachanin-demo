@@ -37,8 +37,24 @@ import '@/styles/platform-v7-shell-restore.css';
 import '@/styles/platform-v7-register-header-override.css';
 
 export const metadata: Metadata = {
-  title: 'Прозрачная Цена',
-  description: 'Цифровой контур исполнения сделки и операционного контроля',
+  title: {
+    default: 'GrainFlow — Прозрачная Цена',
+    template: '%s · GrainFlow',
+  },
+  description: 'Федеральная B2B-платформа для зерновых сделок: ФГИС «Зерно», банковский эскроу, ЭДО, логистика и приёмка зерна.',
+  keywords: ['зерно', 'агроторговля', 'ФГИС', 'элеватор', 'логистика зерна', 'сделка', 'ЭДО', 'банк', 'платформа'],
+  authors: [{ name: 'ООО «Прозрачная Цена»' }],
+  creator: 'GrainFlow',
+  publisher: 'ООО «Прозрачная Цена»',
+  robots: { index: false, follow: false },
+  openGraph: {
+    type: 'website',
+    locale: 'ru_RU',
+    siteName: 'GrainFlow — Прозрачная Цена',
+    title: 'GrainFlow — Федеральная зерновая платформа',
+    description: 'B2B-платформа для зерновых сделок с банковским эскроу, ФГИС, ЭДО и полным контуром приёмки.',
+  },
+  metadataBase: new URL('https://grainflow.ru'),
 };
 
 const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
