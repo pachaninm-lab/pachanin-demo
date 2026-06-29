@@ -30,45 +30,45 @@ type TourStep = {
 
 const tourSteps: TourStep[] = [
   {
-    title: 'Цена согласована. Теперь начинается главное',
-    text: 'После цены сделка быстро распадается на детали: партия, объём, базис, допуски, сроки, ответственные и следующий шаг. Тур показывает, как этот хаос собирается в один маршрут исполнения.',
-    signal: 'Главный вопрос: не сколько стоит зерно, а кто, когда и на каком основании доведёт сделку до расчёта.',
-    checkpoints: ['Партия и условия сделки', 'Следующее действие и ответственный'],
+    title: 'Цена зафиксирована. Риск только начинается',
+    text: 'Согласование цены не завершает зерновую сделку. Дальше нужно удержать условия партии, базис поставки, допуски, сроки, документы и ответственность сторон в едином маршруте исполнения.',
+    signal: 'Платформа нужна, чтобы после цены не терялись обязательства, сроки и основания для следующего действия.',
+    checkpoints: ['Условия партии и базис поставки', 'Допуски, сроки и ответственные', 'Следующий шаг сделки'],
     Icon: ClipboardCheck,
   },
   {
-    title: 'Рейс: груз движется, сделка не теряется',
-    text: 'Маршрут, машина, водитель, точка погрузки, контрольные отметки и время доставки привязываются к конкретной партии. У задержки появляется причина, а у процесса — владелец действия.',
-    signal: 'Стороны видят не переписку в телефоне, а состояние рейса и место возможного разрыва.',
-    checkpoints: ['Маршрут, машина, водитель', 'Задержка, причина, следующий шаг'],
+    title: 'Рейс становится частью сделки',
+    text: 'Партия связывается с транспортом, водителем, маршрутом, контрольными точками и плановым сроком доставки. Отклонение фиксируется как событие с причиной и ответственным действием.',
+    signal: 'Логистика перестаёт быть отдельной перепиской и становится управляемым этапом исполнения.',
+    checkpoints: ['Машина, водитель, маршрут', 'Контрольные точки и сроки', 'Причина отклонения от плана'],
     Icon: Truck,
   },
   {
-    title: 'Приёмка: момент истины на весах',
-    text: 'Вес, влажность, сорность, класс, расхождение по объёму и качество фиксируются как события сделки. Это уже не устное “не сошлось”, а проверяемая точка, от которой зависит расчёт.',
-    signal: 'Чем раньше виден разрыв по качеству или весу, тем меньше спорность и ручные потери.',
-    checkpoints: ['Вес и расхождения', 'Качество и источник данных'],
+    title: 'Приёмка и качество фиксируются как факт',
+    text: 'Вес, влажность, сорность, класс, лабораторные показатели и отклонения от условий сделки фиксируются в структуре процесса. Расхождение переводится из устного обсуждения в проверяемое основание для решения.',
+    signal: 'Для агробизнеса это критично: качество и вес напрямую влияют на расчёт, маржу и спорность сделки.',
+    checkpoints: ['Вес и приёмочные показатели', 'Качество и источник данных', 'Отклонение от условий сделки'],
     Icon: FlaskConical,
   },
   {
-    title: 'Документы: сделка проходит контроль',
-    text: 'Договор, СДИЗ, ЭДО, транспортные и приёмочные документы собираются в карту готовности. Если чего-то не хватает, видно, что именно остановлено и кто должен закрыть разрыв.',
-    signal: 'Документы перестают быть “потом пришлём” — они становятся условием движения сделки.',
-    checkpoints: ['Комплект документов', 'Статус, источник, ответственный'],
+    title: 'Документы закрывают юридическое основание',
+    text: 'Договор, СДИЗ, ЭДО, транспортные и приёмочные документы собираются в карту готовности. Стороны видят, какой документ отсутствует, кто отвечает за его закрытие и какой этап из-за этого остановлен.',
+    signal: 'Неполный комплект документов должен быть виден до расчёта, а не обнаруживаться после отгрузки.',
+    checkpoints: ['Договор и подтверждающие документы', 'СДИЗ, ЭДО и транспортный контур', 'Ответственный за закрытие разрыва'],
     Icon: FileCheck2,
   },
   {
-    title: 'Расчёт следует за подтверждёнными событиями',
-    text: 'Денежный контур опирается на выполненные этапы: поставка, приёмка, документы, отсутствие критичного спора и банковое основание. Покупатель понимает, за что платит; продавец — что ещё мешает расчёту.',
-    signal: 'Здесь важна не красивая кнопка, а доказуемое основание для следующего финансового шага.',
-    checkpoints: ['Готовность к расчёту', 'Основание, удержание, причина остановки'],
+    title: 'Расчёт опирается на подтверждённое исполнение',
+    text: 'Финансовый шаг должен опираться на поставку, приёмку, комплект документов, отсутствие критичного спора и понятное банковское основание. Покупатель видит, за что возникает обязанность оплаты; продавец — что именно мешает расчёту.',
+    signal: 'Так снижается риск оплаты без основания и риск задержки оплаты без объяснимой причины.',
+    checkpoints: ['Готовность к расчёту', 'Основание для оплаты', 'Причина удержания или остановки'],
     Icon: Banknote,
   },
   {
-    title: 'Спор: доказательства уже собраны',
-    text: 'Если расходятся вес, качество, сроки или документы, спор начинается не с пустого листа. В деле уже есть события, фото, GPS, время, документы, действия сторон и логика решения.',
-    signal: 'Арбитраж получает кейс, а стороны — понятный путь: что признано, что оспаривается и что закрывает вопрос.',
-    checkpoints: ['Evidence pack по сделке', 'Решение, основание, следующий шаг'],
+    title: 'Спор разбирается по материалам сделки',
+    text: 'Если возникают расхождения по весу, качеству, срокам или документам, спор формируется из хронологии событий, документов, приёмочных данных, фото, GPS-меток, времени и действий сторон.',
+    signal: 'Цель — быстрее перейти от конфликта к решению: что признано, что оспаривается и какие доказательства закрывают вопрос.',
+    checkpoints: ['Доказательственный пакет', 'Хронология событий', 'Основание решения и следующий шаг'],
     Icon: Scale,
   },
 ];
@@ -104,7 +104,7 @@ export function PublicEntryInteractiveTour() {
   useEffect(() => {
     if (!open) return;
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialogRef.current?.focus();
+    dialogRef.current?.focus({ preventScroll: true });
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -151,7 +151,7 @@ export function PublicEntryInteractiveTour() {
         }}
       >
         <PlayCircle size={19} strokeWidth={2.3} />
-        <span>Пройти сделку за 90 секунд</span>
+        <span>Посмотреть путь сделки</span>
       </button>
 
       {open ? (
@@ -167,7 +167,7 @@ export function PublicEntryInteractiveTour() {
             tabIndex={-1}
           >
             <div className='p7-public-tour-topline'>
-              <span className='p7-public-tour-kicker'><ShieldCheck size={16} /> Маршрут сделки</span>
+              <span className='p7-public-tour-kicker'><ShieldCheck size={16} /> Контур исполнения сделки</span>
               <span className='p7-public-tour-count'>{progressText}</span>
               <button type='button' className='p7-public-tour-close' aria-label='Закрыть тур' onClick={closeTour}>
                 <X size={18} />
@@ -175,7 +175,7 @@ export function PublicEntryInteractiveTour() {
             </div>
 
             <div className='p7-public-tour-body'>
-              <p className='p7-public-tour-lead'>Шесть точек, где зерновая сделка обычно теряет время, деньги и доказательства.</p>
+              <p className='p7-public-tour-lead'>Короткий маршрут показывает, где внебиржевая зерновая сделка обычно теряет управляемость: условия, рейс, приёмка, документы, расчёт и спор.</p>
 
               <div className='p7-public-tour-stage' aria-label='Этапы тура'>
                 {tourSteps.map((step, index) => {
@@ -202,7 +202,7 @@ export function PublicEntryInteractiveTour() {
                 <div>
                   <h2 id='p7-public-tour-title'>{activeStep.title}</h2>
                   <p id='p7-public-tour-description'>{activeStep.text}</p>
-                  <ul className='p7-public-tour-list' aria-label='Что видно на этом этапе'>
+                  <ul className='p7-public-tour-list' aria-label='Что контролируется на этом этапе'>
                     {activeStep.checkpoints.map((checkpoint) => (
                       <li key={checkpoint}>{checkpoint}</li>
                     ))}
@@ -212,8 +212,8 @@ export function PublicEntryInteractiveTour() {
               </section>
 
               <div className='p7-public-tour-mini' aria-label='Суть платформы'>
-                <span><Building2 size={16} /> Сделка</span>
-                <span><Truck size={16} /> Рейс</span>
+                <span><Building2 size={16} /> Условия</span>
+                <span><Truck size={16} /> Исполнение</span>
                 <span><FileCheck2 size={16} /> Основание</span>
                 <span><Scale size={16} /> Решение</span>
               </div>
@@ -241,21 +241,22 @@ export function PublicEntryInteractiveTour() {
         .p7-public-tour-trigger {
           position: fixed;
           right: 22px;
-          bottom: 22px;
+          bottom: max(22px, env(safe-area-inset-bottom));
           z-index: 880;
           display: inline-flex;
           align-items: center;
           gap: 9px;
           min-height: 48px;
-          padding: 0 16px;
+          padding: 0 17px;
           border: 1px solid rgba(0, 122, 47, .24);
           border-radius: 999px;
-          background: rgba(255,255,255,.93);
+          background: rgba(255,255,255,.94);
           color: #087a3b;
           box-shadow: 0 18px 40px rgba(7,22,17,.14);
           backdrop-filter: blur(16px);
           font: 900 14px/1 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
         }
         .p7-public-tour-trigger:hover { transform: translateY(-1px); border-color: rgba(0,122,47,.42); }
         .p7-public-tour-trigger:focus-visible, .p7-public-tour-dialog button:focus-visible { outline: 3px solid rgba(0,122,47,.28); outline-offset: 3px; }
@@ -265,70 +266,90 @@ export function PublicEntryInteractiveTour() {
           inset: 0;
           z-index: 1200;
           display: grid;
-          place-items: end center;
-          padding: 20px;
-          background: linear-gradient(180deg, rgba(7,22,17,.08), rgba(7,22,17,.36));
+          place-items: center;
+          padding: 22px;
+          background: linear-gradient(180deg, rgba(7,22,17,.10), rgba(7,22,17,.42));
         }
         .p7-public-tour-dialog {
-          width: min(760px, 100%);
+          width: min(840px, 100%);
+          max-height: calc(100dvh - 44px);
+          display: flex;
+          flex-direction: column;
           border: 1px solid rgba(7,22,17,.10);
           border-radius: 30px;
-          background: rgba(252,254,250,.97);
+          background: rgba(252,254,250,.98);
           color: #071611;
           box-shadow: 0 34px 90px rgba(0,0,0,.22);
           overflow: hidden;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         .p7-public-tour-topline {
+          flex: 0 0 auto;
           display: grid;
-          grid-template-columns: 1fr auto auto;
+          grid-template-columns: minmax(0,1fr) auto auto;
           align-items: center;
           gap: 10px;
           padding: 16px 18px;
           border-bottom: 1px solid rgba(7,22,17,.08);
-          background: rgba(246,250,245,.92);
+          background: rgba(246,250,245,.94);
         }
-        .p7-public-tour-kicker { display: inline-flex; align-items: center; gap: 8px; color: #087a3b; font-size: 12px; font-weight: 950; letter-spacing: .045em; text-transform: uppercase; }
-        .p7-public-tour-count { color: #66736e; font-size: 12px; font-weight: 900; }
-        .p7-public-tour-close, .p7-public-tour-node, .p7-public-tour-primary, .p7-public-tour-secondary { border: 0; font-family: inherit; cursor: pointer; }
-        .p7-public-tour-close { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 14px; background: #fff; color: #203029; box-shadow: inset 0 0 0 1px rgba(7,22,17,.09); }
-        .p7-public-tour-body { display: grid; gap: 14px; padding: 18px; }
-        .p7-public-tour-lead { margin: 0; color: #56615d; font-size: 13px; line-height: 1.35; font-weight: 800; }
+        .p7-public-tour-kicker { min-width: 0; display: inline-flex; align-items: center; gap: 8px; color: #087a3b; font-size: 12px; font-weight: 950; letter-spacing: .045em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .p7-public-tour-count { color: #66736e; font-size: 12px; font-weight: 900; white-space: nowrap; }
+        .p7-public-tour-close, .p7-public-tour-node, .p7-public-tour-primary, .p7-public-tour-secondary { border: 0; font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .p7-public-tour-close { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 15px; background: #fff; color: #203029; box-shadow: inset 0 0 0 1px rgba(7,22,17,.09); }
+        .p7-public-tour-body { flex: 1 1 auto; min-height: 0; display: grid; gap: 14px; padding: 18px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+        .p7-public-tour-lead { margin: 0; color: #56615d; font-size: 14px; line-height: 1.4; font-weight: 800; max-width: 720px; }
         .p7-public-tour-stage { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
         .p7-public-tour-node { display: grid; place-items: center; min-height: 42px; border-radius: 15px; background: rgba(0,122,47,.06); color: #087a3b; box-shadow: inset 0 0 0 1px rgba(0,122,47,.11); }
         .p7-public-tour-node.active { background: #087a3b; color: #fff; box-shadow: 0 14px 30px rgba(0,122,47,.22); }
         .p7-public-tour-node.done { background: rgba(0,122,47,.12); }
-        .p7-public-tour-card { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding: clamp(18px, 3vw, 28px); border-radius: 24px; border: 1px solid rgba(7,22,17,.08); background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(241,248,239,.94)); }
+        .p7-public-tour-card { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding: clamp(20px, 3vw, 30px); border-radius: 24px; border: 1px solid rgba(7,22,17,.08); background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(241,248,239,.94)); }
         .p7-public-tour-icon { display: grid; place-items: center; width: 62px; height: 62px; border-radius: 22px; background: rgba(0,122,47,.10); color: #087a3b; }
-        .p7-public-tour-card h2 { margin: 0; font-size: clamp(24px, 3.5vw, 38px); line-height: 1.03; letter-spacing: -.045em; font-weight: 950; }
-        .p7-public-tour-card p { margin: 12px 0 0; color: #3e4a45; font-size: 16px; line-height: 1.45; font-weight: 650; }
-        .p7-public-tour-list { display: grid; gap: 6px; margin: 13px 0 0; padding: 0; list-style: none; }
-        .p7-public-tour-list li { position: relative; padding-left: 18px; color: #203029; font-size: 13px; line-height: 1.35; font-weight: 850; }
-        .p7-public-tour-list li::before { content: ''; position: absolute; left: 0; top: .58em; width: 7px; height: 7px; border-radius: 999px; background: #087a3b; box-shadow: 0 0 0 4px rgba(0,122,47,.10); }
-        .p7-public-tour-card strong { display: block; margin-top: 13px; color: #087a3b; font-size: 13px; line-height: 1.35; font-weight: 950; }
+        .p7-public-tour-card h2 { margin: 0; font-size: clamp(25px, 3vw, 36px); line-height: 1.04; letter-spacing: -.045em; font-weight: 950; }
+        .p7-public-tour-card p { margin: 12px 0 0; color: #3e4a45; font-size: 16px; line-height: 1.48; font-weight: 650; }
+        .p7-public-tour-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 14px 0 0; padding: 0; list-style: none; }
+        .p7-public-tour-list li { position: relative; min-height: 38px; padding: 9px 10px 9px 24px; border-radius: 13px; background: rgba(255,255,255,.78); color: #203029; font-size: 12.5px; line-height: 1.25; font-weight: 850; box-shadow: inset 0 0 0 1px rgba(7,22,17,.07); }
+        .p7-public-tour-list li::before { content: ''; position: absolute; left: 11px; top: 15px; width: 6px; height: 6px; border-radius: 999px; background: #087a3b; box-shadow: 0 0 0 4px rgba(0,122,47,.10); }
+        .p7-public-tour-card strong { display: block; margin-top: 14px; color: #087a3b; font-size: 13.5px; line-height: 1.38; font-weight: 950; }
         .p7-public-tour-mini { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-        .p7-public-tour-mini span { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; border-radius: 15px; background: rgba(255,255,255,.82); color: #203029; font-size: 12px; font-weight: 900; box-shadow: inset 0 0 0 1px rgba(7,22,17,.08); }
-        .p7-public-tour-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; padding: 0 18px 18px; }
-        .p7-public-tour-primary, .p7-public-tour-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border-radius: 17px; font-size: 14px; font-weight: 950; }
+        .p7-public-tour-mini span { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; border-radius: 15px; background: rgba(255,255,255,.84); color: #203029; font-size: 12px; font-weight: 900; box-shadow: inset 0 0 0 1px rgba(7,22,17,.08); }
+        .p7-public-tour-actions { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1.45fr; gap: 10px; padding: 0 18px 18px; background: rgba(252,254,250,.98); }
+        .p7-public-tour-primary, .p7-public-tour-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 54px; border-radius: 17px; font-size: 14px; font-weight: 950; }
         .p7-public-tour-primary { background: #087a3b; color: #fff; box-shadow: 0 16px 34px rgba(0,122,47,.22); }
         .p7-public-tour-secondary { background: #fff; color: #203029; box-shadow: inset 0 0 0 1px rgba(7,22,17,.10); }
         .p7-public-tour-secondary:disabled { cursor: not-allowed; opacity: .45; }
-        @media (max-width: 640px) {
-          .p7-public-tour-trigger { left: 14px; right: 14px; bottom: 14px; justify-content: center; min-height: 50px; }
-          .p7-public-tour-layer { align-items: end; padding: 10px; }
-          .p7-public-tour-dialog { border-radius: 26px; max-height: calc(100vh - 24px); overflow-y: auto; }
+        @media (max-width: 760px) {
+          .p7-public-tour-layer { place-items: end center; padding: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+          .p7-public-tour-dialog { width: 100%; max-height: calc(100dvh - 16px); border-radius: 26px; }
           .p7-public-tour-topline { padding: 13px 14px; }
+          .p7-public-tour-kicker { font-size: 11px; letter-spacing: .04em; }
+          .p7-public-tour-count { font-size: 11.5px; }
+          .p7-public-tour-close { width: 38px; height: 38px; }
           .p7-public-tour-body { padding: 14px; gap: 12px; }
-          .p7-public-tour-lead { font-size: 12.5px; }
+          .p7-public-tour-lead { font-size: 12.8px; line-height: 1.36; }
           .p7-public-tour-stage { gap: 6px; }
           .p7-public-tour-node { min-height: 38px; border-radius: 13px; }
           .p7-public-tour-card { grid-template-columns: 1fr; gap: 12px; padding: 17px; border-radius: 22px; }
           .p7-public-tour-icon { width: 54px; height: 54px; border-radius: 19px; }
-          .p7-public-tour-card h2 { font-size: clamp(25px, 8vw, 34px); }
-          .p7-public-tour-card p { font-size: 14.5px; line-height: 1.42; }
-          .p7-public-tour-list li { font-size: 12.5px; }
+          .p7-public-tour-card h2 { font-size: clamp(24px, 7.2vw, 32px); line-height: 1.04; letter-spacing: -.05em; }
+          .p7-public-tour-card p { font-size: 14.2px; line-height: 1.43; }
+          .p7-public-tour-list { grid-template-columns: 1fr; gap: 6px; }
+          .p7-public-tour-list li { min-height: 34px; font-size: 12.5px; }
+          .p7-public-tour-card strong { font-size: 12.8px; line-height: 1.34; }
           .p7-public-tour-mini { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .p7-public-tour-actions { grid-template-columns: 1fr; padding: 0 14px 14px; }
+          .p7-public-tour-primary, .p7-public-tour-secondary { min-height: 52px; }
+        }
+        @media (max-width: 390px) {
+          .p7-public-tour-card h2 { font-size: 23px; }
+          .p7-public-tour-card p { font-size: 13.6px; }
+          .p7-public-tour-mini span { font-size: 11.5px; }
+        }
+        @media (max-height: 690px) and (max-width: 760px) {
+          .p7-public-tour-lead { display: none; }
+          .p7-public-tour-icon { width: 48px; height: 48px; border-radius: 17px; }
+          .p7-public-tour-card { padding: 15px; }
+          .p7-public-tour-card strong { margin-top: 10px; }
         }
       `}</style>
     </>
