@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import Script from 'next/script';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
+import { FeatureFlagsDevPanel } from '@/components/platform-v7/FeatureFlagsDevPanel';
 
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
@@ -92,6 +93,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        <FeatureFlagsDevPanel />
         {YM_ID ? (
           <>
             <Script id="yandex-metrika" strategy="afterInteractive">{`

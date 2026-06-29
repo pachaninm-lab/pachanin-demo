@@ -12,6 +12,7 @@ import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyIm
 import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { CockpitHero, PremiumStatCard, PremiumCtaButton } from '@/components/platform-v7/premium';
+import { PaymentHeatmap, buildDemoPaymentHeatmapData } from '@/components/platform-v7/PaymentHeatmap';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
@@ -153,6 +154,15 @@ export default async function PlatformV7SellerPage() {
           <Link href='/platform-v7/deals/DL-9106/clean'>Открыть сделку</Link>
           <Link href='#documents' data-secondary='true'>Документы</Link>
         </div>
+      </section>
+
+      {/* Календарный heatmap выплат */}
+      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem' }}>
+        <div style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 className="heading-4" style={{ margin: 0 }}>Выплаты по месяцу</h2>
+          <span className="caption">данные демо</span>
+        </div>
+        <PaymentHeatmap data={buildDemoPaymentHeatmapData()} year={2024} month={2} />
       </section>
 
       <CockpitHero
