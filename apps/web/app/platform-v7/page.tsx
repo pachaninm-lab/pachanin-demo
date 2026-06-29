@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, BadgeCheck, Banknote, Building2, Calculator, ClipboardCheck, FileCheck2, FlaskConical, Landmark, Leaf, LockKeyhole, LogIn, Scale, ShieldCheck, Truck, UserRound, Wheat, type LucideIcon } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Banknote, Building2, Calculator, ClipboardCheck, FileCheck2, FlaskConical, Landmark, Leaf, LockKeyhole, LogIn, MessageCircleQuestion, PlayCircle, Scale, ShieldCheck, Truck, UserRound, Wheat, type LucideIcon } from 'lucide-react';
 import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
 
 type Card = { title: string; text: string; Icon: LucideIcon };
@@ -50,7 +50,7 @@ export default function PlatformV7RootPage() {
       <style>{css}</style>
       <header className='entry-header' aria-label='Публичная навигация'>
         <Link href='/platform-v7' className='entry-brand' aria-label='Прозрачная Цена'><span className='entry-brand-mark'><Wheat size={26} strokeWidth={2.45} /></span><span><strong>Прозрачная Цена</strong><small>Контур исполнения сделки</small></span></Link>
-        <nav className='entry-nav' aria-label='Разделы главной страницы'><a href='#process'>Как проходит</a><a href='#intelligence'>ИИ-слой</a><a href='#control'>Контроль</a><a href='#roles'>Роли</a><Link href='/platform-v7/docs'>Документы</Link></nav>
+        <nav className='entry-nav' aria-label='Разделы главной страницы'><a href='#process'>Как проходит</a><a href='#intelligence'>ИИ-слой</a><a href='#control'>Контроль</a><Link href='/platform-v7/demo'>Демо</Link><Link href='/platform-v7/contact'>Вопрос</Link><Link href='/platform-v7/docs'>Документы</Link></nav>
         <div className='entry-header-actions'><Link href='/platform-v7/login' className='entry-login'><LogIn size={16} />Войти</Link><Link href='/platform-v7/register' className='entry-header-register'>Регистрация</Link></div>
       </header>
 
@@ -59,7 +59,8 @@ export default function PlatformV7RootPage() {
           <span className='entry-kicker'>Единый вход в контур сделки</span>
           <h1 id='entry-hero-title' aria-label='Главный риск сделки начинается после согласования цены'><span>Главный риск сделки</span><span>начинается после</span><span>согласования цены</span></h1>
           <p>Прозрачная Цена — цифровой контур исполнения зерновой сделки: рейс, приёмка, качество, документы, деньги, спор и доказательства в одном процессе.</p>
-          <div className='entry-hero-actions'><a href='#roles' className='entry-primary-cta'>Выбрать роль<ArrowRight size={20} /></a><Link href='/platform-v7/login' className='entry-secondary-cta'>Войти в кабинет</Link><Link href='/platform-v7/register' className='entry-register-cta'>Зарегистрироваться</Link></div>
+          <div className='entry-hero-actions'><Link href='/platform-v7/register' className='entry-primary-cta'>Подключить организацию<ArrowRight size={20} /></Link><Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Посмотреть демо-сделку</Link><Link href='/platform-v7/contact' className='entry-register-cta'><MessageCircleQuestion size={18} />Задать вопрос</Link></div>
+          <p className='entry-demo-note'>Демо работает без регистрации, на синтетических данных и не открывает реальные личные кабинеты.</p>
         </div>
         <div className='entry-hero-visual' aria-hidden='true'><div className='entry-route-line' /><div className='entry-floating-card docs'><FileCheck2 size={22} /><span>Документы</span><b>проверяются</b></div><div className='entry-floating-card quality'><FlaskConical size={22} /><span>Качество</span><b>ожидает анализ</b></div><div className='entry-floating-card money'><Banknote size={22} /><span>Оплата</span><b>зависит от событий</b></div></div>
       </section>
@@ -88,7 +89,7 @@ const css = `
 .entry-brand-mark { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 15px; color: #087a3b; background: linear-gradient(145deg, rgba(0,122,47,.12), rgba(0,122,47,.03)); box-shadow: inset 0 0 0 1px rgba(0,122,47,.08); }
 .entry-brand strong { display: block; font-size: 18px; line-height: 1.05; letter-spacing: -.03em; }
 .entry-brand small { display: block; margin-top: 3px; color: #66736e; font-size: 12px; font-weight: 650; }
-.entry-nav { display: flex; justify-content: center; gap: 24px; color: #17251f; font-size: 14px; font-weight: 760; }
+.entry-nav { display: flex; justify-content: center; gap: 18px; color: #17251f; font-size: 14px; font-weight: 760; }
 .entry-nav a:hover { color: #087a3b; }
 .entry-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
 .entry-login, .entry-header-register { min-height: 42px; border-radius: 15px; border: 1px solid rgba(7,22,17,.10); background: rgba(255,255,255,.86); color: #071611; font-size: 14px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; }
@@ -100,9 +101,10 @@ const css = `
 .entry-hero h1 { display: grid; gap: 1px; margin: 0; max-width: 760px; font-size: clamp(38px, 4.5vw, 66px); line-height: .99; letter-spacing: -.052em; font-weight: 900; text-wrap: balance; }
 .entry-hero h1 span { display: block; } .entry-hero h1 span:last-child { color: #087a3b; }
 .entry-hero p { margin: 18px 0 0; max-width: 620px; color: #3e4a45; font-size: clamp(16.5px, 1.25vw, 19px); line-height: 1.44; font-weight: 620; }
-.entry-hero-actions { display: grid; grid-template-columns: 1.1fr .9fr 1fr; gap: 10px; margin-top: 24px; }
-.entry-primary-cta, .entry-secondary-cta, .entry-register-cta { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; border-radius: 17px; padding: 0 18px; font-size: 15.5px; font-weight: 950; text-align: center; }
+.entry-hero-actions { display: grid; grid-template-columns: 1.05fr 1fr .9fr; gap: 10px; margin-top: 24px; }
+.entry-primary-cta, .entry-secondary-cta, .entry-register-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; border-radius: 17px; padding: 0 18px; font-size: 15.5px; font-weight: 950; text-align: center; }
 .entry-primary-cta { gap: 9px; color: #fff !important; background: #087a3b; box-shadow: 0 18px 38px rgba(0,122,47,.22); } .entry-secondary-cta { color: #087a3b !important; background: rgba(255,255,255,.82); border: 1px solid rgba(0,122,47,.24); } .entry-register-cta { color: #09251b !important; background: rgba(0,122,47,.08); border: 1px solid rgba(0,122,47,.16); }
+.entry-demo-note { margin-top: 12px !important; color: #66736e !important; font-size: 12.5px !important; line-height: 1.4 !important; font-weight: 750 !important; }
 .entry-hero-visual { position: relative; min-height: 430px; border-radius: 34px; overflow: hidden; border: 1px solid rgba(7,22,17,.07); background: radial-gradient(circle at 74% 28%, rgba(255,255,255,.15), transparent 20%), linear-gradient(90deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.36) 42%, rgba(255,255,255,.08) 100%), linear-gradient(180deg, #eef5ec 0%, #f4d77f 62%, #f8edd0 100%); box-shadow: 0 24px 70px rgba(8,20,14,.10); }
 .entry-hero-visual::before { content: ''; position: absolute; right: 8%; bottom: 22%; width: 66%; height: 46%; background: linear-gradient(90deg, transparent 0 12%, rgba(70,82,78,.34) 12% 14%, transparent 14% 28%, rgba(70,82,78,.34) 28% 30%, transparent 30% 44%, rgba(70,82,78,.34) 44% 46%, transparent 46%), linear-gradient(180deg, rgba(42,55,50,.24), rgba(255,255,255,.08)); border-radius: 34px 34px 10px 10px; box-shadow: 0 -58px 0 -32px rgba(58,76,70,.28), -130px 20px 0 -14px rgba(58,76,70,.22); }
 .entry-hero-visual::after { content: ''; position: absolute; right: 9%; bottom: 16%; width: 245px; height: 78px; border-radius: 22px 10px 10px 16px; background: linear-gradient(90deg, #f8faf7 0 58%, #dfe7dc 58% 100%); box-shadow: 0 18px 42px rgba(7,22,17,.18), 24px 63px 0 -31px #1b241f, 164px 63px 0 -31px #1b241f; }
