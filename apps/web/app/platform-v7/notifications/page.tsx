@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { EmailTemplatePreview } from '@/components/platform-v7/EmailTemplatePreview';
 
 type InboxItem = {
   id: string;
@@ -223,6 +224,15 @@ export default function NotificationsPage() {
           Сделки
         </Link>
       </div>
+
+      {/* Email templates */}
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Email-уведомления · шаблоны</div>
+          <div style={{ fontSize: 12, color: 'var(--pc-text-muted)', marginTop: 4 }}>6 триггерных шаблонов — превью того, что получит участник сделки</div>
+        </div>
+        <EmailTemplatePreview />
+      </section>
     </div>
   );
 }
