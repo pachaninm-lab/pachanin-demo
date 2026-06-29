@@ -41,14 +41,16 @@ const cleanupCss = `
 .pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v4-main,
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#fbfcf9!important;min-height:100svh!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v7-public-entry,
-.pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-bottom:max(64px,env(safe-area-inset-bottom))!important}
+.pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-top:88px!important;padding-bottom:max(64px,env(safe-area-inset-bottom))!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand-mark,
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark{background:transparent!important;color:inherit!important;padding:0!important;overflow:visible!important;box-shadow:none!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand-mark img,
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand-mark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;background:transparent!important}
 @media (max-width:640px){
+.pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v7-public-entry,
+.pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-top:94px!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-header,
-.pc-shell-root-v4[data-public-entry='true'] .entry-header{position:sticky!important;top:0!important;height:72px!important;min-height:72px!important;width:100%!important;padding:8px 16px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;background:rgba(255,255,255,.96)!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-header{position:fixed!important;top:0!important;left:0!important;right:0!important;height:72px!important;min-height:72px!important;width:100%!important;padding:8px 16px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;background:rgba(255,255,255,.97)!important;box-shadow:0 12px 30px rgba(7,22,17,.08)!important;border-bottom:1px solid rgba(7,22,17,.08)!important;z-index:1400!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand,
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand{height:44px!important;display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important;max-width:calc(100% - 104px)!important;flex:1 1 auto!important;overflow:visible!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand > span:not(.entry-brand-mark),
@@ -66,7 +68,7 @@ const cleanupCss = `
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-login svg,
 .pc-shell-root-v4[data-public-entry='true'] .entry-login svg{display:none!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero,
-.pc-shell-root-v4[data-public-entry='true'] .entry-hero{min-height:0!important;padding:14px 14px 14px!important;gap:0!important;display:grid!important;grid-template-columns:1fr!important;overflow:visible!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-hero{min-height:0!important;padding:26px 14px 14px!important;gap:0!important;display:grid!important;grid-template-columns:1fr!important;overflow:visible!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero::before,
 .pc-shell-root-v4[data-public-entry='true'] .entry-hero::before{display:none!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-hero-visual,
@@ -121,8 +123,10 @@ const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true'] .entry-trust-cta{min-height:54px!important;min-width:0!important;border-radius:18px!important;background:#087a3b!important;color:#fff!important;margin:2px 0 0!important}
 }
 @media (max-width:374px){
+.pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v7-public-entry,
+.pc-shell-root-v4[data-public-entry='true'] .pc-v7-public-entry{padding-top:90px!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-header,
-.pc-shell-root-v4[data-public-entry='true'] .entry-header{padding:8px 12px!important;gap:8px!important}
+.pc-shell-root-v4[data-public-entry='true'] .entry-header{padding:8px 12px!important;gap:8px!important;height:68px!important;min-height:68px!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand,
 .pc-shell-root-v4[data-public-entry='true'] .entry-brand{gap:8px!important;max-width:calc(100% - 96px)!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .entry-brand-mark,
