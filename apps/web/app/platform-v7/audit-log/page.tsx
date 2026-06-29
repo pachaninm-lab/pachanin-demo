@@ -4,6 +4,7 @@ import { TimelineWithImpact } from '@/components/platform-v7/visual/TimelineWith
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { serverApiUrl, serverAuthHeaders } from '@/lib/server-api';
+import { AuditLogPanel } from '@/components/platform-v7/AuditLogPanel';
 
 async function getAuditLog(): Promise<Array<{ id: string; action: string; entityType: string; entityId: string; actorUserId?: string; createdAt: string }>> {
   try {
@@ -79,6 +80,11 @@ export default async function PlatformV7AuditLogPage() {
       </CockpitHero>
 
       <TimelineWithImpact events={events} />
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Детальный аудит-лог · фильтр по важности</div>
+        <AuditLogPanel />
+      </section>
 
       <section style={grid}>
         <Card title='Главный блокер' value='СДИЗ не закрыт' note='Останавливает банковское основание по DL-9106.' danger />
