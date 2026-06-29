@@ -7,6 +7,8 @@ import { getPlatformV7DriverCockpitState } from '@/lib/platform-v7/runtime/drive
 import { CockpitHero, OfflineSyncBanner } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
+import { DriverOfflineQueue } from '@/components/platform-v7/DriverOfflineQueue';
+import { RouteMapStub } from '@/components/platform-v7/RouteMapStub';
 
 export default async function DriverFieldPage() {
   const mission = getPlatformV7DriverCockpitState();
@@ -159,8 +161,30 @@ export default async function DriverFieldPage() {
         </CollapsibleSection>
       </section>
 
+      <section id="driver-map" style={driverFieldSection}>
+        <CollapsibleSection title='Маршрут на карте' summary='прогресс · точки · ETA' defaultOpen={false}>
+          {(() => {
+            const [from, to] = (mission.route ?? 'Тамбов → Воронеж').split(' → ');
+            const currentKm = Math.round((mission.progressPercent / 100) * 142);
+            return (
+              <RouteMapStub
+                from={from ?? 'Тамбов'}
+                to={to ?? 'Воронеж'}
+                currentKm={currentKm}
+                totalKm={142}
+                eta="14:30"
+                vehiclePlate="А234-ВС-68"
+              />
+            );
+          })()}
+        </CollapsibleSection>
+      </section>
+
       <section id="driver-offline-events" style={driverFieldSection}>
-        <CollapsibleSection title='Полевой runtime и синхронизация' summary='очередь · события · офлайн' defaultOpen={false}>
+        <CollapsibleSection title='Офлайн-очередь и камера' summary='IndexedDB · фото · синхронизация' defaultOpen={false}>
+          <DriverOfflineQueue tripId={mission.tripId} />
+        </CollapsibleSection>
+        <CollapsibleSection title='Полевой runtime' summary='очередь · события · офлайн' defaultOpen={false}>
           <FieldDriverRuntime compact />
         </CollapsibleSection>
       </section>

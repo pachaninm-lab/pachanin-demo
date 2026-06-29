@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { OperatorKpiDashboard } from '@/components/platform-v7/OperatorKpiDashboard';
+import { PushNotificationBanner } from '@/components/platform-v7/PushNotificationBanner';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
 import { OperatorExecutionQueue } from '../../../components/platform-v7/OperatorExecutionQueue';
 import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
@@ -189,6 +191,14 @@ export default async function PlatformV7OperatorPage() {
             </Link>
           ))}
         </div>
+      </section>
+
+      <section style={card} aria-label='KPI-панель оператора'>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={micro}>Операционные KPI</div>
+          <PushNotificationBanner />
+        </div>
+        <OperatorKpiDashboard />
       </section>
     </main>
   );

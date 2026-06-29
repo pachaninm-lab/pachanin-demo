@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BuyerFavoritesPanel } from '@/components/platform-v7/BuyerFavoritesPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -289,6 +290,11 @@ export default async function PlatformV7BuyerPage() {
             </section>
           </div>
         </CollapsibleSection>
+      </section>
+      {/* Избранное и рейтинги поставщиков */}
+      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' }}>
+        <div style={micro}>Избранные лоты и поставщики</div>
+        <BuyerFavoritesPanel />
       </section>
     </main>
   );

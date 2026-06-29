@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PushNotificationBanner } from '@/components/platform-v7/PushNotificationBanner';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -354,6 +355,9 @@ export default async function PlatformV7SellerPage() {
             </section>
           </div>
         </CollapsibleSection>
+      </section>
+      <section style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <PushNotificationBanner />
       </section>
     </main>
   );
