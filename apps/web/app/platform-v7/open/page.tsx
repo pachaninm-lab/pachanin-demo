@@ -61,6 +61,10 @@ export default function PlatformV7OpenPage() {
   const nextParam = params.get('next');
   const canSubmit = Boolean(login.trim() && code.trim() && !pending);
 
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
@@ -422,15 +426,25 @@ const css = `
 }
 @media (max-width: 720px) {
   .pc-open-v2 {
-    padding: calc(var(--open-header-height) + 10px) 0 calc(260px + env(safe-area-inset-bottom));
+    height: 100svh;
+    min-height: 100svh;
+    padding: var(--open-header-height) 0 0;
+    overflow: hidden;
   }
   .open-card {
     width: 100%;
-    margin: 0 auto;
-    padding: 10px 14px 36px;
+    height: calc(100svh - var(--open-header-height));
+    max-height: calc(100svh - var(--open-header-height));
+    margin: 0;
+    padding: 12px 14px calc(210px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     border-left: 0;
     border-right: 0;
-    border-radius: 0 0 28px 28px;
+    border-bottom: 0;
+    border-radius: 0;
   }
   .pc-open-v2 form { gap: 12px; }
   .role-panel { gap: 9px; }
@@ -453,6 +467,12 @@ const css = `
   .submit,
   .register-cta,
   .recovery-submit { min-height: 58px; border-radius: 24px; font-size: 17px; }
+}
+@supports (height: 100dvh) {
+  @media (max-width: 720px) {
+    .pc-open-v2 { height: 100dvh; min-height: 100dvh; }
+    .open-card { height: calc(100dvh - var(--open-header-height)); max-height: calc(100dvh - var(--open-header-height)); }
+  }
 }
 @media (max-width: 380px) {
   .open-header { padding-left: 14px; padding-right: 66px; }
