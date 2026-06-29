@@ -53,7 +53,7 @@ export default function PlatformV7OpenPage() {
     }
     setPending(true);
     try {
-      const response = await fetch(`/api/platform-v7/cabinet-lock-login?ts=${Date.now()}&origin=open-access`, {
+      const response = await fetch(`/api/auth/platform-v7-cabinet-login?ts=${Date.now()}&origin=open-access`, {
         method: 'POST',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', Pragma: 'no-cache' },
