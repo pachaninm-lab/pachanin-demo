@@ -6,6 +6,8 @@ const rootPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform
 const demoPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/demo/page.tsx'), 'utf8');
 const contactPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/contact/page.tsx'), 'utf8');
 const inquiryRoute = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/api/platform-v7/inquiries/route.ts'), 'utf8');
+const singleEntryGuard = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx'), 'utf8');
+const cabinetPolicy = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/cabinet-access-policy.ts'), 'utf8');
 
 describe('platform-v7 public demo and question flow', () => {
   it('exposes demo and question CTAs from the public homepage', () => {
@@ -28,6 +30,13 @@ describe('platform-v7 public demo and question flow', () => {
     expect(demoPage).not.toContain("href: '/platform-v7/bank'");
     expect(demoPage).not.toContain("href: '/platform-v7/driver");
     expect(demoPage).not.toContain("href: '/platform-v7/disputes'");
+  });
+
+  it('keeps demo and contact outside role-session redirects and cabinet RBAC', () => {
+    expect(singleEntryGuard).toContain("'/platform-v7/demo'");
+    expect(singleEntryGuard).toContain("'/platform-v7/contact'");
+    expect(cabinetPolicy).toContain("'/platform-v7/demo'");
+    expect(cabinetPolicy).toContain("'/platform-v7/contact'");
   });
 
   it('adds a separate question form without creating access', () => {
