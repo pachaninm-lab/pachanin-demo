@@ -10,8 +10,6 @@ export const SURFACE_ROLE_KEYS = [
   'EXECUTIVE',
   'SUPPORT_MANAGER',
   'ADMIN',
-  'COMPLIANCE_OFFICER',
-  'ARBITRATOR',
 ] as const;
 
 export type SurfaceRoleKey = typeof SURFACE_ROLE_KEYS[number];
@@ -35,24 +33,16 @@ const ROLE_ALIASES: Record<string, SurfaceRoleKey> = {
   operator: 'SUPPORT_MANAGER',
   ops: 'SUPPORT_MANAGER',
   admin: 'ADMIN',
-  compliance_officer: 'COMPLIANCE_OFFICER',
-  compliance: 'COMPLIANCE_OFFICER',
-  arbitrator: 'ARBITRATOR',
-  arbiter: 'ARBITRATOR',
 };
 
 export const PRIVILEGED_ROLES: readonly SurfaceRoleKey[] = [
   'SUPPORT_MANAGER',
   'ADMIN',
   'EXECUTIVE',
-  'COMPLIANCE_OFFICER',
-  'ARBITRATOR',
 ];
 
 export const MFA_REQUIRED_ROLES: readonly SurfaceRoleKey[] = [
   'ADMIN',
-  'COMPLIANCE_OFFICER',
-  'ARBITRATOR',
 ];
 
 export function toSurfaceRole(input?: string | null): SurfaceRoleKey {

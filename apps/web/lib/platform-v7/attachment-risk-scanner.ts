@@ -23,7 +23,7 @@ export interface AttachmentScanResult {
   allowDownload: boolean;
 }
 
-const phone = /(?:\+?7|8)[\s(-]*\d{3}[\s)-]*\d{3}[\s-]*\d{2}[\s-]*\d{2}/;
+const phone = /(?:\+?7|8)[\s(~-]*\d{3}[\s)~-]*\d{3}[\s~-]*\d{2}[\s~-]*\d{2}/;
 const email = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const externalLink = /https?:\/\/\S+/i;
 const bankDetails = /(?:р\/с|к\/с|бик|расч[её]тный сч[её]т|банк)/i;

@@ -27,6 +27,21 @@ const PUBLIC_ROLES = [
 
 const PENDING_ROLE_KEY = 'pc_v7_pending_role';
 
+const PUBLIC_PATHS = {
+  exact: [
+    '/platform-v7',
+    '/platform-v7/open',
+    '/platform-v7/login',
+    '/platform-v7/register',
+    '/platform-v7/help',
+    '/platform-v7/pricing',
+    '/platform-v7/roadmap',
+  ] as const,
+  prefix: [
+    '/platform-v7/role-preview',
+  ] as const,
+};
+
 const cleanupCss = `
 .pc-shell-root-v4:has(.pc-v7-public-entry),
 .pc-shell-root-v4[data-public-entry='true']{--pc-header-offset:0px!important;background:#fbfcf9!important}
