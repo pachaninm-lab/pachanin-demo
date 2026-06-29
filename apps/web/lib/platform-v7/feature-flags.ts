@@ -26,25 +26,28 @@ export interface FeatureFlag {
   defaultEnabled: boolean;
   envKey?: string;
   demoOnly?: boolean;
+  /** Флаг работает на демо-ответах, не на боевом API */
+  demoAnswer?: boolean;
+  demoNote?: string;
 }
 
 export const FEATURE_FLAGS: FeatureFlag[] = [
-  { id: 'ff_mfa_totp',            label: 'MFA — TOTP (Authenticator)',       defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_MFA_TOTP' },
-  { id: 'ff_mfa_sms',             label: 'MFA — SMS OTP',                    defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_MFA_SMS' },
-  { id: 'ff_ukep_signing',        label: 'УКЭП подписание документов',        defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_UKEP' },
+  { id: 'ff_mfa_totp',            label: 'MFA — TOTP (Authenticator)',       defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_MFA_TOTP',     demoAnswer: true, demoNote: 'TOTP-верификация работает на заглушке — реальный TOTP требует backend-контура' },
+  { id: 'ff_mfa_sms',             label: 'MFA — SMS OTP',                    defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_MFA_SMS',      demoAnswer: true, demoNote: 'SMS-шлюз не подключён — ОТП генерируется на клиенте' },
+  { id: 'ff_ukep_signing',        label: 'УКЭП подписание документов',        defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_UKEP',         demoAnswer: true, demoNote: 'КриптоПро DSS — предынтеграционный контур, боевое подписание не заявляется' },
   { id: 'ff_hash_chain_events',   label: 'Hash-chain событий сделки',         defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_HASH_CHAIN' },
   { id: 'ff_double_entry_ledger', label: 'Двойная запись (ledger)',           defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_LEDGER' },
   { id: 'ff_saga_orchestrator',   label: 'Saga Orchestrator',                 defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_SAGA' },
   { id: 'ff_audit_log',           label: 'Аудит лог (152-ФЗ)',                defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_AUDIT_LOG' },
-  { id: 'ff_edo_integration',     label: 'ЭДО интеграция (Диадок/Saby)',      defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_EDO' },
-  { id: 'ff_fgis_zerno',          label: 'ФГИС «Зерно» live',                 defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_FGIS' },
-  { id: 'ff_aml_check',           label: 'AML проверка при создании сделки',  defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_AML' },
+  { id: 'ff_edo_integration',     label: 'ЭДО интеграция (Диадок/Saby)',      defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_EDO',          demoAnswer: true, demoNote: 'Диадок/Saby: договор не заключён — ответы эмулируются' },
+  { id: 'ff_fgis_zerno',          label: 'ФГИС «Зерно» live',                 defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_FGIS',         demoAnswer: true, demoNote: 'ФГИС «Зерно»: боевой API требует учётных данных Минсельхоза — сейчас демо-ответ' },
+  { id: 'ff_aml_check',           label: 'AML проверка при создании сделки',  defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_AML',          demoAnswer: true, demoNote: 'AML-сервис: sandbox-режим, реальная проверка требует договора' },
   { id: 'ff_dispute_calculator',  label: 'Калькулятор удержания',             defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_DISPUTE_CALC' },
   { id: 'ff_documents_tree',      label: 'Дерево документов',                 defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_DOCS_TREE' },
   { id: 'ff_payment_heatmap',     label: 'Heatmap выплат',                    defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_HEATMAP' },
   { id: 'ff_recently_viewed',     label: 'Последние просмотренные',           defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_RECENT' },
   { id: 'ff_pwa_offline',         label: 'PWA офлайн (водитель)',             defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_PWA' },
-  { id: 'ff_yandex_maps',         label: 'Яндекс.Карты',                      defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_YANDEX_MAPS' },
+  { id: 'ff_yandex_maps',         label: 'Яндекс.Карты',                      defaultEnabled: false, envKey: 'NEXT_PUBLIC_FF_YANDEX_MAPS', demoAnswer: true, demoNote: 'Яндекс.Карты JS API: ключ не задан — показывается SVG-заглушка маршрута' },
   { id: 'ff_demo_data',           label: 'Режим демо-данных',                 defaultEnabled: true,  envKey: 'NEXT_PUBLIC_FF_DEMO', demoOnly: true },
 ];
 

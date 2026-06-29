@@ -61,42 +61,56 @@ export function FeatureFlagsDevPanel() {
             </button>
           </div>
 
+          <div style={{ marginBottom: '0.5rem', fontSize: '10px', color: 'var(--pc-text-muted)', lineHeight: 1.45 }}>
+            🟡 <strong>демо-ответ</strong> — флаг работает на моковых данных, не на боевом API
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             {flags.map(({ flag, enabled }) => (
-              <label
-                key={flag.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  padding: '0.375rem 0.5rem', borderRadius: '6px',
-                  cursor: 'pointer', fontSize: 'var(--text-xs)',
-                  transition: 'background 120ms ease',
-                }}
-                className="hover-row"
-              >
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={(e) => {
-                    const newEnabled = e.target.checked;
-                    if (newEnabled === flag.defaultEnabled) {
-                      clearFeatureOverride(flag.id as FeatureFlagId);
-                    } else {
-                      setFeatureOverride(flag.id as FeatureFlagId, newEnabled);
-                    }
-                    setFlags(getAllFlags());
+              <div key={flag.id} style={{ borderRadius: '6px', overflow: 'hidden' }}>
+                <label
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    padding: '0.375rem 0.5rem',
+                    cursor: 'pointer', fontSize: 'var(--text-xs)',
+                    background: flag.demoAnswer ? 'rgba(217,119,6,0.06)' : 'transparent',
                   }}
-                  style={{ accentColor: 'var(--p7-color-brand)' }}
-                />
-                <span style={{ flex: 1, color: 'var(--pc-text-secondary)' }}>
-                  {flag.label}
-                </span>
-                {enabled !== flag.defaultEnabled && (
-                  <span style={{ fontSize: '10px', color: 'var(--status-warning-text)' }}>override</span>
+                >
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={(e) => {
+                      const newEnabled = e.target.checked;
+                      if (newEnabled === flag.defaultEnabled) {
+                        clearFeatureOverride(flag.id as FeatureFlagId);
+                      } else {
+                        setFeatureOverride(flag.id as FeatureFlagId, newEnabled);
+                      }
+                      setFlags(getAllFlags());
+                    }}
+                    style={{ accentColor: 'var(--p7-color-brand)' }}
+                  />
+                  <span style={{ flex: 1, color: 'var(--pc-text-secondary)' }}>
+                    {flag.label}
+                  </span>
+                  {flag.demoAnswer && (
+                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#B45309', background: 'rgba(217,119,6,0.12)', border: '1px solid rgba(217,119,6,0.25)', borderRadius: 999, padding: '1px 5px', whiteSpace: 'nowrap' }}>
+                      демо-ответ
+                    </span>
+                  )}
+                  {enabled !== flag.defaultEnabled && (
+                    <span style={{ fontSize: '9px', color: 'var(--status-warning-text)', fontWeight: 700 }}>override</span>
+                  )}
+                  {flag.demoOnly && !flag.demoAnswer && (
+                    <span style={{ fontSize: '9px', color: 'var(--pc-text-muted)' }}>demo</span>
+                  )}
+                </label>
+                {flag.demoAnswer && flag.demoNote && (
+                  <div style={{ fontSize: '9px', color: '#92400E', padding: '0 0.5rem 0.375rem 1.75rem', lineHeight: 1.4, background: 'rgba(217,119,6,0.06)' }}>
+                    {flag.demoNote}
+                  </div>
                 )}
-                {flag.demoOnly && (
-                  <span style={{ fontSize: '10px', color: 'var(--pc-text-muted)' }}>demo</span>
-                )}
-              </label>
+              </div>
             ))}
           </div>
 
