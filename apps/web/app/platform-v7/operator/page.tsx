@@ -13,6 +13,7 @@ import { getOutboxStatus } from '@/lib/outbox-server';
 import { CockpitHero, PremiumStatCard, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { RecentlyViewedWidget } from '@/components/platform-v7/RecentlyViewedWidget';
+import { IntegrationStatusWidget } from '@/components/platform-v7/IntegrationStatusWidget';
 
 const deal9106 = getDeal360Scenario('DL-9106');
 const deal9102 = getDeal360Scenario('DL-9102');
@@ -127,6 +128,11 @@ export default async function PlatformV7OperatorPage() {
           <PremiumCtaButton href='/platform-v7/documents' variant='ghost'>Матрица документов</PremiumCtaButton>
         </div>
       </CockpitHero>
+
+      {/* Статус интеграций */}
+      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem' }}>
+        <IntegrationStatusWidget />
+      </section>
 
       <section style={card} aria-label='Операционный контроль первого экрана'>
         <div style={micro}>Контроль первого экрана</div>
