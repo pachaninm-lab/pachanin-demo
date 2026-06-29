@@ -84,8 +84,8 @@ export default function PlatformV7OpenPage() {
         return;
       }
       markEntry(role);
-      const target = nextParam?.startsWith('/platform-v7') && !nextParam.includes('/login') ? nextParam : platformV7RoleHome(role);
-      router.replace(target);
+      const safeNext = typeof nextParam === 'string' && nextParam.startsWith('/platform-v7') && !nextParam.includes('/login') ? nextParam : null;
+      router.replace(safeNext ?? platformV7RoleHome(role));
     } catch {
       setError('Сервер входа недоступен. Обновите страницу и повторите вход.');
     } finally {
