@@ -5,6 +5,7 @@ import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecut
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { KycQueuePanel } from '@/components/platform-v7/KycQueuePanel';
+import { FraudDetectorPanel } from '@/components/platform-v7/FraudDetectorPanel';
 import {
   CockpitHero,
   PremiumStatCard,
@@ -81,6 +82,12 @@ export default function CompliancePage() {
       <section id='kyc-queue' style={anchorSection}>
         <CollapsibleSection title='Очередь KYC / AML' summary='новые орг · периодические · AML-триггеры · санкции' defaultOpen={false}>
           <KycQueuePanel />
+        </CollapsibleSection>
+      </section>
+
+      <section id='fraud-detector' style={anchorSection}>
+        <CollapsibleSection title='Fraud Detector' summary='doc_mismatch · role_abuse · bypass · ML-скоринг · эскалация' defaultOpen={false}>
+          <FraudDetectorPanel />
         </CollapsibleSection>
       </section>
     </div>

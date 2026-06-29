@@ -16,6 +16,7 @@ import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { FactoringPanel } from '@/components/platform-v7/FactoringPanel';
 import { CommissionCalculator } from '@/components/platform-v7/CommissionCalculator';
+import { IncotermsExportWidget } from '@/components/platform-v7/IncotermsExportWidget';
 import { CockpitHero, PremiumStatCard, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { PaymentHeatmap, buildDemoPaymentHeatmapData } from '@/components/platform-v7/PaymentHeatmap';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
@@ -378,6 +379,13 @@ export default async function PlatformV7SellerPage() {
           <FactoringPanel />
         </CollapsibleSection>
       </section>
+
+      <section style={{ background: 'var(--p7-color-surface, #fff)', border: '1px solid var(--p7-color-border, #E4E6EA)', borderRadius: 16, padding: '1.25rem' }}>
+        <CollapsibleSection title='Экспортный калькулятор' summary='Incoterms 2020 · мультивалюта · фрахт · таможня · ЦБ РФ' defaultOpen={false}>
+          <IncotermsExportWidget />
+        </CollapsibleSection>
+      </section>
+
       <section style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <PushNotificationBanner />
       </section>

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { serverApiUrl, serverAuthHeaders } from '@/lib/server-api';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { ApiKeysPanel } from '@/components/platform-v7/ApiKeysPanel';
 
 async function getIntegrationHealth() {
   try {
@@ -113,6 +115,12 @@ export default async function PlatformV7ConnectorsPage() {
         <div style={{ display: 'grid', gap: 8 }}>
           {integrations.map((item) => <IntegrationRow key={item.name} item={item} />)}
         </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18 }}>
+        <CollapsibleSection title='B2B Partner API · Управление ключами' summary='ключи · scopes · rate limit · эндпоинты · ротация 90 дней' defaultOpen={false}>
+          <ApiKeysPanel />
+        </CollapsibleSection>
       </section>
     </main>
   );

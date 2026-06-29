@@ -81,6 +81,8 @@
 - [done] Водитель: DriverCameraCapture (камера/галерея, типы фото, лайтбокс) + DriverOfflineQueue (IndexedDB) — 2026-06-29
 - [done] Факторинг (FactoringPanel): 3 фактора, скоринг, 2200ms симуляция, статус-машина — 2026-06-29 (TZ 7.7)
 - [done] Сверка банковской выписки (BankReconciliationPanel): МТ940 импорт, 5 выписок, фильтры — 2026-06-29 (TZ 7.8)
+- [done] Калькулятор комиссии (CommissionCalculator): GMV → комиссия → НДС → ЭДО → факторинг → итого, роль продавца/покупателя — 2026-06-29 (TZ 7.6)
+- [done] Экспортный калькулятор (IncotermsExportWidget): Incoterms 2020 (10 базисов), мультивалюта RUB/USD/EUR/CNY, курс ЦБ, фрахт, таможня DDP — 2026-06-29 (TZ Этап 3)
 
 ### Блок 8 [P1] — Интеграции и внешние сервисы
 - [done] Виджеты статуса API: IntegrationStatusWidget (ФГИС/СберБизнес/РСХБ/СПАРК) — ранее
@@ -88,6 +90,7 @@
 - [done] Чат поддержки (ChatSupportWidget): бот с quick-prompts, bubble, typing-indicator, Telegram/Jivo note — 2026-06-29
 - [done] Feature-флаги + моки с честной пометкой «демо-ответ» — 2026-06-29
 - [done] Журнал интеграционных событий (IntegrationEventLog): 8 событий, ФГИС/Диадок/Банк/КЭП/GPS, фильтры — 2026-06-29 (TZ 10.5)
+- [done] B2B Partner API · управление ключами (ApiKeysPanel): scope-based, rate limit, ротация 90 дней, эндпоинты OpenAPI — 2026-06-29 (TZ 10.7)
 
 ### Блок 9 [P1] — Доверие и прозрачность
 - [done] Верификационные бейджи (CounterpartyTrustCard + VerificationBadge) — ранее
@@ -118,6 +121,7 @@
 - [done] ML-прогноз цены (PricePredictorWidget): 6 культур × 5 регионов, LineChart, 1800ms симуляция — 2026-06-29
 - [done] Регуляторные отчёты (RegulatoryReportsPanel): Минсельхоз/Росстат/ФГИС/Росфинмониторинг/ФНС — 2026-06-29
 - [done] Unit Economics Passport (UnitEconomicsPassport): GMV/Take Rate/LTV/CAC, 3 сценария, AreaChart — 2026-06-29
+- [done] ML-скоринг контрагента (CounterpartyScoringWidget): LightGBM v2.3.1, Tier A/B/C/D, ScoreGauge, RadarChart, 5 факторов — 2026-06-29 (TZ 12.2)
 
 ### Блок 13 [P1] — Безопасность и compliance
 - [done] 2FA TOTP + SMS fallback (MfaSecurityPanel) — 2026-06-29
@@ -129,6 +133,8 @@
 - [done] Аудит-логи критичных действий (AuditLogPanel) — 2026-06-29
 - [done] SLO/SLA дашборд (SloSlaPanel): 6 сервисов, error budget bars, latency chart — 2026-06-29
 - [done] KYC/AML очередь (KycQueuePanel): 4 записи, санкции, риск, approve/reject — 2026-06-29
+- [done] Fraud Detector (FraudDetectorPanel): 5 сигналов, ML F1=0.89, эскалация, 6 типов сигналов — 2026-06-29 (TZ Этап 2/3)
+- [done] 152-ФЗ Privacy Portal (PrivacyPortalPanel): согласия, реестр операций, права субъекта, уведомление РКН — 2026-06-29 (TZ 11.3)
 - [todo] Rate limiting (SlowAPI/middleware) — требует backend
 
 ## Smoke-тесты по блокам
