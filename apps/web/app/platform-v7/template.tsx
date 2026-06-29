@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { OpenLoginApiRecoveryPatch } from '@/components/platform-v7/OpenLoginApiRecoveryPatch';
 import { OpenLoginPolishPatch } from '@/components/platform-v7/OpenLoginPolishPatch';
 import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7InteractionFixes';
 import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLockFix';
@@ -17,6 +18,7 @@ export default function PlatformV7Template({ children }: { children: ReactNode }
       <PublicEntryCleanup />
       <PublicRegistrationEntryPatch />
       <OpenLoginPolishPatch />
+      <OpenLoginApiRecoveryPatch />
       {children}
     </>
   );
