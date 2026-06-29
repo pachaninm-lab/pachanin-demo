@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { CounterpartyTrustCard, type CounterpartyTrust, type Verification } from '@/components/platform-v7/VerificationBadge';
 import { IntegrationStatusWidget } from '@/components/platform-v7/IntegrationStatusWidget';
+import { CounterpartyScoringWidget } from '@/components/platform-v7/CounterpartyScoringWidget';
 
 export function generateMetadata({ params }: { params: { inn: string } }): Metadata {
   return {
@@ -84,6 +85,12 @@ export default function CounterpartyProfilePage({ params }: { params: { inn: str
           </div>
         </div>
         <CounterpartyTrustCard trust={trust} />
+      </section>
+
+      {/* ML Scoring */}
+      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
+        <h2 className="heading-4" style={{ margin: 0 }}>ML-скоринг контрагента</h2>
+        <CounterpartyScoringWidget />
       </section>
 
       {/* Deal history */}

@@ -15,6 +15,7 @@ import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyIm
 import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { FactoringPanel } from '@/components/platform-v7/FactoringPanel';
+import { CommissionCalculator } from '@/components/platform-v7/CommissionCalculator';
 import { CockpitHero, PremiumStatCard, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { PaymentHeatmap, buildDemoPaymentHeatmapData } from '@/components/platform-v7/PaymentHeatmap';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
@@ -366,6 +367,11 @@ export default async function PlatformV7SellerPage() {
 
       <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
         <PriceChart cultures={['wheat_3', 'wheat_4', 'barley']} defaultPeriod={12} title='Динамика закупочных цен' />
+      </section>
+      <section style={{ background: 'var(--p7-color-surface, #fff)', border: '1px solid var(--p7-color-border, #E4E6EA)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
+        <CollapsibleSection title='Калькулятор комиссии' summary='GMV → комиссия → НДС → ЭДО → итого к получению' defaultOpen={false}>
+          <CommissionCalculator />
+        </CollapsibleSection>
       </section>
       <section style={{ background: 'var(--p7-color-surface, #fff)', border: '1px solid var(--p7-color-border, #E4E6EA)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
         <CollapsibleSection title='Факторинг' summary='авансирование под уступку дебиторки · скоринг на данных платформы' defaultOpen={false}>
