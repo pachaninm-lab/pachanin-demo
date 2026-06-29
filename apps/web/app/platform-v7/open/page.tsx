@@ -123,9 +123,9 @@ export default function PlatformV7OpenPage() {
   }
 
   return (
-    <main className='pc-open-v2'>
+    <main className='pc-open-v2' style={{ paddingTop: 0 }}>
       <style>{css}</style>
-      <header className='open-header' aria-label='Навигация входа'>
+      <header className='open-header' aria-label='Навигация входа' style={{ position: 'relative', top: 'auto', left: 'auto', right: 'auto', flex: '0 0 var(--open-header-height)' }}>
         <Link href='/platform-v7' className='open-brand' aria-label='Прозрачная Цена — на главную'>
           <BrandMark size={42} />
           <span><strong>Прозрачная Цена</strong><small>Единый вход в контур сделки</small></span>
@@ -133,7 +133,7 @@ export default function PlatformV7OpenPage() {
         <Link href='/platform-v7' className='open-back' aria-label='На главную'><ArrowLeft size={22} /></Link>
       </header>
 
-      <section ref={cardRef} className='open-card' aria-label='Вход в рабочий контур'>
+      <section ref={cardRef} className='open-card' aria-label='Вход в рабочий контур' style={{ marginTop: 0, paddingTop: 30 }}>
         <form onSubmit={submit} autoComplete='off' noValidate>
           <section className='role-panel' aria-label='Рабочая роль'>
             <div className='role-panel-head'><span>Рабочее место</span><strong>{roleTitle(role)}</strong></div>
@@ -450,7 +450,7 @@ const css = `
     height: auto;
     max-height: none;
     margin: 0;
-    padding: 22px 14px calc(210px + env(safe-area-inset-bottom));
+    padding: 30px 14px calc(210px + env(safe-area-inset-bottom));
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
