@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { DocumentPdfPreview } from './DocumentPdfPreview';
 
 export type DocStatus = 'MISSING' | 'DRAFT' | 'GENERATED' | 'SIGNED' | 'EXPIRED' | 'DISPUTED' | 'ARCHIVED';
 
@@ -69,35 +70,47 @@ function DocRow({ doc }: TreeNodeProps) {
   const color = STATUS_COLOR[doc.status];
   const icon = TYPE_ICON[doc.type];
   const href = doc.href ?? (doc.dealId ? `/platform-v7/deals/${doc.dealId}/documents` : '#');
+  const canPreview = doc.status === 'SIGNED' || doc.status === 'GENERATED';
 
   return (
-    <a
-      href={href}
-      className="hover-row"
-      style={{
-        display: 'flex', alignItems: 'center', gap: '0.75rem',
-        padding: '0.5rem 0.75rem', borderRadius: '6px',
-        textDecoration: 'none', color: 'inherit',
-        marginLeft: '1.5rem',
-      }}
-    >
-      <span style={{ fontSize: '1rem', flexShrink: 0 }}>{icon}</span>
-      <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--pc-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {doc.name}
-      </span>
-      {doc.sizeKb && (
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--pc-text-muted)', flexShrink: 0 }}>
-          {doc.sizeKb < 1024 ? `${doc.sizeKb} КБ` : `${(doc.sizeKb / 1024).toFixed(1)} МБ`}
-        </span>
-      )}
-      <span
-        className="status-badge"
-        data-status={doc.status === 'SIGNED' ? 'paid' : doc.status === 'MISSING' ? 'error' : doc.status === 'DISPUTED' ? 'dispute' : 'draft'}
-        style={{ color, fontSize: '10px' }}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginLeft: '1.5rem' }}>
+      <a
+        href={href}
+        className="hover-row"
+        style={{
+          flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem',
+          padding: '0.5rem 0.75rem', borderRadius: '6px',
+          textDecoration: 'none', color: 'inherit', minWidth: 0,
+        }}
       >
-        {STATUS_LABEL[doc.status]}
-      </span>
-    </a>
+        <span style={{ fontSize: '1rem', flexShrink: 0 }}>{icon}</span>
+        <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--pc-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {doc.name}
+        </span>
+        {doc.sizeKb && (
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--pc-text-muted)', flexShrink: 0 }}>
+            {doc.sizeKb < 1024 ? `${doc.sizeKb} КБ` : `${(doc.sizeKb / 1024).toFixed(1)} МБ`}
+          </span>
+        )}
+        <span
+          className="status-badge"
+          data-status={doc.status === 'SIGNED' ? 'paid' : doc.status === 'MISSING' ? 'error' : doc.status === 'DISPUTED' ? 'dispute' : 'draft'}
+          style={{ color, fontSize: '10px' }}
+        >
+          {STATUS_LABEL[doc.status]}
+        </span>
+      </a>
+      {canPreview && (
+        <DocumentPdfPreview
+          documentName={doc.name}
+          documentType={doc.type}
+          documentId={doc.id}
+          signedBy={doc.signatories?.[0]}
+          signedAt={doc.signedAt}
+          watermark="ДЕМО-ДАННЫЕ"
+        />
+      )}
+    </div>
   );
 }
 
