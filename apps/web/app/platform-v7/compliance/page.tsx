@@ -4,6 +4,7 @@ import { ComplianceRuntime } from '@/components/v7r/ComplianceRuntime';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { KycQueuePanel } from '@/components/platform-v7/KycQueuePanel';
 import {
   CockpitHero,
   PremiumStatCard,
@@ -74,6 +75,12 @@ export default function CompliancePage() {
       <section id='connectors' style={anchorSection}>
         <CollapsibleSection title='Комплаенс runtime и проверки' summary='документы · роли · контроль' defaultOpen={false}>
           <ComplianceRuntime />
+        </CollapsibleSection>
+      </section>
+
+      <section id='kyc-queue' style={anchorSection}>
+        <CollapsibleSection title='Очередь KYC / AML' summary='новые орг · периодические · AML-триггеры · санкции' defaultOpen={false}>
+          <KycQueuePanel />
         </CollapsibleSection>
       </section>
     </div>

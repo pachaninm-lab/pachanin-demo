@@ -63,7 +63,7 @@ export default function PlatformV7DealsPage() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.25rem' }}>
-          <ExcelExportButton dataset="deals" />
+          <ExcelExportButton dataset="deals" label="Экспорт Excel" />
         </div>
 
         <div className='pc-deals-summary'>

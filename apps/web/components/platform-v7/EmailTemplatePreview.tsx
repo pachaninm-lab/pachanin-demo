@@ -175,7 +175,7 @@ export function EmailTemplatePreview() {
             </span>
           </div>
           <div style={{ display: 'flex', gap: '1rem', fontSize: 10, color: 'var(--pc-text-muted)' }}>
-            <span>От: noreply@grainflow.ru</span>
+            <span>От: noreply · grainflow.ru</span>
             <span>Кому: {template.recipient}</span>
           </div>
         </div>
