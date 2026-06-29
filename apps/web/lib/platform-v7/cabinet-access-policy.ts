@@ -13,8 +13,8 @@ export const PLATFORM_V7_RBAC_FLAG = 'NEXT_PUBLIC_PLATFORM_V7_RBAC';
 // Надзорные роли с доступом ко всем кабинетам (операторский/управленческий просмотр).
 const OVERSIGHT_ROLES: ReadonlySet<PlatformRole> = new Set(['operator', 'executive']);
 
-// Маршруты, открытые без выбора роли: главная, открытая карточка, вход, регистрация.
-const SHARED_PATHS = ['/platform-v7/open', '/platform-v7/login', '/platform-v7/register'];
+// Маршруты, открытые без выбора роли: главная, открытая карточка, вход, регистрация, демо и вопрос.
+const SHARED_PATHS = ['/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/demo', '/platform-v7/contact'];
 
 // Внутренний контур поддержки. `support` — это внутренняя роль поддержки, а НЕ
 // кабинет участника: его открывают только надзорные роли (operator/executive).
