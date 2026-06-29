@@ -3,7 +3,9 @@ import {
   PLATFORM_V7_AI_ROUTE,
   PLATFORM_V7_ARBITRATOR_ROUTE,
   PLATFORM_V7_BANK_ROUTE,
+  PLATFORM_V7_BANK_CLEAN_ROUTE,
   PLATFORM_V7_BANK_ESCROW_ROUTE,
+  PLATFORM_V7_BANK_EVENTS_ROUTE,
   PLATFORM_V7_BANK_FACTORING_ROUTE,
   PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE,
   PLATFORM_V7_BUYER_ROUTE,
@@ -12,6 +14,7 @@ import {
   PLATFORM_V7_CONNECTORS_ROUTE,
   PLATFORM_V7_CONTROL_TOWER_ROUTE,
   PLATFORM_V7_DEALS_ROUTE,
+  PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE,
   PLATFORM_V7_DISPUTES_ROUTE,
   PLATFORM_V7_DOCUMENTS_ROUTE,
   PLATFORM_V7_DRIVER_FIELD_ROUTE,
@@ -30,6 +33,7 @@ import {
   PLATFORM_V7_SELLER_BATCHES_ROUTE,
   PLATFORM_V7_SELLER_LOTS_ROUTE,
   PLATFORM_V7_SELLER_ROUTE,
+  PLATFORM_V7_SIMULATOR_ROUTE,
   PLATFORM_V7_STATUS_ROUTE,
   PLATFORM_V7_SURVEYOR_ROUTE,
   PLATFORM_V7_TRUST_ROUTE,
@@ -79,8 +83,12 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Блокеры' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Контроль' },
+      { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Банк' },
+      { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'Банк события' },
+      { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
+      { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
     ],
-    allowedPrefixes: [PLATFORM_V7_CONTROL_TOWER_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_CONTROL_TOWER_ROUTE, PLATFORM_V7_OPERATOR_ROUTE, PLATFORM_V7_DEALS_ROUTE, PLATFORM_V7_OPERATOR_QUEUES_ROUTE, PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE, PLATFORM_V7_BANK_EVENTS_ROUTE, PLATFORM_V7_TRUST_ROUTE, PLATFORM_V7_REPORTS_ROUTE],
   },
   buyer: {
     home: PLATFORM_V7_BUYER_ROUTE,
@@ -99,7 +107,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_DOCUMENTS_ROUTE, label: 'Документы' },
       { href: PLATFORM_V7_MONEY_ROUTE, label: 'Деньги' },
     ],
-    allowedPrefixes: [PLATFORM_V7_BUYER_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_BUYER_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_PROPOSALS_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, PLATFORM_V7_MONEY_ROUTE],
   },
   seller: {
     home: PLATFORM_V7_SELLER_ROUTE,
@@ -118,7 +126,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_DOCUMENTS_ROUTE, label: 'Документы' },
       { href: PLATFORM_V7_MONEY_ROUTE, label: 'Деньги' },
     ],
-    allowedPrefixes: [PLATFORM_V7_SELLER_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_SELLER_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, PLATFORM_V7_MONEY_ROUTE],
   },
   logistics: {
     home: PLATFORM_V7_LOGISTICS_ROUTE,
@@ -133,7 +141,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_PROCUREMENT_ROUTE, label: 'Закупки' },
       { href: PLATFORM_V7_DOCUMENTS_ROUTE, label: 'Документы' },
     ],
-    allowedPrefixes: [PLATFORM_V7_LOGISTICS_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_LOGISTICS_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE],
   },
   driver: {
     home: PLATFORM_V7_DRIVER_FIELD_ROUTE,
@@ -186,6 +194,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, label: 'Основания выплат' },
       { href: PLATFORM_V7_BANK_FACTORING_ROUTE, label: 'Факторинг' },
       { href: PLATFORM_V7_BANK_ESCROW_ROUTE, label: 'Эскроу' },
+      { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'События' },
     ],
     drawer: [],
     command: [
@@ -193,9 +202,11 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, label: 'Основания выплат' },
       { href: PLATFORM_V7_BANK_FACTORING_ROUTE, label: 'Факторинг' },
       { href: PLATFORM_V7_BANK_ESCROW_ROUTE, label: 'Эскроу' },
-      { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
+      { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'События' },
+      { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
+      { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
     ],
-    allowedPrefixes: [PLATFORM_V7_BANK_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_BANK_ROUTE, PLATFORM_V7_TRUST_ROUTE, PLATFORM_V7_REPORTS_ROUTE],
   },
   arbitrator: {
     home: PLATFORM_V7_ARBITRATOR_ROUTE,
@@ -207,7 +218,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_ARBITRATOR_ROUTE, label: 'Арбитраж' },
       { href: PLATFORM_V7_DISPUTES_ROUTE, label: 'Споры' },
     ],
-    allowedPrefixes: [PLATFORM_V7_ARBITRATOR_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_ARBITRATOR_ROUTE, PLATFORM_V7_DISPUTES_ROUTE],
   },
   compliance: {
     home: PLATFORM_V7_COMPLIANCE_ROUTE,
@@ -222,37 +233,40 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_CONNECTORS_ROUTE, label: 'Разъёмы' },
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
     ],
-    allowedPrefixes: [PLATFORM_V7_COMPLIANCE_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_CONNECTORS_ROUTE, PLATFORM_V7_TRUST_ROUTE],
   },
   executive: {
     home: PLATFORM_V7_EXECUTIVE_ROUTE,
     bottom: [
       { href: PLATFORM_V7_EXECUTIVE_ROUTE, label: 'Сводка' },
-      { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
       { href: PLATFORM_V7_MONEY_ROUTE, label: 'Деньги' },
       { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
+      { href: PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, label: 'Демо-поток' },
+      { href: PLATFORM_V7_SIMULATOR_ROUTE, label: 'Симулятор' },
     ],
     drawer: [],
     command: [
       { href: PLATFORM_V7_EXECUTIVE_ROUTE, label: 'Сводка' },
-      { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
       { href: PLATFORM_V7_MONEY_ROUTE, label: 'Деньги' },
       { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
+      { href: PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, label: 'Демо-поток' },
+      { href: PLATFORM_V7_SIMULATOR_ROUTE, label: 'Симулятор' },
+      { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Банк' },
     ],
-    allowedPrefixes: [PLATFORM_V7_EXECUTIVE_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_EXECUTIVE_ROUTE, PLATFORM_V7_MONEY_ROUTE, PLATFORM_V7_REPORTS_ROUTE, PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, PLATFORM_V7_SIMULATOR_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE],
   },
 };
 
 export const PLATFORM_V7_NAV_BY_ROLE = Object.fromEntries(
-  (Object.keys(PLATFORM_V7_ROLE_NAVIGATION) as PlatformRole[]).map((role) => [role, PLATFORM_V7_ROLE_NAVIGATION[role].bottom]),
+  (Object.keys(PLATFORM_V7_ROLE_NAVIGATION) as PlatformRole[]).map((role) => [role, PLATFORM_V7_ROLE_NAVIGATION[role].command]),
 ) as Record<PlatformRole, PlatformV7ShellNavItem[]>;
 
 function normalizeHref(href: string) { return href.split('?')[0].split('#')[0].replace(/\/$/, '') || '/platform-v7'; }
 function hrefMatchesPrefix(href: string, prefix: string) { const h = normalizeHref(href); const p = normalizeHref(prefix); return h === p || h.startsWith(`${p}/`); }
 
 export function platformV7RoleRoute(role: PlatformRole): PlatformV7ShellRouteSurface { return PLATFORM_V7_ROLE_ROUTES[role] as PlatformV7ShellRouteSurface; }
-export function platformV7NavByRole(role: PlatformRole): PlatformV7ShellNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].bottom; }
+export function platformV7NavByRole(role: PlatformRole): PlatformV7ShellNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].command; }
 export function platformV7DrawerNavByRole(role: PlatformRole): PlatformV7RoleNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].drawer; }
 export function platformV7CommandNavByRole(role: PlatformRole): PlatformV7RoleNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].command; }
-export function platformV7RoleCanOpenHref(role: PlatformRole, href: string) { const path = normalizeHref(href); if (ROLE_BLOCKED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return false; if (SHARED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return true; return hrefMatchesPrefix(path, PLATFORM_V7_ROLE_ROUTES[role]); }
+export function platformV7RoleCanOpenHref(role: PlatformRole, href: string) { const path = normalizeHref(href); if (ROLE_BLOCKED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return false; if (SHARED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return true; return PLATFORM_V7_ROLE_NAVIGATION[role].allowedPrefixes.some((prefix) => hrefMatchesPrefix(path, prefix)); }
 export function platformV7ShellRouteSurface(): readonly PlatformV7ShellRouteSurface[] { return PLATFORM_V7_SHELL_ROUTE_SURFACE; }
