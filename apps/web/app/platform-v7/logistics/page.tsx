@@ -8,6 +8,7 @@ import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-exec
 import { formatTons, selectDealLogisticsTripPlan } from '@/lib/platform-v7/deal-execution-source-of-truth';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { EtranRzdPanel } from '@/components/platform-v7/EtranRzdPanel';
+import { IoTWeighingPanel } from '@/components/platform-v7/IoTWeighingPanel';
 
 // Кабинет логистики: Логистика · рейс → водитель → ЭТрН → приёмка
 const logisticsHandoff: HandoffItem[] = [
@@ -207,6 +208,10 @@ export default async function LogisticsPage() {
 
       <CollapsibleSection title='РЖД ЭТРАН · ж/д отправки' summary='ЭТрН · вагоны · трекинг · ГУ-29у · задержки' defaultOpen={false}>
         <EtranRzdPanel />
+      </CollapsibleSection>
+
+      <CollapsibleSection title='IoT · Взвешивание и элеваторные акты' summary='Тензо-М · Мера · ВА · расхождения · фото · УКЭП' defaultOpen={false}>
+        <IoTWeighingPanel />
       </CollapsibleSection>
 
       <CollapsibleSection title='Погода по маршрутам' summary='дорожные условия · предупреждения' defaultOpen={false}>
