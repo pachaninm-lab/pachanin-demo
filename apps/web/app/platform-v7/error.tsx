@@ -1,19 +1,18 @@
 'use client';
 
-export default function PlatformV7Error({ error, reset }: { error: Error; reset: () => void }) {
+import Link from 'next/link';
+
+export default function PlatformV7Error({ reset }: { error: Error; reset: () => void }) {
   return (
-    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ maxWidth: 520, width: '100%', textAlign: 'center', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 32 }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
-        <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', margin: 0 }}>Что-то пошло не так</h2>
-        <p style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 10 }}>{error.message || 'Ошибка в модуле платформы'}</p>
-        <button
-          onClick={reset}
-          style={{ marginTop: 20, padding: '10px 16px', borderRadius: 8, border: '1px solid #0A7A5F', background: '#0A7A5F', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
-        >
-          Повторить
-        </button>
-      </div>
-    </div>
+    <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, background: '#f7faf7', color: '#071611', fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif' }}>
+      <section style={{ width: 'min(100%, 560px)', border: '1px solid rgba(7,22,17,.10)', borderRadius: 28, background: '#fff', boxShadow: '0 18px 44px rgba(7,22,17,.08)', padding: 24 }}>
+        <strong style={{ display: 'block', fontSize: 26, lineHeight: 1.1, letterSpacing: '-.04em', marginBottom: 10 }}>Страница временно обновляется</strong>
+        <p style={{ margin: '0 0 18px', color: '#5c6862', fontSize: 15, lineHeight: 1.45, fontWeight: 650 }}>Обновите страницу. Если ошибка повторяется, используйте вход в рабочий контур напрямую.</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <button type='button' onClick={reset} style={{ minHeight: 48, padding: '0 18px', borderRadius: 16, border: '1px solid rgba(0,122,47,.18)', background: '#fff', color: '#087a3b', fontWeight: 950, cursor: 'pointer' }}>Повторить</button>
+          <Link href='/platform-v7/login' style={{ minHeight: 48, padding: '0 18px', borderRadius: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#087a3b', color: '#fff', textDecoration: 'none', fontWeight: 950 }}>Перейти ко входу</Link>
+        </div>
+      </section>
+    </main>
   );
 }
