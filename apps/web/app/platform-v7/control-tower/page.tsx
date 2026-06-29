@@ -15,6 +15,7 @@ import { PremiumStatCard, StatusPill, type PremiumTone } from '@/components/plat
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getPlatformV7ObservabilityCockpitState, type PlatformV7HealthSeverity } from '@/lib/platform-v7/runtime/observability-cockpit-state';
 import { ControlTowerCharts } from '@/components/platform-v7/ControlTowerCharts';
+import { RecentlyViewedWidget } from '@/components/platform-v7/RecentlyViewedWidget';
 
 function healthTone(sev: PlatformV7HealthSeverity): PremiumTone {
   return sev === 'critical' ? 'danger' : sev === 'warning' ? 'warning' : 'success';
@@ -359,6 +360,14 @@ export default function PlatformV7ControlTowerPage() {
           defaultOpen={false}
         >
           <ControlTowerCharts />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title='Недавно просмотренные'
+          summary='сделки, лоты, споры — до 5'
+          defaultOpen={false}
+        >
+          <RecentlyViewedWidget />
         </CollapsibleSection>
       </P7Page>
     </>

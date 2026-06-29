@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { InvestorYieldSimulator } from '@/components/platform-v7/InvestorYieldSimulator';
+import { SalesFunnelChart } from '@/components/platform-v7/SalesFunnelChart';
 
 const METRICS = [
   { label: 'Оборот в проверочном срезе', value: '118 млн ₽', sub: 'Данные сценария, оборот не подтверждён' },
@@ -201,6 +202,12 @@ export default function InvestorPage() {
             </ol>
           </div>
         </div>
+      </div>
+
+      {/* Sales Funnel */}
+      <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14, color: 'var(--pc-text-primary, #0F1419)' }}>Воронка продаж платформы</div>
+        <SalesFunnelChart />
       </div>
 
       {/* Yield Simulator */}
