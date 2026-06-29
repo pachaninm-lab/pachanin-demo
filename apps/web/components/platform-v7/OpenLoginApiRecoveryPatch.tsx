@@ -11,7 +11,14 @@ function input(root: ParentNode, selector: string) {
   return root.querySelector<HTMLInputElement>(selector)?.value?.trim() || '';
 }
 
+function normalizeRecoveryPanels(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>('.forgot-access-panel').forEach((item) => item.remove());
+  const panels = Array.from(root.querySelectorAll<HTMLElement>('.forgot-access-api-panel'));
+  panels.slice(1).forEach((item) => item.remove());
+}
+
 function ensurePanel(root: HTMLElement, trigger: HTMLElement) {
+  normalizeRecoveryPanels(root);
   const fields = root.querySelector('.fields');
   if (!fields) return;
   const current = root.querySelector<HTMLElement>('.forgot-access-api-panel');
@@ -45,6 +52,8 @@ function ensurePanel(root: HTMLElement, trigger: HTMLElement) {
   });
 
   panel.querySelector<HTMLButtonElement>('.forgot-access-api-submit')?.addEventListener('click', async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     const button = event.currentTarget as HTMLButtonElement;
     const status = panel.querySelector<HTMLElement>('.forgot-access-api-status');
     const contact = panel.querySelector<HTMLInputElement>('input[name="recovery-contact"]')?.value?.trim() || '';
@@ -83,6 +92,7 @@ function ensurePanel(root: HTMLElement, trigger: HTMLElement) {
   });
 
   fields.insertAdjacentElement('afterend', panel);
+  normalizeRecoveryPanels(root);
 }
 
 export function OpenLoginApiRecoveryPatch() {
@@ -98,27 +108,35 @@ export function OpenLoginApiRecoveryPatch() {
       const root = document.querySelector<HTMLElement>('.pc-clean-login');
       if (!root) return;
 
-      root.querySelectorAll<HTMLElement>('.forgot-access-panel').forEach((item) => item.remove());
+      normalizeRecoveryPanels(root);
       root.querySelectorAll<HTMLElement>('.recover-note').forEach((item) => item.remove());
 
       root.querySelectorAll<HTMLElement>('.forgot-link').forEach((oldLink) => {
-        if (oldLink.dataset.apiRecoveryBound === 'true') return;
+        const alreadyOwned = oldLink.dataset.apiRecoveryBound === 'true';
+        if (alreadyOwned) return;
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = oldLink.className;
+        button.className = `${oldLink.className.replace(/\bforgot-link\b/g, '').trim()} forgot-link-api`.trim();
         button.innerHTML = oldLink.innerHTML || 'Забыли пароль?';
         button.dataset.apiRecoveryBound = 'true';
-        button.addEventListener('click', () => ensurePanel(root, button));
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          ensurePanel(root, button);
+        });
         oldLink.replaceWith(button);
       });
     }
 
     const raf = window.requestAnimationFrame(sync);
-    const timers = [120, 360, 900].map((delay) => window.setTimeout(sync, delay));
+    const timers = [60, 140, 320, 700, 1400].map((delay) => window.setTimeout(sync, delay));
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { childList: true, subtree: true });
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(raf);
       timers.forEach((timer) => window.clearTimeout(timer));
+      observer.disconnect();
     };
   }, [enabled]);
 
@@ -126,6 +144,7 @@ export function OpenLoginApiRecoveryPatch() {
 
   return (
     <style>{`
+      .forgot-access-panel { display: none !important; }
       .forgot-access-api-panel {
         display: grid;
         gap: 12px;
@@ -142,7 +161,7 @@ export function OpenLoginApiRecoveryPatch() {
       }
       .forgot-access-api-head strong { font-size: 15px; font-weight: 950; color: #071611; }
       .forgot-access-api-head button,
-      .forgot-link {
+      .forgot-link-api {
         border: 0;
         background: transparent;
         color: #087a32;
