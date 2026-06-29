@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { P7DealWorkspaceTabs } from '@/components/platform-v7/P7DealWorkspaceTabs';
 import { DealGuaranteesBlock } from '@/components/platform-v7/DealGuaranteesBlock';
+import { DealChangeHistory } from '@/components/platform-v7/DealChangeHistory';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { canonicalDomainDeals, selectDealById, selectDisputesByDealId } from '@/lib/domain/selectors';
 import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels';
@@ -145,6 +147,12 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       />
 
       <P7DealWorkspaceTabs deal={deal} />
+
+      <section style={card()}>
+        <CollapsibleSection title='История изменений' summary='таймлайн событий · блокеры · платежи' defaultOpen={false}>
+          <DealChangeHistory dealId={deal.id} />
+        </CollapsibleSection>
+      </section>
 
       <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <Link href='/platform-v7/deals' style={linkStyle()}>Все сделки</Link>

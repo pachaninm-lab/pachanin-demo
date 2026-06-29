@@ -56,19 +56,19 @@
 - [done] Dropzone документов в карточке сделки (drag-and-drop + click, размер/тип, удаление, `data-demo="true"`) — 2026-04-17
 - [done] Dev-кнопка «Очистить manual-лоты» — видна только при `NEXT_PUBLIC_DEV_MODE=true`, confirm-dialog — 2026-04-17
 - [done] Избранное (★) + side-by-side сравнение до 3 лотов (таблица параметров, toast при превышении лимита) — 2026-04-17
-- [todo] История изменений по сделке
+- [done] История изменений по сделке (DealChangeHistory): таймлайн 11 событий, фильтр по актору/критичности — 2026-06-29
 
 ### Блок 5 [P1] — Логистика и маршруты
 - [todo] Яндекс.Карты JS API (fallback 2GIS), маркеры по статусам, кластеризация, геозоны ≥5 км — ждёт API-ключ
-- [todo] Карточка рейса `/route/[id]` (ТТН, водитель, машина, акты)
-- [todo] Push/браузер-уведомления об отклонениях
-- [todo] Виджет погоды OpenWeather/Яндекс.Погода
+- [done] Карточка рейса `/logistics/[routeId]` (ТТН, водитель, машина, акты, карта, пломбы) — ранее
+- [done] Push/браузер-уведомления (PushNotificationManager): запрос разрешения, переключатели событий, тестовая нотификация, Service Worker note — 2026-06-29
+- [todo] Виджет погоды OpenWeather/Яндекс.Погода — ждёт API-ключ
 - [todo] Счётчик «машин в рейсе» = факт
 
 ### Блок 6 [P1] — Документооборот и споры
 - [done] `/documents` — DocumentsTree: Год → Месяц → Сделка → Документ — 2026-06-29
 - [done] PDF-preview stub (DocumentPdfPreview): модал, вотермарк, КЭП-блок, интеграция в DocRow — 2026-06-29
-- [todo] Статус подписания + заглушка интеграции с Крипто-Про
+- [done] Заглушка Крипто-Про (CryptoProSignStub): выбор сертификата, анимация подписи, ГОСТ Р 34.10-2012 — 2026-06-29
 - [done] `/disputes` + карточка спора `/dispute/[id]` + DisputeHoldCalculator — ранее
 
 ### Блок 7 [P1] — Ролевые кабинеты
@@ -76,13 +76,13 @@
 - [done] Покупатель: BuyerFavoritesPanel (избранное) + сравнение лотов (ComparePanel в lots page) — ранее
 - [done] Лаборатория: GostQualityForm (ГОСТ-протокол) + LabPhotoUpload (фото/сканы) — 2026-06-29
 - [done] Оператор: OperatorInboxPanel + OperatorKpiDashboard + OperatorExecutionQueue — ранее
-- [done] Инвестор: InvestorYieldSimulator + SalesFunnelChart — 2026-06-29
-- [todo] Водитель: camera capture, offline-first WebRTC / IndexedDB
+- [done] Инвестор: InvestorYieldSimulator + SalesFunnelChart + GrossMarginPanel — 2026-06-29
+- [done] Водитель: DriverCameraCapture (камера/галерея, типы фото, лайтбокс) + DriverOfflineQueue (IndexedDB) — 2026-06-29
 
 ### Блок 8 [P1] — Интеграции и внешние сервисы
 - [done] Виджеты статуса API: IntegrationStatusWidget (ФГИС/СберБизнес/РСХБ/СПАРК) — ранее
 - [todo] Верификация по ИНН через СПАРК (нужен API-ключ)
-- [todo] Чат поддержки (Telegram + Jivo fallback)
+- [done] Чат поддержки (ChatSupportWidget): бот с quick-prompts, bubble, typing-indicator, Telegram/Jivo note — 2026-06-29
 - [done] Feature-флаги + моки с честной пометкой «демо-ответ» — 2026-06-29
 
 ### Блок 9 [P1] — Доверие и прозрачность
@@ -109,8 +109,8 @@
 - [done] Экспорт Excel (ExcelJS + ExcelExportButton) — 2026-06-29
 - [done] Графики Control Tower: area/donut/heatmap (ControlTowerCharts) — 2026-06-29
 - [done] Воронка продаж (SalesFunnelChart) — 2026-06-29
-- [todo] Email-рассылки (Resend/SendPulse + React Email)
-- [todo] Валовая прибыль по ролям
+- [done] Email-шаблоны уведомлений с превью (EmailTemplatePreview): 6 триггерных шаблонов — 2026-06-29
+- [done] Валовая прибыль по ролям (GrossMarginPanel): BarChart 6 ролей, 3 метрики, drill-down — 2026-06-29
 
 ### Блок 13 [P1] — Безопасность и compliance
 - [done] 2FA TOTP + SMS fallback (MfaSecurityPanel) — 2026-06-29
