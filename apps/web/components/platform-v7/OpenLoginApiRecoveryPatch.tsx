@@ -17,9 +17,31 @@ function normalizeRecoveryPanels(root: HTMLElement) {
   panels.slice(1).forEach((item) => item.remove());
 }
 
+function ensureHeaderBrand(root: HTMLElement) {
+  const header = root.querySelector<HTMLElement>('.clean-login-header');
+  if (!header) return;
+  const brands = Array.from(header.querySelectorAll<HTMLElement>('.pc-open-fixed-brand'));
+  brands.slice(1).forEach((item) => item.remove());
+  if (brands[0]) return;
+
+  const brand = document.createElement('a');
+  brand.className = 'pc-open-fixed-brand';
+  brand.href = '/platform-v7';
+  brand.setAttribute('aria-label', 'Прозрачная Цена — на главную');
+  brand.innerHTML = `
+    <span class="pc-open-fixed-logo" aria-hidden="true">ПЦ</span>
+    <span class="pc-open-fixed-copy">
+      <strong>Прозрачная Цена</strong>
+      <small>Единый вход в контур сделки</small>
+    </span>
+  `;
+  header.prepend(brand);
+}
+
 function normalizeOpenLoginShell(root: HTMLElement) {
   root.dataset.openLoginApiFixed = 'true';
   root.querySelectorAll<HTMLElement>('.recover-note').forEach((item) => item.remove());
+  ensureHeaderBrand(root);
   normalizeRecoveryPanels(root);
 }
 
@@ -134,14 +156,16 @@ export function OpenLoginApiRecoveryPatch() {
     }
 
     const raf = window.requestAnimationFrame(sync);
-    const timers = [60, 140, 320, 700, 1400].map((delay) => window.setTimeout(sync, delay));
+    const timers = [20, 60, 140, 320, 700, 1400, 2600].map((delay) => window.setTimeout(sync, delay));
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', sync);
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(raf);
       timers.forEach((timer) => window.clearTimeout(timer));
       observer.disconnect();
+      window.removeEventListener('resize', sync);
     };
   }, [enabled]);
 
@@ -151,59 +175,72 @@ export function OpenLoginApiRecoveryPatch() {
     <style>{`
       .pc-clean-login[data-open-login-api-fixed='true'] {
         min-height: 100dvh !important;
-        padding: calc(72px + env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom)) !important;
+        padding: calc(68px + env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom)) !important;
         background: linear-gradient(180deg, #fbfcf9 0%, #f3f7f1 58%, #fff 100%) !important;
         overflow-x: hidden !important;
       }
       .pc-clean-login[data-open-login-api-fixed='true'] .clean-login-header {
         position: fixed !important;
         inset: 0 0 auto 0 !important;
-        z-index: 2600 !important;
-        min-height: calc(64px + env(safe-area-inset-top)) !important;
-        height: calc(64px + env(safe-area-inset-top)) !important;
-        padding: calc(8px + env(safe-area-inset-top)) 14px 8px !important;
+        z-index: 5000 !important;
+        height: calc(62px + env(safe-area-inset-top)) !important;
+        min-height: calc(62px + env(safe-area-inset-top)) !important;
+        padding: calc(7px + env(safe-area-inset-top)) 12px 7px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: space-between !important;
-        gap: 10px !important;
-        background: rgba(255, 255, 255, .98) !important;
+        gap: 8px !important;
+        background: rgba(255, 255, 255, .99) !important;
         border-bottom: 1px solid rgba(7,22,17,.08) !important;
         box-shadow: 0 10px 28px rgba(7,22,17,.08) !important;
         -webkit-backdrop-filter: blur(16px) !important;
         backdrop-filter: blur(16px) !important;
       }
-      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand {
+      .pc-clean-login[data-open-login-api-fixed='true'] .clean-login-header > .header-brand {
+        display: none !important;
+      }
+      .pc-open-fixed-brand {
         display: inline-flex !important;
         align-items: center !important;
         gap: 10px !important;
-        flex: 1 1 auto !important;
         min-width: 0 !important;
+        flex: 1 1 auto !important;
         max-width: calc(100vw - 86px) !important;
-        opacity: 1 !important;
-        visibility: visible !important;
+        color: #06150f !important;
+        text-decoration: none !important;
       }
-      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand svg,
-      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand img {
-        display: block !important;
-        flex: 0 0 auto !important;
+      .pc-open-fixed-logo {
+        width: 38px !important;
+        min-width: 38px !important;
+        height: 38px !important;
+        border-radius: 14px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #087a32 !important;
+        color: #fff !important;
+        font-size: 13px !important;
+        font-weight: 950 !important;
+        letter-spacing: -.06em !important;
+        box-shadow: 0 10px 24px rgba(0,122,47,.18) !important;
       }
-      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand span {
+      .pc-open-fixed-copy {
         display: grid !important;
         gap: 1px !important;
         min-width: 0 !important;
       }
-      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand strong {
+      .pc-open-fixed-copy strong {
         display: block !important;
         color: #06150f !important;
         font-size: 17px !important;
-        line-height: 1.08 !important;
+        line-height: 1.05 !important;
         font-weight: 950 !important;
-        letter-spacing: -.04em !important;
+        letter-spacing: -.045em !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
       }
-      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand small {
+      .pc-open-fixed-copy small {
         display: block !important;
         color: #68756f !important;
         font-size: 10px !important;
@@ -218,7 +255,7 @@ export function OpenLoginApiRecoveryPatch() {
         margin-left: auto !important;
         display: flex !important;
         align-items: center !important;
-        gap: 6px !important;
+        gap: 0 !important;
         flex: 0 0 auto !important;
       }
       .pc-clean-login[data-open-login-api-fixed='true'] .header-back {
@@ -249,6 +286,7 @@ export function OpenLoginApiRecoveryPatch() {
         padding: 14px !important;
         border-radius: 24px !important;
         background: rgba(255,255,255,.96) !important;
+        box-shadow: 0 16px 40px rgba(7,22,17,.07) !important;
       }
       .pc-clean-login[data-open-login-api-fixed='true'] .hero-copy {
         display: none !important;
@@ -256,24 +294,42 @@ export function OpenLoginApiRecoveryPatch() {
       .pc-clean-login[data-open-login-api-fixed='true'] .role-panel {
         gap: 10px !important;
       }
+      .pc-clean-login[data-open-login-api-fixed='true'] .role-panel-head {
+        padding: 0 !important;
+        margin: 0 0 2px !important;
+      }
       .pc-clean-login[data-open-login-api-fixed='true'] .roles {
         gap: 10px !important;
       }
       .pc-clean-login[data-open-login-api-fixed='true'] .roles button {
-        min-height: 72px !important;
-        padding: 12px 10px !important;
+        min-height: 70px !important;
+        padding: 10px 8px !important;
         border-radius: 22px !important;
       }
+      .pc-clean-login[data-open-login-api-fixed='true'] .roles button svg {
+        width: 18px !important;
+        height: 18px !important;
+      }
       .pc-clean-login[data-open-login-api-fixed='true'] .roles button b {
-        font-size: 18px !important;
+        font-size: 17px !important;
         line-height: 1.08 !important;
       }
       .pc-clean-login[data-open-login-api-fixed='true'] .roles button small {
-        font-size: 13px !important;
+        font-size: 12.5px !important;
         line-height: 1.1 !important;
       }
       .pc-clean-login[data-open-login-api-fixed='true'] .fields {
         margin-top: 4px !important;
+        gap: 12px !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] label > span,
+      .pc-clean-login[data-open-login-api-fixed='true'] .field-row {
+        font-size: 14px !important;
+        line-height: 1.2 !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] input,
+      .pc-clean-login[data-open-login-api-fixed='true'] textarea {
+        font-size: 16px !important;
       }
       .pc-clean-login[data-open-login-api-fixed='true'] .recover-note,
       .forgot-access-panel { display: none !important; }
@@ -331,21 +387,33 @@ export function OpenLoginApiRecoveryPatch() {
       .forgot-access-api-submit:disabled { opacity: .6; cursor: not-allowed; }
       @media (max-width: 720px) {
         .pc-clean-login[data-open-login-api-fixed='true'] {
-          padding-top: calc(68px + env(safe-area-inset-top)) !important;
+          padding-top: calc(66px + env(safe-area-inset-top)) !important;
+          padding-left: 10px !important;
+          padding-right: 10px !important;
         }
         .pc-clean-login[data-open-login-api-fixed='true'] .clean-login-header {
-          min-height: calc(60px + env(safe-area-inset-top)) !important;
-          height: calc(60px + env(safe-area-inset-top)) !important;
-          padding: calc(7px + env(safe-area-inset-top)) 12px 7px !important;
+          height: calc(58px + env(safe-area-inset-top)) !important;
+          min-height: calc(58px + env(safe-area-inset-top)) !important;
+          padding: calc(7px + env(safe-area-inset-top)) 10px 7px !important;
         }
-        .pc-clean-login[data-open-login-api-fixed='true'] .header-brand strong {
+        .pc-open-fixed-logo {
+          width: 36px !important;
+          min-width: 36px !important;
+          height: 36px !important;
+          border-radius: 13px !important;
+          font-size: 12px !important;
+        }
+        .pc-open-fixed-copy strong {
           font-size: 16px !important;
         }
-        .pc-clean-login[data-open-login-api-fixed='true'] .header-brand small {
+        .pc-open-fixed-copy small {
           font-size: 9.5px !important;
         }
         .pc-clean-login[data-open-login-api-fixed='true'] .roles {
           grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+        .pc-clean-login[data-open-login-api-fixed='true'] .roles button {
+          min-height: 68px !important;
         }
       }
     `}</style>
