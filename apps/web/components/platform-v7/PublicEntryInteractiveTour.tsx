@@ -242,7 +242,7 @@ export function PublicEntryInteractiveTour() {
           position: fixed;
           right: 22px;
           bottom: max(22px, env(safe-area-inset-bottom));
-          z-index: 880;
+          z-index: 1500;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -265,13 +265,15 @@ export function PublicEntryInteractiveTour() {
         .p7-public-tour-layer {
           position: fixed;
           inset: 0;
-          z-index: 1200;
+          z-index: 2600;
           display: grid;
           place-items: center;
-          padding: 22px;
-          background: linear-gradient(180deg, rgba(7,22,17,.10), rgba(7,22,17,.42));
+          padding: max(12px, env(safe-area-inset-top)) 22px max(12px, env(safe-area-inset-bottom));
+          background: linear-gradient(180deg, rgba(7,22,17,.18), rgba(7,22,17,.50));
+          overscroll-behavior: contain;
         }
         .p7-public-tour-dialog {
+          position: relative;
           width: min(840px, 100%);
           max-height: calc(100dvh - 44px);
           display: flex;
@@ -280,24 +282,40 @@ export function PublicEntryInteractiveTour() {
           border-radius: 30px;
           background: rgba(252,254,250,.98);
           color: #071611;
-          box-shadow: 0 34px 90px rgba(0,0,0,.22);
+          box-shadow: 0 34px 90px rgba(0,0,0,.26);
           overflow: hidden;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         .p7-public-tour-topline {
+          position: sticky;
+          top: 0;
+          z-index: 3;
           flex: 0 0 auto;
           display: grid;
-          grid-template-columns: minmax(0,1fr) auto auto;
+          grid-template-columns: minmax(0,1fr) auto 46px;
           align-items: center;
           gap: 10px;
-          padding: 16px 18px;
+          min-height: 62px;
+          padding: 10px 12px 10px 18px;
           border-bottom: 1px solid rgba(7,22,17,.08);
-          background: rgba(246,250,245,.94);
+          background: rgba(246,250,245,.98);
+          box-shadow: 0 10px 22px rgba(7,22,17,.08);
         }
         .p7-public-tour-kicker { min-width: 0; display: inline-flex; align-items: center; gap: 8px; color: #087a3b; font-size: 12px; font-weight: 950; letter-spacing: .045em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .p7-public-tour-count { color: #66736e; font-size: 12px; font-weight: 900; white-space: nowrap; }
         .p7-public-tour-close, .p7-public-tour-node, .p7-public-tour-primary, .p7-public-tour-secondary { border: 0; font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .p7-public-tour-close { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 15px; background: #fff; color: #203029; box-shadow: inset 0 0 0 1px rgba(7,22,17,.09); }
+        .p7-public-tour-close {
+          display: inline-grid;
+          place-items: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 16px;
+          background: #fff;
+          color: #203029;
+          box-shadow: inset 0 0 0 1px rgba(7,22,17,.10), 0 8px 18px rgba(7,22,17,.08);
+          justify-self: end;
+          flex: 0 0 auto;
+        }
         .p7-public-tour-body { flex: 1 1 auto; min-height: 0; display: grid; gap: 14px; padding: 18px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
         .p7-public-tour-lead { margin: 0; color: #56615d; font-size: 14px; line-height: 1.4; font-weight: 800; max-width: 720px; }
         .p7-public-tour-stage { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
@@ -330,16 +348,16 @@ export function PublicEntryInteractiveTour() {
             transform: translateX(-50%);
             justify-content: center;
             text-align: center;
-            z-index: 940;
+            z-index: 1500;
           }
           .p7-public-tour-trigger:hover { transform: translateX(-50%) translateY(-1px); }
           .p7-public-tour-trigger span { display: inline-block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .p7-public-tour-layer { place-items: end center; padding: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+          .p7-public-tour-layer { place-items: end center; padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); }
           .p7-public-tour-dialog { width: 100%; max-height: calc(100dvh - 16px); border-radius: 26px; }
-          .p7-public-tour-topline { padding: 13px 14px; }
-          .p7-public-tour-kicker { font-size: 11px; letter-spacing: .04em; }
-          .p7-public-tour-count { font-size: 11.5px; }
-          .p7-public-tour-close { width: 38px; height: 38px; }
+          .p7-public-tour-topline { grid-template-columns: minmax(0,1fr) 46px; min-height: 58px; padding: 8px 10px 8px 12px; gap: 8px; }
+          .p7-public-tour-kicker { font-size: 10.5px; letter-spacing: .035em; }
+          .p7-public-tour-count { display: none; }
+          .p7-public-tour-close { width: 44px; height: 44px; border-radius: 16px; }
           .p7-public-tour-body { padding: 14px; gap: 12px; }
           .p7-public-tour-lead { font-size: 12.8px; line-height: 1.36; }
           .p7-public-tour-stage { gap: 6px; }
