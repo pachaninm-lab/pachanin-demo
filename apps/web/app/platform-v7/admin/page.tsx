@@ -7,6 +7,8 @@ import { EvidenceBundlePanel } from '@/components/platform-v7/EvidenceBundlePane
 import { TelegramBotPanel } from '@/components/platform-v7/TelegramBotPanel';
 import { ObservabilityPanel } from '@/components/platform-v7/ObservabilityPanel';
 import { FeatureFlagsPanel } from '@/components/platform-v7/FeatureFlagsPanel';
+import { HealthStatusPanel } from '@/components/platform-v7/HealthStatusPanel';
+import { LoadTestingPanel } from '@/components/platform-v7/LoadTestingPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -113,6 +115,12 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Feature Flags · Управление флагами' summary='Flagsmith · canary deploy 5%→100% · kill switch · A/B · prod/staging/dev' defaultOpen={false}>
           <FeatureFlagsPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Health Status · /health /ready /metrics' summary='5 сервисов · Kubernetes probes · DR RPO/RTO · liveness readiness' defaultOpen={false}>
+          <HealthStatusPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Load Testing · k6 результаты' summary='baseline 500 VU · peak 1500 VU · stress 5000 VU · p95/p99 · SLO thresholds' defaultOpen={false}>
+          <LoadTestingPanel />
         </CollapsibleSection>
       </div>
 
