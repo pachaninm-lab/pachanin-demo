@@ -24,6 +24,8 @@ type ControlCard = { title: string; text: string; Icon: LucideIcon };
 type ProcessStep = { label: string; text: string; Icon: LucideIcon };
 type RoleCard = { title: string; text: string; href: string; Icon: LucideIcon; cta: string };
 type TrustItem = { title: string; text: string; Icon: LucideIcon };
+type ExecutionSignal = { title: string; text: string; status: string; Icon: LucideIcon };
+type ProofItem = { label: string; text: string };
 
 const controlCards: ControlCard[] = [
   { title: 'Деньги', text: 'Что удерживает оплату и какое основание нужно для расчёта.', Icon: Banknote },
@@ -40,6 +42,21 @@ const processSteps: ProcessStep[] = [
   { label: 'Документы', text: 'СДИЗ, ЭДО, ТТН и акты сверяются с событиями сделки.', Icon: FileCheck2 },
   { label: 'Оплата', text: 'Банк видит, что подтверждено и что мешает расчёту.', Icon: Banknote },
   { label: 'Спор', text: 'Пакет доказательств показывает факты, ответственных и основание решения.', Icon: Scale },
+];
+
+const executionSignals: ExecutionSignal[] = [
+  { title: 'Рейс', text: 'Маршрут, водитель и контрольные точки связаны со сделкой.', status: 'движение', Icon: Truck },
+  { title: 'Приёмка', text: 'Вес и факт поставки фиксируются как событие исполнения.', status: 'факт', Icon: Building2 },
+  { title: 'Качество', text: 'Показатели лаборатории привязаны к партии и допускам.', status: 'допуск', Icon: FlaskConical },
+  { title: 'Документы', text: 'Комплектность и версии не оторваны от фактов рейса.', status: 'пакет', Icon: FileCheck2 },
+  { title: 'Деньги', text: 'Основание оплаты видно до ручного выяснения отношений.', status: 'основание', Icon: Banknote },
+  { title: 'Спор', text: 'Расхождение превращается в кейс с доказательствами.', status: 'решение', Icon: Scale },
+];
+
+const proofItems: ProofItem[] = [
+  { label: 'Кто сделал', text: 'роль, участник, действие' },
+  { label: 'Что изменилось', text: 'статус, документ, показатель' },
+  { label: 'Почему можно платить', text: 'события и подтверждения' },
 ];
 
 const roles: RoleCard[] = [
@@ -76,6 +93,7 @@ export default function PlatformV7RootPage() {
         </Link>
 
         <nav className='entry-desktop-nav' aria-label='Разделы главной страницы'>
+          <a href='#execution-map'>Преимущества</a>
           <a href='#process'>Как проходит</a>
           <a href='#control'>Что контролирует</a>
           <a href='#roles'>Роли</a>
@@ -110,6 +128,39 @@ export default function PlatformV7RootPage() {
           <div className='entry-floating-card docs'><FileCheck2 size={22} /><span>Документы</span><b>проверяются</b></div>
           <div className='entry-floating-card quality'><FlaskConical size={22} /><span>Качество</span><b>ожидает анализ</b></div>
           <div className='entry-floating-card money'><Banknote size={22} /><span>Оплата</span><b>зависит от событий</b></div>
+        </div>
+      </section>
+
+      <section id='execution-map' className='entry-section entry-execution-map' aria-labelledby='execution-map-title'>
+        <div className='entry-section-head entry-execution-head'>
+          <div>
+            <span className='entry-section-kicker'>не карусель, а рабочая карта</span>
+            <h2 id='execution-map-title'>Платформа показывает, где сделка застряла</h2>
+          </div>
+          <p>Пользователь видит не набор красивых экранов, а карту исполнения: событие, ответственный, документ, риск оплаты и доказательство в одном поле.</p>
+        </div>
+
+        <div className='entry-execution-board' aria-label='Карта преимуществ платформы'>
+          <div className='entry-execution-core'>
+            <span className='entry-core-label'>Контур сделки</span>
+            <strong>Цена → рейс → приёмка → документы → деньги</strong>
+            <p>Каждый блокер превращается в понятное действие: кто должен подтвердить факт, какой документ нужен и что мешает оплате.</p>
+            <div className='entry-core-metrics'>
+              <span><b>1</b> статус сделки</span>
+              <span><b>12</b> ролей</span>
+              <span><b>0</b> устных догадок</span>
+            </div>
+          </div>
+
+          <div className='entry-signal-grid'>
+            {executionSignals.map((signal) => <ExecutionSignalTile key={signal.title} signal={signal} />)}
+          </div>
+
+          <aside className='entry-proof-stack' aria-label='Доказательный слой'>
+            <span>Доказательный слой</span>
+            <strong>Что остаётся после каждого действия</strong>
+            {proofItems.map((item) => <div key={item.label}><b>{item.label}</b><small>{item.text}</small></div>)}
+          </aside>
         </div>
       </section>
 
@@ -158,6 +209,17 @@ function ProcessTile({ step, index }: { step: ProcessStep; index: number }) {
       <span className='entry-process-icon'><Icon size={21} strokeWidth={2.2} /></span>
       <strong>{step.label}</strong>
       <small>{step.text}</small>
+    </article>
+  );
+}
+
+function ExecutionSignalTile({ signal }: { signal: ExecutionSignal }) {
+  const Icon = signal.Icon;
+  return (
+    <article className='entry-signal-tile'>
+      <span className='entry-signal-icon'><Icon size={20} strokeWidth={2.3} /></span>
+      <div><strong>{signal.title}</strong><small>{signal.text}</small></div>
+      <em>{signal.status}</em>
     </article>
   );
 }
@@ -274,10 +336,9 @@ const entryCss = `
   box-shadow: 0 20px 52px rgba(7, 22, 17, .07);
   backdrop-filter: blur(14px);
 }
-.entry-kicker {
+.entry-kicker, .entry-section-kicker {
   display: inline-flex;
   width: fit-content;
-  margin-bottom: 18px;
   padding: 8px 12px;
   border-radius: 999px;
   background: rgba(0, 122, 47, .08);
@@ -287,6 +348,8 @@ const entryCss = `
   letter-spacing: .045em;
   text-transform: uppercase;
 }
+.entry-kicker { margin-bottom: 18px; }
+.entry-section-kicker { margin-bottom: 12px; }
 .entry-hero h1 {
   display: grid;
   gap: 1px;
@@ -342,6 +405,65 @@ const entryCss = `
 .entry-section-head.compact { justify-content: center; text-align: center; display: grid; }
 .entry-section h2 { margin: 0; color: #071611; font-size: clamp(25px, 2.6vw, 40px); line-height: 1.05; letter-spacing: -.045em; font-weight: 950; }
 .entry-section-head p { margin: 0; max-width: 610px; color: #66736e; font-size: 15px; line-height: 1.45; font-weight: 650; }
+.entry-execution-map { padding-top: 12px; }
+.entry-execution-head { align-items: start; }
+.entry-execution-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(250px, .78fr) minmax(360px, 1.2fr) minmax(230px, .72fr);
+  gap: 14px;
+  padding: 16px;
+  border-radius: 32px;
+  border: 1px solid rgba(0, 122, 47, .14);
+  background:
+    linear-gradient(120deg, rgba(255,255,255,.95), rgba(246,250,245,.76)),
+    radial-gradient(circle at 50% 42%, rgba(0,122,47,.13), transparent 34%);
+  box-shadow: 0 22px 60px rgba(7, 22, 17, .08);
+  overflow: hidden;
+}
+.entry-execution-board::before {
+  content: '';
+  position: absolute;
+  left: 27%;
+  right: 22%;
+  top: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,122,47,.36), transparent);
+  pointer-events: none;
+}
+.entry-execution-core, .entry-proof-stack, .entry-signal-tile {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(7,22,17,.075);
+  background: rgba(255,255,255,.86);
+  box-shadow: 0 14px 34px rgba(7,22,17,.055);
+}
+.entry-execution-core {
+  min-height: 100%;
+  padding: 22px;
+  border-radius: 26px;
+  display: grid;
+  align-content: center;
+  gap: 14px;
+}
+.entry-core-label { width: fit-content; padding: 7px 10px; border-radius: 999px; color: #087a3b; background: rgba(0,122,47,.08); font-size: 11px; font-weight: 950; text-transform: uppercase; letter-spacing: .045em; }
+.entry-execution-core strong { color: #071611; font-size: clamp(23px, 2.2vw, 34px); line-height: 1.02; letter-spacing: -.052em; font-weight: 950; }
+.entry-execution-core p { margin: 0; color: #53605a; font-size: 14.5px; line-height: 1.45; font-weight: 670; }
+.entry-core-metrics { display: grid; gap: 8px; margin-top: 4px; }
+.entry-core-metrics span { display: flex; align-items: center; gap: 9px; color: #425048; font-size: 13px; font-weight: 850; }
+.entry-core-metrics b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 10px; background: #087a3b; color: #fff; font-size: 13px; }
+.entry-signal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.entry-signal-tile { min-height: 112px; padding: 14px; border-radius: 22px; display: grid; grid-template-columns: auto 1fr; gap: 8px 11px; align-content: start; }
+.entry-signal-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 15px; color: #087a3b; background: rgba(0,122,47,.08); }
+.entry-signal-tile strong { display: block; color: #071611; font-size: 16px; font-weight: 950; letter-spacing: -.032em; }
+.entry-signal-tile small { display: block; margin-top: 3px; color: #617069; font-size: 12.4px; line-height: 1.32; font-weight: 650; }
+.entry-signal-tile em { grid-column: 1 / -1; width: fit-content; padding: 5px 9px; border-radius: 999px; color: #087a3b; background: rgba(0,122,47,.07); font-size: 11px; font-style: normal; font-weight: 950; }
+.entry-proof-stack { padding: 18px; border-radius: 26px; display: grid; gap: 12px; align-content: center; }
+.entry-proof-stack > span { width: fit-content; padding: 7px 10px; border-radius: 999px; color: #7b5a10; background: rgba(181,132,43,.12); font-size: 11px; font-weight: 950; text-transform: uppercase; letter-spacing: .045em; }
+.entry-proof-stack > strong { color: #071611; font-size: 20px; line-height: 1.08; letter-spacing: -.045em; font-weight: 950; }
+.entry-proof-stack div { padding: 12px; border-radius: 16px; background: rgba(246,250,245,.92); border: 1px solid rgba(7,22,17,.06); }
+.entry-proof-stack b { display: block; color: #173027; font-size: 13px; font-weight: 950; }
+.entry-proof-stack small { display: block; margin-top: 3px; color: #66736e; font-size: 12px; line-height: 1.33; font-weight: 650; }
 .entry-control-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .entry-control-tile, .entry-role-tile, .entry-process-tile, .entry-trust-item { border: 1px solid rgba(7, 22, 17, .075); background: rgba(255,255,255,.80); box-shadow: 0 14px 34px rgba(7, 22, 17, .06); }
 .entry-control-tile { min-height: 174px; padding: 21px; border-radius: 24px; display: grid; align-content: start; gap: 13px; color: #087a3b; }
@@ -366,6 +488,12 @@ const entryCss = `
 .entry-trust-item strong { color: #173027; font-size: 15px; font-weight: 950; letter-spacing: -.025em; }
 .entry-trust-item span { grid-column: 2; color: #66736e; font-size: 12.5px; line-height: 1.35; font-weight: 650; }
 .entry-trust-cta { align-self: stretch; display: inline-flex; align-items: center; justify-content: center; min-width: 220px; padding: 0 24px; background: #087a3b; color: #fff !important; font-size: 15px; font-weight: 950; }
+@media (max-width: 1180px) {
+  .entry-execution-board { grid-template-columns: 1fr; }
+  .entry-execution-board::before { display: none; }
+  .entry-execution-core, .entry-proof-stack { align-content: start; }
+  .entry-signal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 980px) {
   .pc-v7-public-entry { --entry-header-height: 64px; }
   .entry-header { grid-template-columns: 1fr auto; min-height: var(--entry-header-height); padding: 9px 16px; gap: 10px; }
@@ -388,6 +516,13 @@ const entryCss = `
   .entry-section-head, .entry-section-head.compact { display: grid; align-items: start; justify-content: stretch; text-align: left; gap: 8px; margin-bottom: 14px; }
   .entry-section h2 { font-size: clamp(27px, 8vw, 36px); letter-spacing: -.052em; }
   .entry-section-head p { font-size: 14.5px; line-height: 1.44; }
+  .entry-execution-map { padding-top: 10px; }
+  .entry-execution-board { padding: 12px; border-radius: 26px; }
+  .entry-execution-core { padding: 18px; border-radius: 22px; }
+  .entry-execution-core strong { font-size: clamp(24px, 7vw, 32px); }
+  .entry-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .entry-signal-tile { min-height: 118px; padding: 13px; border-radius: 19px; }
+  .entry-proof-stack { padding: 16px; border-radius: 22px; }
   .entry-control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .entry-control-tile { min-height: 150px; padding: 16px; border-radius: 21px; }
   .entry-control-tile strong { font-size: 17px; }
@@ -414,10 +549,11 @@ const entryCss = `
   .entry-login { min-height: 42px; padding: 0 15px; }
   .entry-hero { padding: 12px 0 10px; }
   .entry-hero-copy { border-radius: 27px; padding: 21px 17px 19px; }
-  .entry-kicker { margin-bottom: 11px; font-size: 9.7px; }
+  .entry-kicker, .entry-section-kicker { margin-bottom: 11px; font-size: 9.7px; }
   .entry-hero h1 { font-size: clamp(30px, 8.55vw, 34px); line-height: 1.02; letter-spacing: -.041em; }
   .entry-hero p { margin-top: 13px; font-size: 15px; line-height: 1.4; }
   .entry-primary-cta, .entry-secondary-cta, .entry-register-cta { min-height: 52px; font-size: 15px; }
+  .entry-signal-grid { grid-template-columns: 1fr; }
   .entry-control-grid { grid-template-columns: 1fr; }
 }
 `;
