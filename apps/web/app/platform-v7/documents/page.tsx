@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
 import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
+import { DocumentsTree, buildDemoDocumentTree } from '@/components/platform-v7/DocumentsTree';
 
 export const metadata: Metadata = {
   title: 'Документы',
@@ -90,6 +91,15 @@ export default function PlatformV7DocumentsPage() {
           ))}
         </div>
       </CockpitHero>
+
+      {/* Древовидная структура документов: Год → Месяц → Сделка → Документ */}
+      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 20, padding: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h2 className="heading-4" style={{ margin: 0, color: 'var(--pc-text-primary)' }}>Архив документов</h2>
+          <span className="caption">Год → Месяц → Сделка</span>
+        </div>
+        <DocumentsTree data={buildDemoDocumentTree()} />
+      </section>
 
       <section style={darkCard}>
         <div style={{ display: 'grid', gap: 6 }}>
