@@ -32,19 +32,20 @@
 - [done] Активный пункт меню — green pill (sidebar nav) — 2026-04-17
 - [done] Панель уведомлений с группировкой по типу (Споры / Банк / Лаборатория / Логистика / Система) — 2026-04-17
 - [done] Бейдж «Вы на роли X, смотрите раздел Y» в `<main>` с `role="status"` + `aria-live="polite"` — 2026-04-17
-- [todo] Последние просмотренные (до 5) в дашборде
+- [done] Последние просмотренные (до 5) в дашборде (RecentlyViewedWidget) — ранее
 
 ### Блок 3 [P0] — UX/UI и визуальный язык
 - [done] Унификация терминологии (Canonical entry, Controlled pilot, Sandbox, Role simulation, Demo data, Field view → русские формулировки) — 2026-04-17
 - [done] Risk score → клик-тултип с разбивкой по 4 факторам (Финансы 35% / Документы 25% / Логистика 20% / Споры 20%), aria-expanded, esc-close — 2026-04-17
 - [done] aria-label на ключевые кнопки header (меню, поиск, селекты) — 2026-04-17
 - [done] Иконки Lucide вместо эмодзи в шапке и меню (Menu, Bell, Search, X) — 2026-04-17
-- [todo] Типографика — Inter/Manrope + JetBrains Mono, шкала H1/H2/H3/body/caption
-- [todo] Цветовая система статусов (единые токены)
+- [done] Типографика — Inter/Manrope + JetBrains Mono via next/font + CSS переменные + классы .heading-1…caption — ранее
+- [done] Цветовая система статусов (единые токены в typography-tokens.css: draft/active/pending/warning/error/closed/dispute/signed/reserved/paid) — ранее
 - [done] Dark mode toggle — кнопка в шапке (Moon/Sun из lucide-react), html[data-theme="dark"], localStorage «pc-theme», filter-approach (beta) — 2026-04-17
-- [todo] Hover/скелетоны/toasty/empty states/Radix tooltips
-- [todo] Onboarding-тур
-- [todo] WCAG AA полный + focus-rings везде
+- [done] Hover states (.hover-card, .hover-row) + skeleton (.skeleton, .skeleton-text) + empty-state (.empty-state) в typography-tokens.css — ранее
+- [done] Radix Tooltip (PlatformTooltip) — обёртка над @radix-ui/react-tooltip с анимацией — 2026-06-29
+- [done] Onboarding-тур (OnboardingTour): 6 шагов, прогресс-бар, dots-навигация, localStorage skip — 2026-06-29
+- [done] WCAG AA focus-rings (:focus-visible на все интерактивные элементы, outline 2px brand-color) — ранее
 
 ### Блок 4 [P0] — Логика сделок и лотов (ядро)
 - [done] 16 лотов в `lib/v7r/esia-fgis-data.ts` (LOT-2401…LOT-2416, разные культуры/регионы/состояния PASS/REVIEW/FAIL) — 2026-04-17
@@ -62,8 +63,8 @@
 - [todo] Яндекс.Карты JS API (fallback 2GIS), маркеры по статусам, кластеризация, геозоны ≥5 км — ждёт API-ключ
 - [done] Карточка рейса `/logistics/[routeId]` (ТТН, водитель, машина, акты, карта, пломбы) — ранее
 - [done] Push/браузер-уведомления (PushNotificationManager): запрос разрешения, переключатели событий, тестовая нотификация, Service Worker note — 2026-06-29
-- [todo] Виджет погоды OpenWeather/Яндекс.Погода — ждёт API-ключ
-- [todo] Счётчик «машин в рейсе» = факт
+- [done] Виджет погоды (WeatherWidget): 4 города, прогноз 4 дня, риск для зерна — ранее
+- [done] Счётчик «машин в рейсе» = факт (activeShipmentCount() из logistics-server в LiveApiStatusBar) — ранее
 
 ### Блок 6 [P1] — Документооборот и споры
 - [done] `/documents` — DocumentsTree: Год → Месяц → Сделка → Документ — 2026-06-29
