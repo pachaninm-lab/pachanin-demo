@@ -181,7 +181,9 @@ function TrustTile({ item }: { item: TrustItem }) {
 
 const entryCss = `
 .pc-v7-public-entry {
+  --entry-header-height: 70px;
   min-height: 100vh;
+  padding-top: var(--entry-header-height);
   overflow-x: hidden;
   color: #071611;
   background:
@@ -193,18 +195,24 @@ const entryCss = `
 .pc-v7-public-entry * { box-sizing: border-box; }
 .pc-v7-public-entry a { color: inherit; text-decoration: none; }
 .entry-header {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 20;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1400;
   display: grid;
   grid-template-columns: minmax(220px, auto) 1fr auto;
   align-items: center;
   gap: 24px;
-  min-height: 70px;
+  min-height: var(--entry-header-height);
   padding: 12px clamp(18px, 4vw, 56px);
-  background: rgba(255, 255, 255, .92);
+  background: rgba(255, 255, 255, .98);
   border-bottom: 1px solid rgba(6, 26, 22, .08);
+  box-shadow: 0 12px 30px rgba(7, 22, 17, .08);
   backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transform: none;
 }
 .entry-brand { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
 .entry-brand-mark {
@@ -359,7 +367,8 @@ const entryCss = `
 .entry-trust-item span { grid-column: 2; color: #66736e; font-size: 12.5px; line-height: 1.35; font-weight: 650; }
 .entry-trust-cta { align-self: stretch; display: inline-flex; align-items: center; justify-content: center; min-width: 220px; padding: 0 24px; background: #087a3b; color: #fff !important; font-size: 15px; font-weight: 950; }
 @media (max-width: 980px) {
-  .entry-header { grid-template-columns: 1fr auto; min-height: 64px; padding: 9px 16px; gap: 10px; }
+  .pc-v7-public-entry { --entry-header-height: 64px; }
+  .entry-header { grid-template-columns: 1fr auto; min-height: var(--entry-header-height); padding: 9px 16px; gap: 10px; }
   .entry-desktop-nav, .entry-header-register { display: none; }
   .entry-login { min-height: 44px; padding: 0 16px; border-radius: 15px; }
   .entry-login svg { display: none; }
@@ -398,7 +407,8 @@ const entryCss = `
   .entry-trust-cta { min-height: 58px; min-width: 0; }
 }
 @media (max-width: 420px) {
-  .entry-header { min-height: 60px; padding: 8px 14px; }
+  .pc-v7-public-entry { --entry-header-height: 60px; }
+  .entry-header { min-height: var(--entry-header-height); padding: 8px 14px; }
   .entry-brand strong { font-size: 17px; }
   .entry-brand-mark { width: 38px; height: 38px; }
   .entry-login { min-height: 42px; padding: 0 15px; }
