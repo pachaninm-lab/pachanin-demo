@@ -245,6 +245,7 @@ export function PublicEntryInteractiveTour() {
           z-index: 880;
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 9px;
           min-height: 48px;
           padding: 0 17px;
@@ -319,6 +320,20 @@ export function PublicEntryInteractiveTour() {
         .p7-public-tour-secondary { background: #fff; color: #203029; box-shadow: inset 0 0 0 1px rgba(7,22,17,.10); }
         .p7-public-tour-secondary:disabled { cursor: not-allowed; opacity: .45; }
         @media (max-width: 760px) {
+          .p7-public-tour-trigger {
+            left: 50%;
+            right: auto;
+            bottom: max(18px, env(safe-area-inset-bottom));
+            width: min(520px, calc(100vw - 44px));
+            min-height: 54px;
+            padding: 0 18px;
+            transform: translateX(-50%);
+            justify-content: center;
+            text-align: center;
+            z-index: 940;
+          }
+          .p7-public-tour-trigger:hover { transform: translateX(-50%) translateY(-1px); }
+          .p7-public-tour-trigger span { display: inline-block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
           .p7-public-tour-layer { place-items: end center; padding: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
           .p7-public-tour-dialog { width: 100%; max-height: calc(100dvh - 16px); border-radius: 26px; }
           .p7-public-tour-topline { padding: 13px 14px; }
@@ -341,6 +356,7 @@ export function PublicEntryInteractiveTour() {
           .p7-public-tour-primary, .p7-public-tour-secondary { min-height: 52px; }
         }
         @media (max-width: 390px) {
+          .p7-public-tour-trigger { width: min(360px, calc(100vw - 28px)); }
           .p7-public-tour-card h2 { font-size: 23px; }
           .p7-public-tour-card p { font-size: 13.6px; }
           .p7-public-tour-mini span { font-size: 11.5px; }
