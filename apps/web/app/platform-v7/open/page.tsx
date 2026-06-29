@@ -1,109 +1,110 @@
-import Link from 'next/link';
-import type { CSSProperties } from 'react';
-import { getPlatformV7OpenWalkthroughState } from '@/lib/platform-v7/runtime/open-walkthrough';
-import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
-import { CockpitHero, PremiumCtaButton, ProcessStepper } from '@/components/platform-v7/premium';
+'use client';
 
-const EXECUTION_CHAIN: ReadonlyArray<{ readonly glyph: string; readonly label: string }> = [
-  { glyph: '◳', label: 'Условия' },
-  { glyph: '▤', label: 'Документы' },
-  { glyph: '◈', label: 'Рейс' },
-  { glyph: '⚖', label: 'Приёмка' },
-  { glyph: '✦', label: 'Качество' },
-  { glyph: '₽', label: 'Деньги' },
-  { glyph: '⚑', label: 'Спор / Закрытие' },
+import * as React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Building2, ClipboardCheck, FlaskConical, Landmark, Scale, ShieldCheck, Truck, UserRound, Wheat } from 'lucide-react';
+import { PLATFORM_V7_ACTIVE_ROLE_KEY, platformV7RoleHome } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
+import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+
+const ENTRY_COOKIE = 'pc_v7_entry_seen';
+const TTL_SECONDS = 60 * 60 * 4;
+
+const roles: Array<{ role: PlatformRole; title: string; Icon: React.ElementType }> = [
+  { role: 'buyer', title: 'Покупатель', Icon: UserRound },
+  { role: 'seller', title: 'Продавец', Icon: Wheat },
+  { role: 'logistics', title: 'Логистика', Icon: Truck },
+  { role: 'driver', title: 'Водитель', Icon: ClipboardCheck },
+  { role: 'elevator', title: 'Элеватор', Icon: Building2 },
+  { role: 'lab', title: 'Лаборатория', Icon: FlaskConical },
+  { role: 'surveyor', title: 'Сюрвейер', Icon: ShieldCheck },
+  { role: 'bank', title: 'Банк', Icon: Landmark },
+  { role: 'arbitrator', title: 'Арбитр', Icon: Scale },
 ];
 
+function isRole(value: string | null): value is PlatformRole {
+  return roles.some((item) => item.role === value) || value === 'operator' || value === 'compliance' || value === 'executive';
+}
+
+function markEntry(role: PlatformRole) {
+  const secure = globalThis.location?.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${ENTRY_COOKIE}=true; Path=/; Max-Age=${TTL_SECONDS}; SameSite=Lax${secure}`;
+  document.cookie = `pc-role=${role}; Path=/; Max-Age=${TTL_SECONDS}; SameSite=Lax${secure}`;
+  window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
+}
+
 export default function PlatformV7OpenPage() {
-  const state = getPlatformV7OpenWalkthroughState();
+  const router = useRouter();
+  const params = useSearchParams();
+  const initialRole = isRole(params.get('role')) ? params.get('role') as PlatformRole : 'seller';
+  const [role, setRole] = React.useState<PlatformRole>(initialRole);
+  const [login, setLogin] = React.useState('');
+  const [code, setCode] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [pending, setPending] = React.useState(false);
+  const next = params.get('next') || platformV7RoleHome(initialRole);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    setError('');
+    if (!login.trim() || !code.trim()) {
+      setError('Введи логин и пароль вручную.');
+      return;
+    }
+    setPending(true);
+    try {
+      const response = await fetch(`/api/platform-v7/cabinet-lock-login?ts=${Date.now()}&origin=open-access`, {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', Pragma: 'no-cache' },
+        body: JSON.stringify({ login: login.trim(), password: code.trim(), role, company: '' }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(`Сервер отклонил вход: ${payload?.reason || response.status}.`);
+        return;
+      }
+      markEntry(role);
+      router.replace(next.startsWith('/platform-v7') ? next : platformV7RoleHome(role));
+    } catch {
+      setError('Сервер входа недоступен.');
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
-    <main data-testid='platform-v7-open-walkthrough' className='pc-v7-public-entry' style={page}>
-      <CockpitHero
-        className='pc-v7-open-hero'
-        eyebrow='Прозрачная Цена · контур исполнения сделки'
-        title='Главный риск сделки начинается'
-        accent='после согласования цены'
-        lead='Прозрачная Цена — цифровой контур исполнения зерновой сделки: рейс, приёмка, качество, документы, деньги, спор и доказательства в одном процессе.'
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
-          <PremiumCtaButton href='/platform-v7/#roles' glyph='users'>Выбрать роль</PremiumCtaButton>
-          <PremiumCtaButton href='/platform-v7/login' variant='ghost'>Войти в кабинет</PremiumCtaButton>
-          <PremiumCtaButton href='/platform-v7/support?role=operator' variant='ghost'>Запросить демонстрацию</PremiumCtaButton>
-        </div>
-        <div style={maturityChip}>Пилотный контур. Внешние подключения требуют доступов, договоров и проверки на реальных сделках.</div>
-      </CockpitHero>
-
-      <section style={chainCard} aria-label='Цепочка исполнения сделки'>
-        <ProcessStepper ariaLabel='Цепочка исполнения сделки' steps={EXECUTION_CHAIN.map((node) => ({ label: node.label, state: 'upcoming' as const }))} />
+    <main className='pc-clean-login'>
+      <style>{css}</style>
+      <section className='card'>
+        <span className='eyebrow'>чистый вход · без автоподстановки</span>
+        <h1>Вход в кабинет</h1>
+        <p>Эта форма создана отдельно от старой страницы входа, чтобы обойти автозаполнение и кэш браузера.</p>
+        <form onSubmit={submit} autoComplete='off'>
+          <div className='roles'>
+            {roles.map(({ role: value, title, Icon }) => (
+              <button key={value} type='button' className={role === value ? 'active' : ''} onClick={() => setRole(value)}>
+                <Icon size={19} />
+                <b>{title}</b>
+              </button>
+            ))}
+          </div>
+          <label>
+            <span>Логин</span>
+            <input value={login} onChange={(e) => setLogin(e.target.value)} inputMode='email' autoCapitalize='none' autoCorrect='off' spellCheck={false} autoComplete='off' placeholder='Введи логин' />
+          </label>
+          <label>
+            <span>Пароль</span>
+            <input value={code} onChange={(e) => setCode(e.target.value)} type='password' inputMode='numeric' autoCapitalize='none' autoCorrect='off' spellCheck={false} autoComplete='new-password' placeholder='Введи пароль' />
+          </label>
+          {error ? <div className='error'>{error}</div> : null}
+          <button className='submit' disabled={pending}>{pending ? 'Проверяю…' : 'Войти'}</button>
+        </form>
       </section>
-
-      <section style={block} aria-label='Как открывается путь сделки'>
-        <h2 style={h2}>Как открывается путь сделки</h2>
-        <div style={grid}>
-          {state.steps.map((step, index) => (
-            <Link href={step.href} key={step.id} style={card}>
-              <span style={num}>{index + 1}</span>
-              <strong style={title}>{step.title}</strong>
-              <span style={text}>{step.text}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section style={block} aria-label='Роли в контуре сделки'>
-        <h2 style={h2}>Что видит каждая роль</h2>
-        <div style={grid}>
-          {state.roles.map((role) => (
-            <Link href={role.href} key={role.role} style={roleCard}>
-              <strong style={roleName}>{role.role}</strong>
-              <span style={roleSees}>{role.sees}</span>
-              <span style={roleAction}>→ {role.action}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <CollapsibleSection title='Контур доступа' summary={`${state.gates.length} шага · роль → контур → подключения`} defaultOpen={false}>
-        <div style={gatesGrid}>
-          {state.gates.map((gate) => (
-            <div key={gate.label} style={gateItem}>
-              <span style={gateBadge(gate.state)}>{gateStateLabel(gate.state)}</span>
-              <strong style={gateLabel}>{gate.label}</strong>
-              <span style={text}>{gate.text}</span>
-            </div>
-          ))}
-        </div>
-      </CollapsibleSection>
     </main>
   );
 }
 
-function gateStateLabel(stateValue: 'available' | 'requires-operator' | 'requires-agreement'): string {
-  if (stateValue === 'available') return 'доступно';
-  if (stateValue === 'requires-operator') return 'через оператора';
-  return 'нужен договор';
-}
-
-function gateBadge(stateValue: 'available' | 'requires-operator' | 'requires-agreement'): CSSProperties {
-  const tone = stateValue === 'available' ? { bg: 'var(--p7-color-success-soft, #ECFDF3)', fg: 'var(--pc-success, #027A48)' } : stateValue === 'requires-operator' ? { bg: 'var(--p7-color-warning-soft, #FFFAEB)', fg: 'var(--pc-warning, #B54708)' } : { bg: 'var(--p7-color-danger-soft, #FEF3F2)', fg: 'var(--pc-danger, #B42318)' };
-  return { width: 'fit-content', padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', background: tone.bg, color: tone.fg };
-}
-
-const page: CSSProperties = { display: 'grid', gap: 16, padding: '0 0 32px' };
-const maturityChip: CSSProperties = { marginTop: 6, width: 'fit-content', maxWidth: 720, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,20,7,0.12)', borderRadius: 14, padding: '10px 14px', color: '#5A5440', fontSize: 12.5, lineHeight: 1.45, fontWeight: 600 };
-const chainCard: CSSProperties = { background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, rgba(63,56,38,0.12))', borderRadius: 16, padding: '14px 16px' };
-const block: CSSProperties = { display: 'grid', gap: 12 };
-const h2: CSSProperties = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, fontWeight: 800, letterSpacing: '-0.01em' };
-const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 };
-const card: CSSProperties = { textDecoration: 'none', color: 'inherit', background: 'var(--pc-bg-card, #fff)', border: '1px solid var(--pc-border, rgba(63,56,38,0.12))', borderRadius: 16, padding: 16, display: 'grid', gap: 8 };
-const num: CSSProperties = { width: 30, height: 30, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--pc-text-primary, #0F1419)', color: '#fff', fontSize: 12, fontWeight: 800 };
-const title: CSSProperties = { color: 'var(--pc-text-primary, #0F1419)', fontSize: 17, lineHeight: 1.2, fontWeight: 800 };
-const text: CSSProperties = { color: 'var(--pc-text-secondary, #475569)', fontSize: 13, lineHeight: 1.5 };
-const roleCard: CSSProperties = { ...card };
-const roleName: CSSProperties = { color: 'var(--pc-text-primary, #0F1419)', fontSize: 16, fontWeight: 800 };
-const roleSees: CSSProperties = { color: 'var(--pc-text-secondary, #475569)', fontSize: 13, lineHeight: 1.45 };
-const roleAction: CSSProperties = { color: 'var(--pc-accent, #0A7A5F)', fontSize: 13, fontWeight: 700 };
-const gatesGrid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 };
-const gateItem: CSSProperties = { display: 'grid', gap: 6, alignContent: 'start' };
-const gateLabel: CSSProperties = { color: 'var(--pc-text-primary, #0F1419)', fontSize: 15, fontWeight: 800 };
+const css = `
+.pc-clean-login{min-height:100vh;padding:24px;background:#f7faf5;color:#06150f;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{max-width:760px;margin:0 auto;padding:24px;border:1px solid rgba(7,22,17,.1);border-radius:28px;background:#fff;box-shadow:0 18px 48px rgba(7,22,17,.08)}.eyebrow{display:inline-flex;width:fit-content;padding:8px 12px;border-radius:999px;background:#eaf7ef;color:#087a32;font-weight:950;font-size:12px;text-transform:uppercase;letter-spacing:.05em}h1{margin:18px 0 8px;font-size:44px;line-height:.95;letter-spacing:-.06em}p{margin:0 0 18px;color:#51615a;font-weight:750;line-height:1.45}form{display:grid;gap:14px}.roles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.roles button{min-height:62px;border-radius:18px;border:1px solid rgba(0,122,47,.18);background:#f7fbf8;color:#06150f;font-weight:950;display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;padding:0 14px;text-align:left}.roles button svg{color:#087a32}.roles button.active{background:#06150f;color:#fff}.roles button.active svg{color:#fff}label{display:grid;gap:7px}label span{font-size:13px;font-weight:900;color:#43534c}input{height:54px;border-radius:16px;border:1px solid rgba(7,22,17,.16);padding:0 14px;font-size:16px;font-weight:850;background:#fff;color:#06150f}input:focus{outline:none;border-color:#087a32;box-shadow:0 0 0 4px rgba(8,122,50,.12)}.error{padding:12px 14px;border-radius:14px;background:#fff1e8;color:#8a3a00;font-weight:900}.submit{height:58px;border:0;border-radius:18px;background:#087a32;color:#fff;font-size:16px;font-weight:950;box-shadow:0 14px 28px rgba(8,122,50,.22)}.submit:disabled{opacity:.65}@media(max-width:560px){.pc-clean-login{padding:14px}.card{padding:18px;border-radius:24px}h1{font-size:38px}.roles{grid-template-columns:1fr 1fr}.roles button{grid-template-columns:1fr;justify-items:center;text-align:center;padding:8px}}
+`;
