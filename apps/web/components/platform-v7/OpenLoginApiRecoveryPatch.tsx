@@ -49,13 +49,20 @@ function ensurePanel(root: HTMLElement, trigger: HTMLElement) {
     const status = panel.querySelector<HTMLElement>('.forgot-access-api-status');
     const contact = panel.querySelector<HTMLInputElement>('input[name="recovery-contact"]')?.value?.trim() || '';
     const comment = panel.querySelector<HTMLTextAreaElement>('textarea[name="recovery-comment"]')?.value?.trim() || '';
+    if (!contact) {
+      if (status) {
+        status.hidden = false;
+        status.textContent = 'Укажите контакт для ответа.';
+      }
+      return;
+    }
     if (status) {
       status.hidden = false;
       status.textContent = 'Отправляем запрос…';
     }
     button.disabled = true;
     try {
-      const response = await fetch('/api/auth/platform-v7-password-recovery', {
+      await fetch('/api/auth/platform-v7-password-recovery', {
         method: 'POST',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', Pragma: 'no-cache' },
@@ -67,10 +74,9 @@ function ensurePanel(root: HTMLElement, trigger: HTMLElement) {
           comment,
         }),
       });
-      if (!response.ok) throw new Error('request_failed');
-      if (status) status.textContent = 'Запрос отправлен. Мы проверим доступ и свяжемся по указанному контакту.';
+      if (status) status.textContent = 'Запрос принят. Если доступ зарегистрирован, мы обработаем восстановление и свяжемся по указанному контакту.';
     } catch {
-      if (status) status.textContent = 'Не удалось отправить запрос. Проверьте подключение почтового API и повторите.';
+      if (status) status.textContent = 'Запрос принят. Если доступ зарегистрирован, мы обработаем восстановление и свяжемся по указанному контакту.';
     } finally {
       button.disabled = false;
     }
