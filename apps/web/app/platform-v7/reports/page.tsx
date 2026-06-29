@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { RegulatoryReportsPanel } from '@/components/platform-v7/RegulatoryReportsPanel';
 
 const rows = ['Сводка сделки', 'Пакет доказательств', 'Журнал действий', 'События банка', 'Отчёт по сценарию'] as const;
 
@@ -22,6 +24,12 @@ export default function PlatformV7ReportsPage() {
             <span style={{ fontSize: 12, color: 'var(--pc-text-muted, #64748B)', fontWeight: 900 }}>Подготовка</span>
           </article>
         ))}
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <CollapsibleSection title='Регуляторные отчёты' summary='Минсельхоз · Росстат · ФГИС · Росфинмониторинг · ФНС' defaultOpen={true}>
+          <RegulatoryReportsPanel />
+        </CollapsibleSection>
       </section>
     </div>
   );

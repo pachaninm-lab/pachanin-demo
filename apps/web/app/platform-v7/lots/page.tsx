@@ -1,5 +1,7 @@
 import { SellerLotsRuntimeV2 } from '@/components/v7r/SellerLotsRuntimeV2';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { PricePredictorWidget } from '@/components/platform-v7/PricePredictorWidget';
 
 export default function PlatformV7LotsPage() {
   return (
@@ -28,6 +30,9 @@ export default function PlatformV7LotsPage() {
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <TrustDot state='test' size='sm' label='тестовый контур' />
       </div>
+      <CollapsibleSection title='ML-прогноз цены' summary='scikit-learn · 6 культур · 5 регионов · 30 дней' defaultOpen={false}>
+        <PricePredictorWidget />
+      </CollapsibleSection>
       <SellerLotsRuntimeV2 />
     </div>
   );

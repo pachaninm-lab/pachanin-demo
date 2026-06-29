@@ -9,6 +9,7 @@ import { getOutboxStatus } from '@/lib/outbox-server';
 import { CockpitHero, PremiumStatCard } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getPlatformV7BiCockpitState } from '@/lib/platform-v7/runtime/bi-cockpit-state';
+import { UnitEconomicsPassport } from '@/components/platform-v7/UnitEconomicsPassport';
 
 function formatMoney(rub: number): string {
   if (rub >= 1_000_000_000) return `${(rub / 1_000_000_000).toFixed(2)} млрд ₽`;
@@ -132,6 +133,10 @@ export default async function ExecutivePage() {
           </div>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-text-muted, #58606E)', lineHeight: 1.5 }}>{bi.note}</p>
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title='Unit Economics Passport' summary='GMV · Take Rate · LTV · CAC · 3 сценария' defaultOpen={false}>
+        <UnitEconomicsPassport />
       </CollapsibleSection>
 
       <CollapsibleSection title='Динамика цен на зерно' summary='12 мес · пшеница · ячмень · кукуруза' defaultOpen={false}>

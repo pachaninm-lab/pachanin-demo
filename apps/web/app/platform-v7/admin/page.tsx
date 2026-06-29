@@ -1,4 +1,7 @@
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { IntegrationEventLog } from '@/components/platform-v7/IntegrationEventLog';
+import { BankReconciliationPanel } from '@/components/platform-v7/BankReconciliationPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -83,6 +86,15 @@ export default async function AdminPage() {
           </div>
         </div>
       )}
+
+      <div style={{ marginTop: 20, display: 'grid', gap: 16 }}>
+        <CollapsibleSection title='Журнал интеграционных событий' summary='ФГИС · Диадок · Банк · КЭП · GPS' defaultOpen={false}>
+          <IntegrationEventLog />
+        </CollapsibleSection>
+        <CollapsibleSection title='Сверка банковской выписки' summary='МТ940 · автосопоставление · ручная очередь' defaultOpen={false}>
+          <BankReconciliationPanel />
+        </CollapsibleSection>
+      </div>
 
       <div style={{ marginTop: 20, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 600, fontSize: 14 }}>
