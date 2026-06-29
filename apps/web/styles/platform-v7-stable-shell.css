@@ -91,3 +91,5 @@
     border-radius: 13px !important;
   }
 }
+
+.pc-open-v2 .open-header{height:70px !important;min-height:70px !important;padding:12px 72px 12px 18px !important;background:rgba(255,255,255,.98) !important;border-bottom:1px solid rgba(6,26,22,.08) !important;box-shadow:0 12px 30px rgba(7,22,17,.08) !important;border-radius:0 !important}.pc-open-v2 .open-brand{height:46px !important;gap:12px !important}.pc-open-v2 .open-brand svg,.pc-open-v2 .open-brand img{width:42px !important;height:42px !important}.pc-open-v2 .open-brand strong{font-size:18px !important;line-height:1.05 !important;letter-spacing:-.03em !important}.pc-open-v2 .open-brand small{font-size:12px !important;font-weight:650 !important;line-height:1.05 !important;color:#66736e !important}.pc-open-v2 .open-back{width:42px !important;height:42px !important;right:18px !important;top:14px !important;border-radius:15px !important}.pc-open-v2 .roles button.active{background:#06412e !important;border-color:#06412e !important;color:#fff !important}.pc-open-v2 .roles button.active svg{color:#dff5e8 !important}.pc-open-v2 .roles button.active small{color:rgba(255,255,255,.78) !important}
