@@ -7,7 +7,7 @@ import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RS
 
 export const PLATFORM_V7_ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 
-const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
+const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/demo', '/platform-v7/contact']);
 
 const PLATFORM_ROLES: readonly PlatformRole[] = [
   'operator',
@@ -37,8 +37,8 @@ function isPlatformRole(value: string | null): value is PlatformRole {
 }
 
 function readActiveRole(): PlatformRole | null {
-  if (typeof globalThis === 'undefined') return null;
-  const stored = globalThis.sessionStorage?.getItem(PLATFORM_V7_ACTIVE_ROLE_KEY) ?? null;
+  if (typeof window === 'undefined') return null;
+  const stored = window.sessionStorage.getItem(PLATFORM_V7_ACTIVE_ROLE_KEY);
   return isPlatformRole(stored) ? stored : null;
 }
 
@@ -76,5 +76,5 @@ export function PlatformV7SingleEntryGuard() {
     if (!roleAllows(activeRole, path)) router.replace(platformV7RoleHome(activeRole));
   }, [pathname, role, router, setRole]);
 
-  return <style>{`.pc-v4-switch-cabinet{display:none!important;}`}</style>;
+  return null;
 }
