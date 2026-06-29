@@ -6,6 +6,9 @@ const publicRoutes = [
   '/platform-v7/login',
   '/platform-v7/register',
   '/platform-v7/role-preview',
+  '/platform-v7/demo',
+  '/platform-v7/contact',
+  '/platform-v7/contact/sent',
 ] as const;
 
 const cabinetRoutes = [
