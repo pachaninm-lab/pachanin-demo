@@ -17,8 +17,14 @@ function normalizeRecoveryPanels(root: HTMLElement) {
   panels.slice(1).forEach((item) => item.remove());
 }
 
-function ensurePanel(root: HTMLElement, trigger: HTMLElement) {
+function normalizeOpenLoginShell(root: HTMLElement) {
+  root.dataset.openLoginApiFixed = 'true';
+  root.querySelectorAll<HTMLElement>('.recover-note').forEach((item) => item.remove());
   normalizeRecoveryPanels(root);
+}
+
+function ensurePanel(root: HTMLElement, trigger: HTMLElement) {
+  normalizeOpenLoginShell(root);
   const fields = root.querySelector('.fields');
   if (!fields) return;
   const current = root.querySelector<HTMLElement>('.forgot-access-api-panel');
@@ -108,8 +114,7 @@ export function OpenLoginApiRecoveryPatch() {
       const root = document.querySelector<HTMLElement>('.pc-clean-login');
       if (!root) return;
 
-      normalizeRecoveryPanels(root);
-      root.querySelectorAll<HTMLElement>('.recover-note').forEach((item) => item.remove());
+      normalizeOpenLoginShell(root);
 
       root.querySelectorAll<HTMLElement>('.forgot-link').forEach((oldLink) => {
         const alreadyOwned = oldLink.dataset.apiRecoveryBound === 'true';
@@ -144,6 +149,133 @@ export function OpenLoginApiRecoveryPatch() {
 
   return (
     <style>{`
+      .pc-clean-login[data-open-login-api-fixed='true'] {
+        min-height: 100dvh !important;
+        padding: calc(72px + env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom)) !important;
+        background: linear-gradient(180deg, #fbfcf9 0%, #f3f7f1 58%, #fff 100%) !important;
+        overflow-x: hidden !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .clean-login-header {
+        position: fixed !important;
+        inset: 0 0 auto 0 !important;
+        z-index: 2600 !important;
+        min-height: calc(64px + env(safe-area-inset-top)) !important;
+        height: calc(64px + env(safe-area-inset-top)) !important;
+        padding: calc(8px + env(safe-area-inset-top)) 14px 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 10px !important;
+        background: rgba(255, 255, 255, .98) !important;
+        border-bottom: 1px solid rgba(7,22,17,.08) !important;
+        box-shadow: 0 10px 28px rgba(7,22,17,.08) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        backdrop-filter: blur(16px) !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        max-width: calc(100vw - 86px) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand svg,
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand img {
+        display: block !important;
+        flex: 0 0 auto !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand span {
+        display: grid !important;
+        gap: 1px !important;
+        min-width: 0 !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand strong {
+        display: block !important;
+        color: #06150f !important;
+        font-size: 17px !important;
+        line-height: 1.08 !important;
+        font-weight: 950 !important;
+        letter-spacing: -.04em !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-brand small {
+        display: block !important;
+        color: #68756f !important;
+        font-size: 10px !important;
+        line-height: 1.1 !important;
+        font-weight: 850 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-actions {
+        order: 2 !important;
+        margin-left: auto !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        flex: 0 0 auto !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-back {
+        width: 44px !important;
+        min-width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        padding: 0 !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(7,22,17,.10) !important;
+        background: #fff !important;
+        box-shadow: 0 8px 20px rgba(7,22,17,.06) !important;
+        color: #06150f !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-back svg {
+        width: 20px !important;
+        height: 20px !important;
+        display: block !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .header-register {
+        display: none !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .card {
+        width: min(100%, 900px) !important;
+        margin: 0 auto !important;
+        padding: 14px !important;
+        border-radius: 24px !important;
+        background: rgba(255,255,255,.96) !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .hero-copy {
+        display: none !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .role-panel {
+        gap: 10px !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .roles {
+        gap: 10px !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .roles button {
+        min-height: 72px !important;
+        padding: 12px 10px !important;
+        border-radius: 22px !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .roles button b {
+        font-size: 18px !important;
+        line-height: 1.08 !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .roles button small {
+        font-size: 13px !important;
+        line-height: 1.1 !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .fields {
+        margin-top: 4px !important;
+      }
+      .pc-clean-login[data-open-login-api-fixed='true'] .recover-note,
       .forgot-access-panel { display: none !important; }
       .forgot-access-api-panel {
         display: grid;
@@ -197,6 +329,25 @@ export function OpenLoginApiRecoveryPatch() {
         cursor: pointer;
       }
       .forgot-access-api-submit:disabled { opacity: .6; cursor: not-allowed; }
+      @media (max-width: 720px) {
+        .pc-clean-login[data-open-login-api-fixed='true'] {
+          padding-top: calc(68px + env(safe-area-inset-top)) !important;
+        }
+        .pc-clean-login[data-open-login-api-fixed='true'] .clean-login-header {
+          min-height: calc(60px + env(safe-area-inset-top)) !important;
+          height: calc(60px + env(safe-area-inset-top)) !important;
+          padding: calc(7px + env(safe-area-inset-top)) 12px 7px !important;
+        }
+        .pc-clean-login[data-open-login-api-fixed='true'] .header-brand strong {
+          font-size: 16px !important;
+        }
+        .pc-clean-login[data-open-login-api-fixed='true'] .header-brand small {
+          font-size: 9.5px !important;
+        }
+        .pc-clean-login[data-open-login-api-fixed='true'] .roles {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+      }
     `}</style>
   );
 }
