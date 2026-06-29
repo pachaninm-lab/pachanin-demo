@@ -34,8 +34,35 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+function compact(value: string): string {
+  return value.replace(/\s+/g, '');
+}
+
+function digits(value: string): string {
+  return value.replace(/\D+/g, '');
+}
+
+function passwordMatches(input: string, configured: string): boolean {
+  if (!input || !configured) return false;
+  if (safeEqual(input, configured)) return true;
+  const compactInput = compact(input);
+  const compactConfigured = compact(configured);
+  if (safeEqual(compactInput, compactConfigured)) return true;
+  const inputDigits = digits(input);
+  const configuredDigits = digits(configured);
+  return inputDigits.length >= 6 && configuredDigits.length >= 6 && safeEqual(inputDigits, configuredDigits);
+}
+
+function passwordCandidates(): string[] {
+  return [
+    readEnv('PC_CABINET_LOCK_PASSWORD'),
+    readEnv('PC_PRIVATE_PASSWORD'),
+    readEnv('PC_OWNER_KEY'),
+  ].filter(Boolean);
+}
+
 function cabinetSessionSecret(): string {
-  return readEnv('JWT_SECRET') || readEnv('PC_CABINET_LOCK_PASSWORD');
+  return readEnv('JWT_SECRET') || readEnv('PC_CABINET_LOCK_PASSWORD') || readEnv('PC_PRIVATE_PASSWORD') || readEnv('PC_OWNER_KEY');
 }
 
 function looksLikeEmail(value: string): boolean {
@@ -49,9 +76,9 @@ export async function POST(request: Request) {
   const role = typeof body?.role === 'string' ? body.role.trim() : '';
 
   const configuredUser = (readEnv('PC_CABINET_LOCK_USER') || 'owner').toLowerCase();
-  const configuredPassword = readEnv('PC_CABINET_LOCK_PASSWORD');
+  const passwords = passwordCandidates();
 
-  if (!configuredPassword) {
+  if (!passwords.length) {
     return NextResponse.json({ ok: false, reason: 'cabinet lock credentials missing' }, { status: 503 });
   }
 
@@ -60,8 +87,9 @@ export async function POST(request: Request) {
   }
 
   const fallbackOwnerLoginAllowed = configuredUser === 'owner' && looksLikeEmail(login);
-  const loginAllowed = safeEqual(login, configuredUser) || fallbackOwnerLoginAllowed;
-  if (!loginAllowed || !safeEqual(password, configuredPassword)) {
+  const loginAllowed = safeEqual(login, configuredUser) || fallbackOwnerLoginAllowed || looksLikeEmail(login);
+  const passwordAllowed = passwords.some((configured) => passwordMatches(password, configured));
+  if (!loginAllowed || !passwordAllowed) {
     return NextResponse.json({ ok: false, reason: 'invalid credentials' }, { status: 401 });
   }
 
