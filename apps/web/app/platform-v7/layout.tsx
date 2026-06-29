@@ -36,9 +36,30 @@ import '@/styles/platform-v7-mobile-reflow-p0.css';
 import '@/styles/platform-v7-shell-restore.css';
 import '@/styles/platform-v7-register-header-override.css';
 
+const siteUrl = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
+
 export const metadata: Metadata = {
-  title: 'Прозрачная Цена',
-  description: 'Цифровой контур исполнения сделки и операционного контроля',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'Прозрачная Цена — цифровой контур зерновой сделки',
+    template: '%s · Прозрачная Цена',
+  },
+  description: 'Платформа для controlled pilot: рейс, приёмка, качество, документы, расчёт, спор и доказательства в одном процессе зерновой сделки.',
+  applicationName: 'Прозрачная Цена',
+  keywords: ['зерновая сделка', 'продажа зерна', 'покупка зерна', 'ФГИС Зерно', 'СДИЗ', 'ЭДО', 'безопасная сделка', 'агроплатформа'],
+  alternates: { canonical: '/platform-v7' },
+  openGraph: {
+    title: 'Прозрачная Цена — цифровой контур зерновой сделки',
+    description: 'Рейс, приёмка, качество, документы, расчёт, спор и доказательства в одном процессе.',
+    url: '/platform-v7',
+    siteName: 'Прозрачная Цена',
+    locale: 'ru_RU',
+    type: 'website',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 const VALID_ROLES = new Set<PlatformRole>([
