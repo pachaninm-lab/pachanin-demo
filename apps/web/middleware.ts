@@ -86,9 +86,13 @@ function isPlatformV7PublicPath(p: string): boolean {
   return PLATFORM_V7_PUBLIC_EXACT.has(p) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => p.startsWith(x));
 }
 
+function isCabinetAuthEndpoint(p: string): boolean {
+  return p === CABINET_LOCK_LOGIN_API || p === CABINET_SESSION_API;
+}
+
 function isCabinetLockedPath(p: string): boolean {
   if (isPublicAsset(p)) return false;
-  if (p === CABINET_LOCK_LOGIN_API || p === CABINET_SESSION_API) return false;
+  if (isCabinetAuthEndpoint(p)) return false;
   if (p.startsWith('/api/runtime-')) return true;
   if (p.startsWith('/api/platform-v7') || p.startsWith('/api/cabinet')) return true;
   if (!p.startsWith('/platform-v7')) return false;
@@ -97,6 +101,8 @@ function isCabinetLockedPath(p: string): boolean {
 
 function isProtectedPath(p: string): boolean {
   if (isPublicAsset(p)) return false;
+  if (isCabinetAuthEndpoint(p)) return false;
+  if (isPlatformV7PublicPath(p)) return false;
   return true;
 }
 
