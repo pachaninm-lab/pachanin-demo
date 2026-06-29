@@ -7,7 +7,6 @@ export const dynamic = 'force-dynamic';
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 5;
 const MAX_FIELD_LENGTH = 500;
-const DEFAULT_RECOVERY_EMAIL = 'pachaninm@gmail.com';
 const RESEND_EMAILS_ENDPOINT = 'https://api.resend.com/emails';
 
 type Bucket = { count: number; resetAt: number };
@@ -98,8 +97,8 @@ function buildHtml(data: Record<string, string>) {
 async function sendViaResend(data: Record<string, string>) {
   const apiKey = process.env.PC_MAIL_API_KEY;
   const from = process.env.PC_MAIL_FROM;
-  const to = process.env.PC_RECOVERY_TO_EMAIL || DEFAULT_RECOVERY_EMAIL;
-  if (!apiKey || !from) return { ok: false, reason: 'mail_not_configured' };
+  const to = process.env.PC_RECOVERY_TO_EMAIL;
+  if (!apiKey || !from || !to) return { ok: false, reason: 'mail_not_configured' };
 
   const response = await fetch(RESEND_EMAILS_ENDPOINT, {
     method: 'POST',
