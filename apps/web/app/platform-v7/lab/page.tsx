@@ -10,6 +10,7 @@ import { QualityDeltaBars } from '@/components/platform-v7/QualityDeltaBars';
 import { CockpitHero } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { GostQualityForm } from '@/components/platform-v7/GostQualityForm';
+import { LabPhotoUpload } from '@/components/platform-v7/LabPhotoUpload';
 
 const labSteps = [
   { label: 'Проба', value: 'отбор и фиксация', note: 'кто взял, когда, по какому рейсу' },
@@ -67,6 +68,9 @@ export default async function Page() {
       </CollapsibleSection>
       <CollapsibleSection title='Протокол качества по ГОСТ' summary='ГОСТ 9353 · показатели · допуск' defaultOpen>
         <GostQualityForm defaultCulture="wheat_4" sampleId="SAMPLE-0042" compact={false} />
+      </CollapsibleSection>
+      <CollapsibleSection title='Фото и сканы пробы' summary='загрузка JPG · PNG · PDF · TIFF' defaultOpen={false}>
+        <LabPhotoUpload sampleId="SAMPLE-0042" />
       </CollapsibleSection>
       <CollapsibleSection title='Лабораторный runtime' summary='пробы · протокол · действие' defaultOpen={false}>
         <FieldLabRuntime />

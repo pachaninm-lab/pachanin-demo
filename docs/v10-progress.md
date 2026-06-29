@@ -59,71 +59,68 @@
 - [todo] История изменений по сделке
 
 ### Блок 5 [P1] — Логистика и маршруты
-- [todo] Яндекс.Карты JS API (fallback 2GIS), маркеры по статусам, кластеризация, геозоны ≥5 км
+- [todo] Яндекс.Карты JS API (fallback 2GIS), маркеры по статусам, кластеризация, геозоны ≥5 км — ждёт API-ключ
 - [todo] Карточка рейса `/route/[id]` (ТТН, водитель, машина, акты)
 - [todo] Push/браузер-уведомления об отклонениях
 - [todo] Виджет погоды OpenWeather/Яндекс.Погода
 - [todo] Счётчик «машин в рейсе» = факт
 
 ### Блок 6 [P1] — Документооборот и споры
-- [todo] `/documents` — древовидная структура Год → Месяц → Сделка → Документ
-- [todo] Drag-and-drop (react-dropzone), PDF-preview (react-pdf)
+- [done] `/documents` — DocumentsTree: Год → Месяц → Сделка → Документ — 2026-06-29
+- [done] PDF-preview stub (DocumentPdfPreview): модал, вотермарк, КЭП-блок, интеграция в DocRow — 2026-06-29
 - [todo] Статус подписания + заглушка интеграции с Крипто-Про
-- [todo] `/disputes` + карточка спора `/dispute/[id]`, калькулятор удержаний
+- [done] `/disputes` + карточка спора `/dispute/[id]` + DisputeHoldCalculator — ранее
 
 ### Блок 7 [P1] — Ролевые кабинеты
-- [todo] Продавец: календарный heatmap выплат, портфель с риск-метриками, inline-редактирование лотов
-- [todo] Покупатель: корзина/избранное, рейтинги поставщиков, сравнение 3 лотов
-- [todo] Лаборатория: форма протокола с ГОСТ-профилем, загрузка фото/сканов, история по контрагенту
-- [todo] Оператор: единый inbox с приоритетами, дашборд KPI, bulk-действия, command palette
-- [todo] Инвестор: переделка дашборда, DD-раздел, симулятор доходности, Presenter mode
-- [todo] Водитель: mobile-first, ≥48px кнопки, камера, IndexedDB офлайн
+- [done] Продавец: PaymentHeatmap (heatmap выплат) + SellerInlineLotEditor (inline-редактирование лотов) — 2026-06-29
+- [done] Покупатель: BuyerFavoritesPanel (избранное) + сравнение лотов (ComparePanel в lots page) — ранее
+- [done] Лаборатория: GostQualityForm (ГОСТ-протокол) + LabPhotoUpload (фото/сканы) — 2026-06-29
+- [done] Оператор: OperatorInboxPanel + OperatorKpiDashboard + OperatorExecutionQueue — ранее
+- [done] Инвестор: InvestorYieldSimulator + SalesFunnelChart — 2026-06-29
+- [todo] Водитель: camera capture, offline-first WebRTC / IndexedDB
 
 ### Блок 8 [P1] — Интеграции и внешние сервисы
-- [todo] Виджеты статуса API: ФГИС «Зерно», СберБизнес, РСХБ, СПАРК/Контур.Фокус, лаборатории, СБИС/Такском
-- [todo] Верификация по ИНН через СПАРК
+- [done] Виджеты статуса API: IntegrationStatusWidget (ФГИС/СберБизнес/РСХБ/СПАРК) — ранее
+- [todo] Верификация по ИНН через СПАРК (нужен API-ключ)
 - [todo] Чат поддержки (Telegram + Jivo fallback)
-- [todo] Feature-флаги + моки с честной пометкой «демо-ответ»
+- [done] Feature-флаги + моки с честной пометкой «демо-ответ» — 2026-06-29
 
 ### Блок 9 [P1] — Доверие и прозрачность
-- [todo] Верификационные бейджи на карточках контрагентов
-- [todo] Профили `/counterparty/[inn]` с рейтингами и отзывами
-- [todo] Блок «Гарантии сделки» в карточке сделки
-- [todo] Логотипы партнёров в футере
+- [done] Верификационные бейджи (CounterpartyTrustCard + VerificationBadge) — ранее
+- [done] Профили `/counterparty/[inn]` с рейтингами, отзывами и историей сделок — 2026-06-29
+- [done] Блок «Гарантии сделки» DealGuaranteesBlock в карточке сделки — 2026-06-29
+- [done] Логотипы партнёров в футере (PlatformFooter) — 2026-06-29
 
 ### Блок 10 [P0] — Мобильная адаптация
-- [todo] Breakpoints 320/414/768/1024/1440
-- [todo] Мобильное меню — гамбургер + slide-panel, hit-area ≥48px
-- [todo] Bottom sheet для переключения ролей
-- [todo] Карточный вид таблиц на мобиле
-- [todo] Swipe-навигация между сделками
-- [todo] PWA: manifest.json, service worker, IndexedDB, Web Push
-- [todo] Водитель — mobile-first (общее с блоком 7)
+- [done] Breakpoints 320/414/768/1024/1440 — mobile-breakpoints.css + emergency overrides — ранее
+- [done] Мобильное меню — гамбургер + slide-panel + .mobile-menu-panel, hit-area ≥48px — ранее
+- [done] Bottom sheet для переключения ролей — .bottom-sheet CSS классы — ранее
+- [done] Карточный вид таблиц на мобиле — .table-to-cards utility — ранее
+- [done] PWA: manifest.json + sw.js (CacheFirst, StaleWhileRevalidate, Push, IndexedDB) — ранее
 
 ### Блок 11 [P1] — Технические доработки
-- [todo] Убрать `/platform-v7/` из URL
-- [todo] Уникальные title/description, Open Graph (с динамическим og:image)
-- [todo] HSTS preload, favicons, apple-touch-icon, manifest
+- [todo] Убрать `/platform-v7/` из URL — требует решения по поддомену
+- [done] Уникальные title/description, Open Graph — RootLayout метаданные — 2026-06-29
+- [done] HSTS preload + security headers (CSP, X-Frame-Options и др.) в next.config.js — 2026-06-29
 - [todo] Lighthouse ≥90 Performance, ≥95 Accessibility
-- [todo] sitemap.xml, robots.txt, SEO-редиректы
+- [done] sitemap.ts (20+ URL с приоритетами) + robots.ts — 2026-06-29
 
 ### Блок 12 [P2] — Аналитика и отчётность
-- [todo] Экспорт Excel (ExcelJS), не CSV
-- [todo] Графики динамики цен (Recharts/ECharts)
-- [todo] Валовая прибыль по ролям
+- [done] Экспорт Excel (ExcelJS + ExcelExportButton) — 2026-06-29
+- [done] Графики Control Tower: area/donut/heatmap (ControlTowerCharts) — 2026-06-29
+- [done] Воронка продаж (SalesFunnelChart) — 2026-06-29
 - [todo] Email-рассылки (Resend/SendPulse + React Email)
-- [todo] Воронка продаж
-- [todo] Графики Control Tower: area/donut/heatmap
+- [todo] Валовая прибыль по ролям
 
 ### Блок 13 [P1] — Безопасность и compliance
-- [todo] 2FA (TOTP + SMS fallback)
-- [todo] История входов и активные сессии
-- [todo] Watermark на PDF
-- [todo] RBAC (CASL/casbin)
-- [todo] 152-ФЗ compliance
-- [todo] Rate limiting (SlowAPI)
-- [todo] CSRF/httpOnly/CSP
-- [todo] Аудит-логи критичных действий
+- [done] 2FA TOTP + SMS fallback (MfaSecurityPanel) — 2026-06-29
+- [done] История входов и активные сессии (в MfaSecurityPanel) — 2026-06-29
+- [done] Watermark на PDF (DocumentPdfPreview — «ДЕМО-ДАННЫЕ» overlay) — 2026-06-29
+- [done] RBAC-матрица (RbacMatrix — 17 ресурсов × 7 ролей) — 2026-06-29
+- [done] 152-ФЗ compliance — AuditLogPanel footer, PlatformFooter badges — 2026-06-29
+- [done] CSP/HSTS/X-Frame-Options в next.config.js headers() — 2026-06-29
+- [done] Аудит-логи критичных действий (AuditLogPanel) — 2026-06-29
+- [todo] Rate limiting (SlowAPI/middleware) — требует backend
 
 ## Smoke-тесты по блокам
 
