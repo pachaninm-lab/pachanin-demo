@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { WeatherWidget } from '@/components/platform-v7/WeatherWidget';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
@@ -201,6 +202,10 @@ export default async function LogisticsPage() {
             {orders.map((order) => <OrderCard key={order.id} order={order} />)}
           </section>
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title='Погода по маршрутам' summary='дорожные условия · предупреждения' defaultOpen={false}>
+        <WeatherWidget />
       </CollapsibleSection>
     </RoleExecutionCockpitPage>
   );

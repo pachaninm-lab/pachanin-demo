@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { InvestorYieldSimulator } from '@/components/platform-v7/InvestorYieldSimulator';
 
 const METRICS = [
   { label: 'Оборот в проверочном срезе', value: '118 млн ₽', sub: 'Данные сценария, оборот не подтверждён' },
@@ -200,6 +201,12 @@ export default function InvestorPage() {
             </ol>
           </div>
         </div>
+      </div>
+
+      {/* Yield Simulator */}
+      <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14, color: 'var(--pc-text-primary, #0F1419)' }}>Симулятор доходности</div>
+        <InvestorYieldSimulator />
       </div>
 
       <div style={{ padding: '16px 20px', borderRadius: 16, background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
