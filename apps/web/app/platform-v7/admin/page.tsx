@@ -5,6 +5,8 @@ import { BankReconciliationPanel } from '@/components/platform-v7/BankReconcilia
 import { SloSlaPanel } from '@/components/platform-v7/SloSlaPanel';
 import { EvidenceBundlePanel } from '@/components/platform-v7/EvidenceBundlePanel';
 import { TelegramBotPanel } from '@/components/platform-v7/TelegramBotPanel';
+import { ObservabilityPanel } from '@/components/platform-v7/ObservabilityPanel';
+import { FeatureFlagsPanel } from '@/components/platform-v7/FeatureFlagsPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -105,6 +107,12 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Telegram Bot · Уведомления' summary='deal_status · payment · dispute · price_alert · вагон · команды бота' defaultOpen={false}>
           <TelegramBotPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Observability · Метрики и алерты' summary='Prometheus · Grafana · p95/p99 latency · error rate · GMV · Alertmanager' defaultOpen={false}>
+          <ObservabilityPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Feature Flags · Управление флагами' summary='Flagsmith · canary deploy 5%→100% · kill switch · A/B · prod/staging/dev' defaultOpen={false}>
+          <FeatureFlagsPanel />
         </CollapsibleSection>
       </div>
 

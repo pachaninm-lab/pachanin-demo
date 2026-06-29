@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { WebAuthnPanel } from '@/components/platform-v7/WebAuthnPanel';
 
 export const metadata: Metadata = {
   title: 'Безопасность — Прозрачная Цена',
@@ -112,6 +114,12 @@ export default function SecurityPage() {
             </Link>
           ))}
         </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <CollapsibleSection title='WebAuthn / FIDO2 · Passkeys' summary='Touch ID · Face ID · YubiKey · FIDO2 · беспарольная аутентификация' defaultOpen={false}>
+          <WebAuthnPanel />
+        </CollapsibleSection>
       </section>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
