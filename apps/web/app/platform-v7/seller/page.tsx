@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PushNotificationBanner } from '@/components/platform-v7/PushNotificationBanner';
+import { PriceChart } from '@/components/platform-v7/PriceChart';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -355,6 +356,9 @@ export default async function PlatformV7SellerPage() {
             </section>
           </div>
         </CollapsibleSection>
+      </section>
+      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
+        <PriceChart cultures={['wheat_3', 'wheat_4', 'barley']} defaultPeriod={12} title='Динамика закупочных цен' />
       </section>
       <section style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <PushNotificationBanner />

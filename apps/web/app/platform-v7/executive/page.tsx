@@ -1,4 +1,5 @@
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { PriceChart } from '@/components/platform-v7/PriceChart';
 import { ExecutiveSignalWall, type ExecutiveSignal } from '@/components/platform-v7/ExecutiveSignalWall';
 import { EmptyState } from '@/components/platform-v7/EmptyState';
 import { getDealsCanonical } from '@/lib/deals-server';
@@ -131,6 +132,10 @@ export default async function ExecutivePage() {
           </div>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-text-muted, #58606E)', lineHeight: 1.5 }}>{bi.note}</p>
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title='Динамика цен на зерно' summary='12 мес · пшеница · ячмень · кукуруза' defaultOpen={false}>
+        <PriceChart cultures={['wheat_3', 'wheat_4', 'barley', 'corn', 'sunflower']} defaultPeriod={12} />
       </CollapsibleSection>
 
       <section
