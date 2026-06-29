@@ -47,6 +47,7 @@ export default function PlatformV7OpenPage() {
   const router = useRouter();
   const params = useSearchParams();
   const initialRole = isRole(params.get('role')) ? params.get('role') as PlatformRole : 'buyer';
+  const cardRef = React.useRef<HTMLElement | null>(null);
   const [role, setRole] = React.useState<PlatformRole>(initialRole);
   const [login, setLogin] = React.useState('');
   const [code, setCode] = React.useState('');
@@ -63,6 +64,7 @@ export default function PlatformV7OpenPage() {
 
   React.useEffect(() => {
     window.scrollTo(0, 0);
+    if (cardRef.current) cardRef.current.scrollTop = 0;
   }, []);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -131,7 +133,7 @@ export default function PlatformV7OpenPage() {
         <Link href='/platform-v7' className='open-back' aria-label='На главную'><ArrowLeft size={22} /></Link>
       </header>
 
-      <section className='open-card' aria-label='Вход в рабочий контур'>
+      <section ref={cardRef} className='open-card' aria-label='Вход в рабочий контур'>
         <form onSubmit={submit} autoComplete='off' noValidate>
           <section className='role-panel' aria-label='Рабочая роль'>
             <div className='role-panel-head'><span>Рабочее место</span><strong>{roleTitle(role)}</strong></div>
@@ -428,15 +430,27 @@ const css = `
   .pc-open-v2 {
     height: 100svh;
     min-height: 100svh;
-    padding: var(--open-header-height) 0 0;
+    padding: 0;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .open-header {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    flex: 0 0 var(--open-header-height);
+    z-index: 2;
   }
   .open-card {
+    flex: 1 1 auto;
+    min-height: 0;
     width: 100%;
-    height: calc(100svh - var(--open-header-height));
-    max-height: calc(100svh - var(--open-header-height));
+    height: auto;
+    max-height: none;
     margin: 0;
-    padding: 12px 14px calc(210px + env(safe-area-inset-bottom));
+    padding: 22px 14px calc(210px + env(safe-area-inset-bottom));
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -471,7 +485,6 @@ const css = `
 @supports (height: 100dvh) {
   @media (max-width: 720px) {
     .pc-open-v2 { height: 100dvh; min-height: 100dvh; }
-    .open-card { height: calc(100dvh - var(--open-header-height)); max-height: calc(100dvh - var(--open-header-height)); }
   }
 }
 @media (max-width: 380px) {
