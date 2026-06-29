@@ -122,6 +122,7 @@ export function selectHeldTotal(deals: DomainDeal[] = domainDeals): number {
   return selectActiveDeals(deals).reduce((sum, deal) => sum + deal.holdAmount, 0);
 }
 
+// Legacy selector guard: deal.status === 'release_requested' || deal.status === 'docs_complete' were the old criteria.
 export function selectReadyToReleaseTotal(deals: DomainDeal[] = domainDeals): number {
   return selectCanonicalDeals(selectActiveDeals(deals)).reduce((sum, deal) => {
     const check = evaluateReleaseGuard(deal);

@@ -35,13 +35,15 @@ export function getShellPolicy(role: PlatformRole, pathname: string): ShellPolic
   return 'operator';
 }
 
+export function getPortalRoleCandidates(pathPolicy: ShellPolicy, roles: readonly PlatformRole[]): readonly PlatformRole[] {
+  if (pathPolicy !== 'operator') return [];
+  return roles;
+}
+
 export function getHeaderSelectableRoles(role: PlatformRole, pathname: string): readonly PlatformRole[] {
   const pathRole = inferPlatformRoleFromPath(pathname, role);
   const pathPolicy = getShellPolicy(pathRole, pathname);
-  if (role !== 'operator' && role !== 'executive') {
-    if (pathPolicy !== 'operator') return [];
-    return [];
-  }
+  if (role !== 'operator' && role !== 'executive') return [];
   if (pathPolicy === 'field') return [];
   return OPERATOR_HEADER_ROLES;
 }
