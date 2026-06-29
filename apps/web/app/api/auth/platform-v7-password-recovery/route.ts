@@ -17,7 +17,20 @@ function clean(input: unknown) {
   return typeof input === 'string' ? input.trim().slice(0, 500) : '';
 }
 
+function recoveryApiHeaders() {
+  const token = process.env.PC_RECOVERY_WEBHOOK_TOKEN;
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'X-Recovery-Token': token } : {}),
+  };
+}
+
 export async function POST(request: NextRequest) {
+  const recoveryApiUrl = process.env.PC_RECOVERY_WEBHOOK_URL;
+  if (!recoveryApiUrl) {
+    return noStore(503, { ok: false, reason: 'recovery_api_not_configured' });
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = await request.json();
@@ -26,6 +39,8 @@ export async function POST(request: NextRequest) {
   }
 
   const recovery = {
+    source: 'platform-v7',
+    type: 'password_recovery_request',
     role: clean(payload.role) || 'не выбрана',
     login: clean(payload.login) || 'не указан',
     company: clean(payload.company) || 'не указано',
@@ -34,10 +49,19 @@ export async function POST(request: NextRequest) {
     requestedAt: new Date().toISOString(),
   };
 
-  console.info('platform-v7 password recovery request', recovery);
+  const forwarded = await fetch(recoveryApiUrl, {
+    method: 'POST',
+    headers: recoveryApiHeaders(),
+    body: JSON.stringify(recovery),
+  });
+
+  if (!forwarded.ok) {
+    console.error('platform-v7 recovery api failed', { status: forwarded.status });
+    return noStore(502, { ok: false, reason: 'recovery_api_failed' });
+  }
 
   return noStore(202, {
     ok: true,
-    message: 'Запрос восстановления принят.',
+    message: 'Запрос восстановления отправлен.',
   });
 }
