@@ -1,1 +1,1 @@
-/* Disabled. The open login page owns its layout in app/platform-v7/open/page.tsx. */
+.pc-open-v2{padding-top:0}.pc-open-v2 .open-header{position:fixed;inset:0 0 auto 0;z-index:9000;height:96px;margin:0;border-radius:0}.pc-open-v2 .open-card{margin-top:118px}@media(min-width:721px){.pc-open-v2 .open-card{margin-top:122px}}
