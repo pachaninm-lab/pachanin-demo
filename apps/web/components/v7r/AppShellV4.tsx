@@ -181,6 +181,10 @@ function iconForHref(href: string): LucideIcon {
   return LayoutDashboard;
 }
 
+function isPublicPlatformSurface(pathname: string) {
+  return pathname === '/platform-v7' || pathname === '/platform-v7/' || pathname.startsWith('/platform-v7/login') || pathname.startsWith('/platform-v7/register');
+}
+
 export function AppShellV4({ children, initialRole = 'operator' }: { children: React.ReactNode; initialRole?: PlatformRole }) {
   const pathname = usePathname();
   const { role, setRole } = usePlatformV7RStore();
@@ -244,7 +248,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
       const next = prev === 'dark' ? 'light' : 'dark';
       if (typeof window !== 'undefined') {
         window.localStorage.setItem('pc-theme', next);
-        window.localStorage.setItem(PLATFORM_V7_THEME_VERSION_KEY, PLATFORM_V7_LIGHT_DEFAULT_VERSION);
+        window.localStorage.setItem(PLATFORM_V7_THEME_VERSION_KEY, next);
       }
       document.documentElement.setAttribute('data-theme', next);
       return next;
@@ -256,18 +260,21 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const stage = ROLE_STAGE[displayRole];
   const stageTone = stageColors(stage.tone);
   const crumbs = breadcrumbs(pathname);
-  const showCrumbs = pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' && crumbs.length > 1;
+  const isPublicSurface = isPublicPlatformSurface(pathname);
+  const showCrumbs = !isPublicSurface && pathname !== '/platform-v7/roles' && crumbs.length > 1;
   const statuses = systemStatus(pathname);
   const groupedNotifications = React.useMemo(() => groupNotifications(), []);
   const RoleIcon = ROLE_ICONS[displayRole];
   const roleHomeHref = platformV7RoleRoute(displayRole);
+  const showCabinetShell = !isPublicSurface;
 
   return (
-    <div className='pc-shell-root-v4' style={{ minHeight: '100dvh', background: 'var(--pc-bg)', overflowX: 'hidden' }}>
+    <div className={`pc-shell-root-v4${isPublicSurface ? ' pc-shell-root-v4-public' : ''}`} style={{ minHeight: '100dvh', background: 'var(--pc-bg)', overflowX: 'hidden' }}>
       <style dangerouslySetInnerHTML={{ __html: `
         html, body { overflow-x: hidden; max-width: 100%; }
         *, *::before, *::after { box-sizing: border-box; }
         .pc-shell-root-v4 { --pc-header-offset: 98px; }
+        .pc-shell-root-v4-public { --pc-header-offset: 0px; background: transparent !important; }
         .pc-v4-header { position: fixed; inset: 0 0 auto 0; z-index: 100; background: color-mix(in srgb, var(--pc-bg-header) 94%, transparent); backdrop-filter: blur(18px); border-bottom: 1px solid var(--pc-border); box-shadow: var(--pc-shadow-sm); }
         .pc-v4-header-inner { max-width: 1440px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 8px) 16px 8px; display: grid; gap: 8px; }
         .pc-v4-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
@@ -285,6 +292,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         .pc-v4-statuses { display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
         .pc-v4-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 999px; border: 1px solid var(--status-border); background: var(--status-bg); color: var(--status-color); font-size: 11px; font-weight: 850; white-space: nowrap; }
         .pc-v4-main { max-width: 1440px; margin: 0 auto; padding: calc(var(--pc-header-offset) + 12px) 16px 24px; }
+        .pc-v4-main-public { max-width: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
         .pc-v4-pilot-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 16px; background: var(--pc-bg-card); border: 1px solid var(--pc-border); color: var(--pc-text-secondary); font-size: 12px; line-height: 1.55; box-shadow: var(--pc-shadow-sm); }
         .pc-v4-drawer { position: fixed; top: 0; bottom: 0; left: 0; width: 360px; max-width: 88vw; z-index: 120; transform: translateX(-100%); transition: transform 0.2s ease; background: var(--pc-bg-card); border-right: 1px solid var(--pc-border); box-shadow: var(--pc-shadow-lg); display: flex; flex-direction: column; }
         .pc-v4-drawer[data-open='true'] { transform: translateX(0); }
@@ -304,8 +312,10 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         .pc-v4-bn-icon { display: inline-flex; align-items: center; justify-content: center; }
         .pc-v4-bn-label { font-size: 10.5px; font-weight: 850; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
         .pc-v4-main { padding-bottom: calc(env(safe-area-inset-bottom) + 84px) !important; }
+        .pc-v4-main-public { padding: 0 !important; padding-bottom: 0 !important; }
         @media (max-width: 980px) {
           .pc-shell-root-v4 { --pc-header-offset: 92px; }
+          .pc-shell-root-v4-public { --pc-header-offset: 0px; }
           .pc-v4-search { min-width: 44px; padding: 0 12px; }
           .pc-v4-search strong, .pc-v4-search span { display: none; }
           .pc-v4-stage { display: none; }
@@ -313,6 +323,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         }
         @media (max-width: 640px) {
           .pc-shell-root-v4 { --pc-header-offset: 82px; }
+          .pc-shell-root-v4-public { --pc-header-offset: 0px; }
           .pc-v4-header-inner { padding: calc(env(safe-area-inset-top) + 7px) 10px 7px; gap: 6px; }
           .pc-v4-top { grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
           .pc-v4-brand { gap: 9px; }
@@ -322,136 +333,141 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           .pc-v4-iconbtn, .pc-v4-search { min-width: 42px; min-height: 42px; border-radius: 13px; }
           .pc-v4-meta { display: none; }
           .pc-v4-main { padding: calc(var(--pc-header-offset) + 10px) 10px 20px; }
+          .pc-v4-main-public { padding: 0 !important; padding-bottom: 0 !important; }
           .pc-v4-pilot-note { font-size: 11px; padding: 9px 11px; }
           .pc-v4-alert-panel { position: fixed; left: 10px; right: 10px; top: calc(env(safe-area-inset-top) + 62px); width: auto; max-width: none; }
         }
       ` }} />
 
-      {sidebarOpen ? <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(3,8,7,0.62)', zIndex: 110 }} aria-hidden /> : null}
+      {showCabinetShell && sidebarOpen ? <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(3,8,7,0.62)', zIndex: 110 }} aria-hidden /> : null}
 
-      <aside className='pc-v4-drawer' data-open={sidebarOpen ? 'true' : 'false'} aria-label='Основное меню'>
-        <div style={{ padding: 16, borderBottom: '1px solid var(--pc-border)', display: 'grid', gap: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-            <Link href={roleHomeHref} className='pc-v4-brand' aria-label='Прозрачная Цена — в мой кабинет' onClick={() => setSidebarOpen(false)}>
-              <BrandMark size={36} />
-              <span style={{ minWidth: 0 }}>
-                <span className='pc-v4-title'>Прозрачная Цена</span>
-                <span className='pc-v4-subtitle'>Контур исполнения сделки</span>
-              </span>
-            </Link>
-            <button className='pc-v4-iconbtn' onClick={() => setSidebarOpen(false)} aria-label='Закрыть меню'><X size={18} /></button>
-          </div>
-
-          <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 16, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-elevated)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--pc-text-primary)', fontSize: 14, fontWeight: 950 }}><RoleIcon size={17} />{ROLE_LABELS[displayRole]}</span>
-              <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
-            </div>
-            <p style={{ margin: 0, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.</p>
-          </div>
-        </div>
-
-        <nav className='pc-v4-nav'>
-          {items.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const Icon = iconForHref(item.href);
-            return (
-              <Link key={item.href} href={item.href} className='pc-v4-nav-item' data-active={active ? 'true' : 'false'}>
-                <span style={{ color: iconTone(active), display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={18} /></span>
+      {showCabinetShell ? (
+        <aside className='pc-v4-drawer' data-open={sidebarOpen ? 'true' : 'false'} aria-label='Основное меню'>
+          <div style={{ padding: 16, borderBottom: '1px solid var(--pc-border)', display: 'grid', gap: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+              <Link href={roleHomeHref} className='pc-v4-brand' aria-label='Прозрачная Цена — в мой кабинет' onClick={() => setSidebarOpen(false)}>
+                <BrandMark size={36} />
                 <span style={{ minWidth: 0 }}>
-                  <span className='pc-v4-nav-label'>{item.label}</span>
+                  <span className='pc-v4-title'>Прозрачная Цена</span>
+                  <span className='pc-v4-subtitle'>Контур исполнения сделки</span>
                 </span>
               </Link>
-            );
-          })}
-        </nav>
-      </aside>
+              <button className='pc-v4-iconbtn' onClick={() => setSidebarOpen(false)} aria-label='Закрыть меню'><X size={18} /></button>
+            </div>
 
-      <header className='pc-v4-header'>
-        <div className='pc-v4-header-inner'>
-          <div className='pc-v4-top'>
-            <button className='pc-v4-iconbtn' onClick={() => setSidebarOpen(true)} aria-label='Открыть меню'><Menu size={19} /></button>
+            <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 16, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-elevated)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--pc-text-primary)', fontSize: 14, fontWeight: 950 }}><RoleIcon size={17} />{ROLE_LABELS[displayRole]}</span>
+                <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
+              </div>
+              <p style={{ margin: 0, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.</p>
+            </div>
+          </div>
 
-            <Link href={roleHomeHref} className='pc-v4-brand' aria-label='Прозрачная Цена — в мой кабинет'>
-              <BrandMark size={38} />
-              <span style={{ minWidth: 0 }}>
-                <span className='pc-v4-title'>Прозрачная Цена</span>
-                <span className='pc-v4-subtitle'>Сделка · логистика · документы · деньги</span>
-              </span>
-            </Link>
+          <nav className='pc-v4-nav'>
+            {items.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const Icon = iconForHref(item.href);
+              return (
+                <Link key={item.href} href={item.href} className='pc-v4-nav-item' data-active={active ? 'true' : 'false'}>
+                  <span style={{ color: iconTone(active), display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={18} /></span>
+                  <span style={{ minWidth: 0 }}>
+                    <span className='pc-v4-nav-label'>{item.label}</span>
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        </aside>
+      ) : null}
 
-            <div className='pc-v4-actions'>
-              <button className='pc-v4-search' onClick={() => setPaletteOpen(true)} aria-label='Открыть поиск'>
-                <Search size={17} />
-                <strong>Поиск</strong>
-                <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>⌘K</span>
-              </button>
-              <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
-              <button className='pc-v4-iconbtn pc-v4-theme-toggle' onClick={toggleTheme} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'} title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
-              <div style={{ position: 'relative' }}>
-                <button className='pc-v4-iconbtn' onClick={() => { setAlertsOpen((value) => !value); setAlertsSeen(true); }} aria-label='Открыть уведомления'>
-                  <Bell size={17} />
-                  {hasUnread ? <span style={{ position: 'absolute', right: 7, top: 7, width: 8, height: 8, borderRadius: 999, background: '#FF8B90', border: '2px solid var(--pc-bg-card)' }} /> : null}
+      {showCabinetShell ? (
+        <header className='pc-v4-header'>
+          <div className='pc-v4-header-inner'>
+            <div className='pc-v4-top'>
+              <button className='pc-v4-iconbtn' onClick={() => setSidebarOpen(true)} aria-label='Открыть меню'><Menu size={19} /></button>
+
+              <Link href={roleHomeHref} className='pc-v4-brand' aria-label='Прозрачная Цена — в мой кабинет'>
+                <BrandMark size={38} />
+                <span style={{ minWidth: 0 }}>
+                  <span className='pc-v4-title'>Прозрачная Цена</span>
+                  <span className='pc-v4-subtitle'>Сделка · логистика · документы · деньги</span>
+                </span>
+              </Link>
+
+              <div className='pc-v4-actions'>
+                <button className='pc-v4-search' onClick={() => setPaletteOpen(true)} aria-label='Открыть поиск'>
+                  <Search size={17} />
+                  <strong>Поиск</strong>
+                  <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>⌘K</span>
                 </button>
-                {alertsOpen ? (
-                  <div className='pc-v4-alert-panel'>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                      <strong style={{ color: 'var(--pc-text-primary)', fontSize: 14 }}>Уведомления</strong>
-                      <button className='pc-v4-iconbtn' onClick={() => setAlertsOpen(false)} aria-label='Закрыть уведомления' style={{ minWidth: 34, minHeight: 34, borderRadius: 12 }}><X size={15} /></button>
-                    </div>
-                    {(Object.keys(groupedNotifications) as NotificationGroup[]).map((group) => (
-                      <div key={group} style={{ display: 'grid', gap: 6 }}>
-                        <div style={{ color: 'var(--pc-text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{NOTIFICATION_GROUPS[group]}</div>
-                        {groupedNotifications[group].map((item) => (
-                          <Link key={item.id} href={item.href} className='pc-v4-notification'>
-                            <span style={{ color: 'var(--pc-text-primary)', fontSize: 12, lineHeight: 1.45, fontWeight: 800 }}>{item.text}</span>
-                            <span style={{ color: 'var(--pc-text-muted)', fontSize: 11 }}>{new Date(item.ts).toLocaleString('ru-RU')}</span>
-                          </Link>
-                        ))}
+                <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
+                <button className='pc-v4-iconbtn pc-v4-theme-toggle' onClick={toggleTheme} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'} title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
+                <div style={{ position: 'relative' }}>
+                  <button className='pc-v4-iconbtn' onClick={() => { setAlertsOpen((value) => !value); setAlertsSeen(true); }} aria-label='Открыть уведомления'>
+                    <Bell size={17} />
+                    {hasUnread ? <span style={{ position: 'absolute', right: 7, top: 7, width: 8, height: 8, borderRadius: 999, background: '#FF8B90', border: '2px solid var(--pc-bg-card)' }} /> : null}
+                  </button>
+                  {alertsOpen ? (
+                    <div className='pc-v4-alert-panel'>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                        <strong style={{ color: 'var(--pc-text-primary)', fontSize: 14 }}>Уведомления</strong>
+                        <button className='pc-v4-iconbtn' onClick={() => setAlertsOpen(false)} aria-label='Закрыть уведомления' style={{ minWidth: 34, minHeight: 34, borderRadius: 12 }}><X size={15} /></button>
                       </div>
-                    ))}
-                  </div>
-                ) : null}
+                      {(Object.keys(groupedNotifications) as NotificationGroup[]).map((group) => (
+                        <div key={group} style={{ display: 'grid', gap: 6 }}>
+                          <div style={{ color: 'var(--pc-text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{NOTIFICATION_GROUPS[group]}</div>
+                          {groupedNotifications[group].map((item) => (
+                            <Link key={item.id} href={item.href} className='pc-v4-notification'>
+                              <span style={{ color: 'var(--pc-text-primary)', fontSize: 12, lineHeight: 1.45, fontWeight: 800 }}>{item.text}</span>
+                              <span style={{ color: 'var(--pc-text-muted)', fontSize: 11 }}>{new Date(item.ts).toLocaleString('ru-RU')}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div className='pc-v4-meta'>
+              <nav className='pc-v4-crumbs' aria-label='Путь'>
+                {showCrumbs ? crumbs.map((crumb, index) => (
+                  <React.Fragment key={crumb.href}>
+                    {index > 0 ? <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>/</span> : null}
+                    {crumb.isLast || crumb.href === '/platform-v7' ? (
+                      <span style={{ color: crumb.isLast ? 'var(--pc-text-primary)' : 'var(--pc-text-muted)', fontSize: 12, fontWeight: crumb.isLast ? 900 : 750 }}>{crumb.label}</span>
+                    ) : (
+                      <Link href={crumb.href} style={{ color: 'var(--pc-text-muted)', fontSize: 12, fontWeight: 750, textDecoration: 'none' }}>{crumb.label}</Link>
+                    )}
+                  </React.Fragment>
+                )) : <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>Мой кабинет</span>}
+              </nav>
+              <div className='pc-v4-statuses'>
+                {statuses.map((item) => {
+                  const Icon = item.icon;
+                  const tone = statusPalette(item.tone);
+                  return (
+                    <span key={item.label} className='pc-v4-status' style={{ '--status-bg': tone.bg, '--status-border': tone.border, '--status-color': tone.color } as React.CSSProperties}>
+                      <Icon size={13} /> {item.label}: {item.detail}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </div>
+        </header>
+      ) : null}
 
-          <div className='pc-v4-meta'>
-            <nav className='pc-v4-crumbs' aria-label='Путь'>
-              {showCrumbs ? crumbs.map((crumb, index) => (
-                <React.Fragment key={crumb.href}>
-                  {index > 0 ? <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>/</span> : null}
-                  {crumb.isLast || crumb.href === '/platform-v7' ? (
-                    <span style={{ color: crumb.isLast ? 'var(--pc-text-primary)' : 'var(--pc-text-muted)', fontSize: 12, fontWeight: crumb.isLast ? 900 : 750 }}>{crumb.label}</span>
-                  ) : (
-                    <Link href={crumb.href} style={{ color: 'var(--pc-text-muted)', fontSize: 12, fontWeight: 750, textDecoration: 'none' }}>{crumb.label}</Link>
-                  )}
-                </React.Fragment>
-              )) : <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>Мой кабинет</span>}
-            </nav>
-            <div className='pc-v4-statuses'>
-              {statuses.map((item) => {
-                const Icon = item.icon;
-                const tone = statusPalette(item.tone);
-                return (
-                  <span key={item.label} className='pc-v4-status' style={{ '--status-bg': tone.bg, '--status-border': tone.border, '--status-color': tone.color } as React.CSSProperties}>
-                    <Icon size={13} /> {item.label}: {item.detail}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className='pc-v4-main' id='main-content'>
-        {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
+      <main className={`pc-v4-main${isPublicSurface ? ' pc-v4-main-public' : ''}`} id='main-content'>
+        {showCabinetShell && pathname !== '/platform-v7/roles' ? (
           <p className='pc-v4-pilot-note'>Внешние контуры требуют договоров, доступов и подтверждений. Экран показывает основания, документы, статус, удержание и причину остановки.</p>
         ) : null}
         {children}
       </main>
 
-      {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
+      {showCabinetShell && pathname !== '/platform-v7/roles' ? (
         <nav className='pc-v4-bottomnav' aria-label='Навигация кабинета'>
           <div className='pc-v4-bottomnav-inner'>
             {items.slice(0, 5).map((item) => {
@@ -474,7 +490,7 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         </nav>
       ) : null}
 
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      {showCabinetShell ? <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} /> : null}
     </div>
   );
 }
