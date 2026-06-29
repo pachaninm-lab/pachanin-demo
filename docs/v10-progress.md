@@ -139,6 +139,16 @@
 - [done] Evidence Bundle (EvidenceBundlePanel): хэш-цепочка SHA-256, 8 типов файлов, PDF/ZIP экспорт, аудит 5 лет — 2026-06-29 (TZ Этап 2)
 - [done] Multi-tenancy (MultiTenancyPanel): кооперативы, суб-аккаунты, общий пул заявок, scope-based права — 2026-06-29 (TZ Этап 3)
 - [done] РЖД ЭТРАН (EtranRzdPanel): ж/д накладные ГУ-29у, трекинг вагонов, 3 отправки, вагон-детализация — 2026-06-29 (TZ Этап 3)
+- [done] Россельхознадзор (RosselhoznadzorPanel): фитосанитарные сертификаты ФС-серия, качество зерна ГОСТ, ФГИС Меркурий/Аргус-ФТО — 2026-06-29 (TZ Этап 3)
+- [done] ФТС таможня (FtsCustomsPanel): ГТД декларации, статусы cleared/under_review/held, НДС 0%, фитосанитарные требования — 2026-06-29 (TZ Этап 3)
+- [done] Кредитное бюро (CreditBureauPanel): НБКИ/ОКБ/Эквифакс, грейды AAA→CCC, ScoreMeter 300-850, кредитные лимиты — 2026-06-29 (TZ Этап 3)
+- [done] WebAuthn/FIDO2 (WebAuthnPanel): passkeys, Touch ID/YubiKey, register/revoke, 6 аутентификаторов — 2026-06-29 (TZ Этап 4)
+- [done] Observability (ObservabilityPanel): Prometheus, 6 сервисов, p50/95/99 latency/error rate, Alertmanager — 2026-06-29 (TZ 13.2)
+- [done] Feature Flags (FeatureFlagsPanel): Flagsmith, canary rollout, 8 флагов, env filter, live toggle — 2026-06-29 (TZ 13.1)
+- [done] Health Status (HealthStatusPanel): /health /ready /metrics, 5 сервисов, K8s probes, DR RPO/RTO — 2026-06-29 (TZ 13.4)
+- [done] Load Testing (LoadTestingPanel): k6 runs, baseline/peak/stress/spike, p95/p99 chart, SLO thresholds — 2026-06-29 (TZ 15.3)
+- [done] IoT Взвешивание (IoTWeighingPanel): весовые акты Тензо-М/ВА/Мера, расхождения, УКЭП, device status — 2026-06-29 (TZ 9.4)
+- [done] Support Ops Queue (SupportOpsPanel): тикеты P1-P4, история действий, просмотр сделки, эскалация — 2026-06-29 (TZ Этап 2)
 - [todo] Rate limiting (SlowAPI/middleware) — требует backend
 
 ## Smoke-тесты по блокам
