@@ -7,6 +7,7 @@ import { RoleExecutionHandoff, type HandoffItem } from '../../../components/plat
 import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { formatTons, selectDealLogisticsTripPlan } from '@/lib/platform-v7/deal-execution-source-of-truth';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { EtranRzdPanel } from '@/components/platform-v7/EtranRzdPanel';
 
 // Кабинет логистики: Логистика · рейс → водитель → ЭТрН → приёмка
 const logisticsHandoff: HandoffItem[] = [
@@ -202,6 +203,10 @@ export default async function LogisticsPage() {
             {orders.map((order) => <OrderCard key={order.id} order={order} />)}
           </section>
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title='РЖД ЭТРАН · ж/д отправки' summary='ЭТрН · вагоны · трекинг · ГУ-29у · задержки' defaultOpen={false}>
+        <EtranRzdPanel />
       </CollapsibleSection>
 
       <CollapsibleSection title='Погода по маршрутам' summary='дорожные условия · предупреждения' defaultOpen={false}>

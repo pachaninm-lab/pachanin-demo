@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { MultiTenancyPanel } from '@/components/platform-v7/MultiTenancyPanel';
 
 const COMPANIES = [
   {
@@ -76,6 +78,12 @@ export default function CompaniesPage() {
           Сделки
         </Link>
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, marginTop: 8 }}>
+        <CollapsibleSection title='Multi-tenancy · Кооперативы и суб-аккаунты' summary='кооперативы · суб-аккаунты · общий пул заявок · scope-based права' defaultOpen={false}>
+          <MultiTenancyPanel />
+        </CollapsibleSection>
+      </section>
     </div>
   );
 }

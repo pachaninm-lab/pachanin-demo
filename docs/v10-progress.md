@@ -91,6 +91,7 @@
 - [done] Feature-флаги + моки с честной пометкой «демо-ответ» — 2026-06-29
 - [done] Журнал интеграционных событий (IntegrationEventLog): 8 событий, ФГИС/Диадок/Банк/КЭП/GPS, фильтры — 2026-06-29 (TZ 10.5)
 - [done] B2B Partner API · управление ключами (ApiKeysPanel): scope-based, rate limit, ротация 90 дней, эндпоинты OpenAPI — 2026-06-29 (TZ 10.7)
+- [done] Telegram Bot (TelegramBotPanel): уведомления 8 типов, команды /deals /status /price, демо-подключение — 2026-06-29 (TZ Этап 3)
 
 ### Блок 9 [P1] — Доверие и прозрачность
 - [done] Верификационные бейджи (CounterpartyTrustCard + VerificationBadge) — ранее
@@ -135,6 +136,9 @@
 - [done] KYC/AML очередь (KycQueuePanel): 4 записи, санкции, риск, approve/reject — 2026-06-29
 - [done] Fraud Detector (FraudDetectorPanel): 5 сигналов, ML F1=0.89, эскалация, 6 типов сигналов — 2026-06-29 (TZ Этап 2/3)
 - [done] 152-ФЗ Privacy Portal (PrivacyPortalPanel): согласия, реестр операций, права субъекта, уведомление РКН — 2026-06-29 (TZ 11.3)
+- [done] Evidence Bundle (EvidenceBundlePanel): хэш-цепочка SHA-256, 8 типов файлов, PDF/ZIP экспорт, аудит 5 лет — 2026-06-29 (TZ Этап 2)
+- [done] Multi-tenancy (MultiTenancyPanel): кооперативы, суб-аккаунты, общий пул заявок, scope-based права — 2026-06-29 (TZ Этап 3)
+- [done] РЖД ЭТРАН (EtranRzdPanel): ж/д накладные ГУ-29у, трекинг вагонов, 3 отправки, вагон-детализация — 2026-06-29 (TZ Этап 3)
 - [todo] Rate limiting (SlowAPI/middleware) — требует backend
 
 ## Smoke-тесты по блокам

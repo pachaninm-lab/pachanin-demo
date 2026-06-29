@@ -3,6 +3,8 @@ import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection'
 import { IntegrationEventLog } from '@/components/platform-v7/IntegrationEventLog';
 import { BankReconciliationPanel } from '@/components/platform-v7/BankReconciliationPanel';
 import { SloSlaPanel } from '@/components/platform-v7/SloSlaPanel';
+import { EvidenceBundlePanel } from '@/components/platform-v7/EvidenceBundlePanel';
+import { TelegramBotPanel } from '@/components/platform-v7/TelegramBotPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -97,6 +99,12 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='SLO/SLA дашборд' summary='uptime · error budget · latency · 6 сервисов' defaultOpen={false}>
           <SloSlaPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Evidence Bundle · Доказательный пакет' summary='хэш-цепочка · УКЭП · PDF/ZIP экспорт · аудит-лог · арбитраж' defaultOpen={false}>
+          <EvidenceBundlePanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Telegram Bot · Уведомления' summary='deal_status · payment · dispute · price_alert · вагон · команды бота' defaultOpen={false}>
+          <TelegramBotPanel />
         </CollapsibleSection>
       </div>
 
