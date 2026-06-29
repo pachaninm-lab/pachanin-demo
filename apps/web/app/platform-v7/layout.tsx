@@ -12,6 +12,7 @@ import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7
 import { CalculatorHeaderWidget } from '@/components/platform-v7/CalculatorHeaderWidget';
 import { MobileHeaderActionRail } from '@/components/platform-v7/MobileHeaderActionRail';
 import { NotepadHeaderWidget } from '@/components/platform-v7/NotepadHeaderWidget';
+import { PublicEntryInteractiveTour } from '@/components/platform-v7/PublicEntryInteractiveTour';
 import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidget';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
@@ -111,6 +112,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <SupportHeaderIcon />
           <MobileHeaderActionRail />
           <RoleAssistantWidget />
+          <PublicEntryInteractiveTour />
           {children}
           <style dangerouslySetInnerHTML={{ __html: shellRestoreCss }} />
         </>
