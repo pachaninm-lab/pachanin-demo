@@ -5,6 +5,7 @@ import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { serverApiUrl, serverAuthHeaders } from '@/lib/server-api';
 import { AuditLogPanel } from '@/components/platform-v7/AuditLogPanel';
+import { RbacMatrix } from '@/components/platform-v7/RbacMatrix';
 
 async function getAuditLog(): Promise<Array<{ id: string; action: string; entityType: string; entityId: string; actorUserId?: string; createdAt: string }>> {
   try {
@@ -91,6 +92,14 @@ export default async function PlatformV7AuditLogPage() {
         <Card title='Деньги' value='9,65 млн ₽ стоят' note='Сумма связана с документной причиной остановки.' money />
         <Card title='Ответственный' value='оператор + продавец' note='Следующее действие фиксируется в карточке сделки.' />
         <Card title='Следующий шаг' value='закрыть СДИЗ' note='После действия журнал получит новую запись.' />
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Матрица доступа (RBAC)</div>
+          <div style={{ fontSize: 11, color: 'var(--pc-text-muted)', marginTop: 4 }}>Что может делать каждая роль · фильтр по ролям и разделам</div>
+        </div>
+        <RbacMatrix />
       </section>
     </main>
   );
