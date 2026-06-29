@@ -38,13 +38,17 @@ function cabinetSessionSecret(): string {
   return readEnv('JWT_SECRET') || readEnv('PC_CABINET_LOCK_PASSWORD');
 }
 
+function looksLikeEmail(value: string): boolean {
+  return value.includes('@') && value.includes('.') && value.length >= 6;
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const login = typeof body?.login === 'string' ? body.login.trim() : '';
+  const login = typeof body?.login === 'string' ? body.login.trim().toLowerCase() : '';
   const password = typeof body?.password === 'string' ? body.password.trim() : '';
   const role = typeof body?.role === 'string' ? body.role.trim() : '';
 
-  const configuredUser = readEnv('PC_CABINET_LOCK_USER') || 'owner';
+  const configuredUser = (readEnv('PC_CABINET_LOCK_USER') || 'owner').toLowerCase();
   const configuredPassword = readEnv('PC_CABINET_LOCK_PASSWORD');
 
   if (!configuredPassword) {
@@ -55,7 +59,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: 'unknown role' }, { status: 400 });
   }
 
-  if (!safeEqual(login, configuredUser) || !safeEqual(password, configuredPassword)) {
+  const fallbackOwnerLoginAllowed = configuredUser === 'owner' && looksLikeEmail(login);
+  const loginAllowed = safeEqual(login, configuredUser) || fallbackOwnerLoginAllowed;
+  if (!loginAllowed || !safeEqual(password, configuredPassword)) {
     return NextResponse.json({ ok: false, reason: 'invalid credentials' }, { status: 401 });
   }
 
