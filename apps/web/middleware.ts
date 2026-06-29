@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { observeServerCabinetAccess, serverCabinetRbacMode } from '@/lib/platform-v7/server-cabinet-access';
 import { readVerifiedCabinetRole, readVerifiedCabinetSessionRole } from '@/lib/platform-v7/verified-session';
 
-// The verified-JWT role is the ONLY server-trusted identity for cabinet RBAC observation.
-// Prefer the dedicated platform-v7 cabinet session (pc_v7_cabinet, `cab` claim); fall back
-// to a real API JWT in pc_access_token (real-backend logins). Never path/pc-role/query.
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const ACCESS_TOKEN_COOKIE = 'pc_access_token';
 
@@ -54,7 +51,8 @@ const SESSION_COOKIE = 'pc_session_present';
 const OWNER_COOKIE = 'pc_owner_access';
 const PLATFORM_V7_ENTRY_COOKIE = 'pc_v7_entry_seen';
 const PRIVATE_REALM = 'Prozrachnaya Cena Private';
-const CABINET_LOCK_REALM = 'Prozrachnaya Cena Cabinets';
+const CABINET_LOCK_LOGIN_API = '/api/platform-v7/cabinet-lock-login';
+const CABINET_SESSION_API = '/api/platform-v7/cabinet-session';
 
 const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7',
@@ -90,6 +88,7 @@ function isPlatformV7PublicPath(p: string): boolean {
 
 function isCabinetLockedPath(p: string): boolean {
   if (isPublicAsset(p)) return false;
+  if (p === CABINET_LOCK_LOGIN_API || p === CABINET_SESSION_API) return false;
   if (p.startsWith('/api/runtime-')) return true;
   if (p.startsWith('/api/platform-v7') || p.startsWith('/api/cabinet')) return true;
   if (!p.startsWith('/platform-v7')) return false;
@@ -135,6 +134,10 @@ function hasCabinetLockCredentials(): boolean {
   return Boolean(readEnv('PC_CABINET_LOCK_PASSWORD'));
 }
 
+function cabinetSessionSecret(): string {
+  return readEnv('JWT_SECRET') || readEnv('PC_CABINET_LOCK_PASSWORD');
+}
+
 function isOwnerAuthorized(req: NextRequest): boolean {
   const ownerKey = readEnv('PC_OWNER_KEY');
   const requestKey = req.headers.get('x-pc-owner-key') || req.cookies.get(OWNER_COOKIE)?.value || '';
@@ -149,14 +152,14 @@ function isOwnerAuthorized(req: NextRequest): boolean {
   return safeEqual(basic.user, privateUser) && safeEqual(basic.password, privatePassword);
 }
 
-function isCabinetLockAuthorized(req: NextRequest): boolean {
-  const lockPassword = readEnv('PC_CABINET_LOCK_PASSWORD');
-  if (!lockPassword) return false;
-  const lockUser = readEnv('PC_CABINET_LOCK_USER') || 'owner';
-  const basic = parseBasicAuth(req.headers.get('authorization'));
-  if (!basic) return false;
-
-  return safeEqual(basic.user, lockUser) && safeEqual(basic.password, lockPassword);
+async function isCabinetLockSessionAuthorized(req: NextRequest): Promise<boolean> {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const verifiedRole = await readVerifiedCabinetSessionRole(
+    req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null,
+    cabinetSessionSecret(),
+    nowSeconds,
+  );
+  return Boolean(verifiedRole);
 }
 
 function applySecurityHeaders(response: NextResponse, protectedResponse = false) {
@@ -205,15 +208,22 @@ function cabinetLockMissingCredentialsResponse() {
   return applySecurityHeaders(response, true);
 }
 
-function cabinetLockUnauthorizedResponse() {
-  const response = new NextResponse('Cabinet access required.', {
-    status: 401,
-    headers: {
-      'content-type': 'text/plain; charset=utf-8',
-      'www-authenticate': `Basic realm="${CABINET_LOCK_REALM}", charset="UTF-8"`,
-    },
-  });
-  return applySecurityHeaders(response, true);
+function cabinetLockUnauthorizedResponse(req: NextRequest) {
+  const p = req.nextUrl.pathname;
+  if (p.startsWith('/api/')) {
+    return applySecurityHeaders(
+      NextResponse.json({ ok: false, message: 'cabinet_access_required' }, { status: 401 }),
+      true,
+    );
+  }
+
+  const u = req.nextUrl.clone();
+  u.pathname = '/platform-v7/login';
+  u.search = '';
+  const role = resolvePlatformV7PathRole(p);
+  if (role) u.searchParams.set('role', role);
+  u.searchParams.set('next', `${p}${req.nextUrl.search || ''}`);
+  return applySecurityHeaders(NextResponse.redirect(u), true);
 }
 
 function parseSession(raw: string | undefined): { role: string; exp: number } | null {
@@ -330,8 +340,8 @@ export async function middleware(req: NextRequest) {
     if (!hasCabinetLockCredentials()) {
       return cabinetLockMissingCredentialsResponse();
     }
-    if (!isCabinetLockAuthorized(req)) {
-      return cabinetLockUnauthorizedResponse();
+    if (!(await isCabinetLockSessionAuthorized(req))) {
+      return cabinetLockUnauthorizedResponse(req);
     }
   }
 
@@ -348,14 +358,9 @@ export async function middleware(req: NextRequest) {
     const response = withRoleHeaders(req, resolvedRole, lockProtectedResponse);
     persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
-    // Phase 4C-pre — report-only cabinet RBAC observation (flag-gated, off by default).
-    // The role comes ONLY from a cryptographically verified JWT (never path / pc-role /
-    // query / client guard / the unverified pc_session_present cookie). An unverified or
-    // demo token resolves to null → unknown → never blocked. Never blocks/redirects/
-    // alters this response.
     try {
       if (serverCabinetRbacMode() === 'report') {
-        const secret = process.env.JWT_SECRET ?? '';
+        const secret = cabinetSessionSecret();
         const nowSeconds = Math.floor(Date.now() / 1000);
         const verifiedRole =
           (await readVerifiedCabinetSessionRole(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, nowSeconds))
@@ -386,4 +391,4 @@ export async function middleware(req: NextRequest) {
   return withRoleHeaders(req, resolvedRole, lockProtectedResponse);
 }
 
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon\.ico).*)'] };
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'] };
