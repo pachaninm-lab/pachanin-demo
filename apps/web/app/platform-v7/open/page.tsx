@@ -48,7 +48,7 @@ export default function PlatformV7OpenPage() {
     if (pending) return;
     setError('');
     if (!login.trim() || !code.trim()) {
-      setError('Введи логин и пароль вручную.');
+      setError('Введи логин и код вручную.');
       return;
     }
     setPending(true);
@@ -77,9 +77,9 @@ export default function PlatformV7OpenPage() {
     <main className='pc-clean-login'>
       <style>{css}</style>
       <section className='card'>
-        <span className='eyebrow'>чистый вход · без автоподстановки</span>
+        <span className='eyebrow'>чистый вход</span>
         <h1>Вход в кабинет</h1>
-        <p>Эта форма создана отдельно от старой страницы входа, чтобы обойти автозаполнение и кэш браузера.</p>
+        <p>Введите доступ вручную.</p>
         <form onSubmit={submit} autoComplete='off'>
           <div className='roles'>
             {roles.map(({ role: value, title, Icon }) => (
@@ -94,8 +94,8 @@ export default function PlatformV7OpenPage() {
             <input value={login} onChange={(e) => setLogin(e.target.value)} inputMode='email' autoCapitalize='none' autoCorrect='off' spellCheck={false} autoComplete='off' placeholder='Введи логин' />
           </label>
           <label>
-            <span>Пароль</span>
-            <input value={code} onChange={(e) => setCode(e.target.value)} type='password' inputMode='numeric' autoCapitalize='none' autoCorrect='off' spellCheck={false} autoComplete='new-password' placeholder='Введи пароль' />
+            <span>Код</span>
+            <input value={code} onChange={(e) => setCode(e.target.value)} type='password' inputMode='numeric' autoCapitalize='none' autoCorrect='off' spellCheck={false} autoComplete='new-password' placeholder='Введи код' />
           </label>
           {error ? <div className='error'>{error}</div> : null}
           <button className='submit' disabled={pending}>{pending ? 'Проверяю…' : 'Войти'}</button>
