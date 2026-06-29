@@ -86,12 +86,29 @@ export default function LoginPage() {
   const [directRole, setDirectRole] = React.useState<PlatformRole | null>(null);
   const [error, setError] = React.useState('');
   const [pending, setPending] = React.useState(false);
+  const [formNonce, setFormNonce] = React.useState('pc-login');
 
   React.useEffect(() => {
     const nextRole = readInitialRole();
-    if (!nextRole) return;
-    setEntryRole(nextRole);
-    window.sessionStorage?.setItem(PLATFORM_V7_PENDING_ROLE_KEY, nextRole);
+    if (nextRole) {
+      setEntryRole(nextRole);
+      window.sessionStorage?.setItem(PLATFORM_V7_PENDING_ROLE_KEY, nextRole);
+    }
+
+    // iOS/Safari and Yandex can inject saved credentials after hydration.
+    // Force an empty, user-entered form and rotate input names so password managers
+    // do not match this temporary pilot gate as a saved site login.
+    const nonce = `pc-login-${Date.now().toString(36)}`;
+    setFormNonce(nonce);
+    setLogin('');
+    setAccessCode('');
+    setCompany('');
+    const clearTimer = window.setTimeout(() => {
+      setLogin('');
+      setAccessCode('');
+      setCompany('');
+    }, 350);
+    return () => window.clearTimeout(clearTimer);
   }, []);
 
   async function openWorkspace(nextRole: PlatformRole) {
@@ -111,20 +128,25 @@ export default function LoginPage() {
       return;
     }
     if (!login.trim() || !accessCode.trim()) {
-      setError('Введите логин и пароль.');
+      setError('Введите логин и пароль вручную.');
       return;
     }
 
     setPending(true);
     setError('');
     try {
-      const response = await fetch('/api/platform-v7/cabinet-lock-login', {
+      const response = await fetch(`/api/platform-v7/cabinet-lock-login?ts=${Date.now()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login: login.trim(), password: accessCode, role: nextRole, company: company.trim() }),
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+          Pragma: 'no-cache',
+        },
+        body: JSON.stringify({ login: login.trim(), password: accessCode.trim(), role: nextRole, company: company.trim() }),
       });
       if (!response.ok) {
-        setError(response.status === 401 ? 'Неверный логин или пароль.' : 'Доступ временно не выдан. Проверь настройки переменных Netlify.');
+        setError(response.status === 401 ? 'Неверный логин или пароль.' : 'Доступ временно не выдан. Проверь опубликованный деплой и переменные Netlify.');
         return;
       }
       await openWorkspace(nextRole);
@@ -155,7 +177,7 @@ export default function LoginPage() {
             <p>Личные кабинеты закрыты. Вход выполняется только через форму платформы.</p>
           </div>
 
-          <form className='login-form' onSubmit={onSubmit}>
+          <form className='login-form' onSubmit={onSubmit} autoComplete='off' data-form-nonce={formNonce}>
             {!entryRole ? (
               <section className='login-workspace-picker' aria-label='Рабочее место'>
                 <span>Рабочее место</span>
@@ -178,9 +200,51 @@ export default function LoginPage() {
               </section>
             ) : null}
 
-            <label><span>Логин</span><input value={login} onChange={(event) => setLogin(event.target.value)} type='email' autoComplete='username' placeholder='name@company.ru' /></label>
-            <label><span>Пароль</span><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type='password' autoComplete='current-password' placeholder='Временный пароль' /></label>
-            <label><span>Организация <em>необязательно</em></span><input value={company} onChange={(event) => setCompany(event.target.value)} type='text' autoComplete='organization' placeholder='Компания / ИНН' /></label>
+            <label>
+              <span>Логин</span>
+              <input
+                key={`login-${formNonce}`}
+                name={`pc_identity_${formNonce}`}
+                value={login}
+                onChange={(event) => setLogin(event.target.value)}
+                type='email'
+                autoComplete='off'
+                autoCapitalize='none'
+                autoCorrect='off'
+                spellCheck={false}
+                inputMode='email'
+                placeholder='Введите логин вручную'
+              />
+            </label>
+            <label>
+              <span>Пароль</span>
+              <input
+                key={`password-${formNonce}`}
+                name={`pc_code_${formNonce}`}
+                value={accessCode}
+                onChange={(event) => setAccessCode(event.target.value)}
+                type='password'
+                autoComplete='new-password'
+                autoCapitalize='none'
+                autoCorrect='off'
+                spellCheck={false}
+                placeholder='Введите пароль вручную'
+              />
+            </label>
+            <label>
+              <span>Организация <em>необязательно</em></span>
+              <input
+                key={`company-${formNonce}`}
+                name={`pc_company_${formNonce}`}
+                value={company}
+                onChange={(event) => setCompany(event.target.value)}
+                type='text'
+                autoComplete='off'
+                autoCorrect='off'
+                spellCheck={false}
+                placeholder='Компания / ИНН'
+              />
+            </label>
             {error ? <p className='login-error' role='alert'>{error}</p> : null}
             <div className='login-actions'>
               <button type='submit' disabled={pending}>{pending ? 'Проверяем доступ…' : 'Войти в кабинет'}</button>
