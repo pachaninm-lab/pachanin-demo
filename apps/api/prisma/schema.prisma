@@ -95,6 +95,7 @@ model UkepCertificate {
 model Deal {
   id            String   @id
   lotId         String?
+  sourceLotId   String?  // ссылка на исходный лот-источник (для межрегиональных сделок)
   dealNumber    String?  @unique
   status        String   @default("DRAFT")
   tenantId      String?
@@ -122,11 +123,13 @@ model Deal {
   updatedAt     DateTime @updatedAt
   meta          String?  // JSON for paymentTerms etc.
 
-  shipments     Shipment[]
-  documents     DealDocument[]
-  payments      Payment[]
-  labSamples    LabSample[]
-  dealEvents    DealEvent[]
+  shipments        Shipment[]
+  documents        DealDocument[]
+  payments         Payment[]
+  labSamples       LabSample[]
+  dealEvents       DealEvent[]
+  acceptanceRecords AcceptanceRecord[]
+  bankOperations   BankOperation[]
 
   @@index([sellerOrgId])
   @@index([buyerOrgId])
@@ -285,6 +288,7 @@ model LabSample {
   id              String   @id
   dealId          String
   shipmentId      String?
+  acceptanceId    String?  // ссылка на AcceptanceRecord
   status          String   @default("PENDING") // PENDING | COLLECTED | TESTING | DONE | REJECTED
   culture         String?
   protocol        String?
@@ -582,6 +586,62 @@ model Geofence {
 
   @@index([dealId])
   @@map("geofences")
+}
+
+// ── Acceptance Records (акт приёма) ──────────────────────────────────────────
+
+model AcceptanceRecord {
+  id                String   @id @default(cuid())
+  dealId            String
+  shipmentId        String?
+  status            String   @default("PENDING") // PENDING | ACCEPTED | PARTIAL | REJECTED
+  weightActualTons  Float?
+  volumeActualTons  Float?
+  qualityStatus     String   @default("PENDING") // PENDING | PASSED | FAILED | PARTIAL
+  gost              String?
+  actDocId          String?  // ID документа — акт приёма
+  actSignedAt       DateTime?
+  actorId           String   // elevator/lab operator userId
+  notes             String?
+  moneyAdjustKopecks Int?    // корректировка суммы по результату приёма
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  deal              Deal     @relation(fields: [dealId], references: [id])
+
+  @@index([dealId])
+  @@index([shipmentId])
+  @@map("acceptance_records")
+}
+
+// ── Bank Operations ───────────────────────────────────────────────────────────
+
+model BankOperation {
+  id                String   @id @default(cuid())
+  dealId            String
+  type              String   // RESERVE | HOLD | RELEASE | REFUND | COMMISSION | FACTORING_DISBURSEMENT
+  status            String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED | REVERSED
+  amountKopecks     BigInt
+  currency          String   @default("RUB")
+  debitAccount      String
+  creditAccount     String
+  bankRef           String?  // внешний ID операции в банке
+  bankName          String?
+  idempotencyKey    String   @unique
+  requestPayload    Json?
+  responsePayload   Json?
+  initiatorUserId   String?
+  confirmedAt       DateTime?
+  failureReason     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  deal              Deal     @relation(fields: [dealId], references: [id])
+
+  @@index([dealId])
+  @@index([status])
+  @@index([type])
+  @@map("bank_operations")
 }
 
 // ── Accounts (for money invariants) ───────────────────────────────────────────

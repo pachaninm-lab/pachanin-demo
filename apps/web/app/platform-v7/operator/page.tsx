@@ -12,6 +12,7 @@ import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { CockpitHero, PremiumStatCard, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { RecentlyViewedWidget } from '@/components/platform-v7/RecentlyViewedWidget';
 
 const deal9106 = getDeal360Scenario('DL-9106');
 const deal9102 = getDeal360Scenario('DL-9102');
@@ -89,6 +90,7 @@ export default async function PlatformV7OperatorPage() {
 
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+      <RecentlyViewedWidget />
       <LiveApiStatusBar
         apiOnline={apiOnline}
         blockers={liveBlockers}
