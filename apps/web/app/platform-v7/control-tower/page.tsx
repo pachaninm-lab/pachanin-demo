@@ -14,6 +14,7 @@ import type { RadarZoneData, RadarItemData } from '@/components/platform-v7/visu
 import { PremiumStatCard, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getPlatformV7ObservabilityCockpitState, type PlatformV7HealthSeverity } from '@/lib/platform-v7/runtime/observability-cockpit-state';
+import { ControlTowerCharts } from '@/components/platform-v7/ControlTowerCharts';
 
 function healthTone(sev: PlatformV7HealthSeverity): PremiumTone {
   return sev === 'critical' ? 'danger' : sev === 'warning' ? 'warning' : 'success';
@@ -350,6 +351,14 @@ export default function PlatformV7ControlTowerPage() {
               )}
             </div>
           </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title='Аналитика платформы'
+          summary='GMV-тренд, статусы сделок, активность по дням'
+          defaultOpen={false}
+        >
+          <ControlTowerCharts />
         </CollapsibleSection>
       </P7Page>
     </>

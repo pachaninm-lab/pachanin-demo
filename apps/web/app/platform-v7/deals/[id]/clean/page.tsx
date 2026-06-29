@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { P7DealWorkspaceTabs } from '@/components/platform-v7/P7DealWorkspaceTabs';
+import { DealGuaranteesBlock } from '@/components/platform-v7/DealGuaranteesBlock';
 import { canonicalDomainDeals, selectDealById, selectDisputesByDealId } from '@/lib/domain/selectors';
 import { evaluateReleaseGuard } from '@/lib/platform-v7/domain/release-guard';
 import { moneyStopReasonText } from '@/lib/platform-v7/domain/money-stop-labels';
@@ -135,6 +136,13 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
           </p>
         </section>
       ) : null}
+
+      <DealGuaranteesBlock
+        dealId={deal.id}
+        reservedAmount={deal.reservedAmount}
+        holdAmount={deal.holdAmount}
+        releaseBlocked={hasBlockers}
+      />
 
       <P7DealWorkspaceTabs deal={deal} />
 

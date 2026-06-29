@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { DEAL360_SCENARIOS } from '@/lib/platform-v7/deal360-source-of-truth';
+import { ExcelExportButton } from '@/components/platform-v7/ExcelExportButton';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
 
 const dealSnapshots = Object.values(DEAL360_SCENARIOS).map((s) => ({
@@ -59,6 +60,10 @@ export default function PlatformV7DealsPage() {
             <Link href={primaryDeal.href} className='pc-deals-primary-cta' style={primary}>Открыть {primaryDeal.id}</Link>
             <Link href='/platform-v7/control-tower' className='pc-deals-secondary-cta' style={secondary}>Центр управления</Link>
           </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.25rem' }}>
+          <ExcelExportButton dataset="deals" />
         </div>
 
         <div className='pc-deals-summary'>
