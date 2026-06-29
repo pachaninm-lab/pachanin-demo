@@ -22,7 +22,7 @@
 - [done] Горизонтальный stepper «Этапы сделки» в карточке сделки (6 укрупнённых стадий, подсветка current/done/problem) — 2026-04-17
 - [done] 404-страница с быстрой навигацией и подсказкой по поиску сделки — 2026-04-17
 - [done] Синхронизация счётчиков Control Tower → лоты считаются из реальных данных, активные показывают «9 из 10», банк показывает CB-443 = 10.5 млн ₽ по DL-9109 — 2026-04-17
-- [todo] Prisma schema: `sourceLotId` в `Deal`, `dealId` в `Route`/`AcceptanceRecord`/`BankOperation`/`Dispute`, `acceptanceId` в `LabAnalysis`
+- [done] Prisma schema: `sourceLotId` в `Deal`, `dealId` в `AcceptanceRecord`/`BankOperation`/`Dispute`/`Shipment`, `acceptanceId` в `LabSample` — ранее
 - [todo] Убрать `/platform-v7/` из URL (корневой путь или поддомен)
 
 ### Блок 2 [P0] — Навигация и ИА
