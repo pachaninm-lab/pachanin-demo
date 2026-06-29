@@ -1,0 +1,69 @@
+/* Keeps the public hero badge below the fixed homepage header across mobile browser chrome states. */
+html body .pc-shell-root-v4 .pc-v7-public-entry,
+html body .pc-v7-public-entry {
+  padding-top: 92px !important;
+}
+
+html body .pc-shell-root-v4 .pc-v7-public-entry .entry-header,
+html body .pc-v7-public-entry .entry-header {
+  min-height: 76px !important;
+}
+
+html body .pc-shell-root-v4 .pc-v7-public-entry .entry-hero,
+html body .pc-v7-public-entry .entry-hero {
+  padding-top: 22px !important;
+}
+
+html body .pc-shell-root-v4 .pc-v7-public-entry .entry-kicker,
+html body .pc-v7-public-entry .entry-kicker {
+  margin-top: 0 !important;
+}
+
+html body .pc-shell-root-v4 .pc-v7-public-entry section[id],
+html body .pc-v7-public-entry section[id] {
+  scroll-margin-top: 104px !important;
+}
+
+@media (max-width: 980px) {
+  html body .pc-shell-root-v4 .pc-v7-public-entry,
+  html body .pc-v7-public-entry {
+    padding-top: 90px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-public-entry .entry-header,
+  html body .pc-v7-public-entry .entry-header {
+    min-height: 70px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-public-entry .entry-hero,
+  html body .pc-v7-public-entry .entry-hero {
+    padding-top: 24px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-public-entry section[id],
+  html body .pc-v7-public-entry section[id] {
+    scroll-margin-top: 96px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  html body .pc-shell-root-v4 .pc-v7-public-entry,
+  html body .pc-v7-public-entry {
+    padding-top: 88px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-public-entry .entry-header,
+  html body .pc-v7-public-entry .entry-header {
+    min-height: 66px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-public-entry .entry-hero,
+  html body .pc-v7-public-entry .entry-hero {
+    padding-top: 24px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v7-public-entry .entry-hero-copy,
+  html body .pc-v7-public-entry .entry-hero-copy {
+    padding-top: 24px !important;
+  }
+}
