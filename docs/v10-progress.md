@@ -79,12 +79,15 @@
 - [done] Оператор: OperatorInboxPanel + OperatorKpiDashboard + OperatorExecutionQueue — ранее
 - [done] Инвестор: InvestorYieldSimulator + SalesFunnelChart + GrossMarginPanel — 2026-06-29
 - [done] Водитель: DriverCameraCapture (камера/галерея, типы фото, лайтбокс) + DriverOfflineQueue (IndexedDB) — 2026-06-29
+- [done] Факторинг (FactoringPanel): 3 фактора, скоринг, 2200ms симуляция, статус-машина — 2026-06-29 (TZ 7.7)
+- [done] Сверка банковской выписки (BankReconciliationPanel): МТ940 импорт, 5 выписок, фильтры — 2026-06-29 (TZ 7.8)
 
 ### Блок 8 [P1] — Интеграции и внешние сервисы
 - [done] Виджеты статуса API: IntegrationStatusWidget (ФГИС/СберБизнес/РСХБ/СПАРК) — ранее
 - [todo] Верификация по ИНН через СПАРК (нужен API-ключ)
 - [done] Чат поддержки (ChatSupportWidget): бот с quick-prompts, bubble, typing-indicator, Telegram/Jivo note — 2026-06-29
 - [done] Feature-флаги + моки с честной пометкой «демо-ответ» — 2026-06-29
+- [done] Журнал интеграционных событий (IntegrationEventLog): 8 событий, ФГИС/Диадок/Банк/КЭП/GPS, фильтры — 2026-06-29 (TZ 10.5)
 
 ### Блок 9 [P1] — Доверие и прозрачность
 - [done] Верификационные бейджи (CounterpartyTrustCard + VerificationBadge) — ранее
@@ -112,6 +115,9 @@
 - [done] Воронка продаж (SalesFunnelChart) — 2026-06-29
 - [done] Email-шаблоны уведомлений с превью (EmailTemplatePreview): 6 триггерных шаблонов — 2026-06-29
 - [done] Валовая прибыль по ролям (GrossMarginPanel): BarChart 6 ролей, 3 метрики, drill-down — 2026-06-29
+- [done] ML-прогноз цены (PricePredictorWidget): 6 культур × 5 регионов, LineChart, 1800ms симуляция — 2026-06-29
+- [done] Регуляторные отчёты (RegulatoryReportsPanel): Минсельхоз/Росстат/ФГИС/Росфинмониторинг/ФНС — 2026-06-29
+- [done] Unit Economics Passport (UnitEconomicsPassport): GMV/Take Rate/LTV/CAC, 3 сценария, AreaChart — 2026-06-29
 
 ### Блок 13 [P1] — Безопасность и compliance
 - [done] 2FA TOTP + SMS fallback (MfaSecurityPanel) — 2026-06-29
@@ -121,6 +127,8 @@
 - [done] 152-ФЗ compliance — AuditLogPanel footer, PlatformFooter badges — 2026-06-29
 - [done] CSP/HSTS/X-Frame-Options в next.config.js headers() — 2026-06-29
 - [done] Аудит-логи критичных действий (AuditLogPanel) — 2026-06-29
+- [done] SLO/SLA дашборд (SloSlaPanel): 6 сервисов, error budget bars, latency chart — 2026-06-29
+- [done] KYC/AML очередь (KycQueuePanel): 4 записи, санкции, риск, approve/reject — 2026-06-29
 - [todo] Rate limiting (SlowAPI/middleware) — требует backend
 
 ## Smoke-тесты по блокам
