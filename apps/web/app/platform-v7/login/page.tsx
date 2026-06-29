@@ -125,7 +125,7 @@ export default function LoginPage() {
           <form className='login-form' onSubmit={onSubmit}>
             {!entryRole ? (
               <section className='login-workspace-picker' aria-label='Рабочее место'>
-                <span>Рабочее место</span>
+                <span>Выберите один рабочий кабинет</span>
                 <div>
                   {workspaces.map((item) => {
                     const Icon = item.Icon;
@@ -139,7 +139,7 @@ export default function LoginPage() {
                 </div>
               </section>
             ) : selected ? (
-              <section className='login-workspace-heading' aria-label='Рабочее место'><span>Рабочее место</span><strong>{selected.title}</strong></section>
+              <section className='login-workspace-heading' aria-label='Рабочее место'><span>Выберите один рабочий кабинет</span><strong>{selected.title}</strong></section>
             ) : null}
             <label><span>Логин</span><input value={login} onChange={(event) => setLogin(event.target.value)} type='email' autoComplete='username' placeholder='имя@компания.рф' /></label>
             <label><span>Пароль</span><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type='password' autoComplete='current-password' placeholder='Введите пароль' /></label>

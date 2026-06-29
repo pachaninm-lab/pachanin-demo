@@ -56,7 +56,7 @@ function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?
   if (reasons.includes('FGIS_GATE_FAIL') || reasons.includes('ESIA_LINK_MISSING') || reasons.includes('ESIA_REAUTH_REQUIRED') || reasons.includes('SYNC_CONFIRM_REQUIRED')) {
     return { href: '/platform-v7/connectors', label: 'Открыть подключение' };
   }
-  if (args.releaseStopped || args.status === 'release_requested' || reasons.includes('BANK_REVIEW_PENDING') || reasons.includes('bank_confirm')) {
+  if (args.releaseStopped || reasons.includes('BANK_REVIEW_PENDING') || reasons.includes('bank_confirm')) {
     return { href: '/platform-v7/bank/release-safety', label: 'Проверить деньги' };
   }
   return { href: `/platform-v7/deals/${args.dealId}`, label: 'Открыть сделку' };
@@ -100,7 +100,7 @@ export default function PlatformV7ControlTowerPage() {
         blockers: deal.blockers,
         releaseStopped,
       });
-      const severity = integration.gateState === 'FAIL' || releaseStopped || deal.holdAmount > 0 ? 3 : integration.gateState === 'REVIEW' || deal.status === 'release_requested' ? 2 : 1;
+      const severity = integration.gateState === 'FAIL' || releaseStopped || deal.holdAmount > 0 ? 3 : integration.gateState === 'REVIEW' ? 2 : 1;
       const slaState = deal.slaDeadline ? (new Date(deal.slaDeadline) < today ? 'Просрочено' : (new Date(deal.slaDeadline).getTime() - today.getTime() <= 24 * 60 * 60 * 1000 ? 'Менее 24 часов' : deal.slaDeadline)) : '—';
       return { deal, integration, amountAtRisk, reason, owner, primaryAction, severity, slaState, releaseStopped };
     })

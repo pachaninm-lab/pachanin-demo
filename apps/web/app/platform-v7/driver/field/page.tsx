@@ -25,7 +25,7 @@ export default async function DriverFieldPage() {
     <main
       data-testid="platform-v7-driver-field-shell"
       data-platform-v7-driver-field-pass="true"
-      data-hidden-controls="деньги, ставки, банк скрыты от водителя"
+      data-hidden-controls="финансовый контур, ставки и платёжные данные скрыты от водителя"
       style={{
         display: 'grid',
         gap: 14,

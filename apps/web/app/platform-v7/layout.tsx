@@ -88,6 +88,13 @@ export const metadata: Metadata = {
   },
 };
 
+const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
+
+function isPublicPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return PUBLIC_EXACT_PATHS.has(pathname);
+}
+
 const VALID_ROLES = new Set<PlatformRole>([
   'operator',
   'buyer',
@@ -161,7 +168,17 @@ html body .pc-shell-root-v4 .pc-v4-main:has(.pc-v7-public-entry),html body .pc-s
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const headerStore = await headers();
   const rawRole = headerStore.get('x-pc-role');
+  const pathname = headerStore.get('x-pc-pathname');
   const initialRole: PlatformRole = rawRole && VALID_ROLES.has(rawRole as PlatformRole) ? (rawRole as PlatformRole) : 'operator';
+
+  if (isPublicPath(pathname)) {
+    return (
+      <ToastProvider>
+        <PlatformThemeSync />
+        {children}
+      </ToastProvider>
+    );
+  }
 
   return (
     <ToastProvider>

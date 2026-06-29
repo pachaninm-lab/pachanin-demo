@@ -1,5 +1,6 @@
 import { PLATFORM_V7_LEXICON } from './lexicon';
 import {
+  PLATFORM_V7_AI_ROUTE,
   PLATFORM_V7_ANTI_BYPASS_ROUTE,
   PLATFORM_V7_AUTH_ROUTE,
   PLATFORM_V7_BANK_CLEAN_ROUTE,
@@ -445,6 +446,14 @@ export const PLATFORM_V7_COMMAND_SECTION_ITEMS: PlatformV7CommandSectionItem[] =
     subtitle: 'Отчёты по исполнению и контуру',
     href: PLATFORM_V7_REPORTS_ROUTE,
     keywords: 'отчёты выгрузки',
+  },
+  {
+    id: 'sec-ai',
+    group: 'Разделы',
+    title: 'AI-помощник',
+    subtitle: 'AI-помощник и навигация по платформе',
+    href: PLATFORM_V7_AI_ROUTE,
+    keywords: 'ai помощник ассистент поиск',
   },
 ];
 

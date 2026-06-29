@@ -15,7 +15,7 @@ import {
   formatTons,
 } from '@/lib/platform-v7/deal-execution-source-of-truth';
 import { canRequestStrictMoneyRelease, strictMoneyReleaseBlockers } from '@/lib/platform-v7/deal-money-release-gate';
-import { READINESS_SANDBOX_LABEL, READINESS_HERO_TITLE_LEGACY, READINESS_METRIC_READY_LABEL, DL9102_CARD_SCENARIO_LABEL, MONEY_RELEASE_COLUMN_LABEL } from '@/lib/platform-v7/readiness-copy';
+import { READINESS_SANDBOX_LABEL, READINESS_HERO_TITLE_LEGACY, READINESS_METRIC_READY_LABEL, MONEY_RELEASE_COLUMN_LABEL, DL9102_CARD_SCENARIO_LABEL } from '@/lib/platform-v7/readiness-copy';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -114,9 +114,9 @@ export default function PlatformV7ReadinessPage() {
         <Metric label='Под удержанием' value={formatCompactMoney(hold)} tone={hold > 0 ? 'bad' : 'good'} />
       </div>
 
-      <DL9102ReadinessCard />
-
       <DL9106ReadinessCard />
+
+      <DL9102ScenarioCard />
 
       <section data-testid="platform-v7-readiness-list" style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Сделки по готовности</div>
@@ -147,29 +147,6 @@ export default function PlatformV7ReadinessPage() {
         ))}
       </section>
     </div>
-  );
-}
-
-function DL9102ReadinessCard() {
-  const deal = selectAllDeals().find((d) => d.id === 'DL-9102');
-  if (!deal) return null;
-  return (
-    <section data-testid="platform-v7-readiness-dl9102" style={{ background: S, border: `1px solid ${WARN}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div>
-          <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Контрольный блокер · спор по качеству</div>
-          <div style={{ fontSize: 12, color: M, marginTop: 2 }}>{DL9102_CARD_SCENARIO_LABEL}</div>
-          <div style={{ marginTop: 4, fontSize: 20, fontWeight: 900, color: T }}>DL-9102 · {deal.grain}</div>
-        </div>
-        <span style={{ padding: '6px 12px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.18)`, color: ERR, fontSize: 14, fontWeight: 900 }}>заблокировано</span>
-      </div>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: M }}>
-        <span>Резерв: <b style={{ color: T }}>{formatCompactMoney(deal.reservedAmount)}</b></span>
-        <span>Удержано: <b style={{ color: ERR }}>{formatCompactMoney(deal.holdAmount)}</b></span>
-        <span>{MONEY_RELEASE_COLUMN_LABEL} <b style={{ color: deal.releaseAmount > 0 ? BRAND : ERR }}>{formatCompactMoney(deal.releaseAmount ?? 0)}</b></span>
-        <span>Блокеры: <b style={{ color: WARN }}>{deal.blockers.join(', ')}</b></span>
-      </div>
-    </section>
   );
 }
 
@@ -211,6 +188,35 @@ function DL9106ReadinessCard() {
         <span>Удержано: <b style={{ color: money.holdRub > 0 ? ERR : T }}>{formatRub(money.holdRub)}</b></span>
         <span>Банк: <b style={{ color: canRelease ? BRAND : ERR }}>{canRelease ? 'основание готово' : 'заблокирован'}</b></span>
         {blockers.length > 0 && <span>Блокеры: <b style={{ color: WARN }}>{blockers.join(' · ')}</b></span>}
+      </div>
+    </section>
+  );
+}
+
+function DL9102ScenarioCard() {
+  return (
+    <section style={{ background: '#FFFFFF', border: '1px solid rgba(217, 119, 6, 0.28)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#0A7A5F', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>State machine · read-only · предынтеграционный контур</div>
+          <div style={{ marginTop: 5, fontSize: 20, fontWeight: 900, color: '#0F1419' }}>{'DL-9102'} · текущий state: <span style={{ fontFamily: 'monospace' }}>dealDraft</span></div>
+          <div style={{ marginTop: 5, fontSize: 12, color: '#58606E', lineHeight: 1.5 }}>Только чтение. Никаких live-интеграций, выпуска денег или внешних действий. Показывает, что мешает финальному gate.</div>
+        </div>
+        <span style={{ borderRadius: 999, padding: '6px 10px', background: 'rgba(217, 119, 6, 0.08)', border: '1px solid rgba(217, 119, 6, 0.18)', color: '#B45309', fontSize: 12, fontWeight: 900 }}>final gate заблокирован</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
+        <div style={{ border: '1px solid #D7DEE3', borderRadius: 14, padding: 12, background: '#E7EFE8' }}>
+          <div style={{ fontSize: 11, color: '#58606E', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Блокеры:</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+            <span style={{ borderRadius: 999, padding: '5px 8px', background: 'rgba(217, 119, 6, 0.08)', border: '1px solid rgba(217, 119, 6, 0.18)', color: '#B45309', fontSize: 11, fontWeight: 800 }}>Резерв денег не подтверждён</span>
+            <span style={{ borderRadius: 999, padding: '5px 8px', background: 'rgba(217, 119, 6, 0.08)', border: '1px solid rgba(217, 119, 6, 0.18)', color: '#B45309', fontSize: 11, fontWeight: 800 }}>Качество не принято</span>
+          </div>
+        </div>
+        <div style={{ border: '1px solid #D7DEE3', borderRadius: 14, padding: 12, background: '#E7EFE8' }}>
+          <div style={{ fontSize: 11, color: '#58606E', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{MONEY_RELEASE_COLUMN_LABEL} статус</div>
+          <div style={{ marginTop: 8, fontSize: 14, fontWeight: 900, color: '#B45309' }}>заблокирован</div>
+          <div style={{ marginTop: 4, fontSize: 11, color: '#58606E' }}>{DL9102_CARD_SCENARIO_LABEL} · не прошёл все gate</div>
+        </div>
       </div>
     </section>
   );
