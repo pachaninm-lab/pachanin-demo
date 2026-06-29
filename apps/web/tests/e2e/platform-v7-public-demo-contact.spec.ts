@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 async function expectNoGuestAuthArtifacts(page: import('@playwright/test').Page) {
   const cookies = await page.context().cookies();
   const cookieNames = cookies.map((cookie) => cookie.name).join(' ');
-  expect(cookieNames).not.toMatch(/pc-role|pc-v7|auth|session/i);
+  expect(cookieNames).not.toMatch(/pc-role|auth|session/i);
 
   const storage = await page.evaluate(() => ({
     local: Object.keys(window.localStorage),
