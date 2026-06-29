@@ -24,9 +24,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  web-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run web unit tests
+        run: pnpm --filter web test
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: web-unit
     steps:
       - name: Checkout
         uses: actions/checkout@v4
