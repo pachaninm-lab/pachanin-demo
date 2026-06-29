@@ -9,6 +9,7 @@ import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection'
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 import { DriverOfflineQueue } from '@/components/platform-v7/DriverOfflineQueue';
 import { RouteMapStub } from '@/components/platform-v7/RouteMapStub';
+import { DriverCameraCapture } from '@/components/platform-v7/DriverCameraCapture';
 
 export default async function DriverFieldPage() {
   const mission = getPlatformV7DriverCockpitState();
@@ -181,7 +182,10 @@ export default async function DriverFieldPage() {
       </section>
 
       <section id="driver-offline-events" style={driverFieldSection}>
-        <CollapsibleSection title='Офлайн-очередь и камера' summary='IndexedDB · фото · синхронизация' defaultOpen={false}>
+        <CollapsibleSection title='Фото рейса' summary='камера · галерея · прибытие · весовой талон' defaultOpen>
+          <DriverCameraCapture tripId={mission.tripId} />
+        </CollapsibleSection>
+        <CollapsibleSection title='Офлайн-очередь' summary='IndexedDB · синхронизация при восстановлении сети' defaultOpen={false}>
           <DriverOfflineQueue tripId={mission.tripId} />
         </CollapsibleSection>
         <CollapsibleSection title='Полевой runtime' summary='очередь · события · офлайн' defaultOpen={false}>
