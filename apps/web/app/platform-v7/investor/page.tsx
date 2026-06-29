@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
 import { InvestorYieldSimulator } from '@/components/platform-v7/InvestorYieldSimulator';
 import { SalesFunnelChart } from '@/components/platform-v7/SalesFunnelChart';
+import { GrossMarginPanel } from '@/components/platform-v7/GrossMarginPanel';
 
 const METRICS = [
   { label: 'Оборот в проверочном срезе', value: '118 млн ₽', sub: 'Данные сценария, оборот не подтверждён' },
@@ -208,6 +209,13 @@ export default function InvestorPage() {
       <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14, color: 'var(--pc-text-primary, #0F1419)' }}>Воронка продаж платформы</div>
         <SalesFunnelChart />
+      </div>
+
+      {/* Gross Margin by Role */}
+      <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: 'var(--pc-text-primary, #0F1419)' }}>Валовая прибыль по ролям</div>
+        <div style={{ fontSize: 11, color: 'var(--pc-text-muted)', marginBottom: 14 }}>Выручка, себестоимость и маржа каждого участника сделки</div>
+        <GrossMarginPanel />
       </div>
 
       {/* Yield Simulator */}
