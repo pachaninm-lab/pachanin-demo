@@ -7,17 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: [
-          '/',
-          '/platform-v7',
-          '/platform-v7/demo',
-          '/platform-v7/contact',
-          '/platform-v7/voprosy-otvety',
-          '/platform-v7/prodavtsam',
-          '/platform-v7/pokupatelyam',
-          '/platform-v7/bezopasnaya-sdelka',
-          '/platform-v7/fgis-zerno-i-dokumenty',
-        ],
+        allow: '/',
         disallow: [
           '/api/',
           '/platform-v7/login',
@@ -38,6 +28,5 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,
-    host: siteUrl,
   };
 }
