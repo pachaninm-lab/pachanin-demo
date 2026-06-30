@@ -54,6 +54,7 @@ const PRIVATE_REALM = 'Prozrachnaya Cena Private';
 const CABINET_LOCK_LOGIN_API = '/api/platform-v7/cabinet-lock-login';
 const CABINET_SESSION_API = '/api/platform-v7/cabinet-session';
 const PLATFORM_V7_INQUIRIES_API = '/api/platform-v7/inquiries';
+const PLATFORM_V7_LEADS_API = '/api/platform-v7/leads';
 
 const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7',
@@ -62,6 +63,7 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/register',
   '/platform-v7/demo',
   '/platform-v7/contact',
+  '/platform-v7/request',
   '/platform-v7/docs',
   '/platform-v7/help',
   '/platform-v7/pricing',
@@ -69,6 +71,10 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
 ]);
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
+
+function normalizePathname(pathname: string): string {
+  return pathname.split('?')[0].replace(/\/$/, '') || '/';
+}
 
 function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
@@ -83,15 +89,17 @@ function isPublicAsset(p: string): boolean {
 }
 
 function isPublic(p: string): boolean {
-  return PUBLIC_EXACT.has(p) || isPublicAsset(p);
+  return PUBLIC_EXACT.has(normalizePathname(p)) || isPublicAsset(p);
 }
 
 function isPlatformV7PublicPath(p: string): boolean {
-  return PLATFORM_V7_PUBLIC_EXACT.has(p) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => p.startsWith(x));
+  const path = normalizePathname(p);
+  return PLATFORM_V7_PUBLIC_EXACT.has(path) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => path.startsWith(x));
 }
 
 function isCabinetAuthEndpoint(p: string): boolean {
-  return p === CABINET_LOCK_LOGIN_API || p === CABINET_SESSION_API || p === PLATFORM_V7_INQUIRIES_API;
+  const path = normalizePathname(p);
+  return path === CABINET_LOCK_LOGIN_API || path === CABINET_SESSION_API || path === PLATFORM_V7_INQUIRIES_API || path === PLATFORM_V7_LEADS_API;
 }
 
 function isCabinetLockedPath(p: string): boolean {
@@ -359,9 +367,10 @@ export async function middleware(req: NextRequest) {
   const resolvedRole = resolveRole(req, session?.role ?? null);
 
   if (p.startsWith('/platform-v7')) {
-    const isEntry = p === '/platform-v7';
+    const path = normalizePathname(p);
+    const isEntry = path === '/platform-v7';
     const seenEntry = req.cookies.get(PLATFORM_V7_ENTRY_COOKIE)?.value === 'true';
-    if (!isEntry && !isPlatformV7PublicPath(p) && !seenEntry) {
+    if (!isEntry && !isPlatformV7PublicPath(path) && !seenEntry) {
       return redirectToPlatformV7Entry(req);
     }
 
@@ -378,27 +387,23 @@ export async function middleware(req: NextRequest) {
         observeServerCabinetAccess({ pathname: p, verifiedRole });
       }
     } catch {
-      // A report must never affect the request.
+      // Telemetry must never block a request.
     }
     return response;
   }
 
-  if (isPublic(p) || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
-    const response = withRoleHeaders(req, resolvedRole, lockProtectedResponse);
-    persistRoleCookie(req, response, resolvedRole);
-    return response;
+  if (!isPublic(p) && !req.cookies.get(SESSION_COOKIE)?.value) {
+    const login = req.nextUrl.clone();
+    login.pathname = '/login';
+    login.searchParams.set('next', p);
+    return applySecurityHeaders(NextResponse.redirect(login), true);
   }
 
-  if (!session) {
-    if (p.startsWith('/api/')) {
-      return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), lockProtectedResponse);
-    }
-    const u = req.nextUrl.clone();
-    u.pathname = '/platform-v7';
-    return applySecurityHeaders(NextResponse.redirect(u), lockProtectedResponse);
-  }
-
-  return withRoleHeaders(req, resolvedRole, lockProtectedResponse);
+  const response = applySecurityHeaders(NextResponse.next(), lockProtectedResponse);
+  persistRoleCookie(req, response, resolvedRole);
+  return response;
 }
 
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'] };
+export const config = {
+  matcher: ['/((?!api/health|_next/static|_next/image|favicon.ico).*)'],
+};
