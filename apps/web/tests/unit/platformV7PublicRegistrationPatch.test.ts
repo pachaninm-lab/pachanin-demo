@@ -15,9 +15,9 @@ describe('platform-v7 public registration and role-locked login', () => {
 
   it('keeps public registration visible without turning role cards into registration links', () => {
     expect(patch).toContain("headerLink.href = '/platform-v7/register';");
-    expect(patch).toContain("headerLink.textContent = 'Регистрация';");
+    expect(patch).toContain("headerLink.textContent = 'Оставить заявку';");
     expect(patch).toContain("heroLink.href = '/platform-v7/register';");
-    expect(patch).toContain("heroLink.textContent = 'Зарегистрироваться';");
+    expect(patch).toContain("heroLink.textContent = 'Оставить заявку';");
     expect(patch).toContain('tile.href = `/platform-v7/login?role=${role}`;');
     expect(patch).toContain("cta.textContent = 'Продолжить вход в этот ЛК';");
     expect(patch).not.toContain('tile.href = `/platform-v7/register?role=${role}`;');
