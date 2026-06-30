@@ -36,9 +36,55 @@ import '@/styles/platform-v7-mobile-reflow-p0.css';
 import '@/styles/platform-v7-shell-restore.css';
 import '@/styles/platform-v7-register-header-override.css';
 
+const siteUrl = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
+const platformUrl = `${siteUrl}/platform-v7`;
+
 export const metadata: Metadata = {
-  title: 'Прозрачная Цена',
-  description: 'Цифровой контур исполнения сделки и операционного контроля',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'Прозрачная Цена — цифровой контур исполнения зерновой сделки',
+    template: '%s | Прозрачная Цена',
+  },
+  description:
+    'Прозрачная Цена — controlled pilot / pre-integration контур исполнения зерновой сделки: логистика, приёмка, качество, документы, расчёт, спор и доказательства.',
+  applicationName: 'Прозрачная Цена',
+  keywords: [
+    'исполнение зерновой сделки',
+    'цифровой контур зерновой сделки',
+    'приёмка зерна',
+    'качество зерна',
+    'документы зерновой сделки',
+    'расчёт по зерновой сделке',
+    'спор по качеству зерна',
+    'логистика зерна',
+    'элеватор приёмка зерна',
+    'СДИЗ зерно документы',
+    'контроль исполнения сделки',
+    'агрофинтех зерно',
+  ],
+  alternates: {
+    canonical: platformUrl,
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'ru_RU',
+    url: platformUrl,
+    siteName: 'Прозрачная Цена',
+    title: 'Прозрачная Цена — цифровой контур исполнения зерновой сделки',
+    description:
+      'Контур controlled pilot / pre-integration для исполнения зерновой сделки: рейс, приёмка, качество, документы, расчёт, спор и доказательства.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-snippet': -1,
+      'max-image-preview': 'large',
+      'max-video-preview': -1,
+    },
+  },
 };
 
 const VALID_ROLES = new Set<PlatformRole>([
