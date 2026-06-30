@@ -16,7 +16,27 @@ const PUBLIC_PREFIX = [
   '/manifest',
   '/sw.js',
   '/mockServiceWorker.js',
+  '/indexnow.txt',
 ];
+
+const SEARCH_INDEXABLE_EXACT = new Set([
+  '/',
+  '/platform-v7',
+  '/platform-v7/open',
+  '/platform-v7/demo',
+  '/platform-v7/contact',
+  '/platform-v7/request',
+  '/platform-v7/docs',
+  '/platform-v7/help',
+  '/platform-v7/pricing',
+  '/platform-v7/roadmap',
+  '/platform-v7/about',
+  '/platform-v7/security',
+  '/platform-v7/status',
+  '/platform-v7/terms',
+  '/platform-v7/privacy',
+  '/platform-v7/oferta',
+]);
 
 const CANON_REDIRECTS: Record<string, string> = {
   '/canon/roles': '/platform-v7/roles',
@@ -94,7 +114,11 @@ function isPublic(p: string): boolean {
 
 function isPlatformV7PublicPath(p: string): boolean {
   const path = normalizePathname(p);
-  return PLATFORM_V7_PUBLIC_EXACT.has(path) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => path.startsWith(x));
+  return PLATFORM_V7_PUBLIC_EXACT.has(path) || SEARCH_INDEXABLE_EXACT.has(path) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => path.startsWith(x));
+}
+
+function isSearchIndexablePath(p: string): boolean {
+  return SEARCH_INDEXABLE_EXACT.has(normalizePathname(p));
 }
 
 function isCabinetAuthEndpoint(p: string): boolean {
@@ -180,8 +204,13 @@ async function isCabinetLockSessionAuthorized(req: NextRequest): Promise<boolean
   return Boolean(verifiedRole);
 }
 
-function applySecurityHeaders(response: NextResponse, protectedResponse = false) {
-  response.headers.set('x-robots-tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex');
+function applySecurityHeaders(response: NextResponse, protectedResponse = false, searchIndexableResponse = false) {
+  response.headers.set(
+    'x-robots-tag',
+    searchIndexableResponse
+      ? 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1'
+      : 'noindex, nofollow, noarchive, nosnippet, noimageindex',
+  );
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('x-frame-options', 'DENY');
   response.headers.set('referrer-policy', 'no-referrer');
@@ -287,14 +316,14 @@ function resolveRole(req: NextRequest, sessionRole?: string | null) {
   return 'operator';
 }
 
-function withRoleHeaders(req: NextRequest, role: string, protectedResponse = false) {
+function withRoleHeaders(req: NextRequest, role: string, protectedResponse = false, searchIndexableResponse = false) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
   requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('x-pc-role', role);
   response.headers.set('x-pc-pathname', req.nextUrl.pathname);
-  return applySecurityHeaders(response, protectedResponse);
+  return applySecurityHeaders(response, protectedResponse, searchIndexableResponse);
 }
 
 function persistRoleCookie(req: NextRequest, response: NextResponse, role: string) {
@@ -374,7 +403,8 @@ export async function middleware(req: NextRequest) {
       return redirectToPlatformV7Entry(req);
     }
 
-    const response = withRoleHeaders(req, resolvedRole, lockProtectedResponse);
+    const searchIndexableResponse = isSearchIndexablePath(path) && !lockProtectedResponse;
+    const response = withRoleHeaders(req, resolvedRole, lockProtectedResponse, searchIndexableResponse);
     persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
     try {
@@ -399,7 +429,8 @@ export async function middleware(req: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(login), true);
   }
 
-  const response = applySecurityHeaders(NextResponse.next(), lockProtectedResponse);
+  const searchIndexableResponse = isSearchIndexablePath(p) && !lockProtectedResponse;
+  const response = applySecurityHeaders(NextResponse.next(), lockProtectedResponse, searchIndexableResponse);
   persistRoleCookie(req, response, resolvedRole);
   return response;
 }
