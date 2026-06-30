@@ -6,15 +6,23 @@ import { platformV7RoleHome } from '@/components/platform-v7/PlatformV7SingleEnt
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const roles: PlatformRole[] = ['operator','buyer','seller','logistics','driver','elevator','lab','surveyor','bank','compliance','arbitrator','executive'];
+const publicDestinations = new Set(['/platform-v7/demo', '/platform-v7/contact']);
 
 function isRole(value: string | null): value is PlatformRole {
   return Boolean(value && roles.includes(value as PlatformRole));
 }
 
+function cleanPath(value: string | null) {
+  return value?.split('?')[0].replace(/\/$/, '') ?? null;
+}
+
 function hrefFromParams(params: URLSearchParams): string {
-  const role = isRole(params.get('role')) ? params.get('role') as PlatformRole : isRole(params.get('as')) ? params.get('as') as PlatformRole : 'seller';
   const rawNext = params.get('next') || params.get('redirect');
-  const next = rawNext && rawNext.startsWith('/platform-v7') && !rawNext.startsWith('/platform-v7/login') ? rawNext : platformV7RoleHome(role);
+  const cleanNext = cleanPath(rawNext);
+  if (cleanNext && publicDestinations.has(cleanNext)) return rawNext || cleanNext;
+
+  const role = isRole(params.get('role')) ? params.get('role') as PlatformRole : isRole(params.get('as')) ? params.get('as') as PlatformRole : 'seller';
+  const next = rawNext && rawNext.startsWith('/platform-v7') && !rawNext.startsWith('/platform-v7/login') && !rawNext.startsWith('/platform-v7/open') ? rawNext : platformV7RoleHome(role);
   return `/platform-v7/open?${new URLSearchParams({ role, next }).toString()}`;
 }
 
@@ -27,5 +35,5 @@ export default function PlatformV7LoginRedirectPage() {
     router.replace(href);
   }, [href, router]);
 
-  return <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, fontFamily: 'Inter, system-ui, sans-serif' }}>Открываю форму входа…</main>;
+  return <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, fontFamily: 'Inter, system-ui, sans-serif' }}>Открываю страницу…</main>;
 }
