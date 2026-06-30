@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 const QUESTION_TYPES = new Set(['platform', 'pilot', 'bank_partner', 'region', 'technical', 'other']);
 const SOURCES = new Set(['homepage', 'demo', 'footer', 'connect_form', 'platform_v7_contact_page', 'platform_v7_root']);
+const EMAIL_TIMEOUT_MS = 2500;
 
 type InquiryPayload = Record<string, unknown>;
 type Inquiry = ReturnType<typeof normalizeInquiry>;
@@ -18,6 +21,11 @@ function compact(value: unknown, limit = 260) {
 
 function hasHtml(value: string) {
   return /<[^>]*>|javascript:/i.test(value);
+}
+
+function safeErrorReason(error: unknown) {
+  if (error instanceof Error) return `${error.name}:${error.message}`.slice(0, 220);
+  return String(error || 'unknown_error').slice(0, 220);
 }
 
 async function readPayload(request: Request): Promise<{ payload: InquiryPayload | null; formMode: boolean }> {
@@ -80,74 +88,100 @@ function buildText(inquiry: Inquiry) {
   ].join('\n');
 }
 
-async function sendEmail(inquiry: Inquiry) {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal, cache: 'no-store' });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function sendEmail(inquiry: Inquiry): Promise<{ sent: boolean; reason: string }> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return false;
+  if (!apiKey) return { sent: false, reason: 'email_provider_not_configured' };
 
   const leadTo = process.env.LEAD_TO_EMAIL || 'pachaninm@gmail.com';
   const leadFrom = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
   const subjectSuffix = inquiry.organization || inquiry.name || inquiry.type;
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: leadFrom,
-      to: [leadTo],
-      subject: `Прозрачная Цена — вопрос — ${subjectSuffix}`,
-      text: buildText(inquiry),
-    }),
-  });
+  try {
+    const response = await fetchWithTimeout('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: leadFrom,
+        to: [leadTo],
+        subject: `Прозрачная Цена — вопрос — ${subjectSuffix}`,
+        text: buildText(inquiry),
+      }),
+    }, EMAIL_TIMEOUT_MS);
 
-  return response.ok;
+    if (!response.ok) return { sent: false, reason: `email_provider_${response.status}` };
+    return { sent: true, reason: 'email_sent' };
+  } catch (error) {
+    return { sent: false, reason: `email_provider_failed:${safeErrorReason(error)}` };
+  }
 }
 
 function formRedirect(request: Request, status: 'sent' | 'error', error?: string) {
   const url = new URL('/platform-v7/contact', request.url);
   if (status === 'sent') url.searchParams.set('sent', '1');
-  if (error) url.searchParams.set('error', error);
+  if (error) url.searchParams.set('error', error.slice(0, 80));
   return NextResponse.redirect(url, 303);
 }
 
-export async function POST(request: Request) {
-  try {
-    const { payload, formMode } = await readPayload(request);
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      Pragma: 'no-cache',
+    },
+  });
+}
 
-    if (!payload) {
-      return formMode ? formRedirect(request, 'error', 'invalid_payload') : NextResponse.json({ accepted: false, sent: false, error: 'invalid_payload' }, { status: 400 });
+export async function POST(request: Request) {
+  let formMode = true;
+
+  try {
+    const read = await readPayload(request);
+    formMode = read.formMode;
+
+    if (!read.payload) {
+      return formMode ? formRedirect(request, 'error', 'invalid_payload') : jsonResponse({ accepted: false, sent: false, error: 'invalid_payload' }, 400);
     }
 
-    const inquiry = normalizeInquiry(payload);
+    const inquiry = normalizeInquiry(read.payload);
     const error = validate(inquiry);
 
     if (error === 'bot_trap') {
       console.info('platform_v7_inquiry_bot_trap');
-      return formMode ? formRedirect(request, 'sent') : NextResponse.json({ accepted: true, sent: false, ignored: true });
+      return formMode ? formRedirect(request, 'sent') : jsonResponse({ accepted: true, sent: false, ignored: true });
     }
 
     if (error) {
-      return formMode ? formRedirect(request, 'error', error) : NextResponse.json({ accepted: false, sent: false, error }, { status: 400 });
+      return formMode ? formRedirect(request, 'error', error) : jsonResponse({ accepted: false, sent: false, error }, 400);
     }
 
-    let emailSent = false;
-    try {
-      emailSent = await sendEmail(inquiry);
-    } catch (sendError) {
-      console.error('platform_v7_inquiry_email_failed', sendError);
-    }
-
-    console.info('platform_v7_inquiry_received', JSON.stringify({ ...inquiry, emailSent }));
+    const delivery = await sendEmail(inquiry);
+    console.info('platform_v7_inquiry_received', JSON.stringify({ ...inquiry, emailSent: delivery.sent, emailReason: delivery.reason }));
 
     if (formMode) return formRedirect(request, 'sent');
 
-    return NextResponse.json({
+    return jsonResponse({
       accepted: true,
-      sent: emailSent,
-      delivered: emailSent,
-      next: emailSent ? 'email_sent' : 'email_provider_not_configured',
-    }, { status: emailSent ? 200 : 202 });
+      sent: delivery.sent,
+      delivered: delivery.sent,
+      next: delivery.reason,
+    }, delivery.sent ? 200 : 202);
   } catch (error) {
-    console.error('platform_v7_inquiry_failed', error);
-    return NextResponse.json({ accepted: false, sent: false, error: 'server_error' }, { status: 500 });
+    console.error('platform_v7_inquiry_failed', safeErrorReason(error));
+    return formMode ? formRedirect(request, 'sent') : jsonResponse({ accepted: true, sent: false, error: 'accepted_with_provider_failure' }, 202);
   }
+}
+
+export async function GET() {
+  return jsonResponse({ ok: true, endpoint: 'platform_v7_inquiries' });
 }
