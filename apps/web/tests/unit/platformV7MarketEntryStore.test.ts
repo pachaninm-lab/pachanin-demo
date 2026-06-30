@@ -31,4 +31,11 @@ describe('market entry intent storage', () => {
     storage.setItem('platform-v7.market-entry.intents.v1', 'not-json');
     expect(readMarketIntents(storage)).toEqual([]);
   });
+
+  it('returns the current draft when browser storage write fails', () => {
+    const draft = buildMarketIntentDraft('buy', '100', MARKET_PRICE_RECORDS[0], MARKET_ROUTE_QUOTES[0]);
+    const broken: MarketIntentStorageLike = { getItem: () => null, setItem: () => { throw new Error('blocked'); }, removeItem: () => { throw new Error('blocked'); } };
+    expect(saveMarketIntent(broken, draft!)).toHaveLength(1);
+    expect(() => clearMarketIntents(broken)).not.toThrow();
+  });
 });
