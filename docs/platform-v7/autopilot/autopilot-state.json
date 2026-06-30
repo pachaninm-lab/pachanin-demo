@@ -3,37 +3,56 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 audit read-model state sync after #2138 merge.",
+  "current": "SEO foundation for public indexation and lead entry after organic growth request.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2139",
+  "openPr": "#2146",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138"],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is repository settings cleanup. #2115 remains blocked by the current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
   "allowedCurrentScope": [
+    "apps/web/app/robots.ts",
+    "apps/web/app/sitemap.ts",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/voprosy-otvety/page.tsx",
+    "apps/web/app/platform-v7/prodavtsam/page.tsx",
+    "apps/web/app/platform-v7/pokupatelyam/page.tsx",
+    "apps/web/app/platform-v7/bezopasnaya-sdelka/page.tsx",
+    "apps/web/app/platform-v7/fgis-zerno-i-dokumenty/page.tsx",
+    "apps/web/components/platform-v7/PublicSeoLanding.tsx",
+    "docs/seo-organic-growth-foundation.md",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
+    "apps/web/app/robots.ts",
+    "apps/web/app/sitemap.ts",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/voprosy-otvety/page.tsx",
+    "apps/web/app/platform-v7/prodavtsam/page.tsx",
+    "apps/web/app/platform-v7/pokupatelyam/page.tsx",
+    "apps/web/app/platform-v7/bezopasnaya-sdelka/page.tsx",
+    "apps/web/app/platform-v7/fgis-zerno-i-dokumenty/page.tsx",
+    "apps/web/components/platform-v7/PublicSeoLanding.tsx",
+    "docs/seo-organic-growth-foundation.md",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "auditReadModelStateSync2139": {
-    "layer": "P0 audit read-model state sync after #2138 merge",
+  "seoFoundation2146": {
+    "layer": "Public organic growth foundation",
     "completedTargets": [
-      "record #2138 as merged",
-      "keep #2113 and #2115 as open blockers",
-      "select the next narrow docs-first queue layer",
-      "keep outbox, storage, DB persistence, runtime mutation and live integrations out of scope",
-      "keep readiness at 72%",
-      "keep controlled-pilot / pre-integration maturity language"
+      "open public crawl path through robots.ts",
+      "publish non-empty sitemap for public routes",
+      "add question and answer entry for potential clients",
+      "add public seller, buyer, safe deal and documents landing pages",
+      "keep maturity language at controlled-pilot / pre-integration",
+      "keep live bank, FGIS and EDO claims out of scope"
     ],
-    "nextCandidate": "P0 outbox boundary selection"
+    "nextCandidate": "knowledge base pages from real client questions plus analytics events"
   },
   "forbiddenZones": [
     "apps/landing",
-    "apps/web/app/platform-v7",
-    "apps/web/components/platform-v7",
+    "broad backend/API/DB/session/runtime/money/storage changes",
     "apps/web/components/v7r",
     "apps/web/lib/platform-v7",
     "apps/web/app/api",
@@ -44,5 +63,5 @@
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": ["maturity uplift", "live integration completion"],
-  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. #2115 remains blocked until an allowed auth-file write path is available."
+  "readiness": "72% honest readiness. SEO foundation improves discoverability and lead entry only; it does not raise product maturity or confirm live integrations. #2115 remains blocked until an allowed auth-file write path is available."
 }
