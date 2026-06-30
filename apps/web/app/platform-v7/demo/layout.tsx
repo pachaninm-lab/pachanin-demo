@@ -5,24 +5,33 @@ export default function PlatformV7DemoLayout({ children }: { children: ReactNode
     <>
       <style>{`
         html body .p7-demo-page {
-          padding-top: 86px !important;
+          --p7-demo-header-top: max(8px, env(safe-area-inset-top));
+          --p7-demo-header-height: 64px;
+          --p7-demo-header-gap: 18px;
+          padding-top: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
+          scroll-padding-top: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
         }
 
         html body .p7-demo-page > .p7-demo-header,
         html body .p7-demo-header {
           position: fixed !important;
-          top: max(8px, env(safe-area-inset-top)) !important;
+          top: var(--p7-demo-header-top) !important;
           left: clamp(14px, 4vw, 56px) !important;
           right: clamp(14px, 4vw, 56px) !important;
           width: auto !important;
-          height: 64px !important;
-          min-height: 64px !important;
-          max-height: 64px !important;
+          height: var(--p7-demo-header-height) !important;
+          min-height: var(--p7-demo-header-height) !important;
+          max-height: var(--p7-demo-header-height) !important;
           z-index: 7000 !important;
           padding: 8px 106px 8px 12px !important;
           display: block !important;
           overflow: hidden !important;
           transform: none !important;
+        }
+
+        html body .p7-demo-page > .p7-demo-hero {
+          margin-top: 0 !important;
+          padding-top: 0 !important;
         }
 
         html body .p7-demo-header .p7-demo-brand {
@@ -69,12 +78,14 @@ export default function PlatformV7DemoLayout({ children }: { children: ReactNode
 
         @media (max-width: 860px) {
           html body .p7-demo-page {
-            padding-top: 82px !important;
+            --p7-demo-header-top: max(6px, env(safe-area-inset-top));
+            --p7-demo-header-gap: 16px;
+            padding-top: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
           }
 
           html body .p7-demo-page > .p7-demo-header,
           html body .p7-demo-header {
-            top: max(6px, env(safe-area-inset-top)) !important;
+            top: var(--p7-demo-header-top) !important;
             left: 8px !important;
             right: 8px !important;
             padding-right: 98px !important;
@@ -83,7 +94,8 @@ export default function PlatformV7DemoLayout({ children }: { children: ReactNode
 
         @media (max-width: 520px) {
           html body .p7-demo-page {
-            padding-top: 80px !important;
+            --p7-demo-header-gap: 16px;
+            padding-top: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
           }
 
           html body .p7-demo-page > .p7-demo-header,
