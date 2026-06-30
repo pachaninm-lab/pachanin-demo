@@ -77,12 +77,12 @@ function ensureRequestEntry(root: ParentNode) {
   strip.innerHTML = `
     <div class="entry-action-card entry-action-card-contact">
       <strong>Обращение по платформе</strong>
-      <span>Вопрос по демо, доступу, подключению, банку, региону или техническому взаимодействию.</span>
+      <span>Вопрос по демонстрационному доступу, подключению организации, банковскому взаимодействию, региональному запуску или техническому подключению.</span>
       <a href="/platform-v7/contact">Направить обращение</a>
     </div>
     <div class="entry-action-card entry-action-card-review">
       <strong>Разбор сделки</strong>
-      <span>Заявка на демонстрацию controlled pilot и разбор сценария исполнения сделки.</span>
+      <span>Заявка на демонстрацию платформы и предварительное обсуждение сценария исполнения сделки.</span>
       <a href="/platform-v7/request">Оставить заявку</a>
     </div>
     <div class="entry-action-card entry-action-card-register">
@@ -115,7 +115,7 @@ function ensureRegistrationEntry(root: ParentNode) {
     tile.dataset.entryRegister = 'role-login';
     persistPendingRole(tile, role);
     const cta = tile.querySelector('em');
-    if (cta) cta.textContent = 'Продолжить вход в этот ЛК';
+    if (cta) cta.textContent = 'Перейти ко входу';
   });
 
   ensureRequestEntry(root);
