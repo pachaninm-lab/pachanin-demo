@@ -45,8 +45,28 @@ function persistPendingRole(link: HTMLAnchorElement, role: string) {
   link.onclick = () => window.sessionStorage?.setItem(PENDING_ROLE_KEY, role);
 }
 
+function restoreActionLinks(root: ParentNode) {
+  const pairs = [
+    ['.entry-action-card-contact a', '/platform-v7/contact'],
+    ['.entry-action-card-review a', '/platform-v7/request'],
+    ['.entry-action-card-register a', '/platform-v7/register'],
+  ] as const;
+
+  pairs.forEach(([selector, href]) => {
+    root.querySelectorAll<HTMLAnchorElement>(selector).forEach((link) => {
+      link.href = href;
+      link.setAttribute('href', href);
+      link.dataset.publicActionHref = href;
+    });
+  });
+}
+
 function ensureRequestEntry(root: ParentNode) {
-  if (root.querySelector('[data-entry-request="actions"]')) return;
+  const existing = root.querySelector('[data-entry-request="actions"]');
+  if (existing) {
+    restoreActionLinks(root);
+    return;
+  }
   const hero = root.querySelector<HTMLElement>('.entry-hero');
   if (!hero) return;
 
@@ -72,6 +92,7 @@ function ensureRequestEntry(root: ParentNode) {
     </div>
   `;
   hero.after(strip);
+  restoreActionLinks(root);
 }
 
 function ensureRegistrationEntry(root: ParentNode) {
@@ -122,7 +143,7 @@ export function PublicRegistrationEntryPatch() {
       if (root) ensureRegistrationEntry(root);
     }
     const raf = window.requestAnimationFrame(sync);
-    const timers = [80, 220, 600, 1200].map((delay) => window.setTimeout(sync, delay));
+    const timers = [80, 220, 600, 1200, 2200].map((delay) => window.setTimeout(sync, delay));
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(raf);
