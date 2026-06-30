@@ -10,6 +10,12 @@ export default function robots(): MetadataRoute.Robots {
         allow: [
           '/',
           '/platform-v7',
+          '/platform-v7/secure-grain-deal',
+          '/platform-v7/grain-logistics',
+          '/platform-v7/grain-quality',
+          '/platform-v7/grain-documents',
+          '/platform-v7/grain-payment',
+          '/platform-v7/fgis-zerno',
           '/platform-v7/about',
           '/platform-v7/demo',
           '/platform-v7/docs',
