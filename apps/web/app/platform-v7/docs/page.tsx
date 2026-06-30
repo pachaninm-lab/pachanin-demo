@@ -22,7 +22,7 @@ const documentLayers = [
   { title: 'Акты и приёмка', text: 'Факт поставки, вес и расхождения фиксируются до окончательного расчёта.', icon: BadgeCheck },
   { title: 'Качество', text: 'Лабораторные показатели учитываются до формирования основания для оплаты.', icon: ShieldCheck },
   { title: 'Основание для расчёта', text: 'Финансовый контур получает проверяемый набор событий и документов.', icon: Landmark },
-  { title: 'Спор и доказательства', text: 'Разбор идёт по журналу событий, документам, приёмке и качеству.', icon: Scale },
+  { title: 'Спор и доказательства', text: 'Разбор спорной ситуации ведётся по журналу событий, документам, приёмке и качеству.', icon: Scale },
 ];
 
 export default function PlatformV7DocsPage() {
@@ -31,14 +31,14 @@ export default function PlatformV7DocsPage() {
       <style>{css}</style>
       <header className='p7-docs-header' aria-label='Навигация страницы документов'>
         <Link href='/platform-v7' className='p7-docs-brand' aria-label='На главную Прозрачная Цена'><span><Wheat size={24} /></span><strong>Прозрачная Цена</strong></Link>
-        <nav className='p7-docs-nav' aria-label='Действия'><Link href='/platform-v7/demo'>Демо</Link><Link href='/platform-v7/contact'>Задать вопрос</Link><Link href='/platform-v7/register'>Подключить организацию</Link></nav>
+        <nav className='p7-docs-nav' aria-label='Действия'><Link href='/platform-v7/demo'>Демонстрация</Link><Link href='/platform-v7/contact'>Обращение</Link><Link href='/platform-v7/register'>Подключить организацию</Link></nav>
       </header>
 
       <section className='p7-docs-hero' aria-labelledby='docs-title'>
         <span className='p7-docs-kicker'>Документный контур сделки</span>
-        <h1 id='docs-title'>Документы должны подтверждать исполнение, а не догонять сделку после спора</h1>
-        <p>Прозрачная Цена связывает СДИЗ, ЭДО, транспортные документы, акты, приёмку, качество, расчёт и доказательства в одном controlled pilot / pre-integration контуре.</p>
-        <div className='p7-docs-actions'><Link href='/platform-v7/demo'>Посмотреть демо-сделку<ArrowRight size={18} /></Link><Link href='/platform-v7/contact'>Задать вопрос</Link></div>
+        <h1 id='docs-title'>Документы должны подтверждать исполнение сделки</h1>
+        <p>Прозрачная Цена связывает СДИЗ, ЭДО, транспортные документы, акты, приёмку, качество, расчёт и доказательства в едином контуре исполнения зерновой сделки.</p>
+        <div className='p7-docs-actions'><Link href='/platform-v7/demo'>Демонстрационная сделка<ArrowRight size={18} /></Link><Link href='/platform-v7/contact'>Направить обращение</Link></div>
       </section>
 
       <section className='p7-docs-grid' aria-label='Слои документного контроля'>
@@ -47,7 +47,7 @@ export default function PlatformV7DocsPage() {
 
       <section className='p7-docs-note' aria-labelledby='docs-boundary-title'>
         <h2 id='docs-boundary-title'>Граница текущей готовности</h2>
-        <p>Этот раздел описывает целевой документный контур controlled pilot / pre-integration. Боевые интеграции с ФГИС, ЭДО, банком и другими внешними системами не заявляются как подключённые, пока они не подтверждены договорами, доступами и реальными подключениями.</p>
+        <p>Раздел описывает целевой документный контур платформы. Интеграции с ФГИС, ЭДО, банком и другими внешними системами не заявляются как подключённые, пока они не подтверждены договорами, доступами и реальными подключениями.</p>
       </section>
     </main>
   );
