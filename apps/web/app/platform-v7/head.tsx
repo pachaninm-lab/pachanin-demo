@@ -3,6 +3,7 @@ const platformUrl = `${siteUrl}/platform-v7`;
 const demoUrl = `${siteUrl}/platform-v7/demo`;
 const contactUrl = `${siteUrl}/platform-v7/contact`;
 const docsUrl = `${siteUrl}/platform-v7/docs`;
+const aboutUrl = `${siteUrl}/platform-v7/about`;
 
 const semanticTopics = [
   'цифровой контур исполнения зерновой сделки',
@@ -122,6 +123,7 @@ const structuredData = {
         { '@type': 'ListItem', position: 2, name: 'Демо-сделка', url: demoUrl },
         { '@type': 'ListItem', position: 3, name: 'Задать вопрос', url: contactUrl },
         { '@type': 'ListItem', position: 4, name: 'Документный контур сделки', url: docsUrl },
+        { '@type': 'ListItem', position: 5, name: 'О проекте и контуре исполнения', url: aboutUrl },
       ],
     },
   ],
