@@ -53,12 +53,16 @@ const PLATFORM_V7_ENTRY_COOKIE = 'pc_v7_entry_seen';
 const PRIVATE_REALM = 'Prozrachnaya Cena Private';
 const CABINET_LOCK_LOGIN_API = '/api/platform-v7/cabinet-lock-login';
 const CABINET_SESSION_API = '/api/platform-v7/cabinet-session';
+const PLATFORM_V7_INQUIRIES_API = '/api/platform-v7/inquiries';
 
 const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7',
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
+  '/platform-v7/demo',
+  '/platform-v7/contact',
+  '/platform-v7/docs',
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
@@ -87,7 +91,7 @@ function isPlatformV7PublicPath(p: string): boolean {
 }
 
 function isCabinetAuthEndpoint(p: string): boolean {
-  return p === CABINET_LOCK_LOGIN_API || p === CABINET_SESSION_API;
+  return p === CABINET_LOCK_LOGIN_API || p === CABINET_SESSION_API || p === PLATFORM_V7_INQUIRIES_API;
 }
 
 function isCabinetLockedPath(p: string): boolean {
