@@ -3,9 +3,21 @@ name: CI
 on:
   workflow_dispatch:
   pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig*.json'
   push:
     branches:
       - main
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig*.json'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
