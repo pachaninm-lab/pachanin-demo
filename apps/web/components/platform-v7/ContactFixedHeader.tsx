@@ -1,8 +1,36 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { ChevronLeft, HelpCircle } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
 
 export function ContactFixedHeader() {
+  useEffect(() => {
+    const applyOffset = () => {
+      const page = document.querySelector<HTMLElement>('.p7-contact-page');
+      const layout = document.querySelector<HTMLElement>('.p7-contact-layout');
+      const header = document.querySelector<HTMLElement>('.p7-contact-fixed-header');
+      if (!page || !header) return;
+
+      const headerHeight = Math.ceil(header.getBoundingClientRect().height);
+      const offset = Math.max(headerHeight + 32, window.innerWidth <= 760 ? 136 : 144);
+      page.style.paddingTop = `${offset}px`;
+      if (layout) layout.style.paddingTop = '0px';
+    };
+
+    applyOffset();
+    window.addEventListener('resize', applyOffset);
+    window.addEventListener('orientationchange', applyOffset);
+    const timer = window.setTimeout(applyOffset, 120);
+
+    return () => {
+      window.removeEventListener('resize', applyOffset);
+      window.removeEventListener('orientationchange', applyOffset);
+      window.clearTimeout(timer);
+    };
+  }, []);
+
   return (
     <>
       <header className='p7-contact-fixed-header' aria-label='Шапка страницы обращения'>
