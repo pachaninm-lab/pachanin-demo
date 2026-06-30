@@ -34,8 +34,8 @@ export function MarketEntryFoundation() {
   </main>;
 }
 
-const box = { display: 'grid', gap: 10, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16 };
-const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 14 };
-const muted = { color: 'var(--pc-text-secondary)' };
-const input = { padding: 12, borderRadius: 12, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-card)', color: 'var(--pc-text-primary)' };
-const button = { minHeight: 42, borderRadius: 12, border: '1px solid #0A7A5F', background: '#0A7A5F', color: '#fff', fontWeight: 900 };
+const box: React.CSSProperties = { display: 'grid', gap: 10, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16 };
+const grid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 14 };
+const muted: React.CSSProperties = { color: 'var(--pc-text-secondary)' };
+const input: React.CSSProperties = { padding: 12, borderRadius: 12, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-card)', color: 'var(--pc-text-primary)' };
+const button: React.CSSProperties = { minHeight: 42, borderRadius: 12, border: '1px solid #0A7A5F', background: '#0A7A5F', color: '#fff', fontWeight: 900 };
