@@ -3,9 +3,9 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 audit read-model state sync after #2138 merge.",
+  "current": "P0 market-entry page boundary selection.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2139",
+  "openPr": "market-entry-scope-selection",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138"],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is repository settings cleanup. #2115 remains blocked by the current auth-file write path.",
@@ -18,21 +18,23 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "auditReadModelStateSync2139": {
-    "layer": "P0 audit read-model state sync after #2138 merge",
+  "marketEntryPageScopeSelection": {
+    "layer": "P0 market-entry page boundary selection",
     "completedTargets": [
-      "record #2138 as merged",
-      "keep #2113 and #2115 as open blockers",
-      "select the next narrow docs-first queue layer",
-      "keep outbox, storage, DB persistence, runtime mutation and live integrations out of scope",
-      "keep readiness at 72%",
-      "keep controlled-pilot / pre-integration maturity language"
+      "close wide failed market-entry PRs before app implementation",
+      "select a narrow follow-up route-only implementation layer",
+      "keep shell, RBAC, bank, deal runtime, API routes, localStorage handoff and durable storage out of the implementation layer",
+      "allow only one app route file in the follow-up implementation PR",
+      "keep maturity at controlled-pilot / pre-integration",
+      "keep readiness at 72%"
     ],
-    "nextCandidate": "P0 outbox boundary selection"
+    "nextCandidate": "P0 market-entry minimal route implementation",
+    "nextAllowedScope": [
+      "apps/web/app/platform-v7/market-entry/page.tsx"
+    ]
   },
   "forbiddenZones": [
     "apps/landing",
-    "apps/web/app/platform-v7",
     "apps/web/components/platform-v7",
     "apps/web/components/v7r",
     "apps/web/lib/platform-v7",
@@ -44,5 +46,5 @@
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": ["maturity uplift", "live integration completion"],
-  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. #2115 remains blocked until an allowed auth-file write path is available."
+  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. #2115 remains blocked until an allowed auth-file write path is available. Market-entry is selected as a route-only follow-up layer, not a production runtime or integration claim."
 }
