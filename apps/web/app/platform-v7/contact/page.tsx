@@ -1,5 +1,24 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, HelpCircle, LogIn, MessageSquareText, ShieldCheck, Wheat } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'Задать вопрос — пилот, банк, регион и подключение',
+  description:
+    'Форма обращения по платформе Прозрачная Цена: демонстрационный режим, controlled pilot, банковский контур, региональный запуск, роли участников и техническое подключение.',
+  alternates: {
+    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/contact',
+  },
+  openGraph: {
+    title: 'Задать вопрос — Прозрачная Цена',
+    description:
+      'Связаться по пилоту, подключению организации, банковскому контуру, региональному запуску или техническому взаимодействию с платформой.',
+    url: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/contact',
+    siteName: 'Прозрачная Цена',
+    locale: 'ru_RU',
+    type: 'website',
+  },
+};
 
 type ContactSearchParams = Record<string, string | string[] | undefined>;
 
