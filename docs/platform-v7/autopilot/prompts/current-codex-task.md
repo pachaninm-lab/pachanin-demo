@@ -1,4 +1,4 @@
-# Codex current task — Role cabinet functional pass
+# Codex current task — P0 market-entry page boundary selection
 
 Maturity: controlled-pilot / pre-integration.
 
@@ -12,29 +12,28 @@ Do not overstate maturity. Do not imply external connections are active. Do not 
 
 ## Current step
 
-Role cabinet functional pass: every role cabinet must show within the first screen:
+Docs-only scope selection for the future `/platform-v7/market-entry` route.
 
-1. what happened;
-2. what is blocked;
-3. money impact;
-4. responsible party;
-5. evidence basis;
-6. one next action.
+The current PR must only update source-of-truth docs. It must not implement app code.
 
 ## Allowed current scope
 
 Use only the exact paths listed in `allowedCurrentScope` in `autopilot-state.json`.
 
-## Implementation order
+## Next implementation candidate
 
-Start with seller. Then buyer, bank, operator, compliance, lab/elevator and field roles in separate small PRs.
+After this docs PR is green and merged, the next PR may target only:
+
+- `apps/web/app/platform-v7/market-entry/page.tsx`
+
+That follow-up implementation must be route-only and server-rendered: no client hooks, no localStorage, no handoff, no API route, no storage, no shell, no RBAC, no bank, no deal runtime and no money movement.
 
 ## Acceptance criteria
 
 - no apps/landing diff;
 - no package or lockfile diff;
+- no app implementation diff in this docs PR;
 - no backend/persistence/external-connectivity changes;
 - no fake maturity claims;
-- one primary action per role screen;
-- buttons route to a real page, action, or section anchor;
+- readiness remains 72%;
 - GitHub Actions and Netlify checks green before merge.
