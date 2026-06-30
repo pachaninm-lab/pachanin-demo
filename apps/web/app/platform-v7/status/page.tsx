@@ -1,4 +1,18 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Статус контура — Прозрачная Цена',
+  description:
+    'Честный статус controlled pilot / pre-integration контура: ФГИС, банк, ЭДО, лаборатории, внешние доступы и готовность к проверке.',
+  alternates: {
+    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/status',
+  },
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 const SERVICES = [
   {
