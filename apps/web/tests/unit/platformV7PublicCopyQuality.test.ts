@@ -10,6 +10,7 @@ const files = [
   'apps/web/app/platform-v7/open/page.tsx',
   'apps/web/app/platform-v7/register/page.tsx',
   'apps/web/app/platform-v7/docs/page.tsx',
+  'apps/web/lib/platform-v7/shellRoutes.ts',
 ].map((file) => [file, fs.readFileSync(path.join(process.cwd(), file), 'utf8')] as const);
 
 const banned = [
@@ -25,13 +26,17 @@ const banned = [
   'Задать вопрос',
   'Посмотреть демо-сделку',
   'догонять сделку',
+  'Блокеры',
   'блокеры',
+  'Evidence',
+  'Спорность',
+  'База',
   'Выход',
   'email для ответа',
 ];
 
 describe('platform-v7 public copy quality', () => {
-  it('keeps public copy free of internal and artificial wording', () => {
+  it('keeps public copy and role navigation free of internal and artificial wording', () => {
     for (const [file, source] of files) {
       for (const phrase of banned) {
         expect(source, `${file} must not contain ${phrase}`).not.toContain(phrase);
@@ -47,5 +52,14 @@ describe('platform-v7 public copy quality', () => {
     expect(actions).toContain('/platform-v7/request');
     expect(actions).toContain('Перейти к регистрации');
     expect(actions).toContain('/platform-v7/register');
+  });
+
+  it('keeps protected role navigation understandable', () => {
+    const routes = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/shellRoutes.ts'), 'utf8');
+    expect(routes).toContain('Задержки');
+    expect(routes).toContain('Доказательства');
+    expect(routes).toContain('Фотофиксация');
+    expect(routes).toContain('Риск обхода');
+    expect(routes).toContain('Журнал');
   });
 });
