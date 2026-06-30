@@ -16,6 +16,7 @@ export default function robots(): MetadataRoute.Robots {
           '/platform-v7/contact',
           '/platform-v7/request',
           '/platform-v7/security',
+          '/platform-v7/status',
           '/platform-v7/terms',
           '/platform-v7/privacy',
           '/platform-v7/oferta',
