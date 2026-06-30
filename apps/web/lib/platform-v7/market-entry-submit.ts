@@ -18,9 +18,9 @@ export async function submitMarketIntent(input: SubmitMarketIntentInput, fetcher
       body: JSON.stringify(input),
     });
     const payload = await response.json();
-    if (!response.ok) return { status: 'rejected', draft: null, message: payload.message || 'Сервер отклонил намерение.' };
+    if (!response.ok) return { status: 'rejected', draft: null, message: payload.message || 'Сервер отклонил намерение.', durableStatus: 'not_attempted' };
     return payload;
   } catch {
-    return { status: 'rejected', draft: null, message: 'API намерений недоступен.' };
+    return { status: 'rejected', draft: null, message: 'API намерений недоступен.', durableStatus: 'not_attempted' };
   }
 }
