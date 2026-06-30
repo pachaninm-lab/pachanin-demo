@@ -52,7 +52,7 @@ function ensureRegistrationEntry(root: ParentNode) {
     headerLink.href = '/platform-v7/register';
     headerLink.className = 'entry-register';
     headerLink.dataset.entryRegister = 'header';
-    headerLink.textContent = 'Регистрация';
+    headerLink.textContent = 'Оставить заявку';
     const loginLink = headerActions.querySelector('.entry-login');
     loginLink?.after(headerLink) ?? headerActions.prepend(headerLink);
   }
@@ -65,7 +65,7 @@ function ensureRegistrationEntry(root: ParentNode) {
       heroLink.classList.remove('entry-text-cta');
       heroLink.classList.add('entry-register-cta');
       heroLink.dataset.entryRegister = 'hero';
-      heroLink.textContent = 'Зарегистрироваться';
+      heroLink.textContent = 'Оставить заявку';
     }
   }
 
