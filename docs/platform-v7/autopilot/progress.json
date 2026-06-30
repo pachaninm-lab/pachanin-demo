@@ -6,7 +6,7 @@
   "openPr": "#2154",
   "blockedBy": ["#2113", "#2115"],
   "nextStep": "After #2154 is green and merged, open a separate route-only PR for apps/web/app/platform-v7/market-entry/page.tsx. Do not add API routes, localStorage handoff, storage, shell, RBAC, bank, deal runtime, money movement, package or lockfile changes.",
-  "updatedAt": "2026-06-30T20:40:00.000Z",
+  "updatedAt": "2026-07-01T00:00:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
