@@ -137,6 +137,22 @@ Relevant roles:
 - elevator
 - lab
 
+### Trust and stage clarity
+
+Intent: explain what the project is, what it is not, and where the current readiness boundary is.
+
+Phrases:
+
+- о проекте Прозрачная Цена
+- цифровой контур сделки controlled pilot
+- pre-integration платформа зерновой сделки
+- контур исполнения сделки без объявления production ready
+- доверие и прозрачность зерновой сделки
+
+Relevant public URL:
+
+- /platform-v7/about
+
 ## Negative or low-priority traffic
 
 These phrases are not primary SEO targets because they attract broad marketplace traffic and may reduce lead quality:
@@ -156,6 +172,29 @@ Use only if a future public page clearly connects the query to execution control
 - /platform-v7: main public semantic landing for execution contour.
 - /platform-v7/demo: proof-of-flow, no live transaction claims.
 - /platform-v7/contact: qualified inquiry, partnership, pilot, bank or regional discussion.
+- /platform-v7/docs: document contour, SDIZ, EDO, acts, acceptance, quality, payment basis and evidence.
+- /platform-v7/about: project positioning, trust layer and readiness boundary without fake company contacts.
+
+## Public URL inventory
+
+Indexed through sitemap and discovery:
+
+- /platform-v7
+- /platform-v7/demo
+- /platform-v7/contact
+- /platform-v7/docs
+- /platform-v7/about
+
+Submitted through IndexNow script:
+
+- /platform-v7
+- /platform-v7/demo
+- /platform-v7/contact
+- /platform-v7/docs
+- /platform-v7/about
+- /sitemap.xml
+- /robots.txt
+- /discovery.txt
 
 ## Copy guardrails
 
@@ -177,6 +216,8 @@ Not allowed unless externally confirmed:
 - guaranteed payment
 - fully automated settlement
 - no analogues
+- fake company details
+- demo emails or placeholder phone numbers on public trust pages
 
 ## Next external discovery layer
 
@@ -198,7 +239,9 @@ Priority external content themes:
 Track:
 
 - /platform-v7 visits
-- demo clicks
+- /platform-v7/demo visits
+- /platform-v7/docs visits
+- /platform-v7/about visits
 - contact form opens
 - contact form submits
 - register clicks
