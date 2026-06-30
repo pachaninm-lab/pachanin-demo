@@ -15,10 +15,10 @@ export function PlatformV7LeadCapture() {
         <span className='p7-lead-kicker'><ShieldCheck size={16} /> Заявка на демонстрацию</span>
         <h2 id='p7-lead-title'>Заявка на демонстрацию и разбор сделки</h2>
         <p>Официальный канал для запроса демонстрации, обсуждения пилотного проекта, подключения организации, банковского взаимодействия или регионального запуска.</p>
-        <div className='p7-lead-proof' aria-label='Порядок рассмотрения заявки'>
-          <span><CheckCircle2 size={17} /> заявка регистрируется</span>
-          <span><CheckCircle2 size={17} /> контакт используется для ответа</span>
-          <span><CheckCircle2 size={17} /> доступ к рабочим данным не предоставляется</span>
+        <div className='p7-lead-proof' aria-label='Что можно обсудить после заявки'>
+          <span><CheckCircle2 size={17} /> сценарий исполнения сделки</span>
+          <span><CheckCircle2 size={17} /> формат демонстрации платформы</span>
+          <span><CheckCircle2 size={17} /> условия пилотного подключения</span>
         </div>
       </div>
 
@@ -55,7 +55,7 @@ export function PlatformV7LeadCapture() {
         </label>
         <label>
           <em>Комментарий</em>
-          <textarea name='message' rows={3} placeholder='Кратко опишите вопрос, сценарий пилота или предполагаемый формат взаимодействия.' />
+          <textarea name='message' rows={3} placeholder='Кратко опишите вопрос, сценарий пилотного проекта или предполагаемый формат взаимодействия.' />
         </label>
         <label className='p7-lead-consent'>
           <input name='consent' type='checkbox' value='yes' required />
