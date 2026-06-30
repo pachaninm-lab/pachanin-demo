@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 const cardCopy = [
   ['Без входа в кабинет', 'Форма доступна без авторизации и выбора роли участника.'],
   ['Без доступа к рабочим данным', 'Отправка обращения не открывает сделки, документы и закрытые разделы платформы.'],
-  ['Ответ по указанному контакту', 'Контакт используется для рассмотрения обращения и направления ответа.'],
+  ['Ответ по указанному контакту', 'Контакт используется только для рассмотрения обращения и направления ответа.'],
 ] as const;
 
 function text(selector: string, value: string) {
@@ -29,7 +29,7 @@ function applyCopy() {
   text('.p7-contact-form h2', 'Форма обращения');
   text('.p7-contact-form > p', 'Заполните обязательные поля. Не указывайте пароли, ключи доступа, банковские реквизиты и копии документов.');
   const labels = Array.from(document.querySelectorAll<HTMLElement>('.p7-contact-form label > span'));
-  ['Тема обращения', 'Имя', 'Организация', 'Телефон или email', 'Содержание обращения'].forEach((value, index) => {
+  ['Тема обращения', 'Имя', 'Организация', 'Телефон или электронная почта', 'Содержание обращения'].forEach((value, index) => {
     if (labels[index]) labels[index].textContent = value;
   });
   const options: Record<string, string> = {
@@ -45,7 +45,7 @@ function applyCopy() {
     if (value) option.textContent = value;
   });
   const message = document.querySelector<HTMLTextAreaElement>('.p7-contact-form textarea[name="message"]');
-  if (message) message.placeholder = 'Кратко опишите вопрос, сценарий пилота, роль организации или требуемый формат взаимодействия.';
+  if (message) message.placeholder = 'Кратко опишите вопрос, параметры пилотного проекта, роль организации или требуемый формат взаимодействия.';
   text('.p7-contact-consent span', 'Даю согласие на обработку указанных данных для рассмотрения обращения и направления ответа.');
   const button = document.querySelector<HTMLButtonElement>('.p7-contact-form button');
   if (button?.firstChild) button.firstChild.textContent = 'Отправить обращение';
