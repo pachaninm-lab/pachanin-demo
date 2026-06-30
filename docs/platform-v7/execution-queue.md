@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: P0 audit read-model state sync after #2138 merge.
+CURRENT: P0 market-entry page boundary selection.
 
-GOAL: record the merged audit read-model boundary and select the next narrow docs-first queue layer without widening platform-v7 scope.
+GOAL: select a narrow route-only market-entry implementation layer without widening platform-v7 runtime, shell, RBAC, bank, deal, API, storage or integration scope.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
@@ -22,36 +22,38 @@ CURRENT STATUS:
 - #2130 is merged: money integer state sync after #2129 is complete.
 - #2131 is merged: ledger source-of-truth selection is complete.
 - #2132 is merged: isolated ledger source boundary implementation is active.
-- #2133 is merged: ledger source state sync after #2132 is complete.
+- #2133 is merged: ledger source state sync after #2132 merge is complete.
 - #2134 is merged: ledger invariants implementation scope selection is complete.
 - #2135 is merged: isolated read-only ledger invariants boundary is active.
-- #2136 is merged: ledger invariants state sync after #2135 is complete.
+- #2136 is merged: ledger invariants state sync after #2135 merge is complete.
 - #2137 is merged: audit read-model boundary selection is complete.
 - #2138 is merged: isolated audit read-model boundary is active.
-- Current layer is docs-only audit read-model state sync.
+- Wide market-entry R&D PRs are closed without merge because current scope was docs-only.
+- Current layer remains docs-only and selects the next narrow app route layer.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- record #2138 as merged;
+- record that #2152 and #2153 are not production paths;
+- select one route-only follow-up layer for `/platform-v7/market-entry`;
 - keep #2113 and #2115 as open blockers unless source-of-truth changes;
-- select the next narrow docs-first queue layer;
-- keep apps/landing, apps/web, API controllers, DB, audit mutation, outbox implementation, storage, runtime and live integrations out of scope;
+- keep apps/landing, broad apps/web runtime, API controllers, DB, audit mutation, outbox implementation, storage, runtime and live integrations out of scope;
 - maturity remains controlled-pilot / pre-integration;
 - readiness remains 72%;
 - no package or lockfile changes.
 
 NEXT:
-- Layer: P0 outbox boundary selection.
+- Layer: P0 market-entry minimal route implementation.
 - Allowed files:
-  - docs/platform-v7/autopilot/autopilot-state.json
-  - docs/platform-v7/execution-queue.md
+  - apps/web/app/platform-v7/market-entry/page.tsx
 - Success criteria:
-  - select an isolated outbox source/read boundary before any implementation;
-  - no DB persistence, queue runner, webhook sender, live integration, storage or runtime mutation;
-  - no forbidden zone, fake-live claim or readiness uplift;
+  - add only a server-rendered route page;
+  - no client hooks, localStorage, API route, handoff, storage, shell, RBAC, bank, deal runtime or money movement;
+  - no automatic deal creation;
+  - no forbidden zone beyond the single allowed route file;
+  - no fake-live claim or readiness uplift;
   - keep status controlled-pilot / pre-integration;
   - readiness remains 72%.
 
@@ -74,9 +76,9 @@ ORDER:
 16. P0 route-scope state sync is active from #2124.
 17. P0 canonical data boundary selection is active from #2125.
 18. P0 canonical data implementation boundary is active from #2126.
-19. P0 canonical data state sync is active from #2127.
+19. P0 canonical data state sync after #2126 merge is active from #2127.
 20. P0 money integer basis boundary selection is active from #2128.
-21. P0 money integer basis boundary implementation is active from #2129.
+21. P0 money integer basis implementation is active from #2129.
 22. P0 money integer state sync after #2129 is active from #2130.
 23. P0 ledger source-of-truth selection is active from #2131.
 24. P0 ledger source-of-truth implementation boundary is active from #2132.
@@ -86,7 +88,7 @@ ORDER:
 28. P0 ledger invariants state sync after #2135 merge is active from #2136.
 29. P0 audit read-model boundary selection is active from #2137.
 30. P0 audit read-model boundary implementation is active from #2138.
-31. P0 audit read-model state sync after #2138 merge is current.
+31. P0 market-entry page boundary selection is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -95,7 +97,7 @@ RULES:
 - no fake-live integration claims;
 - no production-ready claims;
 - no broad backend/API/DB/auth/session/runtime/money/storage rewrite inside the current boundary layer;
-- Netlify plus GitHub Actions green before merge.
+- Netlify plus GitHub checks green before merge.
 
 DONE:
 - #2111 P0 auth/session cabinet-session body-role guard.
@@ -110,7 +112,7 @@ DONE:
 - #2126 P0 canonical data source-of-truth implementation boundary.
 - #2127 P0 canonical data state sync after #2126 merge.
 - #2128 P0 money integer basis boundary selection.
-- #2129 P0 money integer basis boundary implementation.
+- #2129 P0 money integer basis implementation.
 - #2130 P0 money integer state sync after #2129 merge.
 - #2131 P0 ledger source-of-truth selection.
 - #2132 P0 ledger source-of-truth implementation boundary.
@@ -121,4 +123,4 @@ DONE:
 - #2137 P0 audit read-model boundary selection.
 - #2138 P0 audit read-model boundary implementation.
 
-READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger mutation, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete.
+READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger mutation, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete. Market-entry route selection does not change maturity or readiness.
