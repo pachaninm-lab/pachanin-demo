@@ -1,0 +1,33 @@
+name: IndexNow Submit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/web/app/sitemap.ts'
+      - 'apps/web/app/robots.ts'
+      - 'apps/web/middleware.ts'
+      - 'apps/web/app/layout.tsx'
+      - 'apps/web/app/platform-v7/**'
+      - 'scripts/indexnow-submit.mjs'
+      - '.github/workflows/indexnow-submit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    name: Submit public URLs to IndexNow
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Submit sitemap URLs
+        run: node scripts/indexnow-submit.mjs
+        env:
+          SITE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
