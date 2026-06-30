@@ -1,13 +1,26 @@
 import type { MetadataRoute } from 'next';
 
 const siteUrl = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
-const lastModified = new Date('2026-06-30T00:00:00.000Z');
+const lastModified = new Date('2026-07-01T00:00:00.000Z');
 
-const routes = ['/platform-v7', '/platform-v7/demo', '/platform-v7/contact', '/platform-v7/docs', '/platform-v7/about'];
+const routes = [
+  { path: '/platform-v7', priority: 1.0 },
+  { path: '/platform-v7/about', priority: 0.85 },
+  { path: '/platform-v7/demo', priority: 0.8 },
+  { path: '/platform-v7/docs', priority: 0.8 },
+  { path: '/platform-v7/contact', priority: 0.75 },
+  { path: '/platform-v7/request', priority: 0.75 },
+  { path: '/platform-v7/security', priority: 0.65 },
+  { path: '/platform-v7/terms', priority: 0.45 },
+  { path: '/platform-v7/privacy', priority: 0.45 },
+  { path: '/platform-v7/oferta', priority: 0.45 },
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return routes.map((path) => ({
+  return routes.map(({ path, priority }) => ({
     url: `${siteUrl}${path}`,
     lastModified,
+    changeFrequency: 'weekly',
+    priority,
   }));
 }
