@@ -13,18 +13,19 @@ describe('platform-v7 public registration and role-locked login', () => {
     expect(template).toContain('<PublicRegistrationEntryPatch />');
   });
 
-  it('keeps public request CTA visible without turning role cards into registration links', () => {
-    expect(patch).toContain("headerLink.href = '/platform-v7/request';");
-    expect(patch).toContain("headerLink.textContent = 'Оставить заявку';");
-    expect(patch).toContain("heroLink.href = '/platform-v7/request';");
-    expect(patch).toContain("heroLink.textContent = 'Оставить заявку';");
+  it('keeps registration separate from the public request CTA', () => {
+    expect(patch).toContain("headerLink.href = '/platform-v7/register';");
+    expect(patch).toContain("headerLink.textContent = 'Регистрация';");
+    expect(patch).toContain('entry-request-strip');
+    expect(patch).toContain('href="/platform-v7/request"');
+    expect(patch).toContain('Оставить заявку');
     expect(patch).toContain('tile.href = `/platform-v7/login?role=${role}`;');
     expect(patch).toContain("cta.textContent = 'Продолжить вход в этот ЛК';");
     expect(patch).not.toContain('tile.href = `/platform-v7/register?role=${role}`;');
   });
 
   it('keeps registration styling readable on mobile', () => {
-    expect(patch).toContain('background:rgba(0,122,47,.07)!important;color:#087a3b!important');
+    expect(patch).toContain('background:rgba(0,122,47,.07);color:#087a3b');
     expect(patch).not.toContain('background:#071611!important;color:#fff!important');
     expect(cleanup).toContain('height:72px!important;min-height:72px!important');
     expect(cleanup).toContain('display:flex!important;grid-template-columns:none!important');
