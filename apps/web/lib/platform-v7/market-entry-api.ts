@@ -2,6 +2,7 @@ import { MARKET_PRICE_RECORDS, MARKET_ROUTE_QUOTES, type MarketSide } from './ma
 import { buildMarketIntentDraft, type MarketIntentDraft } from './market-entry-intent';
 
 export type MarketIntentApiStatus = 'accepted_preintegration' | 'rejected';
+export type MarketIntentApiDurableStatus = 'not_wired' | 'not_attempted';
 
 export interface MarketIntentApiInput {
   readonly side: MarketSide;
@@ -14,6 +15,7 @@ export interface MarketIntentApiResult {
   readonly status: MarketIntentApiStatus;
   readonly draft: MarketIntentDraft | null;
   readonly message: string;
+  readonly durableStatus: MarketIntentApiDurableStatus;
 }
 
 export function parseMarketIntentApiInput(value: unknown): MarketIntentApiInput | null {
@@ -28,11 +30,11 @@ export function parseMarketIntentApiInput(value: unknown): MarketIntentApiInput 
 
 export function buildMarketIntentApiResult(value: unknown): MarketIntentApiResult {
   const input = parseMarketIntentApiInput(value);
-  if (!input) return { status: 'rejected', draft: null, message: 'Некорректный запрос намерения.' };
+  if (!input) return { status: 'rejected', draft: null, message: 'Некорректный запрос намерения.', durableStatus: 'not_attempted' };
   const price = MARKET_PRICE_RECORDS.find((item) => item.id === input.sourcePriceId);
   const route = MARKET_ROUTE_QUOTES.find((item) => item.id === input.routeId);
-  if (!price || !route) return { status: 'rejected', draft: null, message: 'Источник цены или маршрут не найден.' };
+  if (!price || !route) return { status: 'rejected', draft: null, message: 'Источник цены или маршрут не найден.', durableStatus: 'not_attempted' };
   const draft = buildMarketIntentDraft(input.side, input.volume, price, route);
-  if (!draft) return { status: 'rejected', draft: null, message: 'Объём должен быть больше нуля.' };
-  return { status: 'accepted_preintegration', draft, message: 'Намерение принято в предынтеграционный контур. Для федерального режима требуется durable storage.' };
+  if (!draft) return { status: 'rejected', draft: null, message: 'Объём должен быть больше нуля.', durableStatus: 'not_attempted' };
+  return { status: 'accepted_preintegration', draft, message: 'Намерение принято в предынтеграционный контур. Для федерального режима требуется durable storage.', durableStatus: 'not_wired' };
 }
