@@ -175,6 +175,14 @@ Use only if a future public page clearly connects the query to execution control
 - /platform-v7/docs: document contour, SDIZ, EDO, acts, acceptance, quality, payment basis and evidence.
 - /platform-v7/about: project positioning, trust layer and readiness boundary without fake company contacts.
 
+## Trust pages excluded from search index
+
+These pages stay available to users and crawlers through links, but are marked `noindex, follow` because they are working legal/trust drafts, not primary SEO landing pages:
+
+- /platform-v7/privacy
+- /platform-v7/terms
+- /platform-v7/oferta
+
 ## Public URL inventory
 
 Indexed through sitemap and discovery:
