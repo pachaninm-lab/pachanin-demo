@@ -32,6 +32,7 @@ const SEARCH_INDEXABLE_EXACT = new Set([
   '/platform-v7/roadmap',
   '/platform-v7/about',
   '/platform-v7/security',
+  '/platform-v7/status',
   '/platform-v7/terms',
   '/platform-v7/privacy',
   '/platform-v7/oferta',
@@ -113,7 +114,7 @@ function isPublic(p: string): boolean {
 
 function isPlatformV7PublicPath(p: string): boolean {
   const path = normalizePathname(p);
-  return PLATFORM_V7_PUBLIC_EXACT.has(path) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => path.startsWith(x));
+  return PLATFORM_V7_PUBLIC_EXACT.has(path) || SEARCH_INDEXABLE_EXACT.has(path) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => path.startsWith(x));
 }
 
 function isSearchIndexablePath(p: string): boolean {
