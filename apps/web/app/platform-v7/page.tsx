@@ -60,7 +60,6 @@ export default function PlatformV7RootPage() {
           <h1 id='entry-hero-title'><span>Главный риск сделки</span><span>начинается после</span><span>согласования цены</span></h1>
           <p>Прозрачная Цена — цифровой контур исполнения зерновой сделки: рейс, приёмка, качество, документы, деньги, спор и доказательства в одном процессе.</p>
           <div className='entry-hero-actions'><Link href='/platform-v7/register' className='entry-primary-cta'>Подключить организацию<ArrowRight size={20} /></Link><Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Посмотреть демо-сделку</Link><Link href='/platform-v7/contact' className='entry-register-cta'><MessageCircleQuestion size={18} />Задать вопрос</Link></div>
-          <p className='entry-demo-note'>Демонстрационный режим и форма обращения открываются на отдельных страницах без доступа к рабочим кабинетам.</p>
         </div>
         <div className='entry-hero-visual' aria-hidden='true'><div className='entry-route-line' /><div className='entry-floating-card docs'><FileCheck2 size={22} /><span>Документы</span><b>проверяются</b></div><div className='entry-floating-card quality'><FlaskConical size={22} /><span>Качество</span><b>на проверке</b></div><div className='entry-floating-card money'><Banknote size={22} /><span>Расчёт</span><b>после оснований</b></div></div>
       </section>
