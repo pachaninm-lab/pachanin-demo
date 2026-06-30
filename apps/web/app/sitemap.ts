@@ -11,6 +11,7 @@ const routes = [
   { path: '/platform-v7/contact', priority: 0.75 },
   { path: '/platform-v7/request', priority: 0.75 },
   { path: '/platform-v7/security', priority: 0.65 },
+  { path: '/platform-v7/status', priority: 0.6 },
   { path: '/platform-v7/terms', priority: 0.45 },
   { path: '/platform-v7/privacy', priority: 0.45 },
   { path: '/platform-v7/oferta', priority: 0.45 },
