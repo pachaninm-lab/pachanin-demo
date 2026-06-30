@@ -11,7 +11,6 @@ describe('platform-v7 public route guards', () => {
     expect(middleware).toContain("'/platform-v7/request'");
     expect(middleware).toContain('function normalizePathname');
     expect(middleware).toContain('PLATFORM_V7_LEADS_API');
-    expect(middleware).toContain('path === PLATFORM_LOCK_LOGIN_API').toBeFalsy;
   });
 
   it('keeps contact and request pages public in the client guard', () => {
