@@ -1,25 +1,44 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'О проекте — цифровой контур исполнения зерновой сделки',
+  description:
+    'Прозрачная Цена — controlled pilot / pre-integration контур исполнения зерновой сделки: цена, логистика, приёмка, документы, расчёт, спор и доказательства.',
+  alternates: {
+    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/about',
+  },
+  openGraph: {
+    title: 'О проекте — Прозрачная Цена',
+    description:
+      'Проект не является обычной доской объявлений: фокус — исполнение сделки после цены, документный след, расчёт и доказательства.',
+    url: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/about',
+    siteName: 'Прозрачная Цена',
+    locale: 'ru_RU',
+    type: 'website',
+  },
+};
 
 const TRUST_LINKS = [
   {
+    title: 'Демонстрационная сделка',
+    note: 'Публичный proof-of-flow без доступа к рабочим кабинетам и реальным данным.',
+    href: '/platform-v7/demo',
+  },
+  {
+    title: 'Документный контур',
+    note: 'СДИЗ, ЭДО, транспортные документы, акты, приёмка, качество и доказательства.',
+    href: '/platform-v7/docs',
+  },
+  {
     title: 'Статус сервисов',
-    note: 'ФГИС, банк, документы и технические контуры в одном месте.',
+    note: 'Честная граница текущей готовности: controlled pilot / pre-integration.',
     href: '/platform-v7/status',
   },
   {
-    title: 'Безопасность',
-    note: '152-ФЗ, резервирование, шифрование, контур доступа и доказательность.',
-    href: '/platform-v7/security',
-  },
-  {
-    title: 'Профиль компании',
-    note: 'Реквизиты, доверие, история исполнения и команда компании.',
-    href: '/platform-v7/profile',
-  },
-  {
-    title: 'Справочный центр',
-    note: 'FAQ по деньгам, блокерам, документам и новым модулям.',
-    href: '/platform-v7/help',
+    title: 'Обратная связь',
+    note: 'Единый публичный канал для вопросов по пилоту, банку, региону и подключению.',
+    href: '/platform-v7/contact',
   },
 ];
 
@@ -36,23 +55,23 @@ export default function AboutPage() {
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>О проекте</div>
         <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Прозрачная Цена — это не витрина объявлений, а цифровой контур исполнения внебиржевой сделки: от допуска и цены до документов, денег и спора.
+          Прозрачная Цена — это не витрина объявлений, а цифровой контур исполнения внебиржевой зерновой сделки: от цены и допуска до логистики, приёмки, документов, основания для расчёта, спора и доказательств.
         </div>
       </section>
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Что делает система</div>
-        <Bullet text='Держит сделку в одном контуре, а не разносит её по чатам и звонкам.' />
-        <Bullet text='Показывает следующий шаг, владельца и причину блокировки денег.' />
-        <Bullet text='Связывает логистику, документы, приёмку, банк и спор в одну цепочку.' />
-        <Bullet text='Даёт доказательную базу для оператора, банка и арбитража.' />
+        <Bullet text='Держит сделку в одном контуре, а не разносит её по чатам, звонкам и разрозненным файлам.' />
+        <Bullet text='Показывает следующий шаг, владельца действия и причину блокировки расчёта.' />
+        <Bullet text='Связывает логистику, документы, приёмку, качество, банковское основание и спор в одну цепочку.' />
+        <Bullet text='Собирает доказательную базу для оператора, банка, комплаенса и разбора расхождений.' />
       </section>
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div>
           <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Доверие и прозрачность</div>
           <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
-            Всё, что помогает внешне и внутренне понять зрелость контура: статус сервисов, безопасность, профиль компании и справочный слой.
+            Здесь собраны публичные поверхности, которые помогают понять контур без доступа к личным кабинетам и без заявления неподтверждённых live-интеграций.
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
@@ -67,13 +86,13 @@ export default function AboutPage() {
       </section>
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Контакты и реквизиты</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          <Cell label='Компания' value='ООО «Прозрачная Цена»' />
-          <Cell label='Юридический адрес' value='Тамбовская область' />
-          <Cell label='Email' value='info@prozprice.demo' />
-          <Cell label='Телефон поддержки' value='+7 (000) 000-00-00' />
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Публичный канал связи</div>
+        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
+          Для вопросов по платформе, controlled pilot, банковскому контуру, региональному запуску или техническому взаимодействию используется форма обращения. Неподтверждённые реквизиты, демо-email и тестовые телефоны на публичной странице не публикуются.
         </div>
+        <Link href='/platform-v7/contact' style={{ width: 'fit-content', textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
+          Задать вопрос
+        </Link>
       </section>
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
@@ -91,8 +110,8 @@ export default function AboutPage() {
       </section>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7/control-tower' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          Вернуться в платформу
+        <Link href='/platform-v7' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
+          На главную
         </Link>
         <Link href='/platform-v7/status' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
           Статус сервисов
@@ -107,15 +126,6 @@ function Bullet({ text }: { text: string }) {
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>
       <span style={{ fontWeight: 900 }}>•</span>
       <span>{text}</span>
-    </div>
-  );
-}
-
-function Cell({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB' }}>
-      <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div>
     </div>
   );
 }
