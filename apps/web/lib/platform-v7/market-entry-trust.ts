@@ -12,7 +12,7 @@ export interface TrustProfile {
 }
 
 export const MARKET_TRUST_PROFILES: readonly TrustProfile[] = [
-  { id: 'tp-buyer-1', name: 'Покупатель с проверкой', role: 'buyer', region: 'ЦФО', status: 'needs_review', documentsOk: true, disputes: 0, latePayments: 0 },
+  { id: 'tp-buyer-1', name: 'Контрагент под проверку', role: 'buyer', region: 'ЦФО', status: 'needs_review', documentsOk: true, disputes: 0, latePayments: 0 },
   { id: 'tp-carrier-1', name: 'Перевозчик под подтверждение', role: 'carrier', region: 'ЮФО', status: 'needs_review', documentsOk: false, disputes: 1, latePayments: 0 },
 ] as const;
 
