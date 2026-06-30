@@ -1,4 +1,17 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Auth hub — Прозрачная Цена',
+  description: 'Служебная поверхность выбора способа входа и связки в controlled pilot / pre-integration контуре Прозрачной Цена.',
+  alternates: {
+    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/auth',
+  },
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 const flows = [
   {
