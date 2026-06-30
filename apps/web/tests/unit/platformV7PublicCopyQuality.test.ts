@@ -7,6 +7,7 @@ const files = [
   'apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx',
   'apps/web/components/platform-v7/ContactCopyNormalizer.tsx',
   'apps/web/components/platform-v7/PublicHeroCopyNormalizer.tsx',
+  'apps/web/app/platform-v7/open/page.tsx',
   'apps/web/app/platform-v7/register/page.tsx',
   'apps/web/app/platform-v7/docs/page.tsx',
 ].map((file) => [file, fs.readFileSync(path.join(process.cwd(), file), 'utf8')] as const);
@@ -24,6 +25,9 @@ const banned = [
   'Задать вопрос',
   'Посмотреть демо-сделку',
   'догонять сделку',
+  'блокеры',
+  'Выход',
+  'email для ответа',
 ];
 
 describe('platform-v7 public copy quality', () => {
