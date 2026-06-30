@@ -8,8 +8,18 @@ export default function PlatformV7DemoLayout({ children }: { children: ReactNode
           --p7-demo-header-top: max(8px, env(safe-area-inset-top));
           --p7-demo-header-height: 64px;
           --p7-demo-header-gap: 18px;
-          padding-top: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
+          padding-top: 10px !important;
           scroll-padding-top: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
+        }
+
+        html body .p7-demo-page::before {
+          content: '' !important;
+          display: block !important;
+          height: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
+          min-height: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
+          width: 100% !important;
+          flex: 0 0 auto !important;
+          pointer-events: none !important;
         }
 
         html body .p7-demo-page > .p7-demo-header,
@@ -79,8 +89,8 @@ export default function PlatformV7DemoLayout({ children }: { children: ReactNode
         @media (max-width: 860px) {
           html body .p7-demo-page {
             --p7-demo-header-top: max(6px, env(safe-area-inset-top));
-            --p7-demo-header-gap: 16px;
-            padding-top: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
+            --p7-demo-header-gap: 18px;
+            padding-top: 8px !important;
           }
 
           html body .p7-demo-page > .p7-demo-header,
@@ -94,8 +104,8 @@ export default function PlatformV7DemoLayout({ children }: { children: ReactNode
 
         @media (max-width: 520px) {
           html body .p7-demo-page {
-            --p7-demo-header-gap: 16px;
-            padding-top: calc(var(--p7-demo-header-top) + var(--p7-demo-header-height) + var(--p7-demo-header-gap)) !important;
+            --p7-demo-header-gap: 20px;
+            padding-top: 8px !important;
           }
 
           html body .p7-demo-page > .p7-demo-header,
