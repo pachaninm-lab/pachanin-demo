@@ -1,7 +1,5 @@
 import Link from 'next/link';
 import { ArrowRight, BadgeCheck, Banknote, Building2, Calculator, ClipboardCheck, FileCheck2, FlaskConical, Landmark, Leaf, LockKeyhole, LogIn, MessageCircleQuestion, PlayCircle, Scale, ShieldCheck, Truck, UserRound, Wheat, type LucideIcon } from 'lucide-react';
-import { PublicDemoDealBlock } from '@/components/platform-v7/PublicDemoDealBlock';
-import { PublicQuestionBlock } from '@/components/platform-v7/PublicQuestionBlock';
 import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
 
 type Card = { title: string; text: string; Icon: LucideIcon };
@@ -52,7 +50,7 @@ export default function PlatformV7RootPage() {
       <style>{css}</style>
       <header className='entry-header' aria-label='Публичная навигация'>
         <Link href='/platform-v7' className='entry-brand' aria-label='Прозрачная Цена'><span className='entry-brand-mark'><Wheat size={26} strokeWidth={2.45} /></span><span><strong>Прозрачная Цена</strong><small>Контур исполнения сделки</small></span></Link>
-        <nav className='entry-nav' aria-label='Разделы главной страницы'><a href='#demo-deal'>Демо</a><a href='#question'>Вопрос</a><a href='#process'>Как проходит</a><a href='#roles'>Роли</a><Link href='/platform-v7/docs'>Документы</Link></nav>
+        <nav className='entry-nav' aria-label='Разделы главной страницы'><a href='#process'>Как проходит</a><a href='#control'>Контроль</a><a href='#roles'>Роли</a><Link href='/platform-v7/demo'>Демо</Link><Link href='/platform-v7/contact'>Вопрос</Link><Link href='/platform-v7/docs'>Документы</Link></nav>
         <div className='entry-header-actions'><Link href='/platform-v7/login' className='entry-login'><LogIn size={16} />Войти</Link><Link href='/platform-v7/register' className='entry-header-register'>Регистрация</Link></div>
       </header>
 
@@ -61,14 +59,11 @@ export default function PlatformV7RootPage() {
           <span className='entry-kicker'>Единый вход в контур сделки</span>
           <h1 id='entry-hero-title'><span>Главный риск сделки</span><span>начинается после</span><span>согласования цены</span></h1>
           <p>Прозрачная Цена — цифровой контур исполнения зерновой сделки: рейс, приёмка, качество, документы, деньги, спор и доказательства в одном процессе.</p>
-          <div className='entry-hero-actions'><Link href='/platform-v7/register' className='entry-primary-cta'>Подключить организацию<ArrowRight size={20} /></Link><a href='#demo-deal' className='entry-secondary-cta'><PlayCircle size={18} />Посмотреть демо-сделку</a><a href='#question' className='entry-register-cta'><MessageCircleQuestion size={18} />Задать вопрос</a></div>
-          <p className='entry-demo-note'>Демо встроено в главный экран, работает без регистрации и не открывает рабочие кабинеты.</p>
+          <div className='entry-hero-actions'><Link href='/platform-v7/register' className='entry-primary-cta'>Подключить организацию<ArrowRight size={20} /></Link><Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Посмотреть демо-сделку</Link><Link href='/platform-v7/contact' className='entry-register-cta'><MessageCircleQuestion size={18} />Задать вопрос</Link></div>
+          <p className='entry-demo-note'>Демонстрационный режим и форма обращения открываются на отдельных страницах без доступа к рабочим кабинетам.</p>
         </div>
         <div className='entry-hero-visual' aria-hidden='true'><div className='entry-route-line' /><div className='entry-floating-card docs'><FileCheck2 size={22} /><span>Документы</span><b>проверяются</b></div><div className='entry-floating-card quality'><FlaskConical size={22} /><span>Качество</span><b>на проверке</b></div><div className='entry-floating-card money'><Banknote size={22} /><span>Расчёт</span><b>после оснований</b></div></div>
       </section>
-
-      <PublicDemoDealBlock />
-      <PublicQuestionBlock />
 
       <section id='control' className='entry-section' aria-labelledby='control-title'><SectionHead title='Что контролирует платформа' text='После согласования цены под контролем остаётся главное: рейс, приёмка, документы, качество и основание для оплаты.' /><div className='entry-control-grid'>{controlCards.map((item) => <ControlTile key={item.title} item={item} />)}</div></section>
       <section id='process' className='entry-section entry-process-section' aria-labelledby='process-title'><SectionHead title='Как проходит сделка' text='На каждом этапе видно, что уже подтверждено, что требует действия и кто отвечает за следующий шаг.' compact /><div className='entry-process-row'>{processSteps.map((step, index) => <ProcessTile key={step.title} step={step} index={index} />)}</div></section>
