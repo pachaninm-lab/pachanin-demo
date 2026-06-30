@@ -33,6 +33,9 @@ CURRENT STATUS:
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
