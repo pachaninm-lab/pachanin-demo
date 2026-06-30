@@ -1,12 +1,25 @@
+'use client';
+
 import Link from 'next/link';
+import * as React from 'react';
+import { clearMarketRfqHandoff, readMarketRfqHandoff } from '@/lib/platform-v7/market-entry-handoff';
+import type { MarketRfqDraft } from '@/lib/platform-v7/market-entry-conversion';
 
 export default function BuyerNewRfqPage() {
+  const [draft, setDraft] = React.useState<MarketRfqDraft | null>(null);
+  React.useEffect(() => {
+    const next = readMarketRfqHandoff(window.localStorage);
+    if (!next) return;
+    setDraft(next);
+    clearMarketRfqHandoff(window.localStorage);
+  }, []);
   return (
     <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 }}>
         <div style={{ color: '#2563EB', fontSize: 12, fontWeight: 900 }}>Покупатель</div>
         <h1 style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 }}>Новый запрос</h1>
         <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.55 }}>Краткая форма потребности и переход к подбору вариантов.</p>
+        {draft ? <p style={{ margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 13 }}>Черновик из рынка: {draft.crop} · {draft.volumeTons} т · {draft.targetPricePerTon} ₽/т.</p> : null}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href='/platform-v7/buyer/rfq/create' style={btn}>Создать</Link>
           <Link href='/platform-v7/buyer/matches' style={ghost}>Подбор</Link>
