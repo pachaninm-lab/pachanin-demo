@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useCommercialRuntimeStore } from '@/stores/useCommercialRuntimeStore';
 import { useToast } from '@/components/v7r/Toast';
 import { trackLotCreated } from '@/lib/analytics/track';
+import { clearMarketLotHandoff, readMarketLotHandoff } from '@/lib/platform-v7/market-entry-handoff';
 import { PLATFORM_V7_LOTS_ROUTE } from '@/lib/platform-v7/routes';
 
 const CROPS = [
@@ -76,6 +77,17 @@ export function SellerLotCreateRuntimeV2() {
   const [gostOpen, setGostOpen] = React.useState(false);
   const [gost, setGost] = React.useState({ moisture: '', natweight: '', protein: '', weed: '', grain: '', falling: '' });
   const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    const handoff = readMarketLotHandoff(window.localStorage);
+    if (!handoff) return;
+    setGrain(handoff.grain);
+    setVolumeTons(String(handoff.volumeTons));
+    setPriceRaw(String(Math.round(handoff.pricePerTon)));
+    setBasis(handoff.basis);
+    setDocsReady(handoff.docsReady);
+    clearMarketLotHandoff(window.localStorage);
+  }, []);
 
   const priceDisplay = priceRaw ? `${formatPrice(priceRaw)} ₽/т` : '';
   const previewState = docsReady ? 'PASS' : 'REVIEW';
