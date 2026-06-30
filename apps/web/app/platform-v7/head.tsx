@@ -5,7 +5,14 @@ const contactUrl = `${siteUrl}/platform-v7/contact`;
 const docsUrl = `${siteUrl}/platform-v7/docs`;
 const aboutUrl = `${siteUrl}/platform-v7/about`;
 
+const brandNames = ['Прозрачная Цена', 'Процент Агро', 'Процент-Агро.рф', 'процент агро сайт', 'Prozrachnaya Cena', 'Percent Agro'];
+
 const semanticTopics = [
+  'Процент Агро',
+  'Процент-Агро.рф',
+  'процент агро сайт',
+  'процент агро платформа',
+  'Прозрачная Цена на домене Процент-Агро.рф',
   'цифровой контур исполнения зерновой сделки',
   'контроль исполнения зерновой сделки после цены',
   'приёмка зерна на элеваторе',
@@ -39,9 +46,9 @@ const structuredData = {
       '@type': 'Organization',
       '@id': `${siteUrl}/#organization`,
       name: 'Прозрачная Цена',
-      alternateName: 'Prozrachnaya Cena',
+      alternateName: brandNames,
       url: siteUrl,
-      description: 'Controlled pilot / pre-integration project for digital execution of grain deals.',
+      description: 'Прозрачная Цена на домене Процент-Агро.рф: controlled pilot / pre-integration project for digital execution of grain deals.',
       knowsAbout: semanticTopics,
     },
     {
@@ -49,22 +56,23 @@ const structuredData = {
       '@id': `${siteUrl}/#website`,
       url: siteUrl,
       name: 'Прозрачная Цена',
-      alternateName: 'Prozrachnaya Cena',
+      alternateName: brandNames,
       inLanguage: 'ru-RU',
       publisher: { '@id': `${siteUrl}/#organization` },
       about: semanticTopics,
+      keywords: semanticTopics.join(', '),
     },
     {
       '@type': 'SoftwareApplication',
       '@id': `${platformUrl}#software`,
       name: 'Прозрачная Цена',
-      alternateName: 'Prozrachnaya Cena',
+      alternateName: brandNames,
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
       url: platformUrl,
       inLanguage: 'ru-RU',
       description:
-        'Цифровой контур исполнения зерновой сделки: цена, рейс, приёмка, качество, документы, основание для оплаты, спор и доказательства. Статус: controlled pilot / pre-integration.',
+        'Прозрачная Цена на домене Процент-Агро.рф — цифровой контур исполнения зерновой сделки: цена, рейс, приёмка, качество, документы, основание для оплаты, спор и доказательства. Статус: controlled pilot / pre-integration.',
       audience: [
         { '@type': 'Audience', audienceType: 'продавец зерна' },
         { '@type': 'Audience', audienceType: 'покупатель зерна' },
@@ -81,6 +89,7 @@ const structuredData = {
       '@type': 'Service',
       '@id': `${platformUrl}#execution-service`,
       name: 'Контур исполнения зерновой сделки',
+      alternateName: 'Процент Агро — контур исполнения зерновой сделки',
       serviceType: 'Digital transaction execution control',
       areaServed: 'Russia',
       provider: { '@id': `${siteUrl}/#organization` },
@@ -103,7 +112,7 @@ const structuredData = {
         {
           '@type': 'ListItem',
           position: 1,
-          name: 'Прозрачная Цена',
+          name: 'Прозрачная Цена / Процент Агро',
           item: siteUrl,
         },
         {
@@ -119,7 +128,7 @@ const structuredData = {
       '@id': `${platformUrl}#public-entrypoints`,
       name: 'Публичные точки входа',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Главная платформа', url: platformUrl },
+        { '@type': 'ListItem', position: 1, name: 'Главная платформа Процент-Агро.рф', url: platformUrl },
         { '@type': 'ListItem', position: 2, name: 'Демо-сделка', url: demoUrl },
         { '@type': 'ListItem', position: 3, name: 'Задать вопрос', url: contactUrl },
         { '@type': 'ListItem', position: 4, name: 'Документный контур сделки', url: docsUrl },
