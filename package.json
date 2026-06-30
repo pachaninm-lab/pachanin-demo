@@ -19,6 +19,7 @@
     "test:auth": "pnpm --filter @pc/api jest --runInBand apps/api/test/auth-refresh.e2e-spec.ts",
     "smoke:api": "node ./scripts/smoke-check.mjs",
     "smoke:web": "node ./scripts/smoke-web.mjs",
+    "seo:indexnow": "node ./scripts/indexnow-submit.mjs",
     "pilot:up": "bash ./scripts/pilot-up.sh",
     "pilot:down": "bash ./scripts/pilot-down.sh",
     "pilot:bootstrap": "bash ./scripts/pilot-bootstrap.sh",
