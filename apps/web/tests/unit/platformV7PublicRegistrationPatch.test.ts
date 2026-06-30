@@ -13,14 +13,17 @@ describe('platform-v7 public registration and role-locked login', () => {
     expect(template).toContain('<PublicRegistrationEntryPatch />');
   });
 
-  it('keeps registration separate from the public request CTA', () => {
+  it('keeps contact, deal review and registration as separate public actions', () => {
     expect(patch).toContain("headerLink.href = '/platform-v7/register';");
     expect(patch).toContain("headerLink.textContent = 'Регистрация';");
-    expect(patch).toContain('entry-request-strip');
-    expect(patch).toContain('href="/platform-v7/request"');
+    expect(patch).toContain('entry-request-actions');
+    expect(patch).toContain('/platform-v7/contact');
+    expect(patch).toContain('Направить обращение');
+    expect(patch).toContain('/platform-v7/request');
     expect(patch).toContain('Оставить заявку');
+    expect(patch).toContain('/platform-v7/register');
+    expect(patch).toContain('Перейти к регистрации');
     expect(patch).toContain('tile.href = `/platform-v7/login?role=${role}`;');
-    expect(patch).toContain("cta.textContent = 'Продолжить вход в этот ЛК';");
     expect(patch).not.toContain('tile.href = `/platform-v7/register?role=${role}`;');
   });
 
