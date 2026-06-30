@@ -7,7 +7,7 @@ describe('market entry conversion adapter', () => {
   it('converts sell intent into lot draft', () => {
     const intent = buildMarketIntentDraft('sell', '220', MARKET_PRICE_RECORDS[0], MARKET_ROUTE_QUOTES[0]);
     const lot = convertMarketIntentToLotDraft(intent!);
-    expect(lot?.grain).toBe('Пшеница 4 класса');
+    expect(lot?.grain).toBe('Пшеница 4 кл.');
     expect(lot?.volumeTons).toBe(220);
     expect(lot?.pricePerTon).toBe(14290);
     expect(convertMarketIntentToRfqDraft(intent!)).toBeNull();
