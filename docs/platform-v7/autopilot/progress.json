@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "Role cabinet functional pass: seller/operator controls, seller route-card continuity and buyer/bank/compliance/lab guards are merged; continue elevator and field-role passes in small PRs.",
-  "lastCompletedStep": "#2003 lab quality-protocol boundary guard after #2000 buyer, #2001 bank and #2002 compliance first-screen guards.",
-  "openPr": null,
-  "blockedBy": [],
-  "nextStep": "Continue role cabinet functional pass with elevator and field-role exact surfaces; do not start runtime, persistence, backend, auth, API, package or lockfile changes inside UI PRs.",
-  "updatedAt": "2026-06-24T06:07:39.000Z",
+  "currentStep": "P0 market-entry page boundary selection: docs-only source-of-truth update that selects one future route-only implementation file without widening runtime, shell, RBAC, bank, deal, API, storage or integration scope.",
+  "lastCompletedStep": "#2138 isolated audit read-model boundary is active; #2152 and #2153 were closed without merge because they exceeded the current docs-first gate.",
+  "openPr": "#2154",
+  "blockedBy": ["#2113", "#2115"],
+  "nextStep": "After #2154 is green and merged, open a separate route-only PR for apps/web/app/platform-v7/market-entry/page.tsx. Do not add API routes, localStorage handoff, storage, shell, RBAC, bank, deal runtime, money movement, package or lockfile changes.",
+  "updatedAt": "2026-07-01T00:00:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
