@@ -1,7 +1,7 @@
 const siteUrl = process.env.SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 const indexNowKey = process.env.INDEXNOW_KEY || 'a7a2b84a1d594be0b7648166c4c4cf26';
 const endpoint = process.env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow';
-const paths = (process.env.INDEXNOW_URLS || '/platform-v7,/platform-v7/demo,/platform-v7/contact,/platform-v7/docs,/sitemap.xml,/robots.txt,/discovery.txt')
+const paths = (process.env.INDEXNOW_URLS || '/platform-v7,/platform-v7/demo,/platform-v7/contact,/platform-v7/docs,/platform-v7/about,/sitemap.xml,/robots.txt,/discovery.txt')
   .split(',')
   .map((path) => path.trim())
   .filter(Boolean);
