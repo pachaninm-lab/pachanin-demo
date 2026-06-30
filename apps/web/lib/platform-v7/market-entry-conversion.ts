@@ -18,11 +18,17 @@ export interface MarketRfqDraft {
   readonly status: 'draft';
 }
 
+export function normalizeMarketCropForLot(crop: string): string {
+  if (crop === 'Пшеница 4 класса') return 'Пшеница 4 кл.';
+  if (crop === 'Фуражный ячмень') return 'Ячмень 3 кл.';
+  return crop;
+}
+
 export function convertMarketIntentToLotDraft(intent: MarketIntentDraft): MarketLotDraft | null {
   if (intent.side !== 'sell') return null;
   return {
     sourceIntentId: intent.id,
-    grain: intent.crop,
+    grain: normalizeMarketCropForLot(intent.crop),
     volumeTons: intent.volumeTons,
     pricePerTon: intent.sourcePricePerTon,
     basis: 'EXW',
