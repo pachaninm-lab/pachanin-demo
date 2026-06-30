@@ -23,8 +23,11 @@ describe('platform-v7 public registration and role-locked login', () => {
     expect(patch).toContain('Оставить заявку');
     expect(patch).toContain('/platform-v7/register');
     expect(patch).toContain('Перейти к регистрации');
+    expect(patch).toContain('Заявка на демонстрацию платформы и предварительное обсуждение сценария исполнения сделки.');
     expect(patch).toContain('tile.href = `/platform-v7/login?role=${role}`;');
     expect(patch).not.toContain('tile.href = `/platform-v7/register?role=${role}`;');
+    expect(patch).not.toContain('controlled pilot');
+    expect(patch).not.toContain('этот ЛК');
   });
 
   it('keeps registration styling readable on mobile', () => {
