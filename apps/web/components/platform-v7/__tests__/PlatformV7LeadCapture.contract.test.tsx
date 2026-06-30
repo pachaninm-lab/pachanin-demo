@@ -22,6 +22,12 @@ describe('PlatformV7LeadCapture', () => {
     expect(screen.getByDisplayValue('demo')).toHaveAttribute('name', 'interest');
     expect(screen.getByLabelText('Email')).toHaveAttribute('name', 'email');
     expect(screen.getByLabelText('Телефон')).toHaveAttribute('name', 'phone');
+    expect(screen.getByText(/сценарий исполнения сделки/i)).toBeInTheDocument();
+    expect(screen.getByText(/формат демонстрации платформы/i)).toBeInTheDocument();
+    expect(screen.getByText(/условия пилотного подключения/i)).toBeInTheDocument();
+    expect(screen.queryByText(/заявка регистрируется/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/контакт используется для ответа/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/доступ к рабочим данным не предоставляется/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/CRM-контур/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/controlled pilot/i)).not.toBeInTheDocument();
   });
