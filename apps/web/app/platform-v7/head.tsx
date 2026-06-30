@@ -4,6 +4,8 @@ const demoUrl = `${siteUrl}/platform-v7/demo`;
 const contactUrl = `${siteUrl}/platform-v7/contact`;
 const docsUrl = `${siteUrl}/platform-v7/docs`;
 const aboutUrl = `${siteUrl}/platform-v7/about`;
+const pageTitle = 'Прозрачная Цена / Процент Агро — контур исполнения зерновой сделки';
+const pageDescription = 'Прозрачная Цена на домене Процент-Агро.рф — controlled pilot / pre-integration контур исполнения зерновой сделки: рейс, приёмка, документы, расчёт, спор и доказательства.';
 
 const brandNames = ['Прозрачная Цена', 'Процент Агро', 'Процент-Агро.рф', 'процент агро сайт', 'Prozrachnaya Cena', 'Percent Agro'];
 
@@ -139,5 +141,17 @@ const structuredData = {
 };
 
 export default function Head() {
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />;
+  return (
+    <>
+      <title>{pageTitle}</title>
+      <meta name="description" content={pageDescription} />
+      <meta name="keywords" content={semanticTopics.join(', ')} />
+      <link rel="canonical" href={platformUrl} />
+      <meta property="og:title" content={pageTitle} />
+      <meta property="og:description" content={pageDescription} />
+      <meta property="og:url" content={platformUrl} />
+      <meta property="og:site_name" content="Прозрачная Цена / Процент Агро" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+    </>
+  );
 }
