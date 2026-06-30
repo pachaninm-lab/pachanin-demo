@@ -1,4 +1,18 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Условия использования — Прозрачная Цена',
+  description:
+    'Рабочая версия условий использования для controlled pilot / pre-integration контура исполнения зерновой сделки.',
+  alternates: {
+    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/terms',
+  },
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 const BLOCKS = [
   {
