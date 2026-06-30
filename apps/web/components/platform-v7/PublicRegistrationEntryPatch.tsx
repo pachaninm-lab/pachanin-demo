@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 
-const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs']);
+const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/request', '/platform-v7/docs']);
 const PENDING_ROLE_KEY = 'pc_v7_pending_role';
 
 const roleByTitle: Record<string, string> = {
@@ -49,7 +49,7 @@ function ensureRegistrationEntry(root: ParentNode) {
   const headerActions = root.querySelector<HTMLElement>('.entry-header-actions');
   if (headerActions && !headerActions.querySelector('[data-entry-register="header"]')) {
     const headerLink = document.createElement('a');
-    headerLink.href = '/platform-v7/register';
+    headerLink.href = '/platform-v7/request';
     headerLink.className = 'entry-register';
     headerLink.dataset.entryRegister = 'header';
     headerLink.textContent = 'Оставить заявку';
@@ -61,7 +61,7 @@ function ensureRegistrationEntry(root: ParentNode) {
   if (heroActions) {
     const heroLink = heroActions.querySelector<HTMLAnchorElement>('.entry-text-cta,.entry-register-cta');
     if (heroLink) {
-      heroLink.href = '/platform-v7/register';
+      heroLink.href = '/platform-v7/request';
       heroLink.classList.remove('entry-text-cta');
       heroLink.classList.add('entry-register-cta');
       heroLink.dataset.entryRegister = 'hero';
