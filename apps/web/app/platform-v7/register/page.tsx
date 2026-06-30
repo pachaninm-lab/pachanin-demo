@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { LogIn, LogOut } from 'lucide-react';
+import { Home, LogIn } from 'lucide-react';
 import { PremiumCtaButton, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 import { BrandMark } from '@/components/v7r/BrandMark';
 
 export const metadata: Metadata = {
   title: 'Регистрация участника — Прозрачная Цена',
   description:
-    'Подключение компании к controlled pilot / pre-integration контуру исполнения зерновой сделки. Форма заявки доступна пользователям, но не является SEO-посадочной страницей.',
+    'Форма регистрации организации в контуре исполнения сделки. Заявка проходит проверку, доступ открывается после допуска участника.',
   alternates: {
     canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/register',
   },
@@ -33,20 +33,20 @@ const ROLE_OPTIONS = [
 ] as const;
 
 const PARTICIPANT_FIELDS: readonly Field[] = [
-  { label: 'Тип участника', placeholder: 'Юр. лицо / ИП / КФХ' },
-  { label: 'Название организации', placeholder: 'ООО «АгроГрейн»' },
+  { label: 'Тип участника', placeholder: 'Юридическое лицо / ИП / КФХ' },
+  { label: 'Наименование организации', placeholder: 'ООО «АгроГрейн»' },
   { label: 'Регион', placeholder: 'Тамбовская область' },
 ];
 
 const REQUISITE_FIELDS: readonly Field[] = [
   { label: 'ИНН', placeholder: '10 или 12 цифр' },
-  { label: 'КПП', placeholder: '9 цифр (для юр. лица)' },
+  { label: 'КПП', placeholder: '9 цифр, если применимо' },
   { label: 'ОГРН / ОГРНИП', placeholder: '13 или 15 цифр' },
-  { label: 'ФИО ответственного', placeholder: 'Иванов Иван Иванович' },
-  { label: 'Должность', placeholder: 'Директор / Уполномоченный' },
+  { label: 'Ответственное лицо', placeholder: 'Иванов Иван Иванович' },
+  { label: 'Должность', placeholder: 'Директор / уполномоченный представитель' },
   { label: 'Телефон', placeholder: '+7 ___ ___-__-__', type: 'tel' },
-  { label: 'Email', placeholder: 'name@company.ru', type: 'email' },
-  { label: 'Пароль', placeholder: '••••••••', type: 'password' },
+  { label: 'Электронная почта', placeholder: 'name@company.ru', type: 'email' },
+  { label: 'Пароль', placeholder: 'Не менее 8 символов', type: 'password' },
 ];
 
 const STATUSES: readonly { label: string; tone: PremiumTone }[] = [
@@ -110,7 +110,7 @@ function RegisterHeader() {
       </Link>
       <nav className='p7-register-actions' aria-label='Действия регистрации'>
         <Link href='/platform-v7/login' className='p7-register-action'><LogIn size={16} />Войти</Link>
-        <Link href='/platform-v7' className='p7-register-action p7-register-action-exit'><LogOut size={16} />Выход</Link>
+        <Link href='/platform-v7' className='p7-register-action p7-register-action-exit'><Home size={16} />На главную</Link>
       </nav>
     </header>
   );
@@ -121,11 +121,11 @@ function RegisterHero() {
     <section className='p7-register-hero' aria-labelledby='p7-register-title'>
       <span className='p7-register-kicker'>Регистрация участника</span>
       <h1 id='p7-register-title'>
-        <span>Подключение компании к</span>
-        <span>контуру сделки</span>
+        <span>Подключение организации</span>
+        <span>к контуру сделки</span>
       </h1>
-      <p>Профиль, реквизиты, ответственный и согласия. После отправки заявка проходит проверку. Доступ в кабинет открывается после статуса «Допущен».</p>
-      <span className='p7-register-journey'><span />Заявка → проверка → допуск</span>
+      <p>Заполните данные организации, реквизиты и контакты ответственного лица. После отправки заявка проходит проверку, доступ в рабочий кабинет открывается только после допуска участника.</p>
+      <span className='p7-register-journey'><span />Заявка → проверка → доступ</span>
     </section>
   );
 }
@@ -157,7 +157,7 @@ function RoleField({ selectedRole }: { selectedRole: string }) {
         </select>
       </label>
       <p style={{ margin: 0, fontSize: 13, color: '#66758A', lineHeight: 1.45 }}>
-        Роль указывается в заявке. Доступ в рабочий кабинет открывается только после проверки и допуска участника.
+        Укажите роль, с которой организация планирует работать в сделке. Доступ к функциям роли открывается после проверки заявки.
       </p>
     </section>
   );
@@ -175,7 +175,7 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
 
       <RoleField selectedRole={selectedRole} />
       <FieldGroup title='Участник' fields={PARTICIPANT_FIELDS} />
-      <FieldGroup title='Реквизиты и ответственный' fields={REQUISITE_FIELDS} />
+      <FieldGroup title='Реквизиты и ответственное лицо' fields={REQUISITE_FIELDS} />
 
       <section style={card} aria-label='Согласия'>
         <span style={micro}>Согласия</span>
@@ -183,7 +183,7 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
           <input type='checkbox' /> Согласен с правилами платформы
         </label>
         <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: '#111827' }}>
-          <input type='checkbox' /> Согласен на обработку персональных данных
+          <input type='checkbox' /> Даю согласие на обработку персональных данных для рассмотрения заявки
         </label>
       </section>
 
@@ -195,7 +195,7 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
           ))}
         </div>
         <p style={{ margin: 0, fontSize: 12.5, color: '#66758A', lineHeight: 1.5 }}>
-          Текущий статус заявки и причина уточнения видны участнику после отправки. Проверка участника — часть pre-integration контура; внешние подтверждения ожидают подключения.
+          Статус заявки показывает текущий этап проверки. Если потребуется уточнение, участник увидит причину и сможет дополнить данные.
         </p>
       </section>
 
