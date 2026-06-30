@@ -1,4 +1,18 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Безопасность — Прозрачная Цена',
+  description:
+    'Рабочее описание security/trust контура: роли, доказательность, деньги, статус зрелости и контроль исполнения сделки.',
+  alternates: {
+    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/security',
+  },
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 const SECTIONS = [
   {
