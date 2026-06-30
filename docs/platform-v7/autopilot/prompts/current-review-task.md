@@ -1,4 +1,4 @@
-# Review current task — Role cabinet functional pass
+# Review current task — P0 market-entry page boundary selection
 
 Maturity: controlled-pilot / pre-integration.
 
@@ -8,21 +8,21 @@ Review the diff, not the report.
 
 - `apps/landing` diff must be 0.
 - Package and lockfile diff must be 0.
+- App implementation diff must be 0 in this docs PR.
 - Backend, persistence, external connectivity and auth/session/API diff must be 0.
 - No fake maturity claims.
 - No claim that the platform itself releases money.
-- No route/button should point to an unrelated cabinet or dead surface.
+- Readiness must remain 72%.
 
 ## Product checks
 
-Each touched role cabinet must answer in the first screen:
+This PR does not implement market-entry UI. It only selects the next route-only layer.
 
-1. what happened;
-2. what is blocked;
-3. money impact;
-4. responsible party;
-5. evidence basis;
-6. one next action.
+The next candidate may allow only:
+
+- `apps/web/app/platform-v7/market-entry/page.tsx`
+
+The critical `apps/web/app/platform-v7` forbidden zone must remain present in `forbiddenZones`; exact future route allowance belongs in `marketEntryPageScopeSelection.nextAllowedScope`.
 
 ## Current allowed scope
 
