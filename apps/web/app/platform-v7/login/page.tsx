@@ -3,7 +3,7 @@ import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const roles: PlatformRole[] = ['operator', 'buyer', 'seller', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'compliance', 'arbitrator', 'executive'];
-const publicDestinations = new Set(['/platform-v7/demo', '/platform-v7/contact']);
+const publicDestinations = new Set(['/platform-v7/demo', '/platform-v7/contact', '/platform-v7/request', '/platform-v7/register']);
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
