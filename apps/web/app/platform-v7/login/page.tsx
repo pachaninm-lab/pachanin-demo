@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { platformV7RoleHome } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
+import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const roles: PlatformRole[] = ['operator', 'buyer', 'seller', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'compliance', 'arbitrator', 'executive'];
@@ -27,7 +27,7 @@ function hrefFromParams(params: SearchParams): string {
   const roleParam = first(params.role);
   const asParam = first(params.as);
   const role = isRole(roleParam) ? roleParam : isRole(asParam) ? asParam : 'seller';
-  const next = rawNext && rawNext.startsWith('/platform-v7') && !rawNext.startsWith('/platform-v7/login') && !rawNext.startsWith('/platform-v7/open') ? rawNext : platformV7RoleHome(role);
+  const next = rawNext && rawNext.startsWith('/platform-v7') && !rawNext.startsWith('/platform-v7/login') && !rawNext.startsWith('/platform-v7/open') ? rawNext : platformV7RoleRoute(role);
   return `/platform-v7/open?${new URLSearchParams({ role, next }).toString()}`;
 }
 
