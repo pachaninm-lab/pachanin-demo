@@ -2,18 +2,18 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'О проекте — цифровой контур исполнения зерновой сделки',
+  title: 'О проекте — Прозрачная Цена на домене Процент-Агро.рф',
   description:
-    'Прозрачная Цена — controlled pilot / pre-integration контур исполнения зерновой сделки: цена, логистика, приёмка, документы, расчёт, спор и доказательства.',
+    'Прозрачная Цена на домене Процент-Агро.рф — controlled pilot / pre-integration контур исполнения зерновой сделки: цена, логистика, приёмка, документы, расчёт, спор и доказательства.',
   alternates: {
     canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/about',
   },
   openGraph: {
-    title: 'О проекте — Прозрачная Цена',
+    title: 'О проекте — Прозрачная Цена / Процент Агро',
     description:
-      'Проект не является обычной доской объявлений: фокус — исполнение сделки после цены, документный след, расчёт и доказательства.',
+      'Проект на домене Процент-Агро.рф не является обычной доской объявлений: фокус — исполнение сделки после цены, документный след, расчёт и доказательства.',
     url: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/about',
-    siteName: 'Прозрачная Цена',
+    siteName: 'Прозрачная Цена / Процент Агро',
     locale: 'ru_RU',
     type: 'website',
   },
@@ -56,6 +56,9 @@ export default function AboutPage() {
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>О проекте</div>
         <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
           Прозрачная Цена — это не витрина объявлений, а цифровой контур исполнения внебиржевой зерновой сделки: от цены и допуска до логистики, приёмки, документов, основания для расчёта, спора и доказательств.
+        </div>
+        <div style={{ marginTop: 10, fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>
+          Процент Агро и Процент-Агро.рф используются как публичная доменная связка проекта Прозрачная Цена.
         </div>
       </section>
 
