@@ -1,8 +1,26 @@
 const siteUrl = process.env.SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 const indexNowKey = process.env.INDEXNOW_KEY || 'a7a2b84a1d594be0b7648166c4c4cf26';
 const endpoint = process.env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow';
-const paths = (process.env.INDEXNOW_URLS || '/platform-v7,/platform-v7/about,/platform-v7/demo,/platform-v7/docs,/platform-v7/contact,/platform-v7/request,/platform-v7/security,/platform-v7/status,/sitemap.xml,/robots.txt,/indexnow.txt')
-  .split(',')
+const defaultPaths = [
+  '/platform-v7',
+  '/platform-v7/secure-grain-deal',
+  '/platform-v7/grain-logistics',
+  '/platform-v7/grain-quality',
+  '/platform-v7/grain-documents',
+  '/platform-v7/grain-payment',
+  '/platform-v7/fgis-zerno',
+  '/platform-v7/about',
+  '/platform-v7/demo',
+  '/platform-v7/docs',
+  '/platform-v7/contact',
+  '/platform-v7/request',
+  '/platform-v7/security',
+  '/platform-v7/status',
+  '/sitemap.xml',
+  '/robots.txt',
+  '/indexnow.txt',
+];
+const paths = (process.env.INDEXNOW_URLS ? process.env.INDEXNOW_URLS.split(',') : defaultPaths)
   .map((path) => path.trim())
   .filter(Boolean);
 

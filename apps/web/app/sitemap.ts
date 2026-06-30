@@ -5,6 +5,12 @@ const lastModified = new Date('2026-07-01T00:00:00.000Z');
 
 const routes = [
   { path: '/platform-v7', priority: 1.0 },
+  { path: '/platform-v7/secure-grain-deal', priority: 0.92 },
+  { path: '/platform-v7/grain-logistics', priority: 0.88 },
+  { path: '/platform-v7/grain-quality', priority: 0.88 },
+  { path: '/platform-v7/grain-documents', priority: 0.88 },
+  { path: '/platform-v7/grain-payment', priority: 0.86 },
+  { path: '/platform-v7/fgis-zerno', priority: 0.84 },
   { path: '/platform-v7/about', priority: 0.85 },
   { path: '/platform-v7/demo', priority: 0.8 },
   { path: '/platform-v7/docs', priority: 0.8 },

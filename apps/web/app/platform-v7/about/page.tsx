@@ -42,6 +42,15 @@ const TRUST_LINKS = [
   },
 ];
 
+const SEO_LINKS = [
+  { title: 'Безопасная зерновая сделка', note: 'Исполнение после цены: рейс, приёмка, документы, расчёт, спор и доказательства.', href: '/platform-v7/secure-grain-deal' },
+  { title: 'Логистика зерна', note: 'Рейс, водитель, маршрут, элеватор, контрольные точки и отклонения.', href: '/platform-v7/grain-logistics' },
+  { title: 'Качество и приёмка', note: 'Вес, лабораторные показатели, допуски, расхождения и доказательный слой.', href: '/platform-v7/grain-quality' },
+  { title: 'Документы сделки', note: 'СДИЗ, ЭДО, транспортные документы, акты и комплектность до расчёта.', href: '/platform-v7/grain-documents' },
+  { title: 'Расчёты по сделке', note: 'Основание для оплаты после подтверждённых событий, документов и качества.', href: '/platform-v7/grain-payment' },
+  { title: 'ФГИС Зерно и СДИЗ', note: 'Целевой pre-integration контур регуляторного следа и прослеживаемости партии.', href: '/platform-v7/fgis-zerno' },
+];
+
 const LEGAL_LINKS = [
   { label: 'Privacy', href: '/platform-v7/privacy' },
   { label: 'Terms', href: '/platform-v7/terms' },
@@ -79,11 +88,21 @@ export default function AboutPage() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           {TRUST_LINKS.map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 8 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
-              <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{item.note}</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
-            </Link>
+            <PublicLink key={item.href} item={item} />
+          ))}
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Публичные разделы для поиска</div>
+          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
+            Эти страницы объясняют поисковикам и рынку, что Процент-Агро — это контур исполнения зерновой сделки, а не обычная доска объявлений.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+          {SEO_LINKS.map((item) => (
+            <PublicLink key={item.href} item={item} />
           ))}
         </div>
       </section>
@@ -121,6 +140,16 @@ export default function AboutPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+function PublicLink({ item }: { item: { title: string; note: string; href: string } }) {
+  return (
+    <Link href={item.href} style={{ textDecoration: 'none', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 8 }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
+      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{item.note}</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+    </Link>
   );
 }
 
