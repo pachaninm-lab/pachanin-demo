@@ -45,28 +45,35 @@ function persistPendingRole(link: HTMLAnchorElement, role: string) {
   link.onclick = () => window.sessionStorage?.setItem(PENDING_ROLE_KEY, role);
 }
 
+function ensureRequestEntry(root: ParentNode) {
+  if (root.querySelector('[data-entry-request="strip"]')) return;
+  const hero = root.querySelector<HTMLElement>('.entry-hero');
+  if (!hero) return;
+
+  const strip = document.createElement('section');
+  strip.className = 'entry-request-strip';
+  strip.dataset.entryRequest = 'strip';
+  strip.setAttribute('aria-label', 'Заявка на демонстрацию и пилот');
+  strip.innerHTML = `
+    <div class="entry-request-strip-copy">
+      <strong>Заявка на демонстрацию или пилот</strong>
+      <span>Отдельный канал для демонстрации, пилотного проекта, банка, региона или подключения организации.</span>
+    </div>
+    <a class="entry-request-strip-button" href="/platform-v7/request">Оставить заявку</a>
+  `;
+  hero.after(strip);
+}
+
 function ensureRegistrationEntry(root: ParentNode) {
   const headerActions = root.querySelector<HTMLElement>('.entry-header-actions');
   if (headerActions && !headerActions.querySelector('[data-entry-register="header"]')) {
     const headerLink = document.createElement('a');
-    headerLink.href = '/platform-v7/request';
+    headerLink.href = '/platform-v7/register';
     headerLink.className = 'entry-register';
     headerLink.dataset.entryRegister = 'header';
-    headerLink.textContent = 'Оставить заявку';
+    headerLink.textContent = 'Регистрация';
     const loginLink = headerActions.querySelector('.entry-login');
     loginLink?.after(headerLink) ?? headerActions.prepend(headerLink);
-  }
-
-  const heroActions = root.querySelector<HTMLElement>('.entry-hero-actions');
-  if (heroActions) {
-    const heroLink = heroActions.querySelector<HTMLAnchorElement>('.entry-text-cta,.entry-register-cta');
-    if (heroLink) {
-      heroLink.href = '/platform-v7/request';
-      heroLink.classList.remove('entry-text-cta');
-      heroLink.classList.add('entry-register-cta');
-      heroLink.dataset.entryRegister = 'hero';
-      heroLink.textContent = 'Оставить заявку';
-    }
   }
 
   root.querySelectorAll<HTMLAnchorElement>('.entry-role-tile').forEach((tile) => {
@@ -79,14 +86,17 @@ function ensureRegistrationEntry(root: ParentNode) {
     const cta = tile.querySelector('em');
     if (cta) cta.textContent = 'Продолжить вход в этот ЛК';
   });
+
+  ensureRequestEntry(root);
 }
 
 const css = `
 .pc-v7-public-entry .entry-register{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 15px;border-radius:15px;background:rgba(0,122,47,.07);color:#087a3b;border:1px solid rgba(0,122,47,.18);font-size:14px;font-weight:900;text-decoration:none;white-space:nowrap}
-.pc-v7-public-entry .entry-register-cta{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:46px!important;border-radius:16px!important;padding:0 18px!important;background:rgba(0,122,47,.07)!important;color:#087a3b!important;border:1px solid rgba(0,122,47,.14)!important;box-shadow:none!important;font-size:14.5px!important;font-weight:900!important;text-align:center!important;text-decoration:none!important}
+.pc-v7-public-entry .entry-request-strip{max-width:1180px;margin:-18px auto 28px;padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;border:1px solid rgba(7,22,17,.08);border-radius:24px;background:rgba(255,255,255,.92);box-shadow:0 14px 34px rgba(7,22,17,.065)}
+.pc-v7-public-entry .entry-request-strip-copy{display:grid;gap:4px;min-width:0}.pc-v7-public-entry .entry-request-strip-copy strong{font-size:18px;line-height:1.15;letter-spacing:-.035em}.pc-v7-public-entry .entry-request-strip-copy span{color:#52615a;font-size:13px;font-weight:760;line-height:1.35}.pc-v7-public-entry .entry-request-strip-button{min-height:46px;display:inline-flex;align-items:center;justify-content:center;padding:0 18px;border-radius:16px;background:#087a3b;color:#fff!important;font-size:14px;font-weight:950;text-decoration:none;white-space:nowrap;box-shadow:0 14px 28px rgba(0,122,47,.18)}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-header,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-bottomnav,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-drawer,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-pilot-note,.pc-shell-root-v4[data-public-entry='true'] .pc-v7-role-dock,.pc-shell-root-v4[data-public-entry='true'] .pc-v7-assistant-widget{display:none!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#fbfcf9!important;min-height:100svh!important}
-@media(max-width:980px){.pc-v7-public-entry .entry-register{display:none!important}.pc-v7-public-entry .entry-register-cta{width:100%!important;min-width:0!important}}
+@media(max-width:980px){.pc-v7-public-entry .entry-register{display:none!important}.pc-v7-public-entry .entry-request-strip{margin:8px 14px 20px;grid-template-columns:1fr;padding:14px;border-radius:22px}.pc-v7-public-entry .entry-request-strip-button{width:100%;min-height:52px;border-radius:17px}}
 `;
 
 export function PublicRegistrationEntryPatch() {
