@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 
 const siteUrl = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
-const lastModified = new Date();
+const lastModified = new Date('2026-06-30T00:00:00.000Z');
 
 const routes = ['/platform-v7', '/platform-v7/demo', '/platform-v7/contact'];
 
