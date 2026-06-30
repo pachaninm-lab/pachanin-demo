@@ -1,0 +1,68 @@
+name: SEO Live Smoke
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/web/**'
+      - 'netlify.toml'
+      - '.github/workflows/seo-live-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-smoke:
+    name: Verify production SEO headers
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait for production deploy and check SEO headers
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SITE="https://xn----8sbjf4befbjgs9b.xn--p1ai"
+          HEALTH="$SITE/platform-v7/role-preview/seo-health"
+          PUBLIC_URLS=(
+            "$SITE/platform-v7"
+            "$SITE/platform-v7/secure-grain-deal"
+            "$SITE/platform-v7/fgis-zerno"
+          )
+          PRIVATE_URLS=(
+            "$SITE/platform-v7/buyer"
+            "$SITE/platform-v7/bank"
+          )
+
+          echo "Checking deploy marker: $HEALTH"
+          for attempt in {1..8}; do
+            if curl -fsSL "$HEALTH" | grep -q "seo-live-smoke-2026-07-01"; then
+              echo "Deploy marker found on attempt $attempt"
+              break
+            fi
+            if [ "$attempt" = "8" ]; then
+              echo "Deploy marker was not found after waiting. Production may not have picked up the latest main commit."
+              exit 1
+            fi
+            sleep 45
+          done
+
+          for url in "${PUBLIC_URLS[@]}"; do
+            echo "Checking public indexable header: $url"
+            headers="$(curl -fsSI "$url" | tr -d '\r')"
+            echo "$headers"
+            echo "$headers" | grep -qi "x-robots-tag: index, follow"
+          done
+
+          for url in "${PRIVATE_URLS[@]}"; do
+            echo "Checking private noindex header: $url"
+            headers="$(curl -fsSI "$url" | tr -d '\r')"
+            echo "$headers"
+            echo "$headers" | grep -qi "x-robots-tag: noindex, nofollow"
+          done
+
+          echo "Checking sitemap and robots content"
+          curl -fsSL "$SITE/sitemap.xml" | grep -q "/platform-v7/secure-grain-deal"
+          curl -fsSL "$SITE/robots.txt" | grep -q "/platform-v7/secure-grain-deal"
