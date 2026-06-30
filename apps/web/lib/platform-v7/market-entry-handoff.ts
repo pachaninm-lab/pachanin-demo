@@ -37,6 +37,10 @@ export function clearMarketLotHandoff(storage: MarketHandoffStorageLike | null |
   try { storage?.removeItem(MARKET_LOT_HANDOFF_KEY); } catch { return; }
 }
 
+export function clearMarketRfqHandoff(storage: MarketHandoffStorageLike | null | undefined): void {
+  try { storage?.removeItem(MARKET_RFQ_HANDOFF_KEY); } catch { return; }
+}
+
 function readJson<T>(storage: MarketHandoffStorageLike | null | undefined, key: string, guard: (value: unknown) => value is T): T | null {
   try {
     const raw = storage?.getItem(key);
