@@ -22,14 +22,22 @@ export function readMarketIntents(storage: MarketIntentStorageLike | null | unde
 }
 
 export function saveMarketIntent(storage: MarketIntentStorageLike | null | undefined, draft: MarketIntentDraft): readonly MarketIntentDraft[] {
-  if (!storage) return [draft];
   const next = [draft, ...readMarketIntents(storage).filter((item) => item.id !== draft.id)].slice(0, 20);
-  storage.setItem(MARKET_INTENT_STORAGE_KEY, JSON.stringify(next));
-  return next;
+  if (!storage) return next;
+  try {
+    storage.setItem(MARKET_INTENT_STORAGE_KEY, JSON.stringify(next));
+    return next;
+  } catch {
+    return next;
+  }
 }
 
 export function clearMarketIntents(storage: MarketIntentStorageLike | null | undefined): void {
-  storage?.removeItem(MARKET_INTENT_STORAGE_KEY);
+  try {
+    storage?.removeItem(MARKET_INTENT_STORAGE_KEY);
+  } catch {
+    return;
+  }
 }
 
 function isMarketIntentDraft(value: unknown): value is MarketIntentDraft {
