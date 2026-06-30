@@ -1,5 +1,18 @@
+import type { Metadata } from 'next';
 import { getPlatformV7OpenWalkthroughState } from '@/lib/platform-v7/runtime/open-walkthrough';
 import { CockpitHero } from '@/components/platform-v7/premium';
+
+export const metadata: Metadata = {
+  title: 'Онбординг — Прозрачная Цена',
+  description: 'Служебный экран управляемого запуска и допуска в controlled pilot / pre-integration контур исполнения зерновой сделки.',
+  alternates: {
+    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/onboarding',
+  },
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export default function PlatformV7OnboardingPage() {
   const state = getPlatformV7OpenWalkthroughState();
@@ -33,10 +46,6 @@ function statePill(state: string) {
 }
 
 const page = { display: 'grid', gap: 14, padding: '0 0 24px' } as const;
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 100%)', border: '1px solid #D7DEE3', borderRadius: 24, padding: 18, display: 'grid', gap: 10 } as const;
-const eyebrow = { color: '#0A7A5F', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '.08em' } as const;
-const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(28px,7vw,44px)', lineHeight: 1.05, letterSpacing: '-.045em', fontWeight: 950 } as const;
-const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 14, lineHeight: 1.5, maxWidth: 720 } as const;
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 } as const;
 const card = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 16, display: 'grid', gap: 8, boxShadow: '0 10px 24px rgba(15,23,42,.05)' } as const;
 const pill = { justifySelf: 'start', borderRadius: 999, padding: '5px 8px', fontSize: 10, fontWeight: 950, textTransform: 'uppercase', letterSpacing: '.07em' } as const;
