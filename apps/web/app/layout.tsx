@@ -5,28 +5,43 @@ import { ReactNode } from 'react';
 import Script from 'next/script';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
+const SITE_TITLE = 'Процент-Агро | Прозрачная Цена — цифровой контур зерновой сделки';
+const SITE_DESCRIPTION = 'Процент-Агро — публичный контур проекта «Прозрачная Цена»: зерновая сделка после согласования цены, логистика, приёмка, качество, документы, расчёты, спор и доказательства.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Прозрачная Цена',
-    template: '%s · Прозрачная Цена',
+    default: SITE_TITLE,
+    template: '%s · Процент-Агро',
   },
-  description: 'Цифровой контур исполнения зерновой сделки: цена, сделка, логистика, приёмка, документы, деньги и спор в одной системе.',
-  applicationName: 'Прозрачная Цена',
-  keywords: ['зерновая сделка', 'агротрейд', 'логистика зерна', 'безопасная сделка', 'эскроу', 'фгис зерно'],
+  description: SITE_DESCRIPTION,
+  applicationName: 'Процент-Агро',
+  keywords: [
+    'Процент-Агро',
+    'процент агро',
+    'процент-агро.рф',
+    'Прозрачная Цена',
+    'зерновая сделка',
+    'цифровой контур зерновой сделки',
+    'агротрейд',
+    'логистика зерна',
+    'безопасная сделка зерно',
+    'расчёты по зерновой сделке',
+    'СДИЗ',
+    'фгис зерно',
+  ],
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
-    siteName: 'Прозрачная Цена',
-    title: 'Прозрачная Цена',
-    description: 'Цифровой контур исполнения зерновой сделки: цена, сделка, логистика, приёмка, документы, деньги и спор в одной системе.',
+    siteName: 'Процент-Агро',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     url: SITE_URL,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Прозрачная Цена',
-    description: 'Цифровой контур исполнения зерновой сделки: цена, сделка, логистика, приёмка, документы, деньги и спор в одной системе.',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
   alternates: {
     canonical: SITE_URL,
