@@ -15,7 +15,6 @@ import {
   PLATFORM_V7_OPERATOR_QUEUES_ROUTE,
   PLATFORM_V7_PROFILE_ROUTE,
   PLATFORM_V7_ROLES_ROUTE,
-  PLATFORM_V7_SELLER_ROUTE,
   PLATFORM_V7_STATUS_ROUTE,
   PLATFORM_V7_SURVEYOR_ROUTE,
   PLATFORM_V7_SHELL_ROUTE_SURFACE,
@@ -47,18 +46,18 @@ const SHARED_PREFIXES = [PLATFORM_V7_AI_ROUTE, PLATFORM_V7_PROFILE_ROUTE, PLATFO
 const DENIED_PREFIXES = [PLATFORM_V7_ROLES_ROUTE, '/platform-v7r/roles', '/platform-v7/auth'];
 
 const NAV_SEGMENTS: Record<PlatformRole, Array<[string, string]>> = {
-  operator: [['', 'Центр'], [PLATFORM_V7_DEALS_ROUTE, 'Сделки'], [child(PLATFORM_V7_CONTROL_TOWER_ROUTE, 'blockers'), 'Блокеры'], [PLATFORM_V7_OPERATOR_QUEUES_ROUTE, 'Очереди'], [PLATFORM_V7_COMPLIANCE_ROUTE, 'Контроль']],
-  buyer: [['', 'Кабинет'], ['deals', 'Сделки'], ['quality', 'Качество'], ['documents', 'Документы'], ['money', 'Деньги']],
-  seller: [['', 'Кабинет'], ['lots', 'Партии'], ['documents', 'Документы'], ['money', 'Деньги'], ['blockers', 'Блокеры']],
-  logistics: [['', 'Диспетчер'], ['routes', 'Рейсы'], ['drivers', 'Водители'], ['documents', 'Документы'], ['blockers', 'Блокеры']],
-  driver: [['', 'Рейс'], ['route', 'Маршрут'], ['events', 'События'], ['proofs', 'Фото'], ['documents', 'Документы']],
-  surveyor: [['', 'Осмотр'], ['inspections', 'Факты'], ['evidence', 'Evidence'], ['documents', 'Акт'], ['blockers', 'Блокеры']],
+  operator: [['', 'Контроль'], [PLATFORM_V7_DEALS_ROUTE, 'Сделки'], [child(PLATFORM_V7_CONTROL_TOWER_ROUTE, 'blockers'), 'Задержки'], [PLATFORM_V7_OPERATOR_QUEUES_ROUTE, 'Очереди'], [PLATFORM_V7_COMPLIANCE_ROUTE, 'Проверки']],
+  buyer: [['', 'Кабинет'], ['deals', 'Сделки'], ['quality', 'Качество'], ['documents', 'Документы'], ['money', 'Расчёты']],
+  seller: [['', 'Кабинет'], ['lots', 'Партии'], ['documents', 'Документы'], ['money', 'Расчёты'], ['blockers', 'Задержки']],
+  logistics: [['', 'Диспетчер'], ['routes', 'Рейсы'], ['drivers', 'Водители'], ['documents', 'Документы'], ['blockers', 'Задержки']],
+  driver: [['', 'Рейс'], ['route', 'Маршрут'], ['events', 'События'], ['proofs', 'Фотофиксация'], ['documents', 'Документы']],
+  surveyor: [['', 'Осмотр'], ['inspections', 'Факты'], ['evidence', 'Доказательства'], ['documents', 'Акт'], ['blockers', 'Расхождения']],
   elevator: [['', 'Приёмка'], ['queue', 'Очередь'], ['acceptance', 'Вес'], ['documents', 'Акты'], ['blockers', 'Расхождения']],
-  lab: [['', 'Пробы'], ['samples', 'Образцы'], ['results', 'Результаты'], ['documents', 'Протокол'], ['blockers', 'Спорность']],
-  bank: [['', 'Основание'], ['checks', 'Проверки'], ['basis', 'База'], ['money', 'Деньги'], ['audit', 'Аудит']],
-  arbitrator: [['', 'Споры'], ['disputes', 'Кейсы'], ['evidence', 'Evidence'], ['decision', 'Решение'], ['audit', 'Аудит']],
-  compliance: [['', 'Допуск'], ['risks', 'Риски'], ['leakage', 'Обход'], ['documents', 'Документы'], ['audit', 'Аудит']],
-  executive: [['', 'Сводка'], ['deals', 'Сделки'], ['money', 'Деньги'], ['blockers', 'Блокеры'], ['risk', 'Риски']],
+  lab: [['', 'Пробы'], ['samples', 'Образцы'], ['results', 'Результаты'], ['documents', 'Протокол'], ['blockers', 'Расхождения']],
+  bank: [['', 'Основание'], ['checks', 'Проверки'], ['basis', 'Основание'], ['money', 'Расчёты'], ['audit', 'Журнал']],
+  arbitrator: [['', 'Споры'], ['disputes', 'Кейсы'], ['evidence', 'Доказательства'], ['decision', 'Решение'], ['audit', 'Журнал']],
+  compliance: [['', 'Допуск'], ['risks', 'Риски'], ['leakage', 'Риск обхода'], ['documents', 'Документы'], ['audit', 'Журнал']],
+  executive: [['', 'Сводка'], ['deals', 'Сделки'], ['money', 'Расчёты'], ['blockers', 'Задержки'], ['risk', 'Риски']],
 };
 
 function buildBottom(role: PlatformRole): PlatformV7RoleNavItem[] {
