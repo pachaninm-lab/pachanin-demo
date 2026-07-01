@@ -86,7 +86,7 @@ export default function PlatformV7RootPage() {
           <a href='#process'>Как проходит</a>
           <a href='#control'>Контроль</a>
           <a href='#roles'>Роли</a>
-          <Link href='/platform-v7/demo'>Демо</Link>
+          <Link href='/platform-v7/demo'>Разбор сделки</Link>
           <Link href='/platform-v7/contact'>Вопрос</Link>
           <Link href='/platform-v7/docs'>Документы</Link>
         </nav>
@@ -110,7 +110,7 @@ export default function PlatformV7RootPage() {
           </p>
           <div className='entry-hero-actions'>
             <Link href='/platform-v7/register' className='entry-primary-cta'>Подключить организацию<ArrowRight size={20} /></Link>
-            <Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Посмотреть демо-сделку</Link>
+            <Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Разобрать контур сделки</Link>
             <Link href='/platform-v7/contact' className='entry-register-cta'><MessageCircleQuestion size={18} />Задать вопрос</Link>
           </div>
         </div>
