@@ -48,7 +48,6 @@ export class ExportsService {
       orderBy: { uploadedAt: 'asc' },
     });
 
-    // Verify hash chain
     let chainValid = true;
     let prevHash = '';
     for (const e of evidence) {
@@ -231,7 +230,7 @@ export class ExportsService {
     this.assertExportRole(user);
     const deal = await this.prisma.deal.findUnique({
       where: { id: dealId },
-      include: { events: { orderBy: { createdAt: 'asc' } } },
+      include: { dealEvents: { orderBy: { createdAt: 'asc' } } },
     }).catch(() => null);
 
     if (!deal) {
@@ -251,7 +250,7 @@ export class ExportsService {
       };
     }
 
-    const events = (deal as any).events ?? [];
+    const events = (deal as any).dealEvents ?? [];
     const isChainValid = events.length === 0 || events.every((_: unknown, i: number) => {
       if (i === 0) return true;
       return (events[i] as any).prevHash === (events[i - 1] as any).hash;

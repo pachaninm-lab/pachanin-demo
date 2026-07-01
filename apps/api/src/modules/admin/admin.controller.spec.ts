@@ -2,6 +2,7 @@ import { AdminController } from './admin.controller';
 import { AuthService } from '../auth/auth.service';
 import { Role } from '../../common/types/request-user';
 import { NotFoundException } from '@nestjs/common';
+import { OutboxService } from '../../common/outbox/outbox.service';
 
 function makeAuthService(): jest.Mocked<AuthService> {
   return {
@@ -14,13 +15,24 @@ function makeAuthService(): jest.Mocked<AuthService> {
   } as any;
 }
 
+function makeOutboxService(): jest.Mocked<OutboxService> {
+  return {
+    list: jest.fn().mockReturnValue([]),
+    listPending: jest.fn().mockReturnValue([]),
+    listDead: jest.fn().mockReturnValue([]),
+    requeue: jest.fn().mockImplementation((id) => ({ id, status: 'PENDING' })),
+  } as any;
+}
+
 describe('AdminController', () => {
   let ctrl: AdminController;
   let auth: jest.Mocked<AuthService>;
+  let outbox: jest.Mocked<OutboxService>;
 
   beforeEach(() => {
     auth = makeAuthService();
-    ctrl = new AdminController(auth);
+    outbox = makeOutboxService();
+    ctrl = new AdminController(auth, outbox);
   });
 
   describe('listUsers()', () => {

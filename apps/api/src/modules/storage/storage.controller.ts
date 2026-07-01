@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { StorageService } from './storage.service';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('api/storage')
 @UseGuards(JwtAuthGuard)
