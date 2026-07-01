@@ -56,7 +56,7 @@ export class IntegrationsService {
   async pushFgis(dealId: string, user: any) {
     const jobId = `JOB-FGIS-${dealId}-${Date.now()}`;
     try {
-      const fgis = integrationRegistry.get('fgis-zerno') as any;
+      const fgis = integrationRegistry.get('FGIS_ZERNO') as any;
       const result = await fgis.execute({ action: 'registerLot', dealId, culture: 'wheat', volumeTons: 100, ownerId: user.orgId ?? user.id });
       this.logger.log(`FGIS lot registered: ${result.sdizNumber} for deal ${dealId}`);
       return { dealId, connector: 'FGIS_ZERNO', status: 'MOCK_OK', jobId, sdizNumber: result.sdizNumber, initiatedAt: new Date().toISOString() };
