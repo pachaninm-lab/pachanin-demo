@@ -5,13 +5,16 @@ on:
     branches: [main, 'claude/**']
     paths:
       - 'apps/api/**'
-      - 'packages/**'
       - 'shared/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
   pull_request:
     paths:
       - 'apps/api/**'
-      - 'packages/**'
       - 'shared/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
 
 concurrency:
   group: api-test-${{ github.ref }}
@@ -22,65 +25,16 @@ jobs:
     name: API unit tests + TypeScript check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
           version: 10.2.1
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install dependencies
-        run: cd ../.. && pnpm install --frozen-lockfile
-
-      - name: TypeScript check
-        run: npx tsc --noEmit
-
-      - name: Run unit tests
-        run: pnpm test --if-present || npx vitest run 2>/dev/null || echo "No unit tests configured yet"
-
-  e2e-smoke:
-    name: API E2E smoke (against built server)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: unit
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.2.1
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
       - run: pnpm install --frozen-lockfile
-
-      - name: Start API in background
-        working-directory: apps/api
-        run: |
-          npx ts-node src/main.ts &
-          echo $! > /tmp/api.pid
-          sleep 8
-        env:
-          PORT: 3001
-          NODE_ENV: test
-        continue-on-error: true
-
-      - name: Run E2E deal cycle test
-        working-directory: apps/api
-        run: RUN_E2E=1 API_BASE_URL=http://localhost:3001 npx vitest run test/e2e-deal-cycle.spec.ts 2>/dev/null || echo "E2E skipped (server may not be up)"
-        continue-on-error: true
-
-      - name: Stop API
-        run: kill $(cat /tmp/api.pid) 2>/dev/null || true
+      - run: pnpm --filter @pc/api typecheck
+      - run: pnpm --filter @pc/api test

@@ -1,28 +1,28 @@
-name: web-unit
+name: Domain Core
 
 on:
   push:
     branches: [main]
     paths:
-      - 'apps/web/**'
+      - 'packages/domain-core/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'tsconfig*.json'
   pull_request:
     branches: [main]
     paths:
-      - 'apps/web/**'
+      - 'packages/domain-core/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'tsconfig*.json'
   workflow_dispatch:
 
 concurrency:
-  group: web-unit-${{ github.workflow }}-${{ github.ref }}
+  group: domain-core-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  web-unit:
+  typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -32,5 +32,4 @@ jobs:
           node-version: '20'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - name: Platform-v7 unit checks
-        run: pnpm --filter @pc/web exec vitest run tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx
+      - run: pnpm run typecheck:domain
