@@ -49,7 +49,7 @@ jobs:
       - name: Build web
         run: |
           set -o pipefail
-          pnpm build 2>&1 | tee /tmp/pnpm-build.log
+          pnpm --filter @pc/web build 2>&1 | tee /tmp/pnpm-build.log
 
       - name: Upload build log
         if: failure()
