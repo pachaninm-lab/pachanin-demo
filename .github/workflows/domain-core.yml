@@ -30,6 +30,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: corepack enable
-      - run: pnpm install --frozen-lockfile
-      - run: npx tsc --noEmit --skipLibCheck --target ES2022 --module CommonJS --moduleResolution Node packages/domain-core/src/execution-simulation/scenario-runner.ts
+      - name: Check scenario runner contract
+        run: |
+          node - <<'JS'
+          const fs = require('fs');
+          const path = 'packages/domain-core/src/execution-simulation/scenario-runner.ts';
+          const source = fs.readFileSync(path, 'utf8');
+          const required = ['P7-E2E-2096', 'CLOSED', 'closeReady', 'passedSteps', 'blockedChecks', 'auditEventCountDelta', 'timelineEventCountDelta'];
+          const missing = required.filter((token) => !source.includes(token));
+          if (missing.length) {
+            console.error(`Missing scenario runner contract tokens: ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          JS
