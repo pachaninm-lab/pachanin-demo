@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "P0 market-entry page boundary selection: docs-only source-of-truth update that selects one future route-only implementation file without widening runtime, shell, RBAC, bank, deal, API, storage or integration scope.",
-  "lastCompletedStep": "#2138 isolated audit read-model boundary is active; #2152 and #2153 were closed without merge because they exceeded the current docs-first gate.",
-  "openPr": "#2154",
-  "blockedBy": ["#2113", "#2115"],
-  "nextStep": "After #2154 is green and merged, open a separate route-only PR for apps/web/app/platform-v7/market-entry/page.tsx. Do not add API routes, localStorage handoff, storage, shell, RBAC, bank, deal runtime, money movement, package or lockfile changes.",
-  "updatedAt": "2026-07-01T00:00:00.000Z",
+  "currentStep": "P0 execution/evidence scenario selection: docs-only source-of-truth step for issue #2096. Market-entry route PR #2159 remains draft-blocked until route-scope write path or guard advancement is available.",
+  "lastCompletedStep": "#2154 docs boundary selection merged; #2155 runtime CI filtering merged; #2158 Netlify docs-only gate merged; #2113 deprecated status cleanup closed by empirical merge verification.",
+  "openPr": "p2160",
+  "blockedBy": ["#2115", "#2159"],
+  "nextStep": "Select one deterministic controlled-pilot execution/evidence scenario before code. Keep auth, app routes, API, storage, package and lockfile changes out of this docs-only layer.",
+  "updatedAt": "2026-07-01T00:15:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
