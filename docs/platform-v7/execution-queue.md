@@ -28,6 +28,7 @@ CURRENT ALLOWED:
 - .github/workflows/security-quality-gate.yml
 - .github/workflows/web-unit.yml
 - .github/workflows/node-ci.yml
+- .github/workflows/platform-v7-autopilot-loop-dry-run.yml
 - apps/api/package.json
 - apps/web/lib/platform-v7/shellRoutes.ts
 - apps/web/tests/unit/platformV7RootWorkEntry.test.ts
@@ -37,6 +38,7 @@ CURRENT CHECKS:
 - preserve web-unit logs as artifacts;
 - preserve Node CI phase logs as artifacts;
 - preserve API compiled-build diagnostics as artifacts;
+- preserve autopilot loop dry-run diagnostics as artifacts;
 - keep k6 smoke runnable against a test runtime without claiming API compiled build is clean;
 - fix only concrete web build/runtime blockers discovered by artifacts;
 - no disabling of security checks;
@@ -45,16 +47,21 @@ CURRENT CHECKS:
 - readiness remains 72%.
 
 NEXT:
-- Layer: API compiled build debt reduction, separate from #2184.
-- Candidate scope must be selected after #2184 gives complete artifacts.
-- First likely clusters:
-  - missing `jwt-auth.guard` imports / auth guard compatibility;
-  - action-policy role coverage;
-  - audit log return/promise contract;
-  - Prisma schema drift around audit/kyc/elevator/exports;
-  - integration-sdk import surface;
-  - security spec/runtime-core drift.
-- This next layer must not be mixed into #2183 execution-runtime logic.
+- Layer: P0 API typecheck first debt slice outside auth and Prisma migration scope.
+- Allowed files:
+  - apps/api/src/common/action-executor/action-policy.ts
+  - apps/api/src/common/logger/masked-logger.service.ts
+  - apps/api/src/health.controller.ts
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
+- Success criteria:
+  - reduce confirmed API typecheck debt using only the first non-auth/non-Prisma cluster;
+  - do not touch `apps/api/src/modules/auth/**`;
+  - do not add Prisma migrations or schema rewrites;
+  - do not touch integration-sdk package wiring;
+  - keep API compiled-build debt explicitly open until `pnpm --filter @pc/api typecheck` is green;
+  - no live external integration claim;
+  - no maturity or readiness uplift.
 
 RULES:
 - one PR = one narrow layer;
