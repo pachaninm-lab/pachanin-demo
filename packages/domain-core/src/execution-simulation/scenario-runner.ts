@@ -1,3 +1,4 @@
+// P0 #2096 deterministic execution/evidence scenario runner.
 import { runPlatformAction } from './action-engine';
 import { createExecutionSimulationState } from './fixtures';
 import { transitionDeal } from './state-machine';
