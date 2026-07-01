@@ -26,7 +26,10 @@ export interface FactoringApplication {
   dueDate?: string;
 }
 
-const FINANCE_ROLES: Role[] = [Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE, Role.FARMER, Role.BUYER];
+type DealScoreRow = { status: string; totalKopecks: number | null; totalRub: number | null };
+
+const FINANCE_ROLES: ReadonlySet<Role> = new Set([Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE, Role.FARMER, Role.BUYER]);
+const ADMIN_ACCOUNTING_EXECUTIVE: ReadonlySet<Role> = new Set([Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE]);
 const ALLOWED_FACTORS = ['Сбербанк Факторинг', 'ВТБ Факторинг', 'Альфа-Банк', 'Открытие Факторинг', 'ПСБ Факторинг'];
 const DUE_SOON_DAYS = [7, 3];
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -101,7 +104,7 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
     factorName: string;
     requestedAmountKopecks: number;
   }, user: RequestUser): Promise<FactoringApplication> {
-    if (!FINANCE_ROLES.includes(user.role as Role)) {
+    if (!FINANCE_ROLES.has(user.role)) {
       throw new ForbiddenException('Доступ запрещён');
     }
     if (!ALLOWED_FACTORS.includes(params.factorName)) {
@@ -156,11 +159,13 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
       const deals = await this.prisma.deal.findMany({
         where: { sellerOrgId: organizationId },
         select: { status: true, totalKopecks: true, totalRub: true },
-      }).catch(() => []);
+      }).catch(() => [] as DealScoreRow[]);
 
       totalDeals = deals.length;
       closedDeals = deals.filter(d => d.status === 'CLOSED' || d.status === 'SETTLED').length;
-      totalVolumeKopecks = deals.reduce((s, d) => s + (d.totalKopecks ?? Math.round((d.totalRub ?? 0) * 100)), 0);
+      totalVolumeKopecks = deals.reduce((sum: number, deal: DealScoreRow) => {
+        return sum + (deal.totalKopecks ?? Math.round((deal.totalRub ?? 0) * 100));
+      }, 0);
 
       disputeCount = await this.prisma.dispute.count({ where: { createdAt: { gte: new Date(Date.now() - 365 * 24 * 3600_000) } } }).catch(() => 0);
 
@@ -229,7 +234,7 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getCreditReport(organizationId: string, user: RequestUser): Promise<Record<string, unknown>> {
-    if (![Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE, Role.FARMER, Role.BUYER].includes(user.role as Role)) {
+    if (!FINANCE_ROLES.has(user.role)) {
       throw new ForbiddenException();
     }
     let inn = '7712345678';
@@ -244,8 +249,8 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
   }
 
   list(user: RequestUser): FactoringApplication[] {
-    if (!FINANCE_ROLES.includes(user.role as Role)) throw new ForbiddenException();
-    if (user.role === Role.ADMIN || user.role === Role.ACCOUNTING || user.role === Role.EXECUTIVE) {
+    if (!FINANCE_ROLES.has(user.role)) throw new ForbiddenException();
+    if (ADMIN_ACCOUNTING_EXECUTIVE.has(user.role)) {
       return [...this.apps].reverse();
     }
     return this.apps.filter(a => a.createdBy === user.id).reverse();
@@ -254,7 +259,7 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
   getOne(id: string, user: RequestUser): FactoringApplication {
     const app = this.apps.find(a => a.id === id);
     if (!app) throw new NotFoundException(`Factoring application ${id} not found`);
-    if (app.createdBy !== user.id && ![Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE].includes(user.role as Role)) {
+    if (app.createdBy !== user.id && !ADMIN_ACCOUNTING_EXECUTIVE.has(user.role)) {
       throw new ForbiddenException();
     }
     return app;
