@@ -39,11 +39,33 @@ jobs:
 
       - name: Run dry-run loop
         run: |
+          set -o pipefail
           node scripts/p7-autopilot-loop-dry-run.mjs \
             --source-pr "${{ inputs.source_pr || '1500' }}" \
             --source-sha "${{ inputs.source_sha || github.sha }}" \
             --output docs/platform-v7/autopilot/loop-dry-run-result.json \
-            --write-audit
+            --write-audit 2>&1 | tee /tmp/platform-v7-loop-dry-run.log
 
       - name: Show dry-run result
-        run: cat docs/platform-v7/autopilot/loop-dry-run-result.json
+        if: always()
+        run: |
+          if [ -f docs/platform-v7/autopilot/loop-dry-run-result.json ]; then
+            cat docs/platform-v7/autopilot/loop-dry-run-result.json
+          else
+            echo "loop-dry-run-result.json was not created"
+          fi
+
+      - name: Upload dry-run log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-loop-dry-run-log
+          path: /tmp/platform-v7-loop-dry-run.log
+
+      - name: Upload dry-run result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-loop-dry-run-result
+          path: docs/platform-v7/autopilot/loop-dry-run-result.json
+          if-no-files-found: ignore
