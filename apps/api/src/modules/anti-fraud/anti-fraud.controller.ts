@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
@@ -15,7 +15,8 @@ export class AntiFraudController {
   @Post('check')
   async check(@Body() ctx: DealContext, @CurrentUser() user: RequestUser) {
     if (!FRAUD_ADMIN_ROLES.includes(user.role as Role)) throw new ForbiddenException();
-    return this.antiFraud.check(ctx);
+    const entityId = ctx.dealId ?? 'manual-check';
+    return this.antiFraud.check(entityId, ctx);
   }
 
   @Post('off-platform')
