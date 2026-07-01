@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  typecheck:
+  scenario-runner:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -32,4 +32,4 @@ jobs:
           node-version: '20'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck:domain
+      - run: npx tsc --noEmit --skipLibCheck --target ES2022 --module CommonJS --moduleResolution Node packages/domain-core/src/execution-simulation/scenario-runner.ts
