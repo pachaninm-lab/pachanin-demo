@@ -1,5 +1,8 @@
+import { createExecutionSimulationState } from './fixtures';
+
 // Controlled-pilot scenario runner contract for the current execution layer.
 export function runPlatformV7ExecutionEvidenceScenario() {
+  const state = createExecutionSimulationState();
   const passedSteps = [
     { id: 'price', status: 'TERMS_READY' },
     { id: 'deal', status: 'DEAL_CREATED' },
@@ -35,9 +38,9 @@ export function runPlatformV7ExecutionEvidenceScenario() {
       { id: 'weight-required', passed: closeBasis.weightReady },
       { id: 'quality-required', passed: closeBasis.qualityReady },
     ],
-    auditEventCountDelta: passedSteps.length,
-    timelineEventCountDelta: passedSteps.length,
+    auditEventCountDelta: state.auditEvents.length,
+    timelineEventCountDelta: state.dealTimeline.length,
     closeBasis,
-    source: 'controlled-pilot-scenario-runner',
+    source: 'controlled-pilot-state-runner',
   };
 }
