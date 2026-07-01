@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { WebAuthnPanel } from '@/components/platform-v7/WebAuthnPanel';
+import { SsoSamlPanel } from '@/components/platform-v7/SsoSamlPanel';
 
 export const metadata: Metadata = {
   title: 'Безопасность — Прозрачная Цена',
@@ -119,6 +120,12 @@ export default function SecurityPage() {
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <CollapsibleSection title='WebAuthn / FIDO2 · Passkeys' summary='Touch ID · Face ID · YubiKey · FIDO2 · беспарольная аутентификация' defaultOpen={false}>
           <WebAuthnPanel />
+        </CollapsibleSection>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <CollapsibleSection title='SSO / SAML 2.0 / OIDC · Корпоративная аутентификация' summary='MS AD FS · Keycloak · Google Workspace · Яндекс 360 · SCIM 2.0' defaultOpen={false}>
+          <SsoSamlPanel />
         </CollapsibleSection>
       </section>
 

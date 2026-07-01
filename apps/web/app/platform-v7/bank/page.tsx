@@ -22,6 +22,8 @@ import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { DonutGauge, PremiumStatCard, CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { LedgerPanel } from '@/components/platform-v7/LedgerPanel';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -316,6 +318,12 @@ export default async function PlatformV7BankPage() {
         <RoleExecutionHandoff items={bankHandoff} title='исполнение: что банк ожидает и отправляет' />
         <JournalPreview role='bank' maxEntries={3} />
       </DisclosureSection>
+
+      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <CollapsibleSection title='Ledger · Двойная запись' summary='escrow · резерв · выпуск · комиссии · idempotency_key · PostgreSQL DEFERRABLE' defaultOpen={false}>
+          <LedgerPanel />
+        </CollapsibleSection>
+      </section>
     </main>
   );
 }

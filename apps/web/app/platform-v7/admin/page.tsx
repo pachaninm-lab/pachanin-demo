@@ -10,6 +10,7 @@ import { FeatureFlagsPanel } from '@/components/platform-v7/FeatureFlagsPanel';
 import { HealthStatusPanel } from '@/components/platform-v7/HealthStatusPanel';
 import { LoadTestingPanel } from '@/components/platform-v7/LoadTestingPanel';
 import { SupportOpsPanel } from '@/components/platform-v7/SupportOpsPanel';
+import { SagaOrchestratorPanel } from '@/components/platform-v7/SagaOrchestratorPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -125,6 +126,9 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Support Ops Queue · Тикеты' summary='P1/P2/P3/P4 · KYC/финансы/доступ · просмотр сделки · эскалация · SLA' defaultOpen={false}>
           <SupportOpsPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Saga Orchestrator · Распределённые транзакции' summary='Kafka · DLQ · retry backoff · FGIS Зерно · aflatoxin · ручное вмешательство' defaultOpen={false}>
+          <SagaOrchestratorPanel />
         </CollapsibleSection>
       </div>
 
