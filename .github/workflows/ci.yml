@@ -47,4 +47,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build web
-        run: pnpm build
+        run: |
+          set -o pipefail
+          pnpm build 2>&1 | tee /tmp/pnpm-build.log
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-build-web-log
+          path: /tmp/pnpm-build.log
