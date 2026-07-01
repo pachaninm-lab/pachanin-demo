@@ -1,4 +1,27 @@
-import type { DealExecutionStatus } from './types';
+export type PlatformV7ScenarioStatus =
+  | 'LOT_CREATED'
+  | 'LOT_PUBLISHED'
+  | 'OFFER_ACCEPTED'
+  | 'DEAL_CREATED'
+  | 'CONTRACT_DRAFTED'
+  | 'AWAITING_SIGNATURES'
+  | 'SIGNED'
+  | 'RESERVE_REQUESTED'
+  | 'RESERVE_CONFIRMED'
+  | 'DRIVER_ASSIGNED'
+  | 'LOADING_CONFIRMED'
+  | 'LOADED'
+  | 'IN_TRANSIT'
+  | 'ARRIVED'
+  | 'WEIGHING_CONFIRMED'
+  | 'LAB_SAMPLING'
+  | 'LAB_PROTOCOL_CREATED'
+  | 'ACCEPTED'
+  | 'DOCUMENTS_PENDING'
+  | 'DOCUMENTS_READY'
+  | 'PAYMENT_RELEASE_REQUESTED'
+  | 'FINAL_RELEASED'
+  | 'CLOSED';
 
 export type PlatformV7ScenarioStepId =
   | 'createLot'
@@ -27,7 +50,7 @@ export type PlatformV7ScenarioStepId =
 
 export interface PlatformV7ScenarioStep {
   readonly id: PlatformV7ScenarioStepId;
-  readonly dealStatus: DealExecutionStatus | 'LOT_CREATED' | 'LOT_PUBLISHED';
+  readonly dealStatus: PlatformV7ScenarioStatus;
 }
 
 export interface PlatformV7ScenarioBlockedCheck {
