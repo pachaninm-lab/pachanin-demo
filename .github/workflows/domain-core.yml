@@ -1,0 +1,35 @@
+name: Domain Core
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/domain-core/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig*.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/domain-core/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig*.json'
+  workflow_dispatch:
+
+concurrency:
+  group: domain-core-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck:domain
