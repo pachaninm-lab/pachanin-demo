@@ -22,6 +22,7 @@ export function runPlatformV7ExecutionEvidenceScenario() {
     scenarioId: 'P7-E2E-2096',
     dealId: 'DL-P7-E2E-2096',
     finalStatus: scenarioState.deals.find((deal) => deal.id === 'DL-P7-E2E-2096')?.status ?? 'NO_DEAL',
+    targetFinalStatus: 'CLOSED',
     firstActionOk: Boolean(firstAction?.ok),
     secondActionOk: Boolean(secondAction?.ok),
     thirdActionOk: Boolean(thirdAction?.ok),
