@@ -1,35 +1,19 @@
 # platform-v7 execution queue
 
-CURRENT: P0 market-entry page boundary selection.
+CURRENT: P0 execution/evidence scenario selection.
 
-GOAL: select a narrow route-only market-entry implementation layer without widening platform-v7 runtime, shell, RBAC, bank, deal, API, storage or integration scope.
+GOAL: select one deterministic controlled-pilot scenario for issue #2096 before any code implementation. The scenario must prove that the platform can reconstruct a deal chain across roles and blockers without claiming live integrations or production maturity.
 
 CURRENT STATUS:
 - #2111 is merged: P0 cabinet-session body-role guard is active.
-- #2112 is closed as completed.
-- #2113 remains open: repository settings cleanup.
+- #2113 is closed: deprecated Vercel/Deno statuses are not blocking current `main` merges; Netlify remains the active deployment target.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
-- #2120 is merged: RBAC / tenant scope / object scope source-of-truth selection is complete.
-- #2121 is merged: isolated RBAC / tenant scope / object scope backend boundary is active.
-- #2122 is merged: route wiring lane selection is complete.
-- #2123 is merged: isolated route-scope boundary is active.
-- #2124 is merged: route-scope state sync after #2123 is complete.
-- #2125 is merged: canonical data boundary selection is complete.
-- #2126 is merged: canonical data implementation boundary is active.
-- #2127 is merged: canonical data state sync after #2126 is complete.
-- #2128 is merged: money integer basis boundary selection is complete.
-- #2129 is merged: money integer basis boundary implementation is active.
-- #2130 is merged: money integer state sync after #2129 is complete.
-- #2131 is merged: ledger source-of-truth selection is complete.
-- #2132 is merged: isolated ledger source boundary implementation is active.
-- #2133 is merged: ledger source state sync after #2132 merge is complete.
-- #2134 is merged: ledger invariants implementation scope selection is complete.
-- #2135 is merged: isolated read-only ledger invariants boundary is active.
-- #2136 is merged: ledger invariants state sync after #2135 merge is complete.
-- #2137 is merged: audit read-model boundary selection is complete.
 - #2138 is merged: isolated audit read-model boundary is active.
-- Wide market-entry R&D PRs are closed without merge because current scope was docs-only.
-- Current layer remains docs-only and selects the next narrow app route layer.
+- #2154 is merged: market-entry boundary selection is recorded.
+- #2155 is merged: runtime CI checks are routed away from docs-only PRs.
+- #2158 is merged: Netlify docs-only build gate is active.
+- #2162 is merged: robust Netlify ignore script is active.
+- #2159 remains open as draft: route implementation is blocked until route-scope write path or guard advancement is available.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
@@ -39,26 +23,28 @@ CURRENT ALLOWED:
 - docs/platform-v7/execution-queue.md
 
 CURRENT CHECKS:
-- record that #2152 and #2153 are not production paths;
-- select one route-only follow-up layer for `/platform-v7/market-entry`;
-- keep #2113 and #2115 as open blockers unless source-of-truth changes;
-- keep apps/landing, broad apps/web runtime, API controllers, DB, audit mutation, outbox implementation, storage, runtime and live integrations out of scope;
+- keep #2159 in draft until source-of-truth/guard is advanced;
+- keep #2115 as an auth write-path blocker;
+- select #2096 as the next safe docs-only execution/evidence layer;
+- do not touch apps/landing, app routes, backend auth, API, DB, storage, package or lock files;
 - maturity remains controlled-pilot / pre-integration;
-- readiness remains 72%;
-- no package or lockfile changes.
+- readiness remains 72%.
 
 NEXT:
-- Layer: P0 market-entry minimal route implementation.
+- Layer: P0 execution/evidence scenario selection for #2096.
 - Allowed files:
-  - apps/web/app/platform-v7/market-entry/page.tsx
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - add only a server-rendered route page;
-  - no client hooks, localStorage, API route, handoff, storage, shell, RBAC, bank, deal runtime or money movement;
-  - no automatic deal creation;
-  - no forbidden zone beyond the single allowed route file;
-  - no fake-live claim or readiness uplift;
-  - keep status controlled-pilot / pre-integration;
-  - readiness remains 72%.
+  - one deterministic scenario is selected before implementation;
+  - the scenario covers commercial, logistics, acceptance, quality, documents, dispute, external-basis callback and audit/export checkpoints;
+  - closing remains blocked when required checkpoints are missing;
+  - no live external integration claim;
+  - no platform-side release claim;
+  - no maturity or readiness uplift.
 
 ORDER:
 1. Stable shell boundary is active from #2038.
@@ -91,7 +77,8 @@ ORDER:
 28. P0 ledger invariants state sync after #2135 merge is active from #2136.
 29. P0 audit read-model boundary selection is active from #2137.
 30. P0 audit read-model boundary implementation is active from #2138.
-31. P0 market-entry page boundary selection is current.
+31. P0 market-entry boundary selection is active from #2154.
+32. P0 execution/evidence scenario selection is current.
 
 RULES:
 - one PR = one narrow layer;
@@ -99,7 +86,7 @@ RULES:
 - no package or lockfiles;
 - no fake-live integration claims;
 - no production-ready claims;
-- no broad backend/API/DB/auth/session/runtime/money/storage rewrite inside the current boundary layer;
+- no broad backend/API/DB/auth/session/runtime/storage rewrite inside the current boundary layer;
 - Netlify plus GitHub checks green before merge.
 
 DONE:
@@ -125,5 +112,10 @@ DONE:
 - #2136 P0 ledger invariants state sync after #2135 merge.
 - #2137 P0 audit read-model boundary selection.
 - #2138 P0 audit read-model boundary implementation.
+- #2154 market-entry boundary selection.
+- #2155 runtime CI filtering for docs-only PRs.
+- #2158 Netlify docs-only build gate.
+- #2162 robust Netlify ignore gate.
+- #2113 deprecated status cleanup closed by empirical merge verification.
 
-READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, money/ledger mutation, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete. Market-entry route selection does not change maturity or readiness.
+READINESS: 72% honest readiness. Runtime layers, durable auth/session, server RBAC enforce, object scope wiring, mutable money/ledger paths, audit/outbox, storage/evidence and remaining role-by-role functional passes are still incomplete. The current scenario selection does not change maturity or readiness.
