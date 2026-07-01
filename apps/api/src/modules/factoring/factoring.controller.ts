@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { FactoringService } from './factoring.service';
 import { ForbiddenException } from '@nestjs/common';
+
+const OVERDUE_CHECK_ROLES: ReadonlySet<Role> = new Set([Role.ADMIN, Role.ACCOUNTING]);
 
 @Controller('api/factoring')
 @UseGuards(JwtAuthGuard)
@@ -54,7 +56,6 @@ export class FactoringController {
     return this.factoring.getCreditReport(organizationId, user);
   }
 
-  /** Проверить, заблокирована ли организация из-за просрочки факторинга */
   @Get('org-block-status/:organizationId')
   getOrgBlockStatus(@Param('organizationId') organizationId: string) {
     return {
@@ -63,10 +64,9 @@ export class FactoringController {
     };
   }
 
-  /** Ручной запуск проверки просрочек (ADMIN/ACCOUNTING) */
   @Post('check-overdue')
   checkOverdue(@CurrentUser() user: RequestUser) {
-    if (![Role.ADMIN, Role.ACCOUNTING].includes(user.role as Role)) {
+    if (!OVERDUE_CHECK_ROLES.has(user.role)) {
       throw new ForbiddenException('Только ADMIN/ACCOUNTING');
     }
     return this.factoring.checkOverdue();
