@@ -75,6 +75,39 @@ function replaceDeal(state: DomainExecutionState, deal: Deal) {
   state.deals = state.deals.map((item) => (item.id === deal.id ? deal : item));
 }
 
+function getNextContractStatus(status: Deal['status']): Deal['status'] | null {
+  if (status === 'DEAL_CREATED') return 'CONTRACT_DRAFTED';
+  if (status === 'CONTRACT_DRAFTED') return 'AWAITING_SIGNATURES';
+  if (status === 'AWAITING_SIGNATURES') return 'SIGNED';
+  return null;
+}
+
+function upsertContractDocument(state: DomainExecutionState, deal: Deal, command: PlatformActionCommand, status: Document['status']) {
+  const now = command.now || new Date().toISOString();
+  const existing = state.documents.find((document) => document.dealId === deal.id && document.type === 'contract');
+  if (existing) {
+    existing.status = status;
+    existing.version += status === 'signed' && existing.status !== 'signed' ? 1 : 0;
+    existing.signerIds = status === 'signed' ? Array.from(new Set([...existing.signerIds, command.actor.id])) : existing.signerIds;
+    existing.hash = existing.hash || `sha256-contract-${deal.id}`;
+    return existing;
+  }
+
+  const document: Document = {
+    id: createId('DOC', now, `${deal.id}-CONTRACT`),
+    dealId: deal.id,
+    type: 'contract',
+    status,
+    version: 1,
+    hash: `sha256-contract-${deal.id}`,
+    signerIds: status === 'signed' ? [command.actor.id] : [],
+    createdAt: now,
+    runtimeLabel: command.runtimeLabel || 'sandbox'
+  };
+  state.documents.push(document);
+  return document;
+}
+
 function appendAuditAndTimeline(
   state: DomainExecutionState,
   command: PlatformActionCommand,
@@ -173,6 +206,24 @@ function createDeal(state: DomainExecutionState, command: PlatformActionCommand)
   const lotId = requireString(payload, 'lotId');
   const lot = state.lots.find((item) => item.id === lotId);
   if (!lot) throw new Error(`Lot not found: ${lotId}`);
+
+  const dealId = String(payload.dealId || '');
+  const existingDeal = dealId ? state.deals.find((item) => item.id === dealId) : undefined;
+  if (existingDeal) {
+    const before = { ...existingDeal };
+    const target = getNextContractStatus(existingDeal.status);
+    if (!target) throw new Error(`No contract transition available from ${existingDeal.status}`);
+
+    const transition = transitionDeal(state, existingDeal, target, command);
+    if (!transition.ok || !transition.deal) throw new Error(transition.error?.message || 'Contract transition blocked');
+
+    if (target === 'CONTRACT_DRAFTED') upsertContractDocument(state, transition.deal, command, 'generated');
+    if (target === 'SIGNED') upsertContractDocument(state, transition.deal, command, 'signed');
+
+    const updated: Deal = { ...transition.deal, ownerRole: target === 'SIGNED' ? 'buyer' : 'operator' };
+    replaceDeal(state, updated);
+    return { entityId: updated.id, dealId: updated.id, before, after: updated };
+  }
 
   const deal: Deal = {
     id: String(payload.dealId || createId('DL', now)),
