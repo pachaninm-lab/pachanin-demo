@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 72,
-  "currentStep": "P0 execution/evidence scenario selection: docs-only source-of-truth step for issue #2096. Market-entry route PR #2159 remains draft-blocked until route-scope write path or guard advancement is available.",
-  "lastCompletedStep": "#2154 docs boundary selection merged; #2155 runtime CI filtering merged; #2158 Netlify docs-only gate merged; #2113 deprecated status cleanup closed; #2162 robust Netlify ignore gate merged.",
-  "openPr": "p2163",
+  "currentStep": "P0 execution/evidence scenario runner implementation boundary for issue #2096. The next code PR may only compose existing domain-core execution-simulation primitives into one deterministic controlled-pilot scenario runner and one unit test.",
+  "lastCompletedStep": "#2163 synced source-of-truth after #2154, #2155, #2158, #2162 and #2113 cleanup.",
+  "openPr": "x2165",
   "blockedBy": ["#2115", "#2159"],
-  "nextStep": "Select one deterministic controlled-pilot execution/evidence scenario before code. Keep auth, app routes, API, storage, package and lockfile changes out of this docs-only layer.",
-  "updatedAt": "2026-07-01T00:20:00.000Z",
+  "nextStep": "Implement scenario-runner.ts, export it from execution-simulation/index.ts, and add one unit test. Do not touch app routes, backend auth, API, storage, package or lock files.",
+  "updatedAt": "2026-07-01T00:30:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
