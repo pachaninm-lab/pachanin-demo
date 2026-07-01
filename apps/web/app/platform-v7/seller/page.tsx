@@ -18,6 +18,7 @@ import { FactoringPanel } from '@/components/platform-v7/FactoringPanel';
 import { CommissionCalculator } from '@/components/platform-v7/CommissionCalculator';
 import { IncotermsExportWidget } from '@/components/platform-v7/IncotermsExportWidget';
 import { FtsCustomsPanel } from '@/components/platform-v7/FtsCustomsPanel';
+import { DocumentTemplatesPanel } from '@/components/platform-v7/DocumentTemplatesPanel';
 import { CockpitHero, PremiumStatCard, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { PaymentHeatmap, buildDemoPaymentHeatmapData } from '@/components/platform-v7/PaymentHeatmap';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
@@ -390,6 +391,12 @@ export default async function PlatformV7SellerPage() {
       <section style={{ background: 'var(--p7-color-surface, #fff)', border: '1px solid var(--p7-color-border, #E4E6EA)', borderRadius: 16, padding: '1.25rem' }}>
         <CollapsibleSection title='ФТС · Таможенные декларации' summary='ГТД · оформление · НДС 0% · пошлина · фитосанитарные требования' defaultOpen={false}>
           <FtsCustomsPanel />
+        </CollapsibleSection>
+      </section>
+
+      <section style={{ background: 'var(--p7-color-surface, #fff)', border: '1px solid var(--p7-color-border, #E4E6EA)', borderRadius: 16, padding: '1.25rem' }}>
+        <CollapsibleSection title='Шаблоны документов · Договор / Акт / УПД / ЭТрН / СДИЗ' summary='УКЭП · Диадок · ГОСТ · нормативная база · создать и подписать' defaultOpen={false}>
+          <DocumentTemplatesPanel />
         </CollapsibleSection>
       </section>
 

@@ -22,6 +22,7 @@ import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
 import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { CreditBureauPanel } from '@/components/platform-v7/CreditBureauPanel';
+import { EscrowPanel } from '@/components/platform-v7/EscrowPanel';
 import { PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, type PlatformV7ExecutionActionState } from '@/lib/platform-v7/execution-action-core';
 import {
   CockpitHero,
@@ -296,6 +297,13 @@ export default async function PlatformV7BuyerPage() {
       <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' }}>
         <CollapsibleSection title='Кредитное бюро · Скоринг контрагентов' summary='НБКИ · ОКБ · Эквифакс · грейд AAA→CCC · лимиты' defaultOpen={false}>
           <CreditBureauPanel />
+        </CollapsibleSection>
+      </section>
+
+      {/* Escrow */}
+      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' }}>
+        <CollapsibleSection title='Escrow · Счета условного депонирования' summary='Сбер Безопасные Сделки · резерв · release · спор · условия выпуска' defaultOpen={false}>
+          <EscrowPanel />
         </CollapsibleSection>
       </section>
 
