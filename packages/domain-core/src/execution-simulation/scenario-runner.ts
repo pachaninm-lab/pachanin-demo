@@ -1,3 +1,4 @@
+// Minimal controlled-pilot scenario runner contract.
 export function runPlatformV7ExecutionEvidenceScenario() {
   const passedSteps = ['price', 'deal', 'logistics', 'acceptance', 'documents', 'close'];
   return {
