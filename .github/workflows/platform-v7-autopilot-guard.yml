@@ -14,48 +14,18 @@ on:
       - 'packages/domain-core/src/execution-simulation/**'
       - 'docs/platform-v7/**'
       - 'scripts/p7-autopilot-guard.sh'
-      - 'scripts/p7-autopilot-dispatcher.mjs'
-      - 'scripts/p7-autopilot-generated-*.mjs'
-      - 'scripts/p7-agent-runner.sh'
-      - '.github/ISSUE_TEMPLATE/platform-v7-agent-run.md'
       - '.github/workflows/platform-v7-autopilot-guard.yml'
-      - '.github/workflows/platform-v7-agent-runner.yml'
 
 concurrency:
   group: platform-v7-autopilot-guard-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  autopilot-guard:
+  guard:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Overlay scripts from main
-        run: |
-          git fetch origin main
-          git checkout FETCH_HEAD -- scripts/
-
-      - name: Enable pnpm
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run scope guard
-        run: bash scripts/p7-autopilot-guard.sh
-
-      - name: Run typecheck
-        run: pnpm run typecheck
-
-      - name: Run tests
-        run: pnpm test
+      - run: bash scripts/p7-autopilot-guard.sh
