@@ -2,13 +2,13 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "ready",
-  "current": "P0 execution/evidence scenario runner implementation boundary.",
+  "currentStatus": "infra-hardening",
+  "current": "P0 CI/k6/web build diagnostics for execution-runtime merge readiness.",
   "fullTzReadinessPercent": 72,
-  "openPr": "x2165",
+  "openPr": "#2184",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138", "#2154", "#2155", "#2158", "#2113", "#2162", "#2163"],
-  "openBlockers": ["#2115", "#2159"],
-  "blockerNotes": "#2115 remains blocked by the current auth-file write path. #2159 remains draft because route implementation needs source-of-truth/guard advancement before merge.",
+  "openBlockers": ["#2115", "#2159", "API compiled build debt"],
+  "blockerNotes": "#2115 remains blocked by the current auth-file write path. #2159 remains draft because route implementation needs source-of-truth/guard advancement before merge. #2184 proved existing API compiled build debt through api-k6-build-log; this infra PR does not claim that debt is closed.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/storage changes"],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -16,9 +16,10 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "packages/domain-core/src/execution-simulation/scenario-runner.ts",
-    "packages/domain-core/src/execution-simulation/index.ts",
-    "apps/web/tests/unit/platformV7ExecutionScenarioRunner.test.ts"
+    ".github/workflows/security-quality-gate.yml",
+    ".github/workflows/web-unit.yml",
+    "apps/api/package.json",
+    "apps/web/lib/platform-v7/shellRoutes.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -26,9 +27,10 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "packages/domain-core/src/execution-simulation/scenario-runner.ts",
-    "packages/domain-core/src/execution-simulation/index.ts",
-    "apps/web/tests/unit/platformV7ExecutionScenarioRunner.test.ts"
+    ".github/workflows/security-quality-gate.yml",
+    ".github/workflows/web-unit.yml",
+    "apps/api/package.json",
+    "apps/web/lib/platform-v7/shellRoutes.ts"
   ],
   "executionEvidenceScenarioRunner": {
     "issue": "#2096",
@@ -39,6 +41,19 @@
       "return passed steps, blocked checks, audit count, timeline count and close readiness",
       "test negative guard cases before close",
       "no app route, backend auth, API, DB, storage, package or lockfile changes"
+    ]
+  },
+  "ciK6BuildWiring": {
+    "pr": "#2184",
+    "layer": "P0 CI/k6/web build diagnostics and start-path hardening",
+    "allowedTargets": [
+      "preserve complete CI web build logs as artifacts",
+      "fix @pc/api compiled start path to the actual tsc output path",
+      "keep k6 smoke runnable against a test runtime without hiding API compiled build debt",
+      "capture API compiled build diagnostics as artifacts",
+      "fix the concrete platform-v7 login build ReferenceError without broad route rewrites",
+      "no disabling of security checks",
+      "no maturity uplift"
     ]
   },
   "marketEntryPageScopeSelection": {
@@ -52,7 +67,6 @@
     "apps/web/app/platform-v7",
     "apps/web/components/platform-v7",
     "apps/web/components/v7r",
-    "apps/web/lib/platform-v7",
     "apps/web/app/api",
     "apps/api/src/modules/auth/**",
     "package.json",
@@ -61,5 +75,5 @@
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": ["maturity uplift", "live integration completion"],
-  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. The scenario runner composes existing simulation primitives and does not claim production readiness or active external integrations."
+  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. #2184 is infrastructure hardening only: it improves diagnostics and smoke wiring, and it does not claim production readiness or active external integrations."
 }
