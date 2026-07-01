@@ -54,15 +54,17 @@ export class DealAutoService implements OnModuleInit, OnModuleDestroy {
           },
         });
 
-        await this.audit?.log({
-          action: 'deal:auto_cancelled',
-          actorUserId: 'SYSTEM',
-          actorRole: 'ADMIN',
-          objectType: 'Deal',
-          objectId: deal.id,
-          outcome: 'SUCCESS',
-          metadata: { reason: `No activity for ${STALE_DAYS} days`, previousStatus: deal.status },
-        }).catch(() => {});
+        try {
+          this.audit?.log({
+            action: 'deal:auto_cancelled',
+            actorUserId: 'SYSTEM',
+            actorRole: 'ADMIN',
+            objectType: 'Deal',
+            objectId: deal.id,
+            outcome: 'SUCCESS',
+            meta: { reason: `No activity for ${STALE_DAYS} days`, previousStatus: deal.status },
+          });
+        } catch {}
 
         this.outbox?.enqueue({
           type: 'DEAL_AUTO_CANCELLED',
