@@ -1,3 +1,4 @@
+// P0 #2096 deterministic execution/evidence scenario runner.
 export type PlatformV7ScenarioStatus =
   | 'LOT_CREATED'
   | 'LOT_PUBLISHED'
