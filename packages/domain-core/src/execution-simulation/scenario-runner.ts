@@ -1,5 +1,6 @@
 import { runPlatformAction } from './action-engine';
 import { createExecutionSimulationState } from './fixtures';
+import { transitionDeal } from './state-machine';
 
 export function runPlatformV7ExecutionEvidenceScenario() {
   const state = createExecutionSimulationState();
@@ -11,21 +12,27 @@ export function runPlatformV7ExecutionEvidenceScenario() {
   const stateAfterSecondAction = secondAction?.ok ? secondAction.state : stateAfterFirstAction;
   const thirdAction = operator && secondAction?.ok ? runPlatformAction(stateAfterSecondAction, { type: 'createDeal', actor: operator, payload: { lotId: 'LOT-P7-E2E-2096', dealId: 'DL-P7-E2E-2096', buyerId: 'CP-B-001' }, runtimeLabel: 'pilot', now: '2026-07-01T08:02:00.000Z' }) : null;
   const scenarioState = thirdAction?.ok ? thirdAction.state : stateAfterSecondAction;
+  const deal = scenarioState.deals.find((item) => item.id === 'DL-P7-E2E-2096');
+  const draftTransition = operator && deal ? transitionDeal(scenarioState, deal, 'CONTRACT_DRAFTED', { type: 'createDeal', actor: operator, payload: { dealId: deal.id }, runtimeLabel: 'pilot', now: '2026-07-01T08:03:00.000Z' }) : null;
+  if (draftTransition?.ok && draftTransition.deal) scenarioState.deals = scenarioState.deals.map((item) => item.id === draftTransition.deal?.id ? draftTransition.deal : item);
+  const finalDeal = scenarioState.deals.find((item) => item.id === 'DL-P7-E2E-2096');
   const closeBasis = { basisReady: true, docsReady: true, reviewClear: true, weightReady: true, qualityReady: true };
   const passedSteps = [
     { id: 'price', status: firstAction?.ok ? 'ACTION_RECORDED' : 'TERMS_READY' },
     { id: 'publish', status: secondAction?.ok ? 'ACTION_RECORDED' : 'PUBLISH_PENDING' },
     { id: 'deal', status: thirdAction?.ok ? 'ACTION_RECORDED' : 'DEAL_PENDING' },
+    { id: 'contract', status: draftTransition?.ok ? 'ACTION_RECORDED' : 'CONTRACT_PENDING' },
   ];
 
   return {
     scenarioId: 'P7-E2E-2096',
     dealId: 'DL-P7-E2E-2096',
-    finalStatus: scenarioState.deals.find((deal) => deal.id === 'DL-P7-E2E-2096')?.status ?? 'NO_DEAL',
+    finalStatus: finalDeal?.status ?? 'NO_DEAL',
     targetFinalStatus: 'CLOSED',
     firstActionOk: Boolean(firstAction?.ok),
     secondActionOk: Boolean(secondAction?.ok),
     thirdActionOk: Boolean(thirdAction?.ok),
+    contractDraftedOk: Boolean(draftTransition?.ok),
     closeReady: false,
     passedSteps,
     passedStepIds: passedSteps.map((step) => step.id),
