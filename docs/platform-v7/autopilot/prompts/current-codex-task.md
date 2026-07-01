@@ -1,8 +1,8 @@
-# Codex current task — P0 market-entry page boundary selection
+# Codex current task — P0 execution/evidence scenario selection
 
 Maturity: controlled-pilot / pre-integration.
 
-Do not overstate maturity. Do not imply external connections are active. Do not change apps/landing, backend, persistence, external connectivity, auth/session/API, packages or lockfiles.
+Do not overstate maturity. Do not imply external connections are active. Do not change apps/landing, app routes, backend auth, persistence, external connectivity, auth/session/API, packages or lockfiles.
 
 ## Source of truth
 
@@ -12,28 +12,38 @@ Do not overstate maturity. Do not imply external connections are active. Do not 
 
 ## Current step
 
-Docs-only scope selection for the future `/platform-v7/market-entry` route.
+Docs-only source-of-truth selection for issue #2096.
 
-The current PR must only update source-of-truth docs. It must not implement app code.
+The current PR must only update source-of-truth docs. It must not implement app or backend code.
 
 ## Allowed current scope
 
 Use only the exact paths listed in `allowedCurrentScope` in `autopilot-state.json`.
 
-## Next implementation candidate
+## Scenario selection objective
 
-After this docs PR is green and merged, the next PR may target only:
+Select one deterministic controlled-pilot execution/evidence scenario before implementation.
 
-- `apps/web/app/platform-v7/market-entry/page.tsx`
+The selected scenario must cover:
 
-That follow-up implementation must be route-only and server-rendered: no client hooks, no localStorage, no handoff, no API route, no storage, no shell, no RBAC, no bank, no deal runtime and no money movement.
+- commercial request and accepted terms;
+- deal creation checkpoint;
+- shipment assignment and driver loading checkpoint;
+- elevator acceptance and weight checkpoint;
+- laboratory quality checkpoint;
+- document matrix checkpoint;
+- dispute/no-dispute branch and decision basis;
+- external-basis callback simulation;
+- close gate;
+- audit/export reconstruction.
 
 ## Acceptance criteria
 
 - no apps/landing diff;
+- no app route diff;
 - no package or lockfile diff;
-- no app implementation diff in this docs PR;
-- no backend/persistence/external-connectivity changes;
+- no backend/auth/API/persistence/external-connectivity changes;
+- no live external-integration claims;
 - no fake maturity claims;
 - readiness remains 72%;
 - GitHub Actions and Netlify checks green before merge.
