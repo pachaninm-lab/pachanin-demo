@@ -15,8 +15,19 @@ export function runPlatformV7ExecutionEvidenceScenario() {
     })
     : null;
   const stateAfterFirstAction = firstAction?.ok ? firstAction.state : state;
+  const secondAction = seller && firstAction?.ok
+    ? runPlatformAction(stateAfterFirstAction, {
+      type: 'publishLot',
+      actor: seller,
+      payload: { lotId: 'LOT-P7-E2E-2096' },
+      runtimeLabel: 'pilot',
+      now: '2026-07-01T08:01:00.000Z',
+    })
+    : null;
+  const scenarioState = secondAction?.ok ? secondAction.state : stateAfterFirstAction;
   const passedSteps = [
     { id: 'price', status: firstAction?.ok ? 'ACTION_RECORDED' : 'TERMS_READY' },
+    { id: 'publish', status: secondAction?.ok ? 'ACTION_RECORDED' : 'PUBLISH_PENDING' },
     { id: 'deal', status: 'DEAL_CREATED' },
     { id: 'basis', status: 'BASIS_CONFIRMED' },
     { id: 'route', status: 'ROUTE_ASSIGNED' },
@@ -41,6 +52,7 @@ export function runPlatformV7ExecutionEvidenceScenario() {
     dealId: 'DL-P7-E2E-2096',
     finalStatus: 'CLOSED',
     firstActionOk: Boolean(firstAction?.ok),
+    secondActionOk: Boolean(secondAction?.ok),
     closeReady: Object.values(closeBasis).every(Boolean),
     passedSteps,
     passedStepIds: passedSteps.map((step) => step.id),
@@ -51,8 +63,8 @@ export function runPlatformV7ExecutionEvidenceScenario() {
       { id: 'weight-required', passed: closeBasis.weightReady },
       { id: 'quality-required', passed: closeBasis.qualityReady },
     ],
-    auditEventCountDelta: stateAfterFirstAction.auditEvents.length,
-    timelineEventCountDelta: stateAfterFirstAction.dealTimeline.length,
+    auditEventCountDelta: scenarioState.auditEvents.length,
+    timelineEventCountDelta: scenarioState.dealTimeline.length,
     closeBasis,
     source: 'controlled-pilot-action-slice-runner',
   };
