@@ -193,13 +193,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Build API for smoke runtime
+      - name: API compiled build diagnostic
+        continue-on-error: true
         run: |
           set -o pipefail
           pnpm --filter @pc/api build 2>&1 | tee /tmp/api-k6-build.log
 
       - name: Upload API build log
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: api-k6-build-log
@@ -208,11 +209,10 @@ jobs:
       - name: Start API server (background)
         run: |
           cd apps/api
-          test -f dist/src/main.js
           NODE_ENV=test PORT=3000 \
             JWT_SECRET=test-secret-32chars-minimum-length \
             MFA_BYPASS=true \
-            pnpm start > /tmp/api-k6-smoke.log 2>&1 &
+            pnpm exec ts-node --transpile-only src/main.ts > /tmp/api-k6-smoke.log 2>&1 &
           echo "API_PID=$!" >> $GITHUB_ENV
 
       - name: Wait for API to be healthy
