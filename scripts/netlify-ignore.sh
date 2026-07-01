@@ -8,7 +8,7 @@ if [ -z "$BASE_REF" ] || ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; t
   BASE_REF="$(git rev-parse HEAD^ 2>/dev/null || printf '%s' "$HEAD_REF")"
 fi
 
-if git diff --quiet "$BASE_REF" "$HEAD_REF" -- apps/web package.json pnpm-lock.yaml pnpm-workspace.yaml netlify.toml; then
+if git diff --quiet "$BASE_REF" "$HEAD_REF" -- apps/web package.json pnpm-lock.yaml pnpm-workspace.yaml; then
   echo "Netlify ignore: no web/runtime changes detected."
   exit 0
 fi
