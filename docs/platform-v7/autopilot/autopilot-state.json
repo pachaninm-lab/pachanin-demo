@@ -18,6 +18,7 @@
     "docs/platform-v7/execution-queue.md",
     ".github/workflows/security-quality-gate.yml",
     ".github/workflows/web-unit.yml",
+    ".github/workflows/node-ci.yml",
     "apps/api/package.json",
     "apps/web/lib/platform-v7/shellRoutes.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
@@ -30,6 +31,7 @@
     "docs/platform-v7/execution-queue.md",
     ".github/workflows/security-quality-gate.yml",
     ".github/workflows/web-unit.yml",
+    ".github/workflows/node-ci.yml",
     "apps/api/package.json",
     "apps/web/lib/platform-v7/shellRoutes.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
@@ -53,6 +55,7 @@
       "fix @pc/api compiled start path to the actual tsc output path",
       "keep k6 smoke runnable against a test runtime without hiding API compiled build debt",
       "capture API compiled build diagnostics as artifacts",
+      "capture Node CI phase logs as artifacts",
       "fix the concrete platform-v7 login build ReferenceError without broad route rewrites",
       "align stale web-unit mobile-entry guard with the current public entry CSS contract",
       "no disabling of security checks",
