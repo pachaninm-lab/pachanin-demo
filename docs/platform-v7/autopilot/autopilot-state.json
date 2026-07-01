@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "P0 API typecheck first debt slice outside auth and Prisma migration scope.",
   "fullTzReadinessPercent": 72,
-  "openPr": "stacked-api-slice",
+  "openPr": "#2185",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138", "#2154", "#2155", "#2158", "#2113", "#2162", "#2163"],
   "openBlockers": ["#2115", "#2159", "API compiled build debt"],
   "blockerNotes": "First narrow API debt slice. API compiled build debt remains open until the full API check is green.",
@@ -16,7 +16,8 @@
     "apps/api/src/common/action-executor/action-policy.ts",
     "apps/api/src/common/logger/masked-logger.service.ts",
     "apps/api/src/health.controller.ts",
-    "apps/api/src/modules/storage/storage.controller.ts"
+    "apps/api/src/modules/storage/storage.controller.ts",
+    "apps/api/src/modules/factoring/factoring.service.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -24,7 +25,8 @@
     "apps/api/src/common/action-executor/action-policy.ts",
     "apps/api/src/common/logger/masked-logger.service.ts",
     "apps/api/src/health.controller.ts",
-    "apps/api/src/modules/storage/storage.controller.ts"
+    "apps/api/src/modules/storage/storage.controller.ts",
+    "apps/api/src/modules/factoring/factoring.service.ts"
   ],
   "executionEvidenceScenarioRunner": {
     "issue": "#2096",
