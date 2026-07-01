@@ -6,7 +6,7 @@ import { BrandMark } from '@/components/v7r/BrandMark';
 export const metadata: Metadata = {
   title: 'Задать вопрос — пилот, банк, регион и подключение',
   description:
-    'Форма обращения по платформе Прозрачная Цена: демонстрационный режим, controlled pilot, банковский контур, региональный запуск, роли участников и техническое подключение.',
+    'Форма обращения по платформе Прозрачная Цена: публичный разбор сделки, controlled pilot, банковский контур, региональный запуск, роли участников и техническое подключение.',
   alternates: {
     canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/contact',
   },
@@ -50,7 +50,7 @@ export default async function PlatformV7ContactPage({ searchParams }: { searchPa
           <span className='p7-contact-brand-copy'><strong>Прозрачная Цена</strong><small>Контур исполнения сделки</small></span>
         </Link>
         <nav className='p7-contact-nav' aria-label='Действия'>
-          <Link href='/platform-v7/demo'>Демо</Link>
+          <Link href='/platform-v7/demo'>Разбор сделки</Link>
           <Link href='/platform-v7/register'>Подключить организацию</Link>
           <Link href='/platform-v7/login'><LogIn size={15} />Войти</Link>
         </nav>
@@ -60,7 +60,7 @@ export default async function PlatformV7ContactPage({ searchParams }: { searchPa
         <div className='p7-contact-copy'>
           <span className='p7-contact-kicker'>Обратная связь</span>
           <h1>Направить обращение по платформе</h1>
-          <p>Форма предназначена для вопросов по демонстрационному режиму, пилоту, подключению организации, банковскому контуру, региональному запуску и техническому взаимодействию.</p>
+          <p>Форма предназначена для вопросов по публичному разбору сделки, пилоту, подключению организации, банковскому контуру, региональному запуску и техническому взаимодействию.</p>
           <div className='p7-contact-cards' aria-label='Назначение формы'>
             <InfoCard icon={<MessageSquareText size={22} />} title='Обращение без регистрации' text='Можно задать вопрос без выбора роли и без входа в рабочий кабинет.' />
             <InfoCard icon={<ShieldCheck size={22} />} title='Только канал связи' text='Форма принимает обращение и контакт для ответа, но не открывает доступ к сделкам.' />
@@ -74,7 +74,7 @@ export default async function PlatformV7ContactPage({ searchParams }: { searchPa
               <span><ShieldCheck size={24} /></span>
               <h2 id='p7-contact-form-title'>Обращение отправлено</h2>
               <p>Данные обращения приняты. Ответ будет направлен по указанному контакту при условии его корректности.</p>
-              <Link href='/platform-v7/demo'>Вернуться к демонстрационной сделке<ArrowRight size={17} /></Link>
+              <Link href='/platform-v7/demo'>Вернуться к разбору сделки<ArrowRight size={17} /></Link>
             </div>
           ) : (
             <form method='post' action='/api/platform-v7/inquiries' className='p7-contact-form' aria-labelledby='p7-contact-form-title'>
