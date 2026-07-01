@@ -16,7 +16,7 @@ export class AntiFraudController {
   async check(@Body() ctx: DealContext, @CurrentUser() user: RequestUser) {
     if (!FRAUD_ADMIN_ROLES.includes(user.role as Role)) throw new ForbiddenException();
     const entityId = ctx.dealId ?? 'manual-check';
-    return this.antiFraud.check(entityId, ctx);
+    return this.antiFraud.check(entityId, ctx as DealContext & Record<string, unknown>);
   }
 
   @Post('off-platform')
