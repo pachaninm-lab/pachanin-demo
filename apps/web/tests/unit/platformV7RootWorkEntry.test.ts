@@ -26,11 +26,13 @@ describe('platform-v7 root working entry', () => {
   });
 
   it('keeps mobile entry polish guarded', () => {
-    expect(page).toContain('.entry-header { min-height: 60px; padding: 8px 14px; }');
+    expect(page).toContain('--entry-header-height:70px');
+    expect(page).toContain('--entry-header-height:64px');
+    expect(page).toContain('.entry-header{grid-template-columns:1fr auto;padding:9px 16px;gap:10px}');
     expect(page).toContain('scroll-snap-type: x mandatory');
     expect(page).toContain("className='entry-register-cta'");
     expect(page).toContain("href='/platform-v7/register'");
-    expect(page).toContain('color: #fff !important; background: #087a3b');
+    expect(page).toContain('color:#fff!important;background:#087a3b');
   });
 
   it('keeps maturity language guarded', () => {
