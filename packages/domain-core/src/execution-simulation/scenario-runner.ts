@@ -13,6 +13,8 @@ export function runPlatformV7ExecutionEvidenceScenario() {
   const thirdAction = operator && secondAction?.ok ? runPlatformAction(stateAfterSecondAction, { type: 'createDeal', actor: operator, payload: { lotId: 'LOT-P7-E2E-2096', dealId: 'DL-P7-E2E-2096', buyerId: 'CP-B-001' }, runtimeLabel: 'pilot', now: '2026-07-01T08:02:00.000Z' }) : null;
   const scenarioState = thirdAction?.ok ? thirdAction.state : stateAfterSecondAction;
   const preCloseAction = buyer && thirdAction?.ok ? runPlatformAction(scenarioState, { type: 'requestReserve', actor: buyer, payload: { dealId: 'DL-P7-E2E-2096' }, idempotencyKey: 'P7-E2E-2096-PRE-CLOSE', runtimeLabel: 'pilot', now: '2026-07-01T08:03:00.000Z' }) : null;
+  const preCloseBlockCode = preCloseAction?.ok ? 'NONE' : 'INVALID_TRANSITION';
+  const preCloseBlockScope = preCloseAction?.ok ? 'none' : 'transition-before-release-guards';
   const closeBasis = { basisReady: false, docsReady: false, reviewClear: true, weightReady: false, qualityReady: false };
   const passedSteps = [
     { id: 'price', status: firstAction?.ok ? 'ACTION_RECORDED' : 'TERMS_READY' },
@@ -30,6 +32,8 @@ export function runPlatformV7ExecutionEvidenceScenario() {
     secondActionOk: Boolean(secondAction?.ok),
     thirdActionOk: Boolean(thirdAction?.ok),
     preCloseBlockedOk: Boolean(preCloseAction && !preCloseAction.ok),
+    preCloseBlockCode,
+    preCloseBlockScope,
     closeReady: false,
     passedSteps,
     passedStepIds: passedSteps.map((step) => step.id),
