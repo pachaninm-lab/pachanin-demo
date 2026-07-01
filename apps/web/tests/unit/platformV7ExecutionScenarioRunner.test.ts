@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runPlatformV7ExecutionEvidenceScenario } from '../../../../packages/domain-core/src/execution-simulation';
+import { runPlatformV7ExecutionEvidenceScenario } from '../../../../packages/domain-core/src/execution-simulation/scenario-runner';
 
 describe('platform-v7 execution/evidence scenario runner', () => {
   it('runs one deterministic controlled-pilot path to close readiness', () => {
