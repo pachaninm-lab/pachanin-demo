@@ -1,8 +1,8 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
-import { integrationRegistry } from '@grainflow/integration-sdk';
-import type { MockBkiAdapter } from '@grainflow/integration-sdk/src/adapters/bki.adapter';
+import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
+import type { MockBkiAdapter } from '../../../../../packages/integration-sdk/src/adapters/bki.adapter';
 import { NotificationsService } from '../notifications/notifications.service';
 
 export type FactoringStatus = 'PENDING' | 'SCORING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'REPAID' | 'OVERDUE';
