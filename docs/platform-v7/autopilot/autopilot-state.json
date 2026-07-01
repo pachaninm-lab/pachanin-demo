@@ -2,32 +2,44 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "blocked",
-  "current": "P0 market-entry minimal route implementation is blocked by route-scope write access. Continue with P0 execution/evidence scenario selection as the next safe docs-only layer.",
+  "currentStatus": "ready",
+  "current": "P0 execution/evidence scenario runner implementation boundary.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2159",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138", "#2154", "#2155", "#2158", "#2113", "#2162"],
+  "openPr": "x2165",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138", "#2154", "#2155", "#2158", "#2113", "#2162", "#2163"],
   "openBlockers": ["#2115", "#2159"],
   "blockerNotes": "#2115 remains blocked by the current auth-file write path. #2159 remains draft because route implementation needs source-of-truth/guard advancement before merge.",
-  "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
+  "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/storage changes"],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/autopilot/progress.json",
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    "packages/domain-core/src/execution-simulation/scenario-runner.ts",
+    "packages/domain-core/src/execution-simulation/index.ts",
+    "apps/web/tests/unit/platformV7ExecutionScenarioRunner.test.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/autopilot/progress.json",
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    "packages/domain-core/src/execution-simulation/scenario-runner.ts",
+    "packages/domain-core/src/execution-simulation/index.ts",
+    "apps/web/tests/unit/platformV7ExecutionScenarioRunner.test.ts"
   ],
-  "nextSafeLayer": {
+  "executionEvidenceScenarioRunner": {
     "issue": "#2096",
-    "layer": "P0 execution/evidence scenario selection",
-    "scope": "docs-only source-of-truth selection before code"
+    "layer": "P0 execution/evidence scenario runner implementation boundary",
+    "allowedTargets": [
+      "compose existing domain-core execution-simulation primitives",
+      "run one deterministic controlled-pilot happy path",
+      "return passed steps, blocked checks, audit count, timeline count and close readiness",
+      "test negative guard cases before close",
+      "no app route, backend auth, API, DB, storage, package or lockfile changes"
+    ]
   },
   "marketEntryPageScopeSelection": {
     "layer": "P0 market-entry page boundary selection",
@@ -49,5 +61,5 @@
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": ["maturity uplift", "live integration completion"],
-  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. #2115 remains blocked until an allowed auth-file write path is available. #2159 remains a draft route implementation candidate, not a production runtime or integration claim."
+  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. The scenario runner composes existing simulation primitives and does not claim production readiness or active external integrations."
 }
