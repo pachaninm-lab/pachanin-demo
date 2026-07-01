@@ -16,7 +16,6 @@ env:
   PNPM_VERSION: '10.2.1'
 
 jobs:
-  # ── 1. SAST — Semgrep ────────────────────────────────────────────────────────
   semgrep-sast:
     name: SAST · Semgrep
     runs-on: ubuntu-latest
@@ -56,7 +55,6 @@ jobs:
             echo "### Semgrep SAST: $FINDINGS finding(s)" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # ── 2. Trivy container image scan ─────────────────────────────────────────────
   trivy-container:
     name: Trivy · Container image
     runs-on: ubuntu-latest
@@ -111,7 +109,6 @@ jobs:
           category: trivy-filesystem
         continue-on-error: true
 
-  # ── 3. Secret scanning — Gitleaks ─────────────────────────────────────────────
   gitleaks:
     name: Secrets · Gitleaks
     runs-on: ubuntu-latest
@@ -126,7 +123,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ── 4. Dependency audit ────────────────────────────────────────────────────────
   dependency-audit:
     name: Dependencies · npm audit
     runs-on: ubuntu-latest
@@ -151,7 +147,6 @@ jobs:
       - name: Audit (HIGH — informational)
         run: pnpm audit --audit-level=high || true
 
-  # ── 5. TypeScript strict check ─────────────────────────────────────────────────
   typescript-check:
     name: TypeScript · strict
     runs-on: ubuntu-latest
@@ -179,7 +174,6 @@ jobs:
           fi
           echo "TypeScript: OK" >> $GITHUB_STEP_SUMMARY
 
-  # ── 6. k6 Performance Gate (smoke) ────────────────────────────────────────────
   k6-smoke:
     name: Performance · k6 smoke gate
     runs-on: ubuntu-latest
@@ -199,13 +193,17 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Build API for smoke runtime
+        run: pnpm --filter @pc/api build
+
       - name: Start API server (background)
         run: |
           cd apps/api
+          test -f dist/src/main.js
           NODE_ENV=test PORT=3000 \
             JWT_SECRET=test-secret-32chars-minimum-length \
             MFA_BYPASS=true \
-            pnpm start &
+            pnpm start > /tmp/api-k6-smoke.log 2>&1 &
           echo "API_PID=$!" >> $GITHUB_ENV
 
       - name: Wait for API to be healthy
@@ -213,11 +211,15 @@ jobs:
           for i in $(seq 1 30); do
             if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
               echo "API is healthy after ${i}s"
-              break
+              exit 0
             fi
             sleep 2
           done
-          curl -sf http://localhost:3000/health || (echo "API failed to start" && exit 1)
+
+          echo "API failed to start"
+          echo "----- API smoke log -----"
+          cat /tmp/api-k6-smoke.log || true
+          exit 1
 
       - name: Install k6
         run: |
@@ -256,11 +258,17 @@ jobs:
             echo "- Error rate: ${ERRORS} (threshold: 0.01)" >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Upload API smoke log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-k6-smoke-log
+          path: /tmp/api-k6-smoke.log
+
       - name: Kill API server
         if: always()
         run: kill $API_PID 2>/dev/null || true
 
-  # ── 7. Summary gate ────────────────────────────────────────────────────────────
   security-gate:
     name: Security Gate · all checks
     runs-on: ubuntu-latest
