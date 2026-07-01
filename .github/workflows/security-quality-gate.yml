@@ -194,7 +194,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build API for smoke runtime
-        run: pnpm --filter @pc/api build
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api build 2>&1 | tee /tmp/api-k6-build.log
+
+      - name: Upload API build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-k6-build-log
+          path: /tmp/api-k6-build.log
 
       - name: Start API server (background)
         run: |
