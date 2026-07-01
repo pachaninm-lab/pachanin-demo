@@ -33,4 +33,12 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - name: Platform-v7 unit checks
-        run: pnpm --filter @pc/web exec vitest run tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx 2>&1 | tee /tmp/web-unit.log
+      - name: Upload web-unit log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-unit-log
+          path: /tmp/web-unit.log

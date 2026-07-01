@@ -32,6 +32,33 @@ jobs:
           node-version: '20'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck
-      - run: pnpm run test
-      - run: pnpm run build
+      - name: Typecheck
+        run: |
+          set -o pipefail
+          pnpm run typecheck 2>&1 | tee /tmp/node-ci-typecheck.log
+      - name: Upload typecheck log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-ci-typecheck-log
+          path: /tmp/node-ci-typecheck.log
+      - name: Test
+        run: |
+          set -o pipefail
+          pnpm run test 2>&1 | tee /tmp/node-ci-test.log
+      - name: Upload test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-ci-test-log
+          path: /tmp/node-ci-test.log
+      - name: Build
+        run: |
+          set -o pipefail
+          pnpm run build 2>&1 | tee /tmp/node-ci-build.log
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-ci-build-log
+          path: /tmp/node-ci-build.log

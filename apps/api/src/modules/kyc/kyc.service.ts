@@ -135,8 +135,8 @@ export class KycService {
           actorUserId: 'system',
           actorRole: 'SYSTEM',
           dealId: params.dealId,
-          entityType: 'transaction',
-          entityId: params.transactionId,
+          objectType: 'transaction',
+          objectId: params.transactionId,
           outcome: 'FLAGGED',
           reason: JSON.stringify({ ...result }),
           hash: '',
@@ -157,6 +157,7 @@ export class KycService {
       data: {
         id: `kyc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         organizationId: params.organizationId,
+        type: params.documentType ?? 'INITIAL',
         status: 'PENDING',
         notes: params.notes,
         createdAt: new Date(),

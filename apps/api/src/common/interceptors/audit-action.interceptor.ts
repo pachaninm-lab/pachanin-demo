@@ -24,15 +24,19 @@ export class AuditActionInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap(() => {
         if (!user) return;
-        this.audit.log({
-          action,
-          actorUserId: user.id,
-          actorRole: user.role,
-          objectType,
-          objectId,
-          outcome: 'OK',
-          dealId: params.dealId,
-        }).catch(() => {});
+        try {
+          this.audit.log({
+            action,
+            actorUserId: user.id,
+            actorRole: user.role,
+            objectType,
+            objectId,
+            outcome: 'OK',
+            dealId: params.dealId,
+          });
+        } catch {
+          // Audit must never break the primary request path.
+        }
       }),
     );
   }

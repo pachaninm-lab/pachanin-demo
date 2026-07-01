@@ -31,8 +31,8 @@ export class AnalyticsController {
     @Query('season') season?: string,
   ) {
     return this.analytics.getYieldForecast({
-      region: region ?? 'Краснодарский край',
-      culture: culture ?? 'пшеница',
+      region: region ?? 'Krasnodar Krai',
+      culture: culture ?? 'wheat',
       areaSqHa: Number(areaSqHa ?? 100),
       season: season ? Number(season) : undefined,
     });
@@ -86,11 +86,11 @@ export class AnalyticsController {
     @Query('region') region: string,
     @Query('cropClass') cropClass?: string,
     @Query('volumeTons') volumeTons?: string,
-    @CurrentUser() user: RequestUser,
+    @CurrentUser() user?: RequestUser,
   ) {
     return this.analytics.getPricePrediction(
-      { culture: culture ?? 'пшеница', region: region ?? 'Краснодарский край', cropClass, volumeTons: volumeTons ? Number(volumeTons) : undefined },
-      user,
+      { culture: culture ?? 'wheat', region: region ?? 'Krasnodar Krai', cropClass, volumeTons: volumeTons ? Number(volumeTons) : undefined },
+      user!,
     );
   }
 }

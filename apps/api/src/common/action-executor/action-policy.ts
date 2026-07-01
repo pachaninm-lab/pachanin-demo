@@ -50,7 +50,7 @@ export const BANK_OUTBOX_ACTIONS: Set<DomainAction> = new Set([
   'money.release.request',
 ]);
 
-export const ROLE_ALLOWED_ACTIONS: Record<Role, Set<DomainAction>> = {
+export const ROLE_ALLOWED_ACTIONS: Partial<Record<Role, Set<DomainAction>>> = {
   [Role.ADMIN]: new Set([
     'deal.view', 'deal.create', 'deal.sign', 'deal.transition',
     'money.reserve.request', 'money.reserve.confirm', 'money.release.request', 'money.release.confirm', 'money.adjust',

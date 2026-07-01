@@ -55,9 +55,9 @@ export class PartnerApiController {
     @Body() body: { eventType?: string; testData?: Record<string, unknown> },
     @CurrentUser() user: RequestUser,
   ) {
-    const webhooks = this.partnerApi.listWebhooks(user);
-    const wh = webhooks.find((w) => w.id === id);
-    if (!wh) return { error: `Webhook subscription ${id} not found` };
+    const active = this.partnerApi.getActiveSubscriptionsForEvent(body.eventType ?? 'test.ping');
+    const wh = active.find((w) => w.id === id);
+    if (!wh) return { error: `Webhook subscription ${id} not found or inactive for event` };
 
     const eventType = body.eventType ?? 'test.ping';
     const testPayload = body.testData ?? { message: 'GrainFlow webhook test', at: new Date().toISOString() };

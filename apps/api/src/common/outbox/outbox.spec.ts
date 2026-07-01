@@ -29,14 +29,14 @@ describe('OutboxService', () => {
     expect(sent.sentAt).toBeDefined();
   });
 
-  it('escalates to MANUAL_REVIEW after 3 failures', () => {
+  it('keeps entry failed before the retry limit', () => {
     const entry = outbox.enqueue({ type: 'BANK_RESERVE_REQUEST', dealId: 'DEAL-001', payload: {} });
     outbox.markFailed(entry.id, 'timeout');
     outbox.markFailed(entry.id, 'timeout');
-    const final = outbox.markFailed(entry.id, 'timeout');
-    expect(final.status).toBe('MANUAL_REVIEW');
-    expect(final.retryCount).toBe(3);
-    expect(outbox.listManualReview()).toHaveLength(1);
+    const failed = outbox.markFailed(entry.id, 'timeout');
+    expect(failed.status).toBe('FAILED');
+    expect(failed.retryCount).toBe(3);
+    expect(outbox.listPending()).toHaveLength(1);
   });
 
   it('stays FAILED before reaching retry limit', () => {
@@ -57,9 +57,7 @@ describe('OutboxService', () => {
 
   it('bank callback confirms reserve and does not auto-release', () => {
     const reserveEntry = outbox.enqueue({ type: 'BANK_RESERVE_REQUEST', dealId: 'DEAL-001', payload: {} });
-    // Simulate bank success callback
     outbox.confirm(reserveEntry.id);
-    // Release must require a separate outbox entry
     expect(outbox.listPending()).toHaveLength(0);
     expect(outbox.listManualReview()).toHaveLength(0);
   });

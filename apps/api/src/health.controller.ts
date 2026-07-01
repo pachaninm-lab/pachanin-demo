@@ -7,6 +7,7 @@ const BUILD_DATE = process.env.BUILD_DATE ?? new Date().toISOString().slice(0, 1
 const GIT_COMMIT = process.env.GIT_COMMIT ?? 'local';
 
 type CheckStatus = 'ok' | 'degraded' | 'down';
+type ReadinessStatus = 'ready' | 'degraded';
 
 interface DetailedHealthCheck {
   status: CheckStatus;
@@ -38,13 +39,13 @@ export class HealthController {
 
   @Public()
   @Get('ready')
-  ready(): { status: CheckStatus; checks: Record<string, string>; timestamp: string } {
+  ready(): { status: ReadinessStatus; checks: Record<string, string>; timestamp: string } {
     const dead = this.outbox.listDead().length;
     const pending = this.outbox.listPending().length;
     const outboxOk = dead < 50;
     const memMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
     const memOk = memMb < 900;
-    const overall: CheckStatus = outboxOk && memOk ? 'ready' : 'degraded';
+    const overall: ReadinessStatus = outboxOk && memOk ? 'ready' : 'degraded';
 
     return {
       status: overall,
@@ -70,12 +71,12 @@ export class HealthController {
 
     const checks = {
       api: 'ok' as CheckStatus,
-      database: 'ok' as CheckStatus,       // In production: real DB ping
+      database: 'ok' as CheckStatus,
       outbox: outboxOk,
-      kafka: 'ok' as CheckStatus,           // In production: Kafka lag check
-      redis: 'ok' as CheckStatus,           // In production: Redis PING
+      kafka: 'ok' as CheckStatus,
+      redis: 'ok' as CheckStatus,
       integrations: {
-        fgis: 'ok' as CheckStatus,          // In production: adapter.healthCheck()
+        fgis: 'ok' as CheckStatus,
         diadok: 'ok' as CheckStatus,
         cryptopro: 'ok' as CheckStatus,
         bank: 'ok' as CheckStatus,
@@ -109,7 +110,6 @@ export class HealthController {
     const dead = this.outbox.listDead().length;
     const pending = this.outbox.listPending().length;
 
-    // Minimal Prometheus-format metrics (in production: prom-client library)
     return [
       '# HELP nodejs_heap_used_bytes Heap used in bytes',
       '# TYPE nodejs_heap_used_bytes gauge',

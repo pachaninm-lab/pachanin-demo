@@ -45,8 +45,21 @@ interface PolicyRule {
 
 const MFA_REQUIRED_AMOUNT_KOPECKS = 100_000_00; // 100 000 ₽
 
+function ownsDealOrg(i: PolicyInput): boolean {
+  const orgId = i.user.organizationId;
+  if (!orgId) return false;
+  return i.resource.sellerOrgId === orgId || i.resource.buyerOrgId === orgId || i.resource.ownerOrgId === orgId;
+}
+
 const RULES: PolicyRule[] = [
   // ─── DENY rules (highest priority) ───────────────────────────────────────
+
+  {
+    name: 'deny.guest.all',
+    effect: 'deny',
+    reason: 'GUEST не имеет доступа к защищённым ресурсам',
+    evaluate: (i) => i.user.role === 'GUEST',
+  },
 
   {
     name: 'deny.deal.cross-org-read',
@@ -55,8 +68,7 @@ const RULES: PolicyRule[] = [
     evaluate: (i) =>
       i.action === 'deal:read' &&
       !['ADMIN', 'SUPPORT_MANAGER', 'COMPLIANCE_OFFICER', 'ARBITRATOR', 'EXECUTIVE'].includes(i.user.role) &&
-      i.resource.sellerOrgId !== i.user.organizationId &&
-      i.resource.buyerOrgId !== i.user.organizationId,
+      !ownsDealOrg(i),
   },
 
   {
@@ -129,11 +141,7 @@ const RULES: PolicyRule[] = [
     name: 'allow.deal.own-org',
     effect: 'allow',
     reason: 'Пользователь может читать сделки своей организации',
-    evaluate: (i) =>
-      i.action === 'deal:read' &&
-      (i.resource.sellerOrgId === i.user.organizationId ||
-        i.resource.buyerOrgId === i.user.organizationId ||
-        i.resource.ownerOrgId === i.user.organizationId),
+    evaluate: (i) => i.action === 'deal:read' && ownsDealOrg(i),
   },
 
   {
@@ -177,6 +185,7 @@ const RULES: PolicyRule[] = [
     evaluate: (i) =>
       i.user.role === 'FARMER' &&
       i.resource.type === 'lot' &&
+      !!i.user.organizationId &&
       i.resource.ownerOrgId === i.user.organizationId,
   },
 

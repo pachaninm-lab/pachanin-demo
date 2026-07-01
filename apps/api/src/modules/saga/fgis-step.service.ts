@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DealSagaService } from './deal-saga.service';
-import { integrationRegistry } from '../../../../packages/integration-sdk/src/registry';
-import type { MockFgisZernoAdapter } from '../../../../packages/integration-sdk/src/adapters/fgis-zerno.adapter';
+import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
+import type { MockFgisZernoAdapter } from '../../../../../packages/integration-sdk/src/adapters/fgis-zerno.adapter';
 
 export interface FgisRegisterParams {
   dealId: string;

@@ -216,13 +216,15 @@ export class SupportService {
   }
 
   private logAudit(action: string, user: RequestUser, objectId: string): void {
-    this.audit?.log({
-      action,
-      actorUserId: user.id,
-      actorRole: user.role,
-      objectType: 'SupportTicket',
-      objectId,
-      outcome: 'SUCCESS',
-    }).catch(() => {});
+    try {
+      this.audit?.log({
+        action,
+        actorUserId: user.id,
+        actorRole: user.role,
+        objectType: 'SupportTicket',
+        objectId,
+        outcome: 'SUCCESS',
+      });
+    } catch {}
   }
 }

@@ -12,5 +12,9 @@ export class CreateDealDto {
   buyerOrgId?: string;
 
   @IsOptional()
+  @IsString()
+  culture?: string;
+
+  @IsOptional()
   paymentTerms?: Record<string, unknown>;
 }
