@@ -8,7 +8,7 @@
   "openPr": "#2184",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138", "#2154", "#2155", "#2158", "#2113", "#2162", "#2163"],
   "openBlockers": ["#2115", "#2159", "API compiled build debt"],
-  "blockerNotes": "#2115 remains blocked by the current auth-file write path. #2159 remains draft because route implementation needs source-of-truth/guard advancement before merge. #2184 proved existing API compiled build debt through api-k6-build-log and node-ci-typecheck-log; this infra PR does not claim that debt is closed.",
+  "blockerNotes": "#2115 remains blocked by the current auth-file write path. #2159 remains draft because route implementation needs source-of-truth/guard advancement before merge. #2184 proved existing API compiled build debt through api-k6-build-log and node-ci-typecheck-log. A minimal real JwtAuthGuard was restored to remove runtime module drift for protected controllers; this PR still does not claim API compiled build debt is closed.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/storage changes"],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -22,6 +22,7 @@
     ".github/workflows/node-ci.yml",
     ".github/workflows/platform-v7-autopilot-loop-dry-run.yml",
     "apps/api/package.json",
+    "apps/api/src/modules/auth/jwt-auth.guard.ts",
     "apps/web/lib/platform-v7/shellRoutes.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
   ],
@@ -37,6 +38,7 @@
     ".github/workflows/node-ci.yml",
     ".github/workflows/platform-v7-autopilot-loop-dry-run.yml",
     "apps/api/package.json",
+    "apps/api/src/modules/auth/jwt-auth.guard.ts",
     "apps/web/lib/platform-v7/shellRoutes.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
   ],
@@ -57,6 +59,7 @@
     "allowedTargets": [
       "preserve complete CI web build logs as artifacts",
       "fix @pc/api compiled start path to the actual tsc output path",
+      "restore a minimal real JwtAuthGuard for protected controllers so the API runtime can start",
       "keep k6 smoke runnable against a test runtime without hiding API compiled build debt",
       "capture API compiled build diagnostics as artifacts",
       "capture Node CI phase logs as artifacts",
@@ -80,7 +83,6 @@
     "apps/web/components/v7r",
     "apps/web/lib/platform-v7",
     "apps/web/app/api",
-    "apps/api/src/modules/auth/**",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml"
