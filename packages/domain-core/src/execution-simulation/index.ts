@@ -4,3 +4,4 @@ export * from './state-machine';
 export * from './kpi';
 export * from './action-engine';
 export * from './store';
+export * from './scenario-runner';
