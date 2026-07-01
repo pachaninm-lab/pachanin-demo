@@ -36,5 +36,23 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @pc/api typecheck
-      - run: pnpm --filter @pc/api test
+      - name: API typecheck
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee /tmp/api-typecheck.log
+      - name: Upload API typecheck log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-typecheck-log
+          path: /tmp/api-typecheck.log
+      - name: API tests
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api test 2>&1 | tee /tmp/api-test.log
+      - name: Upload API test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-log
+          path: /tmp/api-test.log
