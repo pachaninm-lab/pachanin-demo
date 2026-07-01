@@ -3,46 +3,28 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "P0 CI/k6/web build diagnostics for execution-runtime merge readiness.",
+  "current": "P0 API typecheck first debt slice outside auth and Prisma migration scope.",
   "fullTzReadinessPercent": 72,
-  "openPr": "#2184",
+  "openPr": "stacked-api-slice",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138", "#2154", "#2155", "#2158", "#2113", "#2162", "#2163"],
   "openBlockers": ["#2115", "#2159", "API compiled build debt"],
-  "blockerNotes": "#2115 remains blocked by the current auth-file write path. #2159 remains draft because route implementation needs source-of-truth/guard advancement before merge. #2184 proved existing API compiled build debt through api-k6-build-log and node-ci-typecheck-log. A minimal real JwtAuthGuard was restored and the FGIS integration-sdk relative import was corrected to remove runtime module drift; this PR still does not claim API compiled build debt is closed.",
+  "blockerNotes": "First narrow API debt slice. API compiled build debt remains open until the full API check is green.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/storage changes"],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/autopilot/progress.json",
-    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
-    "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    ".github/workflows/ci.yml",
-    ".github/workflows/security-quality-gate.yml",
-    ".github/workflows/web-unit.yml",
-    ".github/workflows/node-ci.yml",
-    ".github/workflows/platform-v7-autopilot-loop-dry-run.yml",
-    "apps/api/package.json",
-    "apps/api/src/modules/auth/jwt-auth.guard.ts",
-    "apps/api/src/modules/saga/fgis-step.service.ts",
-    "apps/web/lib/platform-v7/shellRoutes.ts",
-    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
+    "apps/api/src/common/action-executor/action-policy.ts",
+    "apps/api/src/common/logger/masked-logger.service.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/modules/storage/storage.controller.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/autopilot/progress.json",
-    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
-    "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    ".github/workflows/ci.yml",
-    ".github/workflows/security-quality-gate.yml",
-    ".github/workflows/web-unit.yml",
-    ".github/workflows/node-ci.yml",
-    ".github/workflows/platform-v7-autopilot-loop-dry-run.yml",
-    "apps/api/package.json",
-    "apps/api/src/modules/auth/jwt-auth.guard.ts",
-    "apps/api/src/modules/saga/fgis-step.service.ts",
-    "apps/web/lib/platform-v7/shellRoutes.ts",
-    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
+    "apps/api/src/common/action-executor/action-policy.ts",
+    "apps/api/src/common/logger/masked-logger.service.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/modules/storage/storage.controller.ts"
   ],
   "executionEvidenceScenarioRunner": {
     "issue": "#2096",
@@ -58,20 +40,7 @@
   "ciK6BuildWiring": {
     "pr": "#2184",
     "layer": "P0 CI/k6/web build diagnostics and start-path hardening",
-    "allowedTargets": [
-      "preserve complete CI web build logs as artifacts",
-      "fix @pc/api compiled start path to the actual tsc output path",
-      "restore a minimal real JwtAuthGuard for protected controllers so the API runtime can start",
-      "correct the FGIS integration-sdk relative import used by API runtime smoke",
-      "keep k6 smoke runnable against a test runtime without hiding API compiled build debt",
-      "capture API compiled build diagnostics as artifacts",
-      "capture Node CI phase logs as artifacts",
-      "capture autopilot loop dry-run diagnostics as artifacts",
-      "fix the concrete platform-v7 login build ReferenceError without broad route rewrites",
-      "align stale web-unit mobile-entry guard with the current public entry CSS contract",
-      "no disabling of security checks",
-      "no maturity uplift"
-    ]
+    "allowedTargets": ["diagnostic infrastructure only"]
   },
   "marketEntryPageScopeSelection": {
     "layer": "P0 market-entry page boundary selection",
@@ -92,5 +61,5 @@
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": ["maturity uplift", "live integration completion"],
-  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. #2184 is infrastructure hardening only: it improves diagnostics and smoke wiring, and it does not claim production readiness or active external integrations."
+  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. This slice reduces API debt only and does not claim production readiness or active external integrations."
 }
