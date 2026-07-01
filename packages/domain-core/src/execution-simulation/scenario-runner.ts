@@ -12,10 +12,18 @@ export function runPlatformV7ExecutionEvidenceScenario() {
   const stateAfterSecondAction = secondAction?.ok ? secondAction.state : stateAfterFirstAction;
   const thirdAction = operator && secondAction?.ok ? runPlatformAction(stateAfterSecondAction, { type: 'createDeal', actor: operator, payload: { lotId: 'LOT-P7-E2E-2096', dealId: 'DL-P7-E2E-2096', buyerId: 'CP-B-001' }, runtimeLabel: 'pilot', now: '2026-07-01T08:02:00.000Z' }) : null;
   const scenarioState = thirdAction?.ok ? thirdAction.state : stateAfterSecondAction;
+  const finalDeal = scenarioState.deals.find((deal) => deal.id === 'DL-P7-E2E-2096');
   const preCloseAction = buyer && thirdAction?.ok ? runPlatformAction(scenarioState, { type: 'requestReserve', actor: buyer, payload: { dealId: 'DL-P7-E2E-2096' }, idempotencyKey: 'P7-E2E-2096-PRE-CLOSE', runtimeLabel: 'pilot', now: '2026-07-01T08:03:00.000Z' }) : null;
   const preCloseBlockCode = preCloseAction?.ok ? 'NONE' : 'INVALID_TRANSITION';
   const preCloseBlockScope = preCloseAction?.ok ? 'none' : 'transition-before-release-guards';
-  const closeBasis = { basisReady: false, docsReady: false, reviewClear: true, weightReady: false, qualityReady: false };
+  const closeBasis = {
+    basisReady: Boolean(finalDeal?.reserveConfirmed),
+    docsReady: Boolean(finalDeal?.requiredDocumentsReady),
+    reviewClear: !finalDeal?.openDisputeId,
+    weightReady: Boolean(finalDeal?.weightConfirmed),
+    qualityReady: Boolean(finalDeal?.labProtocolId),
+  };
+  const closeReady = closeBasis.basisReady && closeBasis.docsReady && closeBasis.reviewClear && closeBasis.weightReady && closeBasis.qualityReady;
   const passedSteps = [
     { id: 'price', status: firstAction?.ok ? 'ACTION_RECORDED' : 'TERMS_READY' },
     { id: 'publish', status: secondAction?.ok ? 'ACTION_RECORDED' : 'PUBLISH_PENDING' },
@@ -26,7 +34,7 @@ export function runPlatformV7ExecutionEvidenceScenario() {
   return {
     scenarioId: 'P7-E2E-2096',
     dealId: 'DL-P7-E2E-2096',
-    finalStatus: scenarioState.deals.find((deal) => deal.id === 'DL-P7-E2E-2096')?.status ?? 'NO_DEAL',
+    finalStatus: finalDeal?.status ?? 'NO_DEAL',
     targetFinalStatus: 'CLOSED',
     firstActionOk: Boolean(firstAction?.ok),
     secondActionOk: Boolean(secondAction?.ok),
@@ -34,7 +42,7 @@ export function runPlatformV7ExecutionEvidenceScenario() {
     preCloseBlockedOk: Boolean(preCloseAction && !preCloseAction.ok),
     preCloseBlockCode,
     preCloseBlockScope,
-    closeReady: false,
+    closeReady,
     passedSteps,
     passedStepIds: passedSteps.map((step) => step.id),
     blockedChecks: [
