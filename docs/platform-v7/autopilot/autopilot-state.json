@@ -19,7 +19,8 @@
     ".github/workflows/security-quality-gate.yml",
     ".github/workflows/web-unit.yml",
     "apps/api/package.json",
-    "apps/web/lib/platform-v7/shellRoutes.ts"
+    "apps/web/lib/platform-v7/shellRoutes.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -30,7 +31,8 @@
     ".github/workflows/security-quality-gate.yml",
     ".github/workflows/web-unit.yml",
     "apps/api/package.json",
-    "apps/web/lib/platform-v7/shellRoutes.ts"
+    "apps/web/lib/platform-v7/shellRoutes.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
   ],
   "executionEvidenceScenarioRunner": {
     "issue": "#2096",
@@ -52,6 +54,7 @@
       "keep k6 smoke runnable against a test runtime without hiding API compiled build debt",
       "capture API compiled build diagnostics as artifacts",
       "fix the concrete platform-v7 login build ReferenceError without broad route rewrites",
+      "align stale web-unit mobile-entry guard with the current public entry CSS contract",
       "no disabling of security checks",
       "no maturity uplift"
     ]
