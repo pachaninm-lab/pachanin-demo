@@ -217,14 +217,14 @@ export class SettlementEngineService {
 
   private async upsertPayment(dealId: string, payment: any) {
     if (!this.prisma || !payment?.id) return;
+    const amountRub = payment.amountRub ?? payment.holdAmountRub ?? null;
     await this.prisma.payment.upsert({
       where: { id: payment.id },
       update: {
         status: payment.status,
-        amountRub: payment.amountRub,
+        amountRub,
         reservedAt: payment.reserveConfirmedAt ? new Date(payment.reserveConfirmedAt) : null,
         releasedAt: payment.releasedAt ? new Date(payment.releasedAt) : null,
-        holdAmountRub: payment.holdAmountRub ?? null,
         callbackState: payment.callbackState ?? 'NONE',
         bankRef: payment.bankEventId ?? null,
       },
@@ -232,10 +232,9 @@ export class SettlementEngineService {
         id: payment.id,
         dealId,
         status: payment.status ?? 'PENDING',
-        amountRub: payment.amountRub,
+        amountRub,
         reservedAt: payment.reserveConfirmedAt ? new Date(payment.reserveConfirmedAt) : null,
         releasedAt: payment.releasedAt ? new Date(payment.releasedAt) : null,
-        holdAmountRub: payment.holdAmountRub ?? null,
         callbackState: payment.callbackState ?? 'NONE',
         bankRef: payment.bankEventId ?? null,
       },
