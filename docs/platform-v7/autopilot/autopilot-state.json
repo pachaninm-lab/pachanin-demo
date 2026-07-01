@@ -3,9 +3,9 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "P0 execution/evidence scenario runner implementation boundary.",
+  "current": "P0 execution/evidence scenario runner plus contract/reserve action-engine slice.",
   "fullTzReadinessPercent": 72,
-  "openPr": "x2165",
+  "openPr": "#2183",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "#2136", "#2137", "#2138", "#2154", "#2155", "#2158", "#2113", "#2162", "#2163"],
   "openBlockers": ["#2115", "#2159"],
   "blockerNotes": "#2115 remains blocked by the current auth-file write path. #2159 remains draft because route implementation needs source-of-truth/guard advancement before merge.",
@@ -16,6 +16,7 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
+    "packages/domain-core/src/execution-simulation/action-engine.ts",
     "packages/domain-core/src/execution-simulation/scenario-runner.ts",
     "packages/domain-core/src/execution-simulation/index.ts",
     "apps/web/tests/unit/platformV7ExecutionScenarioRunner.test.ts"
@@ -26,19 +27,21 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
+    "packages/domain-core/src/execution-simulation/action-engine.ts",
     "packages/domain-core/src/execution-simulation/scenario-runner.ts",
     "packages/domain-core/src/execution-simulation/index.ts",
     "apps/web/tests/unit/platformV7ExecutionScenarioRunner.test.ts"
   ],
   "executionEvidenceScenarioRunner": {
     "issue": "#2096",
-    "layer": "P0 execution/evidence scenario runner implementation boundary",
+    "layer": "P0 execution/evidence scenario runner plus contract/reserve action-engine slice",
     "allowedTargets": [
       "compose existing domain-core execution-simulation primitives",
-      "run one deterministic controlled-pilot happy path",
+      "run one deterministic controlled-pilot path through contract drafting, signatures and reserve confirmation",
       "return passed steps, blocked checks, audit count, timeline count and close readiness",
       "test negative guard cases before close",
-      "no app route, backend auth, API, DB, storage, package or lockfile changes"
+      "no app route, backend auth, API, DB, storage, package or lockfile changes",
+      "no fake close, no final release and no live integration claim"
     ]
   },
   "marketEntryPageScopeSelection": {
@@ -61,5 +64,5 @@
   ],
   "maturityLanguage": ["controlled-pilot", "pre-integration"],
   "forbiddenClaims": ["maturity uplift", "live integration completion"],
-  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. The scenario runner composes existing simulation primitives and does not claim production readiness or active external integrations."
+  "readiness": "72% honest readiness. Runtime layers are still required before live readiness. The scenario runner composes existing simulation primitives and now exercises the controlled-pilot contract/reserve path without claiming production readiness, final release or active external integrations."
 }
