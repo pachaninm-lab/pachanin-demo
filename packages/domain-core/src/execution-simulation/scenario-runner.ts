@@ -1,3 +1,4 @@
+// Minimal P0 #2096 scenario contract for the current controlled-pilot layer.
 export function runPlatformV7ExecutionEvidenceScenario() {
   const passedSteps = ['price', 'deal', 'logistics', 'acceptance', 'documents', 'close'];
   return {
