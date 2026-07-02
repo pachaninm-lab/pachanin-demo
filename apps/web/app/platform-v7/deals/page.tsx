@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { DEAL360_SCENARIOS } from '@/lib/platform-v7/deal360-source-of-truth';
+import { ExcelExportButton } from '@/components/platform-v7/ExcelExportButton';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { E2EDealSimulationPanel } from '@/components/platform-v7/E2EDealSimulationPanel';
 
 const dealSnapshots = Object.values(DEAL360_SCENARIOS).map((s) => ({
   id: s.dealId,
@@ -61,6 +64,10 @@ export default function PlatformV7DealsPage() {
           </div>
         </div>
 
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.25rem' }}>
+          <ExcelExportButton dataset="deals" label="Экспорт Excel" />
+        </div>
+
         <div className='pc-deals-summary'>
           <SmartSectionSummary
             label='Реестр сделок'
@@ -96,6 +103,12 @@ export default function PlatformV7DealsPage() {
             </Link>
           ))}
         </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 16 }}>
+        <CollapsibleSection title='E2E симуляция сделки · 21 шаг' summary='FARMER+BUYER · KYC · УКЭП · Escrow · GPS · LAB · ЭДО · Evidence Chain · Audit' defaultOpen={false}>
+          <E2EDealSimulationPanel />
+        </CollapsibleSection>
       </section>
     </div>
   );

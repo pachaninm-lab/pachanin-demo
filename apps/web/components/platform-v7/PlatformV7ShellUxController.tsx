@@ -16,6 +16,89 @@ import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RS
 
 const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
+
+const HOME_BY_ROLE: Record<PlatformRole, string> = {
+  operator: '/platform-v7/control-tower',
+  buyer: '/platform-v7/buyer',
+  seller: '/platform-v7/seller',
+  logistics: '/platform-v7/logistics',
+  driver: '/platform-v7/driver/field',
+  surveyor: '/platform-v7/surveyor',
+  elevator: '/platform-v7/elevator',
+  lab: '/platform-v7/lab',
+  bank: '/platform-v7/bank',
+  arbitrator: '/platform-v7/arbitrator',
+  compliance: '/platform-v7/compliance',
+  executive: '/platform-v7/executive',
+};
+
+const DOCK_BY_ROLE = {
+  operator: [
+    { href: '/platform-v7/control-tower', label: 'Центр' },
+    { href: '/platform-v7/operator', label: 'Блокеры' },
+    { href: '/platform-v7/ai', label: 'ИИ' },
+  ],
+  buyer: [
+    { href: '/platform-v7/buyer', label: 'Кабинет' },
+    { href: '/platform-v7/money', label: 'Деньги' },
+    { href: '/platform-v7/documents', label: 'Документы' },
+  ],
+  seller: [
+    { href: '/platform-v7/seller', label: 'Кабинет' },
+    { href: '/platform-v7/seller/lots', label: 'Партии' },
+    { href: '/platform-v7/seller/offers', label: 'Офферы' },
+    { href: '/platform-v7/documents', label: 'Документы' },
+    { href: '/platform-v7/seller/sdiz', label: 'СДИЗ / ЭТрН' },
+    { href: '/platform-v7/seller/acceptance', label: 'Приёмка' },
+    { href: '/platform-v7/money', label: 'Деньги / резерв' },
+    { href: '/platform-v7/operator', label: 'Блокеры' },
+  ],
+  logistics: [
+    { href: '/platform-v7/logistics', label: 'Диспетчер' },
+    { href: '/platform-v7/procurement', label: 'Закупки' },
+  ],
+  driver: [
+    { href: '/platform-v7/driver/field', label: 'Маршрут' },
+    { href: '/platform-v7/driver/field#photo', label: 'Фото' },
+    { href: '/platform-v7/driver/field#events', label: 'События' },
+    { href: '/platform-v7/driver/field#docs', label: 'Документы' },
+  ],
+  surveyor: [
+    { href: '/platform-v7/surveyor', label: 'Осмотр' },
+  ],
+  elevator: [
+    { href: '/platform-v7/elevator', label: 'Приёмка' },
+    { href: '/platform-v7/elevator#weight', label: 'Вес' },
+    { href: '/platform-v7/elevator#acts', label: 'Акты' },
+  ],
+  lab: [
+    { href: '/platform-v7/lab', label: 'Пробы' },
+    { href: '/platform-v7/lab#quality', label: 'Качество' },
+    { href: '/platform-v7/lab#protocol', label: 'Протокол' },
+    { href: '/platform-v7/lab#reanalysis', label: 'Повторный анализ' },
+  ],
+  bank: [
+    { href: '/platform-v7/bank', label: 'Основание' },
+    { href: '/platform-v7/bank/factoring', label: 'Факторинг' },
+    { href: '/platform-v7/bank/escrow', label: 'Эскроу' },
+    { href: '/platform-v7/documents', label: 'Документы' },
+    { href: '/platform-v7/bank/withholdings', label: 'Удержания' },
+  ],
+  arbitrator: [
+    { href: '/platform-v7/arbitrator', label: 'Арбитраж' },
+  ],
+  compliance: [
+    { href: '/platform-v7/compliance', label: 'Допуск' },
+    { href: '/platform-v7/connectors', label: 'Разъёмы' },
+  ],
+  executive: [
+    { href: '/platform-v7/executive', label: 'Сводка' },
+    { href: '/platform-v7/money', label: 'Деньги' },
+    { href: '/platform-v7/reports', label: 'Риски' },
+    { href: '/platform-v7/simulator', label: 'Симулятор' },
+  ],
+} as const;
+
 const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
 
 const PLATFORM_ROLES: readonly PlatformRole[] = [
@@ -131,7 +214,7 @@ export function PlatformV7ShellUxController() {
   React.useEffect(() => setMounted(true), []);
 
   const activeRole = mounted ? readActiveRole(role) : role;
-  const roleHome = platformV7RoleRoute(activeRole) ?? '/platform-v7/login';
+  const roleHome = platformV7RoleRoute(activeRole);
   const publicPath = isPublicPath(pathname ?? '/platform-v7');
   const bottomNav = safeRoleNav(activeRole, platformV7NavByRole(activeRole));
   const drawerNav = safeRoleNav(activeRole, [...bottomNav, ...platformV7DrawerNavByRole(activeRole)]);
@@ -157,6 +240,8 @@ export function PlatformV7ShellUxController() {
     router.replace('/platform-v7');
   }, [clearRoleSelection, router]);
 
+  const showMenuButton = notices.length > 0;
+  const hasExtraMenuItems = bottomNav.length > 0;
   const showShellControls = mounted && !publicPath;
 
   return (

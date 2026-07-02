@@ -1,0 +1,272 @@
+/* ─── Typography Scale + Status Color Tokens · GrainFlow v3 ─── */
+
+:root {
+  /* Font family tokens */
+  --font-sans: var(--font-inter, 'Inter Variable', Inter, 'Segoe UI', system-ui, sans-serif);
+  --font-display: var(--font-manrope, Manrope, var(--font-sans));
+  --font-mono: var(--font-mono, 'JetBrains Mono', 'Fira Code', ui-monospace, monospace);
+
+  /* Type scale (fluid, 16px base) */
+  --text-xs:    0.6875rem; /* 11px */
+  --text-sm:    0.8125rem; /* 13px */
+  --text-base:  1rem;      /* 16px */
+  --text-md:    1.0625rem; /* 17px */
+  --text-lg:    1.125rem;  /* 18px */
+  --text-xl:    1.25rem;   /* 20px */
+  --text-2xl:   1.5rem;    /* 24px */
+  --text-3xl:   1.875rem;  /* 30px */
+  --text-4xl:   2.25rem;   /* 36px */
+
+  --leading-tight:  1.25;
+  --leading-snug:   1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight:  -0.025em;
+  --tracking-normal: -0.01em;
+  --tracking-wide:    0.02em;
+  --tracking-caps:    0.08em;
+
+  --font-weight-regular: 400;
+  --font-weight-medium:  500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:    700;
+
+  /* ── Status color tokens (canonical for all roles) ──────────── */
+
+  /* Deal statuses */
+  --status-draft-text:       #94A3B8;
+  --status-draft-bg:         rgba(148, 163, 184, 0.12);
+  --status-draft-border:     rgba(148, 163, 184, 0.24);
+
+  --status-active-text:      var(--p7-color-brand, #7DDDB5);
+  --status-active-bg:        var(--p7-color-success-soft, #0E241D);
+  --status-active-border:    rgba(125, 221, 181, 0.24);
+
+  --status-pending-text:     var(--p7-color-warning, #E8B85A);
+  --status-pending-bg:       var(--p7-color-warning-soft, #2A2212);
+  --status-pending-border:   rgba(232, 184, 90, 0.24);
+
+  --status-warning-text:     #FCA044;
+  --status-warning-bg:       rgba(252, 160, 68, 0.1);
+  --status-warning-border:   rgba(252, 160, 68, 0.24);
+
+  --status-error-text:       var(--p7-color-danger, #F08C90);
+  --status-error-bg:         var(--p7-color-danger-soft, #2A1517);
+  --status-error-border:     rgba(240, 140, 144, 0.24);
+
+  --status-info-text:        var(--p7-color-info, #8DB7FF);
+  --status-info-bg:          var(--p7-color-info-soft, #101D30);
+  --status-info-border:      rgba(141, 183, 255, 0.24);
+
+  --status-closed-text:      #64748B;
+  --status-closed-bg:        rgba(100, 116, 139, 0.1);
+  --status-closed-border:    rgba(100, 116, 139, 0.18);
+
+  --status-dispute-text:     var(--p7-color-dispute, #FDA4AF);
+  --status-dispute-bg:       var(--p7-color-dispute-soft, #2A1218);
+  --status-dispute-border:   rgba(253, 164, 175, 0.24);
+
+  --status-signed-text:      #A78BFA;
+  --status-signed-bg:        rgba(167, 139, 250, 0.1);
+  --status-signed-border:    rgba(167, 139, 250, 0.22);
+
+  /* Payment / Money statuses */
+  --status-reserved-text:    var(--p7-color-money, #8FB5FF);
+  --status-reserved-bg:      var(--p7-color-money-soft, #101C33);
+  --status-reserved-border:  rgba(143, 181, 255, 0.24);
+
+  --status-paid-text:        #34D399;
+  --status-paid-bg:          rgba(52, 211, 153, 0.1);
+  --status-paid-border:      rgba(52, 211, 153, 0.22);
+
+  /* Risk level tokens */
+  --risk-low-text:           #4ADE80;
+  --risk-low-bg:             rgba(74, 222, 128, 0.1);
+  --risk-medium-text:        var(--p7-color-warning, #E8B85A);
+  --risk-medium-bg:          var(--p7-color-warning-soft);
+  --risk-high-text:          #FB923C;
+  --risk-high-bg:            rgba(251, 146, 60, 0.1);
+  --risk-critical-text:      var(--p7-color-danger, #F08C90);
+  --risk-critical-bg:        var(--p7-color-danger-soft);
+}
+
+/* ── Typography class utilities ─────────────────────────────── */
+
+.heading-1 {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.heading-2 {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.heading-3 {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-normal);
+}
+
+.heading-4 {
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-snug);
+}
+
+.body-base {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-normal);
+}
+
+.body-sm {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--pc-text-muted);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+}
+
+/* ── Status badge utility ──────────────────────────────────────── */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.status-badge[data-status="draft"]     { color: var(--status-draft-text);    background: var(--status-draft-bg);    border-color: var(--status-draft-border); }
+.status-badge[data-status="active"]    { color: var(--status-active-text);   background: var(--status-active-bg);   border-color: var(--status-active-border); }
+.status-badge[data-status="pending"]   { color: var(--status-pending-text);  background: var(--status-pending-bg);  border-color: var(--status-pending-border); }
+.status-badge[data-status="warning"]   { color: var(--status-warning-text);  background: var(--status-warning-bg);  border-color: var(--status-warning-border); }
+.status-badge[data-status="error"]     { color: var(--status-error-text);    background: var(--status-error-bg);    border-color: var(--status-error-border); }
+.status-badge[data-status="closed"]    { color: var(--status-closed-text);   background: var(--status-closed-bg);   border-color: var(--status-closed-border); }
+.status-badge[data-status="dispute"]   { color: var(--status-dispute-text);  background: var(--status-dispute-bg);  border-color: var(--status-dispute-border); }
+.status-badge[data-status="signed"]    { color: var(--status-signed-text);   background: var(--status-signed-bg);   border-color: var(--status-signed-border); }
+.status-badge[data-status="reserved"]  { color: var(--status-reserved-text); background: var(--status-reserved-bg); border-color: var(--status-reserved-border); }
+.status-badge[data-status="paid"]      { color: var(--status-paid-text);     background: var(--status-paid-bg);     border-color: var(--status-paid-border); }
+
+/* ── WCAG AA focus-rings ─────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--p7-color-brand, #7DDDB5);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--p7-color-brand, #7DDDB5);
+  outline-offset: 2px;
+}
+
+/* Remove default outline for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ── Skeleton loader ─────────────────────────────────────────── */
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.skeleton {
+  background: var(--p7-color-surface-muted, #14211D);
+  border-radius: 4px;
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.skeleton-text { height: 1em; width: 100%; }
+.skeleton-text-sm { height: 0.75em; width: 70%; }
+.skeleton-avatar { width: 2.5rem; height: 2.5rem; border-radius: 50%; }
+.skeleton-card { height: 8rem; width: 100%; border-radius: 8px; }
+
+/* ── Empty state ─────────────────────────────────────────────── */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--pc-text-muted);
+}
+
+.empty-state__icon {
+  width: 3rem;
+  height: 3rem;
+  opacity: 0.4;
+}
+
+.empty-state__title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--pc-text-secondary);
+}
+
+.empty-state__description {
+  font-size: var(--text-sm);
+  max-width: 28rem;
+}
+
+/* ── Hover states ─────────────────────────────────────────────── */
+
+.hover-card {
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.hover-card:hover {
+  background-color: var(--p7-color-surface-muted, #14211D);
+  border-color: var(--p7-color-border-strong, #587169);
+}
+
+.hover-row {
+  transition: background-color 100ms ease;
+}
+
+.hover-row:hover {
+  background-color: rgba(125, 221, 181, 0.04);
+}

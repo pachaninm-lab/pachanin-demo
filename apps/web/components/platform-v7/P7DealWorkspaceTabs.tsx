@@ -112,7 +112,7 @@ export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
 function Overview({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
-      <p style={{ margin: 0, fontSize: 13, color: M, lineHeight: 1.6 }}>Один объект сделки связывает цену, логистику, приёмку, документы, деньги, спор и доказательства. Боевые подключения не заявлены: экран показывает предынтеграционный контур и источники фактов.</p>
+      <p style={{ margin: 0, fontSize: 13, color: M, lineHeight: 1.6 }}>Один объект сделки связывает цену, логистику, приёмку, документы, деньги, спор и доказательства. Промышленные подключения не заявлены: экран показывает предынтеграционный контур и источники фактов.</p>
       <FactRail items={['sber_safe_deals', 'fgis_grain', 'logistics_sphere']} />
       <Grid>
         <Cell label='Сделка' value={deal.id} mono />
@@ -194,7 +194,7 @@ function Fgis({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
       <FactRail items={['fgis_grain']} />
-      <Notice danger={blocked} title='ФГИС ЗЕРНО'>{blocked ? 'Синхронизация партии требует проверки. Боевой контур ФГИС не заявлен.' : 'Партия связана с контуром сделки в тестовом режиме. Боевой контур ФГИС не заявлен.'}</Notice>
+      <Notice danger={blocked} title='ФГИС ЗЕРНО'>{blocked ? 'Синхронизация партии требует проверки. Промышленный контур ФГИС не заявлен.' : 'Партия связана с контуром сделки в тестовом режиме. Промышленный контур ФГИС не заявлен.'}</Notice>
     </Stack>
   );
 }

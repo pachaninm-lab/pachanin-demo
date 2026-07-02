@@ -29,7 +29,7 @@ const TEAM: TeamMember[] = [
     note: 'Финальное решение по пилоту, клиентам и банковому сценарию.',
     status: 'Активен',
     rights: ['Сделки', 'Банк', 'Контрагенты', 'Настройки компании', 'Отчёты'],
-    email: 'director@company.ru',
+    email: 'директор@компания.рф',
   },
   {
     name: 'Оператор сделки',
@@ -38,7 +38,7 @@ const TEAM: TeamMember[] = [
     note: 'Следит за тем, чтобы сделка не выпадала из единого контура.',
     status: 'Активен',
     rights: ['Control Tower', 'Сделки', 'Документы', 'Споры'],
-    email: 'ops@company.ru',
+    email: 'операции@компания.рф',
   },
   {
     name: 'Бухгалтер / финконтур',
@@ -47,7 +47,7 @@ const TEAM: TeamMember[] = [
     note: 'Не должен менять логистику и полевые действия, но видит денежный слой.',
     status: 'Ограниченный доступ',
     rights: ['Платежи', 'Резерв', 'Release', 'Документы'],
-    email: 'finance@company.ru',
+    email: 'финансы@компания.рф',
   },
   {
     name: 'Логист',
@@ -56,13 +56,13 @@ const TEAM: TeamMember[] = [
     note: 'Управляет движением машин и фактом прибытия.',
     status: 'Активен',
     rights: ['Логистика', 'Водитель', 'Приёмка'],
-    email: 'logistics@company.ru',
+    email: 'логистика@компания.рф',
   },
 ];
 
 const INITIAL_INVITES: Invite[] = [
-  { id: 'INV-201', name: 'Юрист компании', role: 'Юрист / документы', email: 'legal@company.ru', state: 'Отправлено' },
-  { id: 'INV-202', name: 'Финконтролёр', role: 'Финконтроль', email: 'controller@company.ru', state: 'Ожидает подтверждения' },
+  { id: 'INV-201', name: 'Юрист компании', role: 'Юрист / документы', email: 'юрист@компания.рф', state: 'Отправлено' },
+  { id: 'INV-202', name: 'Финконтролёр', role: 'Финконтроль', email: 'контроль@компания.рф', state: 'Ожидает подтверждения' },
 ];
 
 const IAM_METRICS = [
@@ -109,7 +109,7 @@ export default function TeamPage() {
       id: `INV-${203 + invites.length}`,
       name: 'Новый участник',
       role: 'Роль уточняется',
-      email: `new${invites.length + 1}@company.ru`,
+      email: `новый${invites.length + 1}@компания.рф`,
       state: 'Отправлено',
     };
     setInvites((prev) => [next, ...prev]);

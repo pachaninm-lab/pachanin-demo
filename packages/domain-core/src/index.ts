@@ -26,3 +26,8 @@ export * from './browser-access-policy';
 export * from './integration-hardening';
 export * from './unified-deal-passport';
 export * from './execution-simulation';
+export * from './deal-event-chain';
+export * from './saga-orchestrator';
+export * from './double-entry-ledger';
+export * from './audit-log';
+export * from './deal-signing-service';

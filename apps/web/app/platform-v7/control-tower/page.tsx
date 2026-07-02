@@ -14,6 +14,8 @@ import type { RadarZoneData, RadarItemData } from '@/components/platform-v7/visu
 import { PremiumStatCard, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getPlatformV7ObservabilityCockpitState, type PlatformV7HealthSeverity } from '@/lib/platform-v7/runtime/observability-cockpit-state';
+import { ControlTowerCharts } from '@/components/platform-v7/ControlTowerCharts';
+import { RecentlyViewedWidget } from '@/components/platform-v7/RecentlyViewedWidget';
 
 function healthTone(sev: PlatformV7HealthSeverity): PremiumTone {
   return sev === 'critical' ? 'danger' : sev === 'warning' ? 'warning' : 'success';
@@ -56,7 +58,7 @@ function resolvePrimaryAction(args: { dealId: string; status: string; disputeId?
   if (reasons.includes('FGIS_GATE_FAIL') || reasons.includes('ESIA_LINK_MISSING') || reasons.includes('ESIA_REAUTH_REQUIRED') || reasons.includes('SYNC_CONFIRM_REQUIRED')) {
     return { href: '/platform-v7/connectors', label: 'Открыть подключение' };
   }
-  if (args.releaseStopped || args.status === 'release_requested' || reasons.includes('BANK_REVIEW_PENDING') || reasons.includes('bank_confirm')) {
+  if (args.releaseStopped || reasons.includes('BANK_REVIEW_PENDING') || reasons.includes('bank_confirm')) {
     return { href: '/platform-v7/bank/release-safety', label: 'Проверить деньги' };
   }
   return { href: `/platform-v7/deals/${args.dealId}`, label: 'Открыть сделку' };
@@ -100,7 +102,7 @@ export default function PlatformV7ControlTowerPage() {
         blockers: deal.blockers,
         releaseStopped,
       });
-      const severity = integration.gateState === 'FAIL' || releaseStopped || deal.holdAmount > 0 ? 3 : integration.gateState === 'REVIEW' || deal.status === 'release_requested' ? 2 : 1;
+      const severity = integration.gateState === 'FAIL' || releaseStopped || deal.holdAmount > 0 ? 3 : integration.gateState === 'REVIEW' ? 2 : 1;
       const slaState = deal.slaDeadline ? (new Date(deal.slaDeadline) < today ? 'Просрочено' : (new Date(deal.slaDeadline).getTime() - today.getTime() <= 24 * 60 * 60 * 1000 ? 'Менее 24 часов' : deal.slaDeadline)) : '—';
       return { deal, integration, amountAtRisk, reason, owner, primaryAction, severity, slaState, releaseStopped };
     })
@@ -350,6 +352,22 @@ export default function PlatformV7ControlTowerPage() {
               )}
             </div>
           </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title='Аналитика платформы'
+          summary='GMV-тренд, статусы сделок, активность по дням'
+          defaultOpen={false}
+        >
+          <ControlTowerCharts />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title='Недавно просмотренные'
+          summary='сделки, лоты, споры — до 5'
+          defaultOpen={false}
+        >
+          <RecentlyViewedWidget />
         </CollapsibleSection>
       </P7Page>
     </>

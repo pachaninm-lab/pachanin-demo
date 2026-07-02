@@ -2,6 +2,9 @@ import Link from 'next/link';
 import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { serverApiUrl, serverAuthHeaders } from '@/lib/server-api';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { ApiKeysPanel } from '@/components/platform-v7/ApiKeysPanel';
+import { FgisZernoPanel } from '@/components/platform-v7/FgisZernoPanel';
 
 async function getIntegrationHealth() {
   try {
@@ -94,7 +97,7 @@ export default async function PlatformV7ConnectorsPage() {
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ ...micro, color: '#A7F3D0' }}>статус подключений</div>
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Экран честно отделяет проверочный контур, предынтеграционную готовность и боевое подключение, которое требует договоров и доступа.</p>
+          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Экран честно отделяет проверочный контур, предынтеграционную готовность и промышленное подключение, которое требует договоров и доступа.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
           {connectorSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
@@ -113,6 +116,18 @@ export default async function PlatformV7ConnectorsPage() {
         <div style={{ display: 'grid', gap: 8 }}>
           {integrations.map((item) => <IntegrationRow key={item.name} item={item} />)}
         </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18 }}>
+        <CollapsibleSection title='ФГИС «Зерно» · Адаптер и партии' summary='СДИЗ · registerLot · checkCertificate · confirmShipment · Mock→Live · retry backoff' defaultOpen={false}>
+          <FgisZernoPanel />
+        </CollapsibleSection>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18 }}>
+        <CollapsibleSection title='B2B Partner API · Управление ключами' summary='ключи · scopes · rate limit · эндпоинты · ротация 90 дней' defaultOpen={false}>
+          <ApiKeysPanel />
+        </CollapsibleSection>
       </section>
     </main>
   );

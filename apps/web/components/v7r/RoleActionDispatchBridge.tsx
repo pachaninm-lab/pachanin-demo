@@ -97,7 +97,7 @@ export function RoleActionDispatchBridge({
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'grid', gap: 4 }}>
           <div style={{ fontSize: 11, fontWeight: 900, color: tone === 'danger' ? DANGER : BRAND, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка действия</div>
-          <div style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>Проверяет допустимость шага, фиксирует журнал и показывает результат. Боевые интеграции не вызываются.</div>
+          <div style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>Проверяет допустимость шага, фиксирует журнал и показывает результат. Промышленные интеграции не вызываются.</div>
         </div>
         <button
           type='button'
@@ -158,7 +158,7 @@ function buildCommand(actionType: PlatformActionType, actor: User, deal: Deal): 
   const common = { type: actionType, actor, now, runtimeLabel: 'sandbox' as const };
 
   if (actionType === 'publishLot') return { ...common, payload: { lotId: deal.lotId } };
-  if (actionType === 'assignDriver') return { ...common, payload: { dealId: deal.id, driverId: 'U-DRIVER-1', carrierId: 'CP-C-001', vehicleNumber: 'А777ВС68' } };
+  if (actionType === 'assignDriver') return { ...common, payload: { dealId: deal.id, driverId: 'U-DRIVER-1', carrierId: 'CP-C-001', vehicleNumber: 'А777-ВС-68' } };
   if (actionType === 'confirmArrival') return { ...common, payload: { dealId: deal.id } };
   if (actionType === 'createLabProtocol') return { ...common, payload: { dealId: deal.id, protocolId: `LAB-${deal.id}-ROLE`, humidityPct: 12.4, glutenPct: 24.8, proteinPct: 12.1, natureGramPerLiter: 752 } };
   if (actionType === 'requestReserve') return { ...common, payload: { dealId: deal.id }, idempotencyKey: `role-${deal.id}-${actionType}-${Date.now()}` };

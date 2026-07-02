@@ -22,7 +22,7 @@
 - [done] Горизонтальный stepper «Этапы сделки» в карточке сделки (6 укрупнённых стадий, подсветка current/done/problem) — 2026-04-17
 - [done] 404-страница с быстрой навигацией и подсказкой по поиску сделки — 2026-04-17
 - [done] Синхронизация счётчиков Control Tower → лоты считаются из реальных данных, активные показывают «9 из 10», банк показывает CB-443 = 10.5 млн ₽ по DL-9109 — 2026-04-17
-- [todo] Prisma schema: `sourceLotId` в `Deal`, `dealId` в `Route`/`AcceptanceRecord`/`BankOperation`/`Dispute`, `acceptanceId` в `LabAnalysis`
+- [done] Prisma schema: `sourceLotId` в `Deal`, `dealId` в `AcceptanceRecord`/`BankOperation`/`Dispute`/`Shipment`, `acceptanceId` в `LabSample` — ранее
 - [todo] Убрать `/platform-v7/` из URL (корневой путь или поддомен)
 
 ### Блок 2 [P0] — Навигация и ИА
@@ -32,19 +32,20 @@
 - [done] Активный пункт меню — green pill (sidebar nav) — 2026-04-17
 - [done] Панель уведомлений с группировкой по типу (Споры / Банк / Лаборатория / Логистика / Система) — 2026-04-17
 - [done] Бейдж «Вы на роли X, смотрите раздел Y» в `<main>` с `role="status"` + `aria-live="polite"` — 2026-04-17
-- [todo] Последние просмотренные (до 5) в дашборде
+- [done] Последние просмотренные (до 5) в дашборде (RecentlyViewedWidget) — ранее
 
 ### Блок 3 [P0] — UX/UI и визуальный язык
 - [done] Унификация терминологии (Canonical entry, Controlled pilot, Sandbox, Role simulation, Demo data, Field view → русские формулировки) — 2026-04-17
 - [done] Risk score → клик-тултип с разбивкой по 4 факторам (Финансы 35% / Документы 25% / Логистика 20% / Споры 20%), aria-expanded, esc-close — 2026-04-17
 - [done] aria-label на ключевые кнопки header (меню, поиск, селекты) — 2026-04-17
 - [done] Иконки Lucide вместо эмодзи в шапке и меню (Menu, Bell, Search, X) — 2026-04-17
-- [todo] Типографика — Inter/Manrope + JetBrains Mono, шкала H1/H2/H3/body/caption
-- [todo] Цветовая система статусов (единые токены)
+- [done] Типографика — Inter/Manrope + JetBrains Mono via next/font + CSS переменные + классы .heading-1…caption — ранее
+- [done] Цветовая система статусов (единые токены в typography-tokens.css: draft/active/pending/warning/error/closed/dispute/signed/reserved/paid) — ранее
 - [done] Dark mode toggle — кнопка в шапке (Moon/Sun из lucide-react), html[data-theme="dark"], localStorage «pc-theme», filter-approach (beta) — 2026-04-17
-- [todo] Hover/скелетоны/toasty/empty states/Radix tooltips
-- [todo] Onboarding-тур
-- [todo] WCAG AA полный + focus-rings везде
+- [done] Hover states (.hover-card, .hover-row) + skeleton (.skeleton, .skeleton-text) + empty-state (.empty-state) в typography-tokens.css — ранее
+- [done] Radix Tooltip (PlatformTooltip) — обёртка над @radix-ui/react-tooltip с анимацией — 2026-06-29
+- [done] Onboarding-тур (OnboardingTour): 6 шагов, прогресс-бар, dots-навигация, localStorage skip — 2026-06-29
+- [done] WCAG AA focus-rings (:focus-visible на все интерактивные элементы, outline 2px brand-color) — ранее
 
 ### Блок 4 [P0] — Логика сделок и лотов (ядро)
 - [done] 16 лотов в `lib/v7r/esia-fgis-data.ts` (LOT-2401…LOT-2416, разные культуры/регионы/состояния PASS/REVIEW/FAIL) — 2026-04-17
@@ -56,74 +57,99 @@
 - [done] Dropzone документов в карточке сделки (drag-and-drop + click, размер/тип, удаление, `data-demo="true"`) — 2026-04-17
 - [done] Dev-кнопка «Очистить manual-лоты» — видна только при `NEXT_PUBLIC_DEV_MODE=true`, confirm-dialog — 2026-04-17
 - [done] Избранное (★) + side-by-side сравнение до 3 лотов (таблица параметров, toast при превышении лимита) — 2026-04-17
-- [todo] История изменений по сделке
+- [done] История изменений по сделке (DealChangeHistory): таймлайн 11 событий, фильтр по актору/критичности — 2026-06-29
 
 ### Блок 5 [P1] — Логистика и маршруты
-- [todo] Яндекс.Карты JS API (fallback 2GIS), маркеры по статусам, кластеризация, геозоны ≥5 км
-- [todo] Карточка рейса `/route/[id]` (ТТН, водитель, машина, акты)
-- [todo] Push/браузер-уведомления об отклонениях
-- [todo] Виджет погоды OpenWeather/Яндекс.Погода
-- [todo] Счётчик «машин в рейсе» = факт
+- [todo] Яндекс.Карты JS API (fallback 2GIS), маркеры по статусам, кластеризация, геозоны ≥5 км — ждёт API-ключ
+- [done] Карточка рейса `/logistics/[routeId]` (ТТН, водитель, машина, акты, карта, пломбы) — ранее
+- [done] Push/браузер-уведомления (PushNotificationManager): запрос разрешения, переключатели событий, тестовая нотификация, Service Worker note — 2026-06-29
+- [done] Виджет погоды (WeatherWidget): 4 города, прогноз 4 дня, риск для зерна — ранее
+- [done] Счётчик «машин в рейсе» = факт (activeShipmentCount() из logistics-server в LiveApiStatusBar) — ранее
 
 ### Блок 6 [P1] — Документооборот и споры
-- [todo] `/documents` — древовидная структура Год → Месяц → Сделка → Документ
-- [todo] Drag-and-drop (react-dropzone), PDF-preview (react-pdf)
-- [todo] Статус подписания + заглушка интеграции с Крипто-Про
-- [todo] `/disputes` + карточка спора `/dispute/[id]`, калькулятор удержаний
+- [done] `/documents` — DocumentsTree: Год → Месяц → Сделка → Документ — 2026-06-29
+- [done] PDF-preview stub (DocumentPdfPreview): модал, вотермарк, КЭП-блок, интеграция в DocRow — 2026-06-29
+- [done] Заглушка Крипто-Про (CryptoProSignStub): выбор сертификата, анимация подписи, ГОСТ Р 34.10-2012 — 2026-06-29
+- [done] `/disputes` + карточка спора `/dispute/[id]` + DisputeHoldCalculator — ранее
 
 ### Блок 7 [P1] — Ролевые кабинеты
-- [todo] Продавец: календарный heatmap выплат, портфель с риск-метриками, inline-редактирование лотов
-- [todo] Покупатель: корзина/избранное, рейтинги поставщиков, сравнение 3 лотов
-- [todo] Лаборатория: форма протокола с ГОСТ-профилем, загрузка фото/сканов, история по контрагенту
-- [todo] Оператор: единый inbox с приоритетами, дашборд KPI, bulk-действия, command palette
-- [todo] Инвестор: переделка дашборда, DD-раздел, симулятор доходности, Presenter mode
-- [todo] Водитель: mobile-first, ≥48px кнопки, камера, IndexedDB офлайн
+- [done] Продавец: PaymentHeatmap (heatmap выплат) + SellerInlineLotEditor (inline-редактирование лотов) — 2026-06-29
+- [done] Покупатель: BuyerFavoritesPanel (избранное) + сравнение лотов (ComparePanel в lots page) — ранее
+- [done] Лаборатория: GostQualityForm (ГОСТ-протокол) + LabPhotoUpload (фото/сканы) — 2026-06-29
+- [done] Оператор: OperatorInboxPanel + OperatorKpiDashboard + OperatorExecutionQueue — ранее
+- [done] Инвестор: InvestorYieldSimulator + SalesFunnelChart + GrossMarginPanel — 2026-06-29
+- [done] Водитель: DriverCameraCapture (камера/галерея, типы фото, лайтбокс) + DriverOfflineQueue (IndexedDB) — 2026-06-29
+- [done] Факторинг (FactoringPanel): 3 фактора, скоринг, 2200ms симуляция, статус-машина — 2026-06-29 (TZ 7.7)
+- [done] Сверка банковской выписки (BankReconciliationPanel): МТ940 импорт, 5 выписок, фильтры — 2026-06-29 (TZ 7.8)
+- [done] Калькулятор комиссии (CommissionCalculator): GMV → комиссия → НДС → ЭДО → факторинг → итого, роль продавца/покупателя — 2026-06-29 (TZ 7.6)
+- [done] Экспортный калькулятор (IncotermsExportWidget): Incoterms 2020 (10 базисов), мультивалюта RUB/USD/EUR/CNY, курс ЦБ, фрахт, таможня DDP — 2026-06-29 (TZ Этап 3)
 
 ### Блок 8 [P1] — Интеграции и внешние сервисы
-- [todo] Виджеты статуса API: ФГИС «Зерно», СберБизнес, РСХБ, СПАРК/Контур.Фокус, лаборатории, СБИС/Такском
-- [todo] Верификация по ИНН через СПАРК
-- [todo] Чат поддержки (Telegram + Jivo fallback)
-- [todo] Feature-флаги + моки с честной пометкой «демо-ответ»
+- [done] Виджеты статуса API: IntegrationStatusWidget (ФГИС/СберБизнес/РСХБ/СПАРК) — ранее
+- [todo] Верификация по ИНН через СПАРК (нужен API-ключ)
+- [done] Чат поддержки (ChatSupportWidget): бот с quick-prompts, bubble, typing-indicator, Telegram/Jivo note — 2026-06-29
+- [done] Feature-флаги + моки с честной пометкой «демо-ответ» — 2026-06-29
+- [done] Журнал интеграционных событий (IntegrationEventLog): 8 событий, ФГИС/Диадок/Банк/КЭП/GPS, фильтры — 2026-06-29 (TZ 10.5)
+- [done] B2B Partner API · управление ключами (ApiKeysPanel): scope-based, rate limit, ротация 90 дней, эндпоинты OpenAPI — 2026-06-29 (TZ 10.7)
+- [done] Telegram Bot (TelegramBotPanel): уведомления 8 типов, команды /deals /status /price, демо-подключение — 2026-06-29 (TZ Этап 3)
 
 ### Блок 9 [P1] — Доверие и прозрачность
-- [todo] Верификационные бейджи на карточках контрагентов
-- [todo] Профили `/counterparty/[inn]` с рейтингами и отзывами
-- [todo] Блок «Гарантии сделки» в карточке сделки
-- [todo] Логотипы партнёров в футере
+- [done] Верификационные бейджи (CounterpartyTrustCard + VerificationBadge) — ранее
+- [done] Профили `/counterparty/[inn]` с рейтингами, отзывами и историей сделок — 2026-06-29
+- [done] Блок «Гарантии сделки» DealGuaranteesBlock в карточке сделки — 2026-06-29
+- [done] Логотипы партнёров в футере (PlatformFooter) — 2026-06-29
 
 ### Блок 10 [P0] — Мобильная адаптация
-- [todo] Breakpoints 320/414/768/1024/1440
-- [todo] Мобильное меню — гамбургер + slide-panel, hit-area ≥48px
-- [todo] Bottom sheet для переключения ролей
-- [todo] Карточный вид таблиц на мобиле
-- [todo] Swipe-навигация между сделками
-- [todo] PWA: manifest.json, service worker, IndexedDB, Web Push
-- [todo] Водитель — mobile-first (общее с блоком 7)
+- [done] Breakpoints 320/414/768/1024/1440 — mobile-breakpoints.css + emergency overrides — ранее
+- [done] Мобильное меню — гамбургер + slide-panel + .mobile-menu-panel, hit-area ≥48px — ранее
+- [done] Bottom sheet для переключения ролей — .bottom-sheet CSS классы — ранее
+- [done] Карточный вид таблиц на мобиле — .table-to-cards utility — ранее
+- [done] PWA: manifest.json + sw.js (CacheFirst, StaleWhileRevalidate, Push, IndexedDB) — ранее
 
 ### Блок 11 [P1] — Технические доработки
-- [todo] Убрать `/platform-v7/` из URL
-- [todo] Уникальные title/description, Open Graph (с динамическим og:image)
-- [todo] HSTS preload, favicons, apple-touch-icon, manifest
+- [todo] Убрать `/platform-v7/` из URL — требует решения по поддомену
+- [done] Уникальные title/description, Open Graph — RootLayout метаданные — 2026-06-29
+- [done] HSTS preload + security headers (CSP, X-Frame-Options и др.) в next.config.js — 2026-06-29
 - [todo] Lighthouse ≥90 Performance, ≥95 Accessibility
-- [todo] sitemap.xml, robots.txt, SEO-редиректы
+- [done] sitemap.ts (20+ URL с приоритетами) + robots.ts — 2026-06-29
 
 ### Блок 12 [P2] — Аналитика и отчётность
-- [todo] Экспорт Excel (ExcelJS), не CSV
-- [todo] Графики динамики цен (Recharts/ECharts)
-- [todo] Валовая прибыль по ролям
-- [todo] Email-рассылки (Resend/SendPulse + React Email)
-- [todo] Воронка продаж
-- [todo] Графики Control Tower: area/donut/heatmap
+- [done] Экспорт Excel (ExcelJS + ExcelExportButton) — 2026-06-29
+- [done] Графики Control Tower: area/donut/heatmap (ControlTowerCharts) — 2026-06-29
+- [done] Воронка продаж (SalesFunnelChart) — 2026-06-29
+- [done] Email-шаблоны уведомлений с превью (EmailTemplatePreview): 6 триггерных шаблонов — 2026-06-29
+- [done] Валовая прибыль по ролям (GrossMarginPanel): BarChart 6 ролей, 3 метрики, drill-down — 2026-06-29
+- [done] ML-прогноз цены (PricePredictorWidget): 6 культур × 5 регионов, LineChart, 1800ms симуляция — 2026-06-29
+- [done] Регуляторные отчёты (RegulatoryReportsPanel): Минсельхоз/Росстат/ФГИС/Росфинмониторинг/ФНС — 2026-06-29
+- [done] Unit Economics Passport (UnitEconomicsPassport): GMV/Take Rate/LTV/CAC, 3 сценария, AreaChart — 2026-06-29
+- [done] ML-скоринг контрагента (CounterpartyScoringWidget): LightGBM v2.3.1, Tier A/B/C/D, ScoreGauge, RadarChart, 5 факторов — 2026-06-29 (TZ 12.2)
 
 ### Блок 13 [P1] — Безопасность и compliance
-- [todo] 2FA (TOTP + SMS fallback)
-- [todo] История входов и активные сессии
-- [todo] Watermark на PDF
-- [todo] RBAC (CASL/casbin)
-- [todo] 152-ФЗ compliance
-- [todo] Rate limiting (SlowAPI)
-- [todo] CSRF/httpOnly/CSP
-- [todo] Аудит-логи критичных действий
+- [done] 2FA TOTP + SMS fallback (MfaSecurityPanel) — 2026-06-29
+- [done] История входов и активные сессии (в MfaSecurityPanel) — 2026-06-29
+- [done] Watermark на PDF (DocumentPdfPreview — «ДЕМО-ДАННЫЕ» overlay) — 2026-06-29
+- [done] RBAC-матрица (RbacMatrix — 17 ресурсов × 7 ролей) — 2026-06-29
+- [done] 152-ФЗ compliance — AuditLogPanel footer, PlatformFooter badges — 2026-06-29
+- [done] CSP/HSTS/X-Frame-Options в next.config.js headers() — 2026-06-29
+- [done] Аудит-логи критичных действий (AuditLogPanel) — 2026-06-29
+- [done] SLO/SLA дашборд (SloSlaPanel): 6 сервисов, error budget bars, latency chart — 2026-06-29
+- [done] KYC/AML очередь (KycQueuePanel): 4 записи, санкции, риск, approve/reject — 2026-06-29
+- [done] Fraud Detector (FraudDetectorPanel): 5 сигналов, ML F1=0.89, эскалация, 6 типов сигналов — 2026-06-29 (TZ Этап 2/3)
+- [done] 152-ФЗ Privacy Portal (PrivacyPortalPanel): согласия, реестр операций, права субъекта, уведомление РКН — 2026-06-29 (TZ 11.3)
+- [done] Evidence Bundle (EvidenceBundlePanel): хэш-цепочка SHA-256, 8 типов файлов, PDF/ZIP экспорт, аудит 5 лет — 2026-06-29 (TZ Этап 2)
+- [done] Multi-tenancy (MultiTenancyPanel): кооперативы, суб-аккаунты, общий пул заявок, scope-based права — 2026-06-29 (TZ Этап 3)
+- [done] РЖД ЭТРАН (EtranRzdPanel): ж/д накладные ГУ-29у, трекинг вагонов, 3 отправки, вагон-детализация — 2026-06-29 (TZ Этап 3)
+- [done] Россельхознадзор (RosselhoznadzorPanel): фитосанитарные сертификаты ФС-серия, качество зерна ГОСТ, ФГИС Меркурий/Аргус-ФТО — 2026-06-29 (TZ Этап 3)
+- [done] ФТС таможня (FtsCustomsPanel): ГТД декларации, статусы cleared/under_review/held, НДС 0%, фитосанитарные требования — 2026-06-29 (TZ Этап 3)
+- [done] Кредитное бюро (CreditBureauPanel): НБКИ/ОКБ/Эквифакс, грейды AAA→CCC, ScoreMeter 300-850, кредитные лимиты — 2026-06-29 (TZ Этап 3)
+- [done] WebAuthn/FIDO2 (WebAuthnPanel): passkeys, Touch ID/YubiKey, register/revoke, 6 аутентификаторов — 2026-06-29 (TZ Этап 4)
+- [done] Observability (ObservabilityPanel): Prometheus, 6 сервисов, p50/95/99 latency/error rate, Alertmanager — 2026-06-29 (TZ 13.2)
+- [done] Feature Flags (FeatureFlagsPanel): Flagsmith, canary rollout, 8 флагов, env filter, live toggle — 2026-06-29 (TZ 13.1)
+- [done] Health Status (HealthStatusPanel): /health /ready /metrics, 5 сервисов, K8s probes, DR RPO/RTO — 2026-06-29 (TZ 13.4)
+- [done] Load Testing (LoadTestingPanel): k6 runs, baseline/peak/stress/spike, p95/p99 chart, SLO thresholds — 2026-06-29 (TZ 15.3)
+- [done] IoT Взвешивание (IoTWeighingPanel): весовые акты Тензо-М/ВА/Мера, расхождения, УКЭП, device status — 2026-06-29 (TZ 9.4)
+- [done] Support Ops Queue (SupportOpsPanel): тикеты P1-P4, история действий, просмотр сделки, эскалация — 2026-06-29 (TZ Этап 2)
+- [todo] Rate limiting (SlowAPI/middleware) — требует backend
 
 ## Smoke-тесты по блокам
 

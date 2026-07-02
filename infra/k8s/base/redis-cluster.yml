@@ -1,0 +1,176 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-cluster-config
+  namespace: grainflow-prod
+data:
+  redis.conf: |
+    cluster-enabled yes
+    cluster-config-file /data/nodes.conf
+    cluster-node-timeout 5000
+    cluster-require-full-coverage no
+    cluster-migration-barrier 1
+    appendonly yes
+    appendfsync everysec
+    maxmemory 2gb
+    maxmemory-policy allkeys-lru
+    requirepass $(REDIS_PASSWORD)
+    masterauth $(REDIS_PASSWORD)
+    save 3600 1
+    save 300 100
+    save 60 10000
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster
+  namespace: grainflow-prod
+spec:
+  serviceName: redis-cluster
+  replicas: 6
+  selector:
+    matchLabels:
+      app: redis-cluster
+  template:
+    metadata:
+      labels:
+        app: redis-cluster
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          command:
+            - redis-server
+            - /conf/redis.conf
+            - --cluster-announce-ip
+            - $(POD_IP)
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
+          ports:
+            - containerPort: 6379
+              name: client
+            - containerPort: 16379
+              name: gossip
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          volumeMounts:
+            - name: conf
+              mountPath: /conf
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a $REDIS_PASSWORD ping | grep PONG
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a $REDIS_PASSWORD ping | grep PONG
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: conf
+          configMap:
+            name: redis-cluster-config
+            items:
+              - key: redis.conf
+                path: redis.conf
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+        storageClassName: fast-ssd
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: grainflow-prod
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: redis-cluster
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: client
+    - port: 16379
+      targetPort: 16379
+      name: gossip
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-lb
+  namespace: grainflow-prod
+spec:
+  type: ClusterIP
+  selector:
+    app: redis-cluster
+  ports:
+    - port: 6379
+      targetPort: 6379
+
+---
+# Job для инициализации кластера после деплоя
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redis-cluster-init
+  namespace: grainflow-prod
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: redis-cluster-init
+          image: redis:7.2-alpine
+          command:
+            - sh
+            - -c
+            - |
+              # Ждём пока все ноды поднимутся
+              sleep 30
+              # Создаём кластер: 3 masters + 3 replicas
+              redis-cli -a $REDIS_PASSWORD --cluster create \
+                redis-cluster-0.redis-cluster.grainflow-prod.svc.cluster.local:6379 \
+                redis-cluster-1.redis-cluster.grainflow-prod.svc.cluster.local:6379 \
+                redis-cluster-2.redis-cluster.grainflow-prod.svc.cluster.local:6379 \
+                redis-cluster-3.redis-cluster.grainflow-prod.svc.cluster.local:6379 \
+                redis-cluster-4.redis-cluster.grainflow-prod.svc.cluster.local:6379 \
+                redis-cluster-5.redis-cluster.grainflow-prod.svc.cluster.local:6379 \
+                --cluster-replicas 1 --cluster-yes
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password

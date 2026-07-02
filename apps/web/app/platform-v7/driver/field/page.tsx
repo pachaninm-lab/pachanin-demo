@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
-import { DriverBigTileIsland } from '@/components/platform-v7/visual/DriverBigTileIsland';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { DriverMissionRouteCard } from '@/components/platform-v7/DriverMissionRouteCard';
 import { getPlatformV7DriverCockpitState } from '@/lib/platform-v7/runtime/driver-cockpit-state';
 import { CockpitHero, OfflineSyncBanner } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
+import { DriverOfflineQueue } from '@/components/platform-v7/DriverOfflineQueue';
+import { PwaOfflinePanel } from '@/components/platform-v7/PwaOfflinePanel';
+import { RouteMapStub } from '@/components/platform-v7/RouteMapStub';
+import { DriverCameraCapture } from '@/components/platform-v7/DriverCameraCapture';
 
 export default async function DriverFieldPage() {
   const mission = getPlatformV7DriverCockpitState();
@@ -25,7 +28,8 @@ export default async function DriverFieldPage() {
   return (
     <main
       data-testid="platform-v7-driver-field-shell"
-      data-platform-v7-driver-mobile-pass="true"
+      data-platform-v7-driver-field-pass="true"
+      data-hidden-controls="финансовый контур, ставки и платёжные данные скрыты от водителя"
       style={{
         display: 'grid',
         gap: 14,
@@ -71,6 +75,9 @@ export default async function DriverFieldPage() {
           boxShadow: '0 14px 30px rgba(15,23,42,0.055)',
         }}
       >
+        <div style={{ ...firstScreenCard, gridColumn: '1 / -1', background: 'transparent', border: 'none', minHeight: 'auto', padding: '0 0 4px' }}>
+          <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)', letterSpacing: '-0.01em' }}>Полевой режим</span>
+        </div>
         <div style={firstScreenCard}>
           <span style={firstScreenLabel}>Что произошло</span>
           <strong style={firstScreenValue}>рейс назначен водителю</strong>
@@ -80,7 +87,7 @@ export default async function DriverFieldPage() {
           <strong style={firstScreenValue}>выгрузка ждёт фото и пломбу</strong>
         </div>
         <div style={firstScreenCard}>
-          <span style={firstScreenLabel}>Деньги под риском</span>
+          {/* Деньги под риском */}<span style={firstScreenLabel}>Финансовый доступ</span>
           <strong style={firstScreenValue}>нет доступа к денежному контуру</strong>
         </div>
         <div style={firstScreenCard}>
@@ -152,12 +159,40 @@ export default async function DriverFieldPage() {
 
       <section id="driver-photo-seal" style={driverFieldSection}>
         <CollapsibleSection title='Фото, пломба и полевые действия' summary='доказательства · следующий факт' defaultOpen={false}>
-          <DriverBigTileIsland />
+          <div style={{ padding: '12px', fontSize: 13, color: 'var(--pc-text-secondary)' }}>Фото и пломба фиксируются в полевом режиме через мобильное приложение.</div>
+        </CollapsibleSection>
+      </section>
+
+      <section id="driver-map" style={driverFieldSection}>
+        <CollapsibleSection title='Маршрут на карте' summary='прогресс · точки · ETA' defaultOpen={false}>
+          {(() => {
+            const [from, to] = (mission.route ?? 'Тамбов → Воронеж').split(' → ');
+            const currentKm = Math.round((mission.progressPercent / 100) * 142);
+            return (
+              <RouteMapStub
+                from={from ?? 'Тамбов'}
+                to={to ?? 'Воронеж'}
+                currentKm={currentKm}
+                totalKm={142}
+                eta="14:30"
+                vehiclePlate="А234-ВС-68"
+              />
+            );
+          })()}
         </CollapsibleSection>
       </section>
 
       <section id="driver-offline-events" style={driverFieldSection}>
-        <CollapsibleSection title='Полевой runtime и синхронизация' summary='очередь · события · офлайн' defaultOpen={false}>
+        <CollapsibleSection title='Фото рейса' summary='камера · галерея · прибытие · весовой талон' defaultOpen>
+          <DriverCameraCapture tripId={mission.tripId} />
+        </CollapsibleSection>
+        <CollapsibleSection title='Офлайн-очередь' summary='IndexedDB · синхронизация при восстановлении сети' defaultOpen={false}>
+          <DriverOfflineQueue tripId={mission.tripId} />
+        </CollapsibleSection>
+        <CollapsibleSection title='PWA Offline · Кэш и очередь действий' summary='Service Worker · IndexedDB · Background Sync · last-write-wins · конфликты' defaultOpen={false}>
+          <PwaOfflinePanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Полевой runtime' summary='очередь · события · офлайн' defaultOpen={false}>
           <FieldDriverRuntime compact />
         </CollapsibleSection>
       </section>

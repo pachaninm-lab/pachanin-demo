@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BuyerFavoritesPanel } from '@/components/platform-v7/BuyerFavoritesPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -20,6 +21,8 @@ import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
 import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { CreditBureauPanel } from '@/components/platform-v7/CreditBureauPanel';
+import { EscrowPanel } from '@/components/platform-v7/EscrowPanel';
 import { PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, type PlatformV7ExecutionActionState } from '@/lib/platform-v7/execution-action-core';
 import {
   CockpitHero,
@@ -125,7 +128,7 @@ export default async function PlatformV7BuyerPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
           <PremiumCtaButton href='#money' glyph='shield-check'>Деньги и резерв</PremiumCtaButton>
-          <PremiumCtaButton href='#procurement' variant='ghost'>Закупки и партии</PremiumCtaButton>
+          <PremiumCtaButton href='/platform-v7/deals/DL-9106' variant='ghost'>Открыть сделку</PremiumCtaButton>
         </div>
         <TrustDot state='test' size='sm' label='Контур исполнения · Внешние подключения требуют договоров' />
       </CockpitHero>
@@ -135,7 +138,7 @@ export default async function PlatformV7BuyerPage() {
           <div style={micro}>операционный срез покупателя</div>
           <h2 style={{ ...h2, margin: 0 }}>Что делать сейчас</h2>
           <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>
-            Экран отделяет текущий пилотный статус от целевой готовности: платформа показывает причину, деньги и маршрут, но не выпускает деньги без банковского подтверждения.
+            Экран: платформа показывает причину, деньги и маршрут. Банковское подтверждение обязательно для передачи средств.
           </p>
         </div>
         <div style={factGrid}>
@@ -289,6 +292,25 @@ export default async function PlatformV7BuyerPage() {
             </section>
           </div>
         </CollapsibleSection>
+      </section>
+      {/* Кредитное бюро */}
+      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' }}>
+        <CollapsibleSection title='Кредитное бюро · Скоринг контрагентов' summary='НБКИ · ОКБ · Эквифакс · грейд AAA→CCC · лимиты' defaultOpen={false}>
+          <CreditBureauPanel />
+        </CollapsibleSection>
+      </section>
+
+      {/* Escrow */}
+      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' }}>
+        <CollapsibleSection title='Escrow · Счета условного депонирования' summary='Сбер Безопасные Сделки · резерв · release · спор · условия выпуска' defaultOpen={false}>
+          <EscrowPanel />
+        </CollapsibleSection>
+      </section>
+
+      {/* Избранное и рейтинги поставщиков */}
+      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' }}>
+        <div style={micro}>Избранные лоты и поставщики</div>
+        <BuyerFavoritesPanel />
       </section>
     </main>
   );

@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { CreateLotDto } from './dto/create-lot.dto';
+import { SearchService } from '../search/search.service';
 
 export type LotStatus = 'DRAFT' | 'OPEN' | 'BIDDING' | 'MATCHED' | 'IN_DEAL' | 'CLOSED' | 'CANCELLED';
 
@@ -28,7 +29,7 @@ export interface Lot {
 export class LotsService {
   private readonly store: Lot[] = [];
 
-  constructor() {
+  constructor(@Optional() private readonly searchService?: SearchService) {
     this.store.push(
       {
         id: 'LOT-001',
@@ -110,6 +111,7 @@ export class LotsService {
       createdAt: new Date().toISOString(),
     };
     this.store.push(lot);
+    this.searchService?.indexLot(lot).catch(() => undefined);
     return lot;
   }
 
@@ -120,6 +122,7 @@ export class LotsService {
     }
     lot.status = 'OPEN';
     lot.updatedAt = new Date().toISOString();
+    this.searchService?.indexLot(lot).catch(() => undefined);
     return lot;
   }
 
@@ -130,6 +133,7 @@ export class LotsService {
     }
     lot.status = 'BIDDING';
     lot.updatedAt = new Date().toISOString();
+    this.searchService?.indexLot(lot).catch(() => undefined);
     return lot;
   }
 

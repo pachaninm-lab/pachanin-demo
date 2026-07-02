@@ -2,17 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { observeServerCabinetAccess, serverCabinetRbacMode } from '@/lib/platform-v7/server-cabinet-access';
 import { readVerifiedCabinetRole, readVerifiedCabinetSessionRole } from '@/lib/platform-v7/verified-session';
 
+// The verified-JWT role is the ONLY server-trusted identity for cabinet RBAC observation.
+// Prefer the dedicated platform-v7 cabinet session (pc_v7_cabinet, `cab` claim); fall back
+// to a real API JWT in pc_access_token (real-backend logins). Never path/pc-role/query.
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const ACCESS_TOKEN_COOKIE = 'pc_access_token';
-const SESSION_COOKIE = 'pc_session_present';
-const OWNER_COOKIE = 'pc_owner_access';
-const ENTRY_COOKIE = 'pc_v7_entry_seen';
-const CABINET_LOGIN_API = '/api/platform-v7/cabinet-lock-login';
-const CABINET_SESSION_API = '/api/platform-v7/cabinet-session';
-const INQUIRIES_API = '/api/platform-v7/inquiries';
-const LEADS_API = '/api/platform-v7/leads';
 
-const PUBLIC_ASSET_PREFIX = [
+const PUBLIC_EXACT = new Set(['/', '/login', '/register']);
+const PUBLIC_PREFIX = [
   '/_next/',
   '/favicon',
   '/apple-icon',
@@ -22,42 +19,8 @@ const PUBLIC_ASSET_PREFIX = [
   '/manifest',
   '/sw.js',
   '/mockServiceWorker.js',
-  '/indexnow.txt',
 ];
 
-const SEARCH_INDEXABLE = new Set([
-  '/',
-  '/platform-v7',
-  '/platform-v7/open',
-  '/platform-v7/demo',
-  '/platform-v7/contact',
-  '/platform-v7/request',
-  '/platform-v7/docs',
-  '/platform-v7/help',
-  '/platform-v7/pricing',
-  '/platform-v7/roadmap',
-  '/platform-v7/about',
-  '/platform-v7/security',
-  '/platform-v7/status',
-  '/platform-v7/secure-grain-deal',
-  '/platform-v7/grain-logistics',
-  '/platform-v7/grain-quality',
-  '/platform-v7/grain-documents',
-  '/platform-v7/grain-payment',
-  '/platform-v7/fgis-zerno',
-  '/platform-v7/terms',
-  '/platform-v7/privacy',
-  '/platform-v7/oferta',
-]);
-
-const V7_PUBLIC = new Set([
-  ...SEARCH_INDEXABLE,
-  '/platform-v7/login',
-  '/platform-v7/register',
-]);
-
-const PUBLIC_EXACT = new Set(['/', '/login', '/register']);
-const V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 const CANON_REDIRECTS: Record<string, string> = {
   '/canon/roles': '/platform-v7/roles',
   '/platform-v4/roles': '/platform-v7/roles',
@@ -87,54 +50,55 @@ const VALID_ROLES = new Set([
   'executive',
 ]);
 
-function normalize(pathname: string): string {
-  return pathname.split('?')[0].replace(/\/$/, '') || '/';
+const SESSION_COOKIE = 'pc_session_present';
+const OWNER_COOKIE = 'pc_owner_access';
+const PLATFORM_V7_ENTRY_COOKIE = 'pc_v7_entry_seen';
+const PRIVATE_REALM = 'Prozrachnaya Cena Private';
+
+const PLATFORM_V7_PUBLIC_EXACT = new Set([
+  '/platform-v7',
+  '/platform-v7/open',
+  '/platform-v7/login',
+  '/platform-v7/register',
+  '/platform-v7/help',
+  '/platform-v7/pricing',
+  '/platform-v7/roadmap',
+]);
+
+const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
+
+function isPrivateMode(): boolean {
+  return process.env.PC_PRIVATE_MODE === 'on';
 }
 
-function env(name: string): string {
-  return String(process.env[name] || '').trim();
+function isPublicAsset(p: string): boolean {
+  return PUBLIC_PREFIX.some((x) => p.startsWith(x));
 }
 
-function isAsset(pathname: string): boolean {
-  return PUBLIC_ASSET_PREFIX.some((prefix) => pathname.startsWith(prefix));
+function isPublic(p: string): boolean {
+  return PUBLIC_EXACT.has(p) || isPublicAsset(p);
 }
 
-function isV7Public(pathname: string): boolean {
-  const path = normalize(pathname);
-  return V7_PUBLIC.has(path) || V7_PUBLIC_PREFIX.some((prefix) => path.startsWith(prefix));
+function isPlatformV7PublicPath(p: string): boolean {
+  return PLATFORM_V7_PUBLIC_EXACT.has(p) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => p.startsWith(x));
 }
 
-function isIndexable(pathname: string): boolean {
-  return SEARCH_INDEXABLE.has(normalize(pathname));
-}
-
-function isCabinetAuth(pathname: string): boolean {
-  const path = normalize(pathname);
-  return path === CABINET_LOGIN_API || path === CABINET_SESSION_API || path === INQUIRIES_API || path === LEADS_API;
-}
-
-function isPublic(pathname: string): boolean {
-  return PUBLIC_EXACT.has(normalize(pathname)) || isAsset(pathname);
-}
-
-function isProtected(pathname: string): boolean {
-  if (isAsset(pathname) || isCabinetAuth(pathname) || isV7Public(pathname)) return false;
+function isProtectedPath(p: string): boolean {
+  if (isPublicAsset(p)) return false;
   return true;
 }
 
-function isCabinetLocked(pathname: string): boolean {
-  if (isAsset(pathname) || isCabinetAuth(pathname)) return false;
-  if (pathname.startsWith('/api/runtime-')) return true;
-  if (pathname.startsWith('/api/platform-v7') || pathname.startsWith('/api/cabinet')) return true;
-  if (!pathname.startsWith('/platform-v7')) return false;
-  return !isV7Public(pathname);
+function readEnv(name: string): string {
+  return String(process.env[name] || '').trim();
 }
 
-function same(a: string, b: string): boolean {
+function safeEqual(a: string, b: string): boolean {
   if (!a || !b) return false;
   let diff = a.length ^ b.length;
   const max = Math.max(a.length, b.length);
-  for (let i = 0; i < max; i += 1) diff |= a.charCodeAt(i % a.length) ^ b.charCodeAt(i % b.length);
+  for (let i = 0; i < max; i += 1) {
+    diff |= a.charCodeAt(i % a.length) ^ b.charCodeAt(i % b.length);
+  }
   return diff === 0;
 }
 
@@ -150,37 +114,36 @@ function parseBasicAuth(header: string | null): { user: string; password: string
   }
 }
 
-function ownerAllowed(req: NextRequest): boolean {
-  const ownerKey = env('PC_OWNER_KEY');
+function hasPrivateCredentials(): boolean {
+  return Boolean(readEnv('PC_PRIVATE_PASSWORD') || readEnv('PC_OWNER_KEY'));
+}
+
+function isOwnerAuthorized(req: NextRequest): boolean {
+  const ownerKey = readEnv('PC_OWNER_KEY');
   const requestKey = req.headers.get('x-pc-owner-key') || req.cookies.get(OWNER_COOKIE)?.value || '';
-  if (ownerKey && same(requestKey, ownerKey)) return true;
+  if (ownerKey && safeEqual(requestKey, ownerKey)) return true;
 
-  const password = env('PC_PRIVATE_PASSWORD');
-  if (!password) return false;
-  const user = env('PC_PRIVATE_USER') || 'owner';
+  const privatePassword = readEnv('PC_PRIVATE_PASSWORD');
+  if (!privatePassword) return false;
+  const privateUser = readEnv('PC_PRIVATE_USER') || 'owner';
   const basic = parseBasicAuth(req.headers.get('authorization'));
-  return Boolean(basic && same(basic.user, user) && same(basic.password, password));
+  if (!basic) return false;
+
+  return safeEqual(basic.user, privateUser) && safeEqual(basic.password, privatePassword);
 }
 
-function cabinetSecret(): string {
-  return env('JWT_SECRET') || env('PC_CABINET_LOCK_PASSWORD');
-}
-
-async function cabinetAllowed(req: NextRequest): Promise<boolean> {
-  const now = Math.floor(Date.now() / 1000);
-  const role = await readVerifiedCabinetSessionRole(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, cabinetSecret(), now);
-  return Boolean(role);
-}
-
-function secure(response: NextResponse, noStore = false, indexable = false) {
-  response.headers.set('x-robots-tag', indexable ? 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1' : 'noindex, nofollow, noarchive, nosnippet, noimageindex');
+function applySecurityHeaders(response: NextResponse, protectedResponse = false) {
+  response.headers.set('x-robots-tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex');
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('x-frame-options', 'DENY');
   response.headers.set('referrer-policy', 'no-referrer');
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), accelerometer=(), gyroscope=()');
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
-  response.headers.set('content-security-policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
-  if (noStore) {
+  response.headers.set(
+    'content-security-policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+  );
+  if (protectedResponse) {
     response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     response.headers.set('pragma', 'no-cache');
     response.headers.set('expires', '0');
@@ -188,42 +151,42 @@ function secure(response: NextResponse, noStore = false, indexable = false) {
   return response;
 }
 
-function textResponse(message: string, status: number) {
-  return secure(new NextResponse(message, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } }), true);
+function privateLockedResponse() {
+  const response = new NextResponse('Private deployment locked.', {
+    status: 503,
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  });
+  return applySecurityHeaders(response, true);
 }
 
-function cabinetRequired(req: NextRequest) {
-  const pathname = req.nextUrl.pathname;
-  if (pathname.startsWith('/api/')) return secure(NextResponse.json({ ok: false, message: 'cabinet_access_required' }, { status: 401 }), true);
-  const url = req.nextUrl.clone();
-  url.pathname = '/platform-v7/login';
-  url.search = '';
-  const role = pathRole(pathname);
-  if (role) url.searchParams.set('role', role);
-  url.searchParams.set('next', `${pathname}${req.nextUrl.search || ''}`);
-  return secure(NextResponse.redirect(url), true);
+function privateUnauthorizedResponse() {
+  const response = new NextResponse('Private access required.', {
+    status: 401,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'www-authenticate': `Basic realm="${PRIVATE_REALM}", charset="UTF-8"`,
+    },
+  });
+  return applySecurityHeaders(response, true);
 }
 
 function parseSession(raw: string | undefined): { role: string; exp: number } | null {
   if (!raw) return null;
-  for (const value of [raw, safeDecode(raw)]) {
+  const candidates = [raw];
+  try {
+    const d = decodeURIComponent(raw);
+    if (d !== raw) candidates.push(d);
+  } catch {}
+  for (const s of candidates) {
     try {
-      const parsed = JSON.parse(value) as { role?: string; exp?: number };
-      if (typeof parsed.role === 'string' && typeof parsed.exp === 'number') return { role: parsed.role, exp: parsed.exp };
+      const p = JSON.parse(s) as { role?: string; exp?: number };
+      if (p && typeof p.role === 'string' && typeof p.exp === 'number') return { role: p.role, exp: p.exp };
     } catch {}
   }
   return null;
 }
 
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-function pathRole(pathname: string): string | null {
+function resolvePlatformV7PathRole(pathname: string): string | null {
   if (pathname.startsWith('/platform-v7/driver')) return 'driver';
   if (pathname.startsWith('/platform-v7/surveyor')) return 'surveyor';
   if (pathname.startsWith('/platform-v7/elevator')) return 'elevator';
@@ -240,8 +203,8 @@ function pathRole(pathname: string): string | null {
 }
 
 function resolveRole(req: NextRequest, sessionRole?: string | null) {
-  const resolvedPathRole = pathRole(req.nextUrl.pathname);
-  if (resolvedPathRole && VALID_ROLES.has(resolvedPathRole)) return resolvedPathRole;
+  const pathRole = resolvePlatformV7PathRole(req.nextUrl.pathname);
+  if (pathRole && VALID_ROLES.has(pathRole)) return pathRole;
   if (sessionRole && VALID_ROLES.has(sessionRole)) return sessionRole;
   const cookieRole = req.cookies.get('pc-role')?.value;
   if (cookieRole && VALID_ROLES.has(cookieRole)) return cookieRole;
@@ -250,96 +213,125 @@ function resolveRole(req: NextRequest, sessionRole?: string | null) {
   return 'operator';
 }
 
-function withRole(req: NextRequest, role: string, noStore = false, indexable = false) {
+function withRoleHeaders(req: NextRequest, role: string, protectedResponse = false) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
   requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('x-pc-role', role);
   response.headers.set('x-pc-pathname', req.nextUrl.pathname);
-  return secure(response, noStore, indexable);
+  return applySecurityHeaders(response, protectedResponse);
 }
 
-function saveRole(req: NextRequest, response: NextResponse, role: string) {
-  if (req.cookies.get('pc-role')?.value === role) return;
-  response.cookies.set('pc-role', role, { path: '/', maxAge: 60 * 60 * 24 * 30, sameSite: 'lax', secure: true });
+function persistRoleCookie(req: NextRequest, response: NextResponse, role: string) {
+  if (req.cookies.get('pc-role')?.value !== role) {
+    response.cookies.set('pc-role', role, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+      sameSite: 'lax',
+      secure: true,
+    });
+  }
 }
 
-function markEntry(response: NextResponse) {
-  response.cookies.set(ENTRY_COOKIE, 'true', { path: '/', maxAge: 60 * 60 * 4, sameSite: 'lax', secure: true });
+function markPlatformV7Entry(response: NextResponse) {
+  response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', {
+    path: '/',
+    maxAge: 60 * 60 * 4,
+    sameSite: 'lax',
+    secure: true,
+  });
+}
+
+function redirectToPlatformV7Entry(req: NextRequest) {
+  const u = req.nextUrl.clone();
+  u.pathname = '/platform-v7';
+  u.search = '';
+  return applySecurityHeaders(NextResponse.redirect(u), true);
 }
 
 export async function middleware(req: NextRequest) {
-  const pathname = req.nextUrl.pathname;
-  const canonRedirect = CANON_REDIRECTS[pathname];
+  const p = req.nextUrl.pathname;
+
+  const canonRedirect = CANON_REDIRECTS[p];
   if (canonRedirect) {
-    const url = req.nextUrl.clone();
-    url.pathname = canonRedirect;
-    return secure(NextResponse.redirect(url, 308), true);
+    const u = req.nextUrl.clone();
+    u.pathname = canonRedirect;
+    return applySecurityHeaders(NextResponse.redirect(u, 308), true);
   }
 
-  if (pathname === '/platform-v7r' || pathname.startsWith('/platform-v7r/')) {
-    const url = req.nextUrl.clone();
-    url.pathname = pathname.replace('/platform-v7r', '/platform-v7');
-    return secure(NextResponse.redirect(url, 308), true);
+  if (p === '/platform-v7/ai') {
+    const u = req.nextUrl.clone();
+    u.pathname = '/platform-v7/assistant';
+    return applySecurityHeaders(NextResponse.redirect(u, 308), true);
   }
 
-  const protectedPath = isProtected(pathname);
-  const privateMode = env('PC_PRIVATE_MODE') === 'on';
-  if (privateMode && protectedPath) {
-    if (!(env('PC_PRIVATE_PASSWORD') || env('PC_OWNER_KEY'))) return textResponse('Access configuration error.', 503);
-    if (!ownerAllowed(req)) return textResponse('Access required.', 401);
+  if (p === '/platform-v7r' || p.startsWith('/platform-v7r/')) {
+    const u = req.nextUrl.clone();
+    u.pathname = p.replace('/platform-v7r', '/platform-v7');
+    return applySecurityHeaders(NextResponse.redirect(u, 308), true);
   }
 
-  const cabinetMode = env('PC_CABINET_LOCK_MODE') === 'on';
-  const cabinetPath = isCabinetLocked(pathname);
-  const locked = (privateMode && protectedPath) || (cabinetMode && cabinetPath);
-  if (cabinetMode && cabinetPath) {
-    if (!env('PC_CABINET_LOCK_PASSWORD')) return textResponse('Access configuration error.', 503);
-    if (!(await cabinetAllowed(req))) return cabinetRequired(req);
+  const protectedPath = isProtectedPath(p);
+  const privateModeEnabled = isPrivateMode();
+  if (privateModeEnabled && protectedPath) {
+    if (!hasPrivateCredentials()) {
+      return privateLockedResponse();
+    }
+    if (!isOwnerAuthorized(req)) {
+      return privateUnauthorizedResponse();
+    }
   }
 
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
-  const role = resolveRole(req, session?.role ?? null);
+  const resolvedRole = resolveRole(req, session?.role ?? null);
 
-  if (pathname.startsWith('/platform-v7')) {
-    const path = normalize(pathname);
-    const isEntry = path === '/platform-v7';
-    const seenEntry = req.cookies.get(ENTRY_COOKIE)?.value === 'true';
-    if (!isEntry && !isV7Public(path) && !seenEntry) {
-      const url = req.nextUrl.clone();
-      url.pathname = '/platform-v7';
-      url.search = '';
-      return secure(NextResponse.redirect(url), true);
+  if (p.startsWith('/platform-v7')) {
+    const isEntry = p === '/platform-v7';
+    const seenEntry = req.cookies.get(PLATFORM_V7_ENTRY_COOKIE)?.value === 'true';
+    if (!isEntry && !isPlatformV7PublicPath(p) && !seenEntry) {
+      return redirectToPlatformV7Entry(req);
     }
 
-    const response = withRole(req, role, locked, isIndexable(path) && !locked);
-    saveRole(req, response, role);
-    if (isEntry) markEntry(response);
+    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+    persistRoleCookie(req, response, resolvedRole);
+    if (isEntry) markPlatformV7Entry(response);
+    // Phase 4C-pre — report-only cabinet RBAC observation (flag-gated, off by default).
+    // The role comes ONLY from a cryptographically verified JWT (never path / pc-role /
+    // query / client guard / the unverified pc_session_present cookie). An unverified or
+    // demo token resolves to null → unknown → never blocked. Never blocks/redirects/
+    // alters this response.
     try {
       if (serverCabinetRbacMode() === 'report') {
-        const now = Math.floor(Date.now() / 1000);
+        const secret = process.env.JWT_SECRET ?? '';
+        const nowSeconds = Math.floor(Date.now() / 1000);
         const verifiedRole =
-          (await readVerifiedCabinetSessionRole(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, cabinetSecret(), now))
-          ?? (await readVerifiedCabinetRole(req.cookies.get(ACCESS_TOKEN_COOKIE)?.value ?? null, cabinetSecret(), now));
-        observeServerCabinetAccess({ pathname, verifiedRole });
+          (await readVerifiedCabinetSessionRole(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, nowSeconds))
+          ?? (await readVerifiedCabinetRole(req.cookies.get(ACCESS_TOKEN_COOKIE)?.value ?? null, secret, nowSeconds));
+        observeServerCabinetAccess({ pathname: p, verifiedRole });
       }
-    } catch {}
+    } catch {
+      // A report must never affect the request.
+    }
     return response;
   }
 
-  if (!isPublic(pathname) && !req.cookies.get(SESSION_COOKIE)?.value) {
-    const url = req.nextUrl.clone();
-    url.pathname = '/login';
-    url.searchParams.set('next', pathname);
-    return secure(NextResponse.redirect(url), true);
+  if (isPublic(p) || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
+    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+    persistRoleCookie(req, response, resolvedRole);
+    return response;
   }
 
-  const response = secure(NextResponse.next(), locked, isIndexable(pathname) && !locked);
-  saveRole(req, response, role);
-  return response;
+  if (!session) {
+    if (p.startsWith('/api/')) {
+      return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), privateModeEnabled);
+    }
+    const u = req.nextUrl.clone();
+    u.pathname = '/platform-v7';
+    return applySecurityHeaders(NextResponse.redirect(u), privateModeEnabled);
+  }
+
+  return withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
 }
 
-export const config = {
-  matcher: ['/((?!api/health|_next/static|_next/image|favicon.ico).*)'],
-};
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon\.ico).*)'] };

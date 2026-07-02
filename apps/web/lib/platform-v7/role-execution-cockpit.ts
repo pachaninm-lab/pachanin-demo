@@ -56,7 +56,7 @@ export const PRIMARY_ROLE_EXECUTION_COCKPITS = {
     ],
     kpis: [
       { label: 'Резерв покупателя', value: '9,65 млн ₽', note: 'готовность денег; это ещё не выплата', tone: 'money' },
-      { label: 'На проверку банку', value: '0 ₽', note: 'основание не передано из-за СДИЗ и ЭТрН', tone: 'danger' },
+      { label: 'Основание банку', value: '0 ₽', note: 'основание не передано из-за СДИЗ и ЭТрН', tone: 'danger' },
       { label: 'Документы', value: '4/7', note: 'СДИЗ, ЭТрН и акт приёмки блокируют следующий шаг', tone: 'warning' },
       { label: 'Логистика', value: 'рейс 62%', note: 'машина в пути; приёмка ещё не закрыта', tone: 'info' },
     ],

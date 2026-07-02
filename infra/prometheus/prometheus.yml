@@ -11,6 +11,7 @@ global:
 # ── Alert rules ───────────────────────────────────────────────────────────────
 rule_files:
   - "runtime-alert-rules.yml"
+  - "ml-alert-rules.yml"
 
 # ── Alertmanager ──────────────────────────────────────────────────────────────
 alerting:
@@ -107,6 +108,23 @@ scrape_configs:
       - targets: ['clickhouse:9363']
         labels:
           service: clickhouse
+
+  # ML Service (FastAPI)
+  - job_name: 'ml-service'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['ml-service:8001']
+        labels:
+          service: ml
+          component: ml-service
+
+  # Elasticsearch
+  - job_name: 'elasticsearch'
+    static_configs:
+      - targets: ['elasticsearch-exporter:9114']
+        labels:
+          service: elasticsearch
 
   # HashiCorp Vault
   - job_name: 'vault'

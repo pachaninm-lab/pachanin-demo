@@ -501,7 +501,7 @@ export const DL_9106_EXECUTION_CASE: DealExecutionCase = {
       signatureType: 'КЭП / МЧД',
       externalSystem: 'EDO',
       blocksStage: 'documents',
-      moneyImpact: 'не выпускает деньги без подписания',
+      moneyImpact: 'деньги не проходят без подписания',
       nextAction: 'подписать договор',
       auditEvents: [],
     },

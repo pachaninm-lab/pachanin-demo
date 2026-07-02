@@ -318,6 +318,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { role, demoMode, sidebarOpen, notificationsOpen, unreadNotifications, setRole, clearRoleSelection, setDemoMode, setSidebarOpen, setCommandOpen, setShortcutsOpen, setNotificationsOpen, setUnreadNotifications } = usePlatformV7RStore();
   const [readAll, setReadAll] = React.useState(false);
+  const [darkMode, setDarkMode] = React.useState(false);
+
+  React.useEffect(() => {
+    const stored = typeof window !== 'undefined' && localStorage.getItem('pc-theme') === 'dark';
+    setDarkMode(stored);
+    document.documentElement.setAttribute('data-theme', stored ? 'dark' : 'light');
+  }, []);
+
+  function toggleTheme() {
+    const next = !darkMode;
+    setDarkMode(next);
+    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+    localStorage.setItem('pc-theme', next ? 'dark' : 'light');
+  }
 
   React.useEffect(() => {
     usePlatformV7RStore.persist.rehydrate();
@@ -406,7 +420,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <button onClick={() => setCommandOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 10, padding: '8px 12px', cursor: 'pointer' }} aria-label="Быстрый переход"><Mark text="⌕" /><span style={{ fontSize: 12, color: '#495057', fontWeight: 700 }}>Найти</span></button>
+              <Link href={`/platform-v7/ai?from=${encodeURIComponent(pathname)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, textDecoration: 'none', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 10, padding: '8px 12px', color: '#0A7A5F' }} aria-label="ИИ-помощник роли"><Mark text="✦" /><span style={{ fontSize: 12, fontWeight: 700 }}>ИИ</span></Link>
               <button onClick={() => setShortcutsOpen(true)} style={{ background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 10, padding: 8, cursor: 'pointer' }} aria-label="Сочетания клавиш"><Mark text="?" /></button>
+              <button onClick={toggleTheme} style={{ background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 10, padding: 8, cursor: 'pointer' }} aria-label={darkMode ? 'Светлая тема' : 'Тёмная тема'}><Mark text={darkMode ? '☀' : '◑'} /></button>
               <button
                 onClick={() => {
                   const next = !notificationsOpen;

@@ -1,4 +1,28 @@
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { IntegrationEventLog } from '@/components/platform-v7/IntegrationEventLog';
+import { BankReconciliationPanel } from '@/components/platform-v7/BankReconciliationPanel';
+import { SloSlaPanel } from '@/components/platform-v7/SloSlaPanel';
+import { EvidenceBundlePanel } from '@/components/platform-v7/EvidenceBundlePanel';
+import { TelegramBotPanel } from '@/components/platform-v7/TelegramBotPanel';
+import { ObservabilityPanel } from '@/components/platform-v7/ObservabilityPanel';
+import { FeatureFlagsPanel } from '@/components/platform-v7/FeatureFlagsPanel';
+import { HealthStatusPanel } from '@/components/platform-v7/HealthStatusPanel';
+import { LoadTestingPanel } from '@/components/platform-v7/LoadTestingPanel';
+import { SupportOpsPanel } from '@/components/platform-v7/SupportOpsPanel';
+import { SagaOrchestratorPanel } from '@/components/platform-v7/SagaOrchestratorPanel';
+import { ProductionReadinessPanel } from '@/components/platform-v7/ProductionReadinessPanel';
+import { AirflowDagPanel } from '@/components/platform-v7/AirflowDagPanel';
+import { B2BPartnerApiPanel } from '@/components/platform-v7/B2BPartnerApiPanel';
+import { KafkaInfraPanel } from '@/components/platform-v7/KafkaInfraPanel';
+import { DisasterRecoveryPanel } from '@/components/platform-v7/DisasterRecoveryPanel';
+import { CiCdPipelinePanel } from '@/components/platform-v7/CiCdPipelinePanel';
+import { WebhookSecurityPanel } from '@/components/platform-v7/WebhookSecurityPanel';
+import { CoreWebVitalsPanel } from '@/components/platform-v7/CoreWebVitalsPanel';
+import { PostgresMigrationPanel } from '@/components/platform-v7/PostgresMigrationPanel';
+import { QualityGatePanel } from '@/components/platform-v7/QualityGatePanel';
+import { SyntheticMonitoringPanel } from '@/components/platform-v7/SyntheticMonitoringPanel';
+import { AcceptanceCriteriaPanel } from '@/components/platform-v7/AcceptanceCriteriaPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -83,6 +107,78 @@ export default async function AdminPage() {
           </div>
         </div>
       )}
+
+      <div style={{ marginTop: 20, display: 'grid', gap: 16 }}>
+        <CollapsibleSection title='Журнал интеграционных событий' summary='ФГИС · Диадок · Банк · КЭП · GPS' defaultOpen={false}>
+          <IntegrationEventLog />
+        </CollapsibleSection>
+        <CollapsibleSection title='Сверка банковской выписки' summary='МТ940 · автосопоставление · ручная очередь' defaultOpen={false}>
+          <BankReconciliationPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='SLO/SLA дашборд' summary='uptime · error budget · latency · 6 сервисов' defaultOpen={false}>
+          <SloSlaPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Evidence Bundle · Доказательный пакет' summary='хэш-цепочка · УКЭП · PDF/ZIP экспорт · аудит-лог · арбитраж' defaultOpen={false}>
+          <EvidenceBundlePanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Telegram Bot · Уведомления' summary='deal_status · payment · dispute · price_alert · вагон · команды бота' defaultOpen={false}>
+          <TelegramBotPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Observability · Метрики и алерты' summary='Prometheus · Grafana · p95/p99 latency · error rate · GMV · Alertmanager' defaultOpen={false}>
+          <ObservabilityPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Synthetic Monitoring · 10 критических путей' summary='§13.2 · каждые 5 мин · PagerDuty P1 · uptime 99.97% · FGIS деградация · 8 alert rules' defaultOpen={false}>
+          <SyntheticMonitoringPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Feature Flags · Управление флагами' summary='Flagsmith · canary deploy 5%→100% · kill switch · A/B · prod/staging/dev' defaultOpen={false}>
+          <FeatureFlagsPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Health Status · /health /ready /metrics' summary='5 сервисов · Kubernetes probes · DR RPO/RTO · liveness readiness' defaultOpen={false}>
+          <HealthStatusPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Load Testing · k6 результаты' summary='baseline 500 VU · peak 1500 VU · stress 5000 VU · p95/p99 · SLO thresholds' defaultOpen={false}>
+          <LoadTestingPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Support Ops Queue · Тикеты' summary='P1/P2/P3/P4 · KYC/финансы/доступ · просмотр сделки · эскалация · SLA' defaultOpen={false}>
+          <SupportOpsPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Saga Orchestrator · Распределённые транзакции' summary='Kafka · DLQ · retry backoff · FGIS Зерно · aflatoxin · ручное вмешательство' defaultOpen={false}>
+          <SagaOrchestratorPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Production Readiness · Чеклист готовности к проду' summary='инфраструктура · безопасность · качество · мониторинг · compliance' defaultOpen={false}>
+          <ProductionReadinessPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Airflow DAG · Регуляторные и аналитические пайплайны' summary='Росстат · ФГИС · ЭДО · GMV · ML ретрейнинг · bank outbox · SLA мониторинг' defaultOpen={false}>
+          <AirflowDagPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='B2B Partner API · Ключи и Webhooks' summary='API ключи Vault · scope-based · ротация 90 дн · HMAC webhook · 3 ключа · 2 webhook' defaultOpen={false}>
+          <B2BPartnerApiPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Webhook Security · HMAC верификация' summary='HMAC-SHA256 · replay protection 300 сек · idempotency Redis · Vault secrets · 6 событий' defaultOpen={false}>
+          <WebhookSecurityPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Core Web Vitals · Производительность UI' summary='LCP 1.8с · INP 72мс · CLS 0.04 · Bundle 187КБ · Grafana Faro · Lighthouse CI' defaultOpen={false}>
+          <CoreWebVitalsPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='PostgreSQL Migration · SQLite → PG 16' summary='§4.1 БЛОКЕР · RLS · read-replicas · SERIALIZABLE · 8 шагов · dual-write · 8 индексов' defaultOpen={false}>
+          <PostgresMigrationPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Quality Gate · CI/CD воротa качества' summary='§15.4 · coverage 87% · Trivy 0 CVE · Playwright 8/8 · k6 p95 312мс · GitLeaks · 15 гейтов' defaultOpen={false}>
+          <QualityGatePanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='§17 Критерии приёмки · Production Readiness' summary='7 групп · 41 критерий · 62% готово · блокеры договорные · Strong Controlled-Pilot' defaultOpen={false}>
+          <AcceptanceCriteriaPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Kafka · K8s HPA · Vault' summary='10 топиков · RF=3 · 8 сервисов HPA · dynamic secrets · Transit encryption' defaultOpen={false}>
+          <KafkaInfraPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Disaster Recovery · Бэкапы и Runbook' summary='6 сценариев · RPO/RTO · S3 бэкапы · WAL replay · DR тренировка' defaultOpen={false}>
+          <DisasterRecoveryPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='CI/CD Pipeline · GitHub Actions + ArgoCD' summary='12 этапов · SAST · Trivy · Playwright · k6 perf gate · Canary 5→100%' defaultOpen={false}>
+          <CiCdPipelinePanel />
+        </CollapsibleSection>
+      </div>
 
       <div style={{ marginTop: 20, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 600, fontSize: 14 }}>

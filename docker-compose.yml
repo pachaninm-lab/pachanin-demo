@@ -144,7 +144,7 @@ services:
     image: clickhouse/clickhouse-server:24.3-alpine
     ports:
       - "8123:8123"   # HTTP
-      - "9000:9000"   # Native (конфликт с MinIO — используйте 9100 если MinIO на 9000)
+      - "9100:9000"   # Native (9100 на хосте, т.к. 9000 занят MinIO)
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./infra/clickhouse/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -229,14 +229,199 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: grainflow_grafana
       GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infra/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
-      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infra/grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./infra/grafana/dashboards:/etc/grafana/dashboards:ro
     ports:
       - "3030:3000"
     depends_on:
       - prometheus
+
+  # ── OpenTelemetry Collector ────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.98.0
+    volumes:
+      - ./infra/otel/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # health_check
+    depends_on:
+      - prometheus
+
+  # ── Grafana Loki (log aggregation) ────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.0.0
+    command: -config.file=/etc/loki/config.yml
+    volumes:
+      - ./infra/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Grafana Tempo (distributed tracing) ───────────────────────────────────
+  tempo:
+    image: grafana/tempo:2.4.0
+    command: -config.file=/etc/tempo/config.yml
+    volumes:
+      - ./infra/tempo/tempo-config.yml:/etc/tempo/config.yml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"   # Tempo HTTP
+      - "9411:9411"   # Zipkin receiver
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3200/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Promtail (log shipper: stdout → Loki) ─────────────────────────────────
+  promtail:
+    image: grafana/promtail:3.0.0
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infra/loki/promtail-config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  # ── Elasticsearch (full-text search) ──────────────────────────────────────
+  elasticsearch:
+    image: elasticsearch:8.13.0
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── Apache Airflow (ETL + ML retraining) ─────────────────────────────────
+  airflow-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow_secret
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  airflow:
+    image: apache/airflow:2.9.1
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow_secret@airflow-db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg='
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'grainflow-airflow-webserver-secret'
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+      DATABASE_URL: postgresql://grainflow_admin:grainflow_local_secret@postgres:5432/grainflow
+      MODEL_PATH: /opt/ml/models
+    volumes:
+      - ./infra/airflow/dags:/opt/airflow/dags:ro
+      - ./infra/airflow/requirements.txt:/opt/airflow/requirements.txt:ro
+      - ./apps/ml:/opt/ml:ro
+      - ml_models:/opt/ml/models
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    command: >
+      bash -c "
+        pip install --no-deps -r /opt/airflow/requirements.txt --quiet 2>/dev/null || true &&
+        airflow db migrate &&
+        airflow users create --username admin --password grainflow --firstname Admin --lastname GrainFlow --role Admin --email admin@grainflow.ru 2>/dev/null || true &&
+        airflow webserver --port 8080 &
+        airflow scheduler
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── Flagsmith (Feature Flags) ─────────────────────────────────────────────
+  flagsmith-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: flagsmith
+      POSTGRES_USER: flagsmith
+      POSTGRES_PASSWORD: flagsmith_secret
+    volumes:
+      - flagsmith_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flagsmith -d flagsmith"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  flagsmith:
+    image: flagsmith/flagsmith:2.76.0
+    environment:
+      DATABASE_URL: postgresql://flagsmith:flagsmith_secret@flagsmith-db:5432/flagsmith
+      DJANGO_ALLOWED_HOSTS: "*"
+      SECRET_KEY: "flagsmith-local-dev-secret"
+      ENABLE_ADMIN_ACCESS_USER_PASS: "true"
+      ADMIN_EMAIL: "admin@grainflow.ru"
+      ADMIN_INITIAL_PASSWORD: "grainflow-admin"
+      ALLOW_REGISTRATION_WITHOUT_INVITE: "true"
+    ports:
+      - "8002:8000"
+    depends_on:
+      flagsmith-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ── ML Service (FastAPI) ──────────────────────────────────────────────────
+  ml-service:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.ml
+    environment:
+      DATABASE_URL: postgresql://grainflow_admin:grainflow_local_secret@postgres:5432/grainflow
+      CLICKHOUSE_URL: clickhouse://grainflow:grainflow_ch_secret@clickhouse:8123/grainflow
+      MODEL_PATH: /app/models
+      PORT: "8001"
+    ports:
+      - "8001:8001"
+    volumes:
+      - ml_models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
 
 volumes:
   postgres_data:
@@ -246,6 +431,13 @@ volumes:
   clickhouse_data:
   prometheus_data:
   grafana_data:
+  loki_data:
+  tempo_data:
+  elasticsearch_data:
+  ml_models:
+  airflow_db_data:
+  airflow_logs:
+  flagsmith_db_data:
 
 networks:
   default:

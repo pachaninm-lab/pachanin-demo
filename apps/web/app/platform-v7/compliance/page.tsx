@@ -4,6 +4,12 @@ import { ComplianceRuntime } from '@/components/v7r/ComplianceRuntime';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { KycQueuePanel } from '@/components/platform-v7/KycQueuePanel';
+import { FraudDetectorPanel } from '@/components/platform-v7/FraudDetectorPanel';
+import { RosselhoznadzorPanel } from '@/components/platform-v7/RosselhoznadzorPanel';
+import { OpaAbacPanel } from '@/components/platform-v7/OpaAbacPanel';
+import { ApiDocPanel } from '@/components/platform-v7/ApiDocPanel';
+import { SecurityAttackPanel } from '@/components/platform-v7/SecurityAttackPanel';
 import {
   CockpitHero,
   PremiumStatCard,
@@ -74,6 +80,39 @@ export default function CompliancePage() {
       <section id='connectors' style={anchorSection}>
         <CollapsibleSection title='Комплаенс runtime и проверки' summary='документы · роли · контроль' defaultOpen={false}>
           <ComplianceRuntime />
+        </CollapsibleSection>
+      </section>
+
+      <section id='kyc-queue' style={anchorSection}>
+        <CollapsibleSection title='Очередь KYC / AML' summary='новые орг · периодические · AML-триггеры · санкции' defaultOpen={false}>
+          <KycQueuePanel />
+        </CollapsibleSection>
+      </section>
+
+      <section id='fraud-detector' style={anchorSection}>
+        <CollapsibleSection title='Fraud Detector' summary='doc_mismatch · role_abuse · bypass · ML-скоринг · эскалация' defaultOpen={false}>
+          <FraudDetectorPanel />
+        </CollapsibleSection>
+      </section>
+
+      <section id='rosselhoznadzor' style={anchorSection}>
+        <CollapsibleSection title='Россельхознадзор · Фитосанитарные сертификаты' summary='ФС-серия · ФГИС Меркурий · Аргус-ФТО · качество зерна · ГОСТ' defaultOpen={false}>
+          <RosselhoznadzorPanel />
+        </CollapsibleSection>
+      </section>
+
+      <section id='opa-abac' style={anchorSection}>
+        <CollapsibleSection title='OPA · Политики доступа ABAC' summary='Open Policy Agent · Rego · subject/resource/environment · audit log · Kafka' defaultOpen={false}>
+          <OpaAbacPanel />
+        </CollapsibleSection>
+      </section>
+
+      <section id='api-doc' style={anchorSection}>
+        <CollapsibleSection title='API Документация · OpenAPI 3.1' summary='REST JSON · JWT Bearer · HMAC bank callback · deals · disputes · ФГИС · /health' defaultOpen={false}>
+          <ApiDocPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Защита от атак · WAF / Rate Limit' summary='WAF Coraza OWASP CRS · Redis brute-force · CSP · SAST · Trivy · GitLeaks' defaultOpen={false}>
+          <SecurityAttackPanel />
         </CollapsibleSection>
       </section>
     </div>

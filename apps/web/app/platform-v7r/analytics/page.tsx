@@ -5,6 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid,
 } from 'recharts';
+import { useRuntimeSnapshot } from '@/hooks/useRuntimeSnapshot';
 
 const monthlyDeals = [
   { month: 'Янв', deals: 12, revenue: 45 },
@@ -39,6 +40,14 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub: string 
 }
 
 export default function AnalyticsV7RPage() {
+  const { snapshot } = useRuntimeSnapshot();
+
+  const liveDealsTotal = snapshot?.deals?.length ?? 35;
+  const liveClosedDeals = snapshot?.deals?.filter(d => d.status === 'CLOSED' || d.status === 'SETTLED').length ?? 24;
+  const liveDisputes = snapshot?.disputes?.length ?? 2;
+  const disputeRate = liveDealsTotal > 0 ? Math.round((liveDisputes / liveDealsTotal) * 100) : 8;
+  const liveGmv = snapshot?.kpis?.['gmv30d'] ?? '4,2 млн ₽';
+
   return (
     <div style={{ display: 'grid', gap: 20 }}>
       <div>
@@ -47,10 +56,10 @@ export default function AnalyticsV7RPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-        <Kpi label="Спорность" value="8%" sub="Снизилась с 12% в марте" />
-        <Kpi label="Средний чек" value="4,2 млн ₽" sub="Средний размер сделки" />
+        <Kpi label="Спорность" value={`${disputeRate}%`} sub={snapshot ? 'Из живого контура' : 'Снизилась с 12% в марте'} />
+        <Kpi label="Средний чек" value={String(liveGmv)} sub="Средний размер сделки" />
         <Kpi label="Скорость закрытия" value="8,3 дн." sub="Среднее от контракта до расчёта" />
-        <Kpi label="Сделок в апреле" value="31" sub="Пик по текущему ряду" />
+        <Kpi label="Сделок всего" value={String(liveDealsTotal)} sub={`Закрыто: ${liveClosedDeals}`} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>

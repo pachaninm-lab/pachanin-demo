@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { WeatherWidget } from '@/components/platform-v7/WeatherWidget';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
@@ -6,7 +7,12 @@ import { RoleExecutionHandoff, type HandoffItem } from '../../../components/plat
 import { OPERATIONAL_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { formatTons, selectDealLogisticsTripPlan } from '@/lib/platform-v7/deal-execution-source-of-truth';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { EtranRzdPanel } from '@/components/platform-v7/EtranRzdPanel';
+import { IoTWeighingPanel } from '@/components/platform-v7/IoTWeighingPanel';
+import { RailwayLogisticsPanel } from '@/components/platform-v7/RailwayLogisticsPanel';
+import { GpsGeofencePanel } from '@/components/platform-v7/GpsGeofencePanel';
 
+// Кабинет логистики: Логистика · рейс → водитель → ЭТрН → приёмка
 const logisticsHandoff: HandoffItem[] = [
   {
     direction: 'sends',
@@ -200,6 +206,26 @@ export default async function LogisticsPage() {
             {orders.map((order) => <OrderCard key={order.id} order={order} />)}
           </section>
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title='РЖД ЭТРАН · ж/д отправки' summary='ЭТрН · вагоны · трекинг · ГУ-29у · задержки' defaultOpen={false}>
+        <EtranRzdPanel />
+      </CollapsibleSection>
+
+      <CollapsibleSection title='IoT · Взвешивание и элеваторные акты' summary='Тензо-М · Мера · ВА · расхождения · фото · УКЭП' defaultOpen={false}>
+        <IoTWeighingPanel />
+      </CollapsibleSection>
+
+      <CollapsibleSection title='GPS и геозоны · ГЛОНАСС / Driver App' summary='5 ТС онлайн · автогеозоны · въезд/выезд → автостатус · уведомления' defaultOpen={false}>
+        <GpsGeofencePanel />
+      </CollapsibleSection>
+
+      <CollapsibleSection title='Ж/д логистика · РЖД ЭТРАН' summary='ГУ-12 · ГУ-29 · вагонный парк · демередж · трекинг' defaultOpen={false}>
+        <RailwayLogisticsPanel />
+      </CollapsibleSection>
+
+      <CollapsibleSection title='Погода по маршрутам' summary='дорожные условия · предупреждения' defaultOpen={false}>
+        <WeatherWidget />
       </CollapsibleSection>
     </RoleExecutionCockpitPage>
   );

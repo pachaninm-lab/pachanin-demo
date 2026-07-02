@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { PrivacyPortalPanel } from '@/components/platform-v7/PrivacyPortalPanel';
 
 export const metadata: Metadata = {
   title: 'Политика конфиденциальности — Прозрачная Цена',
@@ -98,6 +99,13 @@ export default function PrivacyPage() {
         <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>
           Данные в системе должны служить исполнению сделки и доказательности, а не создавать ложное ощущение зрелости. Если контур работает в тестовом режиме, это должно быть видно честно.
         </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginBottom: 14 }}>
+          Портал субъекта данных · 152-ФЗ
+        </div>
+        <PrivacyPortalPanel />
       </section>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

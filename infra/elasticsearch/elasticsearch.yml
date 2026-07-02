@@ -1,0 +1,23 @@
+# Elasticsearch — full-text search for deals/lots (ТЗ 3.3)
+
+cluster.name: grainflow-search
+node.name: es-node-1
+
+# Single node for dev/staging, cluster for production
+discovery.type: single-node
+
+# Network
+network.host: 0.0.0.0
+http.port: 9200
+transport.port: 9300
+
+# Security (disabled for dev, enabled via TLS in production)
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+
+# Memory
+bootstrap.memory_lock: false
+indices.memory.index_buffer_size: 30%
+
+# Logging
+logger.level: WARN

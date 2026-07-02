@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
+import { InvestorYieldSimulator } from '@/components/platform-v7/InvestorYieldSimulator';
+import { SalesFunnelChart } from '@/components/platform-v7/SalesFunnelChart';
+import { GrossMarginPanel } from '@/components/platform-v7/GrossMarginPanel';
 
 const METRICS = [
   { label: 'Оборот в проверочном срезе', value: '118 млн ₽', sub: 'Данные сценария, оборот не подтверждён' },
@@ -202,12 +205,31 @@ export default function InvestorPage() {
         </div>
       </div>
 
+      {/* Sales Funnel */}
+      <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14, color: 'var(--pc-text-primary, #0F1419)' }}>Воронка продаж платформы</div>
+        <SalesFunnelChart />
+      </div>
+
+      {/* Gross Margin by Role */}
+      <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: 'var(--pc-text-primary, #0F1419)' }}>Валовая прибыль по ролям</div>
+        <div style={{ fontSize: 11, color: 'var(--pc-text-muted)', marginBottom: 14 }}>Выручка, себестоимость и маржа каждого участника сделки</div>
+        <GrossMarginPanel />
+      </div>
+
+      {/* Yield Simulator */}
+      <div style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14, color: 'var(--pc-text-primary, #0F1419)' }}>Симулятор доходности</div>
+        <InvestorYieldSimulator />
+      </div>
+
       <div style={{ padding: '16px 20px', borderRadius: 16, background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Запросить материалы по сценарию</div>
           <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 4 }}>Финансовая модель, план роста и проверочный пакет</div>
         </div>
-        <a href="mailto:invest@pachanin.ru" style={{ display: 'inline-flex', alignItems: 'center', padding: '10px 18px', borderRadius: 12, background: '#0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, textDecoration: 'none' }}>
+        <a href="mailto:invest@pachanin.рф" style={{ display: 'inline-flex', alignItems: 'center', padding: '10px 18px', borderRadius: 12, background: '#0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, textDecoration: 'none' }}>
           Написать →
         </a>
       </div>

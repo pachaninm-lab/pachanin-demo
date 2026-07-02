@@ -25,7 +25,7 @@ export function strictMoneyReleaseBlockers(): string[] {
   }
 
   if (money.holdRub > 0) blockers.push('есть удержание денег');
-  if (money.releaseCandidateRub <= 0) blockers.push('нет суммы, готовой к подтверждению выплаты');
+  if (money.releaseCandidateRub <= 0) blockers.push('нет суммы, готовой к банковскому подтверждению выплаты');
 
   return blockers;
 }

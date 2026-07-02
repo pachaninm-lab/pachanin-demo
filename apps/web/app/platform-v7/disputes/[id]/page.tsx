@@ -4,6 +4,7 @@ import { DisputeDetailRuntime } from '@/components/v7r/DisputeDetailRuntime';
 import { selectDisputeById } from '@/lib/domain/selectors';
 import { PLATFORM_V7_DISPUTES_ROUTE } from '@/lib/platform-v7/routes';
 import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
+import { DisputeHoldCalculator } from '@/components/platform-v7/DisputeHoldCalculator';
 
 export function generateMetadata({ params }: { params: { id: string } }): Metadata {
   const dispute = selectDisputeById(params.id);
@@ -28,6 +29,22 @@ export default function PlatformV7DisputeDetailPage({ params }: { params: { id: 
         />
       )}
       <DisputeDetailRuntime disputeId={params.id} />
+
+      {/* Калькулятор удержаний */}
+      {dispute && (
+        <section style={{ maxWidth: 860, margin: '0 auto', width: '100%', background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 18, padding: '1.25rem', display: 'grid', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+            <h2 className="heading-4" style={{ margin: 0 }}>Калькулятор удержания</h2>
+            <span className="caption">интерактивный</span>
+          </div>
+          <DisputeHoldCalculator
+            totalKopecks={(dispute.claimAmountRub ?? 100_000) * 100}
+            disputeType={'QUALITY'}
+            claimKopecks={(dispute.claimAmountRub ?? 100_000) * 100}
+          />
+        </section>
+      )}
+
       <section style={{ maxWidth: 860, margin: '0 auto', width: '100%', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Отдельный расчёт удержания</div>
         <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>

@@ -69,7 +69,7 @@ export function EvidencePackOperationsQueue({ decision = 'all', missing = 'all' 
         <Metric label='Средняя готовность' value={`${avgScore}%`} tone={avgScore >= 80 ? 'accent' : 'default'} />
         <Metric label='Удержано' value={String(holdCount)} tone={holdCount > 0 ? 'danger' : 'accent'} />
         <Metric label='На проверке' value={String(reviewCount)} tone={reviewCount > 0 ? 'default' : 'accent'} />
-        <Metric label='Готово к банку' value={String(readyCount)} tone='accent' />
+        <Metric label='К выпуску' value={String(readyCount)} tone='accent' />
       </div>
 
       <DecisionControls active={decision} />
@@ -99,7 +99,7 @@ function DecisionControls({ active }: { active: DecisionFilter }) {
     { label: 'Все', value: 'all', href: '/platform-v7/evidence-pack' },
     { label: 'Удержано', value: 'Hold', href: '/platform-v7/evidence-pack?decision=Hold' },
     { label: 'На проверке', value: 'Review', href: '/platform-v7/evidence-pack?decision=Review' },
-    { label: 'Готово к банку', value: 'Can release', href: '/platform-v7/evidence-pack?decision=Can%20release' },
+    { label: 'К выпуску', value: 'Can release', href: '/platform-v7/evidence-pack?decision=Can%20release' },
   ];
 
   return (
@@ -212,7 +212,7 @@ function human(value: string) {
 
 function decisionLabel(value: QueueRow['decision']) {
   if (value === 'Hold') return 'Удержано';
-  if (value === 'Can release') return 'Готово к банку';
+  if (value === 'Can release') return 'К выпуску';
   return 'На проверке';
 }
 

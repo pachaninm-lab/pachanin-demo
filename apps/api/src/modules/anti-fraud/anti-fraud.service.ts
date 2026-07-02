@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { MlClientService } from '../ml-client/ml-client.service';
 
 export interface FraudCheckResult {
   flagged: boolean;
@@ -41,7 +42,10 @@ export class AntiFraudService {
   private readonly logger = new Logger(AntiFraudService.name);
   private readonly recentTransitions = new Map<string, number[]>();
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(
+    @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly mlClient?: MlClientService,
+  ) {}
 
   check(entityId: string, context: DealContext & Record<string, unknown>): FraudCheckResult {
     const reasons: string[] = [];
@@ -152,6 +156,49 @@ export class AntiFraudService {
       return 55;
     }
     return 0;
+  }
+
+  async checkWithMl(entityId: string, context: DealContext & {
+    actionsLastHour?: number;
+    newCounterparty?: boolean;
+    offHours?: boolean;
+    amountDeviationPct?: number;
+    vpnDetected?: boolean;
+    previouslyFlagged?: boolean;
+  }): Promise<FraudCheckResult> {
+    const ruleResult = this.check(entityId, context);
+
+    if (!this.mlClient) return ruleResult;
+
+    const mlResult = await this.mlClient.checkFraud({
+      userId: context.actorId ?? 'unknown',
+      organizationId: context.sellerOrgId ?? 'unknown',
+      action: context.newStatus ? 'status:transition' : 'deal:create',
+      amountKopecks: context.totalRub ? context.totalRub * 100 : undefined,
+      actionsLastHour: context.actionsLastHour ?? 0,
+      newCounterparty: context.newCounterparty ?? false,
+      offHours: context.offHours ?? false,
+      amountDeviationPct: context.amountDeviationPct ?? 0,
+      documentMismatch: ruleResult.reasons.some(r => r.includes('документ')),
+      roleAbuseSignal: ruleResult.reasons.some(r => r.includes('роль') || r.includes('ROLE')),
+      vpnDetected: context.vpnDetected ?? false,
+      previouslyFlagged: context.previouslyFlagged ?? ruleResult.flagged,
+    }).catch(() => null);
+
+    if (!mlResult) return ruleResult;
+
+    const combinedScore = Math.max(ruleResult.score, Math.round(mlResult.risk_score * 100));
+    const combinedReasons = [...ruleResult.reasons];
+    if (mlResult.flags?.length) {
+      combinedReasons.push(`ML: ${mlResult.flags.join(', ')}`);
+    }
+
+    return {
+      ...ruleResult,
+      score: combinedScore,
+      flagged: combinedScore >= 50,
+      reasons: combinedReasons,
+    };
   }
 
   async checkOffPlatformSettlement(params: {

@@ -18,7 +18,7 @@ describe('RoleActionDispatchBridge', () => {
     const button = screen.getByRole('button', { name: 'Проверить действие' });
     expect(button).toBeDisabled();
     expect(screen.getByText('Банк ждёт reserve request.')).toBeInTheDocument();
-    expect(screen.getByText(/Боевые интеграции не вызываются/)).toBeInTheDocument();
+    expect(screen.getByText(/Промышленные интеграции не вызываются/)).toBeInTheDocument();
     expect(screen.getByTestId('role-action-journal')).toHaveTextContent('Журнал появится после проверки действия.');
   });
 

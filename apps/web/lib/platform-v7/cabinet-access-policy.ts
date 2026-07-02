@@ -61,10 +61,12 @@ export function cabinetAccessDecision(
   if (canRoleAccessCabinet(role, clean)) {
     return { allowed: true, enforced, redirectTo: null, reason: `Роль «${role}» имеет доступ к маршруту.` };
   }
+  // Перенаправление: сначала домашний маршрут роли, иначе redirectTo: '/platform-v7/login'
+  const redirectTo = platformV7RoleRoute(role) || '/platform-v7/login';
   return {
     allowed: false,
     enforced,
-    redirectTo: platformV7RoleRoute(role) ?? '/platform-v7/login',
+    redirectTo,
     reason: `Роль «${role}» не имеет доступа к ${clean}; возврат в свой кабинет.`,
   };
 }

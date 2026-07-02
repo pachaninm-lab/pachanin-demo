@@ -79,9 +79,8 @@ export function CollapsibleSection({
       <div
         id={regionId}
         role='region'
-        hidden={!open}
         className='p7-collapsible-region'
-        style={{ padding: open ? '0 18px 18px' : 0 }}
+        style={{ overflow: 'hidden', ...(open ? { padding: '0 18px 18px' } : { maxHeight: 0, padding: 0 }) }}
       >
         {children}
       </div>

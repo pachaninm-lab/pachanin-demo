@@ -3,6 +3,26 @@ import '@/styles/platform-v7-dark-role-fixes.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import Script from 'next/script';
+import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
+import { FeatureFlagsDevPanel } from '@/components/platform-v7/FeatureFlagsDevPanel';
+
+const inter = Inter({
+  subsets: ['latin', 'cyrillic'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+const manrope = Manrope({
+  subsets: ['latin', 'cyrillic'],
+  variable: '--font-manrope',
+  display: 'swap',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 const SITE_TITLE = 'Процент-Агро | Прозрачная Цена — цифровой контур зерновой сделки';
@@ -62,7 +82,7 @@ const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ru">
+    <html lang="ru" className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
       {/* eslint-disable-next-line @next/next/no-head-element */}
       <head>
         {/* Must be first in <head> to run before CSS is applied */}
@@ -73,6 +93,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        <FeatureFlagsDevPanel />
         {YM_ID ? (
           <>
             <Script id="yandex-metrika" strategy="afterInteractive">{`

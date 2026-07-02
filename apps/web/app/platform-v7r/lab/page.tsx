@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useToast } from '@/components/v7r/Toast';
+import { useRuntimeSnapshot } from '@/hooks/useRuntimeSnapshot';
 
 interface Threshold {
   moisture: number;
@@ -19,7 +20,7 @@ interface Sample {
   thresholds: Threshold;
 }
 
-const SAMPLES: Sample[] = [
+const FALLBACK_samples: Sample[] = [
   { id: 'ЛАБ-2847', deal: 'DL-9102', cargo: 'Пшеница 4 кл.', received: '12:00', status: 'Ожидает анализа', thresholds: { moisture: 14, protein: 10, gluten: 23, impurity: 2 } },
   { id: 'ЛАБ-2851', deal: 'DL-9108', cargo: 'Ячмень 3 кл.', received: '13:30', status: 'Ожидает анализа', thresholds: { moisture: 14, protein: 8, gluten: null, impurity: 2 } },
 ];
@@ -40,6 +41,20 @@ function checkIndicator(value: string, threshold: number, isMax: boolean): 'ok' 
 
 export default function LabPage() {
   const toast = useToast();
+  const { snapshot } = useRuntimeSnapshot();
+
+  const samples: Sample[] = React.useMemo(() => {
+    if (!snapshot?.samples?.length) return FALLBACK_samples;
+    return snapshot.samples.map(s => ({
+      id: s.id,
+      deal: s.dealId,
+      cargo: s.cargo ?? '—',
+      received: s.received ?? '—',
+      status: s.status ?? 'Ожидает анализа',
+      thresholds: { moisture: 14, protein: 10, gluten: null, impurity: 2 },
+    }));
+  }, [snapshot]);
+
   const [openProtocol, setOpenProtocol] = React.useState<string | null>(null);
   const [signed, setSigned] = React.useState<Set<string>>(new Set());
   const [protocols, setProtocols] = React.useState<Record<string, Protocol>>({});
@@ -77,7 +92,7 @@ export default function LabPage() {
 
   const completedCount = signed.size;
   const totalDeviations = [...signed].filter(id => {
-    const sample = SAMPLES.find(s => s.id === id);
+    const sample = samples.find(s => s.id === id);
     const p = getProtocol(id);
     if (!sample) return false;
     const t = sample.thresholds;
@@ -95,7 +110,7 @@ export default function LabPage() {
       {/* Метрики */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         {[
-          ['Новых проб', String(SAMPLES.length - completedCount)],
+          ['Новых проб', String(samples.length - completedCount)],
           ['Завершено', String(5 + completedCount)],
           ['Расхождений', String(1 + totalDeviations)],
         ].map(([label, value]) => (
@@ -107,7 +122,7 @@ export default function LabPage() {
       </div>
 
       {/* Список проб */}
-      {SAMPLES.map(sample => {
+      {samples.map(sample => {
         const p = getProtocol(sample.id);
         const t = sample.thresholds;
         const isSigned = signed.has(sample.id);

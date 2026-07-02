@@ -48,7 +48,7 @@ export function platformV7HasRealAdapterRegistry(): boolean {
   return realAdapterRegistryFactory !== null;
 }
 
-// Боевой контур разрешён только в production-окружении; все остальные режимы
+// Промышленный контур разрешён только в production-окружении; все остальные режимы
 // (pilot/sandbox/demo) работают на симуляции. Это согласовано с
 // platformV7CanShowAsLive(): «боевым» считается только production.
 export function platformV7ResolveAdapterMode(environment: PlatformEnvironment): PlatformV7AdapterMode {

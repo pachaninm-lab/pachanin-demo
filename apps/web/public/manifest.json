@@ -1,7 +1,7 @@
 {
-  "name": "Прозрачная Цена",
-  "short_name": "ПЦ",
-  "description": "Цифровой контур исполнения зерновой сделки: цена, логистика, приёмка, документы и деньги.",
+  "name": "GrainFlow — Зерновая платформа",
+  "short_name": "GrainFlow",
+  "description": "Федеральная B2B платформа для зерновых сделок: цена, логистика, приёмка, документы и расчёты.",
   "start_url": "/platform-v7",
   "scope": "/",
   "display": "standalone",
@@ -9,24 +9,41 @@
   "theme_color": "#0E6E60",
   "background_color": "#F5F2EB",
   "lang": "ru",
-  "categories": ["business", "productivity"],
+  "dir": "ltr",
+  "categories": ["business", "productivity", "finance"],
+  "prefer_related_applications": false,
   "shortcuts": [
     {
       "name": "Маршрут (Водитель)",
+      "short_name": "Маршрут",
       "url": "/platform-v7/driver",
-      "description": "Рейс, фото, GPS"
+      "description": "Рейс, фото, GPS-отметки"
     },
     {
       "name": "Центр управления",
+      "short_name": "ЦУ",
       "url": "/platform-v7/control-tower",
       "description": "Блокеры и следующий шаг"
+    },
+    {
+      "name": "Мои сделки",
+      "short_name": "Сделки",
+      "url": "/platform-v7/deals",
+      "description": "Список активных сделок"
+    },
+    {
+      "name": "Новая заявка",
+      "short_name": "Заявка",
+      "url": "/platform-v7/lots/new",
+      "description": "Разместить заявку на продажу"
     }
   ],
   "icons": [
     {
       "src": "/icon",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon",
@@ -34,5 +51,28 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Центр управления сделками"
+    },
+    {
+      "src": "/screenshots/driver.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "label": "Интерфейс водителя (мобильный)"
+    }
+  ],
+  "share_target": {
+    "action": "/platform-v7/share-handler",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }

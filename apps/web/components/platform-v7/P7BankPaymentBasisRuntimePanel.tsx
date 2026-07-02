@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { P7ActionLog } from './P7ActionLog';
-import { buildPlatformV7BankPaymentBasisRuntimeAction, type PlatformV7BankPaymentBasisRuntimeResult } from '@/lib/platform-v7/bank-payment-basis-runtime-action';
+import type { PlatformV7BankPaymentBasisRuntimeResult } from '@/lib/platform-v7/bank-payment-basis-runtime-action';
 import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
 import type { PlatformV7ExecutionRole } from '@/lib/platform-v7/execution-action-core';
-import type { PlatformV7RuntimeActionEventCreated, PlatformV7RuntimeActionEventResult } from '@/lib/platform-v7/runtime-action-events';
+import { buildPlatformV7RuntimeActionEvent, type PlatformV7RuntimeActionEventCreated, type PlatformV7RuntimeActionEventResult } from '@/lib/platform-v7/runtime-action-events';
 
 export interface P7BankPaymentBasisRuntimePanelProps {
   readonly dealId: string;
@@ -22,23 +22,27 @@ export function P7BankPaymentBasisRuntimePanel({
   dealId,
   actorRole = 'operator',
   title = 'Основание для банка',
-  description = 'Создаёт запрос на банковскую проверку основания выплаты. Платформа не выпускает деньги сама и ждёт внешнее банковское событие.',
+  description = 'Создаёт запрос на банковскую проверку основания выплаты. Дальнейшее движение средств требует внешнего банковского события.',
 }: P7BankPaymentBasisRuntimePanelProps) {
   const [result, setResult] = useState<PlatformV7BankPaymentBasisRuntimeResult | null>(null);
   const [log, setLog] = useState<PlatformActionLogEntry[]>([]);
 
   function requestBankReview() {
-    const next = buildPlatformV7BankPaymentBasisRuntimeAction({
+    const event = buildPlatformV7RuntimeActionEvent({
+      actionId: 'request_bank_payment_basis_review',
       actorRole,
-      dealId,
+      targetId: dealId,
       reason: 'Комплект сделки передаётся банку только как основание проверки после контроля резерва, документов, приёмки, качества и спорных удержаний.',
     });
 
+    const next: PlatformV7BankPaymentBasisRuntimeResult = isRuntimeEventCreated(event)
+      ? { status: 'created', dealId, event, uiStatusLabel: 'основание передано на банковскую проверку', uiSafetyNote: 'Платформа создала запрос на проверку основания банком. Это не выпуск денег, не подтверждение выплаты и не замена внешнего банковского события.' }
+      : { status: 'blocked', dealId, event, uiStatusLabel: 'основание не передано', uiSafetyNote: event.disabledReason };
+
     setResult(next);
 
-    if (isRuntimeEventCreated(next.event)) {
-      const entry = next.event.logEntry;
-      setLog((current) => [entry, ...current]);
+    if (isRuntimeEventCreated(event)) {
+      setLog((current) => [event.logEntry, ...current]);
     }
   }
 

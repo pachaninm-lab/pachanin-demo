@@ -1,3 +1,5 @@
+import './tracing';
+import './sentry';
 import 'reflect-metadata';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
@@ -96,6 +98,8 @@ async function bootstrap() {
       ts: new Date().toISOString(),
     });
   });
+
+  app.enableShutdownHooks();
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen(port);

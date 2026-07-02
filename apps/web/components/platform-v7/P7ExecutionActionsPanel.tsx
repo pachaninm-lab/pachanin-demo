@@ -44,14 +44,14 @@ const MODE_LABELS: Record<PlatformV7ExecutionMode, string> = {
   sandbox: 'контур проверки',
   manual: 'ручная проверка',
   'controlled-pilot': 'контур исполнения',
-  live: 'боевой контур требует подтверждения',
+  live: 'промышленный контур требует подтверждения',
 };
 
 const MODE_COPY: Record<PlatformV7ExecutionMode, string> = {
   sandbox: 'Действие фиксируется в рабочем журнале. Внешние системы не вызываются.',
   manual: 'Действие требует ручной проверки. Внешнее подключение не заявлено.',
   'controlled-pilot': 'Действие фиксирует состояние, журнал и возможность отката без заявления о внешней интеграции.',
-  live: 'Боевой контур допустим только после подтверждённых договоров и внешних подключений.',
+  live: 'Промышленный контур допустим только после подтверждённых договоров и внешних подключений.',
 };
 
 export function P7ExecutionActionsPanel({ title, subtitle, items, initialState, initialLog = [] }: P7ExecutionActionsPanelProps) {

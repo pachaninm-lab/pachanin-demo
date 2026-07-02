@@ -1,33 +1,62 @@
 import type { MetadataRoute } from 'next';
 
-const siteUrl = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
-const lastModified = new Date('2026-07-01T00:00:00.000Z');
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pachanin-web.vercel.app';
 
-const routes = [
-  { path: '/platform-v7', priority: 1.0 },
-  { path: '/platform-v7/secure-grain-deal', priority: 0.92 },
-  { path: '/platform-v7/grain-logistics', priority: 0.88 },
-  { path: '/platform-v7/grain-quality', priority: 0.88 },
-  { path: '/platform-v7/grain-documents', priority: 0.88 },
-  { path: '/platform-v7/grain-payment', priority: 0.86 },
-  { path: '/platform-v7/fgis-zerno', priority: 0.84 },
-  { path: '/platform-v7/about', priority: 0.85 },
-  { path: '/platform-v7/demo', priority: 0.8 },
-  { path: '/platform-v7/docs', priority: 0.8 },
-  { path: '/platform-v7/contact', priority: 0.75 },
-  { path: '/platform-v7/request', priority: 0.75 },
-  { path: '/platform-v7/security', priority: 0.65 },
-  { path: '/platform-v7/status', priority: 0.6 },
-  { path: '/platform-v7/terms', priority: 0.45 },
-  { path: '/platform-v7/privacy', priority: 0.45 },
-  { path: '/platform-v7/oferta', priority: 0.45 },
+const STATIC_ROUTES: Array<{ url: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] }> = [
+  { url: '/platform-v7',                    priority: 1.0,  changeFrequency: 'daily' },
+  { url: '/platform-v7/deals',              priority: 0.9,  changeFrequency: 'hourly' },
+  { url: '/platform-v7/lots',               priority: 0.9,  changeFrequency: 'hourly' },
+  { url: '/platform-v7/control-tower',      priority: 0.85, changeFrequency: 'hourly' },
+  { url: '/platform-v7/disputes',           priority: 0.8,  changeFrequency: 'daily' },
+  { url: '/platform-v7/documents',          priority: 0.75, changeFrequency: 'daily' },
+  { url: '/platform-v7/logistics',          priority: 0.75, changeFrequency: 'hourly' },
+  { url: '/platform-v7/elevator',           priority: 0.7,  changeFrequency: 'daily' },
+  { url: '/platform-v7/bank/release-safety', priority: 0.7, changeFrequency: 'daily' },
+  { url: '/platform-v7/seller',             priority: 0.7,  changeFrequency: 'daily' },
+  { url: '/platform-v7/buyer',              priority: 0.7,  changeFrequency: 'daily' },
+  { url: '/platform-v7/operator',           priority: 0.7,  changeFrequency: 'daily' },
+  { url: '/platform-v7/investor',           priority: 0.65, changeFrequency: 'weekly' },
+  { url: '/platform-v7/lab',               priority: 0.6,  changeFrequency: 'daily' },
+  { url: '/platform-v7/audit-log',          priority: 0.6,  changeFrequency: 'daily' },
+  { url: '/platform-v7/profile',            priority: 0.5,  changeFrequency: 'monthly' },
+  { url: '/platform-v7/connectors',         priority: 0.5,  changeFrequency: 'weekly' },
+  { url: '/platform-v7/companies',          priority: 0.5,  changeFrequency: 'weekly' },
 ];
 
+const KNOWN_DEAL_IDS = ['DL-9102', 'DL-9106', 'DL-9109'];
+const KNOWN_LOT_IDS  = ['LOT-2403', 'LOT-2405', 'LOT-2410'];
+const KNOWN_INNS     = ['6164065090', '2309160154'];
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  return routes.map(({ path, priority }) => ({
-    url: `${siteUrl}${path}`,
-    lastModified,
-    changeFrequency: 'weekly',
-    priority,
+  const now = new Date();
+
+  const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((r) => ({
+    url: `${BASE_URL}${r.url}`,
+    lastModified: now,
+    changeFrequency: r.changeFrequency,
+    priority: r.priority,
   }));
+
+  const dealEntries: MetadataRoute.Sitemap = KNOWN_DEAL_IDS.map((id) => ({
+    url: `${BASE_URL}/platform-v7/deals/${id}/clean`,
+    lastModified: now,
+    changeFrequency: 'hourly',
+    priority: 0.8,
+  }));
+
+  const lotEntries: MetadataRoute.Sitemap = KNOWN_LOT_IDS.map((id) => ({
+    url: `${BASE_URL}/platform-v7/lots/${id}`,
+    lastModified: now,
+    changeFrequency: 'hourly',
+    priority: 0.75,
+  }));
+
+  const counterpartyEntries: MetadataRoute.Sitemap = KNOWN_INNS.map((inn) => ({
+    url: `${BASE_URL}/platform-v7/counterparty/${inn}`,
+    lastModified: now,
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  }));
+
+  return [...staticEntries, ...dealEntries, ...lotEntries, ...counterpartyEntries];
 }

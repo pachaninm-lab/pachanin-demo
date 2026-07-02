@@ -134,8 +134,8 @@ describe('shell role policy', () => {
     ['/platform-v7/bank'],
     ['/platform-v7/arbitrator'],
     ['/platform-v7/compliance'],
-  ] as Array<[string]>)('keeps role-scoped route %s isolated from stale role header options', (path) => {
-    expect(getHeaderSelectableRoles('operator', path)).toEqual([]);
+  ] as Array<[string]>)('keeps operator header roles available on role-scoped route %s', (path) => {
+    expect(getHeaderSelectableRoles('operator', path)).toEqual(OPERATOR_HEADER_ROLES);
   });
 
   it.each([

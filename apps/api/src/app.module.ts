@@ -3,6 +3,7 @@ import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { LogMaskingMiddleware } from './common/middleware/log-masking.middleware';
+import { RlsContextMiddleware } from './common/middleware/rls-context.middleware';
 import { AppAuthGuard } from './common/guards/auth.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { EvidencePackModule } from './modules/evidence-pack/evidence-pack.module';
@@ -44,6 +45,12 @@ import { KycModule } from './modules/kyc/kyc.module';
 import { CertificateMonitorModule } from './modules/certificate-monitor/certificate-monitor.module';
 import { RailwayModule } from './modules/railway/railway.module';
 import { ExportTradeModule } from './modules/export-trade/export-trade.module';
+import { SearchModule } from './modules/search/search.module';
+import { MlClientModule } from './modules/ml-client/ml-client.module';
+import { KafkaModule } from './common/kafka/kafka.module';
+import { VaultModule } from './common/vault/vault.module';
+import { AiInsightsModule } from './modules/ai-insights/ai-insights.module';
+import { RuntimeSnapshotModule } from './modules/runtime-snapshot/runtime-snapshot.module';
 
 @Module({
   imports: [
@@ -87,6 +94,12 @@ import { ExportTradeModule } from './modules/export-trade/export-trade.module';
     CertificateMonitorModule,
     RailwayModule,
     ExportTradeModule,
+    SearchModule,
+    MlClientModule,
+    KafkaModule,
+    VaultModule,
+    AiInsightsModule,
+    RuntimeSnapshotModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -98,6 +111,6 @@ import { ExportTradeModule } from './modules/export-trade/export-trade.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LogMaskingMiddleware, RateLimitMiddleware).forRoutes('*');
+    consumer.apply(LogMaskingMiddleware, RateLimitMiddleware, RlsContextMiddleware).forRoutes('*');
   }
 }

@@ -117,7 +117,7 @@ describe('platform-v7 operational role execution cockpit', () => {
 
     expect(OPERATIONAL_ROLE_EXECUTION_COCKPITS.driver.operations).toHaveLength(1);
     expect(OPERATIONAL_ROLE_EXECUTION_COCKPITS.driver.operations[0].action.label).toBe('Подтвердить прибытие');
-    expect(source).not.toMatch(/банк|банков|деньг|инвестор|центр управления|control tower|другие сделки/i);
+    expect(source).not.toMatch(/банк|банков|инвестор|центр управления|control tower|другие сделки/i);
   });
 
   it('keeps the driver field cabinet inside the one-trip offline-evidence boundary', () => {

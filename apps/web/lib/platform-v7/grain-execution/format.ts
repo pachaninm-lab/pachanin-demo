@@ -31,7 +31,7 @@ export const maturityLabel: Record<MaturityStatus, string> = {
   sandbox: 'тестовый контур',
   manual: 'ручная проверка',
   'controlled-pilot': 'пилотный режим',
-  live: 'боевое подключение',
+  live: 'промышленное подключение',
 };
 
 export const basisLabel: Record<PriceBasis, string> = {

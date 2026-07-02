@@ -70,14 +70,14 @@ export const PROVIDER_CONNECTION_STATUS_LABEL: Record<ProviderConnectionStatus, 
   test_connected: 'предынтеграционный контур',
   manual_review: 'ручная проверка',
   degraded: 'есть сбой',
-  live_connected: 'боевой контур подтверждён',
+  live_connected: 'промышленный контур подтверждён',
 };
 
 export const PROVIDER_MODE_LABEL: Record<ProviderMode, string> = {
   simulation: 'симуляция',
   test: 'предынтеграционный контур',
   manual: 'ручная проверка',
-  live: 'боевой контур',
+  live: 'промышленный контур',
 };
 
 export const PLATFORM_V7_PROVIDER_REGISTRY: Record<ProviderCode, ProviderBranding> = {

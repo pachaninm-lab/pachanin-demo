@@ -1,0 +1,225 @@
+/* ─── GrainFlow Mobile Breakpoints · Блок 10 P0 ────────────── */
+/* Canonical breakpoints: 320 / 414 / 768 / 1024 / 1440 */
+
+/* ── Bottom Sheet (роль-switcher) ───────────────────────────── */
+
+.bottom-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: overlay-fade-in 200ms ease;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 201;
+  background: var(--p7-color-background-elevated, #111F1C);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  border-top: 1px solid var(--p7-color-border, #24342F);
+  padding: 0.75rem 1rem 2rem;
+  animation: sheet-slide-up 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  max-height: 70dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@keyframes sheet-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.bottom-sheet__handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  background: var(--p7-color-border-strong, #587169);
+  border-radius: 9999px;
+  margin: 0 auto 1rem;
+}
+
+.bottom-sheet__title {
+  font-size: var(--text-sm, 0.8125rem);
+  font-weight: 600;
+  color: var(--pc-text-secondary);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bottom-sheet__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 0.75rem;
+  min-height: 48px; /* WCAG touch target */
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: var(--text-base, 1rem);
+  color: var(--pc-text-primary);
+  text-decoration: none;
+  transition: background 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-sheet__item:hover,
+.bottom-sheet__item:active {
+  background: var(--p7-color-surface-muted, #14211D);
+}
+
+.bottom-sheet__item[aria-selected="true"] {
+  background: var(--pc-accent-bg);
+  color: var(--p7-color-brand, #7DDDB5);
+}
+
+/* ── Mobile hamburger menu ──────────────────────────────────── */
+
+.mobile-menu-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(80vw, 320px);
+  z-index: 150;
+  background: var(--p7-color-background-elevated, #111F1C);
+  border-right: 1px solid var(--p7-color-border, #24342F);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: panel-slide-right 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  padding: 1rem;
+}
+
+@keyframes panel-slide-right {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+.mobile-menu-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+/* ── Swipe navigation hint ──────────────────────────────────── */
+
+.swipe-hint {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .swipe-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    font-size: var(--text-xs, 0.6875rem);
+    color: var(--pc-text-muted);
+    user-select: none;
+  }
+}
+
+/* ── Card table view on mobile ─────────────────────────────── */
+
+@media (max-width: 767px) {
+  .table-to-cards {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem;
+  }
+
+  .table-to-cards thead {
+    display: none;
+  }
+
+  .table-to-cards tbody,
+  .table-to-cards tr {
+    display: contents;
+  }
+
+  .table-to-cards td {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    border: none;
+    font-size: var(--text-sm, 0.8125rem);
+  }
+
+  .table-to-cards td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    min-width: 5rem;
+    font-size: var(--text-xs, 0.6875rem);
+    color: var(--pc-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 0.125rem;
+  }
+}
+
+/* ── Breakpoint utilities ───────────────────────────────────── */
+
+/* Hidden on mobile (< 768px) */
+@media (max-width: 767px) {
+  .hide-mobile { display: none !important; }
+}
+
+/* Hidden on tablet (768–1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hide-tablet { display: none !important; }
+}
+
+/* Hidden on desktop (≥ 1024px) */
+@media (min-width: 1024px) {
+  .hide-desktop { display: none !important; }
+}
+
+/* Show only on mobile */
+@media (min-width: 768px) {
+  .show-mobile-only { display: none !important; }
+}
+
+/* Touch target safety — all interactive elements ≥ 48px on mobile */
+@media (max-width: 767px) {
+  button,
+  [role="button"],
+  a,
+  input[type="checkbox"],
+  input[type="radio"],
+  select {
+    min-height: 44px;
+  }
+
+  /* Inline icon-only buttons that must stay small */
+  .icon-btn {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* ── Safe area insets (iPhone notch / Dynamic Island) ─────── */
+
+@supports (padding: max(0px)) {
+  .bottom-sheet {
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  }
+
+  .mobile-menu-panel {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+}

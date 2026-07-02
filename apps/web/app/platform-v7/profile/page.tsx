@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { MfaSecurityPanel } from '@/components/platform-v7/MfaSecurityPanel';
 
 const CERTS = [
   'Проверено ФГИС',
@@ -113,6 +114,11 @@ export default function ProfilePage() {
         <Bullet text='Проверка контрагентов и документов встроена в сделку, а не вынесена наружу.' />
         <Bullet text='Есть базовая история исполнения и доказательный слой.' />
         <Bullet text='Часть интеграций ещё в тестовом контуре и это видно честно.' />
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Безопасность и вход</div>
+        <MfaSecurityPanel />
       </section>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

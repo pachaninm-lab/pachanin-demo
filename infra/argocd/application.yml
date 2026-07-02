@@ -1,0 +1,149 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grainflow-api
+  namespace: argocd
+  labels:
+    app: grainflow
+    component: api
+spec:
+  project: grainflow
+  source:
+    repoURL: https://github.com/grainflow/infra
+    targetRevision: main
+    path: infra/helm/grainflow-api
+    helm:
+      valueFiles:
+        - values-production.yaml
+      parameters:
+        - name: image.tag
+          value: "{{RELEASE_TAG}}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: grainflow-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grainflow-web
+  namespace: argocd
+  labels:
+    app: grainflow
+    component: web
+spec:
+  project: grainflow
+  source:
+    repoURL: https://github.com/grainflow/infra
+    targetRevision: main
+    path: infra/helm/grainflow-web
+    helm:
+      valueFiles:
+        - values-production.yaml
+      parameters:
+        - name: image.tag
+          value: "{{RELEASE_TAG}}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: grainflow-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grainflow-ml
+  namespace: argocd
+  labels:
+    app: grainflow
+    component: ml
+spec:
+  project: grainflow
+  source:
+    repoURL: https://github.com/grainflow/infra
+    targetRevision: main
+    path: infra/helm/grainflow-ml
+    helm:
+      valueFiles:
+        - values-production.yaml
+      parameters:
+        - name: image.tag
+          value: "{{RELEASE_TAG}}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: grainflow-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: grainflow
+  namespace: argocd
+spec:
+  description: GrainFlow platform applications
+  sourceRepos:
+    - 'https://github.com/grainflow/infra'
+  destinations:
+    - namespace: grainflow-prod
+      server: https://kubernetes.default.svc
+    - namespace: grainflow-staging
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: 'apps'
+      kind: Deployment
+    - group: 'apps'
+      kind: StatefulSet
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: 'autoscaling'
+      kind: HorizontalPodAutoscaler
+    - group: 'policy'
+      kind: PodDisruptionBudget
+    - group: 'networking.k8s.io'
+      kind: Ingress
+    - group: 'batch'
+      kind: CronJob
