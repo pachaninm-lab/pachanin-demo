@@ -17,6 +17,7 @@ import { B2BPartnerApiPanel } from '@/components/platform-v7/B2BPartnerApiPanel'
 import { KafkaInfraPanel } from '@/components/platform-v7/KafkaInfraPanel';
 import { DisasterRecoveryPanel } from '@/components/platform-v7/DisasterRecoveryPanel';
 import { CiCdPipelinePanel } from '@/components/platform-v7/CiCdPipelinePanel';
+import { WebhookSecurityPanel } from '@/components/platform-v7/WebhookSecurityPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -144,6 +145,9 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='B2B Partner API · Ключи и Webhooks' summary='API ключи Vault · scope-based · ротация 90 дн · HMAC webhook · 3 ключа · 2 webhook' defaultOpen={false}>
           <B2BPartnerApiPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Webhook Security · HMAC верификация' summary='HMAC-SHA256 · replay protection 300 сек · idempotency Redis · Vault secrets · 6 событий' defaultOpen={false}>
+          <WebhookSecurityPanel />
         </CollapsibleSection>
         <CollapsibleSection title='Kafka · K8s HPA · Vault' summary='10 топиков · RF=3 · 8 сервисов HPA · dynamic secrets · Transit encryption' defaultOpen={false}>
           <KafkaInfraPanel />
