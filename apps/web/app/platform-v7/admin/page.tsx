@@ -19,6 +19,8 @@ import { DisasterRecoveryPanel } from '@/components/platform-v7/DisasterRecovery
 import { CiCdPipelinePanel } from '@/components/platform-v7/CiCdPipelinePanel';
 import { WebhookSecurityPanel } from '@/components/platform-v7/WebhookSecurityPanel';
 import { CoreWebVitalsPanel } from '@/components/platform-v7/CoreWebVitalsPanel';
+import { PostgresMigrationPanel } from '@/components/platform-v7/PostgresMigrationPanel';
+import { QualityGatePanel } from '@/components/platform-v7/QualityGatePanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -152,6 +154,12 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Core Web Vitals · Производительность UI' summary='LCP 1.8с · INP 72мс · CLS 0.04 · Bundle 187КБ · Grafana Faro · Lighthouse CI' defaultOpen={false}>
           <CoreWebVitalsPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='PostgreSQL Migration · SQLite → PG 16' summary='§4.1 БЛОКЕР · RLS · read-replicas · SERIALIZABLE · 8 шагов · dual-write · 8 индексов' defaultOpen={false}>
+          <PostgresMigrationPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Quality Gate · CI/CD воротa качества' summary='§15.4 · coverage 87% · Trivy 0 CVE · Playwright 8/8 · k6 p95 312мс · GitLeaks · 15 гейтов' defaultOpen={false}>
+          <QualityGatePanel />
         </CollapsibleSection>
         <CollapsibleSection title='Kafka · K8s HPA · Vault' summary='10 топиков · RF=3 · 8 сервисов HPA · dynamic secrets · Transit encryption' defaultOpen={false}>
           <KafkaInfraPanel />
