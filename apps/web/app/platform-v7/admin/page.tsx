@@ -18,6 +18,7 @@ import { KafkaInfraPanel } from '@/components/platform-v7/KafkaInfraPanel';
 import { DisasterRecoveryPanel } from '@/components/platform-v7/DisasterRecoveryPanel';
 import { CiCdPipelinePanel } from '@/components/platform-v7/CiCdPipelinePanel';
 import { WebhookSecurityPanel } from '@/components/platform-v7/WebhookSecurityPanel';
+import { CoreWebVitalsPanel } from '@/components/platform-v7/CoreWebVitalsPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -148,6 +149,9 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Webhook Security · HMAC верификация' summary='HMAC-SHA256 · replay protection 300 сек · idempotency Redis · Vault secrets · 6 событий' defaultOpen={false}>
           <WebhookSecurityPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Core Web Vitals · Производительность UI' summary='LCP 1.8с · INP 72мс · CLS 0.04 · Bundle 187КБ · Grafana Faro · Lighthouse CI' defaultOpen={false}>
+          <CoreWebVitalsPanel />
         </CollapsibleSection>
         <CollapsibleSection title='Kafka · K8s HPA · Vault' summary='10 топиков · RF=3 · 8 сервисов HPA · dynamic secrets · Transit encryption' defaultOpen={false}>
           <KafkaInfraPanel />

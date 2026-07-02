@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { ImplementationRoadmapPanel } from '@/components/platform-v7/ImplementationRoadmapPanel';
 
 const ROADMAP = [
   {
@@ -124,6 +126,12 @@ export default function RoadmapPage() {
           );
         })}
       </div>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+        <CollapsibleSection title='ТЗ §16 Роадмап реализации · 5 этапов' summary='Этап 0-2 в работе · Этап 3-4 план · 40 задач · ~9 мес · ~12 человек' defaultOpen={false}>
+          <ImplementationRoadmapPanel />
+        </CollapsibleSection>
+      </section>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Link href='/platform-v7/investor' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
