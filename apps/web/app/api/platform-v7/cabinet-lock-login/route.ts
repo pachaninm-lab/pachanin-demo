@@ -4,8 +4,6 @@ import { signCabinetSession } from '@/lib/platform-v7/verified-session';
 
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const TTL_SECONDS = 8 * 3600;
-const OWNER_LOGIN = 'pachaninm@gmail.com';
-const TEMP_PIN_SHA256 = '0535c797d23a0769222cf29d982a3b6a1a32aee8e7bb16dda68dc08bd2e8215a';
 
 const ALLOWED_ROLES = new Set([
   'operator',
@@ -40,33 +38,16 @@ function compact(value: string): string {
   return value.replace(/\s+/g, '');
 }
 
-function digits(value: string): string {
-  return value.replace(/\D+/g, '');
-}
-
-async function sha256Hex(value: string): Promise<string> {
-  const data = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
+/**
+ * Constant-time credential comparison. Accepts only an exact match, or an exact
+ * match after collapsing surrounding/duplicated whitespace (a pure UX
+ * tolerance). Deliberately NO digit-only, suffix, or partial matching — those
+ * silently reduced the password to a handful of trailing digits.
+ */
 function passwordMatches(input: string, configured: string): boolean {
   if (!input || !configured) return false;
   if (safeEqual(input, configured)) return true;
-
-  const compactInput = compact(input);
-  const compactConfigured = compact(configured);
-  if (safeEqual(compactInput, compactConfigured)) return true;
-
-  const inputDigits = digits(input);
-  const configuredDigits = digits(configured);
-  if (inputDigits.length >= 6 && configuredDigits.length >= 6 && safeEqual(inputDigits, configuredDigits)) return true;
-
-  if (inputDigits.length >= 8 && configuredDigits.length >= 4) {
-    return safeEqual(inputDigits.slice(-configuredDigits.length), configuredDigits);
-  }
-
-  return false;
+  return safeEqual(compact(input), compact(configured));
 }
 
 function passwordCandidates(): string[] {
@@ -77,15 +58,13 @@ function passwordCandidates(): string[] {
   ].filter(Boolean);
 }
 
+/**
+ * Secret used to sign the cabinet session JWT. Must come from real configured
+ * secrets only — never a hard-coded PIN hash. If none is configured the gate is
+ * treated as unavailable (fail closed) rather than signing with a guessable key.
+ */
 function cabinetSessionSecret(): string {
-  return readEnv('JWT_SECRET') || readEnv('PC_CABINET_LOCK_PASSWORD') || readEnv('PC_PRIVATE_PASSWORD') || readEnv('PC_OWNER_KEY') || TEMP_PIN_SHA256;
-}
-
-async function temporaryPinAllowed(input: string): Promise<boolean> {
-  const compactInput = compact(input);
-  const inputDigits = digits(input);
-  if (inputDigits.length === 8 && inputDigits.endsWith('9438')) return true;
-  return safeEqual(await sha256Hex(compactInput), TEMP_PIN_SHA256);
+  return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
 }
 
 export async function POST(request: Request) {
@@ -94,22 +73,31 @@ export async function POST(request: Request) {
   const password = typeof body?.password === 'string' ? body.password.trim() : '';
   const role = typeof body?.role === 'string' ? body.role.trim() : '';
 
-  const configuredUser = (readEnv('PC_CABINET_LOCK_USER') || OWNER_LOGIN).toLowerCase();
-  const passwords = passwordCandidates();
-
   if (!ALLOWED_ROLES.has(role)) {
     return NextResponse.json({ ok: false, reason: 'unknown_role' }, { status: 400 });
   }
 
-  const loginAllowed = safeEqual(login, configuredUser) || safeEqual(login, OWNER_LOGIN);
-  const envPasswordAllowed = passwords.some((configured) => passwordMatches(password, configured));
-  const passwordAllowed = envPasswordAllowed || (await temporaryPinAllowed(password));
+  const configuredUser = readEnv('PC_CABINET_LOCK_USER').toLowerCase();
+  const passwords = passwordCandidates();
+  const sessionSecret = cabinetSessionSecret();
 
-  if (!loginAllowed || !passwordAllowed) {
-    return NextResponse.json({ ok: false, reason: !loginAllowed ? 'login_mismatch' : 'password_mismatch' }, { status: 401 });
+  // Fail closed when the gate is not fully configured — no hard-coded owner
+  // login, no default password, no fallback signing secret.
+  if (!configuredUser || passwords.length === 0 || !sessionSecret) {
+    return NextResponse.json({ ok: false, reason: 'cabinet_not_configured' }, { status: 503 });
   }
 
-  const token = await signCabinetSession(role, cabinetSessionSecret(), {
+  const loginAllowed = safeEqual(login, configuredUser);
+  const passwordAllowed = passwords.some((configured) => passwordMatches(password, configured));
+
+  if (!loginAllowed || !passwordAllowed) {
+    return NextResponse.json(
+      { ok: false, reason: !loginAllowed ? 'login_mismatch' : 'password_mismatch' },
+      { status: 401 },
+    );
+  }
+
+  const token = await signCabinetSession(role, sessionSecret, {
     nowSeconds: Math.floor(Date.now() / 1000),
     ttlSeconds: TTL_SECONDS,
   });

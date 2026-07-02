@@ -4,8 +4,9 @@ import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { LoginDto } from './dto/login.dto';
+import { requireSecret } from '../../common/config/secrets';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'pachanin-demo-secret-2026';
+const JWT_SECRET = requireSecret('JWT_SECRET');
 const ACCESS_TOKEN_TTL = '8h';
 const REFRESH_TOKEN_TTL = '30d';
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -34,6 +35,35 @@ interface RefreshTokenRecord {
 
 const DEMO_ORG_ID = 'org-demo-001';
 
+/**
+ * Roles a user is permitted to grant themselves at self-service registration.
+ * Privileged / oversight roles (ADMIN, SUPPORT_MANAGER, EXECUTIVE,
+ * COMPLIANCE_OFFICER, ARBITRATOR) and GUEST must NEVER be self-assignable —
+ * ADMIN/SUPPORT_MANAGER bypass all route + object guards, so accepting them
+ * from an anonymous request body is a full authorization bypass. These roles
+ * are provisioned only through an authenticated administrator flow.
+ */
+const SELF_REGISTERABLE_ROLES: ReadonlySet<Role> = new Set<Role>([
+  Role.FARMER,
+  Role.BUYER,
+  Role.LOGISTICIAN,
+  Role.DRIVER,
+  Role.LAB,
+  Role.ELEVATOR,
+  Role.ACCOUNTING,
+]);
+
+// Brute-force / credential-stuffing protection on login (per-account).
+const MAX_FAILED_LOGINS = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * Demo accounts are seeded ONLY when SEED_DEMO_USERS=true (never implicitly in
+ * production). They carry a well-known password and must not exist in any
+ * environment serving real users.
+ */
+const SHOULD_SEED_DEMO_USERS = String(process.env.SEED_DEMO_USERS || '').toLowerCase() === 'true';
+
 const demoUsers: StoredUser[] = [
   { id: 'user-farmer-001', email: 'farmer@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.FARMER, orgId: 'org-farmer-001', fullName: 'Demo Farmer' },
   { id: 'user-buyer-001', email: 'buyer@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.BUYER, orgId: 'org-buyer-001', fullName: 'Demo Buyer' },
@@ -49,8 +79,14 @@ const demoUsers: StoredUser[] = [
   { id: 'user-arbitrator-001', email: 'arbitrator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ARBITRATOR, orgId: DEMO_ORG_ID, fullName: 'Demo Arbitrator' },
 ];
 
-const usersStore: StoredUser[] = [...demoUsers];
+const usersStore: StoredUser[] = SHOULD_SEED_DEMO_USERS ? [...demoUsers] : [];
 const refreshTokensStore = new Map<string, RefreshTokenRecord>();
+
+interface LoginAttemptRecord {
+  failures: number;
+  lockedUntil: number;
+}
+const loginAttemptsStore = new Map<string, LoginAttemptRecord>();
 
 @Injectable()
 export class AuthService {
@@ -84,14 +120,56 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, userAgent?: string, ip?: string) {
-    const user = usersStore.find((u) => u.email.toLowerCase() === dto.email.toLowerCase());
-    if (!user) throw new UnauthorizedException('Invalid credentials');
-    const valid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('Invalid credentials');
+    const accountKey = dto.email.toLowerCase();
+    this.assertNotLockedOut(accountKey);
+
+    const user = usersStore.find((u) => u.email.toLowerCase() === accountKey);
+    // Always run a bcrypt comparison (even for unknown users) to avoid leaking
+    // account existence via response timing, and to feed the lockout counter.
+    const passwordHash = user?.passwordHash || '';
+    const valid = passwordHash ? await bcrypt.compare(dto.password, passwordHash) : false;
+
+    if (!user || !valid || user.anonymized) {
+      this.registerFailedLogin(accountKey);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    this.clearFailedLogins(accountKey);
     return this.issueTokens(user);
   }
 
+  private assertNotLockedOut(accountKey: string): void {
+    const record = loginAttemptsStore.get(accountKey);
+    if (record && record.lockedUntil > Date.now()) {
+      const retryAfterSec = Math.ceil((record.lockedUntil - Date.now()) / 1000);
+      throw new UnauthorizedException(
+        `Account temporarily locked after too many failed attempts. Try again in ${retryAfterSec}s.`,
+      );
+    }
+  }
+
+  private registerFailedLogin(accountKey: string): void {
+    const record = loginAttemptsStore.get(accountKey) ?? { failures: 0, lockedUntil: 0 };
+    record.failures += 1;
+    if (record.failures >= MAX_FAILED_LOGINS) {
+      record.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+      record.failures = 0;
+    }
+    loginAttemptsStore.set(accountKey, record);
+  }
+
+  private clearFailedLogins(accountKey: string): void {
+    loginAttemptsStore.delete(accountKey);
+  }
+
   async register(dto: any) {
+    const requestedRole = (dto.role as Role) || Role.GUEST;
+    if (!SELF_REGISTERABLE_ROLES.has(requestedRole)) {
+      // Do not reveal which roles are privileged — a generic refusal is enough.
+      throw new ForbiddenException(
+        'The selected role cannot be self-registered. Contact an administrator for access.',
+      );
+    }
     const existing = usersStore.find((u) => u.email.toLowerCase() === dto.email.toLowerCase());
     if (existing) throw new ConflictException('Email already registered');
     const passwordHash = await bcrypt.hash(dto.password, 10);
@@ -99,7 +177,7 @@ export class AuthService {
       id: `user-${randomUUID()}`,
       email: dto.email,
       passwordHash,
-      role: (dto.role as Role) || Role.GUEST,
+      role: requestedRole,
       orgId: dto.orgId || `org-${randomUUID()}`,
       fullName: dto.fullName || dto.email,
       phone: dto.phone,

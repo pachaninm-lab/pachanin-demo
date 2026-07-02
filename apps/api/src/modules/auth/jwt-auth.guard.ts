@@ -1,8 +1,9 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import type { RequestUser } from '../../common/types/request-user';
+import { requireSecret } from '../../common/config/secrets';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'pachanin-demo-secret-2026';
+const JWT_SECRET = requireSecret('JWT_SECRET');
 
 function extractBearerToken(authorization?: string): string | null {
   if (!authorization) return null;

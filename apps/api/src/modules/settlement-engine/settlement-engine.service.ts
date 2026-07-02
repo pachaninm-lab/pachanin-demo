@@ -34,24 +34,67 @@ export class SettlementEngineService {
     this.payments = payments ?? new RuntimePaymentRepository(runtime);
   }
 
-  worksheet(dealId: string) {
+  worksheet(dealId: string, user: RequestUser) {
+    this.assertDealScope(dealId, user);
     return this.payments.worksheet(dealId);
   }
 
-  bankWorkspace(dealId: string) {
+  bankWorkspace(dealId: string, user: RequestUser) {
+    this.assertDealScope(dealId, user);
     return this.payments.bankWorkspace(dealId);
   }
 
   async listPayments(user: RequestUser) {
-    return this.payments.list();
+    const payments = await this.payments.list();
+    return this.filterPaymentsByScope(payments, user);
   }
 
   async paymentDetail(id: string, user: RequestUser) {
-    return this.payments.detail(id);
+    const detail = await this.payments.detail(id);
+    if (detail?.dealId) this.assertDealScope(detail.dealId, user);
+    return detail;
   }
 
-  async exportDeals(_params: any, _user: RequestUser) {
-    const payments = await this.payments.list();
+  /**
+   * Bank basis / settlement is the most sensitive money surface. Platform-level
+   * oversight roles (ADMIN, SUPPORT_MANAGER, EXECUTIVE) are cross-deal; every
+   * other allowed role (notably an org's ACCOUNTING) may only touch a deal its
+   * own organization is a party to. Fails closed when the deal is unresolved.
+   */
+  private assertDealScope(dealId: string, user: RequestUser): void {
+    const role = String(user?.role || '');
+    if (role === Role.ADMIN || role === Role.SUPPORT_MANAGER || role === Role.EXECUTIVE) return;
+    let deal: any = null;
+    try {
+      deal = this.runtime.getDeal(dealId);
+    } catch {
+      deal = null;
+    }
+    const isParty =
+      !!deal && (deal.sellerOrgId === user?.orgId || deal.buyerOrgId === user?.orgId);
+    if (!isParty) {
+      throw new ForbiddenException(`Cross-organization access denied for deal:${dealId}`);
+    }
+  }
+
+  private filterPaymentsByScope(payments: any[], user: RequestUser): any[] {
+    const role = String(user?.role || '');
+    if (role === Role.ADMIN || role === Role.SUPPORT_MANAGER || role === Role.EXECUTIVE) {
+      return payments;
+    }
+    return payments.filter((p: any) => {
+      let deal: any = null;
+      try {
+        deal = p?.dealId ? this.runtime.getDeal(p.dealId) : null;
+      } catch {
+        deal = null;
+      }
+      return !!deal && (deal.sellerOrgId === user?.orgId || deal.buyerOrgId === user?.orgId);
+    });
+  }
+
+  async exportDeals(_params: any, user: RequestUser) {
+    const payments = this.filterPaymentsByScope(await this.payments.list(), user);
     const rows = [
       ['dealId', 'status', 'amountRub', 'callbackState'],
       ...payments.map((p: any) => [p.dealId, p.status, String(p.amountRub), p.callbackState ?? '']),
@@ -63,9 +106,9 @@ export class SettlementEngineService {
     };
   }
 
-  async exportContractors(_user: RequestUser) {
+  async exportContractors(user: RequestUser) {
     const rows = [['dealId', 'beneficiaryId', 'role', 'bankStatus']];
-    for (const payment of await this.payments.list()) {
+    for (const payment of this.filterPaymentsByScope(await this.payments.list(), user)) {
       const bank = this.payments.bankWorkspace((payment as any).dealId);
       for (const beneficiary of bank.beneficiaries) {
         rows.push([(payment as any).dealId, beneficiary.id, beneficiary.role, beneficiary.bankStatus]);
@@ -85,6 +128,7 @@ export class SettlementEngineService {
    */
   async requestReserve(dealId: string, user: RequestUser) {
     this.assertMoneyMutationRole(user);
+    this.assertDealScope(dealId, user);
     const ws = this.payments.worksheet(dealId);
     const { result } = await this.executor.execute({
       user,
@@ -113,6 +157,7 @@ export class SettlementEngineService {
    */
   async requestRelease(dealId: string, user: RequestUser) {
     this.assertMoneyMutationRole(user);
+    this.assertDealScope(dealId, user);
     const ws = this.runtime.dealWorkspace(dealId);
     const blockers = ws.blockers ?? [];
 
@@ -162,6 +207,7 @@ export class SettlementEngineService {
     if (!MONEY_MUTATION_ROLES.has(user.role) && user.role !== Role.ADMIN) {
       throw new ForbiddenException('Only accounting/admin can override reserve confirmation');
     }
+    this.assertDealScope(dealId, user);
     return this.runtime.confirmWorksheet(dealId, user);
   }
 
@@ -173,11 +219,13 @@ export class SettlementEngineService {
     if (!MONEY_MUTATION_ROLES.has(user.role) && user.role !== Role.ADMIN) {
       throw new ForbiddenException('Only accounting/admin can manually release payment');
     }
+    this.assertDealScope(dealId, user);
     return this.runtime.releasePayment(dealId, user);
   }
 
   adjustWorksheet(dealId: string, adjustments: any[], user: RequestUser) {
     this.assertMoneyMutationRole(user);
+    this.assertDealScope(dealId, user);
     return this.runtime.adjustWorksheet(dealId, adjustments, user);
   }
 

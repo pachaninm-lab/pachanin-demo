@@ -55,11 +55,18 @@ describe('DealsService (repository boundary)', () => {
     expect(ws.sellerOrgId).toBe('S1');
   });
 
-  it('passport() and timeline() delegate to repository', () => {
+  it('passport() and timeline() enforce object scope before delegating', async () => {
     const repo = makeRepo();
-    const svc = new DealsService(repo, makeExecutor());
-    svc.passport('D1', adminUser);
-    svc.timeline('D1', adminUser);
+    const exec = makeExecutor();
+    const svc = new DealsService(repo, exec);
+    await svc.passport('D1', adminUser);
+    await svc.timeline('D1', adminUser);
+    expect(repo.getById).toHaveBeenCalledWith('D1');
+    expect(exec.assertObjectScope).toHaveBeenCalledWith(
+      adminUser,
+      'deal.view',
+      expect.objectContaining({ objectType: 'deal', objectId: 'D1', ownerOrgId: 'S1', counterpartyOrgId: 'B1' }),
+    );
     expect(repo.passport).toHaveBeenCalledWith('D1');
     expect(repo.timeline).toHaveBeenCalledWith('D1');
   });

@@ -67,6 +67,14 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 
+// Public, unauthenticated API endpoints (anti-spam + rate-limit + validation
+// live in the routes themselves). Anonymous visitors must be able to POST the
+// public lead / inquiry forms without a session — gating them loses leads.
+const PUBLIC_API_EXACT = new Set([
+  '/api/platform-v7/inquiries',
+  '/api/platform-v7/leads',
+]);
+
 function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
 }
@@ -316,7 +324,7 @@ export async function middleware(req: NextRequest) {
     return response;
   }
 
-  if (isPublic(p) || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
+  if (isPublic(p) || PUBLIC_API_EXACT.has(p) || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
     const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
     persistRoleCookie(req, response, resolvedRole);
     return response;

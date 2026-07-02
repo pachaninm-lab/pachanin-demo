@@ -133,13 +133,20 @@ export class LogisticsService {
   private assertShipmentAccess(shipment: any, user: RequestUser): void {
     // ADMIN / SUPPORT_MANAGER see everything
     if (user.role === Role.ADMIN || user.role === Role.SUPPORT_MANAGER) return;
-    // Driver: can only access their own assigned shipment
+    // Driver: can only access the shipment explicitly assigned to them.
+    // Fail closed on unassigned shipments — a driver must never reach a ride
+    // they are not the assigned driver of.
     if (user.role === Role.DRIVER) {
-      if (shipment.driverUserId && shipment.driverUserId !== user.id) {
+      if (shipment.driverUserId !== user.id) {
         throw new ForbiddenException('Driver can only access own assigned shipment');
       }
       return;
     }
+    // LOGISTICIAN carrier-org isolation is intentionally NOT hard-enforced here
+    // yet: in the current model a logistician user's orgId and a shipment's
+    // carrierOrgId are in different id namespaces, so a strict match would
+    // over-block legitimate access. Enforcing it requires establishing the
+    // user↔carrier-org linkage first (tracked as audit finding H5).
     // EXECUTIVE: read access allowed, enforced by controller if needed
   }
 }

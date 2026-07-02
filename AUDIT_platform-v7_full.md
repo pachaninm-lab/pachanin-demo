@@ -10,6 +10,31 @@
 
 ---
 
+## 0. Статус устранения (обновление после аудита)
+
+Все находки P0/P1 и часть P2 **устранены в коде** в этой ветке, с тестами. Прогон бэкенд-тестов: **251/251 зелёные** (Prisma-клиент застабан локально — сетевой codegen недоступен в среде аудита; это не влияет на логику фиксов).
+
+| # | Находка | Статус | Ключевые изменения |
+|---|---------|--------|--------------------|
+| C1 | Саморегистрация привилегированной роли | ✅ Исправлено | `auth.service.ts` — allowlist `SELF_REGISTERABLE_ROLES`; тест на отказ ADMIN/SUPPORT/EXEC/COMPLIANCE/ARBITRATOR/GUEST |
+| C2 | Дефолтные секреты | ✅ Исправлено | `common/config/secrets.ts` `requireSecret()` — fail-closed в проде; JWT/BANK/FGIS/EDO переведены на него |
+| C3 | Бэкдор кабинета (PIN `9438`, суффиксное сравнение) | ✅ Исправлено | `cabinet-lock-login/route.ts` — убраны PIN/суффикс/цифровое сравнение и hardcoded owner; секрет подписи только из env |
+| C4 | Демо-аккаунты во всех окружениях | ✅ Исправлено | сид только при `SEED_DEMO_USERS=true` |
+| H1 | IDOR паспорт/таймлайн сделки | ✅ Исправлено | `deals.service.ts` — `assertObjectScope` в `passport`/`timeline`; тест |
+| H2 | IDOR/BOLA документы | ✅ Исправлено | `documents.service.ts` — `assertDocumentAccess` + фильтр `list`; тесты |
+| H3 | BOLA банковское основание/settlement | ✅ Исправлено | `settlement-engine.service.ts` — `assertDealScope` + `filterPaymentsByScope`; тесты |
+| H4 | Слабая парольная политика | ✅ Исправлено | `validators/strong-password.validator.ts` (12+, классы, анти-последовательности) на `register` |
+| H5 | LOGISTICIAN без орг-скоупа | ⚠️ Частично | ужесточена driver-изоляция (unassigned → deny); carrier-org для LOGISTICIAN требует модельной привязки user↔carrierOrgId (оставлено follow-up, чтобы не сломать логистику) |
+| M1 | Web-заглушки фиктивного успеха денег/качества | ✅ Исправлено | settlement release/confirm → прокси в бэкенд (реальные authz/MFA/state); labs — fail-closed 501 |
+| M2 | Нет lockout при переборе | ✅ Исправлено | `auth.service.ts` — per-account lockout (5 попыток / 15 мин); тест |
+| M3 | Middleware ломает публичные формы | ✅ Исправлено | `middleware.ts` — `PUBLIC_API_EXACT` для `inquiries`/`leads` |
+| L3 | Дубликат декоратора | ✅ Исправлено | `register.dto.ts` |
+| L2 | Нет revoke access-token | ⏳ Follow-up | требует короткого TTL + deny-list по `sessionId` (не входит в этот заход) |
+
+> Многоинстансная оговорка (федеральный масштаб): lockout (M2) и хранилище пользователей/refresh реализованы in-memory. Для тысяч одновременных пользователей на нескольких инстансах их следует вынести в общий стор (Redis/БД). Это отмечено как отдельный инфраструктурный follow-up и не откатывает сделанные security-фиксы.
+
+---
+
 ## 1. Резюме и топ-риски
 
 Базовая модель ролей и пообъектного доступа спроектирована грамотно (org-isolation для FARMER/BUYER, driver-isolation, EXECUTIVE read-only, банковские операции через outbox + HMAC-callback, «платформа не саморелизит деньги»). Однако **несколько критичных дыр обесценивают эту модель целиком**:
