@@ -21,6 +21,7 @@ import { WebhookSecurityPanel } from '@/components/platform-v7/WebhookSecurityPa
 import { CoreWebVitalsPanel } from '@/components/platform-v7/CoreWebVitalsPanel';
 import { PostgresMigrationPanel } from '@/components/platform-v7/PostgresMigrationPanel';
 import { QualityGatePanel } from '@/components/platform-v7/QualityGatePanel';
+import { SyntheticMonitoringPanel } from '@/components/platform-v7/SyntheticMonitoringPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -124,6 +125,9 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Observability · Метрики и алерты' summary='Prometheus · Grafana · p95/p99 latency · error rate · GMV · Alertmanager' defaultOpen={false}>
           <ObservabilityPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Synthetic Monitoring · 10 критических путей' summary='§13.2 · каждые 5 мин · PagerDuty P1 · uptime 99.97% · FGIS деградация · 8 alert rules' defaultOpen={false}>
+          <SyntheticMonitoringPanel />
         </CollapsibleSection>
         <CollapsibleSection title='Feature Flags · Управление флагами' summary='Flagsmith · canary deploy 5%→100% · kill switch · A/B · prod/staging/dev' defaultOpen={false}>
           <FeatureFlagsPanel />
