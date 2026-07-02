@@ -9,6 +9,7 @@ import { FraudDetectorPanel } from '@/components/platform-v7/FraudDetectorPanel'
 import { RosselhoznadzorPanel } from '@/components/platform-v7/RosselhoznadzorPanel';
 import { OpaAbacPanel } from '@/components/platform-v7/OpaAbacPanel';
 import { ApiDocPanel } from '@/components/platform-v7/ApiDocPanel';
+import { SecurityAttackPanel } from '@/components/platform-v7/SecurityAttackPanel';
 import {
   CockpitHero,
   PremiumStatCard,
@@ -109,6 +110,9 @@ export default function CompliancePage() {
       <section id='api-doc' style={anchorSection}>
         <CollapsibleSection title='API Документация · OpenAPI 3.1' summary='REST JSON · JWT Bearer · HMAC bank callback · deals · disputes · ФГИС · /health' defaultOpen={false}>
           <ApiDocPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Защита от атак · WAF / Rate Limit' summary='WAF Coraza OWASP CRS · Redis brute-force · CSP · SAST · Trivy · GitLeaks' defaultOpen={false}>
+          <SecurityAttackPanel />
         </CollapsibleSection>
       </section>
     </div>

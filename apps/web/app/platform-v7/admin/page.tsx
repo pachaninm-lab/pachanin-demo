@@ -16,6 +16,7 @@ import { AirflowDagPanel } from '@/components/platform-v7/AirflowDagPanel';
 import { B2BPartnerApiPanel } from '@/components/platform-v7/B2BPartnerApiPanel';
 import { KafkaInfraPanel } from '@/components/platform-v7/KafkaInfraPanel';
 import { DisasterRecoveryPanel } from '@/components/platform-v7/DisasterRecoveryPanel';
+import { CiCdPipelinePanel } from '@/components/platform-v7/CiCdPipelinePanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -149,6 +150,9 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Disaster Recovery · Бэкапы и Runbook' summary='6 сценариев · RPO/RTO · S3 бэкапы · WAL replay · DR тренировка' defaultOpen={false}>
           <DisasterRecoveryPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='CI/CD Pipeline · GitHub Actions + ArgoCD' summary='12 этапов · SAST · Trivy · Playwright · k6 perf gate · Canary 5→100%' defaultOpen={false}>
+          <CiCdPipelinePanel />
         </CollapsibleSection>
       </div>
 
