@@ -12,6 +12,7 @@ import { LoadTestingPanel } from '@/components/platform-v7/LoadTestingPanel';
 import { SupportOpsPanel } from '@/components/platform-v7/SupportOpsPanel';
 import { SagaOrchestratorPanel } from '@/components/platform-v7/SagaOrchestratorPanel';
 import { ProductionReadinessPanel } from '@/components/platform-v7/ProductionReadinessPanel';
+import { AirflowDagPanel } from '@/components/platform-v7/AirflowDagPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -133,6 +134,9 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Production Readiness · Чеклист готовности к проду' summary='инфраструктура · безопасность · качество · мониторинг · compliance' defaultOpen={false}>
           <ProductionReadinessPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Airflow DAG · Регуляторные и аналитические пайплайны' summary='Росстат · ФГИС · ЭДО · GMV · ML ретрейнинг · bank outbox · SLA мониторинг' defaultOpen={false}>
+          <AirflowDagPanel />
         </CollapsibleSection>
       </div>
 
