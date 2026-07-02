@@ -9,6 +9,7 @@ import { formatTons, selectDealLogisticsTripPlan } from '@/lib/platform-v7/deal-
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { EtranRzdPanel } from '@/components/platform-v7/EtranRzdPanel';
 import { IoTWeighingPanel } from '@/components/platform-v7/IoTWeighingPanel';
+import { RailwayLogisticsPanel } from '@/components/platform-v7/RailwayLogisticsPanel';
 
 // Кабинет логистики: Логистика · рейс → водитель → ЭТрН → приёмка
 const logisticsHandoff: HandoffItem[] = [
@@ -212,6 +213,10 @@ export default async function LogisticsPage() {
 
       <CollapsibleSection title='IoT · Взвешивание и элеваторные акты' summary='Тензо-М · Мера · ВА · расхождения · фото · УКЭП' defaultOpen={false}>
         <IoTWeighingPanel />
+      </CollapsibleSection>
+
+      <CollapsibleSection title='Ж/д логистика · РЖД ЭТРАН' summary='ГУ-12 · ГУ-29 · вагонный парк · демередж · трекинг' defaultOpen={false}>
+        <RailwayLogisticsPanel />
       </CollapsibleSection>
 
       <CollapsibleSection title='Погода по маршрутам' summary='дорожные условия · предупреждения' defaultOpen={false}>

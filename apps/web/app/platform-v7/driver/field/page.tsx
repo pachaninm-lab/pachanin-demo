@@ -8,6 +8,7 @@ import { CockpitHero, OfflineSyncBanner } from '@/components/platform-v7/premium
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 import { DriverOfflineQueue } from '@/components/platform-v7/DriverOfflineQueue';
+import { PwaOfflinePanel } from '@/components/platform-v7/PwaOfflinePanel';
 import { RouteMapStub } from '@/components/platform-v7/RouteMapStub';
 import { DriverCameraCapture } from '@/components/platform-v7/DriverCameraCapture';
 
@@ -187,6 +188,9 @@ export default async function DriverFieldPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Офлайн-очередь' summary='IndexedDB · синхронизация при восстановлении сети' defaultOpen={false}>
           <DriverOfflineQueue tripId={mission.tripId} />
+        </CollapsibleSection>
+        <CollapsibleSection title='PWA Offline · Кэш и очередь действий' summary='Service Worker · IndexedDB · Background Sync · last-write-wins · конфликты' defaultOpen={false}>
+          <PwaOfflinePanel />
         </CollapsibleSection>
         <CollapsibleSection title='Полевой runtime' summary='очередь · события · офлайн' defaultOpen={false}>
           <FieldDriverRuntime compact />
