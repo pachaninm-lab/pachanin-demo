@@ -42,7 +42,7 @@ export function PlatformV7LeadCapture() {
         <div className='p7-lead-two'>
           <label>
             <em>Email</em>
-            <input name='email' type='email' autoComplete='email' placeholder='name@company.ru' />
+            <input name='email' type='email' autoComplete='email' placeholder='корпоративный email' />
           </label>
           <label>
             <em>Телефон</em>
