@@ -112,7 +112,7 @@ export function GpsGeofencePanel() {
 
       {/* Info */}
       <div style={{ padding: '8px 12px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 9, color: '#1E40AF', fontWeight: 700, lineHeight: 1.6 }}>
-        GPS: ГЛОНАСС + Driver App + Яндекс.Телематика · Polling 30 сек · Геозоны из адресов сделки (авто) · Автотриггер статуса ТС · Уведомления: опоздание > 30 мин, отклонение > 5 км, простой > 2 ч
+        {'GPS: ГЛОНАСС + Driver App + Яндекс.Телематика · Polling 30 сек · Геозоны из адресов сделки (авто) · Автотриггер статуса ТС · Уведомления: опоздание > 30 мин, отклонение > 5 км, простой > 2 ч'}
       </div>
 
       {/* Tabs */}
