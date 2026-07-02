@@ -88,6 +88,61 @@ interface LoginAttemptRecord {
 }
 const loginAttemptsStore = new Map<string, LoginAttemptRecord>();
 
+const ACCESS_TOKEN_TTL_MS = 8 * 60 * 60 * 1000; // must match ACCESS_TOKEN_TTL ('8h')
+
+// --- Session revocation (L2) ---
+// A stateless JWT cannot be un-issued, so we keep a server-side deny-list of
+// revoked session ids and the set of currently-active sessions per user. Every
+// authenticated request is checked against the deny-list (see
+// verifyAccessToken), which lets logout, account anonymization and role changes
+// invalidate live access tokens immediately instead of waiting 8h for expiry.
+//
+// NOTE (federal / multi-instance scale): these maps are in-process. For a fleet
+// of API instances they must be backed by a shared store (e.g. Redis) so a
+// revocation on one node is honoured by all. The logic below is written so only
+// the store implementation needs swapping.
+const activeUserSessions = new Map<string, Set<string>>();
+const revokedSessions = new Map<string, number>(); // sessionId -> expiry (ms epoch)
+
+function pruneRevokedSessions(now: number): void {
+  for (const [sessionId, expiresAt] of revokedSessions) {
+    if (expiresAt <= now) revokedSessions.delete(sessionId);
+  }
+}
+
+function trackSession(userId: string, sessionId: string): void {
+  let sessions = activeUserSessions.get(userId);
+  if (!sessions) {
+    sessions = new Set<string>();
+    activeUserSessions.set(userId, sessions);
+  }
+  sessions.add(sessionId);
+}
+
+function revokeSession(sessionId: string, now = Date.now()): void {
+  if (!sessionId) return;
+  revokedSessions.set(sessionId, now + ACCESS_TOKEN_TTL_MS);
+  for (const sessions of activeUserSessions.values()) sessions.delete(sessionId);
+}
+
+function revokeAllUserSessions(userId: string, now = Date.now()): void {
+  const sessions = activeUserSessions.get(userId);
+  if (!sessions) return;
+  for (const sessionId of sessions) revokedSessions.set(sessionId, now + ACCESS_TOKEN_TTL_MS);
+  activeUserSessions.delete(userId);
+}
+
+function isSessionRevoked(sessionId: string | undefined, now = Date.now()): boolean {
+  if (!sessionId) return false;
+  const expiresAt = revokedSessions.get(sessionId);
+  if (expiresAt === undefined) return false;
+  if (expiresAt <= now) {
+    revokedSessions.delete(sessionId);
+    return false;
+  }
+  return true;
+}
+
 @Injectable()
 export class AuthService {
   private issueTokens(user: StoredUser) {
@@ -99,6 +154,7 @@ export class AuthService {
       fullName: user.fullName,
       sessionId: randomUUID(),
     };
+    trackSession(user.id, payload.sessionId!);
     const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
     const refreshToken = randomUUID();
     refreshTokensStore.set(refreshToken, {
@@ -202,8 +258,11 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
-  async logout(dto: { refreshToken: string }) {
-    refreshTokensStore.delete(dto.refreshToken);
+  async logout(dto: { refreshToken?: string }, sessionId?: string) {
+    if (dto?.refreshToken) refreshTokensStore.delete(dto.refreshToken);
+    // Immediately invalidate the caller's live access token, not just the refresh token.
+    if (sessionId) revokeSession(sessionId);
+    pruneRevokedSessions(Date.now());
     return { success: true };
   }
 
@@ -219,20 +278,24 @@ export class AuthService {
   }
 
   async verifyAccessToken(token: string): Promise<RequestUser> {
+    let payload: any;
     try {
-      const payload = jwt.verify(token, JWT_SECRET) as any;
-      return {
-        id: payload.id,
-        email: payload.email,
-        role: payload.role,
-        orgId: payload.orgId,
-        fullName: payload.fullName,
-        surfaceRole: payload.surfaceRole,
-        sessionId: payload.sessionId,
-      };
+      payload = jwt.verify(token, JWT_SECRET);
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
     }
+    if (isSessionRevoked(payload.sessionId)) {
+      throw new UnauthorizedException('Session has been revoked');
+    }
+    return {
+      id: payload.id,
+      email: payload.email,
+      role: payload.role,
+      orgId: payload.orgId,
+      fullName: payload.fullName,
+      surfaceRole: payload.surfaceRole,
+      sessionId: payload.sessionId,
+    };
   }
 
   sberBusinessStart(query: { returnPath?: string; orgType?: string; inn?: string; legalName?: string; fullName?: string; email?: string }) {
@@ -280,6 +343,9 @@ export class AuthService {
     const user = usersStore.find((u) => u.id === userId);
     if (!user) throw new Error(`User ${userId} not found`);
     user.role = role;
+    // Invalidate live tokens so the privilege change takes effect immediately —
+    // a token minted with the old role must not keep the old access.
+    revokeAllUserSessions(userId);
     return { id: user.id, role: user.role };
   }
 
@@ -287,6 +353,8 @@ export class AuthService {
     const user = usersStore.find((u) => u.id === userId);
     if (!user) throw new Error(`User ${userId} not found`);
     user.orgId = orgId;
+    // Org scope is security-relevant — invalidate live tokens carrying the old org.
+    revokeAllUserSessions(userId);
     return { id: user.id, orgId: user.orgId };
   }
 
@@ -336,6 +404,8 @@ export class AuthService {
         refreshTokensStore.delete(key);
       }
     }
+    // Revoke all live access sessions for this user.
+    revokeAllUserSessions(requestingUserId);
 
     return { success: true, anonymizedAt };
   }

@@ -33,4 +33,25 @@ describe('AuthService security', () => {
       await expect(svc.login({ email, password: 'Correct-Horse-9!' } as any)).rejects.toThrow(/temporarily locked/i);
     });
   });
+
+  describe('session revocation (L2 — token revoke)', () => {
+    it('rejects a token after logout revokes its session', async () => {
+      const svc = new AuthService();
+      const { accessToken } = await svc.register({ email: 'logout@x.ru', fullName: 'L', role: Role.FARMER, password: 'Str0ng-Passw0rd!' });
+      const verified = await svc.verifyAccessToken(accessToken);
+      expect(verified.id).toBeTruthy();
+
+      await svc.logout({}, verified.sessionId);
+      await expect(svc.verifyAccessToken(accessToken)).rejects.toThrow(/revoked/i);
+    });
+
+    it('revokes all live tokens when a user role changes', async () => {
+      const svc = new AuthService();
+      const { accessToken, user } = await svc.register({ email: 'roled@x.ru', fullName: 'R', role: Role.BUYER, password: 'Str0ng-Passw0rd!' });
+      await expect(svc.verifyAccessToken(accessToken)).resolves.toBeTruthy();
+
+      svc.updateUserRole(user.id, Role.LOGISTICIAN);
+      await expect(svc.verifyAccessToken(accessToken)).rejects.toThrow(/revoked/i);
+    });
+  });
 });

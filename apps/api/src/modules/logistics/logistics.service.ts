@@ -61,7 +61,12 @@ export class LogisticsService {
     if (user.role === Role.DRIVER) {
       throw new ForbiddenException('Drivers cannot create shipments');
     }
-    return this.shipments.create(dto, user);
+    // Stamp the owning logistics org when a logistician creates the shipment so
+    // carrier-org isolation (H5) can be enforced on subsequent access. Platform
+    // roles (SUPPORT_MANAGER/ADMIN) creating on behalf don't claim ownership.
+    const stamped =
+      user.role === Role.LOGISTICIAN ? { ...dto, logisticsOrgId: user.orgId } : dto;
+    return this.shipments.create(stamped as CreateShipmentDto, user);
   }
 
   async transition(id: string, dto: TransitionShipmentDto, user: RequestUser) {
@@ -142,11 +147,16 @@ export class LogisticsService {
       }
       return;
     }
-    // LOGISTICIAN carrier-org isolation is intentionally NOT hard-enforced here
-    // yet: in the current model a logistician user's orgId and a shipment's
-    // carrierOrgId are in different id namespaces, so a strict match would
-    // over-block legitimate access. Enforcing it requires establishing the
-    // user↔carrier-org linkage first (tracked as audit finding H5).
+    // LOGISTICIAN carrier-org isolation (H5): a logistician may only reach a
+    // shipment stamped with their own organization. Shipments created through
+    // the authenticated flow carry `logisticsOrgId`; legacy/unstamped shipments
+    // (null) remain accessible so this hardening never breaks existing data.
+    if (user.role === Role.LOGISTICIAN) {
+      if (shipment.logisticsOrgId && shipment.logisticsOrgId !== user.orgId) {
+        throw new ForbiddenException('Logistician can only access own organization shipments');
+      }
+      return;
+    }
     // EXECUTIVE: read access allowed, enforced by controller if needed
   }
 }
