@@ -14,6 +14,8 @@ import { SagaOrchestratorPanel } from '@/components/platform-v7/SagaOrchestrator
 import { ProductionReadinessPanel } from '@/components/platform-v7/ProductionReadinessPanel';
 import { AirflowDagPanel } from '@/components/platform-v7/AirflowDagPanel';
 import { B2BPartnerApiPanel } from '@/components/platform-v7/B2BPartnerApiPanel';
+import { KafkaInfraPanel } from '@/components/platform-v7/KafkaInfraPanel';
+import { DisasterRecoveryPanel } from '@/components/platform-v7/DisasterRecoveryPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -141,6 +143,12 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='B2B Partner API · Ключи и Webhooks' summary='API ключи Vault · scope-based · ротация 90 дн · HMAC webhook · 3 ключа · 2 webhook' defaultOpen={false}>
           <B2BPartnerApiPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Kafka · K8s HPA · Vault' summary='10 топиков · RF=3 · 8 сервисов HPA · dynamic secrets · Transit encryption' defaultOpen={false}>
+          <KafkaInfraPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Disaster Recovery · Бэкапы и Runbook' summary='6 сценариев · RPO/RTO · S3 бэкапы · WAL replay · DR тренировка' defaultOpen={false}>
+          <DisasterRecoveryPanel />
         </CollapsibleSection>
       </div>
 
