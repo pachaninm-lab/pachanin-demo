@@ -24,6 +24,7 @@ import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disput
 import { DonutGauge, PremiumStatCard, CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { LedgerPanel } from '@/components/platform-v7/LedgerPanel';
+import { MoneyLifecyclePanel } from '@/components/platform-v7/MoneyLifecyclePanel';
 
 const bankHandoff: HandoffItem[] = [
   {
@@ -322,6 +323,9 @@ export default async function PlatformV7BankPage() {
       <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <CollapsibleSection title='Ledger · Двойная запись' summary='escrow · резерв · выпуск · комиссии · idempotency_key · PostgreSQL DEFERRABLE' defaultOpen={false}>
           <LedgerPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Жизненный цикл денег · RESERVE → RELEASE → COMMISSION' summary='buyer → escrow → seller · диспут HOLD · возврат REFUND · INTEGER kopecks' defaultOpen={false}>
+          <MoneyLifecyclePanel />
         </CollapsibleSection>
       </section>
     </main>
