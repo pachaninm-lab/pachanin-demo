@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { Public } from '../../common/decorators/public.decorator';
+import { requireSecret } from '../../common/config/secrets';
 
 /**
  * Incoming ЭДО webhook endpoint per ТЗ 10.4.
@@ -23,7 +24,7 @@ import { Public } from '../../common/decorators/public.decorator';
  * Signature is computed over: `${timestamp}.${rawBody}`
  */
 
-const EDO_WEBHOOK_SECRET = process.env.EDO_WEBHOOK_SECRET ?? 'grainflow-edo-webhook-secret-dev';
+const EDO_WEBHOOK_SECRET = requireSecret('EDO_WEBHOOK_SECRET');
 const TIMESTAMP_TOLERANCE_SEC = 300; // 5 minutes
 
 @Public()

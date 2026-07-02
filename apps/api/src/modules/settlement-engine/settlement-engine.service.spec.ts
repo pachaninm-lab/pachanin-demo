@@ -13,6 +13,7 @@ function makeRuntime() {
     importBankStatement: jest.fn().mockReturnValue({}),
     registerSafeDealsCallback: jest.fn().mockReturnValue({ status: 'OK' }),
     dealWorkspace: jest.fn().mockReturnValue({ blockers: [], payment: { status: 'RESERVED' }, completeness: { isComplete: true }, bankWorkspace: { beneficiaries: [] } }),
+    getDeal: jest.fn().mockReturnValue({ id: 'D1', sellerOrgId: 'org1', buyerOrgId: 'org2', status: 'RESERVED' }),
   } as any;
 }
 
@@ -47,6 +48,27 @@ describe('SettlementEngineService', () => {
       const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), makeOutbox());
       const driver = { id: 'u2', role: 'DRIVER' as any, orgId: 'org1', email: 'd@test.com' };
       await expect(svc.requestReserve('D1', driver)).rejects.toThrow(/DRIVER cannot perform money/);
+    });
+
+    it('denies an accounting user whose org is not a party to the deal (BOLA)', async () => {
+      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), makeOutbox());
+      const foreignAccounting = { id: 'u9', role: 'ACCOUNTING' as any, orgId: 'org-foreign', email: 'x@test.com' };
+      await expect(svc.requestReserve('D1', foreignAccounting)).rejects.toThrow(/Cross-organization access denied/);
+    });
+  });
+
+  describe('worksheet() / bankWorkspace() bank-basis scope', () => {
+    it('allows a party accounting user and blocks a non-party one', () => {
+      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), makeOutbox());
+      expect(() => svc.worksheet('D1', accountingUser)).not.toThrow();
+      const foreign = { id: 'u9', role: 'ACCOUNTING' as any, orgId: 'org-foreign', email: 'x@test.com' };
+      expect(() => svc.bankWorkspace('D1', foreign)).toThrow(/Cross-organization access denied/);
+    });
+
+    it('lets platform oversight (EXECUTIVE) read any deal bank basis', () => {
+      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), makeOutbox());
+      const exec = { id: 'e1', role: 'EXECUTIVE' as any, orgId: 'org-hq', email: 'e@test.com' };
+      expect(() => svc.worksheet('D1', exec)).not.toThrow();
     });
   });
 

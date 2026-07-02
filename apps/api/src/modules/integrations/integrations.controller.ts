@@ -6,8 +6,9 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { IntegrationsService } from './integrations.service';
+import { requireSecret } from '../../common/config/secrets';
 
-const FGIS_WEBHOOK_SECRET = process.env.FGIS_WEBHOOK_SECRET ?? 'pachanin-demo-fgis-secret-dev';
+const FGIS_WEBHOOK_SECRET = requireSecret('FGIS_WEBHOOK_SECRET');
 
 @UseGuards(RolesGuard)
 @Roles('SUPPORT_MANAGER', 'ACCOUNTING', 'LOGISTICIAN', 'ADMIN')

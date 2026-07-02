@@ -496,6 +496,9 @@ export class RuntimeCoreService {
       dealId: dto.dealId,
       status: 'PENDING' as ShipmentStatus,
       carrierOrgId: dto.carrierOrgId ?? null,
+      // Organization of the logistician who created the shipment — used for
+      // carrier-org isolation (H5). Null on legacy/unstamped shipments.
+      logisticsOrgId: dto.logisticsOrgId ?? null,
       driverUserId: dto.driverUserId ?? null,
       driverName: dto.driverName ?? null,
       vehicleNumber: dto.vehicleNumber,

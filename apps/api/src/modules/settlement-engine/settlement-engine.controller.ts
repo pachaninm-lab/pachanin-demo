@@ -9,8 +9,9 @@ import { Public } from '../../common/decorators/public.decorator';
 import { SettlementEngineService } from './settlement-engine.service';
 import { RequestUser } from '../../common/types/request-user';
 import { RequiresMfaGuard } from '../../common/guards/mfa.guard';
+import { requireSecret } from '../../common/config/secrets';
 
-const BANK_HMAC_SECRET = process.env.BANK_HMAC_SECRET ?? 'pachanin-demo-bank-secret-dev';
+const BANK_HMAC_SECRET = requireSecret('BANK_HMAC_SECRET');
 
 @UseGuards(RolesGuard)
 @Roles('ACCOUNTING', 'SUPPORT_MANAGER', 'ADMIN', 'EXECUTIVE')
@@ -19,13 +20,13 @@ export class SettlementEngineController {
   constructor(private readonly settlementEngine: SettlementEngineService) {}
 
   @Get('deal/:id')
-  async worksheet(@Param('id') id: string) {
-    return this.settlementEngine.worksheet(id);
+  async worksheet(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.settlementEngine.worksheet(id, user);
   }
 
   @Get('deal/:id/bank-workspace')
-  async bankWorkspace(@Param('id') id: string) {
-    return this.settlementEngine.bankWorkspace(id);
+  async bankWorkspace(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.settlementEngine.bankWorkspace(id, user);
   }
 
   @Get('payments')

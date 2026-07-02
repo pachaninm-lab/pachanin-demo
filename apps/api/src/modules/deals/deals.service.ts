@@ -75,11 +75,25 @@ export class DealsService {
     return ws;
   }
 
-  passport(id: string, user: RequestUser) {
+  async passport(id: string, user: RequestUser) {
+    const deal = await this.deals.getById(id);
+    this.executor.assertObjectScope(user, 'deal.view', {
+      objectType: 'deal',
+      objectId: id,
+      ownerOrgId: deal.sellerOrgId,
+      counterpartyOrgId: deal.buyerOrgId,
+    });
     return this.deals.passport(id);
   }
 
-  timeline(id: string, user: RequestUser) {
+  async timeline(id: string, user: RequestUser) {
+    const deal = await this.deals.getById(id);
+    this.executor.assertObjectScope(user, 'deal.view', {
+      objectType: 'deal',
+      objectId: id,
+      ownerOrgId: deal.sellerOrgId,
+      counterpartyOrgId: deal.buyerOrgId,
+    });
     return this.deals.timeline(id);
   }
 

@@ -1,5 +1,6 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
 import { Role } from '../../../common/types/request-user';
+import { IsStrongPassword } from '../../../common/validators/strong-password.validator';
 const OrgType = ['LEGAL', 'INDIVIDUAL', 'SELF_EMPLOYED'] as const;
 type OrgType = typeof OrgType[number];
 
@@ -27,7 +28,6 @@ export class RegisterDto {
   orgInn?: string;
 
   @IsOptional()
-  @IsOptional()
   @IsString()
   orgType?: OrgType;
 
@@ -35,7 +35,7 @@ export class RegisterDto {
   role!: Role;
 
   @IsString()
-  @MinLength(8)
+  @IsStrongPassword()
   password!: string;
 
   @IsOptional()

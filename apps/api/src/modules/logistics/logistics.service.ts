@@ -61,7 +61,12 @@ export class LogisticsService {
     if (user.role === Role.DRIVER) {
       throw new ForbiddenException('Drivers cannot create shipments');
     }
-    return this.shipments.create(dto, user);
+    // Stamp the owning logistics org when a logistician creates the shipment so
+    // carrier-org isolation (H5) can be enforced on subsequent access. Platform
+    // roles (SUPPORT_MANAGER/ADMIN) creating on behalf don't claim ownership.
+    const stamped =
+      user.role === Role.LOGISTICIAN ? { ...dto, logisticsOrgId: user.orgId } : dto;
+    return this.shipments.create(stamped as CreateShipmentDto, user);
   }
 
   async transition(id: string, dto: TransitionShipmentDto, user: RequestUser) {
@@ -133,10 +138,22 @@ export class LogisticsService {
   private assertShipmentAccess(shipment: any, user: RequestUser): void {
     // ADMIN / SUPPORT_MANAGER see everything
     if (user.role === Role.ADMIN || user.role === Role.SUPPORT_MANAGER) return;
-    // Driver: can only access their own assigned shipment
+    // Driver: can only access the shipment explicitly assigned to them.
+    // Fail closed on unassigned shipments — a driver must never reach a ride
+    // they are not the assigned driver of.
     if (user.role === Role.DRIVER) {
-      if (shipment.driverUserId && shipment.driverUserId !== user.id) {
+      if (shipment.driverUserId !== user.id) {
         throw new ForbiddenException('Driver can only access own assigned shipment');
+      }
+      return;
+    }
+    // LOGISTICIAN carrier-org isolation (H5): a logistician may only reach a
+    // shipment stamped with their own organization. Shipments created through
+    // the authenticated flow carry `logisticsOrgId`; legacy/unstamped shipments
+    // (null) remain accessible so this hardening never breaks existing data.
+    if (user.role === Role.LOGISTICIAN) {
+      if (shipment.logisticsOrgId && shipment.logisticsOrgId !== user.orgId) {
+        throw new ForbiddenException('Logistician can only access own organization shipments');
       }
       return;
     }

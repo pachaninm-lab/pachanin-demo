@@ -1,7 +1,22 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DOCUMENT_REPOSITORY, type DocumentRepository } from './document.repository';
 import { DocumentMatrixService } from './document-matrix.service';
+import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
+
+// Roles trusted across deals (platform-level oversight / shared operators).
+// Party-scoped roles (FARMER, BUYER) may only reach documents of deals their
+// org is a party to — mirroring the canonical object-scope policy.
+const CROSS_DEAL_DOCUMENT_ROLES = new Set([
+  'ADMIN',
+  'SUPPORT_MANAGER',
+  'EXECUTIVE',
+  'LAB',
+  'LOGISTICIAN',
+  'ELEVATOR',
+  'ACCOUNTING',
+  'DRIVER',
+]);
 
 @Injectable()
 export class DocumentsService {
@@ -10,18 +25,61 @@ export class DocumentsService {
   constructor(
     @Inject(DOCUMENT_REPOSITORY) private readonly documents: DocumentRepository,
     private readonly matrix: DocumentMatrixService,
+    private readonly runtime: RuntimeCoreService,
   ) {}
 
-  list(_user: any) {
-    return this.documents.list();
+  /**
+   * Enforces per-document access. Party-scoped roles (FARMER/BUYER) may only
+   * see documents belonging to a deal their org is a party to, or documents
+   * they uploaded themselves. Fails closed when the owning deal cannot be
+   * resolved for a party-scoped user.
+   */
+  private async assertDocumentAccess(doc: any, user: any): Promise<void> {
+    if (!doc) throw new NotFoundException('Document not found');
+    const role = String(user?.role || '');
+    if (CROSS_DEAL_DOCUMENT_ROLES.has(role)) return;
+    if (doc.uploadedByUserId && user?.id && doc.uploadedByUserId === user.id) return;
+
+    let deal: any = null;
+    try {
+      deal = doc.dealId ? await this.runtime.getDeal(doc.dealId) : null;
+    } catch {
+      deal = null;
+    }
+    const isParty =
+      !!deal && (deal.sellerOrgId === user?.orgId || deal.buyerOrgId === user?.orgId);
+    if (!isParty) {
+      throw new ForbiddenException(`Cross-organization access denied for document:${doc?.id ?? ''}`);
+    }
   }
 
-  getOne(id: string, _user: any) {
-    return this.documents.getById(id);
+  async list(user: any) {
+    const all = await this.documents.list();
+    const role = String(user?.role || '');
+    if (CROSS_DEAL_DOCUMENT_ROLES.has(role)) return all;
+    // Party-scoped: keep only documents the user's org is a party to (or uploaded).
+    const results = await Promise.all(
+      all.map(async (doc: any) => {
+        try {
+          await this.assertDocumentAccess(doc, user);
+          return doc;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return results.filter((doc) => doc !== null);
   }
 
-  async getSignedAccess(id: string, _user: any) {
+  async getOne(id: string, user: any) {
     const doc = await this.documents.getById(id);
+    await this.assertDocumentAccess(doc, user);
+    return doc;
+  }
+
+  async getSignedAccess(id: string, user: any) {
+    const doc = await this.documents.getById(id);
+    await this.assertDocumentAccess(doc, user);
     return {
       documentId: doc.id,
       accessUrl: doc.url,
@@ -30,8 +88,9 @@ export class DocumentsService {
     };
   }
 
-  async streamContent(id: string, _user: any) {
+  async streamContent(id: string, user: any) {
     const doc = await this.documents.getById(id);
+    await this.assertDocumentAccess(doc, user);
     return {
       file: {
         documentId: doc.id,
@@ -46,8 +105,9 @@ export class DocumentsService {
     return this.documents.upload(file, dto, user);
   }
 
-  async download(id: string, _user: any) {
+  async download(id: string, user: any) {
     const doc = await this.documents.getById(id);
+    await this.assertDocumentAccess(doc, user);
     return {
       documentId: doc.id,
       downloadUrl: doc.url,
@@ -65,8 +125,9 @@ export class DocumentsService {
     return this.documents.generateDealPackage(dealId, user);
   }
 
-  async getPreview(id: string, _user: any) {
+  async getPreview(id: string, user: any) {
     const doc = await this.documents.getById(id);
+    await this.assertDocumentAccess(doc, user);
     return {
       documentId: doc.id,
       name: doc.name,
