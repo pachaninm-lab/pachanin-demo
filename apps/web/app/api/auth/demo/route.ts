@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE, CSRF_COOKIE, cookieSecurity, sessionMarkerCookie, csrfCookieSecurity } from '../../../../lib/auth-cookies';
 import { generateCsrfToken } from '../../../../lib/server-request-security';
+import { demoLoginAllowed } from '../../../../lib/platform-v7/demo-login-policy';
 
 function detectDemoRole(email: string): string {
   const local = email.toLowerCase().split('@')[0] ?? '';
@@ -19,6 +20,12 @@ function detectDemoRole(email: string): string {
 // GET /api/auth/demo?email=farmer@demo.ru&to=/lots
 // Real browser GET request → sets cookies → redirects → iOS Safari compatible
 export async function GET(request: NextRequest) {
+  if (!demoLoginAllowed()) {
+    return NextResponse.json(
+      { ok: false, message: 'Демо-вход отключён в production.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
   const { searchParams } = request.nextUrl;
   const email = searchParams.get('email') || 'farmer@demo.ru';
   const to = searchParams.get('to') || '/';

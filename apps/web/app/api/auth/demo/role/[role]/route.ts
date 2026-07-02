@@ -9,6 +9,7 @@ import {
   csrfCookieSecurity,
 } from '../../../../../../lib/auth-cookies';
 import { generateCsrfToken } from '../../../../../../lib/server-request-security';
+import { demoLoginAllowed } from '../../../../../../lib/platform-v7/demo-login-policy';
 
 type DemoTarget = {
   role: string;
@@ -45,6 +46,12 @@ export async function GET(
   request: NextRequest,
   context: { params: { role: string } },
 ) {
+  if (!demoLoginAllowed()) {
+    return NextResponse.json(
+      { ok: false, message: 'Демо-вход отключён в production.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
   const slug = (context.params.role || 'farmer').toLowerCase();
   const target = ROLE_TARGETS[slug] ?? ROLE_TARGETS.farmer;
   const to = sanitizeDestination(request.nextUrl.searchParams.get('to'), target.firstPage);
