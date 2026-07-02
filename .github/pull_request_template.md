@@ -21,12 +21,10 @@
 - [ ] Mobile 375px без явного переполнения, если экран затронут
 - [ ] web/API/API-ovdc success
 
-## Dual hosting
+## Hosting (Netlify)
 - [ ] Изменения идут через main
-- [ ] Vercel остаётся primary host
-- [ ] Netlify остаётся reserve host
-- [ ] Vercel не отключался, не заменялся и не демонтировался
-- [ ] Если менялся hosting/config — проверены Vercel и Netlify
+- [ ] Netlify — единственный production-host (Vercel выведен из эксплуатации)
+- [ ] Если менялся hosting/config — проверен Netlify-деплой
 - [ ] Если менялся product/UI — deploy-поведение не менялось скрыто
 
 ## Что нельзя было трогать

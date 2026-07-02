@@ -6,7 +6,7 @@ on:
       web_url:
         description: 'Web base URL to check'
         required: true
-        default: 'https://pachanin-web.vercel.app'
+        default: 'https://vermillion-kitsune-0e7b97.netlify.app'
   schedule:
     - cron: '45 6,10,14,18 * * *'
 
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      WEB_URL: ${{ inputs.web_url || 'https://pachanin-web.vercel.app' }}
+      WEB_URL: ${{ inputs.web_url || 'https://vermillion-kitsune-0e7b97.netlify.app' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

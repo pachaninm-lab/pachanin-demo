@@ -4,17 +4,17 @@
 
 Production URL:
 
-- Web: `https://pachanin-web.vercel.app`
+- Web: `https://vermillion-kitsune-0e7b97.netlify.app`
 
 After every meaningful production deploy run these GitHub Actions manually if the automatic schedule has not run yet:
 
 1. `Production Smoke`
-   - `web_url`: `https://pachanin-web.vercel.app`
+   - `web_url`: `https://vermillion-kitsune-0e7b97.netlify.app`
    - `api_url`: optional. Leave empty if no stable public API URL is configured.
    - Checks critical `platform-v7` routes through `pnpm smoke:web`.
 
 2. `Mobile Smoke`
-   - `web_url`: `https://pachanin-web.vercel.app`
+   - `web_url`: `https://vermillion-kitsune-0e7b97.netlify.app`
    - Checks critical `platform-v7` routes at 375px and verifies no horizontal overflow.
    - Also runs visual smoke checks for visible brand/header and broken visible images.
 
@@ -42,4 +42,4 @@ Response rule:
 - Do not merge new runtime work on top of a red production smoke.
 - Fix the failing route first.
 - Keep each fix as a small PR.
-- Wait for Vercel web/API success before the next deploy.
+- Wait for Netlify web success before the next deploy.

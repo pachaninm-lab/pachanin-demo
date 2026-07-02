@@ -1,4 +1,4 @@
-name: platform-v7 dual hosting smoke
+name: platform-v7 hosting smoke
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Reserve host (Netlify · vermillion-kitsune) — required route QA
+      - name: Primary host (Netlify · vermillion-kitsune) — required route QA
         run: |
           set -e
-          # Active host while the Vercel account is blocked (Master-ТЗ 3+ §40 baseline).
-          # Hard gate: main must serve the key product-entry and cockpit routes.
+          # Netlify is the sole production host. Hard gate: main must serve the
+          # key product-entry and cockpit routes.
           base="https://vermillion-kitsune-0e7b97.netlify.app"
           for route in \
             /platform-v7/ \
@@ -28,21 +28,10 @@ jobs:
             curl -L --fail --retry 10 --retry-delay 15 "${base}${route}" -o /dev/null
           done
 
-      - name: Reserve host (Netlify · gleaming-mandazi) — non-fatal secondary
+      - name: Secondary host (Netlify · gleaming-mandazi) — non-fatal
         run: |
           if curl -L --fail --retry 3 --retry-delay 10 https://gleaming-mandazi-bb9856.netlify.app/platform-v7/ -o /dev/null; then
             echo "Secondary Netlify: OK"
           else
             echo "::warning::Secondary Netlify (gleaming-mandazi) is not serving."
-          fi
-
-      - name: Primary host (Vercel) — non-fatal while account is blocked
-        run: |
-          # The Vercel account is temporarily blocked and returns HTTP 402.
-          # We still ping the primary for visibility, but do not fail the smoke
-          # job on it while it is blocked. Restore as a hard check once unblocked.
-          if curl -L --fail --retry 3 --retry-delay 10 https://pachanin-web.vercel.app/platform-v7/ -o /dev/null; then
-            echo "Vercel primary: OK"
-          else
-            echo "::warning::Vercel primary is not serving (account blocked / HTTP 402). Reserve (Netlify) is the active host."
           fi

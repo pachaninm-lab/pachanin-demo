@@ -6,7 +6,7 @@ on:
       public_url:
         description: Public base URL for platform-v7
         required: false
-        default: https://pachanin-web.vercel.app
+        default: https://vermillion-kitsune-0e7b97.netlify.app
 
 jobs:
   public-smoke:

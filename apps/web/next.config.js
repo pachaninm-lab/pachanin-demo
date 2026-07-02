@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pachanin-web.vercel.app';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://vermillion-kitsune-0e7b97.netlify.app';
 
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
