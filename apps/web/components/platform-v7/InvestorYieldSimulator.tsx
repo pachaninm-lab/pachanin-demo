@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 interface SimParams {
   gmvMonthlyMlnRub: number;
@@ -32,14 +32,57 @@ function fmt(v: number, decimals = 2): string {
   return `${(v * 1000).toFixed(0) } тыс. ₽`;
 }
 
+const OPEX_MONTHLY_MLN = 4.2; // платформа: команда + инфра + лицензии (оценка пилот-фазы)
+
 function calcMetrics(p: SimParams) {
   const annualGmv = p.gmvMonthlyMlnRub * 12;
   const annualRevenue = annualGmv * (p.commissionPct / 100);
   const dealsPerMonth = p.gmvMonthlyMlnRub / p.dealAvgMlnRub;
-  const roiPct = (annualRevenue / (p.gmvMonthlyMlnRub * 3)) * 100; // rough payback ratio
   const growthAdj = 1 - p.churnPct / 100;
   const retainedRevenue = annualRevenue * growthAdj;
-  return { annualGmv, annualRevenue, dealsPerMonth, roiPct, retainedRevenue };
+  const monthlyRevenue = p.gmvMonthlyMlnRub * (p.commissionPct / 100);
+  const monthlyProfit = monthlyRevenue - OPEX_MONTHLY_MLN;
+  const runwayMonths = monthlyProfit < 0 ? Math.round(18 / (-monthlyProfit / OPEX_MONTHLY_MLN + 0.01)) : Infinity;
+  const breakEvenGmv = (OPEX_MONTHLY_MLN / (p.commissionPct / 100));
+  const revenuePerOrg = p.orgCount > 0 ? (annualRevenue / p.orgCount) : 0;
+  return { annualGmv, annualRevenue, dealsPerMonth, retainedRevenue, monthlyRevenue, monthlyProfit, runwayMonths, breakEvenGmv, revenuePerOrg };
+}
+
+function exportPilotReport(p: SimParams, m: ReturnType<typeof calcMetrics>) {
+  const date = new Date().toLocaleDateString('ru-RU');
+  const lines = [
+    `Пилотный финансовый отчёт «Прозрачная Цена»`,
+    `Дата: ${date}`,
+    ``,
+    `=== Параметры модели ===`,
+    `GMV в месяц: ${p.gmvMonthlyMlnRub} млн ₽`,
+    `Комиссия платформы: ${p.commissionPct}%`,
+    `Ср. чек сделки: ${p.dealAvgMlnRub} млн ₽`,
+    `Кол-во организаций: ${p.orgCount}`,
+    `Отток/мес: ${p.churnPct}%`,
+    ``,
+    `=== Результаты ===`,
+    `GMV / год: ${m.annualGmv.toFixed(1)} млн ₽`,
+    `Выручка / год: ${m.annualRevenue.toFixed(2)} млн ₽`,
+    `Выручка / мес: ${m.monthlyRevenue.toFixed(2)} млн ₽`,
+    `OPEX / мес (оценка): ${OPEX_MONTHLY_MLN} млн ₽`,
+    `Прибыль / мес: ${m.monthlyProfit.toFixed(2)} млн ₽`,
+    `Сделок / мес: ${m.dealsPerMonth.toFixed(0)}`,
+    `Выручка на орг / год: ${m.revenuePerOrg.toFixed(2)} млн ₽`,
+    `Break-even GMV / мес: ${m.breakEvenGmv.toFixed(1)} млн ₽`,
+    m.runwayMonths === Infinity ? `Статус: прибыльно` : `Runway (при текущем OPEX): ~${m.runwayMonths} мес`,
+    ``,
+    `Выручка с поправкой на отток: ${m.retainedRevenue.toFixed(2)} млн ₽/год`,
+    ``,
+    `Примечание: расчёт модельный. Фактические показатели зависят от live-интеграций и пилотных сделок.`,
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `pilot-report-${date.replace(/\./g, '-')}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 interface RangeInputProps {
@@ -79,6 +122,7 @@ function RangeInput({ label, value, min, max, step, format, onChange }: RangeInp
 export function InvestorYieldSimulator() {
   const [params, setParams] = useState<SimParams>(DEFAULT_PARAMS);
   const [activeScenario, setActiveScenario] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   function applyScenario(idx: number) {
     const s = SCENARIOS[idx];
@@ -93,12 +137,23 @@ export function InvestorYieldSimulator() {
 
   const m = calcMetrics(params);
 
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    await new Promise((r) => setTimeout(r, 300));
+    exportPilotReport(params, calcMetrics(params));
+    setExporting(false);
+  }, [params]);
+
+  const profitable = m.monthlyProfit >= 0;
   const kpis = [
-    { label: 'GMV / год', value: fmt(m.annualGmv), note: 'целевой оборот на платформе', tone: 'info' as const },
-    { label: 'Выручка / год', value: fmt(m.annualRevenue), note: `комиссия ${params.commissionPct}%`, tone: 'success' as const },
-    { label: 'Сделок / месяц', value: m.dealsPerMonth.toFixed(0), note: `ср. чек ${params.dealAvgMlnRub} млн ₽`, tone: 'neutral' as const },
-    { label: 'Удержание орг.', value: `${(100 - params.churnPct).toFixed(0)}%`, note: `отток ${params.churnPct}% в мес`, tone: params.churnPct > 10 ? 'danger' as const : 'success' as const },
-    { label: 'Выручка с удержанием', value: fmt(m.retainedRevenue), note: 'с поправкой на отток', tone: 'success' as const },
+    { label: 'GMV / год',            value: fmt(m.annualGmv),         note: 'целевой оборот на платформе', tone: 'info' as const },
+    { label: 'Выручка / год',        value: fmt(m.annualRevenue),      note: `комиссия ${params.commissionPct}%`, tone: 'success' as const },
+    { label: 'Выручка / мес',        value: fmt(m.monthlyRevenue),     note: 'до вычета OPEX', tone: 'info' as const },
+    { label: 'Прибыль / мес',        value: fmt(Math.abs(m.monthlyProfit)), note: profitable ? 'прибыльно' : `убыток (OPEX ${OPEX_MONTHLY_MLN} млн ₽/мес)`, tone: profitable ? 'success' as const : 'danger' as const },
+    { label: 'Сделок / месяц',       value: m.dealsPerMonth.toFixed(0), note: `ср. чек ${params.dealAvgMlnRub} млн ₽`, tone: 'neutral' as const },
+    { label: 'Break-even GMV',       value: `${m.breakEvenGmv.toFixed(0)} млн`, note: 'min GMV/мес для безубытка', tone: 'neutral' as const },
+    { label: 'Выручка / орг / год',  value: fmt(m.revenuePerOrg),     note: `${params.orgCount} организаций`, tone: 'info' as const },
+    { label: 'Выручка с удержанием', value: fmt(m.retainedRevenue),   note: `отток ${params.churnPct}%/мес`, tone: params.churnPct > 10 ? 'danger' as const : 'success' as const },
   ];
 
   const TONE_COLOR: Record<string, string> = {
@@ -131,6 +186,13 @@ export function InvestorYieldSimulator() {
           style={{ padding: '0.375rem 0.875rem', borderRadius: '8px', fontSize: '10px', fontWeight: 700, cursor: 'pointer', background: 'transparent', color: 'var(--pc-text-muted)', border: '1px solid var(--p7-color-border)' }}
         >
           Сбросить
+        </button>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          style={{ padding: '0.375rem 0.875rem', borderRadius: '8px', fontSize: '10px', fontWeight: 700, cursor: 'pointer', background: 'var(--p7-color-brand, #0A7A5F)', color: '#fff', border: 'none', opacity: exporting ? 0.7 : 1 }}
+        >
+          {exporting ? 'Экспорт…' : '↓ Пилотный отчёт'}
         </button>
       </div>
 
@@ -180,8 +242,25 @@ export function InvestorYieldSimulator() {
         </div>
       </div>
 
+      {/* Break-even progress */}
+      <div style={{ padding: '0.75rem', borderRadius: '10px', background: 'var(--p7-color-surface-muted)', border: '1px solid var(--p7-color-border)', display: 'grid', gap: '0.375rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, color: 'var(--pc-text-muted)' }}>
+          <span>Загрузка до break-even</span>
+          <span style={{ color: profitable ? '#059669' : '#D97706' }}>
+            {profitable ? 'Прибыльно ✓' : `${Math.min(100, Math.round((m.monthlyRevenue / OPEX_MONTHLY_MLN) * 100))}% от порога`}
+          </span>
+        </div>
+        <div style={{ height: 6, borderRadius: 3, background: '#E4E6EA', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${Math.min(100, (m.monthlyRevenue / OPEX_MONTHLY_MLN) * 100)}%`, background: profitable ? '#059669' : '#D97706', transition: 'width .4s ease', borderRadius: 3 }} />
+        </div>
+        <div style={{ fontSize: '9px', color: 'var(--pc-text-muted)' }}>
+          Текущая выручка: {fmt(m.monthlyRevenue)}/мес · Break-even: {fmt(OPEX_MONTHLY_MLN)}/мес
+          {!profitable && m.runwayMonths !== Infinity && ` · Runway при 18 млн ₽ инвестиций: ~${m.runwayMonths} мес`}
+        </div>
+      </div>
+
       <div style={{ fontSize: '10px', color: 'var(--pc-text-muted)', lineHeight: 1.5, padding: '0.5rem 0.75rem', borderRadius: '8px', background: 'var(--p7-color-surface-muted)', border: '1px solid var(--p7-color-border)' }}>
-        Расчёт основан на модельных данных сценария. Реальные показатели зависят от live-интеграций, договорённостей с контрагентами и фактического трафика платформы.
+        Расчёт основан на модельных данных сценария. OPEX-оценка: команда + инфра + лицензии. Реальные показатели зависят от live-интеграций и фактических сделок. Кнопка «Пилотный отчёт» выгружает .txt с параметрами.
       </div>
     </div>
   );

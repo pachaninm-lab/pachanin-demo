@@ -1,48 +1,11 @@
 import Link from 'next/link';
 import { LogIn, LogOut } from 'lucide-react';
-import { PremiumCtaButton, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 import { BrandMark } from '@/components/v7r/BrandMark';
+import { RegisterForm } from '@/components/platform-v7/RegisterForm';
 
-type Field = { label: string; placeholder: string; type?: string };
 type RegisterSearchParams = Record<string, string | string[] | undefined>;
 
-const ROLE_OPTIONS = [
-  { value: 'seller', label: 'Продавец' },
-  { value: 'buyer', label: 'Покупатель' },
-  { value: 'logistics', label: 'Логистика' },
-  { value: 'elevator', label: 'Элеватор' },
-  { value: 'lab', label: 'Лаборатория' },
-  { value: 'surveyor', label: 'Сюрвейер' },
-  { value: 'bank', label: 'Банк' },
-  { value: 'arbitrator', label: 'Арбитр' },
-  { value: 'operator', label: 'Оператор' },
-] as const;
-
-const PARTICIPANT_FIELDS: readonly Field[] = [
-  { label: 'Тип участника', placeholder: 'Юр. лицо / ИП / КФХ' },
-  { label: 'Название организации', placeholder: 'ООО «АгроГрейн»' },
-  { label: 'Регион', placeholder: 'Тамбовская область' },
-];
-
-const REQUISITE_FIELDS: readonly Field[] = [
-  { label: 'ИНН', placeholder: '10 или 12 цифр' },
-  { label: 'КПП', placeholder: '9 цифр (для юр. лица)' },
-  { label: 'ОГРН / ОГРНИП', placeholder: '13 или 15 цифр' },
-  { label: 'ФИО ответственного', placeholder: 'Иванов Иван Иванович' },
-  { label: 'Должность', placeholder: 'Директор / Уполномоченный' },
-  { label: 'Телефон', placeholder: '+7 ___ ___-__-__', type: 'tel' },
-  { label: 'Email', placeholder: 'имя@компания.рф', type: 'email' },
-  { label: 'Пароль', placeholder: '••••••••', type: 'password' },
-];
-
-const STATUSES: readonly { label: string; tone: PremiumTone }[] = [
-  { label: 'Заявка создана', tone: 'info' },
-  { label: 'Ожидает проверки', tone: 'warning' },
-  { label: 'Требуется уточнение', tone: 'warning' },
-  { label: 'Допущен', tone: 'success' },
-  { label: 'Отклонён', tone: 'danger' },
-  { label: 'Заблокирован', tone: 'danger' },
-];
+const ROLE_VALUES = ['seller','buyer','logistics','elevator','lab','surveyor','bank','arbitrator','operator'] as const;
 
 const pageShell: React.CSSProperties = {
   display: 'grid',
@@ -53,38 +16,9 @@ const pageShell: React.CSSProperties = {
   padding: 'max(10px, env(safe-area-inset-top)) 0 28px',
 };
 
-const fieldStyle: React.CSSProperties = {
-  minHeight: 46,
-  borderRadius: 15,
-  border: '1px solid rgba(15, 23, 42, 0.10)',
-  background: 'rgba(255,255,255,0.94)',
-  padding: '0 14px',
-  fontSize: 15,
-  color: '#111827',
-  width: '100%',
-  boxShadow: 'inset 0 1px 0 rgba(15,23,42,0.03)',
-};
-const labelStyle: React.CSSProperties = { fontSize: 12.5, fontWeight: 800, color: '#66758A' };
-const card: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.92)',
-  border: '1px solid rgba(15, 23, 42, 0.08)',
-  borderRadius: 26,
-  padding: 18,
-  display: 'grid',
-  gap: 13,
-  boxShadow: '0 16px 38px rgba(15,23,42,0.055)',
-};
-const micro: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#66758A',
-};
-
 function getSelectedRole(searchParams?: RegisterSearchParams) {
   const rawRole = Array.isArray(searchParams?.role) ? searchParams?.role[0] : searchParams?.role;
-  return ROLE_OPTIONS.some((role) => role.value === rawRole) ? rawRole : 'seller';
+  return ROLE_VALUES.includes(rawRole as typeof ROLE_VALUES[number]) ? (rawRole as string) : 'seller';
 }
 
 function RegisterHeader() {
@@ -116,38 +50,6 @@ function RegisterHero() {
   );
 }
 
-function FieldGroup({ title, fields }: { title: string; fields: readonly Field[] }) {
-  return (
-    <section style={card} aria-label={title}>
-      <span style={micro}>{title}</span>
-      <div className='p7-register-field-grid'>
-        {fields.map((f) => (
-          <label key={f.label} style={{ display: 'grid', gap: 6 }}>
-            <span style={labelStyle}>{f.label}</span>
-            <input style={fieldStyle} type={f.type ?? 'text'} placeholder={f.placeholder} />
-          </label>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function RoleField({ selectedRole }: { selectedRole: string }) {
-  return (
-    <section style={card} aria-label='Роль участника'>
-      <span style={micro}>Роль участника</span>
-      <label style={{ display: 'grid', gap: 6 }}>
-        <span style={labelStyle}>Заявляемая роль</span>
-        <select style={fieldStyle} defaultValue={selectedRole}>
-          {ROLE_OPTIONS.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
-        </select>
-      </label>
-      <p style={{ margin: 0, fontSize: 13, color: '#66758A', lineHeight: 1.45 }}>
-        Роль указывается в заявке. Выбор роли здесь не обходит role-lock — доступ в рабочий кабинет открывается только после проверки и допуска участника.
-      </p>
-    </section>
-  );
-}
 
 export default async function RegisterPage({ searchParams }: { searchParams?: Promise<RegisterSearchParams> | RegisterSearchParams }) {
   const params = await Promise.resolve(searchParams ?? {});
@@ -158,37 +60,7 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
       <style>{registerCss}</style>
       <RegisterHeader />
       <RegisterHero />
-
-      <RoleField selectedRole={selectedRole} />
-      <FieldGroup title='Участник' fields={PARTICIPANT_FIELDS} />
-      <FieldGroup title='Реквизиты и ответственный' fields={REQUISITE_FIELDS} />
-
-      <section style={card} aria-label='Согласия'>
-        <span style={micro}>Согласия</span>
-        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: '#111827' }}>
-          <input type='checkbox' /> Согласен с правилами платформы
-        </label>
-        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: '#111827' }}>
-          <input type='checkbox' /> Согласен на обработку персональных данных
-        </label>
-      </section>
-
-      <section style={card} aria-label='Статусы проверки заявки'>
-        <span style={micro}>Статусы проверки заявки</span>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {STATUSES.map((s) => (
-            <StatusPill key={s.label} tone={s.tone}>{s.label}</StatusPill>
-          ))}
-        </div>
-        <p style={{ margin: 0, fontSize: 12.5, color: '#66758A', lineHeight: 1.5 }}>
-          Текущий статус заявки и причина уточнения видны участнику после отправки. Проверка участника — часть pre-integration контура; внешние подтверждения ожидают подключения.
-        </p>
-      </section>
-
-      <div className='p7-register-cta-grid'>
-        <PremiumCtaButton href='/platform-v7/onboarding' glyph='shield-check'>Отправить заявку на проверку</PremiumCtaButton>
-        <PremiumCtaButton href='/platform-v7/login' variant='ghost'>Уже есть доступ — войти</PremiumCtaButton>
-      </div>
+      <RegisterForm initialRole={selectedRole} />
     </main>
   );
 }

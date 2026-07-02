@@ -48,6 +48,9 @@ function readRoleFromPublicEntry(): PlatformRole | null {
   return isPlatformRole(storedRole) ? storedRole : null;
 }
 
+const MAX_ATTEMPTS = 5;
+const COOLDOWN_SEC = 30;
+
 export default function LoginPage() {
   const router = useRouter();
   const setRole = usePlatformV7RStore((state) => state.setRole);
@@ -59,6 +62,16 @@ export default function LoginPage() {
   const [directRole, setDirectRole] = React.useState<PlatformRole | null>(null);
   const [roleFromEntry, setRoleFromEntry] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [attempts, setAttempts] = React.useState(0);
+  const [cooldownLeft, setCooldownLeft] = React.useState(0);
+
+  React.useEffect(() => {
+    if (cooldownLeft <= 0) return;
+    const t = setInterval(() => setCooldownLeft((p) => Math.max(0, p - 1)), 1000);
+    return () => clearInterval(t);
+  }, [cooldownLeft]);
 
   React.useEffect(() => {
     const publicEntryRole = readRoleFromPublicEntry();
@@ -71,6 +84,7 @@ export default function LoginPage() {
   }, [setRole]);
 
   async function openWorkspace(nextRole: PlatformRole) {
+    setLoading(true);
     globalThis.sessionStorage?.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, nextRole);
     void roleFromEntry;
     globalThis.sessionStorage?.removeItem(PLATFORM_V7_PENDING_ROLE_KEY);
@@ -89,16 +103,28 @@ export default function LoginPage() {
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (cooldownLeft > 0) {
+      setError(`Слишком много попыток. Подождите ${cooldownLeft} сек.`);
+      return;
+    }
     const nextRole = entryRole ?? directRole;
     if (!nextRole) {
       setError('Выберите рабочее место.');
       return;
     }
     if (!login.trim() || !accessCode.trim() || !company.trim()) {
-      setError('Заполни логин, пароль и организацию. Кабинет открывается только после формы входа.');
+      const next = attempts + 1;
+      setAttempts(next);
+      if (next >= MAX_ATTEMPTS) {
+        setCooldownLeft(COOLDOWN_SEC);
+        setError(`Заблокировано на ${COOLDOWN_SEC} сек после ${MAX_ATTEMPTS} неудачных попыток.`);
+      } else {
+        setError(`Заполни логин, пароль и организацию. Попытка ${next}/${MAX_ATTEMPTS}.`);
+      }
       return;
     }
     setError('');
+    setAttempts(0);
     void openWorkspace(nextRole);
   }
 
@@ -141,12 +167,27 @@ export default function LoginPage() {
             ) : selected ? (
               <section className='login-workspace-heading' aria-label='Рабочее место'><span>Выберите один рабочий кабинет</span><strong>{selected.title}</strong></section>
             ) : null}
-            <label><span>Логин</span><input value={login} onChange={(event) => setLogin(event.target.value)} type='email' autoComplete='username' placeholder='имя@компания.рф' /></label>
-            <label><span>Пароль</span><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type='password' autoComplete='current-password' placeholder='Введите пароль' /></label>
-            <label><span>Организация</span><input value={company} onChange={(event) => setCompany(event.target.value)} type='text' autoComplete='organization' placeholder='Компания / ИНН' /></label>
+            <label><span>Логин</span><input value={login} onChange={(event) => setLogin(event.target.value)} type='email' autoComplete='username' placeholder='имя@компания.рф' disabled={loading} /></label>
+            <label>
+              <span>Пароль</span>
+              <div style={{ position: 'relative' }}>
+                <input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete='current-password' placeholder='Введите пароль' style={{ paddingRight: 44 }} disabled={loading} />
+                <button type='button' onClick={() => setShowPassword((p) => !p)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#46534e', fontSize: 12, fontWeight: 700, padding: '2px 4px' }} aria-label={showPassword ? 'Скрыть' : 'Показать'}>
+                  {showPassword ? '○' : '●'}
+                </button>
+              </div>
+            </label>
+            <label><span>Организация</span><input value={company} onChange={(event) => setCompany(event.target.value)} type='text' autoComplete='organization' placeholder='Компания / ИНН' disabled={loading} /></label>
+            {attempts >= 3 && attempts < MAX_ATTEMPTS && !cooldownLeft && (
+              <p style={{ margin: 0, padding: '8px 12px', borderRadius: 12, background: '#FFF7ED', border: '1px solid #FED7AA', fontSize: 12, color: '#92400E', fontWeight: 700 }}>
+                Осталось попыток: {MAX_ATTEMPTS - attempts}. После {MAX_ATTEMPTS} — блокировка {COOLDOWN_SEC} сек.
+              </p>
+            )}
             {error ? <p className='login-error' role='alert'>{error}</p> : null}
             <div className='login-actions'>
-              <button type='submit'>Войти в кабинет</button>
+              <button type='submit' disabled={loading || cooldownLeft > 0} style={{ opacity: loading || cooldownLeft > 0 ? 0.7 : 1 }}>
+                {loading ? 'Открываем кабинет…' : cooldownLeft > 0 ? `Подождите ${cooldownLeft} сек` : 'Войти в кабинет'}
+              </button>
               <Link href={registerHref} className='login-register'>Зарегистрироваться</Link>
             </div>
           </form>
