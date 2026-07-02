@@ -13,6 +13,7 @@ import { SupportOpsPanel } from '@/components/platform-v7/SupportOpsPanel';
 import { SagaOrchestratorPanel } from '@/components/platform-v7/SagaOrchestratorPanel';
 import { ProductionReadinessPanel } from '@/components/platform-v7/ProductionReadinessPanel';
 import { AirflowDagPanel } from '@/components/platform-v7/AirflowDagPanel';
+import { B2BPartnerApiPanel } from '@/components/platform-v7/B2BPartnerApiPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
@@ -137,6 +138,9 @@ export default async function AdminPage() {
         </CollapsibleSection>
         <CollapsibleSection title='Airflow DAG · Регуляторные и аналитические пайплайны' summary='Росстат · ФГИС · ЭДО · GMV · ML ретрейнинг · bank outbox · SLA мониторинг' defaultOpen={false}>
           <AirflowDagPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='B2B Partner API · Ключи и Webhooks' summary='API ключи Vault · scope-based · ротация 90 дн · HMAC webhook · 3 ключа · 2 webhook' defaultOpen={false}>
+          <B2BPartnerApiPanel />
         </CollapsibleSection>
       </div>
 

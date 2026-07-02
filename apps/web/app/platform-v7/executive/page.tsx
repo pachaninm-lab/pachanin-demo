@@ -10,6 +10,8 @@ import { CockpitHero, PremiumStatCard } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getPlatformV7BiCockpitState } from '@/lib/platform-v7/runtime/bi-cockpit-state';
 import { UnitEconomicsPassport } from '@/components/platform-v7/UnitEconomicsPassport';
+import { ClickHouseAnalyticsPanel } from '@/components/platform-v7/ClickHouseAnalyticsPanel';
+import { MlPricePredictorPanel } from '@/components/platform-v7/MlPricePredictorPanel';
 
 function formatMoney(rub: number): string {
   if (rub >= 1_000_000_000) return `${(rub / 1_000_000_000).toFixed(2)} млрд ₽`;
@@ -137,6 +139,14 @@ export default async function ExecutivePage() {
 
       <CollapsibleSection title='Unit Economics Passport' summary='GMV · Take Rate · LTV · CAC · 3 сценария' defaultOpen={false}>
         <UnitEconomicsPassport />
+      </CollapsibleSection>
+
+      <CollapsibleSection title='ClickHouse Analytics · GMV и воронка' summary='deals_fact MergeTree · gmv_by_day MV · по культурам · по регионам · конверсия' defaultOpen={false}>
+        <ClickHouseAnalyticsPanel />
+      </CollapsibleSection>
+
+      <CollapsibleSection title='ML Price Predictor · Прогноз цен' summary='LightGBM · доверительный интервал · 5 культур · FastAPI serving · Airflow retrain' defaultOpen={false}>
+        <MlPricePredictorPanel />
       </CollapsibleSection>
 
       <CollapsibleSection title='Динамика цен на зерно' summary='12 мес · пшеница · ячмень · кукуруза' defaultOpen={false}>
