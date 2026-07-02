@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const BASE = process.env.PLATFORM_V7_PUBLIC_URL ?? 'https://pachanin-web.vercel.app';
+const BASE = process.env.PLATFORM_V7_PUBLIC_URL ?? 'https://vermillion-kitsune-0e7b97.netlify.app';
 
 const routes = [
   { path: '/platform-v7', required: /Прозрачная Цена|исполн/i },

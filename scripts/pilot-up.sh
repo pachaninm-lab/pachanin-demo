@@ -9,13 +9,10 @@ else
   echo "↷ skip audit-fgis-deploy-readiness (file not found)"
 fi
 
-echo "→ vercel deploy"
+echo "→ deploy"
 
-if command -v vercel >/dev/null 2>&1; then
-  vercel --prod
-else
-  echo "✗ vercel CLI not installed"
-  exit 1
-fi
+# Production is deployed by the Netlify Git integration on push to main
+# (see netlify.toml). There is no manual CLI deploy step.
+echo "↷ Push to 'main' to trigger the Netlify production deploy."
 
-echo "✓ pilot deploy complete"
+echo "✓ preflight complete"

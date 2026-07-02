@@ -1,22 +1,14 @@
-# Canonical deploy branch
+# Canonical deploy
 
-Branch: `canonical-v1`
+**Host: Netlify (sole production host).** Vercel has been decommissioned.
 
-Use this branch as the single source for a fresh Vercel project.
+- Source of truth: `main`.
+- Deploy: Netlify Git integration builds `apps/web` on push to `main`
+  (`netlify.toml`: `pnpm --filter @pc/web build`, publish `apps/web/.next`,
+  `@netlify/plugin-nextjs`).
+- Primary URL: `https://vermillion-kitsune-0e7b97.netlify.app`
+- Set production env vars (secrets, `NEXT_PUBLIC_SITE_URL`, cabinet vars) in
+  Netlify → Site settings → Environment variables.
 
-Required routes:
-- `/platform-v4-redesign`
-- `/platform-v4-redesign/roles`
-- `/platform-v4-redesign/deal`
-- `/platform-v4-redesign/seller`
-- `/platform-v4-redesign/buyer`
-- `/platform-v4-redesign/driver`
-- `/platform-v4-redesign/receiving`
-- `/platform-v4-redesign/bank`
-- `/platform-v4-redesign/documents`
-- `/platform-v4-redesign/control`
-
-Purpose:
-- bypass stale old Vercel deployments
-- attach one clean Vercel project to one clean branch
-- stop using old preview and legacy production deploys
+Post-deploy route check: `/platform-v7/`, `/platform-v7/deals`,
+`/platform-v7/bank`, `/platform-v7/control-tower`, `/platform-v7/login`.
