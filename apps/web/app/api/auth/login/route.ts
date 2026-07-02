@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE, CSRF_COOKIE, cookieSecurity, sessionMarkerCookie, csrfCookieSecurity } from '../../../../lib/auth-cookies';
 import { generateCsrfToken } from '../../../../lib/server-request-security';
+import { demoLoginAllowed } from '../../../../lib/platform-v7/demo-login-policy';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -60,6 +61,16 @@ export async function POST(request: Request) {
     } catch {
       // Fall through to demo mode
     }
+  }
+
+  // Passwordless demo fallback — secure-by-default: never in production unless
+  // an operator explicitly opts in. Prevents a passwordless session in prod when
+  // the real backend is unavailable/misconfigured or a demo email is used.
+  if (!demoLoginAllowed()) {
+    return NextResponse.json(
+      { ok: false, message: 'Сервис аутентификации недоступен. Демо-вход отключён в production.' },
+      { status: 503 },
+    );
   }
 
   // Demo mode: email required, password not required
