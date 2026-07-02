@@ -4,6 +4,7 @@ import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { serverApiUrl, serverAuthHeaders } from '@/lib/server-api';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { ApiKeysPanel } from '@/components/platform-v7/ApiKeysPanel';
+import { FgisZernoPanel } from '@/components/platform-v7/FgisZernoPanel';
 
 async function getIntegrationHealth() {
   try {
@@ -115,6 +116,12 @@ export default async function PlatformV7ConnectorsPage() {
         <div style={{ display: 'grid', gap: 8 }}>
           {integrations.map((item) => <IntegrationRow key={item.name} item={item} />)}
         </div>
+      </section>
+
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18 }}>
+        <CollapsibleSection title='ФГИС «Зерно» · Адаптер и партии' summary='СДИЗ · registerLot · checkCertificate · confirmShipment · Mock→Live · retry backoff' defaultOpen={false}>
+          <FgisZernoPanel />
+        </CollapsibleSection>
       </section>
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18 }}>
