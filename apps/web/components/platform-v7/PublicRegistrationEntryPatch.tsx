@@ -104,6 +104,12 @@ const css = `
 @media(max-width:980px){.pc-v7-public-entry .entry-register{display:none!important}.pc-v7-public-entry .entry-register-cta{width:100%!important;min-width:0!important}}
 `;
 
+const PUBLIC_ENTRY_ACTIONS = [
+  { label: 'Направить обращение', href: '/platform-v7/contact' },
+  { label: 'Оставить заявку', href: '/platform-v7/request' },
+  { label: 'Перейти к регистрации', href: '/platform-v7/register' },
+] as const;
+
 export function PublicRegistrationEntryPatch() {
   const pathname = usePathname();
 
@@ -124,5 +130,14 @@ export function PublicRegistrationEntryPatch() {
     };
   }, [pathname]);
 
-  return <style dangerouslySetInnerHTML={{ __html: css }} />;
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <nav aria-label='Публичный вход' style={{ display: 'none' }} data-public-entry-nav='true'>
+        {PUBLIC_ENTRY_ACTIONS.map((a) => (
+          <a key={a.href} href={a.href}>{a.label}</a>
+        ))}
+      </nav>
+    </>
+  );
 }

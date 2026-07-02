@@ -63,9 +63,17 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
+  '/platform-v7/contact',
+  '/platform-v7/request',
 ]);
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
+
+const PLATFORM_V7_LEADS_API = '/api/platform-v7/leads';
+
+function normalizePathname(p: string): string {
+  return p.split('?')[0].replace(/\/$/, '') || '/';
+}
 
 function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';

@@ -138,7 +138,7 @@ export default async function PlatformV7BuyerPage() {
           <div style={micro}>операционный срез покупателя</div>
           <h2 style={{ ...h2, margin: 0 }}>Что делать сейчас</h2>
           <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>
-            Экран: платформа показывает причину, деньги и маршрут. Банковское подтверждение обязательно для передачи средств.
+            Экран: платформа показывает причину, деньги и маршрут, но не выпускает деньги без банковского подтверждения.
           </p>
         </div>
         <div style={factGrid}>

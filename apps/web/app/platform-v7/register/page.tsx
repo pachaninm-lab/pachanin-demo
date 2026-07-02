@@ -5,7 +5,7 @@ import { RegisterForm } from '@/components/platform-v7/RegisterForm';
 
 type RegisterSearchParams = Record<string, string | string[] | undefined>;
 
-const ROLE_VALUES = ['seller','buyer','logistics','elevator','lab','surveyor','bank','arbitrator','operator'] as const;
+const ROLE_OPTIONS = ['seller','buyer','logistics','elevator','lab','surveyor','bank','arbitrator','operator'] as const;
 
 const pageShell: React.CSSProperties = {
   display: 'grid',
@@ -18,7 +18,7 @@ const pageShell: React.CSSProperties = {
 
 function getSelectedRole(searchParams?: RegisterSearchParams) {
   const rawRole = Array.isArray(searchParams?.role) ? searchParams?.role[0] : searchParams?.role;
-  return ROLE_VALUES.includes(rawRole as typeof ROLE_VALUES[number]) ? (rawRole as string) : 'seller';
+  return ROLE_OPTIONS.includes(rawRole as typeof ROLE_OPTIONS[number]) ? (rawRole as string) : 'seller';
 }
 
 function RegisterHeader() {
@@ -30,7 +30,7 @@ function RegisterHeader() {
       </Link>
       <nav className='p7-register-actions' aria-label='Действия регистрации'>
         <Link href='/platform-v7/login' className='p7-register-action'><LogIn size={16} />Войти</Link>
-        <Link href='/platform-v7' className='p7-register-action p7-register-action-exit'><LogOut size={16} />Выход</Link>
+        <Link href='/platform-v7' className='p7-register-action p7-register-action-exit'><LogOut size={16} />На главную</Link>
       </nav>
     </header>
   );
@@ -58,6 +58,8 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
   return (
     <main className='p7-register-page' style={pageShell}>
       <style>{registerCss}</style>
+      {/* Выбор роли здесь не обходит role-lock */}
+      <input type='hidden' name='role_hint' defaultValue={selectedRole} />
       <RegisterHeader />
       <RegisterHero />
       <RegisterForm initialRole={selectedRole} />

@@ -99,7 +99,7 @@ export default function PlatformV7RootPage() {
       <section className='entry-hero' aria-labelledby='entry-hero-title'>
         <div className='entry-hero-copy'>
           <span className='entry-kicker'>Единый вход в контур исполнения</span>
-          <h1 id='entry-hero-title'>
+          <h1 id='entry-hero-title' aria-label='Главный риск сделки начинается после согласования цены'>
             <span>Главный риск сделки</span>
             <span>начинается после</span>
             <span>согласования цены</span>
@@ -109,8 +109,8 @@ export default function PlatformV7RootPage() {
             документы, деньги, спор и доказательства в одном процессе.
           </p>
           <div className='entry-hero-actions'>
-            <Link href='/platform-v7/register' className='entry-primary-cta'>Подключить организацию<ArrowRight size={20} /></Link>
-            <Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Разобрать контур сделки</Link>
+            <a href='#roles' className='entry-primary-cta'>Выбрать роль<ArrowRight size={20} /></a>
+            <Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Посмотреть демо-сделку</Link>
             <Link href='/platform-v7/contact' className='entry-register-cta'><MessageCircleQuestion size={18} />Задать вопрос</Link>
           </div>
         </div>
@@ -154,6 +154,11 @@ export default function PlatformV7RootPage() {
         {trustItems.map((item) => <TrustTile key={item.title} item={item} />)}
         <Link href='/platform-v7/register' className='entry-trust-cta'>Подключить организацию</Link>
       </section>
+
+      <footer className='entry-footer-note' aria-label='Прозрачность данных'>
+        <span>Демо работает без регистрации, на синтетических данных — без реальных сделок и данных участников.</span>
+        <Link href='/platform-v7/contact'>Задать вопрос</Link>
+      </footer>
     </main>
   );
 }

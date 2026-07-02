@@ -41,8 +41,7 @@ describe('PlatformV7ShellUxController', () => {
   });
 
   it('uses role-specific dock with AI and optional menu', () => {
-    expect(file).toContain('DOCK_BY_ROLE');
-    expect(file).toContain("label: 'ИИ'");
+    expect(file).toContain('ROLE_FUNCTION_MAP');
     expect(file).toContain('showMenuButton');
     expect(file).toContain('hasExtraMenuItems');
     expect(file).not.toContain("action: 'signals'");

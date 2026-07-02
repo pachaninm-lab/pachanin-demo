@@ -59,15 +59,16 @@ export default function PlatformV7DemoPage() {
 
       <section className='p7-demo-hero' aria-labelledby='demo-title'>
         <div className='p7-demo-copy'>
-          <span className='p7-kicker'>Демонстрационный режим · без регистрации</span>
+          <span className='p7-kicker'>Демо · без регистрации · без доступа в ЛК</span>
           <h1 id='demo-title'>Как платформа контролирует исполнение зерновой сделки</h1>
-          <p>На условном примере показан путь сделки после согласования цены: рейс, приёмка, качество, документы, расчёт и доказательная база. Рабочие кабинеты и реальные данные не открываются.</p>
+          <p>Демо · синтетические данные — путь сделки после согласования цены: рейс, приёмка, качество, документы, расчёт и доказательная база на условных данных.</p>
           <div className='p7-demo-actions'><a href='#case' className='p7-primary'>Перейти к примеру<ArrowRight size={18} /></a><Link href='/platform-v7/contact' className='p7-secondary'><MessageCircleQuestion size={18} />Задать вопрос</Link></div>
         </div>
         <aside className='p7-demo-status' aria-label='Текущий статус демонстрационной сделки'>
           <span>Текущий статус</span>
           <strong>{deal.current}</strong>
           <p>Расчёт не выполняется до подтверждения оснований. Это демонстрационный сценарий на условных данных.</p>
+          <p className='p7-demo-disclaimer'>Выпуск денег недоступен в демо. Демо не создаёт сессию, не меняет роль и не открывает реальные кабинеты.</p>
         </aside>
       </section>
 

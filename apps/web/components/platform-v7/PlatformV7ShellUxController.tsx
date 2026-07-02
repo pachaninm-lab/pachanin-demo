@@ -32,72 +32,6 @@ const HOME_BY_ROLE: Record<PlatformRole, string> = {
   executive: '/platform-v7/executive',
 };
 
-const DOCK_BY_ROLE = {
-  operator: [
-    { href: '/platform-v7/control-tower', label: 'Центр' },
-    { href: '/platform-v7/operator', label: 'Блокеры' },
-    { href: '/platform-v7/ai', label: 'ИИ' },
-  ],
-  buyer: [
-    { href: '/platform-v7/buyer', label: 'Кабинет' },
-    { href: '/platform-v7/money', label: 'Деньги' },
-    { href: '/platform-v7/documents', label: 'Документы' },
-  ],
-  seller: [
-    { href: '/platform-v7/seller', label: 'Кабинет' },
-    { href: '/platform-v7/seller/lots', label: 'Партии' },
-    { href: '/platform-v7/seller/offers', label: 'Офферы' },
-    { href: '/platform-v7/documents', label: 'Документы' },
-    { href: '/platform-v7/seller/sdiz', label: 'СДИЗ / ЭТрН' },
-    { href: '/platform-v7/seller/acceptance', label: 'Приёмка' },
-    { href: '/platform-v7/money', label: 'Деньги / резерв' },
-    { href: '/platform-v7/operator', label: 'Блокеры' },
-  ],
-  logistics: [
-    { href: '/platform-v7/logistics', label: 'Диспетчер' },
-    { href: '/platform-v7/procurement', label: 'Закупки' },
-  ],
-  driver: [
-    { href: '/platform-v7/driver/field', label: 'Маршрут' },
-    { href: '/platform-v7/driver/field#photo', label: 'Фото' },
-    { href: '/platform-v7/driver/field#events', label: 'События' },
-    { href: '/platform-v7/driver/field#docs', label: 'Документы' },
-  ],
-  surveyor: [
-    { href: '/platform-v7/surveyor', label: 'Осмотр' },
-  ],
-  elevator: [
-    { href: '/platform-v7/elevator', label: 'Приёмка' },
-    { href: '/platform-v7/elevator#weight', label: 'Вес' },
-    { href: '/platform-v7/elevator#acts', label: 'Акты' },
-  ],
-  lab: [
-    { href: '/platform-v7/lab', label: 'Пробы' },
-    { href: '/platform-v7/lab#quality', label: 'Качество' },
-    { href: '/platform-v7/lab#protocol', label: 'Протокол' },
-    { href: '/platform-v7/lab#reanalysis', label: 'Повторный анализ' },
-  ],
-  bank: [
-    { href: '/platform-v7/bank', label: 'Основание' },
-    { href: '/platform-v7/bank/factoring', label: 'Факторинг' },
-    { href: '/platform-v7/bank/escrow', label: 'Эскроу' },
-    { href: '/platform-v7/documents', label: 'Документы' },
-    { href: '/platform-v7/bank/withholdings', label: 'Удержания' },
-  ],
-  arbitrator: [
-    { href: '/platform-v7/arbitrator', label: 'Арбитраж' },
-  ],
-  compliance: [
-    { href: '/platform-v7/compliance', label: 'Допуск' },
-    { href: '/platform-v7/connectors', label: 'Разъёмы' },
-  ],
-  executive: [
-    { href: '/platform-v7/executive', label: 'Сводка' },
-    { href: '/platform-v7/money', label: 'Деньги' },
-    { href: '/platform-v7/reports', label: 'Риски' },
-    { href: '/platform-v7/simulator', label: 'Симулятор' },
-  ],
-} as const;
 
 const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
 
@@ -118,6 +52,70 @@ const PLATFORM_ROLES: readonly PlatformRole[] = [
 
 type DockLink = { id: string; href: string; label: string; icon: LucideIcon };
 type RoleNotice = { id: string; title: string; note: string; href: string };
+
+const ROLE_FUNCTION_MAP: Partial<Record<PlatformRole, ReadonlyArray<{ label: string; href: string }>>> = {
+  operator: [
+    { label: 'Центр управления', href: '/platform-v7/control-tower' },
+    { label: 'Сделки', href: '/platform-v7/deals' },
+    { label: 'Очередь', href: '/platform-v7/operator' },
+  ],
+  buyer: [
+    { label: 'Закупки', href: '/platform-v7/procurement' },
+    { label: 'Запрос', href: '/platform-v7/buyer/rfq' },
+    { label: 'Документы', href: '/platform-v7/documents' },
+  ],
+  seller: [
+    { label: 'Партии', href: '/platform-v7/seller/lots' },
+    { label: 'Офферы', href: '/platform-v7/seller/offers' },
+    { label: 'Документы', href: '/platform-v7/documents' },
+    { label: 'СДИЗ / ЭТрН', href: '/platform-v7/documents' },
+    { label: 'Приёмка', href: '/platform-v7/seller' },
+    { label: 'Деньги / резерв', href: '/platform-v7/money' },
+    { label: 'Блокеры', href: '/platform-v7/operator' },
+  ],
+  logistics: [
+    { label: 'Диспетчер', href: '/platform-v7/logistics' },
+    { label: 'Закупки', href: '/platform-v7/procurement' },
+    { label: 'Документы', href: '/platform-v7/documents' },
+  ],
+  driver: [
+    { label: 'Фото', href: '/platform-v7/driver/field' },
+    { label: 'События', href: '/platform-v7/driver/field' },
+    { label: 'Документы', href: '/platform-v7/documents' },
+  ],
+  surveyor: [
+    { label: 'Осмотр', href: '/platform-v7/surveyor' },
+    { label: 'Доказательства', href: '/platform-v7/surveyor/evidence' },
+  ],
+  elevator: [
+    { label: 'Вес', href: '/platform-v7/elevator' },
+    { label: 'Акты', href: '/platform-v7/elevator' },
+  ],
+  lab: [
+    { label: 'Качество', href: '/platform-v7/lab' },
+    { label: 'Протокол', href: '/platform-v7/lab' },
+    { label: 'Повторный анализ', href: '/platform-v7/lab' },
+  ],
+  bank: [
+    { label: 'Факторинг', href: '/platform-v7/bank/factoring' },
+    { label: 'Эскроу', href: '/platform-v7/bank/escrow' },
+    { label: 'Документы', href: '/platform-v7/documents' },
+    { label: 'Удержания', href: '/platform-v7/bank' },
+  ],
+  arbitrator: [
+    { label: 'Разбор', href: '/platform-v7/arbitrator' },
+    { label: 'Документы', href: '/platform-v7/documents' },
+  ],
+  compliance: [
+    { label: 'Допуск', href: '/platform-v7/compliance' },
+    { label: 'Риски', href: '/platform-v7/compliance' },
+  ],
+  executive: [
+    { label: 'Сводка', href: '/platform-v7/executive' },
+    { label: 'Деньги', href: '/platform-v7/money' },
+    { label: 'Риски', href: '/platform-v7/reports' },
+  ],
+};
 
 const NOTICES_BY_ROLE: Record<PlatformRole, RoleNotice[]> = {
   operator: [

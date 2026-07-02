@@ -22,6 +22,8 @@ export const PLATFORM_V7_MONEY_ROUTE = '/platform-v7/money';
 export const PLATFORM_V7_DOCUMENTS_ROUTE = '/platform-v7/documents';
 export const PLATFORM_V7_ANTI_BYPASS_ROUTE = '/platform-v7/anti-bypass';
 export const PLATFORM_V7_OFFER_LOG_ROUTE = '/platform-v7/offer-log';
+export const PLATFORM_V7_LOGISTICS_DELAYS_ROUTE = '/platform-v7/logistics/delays';
+export const PLATFORM_V7_SURVEYOR_EVIDENCE_ROUTE = '/platform-v7/surveyor/evidence';
 export const PLATFORM_V7_OFFER_TO_DEAL_ROUTE = '/platform-v7/offer-to-deal';
 export const PLATFORM_V7_FGIS_TO_LOT_ROUTE = '/platform-v7/fgis-to-lot';
 export const PLATFORM_V7_READINESS_ROUTE = '/platform-v7/readiness';
@@ -181,9 +183,13 @@ export const PLATFORM_V7_SHELL_ROUTE_SURFACE = [
   PLATFORM_V7_REPORTS_ROUTE,
   PLATFORM_V7_DRIVER_FIELD_ROUTE,
   PLATFORM_V7_SURVEYOR_ROUTE,
+  PLATFORM_V7_SURVEYOR_EVIDENCE_ROUTE,
   PLATFORM_V7_ELEVATOR_ROUTE,
   PLATFORM_V7_LAB_ROUTE,
   PLATFORM_V7_ARBITRATOR_ROUTE,
+  PLATFORM_V7_OFFER_LOG_ROUTE,
+  PLATFORM_V7_LOGISTICS_DELAYS_ROUTE,
+  PLATFORM_V7_ANTI_BYPASS_ROUTE,
   PLATFORM_V7_AI_ROUTE,
   PLATFORM_V7R_ROLES_ROUTE,
   PLATFORM_V7R_DRIVER_ROUTE,

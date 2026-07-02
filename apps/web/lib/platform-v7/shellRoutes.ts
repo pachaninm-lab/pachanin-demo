@@ -1,5 +1,9 @@
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import {
+  PLATFORM_V7_ANTI_BYPASS_ROUTE,
+  PLATFORM_V7_OFFER_LOG_ROUTE,
+  PLATFORM_V7_LOGISTICS_DELAYS_ROUTE,
+  PLATFORM_V7_SURVEYOR_EVIDENCE_ROUTE,
   PLATFORM_V7_AI_ROUTE,
   PLATFORM_V7_ARBITRATOR_ROUTE,
   PLATFORM_V7_BANK_ROUTE,
@@ -72,7 +76,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     bottom: [
       { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр' },
       { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
-      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Блокеры' },
+      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Стоп-факторы' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Контроль' },
     ],
@@ -80,7 +84,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     command: [
       { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр' },
       { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
-      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Блокеры' },
+      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Стоп-факторы' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Контроль' },
       { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Банк' },
@@ -135,20 +139,27 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_PROCUREMENT_ROUTE, label: 'Закупки' },
       { href: PLATFORM_V7_DOCUMENTS_ROUTE, label: 'Документы' },
     ],
-    drawer: [],
+    drawer: [
+      { href: PLATFORM_V7_OFFER_LOG_ROUTE, label: 'Журнал', note: 'Журнал отклонений и событий рейсов' },
+      { href: PLATFORM_V7_LOGISTICS_DELAYS_ROUTE, label: 'Задержки', note: 'Задержки рейсов и отклонения' },
+    ],
     command: [
       { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Диспетчер' },
       { href: PLATFORM_V7_PROCUREMENT_ROUTE, label: 'Закупки' },
       { href: PLATFORM_V7_DOCUMENTS_ROUTE, label: 'Документы' },
+      { href: PLATFORM_V7_OFFER_LOG_ROUTE, label: 'Журнал' },
+      { href: PLATFORM_V7_LOGISTICS_DELAYS_ROUTE, label: 'Задержки' },
     ],
-    allowedPrefixes: [PLATFORM_V7_LOGISTICS_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_LOGISTICS_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, PLATFORM_V7_OFFER_LOG_ROUTE],
   },
   driver: {
     home: PLATFORM_V7_DRIVER_FIELD_ROUTE,
     bottom: [
       { href: PLATFORM_V7_DRIVER_FIELD_ROUTE, label: 'Мой маршрут' },
     ],
-    drawer: [],
+    drawer: [
+      { href: child(PLATFORM_V7_DRIVER_FIELD_ROUTE, 'photo'), label: 'Фотофиксация', note: 'Фотофиксация событий рейса' },
+    ],
     command: [
       { href: PLATFORM_V7_DRIVER_FIELD_ROUTE, label: 'Мой маршрут' },
     ],
@@ -159,9 +170,12 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     bottom: [
       { href: PLATFORM_V7_SURVEYOR_ROUTE, label: 'Осмотр' },
     ],
-    drawer: [],
+    drawer: [
+      { href: child(PLATFORM_V7_SURVEYOR_ROUTE, 'evidence'), label: 'Доказательства', note: 'Доказательная цепочка осмотра' },
+    ],
     command: [
       { href: PLATFORM_V7_SURVEYOR_ROUTE, label: 'Осмотр' },
+      { href: child(PLATFORM_V7_SURVEYOR_ROUTE, 'evidence'), label: 'Доказательства' },
     ],
     allowedPrefixes: [PLATFORM_V7_SURVEYOR_ROUTE],
   },
@@ -227,13 +241,16 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_CONNECTORS_ROUTE, label: 'Разъёмы' },
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
     ],
-    drawer: [],
+    drawer: [
+      { href: PLATFORM_V7_ANTI_BYPASS_ROUTE, label: 'Риск обхода', note: 'Анализ риска обхода контура' },
+    ],
     command: [
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Допуск' },
       { href: PLATFORM_V7_CONNECTORS_ROUTE, label: 'Разъёмы' },
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
+      { href: PLATFORM_V7_ANTI_BYPASS_ROUTE, label: 'Риск обхода' },
     ],
-    allowedPrefixes: [PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_CONNECTORS_ROUTE, PLATFORM_V7_TRUST_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_CONNECTORS_ROUTE, PLATFORM_V7_TRUST_ROUTE, PLATFORM_V7_ANTI_BYPASS_ROUTE],
   },
   executive: {
     home: PLATFORM_V7_EXECUTIVE_ROUTE,
