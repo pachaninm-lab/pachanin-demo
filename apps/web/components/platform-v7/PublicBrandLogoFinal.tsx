@@ -48,7 +48,8 @@ html body .pc-v7-login-single .login-brand img,
 html body .pc-shell-root-v4 .pc-v4-brand>span[aria-hidden]:first-child img,
 html body .pc-header-brand>span:first-child img,
 html body .app-header-brand>span:first-child img{display:block!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:contain!important;object-position:center!important;background:transparent!important;border:0!important;padding:0!important;margin:0!important;opacity:1!important;visibility:visible!important}
-html body .pc-v7-login-single .login-top .login-brand{display:inline-flex!important;align-items:center!important;gap:10px!important;color:#071611!important;font-weight:950!important;text-decoration:none!important;min-width:0!important}
+html body .pc-v7-login-single .login-top .login-brand,
+html body .pc-v7-login-single .login-top>a:first-of-type{display:inline-flex!important;align-items:center!important;gap:10px!important;color:#071611!important;font-weight:950!important;text-decoration:none!important;min-width:0!important}
 html body .p7-contact-page .p7-contact-nav,
 html body .p7-demo-page .p7-demo-header-actions,
 html body .p7-docs-page .p7-docs-nav,
@@ -116,7 +117,7 @@ function applyBrandLogo() {
     )
     .forEach(lockIconLogo);
 
-  document.querySelectorAll<HTMLAnchorElement>('.pc-v7-login-single .login-top .login-brand').forEach(ensureLoginBrandLogo);
+  document.querySelectorAll<HTMLAnchorElement>('.pc-v7-login-single .login-top .login-brand, .pc-v7-login-single .login-top>a:first-of-type').forEach(ensureLoginBrandLogo);
 }
 
 export function PublicBrandLogoFinal() {
