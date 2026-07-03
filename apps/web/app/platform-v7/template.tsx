@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { LoginHeaderLogoGuard } from '@/components/platform-v7/LoginHeaderLogoGuard';
 import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7InteractionFixes';
 import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLockFix';
 import { PublicBrandLogoFinal } from '@/components/platform-v7/PublicBrandLogoFinal';
@@ -29,6 +30,7 @@ export default function PlatformV7Template({ children }: { children: ReactNode }
       <PublicMobileLandingFix />
       <PublicHeaderFinalLock />
       <PublicBrandLogoFinal />
+      <LoginHeaderLogoGuard />
     </>
   );
 }
