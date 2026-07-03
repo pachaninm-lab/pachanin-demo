@@ -29,17 +29,14 @@ jobs:
           node-version: "20"
           cache: pnpm
 
-      - name: Install deps (web)
+      - name: Install deps
         run: pnpm install --frozen-lockfile
-        working-directory: apps/web
 
       - name: Generate CycloneDX SBOM (web)
-        run: |
-          pnpm dlx @cyclonedx/cyclonedx-npm \
-            --output-file sbom-web.json \
-            --output-format JSON \
-            --package-lock-only
-        working-directory: apps/web
+        # cdxgen understands the pnpm workspace lockfile (pnpm-lock.yaml).
+        # @cyclonedx/cyclonedx-npm only supports npm's package-lock.json, which
+        # this pnpm repo does not have — hence the previous "No evidence" failure.
+        run: npx -y @cyclonedx/cdxgen@11 -t pnpm -o apps/web/sbom-web.json apps/web
 
       - name: Upload SBOM (web)
         uses: actions/upload-artifact@v4
@@ -65,17 +62,13 @@ jobs:
           node-version: "20"
           cache: pnpm
 
-      - name: Install deps (api)
+      - name: Install deps
         run: pnpm install --frozen-lockfile
-        working-directory: apps/api
 
       - name: Generate CycloneDX SBOM (api)
-        run: |
-          pnpm dlx @cyclonedx/cyclonedx-npm \
-            --output-file sbom-api.json \
-            --output-format JSON \
-            --package-lock-only
-        working-directory: apps/api
+        # cdxgen reads the pnpm workspace lockfile; cyclonedx-npm needs npm's
+        # package-lock.json which does not exist in this pnpm repo.
+        run: npx -y @cyclonedx/cdxgen@11 -t pnpm -o apps/api/sbom-api.json apps/api
 
       - name: Upload SBOM (api)
         uses: actions/upload-artifact@v4
@@ -102,7 +95,7 @@ jobs:
         run: |
           cyclonedx-py requirements requirements.txt \
             --output-format JSON \
-            --outfile sbom-ml.json
+            --output-file sbom-ml.json
         working-directory: apps/ml
 
       - name: Upload SBOM (ml)
