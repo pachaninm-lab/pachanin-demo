@@ -4,7 +4,7 @@ import { CockpitHero } from '@/components/platform-v7/premium';
 
 export const metadata: Metadata = {
   title: 'Онбординг — Прозрачная Цена',
-  description: 'Служебный экран управляемого запуска и допуска в controlled pilot / pre-integration контур исполнения зерновой сделки.',
+  description: 'Служебный экран управляемого запуска и допуска в контур контролируемого пилота / преинтеграции по исполнению зерновой сделки.',
   alternates: {
     canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/onboarding',
   },

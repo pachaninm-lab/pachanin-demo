@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
+import type { MappingProperty } from '@elastic/elasticsearch/lib/api/types';
 
 const LOTS_INDEX = 'grainflow_lots';
 const DEALS_INDEX = 'grainflow_deals';
@@ -16,38 +17,34 @@ export class SearchService implements OnModuleInit {
 
   private async ensureIndices() {
     await this.createIndexIfNotExists(LOTS_INDEX, {
-      properties: {
-        id: { type: 'keyword' },
-        organizationId: { type: 'keyword' },
-        cropType: { type: 'keyword' },
-        cropClass: { type: 'keyword' },
-        region: { type: 'keyword' },
-        volumeTons: { type: 'float' },
-        priceKopecks: { type: 'long' },
-        status: { type: 'keyword' },
-        description: { type: 'text', analyzer: 'russian' },
-        createdAt: { type: 'date' },
-        expiresAt: { type: 'date' },
-      },
+      id: { type: 'keyword' },
+      organizationId: { type: 'keyword' },
+      cropType: { type: 'keyword' },
+      cropClass: { type: 'keyword' },
+      region: { type: 'keyword' },
+      volumeTons: { type: 'float' },
+      priceKopecks: { type: 'long' },
+      status: { type: 'keyword' },
+      description: { type: 'text', analyzer: 'russian' },
+      createdAt: { type: 'date' },
+      expiresAt: { type: 'date' },
     });
 
     await this.createIndexIfNotExists(DEALS_INDEX, {
-      properties: {
-        id: { type: 'keyword' },
-        sellerOrgId: { type: 'keyword' },
-        buyerOrgId: { type: 'keyword' },
-        cropType: { type: 'keyword' },
-        cropClass: { type: 'keyword' },
-        region: { type: 'keyword' },
-        volumeTons: { type: 'float' },
-        totalKopecks: { type: 'long' },
-        status: { type: 'keyword' },
-        createdAt: { type: 'date' },
-      },
+      id: { type: 'keyword' },
+      sellerOrgId: { type: 'keyword' },
+      buyerOrgId: { type: 'keyword' },
+      cropType: { type: 'keyword' },
+      cropClass: { type: 'keyword' },
+      region: { type: 'keyword' },
+      volumeTons: { type: 'float' },
+      totalKopecks: { type: 'long' },
+      status: { type: 'keyword' },
+      createdAt: { type: 'date' },
     });
   }
 
-  private async createIndexIfNotExists(index: string, mappingProperties: object) {
+  private async createIndexIfNotExists(index: string, mappingProperties: Record<string, MappingProperty>) {
     try {
       const exists = await this.es.indices.exists({ index });
       if (!exists) {
@@ -83,27 +80,27 @@ export class SearchService implements OnModuleInit {
     }
   }
 
-  async indexLot(lot: Record<string, unknown>) {
+  async indexLot<T extends { id: string }>(lot: T) {
     try {
       await this.es.index({
         index: LOTS_INDEX,
-        id: lot['id'] as string,
+        id: lot.id,
         document: lot,
       });
     } catch (err) {
-      this.logger.warn(`Failed to index lot ${lot['id']}: ${err}`);
+      this.logger.warn(`Failed to index lot ${lot.id}: ${err}`);
     }
   }
 
-  async indexDeal(deal: Record<string, unknown>) {
+  async indexDeal<T extends { id: string }>(deal: T) {
     try {
       await this.es.index({
         index: DEALS_INDEX,
-        id: deal['id'] as string,
+        id: deal.id,
         document: deal,
       });
     } catch (err) {
-      this.logger.warn(`Failed to index deal ${deal['id']}: ${err}`);
+      this.logger.warn(`Failed to index deal ${deal.id}: ${err}`);
     }
   }
 
@@ -155,7 +152,7 @@ export class SearchService implements OnModuleInit {
 
     return {
       total: (result.hits.total as { value: number }).value,
-      hits: result.hits.hits.map((h) => ({ id: h._id, ...h._source })),
+      hits: result.hits.hits.map((h) => ({ id: h._id, ...(h._source as Record<string, unknown>) })),
     };
   }
 

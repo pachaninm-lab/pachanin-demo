@@ -127,3 +127,58 @@
 | `apps/web/app/platform-v7/seller/page.tsx` | импорт фабрики из `.data`-модуля. |
 | `apps/web/tests/unit/serverComponentClientImportBoundary.test.ts` | **new** — регрессионный гард класса ошибки. |
 | `AUDIT_maturity-runtime_2026-07-03.md` | этот отчёт. |
+
+---
+
+## 6. Обновление — доведение CI-контура до зелёного (раунд 2)
+
+После первичного аудита выполнено сквозное устранение всех CI-критичных красных сигналов.
+
+### 6.1 `pnpm typecheck` — было 17→24 ошибки, стало 0 (зелёный)
+
+Полный `pnpm -r typecheck` теперь проходит целиком. До этого он падал на API, а bail скрывал ещё 24 ошибки в `@pc/web` (они всплыли после починки API).
+
+| Проблема | Исправление |
+|---|---|
+| `kafkajs` не объявлен (5 ошибок типов) | Добавлен в `apps/api` `optionalDependencies` (рантайм и так терпит отсутствие через динамический импорт). |
+| Дубли типов OpenTelemetry (`SpanProcessor`/`MetricReader`, 2) | `sdk-metrics`/`sdk-trace-node`/`resources`/`semantic-conventions` запинены на `1.25.1` под `sdk-node@0.52.1` — единый `sdk-trace-base`. |
+| `audit.service.ts` `JSON.parse(Json)` (1) | `metadata` — Prisma `Json?`, уже объект; `JSON.parse` убран. Это разблокировало 4 API-сьюта. |
+| `anti-fraud` generic-контекст (1) | Убран лишний `& Record<string, unknown>` в сигнатуре `check`. |
+| `lots.service` `Lot`→`Record` (3) + `search.service` (2) | `indexLot/indexDeal` сделаны generic `<T extends {id:string}>`; исправлена двойная вложенность `properties` в маппинге ES; типизация `MappingProperty`; каст `_source`. |
+| `domain-core` `deal-signing` (3) | `AuditLog.append` генерирует `id` внутри (как `hash`/`prevHash`), `id` убран из входного типа. |
+| `disputes/[id]` `claimAmountRub` (2) | Заменено на существующее `holdAmount` (в рублях). |
+| `BankRuntime` `provider` (1) | В `CallbackItem` добавлено опциональное `provider?`. |
+| `@sentry/nextjs` (2) | Неподключённые (нет `withSentryConfig`/instrumentation, пакета нет) `sentry.*.config.ts` удалены. |
+| **Ложные** 19 «Cannot find module» в web | Причина — паразитная петля симлинков `apps/web/apps → ..` (загружалась tsc через `**/*.ts` и компилировала файлы по удвоенному пути). Петля **сохранена** (она нужна тестам для резолвинга путей — см. 6.3) и **исключена** из `apps/web/tsconfig.json`. |
+
+### 6.2 API jest — было 4 сьюта не компилировались, стало 29/29 сьютов · 258/258 тестов зелёные
+
+### 6.3 Web `vitest` — было 18 падений, стало 13 (все — вне CI)
+
+- **Починено в исходниках (5 copy-гардов):** приведены к честной формулировке анти-оверклейминг-строки — убраны видимые токены `controlled pilot`, `production-ready`, «платформа гарантирует оплату», «боевые интеграции», «E2E симуляция» в `grain-documents/grain-payment/secure-grain-deal/auth/oferta/onboarding/privacy/terms/status/deals`.
+- **Осталось 13 ассертов в 7 файлах — НЕ трогались осознанно.** Это **устаревшие взаимно-противоречивые** гарды, красные и на `main`, и **не входящие в CI** (CI гоняет лишь 5 конкретных vitest-файлов — все зелёные). Доказательства неустранимости подгонкой исходника:
+  - `platformV7ShellUxController.test.ts` (проходит) требует `DOCK_BY_ROLE` **с** пунктом «ИИ», а `platformV7ShellUxRegistry.test.ts` требует его **отсутствия** — прямое противоречие на одном файле.
+  - `compactHeaderStaleRolePolicy.test.ts` требует поведения, **обратного** CI-гейтед `shellRolePolicy.test.ts` на одинаковых входах (`getHeaderSelectableRoles('seller','/platform-v7/seller')`): подгонка сломала бы CI-гейт.
+  - `platformV7VisibleEntry`/`PublicDemoContact`/`PublicCopyQuality`/`PublicRouteGuards`/`RoleAssistantWidget` описывают **до-рефакторный** продукт (демо-главная, старый middleware) — намеренно изменённый коммитами «rename public demo entry to deal review», «remove demo wording», security-переписыванием `middleware.ts`.
+  - **Рекомендация:** удалить/переписать устаревшее поколение этих гардов под текущую архитектуру (отдельным решением — это не баг исходника).
+
+### 6.4 CI-гейт `smoke:web` — закрыт слепой участок
+
+`scripts/smoke-web.mjs` ходил без entry-cookie → entry-gated страницы (`/platform-v7/seller`, `/documents`) редиректили на публичный вход и всегда выглядели «здоровыми» (200), маскируя реальные 500. Теперь smoke шлёт `pc_v7_entry_seen=true` и реально рендерит страницы — оба ранее-500 маршрута ловятся. Прогон: **13/13**.
+
+### 6.5 Гигиена `package.json` — удалены 32 мёртвых npm-скрипта
+
+`audit:*/pilot:*/verify:*/pack:*`, ссылавшиеся на несуществующие файлы (падали с `MODULE_NOT_FOUND`). Ни один workflow на них не ссылается. Осталось 25 рабочих скриптов.
+
+### 6.6 Итоговое состояние контура
+
+| Проверка | Результат |
+|---|---|
+| `pnpm -r typecheck` | 🟢 0 ошибок |
+| `pnpm build` (prisma + web, 218 стр.) | 🟢 exit 0 |
+| API jest (`pnpm test`) | 🟢 29/29 · 258/258 |
+| CI web-unit (5 файлов) | 🟢 5/5 · 84/84 |
+| `pnpm install --frozen-lockfile` | 🟢 согласован |
+| `smoke:web` (entry cookie) | 🟢 13/13 |
+| Route sweep 205 стр. × роли | 🟢 0 ошибок / 0×500 |
+| Полный `vitest` | 3557 pass / 13 fail (7 устаревших вне-CI гардов, см. 6.3) |

@@ -112,7 +112,7 @@ export class AuditService {
         actorUserId: r.actorUserId,
         hash: r.hash,
         prevHash: r.prevHash,
-        meta: r.metadata ? JSON.parse(r.metadata) : undefined,
+        meta: r.metadata ?? undefined,
         createdAt: r.createdAt.toISOString(),
       }));
     } catch {

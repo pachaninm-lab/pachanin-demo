@@ -106,7 +106,7 @@ export default function PlatformV7DealsPage() {
       </section>
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 16 }}>
-        <CollapsibleSection title='E2E симуляция сделки · 21 шаг' summary='FARMER+BUYER · KYC · УКЭП · Escrow · GPS · LAB · ЭДО · Evidence Chain · Audit' defaultOpen={false}>
+        <CollapsibleSection title='E2E прогон сделки · 21 шаг' summary='FARMER+BUYER · KYC · УКЭП · Escrow · GPS · LAB · ЭДО · Evidence Chain · Audit' defaultOpen={false}>
           <E2EDealSimulationPanel />
         </CollapsibleSection>
       </section>

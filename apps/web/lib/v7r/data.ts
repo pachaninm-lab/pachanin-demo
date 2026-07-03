@@ -101,6 +101,7 @@ export interface CallbackItem {
   note: string;
   daysOpen?: number;
   amountRub?: number;
+  provider?: string;
 }
 
 export interface RfqItem {
