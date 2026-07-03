@@ -67,23 +67,16 @@ function getPageActions(pathname: string): HeaderAction[] {
     ];
   }
 
-  if (pathname === '/platform-v7/onboarding') {
-    return [
-      { href: '/platform-v7', label: 'Главная', icon: '‹' },
-      { href: '/platform-v7/register', label: 'Подключить организацию', icon: '+', primary: true },
-      { href: '/platform-v7/contact', label: 'Поддержка', icon: '?' },
-    ];
-  }
-
   return [
     { href: '/platform-v7', label: 'Главная', icon: '‹' },
     { href: '/platform-v7/contact', label: 'Поддержка', icon: '?' },
-    { href: '/platform-v7/login', label: 'Выход', icon: '↪', primary: true },
+    { href: '/platform-v7/login', label: 'Вход', icon: '↪', primary: true },
   ];
 }
 
 const css = `
-html body .entry-header,html body .login-top,html body .p7-register-header,html body .p7-contact-header,html body .p7-demo-header,html body .p7-docs-header,html body .p7-request-header,html body .pc-v4-header{display:none!important;visibility:hidden!important;pointer-events:none!important}
+html body .entry-header,html body .login-top,html body .p7-register-header,html body .p7-contact-header,html body .p7-demo-header,html body .p7-docs-header,html body .p7-request-header{display:none!important;visibility:hidden!important;pointer-events:none!important}
+html body:has(.pc-shell-root-v4) .p7-fixed-global-header{display:none!important;visibility:hidden!important;pointer-events:none!important}
 html body .p7-fixed-global-header{position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:5000!important;height:calc(70px + env(safe-area-inset-top,0px))!important;padding:calc(env(safe-area-inset-top,0px) + 10px) 18px 10px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;background:rgba(255,255,255,.985)!important;border-bottom:1px solid rgba(7,22,17,.08)!important;box-shadow:0 10px 24px rgba(7,22,17,.07)!important;backdrop-filter:blur(18px)!important;color:#071611!important}
 html body .p7-fixed-global-header a{color:#071611!important;text-decoration:none!important}
 html body .p7-fixed-global-brand{display:inline-flex!important;align-items:center!important;gap:10px!important;min-width:0!important;font-weight:950!important}
