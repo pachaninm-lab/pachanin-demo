@@ -2,27 +2,15 @@
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://vermillion-kitsune-0e7b97.netlify.app';
 
-const securityHeaders = [
-  { key: 'X-DNS-Prefetch-Control', value: 'on' },
-  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
-  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+// Security headers (CSP, X-Frame-Options, HSTS, Permissions-Policy, Referrer-Policy)
+// have a single source of truth: middleware.ts → applySecurityHeaders(). Do not
+// duplicate them here — the two sets drifted apart (DENY vs SAMEORIGIN, different
+// CSP) and middleware overrides these values on every matched route anyway.
+// Only headers for paths middleware never sees (/_next/static, /_next/image) live here.
+const staticAssetHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), interest-cohort=()' },
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://mc.yandex.ru https://api-maps.yandex.ru",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://mc.yandex.ru https://api-maps.yandex.ru wss:",
-      "frame-src 'self'",
-      "worker-src 'self' blob:",
-      "manifest-src 'self'",
-    ].join('; '),
-  },
+  // Content-hashed build assets never change under the same URL.
+  { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
 ];
 
 const nextConfig = {
@@ -39,11 +27,19 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },
+  compiler: {
+    // Internal diagnostics must not leak to user consoles in production.
+    removeConsole: { exclude: ['error'] },
+  },
   async headers() {
     return [
       {
-        source: '/(.*)',
-        headers: securityHeaders,
+        source: '/_next/static/:path*',
+        headers: staticAssetHeaders,
+      },
+      {
+        source: '/_next/image:path*',
+        headers: staticAssetHeaders,
       },
     ];
   },

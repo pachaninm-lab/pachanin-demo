@@ -1,5 +1,6 @@
 'use client';
 import { create } from 'zustand';
+import { PERSIST_VERSION, migrateOrReset } from './persist-version';
 import { persist } from 'zustand/middleware';
 import type { Role } from '@/lib/v9/roles';
 
@@ -33,6 +34,8 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: 'pc-session-v10', // bumped from v9 to evict old cached sidebarOpen:true
+      version: PERSIST_VERSION,
+      migrate: migrateOrReset,
       // Only persist user preferences, NOT transient UI state
       partialize: (state) => ({
         role: state.role,

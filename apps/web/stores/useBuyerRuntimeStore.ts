@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { PERSIST_VERSION, migrateOrReset } from './persist-version';
 import { persist } from 'zustand/middleware';
 import { selectRuntimeRfqById, type RuntimeRfqItem as RfqItem } from '@/lib/domain/selectors';
 
@@ -295,6 +296,8 @@ export const useBuyerRuntimeStore = create<BuyerRuntimeState>()(
     }),
     {
       name: 'pc-buyer-runtime-v2',
+      version: PERSIST_VERSION,
+      migrate: migrateOrReset,
       partialize: (state) => ({
         localRfqs: state.localRfqs,
         shortlistedSourceIds: state.shortlistedSourceIds,

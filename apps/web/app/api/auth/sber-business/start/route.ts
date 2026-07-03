@@ -9,6 +9,7 @@ export async function GET(request: Request) {
     const payload = await response.json().catch(() => ({}));
     return NextResponse.json(payload, { status: response.ok ? 200 : response.status });
   } catch {
-    return NextResponse.json({ ok: false, message: 'sber_start_unavailable' }, { status: 200 });
+    // Отказ backend'а должен быть видимым (503), а не маскироваться под успех.
+    return NextResponse.json({ ok: false, message: 'sber_start_unavailable' }, { status: 503 });
   }
 }

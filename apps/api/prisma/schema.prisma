@@ -98,6 +98,10 @@ model Deal {
   sourceLotId   String?  // ссылка на исходный лот-источник (для межрегиональных сделок)
   dealNumber    String?  @unique
   status        String   @default("DRAFT")
+  // Оптимистическая блокировка переходов state machine: UPDATE ... WHERE id = ? AND version = ?
+  // (+ инкремент). Конкурентный переход двух операторов и повтор офлайн-синка
+  // водителя обязаны проигрывать гонку, а не молча перетирать статус.
+  version       Int      @default(0)
   tenantId      String?
   sellerOrgId   String
   buyerOrgId    String

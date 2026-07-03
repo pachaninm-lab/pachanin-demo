@@ -73,6 +73,9 @@ const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 const PUBLIC_API_EXACT = new Set([
   '/api/platform-v7/inquiries',
   '/api/platform-v7/leads',
+  // Liveness probe for load balancers and external monitoring: must answer
+  // without a session, cheaply, and without touching downstream services.
+  '/api/health',
 ]);
 
 function isPrivateMode(): boolean {
@@ -342,4 +345,10 @@ export async function middleware(req: NextRequest) {
   return withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
 }
 
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon\.ico).*)'] };
+// Assets and crawler files must not pay the middleware tax (role resolution,
+// cookie writes, RBAC observation) — they are static and identical for everyone.
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon\.ico|robots\.txt|sitemap\.xml|manifest\.webmanifest|sw\.js|mockServiceWorker\.js|apple-icon|icon).*)',
+  ],
+};

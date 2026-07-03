@@ -1,9 +1,25 @@
 import { http, HttpResponse, delay } from 'msw';
-import deals from './fixtures/deals.json';
-import disputes from './fixtures/disputes.json';
+import { rebaseFixtureIso } from '../lib/v7r/fixture-clock';
+import rawDeals from './fixtures/deals.json';
+import rawDisputes from './fixtures/disputes.json';
 import bankEvents from './fixtures/bank-events.json';
 import rfqList from './fixtures/rfq.json';
 import batchesMap from './fixtures/batches.json';
+
+// Абсолютные даты фикстур сдвигаются к реальному «сейчас» — иначе после даты
+// авторинга все SLA в мок-режиме выглядят просроченными на месяцы.
+const DATE_FIELDS = ['slaDeadline', 'createdAt', 'updatedAt', 'openedAt'] as const;
+
+function rebaseDates<T extends Record<string, unknown>>(record: T): T {
+  const next: Record<string, unknown> = { ...record };
+  for (const field of DATE_FIELDS) {
+    if (typeof next[field] === 'string') next[field] = rebaseFixtureIso(next[field] as string);
+  }
+  return next as T;
+}
+
+const deals = rawDeals.map(rebaseDates);
+const disputes = rawDisputes.map(rebaseDates);
 
 // Readiness matrix per deal
 function getReadinessMatrix(dealId: string) {

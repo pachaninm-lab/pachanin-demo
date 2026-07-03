@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { PERSIST_VERSION, migrateOrReset } from './persist-version';
 import { persist } from 'zustand/middleware';
 
 export type PlatformRole =
@@ -91,6 +92,8 @@ export const usePlatformV7RStore = create<PlatformV7RState>()(
     }),
     {
       name: 'pc-session-v10',
+      version: PERSIST_VERSION,
+      migrate: migrateOrReset,
       skipHydration: true,
       partialize: (state) => ({
         role: state.role,

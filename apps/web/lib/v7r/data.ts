@@ -1,3 +1,5 @@
+import { daysLeftFrom, rebaseFixtureIso } from './fixture-clock';
+
 export type DealStatus =
   | 'draft'
   | 'contract_signed'
@@ -113,7 +115,7 @@ export interface RfqItem {
   payment: string;
 }
 
-export const DEALS: Deal[] = [
+const RAW_DEALS: Deal[] = [
   { id: 'DL-9102', grain: 'Пшеница 4 кл.', quantity: 200.3, unit: 'т', seller: { name: 'Агро-Юг ООО' }, buyer: { name: 'Агрохолдинг СК' }, status: 'quality_disputed', reservedAmount: 6240000, holdAmount: 624000, riskScore: 92, slaDeadline: '2026-04-19', blockers: ['dispute', 'docs'], dispute: { id: 'DK-2024-89' }, pricePerTon: 14800, totalAmount: 2964440, releaseAmount: 0, lotId: 'LOT-2401', routeId: 'ТМБ-14', routeState: 'Прибыл · расхождение по качеству', routeEta: '14:28',
     route: [
       { time: '08:42', event: 'Выезд с хозяйства', gps: '52.7213, 41.4525', driver: 'Ковалёв А.С.' },
@@ -148,11 +150,26 @@ export const DEALS: Deal[] = [
   { id: 'DL-9120', grain: 'Кукуруза 1 кл.', quantity: 480, unit: 'т', seller: { name: 'АО СтавропольАгро' }, buyer: { name: 'Экспортёр Юг' }, status: 'loading_started', reservedAmount: 14880000, holdAmount: 0, riskScore: 33, slaDeadline: '2026-04-27', blockers: [], lotId: 'LOT-2414', routeId: 'СТВ-21', routeState: 'Идёт погрузка', routeEta: '13:20' }
 ];
 
-export const DISPUTES: Dispute[] = [
-  { id: 'DK-2024-89', dealId: 'DL-9102', type: 'quality_mismatch', title: 'Расхождение по влажности', reasonCode: 'MOISTURE_DEVIATION', holdAmount: 624000, slaDaysLeft: 6, ballAt: 'seller', status: 'open', evidence: { total: 5, uploaded: 4 }, description: 'Нужно загрузить заключение эксперта и закрыть спор по качеству.' },
-  { id: 'DK-2024-91', dealId: 'DL-9110', type: 'weight_mismatch', title: 'Расхождение по весу', reasonCode: 'WEIGHT_DEVIATION', holdAmount: 512000, slaDaysLeft: 13, ballAt: 'lab', status: 'open', evidence: { total: 4, uploaded: 2 }, description: 'Нужно сверить лабораторный протокол и данные элеватора.' },
-  { id: 'DK-2024-93', dealId: 'DL-9118', type: 'quality_mismatch', title: 'Расхождение по протеину сои', reasonCode: 'PROTEIN_DEVIATION', holdAmount: 1170000, slaDaysLeft: 5, ballAt: 'seller', status: 'open', evidence: { total: 6, uploaded: 3 }, description: 'Покупатель оспаривает протеин 34.2% против заявленных 36.0% — требуется арбитражный анализ лаборатории.' }
+// Демо-даты сдвигаются к реальному «сейчас» (см. fixture-clock.ts): абсолютные
+// даты авторинга протухают, и витрина выглядит забитой просроченными сделками.
+export const DEALS: Deal[] = RAW_DEALS.map((deal) => ({
+  ...deal,
+  slaDeadline: rebaseFixtureIso(deal.slaDeadline),
+  ...(deal.events ? { events: deal.events.map((e) => ({ ...e, ts: rebaseFixtureIso(e.ts) })) } : {}),
+}));
+
+const RAW_DISPUTES: Omit<Dispute, 'slaDaysLeft'>[] = [
+  { id: 'DK-2024-89', dealId: 'DL-9102', type: 'quality_mismatch', title: 'Расхождение по влажности', reasonCode: 'MOISTURE_DEVIATION', holdAmount: 624000, ballAt: 'seller', status: 'open', evidence: { total: 5, uploaded: 4 }, description: 'Нужно загрузить заключение эксперта и закрыть спор по качеству.' },
+  { id: 'DK-2024-91', dealId: 'DL-9110', type: 'weight_mismatch', title: 'Расхождение по весу', reasonCode: 'WEIGHT_DEVIATION', holdAmount: 512000, ballAt: 'lab', status: 'open', evidence: { total: 4, uploaded: 2 }, description: 'Нужно сверить лабораторный протокол и данные элеватора.' },
+  { id: 'DK-2024-93', dealId: 'DL-9118', type: 'quality_mismatch', title: 'Расхождение по протеину сои', reasonCode: 'PROTEIN_DEVIATION', holdAmount: 1170000, ballAt: 'seller', status: 'open', evidence: { total: 6, uploaded: 3 }, description: 'Покупатель оспаривает протеин 34.2% против заявленных 36.0% — требуется арбитражный анализ лаборатории.' }
 ];
+
+// slaDaysLeft вычисляется от дедлайна связанной сделки, а не хранится:
+// захардкоженное «осталось 6 дней» рядом с датой из прошлого противоречило само себе.
+export const DISPUTES: Dispute[] = RAW_DISPUTES.map((dispute) => {
+  const deal = DEALS.find((d) => d.id === dispute.dealId);
+  return { ...dispute, slaDaysLeft: daysLeftFrom(deal?.slaDeadline ?? null) ?? 0 };
+});
 
 export const CALLBACKS: CallbackItem[] = [
   { id: 'CB-441', type: 'Reserve', dealId: 'DL-9103', status: 'ok', note: 'Резерв подтверждён', amountRub: 3150000 },
@@ -160,13 +177,13 @@ export const CALLBACKS: CallbackItem[] = [
   { id: 'CB-443', type: 'Release', dealId: 'DL-9109', status: 'pending', note: 'Ожидает ручной проверки банка', daysOpen: 1, amountRub: 10500000 }
 ];
 
-export const AUDIT_LOG: AuditEntry[] = [
+export const AUDIT_LOG: AuditEntry[] = ([
   { ts: '2026-04-12T09:15:22Z', actor: 'Оператор', action: 'Контракт подписан', type: 'success', object: 'DL-9102' },
   { ts: '2026-04-12T10:05:01Z', actor: 'Банк Сбер', action: 'Резерв подтверждён', type: 'success', object: 'DL-9102' },
   { ts: '2026-04-12T11:00:00Z', actor: 'Система', action: 'SLA alert', type: 'warning', object: 'DK-2024-89' },
   { ts: '2026-04-12T12:15:30Z', actor: 'Покупатель', action: 'Запрос release заблокирован', type: 'danger', object: 'DL-9102' },
   { ts: '2026-04-12T13:45:00Z', actor: 'Лаборатория ЦентрГрейн', action: 'Лабораторный анализ завершён', type: 'warning', object: 'QC-DL-9102' }
-];
+] as AuditEntry[]).map((entry) => ({ ...entry, ts: rebaseFixtureIso(entry.ts) }));
 
 export const RFQ_LIST: RfqItem[] = [
   { id: 'RFQ-1001', grain: 'Пшеница 4 кл.', volume: 500, region: 'Тамбовская обл.', price: 14800, quality: 'ГОСТ / влажность ≤14%', payment: 'Сбер / резерв' },
@@ -192,13 +209,13 @@ export const NOTIFICATION_GROUPS: Record<NotificationGroup, string> = {
   system: 'Система',
 };
 
-export const NOTIFICATIONS: NotificationItem[] = [
+export const NOTIFICATIONS: NotificationItem[] = ([
   { id: 'N-1', group: 'dispute', text: 'DL-9102: расхождение по влажности — спор открыт', href: '/platform-v7/disputes/DK-2024-89', ts: '2026-04-17T08:42:00Z' },
   { id: 'N-2', group: 'bank', text: 'CB-442: требует ручной проверки банка', href: '/platform-v7/bank', ts: '2026-04-17T09:10:00Z' },
   { id: 'N-3', group: 'lab', text: 'DL-9108: лабораторный анализ завершён', href: '/platform-v7/deals/DL-9108', ts: '2026-04-17T07:55:00Z' },
   { id: 'N-4', group: 'logistics', text: 'ТМБ-14: GPS-отклонение 1.2 км от маршрута', href: '/platform-v7/logistics', ts: '2026-04-17T09:32:00Z' },
   { id: 'N-5', group: 'bank', text: 'CB-443: ожидает release 10.5 млн ₽ по DL-9109', href: '/platform-v7/bank', ts: '2026-04-17T09:48:00Z' },
-];
+] as NotificationItem[]).map((item) => ({ ...item, ts: rebaseFixtureIso(item.ts) }));
 
 const DEAL_INTEGRATION_STATES: Record<string, DealIntegrationState> = {
   'DL-9102': {

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { countPhraseRu } from '@/lib/format/plural';
 import { WeatherWidget } from '@/components/platform-v7/WeatherWidget';
 import { getShipments, activeShipmentCount, shipmentsWithBlockers } from '@/lib/logistics-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -154,7 +155,7 @@ export default async function LogisticsPage() {
         role="LOGISTICIAN · Логистика"
         summary={
           apiOnline
-            ? `${shipmentCount} активных рейсов · ${blockedShipments.length} с блокерами`
+            ? `${countPhraseRu(shipmentCount, 'activeShipments')} · ${blockedShipments.length} с блокерами`
             : 'Данные статичные — API недоступен'
         }
       />

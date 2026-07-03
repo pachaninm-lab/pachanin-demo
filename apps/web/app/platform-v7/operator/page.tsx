@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { countPhraseRu } from '@/lib/format/plural';
 import { OperatorKpiDashboard } from '@/components/platform-v7/OperatorKpiDashboard';
 import { PushNotificationBanner } from '@/components/platform-v7/PushNotificationBanner';
 import { OperatorInboxPanel } from '@/components/platform-v7/OperatorInboxPanel';
@@ -104,7 +105,7 @@ export default async function PlatformV7OperatorPage() {
         role="SUPPORT_MANAGER · Центр управления"
         summary={
           apiOnline
-            ? `${deals.length} сделок · ${disputeCount} открытых споров · ${formatMoney(heldRub)} удержано · ${shipmentCount} активных рейсов`
+            ? `${countPhraseRu(deals.length, 'deals')} · ${countPhraseRu(disputeCount, 'openDisputes')} · ${formatMoney(heldRub)} удержано · ${countPhraseRu(shipmentCount, 'activeShipments')}`
             : 'Данные статичные — API недоступен'
         }
       />

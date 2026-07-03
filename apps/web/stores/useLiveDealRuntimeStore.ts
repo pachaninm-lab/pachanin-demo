@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { PERSIST_VERSION, migrateOrReset } from './persist-version';
 import { persist } from 'zustand/middleware';
 import { selectRuntimeDealById, type RuntimeDealStatus } from '@/lib/domain/selectors';
 
@@ -168,6 +169,8 @@ export const useLiveDealRuntimeStore = create<LiveDealRuntimeState>()(
     }),
     {
       name: 'pc-live-deal-runtime-v1',
+      version: PERSIST_VERSION,
+      migrate: migrateOrReset,
       partialize: (state) => ({ overrides: state.overrides }),
     }
   )

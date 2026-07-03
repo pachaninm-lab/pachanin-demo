@@ -11,6 +11,7 @@ export async function GET() {
     const text = await response.text();
     return new NextResponse(text, { status: response.ok ? 200 : response.status, headers: { 'content-type': 'text/csv; charset=utf-8' } });
   } catch {
-    return NextResponse.json({ ok: false }, { status: 200 });
+    // Отказ backend'а должен быть видимым (503), а не маскироваться под успех.
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 }

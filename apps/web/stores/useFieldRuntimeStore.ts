@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { PERSIST_VERSION, migrateOrReset } from './persist-version';
 import { persist } from 'zustand/middleware';
 
 export interface TripRuntime {
@@ -86,6 +87,6 @@ export const useFieldRuntimeStore = create<FieldRuntimeState>()(
       updateLabCase: (id, patch) => set((state) => ({ labCases: state.labCases.map((item) => item.id === id ? { ...item, ...patch } : item) })),
       completeLabCase: (id) => set((state) => ({ labCases: state.labCases.map((item) => item.id === id ? { ...item, status: 'completed', protocolSigned: true, result: Number(item.moisture || 0) <= 14 ? 'pass' : 'review' } : item) })),
     }),
-    { name: 'pc-field-runtime-v1' }
+    { name: 'pc-field-runtime-v1', version: PERSIST_VERSION, migrate: migrateOrReset }
   )
 );

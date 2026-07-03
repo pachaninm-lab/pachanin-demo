@@ -6,6 +6,7 @@ export async function GET() {
     const payload = await commercialFetch('/market');
     return NextResponse.json(payload);
   } catch {
-    return NextResponse.json({ ok: false }, { status: 200 });
+    // Отказ backend'а должен быть видимым (503), а не маскироваться под успех.
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 }

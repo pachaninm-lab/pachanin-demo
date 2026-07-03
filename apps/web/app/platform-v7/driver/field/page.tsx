@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { countPhraseRu } from '@/lib/format/plural';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
 import { FieldDriverRuntime } from '@/components/v7r/FieldDriverRuntime';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -45,7 +46,7 @@ export default async function DriverFieldPage() {
         blockers={liveBlockers}
         activeShipments={shipmentCount}
         role="DRIVER · Полевой режим"
-        summary={`${shipmentCount} активных рейсов · ${blockedShipments.length} с блокерами`}
+        summary={`${countPhraseRu(shipmentCount, 'activeShipments')} · ${blockedShipments.length} с блокерами`}
       />
       <OfflineSyncBanner />
       <style dangerouslySetInnerHTML={{ __html: `

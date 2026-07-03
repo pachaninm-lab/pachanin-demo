@@ -1,4 +1,5 @@
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
+import { countPhraseRu, countRu } from '@/lib/format/plural';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { IntegrationEventLog } from '@/components/platform-v7/IntegrationEventLog';
 import { BankReconciliationPanel } from '@/components/platform-v7/BankReconciliationPanel';
@@ -60,11 +61,11 @@ export default async function AdminPage() {
 
   const systemHealth = [
     { name: 'API', status: apiOnline ? 'OK' : 'DEGRADED', detail: apiOnline ? 'отвечает' : 'не отвечает — static fallback' },
-    { name: 'Deals', status: 'OK', detail: `${dealList.length} сделок` },
-    { name: 'Shipments', status: 'OK', detail: `${shipmentCount} активных рейсов` },
+    { name: 'Deals', status: 'OK', detail: countPhraseRu(dealList.length, 'deals') },
+    { name: 'Shipments', status: 'OK', detail: countPhraseRu(shipmentCount, 'activeShipments') },
     { name: 'Disputes', status: disputeCount > 0 ? 'WARN' : 'OK', detail: `${disputeCount} открытых` },
     { name: 'Outbox (Bank)', status: pendingBank > 0 ? 'WARN' : 'OK', detail: `${pendingBank} pending, ${manualReview} manual_review` },
-    { name: 'Lab', status: pendingLab > 0 ? 'WARN' : 'OK', detail: `${pendingLab} протоколов ожидают` },
+    { name: 'Lab', status: pendingLab > 0 ? 'WARN' : 'OK', detail: countRu(pendingLab, 'протокол ожидает', 'протокола ожидают', 'протоколов ожидают') },
   ];
 
   const statusColor: Record<string, string> = {

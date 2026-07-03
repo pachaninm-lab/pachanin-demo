@@ -6,6 +6,7 @@ export async function GET(_: Request, { params }: { params: { id: string; stepId
     const payload = await commercialFetch(`/finance/applications/${params.id}/waterfall/${params.stepId}`);
     return NextResponse.json(payload);
   } catch {
-    return NextResponse.json({ ok: false, waterfall: null }, { status: 200 });
+    // Отказ backend'а должен быть видимым (503), а не маскироваться под успех.
+    return NextResponse.json({ ok: false, waterfall: null }, { status: 503 });
   }
 }

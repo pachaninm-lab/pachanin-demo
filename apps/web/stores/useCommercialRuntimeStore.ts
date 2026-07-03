@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { PERSIST_VERSION, migrateOrReset } from './persist-version';
 import { persist } from 'zustand/middleware';
 import type { LotItem, ReadinessState } from '@/lib/v7r/esia-fgis-data';
 
@@ -89,6 +90,8 @@ export const useCommercialRuntimeStore = create<CommercialRuntimeState>()(
     }),
     {
       name: 'pc-commercial-runtime-v1',
+      version: PERSIST_VERSION,
+      migrate: migrateOrReset,
       partialize: (state) => ({ manualLots: state.manualLots, favouriteLotIds: state.favouriteLotIds, compareLotIds: state.compareLotIds }),
     }
   )
