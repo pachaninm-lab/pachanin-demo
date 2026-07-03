@@ -37,6 +37,7 @@ import '@/styles/platform-v7-mobile-hardening.css';
 import '@/styles/platform-v7-mobile-reflow-p0.css';
 import '@/styles/platform-v7-shell-restore.css';
 import '@/styles/platform-v7-register-header-override.css';
+import '@/styles/platform-v7-mobile-screenshot-fixes.css';
 
 export const metadata: Metadata = {
   title: {

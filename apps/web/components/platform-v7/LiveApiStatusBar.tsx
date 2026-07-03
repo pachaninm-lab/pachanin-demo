@@ -49,11 +49,16 @@ function Chip({ children, color, bg }: { children: ReactNode; color: string; bg:
         display: 'inline-flex',
         alignItems: 'center',
         gap: 4,
+        minWidth: 0,
+        maxWidth: '100%',
         padding: '3px 9px',
         borderRadius: 999,
         fontSize: 11,
         fontWeight: 800,
         letterSpacing: '0.02em',
+        lineHeight: 1.15,
+        whiteSpace: 'normal',
+        overflowWrap: 'anywhere',
         color,
         background: bg,
         border: `1px solid ${color}22`,
@@ -80,7 +85,12 @@ export function LiveApiStatusBar({
 
   return (
     <div
+      className='p7-live-api-status'
       style={{
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+        overflow: 'hidden',
         background: apiOnline ? '#F0FDF4' : '#FFF7ED',
         border: `1px solid ${apiOnline ? '#BBF7D0' : '#FED7AA'}`,
         borderRadius: 12,
@@ -92,7 +102,7 @@ export function LiveApiStatusBar({
       }}
     >
       {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%' }}>
         <span
           style={{
             width: 8,
@@ -102,17 +112,17 @@ export function LiveApiStatusBar({
             flexShrink: 0,
           }}
         />
-        <span style={{ fontWeight: 800, color: apiOnline ? '#15803D' : '#C2410C', fontSize: 11 }}>
+        <span style={{ minWidth: 0, fontWeight: 800, color: apiOnline ? '#15803D' : '#C2410C', fontSize: 11, overflowWrap: 'anywhere' }}>
           {apiOnline ? 'API-контур доступен · данные текущего сценария' : 'API-контур недоступен · показан локальный сценарий'}
         </span>
         {role && (
-          <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <span style={{ minWidth: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', overflowWrap: 'anywhere' }}>
             {role}
           </span>
         )}
 
         {/* Metrics chips */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto', minWidth: 0, maxWidth: '100%' }}>
           {pendingBankOps > 0 && (
             <Chip color="#B45309" bg="#FEF3C7">
               ⏳ {pendingBankOps} банк
@@ -143,21 +153,21 @@ export function LiveApiStatusBar({
 
       {/* Summary */}
       {summary && (
-        <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 11, lineHeight: 1.4 }}>
+        <p style={{ margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 11, lineHeight: 1.4, minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}>
           {summary}
         </p>
       )}
 
       {/* Stops list */}
       {stops.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, maxWidth: '100%' }}>
           {stops.map((blocker) => (
-            <div key={blocker.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
+            <div key={blocker.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 0, minWidth: 0, maxWidth: '100%' }}>
               <SeverityDot severity={blocker.severity} />
-              <div style={{ minWidth: 0 }}>
-                <span style={{ fontWeight: 700, color: '#1E293B', fontSize: 11 }}>{blocker.label}</span>
+              <div style={{ minWidth: 0, maxWidth: '100%' }}>
+                <span style={{ fontWeight: 700, color: '#1E293B', fontSize: 11, overflowWrap: 'anywhere' }}>{blocker.label}</span>
                 {blocker.nextAction && (
-                  <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, marginLeft: 6 }}>
+                  <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 11, marginLeft: 6, overflowWrap: 'anywhere' }}>
                     → {blocker.nextAction}
                   </span>
                 )}
