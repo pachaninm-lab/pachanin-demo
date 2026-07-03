@@ -14,7 +14,6 @@ import { MobileHeaderActionRail } from '@/components/platform-v7/MobileHeaderAct
 import { NotepadHeaderWidget } from '@/components/platform-v7/NotepadHeaderWidget';
 import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidget';
 import { PlatformFooter } from '@/components/platform-v7/PlatformFooter';
-import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
 import { OnboardingTour } from '@/components/platform-v7/OnboardingTour';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
@@ -150,7 +149,6 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <RoleAssistantWidget />
           {children}
           <PlatformFooter />
-          <ChatSupportWidget />
           <OnboardingTour />
           <style dangerouslySetInnerHTML={{ __html: shellRestoreCss }} />
         </>
