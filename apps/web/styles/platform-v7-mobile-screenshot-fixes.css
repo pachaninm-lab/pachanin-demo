@@ -1,4 +1,4 @@
-/* Platform v7 · mobile screenshot fixes. Scope: /platform-v7 only. */
+/* Platform v7 · mobile viewport guard. Scope: /platform-v7 shell and public entry. */
 
 html,
 body,
@@ -36,12 +36,12 @@ body,
   overflow-x: hidden !important;
 }
 
-.pc-shell-root-v4 .pc-v4-main :is(section, article, aside, form, fieldset, [role='region'], [data-open]) {
+.pc-shell-root-v4 .pc-v4-main :is(section, article, aside, form, fieldset, details, summary, [role='region'], [data-open]) {
   max-width: 100% !important;
   overflow-x: hidden !important;
 }
 
-.pc-shell-root-v4 .pc-v4-main :is(h1, h2, h3, p, strong, span, small, em, a, button, label) {
+.pc-shell-root-v4 .pc-v4-main :is(h1, h2, h3, h4, p, strong, span, small, em, a, button, label, li, dd, dt) {
   max-width: 100% !important;
   overflow-wrap: anywhere !important;
   word-break: normal !important;
@@ -51,10 +51,27 @@ body,
   max-width: 100% !important;
 }
 
+.pc-shell-root-v4 .pc-v4-main :is(pre, code, table, [role='table']) {
+  max-width: 100% !important;
+}
+
+.pc-shell-root-v4 .pc-v4-main :is(table, [role='table'], [data-overflow-x='true']) {
+  display: block !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.pc-shell-root-v4 .pc-v4-main :is([style*='white-space: nowrap'], [style*='white-space:nowrap']) {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
 .p7-collapsible,
 .p7-collapsible-trigger,
 .p7-collapsible-title,
 .p7-collapsible-summary,
+.p7-collapsible-toggle,
 .p7-collapsible-region {
   min-inline-size: 0 !important;
   max-inline-size: 100% !important;
@@ -71,17 +88,42 @@ body,
   text-overflow: ellipsis !important;
 }
 
-.pc-shell-root-v4 .pc-v4-main :is(.pc-prem-hero, .pc-prem-kpis, .pc-prem-kpi, .pc-prem-offline, [data-testid*='platform-v7'], [aria-label*='Ключевые показатели'], [aria-label*='показатели']) {
+.p7-live-api-status,
+.p7-live-api-status * {
+  min-inline-size: 0 !important;
+  max-inline-size: 100% !important;
+  overflow-wrap: anywhere !important;
+}
+
+.pc-shell-root-v4 .pc-v4-main :is(
+  .pc-prem-hero,
+  .pc-prem-kpis,
+  .pc-prem-kpi,
+  .pc-prem-offline,
+  .pc-prem-stepper,
+  .pc-prem-stat,
+  .pc-prem-spark,
+  .pc-prem-gauge,
+  [data-testid*='platform-v7'],
+  [data-testid*='platform-v7'] *,
+  [aria-label*='Ключевые показатели'],
+  [aria-label*='показатели']
+) {
   max-width: 100% !important;
   overflow-x: hidden !important;
 }
 
 .pc-prem-hero__eyebrow,
+.pc-prem-hero__title,
+.pc-prem-hero__lead,
 .pc-prem-pill,
 .pc-prem-offline__title,
 .pc-prem-offline__detail,
+.pc-prem-offline__count,
 .pc-prem-kpi__label,
-.pc-prem-kpi__value {
+.pc-prem-kpi__value,
+.pc-prem-step__label,
+.pc-prem-spark__caption {
   min-inline-size: 0 !important;
   max-inline-size: 100% !important;
   white-space: normal !important;
@@ -93,7 +135,9 @@ body,
   html body .pc-shell-root-v4 .pc-v4-main main [style*='repeat('],
   html body .pc-shell-root-v4 .pc-v4-main main [class*='grid' i]:not(.pc-v7-role-dock-inner),
   html body .pc-shell-root-v4 .pc-v4-main main [data-card-grid],
-  html body .pc-shell-root-v4 .pc-v4-main main [data-action-grid] {
+  html body .pc-shell-root-v4 .pc-v4-main main [data-action-grid],
+  html body .pc-shell-root-v4 .pc-v4-main main [data-status-grid],
+  html body .pc-shell-root-v4 .pc-v4-main main [data-kpi-grid] {
     grid-template-columns: 1fr !important;
   }
 
@@ -257,7 +301,7 @@ body,
     margin: 0 !important;
     padding-top: calc(env(safe-area-inset-top) + 78px) !important;
     padding-inline: 10px !important;
-    padding-bottom: calc(env(safe-area-inset-bottom) + 116px) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 124px) !important;
     background: linear-gradient(180deg, #fbfcf9 0%, #f5f3ec 100%) !important;
     overflow-x: hidden !important;
   }
@@ -358,7 +402,10 @@ body,
   .pc-v7-public-entry .entry-header,
   .pc-v7-public-entry .entry-hero,
   .pc-v7-public-entry .entry-section,
-  .pc-v7-public-entry .entry-trust-strip {
+  .pc-v7-public-entry .entry-trust-strip,
+  .pc-v7-public-entry .entry-process-row,
+  .pc-v7-public-entry .entry-role-grid,
+  .pc-v7-public-entry .entry-control-grid {
     width: 100% !important;
     max-width: 100% !important;
     margin-inline: 0 !important;
