@@ -2,6 +2,19 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
+// `log()` persists metadata via `JSON.stringify(entry.meta)`, so rows written by
+// this service store metadata as a JSON *string* in the Prisma Json column.
+// Parse string metadata back into an object on read, while passing through any
+// value already stored as JSON (object/array) unchanged.
+function parseAuditMeta(value: unknown): unknown {
+  if (typeof value !== 'string') return value ?? undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 export interface AuditLogParams {
   action: string;
   actorUserId: string;
@@ -112,7 +125,7 @@ export class AuditService {
         actorUserId: r.actorUserId,
         hash: r.hash,
         prevHash: r.prevHash,
-        meta: r.metadata ?? undefined,
+        meta: parseAuditMeta(r.metadata),
         createdAt: r.createdAt.toISOString(),
       }));
     } catch {
