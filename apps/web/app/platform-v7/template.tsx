@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7InteractionFixes';
 import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLockFix';
 import { PublicEntryCleanup } from '@/components/platform-v7/PublicEntryCleanup';
+import { PublicHeaderFinalLock } from '@/components/platform-v7/PublicHeaderFinalLock';
 import { PublicHeroCopyNormalizer } from '@/components/platform-v7/PublicHeroCopyNormalizer';
 import { PublicHeroWeightPatch } from '@/components/platform-v7/PublicHeroWeightPatch';
 import { PublicMobileLandingFix } from '@/components/platform-v7/PublicMobileLandingFix';
@@ -25,6 +26,7 @@ export default function PlatformV7Template({ children }: { children: ReactNode }
       <PublicHeroWeightPatch />
       {children}
       <PublicMobileLandingFix />
+      <PublicHeaderFinalLock />
     </>
   );
 }
