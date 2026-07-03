@@ -149,18 +149,25 @@
 | `disputes/[id]` `claimAmountRub` (2) | Заменено на существующее `holdAmount` (в рублях). |
 | `BankRuntime` `provider` (1) | В `CallbackItem` добавлено опциональное `provider?`. |
 | `@sentry/nextjs` (2) | Неподключённые (нет `withSentryConfig`/instrumentation, пакета нет) `sentry.*.config.ts` удалены. |
-| **Ложные** 19 «Cannot find module» в web | Причина — паразитная петля симлинков `apps/web/apps → ..` (загружалась tsc через `**/*.ts` и компилировала файлы по удвоенному пути). Петля **сохранена** (она нужна тестам для резолвинга путей — см. 6.3) и **исключена** из `apps/web/tsconfig.json`. |
+| **Ложные** 19 «Cannot find module» в web | Причина — петля симлинков `apps/web/apps → ..` (tsc загружал её через `**/*.ts` и компилировал файлы по удвоенному пути с битыми относительными импортами). Петля **сохранена** (нужна тестам для резолвинга путей — см. 6.3) и **исключена** из `apps/web/tsconfig.json`. |
 
 ### 6.2 API jest — было 4 сьюта не компилировались, стало 29/29 сьютов · 258/258 тестов зелёные
 
-### 6.3 Web `vitest` — было 18 падений, стало 13 (все — вне CI)
+### 6.3 Web `vitest` — было 18 падений, стало **0** (полностью зелёный: 3566/3566)
 
-- **Починено в исходниках (5 copy-гардов):** приведены к честной формулировке анти-оверклейминг-строки — убраны видимые токены `controlled pilot`, `production-ready`, «платформа гарантирует оплату», «боевые интеграции», «E2E симуляция» в `grain-documents/grain-payment/secure-grain-deal/auth/oferta/onboarding/privacy/terms/status/deals`.
-- **Осталось 13 ассертов в 7 файлах — НЕ трогались осознанно.** Это **устаревшие взаимно-противоречивые** гарды, красные и на `main`, и **не входящие в CI** (CI гоняет лишь 5 конкретных vitest-файлов — все зелёные). Доказательства неустранимости подгонкой исходника:
-  - `platformV7ShellUxController.test.ts` (проходит) требует `DOCK_BY_ROLE` **с** пунктом «ИИ», а `platformV7ShellUxRegistry.test.ts` требует его **отсутствия** — прямое противоречие на одном файле.
-  - `compactHeaderStaleRolePolicy.test.ts` требует поведения, **обратного** CI-гейтед `shellRolePolicy.test.ts` на одинаковых входах (`getHeaderSelectableRoles('seller','/platform-v7/seller')`): подгонка сломала бы CI-гейт.
-  - `platformV7VisibleEntry`/`PublicDemoContact`/`PublicCopyQuality`/`PublicRouteGuards`/`RoleAssistantWidget` описывают **до-рефакторный** продукт (демо-главная, старый middleware) — намеренно изменённый коммитами «rename public demo entry to deal review», «remove demo wording», security-переписыванием `middleware.ts`.
-  - **Рекомендация:** удалить/переписать устаревшее поколение этих гардов под текущую архитектуру (отдельным решением — это не баг исходника).
+**Раунд 3 — примирение устаревших гардов с текущей архитектурой.** Изначально 18 падений; 5 закрыты честными правками копирайта, остальные 13 (в 7 файлах) оказались **устаревшими** гардами до-рефакторного поколения (красные и на `main`, вне CI). Они приведены к текущему намеренному поведению — где тест указывал на реальный недоделанный рефактор или нестыковку, чинился **исходник**; где на удалённый/переименованный продукт — обновлялся **тест** (с сохранением смысла).
+
+| Гард | Что было | Действие |
+|---|---|---|
+| copy-гарды (5) | видимые overclaiming-токены | **исходник:** убраны `controlled pilot`/`production-ready`/«платформа гарантирует оплату»/«боевые интеграции»/«E2E симуляция»; `register` — убран `pre-integration`. |
+| `platformV7ShellUxRegistry` ↔ `…ShellUxController` | прямое противоречие про `DOCK_BY_ROLE`(+«ИИ») | **исходник:** удалены мёртвые `HOME_BY_ROLE`/`DOCK_BY_ROLE` (рантайм давно берёт док из реестра `shellRoutes`); obsolete-кейсы `ShellUxController.test` перенесены в реестр-тест `platformV7RoleNavigationRegistry` (покрытие сохранено). |
+| `compactHeaderStaleRolePolicy` | требовал поведения, **обратного** CI-гейтед `shellRolePolicy` | **тест:** переписан под текущую (и CI-совместимую) политику: путь-скоуп определяет хедер, устаревшая роль игнорируется. |
+| `platformV7PublicRouteGuards` | middleware не пускал `contact`/`request` публично | **исходник:** `contact`/`request` добавлены в `PLATFORM_V7_PUBLIC_EXACT` (реальная нестыковка с client-guard и public lead-API устранена); тест — под текущий механизм. |
+| `platformV7VisibleEntry`/`PublicDemoContact`/`PublicCopyQuality` | ассерты до-рефакторной demo-главной | **тест:** обновлён под текущую копию (demo→«Разбор сделки», primary CTA «Подключить организацию», реальные honesty-строки). |
+| `platformV7RoleAssistantWidget` | устаревшие impl-детали mobile-rail | **тест:** приведён к текущей реализации rail. |
+| `platformV7PublicLayoutSplit` | считал `/assistant` «устаревшим» | **тест:** обновлён — `/ai` **канонически** 308-редиректит на поддерживаемый `/assistant`. |
+
+> Побочно устранена ещё одна staleness-бага: зеркальный `apps/web/apps/web/middleware.ts` был **устаревшей копией-файлом** (331 стр. vs 350), из-за чего middleware-тесты проверяли мёртвый код. Заменён на **симлинк** на реальный `../../middleware.ts` (как соседние записи зеркала) — теперь все middleware-тесты видят рабочий файл.
 
 ### 6.4 CI-гейт `smoke:web` — закрыт слепой участок
 
@@ -181,4 +188,4 @@
 | `pnpm install --frozen-lockfile` | 🟢 согласован |
 | `smoke:web` (entry cookie) | 🟢 13/13 |
 | Route sweep 205 стр. × роли | 🟢 0 ошибок / 0×500 |
-| Полный `vitest` | 3557 pass / 13 fail (7 устаревших вне-CI гардов, см. 6.3) |
+| Полный `vitest` | 🟢 **3566/3566** (562/562 файлов) |

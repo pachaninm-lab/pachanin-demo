@@ -9,9 +9,11 @@ const pageSource = () => readFileSync(resolve(__dirname, '../../app/platform-v7/
 describe('platform-v7 visible entry (mobile home)', () => {
   it('shows the hero and a single primary action', () => {
     const page = pageSource();
-    expect(page).toContain('Главный риск сделки начинается после согласования цены');
+    expect(page).toContain('Главный риск сделки');
     expect(page).toContain('Прозрачная Цена — цифровой контур исполнения зерновой сделки');
-    expect(page).toContain('Выбрать роль');
+    // The one visually-primary action on the hero is "Подключить организацию".
+    expect(page).toContain('entry-primary-cta');
+    expect(page).toContain('Подключить организацию');
   });
 
   it('shows role entry points and human public copy', () => {

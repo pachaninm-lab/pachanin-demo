@@ -63,6 +63,11 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
+  // Public lead / question pages: anonymous visitors must reach these without an
+  // entry cookie, matching the client single-entry guard and the public lead APIs
+  // below. They are forms only — no protected data is exposed.
+  '/platform-v7/contact',
+  '/platform-v7/request',
 ]);
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];

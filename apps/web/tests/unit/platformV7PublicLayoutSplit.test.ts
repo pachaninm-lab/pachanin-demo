@@ -42,8 +42,10 @@ describe('platform-v7 public layout split', () => {
     expect(layout).not.toContain('<CommandPalette />');
   });
 
-  it('does not redirect the AI route to a stale assistant route', () => {
-    expect(middleware).not.toContain("p === '/platform-v7/ai'");
-    expect(middleware).not.toContain("'/platform-v7/assistant'");
+  it('canonicalises the legacy /ai route to the maintained assistant route', () => {
+    // /platform-v7/assistant is the canonical assistant surface; the legacy
+    // /platform-v7/ai path 308-redirects to it in middleware.
+    expect(middleware).toContain("p === '/platform-v7/ai'");
+    expect(middleware).toContain("u.pathname = '/platform-v7/assistant'");
   });
 });
