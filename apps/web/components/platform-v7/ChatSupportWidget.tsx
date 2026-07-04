@@ -46,7 +46,7 @@ export function ChatSupportWidget() {
 
     if (payload.name.length < 2) return setError('Укажите имя.');
     if (payload.contact.length < 5) return setError('Укажите телефон или email для ответа.');
-    if (payload.message.length < 20) return setError('Опишите вопрос подробнее: минимум 20 символов.');
+    if (!payload.message) return setError('Напишите вопрос.');
 
     setState('sending');
     setError('');
@@ -80,7 +80,6 @@ export function ChatSupportWidget() {
             <img src={BRAND_LOGO_DATA_URI} alt='' draggable={false} />
             <div>
               <strong>Поддержка Прозрачной Цены</strong>
-              <span>Обращение уйдёт в рабочую почту проекта</span>
             </div>
             <button type='button' onClick={() => setOpen(false)} aria-label='Закрыть поддержку'>
               <X size={18} strokeWidth={2.4} />
