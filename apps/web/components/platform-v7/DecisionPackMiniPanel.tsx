@@ -6,10 +6,10 @@ import {
 } from '../../lib/platform-v7/document-money-decision-pack';
 
 function stateTone(state: DecisionPackPilotState) {
-  if (state === 'blocked') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
-  if (state === 'allowed') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  if (state === 'manual_review') return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#1D4ED8' };
-  return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
+  if (state === 'blocked') return { bg: 'var(--pc-danger-bg)', border: 'var(--pc-danger)', color: 'var(--pc-danger)' };
+  if (state === 'allowed') return { bg: 'var(--pc-success-bg)', border: 'var(--pc-success)', color: 'var(--pc-success)' };
+  if (state === 'manual_review') return { bg: 'var(--pc-info-bg)', border: 'var(--pc-info)', color: 'var(--pc-info)' };
+  return { bg: 'var(--pc-warning-bg)', border: 'var(--pc-warning)', color: 'var(--pc-warning)' };
 }
 
 export function DecisionPackMiniPanel({ context }: { context: DecisionPackContext }) {
@@ -18,7 +18,7 @@ export function DecisionPackMiniPanel({ context }: { context: DecisionPackContex
   return (
     <section
       data-testid='platform-v7-decision-pack-mini-panel'
-      style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, display: 'grid', gap: 12, minWidth: 0 }}
+      style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 12, minWidth: 0 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center', minWidth: 0 }}>
         <div style={{ display: 'grid', gap: 4, minWidth: 0 }}>
@@ -34,9 +34,9 @@ export function DecisionPackMiniPanel({ context }: { context: DecisionPackContex
             alignItems: 'center',
             padding: '5px 10px',
             borderRadius: 999,
-            border: '1px solid rgba(37,99,235,0.18)',
-            background: 'rgba(37,99,235,0.06)',
-            color: '#1D4ED8',
+            border: '1px solid var(--pc-info)',
+            background: 'var(--pc-info-bg)',
+            color: 'var(--pc-info)',
             fontSize: 11,
             fontWeight: 900,
             whiteSpace: 'normal',
@@ -56,7 +56,7 @@ export function DecisionPackMiniPanel({ context }: { context: DecisionPackContex
             <article
               key={row.rowId}
               data-testid='platform-v7-decision-pack-row'
-              style={{ background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 13, display: 'grid', gap: 8, minWidth: 0 }}
+              style={{ background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border)', borderRadius: 14, padding: 13, display: 'grid', gap: 8, minWidth: 0 }}
             >
               <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap', minWidth: 0 }}>
                 <div
@@ -91,7 +91,7 @@ export function DecisionPackMiniPanel({ context }: { context: DecisionPackContex
               {row.blocker ? (
                 <div
                   data-testid='platform-v7-decision-pack-blocker'
-                  style={{ color: '#B91C1C', fontSize: 12, lineHeight: 1.45, overflowWrap: 'anywhere', minWidth: 0, borderTop: '1px solid rgba(220,38,38,0.12)', paddingTop: 7 }}
+                  style={{ color: 'var(--pc-danger)', fontSize: 12, lineHeight: 1.45, overflowWrap: 'anywhere', minWidth: 0, borderTop: '1px solid var(--pc-danger)', paddingTop: 7 }}
                 >
                   {row.blocker}
                 </div>
@@ -103,7 +103,7 @@ export function DecisionPackMiniPanel({ context }: { context: DecisionPackContex
         })}
       </div>
 
-      <div data-testid='platform-v7-decision-pack-note' style={{ color: '#566070', fontSize: 11, lineHeight: 1.4, overflowWrap: 'anywhere' }}>
+      <div data-testid='platform-v7-decision-pack-note' style={{ color: 'var(--pc-text-muted)', fontSize: 11, lineHeight: 1.4, overflowWrap: 'anywhere' }}>
         контролируемый пилот · ручная проверка · требует внешнего подтверждения перед исполнением
       </div>
     </section>

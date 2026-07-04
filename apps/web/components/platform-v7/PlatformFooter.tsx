@@ -24,8 +24,8 @@ export function PlatformFooter() {
       data-demo="true"
       aria-label="Партнёры и соответствие"
       style={{
-        borderTop: '1px solid var(--p7-color-border, #E4E6EA)',
-        background: 'var(--p7-color-surface-muted, #F8FAFB)',
+        borderTop: '1px solid var(--pc-border)',
+        background: 'var(--pc-bg-subtle)',
         padding: '2rem 1.5rem 3rem',
         marginTop: '2rem',
       }}
@@ -46,8 +46,8 @@ export function PlatformFooter() {
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   padding: '0.5rem 0.875rem',
                   borderRadius: 10,
-                  background: '#fff',
-                  border: '1px solid var(--p7-color-border, #E4E6EA)',
+                  background: 'var(--pc-bg-card)',
+                  border: '1px solid var(--pc-border)',
                   minWidth: 100,
                   gap: '0.25rem',
                   userSelect: 'none',
@@ -65,7 +65,7 @@ export function PlatformFooter() {
           {COMPLIANCE.map((item) => (
             <span key={item} style={{
               fontSize: 9, fontWeight: 700, color: 'var(--pc-text-muted)',
-              background: 'rgba(10,122,95,0.06)', border: '1px solid rgba(10,122,95,0.12)',
+              background: 'var(--pc-accent-soft)', border: '1px solid var(--pc-accent-border)',
               borderRadius: 999, padding: '2px 8px',
             }}>
               {item}
@@ -74,7 +74,7 @@ export function PlatformFooter() {
         </div>
 
         {/* Bottom row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid var(--p7-color-border, #E4E6EA)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid var(--pc-border)' }}>
           <span style={{ fontSize: 10, color: 'var(--pc-text-muted)' }}>
             © 2024–2026 ООО «Прозрачная Цена» · Pilot контур · Данные демонстрационные
           </span>

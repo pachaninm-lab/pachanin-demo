@@ -5,10 +5,11 @@ import {
   type DecisionRecommendationState,
 } from '@/lib/platform-v7/decision-recommendation';
 
+// Семантические тона из токенов — theme-aware (светлая/тёмная), без стоячих hex.
 function stateTone(state: DecisionRecommendationState) {
-  if (state === 'ready_for_decision') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  if (state === 'requires_manual_review') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
-  return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
+  if (state === 'ready_for_decision') return { bg: 'var(--pc-success-bg)', border: 'var(--pc-success)', color: 'var(--pc-success)' };
+  if (state === 'requires_manual_review') return { bg: 'var(--pc-warning-bg)', border: 'var(--pc-warning)', color: 'var(--pc-warning)' };
+  return { bg: 'var(--pc-danger-bg)', border: 'var(--pc-danger)', color: 'var(--pc-danger)' };
 }
 
 export function DecisionRecommendationStrip({ context }: { context: DecisionRecommendationContext }) {
@@ -18,7 +19,7 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
   return (
     <section
       data-testid="platform-v7-decision-recommendation-strip"
-      style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}
+      style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 12 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
@@ -49,14 +50,14 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
 
       <div
         data-testid="platform-v7-decision-recommendation-strip-recommendation"
-        style={{ fontSize: 14, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)', lineHeight: 1.45, background: '#F8FAFB', border: '1px solid #EEF1F4', borderRadius: 12, padding: '10px 12px' }}
+        style={{ fontSize: 14, fontWeight: 900, color: 'var(--pc-text-primary)', lineHeight: 1.45, background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border)', borderRadius: 12, padding: '10px 12px' }}
       >
         {data.recommendation}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
         <div style={{ display: 'grid', gap: 4 }}>
-          <span style={{ fontSize: 10, color: '#566070', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: 10, color: 'var(--pc-text-muted)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             ответственный
           </span>
           <div
@@ -68,14 +69,14 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
         </div>
 
         <div style={{ display: 'grid', gap: 4 }}>
-          <span style={{ fontSize: 10, color: '#566070', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: 10, color: 'var(--pc-text-muted)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             требуемые доказательства
           </span>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
             {data.requiredEvidence.map((item) => (
               <span
                 key={item}
-                style={{ display: 'inline-flex', padding: '3px 7px', borderRadius: 999, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 850 }}
+                style={{ display: 'inline-flex', padding: '3px 7px', borderRadius: 999, background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-secondary)', fontSize: 11, fontWeight: 850 }}
               >
                 {item}
               </span>
@@ -88,15 +89,15 @@ export function DecisionRecommendationStrip({ context }: { context: DecisionReco
         data-testid="platform-v7-decision-recommendation-strip-blocker"
         style={{
           fontSize: 12,
-          color: '#B91C1C',
+          color: 'var(--pc-danger)',
           lineHeight: 1.45,
-          background: 'rgba(220,38,38,0.05)',
-          border: '1px solid rgba(220,38,38,0.14)',
+          background: 'var(--pc-danger-bg)',
+          border: '1px solid var(--pc-danger)',
           borderRadius: 10,
           padding: '8px 10px',
         }}
       >
-        <span style={{ fontSize: 10, color: '#B91C1C', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 3 }}>
+        <span style={{ fontSize: 10, color: 'var(--pc-danger)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 3 }}>
           причина остановки · решение не продолжается
         </span>
         {data.cannotProceedBecause}
