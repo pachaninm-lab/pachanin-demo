@@ -41,7 +41,7 @@
 2. **Live-адаптер** — если ещё нет: скопировать `LiveBankAdapter`, реализовать методы интерфейса через `this.http.request(...)`, зарегистрировать в `LIVE_ADAPTER_FACTORIES` (`live-registry.ts`).
 3. **Маппинг** — выверить пути и поля запроса/ответа под реальный API вендора (места помечены `VENDOR MAPPING`).
 
-Затем на старте API однократно вызвать `configureIntegrationsFromEnv()` — он подменит mock на live там, где `MODE=live`.
+Вызов `configureIntegrationsFromEnv()` уже вшит в бутстрап API (`apps/api/src/main.ts`) — на старте он подменит mock на live там, где `MODE=live`, и упадёт (fail-closed), если live/sandbox запрошен без кредов.
 
 ## Матрица систем
 
