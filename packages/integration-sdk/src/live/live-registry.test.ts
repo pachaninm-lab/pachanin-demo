@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { configureIntegrationsFromEnv } from './live-registry';
+import { configureIntegrationsFromEnv, LIVE_ADAPTER_FACTORIES } from './live-registry';
 import { integrationRegistry } from '../registry';
 import type { FetchLike } from './http-integration-client';
 import type { BankAdapter } from '../adapters/bank.adapter';
@@ -38,14 +38,36 @@ describe('configureIntegrationsFromEnv', () => {
     expect(() => configureIntegrationsFromEnv({ BANK_MODE: 'live', BANK_AUTH: 'bearer' }, deps)).toThrow(/BANK_BASE_URL/);
   });
 
+  it('swaps every adapter to live when fully configured', () => {
+    const names = [
+      'FGIS_ZERNO', 'FNS', 'DIADOK', 'CRYPTOPRO_DSS', 'BANK', 'GPS', 'FTS', 'RSHN',
+      'AML_ROSFINMONITORING', 'RZD_ETRAN', 'GIS_EPD', 'BKI_NBKI', 'TAKSKOM', 'MARINE_TRAFFIC', 'SMEV',
+    ] as const;
+    const env: Record<string, string> = {};
+    for (const n of names) {
+      env[`${n}_MODE`] = 'live';
+      env[`${n}_BASE_URL`] = `https://api.${n.toLowerCase()}.example/v1`;
+      env[`${n}_AUTH`] = 'api_key';
+      env[`${n}_API_KEY`] = 'k';
+    }
+    const res = configureIntegrationsFromEnv(env, deps);
+    expect(res.live).toHaveLength(names.length);
+    for (const n of names) {
+      expect(integrationRegistry.get(n).mode).toBe('live');
+      expect(integrationRegistry.get(n).name).toBe(n);
+    }
+  });
+
   it('fail-loud: live mode for an adapter without a live class throws a clear message', () => {
-    const env = {
-      GPS_MODE: 'live',
-      GPS_BASE_URL: 'https://gps.example',
-      GPS_AUTH: 'api_key',
-      GPS_API_KEY: 'k',
-    };
-    expect(() => configureIntegrationsFromEnv(env, deps)).toThrow(/no LiveGps.*Adapter is implemented/);
+    // All real names have factories, so remove one to exercise the guard branch.
+    const saved = LIVE_ADAPTER_FACTORIES.GPS;
+    delete LIVE_ADAPTER_FACTORIES.GPS;
+    try {
+      const env = { GPS_MODE: 'live', GPS_BASE_URL: 'https://gps.example', GPS_AUTH: 'api_key', GPS_API_KEY: 'k' };
+      expect(() => configureIntegrationsFromEnv(env, deps)).toThrow(/no LiveGps.*Adapter is implemented/);
+    } finally {
+      LIVE_ADAPTER_FACTORIES.GPS = saved;
+    }
   });
 
   it('disabled mode replaces the mock with a hard-stop adapter', async () => {

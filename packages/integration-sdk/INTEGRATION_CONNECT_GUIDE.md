@@ -1,8 +1,9 @@
 # Integration Connect Guide
 
-Что осталось, чтобы превратить пилот в боевой контур: **подключить**, а не переписывать.
-Весь транспортный слой уже готов и покрыт тестами — на каждую систему остаётся только
-(1) задать env, (2) написать `Live<Name>Adapter` по эталону, (3) выверить endpoint/маппинг под реальный API.
+Что осталось, чтобы перевести систему на реальный контур: **подключить**, а не переписывать.
+Транспортный слой и `Live<Name>Adapter` на каждую из 15 систем уже написаны и покрыты тестами —
+на систему остаётся только (1) задать env, (2) выверить endpoint/маппинг под реальный API вендора
+(`VENDOR MAPPING`) и (3) подставить боевые креды/сертификаты.
 
 ## Что уже готово (общий слой, `src/live/`)
 
@@ -14,7 +15,7 @@
 | Фабрика клиента | `build-client.ts` | `config → HttpIntegrationClient` c нужным auth |
 | База адаптера | `live-adapter-base.ts` | реализует `IntegrationAdapter` (name/version/mode/execute/health) |
 | Реестр по режиму | `live-registry.ts` | `configureIntegrationsFromEnv()` — подменяет mock на live по `<NAME>_MODE` |
-| **Эталоны** | `live-bank.adapter.ts`, `live-fgis-zerno.adapter.ts` | два готовых live-адаптера как шаблон |
+| **Live-адаптеры** | `live-*.adapter.ts` (15 шт.) | по одному на каждую систему, все на общем клиенте |
 
 Все ветки покрыты unit-тестами (fake `fetch`, без реальной сети).
 
@@ -44,25 +45,27 @@
 
 ## Матрица систем
 
-| Adapter (`NAME`) | Система | Тип auth | Live-класс | Осталось |
+| Adapter (`NAME`) | Система | Тип auth | Live-класс | Осталось (только вендор-шаг) |
 |---|---|---|---|---|
 | `BANK` | Банк / эскроу (Сбер и др.) | oauth2 / mTLS | ✅ `LiveBankAdapter` | endpoint+маппинг, mTLS на деплое |
 | `FGIS_ZERNO` | ФГИС «Зерно» (СДИЗ) | api_key / oauth2 | ✅ `LiveFgisZernoAdapter` | endpoint+маппинг |
-| `DIADOK` | ЭДО Контур.Диадок (УПД/акты) | oauth2 | ⬜ по эталону | + вебхуки статусов |
-| `CRYPTOPRO_DSS` | КриптоПро DSS (КЭП/МЧД) | oauth2 / mTLS | ⬜ по эталону | подпись/проверка, сертификаты |
-| `GIS_EPD` | ГИС ЭПД (перевозочные) | api_key | ⬜ по эталону | endpoint+маппинг |
-| `RZD_ETRAN` | РЖД ЭТРАН (ж/д накладные) | bearer | ⬜ по эталону | endpoint+маппинг |
-| `FNS` | ФНС (проверка контрагента) | api_key | ⬜ по эталону | endpoint+маппинг |
-| `FTS` | ФТС (таможня/экспорт) | api_key | ⬜ по эталону | endpoint+маппинг |
-| `RSHN` | Россельхознадзор | api_key | ⬜ по эталону | endpoint+маппинг |
-| `AML_ROSFINMONITORING` | Росфинмониторинг (AML) | api_key | ⬜ по эталону | endpoint+маппинг |
-| `BKI_NBKI` | БКИ / НБКИ | bearer | ⬜ по эталону | endpoint+маппинг |
-| `TAKSKOM` | Такском (ЭДО/ОФД) | oauth2 | ⬜ по эталону | endpoint+маппинг |
-| `GPS` | GPS-трекинг (Wialon/ATI) | api_key | ⬜ по эталону | endpoint+маппинг |
-| `MARINE_TRAFFIC` | Marine Traffic (суда) | api_key | ⬜ по эталону | endpoint+маппинг |
-| `SMEV` | СМЭВ (гос-межвед) | mTLS | ⬜ по эталону | СМЭВ-конверты, mTLS |
+| `DIADOK` | ЭДО Контур.Диадок (УПД/акты) | oauth2 | ✅ `LiveDiadokAdapter` | endpoint+маппинг, вебхуки статусов |
+| `CRYPTOPRO_DSS` | КриптоПро DSS (КЭП/МЧД) | oauth2 / mTLS | ✅ `LiveCryptoproAdapter` | endpoint+маппинг, сертификаты/mTLS |
+| `GIS_EPD` | ГИС ЭПД (перевозочные) | api_key | ✅ `LiveGisEpdAdapter` | endpoint+маппинг |
+| `RZD_ETRAN` | РЖД ЭТРАН (ж/д накладные) | bearer | ✅ `LiveRzdEtranAdapter` | endpoint+маппинг |
+| `FNS` | ФНС (проверка контрагента) | api_key | ✅ `LiveFnsAdapter` | endpoint+маппинг |
+| `FTS` | ФТС (таможня/экспорт) | api_key | ✅ `LiveFtsAdapter` | endpoint+маппинг |
+| `RSHN` | Россельхознадзор | api_key | ✅ `LiveRshnAdapter` | endpoint+маппинг |
+| `AML_ROSFINMONITORING` | Росфинмониторинг (AML) | api_key | ✅ `LiveAmlAdapter` | endpoint+маппинг |
+| `BKI_NBKI` | БКИ / НБКИ | bearer | ✅ `LiveBkiAdapter` | endpoint+маппинг, согласие субъекта |
+| `TAKSKOM` | Такском / СБИС (ЭДО) | oauth2 | ✅ `LiveTakskomAdapter` | endpoint+маппинг |
+| `GPS` | GPS-трекинг (Wialon/ATI) | api_key | ✅ `LiveGpsAdapter` | endpoint+маппинг |
+| `MARINE_TRAFFIC` | Marine Traffic (суда) | api_key | ✅ `LiveMarineAdapter` | endpoint+маппинг |
+| `SMEV` | СМЭВ (гос-межвед) | mTLS | ✅ `LiveSmevAdapter` | СМЭВ-конверты, mTLS |
 
-✅ — эталон готов · ⬜ — пишется копипастой эталона (интерфейс уже есть, транспорт общий)
+✅ — live-класс готов на общем клиенте (транспорт, auth, retry, idempotency покрыты тестами).
+Осталось на каждую систему **только вендор-шаг**: выверить реальные пути и поля запроса/ответа
+(места помечены `VENDOR MAPPING`) и подставить боевые креды/сертификаты.
 
 ## Отдельно от адаптеров (инфраструктура боевого запуска)
 

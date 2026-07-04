@@ -12,15 +12,42 @@ import { resolveIntegrationConfig, type Env } from './integration-config';
 import { HttpIntegrationClient } from './http-integration-client';
 import { LiveBankAdapter } from './live-bank.adapter';
 import { LiveFgisZernoAdapter } from './live-fgis-zerno.adapter';
+import { LiveDiadokAdapter } from './live-diadok.adapter';
+import { LiveCryptoproAdapter } from './live-cryptopro.adapter';
+import { LiveFnsAdapter } from './live-fns.adapter';
+import { LiveFtsAdapter } from './live-fts.adapter';
+import { LiveRshnAdapter } from './live-rshn.adapter';
+import { LiveGpsAdapter } from './live-gps.adapter';
+import { LiveAmlAdapter } from './live-aml.adapter';
+import { LiveGisEpdAdapter } from './live-gis-epd.adapter';
+import { LiveRzdEtranAdapter } from './live-rzd-etran.adapter';
+import { LiveBkiAdapter } from './live-bki.adapter';
+import { LiveTakskomAdapter } from './live-takskom.adapter';
+import { LiveMarineAdapter } from './live-marine.adapter';
+import { LiveSmevAdapter } from './live-smev.adapter';
 
 /**
- * Live adapter factories. Implemented so far: BANK, FGIS_ZERNO (reference
- * pattern). The remaining adapters follow the exact same shape — add a
- * `Live<Name>Adapter` and register it here. See INTEGRATION_CONNECT_GUIDE.md.
+ * Live adapter factories — one per external system. Each `Live<Name>Adapter`
+ * implements the same contract as its mock over the shared HTTP client; the
+ * remaining per-vendor work is endpoint paths + field mapping (marked
+ * "VENDOR MAPPING" in each file). See INTEGRATION_CONNECT_GUIDE.md.
  */
 export const LIVE_ADAPTER_FACTORIES: Partial<Record<AdapterName, (http: HttpIntegrationClient) => IntegrationAdapter>> = {
   BANK: (http) => new LiveBankAdapter(http),
   FGIS_ZERNO: (http) => new LiveFgisZernoAdapter(http),
+  DIADOK: (http) => new LiveDiadokAdapter(http),
+  CRYPTOPRO_DSS: (http) => new LiveCryptoproAdapter(http),
+  FNS: (http) => new LiveFnsAdapter(http),
+  FTS: (http) => new LiveFtsAdapter(http),
+  RSHN: (http) => new LiveRshnAdapter(http),
+  GPS: (http) => new LiveGpsAdapter(http),
+  AML_ROSFINMONITORING: (http) => new LiveAmlAdapter(http),
+  GIS_EPD: (http) => new LiveGisEpdAdapter(http),
+  RZD_ETRAN: (http) => new LiveRzdEtranAdapter(http),
+  BKI_NBKI: (http) => new LiveBkiAdapter(http),
+  TAKSKOM: (http) => new LiveTakskomAdapter(http),
+  MARINE_TRAFFIC: (http) => new LiveMarineAdapter(http),
+  SMEV: (http) => new LiveSmevAdapter(http),
 };
 
 export interface ConfigureResult {
