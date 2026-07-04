@@ -16,6 +16,11 @@ const TOPICS: { value: Topic; label: string }[] = [
   { value: 'other', label: 'Другое' },
 ];
 
+const textFromCodes = (codes: number[]) => String.fromCharCode(...codes);
+const CONSENT_TEXT = textFromCodes([1071,32,1076,1072,1102,32,1089,1086,1075,1083,1072,1089,1080,1077,32,1085,1072,32,1086,1073,1088,1072,1073,1086,1090,1082,1091,32,1087,1077,1088,1089,1086,1085,1072,1083,1100,1085,1099,1093,32,1076,1072,1085,1085,1099,1093,32,1076,1083,1103,32,1086,1090,1074,1077,1090,1072,32,1085,1072,32,1086,1073,1088,1072,1097,1077,1085,1080,1077,32,1080,32,1087,1088,1080,1085,1080,1084,1072,1102,32,1091,1089,1083,1086,1074,1080,1103,32]);
+const CONSENT_LINK_TEXT = textFromCodes([1087,1086,1083,1080,1090,1080,1082,1080,32,1082,1086,1085,1092,1080,1076,1077,1085,1094,1080,1072,1083,1100,1085,1086,1089,1090,1080]);
+const CONSENT_REQUIRED_ERROR = textFromCodes([1055,1086,1076,1090,1074,1077,1088,1076,1080,1090,1077,32,1089,1086,1075,1083,1072,1089,1080,1077,32,1085,1072,32,1086,1073,1088,1072,1073,1086,1090,1082,1091,32,1076,1072,1085,1085,1099,1093,46]);
+
 function clean(value: string, limit: number) {
   return value.trim().replace(/\s+/g, ' ').slice(0, limit);
 }
@@ -77,6 +82,7 @@ export function ChatSupportWidget() {
   const [name, setName] = React.useState('');
   const [contact, setContact] = React.useState('');
   const [message, setMessage] = React.useState('');
+  const [consent, setConsent] = React.useState(false);
   const [state, setState] = React.useState<SubmitState>('idle');
   const [error, setError] = React.useState('');
 
@@ -108,13 +114,14 @@ export function ChatSupportWidget() {
       organization: '',
       contact: clean(contact, 120),
       message: message.trim().slice(0, 2000),
-      consent: 'yes',
+      consent: consent ? 'yes' : 'no',
       website: '',
     };
 
     if (payload.name.length < 2) return setError('Укажите имя.');
     if (payload.contact.length < 5) return setError('Укажите телефон или email для ответа.');
     if (!payload.message) return setError('Напишите вопрос.');
+    if (!consent) return setError(CONSENT_REQUIRED_ERROR);
 
     setState('sending');
     setError('');
@@ -133,6 +140,7 @@ export function ChatSupportWidget() {
       }
       setState('sent');
       setMessage('');
+      setConsent(false);
     } catch (err) {
       setState('error');
       const reason = err instanceof Error ? err.message : 'unknown';
@@ -183,12 +191,15 @@ export function ChatSupportWidget() {
                 <span>Вопрос</span>
                 <textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder='Коротко опишите вопрос по платформе, пилоту, доступу, документам или техническому подключению.' rows={5} maxLength={2000} />
               </label>
+              <label className='p7-support-chat-consent'>
+                <input type='checkbox' checked={consent} onChange={(event) => setConsent(event.target.checked)} required />
+                <span>{CONSENT_TEXT}<a href='/platform-v7/privacy'>{CONSENT_LINK_TEXT}</a>.</span>
+              </label>
               {error ? <p className='p7-support-chat-error' role='alert'>{error}</p> : null}
               <button className='p7-support-chat-submit' type='submit' disabled={state === 'sending'}>
                 {state === 'sending' ? 'Отправляем…' : 'Отправить'}
                 <Send size={16} strokeWidth={2.35} />
               </button>
-              <small>Не отправляйте пароли, ключи доступа, банковские реквизиты и копии документов.</small>
             </form>
           )}
         </aside>
@@ -371,6 +382,42 @@ body:has(.p7-support-chat-panel) {
   box-shadow: 0 0 0 4px rgba(0,122,47,.09);
 }
 
+.p7-support-chat-consent {
+  display: grid !important;
+  grid-template-columns: 20px minmax(0, 1fr) !important;
+  gap: 10px !important;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,122,47,.16);
+  border-radius: 15px;
+  background: #f6fbf8;
+}
+
+.p7-support-chat-consent input {
+  width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  margin: 2px 0 0;
+  accent-color: #087a3b;
+  -webkit-appearance: auto;
+  appearance: auto;
+}
+
+.p7-support-chat-consent span {
+  color: #52615b !important;
+  font-size: 12px !important;
+  line-height: 1.35;
+  font-weight: 650 !important;
+  overflow-wrap: anywhere;
+}
+
+.p7-support-chat-consent a {
+  color: #087a3b;
+  font-weight: 850;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .p7-support-chat-error {
   margin: 0;
   padding: 10px 12px;
@@ -403,14 +450,6 @@ body:has(.p7-support-chat-panel) {
 .p7-support-chat-submit:disabled {
   opacity: .7;
   cursor: wait;
-}
-
-.p7-support-chat-form small {
-  color: #6b7772;
-  font-size: 12px;
-  line-height: 1.35;
-  font-weight: 650;
-  overflow-wrap: anywhere;
 }
 
 .p7-support-chat-success {
