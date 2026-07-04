@@ -4,6 +4,7 @@ import * as React from 'react';
 
 type Lang = 'ru' | 'en' | 'zh';
 type Dict = Record<string, string>;
+type SourceOption = HTMLOptionElement & { __pcLockOption?: string };
 
 const LANGUAGE_KEY = 'pc-v7-language';
 const DICTIONARY_URL = '/platform-v7/i18n/dictionaries.json';
@@ -24,6 +25,24 @@ const BASE: Record<'en' | 'zh', Dict> = {
     'Введите пароль': 'Enter password',
     'Компания / ИНН': 'Company / TIN',
     'Телефон или email': 'Phone or email',
+    'Участник': 'Participant',
+    'Покупатель': 'Buyer',
+    'Продавец': 'Seller',
+    'Логистика': 'Logistics',
+    'Водитель': 'Driver',
+    'Элеватор': 'Elevator',
+    'Лаборатория': 'Laboratory',
+    'Банк': 'Bank',
+    'Комплаенс': 'Compliance',
+    'Арбитр': 'Arbitrator',
+    'Руководитель': 'Executive',
+    'Оператор': 'Operator',
+    'Юр. лицо / ИП / КФХ': 'Legal entity / sole proprietor / farm',
+    'Требуется уточнение': 'Clarification required',
+    'Ожидает проверки': 'Awaiting review',
+    'Допущен': 'Approved',
+    'Отклонён': 'Declined',
+    'Заблокирован': 'Blocked',
   },
   zh: {
     'Войти': '登录',
@@ -40,6 +59,24 @@ const BASE: Record<'en' | 'zh', Dict> = {
     'Введите пароль': '输入密码',
     'Компания / ИНН': '公司 / 税号',
     'Телефон или email': '电话或邮箱',
+    'Участник': '参与方',
+    'Покупатель': '买方',
+    'Продавец': '卖方',
+    'Логистика': '物流',
+    'Водитель': '司机',
+    'Элеватор': '粮仓',
+    'Лаборатория': '实验室',
+    'Банк': '银行',
+    'Комплаенс': '合规',
+    'Арбитр': '仲裁员',
+    'Руководитель': '管理层',
+    'Оператор': '运营方',
+    'Юр. лицо / ИП / КФХ': '法人 / 个体工商户 / 农场',
+    'Требуется уточнение': '需要补充说明',
+    'Ожидает проверки': '等待审核',
+    'Допущен': '已准入',
+    'Отклонён': '已拒绝',
+    'Заблокирован': '已封锁',
   },
 };
 
@@ -105,13 +142,28 @@ function applyAttributeCopy(dictionary: Record<'en' | 'zh', Dict>) {
   });
 }
 
+function applyOptionCopy(dictionary: Record<'en' | 'zh', Dict>) {
+  const selected = lang();
+  document.querySelectorAll<SourceOption>('select option').forEach((option) => {
+    const source = option.__pcLockOption || option.textContent || '';
+    if (!norm(source)) return;
+    option.__pcLockOption = source;
+    const next = translate(source, selected, dictionary);
+    if (option.textContent !== next) option.textContent = next;
+  });
+}
+
 export function PublicHeaderFinalLock() {
   React.useEffect(() => {
     let dictionary = BASE;
     let frame = 0;
+    const applyAll = () => {
+      applyAttributeCopy(dictionary);
+      applyOptionCopy(dictionary);
+    };
     const schedule = () => {
       window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => applyAttributeCopy(dictionary));
+      frame = window.requestAnimationFrame(applyAll);
     };
     const load = async () => {
       try {
@@ -128,7 +180,7 @@ export function PublicHeaderFinalLock() {
     schedule();
     void load();
     const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-label', 'title', 'placeholder'] });
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title', 'placeholder'] });
     const interval = window.setInterval(schedule, 1000);
     return () => {
       observer.disconnect();
