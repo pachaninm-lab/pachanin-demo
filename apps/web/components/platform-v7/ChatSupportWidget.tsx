@@ -5,7 +5,6 @@ import { CheckCircle2, MessageCircle, Send, X } from 'lucide-react';
 import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
 type SubmitState = 'idle' | 'sending' | 'sent' | 'error';
-
 type Topic = 'platform' | 'pilot' | 'bank_partner' | 'region' | 'technical' | 'other';
 
 const TOPICS: { value: Topic; label: string }[] = [
@@ -22,9 +21,7 @@ function clean(value: string, limit: number) {
 }
 
 function deliveryError(reason: string) {
-  if (reason.includes('resend_not_configured') && reason.includes('smtp_not_configured')) {
-    return 'Обращение не отправлено: не настроена почтовая отправка.';
-  }
+  if (reason.includes('resend_not_configured') && reason.includes('smtp_not_configured')) return 'Обращение не отправлено: не настроена почтовая отправка.';
   if (reason.includes('smtp_failed')) return 'Обращение не отправлено: SMTP-сервер отклонил отправку.';
   if (reason.includes('resend_')) return 'Обращение не отправлено: почтовый провайдер отклонил отправку.';
   return 'Обращение не отправлено. Проверьте почтовые настройки.';
@@ -37,15 +34,19 @@ function syncSupportViewport() {
   const width = Math.max(320, Math.floor(viewport?.width ?? window.innerWidth));
   const height = Math.max(320, Math.floor(viewport?.height ?? window.innerHeight));
   const offsetLeft = Math.max(0, Math.floor(viewport?.offsetLeft ?? 0));
+  const offsetTop = Math.max(0, Math.floor(viewport?.offsetTop ?? 0));
   const gutter = width <= 380 ? 8 : 10;
   const panelWidth = Math.max(280, Math.min(390, width - gutter * 2));
   const panelLeft = Math.max(gutter, Math.floor(offsetLeft + (width - panelWidth) / 2));
+  const focusHeight = Math.max(320, height - 16);
   const root = document.documentElement;
 
   root.style.setProperty('--p7-support-vw', `${width}px`);
   root.style.setProperty('--p7-support-vh', `${height}px`);
   root.style.setProperty('--p7-support-left', `${panelLeft}px`);
+  root.style.setProperty('--p7-support-top', `${offsetTop + 8}px`);
   root.style.setProperty('--p7-support-width', `${panelWidth}px`);
+  root.style.setProperty('--p7-support-height', `${focusHeight}px`);
   root.style.setProperty('--p7-support-gutter', `${gutter}px`);
   root.style.overflowX = 'hidden';
   document.body.style.overflowX = 'hidden';
@@ -53,6 +54,21 @@ function syncSupportViewport() {
   if (window.scrollX !== 0) window.scrollTo({ left: 0, top: window.scrollY, behavior: 'auto' });
   root.scrollLeft = 0;
   document.body.scrollLeft = 0;
+}
+
+function scrollFocusedControlIntoPanel(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return;
+  window.setTimeout(() => {
+    syncSupportViewport();
+    const form = target.closest<HTMLElement>('.p7-support-chat-form');
+    if (!form) return;
+    const formRect = form.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const preferredTop = formRect.top + formRect.height * 0.34;
+    const delta = targetRect.top - preferredTop;
+    form.scrollBy({ top: delta, left: 0, behavior: 'smooth' });
+  }, 120);
+  window.setTimeout(syncSupportViewport, 280);
 }
 
 export function ChatSupportWidget() {
@@ -66,7 +82,6 @@ export function ChatSupportWidget() {
 
   React.useEffect(() => {
     if (!open) return;
-
     syncSupportViewport();
     const timers = [40, 120, 240, 480, 900].map((delay) => window.setTimeout(syncSupportViewport, delay));
     window.addEventListener('resize', syncSupportViewport);
@@ -112,12 +127,10 @@ export function ChatSupportWidget() {
         body: JSON.stringify(payload),
       });
       const result = await response.json().catch(() => ({} as { sent?: boolean; delivered?: boolean; next?: string; error?: string }));
-
       if (!response.ok || result.sent === false || result.delivered === false) {
         const reason = result.next || result.error || `http_${response.status}`;
         throw new Error(reason);
       }
-
       setState('sent');
       setMessage('');
     } catch (err) {
@@ -151,7 +164,7 @@ export function ChatSupportWidget() {
               <button type='button' onClick={() => setState('idle')}>Отправить ещё вопрос</button>
             </section>
           ) : (
-            <form className='p7-support-chat-form' onSubmit={submit}>
+            <form className='p7-support-chat-form' onSubmit={submit} onFocusCapture={(event) => scrollFocusedControlIntoPanel(event.target)}>
               <label>
                 <span>Тема</span>
                 <select value={topic} onChange={(event) => setTopic(event.target.value as Topic)}>
@@ -222,6 +235,7 @@ body:has(.p7-support-chat-panel) {
   left: var(--p7-support-left, calc((100dvw - min(390px, calc(100dvw - 24px))) / 2)) !important;
   right: auto !important;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 178px) !important;
+  top: auto !important;
   transform: none !important;
   z-index: 3600;
   width: var(--p7-support-width, min(390px, calc(100dvw - 24px))) !important;
@@ -239,6 +253,13 @@ body:has(.p7-support-chat-panel) {
   color: #071611;
   overscroll-behavior: contain;
   contain: layout paint;
+}
+
+.p7-support-chat-panel:focus-within {
+  top: var(--p7-support-top, 8px) !important;
+  bottom: auto !important;
+  height: var(--p7-support-height, calc(100dvh - 16px)) !important;
+  max-height: var(--p7-support-height, calc(100dvh - 16px)) !important;
 }
 
 .p7-support-chat-panel,
@@ -402,9 +423,7 @@ body:has(.p7-support-chat-panel) {
   -webkit-overflow-scrolling: touch;
 }
 
-.p7-support-chat-success svg {
-  color: #087a3b;
-}
+.p7-support-chat-success svg { color: #087a3b; }
 
 .p7-support-chat-success strong {
   font-size: 22px;
@@ -447,6 +466,7 @@ body:has(.p7-support-chat-panel) {
     left: var(--p7-support-left, 10px) !important;
     right: auto !important;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 184px) !important;
+    top: auto !important;
     transform: none !important;
     width: var(--p7-support-width, calc(100dvw - 20px)) !important;
     max-width: var(--p7-support-width, calc(100dvw - 20px)) !important;
@@ -455,8 +475,10 @@ body:has(.p7-support-chat-panel) {
   }
 
   .p7-support-chat-panel:focus-within {
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
-    max-height: calc(var(--p7-support-vh, 100dvh) - 18px) !important;
+    top: var(--p7-support-top, 8px) !important;
+    bottom: auto !important;
+    height: var(--p7-support-height, calc(100dvh - 16px)) !important;
+    max-height: var(--p7-support-height, calc(100dvh - 16px)) !important;
   }
 
   .p7-support-chat-head {
@@ -491,23 +513,12 @@ body:has(.p7-support-chat-panel) {
 }
 
 @media (max-width: 380px) {
-  .p7-support-chat-panel {
-    border-radius: 22px;
-  }
-
-  .p7-support-chat-head {
-    gap: 8px;
-  }
-
-  .p7-support-chat-head strong {
-    font-size: 13px;
-  }
-
+  .p7-support-chat-panel { border-radius: 22px; }
+  .p7-support-chat-head { gap: 8px; }
+  .p7-support-chat-head strong { font-size: 13px; }
   .p7-support-chat-form input,
   .p7-support-chat-form select,
   .p7-support-chat-form textarea,
-  .p7-support-chat-submit {
-    font-size: 16px;
-  }
+  .p7-support-chat-submit { font-size: 16px; }
 }
 `;
