@@ -3,7 +3,7 @@
 import * as React from 'react';
 
 type Lang = 'ru' | 'en' | 'zh';
-type SourceText = Text & { __pcPublicSource?: string };
+type SourceText = Text & { __pcPublicSource?: string; __pcRoleSource?: string };
 
 function currentLang(): Lang {
   const stored = window.localStorage.getItem('pc-v7-language');
@@ -128,15 +128,102 @@ const publicText = {
   },
 } as const;
 
+const roleText = {
+  en: {
+    'Кабинет покупателя · запрос → резерв → логистика': 'Buyer workspace · request → reserve → logistics',
+    'Подтвердить резерв,': 'Confirm the reserve,',
+    'чтобы сделка пошла в исполнение': 'so the deal can move into execution',
+    'Покупатель видит не доску партий, а контур закупки: запрос, выбранную партию, ставку, резерв, удержание, документы и причину, почему сделка ещё не перешла к логистике.': 'The buyer sees not a lot board, but a procurement circuit: request, selected lot, bid, reserve, hold, documents, and the reason the deal has not moved to logistics yet.',
+    'главный блокер': 'main blocker',
+    'резерв ждёт подтверждение банка': 'reserve awaits bank confirmation',
+    'логистика не стартует до статуса банка': 'logistics does not start before bank status',
+    'Ключевые показатели закупки': 'Key procurement metrics',
+    'Сделок в работе': 'Deals in progress',
+    'Резерв · ждёт банк': 'Reserve · awaiting bank',
+    'Под удержанием · вес': 'Held · weight',
+    'Открытых споров': 'Open disputes',
+    'готовность': 'readiness',
+    'Уверенность к поставке': 'Delivery confidence',
+    'Резерв ждёт банковского подтверждения': 'Reserve awaits bank confirmation',
+    'Динамика готовности · сценарий': 'Readiness trend · scenario',
+    'Деньги и резерв': 'Money and reserve',
+    'Открыть сделку': 'Open deal',
+    'Контур исполнения · Внешние подключения требуют договоров': 'Execution circuit · External connections require contracts',
+    'операционный срез покупателя': 'buyer operating snapshot',
+    'Что делать сейчас': 'What to do now',
+    'Экран: платформа показывает причину, деньги и маршрут. Банковское подтверждение обязательно для передачи средств.': 'Screen: the platform shows the reason, money, and route. Bank confirmation is required before funds movement.',
+    'Что произошло': 'What happened',
+    'Что блокирует': 'What blocks it',
+    'Деньги под риском': 'Money at risk',
+    'Ответственный': 'Owner',
+    'Следующий шаг': 'Next step',
+    'Открыть маршрут': 'Open route',
+    'Обзор закупки': 'Procurement overview',
+    'заявка · партия · статус': 'request · lot · status',
+    'Деньги, резерв и удержание': 'Money, reserve, and hold',
+    'Документы и СДИЗ покупателя': 'Buyer documents and SDIZ',
+    'Блокеры и путь разблокировки': 'Blockers and unblock path',
+    'Рабочие действия и передача': 'Work actions and handoff',
+    'Журнал событий': 'Event journal',
+    'Закупки, партии и маршруты покупателя': 'Buyer procurement, lots, and routes',
+    'Кредитное бюро · Скоринг контрагентов': 'Credit bureau · Counterparty scoring',
+    'Избранные лоты и поставщики': 'Favourite lots and suppliers',
+    'Открыть': 'Open',
+    'Статус': 'Status',
+    'Следующее действие': 'Next action',
+  },
+  zh: {
+    'Кабинет покупателя · запрос → резерв → логистика': '买方工作区 · 请求 → 预留 → 物流',
+    'Подтвердить резерв,': '确认预留资金，',
+    'чтобы сделка пошла в исполнение': '使交易进入执行',
+    'Покупатель видит не доску партий, а контур закупки: запрос, выбранную партию, ставку, резерв, удержание, документы и причину, почему сделка ещё не перешла к логистике.': '买方看到的不是批次看板，而是采购闭环：请求、选定批次、报价、预留、冻结、文件以及交易尚未进入物流的原因。',
+    'главный блокер': '主要阻断项',
+    'резерв ждёт подтверждение банка': '预留等待银行确认',
+    'логистика не стартует до статуса банка': '银行状态确认前物流不启动',
+    'Ключевые показатели закупки': '采购关键指标',
+    'Сделок в работе': '进行中的交易',
+    'Резерв · ждёт банк': '预留 · 等待银行',
+    'Под удержанием · вес': '冻结 · 重量',
+    'Открытых споров': '未结争议',
+    'готовность': '准备度',
+    'Уверенность к поставке': '交付信心',
+    'Резерв ждёт банковского подтверждения': '预留等待银行确认',
+    'Динамика готовности · сценарий': '准备度趋势 · 场景',
+    'Деньги и резерв': '资金和预留',
+    'Открыть сделку': '打开交易',
+    'Контур исполнения · Внешние подключения требуют договоров': '执行闭环 · 外部连接需要合同',
+    'операционный срез покупателя': '买方运营快照',
+    'Что делать сейчас': '现在要做什么',
+    'Экран: платформа показывает причину, деньги и маршрут. Банковское подтверждение обязательно для передачи средств.': '本屏显示原因、资金和路线。资金转移前必须有银行确认。',
+    'Что произошло': '发生了什么',
+    'Что блокирует': '阻断原因',
+    'Деньги под риском': '风险资金',
+    'Ответственный': '负责人',
+    'Следующий шаг': '下一步',
+    'Открыть маршрут': '打开路线',
+    'Обзор закупки': '采购概览',
+    'заявка · партия · статус': '请求 · 批次 · 状态',
+    'Деньги, резерв и удержание': '资金、预留和冻结',
+    'Документы и СДИЗ покупателя': '买方文件和SDIZ',
+    'Блокеры и путь разблокировки': '阻断项和解锁路径',
+    'Рабочие действия и передача': '工作动作和交接',
+    'Журнал событий': '事件日志',
+    'Закупки, партии и маршруты покупателя': '买方采购、批次和路线',
+    'Кредитное бюро · Скоринг контрагентов': '征信机构 · 交易对手评分',
+    'Избранные лоты и поставщики': '收藏批次和供应商',
+    'Открыть': '打开',
+    'Статус': '状态',
+    'Следующее действие': '下一步动作',
+  },
+} as const;
+
 function normalize(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function normalizePublicText(selected: Lang) {
-  if (selected === 'ru') return;
-  const map = publicText[selected];
-  const root = document.querySelector('.pc-v7-public-entry');
+function normalizeTextLayer(root: Element | null, selected: Lang, mapSet: typeof publicText | typeof roleText, sourceKey: '__pcPublicSource' | '__pcRoleSource') {
   if (!root) return;
+  const map = selected === 'ru' ? null : mapSet[selected];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       if (!normalize(node.nodeValue || '')) return NodeFilter.FILTER_REJECT;
@@ -146,9 +233,9 @@ function normalizePublicText(selected: Lang) {
   });
   let node = walker.nextNode() as SourceText | null;
   while (node) {
-    const source = node.__pcPublicSource || node.nodeValue || '';
-    node.__pcPublicSource = source;
-    const next = map[normalize(source) as keyof typeof map];
+    const source = node[sourceKey] || node.nodeValue || '';
+    node[sourceKey] = source;
+    const next = map ? map[normalize(source) as keyof typeof map] : source;
     if (next && node.nodeValue !== next) node.nodeValue = next;
     node = walker.nextNode() as SourceText | null;
   }
@@ -181,7 +268,8 @@ function applyCopy() {
     setLastText(contact, c.contact);
   }
 
-  normalizePublicText(selected);
+  normalizeTextLayer(document.querySelector('.pc-v7-public-entry'), selected, publicText, '__pcPublicSource');
+  normalizeTextLayer(document.querySelector('.pc-shell-root-v4'), selected, roleText, '__pcRoleSource');
 }
 
 export function PublicHeroCopyNormalizer() {
