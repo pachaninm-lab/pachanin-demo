@@ -62,10 +62,21 @@ async function withRetry(label, action) {
   throw lastError;
 }
 
+// The platform-v7 shell gates non-entry pages behind an "entry seen" cookie:
+// without it, protected pages 30x-redirect to the public entry and always look
+// healthy (200), masking real 500s on the actual page. Sending the entry cookie
+// makes the smoke exercise the real rendered page (e.g. /platform-v7/seller,
+// /platform-v7/documents), so a server render error surfaces as a non-2xx.
+const SMOKE_COOKIE = process.env.SMOKE_WEB_COOKIE || 'pc_v7_entry_seen=true';
+
 async function checkPath(path) {
   const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
   const startedAt = Date.now();
-  const response = await withTimeout((signal) => fetch(url, { redirect: 'follow', signal }), timeoutMs, url);
+  const response = await withTimeout(
+    (signal) => fetch(url, { redirect: 'follow', signal, headers: { cookie: SMOKE_COOKIE } }),
+    timeoutMs,
+    url,
+  );
   const elapsed = Date.now() - startedAt;
   const text = await response.text();
 

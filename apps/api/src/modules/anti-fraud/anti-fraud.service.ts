@@ -47,7 +47,7 @@ export class AntiFraudService {
     @Optional() private readonly mlClient?: MlClientService,
   ) {}
 
-  check(entityId: string, context: DealContext & Record<string, unknown>): FraudCheckResult {
+  check(entityId: string, context: DealContext): FraudCheckResult {
     const reasons: string[] = [];
     let score = 0;
 

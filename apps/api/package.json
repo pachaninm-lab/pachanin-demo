@@ -39,10 +39,10 @@
     "@opentelemetry/sdk-node": "^0.52.0",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.52.0",
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.52.0",
-    "@opentelemetry/sdk-metrics": "^1.25.0",
-    "@opentelemetry/resources": "^1.25.0",
-    "@opentelemetry/semantic-conventions": "^1.25.0",
-    "@opentelemetry/sdk-trace-node": "^1.25.0",
+    "@opentelemetry/sdk-metrics": "1.25.1",
+    "@opentelemetry/resources": "1.25.1",
+    "@opentelemetry/semantic-conventions": "1.25.1",
+    "@opentelemetry/sdk-trace-node": "1.25.1",
     "@opentelemetry/instrumentation-http": "^0.52.0",
     "@opentelemetry/instrumentation-express": "^0.42.0",
     "@opentelemetry/instrumentation-nestjs-core": "^0.40.0",
@@ -63,5 +63,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
     "@nestjs/cli": "^10.4.5"
+  },
+  "optionalDependencies": {
+    "kafkajs": "^2.2.4"
   }
 }

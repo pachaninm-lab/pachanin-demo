@@ -53,10 +53,11 @@ export const AUDIT_GENESIS_HASH = '0'.repeat(64);
 export class AuditLog {
   private readonly entries: AuditLogEntry[] = [];
 
-  append(params: Omit<AuditLogEntry, 'hash' | 'prevHash' | 'occurredAt'>): AuditLogEntry {
+  append(params: Omit<AuditLogEntry, 'id' | 'hash' | 'prevHash' | 'occurredAt'>): AuditLogEntry {
     const prevHash = this.entries.length > 0 ? this.entries[this.entries.length - 1].hash : AUDIT_GENESIS_HASH;
     const occurredAt = new Date().toISOString();
-    const partial = { ...params, prevHash, occurredAt };
+    const id = `entry-${this.entries.length + 1}`;
+    const partial = { ...params, id, prevHash, occurredAt };
     const hash = hashEntry(partial);
     const entry: AuditLogEntry = { ...partial, hash };
     this.entries.push(entry);

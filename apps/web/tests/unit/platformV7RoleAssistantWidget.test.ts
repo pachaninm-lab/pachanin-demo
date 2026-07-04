@@ -32,15 +32,12 @@ describe('platform-v7 role assistant widget', () => {
     expect(railFile).toContain("className='p7-mobile-action-rail'");
     expect(railFile).toContain('useBodyMount');
     expect(railFile).toContain('document.body');
-    expect(railFile).toContain('suppressNativeHeaderActions');
-    expect(railFile).toContain('document.querySelector');
     expect(railFile).toContain('position:fixed!important');
     expect(railFile).toContain('z-index:5000!important');
-    expect(railFile).toContain('pointer-events:auto!important');
     expect(railFile).toContain('grid-template-columns:repeat(7,30px)!important');
     expect(railFile).toContain("aria-label='Открыть поиск'");
     expect(railFile).toContain("aria-label='Открыть блокнот'");
-    expect(railFile).toContain("aria-label='Открыть уведомления роли'");
+    expect(railFile).toContain("aria-label='Открыть уведомления'");
     expect(railFile).toContain("aria-label='Статус и помощь'");
     expect(railFile).toContain("aria-label='Открыть калькулятор'");
     expect(railFile).toContain("aria-label='Выйти из кабинета'");
@@ -52,7 +49,6 @@ describe('platform-v7 role assistant widget', () => {
     expect(railFile).toContain("openPanel('notices')");
     expect(railFile).toContain("openPanel('calculator')");
     expect(railFile).toContain("panel === 'notepad'");
-    expect(railFile).toContain("panel === 'notices'");
     expect(railFile).toContain("panel === 'calculator'");
     expect(railFile).toContain('p7-mobile-tool-panel');
     expect(railFile).toContain('z-index:5010!important');

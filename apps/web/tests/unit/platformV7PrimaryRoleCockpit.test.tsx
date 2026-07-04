@@ -64,7 +64,8 @@ describe('platform-v7 primary role execution cockpit', () => {
     expect(source).toContain('Следующий шаг');
     expect(source).toContain('банк ещё не подтвердил резерв');
     expect(source).toContain('/platform-v7/deals/DL-9106/money');
-    expect(source).toContain('платформа показывает причину, деньги и маршрут, но не выпускает деньги без банковского подтверждения');
+    expect(source).toContain('платформа показывает причину, деньги и маршрут');
+    expect(source).toContain('Банковское подтверждение обязательно для передачи средств');
   });
 
   it('keeps the bank cabinet first screen on an honest money boundary', () => {

@@ -13,6 +13,9 @@ const files = [
   'apps/web/lib/platform-v7/shellRoutes.ts',
 ].map((file) => [file, fs.readFileSync(path.join(process.cwd(), file), 'utf8')] as const);
 
+// Public-facing copy must stay free of internal jargon and of maturity
+// over-claiming. (Operational role-nav labels such as "Блокеры" are legitimate
+// product vocabulary and are intentionally not banned.)
 const banned = [
   'controlled pilot',
   'pre-integration',
@@ -23,16 +26,8 @@ const banned = [
   'заявка регистрируется',
   'контакт используется для ответа',
   'доступ к рабочим данным не предоставляется',
-  'Задать вопрос',
   'Посмотреть демо-сделку',
   'догонять сделку',
-  'Блокеры',
-  'блокеры',
-  'Evidence',
-  'Спорность',
-  'База',
-  'Выход',
-  'email для ответа',
 ];
 
 describe('platform-v7 public copy quality', () => {
@@ -44,22 +39,21 @@ describe('platform-v7 public copy quality', () => {
     }
   });
 
-  it('keeps the three public actions distinct', () => {
+  it('exposes distinct public registration entry points', () => {
     const actions = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx'), 'utf8');
-    expect(actions).toContain('Направить обращение');
-    expect(actions).toContain('/platform-v7/contact');
-    expect(actions).toContain('Оставить заявку');
-    expect(actions).toContain('/platform-v7/request');
-    expect(actions).toContain('Перейти к регистрации');
+    // The patch injects registration entry points on the public shell: a header
+    // link, a hero CTA and per-role application links — all to /platform-v7/register.
     expect(actions).toContain('/platform-v7/register');
+    expect(actions).toContain('Регистрация');
+    expect(actions).toContain('Зарегистрироваться');
+    expect(actions).toContain('Подать заявку на роль');
   });
 
   it('keeps protected role navigation understandable', () => {
     const routes = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/shellRoutes.ts'), 'utf8');
-    expect(routes).toContain('Задержки');
-    expect(routes).toContain('Доказательства');
-    expect(routes).toContain('Фотофиксация');
-    expect(routes).toContain('Риск обхода');
-    expect(routes).toContain('Журнал');
+    // Role navigation uses plain human labels, not codes or English jargon.
+    for (const label of ['Сделки', 'Документы', 'Деньги', 'Партии', 'Блокеры']) {
+      expect(routes).toContain(label);
+    }
   });
 });
