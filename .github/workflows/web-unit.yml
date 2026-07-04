@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck web (tsc --noEmit)
+        run: pnpm --filter @pc/web exec tsc -p tsconfig.json --noEmit
+
       - name: Platform-v7 unit checks
         run: |
           set -o pipefail

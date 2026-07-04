@@ -38,9 +38,9 @@ export default function PlatformV7DisputeDetailPage({ params }: { params: { id: 
             <span className="caption">интерактивный</span>
           </div>
           <DisputeHoldCalculator
-            totalKopecks={(dispute.claimAmountRub ?? 100_000) * 100}
+            totalKopecks={(dispute.holdAmount || 100_000) * 100}
             disputeType={'QUALITY'}
-            claimKopecks={(dispute.claimAmountRub ?? 100_000) * 100}
+            claimKopecks={(dispute.holdAmount || 100_000) * 100}
           />
         </section>
       )}

@@ -15,12 +15,8 @@ const staticAssetHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
-  // Temporary deploy-unblock for controlled pilot: do not let non-runtime
-  // type/lint drift block publishing the cabinet access lock. Remove after
-  // the TypeScript cleanup pass is completed.
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // ESLint remains build-non-blocking until the lint debt is triaged;
+  // type errors block the build — the typecheck debt was paid down to zero.
   eslint: {
     ignoreDuringBuilds: true,
   },

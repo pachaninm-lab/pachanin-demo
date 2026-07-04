@@ -62,7 +62,7 @@ export class DealSigningService {
 
     this.states.set(dealId, { dealId, contract, events: [ev], lastHash: ev.hash });
 
-    this.auditLog.append({ actorId: 'system', actorRole: 'SYSTEM', action: 'DEAL_CREATED', resourceType: 'deal', resourceId: dealId });
+    this.auditLog.append({ id: `${dealId}-audit-created`, actorId: 'system', actorRole: 'SYSTEM', action: 'DEAL_CREATED', resourceType: 'deal', resourceId: dealId });
 
     return contract;
   }
@@ -94,7 +94,7 @@ export class DealSigningService {
     state.events.push(ev);
     state.lastHash = ev.hash;
 
-    this.auditLog.append({ actorId: params.userId, actorRole: params.userRole, action: 'DOCUMENT_SIGNED', resourceType: 'contract', resourceId: contract.id });
+    this.auditLog.append({ id: `${evId}-audit`, actorId: params.userId, actorRole: params.userRole, action: 'DOCUMENT_SIGNED', resourceType: 'contract', resourceId: contract.id });
 
     return contract;
   }
@@ -111,7 +111,7 @@ export class DealSigningService {
     state.events.push(ev);
     state.lastHash = ev.hash;
 
-    this.auditLog.append({ actorId: params.actorId, actorRole: 'BUYER', action: 'PAYMENT_RESERVED', resourceType: 'deal', resourceId: dealId });
+    this.auditLog.append({ id: `${dealId}-audit-reserve`, actorId: params.actorId, actorRole: 'BUYER', action: 'PAYMENT_RESERVED', resourceType: 'deal', resourceId: dealId });
   }
 
   getState(dealId: string): DealSigningState | undefined {
