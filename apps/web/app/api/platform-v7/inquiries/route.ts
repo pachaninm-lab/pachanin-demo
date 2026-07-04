@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
+import { connect as tlsConnect, type TLSSocket } from 'node:tls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 10;
+export const maxDuration = 15;
 
 const QUESTION_TYPES = new Set(['platform', 'pilot', 'bank_partner', 'region', 'technical', 'other']);
 const SOURCES = new Set(['homepage', 'demo', 'footer', 'connect_form', 'platform_v7_contact_page', 'platform_v7_root', 'support_chat']);
-const EMAIL_TIMEOUT_MS = 2500;
+const EMAIL_TIMEOUT_MS = 4500;
 const OWNER_EMAIL = 'pachaninm@gmail.com';
 
 type InquiryPayload = Record<string, unknown>;
@@ -94,6 +95,25 @@ function recipients() {
   return Array.from(new Set([OWNER_EMAIL, configured].filter(Boolean)));
 }
 
+function encodedHeader(value: string) {
+  return `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
+}
+
+function buildMime(inquiry: Inquiry, from: string, to: string[]) {
+  const subjectSuffix = inquiry.organization || inquiry.name || inquiry.type;
+  const subject = `Прозрачная Цена — вопрос — ${subjectSuffix}`;
+  return [
+    `From: <${from}>`,
+    `To: ${to.join(', ')}`,
+    `Subject: ${encodedHeader(subject)}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    buildText(inquiry),
+  ].join('\r\n');
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -104,11 +124,98 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
-async function sendEmail(inquiry: Inquiry): Promise<{ sent: boolean; reason: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { sent: false, reason: 'email_provider_not_configured' };
+function smtpConfigured() {
+  return Boolean(process.env.PC_SMTP_HOST && process.env.PC_SMTP_USER && process.env.PC_SMTP_PASS);
+}
 
-  const leadFrom = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+async function readSmtpResponse(socket: TLSSocket, timeoutMs: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let buffer = '';
+    const timeout = setTimeout(() => cleanup(new Error('smtp_timeout')), timeoutMs);
+    function cleanup(error?: Error) {
+      clearTimeout(timeout);
+      socket.off('data', onData);
+      socket.off('error', onError);
+      if (error) reject(error);
+    }
+    function onError(error: Error) { cleanup(error); }
+    function onData(data: Buffer) {
+      buffer += data.toString('utf8');
+      const lines = buffer.split(/\r?\n/).filter(Boolean);
+      const last = lines[lines.length - 1] || '';
+      if (/^\d{3}\s/.test(last)) {
+        cleanup();
+        resolve(buffer);
+      }
+    }
+    socket.on('data', onData);
+    socket.on('error', onError);
+  });
+}
+
+function assertSmtp(response: string, allowed: number[]) {
+  const code = Number(response.slice(0, 3));
+  if (!allowed.includes(code)) throw new Error(`smtp_${code || 'unknown'}`);
+}
+
+async function sendSmtpCommand(socket: TLSSocket, command: string, allowed: number[]) {
+  socket.write(`${command}\r\n`);
+  const response = await readSmtpResponse(socket, EMAIL_TIMEOUT_MS);
+  assertSmtp(response, allowed);
+}
+
+async function sendViaSmtp(inquiry: Inquiry): Promise<{ sent: boolean; reason: string }> {
+  if (!smtpConfigured()) return { sent: false, reason: 'smtp_not_configured' };
+
+  const host = process.env.PC_SMTP_HOST as string;
+  const port = Number(process.env.PC_SMTP_PORT || 465);
+  const user = process.env.PC_SMTP_USER as string;
+  const pass = process.env.PC_SMTP_PASS as string;
+  const from = process.env.PC_MAIL_FROM || user;
+  const to = recipients();
+  const message = buildMime(inquiry, from, to);
+
+  return new Promise((resolve) => {
+    const socket = tlsConnect({ host, port, servername: host, rejectUnauthorized: true });
+    const timeout = setTimeout(() => {
+      socket.destroy();
+      resolve({ sent: false, reason: 'smtp_timeout' });
+    }, EMAIL_TIMEOUT_MS + 2500);
+
+    async function run() {
+      try {
+        assertSmtp(await readSmtpResponse(socket, EMAIL_TIMEOUT_MS), [220]);
+        await sendSmtpCommand(socket, 'EHLO percent-agro.local', [250]);
+        await sendSmtpCommand(socket, `AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`, 'utf8').toString('base64')}`, [235]);
+        await sendSmtpCommand(socket, `MAIL FROM:<${from}>`, [250]);
+        for (const address of to) await sendSmtpCommand(socket, `RCPT TO:<${address}>`, [250, 251]);
+        await sendSmtpCommand(socket, 'DATA', [354]);
+        socket.write(`${message}\r\n.\r\n`);
+        assertSmtp(await readSmtpResponse(socket, EMAIL_TIMEOUT_MS), [250]);
+        socket.write('QUIT\r\n');
+        clearTimeout(timeout);
+        socket.end();
+        resolve({ sent: true, reason: 'smtp_sent' });
+      } catch (error) {
+        clearTimeout(timeout);
+        socket.destroy();
+        resolve({ sent: false, reason: `smtp_failed:${safeErrorReason(error)}` });
+      }
+    }
+
+    socket.once('secureConnect', () => { void run(); });
+    socket.once('error', (error) => {
+      clearTimeout(timeout);
+      resolve({ sent: false, reason: `smtp_failed:${safeErrorReason(error)}` });
+    });
+  });
+}
+
+async function sendViaResend(inquiry: Inquiry): Promise<{ sent: boolean; reason: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { sent: false, reason: 'resend_not_configured' };
+
+  const leadFrom = process.env.RESEND_FROM_EMAIL || process.env.PC_MAIL_FROM || 'onboarding@resend.dev';
   const subjectSuffix = inquiry.organization || inquiry.name || inquiry.type;
 
   try {
@@ -123,11 +230,21 @@ async function sendEmail(inquiry: Inquiry): Promise<{ sent: boolean; reason: str
       }),
     }, EMAIL_TIMEOUT_MS);
 
-    if (!response.ok) return { sent: false, reason: `email_provider_${response.status}` };
-    return { sent: true, reason: 'email_sent' };
+    if (!response.ok) return { sent: false, reason: `resend_${response.status}` };
+    return { sent: true, reason: 'resend_sent' };
   } catch (error) {
-    return { sent: false, reason: `email_provider_failed:${safeErrorReason(error)}` };
+    return { sent: false, reason: `resend_failed:${safeErrorReason(error)}` };
   }
+}
+
+async function sendEmail(inquiry: Inquiry): Promise<{ sent: boolean; reason: string }> {
+  const resend = await sendViaResend(inquiry);
+  if (resend.sent) return resend;
+
+  const smtp = await sendViaSmtp(inquiry);
+  if (smtp.sent) return smtp;
+
+  return { sent: false, reason: `${resend.reason};${smtp.reason}` };
 }
 
 function formRedirect(request: Request, status: 'sent' | 'error', error?: string) {
@@ -173,20 +290,20 @@ export async function POST(request: Request) {
     const delivery = await sendEmail(inquiry);
     console.info('platform_v7_inquiry_received', JSON.stringify({ ...inquiry, emailSent: delivery.sent, emailReason: delivery.reason, emailTo: recipients() }));
 
-    if (formMode) return formRedirect(request, 'sent');
+    if (formMode) return delivery.sent ? formRedirect(request, 'sent') : formRedirect(request, 'error', delivery.reason);
 
     return jsonResponse({
       accepted: true,
       sent: delivery.sent,
       delivered: delivery.sent,
       next: delivery.reason,
-    }, delivery.sent ? 200 : 202);
+    }, delivery.sent ? 200 : 503);
   } catch (error) {
     console.error('platform_v7_inquiry_failed', safeErrorReason(error));
-    return formMode ? formRedirect(request, 'sent') : jsonResponse({ accepted: true, sent: false, error: 'accepted_with_provider_failure' }, 202);
+    return formMode ? formRedirect(request, 'error', 'provider_failure') : jsonResponse({ accepted: false, sent: false, error: 'provider_failure' }, 503);
   }
 }
 
 export async function GET() {
-  return jsonResponse({ ok: true, endpoint: 'platform_v7_inquiries' });
+  return jsonResponse({ ok: true, endpoint: 'platform_v7_inquiries', owner: OWNER_EMAIL, resend: Boolean(process.env.RESEND_API_KEY), smtp: smtpConfigured() });
 }
