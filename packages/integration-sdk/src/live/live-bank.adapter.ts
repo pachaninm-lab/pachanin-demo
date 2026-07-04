@@ -6,9 +6,10 @@
  * client. Money-moving mutations carry an Idempotency-Key derived from the deal /
  * payment reference to make retries safe (no double reserve / double payout).
  *
- * The ONLY per-vendor work left is the endpoint paths + request/response field
+ * The per-vendor work left is the endpoint paths + request/response field
  * mapping below (marked "VENDOR MAPPING"): the bank's real API rarely matches a
- * DTO 1:1. Everything else is production-ready.
+ * DTO 1:1. Transport concerns are handled by the shared client; this stays at
+ * pre-integration maturity until a real vendor contract and credentials land.
  */
 
 import type { BankAdapter, BankPaymentOrder, BankStatement, EscrowAccount } from '../adapters/bank.adapter';

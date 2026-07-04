@@ -5,7 +5,7 @@
  * for an adapter whose live class is not yet implemented.
  */
 
-import type { IntegrationAdapter } from '../adapter.interface';
+import type { AdapterMode, HealthStatus, IntegrationAdapter } from '../adapter.interface';
 import { integrationRegistry, type AdapterName } from '../registry';
 import { buildHttpClient, type BuildClientDeps } from './build-client';
 import { resolveIntegrationConfig, type Env } from './integration-config';
@@ -29,6 +29,29 @@ export interface ConfigureResult {
   readonly disabled: AdapterName[];
 }
 
+/**
+ * Registered in place of a real adapter when `<NAME>_MODE=disabled`. Any call
+ * fails loudly rather than silently falling back to the pre-registered mock, so
+ * an operator who disabled an integration gets a hard stop, not a working mock.
+ */
+class DisabledAdapter implements IntegrationAdapter {
+  readonly mode: AdapterMode = 'mock';
+  readonly version = '0.0.0-disabled';
+  constructor(readonly name: string) {}
+  private fail(): never {
+    throw new Error(
+      `Integration "${this.name}" is disabled (${this.name}_MODE=disabled). ` +
+        `Set ${this.name}_MODE=stub|sandbox|live to use it.`,
+    );
+  }
+  async execute(): Promise<never> {
+    return this.fail();
+  }
+  async healthCheck(): Promise<HealthStatus> {
+    return { status: 'down', lastCheckedAt: new Date().toISOString(), detail: 'disabled' };
+  }
+}
+
 const ALL_ADAPTER_NAMES: AdapterName[] = [
   'FGIS_ZERNO', 'FNS', 'DIADOK', 'CRYPTOPRO_DSS', 'BANK', 'GPS', 'FTS', 'RSHN',
   'AML_ROSFINMONITORING', 'RZD_ETRAN', 'GIS_EPD', 'BKI_NBKI', 'TAKSKOM', 'MARINE_TRAFFIC', 'SMEV',
@@ -49,6 +72,9 @@ export function configureIntegrationsFromEnv(
   for (const name of ALL_ADAPTER_NAMES) {
     const config = resolveIntegrationConfig(name, env);
     if (config.mode === 'disabled') {
+      // Replace the pre-registered mock with a hard-stop adapter so a disabled
+      // integration cannot be executed by accident.
+      registry.register(name, new DisabledAdapter(name));
       result.disabled.push(name);
       continue;
     }

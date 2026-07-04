@@ -47,4 +47,14 @@ describe('configureIntegrationsFromEnv', () => {
     };
     expect(() => configureIntegrationsFromEnv(env, deps)).toThrow(/no LiveGps.*Adapter is implemented/);
   });
+
+  it('disabled mode replaces the mock with a hard-stop adapter', async () => {
+    const res = configureIntegrationsFromEnv({ RSHN_MODE: 'disabled' }, deps);
+    expect(res.disabled).toContain('RSHN');
+    const rshn = integrationRegistry.get('RSHN');
+    await expect(rshn.execute(undefined as never)).rejects.toThrow(/disabled/i);
+    const health = await rshn.healthCheck();
+    expect(health.status).toBe('down');
+    expect(health.detail).toBe('disabled');
+  });
 });
