@@ -15,13 +15,7 @@ const forbidden = [
 ];
 
 describe('platform-v7 assistant route language', () => {
-  const middleware = readFileSync(join(process.cwd(), 'middleware.ts'), 'utf8');
   const page = readFileSync(join(process.cwd(), 'app/platform-v7/assistant/page.tsx'), 'utf8');
-
-  it('redirects the old assistant route to the clean assistant route', () => {
-    expect(middleware).toContain("p === '/platform-v7/ai'");
-    expect(middleware).toContain("'/platform-v7/assistant'");
-  });
 
   it('keeps the new assistant page in working Russian execution language', () => {
     expect(page).toContain('Помощник сделки');

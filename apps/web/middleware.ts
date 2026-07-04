@@ -294,12 +294,6 @@ export async function middleware(req: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(u, 308), true);
   }
 
-  if (p === '/platform-v7/ai') {
-    const u = req.nextUrl.clone();
-    u.pathname = '/platform-v7/assistant';
-    return applySecurityHeaders(NextResponse.redirect(u, 308), true);
-  }
-
   const protectedPath = isProtectedPath(p);
   const privateModeEnabled = isPrivateMode();
   if (privateModeEnabled && protectedPath) {
