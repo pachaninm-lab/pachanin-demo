@@ -118,6 +118,64 @@ body {
   touch-action: manipulation !important;
 }
 
+.pc-v7-public-entry input[name='name']::placeholder,
+.pc-v7-public-entry input[name='contact']::placeholder,
+.pc-v7-public-entry input[name='email']::placeholder,
+.pc-v7-public-entry input[name='phone']::placeholder,
+.pc-v7-public-entry input[type='email']::placeholder,
+.pc-v7-public-entry input[type='tel']::placeholder,
+.pc-v7-public-entry input[autocomplete='name']::placeholder,
+.pc-v7-public-entry input[autocomplete='email']::placeholder,
+.pc-v7-public-entry input[autocomplete='tel']::placeholder,
+.p7-contact-page input[name='name']::placeholder,
+.p7-contact-page input[name='contact']::placeholder,
+.p7-contact-page input[name='email']::placeholder,
+.p7-contact-page input[name='phone']::placeholder,
+.p7-contact-page input[type='email']::placeholder,
+.p7-contact-page input[type='tel']::placeholder,
+.p7-contact-page input[autocomplete='name']::placeholder,
+.p7-contact-page input[autocomplete='email']::placeholder,
+.p7-contact-page input[autocomplete='tel']::placeholder,
+.pc-v7-login-single input[name='email']::placeholder,
+.pc-v7-login-single input[type='email']::placeholder,
+.pc-v7-login-single input[autocomplete='email']::placeholder,
+.p7-support-chat-panel input[autocomplete='name']::placeholder,
+.p7-support-chat-panel input[autocomplete='email']::placeholder,
+.p7-support-chat-panel input[type='email']::placeholder,
+.p7-support-chat-panel input[type='tel']::placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
+.pc-v7-public-entry input[name='name']::-webkit-input-placeholder,
+.pc-v7-public-entry input[name='contact']::-webkit-input-placeholder,
+.pc-v7-public-entry input[name='email']::-webkit-input-placeholder,
+.pc-v7-public-entry input[name='phone']::-webkit-input-placeholder,
+.pc-v7-public-entry input[type='email']::-webkit-input-placeholder,
+.pc-v7-public-entry input[type='tel']::-webkit-input-placeholder,
+.pc-v7-public-entry input[autocomplete='name']::-webkit-input-placeholder,
+.pc-v7-public-entry input[autocomplete='email']::-webkit-input-placeholder,
+.pc-v7-public-entry input[autocomplete='tel']::-webkit-input-placeholder,
+.p7-contact-page input[name='name']::-webkit-input-placeholder,
+.p7-contact-page input[name='contact']::-webkit-input-placeholder,
+.p7-contact-page input[name='email']::-webkit-input-placeholder,
+.p7-contact-page input[name='phone']::-webkit-input-placeholder,
+.p7-contact-page input[type='email']::-webkit-input-placeholder,
+.p7-contact-page input[type='tel']::-webkit-input-placeholder,
+.p7-contact-page input[autocomplete='name']::-webkit-input-placeholder,
+.p7-contact-page input[autocomplete='email']::-webkit-input-placeholder,
+.p7-contact-page input[autocomplete='tel']::-webkit-input-placeholder,
+.pc-v7-login-single input[name='email']::-webkit-input-placeholder,
+.pc-v7-login-single input[type='email']::-webkit-input-placeholder,
+.pc-v7-login-single input[autocomplete='email']::-webkit-input-placeholder,
+.p7-support-chat-panel input[autocomplete='name']::-webkit-input-placeholder,
+.p7-support-chat-panel input[autocomplete='email']::-webkit-input-placeholder,
+.p7-support-chat-panel input[type='email']::-webkit-input-placeholder,
+.p7-support-chat-panel input[type='tel']::-webkit-input-placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
 @media (max-width: 720px) {
   .pc-v7-public-entry {
     padding-bottom: calc(170px + env(safe-area-inset-bottom, 0px)) !important;
