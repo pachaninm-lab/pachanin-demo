@@ -56,6 +56,7 @@ export const PLATFORM_V7_TRUST_ROUTE = '/platform-v7/trust';
 export const PLATFORM_V7_SIMULATOR_ROUTE = '/platform-v7/simulator';
 export const PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE = '/platform-v7/demo/execution-flow';
 export const PLATFORM_V7_REPORTS_ROUTE = '/platform-v7/reports';
+export const PLATFORM_V7_ADMIN_ROUTE = '/platform-v7/admin';
 export const PLATFORM_V7_PILOT_RUNBOOK_ROUTE = '/platform-v7/pilot-runbook';
 export const PLATFORM_V7_AI_ROUTE = '/platform-v7/ai';
 
@@ -142,6 +143,7 @@ export const PLATFORM_V7_COMMAND_ROUTE_SURFACE = [
 
 export const PLATFORM_V7_SHELL_ROUTE_SURFACE = [
   PLATFORM_V7_PILOT_RUNBOOK_ROUTE,
+  PLATFORM_V7_ADMIN_ROUTE,
   PLATFORM_V7_CONTROL_TOWER_ROUTE,
   PLATFORM_V7_DEALS_ROUTE,
   PLATFORM_V7_LOTS_ROUTE,

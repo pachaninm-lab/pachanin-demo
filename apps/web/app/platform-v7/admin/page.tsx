@@ -1,34 +1,30 @@
-import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { countPhraseRu, countRu } from '@/lib/format/plural';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { ConsolePage, Section, Banner, StatGrid, Stat, StatusRow, LinkGrid, type Tone } from '@/components/platform-v7/console/ConsoleKit';
+import { AdminRuntimeControls } from '@/components/platform-v7/AdminRuntimeControls';
+import { AuditLogPanel } from '@/components/platform-v7/AuditLogPanel';
 import { IntegrationEventLog } from '@/components/platform-v7/IntegrationEventLog';
+import { FeatureFlagsPanel } from '@/components/platform-v7/FeatureFlagsPanel';
+import { SupportOpsPanel } from '@/components/platform-v7/SupportOpsPanel';
 import { BankReconciliationPanel } from '@/components/platform-v7/BankReconciliationPanel';
 import { SloSlaPanel } from '@/components/platform-v7/SloSlaPanel';
-import { EvidenceBundlePanel } from '@/components/platform-v7/EvidenceBundlePanel';
-import { TelegramBotPanel } from '@/components/platform-v7/TelegramBotPanel';
 import { ObservabilityPanel } from '@/components/platform-v7/ObservabilityPanel';
-import { FeatureFlagsPanel } from '@/components/platform-v7/FeatureFlagsPanel';
 import { HealthStatusPanel } from '@/components/platform-v7/HealthStatusPanel';
-import { LoadTestingPanel } from '@/components/platform-v7/LoadTestingPanel';
-import { SupportOpsPanel } from '@/components/platform-v7/SupportOpsPanel';
 import { SagaOrchestratorPanel } from '@/components/platform-v7/SagaOrchestratorPanel';
 import { ProductionReadinessPanel } from '@/components/platform-v7/ProductionReadinessPanel';
-import { AirflowDagPanel } from '@/components/platform-v7/AirflowDagPanel';
-import { B2BPartnerApiPanel } from '@/components/platform-v7/B2BPartnerApiPanel';
+import { PostgresMigrationPanel } from '@/components/platform-v7/PostgresMigrationPanel';
 import { KafkaInfraPanel } from '@/components/platform-v7/KafkaInfraPanel';
 import { DisasterRecoveryPanel } from '@/components/platform-v7/DisasterRecoveryPanel';
 import { CiCdPipelinePanel } from '@/components/platform-v7/CiCdPipelinePanel';
-import { WebhookSecurityPanel } from '@/components/platform-v7/WebhookSecurityPanel';
-import { CoreWebVitalsPanel } from '@/components/platform-v7/CoreWebVitalsPanel';
-import { PostgresMigrationPanel } from '@/components/platform-v7/PostgresMigrationPanel';
-import { QualityGatePanel } from '@/components/platform-v7/QualityGatePanel';
-import { SyntheticMonitoringPanel } from '@/components/platform-v7/SyntheticMonitoringPanel';
+import { LoadTestingPanel } from '@/components/platform-v7/LoadTestingPanel';
 import { AcceptanceCriteriaPanel } from '@/components/platform-v7/AcceptanceCriteriaPanel';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { getLabSamples, pendingProtocols } from '@/lib/labs-server';
+
+export const metadata = { title: 'Административная консоль' };
 
 function formatMoney(rub: number): string {
   if (rub >= 1_000_000) return `${(rub / 1_000_000).toFixed(2)} млн ₽`;
@@ -54,152 +50,124 @@ export default async function AdminPage() {
   const pendingLab = pendingProtocols(samples).length;
   const manualReview = outbox.manualReview?.length ?? 0;
 
-  const liveBlockers = [
-    ...(manualReview > 0 ? [{ id: 'manual', label: `${manualReview} outbox-записей требуют ручного разбора`, severity: 'stop' as const }] : []),
-    ...(disputeCount > 0 ? [{ id: 'disp', label: `${disputeCount} споров — ${formatMoney(heldRub)} заморожено`, severity: 'warn' as const }] : []),
+  const systemHealth: Array<{ name: string; tone: Tone; detail: string }> = [
+    { name: 'Источник данных', tone: apiOnline ? 'ok' : 'warn', detail: apiOnline ? 'сервер отвечает' : 'демонстрационные данные — сервер недоступен' },
+    { name: 'Сделки', tone: 'ok', detail: countPhraseRu(dealList.length, 'deals') },
+    { name: 'Рейсы', tone: 'ok', detail: countPhraseRu(shipmentCount, 'activeShipments') },
+    { name: 'Споры', tone: disputeCount > 0 ? 'warn' : 'ok', detail: `${countPhraseRu(disputeCount, 'openDisputes')} · ${formatMoney(heldRub)} удержано` },
+    { name: 'Очередь банка', tone: manualReview > 0 ? 'danger' : pendingBank > 0 ? 'warn' : 'ok', detail: `${pendingBank} в ожидании · ${manualReview} на ручном разборе` },
+    { name: 'Лаборатория', tone: pendingLab > 0 ? 'warn' : 'ok', detail: countRu(pendingLab, 'протокол ожидает', 'протокола ожидают', 'протоколов ожидают') },
   ];
 
-  const systemHealth = [
-    { name: 'API', status: apiOnline ? 'OK' : 'DEGRADED', detail: apiOnline ? 'отвечает' : 'не отвечает — static fallback' },
-    { name: 'Deals', status: 'OK', detail: countPhraseRu(dealList.length, 'deals') },
-    { name: 'Shipments', status: 'OK', detail: countPhraseRu(shipmentCount, 'activeShipments') },
-    { name: 'Disputes', status: disputeCount > 0 ? 'WARN' : 'OK', detail: `${disputeCount} открытых` },
-    { name: 'Outbox (Bank)', status: pendingBank > 0 ? 'WARN' : 'OK', detail: `${pendingBank} pending, ${manualReview} manual_review` },
-    { name: 'Lab', status: pendingLab > 0 ? 'WARN' : 'OK', detail: countRu(pendingLab, 'протокол ожидает', 'протокола ожидают', 'протоколов ожидают') },
-  ];
-
-  const statusColor: Record<string, string> = {
-    OK: '#16a34a',
-    WARN: '#d97706',
-    DEGRADED: '#dc2626',
-  };
+  const openIssues = [manualReview > 0, disputeCount > 0, pendingLab > 0].filter(Boolean).length;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Административная панель</h1>
-      <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>Системный статус и управление</p>
-
-      <LiveApiStatusBar
-        apiOnline={apiOnline}
-        blockers={liveBlockers}
-        pendingBankOps={pendingBank}
-        openDisputes={disputeCount}
-        activeShipments={shipmentCount}
-      />
-
-      <div style={{ marginTop: 24, display: 'grid', gap: 10 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>Статус системы</div>
-        {systemHealth.map((item) => (
-          <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 7 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor[item.status] ?? '#6b7280', flexShrink: 0 }} />
-            <span style={{ fontWeight: 600, fontSize: 13, width: 120, flexShrink: 0 }}>{item.name}</span>
-            <span style={{ fontSize: 12, color: statusColor[item.status], fontWeight: 500, width: 80 }}>{item.status}</span>
-            <span style={{ fontSize: 13, color: '#6b7280' }}>{item.detail}</span>
-          </div>
-        ))}
-      </div>
-
-      {manualReview > 0 && (
-        <div style={{ marginTop: 20, padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
-          <div style={{ fontWeight: 600, color: '#dc2626', marginBottom: 4, fontSize: 14 }}>Требуется ручной разбор</div>
-          <div style={{ fontSize: 13, color: '#7f1d1d' }}>
-            {manualReview} outbox-записей перешли в MANUAL_REVIEW — банк не подтвердил операцию.
-            Свяжитесь с банком и обновите статус вручную через POST /settlement-engine/bank-callback.
-          </div>
-        </div>
+    <ConsolePage
+      title="Административная консоль"
+      subtitle="Управление платформой, наблюдение за исполнением сделок и контроль готовности контура. Данные показываются в демонстрационном режиме, пока серверный контур не развёрнут."
+    >
+      {!apiOnline && (
+        <Banner tone="warn" title="Демонстрационные данные — сервер недоступен">
+          Панель работает на встроенных данных сценария. Управляющие действия применяются к локальному
+          состоянию браузера; серверные операции станут доступны после развёртывания API-контура.
+        </Banner>
       )}
 
-      <div style={{ marginTop: 20, display: 'grid', gap: 16 }}>
-        <CollapsibleSection title='Журнал интеграционных событий' summary='ФГИС · Диадок · Банк · КЭП · GPS' defaultOpen={false}>
-          <IntegrationEventLog />
-        </CollapsibleSection>
-        <CollapsibleSection title='Сверка банковской выписки' summary='МТ940 · автосопоставление · ручная очередь' defaultOpen={false}>
-          <BankReconciliationPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='SLO/SLA дашборд' summary='uptime · error budget · latency · 6 сервисов' defaultOpen={false}>
-          <SloSlaPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Evidence Bundle · Доказательный пакет' summary='хэш-цепочка · УКЭП · PDF/ZIP экспорт · аудит-лог · арбитраж' defaultOpen={false}>
-          <EvidenceBundlePanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Telegram Bot · Уведомления' summary='deal_status · payment · dispute · price_alert · вагон · команды бота' defaultOpen={false}>
-          <TelegramBotPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Observability · Метрики и алерты' summary='Prometheus · Grafana · p95/p99 latency · error rate · GMV · Alertmanager' defaultOpen={false}>
-          <ObservabilityPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Synthetic Monitoring · 10 критических путей' summary='§13.2 · каждые 5 мин · PagerDuty P1 · uptime 99.97% · FGIS деградация · 8 alert rules' defaultOpen={false}>
-          <SyntheticMonitoringPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Feature Flags · Управление флагами' summary='Flagsmith · canary deploy 5%→100% · kill switch · A/B · prod/staging/dev' defaultOpen={false}>
-          <FeatureFlagsPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Health Status · /health /ready /metrics' summary='5 сервисов · Kubernetes probes · DR RPO/RTO · liveness readiness' defaultOpen={false}>
-          <HealthStatusPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Load Testing · k6 результаты' summary='baseline 500 VU · peak 1500 VU · stress 5000 VU · p95/p99 · SLO thresholds' defaultOpen={false}>
-          <LoadTestingPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Support Ops Queue · Тикеты' summary='P1/P2/P3/P4 · KYC/финансы/доступ · просмотр сделки · эскалация · SLA' defaultOpen={false}>
-          <SupportOpsPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Saga Orchestrator · Распределённые транзакции' summary='Kafka · DLQ · retry backoff · FGIS Зерно · aflatoxin · ручное вмешательство' defaultOpen={false}>
-          <SagaOrchestratorPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Production Readiness · Чеклист готовности к проду' summary='инфраструктура · безопасность · качество · мониторинг · compliance' defaultOpen={false}>
-          <ProductionReadinessPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Airflow DAG · Регуляторные и аналитические пайплайны' summary='Росстат · ФГИС · ЭДО · GMV · ML ретрейнинг · bank outbox · SLA мониторинг' defaultOpen={false}>
-          <AirflowDagPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='B2B Partner API · Ключи и Webhooks' summary='API ключи Vault · scope-based · ротация 90 дн · HMAC webhook · 3 ключа · 2 webhook' defaultOpen={false}>
-          <B2BPartnerApiPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Webhook Security · HMAC верификация' summary='HMAC-SHA256 · replay protection 300 сек · idempotency Redis · Vault secrets · 6 событий' defaultOpen={false}>
-          <WebhookSecurityPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Core Web Vitals · Производительность UI' summary='LCP 1.8с · INP 72мс · CLS 0.04 · Bundle 187КБ · Grafana Faro · Lighthouse CI' defaultOpen={false}>
-          <CoreWebVitalsPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='PostgreSQL Migration · SQLite → PG 16' summary='§4.1 БЛОКЕР · RLS · read-replicas · SERIALIZABLE · 8 шагов · dual-write · 8 индексов' defaultOpen={false}>
-          <PostgresMigrationPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Quality Gate · CI/CD воротa качества' summary='§15.4 · coverage 87% · Trivy 0 CVE · Playwright 8/8 · k6 p95 312мс · GitLeaks · 15 гейтов' defaultOpen={false}>
-          <QualityGatePanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='§17 Критерии приёмки · Production Readiness' summary='7 групп · 41 критерий · 62% готово · блокеры договорные · Strong Controlled-Pilot' defaultOpen={false}>
-          <AcceptanceCriteriaPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Kafka · K8s HPA · Vault' summary='10 топиков · RF=3 · 8 сервисов HPA · dynamic secrets · Transit encryption' defaultOpen={false}>
-          <KafkaInfraPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='Disaster Recovery · Бэкапы и Runbook' summary='6 сценариев · RPO/RTO · S3 бэкапы · WAL replay · DR тренировка' defaultOpen={false}>
-          <DisasterRecoveryPanel />
-        </CollapsibleSection>
-        <CollapsibleSection title='CI/CD Pipeline · GitHub Actions + ArgoCD' summary='12 этапов · SAST · Trivy · Playwright · k6 perf gate · Canary 5→100%' defaultOpen={false}>
-          <CiCdPipelinePanel />
-        </CollapsibleSection>
-      </div>
-
-      <div style={{ marginTop: 20, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 600, fontSize: 14 }}>
-          Быстрые ссылки
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 1, background: '#e5e7eb' }}>
-          {[
-            { label: 'Audit Log', href: '/platform-v7/audit-log' },
-            { label: 'Disputes', href: '/platform-v7/disputes' },
-            { label: 'Outbox / Bank', href: '/platform-v7/bank' },
-            { label: 'Evidence Pack', href: '/platform-v7/deals/DL-9106/evidence-pack' },
-            { label: 'Connectors', href: '/platform-v7/connectors' },
-            { label: 'Logistics', href: '/platform-v7/logistics' },
-          ].map((link) => (
-            <a key={link.href} href={link.href} style={{ display: 'block', padding: '14px 16px', background: '#fff', color: '#374151', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>
-              {link.label}
-            </a>
+      <Section title="Живой статус" hint="считается из текущих данных">
+        <StatGrid>
+          <Stat label="Сделки" value={String(dealList.length)} foot="под контролем" />
+          <Stat label="Открытые споры" value={String(disputeCount)} tone={disputeCount > 0 ? 'warn' : 'ok'} foot={formatMoney(heldRub) + ' удержано'} />
+          <Stat label="Ручной разбор" value={String(manualReview)} tone={manualReview > 0 ? 'danger' : 'ok'} foot="очередь банка" />
+          <Stat label="Активные рейсы" value={String(shipmentCount)} foot="в логистике" />
+        </StatGrid>
+        <div style={{ display: 'grid', gap: 'var(--pc-space-2)' }}>
+          {systemHealth.map((s) => (
+            <StatusRow key={s.name} name={s.name} tone={s.tone} detail={s.detail} />
           ))}
         </div>
-      </div>
-    </div>
+      </Section>
+
+      {manualReview > 0 && (
+        <Banner tone="danger" title={`${manualReview} операций требуют ручного разбора`}>
+          Банк не подтвердил операцию — записи перешли в ручную очередь. Свяжитесь с банком и обновите
+          статус через контур сверки.
+        </Banner>
+      )}
+
+      <Section title="Управление" hint="действия применяются немедленно">
+        <AdminRuntimeControls />
+        <CollapsibleSection title="Флаги функциональности" summary="canary · kill switch · A/B · окружения" defaultOpen={false}>
+          <FeatureFlagsPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Очередь поддержки" summary="тикеты P1–P4 · KYC · доступ · эскалация" defaultOpen={false}>
+          <SupportOpsPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Сверка банковской выписки" summary="автосопоставление · ручная очередь" defaultOpen={false}>
+          <BankReconciliationPanel />
+        </CollapsibleSection>
+      </Section>
+
+      <Section title="Наблюдение" hint="журналы и метрики">
+        <CollapsibleSection title="Журнал аудита" summary="кто · что · когда · над каким объектом" defaultOpen={false}>
+          <AuditLogPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Журнал интеграционных событий" summary="ФГИС · ЭДО · банк · КЭП · GPS" defaultOpen={false}>
+          <IntegrationEventLog />
+        </CollapsibleSection>
+        <CollapsibleSection title="Показатели сервиса (SLO/SLA)" summary="доступность · бюджет ошибок · задержки" defaultOpen={false}>
+          <SloSlaPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Наблюдаемость · метрики и алерты" summary="Prometheus · Grafana · Alertmanager" defaultOpen={false}>
+          <ObservabilityPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Проверки живости · /health /ready" summary="liveness · readiness · пробы" defaultOpen={false}>
+          <HealthStatusPanel />
+        </CollapsibleSection>
+      </Section>
+
+      <Section title="Проектный контур" hint="требует развёртывания — не подключено">
+        <Banner tone="info" title="Дорожная карта, а не текущее состояние">
+          Ниже — целевая инфраструктура из плана перехода к боевому контуру. Показатели носят проектный
+          характер и станут живыми после развёртывания. Порядок и статус — в docs/PATH_TO_PRODUCTION.md.
+        </Banner>
+        <CollapsibleSection title="Готовность к прод-контуру · чеклист" summary="инфраструктура · безопасность · мониторинг" defaultOpen={false}>
+          <ProductionReadinessPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Критерии приёмки" summary="группы критериев · статус готовности" defaultOpen={false}>
+          <AcceptanceCriteriaPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Миграция на PostgreSQL" summary="RLS · реплики · индексы · dual-write" defaultOpen={false}>
+          <PostgresMigrationPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Оркестрация саг · распределённые транзакции" summary="очередь · DLQ · retry · ручное вмешательство" defaultOpen={false}>
+          <SagaOrchestratorPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Нагрузочное тестирование" summary="k6 · baseline / peak / stress · пороги SLO" defaultOpen={false}>
+          <LoadTestingPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Очереди и инфраструктура" summary="брокер · автоскейл · секреты" defaultOpen={false}>
+          <KafkaInfraPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Аварийное восстановление" summary="RPO/RTO · бэкапы · runbook" defaultOpen={false}>
+          <DisasterRecoveryPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title="Конвейер CI/CD" summary="сборка · проверки · canary-выкатка" defaultOpen={false}>
+          <CiCdPipelinePanel />
+        </CollapsibleSection>
+      </Section>
+
+      <Section title="Быстрые переходы" hint={openIssues > 0 ? `${openIssues} зон требуют внимания` : 'всё спокойно'}>
+        <LinkGrid
+          links={[
+            { label: 'Журнал аудита', href: '/platform-v7/audit-log', note: 'полная история действий' },
+            { label: 'Споры', href: '/platform-v7/disputes', note: 'удержания и доказательства' },
+            { label: 'Банк / очередь', href: '/platform-v7/bank', note: 'основания и сверка' },
+            { label: 'Логистика', href: '/platform-v7/logistics', note: 'рейсы и ЭТрН' },
+            { label: 'Разъёмы', href: '/platform-v7/connectors', note: 'внешние интеграции' },
+            { label: 'Центр управления', href: '/platform-v7/control-tower', note: 'оперативный пульт' },
+          ]}
+        />
+      </Section>
+    </ConsolePage>
   );
 }
