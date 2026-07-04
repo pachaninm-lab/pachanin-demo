@@ -22,6 +22,19 @@ const httpDurationHistogram = new Histogram({
 });
 
 async function bootstrap() {
+  // Configure external integrations from env before anything binds: swap the
+  // in-memory mocks for live adapters wherever `<NAME>_MODE=live|sandbox`, and
+  // validate the required credentials up-front. Default (no `*_MODE` set) keeps
+  // the mocks. A live/sandbox misconfiguration throws here (fail-closed) so the
+  // process exits before opening the port instead of silently serving mocks.
+  const { configureIntegrationsFromEnv } = await import(
+    '../../../packages/integration-sdk/src/live/live-registry'
+  );
+  const integrationModes = configureIntegrationsFromEnv();
+  if (integrationModes.live.length > 0) {
+    console.log(`Live integrations enabled: ${integrationModes.live.join(', ')}`);
+  }
+
   const app = await NestFactory.create(AppModule, {
     logger: new MaskedLoggerService(),
   });

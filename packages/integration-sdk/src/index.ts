@@ -17,3 +17,26 @@ export * from './adapters/takskom.adapter';
 export * from './adapters/marine.adapter';
 export * from './adapters/smev.adapter';
 export * from './adapters/mfa.adapter';
+
+// Live integration layer: real HTTP transport, auth, config and reference adapters.
+export * from './live/http-integration-client';
+export * from './live/auth';
+export * from './live/integration-config';
+export * from './live/build-client';
+export * from './live/live-adapter-base';
+export * from './live/live-bank.adapter';
+export * from './live/live-fgis-zerno.adapter';
+export * from './live/live-diadok.adapter';
+export * from './live/live-cryptopro.adapter';
+export * from './live/live-fns.adapter';
+export * from './live/live-fts.adapter';
+export * from './live/live-rshn.adapter';
+export * from './live/live-gps.adapter';
+export * from './live/live-aml.adapter';
+export * from './live/live-gis-epd.adapter';
+export * from './live/live-rzd-etran.adapter';
+export * from './live/live-bki.adapter';
+export * from './live/live-takskom.adapter';
+export * from './live/live-marine.adapter';
+export * from './live/live-smev.adapter';
+export * from './live/live-registry';
