@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 type Lang = 'ru' | 'en' | 'zh';
+type SourceText = Text & { __pcPublicSource?: string };
 
 function currentLang(): Lang {
   const stored = window.localStorage.getItem('pc-v7-language');
@@ -66,6 +67,93 @@ const copy = {
   },
 } as const;
 
+const publicText = {
+  en: {
+    'Что контролирует платформа': 'What the platform controls',
+    'После согласования цены под контролем остаётся главное: рейс, приёмка, документы, качество и основание для оплаты.': 'After the price is agreed, the key items remain under control: trip, acceptance, documents, quality, and payment grounds.',
+    'Деньги': 'Money',
+    'Основание для расчёта видно до выпуска оплаты.': 'The settlement basis is visible before payment release.',
+    'Документы': 'Documents',
+    'СДИЗ, ЭДО, транспортные документы и акты связаны с событиями сделки.': 'SDIZ, EDI, transport documents, and acts are linked to deal events.',
+    'Логистика': 'Logistics',
+    'Рейс, водитель, маршрут и контрольные точки находятся в одном контуре.': 'Trip, driver, route, and checkpoints are in one circuit.',
+    'Качество': 'Quality',
+    'Приёмка и лабораторные показатели учитываются до окончательного расчёта.': 'Acceptance and laboratory indicators are considered before final settlement.',
+    'Как проходит сделка': 'How the deal works',
+    'На каждом этапе видно, что уже подтверждено, что требует действия и кто отвечает за следующий шаг.': 'At each stage it is clear what is confirmed, what requires action, and who owns the next step.',
+    'Цена': 'Price',
+    'Цена, объём, базис и допуски качества зафиксированы до рейса.': 'Price, volume, basis, and quality tolerances are fixed before the trip.',
+    'Сделка': 'Deal',
+    'Стороны, партия и условия исполнения сведены в единый контур.': 'Parties, lot, and execution terms are consolidated in one circuit.',
+    'Рейс': 'Trip',
+    'Маршрут, водитель, транспорт и контрольные точки назначены.': 'Route, driver, vehicle, and checkpoints are assigned.',
+    'Приёмка': 'Acceptance',
+    'Вес, факт поставки и расхождения фиксируются на элеваторе.': 'Weight, delivery fact, and discrepancies are recorded at the elevator.',
+    'Расчёт': 'Settlement',
+    'Оплата проводится после подтверждения оснований.': 'Payment is made after the grounds are confirmed.',
+    'Спор': 'Dispute',
+    'Разбор ведётся по зафиксированным данным.': 'Review is based on recorded data.',
+    'Выберите свою роль в сделке': 'Select your role in the deal',
+    'Сначала выберите роль участника сделки. После этого вход выполняется по логину, паролю и организации.': 'First select the participant role. Then sign in using login, password, and organisation.',
+    'Подать заявку на роль': 'Apply for role',
+  },
+  zh: {
+    'Что контролирует платформа': '平台控制什么',
+    'После согласования цены под контролем остаётся главное: рейс, приёмка, документы, качество и основание для оплаты.': '价格确认后，关键事项仍在控制中：运输、验收、文件、质量和付款依据。',
+    'Деньги': '资金',
+    'Основание для расчёта видно до выпуска оплаты.': '付款释放前可以看到结算依据。',
+    'Документы': '文件',
+    'СДИЗ, ЭДО, транспортные документы и акты связаны с событиями сделки.': 'SDIZ、电子文件流、运输文件和验收文件与交易事件关联。',
+    'Логистика': '物流',
+    'Рейс, водитель, маршрут и контрольные точки находятся в одном контуре.': '运输、司机、路线和检查点都在一个闭环中。',
+    'Качество': '质量',
+    'Приёмка и лабораторные показатели учитываются до окончательного расчёта.': '最终结算前会考虑验收和实验室指标。',
+    'Как проходит сделка': '交易流程',
+    'На каждом этапе видно, что уже подтверждено, что требует действия и кто отвечает за следующий шаг.': '每个阶段都能看到已确认事项、待处理事项以及下一步负责人。',
+    'Цена': '价格',
+    'Цена, объём, базис и допуски качества зафиксированы до рейса.': '价格、数量、基准和质量容差在运输前固定。',
+    'Сделка': '交易',
+    'Стороны, партия и условия исполнения сведены в единый контур.': '各方、批次和执行条件被整合到一个闭环。',
+    'Рейс': '运输',
+    'Маршрут, водитель, транспорт и контрольные точки назначены.': '路线、司机、车辆和检查点已分配。',
+    'Приёмка': '验收',
+    'Вес, факт поставки и расхождения фиксируются на элеваторе.': '重量、交付事实和差异在粮仓记录。',
+    'Расчёт': '结算',
+    'Оплата проводится после подтверждения оснований.': '付款在依据确认后执行。',
+    'Спор': '争议',
+    'Разбор ведётся по зафиксированным данным.': '复盘基于已记录数据。',
+    'Выберите свою роль в сделке': '选择你在交易中的角色',
+    'Сначала выберите роль участника сделки. После этого вход выполняется по логину, паролю и организации.': '先选择交易参与方角色，然后使用登录名、密码和组织进入。',
+    'Подать заявку на роль': '申请角色',
+  },
+} as const;
+
+function normalize(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function normalizePublicText(selected: Lang) {
+  if (selected === 'ru') return;
+  const map = publicText[selected];
+  const root = document.querySelector('.pc-v7-public-entry');
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!normalize(node.nodeValue || '')) return NodeFilter.FILTER_REJECT;
+      if (node.parentElement?.closest('.p7-translator-root,[data-p7-no-translate],script,style,noscript')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  let node = walker.nextNode() as SourceText | null;
+  while (node) {
+    const source = node.__pcPublicSource || node.nodeValue || '';
+    node.__pcPublicSource = source;
+    const next = map[normalize(source) as keyof typeof map];
+    if (next && node.nodeValue !== next) node.nodeValue = next;
+    node = walker.nextNode() as SourceText | null;
+  }
+}
+
 function applyCopy() {
   const selected = currentLang();
   const c = copy[selected];
@@ -92,6 +180,8 @@ function applyCopy() {
     contact.setAttribute('href', '/platform-v7/contact');
     setLastText(contact, c.contact);
   }
+
+  normalizePublicText(selected);
 }
 
 export function PublicHeroCopyNormalizer() {
