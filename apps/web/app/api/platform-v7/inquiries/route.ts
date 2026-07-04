@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 10;
 
 const QUESTION_TYPES = new Set(['platform', 'pilot', 'bank_partner', 'region', 'technical', 'other']);
-const SOURCES = new Set(['homepage', 'demo', 'footer', 'connect_form', 'platform_v7_contact_page', 'platform_v7_root']);
+const SOURCES = new Set(['homepage', 'demo', 'footer', 'connect_form', 'platform_v7_contact_page', 'platform_v7_root', 'support_chat']);
 const EMAIL_TIMEOUT_MS = 2500;
 
 type InquiryPayload = Record<string, unknown>;
