@@ -5,9 +5,11 @@ import * as React from 'react';
 type Lang = 'ru' | 'en' | 'zh';
 type Dict = Record<string, string>;
 type SourceOption = HTMLOptionElement & { __pcLockOption?: string };
+type SourceText = Text & { __pcFloatingCopy?: string };
 
 const LANGUAGE_KEY = 'pc-v7-language';
 const DICTIONARY_URL = '/platform-v7/i18n/dictionaries.json';
+const FLOATING_SCOPES = '[role="dialog"], .p7-support-chat-panel, .pc-v4-command-palette, .pc-v4-notification-panel, .pc-v4-popover, .pc-v4-drawer';
 
 const BASE: Record<'en' | 'zh', Dict> = {
   en: {
@@ -43,6 +45,11 @@ const BASE: Record<'en' | 'zh', Dict> = {
     'Допущен': 'Approved',
     'Отклонён': 'Declined',
     'Заблокирован': 'Blocked',
+    'Уведомления': 'Notifications',
+    'Поиск': 'Search',
+    'Отправить': 'Send',
+    'Отмена': 'Cancel',
+    'Сохранить': 'Save',
   },
   zh: {
     'Войти': '登录',
@@ -77,6 +84,11 @@ const BASE: Record<'en' | 'zh', Dict> = {
     'Допущен': '已准入',
     'Отклонён': '已拒绝',
     'Заблокирован': '已封锁',
+    'Уведомления': '通知',
+    'Поиск': '搜索',
+    'Отправить': '发送',
+    'Отмена': '取消',
+    'Сохранить': '保存',
   },
 };
 
@@ -153,6 +165,31 @@ function applyOptionCopy(dictionary: Record<'en' | 'zh', Dict>) {
   });
 }
 
+function skipFloatingText(element: HTMLElement) {
+  return Boolean(element.closest('script,style,noscript,svg,canvas,textarea,input,select,option,code,pre,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]'));
+}
+
+function applyFloatingText(dictionary: Record<'en' | 'zh', Dict>) {
+  const selected = lang();
+  document.querySelectorAll(FLOATING_SCOPES).forEach((root) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const element = node.parentElement;
+        if (!element || skipFloatingText(element) || !norm(node.nodeValue || '')) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    let node = walker.nextNode() as SourceText | null;
+    while (node) {
+      const source = node.__pcFloatingCopy || node.nodeValue || '';
+      node.__pcFloatingCopy = source;
+      const next = translate(source, selected, dictionary);
+      if (node.nodeValue !== next) node.nodeValue = next;
+      node = walker.nextNode() as SourceText | null;
+    }
+  });
+}
+
 export function PublicHeaderFinalLock() {
   React.useEffect(() => {
     let dictionary = BASE;
@@ -160,6 +197,7 @@ export function PublicHeaderFinalLock() {
     const applyAll = () => {
       applyAttributeCopy(dictionary);
       applyOptionCopy(dictionary);
+      applyFloatingText(dictionary);
     };
     const schedule = () => {
       window.cancelAnimationFrame(frame);
