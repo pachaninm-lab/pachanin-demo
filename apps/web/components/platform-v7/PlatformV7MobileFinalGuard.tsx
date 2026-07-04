@@ -1,9 +1,7 @@
 'use client';
 
 import * as React from 'react';
-
-const NOTE_TEXT = '\u041d\u0430\u0436\u0438\u043c\u0430\u044f \u00ab\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c\u00bb, \u0432\u044b \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0430\u0435\u0442\u0435 \u0441\u043e\u0433\u043b\u0430\u0441\u0438\u0435 \u043d\u0430 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0443 \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0445 \u0434\u0430\u043d\u043d\u044b\u0445 \u0434\u043b\u044f \u043e\u0442\u0432\u0435\u0442\u0430 \u043d\u0430 \u043e\u0431\u0440\u0430\u0449\u0435\u043d\u0438\u0435 \u0438 \u043f\u0440\u0438\u043d\u0438\u043c\u0430\u0435\u0442\u0435 \u0443\u0441\u043b\u043e\u0432\u0438\u044f ';
-const LINK_TEXT = '\u043f\u043e\u043b\u0438\u0442\u0438\u043a\u0438 \u043a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u0438';
+import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
 function syncSupportViewportVars() {
   const viewport = window.visualViewport;
@@ -25,26 +23,6 @@ function syncSupportViewportVars() {
   document.documentElement.style.setProperty('--p7-support-gutter', `${gutter}px`);
 }
 
-function patchSupportNote() {
-  document.querySelectorAll<HTMLElement>('.p7-support-chat-form small').forEach((node) => {
-    if (node.dataset.p7SupportNotePatched === 'yes') return;
-
-    node.textContent = '';
-    node.append(NOTE_TEXT);
-
-    const link = document.createElement('a');
-    link.href = '/platform-v7/privacy';
-    link.textContent = LINK_TEXT;
-    link.style.color = '#087a3b';
-    link.style.fontWeight = '850';
-    link.style.textDecoration = 'underline';
-    link.style.textUnderlineOffset = '2px';
-    node.append(link, '.');
-
-    node.dataset.p7SupportNotePatched = 'yes';
-  });
-}
-
 function clampViewport() {
   document.documentElement.style.width = '100%';
   document.documentElement.style.maxWidth = '100%';
@@ -53,7 +31,6 @@ function clampViewport() {
   document.body.style.maxWidth = '100%';
   document.body.style.overflowX = 'hidden';
   syncSupportViewportVars();
-  patchSupportNote();
 
   if (window.scrollX !== 0) window.scrollTo({ left: 0, top: window.scrollY, behavior: 'auto' });
   document.documentElement.scrollLeft = 0;
@@ -67,7 +44,8 @@ function clampViewport() {
 }
 
 const css = `
-html, body {
+html,
+body {
   width: 100% !important;
   max-width: 100% !important;
   overflow-x: hidden !important;
@@ -82,12 +60,32 @@ html, body {
   overflow-x: hidden !important;
 }
 
+.pc-v7-public-entry .entry-brand-mark {
+  display: inline-block !important;
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  background-image: url('${BRAND_LOGO_DATA_URI}') !important;
+  background-size: contain !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  color: transparent !important;
+  box-shadow: none !important;
+}
+
+.pc-v7-public-entry .entry-brand-mark svg {
+  display: none !important;
+}
+
 .p7-support-chat-panel {
-  left: var(--p7-support-left, 10px) !important;
+  left: var(--p7-support-left, calc((100dvw - min(390px, calc(100dvw - 24px))) / 2)) !important;
   right: auto !important;
   transform: none !important;
-  width: var(--p7-support-width, calc(100dvw - 20px)) !important;
-  max-width: var(--p7-support-width, calc(100dvw - 20px)) !important;
+  width: var(--p7-support-width, min(390px, calc(100dvw - 24px))) !important;
+  max-width: var(--p7-support-width, min(390px, calc(100dvw - 24px))) !important;
+  overflow: hidden !important;
   overflow-x: hidden !important;
   contain: layout paint;
 }
@@ -119,20 +117,124 @@ html, body {
   max-width: 100% !important;
   touch-action: manipulation !important;
 }
+
+@media (max-width: 720px) {
+  .pc-v7-public-entry {
+    padding-bottom: calc(170px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .pc-v7-public-entry .entry-header {
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .pc-v7-public-entry .entry-brand {
+    max-width: calc(100dvw - 122px) !important;
+    overflow: hidden !important;
+  }
+
+  .pc-v7-public-entry .entry-brand strong {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .pc-v7-public-entry .entry-login {
+    min-width: 88px !important;
+    max-width: 96px !important;
+    padding: 0 12px !important;
+    white-space: nowrap !important;
+  }
+
+  .pc-v7-public-entry .entry-hero {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    overflow: hidden !important;
+  }
+
+  .pc-v7-public-entry .entry-hero-copy {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 20px 16px !important;
+    overflow: hidden !important;
+  }
+
+  .pc-v7-public-entry .entry-kicker {
+    width: 100% !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    text-align: center !important;
+    justify-content: center !important;
+  }
+
+  .pc-v7-public-entry .entry-hero h1 {
+    font-size: clamp(32px, 8.7vw, 38px) !important;
+    line-height: 1.04 !important;
+    letter-spacing: -.055em !important;
+    text-wrap: balance !important;
+  }
+
+  .pc-v7-public-entry .entry-hero p {
+    font-size: clamp(15px, 4.1vw, 17px) !important;
+    line-height: 1.43 !important;
+  }
+
+  .pc-v7-public-entry .entry-hero-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
+
+  .pc-v7-public-entry .entry-primary-cta,
+  .pc-v7-public-entry .entry-secondary-cta,
+  .pc-v7-public-entry .entry-register-cta {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    text-align: center !important;
+  }
+
+  .p7-support-chat-button {
+    right: max(14px, env(safe-area-inset-right, 0px)) !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 118px) !important;
+  }
+
+  .p7-support-chat-panel {
+    left: var(--p7-support-left, 10px) !important;
+    right: auto !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 184px) !important;
+    top: auto !important;
+    transform: none !important;
+    width: var(--p7-support-width, calc(100dvw - 20px)) !important;
+    max-width: var(--p7-support-width, calc(100dvw - 20px)) !important;
+    max-height: calc(var(--p7-support-vh, 100dvh) - 236px) !important;
+  }
+
+  .p7-support-chat-panel:focus-within {
+    top: var(--p7-support-top, 8px) !important;
+    bottom: auto !important;
+    height: var(--p7-support-height, calc(100dvh - 16px)) !important;
+    max-height: var(--p7-support-height, calc(100dvh - 16px)) !important;
+  }
+}
 `;
 
 export function PlatformV7MobileFinalGuard() {
   React.useEffect(() => {
     clampViewport();
-    const observer = new MutationObserver(clampViewport);
-    observer.observe(document.body, { childList: true, subtree: true });
     const timers = [40, 120, 260, 600, 1200, 2400].map((delay) => window.setTimeout(clampViewport, delay));
     window.addEventListener('resize', clampViewport);
     window.addEventListener('orientationchange', clampViewport);
     window.visualViewport?.addEventListener('resize', clampViewport);
     window.visualViewport?.addEventListener('scroll', clampViewport);
     return () => {
-      observer.disconnect();
       timers.forEach((timer) => window.clearTimeout(timer));
       window.removeEventListener('resize', clampViewport);
       window.removeEventListener('orientationchange', clampViewport);
