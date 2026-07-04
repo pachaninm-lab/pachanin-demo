@@ -5,7 +5,7 @@ import { PrivacyPortalPanel } from '@/components/platform-v7/PrivacyPortalPanel'
 export const metadata: Metadata = {
   title: 'Политика конфиденциальности — Прозрачная Цена',
   description:
-    'Рабочая версия политики конфиденциальности для controlled pilot / pre-integration контура исполнения зерновой сделки.',
+    'Рабочая версия политики конфиденциальности для ограниченный предынтеграционный контура исполнения зерновой сделки.',
   alternates: {
     canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/privacy',
   },

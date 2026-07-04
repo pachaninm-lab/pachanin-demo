@@ -64,7 +64,7 @@ export default async function PlatformV7AuditLogPage() {
         summary={
           apiOnline
             ? `${liveLog.length} записей из БД · последняя: ${liveLog[0] ? new Date(liveLog[0].createdAt).toLocaleTimeString('ru') : '-'}`
-            : 'Данные статичные — API или БД недоступны'
+            : 'Демонстрационные данные — сервер недоступен'
         }
       />
       <CockpitHero

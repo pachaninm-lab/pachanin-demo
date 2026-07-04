@@ -63,6 +63,9 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
+  // Лид-формы обязаны быть доступны без сессии: закрытая форма = потерянный лид.
+  '/platform-v7/contact',
+  '/platform-v7/request',
 ]);
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
@@ -70,13 +73,23 @@ const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 // Public, unauthenticated API endpoints (anti-spam + rate-limit + validation
 // live in the routes themselves). Anonymous visitors must be able to POST the
 // public lead / inquiry forms without a session — gating them loses leads.
+const PLATFORM_V7_LEADS_API = '/api/platform-v7/leads';
+
 const PUBLIC_API_EXACT = new Set([
   '/api/platform-v7/inquiries',
-  '/api/platform-v7/leads',
+  PLATFORM_V7_LEADS_API,
   // Liveness probe for load balancers and external monitoring: must answer
   // without a session, cheaply, and without touching downstream services.
   '/api/health',
 ]);
+
+// Точное сравнение публичных путей не должно ломаться о хвостовой слэш или
+// задвоенные слэши: '/platform-v7/contact/' — та же публичная страница.
+function normalizePathname(pathname: string): string {
+  const collapsed = pathname.replace(/\/{2,}/g, '/');
+  if (collapsed.length > 1 && collapsed.endsWith('/')) return collapsed.slice(0, -1);
+  return collapsed;
+}
 
 function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
@@ -262,18 +275,12 @@ function redirectToPlatformV7Entry(req: NextRequest) {
 }
 
 export async function middleware(req: NextRequest) {
-  const p = req.nextUrl.pathname;
+  const p = normalizePathname(req.nextUrl.pathname);
 
   const canonRedirect = CANON_REDIRECTS[p];
   if (canonRedirect) {
     const u = req.nextUrl.clone();
     u.pathname = canonRedirect;
-    return applySecurityHeaders(NextResponse.redirect(u, 308), true);
-  }
-
-  if (p === '/platform-v7/ai') {
-    const u = req.nextUrl.clone();
-    u.pathname = '/platform-v7/assistant';
     return applySecurityHeaders(NextResponse.redirect(u, 308), true);
   }
 

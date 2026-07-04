@@ -156,7 +156,7 @@ export default async function LogisticsPage() {
         summary={
           apiOnline
             ? `${countPhraseRu(shipmentCount, 'activeShipments')} · ${blockedShipments.length} с блокерами`
-            : 'Данные статичные — API недоступен'
+            : 'Демонстрационные данные — сервер недоступен'
         }
       />
 

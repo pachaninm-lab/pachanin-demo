@@ -106,7 +106,7 @@ export default async function PlatformV7OperatorPage() {
         summary={
           apiOnline
             ? `${countPhraseRu(deals.length, 'deals')} · ${countPhraseRu(disputeCount, 'openDisputes')} · ${formatMoney(heldRub)} удержано · ${countPhraseRu(shipmentCount, 'activeShipments')}`
-            : 'Данные статичные — API недоступен'
+            : 'Демонстрационные данные — сервер недоступен'
         }
       />
 

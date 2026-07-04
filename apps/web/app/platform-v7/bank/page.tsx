@@ -145,7 +145,7 @@ export default async function PlatformV7BankPage() {
         summary={
           apiOnline
             ? `${outbox.totalPending} операций в очереди · ${disputeCount} открытых споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`
-            : 'Данные статичные — API недоступен'
+            : 'Демонстрационные данные — сервер недоступен'
         }
       />
       <BatonStrip

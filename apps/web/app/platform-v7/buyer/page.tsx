@@ -88,7 +88,7 @@ export default async function PlatformV7BuyerPage() {
         summary={
           apiOnline
             ? `${deals.length} сделок · ${disputeCount} споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`
-            : 'Данные статичные — API недоступен'
+            : 'Демонстрационные данные — сервер недоступен'
         }
       />
 
