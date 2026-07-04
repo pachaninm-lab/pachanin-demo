@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
 import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
 import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
-import { DocumentsTree, buildDemoDocumentTree } from '@/components/platform-v7/DocumentsTree';
+import { DocumentsTree } from '@/components/platform-v7/DocumentsTree';
+import { buildDemoDocumentTree } from '@/components/platform-v7/documents-tree-demo-data';
 
 export const metadata: Metadata = {
   title: 'Документы',
