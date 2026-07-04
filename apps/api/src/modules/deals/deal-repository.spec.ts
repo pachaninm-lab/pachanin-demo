@@ -59,14 +59,15 @@ describe('PrismaDealRepository (disabled DB-backed skeleton)', () => {
     await expect(repo.getById('X')).rejects.toThrow(/not found in DB-backed/);
   });
 
-  it('does not support workspace/passport/timeline/create/transition (fails loudly)', () => {
+  it('does not support workspace/passport/timeline/create (fails loudly)', () => {
+    // transition реализован (оптимистическая блокировка) — его контракт
+    // покрывает prisma-deal-transition.spec.ts.
     const prisma = { deal: {} } as any;
     const repo = new PrismaDealRepository(prisma);
     expect(() => repo.workspace()).toThrow(/not supported/);
     expect(() => repo.passport()).toThrow(/not supported/);
     expect(() => repo.timeline()).toThrow(/not supported/);
     expect(() => repo.create()).toThrow(/not supported/);
-    expect(() => repo.transition()).toThrow(/not supported/);
   });
 });
 
