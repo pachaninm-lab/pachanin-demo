@@ -7,6 +7,7 @@ export const maxDuration = 10;
 const QUESTION_TYPES = new Set(['platform', 'pilot', 'bank_partner', 'region', 'technical', 'other']);
 const SOURCES = new Set(['homepage', 'demo', 'footer', 'connect_form', 'platform_v7_contact_page', 'platform_v7_root', 'support_chat']);
 const EMAIL_TIMEOUT_MS = 2500;
+const OWNER_EMAIL = 'pachaninm@gmail.com';
 
 type InquiryPayload = Record<string, unknown>;
 type Inquiry = ReturnType<typeof normalizeInquiry>;
@@ -88,6 +89,11 @@ function buildText(inquiry: Inquiry) {
   ].join('\n');
 }
 
+function recipients() {
+  const configured = compact(process.env.LEAD_TO_EMAIL, 180);
+  return Array.from(new Set([OWNER_EMAIL, configured].filter(Boolean)));
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -102,7 +108,6 @@ async function sendEmail(inquiry: Inquiry): Promise<{ sent: boolean; reason: str
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { sent: false, reason: 'email_provider_not_configured' };
 
-  const leadTo = process.env.LEAD_TO_EMAIL || 'pachaninm@gmail.com';
   const leadFrom = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
   const subjectSuffix = inquiry.organization || inquiry.name || inquiry.type;
 
@@ -112,7 +117,7 @@ async function sendEmail(inquiry: Inquiry): Promise<{ sent: boolean; reason: str
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: leadFrom,
-        to: [leadTo],
+        to: recipients(),
         subject: `Прозрачная Цена — вопрос — ${subjectSuffix}`,
         text: buildText(inquiry),
       }),
@@ -166,7 +171,7 @@ export async function POST(request: Request) {
     }
 
     const delivery = await sendEmail(inquiry);
-    console.info('platform_v7_inquiry_received', JSON.stringify({ ...inquiry, emailSent: delivery.sent, emailReason: delivery.reason }));
+    console.info('platform_v7_inquiry_received', JSON.stringify({ ...inquiry, emailSent: delivery.sent, emailReason: delivery.reason, emailTo: recipients() }));
 
     if (formMode) return formRedirect(request, 'sent');
 
