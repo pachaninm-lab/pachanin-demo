@@ -181,11 +181,11 @@ export function ChatSupportWidget() {
               </label>
               <label>
                 <span>Имя</span>
-                <input value={name} onChange={(event) => setName(event.target.value)} placeholder='Фамилия и имя' autoComplete='name' maxLength={80} />
+                <input value={name} onChange={(event) => setName(event.target.value)} autoComplete='name' maxLength={80} />
               </label>
               <label>
                 <span>Телефон или email</span>
-                <input value={contact} onChange={(event) => setContact(event.target.value)} placeholder='+7... или email' autoComplete='email' maxLength={120} />
+                <input value={contact} onChange={(event) => setContact(event.target.value)} autoComplete='email' maxLength={120} />
               </label>
               <label>
                 <span>Вопрос</span>
