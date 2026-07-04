@@ -79,6 +79,10 @@ body {
   display: none !important;
 }
 
+.p7-support-chat-button {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 96px) !important;
+}
+
 .p7-support-chat-panel {
   left: var(--p7-support-left, calc((100dvw - min(390px, calc(100dvw - 24px))) / 2)) !important;
   right: auto !important;
@@ -261,7 +265,7 @@ body {
 
   .p7-support-chat-button {
     right: max(14px, env(safe-area-inset-right, 0px)) !important;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 118px) !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 100px) !important;
   }
 
   .p7-support-chat-panel {
