@@ -1,8 +1,20 @@
+# API service image — builds @pc/api (NestJS + Prisma) from the pnpm workspace.
 FROM node:20-alpine
 WORKDIR /app
+
+# Prisma's query engine needs OpenSSL on Alpine (musl).
+RUN apk add --no-cache openssl
+
+# Install the pnpm version pinned in package.json (packageManager: pnpm@10.2.1).
+# The previous `corepack prepare pnpm@9.12.0` both disagreed with that pin and
+# tripped Node 20's bundled corepack, which cannot verify pnpm 10.x signatures
+# (keyid error) — that failed the image build, so Trivy had no image to scan.
+RUN npm install -g pnpm@10.2.1
+
 COPY . .
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
-RUN pnpm install --frozen-lockfile || pnpm install
+
+RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/api build
+
 EXPOSE 4000
 CMD ["pnpm", "--filter", "@pc/api", "start"]
