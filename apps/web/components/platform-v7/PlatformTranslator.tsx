@@ -45,45 +45,27 @@ const LANGUAGES: ReadonlyArray<{ code: LanguageCode; label: string; native: stri
   { code: 'zh', label: 'Китайский', native: '中文', short: 'ZH', htmlLang: 'zh-CN' },
 ];
 
-const UI_COPY: Record<LanguageCode, { button: string; title: string; subtitle: string; legal: string; close: string; current: string; source: string; refresh: string; updated: string; cached: string; embedded: string }> = {
+const UI_COPY: Record<LanguageCode, { button: string; title: string; close: string; current: string; refresh: string }> = {
   ru: {
     button: 'Перевод',
     title: 'Переводчик',
-    subtitle: 'Офлайн-словарь с безопасным обновлением',
-    legal: 'Перевод справочный. Оригинал остаётся юридическим источником. Данные сделки наружу не отправляются.',
     close: 'Закрыть переводчик',
     current: 'Текущий язык',
-    source: 'Словарь',
     refresh: 'Обновить словарь',
-    updated: 'актуальный',
-    cached: 'кэш',
-    embedded: 'встроенный',
   },
   en: {
     button: 'Translate',
     title: 'Translator',
-    subtitle: 'Offline dictionary with safe updates',
-    legal: 'Reference translation. The original remains the legal source. Deal data is not sent outside.',
     close: 'Close translator',
     current: 'Current language',
-    source: 'Dictionary',
     refresh: 'Update dictionary',
-    updated: 'current',
-    cached: 'cache',
-    embedded: 'embedded',
   },
   zh: {
     button: '翻译',
     title: '翻译器',
-    subtitle: '带安全更新的离线词典',
-    legal: '译文仅供参考。原文仍为法律依据。交易数据不会发送到外部。',
     close: '关闭翻译器',
     current: '当前语言',
-    source: '词典',
     refresh: '更新词典',
-    updated: '最新',
-    cached: '缓存',
-    embedded: '内置',
   },
 };
 
@@ -421,12 +403,6 @@ export function PlatformTranslator() {
 
   if (!mounted) return null;
 
-  const dictionarySourceLabel = remoteDictionary?.source === 'online'
-    ? copy.updated
-    : remoteDictionary?.source === 'cache'
-      ? copy.cached
-      : copy.embedded;
-
   const button = (
     <span className='p7-translator-root p7-translator-slot' data-p7-no-translate='true'>
       <style>{css}</style>
@@ -449,10 +425,7 @@ export function PlatformTranslator() {
     ? createPortal(
         <div className='p7-translator-root p7-translator-panel' role='dialog' aria-label={copy.title} data-p7-no-translate='true'>
           <div className='p7-translator-panel-head'>
-            <span>
-              <strong>{copy.title}</strong>
-              <small>{copy.subtitle}</small>
-            </span>
+            <strong>{copy.title}</strong>
             <button type='button' onClick={() => setOpen(false)} aria-label={copy.close} title={copy.close}>
               <X size={16} />
             </button>
@@ -463,7 +436,6 @@ export function PlatformTranslator() {
               <RefreshCw size={14} className={refreshing ? 'p7-translator-spin' : undefined} />
             </button>
           </div>
-          <div className='p7-translator-source'>{copy.source}: <b>{dictionarySourceLabel}</b>{remoteDictionary?.version ? <em>v{remoteDictionary.version}</em> : null}</div>
           <div className='p7-translator-list'>
             {LANGUAGES.map((item) => (
               <button
@@ -480,7 +452,6 @@ export function PlatformTranslator() {
               </button>
             ))}
           </div>
-          <p>{copy.legal}</p>
         </div>,
         document.body,
       )
@@ -495,5 +466,5 @@ export function PlatformTranslator() {
 }
 
 const css = `
-.p7-translator-slot{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;order:60}.p7-translator-button{height:42px;min-width:42px;padding:0 11px;border-radius:14px;border:1px solid rgba(8,122,59,.18);background:rgba(8,122,59,.075);color:#087a3b;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12.5px;font-weight:950;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;box-shadow:0 8px 20px rgba(7,22,17,.045)}.p7-translator-button:hover{border-color:rgba(8,122,59,.28);background:rgba(8,122,59,.11)}.p7-translator-button b{min-width:25px;height:24px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.76);display:inline-flex;align-items:center;justify-content:center;color:#075f32;font-size:10.5px;font-weight:950}.pc-v4-actions .p7-translator-button{height:44px;min-width:44px;border-radius:14px;background:var(--pc-bg-card);border-color:var(--pc-border);color:var(--pc-text-secondary);box-shadow:var(--pc-shadow-sm)}.pc-v4-actions .p7-translator-button:hover{color:var(--pc-text-primary);border-color:var(--pc-border-light)}.pc-v4-actions .p7-translator-button span{display:none}.pc-v4-actions .p7-translator-button b{background:var(--pc-accent-bg);color:var(--pc-accent-strong)}.login-top .p7-translator-slot{margin-left:auto}.login-top .p7-translator-button{height:42px}.p7-register-actions .p7-translator-button,.p7-contact-fixed-actions .p7-translator-button,.entry-header-actions .p7-translator-button{height:42px}.p7-translator-fallback{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 12px);z-index:3600}.p7-translator-panel{position:fixed;right:14px;top:calc(env(safe-area-inset-top) + 72px);z-index:3700;width:min(370px,calc(100vw - 28px));padding:14px;border-radius:22px;border:1px solid rgba(7,22,17,.12);background:rgba(255,255,255,.98);box-shadow:0 22px 70px rgba(7,22,17,.16);backdrop-filter:blur(18px);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#071611;display:grid;gap:12px}.p7-translator-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.p7-translator-panel-head span{display:grid;gap:3px}.p7-translator-panel-head strong{font-size:16px;font-weight:950;letter-spacing:-.03em}.p7-translator-panel-head small{font-size:12px;color:#66758a;line-height:1.35}.p7-translator-panel-head button,.p7-translator-current button{width:36px;height:36px;border-radius:13px;border:1px solid rgba(7,22,17,.1);background:#fff;color:#071611;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.p7-translator-current{padding:10px 11px;border-radius:15px;background:rgba(8,122,59,.07);border:1px solid rgba(8,122,59,.14);font-size:12.5px;color:#526173;display:flex;align-items:center;justify-content:space-between;gap:10px}.p7-translator-current b{color:#087a3b}.p7-translator-current button:disabled{opacity:.55;cursor:wait}.p7-translator-source{font-size:11.5px;color:#66758a;display:flex;align-items:center;gap:6px;flex-wrap:wrap}.p7-translator-source b{color:#087a3b}.p7-translator-source em{font-style:normal;color:#8a96a8}.p7-translator-list{display:grid;gap:7px}.p7-translator-list button{min-height:48px;padding:8px 10px;border-radius:15px;border:1px solid rgba(7,22,17,.09);background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#071611;cursor:pointer;text-align:left}.p7-translator-list button[data-active='true']{border-color:rgba(8,122,59,.28);background:rgba(8,122,59,.075)}.p7-translator-list button span{display:grid;gap:2px}.p7-translator-list button strong{font-size:13.5px;font-weight:930}.p7-translator-list button small{font-size:11.5px;color:#66758a}.p7-translator-list button em{font-style:normal;font-size:11px;font-weight:950;color:#66758a}.p7-translator-list button svg{color:#087a3b}.p7-translator-panel p{margin:0;padding-top:2px;color:#66758a;font-size:11.5px;line-height:1.45}.p7-translator-root *{box-sizing:border-box}.p7-translator-spin{animation:p7-translator-spin .8s linear infinite}@keyframes p7-translator-spin{to{transform:rotate(360deg)}}@media(max-width:640px){.p7-translator-button{height:40px;min-width:40px;padding:0 9px;border-radius:13px}.p7-translator-button span{display:none}.p7-translator-button b{min-width:23px;height:22px;font-size:10px}.pc-v4-actions .p7-translator-button{height:38px;min-width:38px;padding:0 7px}.pc-v4-actions .p7-translator-button b{display:none}.entry-header-actions .p7-translator-button,.p7-register-actions .p7-translator-button,.p7-contact-fixed-actions .p7-translator-button{width:40px;padding:0}.entry-header-actions .p7-translator-button b,.p7-register-actions .p7-translator-button b,.p7-contact-fixed-actions .p7-translator-button b{display:none}.p7-translator-panel{left:10px;right:10px;top:calc(env(safe-area-inset-top) + 64px);width:auto;border-radius:20px}}@media(max-width:374px){.pc-v4-actions .p7-translator-button{height:34px;min-width:34px;border-radius:12px}.pc-v4-actions .p7-translator-button svg{width:15px;height:15px}}
+.p7-translator-slot{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;order:60}.p7-translator-button{height:42px;min-width:42px;padding:0 11px;border-radius:14px;border:1px solid rgba(8,122,59,.18);background:rgba(8,122,59,.075);color:#087a3b;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12.5px;font-weight:950;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;box-shadow:0 8px 20px rgba(7,22,17,.045)}.p7-translator-button:hover{border-color:rgba(8,122,59,.28);background:rgba(8,122,59,.11)}.p7-translator-button b{min-width:25px;height:24px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.76);display:inline-flex;align-items:center;justify-content:center;color:#075f32;font-size:10.5px;font-weight:950}.pc-v4-actions .p7-translator-button{height:44px;min-width:44px;border-radius:14px;background:var(--pc-bg-card);border-color:var(--pc-border);color:var(--pc-text-secondary);box-shadow:var(--pc-shadow-sm)}.pc-v4-actions .p7-translator-button:hover{color:var(--pc-text-primary);border-color:var(--pc-border-light)}.pc-v4-actions .p7-translator-button span{display:none}.pc-v4-actions .p7-translator-button b{background:var(--pc-accent-bg);color:var(--pc-accent-strong)}.login-top .p7-translator-slot{margin-left:auto}.login-top .p7-translator-button{height:42px}.p7-register-actions .p7-translator-button,.p7-contact-fixed-actions .p7-translator-button,.entry-header-actions .p7-translator-button{height:42px}.p7-translator-fallback{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 12px);z-index:3600}.p7-translator-panel{position:fixed;right:14px;top:calc(env(safe-area-inset-top) + 72px);z-index:3700;width:min(370px,calc(100vw - 28px));padding:14px;border-radius:22px;border:1px solid rgba(7,22,17,.12);background:rgba(255,255,255,.98);box-shadow:0 22px 70px rgba(7,22,17,.16);backdrop-filter:blur(18px);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#071611;display:grid;gap:12px}.p7-translator-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.p7-translator-panel-head strong{font-size:16px;font-weight:950;letter-spacing:-.03em}.p7-translator-panel-head button,.p7-translator-current button{width:36px;height:36px;border-radius:13px;border:1px solid rgba(7,22,17,.1);background:#fff;color:#071611;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.p7-translator-current{padding:10px 11px;border-radius:15px;background:rgba(8,122,59,.07);border:1px solid rgba(8,122,59,.14);font-size:12.5px;color:#526173;display:flex;align-items:center;justify-content:space-between;gap:10px}.p7-translator-current b{color:#087a3b}.p7-translator-current button:disabled{opacity:.55;cursor:wait}.p7-translator-list{display:grid;gap:7px}.p7-translator-list button{min-height:48px;padding:8px 10px;border-radius:15px;border:1px solid rgba(7,22,17,.09);background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#071611;cursor:pointer;text-align:left}.p7-translator-list button[data-active='true']{border-color:rgba(8,122,59,.28);background:rgba(8,122,59,.075)}.p7-translator-list button span{display:grid;gap:2px}.p7-translator-list button strong{font-size:13.5px;font-weight:930}.p7-translator-list button small{font-size:11.5px;color:#66758a}.p7-translator-list button em{font-style:normal;font-size:11px;font-weight:950;color:#66758a}.p7-translator-list button svg{color:#087a3b}.p7-translator-root *{box-sizing:border-box}.p7-translator-spin{animation:p7-translator-spin .8s linear infinite}@keyframes p7-translator-spin{to{transform:rotate(360deg)}}@media(max-width:640px){.p7-translator-button{height:40px;min-width:40px;padding:0 9px;border-radius:13px}.p7-translator-button span{display:none}.p7-translator-button b{min-width:23px;height:22px;font-size:10px}.pc-v4-actions .p7-translator-button{height:38px;min-width:38px;padding:0 7px}.pc-v4-actions .p7-translator-button b{display:none}.entry-header-actions .p7-translator-button,.p7-register-actions .p7-translator-button,.p7-contact-fixed-actions .p7-translator-button{width:40px;padding:0}.entry-header-actions .p7-translator-button b,.p7-register-actions .p7-translator-button b,.p7-contact-fixed-actions .p7-translator-button b{display:none}.p7-translator-panel{left:10px;right:10px;top:calc(env(safe-area-inset-top) + 64px);width:auto;border-radius:20px}}@media(max-width:374px){.pc-v4-actions .p7-translator-button{height:34px;min-width:34px;border-radius:12px}.pc-v4-actions .p7-translator-button svg{width:15px;height:15px}}
 `;
