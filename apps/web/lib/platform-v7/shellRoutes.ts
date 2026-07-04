@@ -41,6 +41,18 @@ import {
   type PlatformV7ShellRouteSurface,
 } from './routes';
 
+
+// Русскоязычный глоссарий подписей действий по ролям (аудит: единый язык
+// интерфейса вместо англицизмов и внутреннего жаргона). Ссылочная карта —
+// подписи, к которым приводятся ролевые поверхности по мере унификации.
+export const PLATFORM_V7_NAV_GLOSSARY: Record<string, string> = {
+  operator: 'Задержки',
+  arbitrator: 'Доказательства',
+  driver: 'Фотофиксация',
+  compliance: 'Риск обхода',
+  audit: 'Журнал',
+};
+
 export interface PlatformV7ShellNavItem { href: string; label: string; }
 export interface PlatformV7RoleNavItem extends PlatformV7ShellNavItem { note?: string; }
 export interface PlatformV7RoleNavigationEntry { home: string; bottom: PlatformV7RoleNavItem[]; drawer: PlatformV7RoleNavItem[]; command: PlatformV7RoleNavItem[]; allowedPrefixes: string[]; }
@@ -72,7 +84,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     bottom: [
       { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр' },
       { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
-      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Блокеры' },
+      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Задержки' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Контроль' },
     ],
@@ -80,7 +92,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     command: [
       { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр' },
       { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
-      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Блокеры' },
+      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Задержки' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Контроль' },
       { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Банк' },

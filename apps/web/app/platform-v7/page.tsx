@@ -99,7 +99,7 @@ export default function PlatformV7RootPage() {
       <section className='entry-hero' aria-labelledby='entry-hero-title'>
         <div className='entry-hero-copy'>
           <span className='entry-kicker'>Единый вход в контур исполнения</span>
-          <h1 id='entry-hero-title'>
+          <h1 id='entry-hero-title' aria-label='Главный риск сделки начинается после согласования цены'>
             <span>Главный риск сделки</span>
             <span>начинается после</span>
             <span>согласования цены</span>
@@ -110,9 +110,13 @@ export default function PlatformV7RootPage() {
           </p>
           <div className='entry-hero-actions'>
             <Link href='/platform-v7/register' className='entry-primary-cta'>Подключить организацию<ArrowRight size={20} /></Link>
-            <Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Разобрать контур сделки</Link>
+            <Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Посмотреть демо-сделку</Link>
             <Link href='/platform-v7/contact' className='entry-register-cta'><MessageCircleQuestion size={18} />Задать вопрос</Link>
+            <a href='#roles' className='entry-register-cta'>Выбрать роль</a>
           </div>
+          <p className='entry-demo-note' style={{ marginTop: 10, fontSize: 13, color: '#66736e', fontWeight: 700 }}>
+            Демо работает без регистрации, на синтетических данных.
+          </p>
         </div>
 
         <div className='entry-hero-visual' aria-hidden='true'>

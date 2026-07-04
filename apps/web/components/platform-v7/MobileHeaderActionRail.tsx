@@ -42,6 +42,15 @@ function openSearchPalette() {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true, cancelable: true }));
 }
 
+// Пока рейл активен, нативные действия шапки скрываются: два ряда одинаковых
+// кнопок на 360px — то самое переполнение шапки из аудита.
+function suppressNativeHeaderActions(active: boolean) {
+  const nativeActions = document.querySelector<HTMLElement>('.pc-header-actions');
+  if (!nativeActions) return;
+  nativeActions.style.visibility = active ? 'hidden' : '';
+  nativeActions.style.pointerEvents = active ? 'none' : '';
+}
+
 export function MobileHeaderActionRail() {
   const pathname = usePathname();
   const role = usePlatformV7RStore((state) => state.role) || 'operator';
@@ -64,7 +73,14 @@ export function MobileHeaderActionRail() {
 
   useEffect(() => setPanel(null), [path]);
 
-  if (PUBLIC_PATHS.has(path) || !mount || !isMobile) return null;
+  const railActive = !PUBLIC_PATHS.has(path) && Boolean(mount) && isMobile;
+
+  useEffect(() => {
+    suppressNativeHeaderActions(railActive);
+    return () => suppressNativeHeaderActions(false);
+  }, [railActive]);
+
+  if (!railActive || !mount) return null;
 
   const toggleTheme = () => {
     setTheme((value) => {
@@ -92,7 +108,7 @@ export function MobileHeaderActionRail() {
         <button type='button' className='p7-mobile-action-btn' aria-label='Открыть поиск' onClick={openSearchPalette}><Search size={16} /></button>
         <button type='button' className='p7-mobile-action-btn' aria-label='Сменить тему' onClick={toggleTheme}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</button>
         <button type='button' className='p7-mobile-action-btn' aria-label='Открыть блокнот' onClick={() => openPanel('notepad')}><FileText size={16} /></button>
-        <button type='button' className='p7-mobile-action-btn' aria-label='Открыть уведомления' onClick={() => openPanel('notices')}><Bell size={16} /></button>
+        <button type='button' className='p7-mobile-action-btn' aria-label='Открыть уведомления роли' onClick={() => openPanel('notices')}><Bell size={16} /></button>
         <Link className='p7-mobile-action-btn' href={`/platform-v7/status?role=${role}`} aria-label='Статус и помощь'><CircleHelp size={16} /></Link>
         <button type='button' className='p7-mobile-action-btn' aria-label='Открыть калькулятор' onClick={() => openPanel('calculator')}><Calculator size={16} /></button>
         <button type='button' className='p7-mobile-action-btn p7-mobile-action-logout' aria-label='Выйти из кабинета' onClick={logout}><LogOut size={16} /></button>
@@ -104,8 +120,15 @@ export function MobileHeaderActionRail() {
 }
 
 function ToolPanel({ panel, note, setNote, close }: { panel: MobilePanel; note: string; setNote: (value: string) => void; close: () => void }) {
-  const title = panel === 'notepad' ? 'Блокнот' : panel === 'calculator' ? 'Калькулятор' : 'Уведомления';
-  return <section className='p7-mobile-tool-panel' role='dialog' aria-label={title}><header><strong>{title}</strong><button type='button' onClick={close} aria-label='Закрыть'><X size={15} /></button></header>{panel === 'notepad' ? <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder='Заметка по сделке.' /> : panel === 'calculator' ? <div className='p7-mobile-simple-panel'>Используйте штатный калькулятор в кабинете.</div> : <div className='p7-mobile-simple-panel'>Уведомления роли отображаются в рабочем кабинете.</div>}</section>;
+  const title = panel === 'notepad' ? 'Блокнот' : panel === 'calculator' ? 'Калькулятор' : 'Уведомления роли';
+  return (
+    <section className='p7-mobile-tool-panel' role='dialog' aria-label={title}>
+      <header><strong>{title}</strong><button type='button' onClick={close} aria-label='Закрыть'><X size={15} /></button></header>
+      {panel === 'notepad' && <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder='Заметка по сделке.' />}
+      {panel === 'notices' && <div className='p7-mobile-simple-panel'>Уведомления роли отображаются в рабочем кабинете.</div>}
+      {panel === 'calculator' && <div className='p7-mobile-simple-panel'>Используйте штатный калькулятор в кабинете.</div>}
+    </section>
+  );
 }
 
-const css = `@media(max-width:767px){html body .p7-mobile-action-rail{position:fixed!important;top:8px!important;right:8px!important;z-index:5000!important;display:grid!important;grid-template-columns:repeat(7,30px)!important;gap:3px!important}.p7-mobile-action-btn{inline-size:30px!important;block-size:30px!important;border-radius:11px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-card)!important;color:var(--pc-text-secondary)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0!important;text-decoration:none!important;box-shadow:var(--pc-shadow-sm)!important}.p7-mobile-action-logout{color:#9f1d1d!important}.p7-mobile-tool-panel{position:fixed!important;left:10px!important;right:10px!important;top:64px!important;z-index:5010!important;display:grid!important;gap:10px!important;padding:12px!important;border:1px solid var(--pc-border)!important;border-radius:20px!important;background:var(--pc-bg-card)!important;box-shadow:var(--pc-shadow-lg)!important}.p7-mobile-tool-panel header{display:flex!important;align-items:center!important;justify-content:space-between!important}.p7-mobile-tool-panel header button{inline-size:32px!important;block-size:32px!important;border-radius:12px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-elevated)!important}.p7-mobile-tool-panel textarea{inline-size:100%!important;min-height:220px!important;border:1px solid var(--pc-border)!important;border-radius:17px!important;background:var(--pc-bg-elevated)!important;color:var(--pc-text-primary)!important;padding:12px!important}.p7-mobile-simple-panel{padding:14px;border-radius:16px;border:1px solid var(--pc-border);background:var(--pc-bg-elevated);color:var(--pc-text-secondary);font-size:13px;font-weight:800}}`;
+const css = `@media(max-width:767px){html body .p7-mobile-action-rail{position:fixed!important;top:8px!important;right:8px!important;z-index:5000!important;display:grid!important;grid-template-columns:repeat(7,30px)!important;gap:3px!important;pointer-events:auto!important}.p7-mobile-action-btn{inline-size:30px!important;block-size:30px!important;border-radius:11px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-card)!important;color:var(--pc-text-secondary)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0!important;text-decoration:none!important;box-shadow:var(--pc-shadow-sm)!important}.p7-mobile-action-logout{color:#9f1d1d!important}.p7-mobile-tool-panel{position:fixed!important;left:10px!important;right:10px!important;top:64px!important;z-index:5010!important;display:grid!important;gap:10px!important;padding:12px!important;border:1px solid var(--pc-border)!important;border-radius:20px!important;background:var(--pc-bg-card)!important;box-shadow:var(--pc-shadow-lg)!important}.p7-mobile-tool-panel header{display:flex!important;align-items:center!important;justify-content:space-between!important}.p7-mobile-tool-panel header button{inline-size:32px!important;block-size:32px!important;border-radius:12px!important;border:1px solid var(--pc-border)!important;background:var(--pc-bg-elevated)!important}.p7-mobile-tool-panel textarea{inline-size:100%!important;min-height:220px!important;border:1px solid var(--pc-border)!important;border-radius:17px!important;background:var(--pc-bg-elevated)!important;color:var(--pc-text-primary)!important;padding:12px!important}.p7-mobile-simple-panel{padding:14px;border-radius:16px;border:1px solid var(--pc-border);background:var(--pc-bg-elevated);color:var(--pc-text-secondary);font-size:13px;font-weight:800}}`;

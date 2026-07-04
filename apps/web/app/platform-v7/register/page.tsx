@@ -96,7 +96,7 @@ function RegisterHeader() {
       </Link>
       <nav className='p7-register-actions' aria-label='Действия регистрации'>
         <Link href='/platform-v7/login' className='p7-register-action'><LogIn size={16} />Войти</Link>
-        <Link href='/platform-v7' className='p7-register-action p7-register-action-exit'><LogOut size={16} />Выход</Link>
+        <Link href='/platform-v7' className='p7-register-action p7-register-action-exit'><LogOut size={16} />На главную</Link>
       </nav>
     </header>
   );

@@ -84,6 +84,33 @@ function ensureRegistrationEntry(root: ParentNode) {
     }
   }
 
+  ensurePublicActionTriplet(root, heroActions);
+}
+
+// Три различимых публичных действия: вопрос без обязательств, заявка на
+// подключение и регистрация. Раньше публичный вход предлагал только
+// регистрацию — посетителю с вопросом некуда было идти, кроме кабинета.
+const PUBLIC_ACTIONS: ReadonlyArray<{ href: string; label: string }> = [
+  { href: '/platform-v7/contact', label: 'Направить обращение' },
+  { href: '/platform-v7/request', label: 'Оставить заявку' },
+  { href: '/platform-v7/register', label: 'Перейти к регистрации' },
+];
+
+function ensurePublicActionTriplet(root: ParentNode, heroActions: HTMLElement | null) {
+  if (!heroActions || root.querySelector('[data-entry-actions="triplet"]')) return;
+  const row = document.createElement('nav');
+  row.className = 'entry-public-actions';
+  row.dataset.entryActions = 'triplet';
+  row.setAttribute('aria-label', 'Публичные действия');
+  for (const action of PUBLIC_ACTIONS) {
+    const link = document.createElement('a');
+    link.href = action.href;
+    link.textContent = action.label;
+    link.className = 'entry-public-action';
+    row.appendChild(link);
+  }
+  heroActions.after(row);
+
   root.querySelectorAll<HTMLAnchorElement>('.entry-role-tile').forEach((tile) => {
     const title = tile.querySelector('strong')?.textContent?.trim();
     const role = title ? (roleRegistrationParams[title] ?? roleByTitle[title]) : undefined;
@@ -101,7 +128,9 @@ const css = `
 .pc-v7-public-entry .entry-register-cta{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:46px!important;border-radius:16px!important;padding:0 18px!important;background:rgba(0,122,47,.07)!important;color:#087a3b!important;border:1px solid rgba(0,122,47,.14)!important;box-shadow:none!important;font-size:14.5px!important;font-weight:900!important;text-align:center!important;text-decoration:none!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-header,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-bottomnav,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-drawer,.pc-shell-root-v4[data-public-entry='true'] .pc-v4-pilot-note,.pc-shell-root-v4[data-public-entry='true'] .pc-v7-role-dock,.pc-shell-root-v4[data-public-entry='true'] .pc-v7-assistant-widget{display:none!important}
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#fbfcf9!important;min-height:100svh!important}
-@media(max-width:980px){.pc-v7-public-entry .entry-register{display:none!important}.pc-v7-public-entry .entry-register-cta{width:100%!important;min-width:0!important}}
+.pc-v7-public-entry .entry-public-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.pc-v7-public-entry .entry-public-action{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:14px;background:#fff;color:#0f2e1f;border:1px solid rgba(7,22,17,.14);font-size:13.5px;font-weight:800;text-decoration:none}
+@media(max-width:980px){.pc-v7-public-entry .entry-register{display:none!important}.pc-v7-public-entry .entry-register-cta{width:100%!important;min-width:0!important}.pc-v7-public-entry .entry-public-action{flex:1 1 100%!important}}
 `;
 
 export function PublicRegistrationEntryPatch() {

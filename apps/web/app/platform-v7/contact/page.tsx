@@ -81,7 +81,7 @@ export default async function PlatformV7ContactPage({ searchParams }: { searchPa
               <input type='text' name='website' tabIndex={-1} autoComplete='off' aria-hidden='true' className='p7-contact-honeypot' />
               <input type='hidden' name='source' value='platform_v7_contact_page' />
               <h2 id='p7-contact-form-title'>Задать вопрос</h2>
-              <p>Укажите тему обращения и контакт для ответа. Не направляйте через форму пароли, ключи доступа, банковские реквизиты и копии документов.</p>
+              <p>Укажите тему обращения и контакт для ответа. Не направляйте через форму пароли, ключи доступа, банковские реквизиты и копии документов. Форма не открывает личный кабинет и не создаёт роль — это только вопрос команде платформы.</p>
               <label><span>Тип вопроса</span><select name='type' required defaultValue='platform'>{QUESTION_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
               <label><span>Имя</span><input name='name' type='text' minLength={2} maxLength={80} placeholder='Фамилия и имя' required /></label>
               <label><span>Организация</span><input name='organization' type='text' maxLength={120} placeholder='При наличии' /></label>

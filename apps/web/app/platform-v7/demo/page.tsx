@@ -59,13 +59,13 @@ export default function PlatformV7DemoPage() {
 
       <section className='p7-demo-hero' aria-labelledby='demo-title'>
         <div className='p7-demo-copy'>
-          <span className='p7-kicker'>Демонстрационный режим · без регистрации</span>
+          <span className='p7-kicker'>Демо · без регистрации · без доступа в ЛК</span>
           <h1 id='demo-title'>Как платформа контролирует исполнение зерновой сделки</h1>
           <p>На условном примере показан путь сделки после согласования цены: рейс, приёмка, качество, документы, расчёт и доказательная база. Рабочие кабинеты и реальные данные не открываются.</p>
           <div className='p7-demo-actions'><a href='#case' className='p7-primary'>Перейти к примеру<ArrowRight size={18} /></a><Link href='/platform-v7/contact' className='p7-secondary'><MessageCircleQuestion size={18} />Задать вопрос</Link></div>
         </div>
         <aside className='p7-demo-status' aria-label='Текущий статус демонстрационной сделки'>
-          <span>Текущий статус</span>
+          <span>Демо · синтетические данные</span>
           <strong>{deal.current}</strong>
           <p>Расчёт не выполняется до подтверждения оснований. Это демонстрационный сценарий на условных данных.</p>
         </aside>
@@ -84,7 +84,7 @@ export default function PlatformV7DemoPage() {
 
       <section className='p7-money-section' aria-labelledby='money-title'>
         <div><span className='p7-kicker'>Основание для расчёта</span><h2 id='money-title'>Оплата зависит от подтверждённых событий</h2><p>Платформа показывает, какие условия уже закрыты и какие документы или данные требуются до расчёта. В демонстрационном режиме финансовые действия заблокированы.</p></div>
-        <div className='p7-money-card'><Banknote size={28} /><strong>{deal.amount}</strong><p>Ожидается подтверждение качества и комплекта документов.</p><button disabled>Финансовые действия недоступны в демо</button></div>
+        <div className='p7-money-card'><Banknote size={28} /><strong>{deal.amount}</strong><p>Ожидается подтверждение качества и комплекта документов.</p><button disabled>Выпуск денег недоступен в демо</button></div>
       </section>
 
       <section className='p7-section' aria-labelledby='roles-title'>
@@ -97,6 +97,7 @@ export default function PlatformV7DemoPage() {
         <ul>{evidence.map((item) => <li key={item}><ShieldCheck size={18} />{item}</li>)}</ul>
       </section>
 
+      <p style={{ margin: '16px 0 0', textAlign: 'center', color: '#66736e', fontSize: 13, fontWeight: 700 }}>Демо не создаёт сессию, не меняет роль и не открывает реальные кабинеты.</p>
       <footer className='p7-demo-footer'><Link href='/platform-v7'>На главную</Link><Link href='/platform-v7/contact'>Задать вопрос</Link></footer>
     </main>
   );
