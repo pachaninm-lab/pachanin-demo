@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
 import { LoginHeaderLogoGuard } from '@/components/platform-v7/LoginHeaderLogoGuard';
 import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7InteractionFixes';
 import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLockFix';
@@ -31,6 +32,7 @@ export default function PlatformV7Template({ children }: { children: ReactNode }
       <PublicHeaderFinalLock />
       <PublicBrandLogoFinal />
       <LoginHeaderLogoGuard />
+      <ChatSupportWidget />
     </>
   );
 }
