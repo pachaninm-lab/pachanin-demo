@@ -317,7 +317,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
 
             <div className='bank-route-card'>
               <div className='bank-route-top'>
-                <div className='bank-route-title'>Control Tower</div>
+                <div className='bank-route-title'>Центр управления</div>
                 <span className='pill' style={{ marginTop: 0, background: blockerTexts.length ? 'rgba(217,119,6,0.08)' : '#F8FAFB', borderColor: blockerTexts.length ? 'rgba(217,119,6,0.18)' : 'var(--pc-border, #E4E6EA)', color: blockerTexts.length ? '#B45309' : 'var(--pc-text-secondary, #475569)' }}>{blockerTexts.length ? 'Есть блокеры' : 'Чисто'}</span>
               </div>
               <div className='bank-route-note'>Операторская добивка кросс-модульных проблем, когда блокер уже не решается на одном экране.</div>

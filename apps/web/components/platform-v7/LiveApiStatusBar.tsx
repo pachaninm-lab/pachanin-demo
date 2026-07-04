@@ -1,4 +1,49 @@
 import type { ReactNode } from 'react';
+import { countRu } from '@/lib/format/plural';
+
+// Единый набор SVG-иконок для статус-чипов: эмодзи (🚚 ⚠️ ⏳) рендерятся
+// по-разному на iOS/Android/Windows и выглядят чужеродно в B2B-интерфейсе.
+function ChipIcon({ kind }: { kind: 'clock' | 'dispute' | 'truck' | 'stop' | 'warn' }) {
+  const common = { width: 11, height: 11, viewBox: '0 0 12 12', 'aria-hidden': true as const, style: { flexShrink: 0 } };
+  switch (kind) {
+    case 'clock':
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+          <circle cx="6" cy="6" r="4.7" />
+          <path d="M6 3.4V6l1.8 1" />
+        </svg>
+      );
+    case 'dispute':
+      return (
+        <svg {...common} fill="currentColor">
+          <path d="M6.8 1 2.8 6.6h2.1L5 11l4-5.6H6.7z" />
+        </svg>
+      );
+    case 'truck':
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round">
+          <path d="M1 3.2h5.6v4.6H1z M6.6 5h2.2L10.8 7v.8H6.6z" />
+          <circle cx="3.2" cy="9.4" r="1" />
+          <circle cx="8.8" cy="9.4" r="1" />
+        </svg>
+      );
+    case 'stop':
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round">
+          <path d="M4 1.5h4L10.5 4v4L8 10.5H4L1.5 8V4z" />
+          <path d="M3.8 6h4.4" strokeLinecap="round" />
+        </svg>
+      );
+    case 'warn':
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round">
+          <path d="M6 1.6 11 10H1z" />
+          <path d="M6 4.6v2.6" />
+          <circle cx="6" cy="8.7" r="0.5" fill="currentColor" stroke="none" />
+        </svg>
+      );
+  }
+}
 
 export interface LiveBlocker {
   id: string;
@@ -115,27 +160,27 @@ export function LiveApiStatusBar({
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
           {pendingBankOps > 0 && (
             <Chip color="#B45309" bg="#FEF3C7">
-              ⏳ {pendingBankOps} банк
+              <ChipIcon kind="clock" /> {countRu(pendingBankOps, 'банк-операция', 'банк-операции', 'банк-операций')}
             </Chip>
           )}
           {openDisputes > 0 && (
             <Chip color="#B91C1C" bg="#FEE2E2">
-              ⚡ {openDisputes} {openDisputes === 1 ? 'спор' : 'спора'}
+              <ChipIcon kind="dispute" /> {countRu(openDisputes, 'спор', 'спора', 'споров')}
             </Chip>
           )}
           {activeShipments > 0 && (
             <Chip color="#1D4ED8" bg="#DBEAFE">
-              🚚 {activeShipments} рейс{activeShipments > 1 ? 'а' : ''}
+              <ChipIcon kind="truck" /> {countRu(activeShipments, 'рейс', 'рейса', 'рейсов')}
             </Chip>
           )}
           {stopCount > 0 && (
             <Chip color="#B91C1C" bg="#FEE2E2">
-              🛑 {stopCount} блокер
+              <ChipIcon kind="stop" /> {countRu(stopCount, 'блокер', 'блокера', 'блокеров')}
             </Chip>
           )}
           {warnCount > 0 && (
             <Chip color="#92400E" bg="#FEF3C7">
-              ⚠️ {warnCount} предупреждение
+              <ChipIcon kind="warn" /> {countRu(warnCount, 'предупреждение', 'предупреждения', 'предупреждений')}
             </Chip>
           )}
         </div>

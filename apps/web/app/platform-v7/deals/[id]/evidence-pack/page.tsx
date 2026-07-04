@@ -11,7 +11,7 @@ export default async function DealEvidencePackPage({ params }: { params: { id: s
     <div style={{ display: 'grid', gap: 18 }}>
       <LiveApiStatusBar
         apiOnline={files.length > 0}
-        role="EVIDENCE PACK · Доказательный пакет"
+        role="Доказательный пакет сделки"
         summary={
           files.length > 0
             ? `${files.length} файлов · цепочка хэшей ${chainVerified ? '✓ верна' : 'не проверена'}`

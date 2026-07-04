@@ -163,9 +163,13 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false)
   response.headers.set('referrer-policy', 'no-referrer');
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), accelerometer=(), gyroscope=()');
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
+  // 'unsafe-eval' нужен только dev-рантайму Next (react-refresh); в проде он
+  // расширяет поверхность XSS и убран. 'unsafe-inline' остаётся до перевода
+  // инлайн-скриптов Next на nonce.
+  const scriptSrc = process.env.NODE_ENV === 'development' ? "'self' 'unsafe-inline' 'unsafe-eval'" : "'self' 'unsafe-inline'";
   response.headers.set(
     'content-security-policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`
   );
   if (protectedResponse) {
     response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
