@@ -64,7 +64,7 @@ function validate(inquiry: Inquiry) {
   if (inquiry.website) return 'bot_trap';
   if (!inquiry.name || inquiry.name.length < 2) return 'name_required';
   if (!inquiry.contact || inquiry.contact.length < 5) return 'contact_required';
-  if (!inquiry.message || inquiry.message.length < 20) return 'message_too_short';
+  if (!inquiry.message) return 'message_required';
   if (inquiry.message.length > 2000) return 'message_too_long';
   if (inquiry.consent !== 'yes') return 'consent_required';
   if ([inquiry.name, inquiry.organization, inquiry.contact, inquiry.message].some(hasHtml)) return 'unsafe_input';
