@@ -23,16 +23,21 @@ const deal9106 = getDeal360Scenario('DL-9106');
 const deal9102 = getDeal360Scenario('DL-9102');
 
 const STATIC_BLOCKERS = [
-  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'СДИЗ не подтверждён', source: 'ФГИС «Зерно»', amount: '9,65 млн ₽', owner: 'продавец', next: 'отправить СДИЗ и дождаться подтверждения', href: '/platform-v7/deals/DL-9106/clean', severity: 'stop' as const },
-  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'ЭТрН ждёт подписи грузополучателя', source: 'СБИС / Saby ЭТрН', amount: '9,65 млн ₽', owner: 'грузополучатель', next: 'закрыть подпись ЭТрН и передачу в ГИС ЭПД', href: '/platform-v7/logistics', severity: 'stop' as const },
-  { deal: 'DL-9106', lot: 'LOT-2403', reason: 'Протокол качества ожидается', source: 'лабораторный контур качества', amount: '9,65 млн ₽', owner: 'лаборатория', next: 'получить протокол качества', href: '/platform-v7/elevator', severity: 'wait' as const },
-  { deal: 'DL-9102', lot: 'LOT-2402', reason: 'Отклонение веса', source: 'приёмка', amount: '624 тыс. ₽', owner: 'оператор', next: deal9102.nextAction, href: '/platform-v7/deals/DL-9102/clean', severity: 'stop' as const },
+  { deal: 'DL-9106', lot: 'LOT-2403', dealAtRiskRub: 9_648_000, reason: 'СДИЗ не подтверждён', source: 'ФГИС «Зерно»', amount: '9,65 млн ₽', owner: 'продавец', next: 'отправить СДИЗ и дождаться подтверждения', href: '/platform-v7/deals/DL-9106/clean', severity: 'stop' as const },
+  { deal: 'DL-9106', lot: 'LOT-2403', dealAtRiskRub: 9_648_000, reason: 'ЭТрН ждёт подписи грузополучателя', source: 'СБИС / Saby ЭТрН', amount: '9,65 млн ₽', owner: 'грузополучатель', next: 'закрыть подпись ЭТрН и передачу в ГИС ЭПД', href: '/platform-v7/logistics', severity: 'stop' as const },
+  { deal: 'DL-9106', lot: 'LOT-2403', dealAtRiskRub: 9_648_000, reason: 'Протокол качества ожидается', source: 'лабораторный контур качества', amount: '9,65 млн ₽', owner: 'лаборатория', next: 'получить протокол качества', href: '/platform-v7/elevator', severity: 'wait' as const },
+  { deal: 'DL-9102', lot: 'LOT-2402', dealAtRiskRub: 6_240_000, reason: 'Отклонение веса', source: 'приёмка', amount: '624 тыс. ₽', owner: 'оператор', next: deal9102.nextAction, href: '/platform-v7/deals/DL-9102/clean', severity: 'stop' as const },
 ];
+
+// Деньги под риском в демо-режиме — сумма по РАЗЛИЧНЫМ затронутым сделкам,
+// вычисляется из набора выше, а не вписывается магической строкой «15,89 млн»:
+// одно изменение данных больше не расходится с подписями на экране.
+const DEMO_MONEY_AT_RISK_RUB = [...new Map(STATIC_BLOCKERS.map((b) => [b.deal, b.dealAtRiskRub])).values()].reduce((s, v) => s + v, 0);
 
 const OPERATOR_CONTROL = [
   { label: 'Что произошло', value: 'DL-9106 остановлен на СДИЗ, ЭТрН и протоколе качества', danger: true },
   { label: 'Что заблокировано', value: 'Выплата не идёт дальше до закрытия обязательных доказательств', danger: true },
-  { label: 'Деньги под риском', value: '15,89 млн ₽ под контролем оператора', danger: true },
+  { label: 'Деньги под риском', value: `${formatMoney(DEMO_MONEY_AT_RISK_RUB)} под контролем оператора`, danger: true },
   { label: 'Кто отвечает', value: 'продавец → грузополучатель → лаборатория → оператор' },
   { label: 'Следующее действие', value: 'разобрать DL-9106 и закрыть блокеры в порядке влияния на деньги', strong: true },
 ] as const;
@@ -62,6 +67,7 @@ export default async function PlatformV7OperatorPage() {
   const apiOnline = outbox.isApiAvailable;
   const blockers = STATIC_BLOCKERS;
   const stopCount = blockers.filter((item) => item.severity === 'stop').length;
+  const demoDealCount = new Set(blockers.map((b) => b.deal)).size;
 
   const heldRub = disputeTotalHeldRub(disputes);
   const disputeCount = openDisputeCount(disputes);
@@ -111,7 +117,7 @@ export default async function PlatformV7OperatorPage() {
       />
 
       <QuietIntelligenceHint
-        problem={`${stopCount} стоп-блокера держат 15,89 млн ₽ — СДИЗ, ЭТрН и отклонение веса.`}
+        problem={`${stopCount} стоп-блокера держат ${formatMoney(DEMO_MONEY_AT_RISK_RUB)} — СДИЗ, ЭТрН и отклонение веса.`}
         action='Устранить блокеры по очереди: СДИЗ → ЭТрН → акт расхождения.'
         outcome='После закрытия всех блокеров деньги продолжат движение к выплате.'
       />
@@ -122,9 +128,9 @@ export default async function PlatformV7OperatorPage() {
         lead='Оператор видит не технические интеграции, а сделки, которые остановили деньги: причина, источник, сумма влияния, ответственный и следующее действие.'
       >
         <div className='pc-prem-kpis' aria-label='Ключевые показатели оператора'>
-          <PremiumStatCard glyph='bag' tone='info' value={apiOnline ? String(deals.length) : '2'} label='Сделок под контролем' />
+          <PremiumStatCard glyph='bag' tone='info' value={apiOnline ? String(deals.length) : String(demoDealCount)} label='Сделок под контролем' />
           <PremiumStatCard glyph='alert' tone='danger' value={String(apiOnline ? liveBlockers.filter((b) => b.severity === 'stop').length : stopCount)} label='Стоп-блокеров' />
-          <PremiumStatCard glyph='coins' tone={heldRub > 0 ? 'danger' : 'success'} value={apiOnline ? formatMoney(heldRub) : '15,89 млн ₽'} label='Удержано по спорам' />
+          <PremiumStatCard glyph='coins' tone={heldRub > 0 ? 'danger' : 'success'} value={apiOnline ? formatMoney(heldRub) : formatMoney(DEMO_MONEY_AT_RISK_RUB)} label='Удержано по спорам' />
           <PremiumStatCard glyph='shield-check' tone={outbox.totalPending > 0 ? 'warning' : 'success'} value={apiOnline ? String(outbox.totalPending) : '—'} label='Банк-операций в очереди' />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
