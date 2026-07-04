@@ -16,13 +16,13 @@ interface RelatedChip {
 }
 
 const CHIP_TONES: Record<RelatedChip['tone'], { bg: string; border: string; color: string }> = {
-  lot: { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  route: { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB' },
-  reception: { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
+  lot: { bg: 'var(--pc-accent-bg)', border: 'var(--pc-accent-border)', color: 'var(--pc-accent)' },
+  route: { bg: 'var(--pc-info-bg)', border: 'var(--pc-info)', color: 'var(--pc-info)' },
+  reception: { bg: 'var(--pc-warning-bg)', border: 'var(--pc-warning)', color: 'var(--pc-warning)' },
   lab: { bg: 'rgba(147,51,234,0.08)', border: 'rgba(147,51,234,0.18)', color: '#7E22CE' },
-  bank: { bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.18)', color: '#15803D' },
-  dispute: { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' },
-  docs: { bg: 'rgba(71,85,105,0.08)', border: 'rgba(71,85,105,0.18)', color: 'var(--pc-text-secondary, #334155)' },
+  bank: { bg: 'var(--pc-success-bg)', border: 'var(--pc-success)', color: 'var(--pc-success)' },
+  dispute: { bg: 'var(--pc-danger-bg)', border: 'var(--pc-danger)', color: 'var(--pc-danger)' },
+  docs: { bg: 'var(--pc-bg-subtle)', border: 'var(--pc-border)', color: 'var(--pc-text-secondary, #334155)' },
 };
 
 interface PipelineStage {
@@ -54,10 +54,10 @@ function resolveStageState(stage: PipelineStage, currentIndex: number, stageInde
 }
 
 function stagePalette(state: PipelineVisualState) {
-  if (state === 'done') return { bg: '#0A7A5F', border: '#0A7A5F', text: '#0A7A5F', surface: 'rgba(10,122,95,0.06)', dot: '#fff' };
-  if (state === 'current') return { bg: '#2563EB', border: '#2563EB', text: '#2563EB', surface: 'rgba(37,99,235,0.06)', dot: '#fff' };
-  if (state === 'problem') return { bg: '#DC2626', border: '#DC2626', text: '#B91C1C', surface: 'rgba(220,38,38,0.06)', dot: '#fff' };
-  return { bg: '#F5F7F8', border: '#D5DAE1', text: '#8B95A7', surface: '#F8FAFB', dot: '#8B95A7' };
+  if (state === 'done') return { bg: 'var(--pc-accent)', border: 'var(--pc-accent)', text: 'var(--pc-accent)', surface: 'rgba(10,122,95,0.06)', dot: '#fff' };
+  if (state === 'current') return { bg: 'var(--pc-info)', border: 'var(--pc-info)', text: 'var(--pc-info)', surface: 'rgba(37,99,235,0.06)', dot: '#fff' };
+  if (state === 'problem') return { bg: 'var(--pc-danger)', border: 'var(--pc-danger)', text: 'var(--pc-danger)', surface: 'rgba(220,38,38,0.06)', dot: '#fff' };
+  return { bg: 'var(--pc-bg-subtle)', border: 'var(--pc-border)', text: 'var(--pc-text-muted)', surface: 'var(--pc-bg-subtle)', dot: 'var(--pc-text-muted)' };
 }
 
 function stageCaption(state: PipelineVisualState) {
@@ -82,9 +82,9 @@ function callbackTypeLabel(type: string) {
 }
 
 function gateBadge(state: IntegrationGateState) {
-  if (state === 'PASS') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ФГИС / ЕСИА: ок' };
-  if (state === 'REVIEW') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'ФГИС / ЕСИА: проверка' };
-  return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C', label: 'ФГИС / ЕСИА: стоп' };
+  if (state === 'PASS') return { bg: 'var(--pc-accent-bg)', border: 'var(--pc-accent-border)', color: 'var(--pc-accent)', label: 'ФГИС / ЕСИА: ок' };
+  if (state === 'REVIEW') return { bg: 'var(--pc-warning-bg)', border: 'var(--pc-warning)', color: 'var(--pc-warning)', label: 'ФГИС / ЕСИА: проверка' };
+  return { bg: 'var(--pc-danger-bg)', border: 'var(--pc-danger)', color: 'var(--pc-danger)', label: 'ФГИС / ЕСИА: стоп' };
 }
 
 function describeBlocker(code: string) {
@@ -117,7 +117,7 @@ function moneyMode(dealStatus: DealStatus, holdAmount: number, blockers: string[
     return {
       title: 'Эскроу / удержание',
       href: '/platform-v7/bank/escrow',
-      tone: { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' },
+      tone: { bg: 'var(--pc-danger-bg)', border: 'var(--pc-danger)', color: 'var(--pc-danger)' },
       note: 'Банковский шаг заблокирован до снятия спорного или качественного блокера.'
     };
   }
@@ -125,14 +125,14 @@ function moneyMode(dealStatus: DealStatus, holdAmount: number, blockers: string[
     return {
       title: 'Факторинг / подготовка денег',
       href: '/platform-v7/bank/factoring',
-      tone: { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB' },
+      tone: { bg: 'var(--pc-info-bg)', border: 'var(--pc-info)', color: 'var(--pc-info)' },
       note: 'Сделка ещё в режиме подготовки денег, лимита или финального резерва.'
     };
   }
   return {
     title: 'Банк / проверка',
     href: '/platform-v7/bank',
-    tone: { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
+    tone: { bg: 'var(--pc-accent-bg)', border: 'var(--pc-accent-border)', color: 'var(--pc-accent)' },
     note: 'Контур денег дошёл до банковской проверки, ручного решения или внешнего события.'
   };
 }
@@ -175,7 +175,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
       <style dangerouslySetInnerHTML={{ __html: `
         .deal-page,.deal-page *{box-sizing:border-box}
         .deal-page{display:grid;gap:16px;padding-bottom:104px;max-width:100%;overflow-x:hidden}
-        .surface{background:#fff;border:1px solid var(--pc-border, #E4E6EA);border-radius:18px;padding:18px;max-width:100%;overflow:hidden;min-width:0}
+        .surface{background:var(--pc-bg-card);border:1px solid var(--pc-border, #E4E6EA);border-radius:18px;padding:18px;max-width:100%;overflow:hidden;min-width:0}
         .eyebrow{font-size:12px;color:var(--pc-text-muted, #6B778C);font-weight:800;text-transform:uppercase;letter-spacing:.06em}
         .hero{display:grid;gap:16px}
         .hero-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
@@ -183,37 +183,37 @@ export function DealDetailRuntime({ id }: { id: string }) {
         .hero-title{font-size:34px;line-height:1;font-weight:900;color:var(--pc-text-primary, #0F1419);margin-top:8px;word-break:break-word}
         .hero-meta{font-size:14px;color:var(--pc-text-muted, #6B778C);margin-top:8px;word-break:break-word;line-height:1.5}
         .badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;row-gap:8px}
-        .pill{display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;border:1px solid var(--pc-border, #E4E6EA);background:#F8FAFB;color:var(--pc-text-primary, #0F1419);max-width:100%;word-break:break-word}
+        .pill{display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;border:1px solid var(--pc-border, #E4E6EA);background:var(--pc-bg-subtle);color:var(--pc-text-primary, #0F1419);max-width:100%;word-break:break-word}
         .hero-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;max-width:100%}
         .btn{display:inline-flex;justify-content:center;align-items:center;text-decoration:none;border-radius:14px;padding:12px 14px;font-weight:800;font-size:14px;min-height:48px;max-width:100%;text-align:center;white-space:normal;word-break:break-word}
-        .btn-secondary{border:1px solid var(--pc-border, #E4E6EA);background:#fff;color:var(--pc-text-primary, #0F1419)}
-        .btn-primary{border:1px solid rgba(10,122,95,0.14);background:#0A7A5F;color:#fff}
+        .btn-secondary{border:1px solid var(--pc-border, #E4E6EA);background:var(--pc-bg-card);color:var(--pc-text-primary, #0F1419)}
+        .btn-primary{border:1px solid rgba(10,122,95,0.14);background:var(--pc-accent);color:var(--pc-accent-contrast)}
         .decision-grid{display:grid;gap:14px;grid-template-columns:repeat(12,minmax(0,1fr))}
         .decision-main{grid-column:span 7;display:grid;gap:14px}
         .decision-side{grid-column:span 5;display:grid;gap:14px}
-        .action-card{background:linear-gradient(180deg,rgba(10,122,95,0.06),rgba(10,122,95,0.02));border:1px solid rgba(10,122,95,0.18);border-radius:18px;padding:18px;display:grid;gap:14px}
+        .action-card{background:linear-gradient(180deg,rgba(10,122,95,0.06),rgba(10,122,95,0.02));border:1px solid var(--pc-accent-border);border-radius:18px;padding:18px;display:grid;gap:14px}
         .action-title{font-size:24px;line-height:1.15;font-weight:900;color:var(--pc-text-primary, #0F1419);word-break:break-word}
         .action-meta{display:grid;gap:8px;color:var(--pc-text-secondary, #475569);font-size:14px}
         .summary-grid{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr))}
-        .summary-card{border:1px solid var(--pc-border, #E4E6EA);border-radius:16px;padding:14px;background:#fff;min-width:0}
+        .summary-card{border:1px solid var(--pc-border, #E4E6EA);border-radius:16px;padding:14px;background:var(--pc-bg-card);min-width:0}
         .summary-title{font-size:11px;color:var(--pc-text-muted, #6B778C);font-weight:800;text-transform:uppercase;letter-spacing:.06em}
         .summary-value{font-size:28px;line-height:1.05;font-weight:900;color:var(--pc-text-primary, #0F1419);margin-top:8px;word-break:break-word}
         .summary-note{font-size:12px;color:var(--pc-text-muted, #6B778C);margin-top:6px;line-height:1.4;word-break:break-word}
-        .problem-card{background:#FEF2F2;border:1px solid #FECACA;border-radius:18px;padding:16px;display:grid;gap:10px;min-width:0}
-        .problem-title{font-size:16px;font-weight:900;color:#991B1B}
+        .problem-card{background:var(--pc-danger-bg);border:1px solid var(--pc-danger);border-radius:18px;padding:16px;display:grid;gap:10px;min-width:0}
+        .problem-title{font-size:16px;font-weight:900;color:var(--pc-danger)}
         .problem-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
-        .problem-item{display:flex;gap:8px;align-items:flex-start;color:#7F1D1D;font-size:13px;line-height:1.45}
-        .problem-dot{display:inline-flex;justify-content:center;align-items:center;width:18px;height:18px;border-radius:999px;background:#DC2626;color:#fff;font-size:11px;font-weight:900;flex:0 0 18px;margin-top:1px}
+        .problem-item{display:flex;gap:8px;align-items:flex-start;color:var(--pc-danger);font-size:13px;line-height:1.45}
+        .problem-dot{display:inline-flex;justify-content:center;align-items:center;width:18px;height:18px;border-radius:999px;background:var(--pc-danger);color:#fff;font-size:11px;font-weight:900;flex:0 0 18px;margin-top:1px}
         .owner-card{display:grid;gap:12px}
         .owner-value{font-size:24px;font-weight:900;color:var(--pc-text-primary, #0F1419);line-height:1.1}
         .owner-note{font-size:13px;color:var(--pc-text-muted, #6B778C);line-height:1.45}
         .mini-grid{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
-        .mini-cell{border:1px solid var(--pc-border, #E4E6EA);border-radius:14px;padding:12px;background:#fff;min-width:0}
+        .mini-cell{border:1px solid var(--pc-border, #E4E6EA);border-radius:14px;padding:12px;background:var(--pc-bg-card);min-width:0}
         .mini-label{font-size:11px;color:var(--pc-text-muted, #6B778C);text-transform:uppercase;letter-spacing:.06em;font-weight:800}
         .mini-value{margin-top:6px;font-size:14px;font-weight:800;color:var(--pc-text-primary, #0F1419);word-break:break-word}
         .mini-note{margin-top:6px;font-size:12px;color:var(--pc-text-muted, #6B778C);line-height:1.45}
         .stage-stack{display:grid;gap:12px}
-        .stage-row{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;padding:12px;border:1px solid var(--pc-border, #E4E6EA);border-radius:16px;background:#fff}
+        .stage-row{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;padding:12px;border:1px solid var(--pc-border, #E4E6EA);border-radius:16px;background:var(--pc-bg-card)}
         .stage-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:999px;font-size:18px;font-weight:900;line-height:1}
         .stage-row-header{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap}
         .stage-label{font-size:15px;font-weight:800;line-height:1.2}
@@ -231,12 +231,12 @@ export function DealDetailRuntime({ id }: { id: string }) {
         .timeline-dot{width:12px;height:12px;border-radius:999px;margin-top:5px}
         .timeline-card{border:1px solid var(--pc-border, #E4E6EA);border-radius:14px;padding:12px;max-width:100%;overflow:hidden}
         .bank-route-grid{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr))}
-        .bank-route-card{border:1px solid var(--pc-border, #E4E6EA);border-radius:16px;padding:14px;background:#fff;display:grid;gap:8px;min-width:0}
+        .bank-route-card{border:1px solid var(--pc-border, #E4E6EA);border-radius:16px;padding:14px;background:var(--pc-bg-card);display:grid;gap:8px;min-width:0}
         .bank-route-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap}
         .bank-route-title{font-size:14px;font-weight:800;color:var(--pc-text-primary, #0F1419);line-height:1.25}
         .bank-route-note{font-size:12px;color:var(--pc-text-muted, #6B778C);line-height:1.5}
         .money-action-row{display:flex;gap:8px;flex-wrap:wrap}
-        .sticky-action{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-top:1px solid var(--pc-border, #E4E6EA)}
+        .sticky-action{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--pc-bg-card);backdrop-filter:blur(14px);border-top:1px solid var(--pc-border, #E4E6EA)}
         .sticky-inner{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
         .sticky-label{font-size:12px;color:var(--pc-text-muted, #6B778C);font-weight:700;line-height:1.3}
         .sticky-title{font-size:14px;font-weight:900;color:var(--pc-text-primary, #0F1419);line-height:1.25;margin-top:2px}
@@ -300,7 +300,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
             <div className='bank-route-card'>
               <div className='bank-route-top'>
                 <div className='bank-route-title'>Эскроу</div>
-                <span className='pill' style={{ marginTop: 0, background: deal.holdAmount > 0 ? 'rgba(220,38,38,0.08)' : '#F8FAFB', borderColor: deal.holdAmount > 0 ? 'rgba(220,38,38,0.18)' : 'var(--pc-border, #E4E6EA)', color: deal.holdAmount > 0 ? '#B91C1C' : 'var(--pc-text-secondary, #475569)' }}>{deal.holdAmount > 0 ? 'Hold активен' : 'Без hold'}</span>
+                <span className='pill' style={{ marginTop: 0, background: deal.holdAmount > 0 ? 'var(--pc-danger-bg)' : 'var(--pc-bg-subtle)', borderColor: deal.holdAmount > 0 ? 'var(--pc-danger)' : 'var(--pc-border, #E4E6EA)', color: deal.holdAmount > 0 ? 'var(--pc-danger)' : 'var(--pc-text-secondary, #475569)' }}>{deal.holdAmount > 0 ? 'Hold активен' : 'Без hold'}</span>
               </div>
               <div className='bank-route-note'>Режим удержания, частичного раскрытия и возврата денег при споре или неполном пакете.</div>
               <Link href='/platform-v7/bank/escrow' className='btn btn-secondary'>Открыть эскроу</Link>
@@ -309,7 +309,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
             <div className='bank-route-card'>
               <div className='bank-route-top'>
                 <div className='bank-route-title'>Факторинг</div>
-                <span className='pill' style={{ marginTop: 0, background: deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'rgba(37,99,235,0.08)' : '#F8FAFB', borderColor: deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'rgba(37,99,235,0.18)' : 'var(--pc-border, #E4E6EA)', color: deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? '#2563EB' : 'var(--pc-text-secondary, #475569)' }}>{deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'Актуально' : 'Опционально'}</span>
+                <span className='pill' style={{ marginTop: 0, background: deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'var(--pc-info-bg)' : 'var(--pc-bg-subtle)', borderColor: deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'var(--pc-info)' : 'var(--pc-border, #E4E6EA)', color: deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'var(--pc-info)' : 'var(--pc-text-secondary, #475569)' }}>{deal.status === 'contract_signed' || deal.status === 'payment_reserved' ? 'Актуально' : 'Опционально'}</span>
               </div>
               <div className='bank-route-note'>Buyer-side контур лимита и предфинансирования, когда деньги ещё только собираются к сделке.</div>
               <Link href='/platform-v7/bank/factoring' className='btn btn-secondary'>Открыть факторинг</Link>
@@ -318,7 +318,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
             <div className='bank-route-card'>
               <div className='bank-route-top'>
                 <div className='bank-route-title'>Центр управления</div>
-                <span className='pill' style={{ marginTop: 0, background: blockerTexts.length ? 'rgba(217,119,6,0.08)' : '#F8FAFB', borderColor: blockerTexts.length ? 'rgba(217,119,6,0.18)' : 'var(--pc-border, #E4E6EA)', color: blockerTexts.length ? '#B45309' : 'var(--pc-text-secondary, #475569)' }}>{blockerTexts.length ? 'Есть блокеры' : 'Чисто'}</span>
+                <span className='pill' style={{ marginTop: 0, background: blockerTexts.length ? 'var(--pc-warning-bg)' : 'var(--pc-bg-subtle)', borderColor: blockerTexts.length ? 'var(--pc-warning)' : 'var(--pc-border, #E4E6EA)', color: blockerTexts.length ? 'var(--pc-warning)' : 'var(--pc-text-secondary, #475569)' }}>{blockerTexts.length ? 'Есть блокеры' : 'Чисто'}</span>
               </div>
               <div className='bank-route-note'>Операторская добивка кросс-модульных проблем, когда блокер уже не решается на одном экране.</div>
               <Link href='/platform-v7/control-tower/hotlist' className='btn btn-secondary'>Открыть hotlist</Link>
@@ -336,7 +336,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
           <div className='decision-main'>
             <section id='next-action' className='action-card'>
               <div>
-                <div className='eyebrow' style={{ color: '#0A7A5F' }}>Следующее действие</div>
+                <div className='eyebrow' style={{ color: 'var(--pc-accent)' }}>Следующее действие</div>
                 <div className='action-title'>{nextStepTitle}</div>
               </div>
               <div className='action-meta'>
@@ -381,14 +381,14 @@ export function DealDetailRuntime({ id }: { id: string }) {
                   const state = resolveStageState(stage, currentStageIndex, stageIndex, deal.status);
                   const palette = stagePalette(state);
                   const isLast = stageIndex === PIPELINE_STAGES.length - 1;
-                  const connectorColor = state === 'done' ? '#0A7A5F' : state === 'problem' ? '#DC2626' : state === 'current' ? '#2563EB' : 'var(--pc-border, #E4E6EA)';
+                  const connectorColor = state === 'done' ? 'var(--pc-accent)' : state === 'problem' ? 'var(--pc-danger)' : state === 'current' ? 'var(--pc-info)' : 'var(--pc-border, #E4E6EA)';
                   return (
                     <li key={stage.key}>
                       <div style={{ display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 8 }}>
                         <div style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, borderRadius: 999, background: palette.bg, border: `1px solid ${palette.border}`, color: palette.dot, fontSize: state === 'blocked' ? 14 : 18, fontWeight: 900, lineHeight: 1 }}>{stageMarker(state)}</div>
                         <div style={{ minHeight: 38, display: 'grid', alignContent: 'start', gap: 4 }}>
                           <div style={{ fontSize: 12, fontWeight: 800, color: palette.text, lineHeight: 1.25, wordBreak: 'break-word' }}>{stage.label}</div>
-                          <div style={{ fontSize: 10, color: state === 'problem' ? '#B91C1C' : '#9AA4B2', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>{stageCaption(state)}</div>
+                          <div style={{ fontSize: 10, color: state === 'problem' ? 'var(--pc-danger)' : 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>{stageCaption(state)}</div>
                         </div>
                       </div>
                       <span aria-hidden style={{ display: 'block', height: 4, background: isLast ? 'transparent' : connectorColor, borderRadius: 999, marginTop: 12 }} />
@@ -435,7 +435,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
               const tone = CHIP_TONES[chip.tone];
               return (
                 <Fragment key={`${chip.label}-${chip.value}`}>
-                  {index > 0 ? <span aria-hidden style={{ color: '#9AA4B2', fontSize: 12 }}>→</span> : null}
+                  {index > 0 ? <span aria-hidden style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>→</span> : null}
                   <Link href={chip.href} className='chip-link' style={{ background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color }}>
                     <span style={{ opacity: 0.72, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 10 }}>{chip.label}</span>
                     <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800 }}>{chip.value}</span>
@@ -455,7 +455,7 @@ export function DealDetailRuntime({ id }: { id: string }) {
             <div className='timeline-list'>
               {(deal.events ?? []).map((event, index) => (
                 <div key={`${event.ts}-${index}`} className='timeline-item'>
-                  <div className='timeline-dot' style={{ background: event.type === 'danger' ? '#DC2626' : event.type === 'success' ? '#0A7A5F' : '#2563EB' }} />
+                  <div className='timeline-dot' style={{ background: event.type === 'danger' ? 'var(--pc-danger)' : event.type === 'success' ? 'var(--pc-accent)' : 'var(--pc-info)' }} />
                   <div className='timeline-card'>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                       <div style={{ fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', wordBreak: 'break-word' }}>{event.action}</div>
@@ -490,10 +490,10 @@ export function DealDetailRuntime({ id }: { id: string }) {
             {dispute ? (
               <div className='problem-card'>
                 <div className='problem-title'>Открыт спор</div>
-                <div style={{ fontSize: 14, color: '#991B1B', fontWeight: 800, wordBreak: 'break-word' }}>{dispute.id} · {dispute.title}</div>
-                <div style={{ fontSize: 13, color: '#7F1D1D', lineHeight: 1.45, wordBreak: 'break-word' }}>{dispute.description}</div>
+                <div style={{ fontSize: 14, color: 'var(--pc-danger)', fontWeight: 800, wordBreak: 'break-word' }}>{dispute.id} · {dispute.title}</div>
+                <div style={{ fontSize: 13, color: 'var(--pc-danger)', lineHeight: 1.45, wordBreak: 'break-word' }}>{dispute.description}</div>
                 <div>
-                  <Link href={`/platform-v7/disputes/${dispute.id}`} style={{ color: '#991B1B', fontWeight: 700, fontSize: 13, textDecoration: 'underline' }}>Подробнее →</Link>
+                  <Link href={`/platform-v7/disputes/${dispute.id}`} style={{ color: 'var(--pc-danger)', fontWeight: 700, fontSize: 13, textDecoration: 'underline' }}>Подробнее →</Link>
                 </div>
               </div>
             ) : null}

@@ -13,13 +13,13 @@ const SS = 'var(--pc-bg-elevated)';
 const B = 'var(--pc-border)';
 const T = 'var(--pc-text-primary)';
 const M = 'var(--pc-text-secondary)';
-const BRAND = '#0A7A5F';
-const BRAND_BG = 'rgba(10,122,95,0.08)';
-const BRAND_BORDER = 'rgba(10,122,95,0.18)';
-const ERR_BG = 'rgba(220,38,38,0.08)';
-const ERR_BORDER = 'rgba(220,38,38,0.18)';
-const ERR = '#B91C1C';
-const MONEY = '#155EEF';
+const BRAND = 'var(--pc-accent)';
+const BRAND_BG = 'var(--pc-accent-bg)';
+const BRAND_BORDER = 'var(--pc-accent-border)';
+const ERR_BG = 'var(--pc-danger-bg)';
+const ERR_BORDER = 'var(--pc-danger)';
+const ERR = 'var(--pc-danger)';
+const MONEY = 'var(--pc-info)';
 const EVIDENCE = '#6941C6';
 
 type Tab = 'overview' | 'money' | 'logistics' | 'documents' | 'fgis' | 'evidence' | 'dispute';
@@ -266,7 +266,7 @@ function Empty({ text, href }: { text: string; href: string }) {
 }
 
 function Badge({ children }: { children: React.ReactNode }) {
-  return <span style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, borderRadius: 99, fontSize: 10, fontWeight: 900, background: ERR, color: '#fff' }}>{children}</span>;
+  return <span style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, borderRadius: 99, fontSize: 10, fontWeight: 900, background: ERR, color: 'var(--pc-accent-contrast)' }}>{children}</span>;
 }
 
 function linkButton(tone: 'default' | 'danger' = 'default'): React.CSSProperties {

@@ -11,12 +11,12 @@ import { getDeal360Scenario, type Deal360State, type Deal360Cockpit } from '@/li
 const border = 'var(--pc-border, #E4E6EA)';
 const text = 'var(--pc-text-primary, #0F1419)';
 const muted = 'var(--pc-text-secondary, #475569)';
-const green = '#0A7A5F';
-const red = '#B91C1C';
-const amber = '#B45309';
-const redBg = 'rgba(220,38,38,0.08)';
-const greenBg = 'rgba(10,122,95,0.08)';
-const amberBg = 'rgba(180,83,9,0.08)';
+const green = 'var(--pc-accent)';
+const red = 'var(--pc-danger)';
+const amber = 'var(--pc-warning)';
+const redBg = 'var(--pc-danger-bg)';
+const greenBg = 'var(--pc-accent-bg)';
+const amberBg = 'var(--pc-warning-bg)';
 
 function rub(value: number) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(value);
@@ -122,7 +122,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
         <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Матрица документов</p>
         <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
           {scenario.documents.map((doc) => (
-            <div key={`${doc.title}-${doc.source}`} style={{ border: `1px solid ${doc.blocksMoney ? 'rgba(220,38,38,0.18)' : border}`, background: doc.blocksMoney ? redBg : '#fff', borderRadius: 14, padding: 12, display: 'grid', gridTemplateColumns: 'minmax(130px,1fr) minmax(130px,1fr)', gap: 8 }}>
+            <div key={`${doc.title}-${doc.source}`} style={{ border: `1px solid ${doc.blocksMoney ? 'var(--pc-danger)' : border}`, background: doc.blocksMoney ? redBg : 'var(--pc-bg-card)', borderRadius: 14, padding: 12, display: 'grid', gridTemplateColumns: 'minmax(130px,1fr) minmax(130px,1fr)', gap: 8 }}>
               <CellInline label={doc.title} value={doc.source} />
               <CellInline label={doc.responsible} value={doc.status} danger={doc.blocksMoney} />
             </div>
@@ -131,7 +131,7 @@ export default function PlatformV7CleanDealPage({ params }: { params: { id: stri
       </section>
 
       {hasBlockers ? (
-        <section style={{ ...card(), background: redBg, borderColor: 'rgba(220,38,38,0.18)' }}>
+        <section style={{ ...card(), background: redBg, borderColor: 'var(--pc-danger)' }}>
           <p style={{ margin: 0, color: red, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующее действие</p>
           <p style={{ margin: '8px 0 0', color: text, lineHeight: 1.55 }}>
             {scenario.nextAction}. {releaseReasons.length > 0 ? moneyStopReasonText(releaseReasons) : deal.blockers.length > 0 ? deal.blockers.join(' · ') : ''}{disputes.length > 0 && !releaseReasons.includes('OPEN_DISPUTE') ? ` · спор ${disputes[0]?.id}` : ''}
@@ -173,7 +173,7 @@ function Cockpit({ cockpit }: { cockpit: Deal360Cockpit }) {
     { label: 'Споры', value: cockpit.disputeStatus.label, state: cockpit.disputeStatus.state },
   ];
   return (
-    <section style={{ background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+    <section style={{ background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
         <p style={{ margin: 0, color: muted, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Статус исполнения</p>
         <span style={{ color: muted, fontSize: 12 }}>Этап: <strong style={{ color: text }}>{cockpit.currentStage}</strong></span>
@@ -216,7 +216,7 @@ function CellInline({ label, value, danger = false }: { label: string; value: st
 }
 
 function card(): React.CSSProperties {
-  return { background: '#fff', border: `1px solid ${border}`, borderRadius: 18, padding: 20 };
+  return { background: 'var(--pc-bg-card)', border: `1px solid ${border}`, borderRadius: 18, padding: 20 };
 }
 
 function grid(): React.CSSProperties {
@@ -224,12 +224,12 @@ function grid(): React.CSSProperties {
 }
 
 function stateColor(state: Deal360State, part: 'bg' | 'border' | 'text') {
-  if (state === 'ok') return part === 'bg' ? greenBg : part === 'border' ? 'rgba(10,122,95,0.18)' : green;
-  if (state === 'stop') return part === 'bg' ? redBg : part === 'border' ? 'rgba(220,38,38,0.18)' : red;
-  if (state === 'wait') return part === 'bg' ? amberBg : part === 'border' ? 'rgba(180,83,9,0.18)' : amber;
-  return part === 'bg' ? '#F8FAFB' : part === 'border' ? border : muted;
+  if (state === 'ok') return part === 'bg' ? greenBg : part === 'border' ? 'var(--pc-accent-border)' : green;
+  if (state === 'stop') return part === 'bg' ? redBg : part === 'border' ? 'var(--pc-danger)' : red;
+  if (state === 'wait') return part === 'bg' ? amberBg : part === 'border' ? 'var(--pc-warning)' : amber;
+  return part === 'bg' ? 'var(--pc-bg-subtle)' : part === 'border' ? border : muted;
 }
 
 function linkStyle(tone: 'default' | 'danger' = 'default'): React.CSSProperties {
-  return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'rgba(220,38,38,0.18)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: '#fff' };
+  return { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: tone === 'danger' ? red : green, border: `1px solid ${tone === 'danger' ? 'var(--pc-danger)' : border}`, borderRadius: 12, padding: '10px 14px', fontWeight: 900, background: 'var(--pc-bg-card)' };
 }
