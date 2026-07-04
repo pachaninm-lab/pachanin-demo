@@ -8,14 +8,18 @@ function syncSupportViewportVars() {
   const width = Math.max(320, Math.floor(viewport?.width ?? window.innerWidth));
   const height = Math.max(320, Math.floor(viewport?.height ?? window.innerHeight));
   const offsetLeft = Math.max(0, Math.floor(viewport?.offsetLeft ?? 0));
+  const offsetTop = Math.max(0, Math.floor(viewport?.offsetTop ?? 0));
   const gutter = width <= 380 ? 8 : 10;
   const panelWidth = Math.max(280, Math.min(390, width - gutter * 2));
   const panelLeft = Math.max(gutter, Math.floor(offsetLeft + (width - panelWidth) / 2));
+  const focusHeight = Math.max(320, height - 16);
 
   document.documentElement.style.setProperty('--p7-support-vw', `${width}px`);
   document.documentElement.style.setProperty('--p7-support-vh', `${height}px`);
   document.documentElement.style.setProperty('--p7-support-left', `${panelLeft}px`);
+  document.documentElement.style.setProperty('--p7-support-top', `${offsetTop + 8}px`);
   document.documentElement.style.setProperty('--p7-support-width', `${panelWidth}px`);
+  document.documentElement.style.setProperty('--p7-support-height', `${focusHeight}px`);
   document.documentElement.style.setProperty('--p7-support-gutter', `${gutter}px`);
 }
 
@@ -27,9 +31,11 @@ function clampViewport() {
   document.body.style.maxWidth = '100%';
   document.body.style.overflowX = 'hidden';
   syncSupportViewportVars();
+
   if (window.scrollX !== 0) window.scrollTo({ left: 0, top: window.scrollY, behavior: 'auto' });
   document.documentElement.scrollLeft = 0;
   document.body.scrollLeft = 0;
+
   document.querySelectorAll<HTMLElement>('.pc-v7-public-entry,.p7-contact-page,.pc-shell-root-v4,.pc-v4-main,.p7-support-chat-panel').forEach((node) => {
     node.style.maxWidth = node.classList.contains('p7-support-chat-panel') ? 'var(--p7-support-width, calc(100dvw - 20px))' : '100%';
     node.style.overflowX = 'hidden';
@@ -82,6 +88,13 @@ body {
   overflow: hidden !important;
   overflow-x: hidden !important;
   contain: layout paint;
+}
+
+.p7-support-chat-panel:focus-within {
+  top: var(--p7-support-top, 8px) !important;
+  bottom: auto !important;
+  height: var(--p7-support-height, calc(100dvh - 16px)) !important;
+  max-height: var(--p7-support-height, calc(100dvh - 16px)) !important;
 }
 
 .p7-support-chat-panel * {
@@ -197,6 +210,7 @@ body {
     left: var(--p7-support-left, 10px) !important;
     right: auto !important;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 184px) !important;
+    top: auto !important;
     transform: none !important;
     width: var(--p7-support-width, calc(100dvw - 20px)) !important;
     max-width: var(--p7-support-width, calc(100dvw - 20px)) !important;
@@ -204,8 +218,10 @@ body {
   }
 
   .p7-support-chat-panel:focus-within {
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
-    max-height: calc(var(--p7-support-vh, 100dvh) - 18px) !important;
+    top: var(--p7-support-top, 8px) !important;
+    bottom: auto !important;
+    height: var(--p7-support-height, calc(100dvh - 16px)) !important;
+    max-height: var(--p7-support-height, calc(100dvh - 16px)) !important;
   }
 }
 `;
