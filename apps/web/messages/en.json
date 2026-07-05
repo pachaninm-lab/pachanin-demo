@@ -220,5 +220,165 @@
       "arbitrator": "Arbitrator",
       "executive": "Executive"
     }
+  },
+  "docs": {
+    "brand": "Transparent Price",
+    "demo": "Demo",
+    "contact": "Request",
+    "connect": "Connect an organisation",
+    "kicker": "Deal document circuit",
+    "title": "Documents must confirm deal execution",
+    "lead": "The platform links SDIZ, EDI, transport documents, acts, acceptance, quality, settlement and evidence in one execution circuit.",
+    "boundary": "Current readiness boundary",
+    "boundaryText": "This section describes the target document circuit. External integrations are not stated as connected until confirmed by contracts, access and real connections.",
+    "items": {
+      "sdiz": {
+        "title": "SDIZ and EDI",
+        "text": "Documents are linked to lot, trip, acceptance and responsible actions."
+      },
+      "transport": {
+        "title": "Transport documents",
+        "text": "Trip, driver, route and checkpoints provide the basis for reconciliation."
+      },
+      "acts": {
+        "title": "Acts and acceptance",
+        "text": "Delivery fact, weight and discrepancies are recorded before final settlement."
+      },
+      "quality": {
+        "title": "Quality",
+        "text": "Laboratory indicators are considered before payment basis is formed."
+      },
+      "basis": {
+        "title": "Settlement basis",
+        "text": "The financial circuit receives a verifiable set of events and documents."
+      },
+      "dispute": {
+        "title": "Dispute and evidence",
+        "text": "Dispute review is based on the event log, documents, acceptance and quality."
+      }
+    }
+  },
+  "demo": {
+    "brand": "Transparent Price",
+    "sub": "Transaction execution circuit",
+    "title": "How the platform controls grain deal execution",
+    "lead": "The demo scenario shows the path after price agreement: trip, acceptance, quality, documents, settlement and evidence. Real data is not opened.",
+    "q": "Ask a question",
+    "back": "Back",
+    "status": "Current status",
+    "current": "Quality and documents are pending confirmation",
+    "deal": "Deal",
+    "amount": "Amount",
+    "route": "Route",
+    "map": "Execution map",
+    "money": "Payment depends on confirmed events",
+    "proof": "Dispute review follows the deal trail",
+    "home": "Home",
+    "disabled": "Financial actions unavailable in demo",
+    "cards": {
+      "terms": "Deal terms",
+      "trip": "Trip",
+      "acceptance": "Acceptance",
+      "quality": "Quality",
+      "documents": "Documents",
+      "settlement": "Settlement"
+    },
+    "states": {
+      "done": "Done",
+      "review": "Under review",
+      "pending": "Pending"
+    }
+  },
+  "contact": {
+    "brand": "Transparent Price",
+    "subbrand": "Transaction execution circuit",
+    "demo": "Deal review",
+    "connect": "Connect an organisation",
+    "login": "Sign in",
+    "kicker": "Official request channel",
+    "title": "Platform request",
+    "lead": "Use this form for questions about demo access, the pilot project, organisation connection, bank interaction, regional launch, or technical integration.",
+    "cards": {
+      "noReg": {
+        "title": "No workspace sign-in",
+        "text": "The form is available without authorisation or participant role selection."
+      },
+      "channel": {
+        "title": "No access to working data",
+        "text": "Sending a request does not open deals, documents, or restricted platform sections."
+      },
+      "separate": {
+        "title": "Reply to the provided contact",
+        "text": "The contact is used only to review the request and send a reply."
+      }
+    },
+    "sentTitle": "Request received",
+    "sentText": "A reply will be sent to the provided phone number or email address after the request is reviewed.",
+    "sentBack": "Back to deal review",
+    "formTitle": "Request form",
+    "formText": "Fill in the required fields. Do not include passwords, access keys, bank details, or document copies.",
+    "type": "Request topic",
+    "name": "Name",
+    "namePh": "Full name",
+    "org": "Organisation",
+    "orgPh": "If applicable",
+    "contact": "Phone or email",
+    "contactPh": "Phone or organisation email",
+    "message": "Request content",
+    "messagePh": "Briefly describe the question, pilot project parameters, organisation role, or required interaction format.",
+    "consent": "I consent to the processing of the provided data to review the request and send a reply.",
+    "submit": "Send request",
+    "types": {
+      "platform": "General platform question",
+      "pilot": "Pilot project",
+      "bank_partner": "Bank or partner",
+      "region": "Regional launch",
+      "technical": "Technical integration",
+      "other": "Other request"
+    }
+  },
+  "register": {
+    "brand": "Transparent Price",
+    "login": "Sign in",
+    "exit": "Exit",
+    "title": "Connect a company to the deal circuit",
+    "lead": "The application fixes the role, organisation and responsible person. Workspace access opens only after review.",
+    "role": "Participant role",
+    "org": "Organisation",
+    "req": "Requisites",
+    "person": "Responsible party",
+    "status": "Review statuses",
+    "send": "Submit application for review",
+    "already": "Already have access — sign in",
+    "fields": {
+      "type": "Participant type",
+      "orgName": "Organisation name",
+      "region": "Region",
+      "inn": "TIN",
+      "kpp": "KPP",
+      "ogrn": "OGRN / OGRNIP",
+      "fullName": "Full name",
+      "position": "Position",
+      "phone": "Phone",
+      "email": "Email"
+    },
+    "states": {
+      "created": "Application created",
+      "awaiting": "Awaiting review",
+      "clarify": "Clarification required",
+      "approved": "Approved",
+      "declined": "Declined"
+    },
+    "roles": {
+      "seller": "Seller",
+      "buyer": "Buyer",
+      "logistics": "Logistics",
+      "elevator": "Elevator",
+      "lab": "Laboratory",
+      "surveyor": "Surveyor",
+      "bank": "Bank",
+      "arbitrator": "Arbitrator",
+      "operator": "Operator"
+    }
   }
 }

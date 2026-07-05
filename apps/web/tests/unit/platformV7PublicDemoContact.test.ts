@@ -7,6 +7,9 @@ const rootPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform
 const rootRuMessages = fs.readFileSync(path.resolve(__dirname, '../../messages/ru.json'), 'utf8');
 const demoPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/demo/page.tsx'), 'utf8');
 const contactPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/contact/page.tsx'), 'utf8');
+// Форма вопросов живёт в клиентском компоненте страницы contact; копия — в messages/ru.json.
+const contactClient = fs.readFileSync(path.resolve(__dirname, '../../app/platform-v7/contact/ContactClient.tsx'), 'utf8');
+const contactSurface = contactPage + contactClient;
 const inquiryRoute = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/api/platform-v7/inquiries/route.ts'), 'utf8');
 
 describe('platform-v7 public demo and question flow', () => {
@@ -32,11 +35,11 @@ describe('platform-v7 public demo and question flow', () => {
   });
 
   it('adds a separate question form without creating access', () => {
-    expect(contactPage).toContain('platform-v7-question-form-page');
-    expect(contactPage).toContain("action='/api/platform-v7/inquiries'");
-    expect(contactPage).toContain("name='website'");
-    expect(contactPage).toContain("name='consent'");
-    expect(contactPage).toContain('не открывает доступ к сделкам');
+    expect(contactSurface).toContain('platform-v7-question-form-page');
+    expect(contactSurface).toContain("action='/api/platform-v7/inquiries'");
+    expect(contactSurface).toContain("name='website'");
+    expect(contactSurface).toContain("name='consent'");
+    expect(rootRuMessages).toContain('не открывает сделки, документы и закрытые разделы платформы');
   });
 
   it('validates inquiry input server-side and supports email delivery when configured', () => {

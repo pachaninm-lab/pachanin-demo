@@ -1,53 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight, HelpCircle, LogIn, MessageSquareText, ShieldCheck } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
 
-type Lang = 'ru' | 'en' | 'zh';
-const KEY = 'pc-v7-language';
+// Копия — в apps/web/messages/*.json (namespace `contact`).
+const questionTypeValues = ['platform', 'pilot', 'bank_partner', 'region', 'technical', 'other'] as const;
 
-const questionTypes = {
-  ru: [['platform', 'По платформе'], ['pilot', 'По пилоту'], ['bank_partner', 'Для банка / партнёра'], ['region', 'Для региона'], ['technical', 'Технический вопрос'], ['other', 'Другое']],
-  en: [['platform', 'Platform'], ['pilot', 'Pilot'], ['bank_partner', 'Bank / partner'], ['region', 'Region'], ['technical', 'Technical question'], ['other', 'Other']],
-  zh: [['platform', '平台'], ['pilot', '试点'], ['bank_partner', '银行 / 合作方'], ['region', '地区'], ['technical', '技术问题'], ['other', '其他']],
-} as const;
-
-const copy = {
-  ru: {
-    brand: 'Прозрачная Цена', subbrand: 'Контур исполнения сделки', demo: 'Разбор сделки', connect: 'Подключить организацию', login: 'Войти', kicker: 'Обратная связь', title: 'Направить обращение по платформе',
-    lead: 'Форма предназначена для вопросов по публичному разбору сделки, пилоту, подключению организации, банковскому контуру, региональному запуску и техническому взаимодействию.',
-    cards: [['Обращение без регистрации', 'Можно задать вопрос без выбора роли и без входа в рабочий кабинет.'], ['Только канал связи', 'Форма принимает обращение и контакт для ответа, но не открывает доступ к сделкам.'], ['Подключение отдельно', 'Заявка на подключение организации оформляется через отдельную форму регистрации.']],
-    sentTitle: 'Обращение отправлено', sentText: 'Данные обращения приняты. Ответ будет направлен по указанному контакту при условии его корректности.', sentBack: 'Вернуться к разбору сделки', formTitle: 'Задать вопрос', formText: 'Укажите тему обращения и контакт для ответа. Не направляйте через форму пароли, ключи доступа, банковские реквизиты и копии документов.', type: 'Тип вопроса', name: 'Имя', namePh: 'Фамилия и имя', org: 'Организация', orgPh: 'При наличии', contact: 'Телефон или email', contactPh: '+7... или email организации', message: 'Сообщение', messagePh: 'Опишите вопрос по платформе, пилоту, роли участника, документам, банковскому контуру, региональному запуску или техническому подключению.', consent: 'Согласен на обработку указанных данных для рассмотрения обращения.', submit: 'Отправить обращение'
-  },
-  en: {
-    brand: 'Transparent Price', subbrand: 'Deal execution circuit', demo: 'Deal review', connect: 'Connect organisation', login: 'Sign in', kicker: 'Feedback', title: 'Send a platform request',
-    lead: 'Use this form for questions about public deal review, pilot launch, organisation connection, bank circuit, regional launch, and technical integration.',
-    cards: [['No registration required', 'You can ask a question without choosing a role or entering a workspace.'], ['Communication channel only', 'The form accepts a request and contact for reply, but does not open access to deals.'], ['Connection is separate', 'Organisation connection is submitted through a separate registration form.']],
-    sentTitle: 'Request sent', sentText: 'The request data has been accepted. A reply will be sent to the specified contact if it is correct.', sentBack: 'Back to deal review', formTitle: 'Ask a question', formText: 'Specify the request topic and contact for reply. Do not send passwords, access keys, bank details, or document copies through this form.', type: 'Question type', name: 'Name', namePh: 'Full name', org: 'Organisation', orgPh: 'If applicable', contact: 'Phone or email', contactPh: 'Phone or organisation email', message: 'Message', messagePh: 'Describe the question about platform, pilot, participant role, documents, bank circuit, regional launch, or technical connection.', consent: 'I consent to processing the specified data for request review.', submit: 'Send request'
-  },
-  zh: {
-    brand: '透明价格', subbrand: '交易执行闭环', demo: '交易复盘', connect: '接入组织', login: '登录', kicker: '反馈', title: '发送平台请求',
-    lead: '此表单用于公开交易复盘、试点、组织接入、银行闭环、地区启动和技术接入相关问题。',
-    cards: [['无需注册', '无需选择角色或进入工作区也可以提问。'], ['仅作为联系渠道', '表单接收请求和回复联系方式，但不会开放交易访问权限。'], ['接入单独提交', '组织接入需通过单独的注册表单提交。']],
-    sentTitle: '请求已发送', sentText: '请求数据已接收。如联系方式正确，将通过该联系方式回复。', sentBack: '返回交易复盘', formTitle: '提问', formText: '请填写请求主题和回复联系方式。不要通过表单发送密码、访问密钥、银行信息或文件副本。', type: '问题类型', name: '姓名', namePh: '姓名', org: '组织', orgPh: '如适用', contact: '电话或邮箱', contactPh: '电话或组织邮箱', message: '消息', messagePh: '描述关于平台、试点、参与方角色、文件、银行闭环、地区启动或技术接入的问题。', consent: '我同意为处理该请求而处理上述数据。', submit: '发送请求'
-  },
-} as const;
-
-function readLang(): Lang { const v = typeof window === 'undefined' ? null : window.localStorage.getItem(KEY); return v === 'en' || v === 'zh' ? v : 'ru'; }
 function Card({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article className='p7-contact-info-card'>{icon}<strong>{title}</strong><p>{text}</p></article>; }
 
 export function ContactClient({ sent }: { sent: boolean }) {
-  const [lang, setLang] = useState<Lang>('ru');
-  useEffect(() => { const u = () => setLang(readLang()); u(); const id = window.setInterval(u, 400); window.addEventListener('storage', u); return () => { window.clearInterval(id); window.removeEventListener('storage', u); }; }, []);
-  const t = copy[lang];
+  const t = useTranslations('contact');
+  const lang = useLocale();
   return (
     <main className='p7-contact-page' data-testid='platform-v7-question-form-page' data-p7-no-translate='true' data-lang={lang}>
       <style>{css}</style>
-      <header className='p7-contact-header'><Link href='/platform-v7' className='p7-contact-brand'><span className='p7-contact-brand-mark'><BrandMark size={42} /></span><span className='p7-contact-brand-copy'><strong>{t.brand}</strong><small>{t.subbrand}</small></span></Link><nav className='p7-contact-nav'><Link href='/platform-v7/demo'>{t.demo}</Link><Link href='/platform-v7/register'>{t.connect}</Link><Link href='/platform-v7/login'><LogIn size={15} />{t.login}</Link></nav></header>
-      <section className='p7-contact-layout'><div className='p7-contact-copy'><span className='p7-contact-kicker'>{t.kicker}</span><h1>{t.title}</h1><p>{t.lead}</p><div className='p7-contact-cards'><Card icon={<MessageSquareText size={22} />} title={t.cards[0][0]} text={t.cards[0][1]} /><Card icon={<ShieldCheck size={22} />} title={t.cards[1][0]} text={t.cards[1][1]} /><Card icon={<HelpCircle size={22} />} title={t.cards[2][0]} text={t.cards[2][1]} /></div></div>
-        <section className='p7-contact-form-card'>{sent ? <div className='p7-contact-success'><span><ShieldCheck size={24} /></span><h2>{t.sentTitle}</h2><p>{t.sentText}</p><Link href='/platform-v7/demo'>{t.sentBack}<ArrowRight size={17} /></Link></div> : <form method='post' action='/api/platform-v7/inquiries' className='p7-contact-form'><input type='text' name='website' tabIndex={-1} autoComplete='off' aria-hidden='true' className='p7-contact-honeypot' /><input type='hidden' name='source' value='platform_v7_contact_page' /><h2>{t.formTitle}</h2><p>{t.formText}</p><label><span>{t.type}</span><select name='type' required defaultValue='platform'>{questionTypes[lang].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>{t.name}</span><input name='name' type='text' minLength={2} maxLength={80} placeholder={t.namePh} required /></label><label><span>{t.org}</span><input name='organization' type='text' maxLength={120} placeholder={t.orgPh} /></label><label><span>{t.contact}</span><input name='contact' type='text' minLength={5} maxLength={120} placeholder={t.contactPh} required /></label><label className='p7-contact-full'><span>{t.message}</span><textarea name='message' maxLength={2000} rows={6} placeholder={t.messagePh} required /></label><label className='p7-contact-consent'><input type='checkbox' name='consent' value='yes' required /><span>{t.consent}</span></label><button type='submit'>{t.submit}<ArrowRight size={17} /></button></form>}</section>
+      <header className='p7-contact-header'><Link href='/platform-v7' className='p7-contact-brand'><span className='p7-contact-brand-mark'><BrandMark size={42} /></span><span className='p7-contact-brand-copy'><strong>{t('brand')}</strong><small>{t('subbrand')}</small></span></Link><nav className='p7-contact-nav'><Link href='/platform-v7/demo'>{t('demo')}</Link><Link href='/platform-v7/register'>{t('connect')}</Link><Link href='/platform-v7/login'><LogIn size={15} />{t('login')}</Link></nav></header>
+      <section className='p7-contact-layout'><div className='p7-contact-copy'><span className='p7-contact-kicker'>{t('kicker')}</span><h1>{t('title')}</h1><p>{t('lead')}</p><div className='p7-contact-cards'><Card icon={<MessageSquareText size={22} />} title={t('cards.noReg.title')} text={t('cards.noReg.text')} /><Card icon={<ShieldCheck size={22} />} title={t('cards.channel.title')} text={t('cards.channel.text')} /><Card icon={<HelpCircle size={22} />} title={t('cards.separate.title')} text={t('cards.separate.text')} /></div></div>
+        <section className='p7-contact-form-card'>{sent ? <div className='p7-contact-success'><span><ShieldCheck size={24} /></span><h2>{t('sentTitle')}</h2><p>{t('sentText')}</p><Link href='/platform-v7/demo'>{t('sentBack')}<ArrowRight size={17} /></Link></div> : <form method='post' action='/api/platform-v7/inquiries' className='p7-contact-form'><input type='text' name='website' tabIndex={-1} autoComplete='off' aria-hidden='true' className='p7-contact-honeypot' /><input type='hidden' name='source' value='platform_v7_contact_page' /><h2>{t('formTitle')}</h2><p>{t('formText')}</p><label><span>{t('type')}</span><select name='type' required defaultValue='platform'>{questionTypeValues.map((value) => <option key={value} value={value}>{t(`types.${value}`)}</option>)}</select></label><label><span>{t('name')}</span><input name='name' type='text' minLength={2} maxLength={80} placeholder={t('namePh')} required /></label><label><span>{t('org')}</span><input name='organization' type='text' maxLength={120} placeholder={t('orgPh')} /></label><label><span>{t('contact')}</span><input name='contact' type='text' minLength={5} maxLength={120} placeholder={t('contactPh')} required /></label><label className='p7-contact-full'><span>{t('message')}</span><textarea name='message' maxLength={2000} rows={6} placeholder={t('messagePh')} required /></label><label className='p7-contact-consent'><input type='checkbox' name='consent' value='yes' required /><span>{t('consent')}</span></label><button type='submit'>{t('submit')}<ArrowRight size={17} /></button></form>}</section>
       </section>
     </main>
   );
