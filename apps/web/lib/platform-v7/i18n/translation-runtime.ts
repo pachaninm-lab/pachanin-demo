@@ -1,4 +1,5 @@
 import embeddedPayload from '@/public/platform-v7/i18n/dictionaries.json';
+import { LOCALE_COOKIE } from '@/i18n/locale';
 
 /**
  * Единый рантайм перевода platform-v7.
@@ -153,6 +154,26 @@ export function readStoredLanguage(): LanguageCode {
   }
 }
 
+export function readLocaleCookie(): LanguageCode | null {
+  if (typeof document === 'undefined') return null;
+  try {
+    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`));
+    const value = match ? decodeURIComponent(match[1]) : null;
+    return isLanguageCode(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeLocaleCookie(language: LanguageCode): void {
+  if (typeof document === 'undefined') return;
+  try {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${LOCALE_COOKIE}=${language}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+  } catch {
+  }
+}
+
 export function writeStoredLanguage(language: LanguageCode): void {
   if (typeof window === 'undefined') return;
   try {
@@ -160,6 +181,8 @@ export function writeStoredLanguage(language: LanguageCode): void {
   } catch {
     // localStorage может быть недоступен (private mode) — язык проживёт сессию в памяти.
   }
+  // SSR-локаль (next-intl, apps/web/i18n/request.ts) держится в синхроне с выбором.
+  writeLocaleCookie(language);
   window.dispatchEvent(new CustomEvent<LanguageCode>(LANGUAGE_CHANGE_EVENT, { detail: language }));
 }
 

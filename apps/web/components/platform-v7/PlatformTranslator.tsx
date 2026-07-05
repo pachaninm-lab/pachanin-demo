@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { Check, Languages, RefreshCw, X } from 'lucide-react';
 import {
   LANGUAGES,
@@ -11,9 +12,11 @@ import {
   fetchRemoteDictionaryState,
   getLanguageMeta,
   readCachedDictionaryState,
+  readLocaleCookie,
   readStoredLanguage,
   startTranslationObserver,
   subscribeToLanguageChanges,
+  writeLocaleCookie,
   writeStoredLanguage,
   type DictionaryState,
   type LanguageCode,
@@ -45,6 +48,7 @@ function findHeaderTarget() {
 }
 
 export function PlatformTranslator() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [target, setTarget] = useState<Element | null>(null);
   const [open, setOpen] = useState(false);
@@ -71,13 +75,25 @@ export function PlatformTranslator() {
   useEffect(() => {
     setMounted(true);
     clearLegacyDictionaryCache();
-    setLanguageState(readStoredLanguage());
+    const stored = readStoredLanguage();
+    setLanguageState(stored);
+    // Сверка с SSR-локалью: выбор пользователя (localStorage) — источник правды.
+    // Если cookie отстала (старый профиль без cookie), выравниваем и перерисовываем
+    // серверные компоненты на нужном языке.
+    if (readLocaleCookie() !== stored) {
+      writeLocaleCookie(stored);
+      router.refresh();
+    }
     const cached = readCachedDictionaryState();
     if (cached) setRemoteDictionary(cached);
     void refreshDictionary();
     // Смена языка из другой вкладки или другого виджета платформы.
-    return subscribeToLanguageChanges(setLanguageState);
-  }, [refreshDictionary]);
+    return subscribeToLanguageChanges((next) => {
+      setLanguageState(next);
+      if (readLocaleCookie() !== next) writeLocaleCookie(next);
+      router.refresh();
+    });
+  }, [refreshDictionary, router]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -123,6 +139,8 @@ export function PlatformTranslator() {
 
   const selectLanguage = useCallback((code: LanguageCode) => {
     setLanguageState(code);
+    // writeStoredLanguage синхронно диспатчит событие смены языка — подписка
+    // ниже выставит cookie и перерисует серверные компоненты (router.refresh).
     writeStoredLanguage(code);
     setOpen(false);
   }, []);

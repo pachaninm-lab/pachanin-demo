@@ -3,6 +3,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const rootPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/page.tsx'), 'utf8');
+// Копия главной вынесена в next-intl сообщения (messages/ru.json).
+const rootRuMessages = fs.readFileSync(path.resolve(__dirname, '../../messages/ru.json'), 'utf8');
 const demoPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/demo/page.tsx'), 'utf8');
 const contactPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/contact/page.tsx'), 'utf8');
 const inquiryRoute = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/api/platform-v7/inquiries/route.ts'), 'utf8');
@@ -12,9 +14,9 @@ describe('platform-v7 public demo and question flow', () => {
     // The public entry offers a synthetic deal-review walkthrough and a question
     // form — both without registration or cabinet access.
     expect(rootPage).toContain("href='/platform-v7/demo'");
-    expect(rootPage).toContain('Разбор сделки');
+    expect(rootRuMessages).toContain('Разбор сделки');
     expect(rootPage).toContain("href='/platform-v7/contact'");
-    expect(rootPage).toContain('Задать вопрос');
+    expect(rootRuMessages).toContain('Задать вопрос');
   });
 
   it('keeps the deal-review page as a public sandbox, not a cabinet bypass', () => {

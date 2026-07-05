@@ -1,6 +1,10 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+
+const routerRefresh = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: routerRefresh }) }));
+
 import { PlatformTranslator } from '@/components/platform-v7/PlatformTranslator';
 import { LANGUAGE_STORAGE_KEY } from '@/lib/platform-v7/i18n/translation-runtime';
 
@@ -46,6 +50,8 @@ describe('PlatformTranslator', () => {
     fireEvent.click(english);
 
     expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('en');
+    expect(document.cookie).toContain('pc-v7-locale=en');
+    expect(routerRefresh).toHaveBeenCalled();
     await waitFor(() => {
       expect(document.querySelector('#hero')?.textContent).toBe('The main transaction risk');
       expect(document.querySelector('#cta')?.textContent).toBe('Register');

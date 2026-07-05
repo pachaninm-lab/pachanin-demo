@@ -21,138 +21,177 @@ import {
   Wheat,
   type LucideIcon,
 } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
 
-type Card = { title: string; text: string; Icon: LucideIcon };
-type RoleCard = Card & { href: string; cta: string };
+// Копия страницы живёт в apps/web/messages/{ru,en,zh}.json (namespace `landing`);
+// en/zh генерируются из ru по общему словарю: scripts/build-platform-v7-messages.mjs.
+type Card = { key: string; Icon: LucideIcon };
+type RoleCard = Card & { href: string };
 
 const controlCards: Card[] = [
-  { title: 'Деньги', text: 'Основание для расчёта видно до выпуска оплаты.', Icon: Banknote },
-  { title: 'Документы', text: 'СДИЗ, ЭДО, транспортные документы и акты связаны с событиями сделки.', Icon: FileCheck2 },
-  { title: 'Логистика', text: 'Рейс, водитель, маршрут и контрольные точки находятся в одном контуре.', Icon: Truck },
-  { title: 'Качество', text: 'Приёмка и лабораторные показатели учитываются до окончательного расчёта.', Icon: FlaskConical },
+  { key: 'money', Icon: Banknote },
+  { key: 'documents', Icon: FileCheck2 },
+  { key: 'logistics', Icon: Truck },
+  { key: 'quality', Icon: FlaskConical },
 ];
 
 const processSteps: Card[] = [
-  { title: 'Цена', text: 'Цена, объём, базис и допуски качества зафиксированы до рейса.', Icon: Leaf },
-  { title: 'Сделка', text: 'Стороны, партия и условия исполнения сведены в единый контур.', Icon: ClipboardCheck },
-  { title: 'Рейс', text: 'Маршрут, водитель, транспорт и контрольные точки назначены.', Icon: Truck },
-  { title: 'Приёмка', text: 'Вес, факт поставки и расхождения фиксируются на элеваторе.', Icon: Building2 },
-  { title: 'Документы', text: 'Документы сверяются с событиями исполнения.', Icon: FileCheck2 },
-  { title: 'Расчёт', text: 'Оплата проводится после подтверждения оснований.', Icon: Banknote },
-  { title: 'Спор', text: 'Разбор ведётся по зафиксированным данным.', Icon: Scale },
+  { key: 'price', Icon: Leaf },
+  { key: 'deal', Icon: ClipboardCheck },
+  { key: 'trip', Icon: Truck },
+  { key: 'acceptance', Icon: Building2 },
+  { key: 'documents', Icon: FileCheck2 },
+  { key: 'settlement', Icon: Banknote },
+  { key: 'dispute', Icon: Scale },
 ];
 
 const roles: RoleCard[] = [
-  { title: 'Оператор', text: 'Сделки, блокеры, SLA и контрольные действия.', href: '/platform-v7/login?role=operator', Icon: ClipboardCheck, cta: 'Войти как оператор' },
-  { title: 'Покупатель', text: 'Поставка, качество, документы и риски оплаты.', href: '/platform-v7/login?role=buyer', Icon: UserRound, cta: 'Войти как покупатель' },
-  { title: 'Продавец', text: 'Партия, рейс, приёмка и основание для оплаты.', href: '/platform-v7/login?role=seller', Icon: Wheat, cta: 'Войти как продавец' },
-  { title: 'Логистика', text: 'Рейсы, водители, движение и отклонения по маршруту.', href: '/platform-v7/login?role=logistics', Icon: Truck, cta: 'Войти как логистика' },
-  { title: 'Водитель', text: 'Маршрут, точки рейса, фото и офлайн-доказательства.', href: '/platform-v7/login?role=driver', Icon: Truck, cta: 'Войти как водитель' },
-  { title: 'Элеватор', text: 'Приёмка, хранение, вес и статусы партии.', href: '/platform-v7/login?role=elevator', Icon: Building2, cta: 'Войти как элеватор' },
-  { title: 'Лаборатория', text: 'Анализы, показатели качества и связь с приёмкой.', href: '/platform-v7/login?role=lab', Icon: FlaskConical, cta: 'Войти как лаборатория' },
-  { title: 'Сюрвейер', text: 'Осмотр, фиксация фактов и независимый доказательный слой.', href: '/platform-v7/login?role=surveyor', Icon: ShieldCheck, cta: 'Войти как сюрвейер' },
-  { title: 'Банк', text: 'Основания для финансирования и расчётов по подтверждённым событиям.', href: '/platform-v7/login?role=bank', Icon: Landmark, cta: 'Войти как банк' },
-  { title: 'Комплаенс', text: 'Доступы, действия участников и контроль правил.', href: '/platform-v7/login?role=compliance', Icon: ShieldCheck, cta: 'Войти как комплаенс' },
-  { title: 'Арбитр', text: 'Спор, расхождения, пакет доказательств и решение по фактам.', href: '/platform-v7/login?role=arbitrator', Icon: Scale, cta: 'Войти как арбитр' },
-  { title: 'Руководитель', text: 'Расчёты, блокеры, роли, споры и ход исполнения.', href: '/platform-v7/login?role=executive', Icon: Banknote, cta: 'Войти как руководитель' },
+  { key: 'operator', href: '/platform-v7/login?role=operator', Icon: ClipboardCheck },
+  { key: 'buyer', href: '/platform-v7/login?role=buyer', Icon: UserRound },
+  { key: 'seller', href: '/platform-v7/login?role=seller', Icon: Wheat },
+  { key: 'logistics', href: '/platform-v7/login?role=logistics', Icon: Truck },
+  { key: 'driver', href: '/platform-v7/login?role=driver', Icon: Truck },
+  { key: 'elevator', href: '/platform-v7/login?role=elevator', Icon: Building2 },
+  { key: 'lab', href: '/platform-v7/login?role=lab', Icon: FlaskConical },
+  { key: 'surveyor', href: '/platform-v7/login?role=surveyor', Icon: ShieldCheck },
+  { key: 'bank', href: '/platform-v7/login?role=bank', Icon: Landmark },
+  { key: 'compliance', href: '/platform-v7/login?role=compliance', Icon: ShieldCheck },
+  { key: 'arbitrator', href: '/platform-v7/login?role=arbitrator', Icon: Scale },
+  { key: 'executive', href: '/platform-v7/login?role=executive', Icon: Banknote },
 ];
 
 const trustItems: Card[] = [
-  { title: 'Статус без догадок', text: 'Единая картина по этапам и участникам.', Icon: ShieldCheck },
-  { title: 'Юридически значимый след', text: 'События и документы связаны с исполнением сделки.', Icon: BadgeCheck },
-  { title: 'Контроль документов', text: 'Комплектность, версии, сроки и ответственные под контролем.', Icon: LockKeyhole },
-  { title: 'Основа для расчётов', text: 'Расчёт опирается на подтверждённые события.', Icon: Calculator },
+  { key: 'status', Icon: ShieldCheck },
+  { key: 'trail', Icon: BadgeCheck },
+  { key: 'docsControl', Icon: LockKeyhole },
+  { key: 'basis', Icon: Calculator },
 ];
 
-const heroSignals = [
-  ['Цена', 'согласована'],
-  ['Рейс', 'в работе'],
-  ['Приёмка', 'ожидает факт'],
-  ['Документы', 'на сверке'],
-  ['Расчёт', 'после оснований'],
-] as const;
+const heroSignalKeys = ['price', 'trip', 'acceptance', 'documents', 'settlement'] as const;
 
-export default function PlatformV7RootPage() {
+export default async function PlatformV7RootPage() {
+  const t = await getTranslations('landing');
   return (
     <main data-testid='platform-v7-root-execution-cockpit' className='pc-v7-entry-page pc-v7-public-entry'>
       <style>{css}</style>
-      <header className='entry-header' aria-label='Публичная навигация'>
-        <Link href='/platform-v7' className='entry-brand' aria-label='Прозрачная Цена'>
+      <header className='entry-header' aria-label={t('publicNav')}>
+        <Link href='/platform-v7' className='entry-brand' aria-label={t('brand')}>
           <span className='entry-brand-mark'><Wheat size={26} strokeWidth={2.45} /></span>
-          <span><strong>Прозрачная Цена</strong><small>Контур исполнения сделки</small></span>
+          <span><strong>{t('brand')}</strong><small>{t('brandTagline')}</small></span>
         </Link>
-        <nav className='entry-nav' aria-label='Разделы главной страницы'>
-          <a href='#process'>Как проходит</a>
-          <a href='#control'>Контроль</a>
-          <a href='#roles'>Роли</a>
-          <Link href='/platform-v7/demo'>Разбор сделки</Link>
-          <Link href='/platform-v7/contact'>Вопрос</Link>
-          <Link href='/platform-v7/docs'>Документы</Link>
+        <nav className='entry-nav' aria-label={t('sectionsNav')}>
+          <a href='#process'>{t('nav.process')}</a>
+          <a href='#control'>{t('nav.control')}</a>
+          <a href='#roles'>{t('nav.roles')}</a>
+          <Link href='/platform-v7/demo'>{t('nav.demo')}</Link>
+          <Link href='/platform-v7/contact'>{t('nav.contact')}</Link>
+          <Link href='/platform-v7/docs'>{t('nav.docs')}</Link>
         </nav>
         <div className='entry-header-actions'>
-          <Link href='/platform-v7/login' className='entry-login'><LogIn size={16} />Войти</Link>
-          <Link href='/platform-v7/register' className='entry-header-register'>Регистрация</Link>
+          <Link href='/platform-v7/login' className='entry-login'><LogIn size={16} />{t('signIn')}</Link>
+          <Link href='/platform-v7/register' className='entry-header-register'>{t('register')}</Link>
         </div>
       </header>
 
       <section className='entry-hero' aria-labelledby='entry-hero-title'>
         <div className='entry-hero-copy'>
-          <span className='entry-kicker'>Единый вход в контур исполнения</span>
+          <span className='entry-kicker'>{t('hero.kicker')}</span>
           <h1 id='entry-hero-title'>
-            <span>Главный риск сделки</span>
-            <span>начинается после</span>
-            <span>согласования цены</span>
+            <span>{t('hero.titleLine1')}</span>
+            <span>{t('hero.titleLine2')}</span>
+            <span>{t('hero.titleLine3')}</span>
           </h1>
-          <p>
-            Прозрачная Цена — цифровой контур исполнения зерновой сделки: рейс, приёмка, качество,
-            документы, деньги, спор и доказательства в одном процессе.
-          </p>
+          <p>{t('hero.lead')}</p>
           <div className='entry-hero-actions'>
-            <Link href='/platform-v7/register' className='entry-primary-cta'>Подключить организацию<ArrowRight size={20} /></Link>
-            <Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />Разобрать контур сделки</Link>
-            <Link href='/platform-v7/contact' className='entry-register-cta'><MessageCircleQuestion size={18} />Задать вопрос</Link>
+            <Link href='/platform-v7/register' className='entry-primary-cta'>{t('hero.primaryCta')}<ArrowRight size={20} /></Link>
+            <Link href='/platform-v7/demo' className='entry-secondary-cta'><PlayCircle size={18} />{t('hero.secondaryCta')}</Link>
+            <Link href='/platform-v7/contact' className='entry-register-cta'><MessageCircleQuestion size={18} />{t('hero.questionCta')}</Link>
           </div>
         </div>
 
         <div className='entry-hero-visual' aria-hidden='true'>
           <div className='entry-visual-card entry-visual-main'>
-            <span className='entry-visual-label'>Контур сделки</span>
+            <span className='entry-visual-label'>{t('visual.label')}</span>
             <strong>DL-9102</strong>
-            <small>исполнение под контролем</small>
+            <small>{t('visual.note')}</small>
             <div className='entry-signal-list'>
-              {heroSignals.map(([label, value]) => (
-                <span key={label}><b>{label}</b><em>{value}</em></span>
+              {heroSignalKeys.map((key) => (
+                <span key={key}><b>{t(`visual.signals.${key}.label`)}</b><em>{t(`visual.signals.${key}.value`)}</em></span>
               ))}
             </div>
           </div>
           <div className='entry-route-line' />
-          <div className='entry-floating-card docs'><FileCheck2 size={22} /><span>Документы</span><b>на сверке</b></div>
-          <div className='entry-floating-card quality'><FlaskConical size={22} /><span>Качество</span><b>ожидает акт</b></div>
-          <div className='entry-floating-card money'><Banknote size={22} /><span>Расчёт</span><b>после оснований</b></div>
+          <div className='entry-floating-card docs'><FileCheck2 size={22} /><span>{t('visual.docs')}</span><b>{t('visual.docsState')}</b></div>
+          <div className='entry-floating-card quality'><FlaskConical size={22} /><span>{t('visual.quality')}</span><b>{t('visual.qualityState')}</b></div>
+          <div className='entry-floating-card money'><Banknote size={22} /><span>{t('visual.money')}</span><b>{t('visual.moneyState')}</b></div>
         </div>
       </section>
 
       <section id='control' className='entry-section' aria-labelledby='control-title'>
-        <SectionHead title='Что контролирует платформа' text='После согласования цены под контролем остаётся главное: рейс, приёмка, документы, качество и основание для оплаты.' />
-        <div className='entry-control-grid'>{controlCards.map((item) => <ControlTile key={item.title} item={item} />)}</div>
+        <SectionHead title={t('control.title')} text={t('control.text')} />
+        <div className='entry-control-grid'>
+          {controlCards.map((item) => {
+            const Icon = item.Icon;
+            return (
+              <article key={item.key} className='entry-control-tile'>
+                <Icon size={31} strokeWidth={2.25} />
+                <strong>{t(`control.${item.key}.title`)}</strong>
+                <span>{t(`control.${item.key}.text`)}</span>
+              </article>
+            );
+          })}
+        </div>
       </section>
 
       <section id='process' className='entry-section entry-process-section' aria-labelledby='process-title'>
-        <SectionHead title='Как проходит сделка' text='На каждом этапе видно, что уже подтверждено, что требует действия и кто отвечает за следующий шаг.' compact />
-        <div className='entry-process-row'>{processSteps.map((step, index) => <ProcessTile key={step.title} step={step} index={index} />)}</div>
+        <SectionHead title={t('process.title')} text={t('process.text')} compact />
+        <div className='entry-process-row'>
+          {processSteps.map((step, index) => {
+            const Icon = step.Icon;
+            return (
+              <article key={step.key} className='entry-process-tile'>
+                <span className='entry-process-index'>{index + 1}</span>
+                <span className='entry-process-icon'><Icon size={21} strokeWidth={2.2} /></span>
+                <strong>{t(`process.${step.key}.title`)}</strong>
+                <small>{t(`process.${step.key}.text`)}</small>
+              </article>
+            );
+          })}
+        </div>
       </section>
 
       <PlatformV7IntelligenceStrip />
 
       <section id='roles' className='entry-section' aria-labelledby='roles-title'>
-        <SectionHead title='Выберите свою роль в сделке' text='Сначала выберите роль участника сделки. После этого вход выполняется по логину, паролю и организации.' />
-        <div className='entry-role-grid'>{roles.map((role) => <RoleTile key={role.title} role={role} />)}</div>
+        <SectionHead title={t('roles.title')} text={t('roles.text')} />
+        <div className='entry-role-grid'>
+          {roles.map((role) => {
+            const Icon = role.Icon;
+            return (
+              <Link key={role.key} href={role.href} className='entry-role-tile'>
+                <Icon size={27} strokeWidth={2.25} />
+                <strong>{t(`roles.${role.key}.title`)}</strong>
+                <span>{t(`roles.${role.key}.text`)}</span>
+                <em>{t(`roles.${role.key}.cta`)}</em>
+              </Link>
+            );
+          })}
+        </div>
       </section>
 
-      <section className='entry-trust-strip' aria-label='Доверие и контроль'>
-        {trustItems.map((item) => <TrustTile key={item.title} item={item} />)}
-        <Link href='/platform-v7/register' className='entry-trust-cta'>Подключить организацию</Link>
+      <section className='entry-trust-strip' aria-label={t('trust.aria')}>
+        {trustItems.map((item) => {
+          const Icon = item.Icon;
+          return (
+            <article key={item.key} className='entry-trust-item'>
+              <Icon size={26} strokeWidth={2.25} />
+              <strong>{t(`trust.${item.key}.title`)}</strong>
+              <span>{t(`trust.${item.key}.text`)}</span>
+            </article>
+          );
+        })}
+        <Link href='/platform-v7/register' className='entry-trust-cta'>{t('trust.cta')}</Link>
       </section>
     </main>
   );
@@ -161,10 +200,6 @@ export default function PlatformV7RootPage() {
 function SectionHead({ title, text, compact }: { title: string; text: string; compact?: boolean }) {
   return <div className={compact ? 'entry-section-head compact' : 'entry-section-head'}><h2>{title}</h2><p>{text}</p></div>;
 }
-function ControlTile({ item }: { item: Card }) { const Icon = item.Icon; return <article className='entry-control-tile'><Icon size={31} strokeWidth={2.25} /><strong>{item.title}</strong><span>{item.text}</span></article>; }
-function ProcessTile({ step, index }: { step: Card; index: number }) { const Icon = step.Icon; return <article className='entry-process-tile'><span className='entry-process-index'>{index + 1}</span><span className='entry-process-icon'><Icon size={21} strokeWidth={2.2} /></span><strong>{step.title}</strong><small>{step.text}</small></article>; }
-function RoleTile({ role }: { role: RoleCard }) { const Icon = role.Icon; return <Link href={role.href} className='entry-role-tile'><Icon size={27} strokeWidth={2.25} /><strong>{role.title}</strong><span>{role.text}</span><em>{role.cta}</em></Link>; }
-function TrustTile({ item }: { item: Card }) { const Icon = item.Icon; return <article className='entry-trust-item'><Icon size={26} strokeWidth={2.25} /><strong>{item.title}</strong><span>{item.text}</span></article>; }
 
 const css = `
 .pc-v7-public-entry{

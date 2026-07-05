@@ -4,6 +4,8 @@ import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import Script from 'next/script';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import { FeatureFlagsDevPanel } from '@/components/platform-v7/FeatureFlagsDevPanel';
 
 const inter = Inter({
@@ -80,9 +82,13 @@ const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
 // S-3: Blocking theme script — runs synchronously before CSS paints
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+const HTML_LANG: Record<string, string> = { ru: 'ru', en: 'en', zh: 'zh-CN' };
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   return (
-    <html lang="ru" className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
+    <html lang={HTML_LANG[locale] ?? 'ru'} className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
       {/* eslint-disable-next-line @next/next/no-head-element */}
       <head>
         {/* Must be first in <head> to run before CSS is applied */}
@@ -92,7 +98,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body>
-        {children}
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {children}
+        </NextIntlClientProvider>
         <FeatureFlagsDevPanel />
         {YM_ID ? (
           <>

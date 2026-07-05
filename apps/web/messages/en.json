@@ -1,0 +1,224 @@
+{
+  "landing": {
+    "brand": "Transparent Price",
+    "brandTagline": "Transaction execution circuit",
+    "publicNav": "Public navigation",
+    "sectionsNav": "Main page sections",
+    "nav": {
+      "process": "How it works",
+      "control": "Control",
+      "roles": "Roles",
+      "demo": "Deal review",
+      "contact": "Question",
+      "docs": "Documents"
+    },
+    "signIn": "Sign in",
+    "register": "Registration",
+    "hero": {
+      "kicker": "Single entry to the execution circuit",
+      "titleLine1": "The main transaction risk",
+      "titleLine2": "starts after",
+      "titleLine3": "the price is agreed",
+      "lead": "Transparent Price is a digital execution circuit for a grain transaction: trip, acceptance, quality, documents, money, dispute, and evidence in one process.",
+      "primaryCta": "Connect an organisation",
+      "secondaryCta": "Review the deal circuit",
+      "questionCta": "Ask a question"
+    },
+    "visual": {
+      "label": "Deal circuit",
+      "note": "execution under control",
+      "signals": {
+        "price": {
+          "label": "Price",
+          "value": "agreed"
+        },
+        "trip": {
+          "label": "Trip",
+          "value": "in progress"
+        },
+        "acceptance": {
+          "label": "Acceptance",
+          "value": "awaiting fact"
+        },
+        "documents": {
+          "label": "Documents",
+          "value": "under review"
+        },
+        "settlement": {
+          "label": "Settlement",
+          "value": "after grounds are confirmed"
+        }
+      },
+      "docs": "Documents",
+      "docsState": "under review",
+      "quality": "Quality",
+      "qualityState": "awaiting act",
+      "money": "Settlement",
+      "moneyState": "after grounds are confirmed"
+    },
+    "control": {
+      "title": "What the platform controls",
+      "text": "After the price is agreed, the key items remain under control: trip, acceptance, documents, quality, and payment grounds.",
+      "money": {
+        "title": "Money",
+        "text": "The settlement basis is visible before payment release."
+      },
+      "documents": {
+        "title": "Documents",
+        "text": "SDIZ, EDI, transport documents, and acts are linked to deal events."
+      },
+      "logistics": {
+        "title": "Logistics",
+        "text": "Trip, driver, route, and checkpoints are in one circuit."
+      },
+      "quality": {
+        "title": "Quality",
+        "text": "Acceptance and laboratory indicators are considered before final settlement."
+      }
+    },
+    "process": {
+      "title": "How the deal works",
+      "text": "At each stage it is clear what is confirmed, what requires action, and who owns the next step.",
+      "price": {
+        "title": "Price",
+        "text": "Price, volume, basis, and quality tolerances are fixed before the trip."
+      },
+      "deal": {
+        "title": "Deal",
+        "text": "Parties, lot, and execution terms are consolidated in one circuit."
+      },
+      "trip": {
+        "title": "Trip",
+        "text": "Route, driver, vehicle, and checkpoints are assigned."
+      },
+      "acceptance": {
+        "title": "Acceptance",
+        "text": "Weight, delivery fact, and discrepancies are recorded at the elevator."
+      },
+      "documents": {
+        "title": "Documents",
+        "text": "Documents are reconciled with execution events."
+      },
+      "settlement": {
+        "title": "Settlement",
+        "text": "Payment is made after the grounds are confirmed."
+      },
+      "dispute": {
+        "title": "Dispute",
+        "text": "Review is based on recorded data."
+      }
+    },
+    "roles": {
+      "title": "Select your role in the deal",
+      "text": "First select the participant role. Then sign in using login, password, and organisation.",
+      "operator": {
+        "title": "Operator",
+        "text": "Deals, blockers, SLA, and control actions.",
+        "cta": "Sign in as operator"
+      },
+      "buyer": {
+        "title": "Buyer",
+        "text": "Delivery, quality, documents, and payment risks.",
+        "cta": "Sign in as buyer"
+      },
+      "seller": {
+        "title": "Seller",
+        "text": "Lot, trip, acceptance, and payment grounds.",
+        "cta": "Sign in as seller"
+      },
+      "logistics": {
+        "title": "Logistics",
+        "text": "Trips, drivers, movement, and route deviations.",
+        "cta": "Sign in as logistics"
+      },
+      "driver": {
+        "title": "Driver",
+        "text": "Route, trip checkpoints, photos, and offline evidence.",
+        "cta": "Sign in as driver"
+      },
+      "elevator": {
+        "title": "Elevator",
+        "text": "Acceptance, storage, weight, and lot statuses.",
+        "cta": "Sign in as elevator"
+      },
+      "lab": {
+        "title": "Laboratory",
+        "text": "Tests, quality indicators, and link to acceptance.",
+        "cta": "Sign in as laboratory"
+      },
+      "surveyor": {
+        "title": "Surveyor",
+        "text": "Inspection, fact recording, and independent evidence layer.",
+        "cta": "Sign in as surveyor"
+      },
+      "bank": {
+        "title": "Bank",
+        "text": "Grounds for financing and settlements based on confirmed events.",
+        "cta": "Sign in as bank"
+      },
+      "compliance": {
+        "title": "Compliance",
+        "text": "Access, participant actions, and rule control.",
+        "cta": "Sign in as compliance"
+      },
+      "arbitrator": {
+        "title": "Arbitrator",
+        "text": "Dispute, discrepancies, evidence package, and fact-based decision.",
+        "cta": "Sign in as arbitrator"
+      },
+      "executive": {
+        "title": "Executive",
+        "text": "Settlements, blockers, roles, disputes, and execution progress.",
+        "cta": "Sign in as executive"
+      }
+    },
+    "trust": {
+      "aria": "Trust and control",
+      "status": {
+        "title": "Status without guessing",
+        "text": "One view of stages and participants."
+      },
+      "trail": {
+        "title": "Legally relevant trail",
+        "text": "Events and documents are tied to deal execution."
+      },
+      "docsControl": {
+        "title": "Document control",
+        "text": "Completeness, versions, deadlines, and owners are controlled."
+      },
+      "basis": {
+        "title": "Settlement basis",
+        "text": "Settlement relies on confirmed events."
+      },
+      "cta": "Connect an organisation"
+    }
+  },
+  "loginLegacy": {
+    "brand": "Transparent Price",
+    "back": "Back",
+    "kicker": "SINGLE ENTRY",
+    "title": "Sign in to the working platform",
+    "lead": "Enter corporate credentials to access the working circuit.",
+    "chooseWorkspace": "Select one workspace",
+    "login": "Login",
+    "password": "Password",
+    "organisation": "Organisation",
+    "orgPlaceholder": "Company / TIN",
+    "submit": "Open workspace",
+    "error": "Fill in the login, password, and organisation. The workspace opens only after the sign-in form.",
+    "roles": {
+      "operator": "Operator",
+      "buyer": "Buyer",
+      "seller": "Seller",
+      "logistics": "Logistics",
+      "driver": "Driver",
+      "elevator": "Elevator",
+      "lab": "Laboratory",
+      "surveyor": "Surveyor",
+      "bank": "Bank",
+      "compliance": "Compliance",
+      "arbitrator": "Arbitrator",
+      "executive": "Executive"
+    }
+  }
+}

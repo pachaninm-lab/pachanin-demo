@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
+const createNextIntlPlugin = require('next-intl/plugin');
+
+// SSR-локаль публичного контура: apps/web/i18n/request.ts читает cookie pc-v7-locale.
+const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://vermillion-kitsune-0e7b97.netlify.app';
 
@@ -97,4 +101,4 @@ const nextConfig = {
     ];
   },
 };
-module.exports = nextConfig;
+module.exports = withNextIntl(nextConfig);

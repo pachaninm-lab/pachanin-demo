@@ -4,19 +4,21 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRightFromLine, Banknote, BriefcaseBusiness, Building2, ClipboardCheck, Crown, FlaskConical, Landmark, Scale, ShieldCheck, Truck, UserRound, Wheat, type LucideIcon } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { PLATFORM_V7_ACTIVE_ROLE_KEY, platformV7RoleHome } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { BrandMark } from '@/components/v7r/BrandMark';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
-type Item = { role: PlatformRole; Icon: LucideIcon; label: string };
+type Item = { role: PlatformRole; Icon: LucideIcon };
 const ENTRY_COOKIE = 'pc_v7_entry_seen';
+// Подписи ролей и вся копия экрана — в apps/web/messages/*.json (namespace `loginLegacy`).
 const items: Item[] = [
-  { role: 'operator', Icon: BriefcaseBusiness, label: 'Оператор' }, { role: 'buyer', Icon: UserRound, label: 'Покупатель' },
-  { role: 'seller', Icon: Wheat, label: 'Продавец' }, { role: 'logistics', Icon: Truck, label: 'Логистика' },
-  { role: 'driver', Icon: ClipboardCheck, label: 'Водитель' }, { role: 'elevator', Icon: Building2, label: 'Элеватор' },
-  { role: 'lab', Icon: FlaskConical, label: 'Лаборатория' }, { role: 'surveyor', Icon: ShieldCheck, label: 'Сюрвейер' },
-  { role: 'bank', Icon: Landmark, label: 'Банк' }, { role: 'compliance', Icon: Banknote, label: 'Комплаенс' },
-  { role: 'arbitrator', Icon: Scale, label: 'Арбитр' }, { role: 'executive', Icon: Crown, label: 'Руководитель' },
+  { role: 'operator', Icon: BriefcaseBusiness }, { role: 'buyer', Icon: UserRound },
+  { role: 'seller', Icon: Wheat }, { role: 'logistics', Icon: Truck },
+  { role: 'driver', Icon: ClipboardCheck }, { role: 'elevator', Icon: Building2 },
+  { role: 'lab', Icon: FlaskConical }, { role: 'surveyor', Icon: ShieldCheck },
+  { role: 'bank', Icon: Landmark }, { role: 'compliance', Icon: Banknote },
+  { role: 'arbitrator', Icon: Scale }, { role: 'executive', Icon: Crown },
 ];
 
 function markEntrySeen() {
@@ -25,6 +27,7 @@ function markEntrySeen() {
 }
 
 export function LoginLegacyOverlay() {
+  const t = useTranslations('loginLegacy');
   const router = useRouter();
   const setStoreRole = usePlatformV7RStore((state) => state.setRole);
   const [role, setRole] = React.useState<PlatformRole>('operator');
@@ -35,7 +38,7 @@ export function LoginLegacyOverlay() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!login.trim() || !password.trim() || !company.trim()) return setError('Заполни логин, пароль и организацию. Кабинет открывается только после формы входа.');
+    if (!login.trim() || !password.trim() || !company.trim()) return setError(t('error'));
     setError('');
     sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
     markEntrySeen();
@@ -48,23 +51,23 @@ export function LoginLegacyOverlay() {
     <main className='p7-login-old'>
       <style>{css}</style>
       <header className='old-top'>
-        <Link href='/platform-v7' className='brand' aria-label='Прозрачная Цена'><BrandMark size={32} /><b>Прозрачная Цена</b></Link>
-        <div className='login-header old-actions'><Link href='/platform-v7' className='exit' aria-label='Назад'><ArrowRightFromLine size={22}/></Link></div>
+        <Link href='/platform-v7' className='brand' aria-label={t('brand')}><BrandMark size={32} /><b>{t('brand')}</b></Link>
+        <div className='login-header old-actions'><Link href='/platform-v7' className='exit' aria-label={t('back')}><ArrowRightFromLine size={22}/></Link></div>
       </header>
       <section className='card'>
-        <span className='kicker'>ЕДИНЫЙ ВХОД</span>
-        <h1>Вход в рабочую платформу</h1>
-        <p>Введите корпоративные данные для доступа к рабочему контуру.</p>
-        <section className='roles' aria-label='Выберите один рабочий кабинет'>
-          <h2>Выберите один рабочий кабинет</h2>
-          <div>{items.map((item)=>{const Icon=item.Icon;const active=item.role===role;return <button key={item.role} type='button' className={active?'active':''} onClick={()=>{setRole(item.role);setError('')}}><Icon size={24}/><b>{item.label}</b></button>})}</div>
+        <span className='kicker'>{t('kicker')}</span>
+        <h1>{t('title')}</h1>
+        <p>{t('lead')}</p>
+        <section className='roles' aria-label={t('chooseWorkspace')}>
+          <h2>{t('chooseWorkspace')}</h2>
+          <div>{items.map((item)=>{const Icon=item.Icon;const active=item.role===role;return <button key={item.role} type='button' className={active?'active':''} onClick={()=>{setRole(item.role);setError('')}}><Icon size={24}/><b>{t(`roles.${item.role}`)}</b></button>})}</div>
         </section>
         <form onSubmit={submit}>
-          <label><span>Логин</span><input value={login} onChange={(e)=>setLogin(e.target.value)} type='email' autoComplete='username'/></label>
-          <label><span>Пароль</span><input value={password} onChange={(e)=>setPassword(e.target.value)} type='password' autoComplete='current-password'/></label>
-          <label><span>Организация</span><input value={company} onChange={(e)=>setCompany(e.target.value)} placeholder='Компания / ИНН' autoComplete='organization'/></label>
+          <label><span>{t('login')}</span><input value={login} onChange={(e)=>setLogin(e.target.value)} type='email' autoComplete='username'/></label>
+          <label><span>{t('password')}</span><input value={password} onChange={(e)=>setPassword(e.target.value)} type='password' autoComplete='current-password'/></label>
+          <label><span>{t('organisation')}</span><input value={company} onChange={(e)=>setCompany(e.target.value)} placeholder={t('orgPlaceholder')} autoComplete='organization'/></label>
           {error?<p className='error'>{error}</p>:null}
-          <button className='enter'>Войти в кабинет</button>
+          <button className='enter'>{t('submit')}</button>
         </form>
       </section>
     </main>

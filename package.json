@@ -28,6 +28,7 @@
     "verify:shared": "tsc -p ./tsconfig.shared-verify.json --noEmit",
     "typecheck:domain": "tsc -p ./packages/domain-core/tsconfig.json --noEmit",
     "i18n:platform-v7": "node ./scripts/check-platform-v7-i18n.mjs",
+    "i18n:messages": "node ./scripts/build-platform-v7-messages.mjs",
     "verify:repo:contour": "node ./scripts/run-repo-build-test-contour.mjs"
   },
   "workspaces": ["apps/api", "apps/web", "packages/*"],

@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 describe('platform-v7 root working entry', () => {
   const page = readFileSync(join(process.cwd(), 'app/platform-v7/page.tsx'), 'utf8');
+  // Копия страницы вынесена в i18n-сообщения (next-intl); структура и CSS остаются в page.tsx.
+  const ruMessages = readFileSync(join(process.cwd(), 'messages/ru.json'), 'utf8');
 
   it('uses the public execution cockpit as the root entry surface', () => {
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
@@ -19,10 +21,10 @@ describe('platform-v7 root working entry', () => {
     expect(page).not.toContain("href: '/platform-v7/seller'");
     expect(page).not.toContain("href: '/platform-v7/buyer'");
     expect(page).not.toContain("href: '/platform-v7/bank'");
-    expect(page).not.toContain('Рабочее место выбирается внутри формы');
-    expect(page).toContain('Сначала выберите роль участника сделки');
+    expect(ruMessages).not.toContain('Рабочее место выбирается внутри формы');
+    expect(ruMessages).toContain('Сначала выберите роль участника сделки');
     expect(page).not.toContain('key={role.href}');
-    expect(page).toContain('key={role.title}');
+    expect(page).toContain('key={role.key}');
   });
 
   it('keeps mobile entry polish guarded', () => {
