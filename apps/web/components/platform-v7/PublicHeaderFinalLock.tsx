@@ -10,7 +10,7 @@ type SourceText = Text & { __pcFloatingCopy?: string; __pcExactCopy?: string };
 const LANGUAGE_KEY = 'pc-v7-language';
 const DICTIONARY_URL = '/platform-v7/i18n/dictionaries.json';
 const FLOATING_SCOPES = '[role="dialog"], .p7-support-chat-panel, .pc-v4-command-palette, .pc-v4-notification-panel, .pc-v4-popover, .pc-v4-drawer';
-const EXACT_SCOPES = '.pc-v7-public-entry, .pc-v7-login-single, .p7-contact-page';
+const EXACT_SCOPES = '.pc-v7-public-entry, .p7-contact-page';
 
 const BASE: Record<'en' | 'zh', Dict> = {
   en: {
@@ -218,7 +218,7 @@ function keyFor(attribute: 'aria-label' | 'title' | 'placeholder') {
 function applyAttributeCopy(dictionary: Record<'en' | 'zh', Dict>) {
   const selected = lang();
   document.querySelectorAll<HTMLElement>('[aria-label],[title],[placeholder]').forEach((element) => {
-    if (element.closest('script,style,noscript,svg,canvas,.p7-translator-root,[data-p7-no-translate]')) return;
+    if (element.closest('script,style,noscript,svg,canvas,.pc-v7-login-single,.p7-translator-root,[data-p7-no-translate]')) return;
     (['aria-label', 'title', 'placeholder'] as const).forEach((attribute) => {
       if (!element.hasAttribute(attribute)) return;
       const key = keyFor(attribute);
@@ -234,6 +234,7 @@ function applyAttributeCopy(dictionary: Record<'en' | 'zh', Dict>) {
 function applyOptionCopy(dictionary: Record<'en' | 'zh', Dict>) {
   const selected = lang();
   document.querySelectorAll<SourceOption>('select option').forEach((option) => {
+    if (option.closest('.pc-v7-login-single,[data-p7-no-translate]')) return;
     const source = option.__pcLockOption || option.textContent || '';
     if (!norm(source)) return;
     option.__pcLockOption = source;
@@ -243,7 +244,7 @@ function applyOptionCopy(dictionary: Record<'en' | 'zh', Dict>) {
 }
 
 function skipText(element: HTMLElement) {
-  return Boolean(element.closest('script,style,noscript,svg,canvas,textarea,input,select,option,code,pre,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]'));
+  return Boolean(element.closest('script,style,noscript,svg,canvas,textarea,input,select,option,code,pre,.pc-v7-login-single,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]'));
 }
 
 function applyExactText(dictionary: Record<'en' | 'zh', Dict>) {
