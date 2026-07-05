@@ -19,17 +19,7 @@ import { OnboardingTour } from '@/components/platform-v7/OnboardingTour';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
-const PUBLIC_EXACT_PATHS = new Set([
-  '/platform-v7',
-  '/platform-v7/open',
-  '/platform-v7/login',
-  '/platform-v7/register',
-  '/platform-v7/demo',
-  '/platform-v7/contact',
-  '/platform-v7/request',
-  '/platform-v7/docs',
-]);
-
+const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/demo', '/platform-v7/contact', '/platform-v7/request', '/platform-v7/docs']);
 const PUBLIC_PREFIXES = ['/platform-v7/demo/', '/platform-v7/contact/', '/platform-v7/request/', '/platform-v7/docs/'];
 
 const shellRestoreCss = `
@@ -44,6 +34,16 @@ const shellRestoreCss = `
     html body .pc-shell-root-v4 .pc-v4-brand>span[aria-hidden] img{display:block!important;inline-size:100%!important;block-size:100%!important;visibility:visible!important;opacity:1!important}
     html body .pc-shell-root-v4 .pc-v4-brand>span:not([aria-hidden]){display:none!important}
     html body .pc-shell-root-v4 .pc-v4-actions{grid-column:3!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;inline-size:100%!important;max-inline-size:100%!important;min-inline-size:0!important;overflow:visible!important;visibility:visible!important;opacity:1!important}
+    html body .pc-shell-root-v4 .pc-v4-actions .pc-v4-stage,
+    html body .pc-shell-root-v4 .pc-v4-actions .pc-v4-theme-toggle,
+    html body .pc-shell-root-v4 .pc-v4-actions button[aria-label='Открыть уведомления'],
+    html body .pc-shell-root-v4 .pc-v4-actions .pc-v7-notice-wrap,
+    html body .pc-shell-root-v4 .pc-v4-actions .pc-v7-logout-btn,
+    html body .pc-shell-root-v4 .pc-v4-actions .p7-note-widget,
+    html body .pc-shell-root-v4 .pc-v4-actions .p7-mobile-tools-trigger,
+    html body .pc-shell-root-v4 .pc-v4-actions .p7-role-support{display:none!important}
+    html body .pc-shell-root-v4 .pc-v4-actions .pc-v4-search{display:inline-flex!important;align-items:center!important;justify-content:center!important;inline-size:38px!important;min-inline-size:38px!important;max-inline-size:38px!important;block-size:38px!important;min-block-size:38px!important;max-block-size:38px!important;padding:0!important;border-radius:13px!important;flex:0 0 38px!important}
+    html body .pc-shell-root-v4 .pc-v4-actions .pc-v4-search strong,html body .pc-shell-root-v4 .pc-v4-actions .pc-v4-search span{display:none!important}
     html body .pc-shell-root-v4 .pc-v4-main{padding-top:calc(env(safe-area-inset-top) + 76px)!important;padding-bottom:calc(env(safe-area-inset-bottom) + 142px)!important}
     html body .pc-shell-root-v4 .pc-v7-role-dock{display:block!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;z-index:700!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}
     html body .pc-shell-root-v4 .pc-v7-role-dock button.pc-v7-role-dock-more{display:grid!important;visibility:visible!important;opacity:1!important}
@@ -92,14 +92,7 @@ export function PlatformV7ShellBoundary({ children, initialRole }: { children: R
   return (
     <ToastProvider>
       <PlatformThemeSync />
-      {publicPath ? (
-        children
-      ) : (
-        <>
-          <ShellCopyNormalizer />
-          <PlatformV7PrivateShell initialRole={initialRole}>{children}</PlatformV7PrivateShell>
-        </>
-      )}
+      {publicPath ? children : <><ShellCopyNormalizer /><PlatformV7PrivateShell initialRole={initialRole}>{children}</PlatformV7PrivateShell></>}
     </ToastProvider>
   );
 }
