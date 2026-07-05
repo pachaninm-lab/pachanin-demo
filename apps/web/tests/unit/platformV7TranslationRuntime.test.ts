@@ -83,6 +83,27 @@ describe('translateValue', () => {
     expect(translateValue('Hello world', 'en', dictionaries)).toBe('Hello world');
     expect(translateValue('12 500 ₽', 'zh', dictionaries)).toBe('12 500 ₽');
   });
+
+  it('translates data-shaped strings via structured token rules (no per-value dictionary entry)', () => {
+    // Метки графика активности: день недели + номер недели + счётчик событий.
+    expect(translateValue('Вс, Н1: 0 событий', 'en', dictionaries)).toBe('Sun, W1: 0 events');
+    expect(translateValue('Пн, Н8: 12 событий', 'zh', dictionaries)).toBe('周一, 第8: 12 事件');
+    // Единицы и даты.
+    expect(translateValue('12 мар., 09:01', 'en', dictionaries)).toBe('12 Mar, 09:01');
+    expect(translateValue('598,8 т', 'zh', dictionaries)).toBe('598,8 吨');
+  });
+
+  it('transliterates plate numbers and masked codes without touching real words', () => {
+    expect(translateValue('А234-ВС-68', 'en', dictionaries)).toBe('A234-BC-68');
+    expect(translateValue('В123КК52', 'zh', dictionaries)).toBe('B123KK52');
+    // Обычное кириллическое слово транслитерации НЕ подвергается.
+    expect(translateValue('Водитель', 'en', dictionaries)).toBe('Driver');
+  });
+
+  it('handles law and regulator abbreviations', () => {
+    expect(translateValue('152-ФЗ', 'en', dictionaries)).toBe('152-FZ');
+    expect(translateValue('ЦБ РФ', 'zh', dictionaries)).toBe('俄罗斯央行');
+  });
 });
 
 describe('applyTranslationToDom', () => {
