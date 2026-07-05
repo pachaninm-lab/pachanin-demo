@@ -6,6 +6,7 @@ import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7I
 import { PlatformV7MobileFinalGuard } from '@/components/platform-v7/PlatformV7MobileFinalGuard';
 import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLockFix';
 import { PublicBrandLogoFinal } from '@/components/platform-v7/PublicBrandLogoFinal';
+import { PublicDealPathCtaGuard } from '@/components/platform-v7/PublicDealPathCtaGuard';
 import { PublicEntryCleanup } from '@/components/platform-v7/PublicEntryCleanup';
 import { PublicHeaderFinalLock } from '@/components/platform-v7/PublicHeaderFinalLock';
 import { PublicHeroWeightPatch } from '@/components/platform-v7/PublicHeroWeightPatch';
@@ -29,6 +30,7 @@ export default function PlatformV7Template({ children }: { children: ReactNode }
       <PublicEntryCleanup />
       <PublicRegistrationEntryPatch />
       <PublicHeroWeightPatch />
+      <PublicDealPathCtaGuard />
       {children}
       <PlatformTranslator />
       <PublicMobileLandingFix />
