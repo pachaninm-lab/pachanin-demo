@@ -1,0 +1,157 @@
+/* Platform v7 unified header system. Loaded through platform-v7 global CSS. */
+
+@media (max-width: 767px) {
+  html,
+  body,
+  .pc-shell-root-v4,
+  .pc-v7-public-entry,
+  .pc-v7-login-single,
+  .p7-register-page {
+    width: 100% ! important;
+    max-width: 100% ! important;
+    overflow-x: hidden ! important;
+  }
+
+  .pc-shell-root-v4.pc-shell-root-v4 { --pc-header-offset: calc(env(safe-area-inset-top) + 64px) ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-header.pc-v4-header { display:block ! important; position:fixed ! important; inset:0 0 auto 0 ! important; z-index: 3300 ! important; min-height: calc(env(safe-area-inset-top) + 62px) ! important; max-height: calc(env(safe-area-inset-top) + 66px) ! important; overflow: visible ! important; visibility:visible ! important; opacity:1 ! important; transform:none ! important; pointer-events:auto ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-header-inner.pc-v4-header-inner { padding: calc(env(safe-area-inset-top) + 7px) 10px 7px ! important; min-height: calc(env(safe-area-inset-top) + 58px) ! important; overflow: visible ! important; visibility:visible ! important; opacity:1 ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-top.pc-v4-top { grid-template-columns: 40px 42px minmax(0,1fr) ! important; gap: 7px ! important; min-height: 42px ! important; overflow: visible ! important; visibility:visible ! important; opacity:1 ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-top.pc-v4-top > button[aria-label='Открыть меню'] { display:inline-flex ! important; visibility:visible ! important; opacity:1 ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-brand.pc-v4-brand { width: 42px ! important; min-width: 42px ! important; max-width: 42px ! important; height: 40px ! important; min-height: 40px ! important; max-height: 40px ! important; justify-content: center ! important; overflow: visible ! important; visibility:visible ! important; opacity:1 ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-brand.pc-v4-brand > span:not([aria-hidden]) { display: none ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions.pc-v4-actions { display: flex ! important; align-items: center ! important; justify-content: flex-end ! important; gap: 4px ! important; overflow: visible ! important; visibility:visible ! important; opacity:1 ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .pc-v4-stage,
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .pc-v4-theme-toggle,
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .pc-v7-notice-wrap,
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .pc-v7-logout-btn,
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .p7-note-widget,
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .p7-mobile-tools-trigger,
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .p7-role-support { display: none ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .pc-v4-search,
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .p7-calc-widget,
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .p7-calc-widget .pc-v4-iconbtn { display: inline-flex ! important; align-items: center ! important; justify-content: center ! important; width: 38px ! important; min-width: 38px ! important; max-width: 38px ! important; height: 38px ! important; min-height: 38px ! important; max-height: 38px ! important; padding: 0 ! important; border-radius: 13px ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .pc-v4-search strong,
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions .pc-v4-search span { display: none ! important; }
+
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-main.pc-v4-main {
+    width: 100% ! important;
+    max-width: 100% ! important;
+    padding-top: calc(env(safe-area-inset-top) + 76px) ! important;
+    padding-left: 10px ! important;
+    padding-right: 10px ! important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 142px) ! important;
+    overflow-x: hidden ! important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main > main,
+  .pc-shell-root-v4 .pc-v4-main section,
+  .pc-shell-root-v4 .pc-v4-main article,
+  .pc-shell-root-v4 .pc-v4-main aside,
+  .pc-shell-root-v4 .pc-v4-main form,
+  .pc-shell-root-v4 .pc-v4-main [class*='card' i],
+  .pc-shell-root-v4 .pc-v4-main [class*='panel' i],
+  .pc-shell-root-v4 .pc-v4-main [class*='hero' i],
+  .pc-shell-root-v4 .pc-v4-main [class*='grid' i],
+  .pc-shell-root-v4 .pc-v4-main [class*='row' i] {
+    width: 100% ! important;
+    max-width: 100% ! important;
+    min-width: 0 ! important;
+    overflow-x: hidden ! important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main [style*='grid-template-columns'],
+  .pc-shell-root-v4 .pc-v4-main [style*='display: grid'],
+  .pc-shell-root-v4 .pc-v4-main [style*='display:grid'],
+  .pc-shell-root-v4 .pc-v4-main [class*='grid' i],
+  .pc-shell-root-v4 .pc-v4-main [class*='kpi' i],
+  .pc-shell-root-v4 .pc-v4-main [class*='facts' i],
+  .pc-shell-root-v4 .pc-v4-main [class*='actions' i] {
+    grid-template-columns: 1fr ! important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main h1,
+  .pc-shell-root-v4 .pc-v4-main h2,
+  .pc-shell-root-v4 .pc-v4-main h3,
+  .pc-shell-root-v4 .pc-v4-main p,
+  .pc-shell-root-v4 .pc-v4-main strong,
+  .pc-shell-root-v4 .pc-v4-main span,
+  .pc-shell-root-v4 .pc-v4-main small,
+  .pc-shell-root-v4 .pc-v4-main a,
+  .pc-shell-root-v4 .pc-v4-main button {
+    max-width: 100% ! important;
+    white-space: normal ! important;
+    overflow-wrap: anywhere ! important;
+  }
+
+  .pc-shell-root-v4 .pc-v4-main h1 { font-size: clamp(34px, 10vw, 56px) ! important; line-height: 1.02 ! important; }
+  .pc-shell-root-v4 .pc-v4-main h2 { font-size: clamp(26px, 7.4vw, 40px) ! important; line-height: 1.08 ! important; }
+
+  .seller-cockpit,
+  .seller-command-card,
+  .seller-detail-hero,
+  .seller-command-facts,
+  .seller-kpis,
+  .seller-hero-actions,
+  .seller-fact-grid,
+  .seller-path-grid,
+  .seller-lot-grid,
+  .seller-command-actions {
+    display: grid ! important;
+    grid-template-columns: 1fr ! important;
+    width: 100% ! important;
+    max-width: 100% ! important;
+    min-width: 0 ! important;
+    overflow-x: hidden ! important;
+  }
+
+  .seller-command-card h1,
+  .seller-detail-hero h1 { font-size: clamp(36px, 10.5vw, 54px) ! important; line-height: 1.02 ! important; }
+  .seller-command-card button,
+  .seller-command-card a,
+  .seller-detail-hero button,
+  .seller-detail-hero a { width: 100% ! important; max-width: 100% ! important; }
+
+  .pc-v7-assistant-widget,
+  .p7-support-chat-button {
+    width: 46px ! important;
+    max-width: 46px ! important;
+    min-width: 46px ! important;
+    height: 46px ! important;
+    min-height: 46px ! important;
+    right: 12px ! important;
+    bottom: calc(env(safe-area-inset-bottom) + 108px) ! important;
+    padding: 0 ! important;
+    border-radius: 18px ! important;
+  }
+  .pc-v7-assistant-widget span,
+  .p7-support-chat-button span { display: none ! important; }
+}
+
+@media (max-width: 767px) {
+  .pc-v7-public-entry.pc-v7-public-entry .entry-header.entry-header { display: grid ! important; grid-template-columns: minmax(0,1fr) auto ! important; gap: 8px ! important; min-height: calc(env(safe-area-inset-top) + 62px) ! important; padding: calc(env(safe-area-inset-top) + 8px) 10px 8px ! important; overflow: visible ! important; }
+  .pc-v7-public-entry.pc-v7-public-entry .entry-nav.entry-nav { display: none ! important; }
+  .pc-v7-public-entry.pc-v7-public-entry .entry-brand.entry-brand { min-width: 0 ! important; gap: 9px ! important; overflow: hidden ! important; }
+  .pc-v7-public-entry.pc-v7-public-entry .entry-brand-mark.entry-brand-mark { width: 40px ! important; height: 40px ! important; flex: 0 0 40px ! important; border-radius: 14px ! important; }
+  .pc-v7-public-entry.pc-v7-public-entry .entry-brand strong { font-size: 18px ! important; white-space: nowrap ! important; overflow: hidden ! important; text-overflow: ellipsis ! important; }
+  .pc-v7-public-entry.pc-v7-public-entry .entry-brand small { display: none ! important; }
+  .pc-v7-public-entry.pc-v7-public-entry .entry-header-actions.entry-header-actions { display: inline-flex ! important; gap: 6px ! important; min-width: max-content ! important; }
+  .pc-v7-public-entry.pc-v7-public-entry .entry-login.entry-login,
+  .pc-v7-public-entry.pc-v7-public-entry .entry-header-register.entry-header-register { min-height: 40px ! important; border-radius: 14px ! important; padding: 0 10px ! important; font-size: 12.5px ! important; }
+  .pc-v7-public-entry,
+  .pc-v7-login-single,
+  .p7-register-page { padding-bottom: calc(env(safe-area-inset-bottom) + 132px) ! important; }
+}
+
+@media (max-width: 720px) {
+  .pc-v7-login-single.pc-v7-login-single .login-header.login-header,
+  .p7-register-header.p7-register-header,
+  .p7-contact-fixed-header.p7-contact-fixed-header { min-height: calc(env(safe-area-inset-top) + 60px) ! important; padding: calc(env(safe-area-inset-top) + 8px) 10px 8px ! important; }
+  .pc-v7-login-single.pc-v7-login-single .login-brand small { display: none ! important; }
+  .pc-v7-login-single.pc-v7-login-single .login-logo { width: 40px ! important; height: 40px ! important; flex: 0 0 40px ! important; }
+  .pc-v7-login-single.pc-v7-login-single .login-brand b { font-size: 19px ! important; }
+  .pc-v7-login-single.pc-v7-login-single .login-header-button { width: 42px ! important; min-width: 42px ! important; max-width: 42px ! important; height: 42px ! important; min-height: 42px ! important; max-height: 42px ! important; padding: 0 ! important; border-radius: 14px ! important; font-size:0 ! important; display:inline-flex ! important; align-items:center ! important; justify-content:center ! important; }
+  .pc-v7-login-single.pc-v7-login-single .login-header-button span { display:none ! important; }
+  .pc-v7-login-single.pc-v7-login-single .login-header-button svg { width:20px ! important; height:20px ! important; max-width:20px ! important; max-height:20px ! important; }
+  .p7-register-brand-text { font-size: 18px ! important; }
+  .p7-register-action { min-width: 42px ! important; width: 42px ! important; min-height: 42px ! important; padding: 0 ! important; font-size: 0 ! important; border-radius: 14px ! important; }
+}

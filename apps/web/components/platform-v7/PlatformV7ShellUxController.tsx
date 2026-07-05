@@ -4,7 +4,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, ClipboardList, Gavel, Home, Landmark, LogOut, Package, Route, ShieldCheck, Truck, type LucideIcon } from 'lucide-react';
+import { Bell, ClipboardList, Gavel, Home, Landmark, LogOut, MoreHorizontal, Package, Route, ShieldCheck, Truck, type LucideIcon } from 'lucide-react';
 import {
   platformV7DrawerNavByRole,
   platformV7NavByRole,
@@ -16,6 +16,7 @@ import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RS
 
 const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
+const MAX_MOBILE_DOCK_ITEMS = 5;
 
 // Role home, bottom-dock and drawer links are sourced from the canonical role
 // navigation registry (`shellRoutes`): `platformV7RoleRoute`,
@@ -135,6 +136,7 @@ export function PlatformV7ShellUxController() {
   const [mounted, setMounted] = React.useState(false);
   const [noticesOpen, setNoticesOpen] = React.useState(false);
   const [noticesSeen, setNoticesSeen] = React.useState(false);
+  const [dockMenuOpen, setDockMenuOpen] = React.useState(false);
 
   React.useEffect(() => setMounted(true), []);
 
@@ -144,12 +146,21 @@ export function PlatformV7ShellUxController() {
   const bottomNav = safeRoleNav(activeRole, platformV7NavByRole(activeRole));
   const drawerNav = safeRoleNav(activeRole, [...bottomNav, ...platformV7DrawerNavByRole(activeRole)]);
   const dockLinks = toDockLinks(activeRole, bottomNav.length ? bottomNav : [{ href: roleHome, label: 'Главная', note: 'Домашний экран роли' }]);
+  const hasDockOverflow = dockLinks.length > MAX_MOBILE_DOCK_ITEMS;
+  const primaryDockLinks = hasDockOverflow ? dockLinks.slice(0, MAX_MOBILE_DOCK_ITEMS - 1) : dockLinks;
+  const overflowDockLinks = hasDockOverflow ? dockLinks.slice(MAX_MOBILE_DOCK_ITEMS - 1) : [];
   const notices = (NOTICES_BY_ROLE[activeRole] ?? []).filter((item) => platformV7RoleCanOpenHref(activeRole, item.href));
-  const dockCount = dockLinks.length;
+  const dockCount = primaryDockLinks.length + (hasDockOverflow ? 1 : 0);
+  const overflowActive = overflowDockLinks.some((item) => activePath(pathname, item.href));
 
   React.useEffect(() => {
     setActionsNode(document.querySelector<HTMLElement>('.pc-v4-header .pc-v4-actions'));
     setDrawerNode(document.querySelector<HTMLElement>('.pc-v4-drawer'));
+  }, [pathname]);
+
+  React.useEffect(() => {
+    setDockMenuOpen(false);
+    setNoticesOpen(false);
   }, [pathname]);
 
   React.useEffect(() => {
@@ -165,8 +176,6 @@ export function PlatformV7ShellUxController() {
     router.replace('/platform-v7');
   }, [clearRoleSelection, router]);
 
-  const showMenuButton = notices.length > 0;
-  const hasExtraMenuItems = bottomNav.length > 0;
   const showShellControls = mounted && !publicPath;
 
   return (
@@ -191,6 +200,8 @@ export function PlatformV7ShellUxController() {
         .pc-v7-role-dock-item{min-width:0;min-height:54px;border-radius:16px;border:1px solid transparent;background:transparent;color:var(--pc-text-muted);display:grid;place-items:center;gap:3px;text-decoration:none;font-size:10px;font-weight:900;line-height:1.1;cursor:pointer}
         .pc-v7-role-dock-item[data-active='true']{background:var(--pc-accent-bg);border-color:var(--pc-accent-border);color:var(--pc-accent-strong)}
         .pc-v7-role-dock-item span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pc-v7-role-dock-item svg{width:19px;height:19px}
+        .pc-v7-dock-more-panel{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom) + 82px);z-index:103;max-width:720px;margin-inline:auto;display:grid;gap:6px;padding:8px;border-radius:20px;border:1px solid var(--pc-border);background:color-mix(in srgb,var(--pc-bg-card) 98%,transparent);box-shadow:0 -16px 36px rgba(3,8,7,.16);backdrop-filter:blur(18px)}
+        .pc-v7-dock-more-link{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:42px;padding:0 12px;border-radius:14px;border:1px solid var(--pc-border);background:var(--pc-bg-elevated);color:var(--pc-text-primary);text-decoration:none;font-size:12px;font-weight:900}.pc-v7-dock-more-link[data-active='true']{background:var(--pc-accent-bg);border-color:var(--pc-accent-border);color:var(--pc-accent-strong)}
         .pc-v7-logout-btn{color:#9f1d1d!important;border-color:rgba(159,29,29,.22)!important;background:rgba(159,29,29,.06)!important}.pc-v7-logout-btn:hover{color:#7f1d1d!important;border-color:rgba(159,29,29,.34)!important}
         .pc-v7-notice-wrap{position:relative}.pc-v7-notice-dot{position:absolute;right:7px;top:7px;width:8px;height:8px;border-radius:999px;background:#FF8B90;border:2px solid var(--pc-bg-card)}
         .pc-v7-notice-panel{position:absolute;right:0;top:50px;width:340px;max-width:calc(100vw - 32px);max-height:70vh;overflow:auto;border-radius:18px;border:1px solid var(--pc-border);background:var(--pc-bg-card);box-shadow:var(--pc-shadow-lg);padding:12px;display:grid;gap:10px}
@@ -229,12 +240,19 @@ export function PlatformV7ShellUxController() {
 
       {showShellControls ? (
         <nav className="pc-v7-role-dock" aria-label="Быстрые действия кабинета">
+          {dockMenuOpen && overflowDockLinks.length ? <div className="pc-v7-dock-more-panel" role="menu" aria-label="Дополнительные действия кабинета">
+            {overflowDockLinks.map((item) => {
+              const active = activePath(pathname, item.href);
+              return <Link key={`more:${item.id}`} href={item.href} className="pc-v7-dock-more-link" data-active={active ? 'true' : 'false'} onClick={() => setDockMenuOpen(false)} role="menuitem"><span>{item.label}</span></Link>;
+            })}
+          </div> : null}
           <div className="pc-v7-role-dock-inner" style={{ '--pc-v7-dock-count': String(Math.max(dockCount, 1)) } as React.CSSProperties}>
-            {dockLinks.map((item) => {
+            {primaryDockLinks.map((item) => {
               const Icon = item.icon;
               const active = activePath(pathname, item.href);
               return <Link key={item.id} href={item.href} className="pc-v7-role-dock-item" data-active={active ? 'true' : 'false'}><Icon /><span>{item.label}</span></Link>;
             })}
+            {hasDockOverflow ? <button type="button" className="pc-v7-role-dock-item pc-v7-role-dock-more" data-active={overflowActive || dockMenuOpen ? 'true' : 'false'} onClick={() => setDockMenuOpen((value) => !value)} aria-expanded={dockMenuOpen} aria-label="Ещё действия кабинета"><MoreHorizontal /><span>Ещё</span></button> : null}
           </div>
         </nav>
       ) : null}
