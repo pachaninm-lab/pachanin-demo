@@ -12,6 +12,7 @@ import { PublicHeroCopyNormalizer } from '@/components/platform-v7/PublicHeroCop
 import { PublicHeroWeightPatch } from '@/components/platform-v7/PublicHeroWeightPatch';
 import { PublicMobileLandingFix } from '@/components/platform-v7/PublicMobileLandingFix';
 import { PublicRegistrationEntryPatch } from '@/components/platform-v7/PublicRegistrationEntryPatch';
+import { V7ExactTextPatch } from '@/components/platform-v7/V7ExactTextPatch';
 import { ViewportStabilityGuard } from '@/components/platform-v7/ViewportStabilityGuard';
 import '@/styles/platform-v7-public-entry-stable.css';
 import '@/styles/platform-v7-role-cards-stable.css';
@@ -30,6 +31,7 @@ export default function PlatformV7Template({ children }: { children: ReactNode }
       <PublicRegistrationEntryPatch />
       <PublicHeroCopyNormalizer />
       <PublicHeroWeightPatch />
+      <V7ExactTextPatch />
       {children}
       <PlatformTranslator />
       <PublicMobileLandingFix />
