@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { PlatformV7ShellBoundary } from '@/components/platform-v7/PlatformV7ShellBoundary';
+import { PlatformV7RouteAwareShellBoundary } from '@/components/platform-v7/PlatformV7RouteAwareShellBoundary';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
@@ -28,5 +28,5 @@ export const metadata: Metadata = { title: 'Platform v7', robots: { index: false
 
 export default function PlatformV7Layout({ children }: { children: ReactNode }) {
   const initialRole: PlatformRole = 'operator';
-  return <PlatformV7ShellBoundary initialRole={initialRole}>{children}</PlatformV7ShellBoundary>;
+  return <PlatformV7RouteAwareShellBoundary initialRole={initialRole}>{children}</PlatformV7RouteAwareShellBoundary>;
 }
