@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://xn----8sbjf4befbjgs9b.xn--p1ai'),
 };
 
-const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register']);
+const PUBLIC_EXACT_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/demo', '/platform-v7/contact', '/platform-v7/request', '/platform-v7/docs']);
 function isPublicPath(pathname: string | null): boolean { return Boolean(pathname && PUBLIC_EXACT_PATHS.has(pathname)); }
 const VALID_ROLES = new Set<PlatformRole>(['operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive']);
 
