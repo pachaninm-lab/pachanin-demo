@@ -13,6 +13,7 @@ import { PublicHeroWeightPatch } from '@/components/platform-v7/PublicHeroWeight
 import { PublicMobileLandingFix } from '@/components/platform-v7/PublicMobileLandingFix';
 import { PublicRegistrationEntryPatch } from '@/components/platform-v7/PublicRegistrationEntryPatch';
 import { V7ContactExactPatch } from '@/components/platform-v7/V7ContactExactPatch';
+import { V7DemoExactPatch } from '@/components/platform-v7/V7DemoExactPatch';
 import { V7ExactTextPatch } from '@/components/platform-v7/V7ExactTextPatch';
 import { V7RegisterExactPatch } from '@/components/platform-v7/V7RegisterExactPatch';
 import { ViewportStabilityGuard } from '@/components/platform-v7/ViewportStabilityGuard';
@@ -36,6 +37,7 @@ export default function PlatformV7Template({ children }: { children: ReactNode }
       <V7ExactTextPatch />
       <V7ContactExactPatch />
       <V7RegisterExactPatch />
+      <V7DemoExactPatch />
       {children}
       <PlatformTranslator />
       <PublicMobileLandingFix />
