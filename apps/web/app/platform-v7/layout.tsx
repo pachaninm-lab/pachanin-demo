@@ -24,7 +24,11 @@ import '@/styles/platform-v7-register-header-override.css';
 import '@/styles/platform-v7-mobile-screenshot-fixes.css';
 import '@/styles/platform-v7-public-header-hydration-guard.css';
 
-export const metadata: Metadata = { title: 'Platform v7', robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
+  description: 'Контур исполнения зерновой сделки: логистика, приемка, документы, деньги и доказательства.',
+  robots: { index: false, follow: false },
+};
 
 export default function PlatformV7Layout({ children }: { children: ReactNode }) {
   const initialRole: PlatformRole = 'operator';
