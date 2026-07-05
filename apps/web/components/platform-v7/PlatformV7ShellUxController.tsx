@@ -187,10 +187,17 @@ export function PlatformV7ShellUxController() {
         .pc-v7-safe-drawer-link[data-active='true']{background:var(--pc-accent-bg);border-color:var(--pc-accent-border);color:var(--pc-accent-strong)}
         .pc-v7-safe-drawer-link strong{font-size:13px;font-weight:950}.pc-v7-safe-drawer-link span{font-size:11px;color:var(--pc-text-muted);line-height:1.35}
         .pc-v7-role-dock{position:fixed;left:0;right:0;bottom:0;z-index:101;padding:8px 8px calc(env(safe-area-inset-bottom) + 8px);background:color-mix(in srgb,var(--pc-bg-header) 96%,transparent);border-top:1px solid var(--pc-border);backdrop-filter:blur(18px);box-shadow:0 -12px 30px rgba(3,8,7,.10)}
-        .pc-v7-role-dock-inner{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(var(--pc-v7-dock-count),minmax(0,1fr));gap:5px}
-        .pc-v7-role-dock-item{min-width:0;min-height:54px;border-radius:16px;border:1px solid transparent;background:transparent;color:var(--pc-text-muted);display:grid;place-items:center;gap:3px;text-decoration:none;font-size:10px;font-weight:900;line-height:1.1;cursor:pointer}
+        /* Роль-док: до 9 разделов не помещаются равными колонками на телефоне —
+           каждая подпись ужималась и рвалась по слогам. Остаётся гридом (это
+           закладывают mobile-патчи), но одной строкой с горизонтальной
+           прокруткой: помещается — распределяется по ширине, не помещается —
+           листается, у каждого раздела читаемая ширина (мин. 60px). */
+        .pc-v7-role-dock-inner{max-width:720px;margin:0 auto;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(60px,1fr);gap:5px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;scrollbar-width:none}
+        .pc-v7-role-dock-inner::-webkit-scrollbar{display:none}
+        .pc-v7-role-dock-item{min-width:0;min-height:54px;padding:0 4px;border-radius:16px;border:1px solid transparent;background:transparent;color:var(--pc-text-muted);display:grid;place-items:center;gap:3px;text-decoration:none;font-size:10px;font-weight:900;line-height:1.1;cursor:pointer;scroll-snap-align:center}
         .pc-v7-role-dock-item[data-active='true']{background:var(--pc-accent-bg);border-color:var(--pc-accent-border);color:var(--pc-accent-strong)}
-        .pc-v7-role-dock-item span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pc-v7-role-dock-item svg{width:19px;height:19px}
+        .pc-v7-role-dock-item span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap!important;word-break:keep-all!important;overflow-wrap:normal!important}.pc-v7-role-dock-item svg{width:19px;height:19px;flex:0 0 auto}
+        .pc-v7-role-dock{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%)}
         .pc-v7-logout-btn{color:#9f1d1d!important;border-color:rgba(159,29,29,.22)!important;background:rgba(159,29,29,.06)!important}.pc-v7-logout-btn:hover{color:#7f1d1d!important;border-color:rgba(159,29,29,.34)!important}
         .pc-v7-notice-wrap{position:relative}.pc-v7-notice-dot{position:absolute;right:7px;top:7px;width:8px;height:8px;border-radius:999px;background:#FF8B90;border:2px solid var(--pc-bg-card)}
         .pc-v7-notice-panel{position:absolute;right:0;top:50px;width:340px;max-width:calc(100vw - 32px);max-height:70vh;overflow:auto;border-radius:18px;border:1px solid var(--pc-border);background:var(--pc-bg-card);box-shadow:var(--pc-shadow-lg);padding:12px;display:grid;gap:10px}

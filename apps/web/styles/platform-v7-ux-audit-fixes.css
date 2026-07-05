@@ -1,0 +1,67 @@
+/*
+ * platform-v7-ux-audit-fixes.css
+ *
+ * Точечные правки после UX/дизайн-аудита. Загружается последним в
+ * platform-v7/layout, чтобы выигрывать по специфичности без правки
+ * запутанного слоя существующих mobile-патчей.
+ *
+ * 1. Обрезка первой буквы заголовков и подписей в кокпитах.
+ * 2. Нижняя навигация: перенос слов по слогам при 6+ вкладках.
+ */
+
+/* ---------------------------------------------------------------------------
+ * 1. Клип левого выноса первой буквы.
+ *
+ * Текстовые элементы кокпита имеют overflow-x:hidden, а глобальный
+ * letter-spacing<0 сдвигает первую глифу влево за границу бокса — её левый
+ * край срезается (Главный→Ѓлавный, Короткий→Ороткий, Назначить→Чазначить).
+ * Приём «padding-inline-start + равный отрицательный margin» добавляет 2px
+ * буфера слева, НЕ смещая текст: позиция и раскладка не меняются.
+ * ------------------------------------------------------------------------- */
+html body .pc-shell-root-v4 .pc-v4-main :is(h1, h2, h3, h4, h5, h6, p, li, label, dt, dd, figcaption) {
+  padding-inline-start: 2px;
+  margin-inline-start: -2px;
+}
+/* overflow НЕ трогаем: 2px паддинга сдвигают контент-бокс внутрь бокса
+ * отсечения, поэтому левый вынос первой глифы помещается и не срезается даже
+ * при overflow:hidden — многоточие/усечение в других местах не ломается. */
+
+/* ---------------------------------------------------------------------------
+ * 2. KPI-плитки на телефоне.
+ *
+ * Патч mobile-reflow (селектор `.pc-v4-main .pc-prem-kpis`, специфичнее моего)
+ * ужимал сетку KPI до одной колонки: карточки растягивались на всю ширину с
+ * большим пустым полем справа. Компактные плитки 2-в-ряд (паттерн дашбордов
+ * iOS/Stripe) читаются так же и используют место плотнее. Здесь селектор
+ * специфичнее reflow-правила (те же 3 класса + 2 типа), чтобы выиграть.
+ * ------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  html body .pc-shell-root-v4 .pc-v4-main .pc-prem-kpis,
+  html body .pc-shell-root-v4 .pc-v4-main [aria-label*='Ключевые показатели'],
+  html body .pc-shell-root-v4 .pc-v4-main [aria-label*='показатели'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  /* Внутренняя раскладка плитки: компактный столбец «иконка → число →
+   * подпись» с выравниванием влево. Без этого число «плавало» по центру с
+   * большими пустотами. */
+  html body .pc-shell-root-v4 .pc-v4-main .pc-prem-kpi {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    justify-items: start !important;
+    align-content: start !important;
+    gap: 7px !important;
+    min-height: 0 !important;
+    text-align: start !important;
+  }
+  html body .pc-shell-root-v4 .pc-v4-main .pc-prem-kpi__value {
+    justify-self: start !important;
+    text-align: start !important;
+    font-size: 22px !important;
+  }
+  html body .pc-shell-root-v4 .pc-v4-main .pc-prem-kpi__label {
+    justify-self: start !important;
+    text-align: start !important;
+  }
+}
