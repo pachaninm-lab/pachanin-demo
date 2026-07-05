@@ -2,7 +2,6 @@ import './globals.css';
 import '@/styles/platform-v7-dark-role-fixes.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
-import Script from 'next/script';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
@@ -77,9 +76,6 @@ export const viewport: Viewport = {
   themeColor: '#0E6E60',
 };
 
-const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
-
-// S-3: Blocking theme script — runs synchronously before CSS paints
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
 const HTML_LANG: Record<string, string> = { ru: 'ru', en: 'en', zh: 'zh-CN' };
@@ -91,35 +87,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang={HTML_LANG[locale] ?? 'ru'} className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
       {/* eslint-disable-next-line @next/next/no-head-element */}
       <head>
-        {/* Must be first in <head> to run before CSS is applied */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        {/* D-20: preconnect to Google Fonts for faster font load */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
         </NextIntlClientProvider>
         <FeatureFlagsDevPanel />
-        {YM_ID ? (
-          <>
-            <Script id="yandex-metrika" strategy="afterInteractive">{`
-              (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-              m[i].l=1*new Date();
-              for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
-              k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
-              (window,document,'script','https://mc.yandex.ru/metrika/tag.js','ym');
-              ym(${YM_ID},'init',{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});
-            `}</Script>
-            <noscript>
-              <div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`https://mc.yandex.ru/watch/${YM_ID}`} style={{ position: 'absolute', left: -9999 }} alt="" />
-              </div>
-            </noscript>
-          </>
-        ) : null}
       </body>
     </html>
   );
