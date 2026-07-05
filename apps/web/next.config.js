@@ -28,6 +28,14 @@ const securityHeaders = [
   },
 ];
 
+const noStoreHeaders = [
+  { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0' },
+  { key: 'CDN-Cache-Control', value: 'no-store' },
+  { key: 'Netlify-CDN-Cache-Control', value: 'no-store' },
+  { key: 'Pragma', value: 'no-cache' },
+  { key: 'Expires', value: '0' },
+];
+
 const nextConfig = {
   reactStrictMode: true,
   typescript: {
@@ -44,6 +52,18 @@ const nextConfig = {
       {
         source: '/(.*)',
         headers: securityHeaders,
+      },
+      {
+        source: '/',
+        headers: noStoreHeaders,
+      },
+      {
+        source: '/platform-v7/:path*',
+        headers: noStoreHeaders,
+      },
+      {
+        source: '/sw.js',
+        headers: noStoreHeaders,
       },
     ];
   },
