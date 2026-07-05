@@ -8,7 +8,6 @@ import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLo
 import { PublicBrandLogoFinal } from '@/components/platform-v7/PublicBrandLogoFinal';
 import { PublicEntryCleanup } from '@/components/platform-v7/PublicEntryCleanup';
 import { PublicHeaderFinalLock } from '@/components/platform-v7/PublicHeaderFinalLock';
-import { PublicHeroCopyNormalizer } from '@/components/platform-v7/PublicHeroCopyNormalizer';
 import { PublicHeroWeightPatch } from '@/components/platform-v7/PublicHeroWeightPatch';
 import { PublicMobileLandingFix } from '@/components/platform-v7/PublicMobileLandingFix';
 import { PublicRegistrationEntryPatch } from '@/components/platform-v7/PublicRegistrationEntryPatch';
@@ -28,7 +27,6 @@ export default function PlatformV7Template({ children }: { children: ReactNode }
       <ViewportStabilityGuard />
       <PublicEntryCleanup />
       <PublicRegistrationEntryPatch />
-      <PublicHeroCopyNormalizer />
       <PublicHeroWeightPatch />
       {children}
       <PlatformTranslator />
