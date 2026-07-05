@@ -16,7 +16,7 @@ const PLATFORM_V7_PENDING_ROLE_KEY = 'pc_v7_pending_role';
 const LANGUAGE_KEY = 'pc-v7-language';
 
 const workspaces: Workspace[] = [
-  { role: 'operator', Icon: BriefcaseBusiness, ru: 'Оператор', en: 'Operator', zh: '运营方', ruSub: 'Контроль сделок', enSub: 'Deal control', zhSub: '交易控制' },
+  { role: 'operator', Icon: BriefcaseBusiness, ru: 'Оператор', en: 'Operator', zh: 'Оператор', ruSub: 'Контроль сделок', enSub: 'Deal control', zhSub: '交易控制' },
   { role: 'buyer', Icon: UserRound, ru: 'Покупатель', en: 'Buyer', zh: '买方', ruSub: 'Поставка и оплата', enSub: 'Delivery and payment', zhSub: '交付与付款' },
   { role: 'seller', Icon: Wheat, ru: 'Продавец', en: 'Seller', zh: '卖方', ruSub: 'Партии и расчёт', enSub: 'Lots and settlement', zhSub: '批次与结算' },
   { role: 'logistics', Icon: Truck, ru: 'Логистика', en: 'Logistics', zh: '物流', ruSub: 'Рейсы и маршрут', enSub: 'Trips and routes', zhSub: '运输与路线' },
@@ -31,15 +31,9 @@ const workspaces: Workspace[] = [
 ];
 
 const copy = {
-  ru: {
-    brand: 'Прозрачная Цена', subbrand: 'Единый вход в контур сделки', workplace: 'Рабочее место', login: 'Логин', loginPh: 'Введите логин', password: 'Пароль / код доступа', passwordPh: 'Введите пароль или код', forgot: 'Забыли пароль?', company: 'Организация', optional: 'необязательно', companyPh: 'Компания / ИНН', submit: 'Войти как', register: 'Зарегистрироваться', choose: 'Выберите рабочее место.', fill: 'Заполните логин и пароль / код доступа.', back: 'Назад', signAs: 'Войти как',
-  },
-  en: {
-    brand: 'Transparent Price', subbrand: 'Single entry to the deal circuit', workplace: 'Workspace', login: 'Login', loginPh: 'Enter login', password: 'Password / access code', passwordPh: 'Enter password or code', forgot: 'Forgot password?', company: 'Organisation', optional: 'optional', companyPh: 'Company / TIN', submit: 'Sign in as', register: 'Register', choose: 'Select a workspace.', fill: 'Enter login and password / access code.', back: 'Back', signAs: 'Sign in as',
-  },
-  zh: {
-    brand: '透明价格', subbrand: '进入交易闭环的统一入口', workplace: '工作区', login: '登录名', loginPh: '输入登录名', password: '密码 / 访问码', passwordPh: '输入密码或访问码', forgot: '忘记密码？', company: '组织', optional: '可选', companyPh: '公司 / 税号', submit: '以此身份登录：', register: '注册', choose: '请选择工作区。', fill: '请输入登录名和密码 / 访问码。', back: '返回', signAs: '以此身份登录：',
-  },
+  ru: { brand: 'Прозрачная Цена', subbrand: 'Единый вход в контур сделки', workplace: 'Рабочее место', login: 'Логин', loginPh: 'Введите логин', password: 'Пароль / код доступа', passwordPh: 'Введите пароль или код', forgot: 'Забыли пароль?', company: 'Организация', optional: 'необязательно', companyPh: 'Компания / ИНН', submit: 'Войти как', register: 'Зарегистрироваться', choose: 'Выберите рабочее место.', fill: 'Заполните логин и пароль / код доступа.', back: 'Назад' },
+  en: { brand: 'Transparent Price', subbrand: 'Single entry to the deal circuit', workplace: 'Workspace', login: 'Login', loginPh: 'Enter login', password: 'Password / access code', passwordPh: 'Enter password or code', forgot: 'Forgot password?', company: 'Organisation', optional: 'optional', companyPh: 'Company / TIN', submit: 'Sign in as', register: 'Register', choose: 'Select a workspace.', fill: 'Enter login and password / access code.', back: 'Back' },
+  zh: { brand: '透明价格', subbrand: '进入交易闭环的统一入口', workplace: '工作区', login: '登录名', loginPh: '输入登录名', password: '密码 / 访问码', passwordPh: '输入密码或访问码', forgot: '忘记密码？', company: '组织', optional: '可选', companyPh: '公司 / 税号', submit: '以此身份登录：', register: '注册', choose: '请选择工作区。', fill: '请输入登录名和密码 / 访问码。', back: '返回' },
 } as const;
 
 function markEntrySeen() {
@@ -48,17 +42,10 @@ function markEntrySeen() {
   document.cookie = `${PLATFORM_V7_ENTRY_COOKIE}=true; Path=/; Max-Age=${PLATFORM_V7_ENTRY_TTL_SECONDS}; SameSite=Lax${secure}`;
 }
 
-function roleName(role: Workspace, lang: Lang) {
-  return lang === 'en' ? role.en : lang === 'zh' ? role.zh : role.ru;
-}
-
-function roleSub(role: Workspace, lang: Lang) {
-  return lang === 'en' ? role.enSub : lang === 'zh' ? role.zhSub : role.ruSub;
-}
-
-function isPlatformRole(value: string | null): value is PlatformRole {
-  return workspaces.some((item) => item.role === value);
-}
+function roleName(role: Workspace, lang: Lang) { return lang === 'en' ? role.en : lang === 'zh' ? role.zh : role.ru; }
+function roleSub(role: Workspace, lang: Lang) { return lang === 'en' ? role.enSub : lang === 'zh' ? role.zhSub : role.ruSub; }
+function isPlatformRole(value: string | null): value is PlatformRole { return workspaces.some((item) => item.role === value); }
+function readLanguage(): Lang { const value = typeof window === 'undefined' ? null : window.localStorage.getItem(LANGUAGE_KEY); return value === 'en' || value === 'zh' ? value : 'ru'; }
 
 function readRoleFromPublicEntry(): PlatformRole | null {
   if (typeof window === 'undefined') return null;
@@ -66,12 +53,6 @@ function readRoleFromPublicEntry(): PlatformRole | null {
   if (isPlatformRole(requestedRole)) return requestedRole;
   const storedRole = window.sessionStorage?.getItem(PLATFORM_V7_PENDING_ROLE_KEY) ?? null;
   return isPlatformRole(storedRole) ? storedRole : null;
-}
-
-function readLanguage(): Lang {
-  if (typeof window === 'undefined') return 'ru';
-  const value = window.localStorage.getItem(LANGUAGE_KEY);
-  return value === 'en' || value === 'zh' ? value : 'ru';
 }
 
 export default function LoginPage() {
@@ -88,12 +69,9 @@ export default function LoginPage() {
   React.useEffect(() => {
     const update = () => setLang(readLanguage());
     update();
-    const interval = window.setInterval(update, 500);
+    const interval = window.setInterval(update, 400);
     window.addEventListener('storage', update);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('storage', update);
-    };
+    return () => { window.clearInterval(interval); window.removeEventListener('storage', update); };
   }, []);
 
   React.useEffect(() => {
@@ -110,12 +88,7 @@ export default function LoginPage() {
     markEntrySeen();
     setRole(nextRole);
     try {
-      await fetch('/api/platform-v7/cabinet-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: nextRole, company: company.trim() || null }),
-        keepalive: true,
-      });
+      await fetch('/api/platform-v7/cabinet-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: nextRole, company: company.trim() || null }), keepalive: true });
     } catch {}
     router.replace(platformV7RoleHome(nextRole));
   }
@@ -123,14 +96,8 @@ export default function LoginPage() {
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextRole = entryRole ?? directRole;
-    if (!nextRole) {
-      setError(copy[lang].choose);
-      return;
-    }
-    if (!login.trim() || !accessCode.trim()) {
-      setError(copy[lang].fill);
-      return;
-    }
+    if (!nextRole) return setError(copy[lang].choose);
+    if (!login.trim() || !accessCode.trim()) return setError(copy[lang].fill);
     setError('');
     void openWorkspace(nextRole);
   }
@@ -141,14 +108,14 @@ export default function LoginPage() {
   const registerHref = selectedRole ? `/platform-v7/register?role=${selectedRole}` : '/platform-v7/register';
 
   return (
-    <main className='pc-v7-login-single' data-login-lang={lang}>
+    <main className='pc-v7-login-single' data-login-lang={lang} data-p7-no-translate='true'>
       <style>{css}</style>
       <header className='login-header'>
         <Link className='login-brand' href='/platform-v7'>
-          <span className='login-logo' aria-hidden='true'>▰</span>
+          <span className='login-logo' aria-hidden='true'><Wheat size={25} strokeWidth={2.35} /></span>
           <span><b>{t.brand}</b><small>{t.subbrand}</small></span>
         </Link>
-        <Link className='login-back' href='/platform-v7' aria-label={t.back}><ArrowLeft size={25} /></Link>
+        <Link className='login-back' href='/platform-v7' aria-label={t.back}><ArrowLeft size={23} /></Link>
       </header>
 
       <section className='login-card'>
@@ -186,5 +153,5 @@ export default function LoginPage() {
 }
 
 const css = `
-.pc-v7-login-single{min-height:100vh;padding:clamp(18px,3vw,44px);background:radial-gradient(circle at 84% 5%,rgba(0,122,47,.13),transparent 30%),linear-gradient(180deg,#f8fbf7 0%,#eef6ed 58%,#fff 100%);color:#071611;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.pc-v7-login-single *{box-sizing:border-box}.login-header{max-width:980px;margin:0 auto 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;background:rgba(255,255,255,.92);border:1px solid rgba(7,22,17,.08);box-shadow:0 18px 46px rgba(7,22,17,.07)}.login-brand{display:flex;align-items:center;gap:14px;color:#071611;text-decoration:none;min-width:0}.login-logo{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:#0a3024;color:#cfe8d8;font-weight:950;box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)}.login-brand b{display:block;font-size:24px;line-height:1;font-weight:950;letter-spacing:-.055em}.login-brand small{display:block;margin-top:5px;color:#5b6963;font-size:14px;font-weight:850}.login-back{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;background:#fff;color:#071611;border:1px solid rgba(7,22,17,.1);box-shadow:0 10px 26px rgba(7,22,17,.06)}.login-card{max-width:980px;margin:0 auto;border-radius:34px;background:rgba(255,255,255,.9);border:1px solid rgba(7,22,17,.08);box-shadow:0 24px 70px rgba(7,22,17,.09);padding:clamp(20px,4vw,42px)}.login-work-title{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:24px}.login-work-title h1{margin:0;color:#26342e;font-size:clamp(24px,4vw,34px);font-weight:950;letter-spacing:-.05em}.login-work-title span{padding:12px 20px;border-radius:999px;background:rgba(0,122,47,.08);color:#004d2c;font-size:22px;font-weight:950}.login-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:24px}.login-grid button{min-width:0;min-height:142px;border-radius:26px;border:1px solid rgba(0,122,47,.18);background:linear-gradient(180deg,#fff,#f7fbf8);display:grid;place-items:center;text-align:center;align-content:center;gap:8px;color:#071611;box-shadow:0 10px 28px rgba(7,22,17,.045);cursor:pointer}.login-grid button svg{color:#007a2f}.login-grid button b{font-size:28px;line-height:1;font-weight:950;letter-spacing:-.055em}.login-grid button small{max-width:94%;color:#66736e;font-size:18px;line-height:1.08;font-weight:900}.login-grid button.active{background:#004d2c;color:#fff;border-color:#004d2c;box-shadow:0 18px 38px rgba(0,77,44,.22)}.login-grid button.active svg,.login-grid button.active small{color:#fff}.login-form{display:grid;gap:18px}.login-form label{display:grid;gap:8px}.login-form label span{color:#35453f;font-size:23px;line-height:1.1;font-weight:950}.login-form label em{font-style:normal;color:#79857f;font-size:16px;font-weight:850}.login-form input{width:100%;height:74px;border-radius:24px;border:1px solid rgba(7,22,17,.13);background:#fff;color:#071611;padding:0 28px;font-size:24px;font-weight:850;outline:none;box-shadow:0 8px 18px rgba(7,22,17,.035)}.login-form input::placeholder{color:#c1c8c4}.login-form input:focus{border-color:#007a2f;box-shadow:0 0 0 4px rgba(0,122,47,.11);background:#fff}.forgot-link{justify-self:end;display:inline-flex;align-items:center;gap:8px;color:#007a2f;text-decoration:none;font-size:22px;font-weight:950}.login-error{margin:0;padding:13px 16px;border-radius:18px;background:#fff4e8;color:#8a3d00;font-size:16px;line-height:1.35;font-weight:900}.submit-button,.register-button{height:78px;border-radius:24px;font-size:24px;font-weight:950;display:flex;align-items:center;justify-content:center;text-decoration:none}.submit-button{border:0;background:#007a2f;color:#fff;box-shadow:0 18px 38px rgba(0,122,47,.24);cursor:pointer}.register-button{background:#f3faf5;color:#071611;border:1px solid rgba(0,122,47,.14)}@media(max-width:620px){.pc-v7-login-single{padding:14px}.login-header{padding:14px 16px;margin-bottom:14px}.login-logo{width:44px;height:44px}.login-brand b{font-size:23px}.login-brand small{font-size:13px}.login-back{width:52px;height:52px}.login-card{border-radius:30px;padding:22px}.login-work-title{margin-bottom:18px}.login-work-title span{font-size:20px;padding:10px 18px}.login-grid{gap:12px}.login-grid button{min-height:124px;border-radius:22px}.login-grid button b{font-size:25px}.login-grid button small{font-size:17px}.login-form label span{font-size:22px}.login-form input{height:70px;border-radius:22px;font-size:22px;padding:0 22px}.submit-button,.register-button{height:72px;border-radius:22px;font-size:22px}}@media(max-width:380px){.login-grid button b{font-size:22px}.login-grid button small{font-size:15px}.login-form input{font-size:20px}.submit-button,.register-button{font-size:20px}}
+.pc-v7-login-single{min-height:100vh;padding:clamp(16px,3vw,44px);background:radial-gradient(circle at 84% 5%,rgba(0,122,47,.13),transparent 30%),linear-gradient(180deg,#f8fbf7 0%,#eef6ed 58%,#fff 100%);color:#071611;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.pc-v7-login-single *{box-sizing:border-box}.login-header{max-width:980px;margin:0 auto 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:rgba(255,255,255,.92);border:1px solid rgba(7,22,17,.08);box-shadow:0 18px 46px rgba(7,22,17,.07)}.login-brand{display:flex;align-items:center;gap:14px;color:#071611;text-decoration:none;min-width:0}.login-logo{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:rgba(0,122,47,.09);color:#087a3b}.login-brand b{display:block;font-size:23px;line-height:1;font-weight:950;letter-spacing:-.045em}.login-brand small{display:block;margin-top:5px;color:#5b6963;font-size:13.5px;font-weight:850}.login-back{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:#fff;color:#071611;border:1px solid rgba(7,22,17,.1);box-shadow:0 10px 26px rgba(7,22,17,.06)}.login-card{max-width:980px;margin:0 auto;padding:28px;border-radius:34px;background:rgba(255,255,255,.9);border:1px solid rgba(7,22,17,.08);box-shadow:0 24px 70px rgba(7,22,17,.11)}.login-work-title{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:18px}.login-work-title h1{margin:0;font-size:clamp(38px,6vw,72px);line-height:.95;letter-spacing:-.065em;font-weight:950}.login-work-title span{color:#087a3b;font-weight:950}.login-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px}.login-grid button{min-height:132px;border-radius:24px;border:1px solid rgba(0,122,47,.16);background:rgba(255,255,255,.88);color:#087a3b;display:grid;place-items:center;gap:6px;padding:16px;cursor:pointer}.login-grid button.active{background:rgba(0,122,47,.08);border-color:rgba(0,122,47,.36);box-shadow:0 12px 34px rgba(0,122,47,.12)}.login-grid b{color:#071611;font-size:23px;line-height:1.1;font-weight:950}.login-grid small{color:#5f6d67;font-size:14px;font-weight:850}.login-form{display:grid;gap:12px}.login-form label{display:grid;gap:7px}.login-form label span{font-size:13px;font-weight:900;color:#24322d}.login-form label em{font-style:normal;color:#7a8781;font-weight:750}.login-form input{height:52px;border-radius:17px;border:1px solid rgba(7,22,17,.1);background:#fff;padding:0 15px;font-size:15px;color:#071611}.forgot-link{width:max-content;display:inline-flex;align-items:center;gap:8px;color:#087a3b;text-decoration:none;font-weight:900}.submit-button,.register-button{min-height:54px;border-radius:18px;border:0;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:15px;font-weight:950}.submit-button{background:#087a3b;color:#fff}.register-button{background:rgba(0,122,47,.08);color:#087a3b}.login-error{margin:0;padding:12px 14px;border-radius:15px;background:rgba(156,47,47,.08);color:#8a1f1f;font-weight:850}.pc-v7-login-single[data-login-lang='zh']{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Noto Sans SC','Microsoft YaHei','Segoe UI',sans-serif}.pc-v7-login-single[data-login-lang='zh'] *{letter-spacing:0!important;word-break:keep-all;overflow-wrap:anywhere}.pc-v7-login-single[data-login-lang='zh'] .login-work-title h1{font-size:clamp(36px,9vw,56px);line-height:1.05}.pc-v7-login-single[data-login-lang='zh'] .login-brand b{font-size:24px}.pc-v7-login-single[data-login-lang='zh'] .login-brand small{font-size:14px}.pc-v7-login-single[data-login-lang='zh'] .login-grid b{font-size:22px}.pc-v7-login-single[data-login-lang='zh'] .login-grid small{font-size:14px}@media(max-width:720px){.pc-v7-login-single{padding:14px}.login-header{padding:13px 14px}.login-logo{width:42px;height:42px}.login-brand b{font-size:20px}.login-brand small{font-size:12px}.login-back{width:48px;height:48px;border-radius:16px}.login-card{padding:20px;border-radius:28px}.login-work-title{display:grid;align-items:start}.login-work-title h1{font-size:42px;line-height:1}.login-grid{grid-template-columns:1fr;gap:10px}.login-grid button{min-height:104px;border-radius:22px}.login-grid b{font-size:22px}.pc-v7-login-single[data-login-lang='zh'] .login-work-title h1{font-size:38px}.pc-v7-login-single[data-login-lang='zh'] .login-grid button{min-height:108px}.pc-v7-login-single[data-login-lang='zh'] .login-grid b{font-size:24px}}
 `;
