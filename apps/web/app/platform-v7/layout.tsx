@@ -13,7 +13,6 @@ import { CalculatorHeaderWidget } from '@/components/platform-v7/CalculatorHeade
 import { MobileHeaderActionRail } from '@/components/platform-v7/MobileHeaderActionRail';
 import { NotepadHeaderWidget } from '@/components/platform-v7/NotepadHeaderWidget';
 import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidget';
-import { RoleCockpitI18nGuard } from '@/components/platform-v7/RoleCockpitI18nGuard';
 import { PlatformFooter } from '@/components/platform-v7/PlatformFooter';
 import { OnboardingTour } from '@/components/platform-v7/OnboardingTour';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
@@ -62,5 +61,5 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   const pathname = headerStore.get('x-pc-pathname');
   const initialRole: PlatformRole = rawRole && VALID_ROLES.has(rawRole as PlatformRole) ? (rawRole as PlatformRole) : 'operator';
   if (isPublicPath(pathname)) return <ToastProvider><PlatformThemeSync />{children}</ToastProvider>;
-  return <ToastProvider><PlatformThemeSync /><ShellCopyNormalizer /><AppShellV4 initialRole={initialRole}><><ScopedShellGuard /><PlatformV7SingleEntryGuard /><PlatformV7ShellUxController /><RbacCabinetGuard /><ShellCopyNormalizer /><RoleCockpitI18nGuard /><CalculatorHeaderWidget /><NotepadHeaderWidget /><SupportHeaderIcon /><MobileHeaderActionRail /><RoleAssistantWidget />{children}<PlatformFooter /><OnboardingTour /><style dangerouslySetInnerHTML={{ __html: shellRestoreCss }} /></></AppShellV4></ToastProvider>;
+  return <ToastProvider><PlatformThemeSync /><ShellCopyNormalizer /><AppShellV4 initialRole={initialRole}><><ScopedShellGuard /><PlatformV7SingleEntryGuard /><PlatformV7ShellUxController /><RbacCabinetGuard /><ShellCopyNormalizer /><CalculatorHeaderWidget /><NotepadHeaderWidget /><SupportHeaderIcon /><MobileHeaderActionRail /><RoleAssistantWidget />{children}<PlatformFooter /><OnboardingTour /><style dangerouslySetInnerHTML={{ __html: shellRestoreCss }} /></></AppShellV4></ToastProvider>;
 }

@@ -39,10 +39,20 @@ for (const language of REQUIRED_LANGUAGES) {
   if (emptyValues.length) fail(`Dictionary '${language}' has empty values.`, emptyValues);
 }
 
-const zhCyrillic = Object.entries(dictionaries.zh ?? {})
-  .filter(([, value]) => typeof value === 'string' && CYRILLIC_RE.test(value) && !ALLOWED_CYRILLIC_VALUE_RE.test(value.trim()))
-  .map(([key, value]) => `${key} -> ${value}`);
-if (zhCyrillic.length) fail("Dictionary 'zh' contains Cyrillic text in values.", zhCyrillic);
+for (const language of REQUIRED_LANGUAGES) {
+  const cyrillicValues = Object.entries(dictionaries[language] ?? {})
+    .filter(([, value]) => typeof value === 'string' && CYRILLIC_RE.test(value) && !ALLOWED_CYRILLIC_VALUE_RE.test(value.trim()))
+    .map(([key, value]) => `${key} -> ${value}`);
+  if (cyrillicValues.length) fail(`Dictionary '${language}' contains Cyrillic text in values.`, cyrillicValues);
+}
+
+const nonNormalizedKeys = [];
+for (const language of REQUIRED_LANGUAGES) {
+  for (const key of Object.keys(dictionaries[language] ?? {})) {
+    if (key !== key.replace(/\s+/g, ' ').trim()) nonNormalizedKeys.push(`${language}: ${JSON.stringify(key)}`);
+  }
+}
+if (nonNormalizedKeys.length) fail('Dictionary keys must be whitespace-normalized (runtime matches on normalized text).', nonNormalizedKeys);
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log(`[p7-i18n] OK: ${baseKeys.length} keys, languages: ${REQUIRED_LANGUAGES.join(', ')}`);

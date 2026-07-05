@@ -45,7 +45,7 @@ export function LoginLegacyOverlay() {
   }
 
   return (
-    <main className='p7-login-old' data-p7-no-translate='true'>
+    <main className='p7-login-old'>
       <style>{css}</style>
       <header className='old-top'>
         <Link href='/platform-v7' className='brand' aria-label='Прозрачная Цена'><BrandMark size={32} /><b>Прозрачная Цена</b></Link>

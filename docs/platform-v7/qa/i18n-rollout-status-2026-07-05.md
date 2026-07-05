@@ -1,33 +1,66 @@
-# Platform V7 i18n rollout status — 2026-07-05
+# Platform V7 i18n rollout status — 2026-07-05 (обновлено: единый рантайм)
 
-## Scope
+## Архитектура после рефакторинга
 
-This note tracks the current i18n rollout for `/platform-v7` after the public-page and protected-shell translation work.
+Смена языка платформы построена на едином рантайме
+`apps/web/lib/platform-v7/i18n/translation-runtime.ts`:
 
-## Confirmed implemented
+- **Один DOM-движок вместо трёх.** Ранее текст одновременно переписывали
+  `PlatformTranslator`, `RoleCockpitI18nGuard` и copy-нормализаторы со своими
+  словарями. Несовпадение словарей приводило к циклическим перезаписям текста
+  и «замораживанию» динамических значений. Теперь перевод применяет только
+  рантайм; `RoleCockpitI18nGuard` удалён, его словарь слит в общий.
+- **Отслеживание источника с перезахватом.** Для каждого текстового узла и
+  атрибута хранится пара `{ source, applied }`. Если текущее значение не
+  совпадает с `applied`, значит текст изменило приложение (React,
+  copy-нормализаторы) — источник перезахватывается. Динамический текст больше
+  не замораживается, войн перезаписи нет ни в одном языке, включая русский.
+- **Один источник словарей.** Встроенный словарь — статический импорт
+  `apps/web/public/platform-v7/i18n/dictionaries.json` (тот же файл, что
+  раздаётся клиенту); обновления подтягиваются fetch'ем и кэшируются в
+  `pc-v7-translation-dictionaries-v5` (v1–v4 вычищаются). Дрейф между
+  встроенным и удалённым словарём невозможен.
+- **Синхронизация языка.** `pc-v7-language` + событие `pc-v7-language-change`
+  в текущей вкладке + `storage` между вкладками. Остальные виджеты платформы
+  (login, docs, demo, contact, register, intelligence strip) продолжают
+  читать тот же ключ.
+- **Покрытие.** Точный матч + безопасная фрагментная подстановка для
+  составных строк; переводятся текстовые узлы, `aria-label`, `title`,
+  `placeholder`, `alt` и `document.title`; выставляются `html[lang]` и
+  `html[data-p7-language]` (на него завязан CJK-шрифтовой CSS).
+- **Мобильный кабинет.** Кнопка переводчика видима в шапке оболочки даже при
+  nth-child-скрытии прочих действий; при отсутствии шапки — плавающий
+  fallback. Панель закрывается по Escape и клику вне, фокус возвращается на
+  кнопку.
+- **Legacy-логин переведён.** С `LoginLegacyOverlay` снят
+  `data-p7-no-translate` (щит был нужен только от старого движка), его строки
+  добавлены в словарь.
 
-- Public hero intelligence block: localized client component.
-- Login and role selection: localized client component.
-- Contact page: localized client component.
-- Register page: localized client component and route attachment.
-- Demo page: localized client component and route attachment.
-- Docs page: localized client component and template attachment.
-- Protected shell: scoped role-cockpit i18n guard attached in platform layout.
-- Dictionary guard: English and Chinese dictionary consistency check exists.
+## Словарь
 
-## Build status
+- 395 ключей, паритет en/zh обязателен.
+- Гейт `pnpm i18n:platform-v7` (`scripts/check-platform-v7-i18n.mjs`)
+  проверяет: паритет ключей, пустые значения, кириллицу в значениях en и zh,
+  нормализацию ключей по пробелам (рантайм матчится по нормализованному
+  тексту).
 
-The web build check `@pc/web` passed on commit `861b6a407a0de1de918327103e66a0daa9acef45`.
+## Тесты
 
-Legacy Vercel and Deno checks are not considered valid platform-v7 gates because those deployment circuits are blocked or deprecated for this project.
+- `apps/web/tests/unit/platformV7TranslationRuntime.test.ts` — движок:
+  перевод/восстановление, перезахват внешних изменений, атрибуты,
+  `data-p7-no-translate`, `document.title`, хранение языка, валидация
+  словаря.
+- `apps/web/tests/unit/platformV7Translator.test.tsx` — компонент: кнопка в
+  шапке, переключение en/zh/ru, персистентность, Escape, синхронизация от
+  других виджетов.
 
-## Remaining work
+## Известные ограничения
 
-1. Replace the scoped role-cockpit guard with direct localized copy modules per role cockpit.
-2. Start with seller, buyer, bank, elevator, lab, logistics.
-3. Add a route-level i18n verification gate after each role cockpit is converted.
-4. Keep DOM translation only as a temporary fallback for legacy fragments.
-
-## Rule
-
-Do not claim full i18n completion until every role cockpit has direct localized copy and the fallback layer can be removed.
+1. Экраны с собственной локализацией (`data-p7-no-translate`) переводятся
+   своим кодом; словарный рантайм их не трогает — это осознанная граница.
+2. Гидрационные предупреждения в dev-консоли существуют на всех страницах
+   независимо от переводчика (их дают другие pre-hydration DOM-патчи
+   платформы); функция языка новых не добавляет.
+3. Строки, отсутствующие в словаре, остаются на русском. Пополнение словаря —
+   контентная задача; рантайм подхватывает новые ключи без деплоя через
+   `dictionaries.json`.
