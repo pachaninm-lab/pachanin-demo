@@ -25,6 +25,8 @@ const MAP: Record<string, { en: string; zh: string }> = {
   'для банка': { en: 'for the bank', zh: '给银行' },
   'Подготовить документы': { en: 'Prepare documents', zh: '准备文件' },
   'Партии и лоты': { en: 'Lots and batches', zh: '批次和挂单' },
+  'Выплаты по месяцу': { en: 'Monthly payouts', zh: '月度付款' },
+  'данные демо': { en: 'demo data', zh: '演示数据' },
   'Сделок в работе': { en: 'Deals in progress', zh: '进行中的交易' },
   'Открытых споров': { en: 'Open disputes', zh: '未结争议' },
   'Что делать сейчас': { en: 'What to do now', zh: '现在要做什么' },
