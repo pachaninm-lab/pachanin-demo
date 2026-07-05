@@ -149,7 +149,9 @@
   .pc-v7-login-single.pc-v7-login-single .login-brand small { display: none ! important; }
   .pc-v7-login-single.pc-v7-login-single .login-logo { width: 40px ! important; height: 40px ! important; flex: 0 0 40px ! important; }
   .pc-v7-login-single.pc-v7-login-single .login-brand b { font-size: 19px ! important; }
-  .pc-v7-login-single.pc-v7-login-single .login-back { width: 42px ! important; min-width: 42px ! important; height: 42px ! important; min-height: 42px ! important; padding: 0 ! important; border-radius: 14px ! important; }
+  .pc-v7-login-single.pc-v7-login-single .login-header-button { width: 42px ! important; min-width: 42px ! important; max-width: 42px ! important; height: 42px ! important; min-height: 42px ! important; max-height: 42px ! important; padding: 0 ! important; border-radius: 14px ! important; font-size:0 ! important; display:inline-flex ! important; align-items:center ! important; justify-content:center ! important; }
+  .pc-v7-login-single.pc-v7-login-single .login-header-button span { display:none ! important; }
+  .pc-v7-login-single.pc-v7-login-single .login-header-button svg { width:20px ! important; height:20px ! important; max-width:20px ! important; max-height:20px ! important; }
   .p7-register-brand-text { font-size: 18px ! important; }
   .p7-register-action { min-width: 42px ! important; width: 42px ! important; min-height: 42px ! important; padding: 0 ! important; font-size: 0 ! important; border-radius: 14px ! important; }
 }
