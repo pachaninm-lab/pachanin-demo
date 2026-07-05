@@ -57,8 +57,10 @@ export type TranslatableAttribute = (typeof TRANSLATABLE_ATTRIBUTES)[number];
 // Узлы внутри этих элементов не переводятся. Экраны с собственной
 // локализацией (login, docs, demo, contact, register) помечены
 // data-p7-no-translate на корне и исключаются здесь же.
+// <option> переводится: текст опции — обычный текстовый узел, атрибут value
+// не затрагивается, поэтому выпадающие списки безопасны для словарного слоя.
 const SKIP_TEXT_SELECTOR =
-  'script,style,noscript,svg,canvas,textarea,input,select,option,code,pre,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]';
+  'script,style,noscript,svg,canvas,textarea,input,code,pre,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]';
 const SKIP_ATTRIBUTE_SELECTOR =
   'script,style,noscript,svg,canvas,.p7-translator-root,[data-p7-no-translate]';
 
