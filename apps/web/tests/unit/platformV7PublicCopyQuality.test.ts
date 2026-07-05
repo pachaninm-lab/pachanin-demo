@@ -49,6 +49,12 @@ describe('platform-v7 public copy quality', () => {
     expect(actions).toContain('Подать заявку на роль');
   });
 
+  it('keeps the public deal-path CTA visible and anchored to the process block', () => {
+    const actions = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx'), 'utf8');
+    expect(actions).toContain('Посмотреть путь сделки');
+    expect(actions).toContain("routeLink.href = '#process'");
+  });
+
   it('keeps protected role navigation understandable', () => {
     const routes = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/shellRoutes.ts'), 'utf8');
     // Role navigation uses plain human labels, not codes or English jargon.
