@@ -20,6 +20,7 @@ import '@/styles/platform-v7-stable-shell.css';
 import '@/styles/platform-v7-viewport-stability.css';
 import '@/styles/platform-v7-adaptive-devices.css';
 import '@/styles/platform-v7-i18n-cjk.css';
+import '@/styles/platform-v7-public-load-hotfix.css';
 
 export default function PlatformV7Template({ children }: { children: ReactNode }) {
   return (
