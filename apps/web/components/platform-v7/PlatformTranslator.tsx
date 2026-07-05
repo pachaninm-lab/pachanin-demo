@@ -330,13 +330,13 @@ function translateValue(source: string, language: LanguageCode, dictionaries: Di
 function shouldSkipTextElement(element: HTMLElement) {
   return Boolean(
     element.closest(
-      'script,style,noscript,svg,canvas,textarea,input,select,option,code,pre,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]',
+      'script,style,noscript,svg,canvas,textarea,input,select,option,code,pre,.pc-v7-login-single,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]',
     ),
   );
 }
 
 function shouldSkipAttributeElement(element: HTMLElement) {
-  return Boolean(element.closest('script,style,noscript,svg,canvas,.p7-translator-root,[data-p7-no-translate]'));
+  return Boolean(element.closest('script,style,noscript,svg,canvas,.pc-v7-login-single,.p7-translator-root,[data-p7-no-translate]'));
 }
 
 function collectTextNodes(root: ParentNode) {
