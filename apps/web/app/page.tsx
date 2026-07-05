@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import PlatformV7RootPage from './platform-v7/page';
 
 export default function Page() {
-  redirect('/platform-v7');
+  return <PlatformV7RootPage />;
 }
