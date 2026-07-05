@@ -5,11 +5,12 @@ import * as React from 'react';
 type Lang = 'ru' | 'en' | 'zh';
 type Dict = Record<string, string>;
 type SourceOption = HTMLOptionElement & { __pcLockOption?: string };
-type SourceText = Text & { __pcFloatingCopy?: string };
+type SourceText = Text & { __pcFloatingCopy?: string; __pcExactCopy?: string };
 
 const LANGUAGE_KEY = 'pc-v7-language';
 const DICTIONARY_URL = '/platform-v7/i18n/dictionaries.json';
 const FLOATING_SCOPES = '[role="dialog"], .p7-support-chat-panel, .pc-v4-command-palette, .pc-v4-notification-panel, .pc-v4-popover, .pc-v4-drawer';
+const EXACT_SCOPES = '.pc-v7-public-entry, .pc-v7-login-single, .p7-contact-page';
 
 const BASE: Record<'en' | 'zh', Dict> = {
   en: {
@@ -64,7 +65,7 @@ const BASE: Record<'en' | 'zh', Dict> = {
     'Имя': 'Name',
     'Вопрос': 'Question',
     'Коротко опишите вопрос по платформе, пилоту, доступу, документам или техническому подключению.': 'Briefly describe your question about the platform, pilot, access, documents, or technical connection.',
-    'Я даю согласие на обработку персональных данных для ответа на обращение и принимаю условия политики конфиденциальности.': 'I consent to personal data processing for a response to my request and accept the Privacy Policy.',
+    'Я даю согласие на обработку персональных данных для ответа на обращение и принимаю условия': 'I consent to personal data processing for a response to my request and accept the terms of the',
     'политики конфиденциальности': 'Privacy Policy',
     'Обращение отправлено': 'Request sent',
     'Вопрос принят. Ответ придёт на указанный контакт после проверки сообщения.': 'Your question has been received. A response will be sent to the provided contact after review.',
@@ -73,6 +74,21 @@ const BASE: Record<'en' | 'zh', Dict> = {
     'Укажите телефон или email для ответа.': 'Enter a phone number or email for the response.',
     'Напишите вопрос.': 'Write your question.',
     'Подтвердите согласие на обработку данных.': 'Confirm consent to data processing.',
+    'Контур сделки': 'Deal circuit',
+    'Контур исполнения сделки': 'Deal execution circuit',
+    'исполнение под контролем': 'execution under control',
+    'согласована': 'agreed',
+    'в работе': 'in progress',
+    'ожидает факт': 'awaiting fact',
+    'на сверке': 'under review',
+    'после оснований': 'after grounds',
+    'ожидает акт': 'awaiting act',
+    'Разобрать контур сделки': 'Review the deal circuit',
+    'Задать вопрос': 'Ask a question',
+    'Публичная навигация': 'Public navigation',
+    'Разделы главной страницы': 'Home page sections',
+    'Доверие и контроль': 'Trust and control',
+    'Сначала выберите роль участника сделки. После этого вход выполняется по логину, паролю и организации.': 'First select the participant role. Then sign in using login, password, and organisation.',
   },
   zh: {
     'Войти': '登录',
@@ -126,7 +142,7 @@ const BASE: Record<'en' | 'zh', Dict> = {
     'Имя': '姓名',
     'Вопрос': '问题',
     'Коротко опишите вопрос по платформе, пилоту, доступу, документам или техническому подключению.': '请简要描述关于平台、试点、访问、文件或技术连接的问题。',
-    'Я даю согласие на обработку персональных данных для ответа на обращение и принимаю условия политики конфиденциальности.': '我同意为回复请求而处理个人数据，并接受隐私政策。',
+    'Я даю согласие на обработку персональных данных для ответа на обращение и принимаю условия': '我同意为回复请求而处理个人数据，并接受',
     'политики конфиденциальности': '隐私政策',
     'Обращение отправлено': '请求已发送',
     'Вопрос принят. Ответ придёт на указанный контакт после проверки сообщения.': '问题已收到。审核后将通过所提供联系方式回复。',
@@ -135,6 +151,21 @@ const BASE: Record<'en' | 'zh', Dict> = {
     'Укажите телефон или email для ответа.': '请输入用于回复的电话或邮箱。',
     'Напишите вопрос.': '请填写问题。',
     'Подтвердите согласие на обработку данных.': '请确认同意数据处理。',
+    'Контур сделки': '交易闭环',
+    'Контур исполнения сделки': '交易执行闭环',
+    'исполнение под контролем': '执行受控',
+    'согласована': '已确认',
+    'в работе': '进行中',
+    'ожидает факт': '等待事实',
+    'на сверке': '审核中',
+    'после оснований': '依据确认后',
+    'ожидает акт': '等待单据',
+    'Разобрать контур сделки': '复盘交易闭环',
+    'Задать вопрос': '提问',
+    'Публичная навигация': '公共导航',
+    'Разделы главной страницы': '首页栏目',
+    'Доверие и контроль': '信任和控制',
+    'Сначала выберите роль участника сделки. После этого вход выполняется по логину, паролю и организации.': '先选择交易参与方角色，然后使用登录名、密码和组织进入。',
   },
 };
 
@@ -211,8 +242,30 @@ function applyOptionCopy(dictionary: Record<'en' | 'zh', Dict>) {
   });
 }
 
-function skipFloatingText(element: HTMLElement) {
+function skipText(element: HTMLElement) {
   return Boolean(element.closest('script,style,noscript,svg,canvas,textarea,input,select,option,code,pre,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]'));
+}
+
+function applyExactText(dictionary: Record<'en' | 'zh', Dict>) {
+  const selected = lang();
+  if (selected === 'ru') return;
+  document.querySelectorAll(EXACT_SCOPES).forEach((root) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const element = node.parentElement;
+        if (!element || skipText(element) || !norm(node.nodeValue || '')) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    let node = walker.nextNode() as SourceText | null;
+    while (node) {
+      const source = node.__pcExactCopy || node.nodeValue || '';
+      node.__pcExactCopy = source;
+      const exact = dictionary[selected][norm(source)];
+      if (exact && node.nodeValue !== exact) node.nodeValue = exact;
+      node = walker.nextNode() as SourceText | null;
+    }
+  });
 }
 
 function applyFloatingText(dictionary: Record<'en' | 'zh', Dict>) {
@@ -221,7 +274,7 @@ function applyFloatingText(dictionary: Record<'en' | 'zh', Dict>) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const element = node.parentElement;
-        if (!element || skipFloatingText(element) || !norm(node.nodeValue || '')) return NodeFilter.FILTER_REJECT;
+        if (!element || skipText(element) || !norm(node.nodeValue || '')) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       },
     });
@@ -243,6 +296,7 @@ export function PublicHeaderFinalLock() {
     const applyAll = () => {
       applyAttributeCopy(dictionary);
       applyOptionCopy(dictionary);
+      applyExactText(dictionary);
       applyFloatingText(dictionary);
     };
     const schedule = () => {
