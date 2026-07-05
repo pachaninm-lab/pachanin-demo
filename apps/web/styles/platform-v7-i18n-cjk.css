@@ -1,3 +1,11 @@
 html[data-p7-language='zh'] * {
-  letter-spacing: 0;
+  letter-spacing: 0 !important;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+html[data-p7-language='zh'] h1,
+html[data-p7-language='zh'] h2,
+html[data-p7-language='zh'] h3 {
+  line-height: 1.14;
 }
