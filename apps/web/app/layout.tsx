@@ -78,6 +78,7 @@ export const viewport: Viewport = {
 };
 
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
+const cacheResetScript = `(function(){try{if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(function(items){items.forEach(function(item){item.unregister();});});}if('caches'in window){caches.keys().then(function(keys){keys.forEach(function(key){caches.delete(key);});});}}catch(e){}})();`;
 
 const HTML_LANG: Record<string, string> = { ru: 'ru', en: 'en', zh: 'zh-CN' };
 
@@ -89,6 +90,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       {/* eslint-disable-next-line @next/next/no-head-element */}
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: cacheResetScript }} />
       </head>
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
