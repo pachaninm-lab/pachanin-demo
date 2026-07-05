@@ -11,32 +11,30 @@ type DictionarySet = Record<TranslatedLanguageCode, TranslationDictionary>;
 type SourceTextNode = Text & { __p7SourceText?: string };
 
 type DictionaryPayload = {
-  version: string;
+  version?: string;
   updatedAt?: string;
-  dictionaries: Partial<DictionarySet>;
+  dictionaries?: Partial<DictionarySet>;
 };
-
-type DictionarySource = 'embedded' | 'cache' | 'online';
 
 type DictionaryState = {
   version: string;
   updatedAt?: string;
-  source: DictionarySource;
   dictionaries: Partial<DictionarySet>;
 };
 
 const STORAGE_KEY = 'pc-v7-language';
-const CACHE_KEY = 'pc-v7-translation-dictionaries-v3';
-const LAST_CHECK_KEY = 'pc-v7-translation-dictionaries-last-check-v3';
+const CACHE_KEY = 'pc-v7-translation-dictionaries-v4';
 const UPDATE_URL = '/platform-v7/i18n/dictionaries.json';
-const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 const HEADER_TARGETS = [
+  '.entry-header-actions',
+  '.login-header',
+  '.login-top',
+  '.p7-demo-header-actions',
+  '.p7-contact-nav',
   '.p7-contact-fixed-actions',
   '.p7-register-actions',
   '.pc-v4-actions',
-  '.entry-header-actions',
-  '.login-top',
 ] as const;
 
 const LANGUAGES: ReadonlyArray<{ code: LanguageCode; label: string; native: string; short: string; htmlLang: string }> = [
@@ -46,213 +44,99 @@ const LANGUAGES: ReadonlyArray<{ code: LanguageCode; label: string; native: stri
 ];
 
 const UI_COPY: Record<LanguageCode, { button: string; title: string; close: string; current: string; refresh: string }> = {
-  ru: {
-    button: 'Перевод',
-    title: 'Переводчик',
-    close: 'Закрыть переводчик',
-    current: 'Текущий язык',
-    refresh: 'Обновить словарь',
-  },
-  en: {
-    button: 'Translate',
-    title: 'Translator',
-    close: 'Close translator',
-    current: 'Current language',
-    refresh: 'Update dictionary',
-  },
-  zh: {
-    button: '翻译',
-    title: '翻译器',
-    close: '关闭翻译器',
-    current: '当前语言',
-    refresh: '更新词典',
-  },
+  ru: { button: 'Перевод', title: 'Переводчик', close: 'Закрыть переводчик', current: 'Текущий язык', refresh: 'Обновить словарь' },
+  en: { button: 'Translate', title: 'Translator', close: 'Close translator', current: 'Current language', refresh: 'Update dictionary' },
+  zh: { button: '翻译', title: '翻译器', close: '关闭翻译器', current: '当前语言', refresh: '更新词典' },
 };
 
 const EMBEDDED_DICTIONARIES: DictionarySet = {
   en: {
     'Прозрачная Цена': 'Transparent Price',
-    'Контур исполнения сделки': 'Transaction execution circuit',
-    'Сделка · логистика · документы · деньги': 'Deal · logistics · documents · money',
-    'Мой кабинет': 'My workspace',
-    'Открыть меню': 'Open menu',
-    'Закрыть меню': 'Close menu',
-    'Открыть поиск': 'Open search',
-    'Поиск': 'Search',
-    'Открыть уведомления': 'Open notifications',
-    'Уведомления': 'Notifications',
-    'Войти': 'Sign in',
-    'Регистрация': 'Registration',
-    'Выход': 'Exit',
-    'Назад': 'Back',
-    'Справка': 'Help',
-    'Вопрос': 'Question',
-    'Документы': 'Documents',
-    'Как проходит': 'How it works',
-    'Контроль': 'Control',
-    'Роли': 'Roles',
-    'Разбор сделки': 'Deal review',
-    'Оператор': 'Operator',
-    'Покупатель': 'Buyer',
-    'Продавец': 'Seller',
-    'Логистика': 'Logistics',
-    'Водитель': 'Driver',
-    'Сюрвейер': 'Surveyor',
-    'Элеватор': 'Elevator',
-    'Лаборатория': 'Laboratory',
-    'Банк': 'Bank',
-    'Арбитр': 'Arbitrator',
-    'Комплаенс': 'Compliance',
-    'Руководитель': 'Executive',
-    'Рабочий контур': 'Operating circuit',
-    'Контур проверки': 'Review circuit',
-    'Полевой режим': 'Field mode',
+    'Контур исполнения сделки': 'Deal execution circuit',
+    'Единый вход в контур исполнения': 'Single entry to the execution circuit',
     'Главный риск сделки': 'The main transaction risk',
     'начинается после': 'starts after',
     'согласования цены': 'the price is agreed',
+    'Прозрачная Цена — цифровой контур исполнения зерновой сделки: рейс, приёмка, качество, документы, деньги, спор и доказательства в одном процессе.': 'Transparent Price is a digital execution circuit for a grain transaction: trip, acceptance, quality, documents, money, dispute, and evidence in one process.',
     'Подключить организацию': 'Connect an organisation',
+    'Разобрать контур сделки': 'Review the deal circuit',
+    'Зарегистрироваться': 'Register',
+    'Войти': 'Sign in',
+    'Назад': 'Back',
     'Задать вопрос': 'Ask a question',
+    'Что контролирует платформа': 'What the platform controls',
+    'После согласования цены под контролем остаётся главное: рейс, приёмка, документы, качество и основание для оплаты.': 'After price agreement, the key execution points remain under control: trip, acceptance, documents, quality, and payment basis.',
+    'Деньги': 'Money',
+    'Документы': 'Documents',
+    'Логистика': 'Logistics',
+    'Качество': 'Quality',
+    'Основание для расчёта видно до выпуска оплаты.': 'The settlement basis is visible before payment release.',
+    'СДИЗ, ЭДО, транспортные документы и акты связаны с событиями сделки.': 'SDIZ, EDI, transport documents, and acts are linked to deal events.',
+    'Рейс, водитель, маршрут и контрольные точки находятся в одном контуре.': 'Trip, driver, route, and checkpoints are in one circuit.',
+    'Приёмка и лабораторные показатели учитываются до окончательного расчёта.': 'Acceptance and laboratory indicators are considered before final settlement.',
+    'Как проходит сделка': 'How the deal works',
+    'На каждом этапе видно, что уже подтверждено, что требует действия и кто отвечает за следующий шаг.': 'At each stage it is clear what is confirmed, what requires action, and who owns the next step.',
     'Цена': 'Price',
+    'Сделка': 'Deal',
     'Рейс': 'Trip',
     'Приёмка': 'Acceptance',
     'Расчёт': 'Settlement',
-    'Деньги': 'Money',
-    'Качество': 'Quality',
     'Спор': 'Dispute',
-    'ФГИС': 'FGIS',
-    'СДИЗ': 'SDIZ',
-    'ЭДО': 'EDI',
-    'Единый вход в контур сделки': 'Single entry to the deal circuit',
-    'Рабочее место': 'Workspace',
-    'Логин': 'Login',
-    'Введите логин': 'Enter login',
-    'Пароль / код доступа': 'Password / access code',
-    'Введите пароль или код': 'Enter password or access code',
-    'Enter password или код': 'Enter password or access code',
-    'Забыли пароль?': 'Forgot password?',
-    'Организация': 'Organisation',
-    'необязательно': 'optional',
-    'Организация необязательно': 'Organisation optional',
-    'Компания / ИНН': 'Company / TIN',
-    'Войти как': 'Sign in as',
-    'Войти как покупатель': 'Sign in as buyer',
-    'Зарегистрироваться': 'Register',
-    'Контроль сделок': 'Deal control',
-    'Поставка и оплата': 'Delivery and payment',
-    'Партии и расчёт': 'Lots and settlement',
-    'Рейсы и маршрут': 'Trips and routes',
-    'Точки рейса': 'Trip points',
-    'Приёмка и вес': 'Acceptance and weight',
-    'Основание оплаты': 'Payment basis',
-    'Правила и риски': 'Rules and risks',
-    'Спор и решение': 'Dispute and decision',
-    'Сводка и контроль': 'Summary and control',
-    'Факты осмотра': 'Inspection facts',
-    'Выберите один рабочий кабинет': 'Select one workspace',
+    'Оператор': 'Operator',
+    'Покупатель': 'Buyer',
+    'Продавец': 'Seller',
+    'Водитель': 'Driver',
+    'Элеватор': 'Elevator',
+    'Лаборатория': 'Laboratory',
+    'Сюрвейер': 'Surveyor',
+    'Банк': 'Bank',
+    'Комплаенс': 'Compliance',
+    'Арбитр': 'Arbitrator',
+    'Руководитель': 'Executive',
   },
   zh: {
     'Прозрачная Цена': '透明价格',
     'Контур исполнения сделки': '交易执行闭环',
-    'Сделка · логистика · документы · деньги': '交易 · 物流 · 文件 · 资金',
-    'Мой кабинет': '我的工作区',
-    'Открыть меню': '打开菜单',
-    'Закрыть меню': '关闭菜单',
-    'Открыть поиск': '打开搜索',
-    'Поиск': '搜索',
-    'Открыть уведомления': '打开通知',
-    'Уведомления': '通知',
-    'Войти': '登录',
-    'Регистрация': '注册',
-    'Выход': '退出',
-    'Назад': '返回',
-    'Справка': '帮助',
-    'Вопрос': '问题',
-    'Документы': '文件',
-    'Как проходит': '流程',
-    'Контроль': '控制',
-    'Роли': '角色',
-    'Разбор сделки': '交易复盘',
-    'Оператор': '运营方',
-    'Покупатель': '买方',
-    'Продавец': '卖方',
-    'Логистика': '物流',
-    'Водитель': '司机',
-    'Сюрвейер': '检验员',
-    'Элеватор': '粮仓',
-    'Лаборатория': '实验室',
-    'Банк': '银行',
-    'Арбитр': '仲裁员',
-    'Комплаенс': '合规',
-    'Руководитель': '管理层',
-    'Рабочий контур': '工作闭环',
-    'Контур проверки': '审核闭环',
-    'Полевой режим': '现场模式',
+    'Единый вход в контур исполнения': '进入执行闭环的统一入口',
     'Главный риск сделки': '交易的主要风险',
     'начинается после': '开始于',
     'согласования цены': '价格确认之后',
+    'Прозрачная Цена — цифровой контур исполнения зерновой сделки: рейс, приёмка, качество, документы, деньги, спор и доказательства в одном процессе.': '透明价格是粮食交易的数字执行闭环：运输、验收、质量、文件、资金、争议和证据都在同一流程中。',
     'Подключить организацию': '接入组织',
+    'Разобрать контур сделки': '查看交易闭环',
+    'Зарегистрироваться': '注册',
+    'Войти': '登录',
+    'Назад': '返回',
     'Задать вопрос': '提问',
+    'Что контролирует платформа': '平台控制什么',
+    'После согласования цены под контролем остаётся главное: рейс, приёмка, документы, качество и основание для оплаты.': '价格确认后，关键事项仍在控制中：运输、验收、文件、质量和付款依据。',
+    'Деньги': '资金',
+    'Документы': '文件',
+    'Логистика': '物流',
+    'Качество': '质量',
+    'Основание для расчёта видно до выпуска оплаты.': '付款释放前可以看到结算依据。',
+    'СДИЗ, ЭДО, транспортные документы и акты связаны с событиями сделки.': 'SDIZ、电子文件流、运输文件和单据与交易事件相连。',
+    'Рейс, водитель, маршрут и контрольные точки находятся в одном контуре.': '运输、司机、路线和检查点处于同一闭环中。',
+    'Приёмка и лабораторные показатели учитываются до окончательного расчёта.': '验收和实验室指标在最终结算前被纳入考虑。',
+    'Как проходит сделка': '交易流程',
+    'На каждом этапе видно, что уже подтверждено, что требует действия и кто отвечает за следующий шаг.': '每个阶段都能看到已确认事项、待处理事项以及下一步负责人。',
     'Цена': '价格',
+    'Сделка': '交易',
     'Рейс': '运输',
     'Приёмка': '验收',
     'Расчёт': '结算',
-    'Деньги': '资金',
-    'Качество': '质量',
     'Спор': '争议',
-    'ФГИС': 'FGIS',
-    'СДИЗ': 'SDIZ',
-    'ЭДО': '电子文件流',
-    'Единый вход в контур сделки': '进入交易闭环的统一入口',
-    'Рабочее место': '工作区',
-    'Логин': '登录名',
-    'Введите логин': '输入登录名',
-    'Пароль / код доступа': '密码 / 访问码',
-    'Введите пароль или код': '输入密码或访问码',
-    'Enter password или код': '输入密码或访问码',
-    'Забыли пароль?': '忘记密码？',
-    'Организация': '组织',
-    'необязательно': '可选',
-    'Организация необязательно': '组织 可选',
-    'Компания / ИНН': '公司 / 税号',
-    'Войти как': '以此身份登录',
-    'Войти как покупатель': '以买方身份登录',
-    'Зарегистрироваться': '注册',
-    'Контроль сделок': '交易控制',
-    'Поставка и оплата': '交付与付款',
-    'Партии и расчёт': '批次与结算',
-    'Рейсы и маршрут': '运输与路线',
-    'Точки рейса': '运输节点',
-    'Приёмка и вес': '验收与重量',
-    'Основание оплаты': '付款依据',
-    'Правила и риски': '规则与风险',
-    'Спор и решение': '争议与决定',
-    'Сводка и контроль': '汇总与控制',
-    'Факты осмотра': '检查事实',
-    'Quality': '质量',
-    'Operator': '运营方',
-    'Buyer': '买方',
-    'Seller': '卖方',
-    'Logistics': '物流',
-    'Driver': '司机',
-    'Elevator': '粮仓',
-    'Laboratory': '实验室',
-    'Surveyor': '检验员',
-    'Bank': '银行',
-    'Compliance': '合规',
-    'Arbitrator': '仲裁员',
-    'Executive': '管理层',
-    'Deal control': '交易控制',
-    'Delivery and payment': '交付与付款',
-    'Lots and settlement': '批次与结算',
-    'Trips and routes': '运输与路线',
-    'Trip points': '运输节点',
-    'Acceptance and weight': '验收与重量',
-    'Payment basis': '付款依据',
-    'Rules and risks': '规则与风险',
-    'Dispute and decision': '争议与决定',
-    'Summary and control': '汇总与控制',
-    'Inspection facts': '检查事实',
-    'Выберите один рабочий кабинет': '请选择一个工作区',
+    'Оператор': '运营方',
+    'Покупатель': '买方',
+    'Продавец': '卖方',
+    'Водитель': '司机',
+    'Элеватор': '粮仓',
+    'Лаборатория': '实验室',
+    'Сюрвейер': '检验员',
+    'Банк': '银行',
+    'Комплаенс': '合规',
+    'Арбитр': '仲裁员',
+    'Руководитель': '管理层',
   },
 };
 
@@ -265,7 +149,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isLanguageCode(value: string | null): value is LanguageCode {
-  return LANGUAGES.some((language) => language.code === value);
+  return value === 'ru' || value === 'en' || value === 'zh';
 }
 
 function cleanDictionary(value: unknown): TranslationDictionary {
@@ -282,7 +166,7 @@ function cleanDictionary(value: unknown): TranslationDictionary {
   return result;
 }
 
-function normalizePayload(value: unknown, source: DictionarySource): DictionaryState | null {
+function normalizePayload(value: unknown): DictionaryState | null {
   if (!isRecord(value) || !isRecord(value.dictionaries)) return null;
   const en = cleanDictionary(value.dictionaries.en);
   const zh = cleanDictionary(value.dictionaries.zh);
@@ -290,7 +174,6 @@ function normalizePayload(value: unknown, source: DictionarySource): DictionaryS
   return {
     version: typeof value.version === 'string' ? value.version : 'unversioned',
     updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : undefined,
-    source,
     dictionaries: { en, zh },
   };
 }
@@ -298,7 +181,7 @@ function normalizePayload(value: unknown, source: DictionarySource): DictionaryS
 function readCachedDictionary(): DictionaryState | null {
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
-    return raw ? normalizePayload(JSON.parse(raw), 'cache') : null;
+    return raw ? normalizePayload(JSON.parse(raw) as DictionaryPayload) : null;
   } catch {
     return null;
   }
@@ -316,8 +199,8 @@ function getLanguageMeta(code: LanguageCode) {
 
 function mergeDictionaries(remote: DictionaryState | null): DictionarySet {
   return {
-    en: { ...(remote?.dictionaries.en ?? {}), ...EMBEDDED_DICTIONARIES.en },
-    zh: { ...(remote?.dictionaries.zh ?? {}), ...EMBEDDED_DICTIONARIES.zh },
+    en: { ...EMBEDDED_DICTIONARIES.en, ...(remote?.dictionaries.en ?? {}) },
+    zh: { ...EMBEDDED_DICTIONARIES.zh, ...(remote?.dictionaries.zh ?? {}) },
   };
 }
 
@@ -349,7 +232,6 @@ function collectTextNodes(root: ParentNode) {
       return NodeFilter.FILTER_ACCEPT;
     },
   });
-
   let current = walker.nextNode();
   while (current) {
     nodes.push(current as SourceTextNode);
@@ -383,14 +265,12 @@ function applyPageTranslation(language: LanguageCode, dictionaries: DictionarySe
   const meta = getLanguageMeta(language);
   document.documentElement.lang = meta.htmlLang;
   document.documentElement.dataset.p7Language = language;
-
   collectTextNodes(document.body).forEach((node) => {
     const source = node.__p7SourceText || node.nodeValue || '';
     node.__p7SourceText = source;
     const next = translateValue(source, language, dictionaries);
     if (node.nodeValue !== next) node.nodeValue = next;
   });
-
   applyAttributes(language, dictionaries);
 }
 
@@ -414,11 +294,8 @@ export function PlatformTranslator() {
   const activeLanguage = useMemo(() => getLanguageMeta(language), [language]);
   const copy = UI_COPY[language];
 
-  const refreshDictionary = useCallback(async (force = false) => {
+  const refreshDictionary = useCallback(async () => {
     if (typeof window === 'undefined') return;
-    const lastCheck = Number(window.localStorage.getItem(LAST_CHECK_KEY) || '0');
-    if (!force && lastCheck && Date.now() - lastCheck < CHECK_INTERVAL_MS) return;
-
     try {
       setRefreshing(true);
       const url = new URL(UPDATE_URL, window.location.origin);
@@ -428,14 +305,12 @@ export function PlatformTranslator() {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
       });
-      window.localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
       if (!response.ok) return;
-      const payload = normalizePayload(await response.json(), 'online');
+      const payload = normalizePayload(await response.json());
       if (!payload) return;
       setRemoteDictionary(payload);
       window.localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
     } catch {
-      window.localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
     } finally {
       setRefreshing(false);
     }
@@ -446,7 +321,7 @@ export function PlatformTranslator() {
     setLanguage(getStoredLanguage());
     const cached = readCachedDictionary();
     if (cached) setRemoteDictionary(cached);
-    void refreshDictionary(false);
+    void refreshDictionary();
   }, [refreshDictionary]);
 
   useEffect(() => {
@@ -484,14 +359,7 @@ export function PlatformTranslator() {
   const button = (
     <span className='p7-translator-root p7-translator-slot' data-p7-no-translate='true'>
       <style>{css}</style>
-      <button
-        type='button'
-        className='p7-translator-button'
-        onClick={() => setOpen((value) => !value)}
-        aria-label={copy.title}
-        title={copy.title}
-        data-open={open ? 'true' : 'false'}
-      >
+      <button type='button' className='p7-translator-button' onClick={() => setOpen((value) => !value)} aria-label={copy.title} title={copy.title} data-open={open ? 'true' : 'false'}>
         <Languages size={17} strokeWidth={2.45} />
         <span>{copy.button}</span>
         <b>{activeLanguage.short}</b>
@@ -504,27 +372,17 @@ export function PlatformTranslator() {
         <div className='p7-translator-root p7-translator-panel' role='dialog' aria-label={copy.title} data-p7-no-translate='true'>
           <div className='p7-translator-panel-head'>
             <strong>{copy.title}</strong>
-            <button type='button' onClick={() => setOpen(false)} aria-label={copy.close} title={copy.close}>
-              <X size={16} />
-            </button>
+            <button type='button' onClick={() => setOpen(false)} aria-label={copy.close} title={copy.close}><X size={16} /></button>
           </div>
           <div className='p7-translator-current'>
             <span>{copy.current}: <b>{activeLanguage.native}</b></span>
-            <button type='button' onClick={() => void refreshDictionary(true)} disabled={refreshing} aria-label={copy.refresh} title={copy.refresh}>
+            <button type='button' onClick={() => void refreshDictionary()} disabled={refreshing} aria-label={copy.refresh} title={copy.refresh}>
               <RefreshCw size={14} className={refreshing ? 'p7-translator-spin' : undefined} />
             </button>
           </div>
           <div className='p7-translator-list'>
             {LANGUAGES.map((item) => (
-              <button
-                key={item.code}
-                type='button'
-                onClick={() => {
-                  setLanguage(item.code);
-                  setOpen(false);
-                }}
-                data-active={item.code === language ? 'true' : 'false'}
-              >
+              <button key={item.code} type='button' onClick={() => { setLanguage(item.code); setOpen(false); }} data-active={item.code === language ? 'true' : 'false'}>
                 <span><strong>{item.native}</strong><small>{item.label}</small></span>
                 {item.code === language ? <Check size={16} /> : <em>{item.short}</em>}
               </button>
@@ -544,5 +402,5 @@ export function PlatformTranslator() {
 }
 
 const css = `
-.p7-translator-slot{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;order:60}.p7-translator-button{height:42px;min-width:42px;padding:0 11px;border-radius:14px;border:1px solid rgba(8,122,59,.18);background:rgba(8,122,59,.075);color:#087a3b;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12.5px;font-weight:950;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;box-shadow:0 8px 20px rgba(7,22,17,.045)}.p7-translator-button:hover{border-color:rgba(8,122,59,.28);background:rgba(8,122,59,.11)}.p7-translator-button b{min-width:25px;height:24px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.76);display:inline-flex;align-items:center;justify-content:center;color:#075f32;font-size:10.5px;font-weight:950}.pc-v4-actions .p7-translator-button{height:44px;min-width:44px;border-radius:14px;background:var(--pc-bg-card);border-color:var(--pc-border);color:var(--pc-text-secondary);box-shadow:var(--pc-shadow-sm)}.pc-v4-actions .p7-translator-button:hover{color:var(--pc-text-primary);border-color:var(--pc-border-light)}.pc-v4-actions .p7-translator-button span{display:none}.pc-v4-actions .p7-translator-button b{background:var(--pc-accent-bg);color:var(--pc-accent-strong)}.login-top .p7-translator-slot{margin-left:auto}.login-top .p7-translator-button{height:42px}.p7-register-actions .p7-translator-button,.p7-contact-fixed-actions .p7-translator-button,.entry-header-actions .p7-translator-button{height:42px}.p7-translator-fallback{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 12px);z-index:3600}.p7-translator-panel{position:fixed;right:14px;top:calc(env(safe-area-inset-top) + 72px);z-index:3700;width:min(370px,calc(100vw - 28px));padding:14px;border-radius:22px;border:1px solid rgba(7,22,17,.12);background:rgba(255,255,255,.98);box-shadow:0 22px 70px rgba(7,22,17,.16);backdrop-filter:blur(18px);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#071611;display:grid;gap:12px}.p7-translator-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.p7-translator-panel-head strong{font-size:16px;font-weight:950;letter-spacing:-.03em}.p7-translator-panel-head button,.p7-translator-current button{width:36px;height:36px;border-radius:13px;border:1px solid rgba(7,22,17,.1);background:#fff;color:#071611;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.p7-translator-current{padding:10px 11px;border-radius:15px;background:rgba(8,122,59,.07);border:1px solid rgba(8,122,59,.14);font-size:12.5px;color:#526173;display:flex;align-items:center;justify-content:space-between;gap:10px}.p7-translator-current b{color:#087a3b}.p7-translator-current button:disabled{opacity:.55;cursor:wait}.p7-translator-list{display:grid;gap:7px}.p7-translator-list button{min-height:48px;padding:8px 10px;border-radius:15px;border:1px solid rgba(7,22,17,.09);background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#071611;cursor:pointer;text-align:left}.p7-translator-list button[data-active='true']{border-color:rgba(8,122,59,.28);background:rgba(8,122,59,.075)}.p7-translator-list button span{display:grid;gap:2px}.p7-translator-list button strong{font-size:13.5px;font-weight:930}.p7-translator-list button small{font-size:11.5px;color:#66758a}.p7-translator-list button em{font-style:normal;font-size:11px;font-weight:950;color:#66758a}.p7-translator-list button svg{color:#087a3b}.p7-translator-root *{box-sizing:border-box}.p7-translator-spin{animation:p7-translator-spin .8s linear infinite}@keyframes p7-translator-spin{to{transform:rotate(360deg)}}@media(max-width:640px){.p7-translator-button{height:40px;min-width:40px;padding:0 9px;border-radius:13px}.p7-translator-button span{display:none}.p7-translator-button b{min-width:23px;height:22px;font-size:10px}.pc-v4-actions .p7-translator-button{height:38px;min-width:38px;padding:0 7px}.pc-v4-actions .p7-translator-button b{display:none}.entry-header-actions .p7-translator-button,.p7-register-actions .p7-translator-button,.p7-contact-fixed-actions .p7-translator-button{width:40px;padding:0}.entry-header-actions .p7-translator-button b,.p7-register-actions .p7-translator-button b,.p7-contact-fixed-actions .p7-translator-button b{display:none}.p7-translator-panel{left:10px;right:10px;top:calc(env(safe-area-inset-top) + 64px);width:auto;border-radius:20px}}@media(max-width:374px){.pc-v4-actions .p7-translator-button{height:34px;min-width:34px;border-radius:12px}.pc-v4-actions .p7-translator-button svg{width:15px;height:15px}}
+.p7-translator-slot{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;order:60}.p7-translator-button{height:42px;min-width:42px;padding:0 11px;border-radius:14px;border:1px solid rgba(8,122,59,.18);background:rgba(8,122,59,.075);color:#087a3b;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12.5px;font-weight:950;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;box-shadow:0 8px 20px rgba(7,22,17,.045)}.p7-translator-button:hover{border-color:rgba(8,122,59,.28);background:rgba(8,122,59,.11)}.p7-translator-button b{min-width:25px;height:24px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.76);display:inline-flex;align-items:center;justify-content:center;color:#075f32;font-size:10.5px;font-weight:950}.pc-v4-actions .p7-translator-button{height:44px;min-width:44px;border-radius:14px;background:var(--pc-bg-card);border-color:var(--pc-border);color:var(--pc-text-secondary);box-shadow:var(--pc-shadow-sm)}.pc-v4-actions .p7-translator-button:hover{color:var(--pc-text-primary);border-color:var(--pc-border-light)}.pc-v4-actions .p7-translator-button span{display:none}.pc-v4-actions .p7-translator-button b{background:var(--pc-accent-bg);color:var(--pc-accent-strong)}.login-top .p7-translator-slot{margin-left:auto}.login-top .p7-translator-button{height:42px}.p7-register-actions .p7-translator-button,.p7-contact-fixed-actions .p7-translator-button,.entry-header-actions .p7-translator-button,.login-header .p7-translator-button,.p7-demo-header-actions .p7-translator-button,.p7-contact-nav .p7-translator-button{height:42px}.p7-translator-fallback{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 12px);z-index:3600}.p7-translator-panel{position:fixed;right:14px;top:calc(env(safe-area-inset-top) + 72px);z-index:3700;width:min(370px,calc(100vw - 28px));padding:14px;border-radius:22px;border:1px solid rgba(7,22,17,.12);background:rgba(255,255,255,.98);box-shadow:0 22px 70px rgba(7,22,17,.16);backdrop-filter:blur(18px);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#071611;display:grid;gap:12px}.p7-translator-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.p7-translator-panel-head strong{font-size:16px;font-weight:950;letter-spacing:-.03em}.p7-translator-panel-head button,.p7-translator-current button{width:36px;height:36px;border-radius:13px;border:1px solid rgba(7,22,17,.1);background:#fff;color:#071611;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.p7-translator-current{padding:10px 11px;border-radius:15px;background:rgba(8,122,59,.07);border:1px solid rgba(8,122,59,.14);font-size:12.5px;color:#526173;display:flex;align-items:center;justify-content:space-between;gap:10px}.p7-translator-current b{color:#087a3b}.p7-translator-current button:disabled{opacity:.55;cursor:wait}.p7-translator-list{display:grid;gap:7px}.p7-translator-list button{min-height:48px;padding:8px 10px;border-radius:15px;border:1px solid rgba(7,22,17,.09);background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#071611;cursor:pointer;text-align:left}.p7-translator-list button[data-active='true']{border-color:rgba(8,122,59,.28);background:rgba(8,122,59,.075)}.p7-translator-list button span{display:grid;gap:2px}.p7-translator-list button strong{font-size:13.5px;font-weight:930}.p7-translator-list button small{font-size:11.5px;color:#66758a}.p7-translator-list button em{font-style:normal;font-size:11px;font-weight:950;color:#66758a}.p7-translator-list button svg{color:#087a3b}.p7-translator-root *{box-sizing:border-box}.p7-translator-spin{animation:p7-translator-spin .8s linear infinite}@keyframes p7-translator-spin{to{transform:rotate(360deg)}}@media(max-width:640px){.p7-translator-button{height:40px;min-width:40px;padding:0 9px;border-radius:13px}.p7-translator-button span{display:none}.p7-translator-button b{min-width:23px;height:22px;font-size:10px}.pc-v4-actions .p7-translator-button{height:38px;min-width:38px;padding:0 7px}.pc-v4-actions .p7-translator-button b{display:none}.entry-header-actions .p7-translator-button,.login-header .p7-translator-button,.p7-demo-header-actions .p7-translator-button,.p7-contact-nav .p7-translator-button,.p7-register-actions .p7-translator-button,.p7-contact-fixed-actions .p7-translator-button{width:40px;padding:0}.entry-header-actions .p7-translator-button b,.login-header .p7-translator-button b,.p7-demo-header-actions .p7-translator-button b,.p7-contact-nav .p7-translator-button b,.p7-register-actions .p7-translator-button b,.p7-contact-fixed-actions .p7-translator-button b{display:none}.p7-translator-panel{left:10px;right:10px;top:calc(env(safe-area-inset-top) + 64px);width:auto;border-radius:20px}}@media(max-width:374px){.pc-v4-actions .p7-translator-button{height:34px;min-width:34px;border-radius:12px}.pc-v4-actions .p7-translator-button svg{width:15px;height:15px}}
 `;
