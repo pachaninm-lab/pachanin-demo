@@ -1,11 +1,7 @@
 import type { ReactNode } from 'react';
-import { LoginRestorePatch } from '@/components/platform-v7/LoginRestorePatch';
+import { LoginLegacyOverlay } from '@/components/platform-v7/LoginLegacyOverlay';
 
 export default function LoginTemplate({ children }: { children: ReactNode }) {
-  return (
-    <>
-      {children}
-      <LoginRestorePatch />
-    </>
-  );
+  void children;
+  return <LoginLegacyOverlay />;
 }
