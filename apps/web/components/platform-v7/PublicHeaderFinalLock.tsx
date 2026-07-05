@@ -5,6 +5,9 @@ export function PublicHeaderFinalLock() {
     <style>{`
       .entry-header-actions,
       .login-top,
+      .login-header,
+      .p7-demo-header-actions,
+      .p7-contact-nav,
       .p7-register-actions,
       .p7-contact-fixed-actions,
       .pc-v4-actions {
@@ -14,6 +17,9 @@ export function PublicHeaderFinalLock() {
 
       .entry-header-actions .p7-translator-slot,
       .login-top .p7-translator-slot,
+      .login-header .p7-translator-slot,
+      .p7-demo-header-actions .p7-translator-slot,
+      .p7-contact-nav .p7-translator-slot,
       .p7-register-actions .p7-translator-slot,
       .p7-contact-fixed-actions .p7-translator-slot,
       .pc-v4-actions .p7-translator-slot {
@@ -26,6 +32,9 @@ export function PublicHeaderFinalLock() {
 
       .entry-header-actions .p7-translator-button,
       .login-top .p7-translator-button,
+      .login-header .p7-translator-button,
+      .p7-demo-header-actions .p7-translator-button,
+      .p7-contact-nav .p7-translator-button,
       .p7-register-actions .p7-translator-button,
       .p7-contact-fixed-actions .p7-translator-button {
         width: 42px !important;
@@ -38,11 +47,23 @@ export function PublicHeaderFinalLock() {
       .entry-header-actions .p7-translator-button b,
       .login-top .p7-translator-button span,
       .login-top .p7-translator-button b,
+      .login-header .p7-translator-button span,
+      .login-header .p7-translator-button b,
+      .p7-demo-header-actions .p7-translator-button span,
+      .p7-demo-header-actions .p7-translator-button b,
+      .p7-contact-nav .p7-translator-button span,
+      .p7-contact-nav .p7-translator-button b,
       .p7-register-actions .p7-translator-button span,
       .p7-register-actions .p7-translator-button b,
       .p7-contact-fixed-actions .p7-translator-button span,
       .p7-contact-fixed-actions .p7-translator-button b {
         display: none !important;
+      }
+
+      .p7-translator-fallback {
+        top: calc(env(safe-area-inset-top) + 12px) !important;
+        right: 12px !important;
+        z-index: 3600 !important;
       }
 
       @media (max-width: 720px) {
