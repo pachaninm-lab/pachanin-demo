@@ -7,7 +7,7 @@ type Dict = Record<string, string>;
 type SourceText = Text & { __pcExactPatchSource?: string };
 
 const KEY = 'pc-v7-language';
-const SCOPES = '.pc-v7-public-entry, .pc-v7-login-single, .p7-contact-page, .p7-support-chat-panel, [role="dialog"]';
+const SCOPES = '.pc-v7-public-entry, .pc-v7-login-single, .p7-contact-page, .p7-support-chat-panel, [role="dialog"], .pc-shell-root-v4, .seller-cockpit';
 
 const EN: Dict = {
   'единый вход в контур исполнения сделки': 'single entry to the deal execution circuit',
@@ -41,6 +41,25 @@ const EN: Dict = {
   'ожидает акт': 'awaiting act',
   'Разобрать контур сделки': 'Review the deal circuit',
   'Сначала выберите роль участника сделки. После этого вход выполняется по логину, паролю и организации.': 'First select the participant role. Then sign in using login, password, and organisation.',
+  'Мой резерв': 'My reserve',
+  'Под удержанием': 'Held',
+  'ожидает банковского подтверждения': 'awaits bank confirmation',
+  'спорная часть по весу и качеству': 'disputed part by weight and quality',
+  'Денежный резерв': 'Money reserve',
+  'ожидает банк': 'awaiting bank',
+  'КОРОТКИЙ ФАКТ': 'SHORT FACT',
+  'Сделка не переходит к логистике до банковского статуса': 'The deal does not move to logistics before bank status',
+  'БЛОКЕР / ПРИЧИНА': 'BLOCKER / REASON',
+  'Резерв ещё не подтверждён банком': 'The reserve has not yet been confirmed by the bank',
+  'ОСНОВАНИЕ': 'BASIS',
+  'Платформа показывает запрос и причину ожидания; банк подтверждает статус': 'The platform shows the request and waiting reason; the bank confirms the status',
+  'СЛЕДУЮЩИЙ ШАГ': 'NEXT STEP',
+  'Запросить подтверждение резерва': 'Request reserve confirmation',
+  'Деньги, резерв и удержание': 'Money, reserve, and hold',
+  'Документы и СДИЗ покупателя': 'Buyer documents and SDIZ',
+  'Блокеры и путь разблокировки': 'Blockers and unblock path',
+  'Рабочие действия и передача': 'Work actions and handoff',
+  'Журнал событий': 'Event journal',
 };
 
 const ZH: Dict = {
@@ -75,6 +94,25 @@ const ZH: Dict = {
   'ожидает акт': '等待单据',
   'Разобрать контур сделки': '复盘交易闭环',
   'Сначала выберите роль участника сделки. После этого вход выполняется по логину, паролю и организации.': '先选择交易参与方角色，然后使用登录名、密码和组织进入。',
+  'Мой резерв': '我的预留',
+  'Под удержанием': '冻结中',
+  'ожидает банковского подтверждения': '等待银行确认',
+  'спорная часть по весу и качеству': '重量和质量争议部分',
+  'Денежный резерв': '资金预留',
+  'ожидает банк': '等待银行',
+  'КОРОТКИЙ ФАКТ': '简要事实',
+  'Сделка не переходит к логистике до банковского статуса': '银行状态确认前，交易不进入物流',
+  'БЛОКЕР / ПРИЧИНА': '阻断项 / 原因',
+  'Резерв ещё не подтверждён банком': '预留尚未由银行确认',
+  'ОСНОВАНИЕ': '依据',
+  'Платформа показывает запрос и причину ожидания; банк подтверждает статус': '平台显示请求和等待原因；银行确认状态',
+  'СЛЕДУЮЩИЙ ШАГ': '下一步',
+  'Запросить подтверждение резерва': '请求确认预留',
+  'Деньги, резерв и удержание': '资金、预留和冻结',
+  'Документы и СДИЗ покупателя': '买方文件和SDIZ',
+  'Блокеры и путь разблокировки': '阻断项和解锁路径',
+  'Рабочие действия и передача': '工作动作和交接',
+  'Журнал событий': '事件日志',
 };
 
 function lang(): Lang {
