@@ -9,10 +9,10 @@ import { useBuyerRuntimeStore } from '@/stores/useBuyerRuntimeStore';
 import { RiskBadge } from '@/components/v7r/RiskBadge';
 
 function palette(tone: 'success' | 'warning' | 'danger' | 'neutral') {
-  if (tone === 'success') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  if (tone === 'warning') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
-  if (tone === 'danger') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
-  return { bg: '#F8FAFB', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' };
+  if (tone === 'success') return { bg: 'var(--pc-accent-bg)', border: 'var(--pc-accent-border)', color: 'var(--pc-accent)' };
+  if (tone === 'warning') return { bg: 'var(--pc-warning-bg)', border: 'var(--pc-warning)', color: 'var(--pc-warning)' };
+  if (tone === 'danger') return { bg: 'var(--pc-danger-bg)', border: 'var(--pc-danger)', color: 'var(--pc-danger)' };
+  return { bg: 'var(--pc-bg-subtle)', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' };
 }
 
 function Badge({ tone, children }: { tone: 'success' | 'warning' | 'danger' | 'neutral'; children: React.ReactNode }) {
@@ -22,7 +22,7 @@ function Badge({ tone, children }: { tone: 'success' | 'warning' | 'danger' | 'n
 
 function StatCard({ title, value, note }: { title: string; value: string; note: string }) {
   return (
-    <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+    <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
       <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
       <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6, marginTop: 8 }}>{note}</div>
@@ -45,12 +45,12 @@ function nextStepLabel(item: Deal) {
 
 function MobileDealCard({ item, selected, onToggle, onCompare }: { item: Deal; selected: boolean; onToggle: () => void; onCompare: () => void }) {
   return (
-    <article style={{ background: '#fff', border: selected ? '1px solid rgba(10,122,95,0.24)' : '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, display: 'grid', gap: 12, boxShadow: selected ? '0 0 0 2px rgba(10,122,95,0.06) inset' : 'none' }}>
+    <article style={{ background: 'var(--pc-bg-card)', border: selected ? '1px solid rgba(10,122,95,0.24)' : '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, display: 'grid', gap: 12, boxShadow: selected ? '0 0 0 2px rgba(10,122,95,0.06) inset' : 'none' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
           <input type='checkbox' aria-label={`Выбрать сделку ${item.id}`} checked={selected} onChange={onToggle} />
           <div>
-            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 14 }}>{item.id}</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: 'var(--pc-accent)', fontSize: 14 }}>{item.id}</div>
             <div style={{ marginTop: 4, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)' }}>{item.grain} · {item.quantity} {item.unit}</div>
           </div>
         </label>
@@ -62,13 +62,13 @@ function MobileDealCard({ item, selected, onToggle, onCompare }: { item: Deal; s
           <InfoCell label='Лот' value={item.lotId ?? '—'} />
           <InfoCell label='Маршрут' value={item.routeId ?? '—'} />
           <InfoCell label='Сумма' value={formatCompactMoney(item.reservedAmount)} />
-          <div style={{ padding: 12, borderRadius: 14, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)' }}>
+          <div style={{ padding: 12, borderRadius: 14, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)' }}>
             <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Риск</div>
             <div style={{ marginTop: 6 }}><RiskBadge score={item.riskScore} /></div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}>
+        <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 14, background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border, #E4E6EA)' }}>
           <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Стороны</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{item.buyer.name}</div>
           <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{item.seller.name}</div>
@@ -84,8 +84,8 @@ function MobileDealCard({ item, selected, onToggle, onCompare }: { item: Deal; s
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{item.routeState ?? 'Маршрут не назначен'}{item.routeEta ? ` · прибытие ${item.routeEta}` : ''}</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={onCompare} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
-          <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', color: '#fff', fontSize: 12, fontWeight: 800 }}>Открыть сделку</Link>
+          <button onClick={onCompare} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
+          <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: 'var(--pc-accent)', color: 'var(--pc-accent-contrast)', fontSize: 12, fontWeight: 800 }}>Открыть сделку</Link>
         </div>
       </div>
     </article>
@@ -94,7 +94,7 @@ function MobileDealCard({ item, selected, onToggle, onCompare }: { item: Deal; s
 
 function InfoCell({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ padding: 12, borderRadius: 14, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)' }}>
+    <div style={{ padding: 12, borderRadius: 14, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)' }}>
       <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
       <div style={{ marginTop: 6, fontSize: 13, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div>
     </div>
@@ -197,15 +197,15 @@ export function DealsOverviewRuntime() {
         }
       ` }} />
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
+      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 28, lineHeight: 1.15, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Сделки</div>
             <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8, maxWidth: 920 }}>Операционный обзор сделок. На телефоне — карточки с полным контекстом, на широком экране — таблица для массовой работы.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href='/platform-v7/procurement' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Открыть закупку</Link>
-            <button onClick={() => openCompare(orderedDeals.slice(0, 2).map((item) => item.id))} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Сравнить сделки</button>
+            <Link href='/platform-v7/procurement' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'var(--pc-accent-bg)', border: '1px solid rgba(10,122,95,0.16)', color: 'var(--pc-accent)', fontSize: 13, fontWeight: 700 }}>Открыть закупку</Link>
+            <button onClick={() => openCompare(orderedDeals.slice(0, 2).map((item) => item.id))} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Сравнить сделки</button>
           </div>
         </div>
       </section>
@@ -221,10 +221,10 @@ export function DealsOverviewRuntime() {
         <section style={{ display: 'grid', gap: 12 }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Draft-сделки</div>
           {draftDeals.map((item) => (
-            <section key={item.id} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+            <section key={item.id} style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: 'var(--pc-accent)', fontSize: 13 }}>{item.id}</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 4 }}>{item.grain} · {item.volume} т</div>
                   <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 6 }}>{item.region} · {item.sellerName} → {item.buyerName}</div>
                 </div>
@@ -234,31 +234,31 @@ export function DealsOverviewRuntime() {
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{item.nextStep}</div></div>
-                <div style={{ padding: 14, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Деньги и документы</div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>Резерв: {item.reserveState} · Документы: {item.docsState}</div></div>
+                <div style={{ padding: 14, borderRadius: 14, background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border, #E4E6EA)' }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{item.nextStep}</div></div>
+                <div style={{ padding: 14, borderRadius: 14, background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border, #E4E6EA)' }}><div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Деньги и документы</div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>Резерв: {item.reserveState} · Документы: {item.docsState}</div></div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Link href={`/platform-v7/deal-drafts/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.16)', color: '#0A7A5F', fontSize: 13, fontWeight: 700 }}>Открыть draft</Link>
-                <button onClick={() => removeDraftDeal(item.id)} style={{ borderRadius: 12, padding: '10px 14px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Удалить</button>
+                <Link href={`/platform-v7/deal-drafts/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, padding: '10px 14px', background: 'var(--pc-accent-bg)', border: '1px solid rgba(10,122,95,0.16)', color: 'var(--pc-accent)', fontSize: 13, fontWeight: 700 }}>Открыть draft</Link>
+                <button onClick={() => removeDraftDeal(item.id)} style={{ borderRadius: 12, padding: '10px 14px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Удалить</button>
               </div>
             </section>
           ))}
         </section>
       ) : null}
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, overflow: 'hidden' }}>
+      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, overflow: 'hidden' }}>
         {selected.size ? (
           <div role='toolbar' aria-label='Массовые действия по сделкам' style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', background: 'rgba(10,122,95,0.06)', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#0A7A5F' }}>{selected.size} выбрано</span>
-            <button onClick={() => runBulkAction('bank')} style={{ padding: '8px 12px', borderRadius: 10, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Передать основание</button>
-            <button onClick={() => runBulkAction('dispute')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(220,38,38,0.3)', color: '#B91C1C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Открыть спор</button>
-            <button onClick={() => runBulkAction('compare')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(37,99,235,0.3)', color: '#2563EB', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
-            <button onClick={() => runBulkAction('close')} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Закрыть сделки</button>
+            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--pc-accent)' }}>{selected.size} выбрано</span>
+            <button onClick={() => runBulkAction('bank')} style={{ padding: '8px 12px', borderRadius: 10, background: 'var(--pc-accent)', border: '1px solid var(--pc-accent)', color: 'var(--pc-accent-contrast)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Передать основание</button>
+            <button onClick={() => runBulkAction('dispute')} style={{ padding: '8px 12px', borderRadius: 10, background: 'var(--pc-bg-card)', border: '1px solid rgba(220,38,38,0.3)', color: 'var(--pc-danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Открыть спор</button>
+            <button onClick={() => runBulkAction('compare')} style={{ padding: '8px 12px', borderRadius: 10, background: 'var(--pc-bg-card)', border: '1px solid rgba(37,99,235,0.3)', color: 'var(--pc-info)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
+            <button onClick={() => runBulkAction('close')} style={{ padding: '8px 12px', borderRadius: 10, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Закрыть сделки</button>
             <button onClick={() => setSelected(new Set())} style={{ padding: '8px 12px', borderRadius: 10, background: 'transparent', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-muted, #6B778C)', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginLeft: 'auto' }}>Сбросить выбор</button>
           </div>
         ) : null}
         {bulkToast ? (
-          <div role='status' aria-live='polite' style={{ padding: '10px 16px', background: 'rgba(10,122,95,0.08)', borderBottom: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>{bulkToast}</div>
+          <div role='status' aria-live='polite' style={{ padding: '10px 16px', background: 'var(--pc-accent-bg)', borderBottom: '1px solid var(--pc-accent-border)', color: 'var(--pc-accent)', fontSize: 12, fontWeight: 700 }}>{bulkToast}</div>
         ) : null}
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 16, borderBottom: '1px solid var(--pc-border, #E4E6EA)', flexWrap: 'wrap' }}>
           <div>
@@ -272,15 +272,15 @@ export function DealsOverviewRuntime() {
               { id: 'risk', label: 'Высокий риск' },
               { id: 'transit', label: 'В пути' },
             ].map((preset) => (
-              <button key={preset.id} onClick={() => setViewPreset(preset.id as typeof viewPreset)} style={{ padding: '8px 12px', borderRadius: 999, border: `1px solid ${viewPreset === preset.id ? 'rgba(10,122,95,0.18)' : 'var(--pc-border, #E4E6EA)'}`, background: viewPreset === preset.id ? 'rgba(10,122,95,0.08)' : '#fff', color: viewPreset === preset.id ? '#0A7A5F' : 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>{preset.label}</button>
+              <button key={preset.id} onClick={() => setViewPreset(preset.id as typeof viewPreset)} style={{ padding: '8px 12px', borderRadius: 999, border: `1px solid ${viewPreset === preset.id ? 'var(--pc-accent-border)' : 'var(--pc-border, #E4E6EA)'}`, background: viewPreset === preset.id ? 'var(--pc-accent-bg)' : 'var(--pc-bg-card)', color: viewPreset === preset.id ? 'var(--pc-accent)' : 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>{preset.label}</button>
             ))}
-            <div style={{ display: 'inline-flex', gap: 4, padding: 4, borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}>
+            <div style={{ display: 'inline-flex', gap: 4, padding: 4, borderRadius: 999, background: 'var(--pc-bg-subtle)', border: '1px solid var(--pc-border, #E4E6EA)' }}>
               <button onClick={() => setDensity('comfortable')} style={{ padding: '6px 10px', borderRadius: 999, border: 'none', background: density === 'comfortable' ? '#fff' : 'transparent', color: density === 'comfortable' ? 'var(--pc-text-primary, #0F1419)' : 'var(--pc-text-muted, #6B778C)', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Подробно</button>
               <button onClick={() => setDensity('compact')} style={{ padding: '6px 10px', borderRadius: 999, border: 'none', background: density === 'compact' ? '#fff' : 'transparent', color: density === 'compact' ? 'var(--pc-text-primary, #0F1419)' : 'var(--pc-text-muted, #6B778C)', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Плотно</button>
             </div>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder='Поиск: DL-9102, Тамбов, Агро-Юг…' aria-label='Поиск по сделкам' style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', fontSize: 12, minWidth: 220 }} />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder='Поиск: DL-9102, Тамбов, Агро-Юг…' aria-label='Поиск по сделкам' style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: 'var(--pc-bg-card)', fontSize: 12, minWidth: 220 }} />
             {search ? (
-              <button onClick={() => setSearch('')} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', fontSize: 12, fontWeight: 700, color: 'var(--pc-text-muted, #6B778C)', cursor: 'pointer' }}>Сбросить</button>
+              <button onClick={() => setSearch('')} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: 'var(--pc-bg-card)', fontSize: 12, fontWeight: 700, color: 'var(--pc-text-muted, #6B778C)', cursor: 'pointer' }}>Сбросить</button>
             ) : null}
             <span style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', marginLeft: 'auto' }}>{orderedDeals.length} из {DEALS.length}</span>
           </div>
@@ -295,7 +295,7 @@ export function DealsOverviewRuntime() {
         <div className='deals-desktop-table' style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: density === 'compact' ? 1100 : 1240 }}>
             <thead>
-              <tr style={{ background: '#F8FAFB', textAlign: 'left' }}>
+              <tr style={{ background: 'var(--pc-bg-subtle)', textAlign: 'left' }}>
                 <th style={{ padding: rowPadding, borderBottom: '1px solid var(--pc-border, #E4E6EA)', width: 44 }}>
                   <input
                     type='checkbox'
@@ -319,7 +319,7 @@ export function DealsOverviewRuntime() {
                     <input type='checkbox' aria-label={`Выбрать сделку ${item.id}`} checked={selected.has(item.id)} onChange={() => toggleRow(item.id)} />
                   </td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 13 }}>{item.id}</div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: 'var(--pc-accent)', fontSize: 13 }}>{item.id}</div>
                     <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{item.grain} · {item.quantity} {item.unit}</div>
                   </td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
@@ -342,8 +342,8 @@ export function DealsOverviewRuntime() {
                   </td>
                   <td style={{ padding: rowPadding, verticalAlign: 'top' }}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button onClick={() => openCompare([item.id, ...orderedDeals.filter((deal) => deal.id !== item.id).slice(0, 1).map((deal) => deal.id)])} style={{ borderRadius: 10, padding: '8px 12px', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
-                      <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 12, fontWeight: 700 }}>Открыть</Link>
+                      <button onClick={() => openCompare([item.id, ...orderedDeals.filter((deal) => deal.id !== item.id).slice(0, 1).map((deal) => deal.id)])} style={{ borderRadius: 10, padding: '8px 12px', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Сравнить</button>
+                      <Link prefetch={false} href={`/platform-v7/deals/${item.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, padding: '8px 12px', background: 'var(--pc-accent)', border: '1px solid var(--pc-accent)', color: 'var(--pc-accent-contrast)', fontSize: 12, fontWeight: 700 }}>Открыть</Link>
                     </div>
                   </td>
                 </tr>

@@ -146,8 +146,8 @@ export default async function PlatformV7BuyerPage() {
             const content = (
               <>
                 <div style={micro}>{fact.label}</div>
-                <div style={{ marginTop: 6, color: fact.warning ? '#B45309' : 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.4, fontWeight: 900 }}>{fact.value}</div>
-                {'href' in fact ? <div style={{ marginTop: 10, color: '#2563EB', fontSize: 12, fontWeight: 900 }}>Открыть маршрут</div> : null}
+                <div style={{ marginTop: 6, color: fact.warning ? 'var(--pc-warning)' : 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.4, fontWeight: 900 }}>{fact.value}</div>
+                {'href' in fact ? <div style={{ marginTop: 10, color: 'var(--pc-info)', fontSize: 12, fontWeight: 900 }}>Открыть маршрут</div> : null}
               </>
             );
 
@@ -266,7 +266,7 @@ export default async function PlatformV7BuyerPage() {
                   <Link key={path.href} href={path.href} style={pathCard}>
                     <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 16 }}>{path.title}</strong>
                     <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.45 }}>{path.note}</span>
-                    <span style={{ color: '#2563EB', fontSize: 12, fontWeight: 900 }}>Открыть</span>
+                    <span style={{ color: 'var(--pc-info)', fontSize: 12, fontWeight: 900 }}>Открыть</span>
                   </Link>
                 ))}
               </div>
@@ -317,13 +317,13 @@ export default async function PlatformV7BuyerPage() {
 }
 
 function Cell({ label, value, strong = false, warning = false }: { label: string; value: string; strong?: boolean; warning?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div></div>;
+  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? 'var(--pc-warning)' : strong ? 'var(--pc-accent)' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div></div>;
 }
 
 const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
 const h2 = { margin: '4px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
-const blockerCard = { display: 'grid', gap: 6, minWidth: 220, maxWidth: 280, padding: 14, borderRadius: 18, background: '#FFFBEB', border: '1px solid #FDE68A', boxShadow: '0 12px 28px rgba(180,83,9,0.08)' } as const;
-const firstScreenCard = { background: 'linear-gradient(135deg, rgba(255,251,235,0.84), rgba(255,255,255,0.92))', border: '1px solid #FDE68A', borderRadius: 28, padding: 18, display: 'grid', gap: 14, boxShadow: '0 18px 40px rgba(180,83,9,0.08)' } as const;
+const blockerCard = { display: 'grid', gap: 6, minWidth: 220, maxWidth: 280, padding: 14, borderRadius: 18, background: 'var(--pc-warning-bg)', border: '1px solid var(--pc-warning)', boxShadow: '0 12px 28px var(--pc-warning-bg)' } as const;
+const firstScreenCard = { background: 'linear-gradient(135deg, rgba(255,251,235,0.84), rgba(255,255,255,0.92))', border: '1px solid var(--pc-warning)', borderRadius: 28, padding: 18, display: 'grid', gap: 14, boxShadow: '0 18px 40px var(--pc-warning-bg)' } as const;
 const factGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 } as const;
 const factCard = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, minHeight: 116, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
 const factCardLink = { ...factCard, textDecoration: 'none', color: 'inherit' } as const;
@@ -332,6 +332,6 @@ const pathCard = { textDecoration: 'none', minHeight: 132, display: 'grid', alig
 const lotRow = { textDecoration: 'none', color: 'inherit', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' } as const;
 const rowGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 8 } as const;
 const cell = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
-const idText = { color: '#2563EB', fontSize: 13, fontWeight: 950 } as const;
+const idText = { color: 'var(--pc-info)', fontSize: 13, fontWeight: 950 } as const;
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
 const anchorSection = { scrollMarginTop: 86 } as const;

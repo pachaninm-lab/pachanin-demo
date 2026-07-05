@@ -244,10 +244,10 @@ function Gate({ gate }: { gate: GateItem }) {
 function DriverCard({ order }: { order: typeof orders[number] }) {
   const hasIncident = order.incidents !== 'нет';
   return (
-    <Link href='/platform-v7/driver/field' style={{ textDecoration: 'none', color: 'inherit', background: order.status === 'Водитель назначен' ? 'var(--pc-success-bg)' : 'var(--pc-bg-card)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
+    <Link href='/platform-v7/driver/field' style={{ textDecoration: 'none', color: 'inherit', background: order.status === 'Водитель назначен' ? 'var(--pc-success-bg)' : 'var(--pc-bg-card)', border: `1px solid ${hasIncident ? 'var(--pc-danger)' : 'var(--pc-accent-border)'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.driver} · {order.vehicle}</div>
+          <div style={{ color: 'var(--pc-accent)', fontSize: 13, fontWeight: 950 }}>{order.driver} · {order.vehicle}</div>
           <h2 style={h2}>{order.driverStatus}</h2>
           <p style={{ margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 }}>Заказ {order.id} · сделка {order.dealId}</p>
         </div>
@@ -260,7 +260,7 @@ function DriverCard({ order }: { order: typeof orders[number] }) {
         <Cell label='ЭТрН' value={order.etrn} danger={order.etrn.includes('ждёт') || order.etrn.includes('не создана')} />
         <Cell label='ГИС ЭПД' value={order.gisEpd} danger={order.gisEpd.includes('ожидает') || order.gisEpd.includes('не отправлено')} />
       </div>
-      <div style={{ background: hasIncident ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 15, padding: 12, color: hasIncident ? '#B91C1C' : '#0A7A5F', fontSize: 13, fontWeight: 900 }}>
+      <div style={{ background: hasIncident ? 'var(--pc-danger-bg)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'var(--pc-danger)' : 'var(--pc-accent-border)'}`, borderRadius: 15, padding: 12, color: hasIncident ? 'var(--pc-danger)' : 'var(--pc-accent)', fontSize: 13, fontWeight: 900 }}>
         Следующее действие логиста: {order.next}
       </div>
     </Link>
@@ -274,7 +274,7 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
     <Link href={order.href} style={{ textDecoration: 'none', color: 'inherit', background: isActive ? 'var(--pc-success-bg)' : 'var(--pc-bg-card)', border: `1px solid ${isActive ? 'rgba(10,122,95,0.2)' : 'var(--pc-border, #E4E6EA)'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.id} → {order.dealId}</div>
+          <div style={{ color: 'var(--pc-accent)', fontSize: 13, fontWeight: 950 }}>{order.id} → {order.dealId}</div>
           <h2 style={h2}>{order.crop} · {order.volume}</h2>
           <p style={{ margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 }}>{order.route}</p>
         </div>
@@ -294,7 +294,7 @@ function OrderCard({ order }: { order: typeof orders[number] }) {
         <Cell label='Инциденты' value={order.incidents} danger={hasIncident} />
       </div>
 
-      <div style={{ background: hasIncident ? 'rgba(220,38,38,0.08)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 15, padding: 12, color: hasIncident ? '#B91C1C' : '#0A7A5F', fontSize: 13, fontWeight: 900 }}>
+      <div style={{ background: hasIncident ? 'var(--pc-danger-bg)' : 'rgba(10,122,95,0.06)', border: `1px solid ${hasIncident ? 'var(--pc-danger)' : 'var(--pc-accent-border)'}`, borderRadius: 15, padding: 12, color: hasIncident ? 'var(--pc-danger)' : 'var(--pc-accent)', fontSize: 13, fontWeight: 900 }}>
         Следующее действие: {order.next}
       </div>
     </Link>
@@ -305,25 +305,25 @@ function Cell({ label, value, strong = false, danger = false }: { label: string;
   return (
     <div style={cell}>
       <div style={micro}>{label}</div>
-      <div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.3, fontWeight: 900, overflowWrap: 'break-word' }}>{value}</div>
+      <div style={{ marginTop: 4, color: danger ? 'var(--pc-danger)' : strong ? 'var(--pc-accent)' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.3, fontWeight: 900, overflowWrap: 'break-word' }}>{value}</div>
     </div>
   );
 }
 
 function stateBg(state: string) {
   if (state === 'ok') return 'var(--pc-success-bg)';
-  if (state === 'stop') return 'linear-gradient(180deg,#FFFFFF 0%,#FEF2F2 100%)';
-  return 'linear-gradient(180deg,#FFFFFF 0%,#FFFBEB 100%)';
+  if (state === 'stop') return 'linear-gradient(180deg,var(--pc-bg-card) 0%,var(--pc-danger-bg) 100%)';
+  return 'linear-gradient(180deg,var(--pc-bg-card) 0%,var(--pc-warning-bg) 100%)';
 }
 function stateBorder(state: string) {
-  if (state === 'ok') return 'rgba(10,122,95,0.18)';
-  if (state === 'stop') return 'rgba(220,38,38,0.18)';
-  return 'rgba(217,119,6,0.18)';
+  if (state === 'ok') return 'var(--pc-accent-border)';
+  if (state === 'stop') return 'var(--pc-danger)';
+  return 'var(--pc-warning)';
 }
 function stateText(state: string) {
-  if (state === 'ok') return '#0A7A5F';
-  if (state === 'stop') return '#B91C1C';
-  return '#B45309';
+  if (state === 'ok') return 'var(--pc-accent)';
+  if (state === 'stop') return 'var(--pc-danger)';
+  return 'var(--pc-warning)';
 }
 
 const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
@@ -331,10 +331,10 @@ const h2 = { margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSi
 const gateGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 } as const;
 const tripGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8 } as const;
 const tripCard = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, display: 'grid', gap: 10, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
-const idText = { color: '#0A7A5F', fontSize: 12, fontWeight: 950 } as const;
+const idText = { color: 'var(--pc-accent)', fontSize: 12, fontWeight: 950 } as const;
 const twoColGrid = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
 const cell = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
 const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
-const status = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
+const status = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'var(--pc-accent-bg)', border: '1px solid var(--pc-accent-border)', color: 'var(--pc-accent)', fontSize: 12, fontWeight: 900 } as const;
 const neutralStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 900 } as const;
-const dangerStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
+const dangerStatus = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'var(--pc-danger-bg)', border: '1px solid var(--pc-danger)', color: 'var(--pc-danger)', fontSize: 12, fontWeight: 900 } as const;

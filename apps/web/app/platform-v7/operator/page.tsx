@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DEMO_DEAL_RESERVED_RUB } from '@/lib/platform-v7/demo-money';
 import { countPhraseRu } from '@/lib/format/plural';
 import { OperatorKpiDashboard } from '@/components/platform-v7/OperatorKpiDashboard';
 import { PushNotificationBanner } from '@/components/platform-v7/PushNotificationBanner';
@@ -23,10 +24,10 @@ const deal9106 = getDeal360Scenario('DL-9106');
 const deal9102 = getDeal360Scenario('DL-9102');
 
 const STATIC_BLOCKERS = [
-  { deal: 'DL-9106', lot: 'LOT-2403', dealAtRiskRub: 9_648_000, reason: 'СДИЗ не подтверждён', source: 'ФГИС «Зерно»', amount: '9,65 млн ₽', owner: 'продавец', next: 'отправить СДИЗ и дождаться подтверждения', href: '/platform-v7/deals/DL-9106/clean', severity: 'stop' as const },
-  { deal: 'DL-9106', lot: 'LOT-2403', dealAtRiskRub: 9_648_000, reason: 'ЭТрН ждёт подписи грузополучателя', source: 'СБИС / Saby ЭТрН', amount: '9,65 млн ₽', owner: 'грузополучатель', next: 'закрыть подпись ЭТрН и передачу в ГИС ЭПД', href: '/platform-v7/logistics', severity: 'stop' as const },
-  { deal: 'DL-9106', lot: 'LOT-2403', dealAtRiskRub: 9_648_000, reason: 'Протокол качества ожидается', source: 'лабораторный контур качества', amount: '9,65 млн ₽', owner: 'лаборатория', next: 'получить протокол качества', href: '/platform-v7/elevator', severity: 'wait' as const },
-  { deal: 'DL-9102', lot: 'LOT-2402', dealAtRiskRub: 6_240_000, reason: 'Отклонение веса', source: 'приёмка', amount: '624 тыс. ₽', owner: 'оператор', next: deal9102.nextAction, href: '/platform-v7/deals/DL-9102/clean', severity: 'stop' as const },
+  { deal: 'DL-9106', lot: 'LOT-2403', dealAtRiskRub: DEMO_DEAL_RESERVED_RUB['DL-9106'], reason: 'СДИЗ не подтверждён', source: 'ФГИС «Зерно»', amount: '9,65 млн ₽', owner: 'продавец', next: 'отправить СДИЗ и дождаться подтверждения', href: '/platform-v7/deals/DL-9106/clean', severity: 'stop' as const },
+  { deal: 'DL-9106', lot: 'LOT-2403', dealAtRiskRub: DEMO_DEAL_RESERVED_RUB['DL-9106'], reason: 'ЭТрН ждёт подписи грузополучателя', source: 'СБИС / Saby ЭТрН', amount: '9,65 млн ₽', owner: 'грузополучатель', next: 'закрыть подпись ЭТрН и передачу в ГИС ЭПД', href: '/platform-v7/logistics', severity: 'stop' as const },
+  { deal: 'DL-9106', lot: 'LOT-2403', dealAtRiskRub: DEMO_DEAL_RESERVED_RUB['DL-9106'], reason: 'Протокол качества ожидается', source: 'лабораторный контур качества', amount: '9,65 млн ₽', owner: 'лаборатория', next: 'получить протокол качества', href: '/platform-v7/elevator', severity: 'wait' as const },
+  { deal: 'DL-9102', lot: 'LOT-2402', dealAtRiskRub: DEMO_DEAL_RESERVED_RUB['DL-9102'], reason: 'Отклонение веса', source: 'приёмка', amount: '624 тыс. ₽', owner: 'оператор', next: deal9102.nextAction, href: '/platform-v7/deals/DL-9102/clean', severity: 'stop' as const },
 ];
 
 // Деньги под риском в демо-режиме — сумма по РАЗЛИЧНЫМ затронутым сделкам,

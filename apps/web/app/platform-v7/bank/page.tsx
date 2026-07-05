@@ -357,14 +357,14 @@ function Cell({ label, value, strong = false, danger = false }: { label: string;
 
 function stateBg(state: Deal360State) {
   if (state === 'ok') return 'rgba(10,122,95,0.06)';
-  if (state === 'stop') return 'rgba(220,38,38,0.06)';
-  if (state === 'wait') return 'rgba(217,119,6,0.06)';
+  if (state === 'stop') return 'var(--pc-danger-bg)';
+  if (state === 'wait') return 'var(--pc-warning-bg)';
   return 'var(--pc-bg-subtle)';
 }
 function stateBorder(state: Deal360State) {
-  if (state === 'ok') return 'rgba(10,122,95,0.18)';
-  if (state === 'stop') return 'rgba(220,38,38,0.18)';
-  if (state === 'wait') return 'rgba(217,119,6,0.18)';
+  if (state === 'ok') return 'var(--pc-accent-border)';
+  if (state === 'stop') return 'var(--pc-danger)';
+  if (state === 'wait') return 'var(--pc-warning)';
   return 'var(--pc-border, #E4E6EA)';
 }
 function stateText(state: Deal360State) {
