@@ -1,5 +1,6 @@
 import './globals.css';
 import '@/styles/platform-v7-dark-role-fixes.css';
+import '@/styles/platform-v7-public-load-hotfix.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
