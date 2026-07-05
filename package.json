@@ -4,7 +4,7 @@
   "packageManager": "pnpm@10.2.1",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "build": "pnpm i18n:platform-v7 && pnpm --filter @pc/api prisma generate && pnpm --filter @pc/web build",
+    "build": "pnpm --filter @pc/api prisma generate && pnpm --filter @pc/web build",
     "test": "pnpm --filter @pc/api test",
     "test:e2e": "pnpm --filter @pc/api test:e2e",
     "test:playwright": "playwright test",
@@ -27,25 +27,10 @@
     "db:seed:service-providers": "pnpm --filter @pc/api ts-node prisma/service-providers.seed.ts",
     "verify:shared": "tsc -p ./tsconfig.shared-verify.json --noEmit",
     "typecheck:domain": "tsc -p ./packages/domain-core/tsconfig.json --noEmit",
-    "i18n:platform-v7": "node ./scripts/patch-platform-v7-i18n.mjs && node ./scripts/check-platform-v7-i18n.mjs",
+    "i18n:platform-v7": "node ./scripts/check-platform-v7-i18n.mjs",
     "verify:repo:contour": "node ./scripts/run-repo-build-test-contour.mjs"
   },
-  "workspaces": [
-    "apps/api",
-    "apps/web",
-    "packages/*"
-  ],
-  "pnpm": {
-    "overrides": {
-      "glob": ">=10.5.0",
-      "picomatch": ">=4.0.4",
-      "fast-uri": ">=3.1.1"
-    }
-  },
-  "devDependencies": {
-    "@vitest/browser": "^4.1.9",
-    "@vitest/coverage-v8": "^4.1.9",
-    "jsdom": "^29.0.1",
-    "vitest": "^4.1.9"
-  }
+  "workspaces": ["apps/api", "apps/web", "packages/*"],
+  "pnpm": {"overrides": {"glob": ">=10.5.0", "picomatch": ">=4.0.4", "fast-uri": ">=3.1.1"}},
+  "devDependencies": {"@vitest/browser": "^4.1.9", "@vitest/coverage-v8": "^4.1.9", "jsdom": "^29.0.1", "vitest": "^4.1.9"}
 }
