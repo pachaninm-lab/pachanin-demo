@@ -60,6 +60,17 @@ function persistPendingRole(link: HTMLAnchorElement, role: string) {
   link.onclick = () => window.sessionStorage?.setItem(PENDING_ROLE_KEY, role);
 }
 
+function restoreDealPathCta(heroActions: HTMLElement) {
+  const routeLink = heroActions.querySelector<HTMLAnchorElement>('.entry-secondary-cta');
+  if (!routeLink) return;
+  routeLink.href = '#process';
+  routeLink.dataset.entryPathCta = 'true';
+  const icon = routeLink.querySelector('svg');
+  routeLink.replaceChildren();
+  if (icon) routeLink.appendChild(icon);
+  routeLink.appendChild(document.createTextNode('Посмотреть путь сделки'));
+}
+
 function ensureRegistrationEntry(root: ParentNode) {
   const headerActions = root.querySelector<HTMLElement>('.entry-header-actions');
   if (headerActions && !headerActions.querySelector('[data-entry-register="header"]')) {
@@ -74,6 +85,7 @@ function ensureRegistrationEntry(root: ParentNode) {
 
   const heroActions = root.querySelector<HTMLElement>('.entry-hero-actions');
   if (heroActions) {
+    restoreDealPathCta(heroActions);
     const heroLink = heroActions.querySelector<HTMLAnchorElement>('.entry-text-cta,.entry-register-cta');
     if (heroLink) {
       heroLink.href = '/platform-v7/register';
