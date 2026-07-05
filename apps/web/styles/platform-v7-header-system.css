@@ -110,18 +110,20 @@
   .seller-detail-hero button,
   .seller-detail-hero a { width: 100% ! important; max-width: 100% ! important; }
 
-  .pc-v7-assistant-widget {
+  .pc-v7-assistant-widget,
+  .p7-support-chat-button {
     width: 46px ! important;
     max-width: 46px ! important;
     min-width: 46px ! important;
     height: 46px ! important;
     min-height: 46px ! important;
     right: 12px ! important;
-    bottom: calc(env(safe-area-inset-bottom) + 94px) ! important;
+    bottom: calc(env(safe-area-inset-bottom) + 108px) ! important;
     padding: 0 ! important;
     border-radius: 18px ! important;
   }
-  .pc-v7-assistant-widget span { display: none ! important; }
+  .pc-v7-assistant-widget span,
+  .p7-support-chat-button span { display: none ! important; }
 }
 
 @media (max-width: 767px) {
