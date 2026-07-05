@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const createNextIntlPlugin = require('next-intl/plugin');
 
-// SSR-локаль публичного контура: apps/web/i18n/request.ts читает cookie pc-v7-locale.
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://vermillion-kitsune-0e7b97.netlify.app';
@@ -31,9 +30,6 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
-  // Temporary deploy-unblock for controlled pilot: do not let non-runtime
-  // type/lint drift block publishing the cabinet access lock. Remove after
-  // the TypeScript cleanup pass is completed.
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -53,11 +49,6 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      {
-        source: '/',
-        destination: '/platform-v7',
-        permanent: false,
-      },
       {
         source: '/platform-v7/deals/:id',
         destination: '/platform-v7/deals/:id/clean',
