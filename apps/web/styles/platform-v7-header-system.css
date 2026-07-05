@@ -1,0 +1,10 @@
+/* Platform v7 unified header system. */
+@media (max-width: 767px) {
+  .pc-shell-root-v4.pc-shell-root-v4 { --pc-header-offset: calc(env(safe-area-inset-top) + 64px) ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-header.pc-v4-header { z-index: 3300 ! important; min-height: calc(env(safe-area-inset-top) + 62px) ! important; max-height: calc(env(safe-area-inset-top) + 66px) ! important; overflow: visible ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-header-inner.pc-v4-header-inner { padding: calc(env(safe-area-inset-top) + 7px) 10px 7px ! important; min-height: calc(env(safe-area-inset-top) + 58px) ! important; overflow: visible ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-top.pc-v4-top { grid-template-columns: 40px 42px minmax(0,1fr) ! important; gap: 7px ! important; min-height: 42px ! important; overflow: visible ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-brand.pc-v4-brand { width: 42px ! important; min-width: 42px ! important; max-width: 42px ! important; height: 40px ! important; min-height: 40px ! important; max-height: 40px ! important; overflow: visible ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-actions.pc-v4-actions { display: flex ! important; justify-content: flex-end ! important; gap: 4px ! important; overflow: visible ! important; }
+  .pc-shell-root-v4.pc-shell-root-v4 .pc-v4-main.pc-v4-main { padding-top: calc(env(safe-area-inset-top) + 76px) ! important; }
+}
