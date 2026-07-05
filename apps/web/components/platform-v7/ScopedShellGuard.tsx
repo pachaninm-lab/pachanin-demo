@@ -5,18 +5,16 @@ import { getShellPolicy } from '@/lib/platform-v7/shell-role-policy';
 import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
 
 const base = `
+  /* Do not mutate .pc-v4-header / .pc-v4-top here.
+     Header visibility is owned by platform-v7-header-system.css and AppShellV4.
+     Older role-scoped rules hid/regridded the header after hydration, which made
+     the header disappear on first load and return only after refresh. */
   .pc-v4-pilot-note,.pc-v4-statuses,.pc-v4-stage,.pc-v4-mobile-role,.pc-v4-select,[data-role-header-switcher-wrap='true'],[data-role-header-label='true']{display:none!important}
   .pc-v4-meta,.pc-v4-subtitle{display:none!important}
   nav[data-testid='platform-v7-work-route-nav']{display:none!important}
   @media(max-width:640px){
-    .pc-shell-root-v4{--pc-header-offset:56px!important}
-    .pc-v4-header-inner{height:56px!important;padding:calc(env(safe-area-inset-top) + 7px) 10px 7px!important}
-    .pc-v4-title,.pc-v4-subtitle{display:none!important}
-    .pc-v4-search{min-width:42px!important;max-width:42px!important;flex:0 0 42px!important}
-    .pc-v4-main{padding-left:10px!important;padding-right:10px!important}
-    .pc-v4-iconbtn{min-width:42px!important;min-height:42px!important}
-    .pc-v4-brand{max-width:52px!important}
-    .pc-v4-actions{min-width:0!important;gap:6px!important}
+    .pc-shell-root-v4{--pc-header-offset:64px!important}
+    .pc-v4-main{padding-left:10px!important;padding-right:10px!important;padding-top:calc(env(safe-area-inset-top) + 76px)!important}
   }
 `;
 
@@ -34,11 +32,11 @@ const complianceMobile = `@media(max-width:767px){.pc-v7-compliance-list{gap:8px
 const operatorMobile = `@media(max-width:767px){.pc-v7-control-tower{gap:8px!important}.pc-v7-operator-kpi{grid-template-columns:1fr 1fr!important}}`;
 
 function FieldShellPolicy() {
-  return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}.pc-v4-search,.pc-v4-select,.pc-v4-mobile-role,.pc-v4-stage,.pc-v4-meta,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(env(safe-area-inset-top) + 66px)!important}` }} />;
+  return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}.pc-v4-search,.pc-v4-select,.pc-v4-mobile-role,.pc-v4-stage,.pc-v4-meta,nav[data-testid='platform-v7-work-route-nav']{display:none!important}` }} />;
 }
 
 function RoleScopedShellPolicy({ roleScopedExtra }: { roleScopedExtra: string }) {
-  return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}${roleScopedExtra}.pc-v4-search,nav[data-testid='platform-v7-work-route-nav']{display:none!important}.pc-v4-top{grid-template-columns:auto minmax(0,1fr) auto!important}.pc-v4-main{padding-top:calc(var(--pc-header-offset) + 8px)!important}` }} />;
+  return <style dangerouslySetInnerHTML={{ __html: `${base}${roleMobileContentIntegrity}${roleScopedExtra}.pc-v4-search,nav[data-testid='platform-v7-work-route-nav']{display:none!important}` }} />;
 }
 
 function OperatorShellPolicy() {
