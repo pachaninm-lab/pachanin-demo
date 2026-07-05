@@ -30,6 +30,8 @@ const MAP: Record<string, { en: string; zh: string }> = {
   'Кабинет продавца · сделка → документы → деньги': { en: 'Seller workspace · deal → documents → money', zh: '卖方工作区 · 交易 → 文件 → 资金' },
   'что мешает выплате': { en: 'what blocks payout', zh: '阻碍付款的事项' },
   'К проверке банком': { en: 'For bank review', zh: '提交银行审核' },
+  'Резерв · не выплата': { en: 'Reserve · not a payout', zh: '预留 · 不是付款' },
+  'к проверке банком сейчас 0 ₽': { en: '0 RUB is ready for bank review now', zh: '当前提交银行审核金额为0卢布' },
   'Сделок в работе': { en: 'Deals in progress', zh: '进行中的交易' },
   'Открытых споров': { en: 'Open disputes', zh: '未结争议' },
   'Что делать сейчас': { en: 'What to do now', zh: '现在要做什么' },
