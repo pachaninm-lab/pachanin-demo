@@ -1,0 +1,120 @@
+/* Public platform-v7 header hydration guard.
+   Goal: the first paint and post-hydration state must be visually identical. */
+
+@media (max-width: 767px) {
+  html body .pc-v7-login-single .login-header,
+  html body .p7-register-page .p7-register-header,
+  html body .p7-contact-page .p7-contact-header,
+  html body .p7-demo-page .p7-demo-header,
+  html body .pc-v7-public-entry .entry-header {
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    overflow: visible !important;
+    backface-visibility: hidden !important;
+  }
+
+  html body .pc-v7-login-single .login-actions,
+  html body .p7-register-page .p7-register-actions,
+  html body .p7-contact-page .p7-contact-nav,
+  html body .p7-demo-page .p7-demo-header-actions,
+  html body .pc-v7-public-entry .entry-header-actions {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 7px !important;
+    min-width: max-content !important;
+    max-width: max-content !important;
+    overflow: visible !important;
+    flex-wrap: nowrap !important;
+  }
+
+  html body .pc-v7-login-single .login-header-button,
+  html body .p7-register-page .p7-register-action,
+  html body .p7-contact-page .p7-contact-nav a,
+  html body .p7-demo-page .p7-demo-icon-button,
+  html body .pc-v7-public-entry .entry-login {
+    width: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+  }
+
+  html body .pc-v7-login-single .login-header-button span,
+  html body .p7-register-page .p7-register-action span,
+  html body .p7-register-page .p7-register-action:not(:has(svg))::first-letter,
+  html body .p7-contact-page .p7-contact-nav a span,
+  html body .p7-demo-page .p7-demo-icon-button span,
+  html body .pc-v7-public-entry .entry-login span,
+  html body .pc-v7-public-entry .entry-login strong {
+    display: none !important;
+  }
+
+  html body .pc-v7-login-single .login-header-button svg,
+  html body .p7-register-page .p7-register-action svg,
+  html body .p7-contact-page .p7-contact-nav a svg,
+  html body .p7-demo-page .p7-demo-icon-button svg,
+  html body .pc-v7-public-entry .entry-login svg {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    max-width: 20px !important;
+    min-height: 20px !important;
+    max-height: 20px !important;
+    flex: 0 0 20px !important;
+  }
+
+  html body .pc-v7-public-entry .entry-header-register {
+    min-width: 86px !important;
+    max-width: 118px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    padding: 0 10px !important;
+    border-radius: 14px !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  html body .p7-contact-page .p7-contact-nav a:not(:last-child) {
+    display: none !important;
+  }
+
+  html body .p7-register-page .p7-register-action {
+    color: #071611 !important;
+    background: rgba(255,255,255,.92) !important;
+  }
+
+  html body .p7-register-page .p7-register-action-exit {
+    color: #087a3b !important;
+    background: rgba(8,122,59,.08) !important;
+    border-color: rgba(8,122,59,.18) !important;
+  }
+}
+
+@media (max-width: 374px) {
+  html body .pc-v7-login-single .login-header-button,
+  html body .p7-register-page .p7-register-action,
+  html body .p7-contact-page .p7-contact-nav a,
+  html body .p7-demo-page .p7-demo-icon-button,
+  html body .pc-v7-public-entry .entry-login {
+    width: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
+    border-radius: 13px !important;
+  }
+}
