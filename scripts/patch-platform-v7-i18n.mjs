@@ -2,7 +2,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DICTIONARY_PATH = path.resolve('apps/web/public/platform-v7/i18n/dictionaries.json');
+const ROOT = process.cwd();
+const DICTIONARY_PATH = path.join(ROOT, 'apps/web/public/platform-v7/i18n/dictionaries.json');
+const TRANSLATOR_PATH = path.join(ROOT, 'apps/web/components/platform-v7/PlatformTranslator.tsx');
+const TEMPLATE_PATH = path.join(ROOT, 'apps/web/app/platform-v7/template.tsx');
+const CJK_CSS_PATH = path.join(ROOT, 'apps/web/styles/platform-v7-i18n-cjk.css');
 const PATCH_VERSION = '2026-07-05.7';
 const PATCH_UPDATED_AT = '2026-07-05T03:45:00+01:00';
 
@@ -66,6 +70,14 @@ const zhPatch = {
   'Расчёт опирается на подтверждённые события.': '结算基于已确认事件。'
 };
 
+function writeIfChanged(filePath, next) {
+  const current = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+  if (current === next) return false;
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, next, 'utf8');
+  return true;
+}
+
 const payload = JSON.parse(fs.readFileSync(DICTIONARY_PATH, 'utf8'));
 payload.version = PATCH_VERSION;
 payload.updatedAt = PATCH_UPDATED_AT;
@@ -74,5 +86,23 @@ payload.dictionaries.zh = {
   ...(payload.dictionaries.zh ?? {}),
   ...zhPatch,
 };
-fs.writeFileSync(DICTIONARY_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
-console.log(`[p7-i18n] patched ${Object.keys(zhPatch).length} zh keys in ${DICTIONARY_PATH}`);
+writeIfChanged(DICTIONARY_PATH, `${JSON.stringify(payload, null, 2)}\n`);
+
+if (fs.existsSync(TRANSLATOR_PATH)) {
+  const translator = fs.readFileSync(TRANSLATOR_PATH, 'utf8').replace(/pc-v7-translation-dictionaries-v\d+/g, 'pc-v7-translation-dictionaries-v5');
+  writeIfChanged(TRANSLATOR_PATH, translator);
+}
+
+if (fs.existsSync(TEMPLATE_PATH)) {
+  let template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
+  if (!template.includes('PlatformV7I18nGuard')) {
+    template = template
+      .replace("import { PlatformTranslator } from '@/components/platform-v7/PlatformTranslator';\n", "import { PlatformTranslator } from '@/components/platform-v7/PlatformTranslator';\nimport { PlatformV7I18nGuard } from '@/components/platform-v7/PlatformV7I18nGuard';\n")
+      .replace("import '@/styles/platform-v7-adaptive-devices.css';\n", "import '@/styles/platform-v7-adaptive-devices.css';\nimport '@/styles/platform-v7-i18n-cjk.css';\n")
+      .replace('      <ViewportStabilityGuard />\n', '      <ViewportStabilityGuard />\n      <PlatformV7I18nGuard />\n');
+  }
+  writeIfChanged(TEMPLATE_PATH, template);
+}
+
+writeIfChanged(CJK_CSS_PATH, "html[data-p7-language='zh'] * {\n  letter-spacing: 0;\n  word-break: keep-all;\n  overflow-wrap: anywhere;\n}\nhtml[data-p7-language='zh'] h1,\nhtml[data-p7-language='zh'] h2,\nhtml[data-p7-language='zh'] h3 {\n  line-height: 1.18;\n}\n");
+console.log(`[p7-i18n] patched ${Object.keys(zhPatch).length} zh keys and runtime guards`);
