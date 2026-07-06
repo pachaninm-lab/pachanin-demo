@@ -7,4 +7,5 @@
   .seller-command-facts,.seller-command-actions,.seller-fact-grid,.seller-path-grid,.seller-lot-grid,.seller-kpis,.seller-detail-hero .pc-prem-kpis{grid-template-columns:1fr!important}
   .seller-cockpit h1,.seller-detail-hero .pc-prem-hero__title{font-size:clamp(28px,8.4vw,36px)!important;line-height:1.04!important}.seller-cockpit h2{font-size:clamp(20px,6vw,26px)!important}.seller-cockpit p{font-size:14px!important;line-height:1.45!important}
   .seller-detail-hero *,.seller-cockpit [style]{max-width:100%!important;min-width:0!important}.seller-inline-actions{display:grid!important;grid-template-columns:1fr!important}.seller-inline-actions a,.seller-hero-actions a{width:100%!important;min-height:46px!important}
+  .seller-cockpit .caption{display:none!important}
 }
