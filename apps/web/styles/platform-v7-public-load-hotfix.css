@@ -1,4 +1,4 @@
-/* Public mobile load hotfix: keep content visible without replacing the approved headers. */
+/* Public mobile load hotfix. It must not style headers; header source is PlatformPublicHeader. */
 @media (max-width: 720px) {
   html,
   body {
@@ -12,92 +12,6 @@
     overflow-x: hidden !important;
     overflow-y: visible !important;
     background: linear-gradient(180deg, #fbfcf9 0%, #f2f7f0 48%, #ffffff 100%) !important;
-  }
-
-  /* Restore the approved old public header: logo + title + login button. */
-  html body .pc-v7-public-entry .entry-header {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 1400 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 12px !important;
-    min-height: 72px !important;
-    height: 72px !important;
-    padding: 10px 28px !important;
-    overflow: hidden !important;
-    background: rgba(255, 255, 255, .98) !important;
-    border-bottom: 1px solid rgba(7, 22, 17, .08) !important;
-    box-shadow: 0 12px 30px rgba(7, 22, 17, .08) !important;
-    backdrop-filter: blur(18px) !important;
-  }
-
-  html body .pc-v7-public-entry .entry-nav,
-  html body .pc-v7-public-entry .entry-header-register,
-  html body .pc-v7-public-entry .entry-brand small {
-    display: none !important;
-  }
-
-  html body .pc-v7-public-entry .entry-brand {
-    display: flex !important;
-    align-items: center !important;
-    gap: 14px !important;
-    min-width: 0 !important;
-    max-width: calc(100vw - 170px) !important;
-    overflow: hidden !important;
-  }
-
-  html body .pc-v7-public-entry .entry-brand-mark {
-    display: inline-grid !important;
-    place-items: center !important;
-    flex: 0 0 56px !important;
-    width: 56px !important;
-    height: 56px !important;
-    min-width: 56px !important;
-    border-radius: 16px !important;
-    background: rgba(0,122,47,.08) !important;
-    color: #087a3b !important;
-    overflow: hidden !important;
-  }
-
-  html body .pc-v7-public-entry .entry-brand-mark img,
-  html body .pc-v7-public-entry .entry-brand-mark svg {
-    display: block !important;
-    width: 31px !important;
-    height: 31px !important;
-    object-fit: contain !important;
-  }
-
-  html body .pc-v7-public-entry .entry-brand strong {
-    display: block !important;
-    max-width: 100% !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-    font-size: 20px !important;
-    line-height: 1.05 !important;
-    letter-spacing: -.035em !important;
-  }
-
-  html body .pc-v7-public-entry .entry-login {
-    display: inline-flex !important;
-    flex: 0 0 auto !important;
-    min-width: 108px !important;
-    height: 54px !important;
-    padding: 0 24px !important;
-    border-radius: 23px !important;
-    font-size: 18px !important;
-    background: #fff !important;
-    color: #071611 !important;
-    border: 1px solid rgba(7,22,17,.12) !important;
-    box-shadow: 0 8px 20px rgba(7,22,17,.06) !important;
-  }
-
-  html body .pc-v7-public-entry .entry-login svg {
-    display: none !important;
   }
 
   html body .pc-v7-public-entry .entry-hero {
