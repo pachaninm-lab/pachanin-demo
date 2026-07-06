@@ -1,0 +1,10 @@
+@media(max-width:767px){
+  html,body{overflow-x:hidden!important}
+  .seller-cockpit{display:flex!important;flex-direction:column!important;width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:hidden!important;gap:12px!important;padding-bottom:112px!important}
+  .seller-cockpit>*{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;overflow-x:hidden!important;grid-column:1/-1!important}
+  .seller-cockpit>.seller-command-card{order:1!important}.seller-cockpit>.seller-detail-hero{order:2!important}.seller-cockpit>#first-screen{order:3!important}.seller-cockpit>#overview{order:4!important}.seller-cockpit>#documents{order:5!important}.seller-cockpit>#money{order:6!important}.seller-cockpit>#blockers{order:7!important}.seller-cockpit>#actions{order:8!important}.seller-cockpit>#journal{order:9!important}.seller-cockpit>#parties{order:10!important}
+  .seller-command-card,.seller-detail-hero,.seller-facts-card{padding:16px!important;border-radius:24px!important;background:#fff!important;box-shadow:0 14px 34px rgba(7,22,17,.07)!important}
+  .seller-command-facts,.seller-command-actions,.seller-fact-grid,.seller-path-grid,.seller-lot-grid,.seller-kpis,.seller-detail-hero .pc-prem-kpis{grid-template-columns:1fr!important}
+  .seller-cockpit h1,.seller-detail-hero .pc-prem-hero__title{font-size:clamp(28px,8.4vw,36px)!important;line-height:1.04!important}.seller-cockpit h2{font-size:clamp(20px,6vw,26px)!important}.seller-cockpit p{font-size:14px!important;line-height:1.45!important}
+  .seller-detail-hero *,.seller-cockpit [style]{max-width:100%!important;min-width:0!important}.seller-inline-actions{display:grid!important;grid-template-columns:1fr!important}.seller-inline-actions a,.seller-hero-actions a{width:100%!important;min-height:46px!important}
+}
