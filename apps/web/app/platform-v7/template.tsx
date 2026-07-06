@@ -10,7 +10,6 @@ import { PublicDealPathCtaGuard } from '@/components/platform-v7/PublicDealPathC
 import { PublicEntryCleanup } from '@/components/platform-v7/PublicEntryCleanup';
 import { PublicHeaderFinalLock } from '@/components/platform-v7/PublicHeaderFinalLock';
 import { PublicHeroWeightPatch } from '@/components/platform-v7/PublicHeroWeightPatch';
-import { PublicMobileLandingFix } from '@/components/platform-v7/PublicMobileLandingFix';
 import { PublicRegistrationEntryPatch } from '@/components/platform-v7/PublicRegistrationEntryPatch';
 import { ViewportStabilityGuard } from '@/components/platform-v7/ViewportStabilityGuard';
 import '@/styles/platform-v7-public-entry-stable.css';
@@ -33,7 +32,6 @@ export default function PlatformV7Template({ children }: { children: ReactNode }
       <PublicDealPathCtaGuard />
       {children}
       <PlatformTranslator />
-      <PublicMobileLandingFix />
       <PublicHeaderFinalLock />
       <PublicBrandLogoFinal />
       <LoginHeaderLogoGuard />
