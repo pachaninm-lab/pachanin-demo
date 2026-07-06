@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
 import { LoginHeaderLogoGuard } from '@/components/platform-v7/LoginHeaderLogoGuard';
+import { MobileLogoutSoftExit } from '@/components/platform-v7/MobileLogoutSoftExit';
 import { PlatformTranslator } from '@/components/platform-v7/PlatformTranslator';
 import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7InteractionFixes';
 import { PlatformV7MobileFinalGuard } from '@/components/platform-v7/PlatformV7MobileFinalGuard';
@@ -23,6 +24,7 @@ import '@/styles/platform-v7-i18n-cjk.css';
 export default function PlatformV7Template({ children }: { children: ReactNode }) {
   return (
     <>
+      <MobileLogoutSoftExit />
       <PlatformV7RoleLockFix />
       <PlatformV7InteractionFixes />
       <ViewportStabilityGuard />
