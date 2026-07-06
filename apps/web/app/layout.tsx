@@ -81,6 +81,9 @@ const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
 
 // S-3: Blocking theme script — runs synchronously before CSS paints
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
+// Public pilot: unregister any stale service worker and drop old caches on load
+// so returning devices always get the fresh page (no cached header/copy).
+const cacheResetScript = `(function(){try{if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(function(items){items.forEach(function(item){item.unregister();});});}if('caches'in window){caches.keys().then(function(keys){keys.forEach(function(key){caches.delete(key);});});}}catch(e){}})();`;
 
 const HTML_LANG: Record<string, string> = { ru: 'ru', en: 'en', zh: 'zh-CN' };
 
@@ -93,6 +96,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <head>
         {/* Must be first in <head> to run before CSS is applied */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: cacheResetScript }} />
         {/* D-20: preconnect to Google Fonts for faster font load */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
