@@ -17,7 +17,7 @@ function applyCopy() {
   document.title = 'Обращение по платформе — Прозрачная Цена';
   text('.p7-contact-kicker', 'Официальный канал обращения');
   text('.p7-contact-copy h1', 'Обращение по платформе');
-  text('.p7-contact-copy > p', 'Используйте форму для вопросов о демонстрационном доступе, пилотном проекте, подключении организации, банковском взаимодействии, региональном запуске или техническом подключении.');
+  text('.p7-contact-copy > p', 'Используйте форму для вопросов о подключении организации, банковском взаимодействии, региональном запуске, ролях участников или технической интеграции.');
   document.querySelectorAll<HTMLElement>('.p7-contact-info-card').forEach((card, index) => {
     const copy = cardCopy[index];
     if (!copy) return;
@@ -27,14 +27,14 @@ function applyCopy() {
     if (body) body.textContent = copy[1];
   });
   text('.p7-contact-form h2', 'Форма обращения');
-  text('.p7-contact-form > p', 'Заполните обязательные поля. Не указывайте пароли, ключи доступа, банковские реквизиты и копии документов.');
+  text('.p7-contact-form > p', 'Заполните обязательные поля. Укажите только данные, необходимые для связи и рассмотрения обращения.');
   const labels = Array.from(document.querySelectorAll<HTMLElement>('.p7-contact-form label > span'));
   ['Тема обращения', 'Имя', 'Организация', 'Телефон или электронная почта', 'Содержание обращения'].forEach((value, index) => {
     if (labels[index]) labels[index].textContent = value;
   });
   const options: Record<string, string> = {
     platform: 'Общий вопрос по платформе',
-    pilot: 'Пилотный проект',
+    pilot: 'Подключение организации',
     bank_partner: 'Банк или партнёр',
     region: 'Региональный запуск',
     technical: 'Техническое подключение',
@@ -45,7 +45,7 @@ function applyCopy() {
     if (value) option.textContent = value;
   });
   const message = document.querySelector<HTMLTextAreaElement>('.p7-contact-form textarea[name="message"]');
-  if (message) message.placeholder = 'Кратко опишите вопрос, параметры пилотного проекта, роль организации или требуемый формат взаимодействия.';
+  if (message) message.placeholder = 'Кратко опишите вопрос, роль организации или требуемый формат взаимодействия.';
   text('.p7-contact-consent span', 'Даю согласие на обработку указанных данных для рассмотрения обращения и направления ответа.');
   const button = document.querySelector<HTMLButtonElement>('.p7-contact-form button');
   if (button?.firstChild) button.firstChild.textContent = 'Отправить обращение';
