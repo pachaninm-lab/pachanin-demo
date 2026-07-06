@@ -1,10 +1,6 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import { ArrowRight, Banknote, ShieldCheck } from 'lucide-react';
 
 type Lang = 'ru' | 'en' | 'zh';
-const KEY = 'pc-v7-language';
 
 const copy = {
   ru: {
@@ -42,22 +38,13 @@ const copy = {
   },
 } as const;
 
-function readLang(): Lang {
-  const value = typeof window === 'undefined' ? null : window.localStorage.getItem(KEY);
-  return value === 'en' || value === 'zh' ? value : 'ru';
-}
-
 const icons = [ShieldCheck, ArrowRight, Banknote];
 
 export function PlatformV7IntelligenceStripClient() {
-  const [lang, setLang] = useState<Lang>('ru');
-  useEffect(() => {
-    const update = () => setLang(readLang());
-    update();
-    const timer = window.setInterval(update, 400);
-    window.addEventListener('storage', update);
-    return () => { window.clearInterval(timer); window.removeEventListener('storage', update); };
-  }, []);
+  // Server renders the whole platform in Russian (DEFAULT_LOCALE); this strip
+  // must match it. It previously self-translated from localStorage, which leaked
+  // Chinese/English into an otherwise Russian page when the stored value was stale.
+  const lang: Lang = 'ru';
   const t = copy[lang];
   return (
     <section id='intelligence' className='entry-section entry-intelligence-section' aria-labelledby='intelligence-title' data-p7-no-translate='true' data-lang={lang}>
