@@ -10,13 +10,9 @@ import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
-import { CalculatorHeaderWidget } from '@/components/platform-v7/CalculatorHeaderWidget';
-import { MobileHeaderActionRail } from '@/components/platform-v7/MobileHeaderActionRail';
-import { NotepadHeaderWidget } from '@/components/platform-v7/NotepadHeaderWidget';
 import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidget';
 import { PlatformFooter } from '@/components/platform-v7/PlatformFooter';
 import { OnboardingTour } from '@/components/platform-v7/OnboardingTour';
-import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { PlatformV7UnifiedHeader } from '@/components/platform-v7/PlatformV7UnifiedHeader';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -42,10 +38,6 @@ function PlatformV7PrivateShell({ children, initialRole }: { children: ReactNode
         <PlatformV7ShellUxController />
         <RbacCabinetGuard />
         <ShellCopyNormalizer />
-        <CalculatorHeaderWidget />
-        <NotepadHeaderWidget />
-        <SupportHeaderIcon />
-        <MobileHeaderActionRail />
         <RoleAssistantWidget />
         {children}
         <PlatformFooter />
