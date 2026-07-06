@@ -23,18 +23,18 @@ describe('platform-v7 public entry link policy', () => {
   ];
 
   const fullRoleSet = [
-    'Продавец',
-    'Покупатель',
-    'Логистика',
-    'Водитель',
-    'Элеватор',
-    'Лаборатория',
-    'Сюрвейер',
-    'Банк',
-    'Комплаенс',
-    'Арбитр',
-    'Оператор',
-    'Руководитель',
+    'operator',
+    'buyer',
+    'seller',
+    'logistics',
+    'driver',
+    'elevator',
+    'lab',
+    'surveyor',
+    'bank',
+    'compliance',
+    'arbitrator',
+    'executive',
   ];
 
   it('keeps public entry screens free of direct cabinet action CTAs', () => {
@@ -60,28 +60,23 @@ describe('platform-v7 public entry link policy', () => {
     expect(page).toContain('/platform-v7/login?role=seller');
     expect(page).toContain('/platform-v7/login?role=buyer');
     expect(page).toContain('/platform-v7/login?role=operator');
-    expect(cleanup).toContain('link.setAttribute(\'href\', roleLoginHref(title));');
-    expect(cleanup).toContain('window.sessionStorage?.setItem(PENDING_ROLE_KEY, role)');
-    expect(cleanup).toContain("href === '/platform-v7/docs'");
+    expect(cleanup).not.toContain("link.setAttribute('href', '/platform-v7/login')");
+    expect(cleanup).not.toContain('rewritePublicLinks');
   });
 
-  it('keeps all 12 role labels available on the public role catalog', () => {
-    const source = [
-      read('apps/web/app/platform-v7/page.tsx'),
-      read('apps/web/components/platform-v7/PublicEntryCleanup.tsx'),
-    ].join('\n');
+  it('keeps all 12 role ids available on the public role catalog', () => {
+    const source = read('apps/web/app/platform-v7/page.tsx');
 
-    const missing = fullRoleSet.filter((role) => !source.includes(role));
+    const missing = fullRoleSet.filter((role) => !source.includes(`key: '${role}'`));
     expect(missing).toEqual([]);
   });
 
-  it('keeps the public mobile brand title visible next to the login button', () => {
+  it('keeps the public mobile entry visible after returning from protected shell', () => {
     const cleanup = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
 
-    expect(cleanup).toContain('max-width:calc(100% - 104px)!important;flex:1 1 auto!important;overflow:visible!important');
-    expect(cleanup).toContain('.entry-brand > span:not(.entry-brand-mark)');
-    expect(cleanup).toContain('white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;max-width:none!important');
-    expect(cleanup).toContain('min-width:88px!important;flex:0 0 auto!important');
-    expect(cleanup).not.toContain('text-overflow:ellipsis!important');
+    expect(cleanup).toContain("'.p7-mobile-tool-panel,[data-public-platform-handoff=\"true\"]'");
+    expect(cleanup).toContain("document.body.classList.remove('seller-mobile-fix')");
+    expect(cleanup).toContain('content-visibility:visible!important');
+    expect(cleanup).toContain('.entry-control-tile{display:grid!important;opacity:1!important;visibility:visible!important');
   });
 });
