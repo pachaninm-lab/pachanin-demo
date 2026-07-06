@@ -20,6 +20,7 @@ import {
 } from '@/lib/platform-v7/i18n/translation-runtime';
 
 const HEADER_TARGETS = [
+  '.pc-site-actions',
   '.entry-header-actions',
   '.login-header',
   '.login-top',

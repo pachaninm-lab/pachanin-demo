@@ -60,6 +60,9 @@ const css = `
 .pc-site-nav a{color:inherit;text-decoration:none;white-space:nowrap}
 .pc-site-nav a:hover{color:#087a3b}
 .pc-site-actions{flex:0 0 auto;margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:9px}
+.pc-site-action{min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 15px;border-radius:14px;background:rgba(255,255,255,.9);border:1px solid rgba(7,22,17,.10);color:#071611;font-size:14px;font-weight:900;text-decoration:none;white-space:nowrap}
+.pc-site-action.is-primary{background:rgba(0,122,47,.08);border-color:rgba(0,122,47,.18);color:#087a3b}
+.pc-site-action:hover{border-color:rgba(0,122,47,.3)}
 .pc-site-header a:focus-visible{outline:3px solid #087a3b;outline-offset:3px;border-radius:12px}
 @media (max-width:1080px){.pc-site-nav{display:none}}
 @media (max-width:720px){
