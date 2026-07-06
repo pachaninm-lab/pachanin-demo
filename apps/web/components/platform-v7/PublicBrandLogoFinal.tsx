@@ -12,7 +12,6 @@ html body .p7-demo-page .p7-demo-header,
 html body .p7-docs-page .p7-docs-header,
 html body .p7-request-page .p7-request-header,
 html body .pc-shell-root-v4 .pc-v4-header{position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:2400!important;width:100%!important;max-width:100%!important;border-radius:0!important;border-left:0!important;border-right:0!important;border-top:0!important;border-bottom:1px solid rgba(7,22,17,.08)!important;background:rgba(255,255,255,.985)!important;box-shadow:0 10px 24px rgba(7,22,17,.07)!important;-webkit-backdrop-filter:blur(18px)!important;backdrop-filter:blur(18px)!important;transform:none!important;overflow:visible!important}
-html body .pc-v7-public-entry{padding-top:86px!important;scroll-padding-top:86px!important}
 html body .pc-v7-login-single{padding-top:104px!important;scroll-padding-top:104px!important;padding-bottom:calc(156px + env(safe-area-inset-bottom,0px))!important}
 html body .p7-register-page,
 html body .p7-contact-page,
@@ -56,7 +55,6 @@ html body .p7-docs-page .p7-docs-nav,
 html body .p7-request-page .p7-request-actions,
 html body .p7-register-page .p7-register-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:8px!important;min-width:0!important;overflow:visible!important}
 @media(max-width:720px){
-html body .pc-v7-public-entry{padding-top:86px!important;scroll-padding-top:86px!important}
 html body .pc-v7-login-single{padding-top:102px!important;scroll-padding-top:102px!important;padding-bottom:calc(170px + env(safe-area-inset-bottom,0px))!important}
 html body .p7-register-page,
 html body .p7-contact-page,
