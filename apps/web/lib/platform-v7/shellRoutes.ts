@@ -45,25 +45,8 @@ export interface PlatformV7ShellNavItem { href: string; label: string; }
 export interface PlatformV7RoleNavItem extends PlatformV7ShellNavItem { note?: string; }
 export interface PlatformV7RoleNavigationEntry { home: string; bottom: PlatformV7RoleNavItem[]; drawer: PlatformV7RoleNavItem[]; command: PlatformV7RoleNavItem[]; allowedPrefixes: string[]; }
 
-const child = (home: string, segment: string) => `${home.replace(/\/$/, '')}/${segment}`;
-
-export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
-  operator: PLATFORM_V7_CONTROL_TOWER_ROUTE,
-  buyer: PLATFORM_V7_BUYER_ROUTE,
-  seller: PLATFORM_V7_SELLER_ROUTE,
-  logistics: PLATFORM_V7_LOGISTICS_ROUTE,
-  driver: PLATFORM_V7_DRIVER_FIELD_ROUTE,
-  surveyor: PLATFORM_V7_SURVEYOR_ROUTE,
-  elevator: PLATFORM_V7_ELEVATOR_ROUTE,
-  lab: PLATFORM_V7_LAB_ROUTE,
-  bank: PLATFORM_V7_BANK_ROUTE,
-  arbitrator: PLATFORM_V7_ARBITRATOR_ROUTE,
-  compliance: PLATFORM_V7_COMPLIANCE_ROUTE,
-  executive: PLATFORM_V7_EXECUTIVE_ROUTE,
-};
-
 const SHARED_PREFIXES = [PLATFORM_V7_AI_ROUTE, PLATFORM_V7_PROFILE_ROUTE, PLATFORM_V7_STATUS_ROUTE];
-// Navigation policy: entry.command = [...entry.bottom, ...entry.drawer]
+// Navigation policy: entry.bottom is the mobile dock; entry.command is the full role command surface.
 const ROLE_BLOCKED_PREFIXES = [PLATFORM_V7_ROLES_ROUTE, '/platform-v7r/roles', '/platform-v7/auth'];
 
 export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNavigationEntry> = {
@@ -83,8 +66,8 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Блокеры' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Контроль' },
-      { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Банк' },
-      { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'Банк события' },
+      { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Расчёты' },
+      { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'Журнал событий' },
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
       { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
     ],
@@ -191,7 +174,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     home: PLATFORM_V7_BANK_ROUTE,
     bottom: [
       { href: PLATFORM_V7_BANK_ROUTE, label: 'Основание' },
-      { href: PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, label: 'Основания выплат' },
+      { href: PLATFORM_V7_BANK_PAYMENT_BASIS_ROUTE, label: 'Выплаты' },
       { href: PLATFORM_V7_BANK_FACTORING_ROUTE, label: 'Факторинг' },
       { href: PLATFORM_V7_BANK_ESCROW_ROUTE, label: 'Эскроу' },
       { href: PLATFORM_V7_BANK_EVENTS_ROUTE, label: 'События' },
@@ -251,22 +234,23 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
       { href: PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, label: 'Демо-поток' },
       { href: PLATFORM_V7_SIMULATOR_ROUTE, label: 'Симулятор' },
-      { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Банк' },
+      { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Расчёты' },
     ],
     allowedPrefixes: [PLATFORM_V7_EXECUTIVE_ROUTE, PLATFORM_V7_MONEY_ROUTE, PLATFORM_V7_REPORTS_ROUTE, PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, PLATFORM_V7_SIMULATOR_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE],
   },
 };
 
 export const PLATFORM_V7_NAV_BY_ROLE = Object.fromEntries(
-  (Object.keys(PLATFORM_V7_ROLE_NAVIGATION) as PlatformRole[]).map((role) => [role, PLATFORM_V7_ROLE_NAVIGATION[role].command]),
+  (Object.keys(PLATFORM_V7_ROLE_NAVIGATION) as PlatformRole[]).map((role) => [role, PLATFORM_V7_ROLE_NAVIGATION[role].bottom]),
 ) as Record<PlatformRole, PlatformV7ShellNavItem[]>;
 
 function normalizeHref(href: string) { return href.split('?')[0].split('#')[0].replace(/\/$/, '') || '/platform-v7'; }
 function hrefMatchesPrefix(href: string, prefix: string) { const h = normalizeHref(href); const p = normalizeHref(prefix); return h === p || h.startsWith(`${p}/`); }
+function sameNavTarget(left: PlatformV7RoleNavItem, right: PlatformV7RoleNavItem) { return normalizeHref(left.href) === normalizeHref(right.href); }
 
 export function platformV7RoleRoute(role: PlatformRole): PlatformV7ShellRouteSurface { return PLATFORM_V7_ROLE_ROUTES[role] as PlatformV7ShellRouteSurface; }
-export function platformV7NavByRole(role: PlatformRole): PlatformV7ShellNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].command; }
-export function platformV7DrawerNavByRole(role: PlatformRole): PlatformV7RoleNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].drawer; }
+export function platformV7NavByRole(role: PlatformRole): PlatformV7ShellNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].bottom; }
+export function platformV7DrawerNavByRole(role: PlatformRole): PlatformV7RoleNavItem[] { const entry = PLATFORM_V7_ROLE_NAVIGATION[role]; const configuredDrawer = entry.drawer.length ? entry.drawer : entry.command.filter((item) => !entry.bottom.some((bottomItem) => sameNavTarget(bottomItem, item))); return configuredDrawer; }
 export function platformV7CommandNavByRole(role: PlatformRole): PlatformV7RoleNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].command; }
 export function platformV7RoleCanOpenHref(role: PlatformRole, href: string) { const path = normalizeHref(href); if (ROLE_BLOCKED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return false; if (SHARED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return true; return PLATFORM_V7_ROLE_NAVIGATION[role].allowedPrefixes.some((prefix) => hrefMatchesPrefix(path, prefix)); }
 export function platformV7ShellRouteSurface(): readonly PlatformV7ShellRouteSurface[] { return PLATFORM_V7_SHELL_ROUTE_SURFACE; }
