@@ -5,30 +5,51 @@ import { usePathname } from 'next/navigation';
 
 const DEAL_PATH_CTA_SELECTOR = '[data-public-deal-path-cta="true"]';
 const ROOT_SELECTOR = '.pc-v7-public-entry';
+const DEAL_FLOW_HREF = '/platform-v7/deal-flow';
+const DEAL_FLOW_LABEL = 'Разобрать контур сделки';
 
 function buildDealPathCta() {
   const link = document.createElement('a');
   link.className = 'entry-deal-path-standalone';
   link.dataset.publicDealPathCta = 'true';
-  link.href = '#process';
-  link.setAttribute('aria-label', 'Посмотреть путь сделки');
-  link.innerHTML = '<span aria-hidden="true" class="entry-deal-path-icon">▶</span><span>Посмотреть путь сделки</span>';
+  link.href = DEAL_FLOW_HREF;
+  link.setAttribute('aria-label', DEAL_FLOW_LABEL);
+  link.innerHTML = '<span aria-hidden="true" class="entry-deal-path-icon">▶</span><span>Разобрать контур сделки</span>';
   return link;
+}
+
+function normalizePrimaryActions(root: HTMLElement) {
+  root.querySelectorAll<HTMLAnchorElement>('a').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    const label = link.textContent?.trim() || '';
+    if (href === '/platform-v7/demo' || href.startsWith('/platform-v7/demo?') || label.includes('Разобрать контур сделки')) {
+      link.href = DEAL_FLOW_HREF;
+      link.setAttribute('href', DEAL_FLOW_HREF);
+    }
+  });
 }
 
 function ensureDealPathCta() {
   const root = document.querySelector<HTMLElement>(ROOT_SELECTOR);
   if (!root) return;
+  normalizePrimaryActions(root);
   const control = root.querySelector<HTMLElement>('#control');
   const process = root.querySelector<HTMLElement>('#process');
   if (!control || !process || !control.parentNode) return;
 
   const existing = root.querySelector<HTMLAnchorElement>(DEAL_PATH_CTA_SELECTOR);
   const cta = existing ?? buildDealPathCta();
-  cta.href = '#process';
-  if (!cta.textContent?.includes('Посмотреть путь сделки')) {
+  cta.href = DEAL_FLOW_HREF;
+  cta.setAttribute('href', DEAL_FLOW_HREF);
+  if (!cta.textContent?.includes(DEAL_FLOW_LABEL)) {
     cta.replaceChildren();
-    cta.append(document.createTextNode('Посмотреть путь сделки'));
+    const icon = document.createElement('span');
+    icon.className = 'entry-deal-path-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '▶';
+    const label = document.createElement('span');
+    label.textContent = DEAL_FLOW_LABEL;
+    cta.append(icon, label);
   }
   control.parentNode.insertBefore(cta, control);
 }
