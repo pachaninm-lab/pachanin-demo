@@ -1,0 +1,52 @@
+/* Public /platform-v7 mobile hardening: keep the fixed header below iOS safe area and remove the white dead-zone after the first control card. */
+.pc-v7-public-entry{
+  --entry-public-header-offset:env(safe-area-inset-top,0px);
+  --entry-public-header-base:64px;
+  --entry-header-height:calc(var(--entry-public-header-base) + var(--entry-public-header-offset))!important;
+  padding-top:var(--entry-header-height)!important;
+  min-height:100dvh!important;
+}
+.pc-site-header{
+  top:var(--entry-public-header-offset,env(safe-area-inset-top,0px))!important;
+  height:var(--entry-public-header-base,64px)!important;
+  min-height:var(--entry-public-header-base,64px)!important;
+  max-height:var(--entry-public-header-base,64px)!important;
+  transform:none!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+@media (max-width:720px){
+  .pc-v7-public-entry .entry-section{
+    padding-top:26px!important;
+    padding-bottom:26px!important;
+  }
+  .pc-v7-public-entry #control.entry-section{
+    padding-bottom:18px!important;
+  }
+  .pc-v7-public-entry .entry-section-head{
+    margin-bottom:14px!important;
+  }
+  .pc-v7-public-entry .entry-control-grid{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:12px!important;
+    align-items:stretch!important;
+  }
+  .pc-v7-public-entry .entry-control-tile{
+    display:grid!important;
+    min-height:0!important;
+    height:auto!important;
+    padding:20px!important;
+    border-radius:24px!important;
+    align-content:start!important;
+    gap:12px!important;
+  }
+  .pc-v7-public-entry .entry-control-tile strong{
+    font-size:24px!important;
+    line-height:1.08!important;
+  }
+  .pc-v7-public-entry .entry-control-tile span{
+    font-size:15px!important;
+    line-height:1.42!important;
+  }
+}
