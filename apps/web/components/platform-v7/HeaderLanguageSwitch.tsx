@@ -15,6 +15,7 @@ import {
 const TARGETS = ['.pc-site-actions', '.pc-v4-actions', '.p7-flow-actions', '.p7-request-actions', '.p7-contact-nav', '.p7-register-actions', '.login-header'];
 
 function findTarget() {
+  if (typeof document === 'undefined') return null;
   for (const selector of TARGETS) {
     const target = document.querySelector<Element>(selector);
     if (target) return target;
@@ -23,9 +24,14 @@ function findTarget() {
 }
 
 export function HeaderLanguageSwitch() {
+  const [mounted, setMounted] = useState(false);
   const [target, setTarget] = useState<Element | null>(null);
   const [language, setLanguage] = useState<LanguageCode>('ru');
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setLanguage(readStoredLanguage());
@@ -33,6 +39,7 @@ export function HeaderLanguageSwitch() {
   }, []);
 
   useEffect(() => {
+    if (!mounted) return;
     const sync = () => setTarget(findTarget());
     sync();
     const observer = new MutationObserver(sync);
@@ -42,7 +49,7 @@ export function HeaderLanguageSwitch() {
       observer.disconnect();
       window.removeEventListener('resize', sync);
     };
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,6 +60,8 @@ export function HeaderLanguageSwitch() {
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
   }, [open]);
+
+  if (!mounted || typeof document === 'undefined') return null;
 
   const meta = getLanguageMeta(language);
   const node = (
@@ -75,7 +84,8 @@ export function HeaderLanguageSwitch() {
     </span>
   );
 
-  return target ? createPortal(node, target) : createPortal(<span className='p7-header-lang p7-header-lang-fallback' data-p7-no-translate='true'><style>{css}</style>{node}</span>, document.body);
+  const portalTarget = target ?? document.body;
+  return createPortal(target ? node : <span className='p7-header-lang p7-header-lang-fallback' data-p7-no-translate='true'><style>{css}</style>{node}</span>, portalTarget);
 }
 
 const css = `
