@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Bell, CircleHelp, FileText, LogOut, Menu, Moon, Search, Sun, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PLATFORM_V7_LIGHT_DEFAULT_VERSION, PLATFORM_V7_THEME_VERSION_KEY } from '@/components/v7r/PlatformThemeSync';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
-const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs', '/platform-v7/demo', '/platform-v7/contact']);
+const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs', '/platform-v7/demo', '/platform-v7/contact', '/platform-v7/request', '/platform-v7/deal-flow']);
 const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
 const NOTE_STORAGE_KEY = 'platform-v7-header-notepad';
@@ -88,6 +88,7 @@ function openSearchPalette() {
 
 export function MobileHeaderActionRail() {
   const pathname = usePathname();
+  const router = useRouter();
   const role = usePlatformV7RStore((state) => state.role) || 'operator';
   const clearRoleSelection = usePlatformV7RStore((state) => state.clearRoleSelection);
   const path = normalize(pathname);
@@ -122,10 +123,12 @@ export function MobileHeaderActionRail() {
   };
 
   const logout = () => {
+    setPanel(null);
     clearRoleSelection();
     window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
     window.localStorage.removeItem(STORE_KEY);
-    window.location.assign('/platform-v7');
+    router.replace('/platform-v7', { scroll: true });
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
   };
 
   const openPanel = (next: MobilePanel) => setPanel((value) => value === next ? null : next);
