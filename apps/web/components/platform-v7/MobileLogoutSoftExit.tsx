@@ -5,30 +5,51 @@ import { useEffect } from 'react';
 
 const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
+const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/contact', '/platform-v7/request', '/platform-v7/deal-flow', '/platform-v7/demo', '/platform-v7/docs']);
+
+function normalize(pathname: string | null) {
+  if (!pathname) return '/platform-v7';
+  return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
+}
+
+function clearClientSession() {
+  try {
+    window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+    window.localStorage.removeItem(STORE_KEY);
+  } catch {}
+  try {
+    document.cookie = 'pc-role=; Max-Age=0; Path=/; SameSite=Lax';
+  } catch {}
+}
+
+function cleanupPublicEntryArtifacts() {
+  document.body.classList.remove('seller-mobile-fix');
+  document.querySelectorAll<HTMLElement>('.p7-mobile-tool-panel,[data-public-platform-handoff="true"]').forEach((item) => item.remove());
+}
 
 export function MobileLogoutSoftExit() {
   const router = useRouter();
   const pathname = usePathname();
+  const path = normalize(pathname);
 
   useEffect(() => {
-    const active = (pathname || '').startsWith('/platform-v7/seller');
+    const active = path.startsWith('/platform-v7/seller');
     document.body.classList.toggle('seller-mobile-fix', active);
+    if (PUBLIC_PATHS.has(path)) cleanupPublicEntryArtifacts();
     return () => document.body.classList.remove('seller-mobile-fix');
-  }, [pathname]);
+  }, [path]);
 
   useEffect(() => {
     function onClick(event: MouseEvent) {
       const target = event.target as HTMLElement | null;
-      const button = target?.closest('.p7-mobile-danger');
+      const button = target?.closest('.p7-mobile-danger,.pc-v7-logout-btn,[data-platform-v7-logout="true"]');
       if (!button) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      try {
-        window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
-        window.localStorage.removeItem(STORE_KEY);
-      } catch {}
-      router.replace('/platform-v7?from=logout', { scroll: true });
+      clearClientSession();
+      cleanupPublicEntryArtifacts();
+      router.replace('/platform-v7', { scroll: true });
       window.requestAnimationFrame(() => window.scrollTo(0, 0));
     }
     document.addEventListener('click', onClick, true);
