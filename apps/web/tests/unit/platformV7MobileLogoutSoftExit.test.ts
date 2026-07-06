@@ -12,14 +12,14 @@ describe('platform-v7 mobile logout soft exit', () => {
     expect(template).toContain('<MobileLogoutSoftExit />');
   });
 
-  it('uses client routing for the mobile exit path', () => {
+  it('intercepts every mobile/header logout path before hard navigation can run', () => {
     expect(guard).toContain("document.addEventListener('click', onClick, true)");
-    expect(guard).toContain("target?.closest('.p7-mobile-danger')");
+    expect(guard).toContain(".p7-mobile-danger,.pc-v7-logout-btn,[data-platform-v7-logout=\"true\"]");
     expect(guard).toContain('event.stopImmediatePropagation()');
-    expect(guard).toContain("router.replace('/platform-v7?from=logout'");
+    expect(guard).toContain("router.replace('/platform-v7'");
   });
 
-  it('records the legacy hard navigation source that is intercepted on mobile', () => {
+  it('keeps the legacy hard navigation source intercepted until the rail is fully refactored', () => {
     expect(rail).toContain("window.location.assign('/platform-v7')");
   });
 });
