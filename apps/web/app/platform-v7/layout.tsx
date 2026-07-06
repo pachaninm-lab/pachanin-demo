@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { ToastProvider } from '@/components/v7r/Toast';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
 import { PlatformV7ShellSwitch } from '@/components/platform-v7/PlatformV7ShellSwitch';
+import { MobileLogoutSoftExit } from '@/components/platform-v7/MobileLogoutSoftExit';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
 import '@/styles/theme.css';
@@ -43,6 +44,7 @@ export default function PlatformV7Layout({ children }: { children: ReactNode }) 
   return (
     <ToastProvider>
       <PlatformThemeSync />
+      <MobileLogoutSoftExit />
       <PlatformV7ShellSwitch>{children}</PlatformV7ShellSwitch>
     </ToastProvider>
   );
