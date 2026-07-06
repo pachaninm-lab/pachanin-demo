@@ -2,7 +2,7 @@
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
+  --pc-font-family: var(--font-inter, "Inter Variable"), Inter, Arial, "Segoe UI", sans-serif;
 
   --p7-color-background: #07110F;
   --p7-color-background-elevated: #111F1C;
@@ -104,7 +104,7 @@
 /* ─── Light theme ───────────────────────────────────────────────── */
 :root[data-theme='light'] {
   color-scheme: light;
-  --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
+  --pc-font-family: var(--font-inter, "Inter Variable"), Inter, Arial, "Segoe UI", sans-serif;
 
   --p7-color-background: #F7F9F5;
   --p7-color-background-elevated: #FFFFFF;
@@ -191,7 +191,7 @@
 /* ─── High-contrast mode ─────────────────────────────────────────── */
 :root[data-theme='high-contrast'] {
   color-scheme: light;
-  --pc-font-family: "Inter Variable", Inter, Arial, "Segoe UI", sans-serif;
+  --pc-font-family: var(--font-inter, "Inter Variable"), Inter, Arial, "Segoe UI", sans-serif;
   --p7-color-background: #FFFFFF;
   --p7-color-background-elevated: #FFFFFF;
   --p7-color-surface: #FFFFFF;
