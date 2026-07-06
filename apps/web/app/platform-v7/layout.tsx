@@ -37,6 +37,7 @@ import '@/styles/platform-v7-mobile-reflow-p0.css';
 import '@/styles/platform-v7-shell-restore.css';
 import '@/styles/platform-v7-register-header-override.css';
 import '@/styles/platform-v7-mobile-screenshot-fixes.css';
+import '@/styles/platform-v7-mobile-shell-p1.css';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },

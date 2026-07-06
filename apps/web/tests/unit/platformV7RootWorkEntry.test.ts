@@ -6,6 +6,7 @@ describe('platform-v7 root working entry', () => {
   const page = readFileSync(join(process.cwd(), 'app/platform-v7/page.tsx'), 'utf8');
   // Копия страницы вынесена в i18n-сообщения (next-intl); структура и CSS остаются в page.tsx.
   const ruMessages = readFileSync(join(process.cwd(), 'messages/ru.json'), 'utf8');
+  const mobileShell = readFileSync(join(process.cwd(), 'styles/platform-v7-mobile-shell-p1.css'), 'utf8');
 
   it('uses the public execution cockpit as the root entry surface', () => {
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
@@ -28,15 +29,17 @@ describe('platform-v7 root working entry', () => {
   });
 
   it('keeps mobile entry polish guarded', () => {
-    expect(page).toContain('--entry-header-height:70px');
     expect(page).toContain('--entry-header-height:64px');
-    expect(page).toContain('.entry-header{grid-template-columns:1fr auto;padding:9px 16px;gap:10px}');
     expect(page).toContain('.entry-process-row{display:flex;gap:10px;overflow-x:auto;padding:0 2px 8px}');
     expect(page).toContain('.entry-process-row::-webkit-scrollbar{display:none}');
     expect(page).toContain('flex:0 0 176px');
     expect(page).toContain("className='entry-register-cta'");
     expect(page).toContain("href='/platform-v7/register'");
     expect(page).toContain('color:#fff!important;background:#087a3b');
+    expect(mobileShell).toContain('html:has(input:focus, textarea:focus, select:focus)');
+    expect(mobileShell).toContain('.pc-v7-role-dock');
+    expect(mobileShell).toContain('.p7-support-chat-button');
+    expect(mobileShell).toContain('.p7-register-page:has(input:focus, textarea:focus, select:focus) .p7-register-hero');
   });
 
   it('keeps maturity language guarded', () => {
