@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
+import { HeaderLanguageSwitch } from '@/components/platform-v7/HeaderLanguageSwitch';
 
 const DEAL_PATH_CTA_SELECTOR = '[data-public-deal-path-cta="true"]';
 const ROOT_SELECTOR = '.pc-v7-public-entry';
@@ -148,5 +149,5 @@ export function PublicDealPathCtaGuard() {
     };
   }, [pathname]);
 
-  return <style dangerouslySetInnerHTML={{ __html: css }} />;
+  return <><HeaderLanguageSwitch /><style dangerouslySetInnerHTML={{ __html: css }} /></>;
 }
