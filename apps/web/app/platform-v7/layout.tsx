@@ -25,6 +25,7 @@ import '@/styles/platform-v7-register-header-override.css';
 import '@/styles/platform-v7-mobile-screenshot-fixes.css';
 import '@/styles/platform-v7-mobile-shell-p1.css';
 import '@/styles/platform-v7-shell-critical.css';
+import '@/styles/platform-v7-public-mobile-safe-area.css';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
