@@ -63,6 +63,7 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
+  '/platform-v7/demo',
   // Public lead / question pages: anonymous visitors must reach these without an
   // entry cookie, matching the client single-entry guard and the public lead APIs
   // below. They are forms only — no protected data is exposed.
@@ -256,13 +257,6 @@ function markPlatformV7Entry(response: NextResponse) {
   });
 }
 
-function redirectToPlatformV7Entry(req: NextRequest) {
-  const u = req.nextUrl.clone();
-  u.pathname = '/platform-v7';
-  u.search = '';
-  return applySecurityHeaders(NextResponse.redirect(u), true);
-}
-
 export async function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
@@ -301,19 +295,13 @@ export async function middleware(req: NextRequest) {
 
   if (p.startsWith('/platform-v7')) {
     const isEntry = p === '/platform-v7';
-    const seenEntry = req.cookies.get(PLATFORM_V7_ENTRY_COOKIE)?.value === 'true';
-    if (!isEntry && !isPlatformV7PublicPath(p) && !seenEntry) {
-      return redirectToPlatformV7Entry(req);
-    }
-
     const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
     persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
-    // Phase 4C-pre — report-only cabinet RBAC observation (flag-gated, off by default).
-    // The role comes ONLY from a cryptographically verified JWT (never path / pc-role /
-    // query / client guard / the unverified pc_session_present cookie). An unverified or
-    // demo token resolves to null → unknown → never blocked. Never blocks/redirects/
-    // alters this response.
+    // Protected platform-v7 routes must stay inside the app shell. Do not bounce them
+    // back to the public entry screen on a missing pc_v7_entry_seen cookie: mobile
+    // browsers can drop or race that cookie during SPA navigation, which produces
+    // the observed white/loading screen without header and role dock.
     try {
       if (serverCabinetRbacMode() === 'report') {
         const secret = process.env.JWT_SECRET ?? '';
