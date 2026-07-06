@@ -16,6 +16,7 @@ const PUBLIC_PATHS = new Set([
   '/platform-v7/demo',
   '/platform-v7/docs',
 ]);
+const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
 
 const cleanupCss = `
 .pc-shell-root-v4:has(.pc-v7-public-entry),
@@ -51,6 +52,10 @@ function normalize(pathname: string) {
   return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
 }
 
+function isPublicPath(path: string) {
+  return PUBLIC_PATHS.has(path) || PUBLIC_PREFIX_PATHS.some((prefix) => path.startsWith(prefix));
+}
+
 function cleanupStaleArtifacts() {
   document.body.classList.remove('seller-mobile-fix');
   document.querySelectorAll<HTMLElement>('.p7-mobile-tool-panel,[data-public-platform-handoff="true"]').forEach((item) => item.remove());
@@ -75,7 +80,7 @@ export function PublicEntryCleanup() {
     function sync() {
       if (cancelled) return;
       const path = normalize(window.location.pathname);
-      if (!PUBLIC_PATHS.has(path)) return;
+      if (!isPublicPath(path)) return;
       const entry = document.querySelector('.pc-v7-public-entry,[data-testid="platform-v7-open-walkthrough"]') as HTMLElement | null;
       cleanupStaleArtifacts();
       if (!entry) return;
