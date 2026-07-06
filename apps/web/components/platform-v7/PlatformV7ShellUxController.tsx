@@ -154,10 +154,10 @@ export function PlatformV7ShellUxController() {
 
   React.useEffect(() => {
     document.querySelectorAll<HTMLAnchorElement>('.pc-v4-header .pc-v4-brand, .pc-v4-drawer .pc-v4-brand').forEach((item) => {
-      item.href = '/platform-v7';
-      item.setAttribute('aria-label', 'Прозрачная Цена — главная страница с описанием платформы и выбором роли');
+      item.href = roleHome ?? '/platform-v7';
+      item.setAttribute('aria-label', 'Прозрачная Цена — в мой кабинет');
     });
-  }, [pathname]);
+  }, [pathname, roleHome]);
 
   const logout = React.useCallback(() => {
     clearRoleSelection();
