@@ -40,7 +40,7 @@ export function PublicSiteHeader({
 
 const css = `
 .pc-site-header{
-  position:fixed;top:0;left:0;right:0;z-index:2400;
+  position:fixed;top:0;left:0;right:0;z-index:2600;
   display:flex;align-items:center;gap:16px;
   height:${PUBLIC_SITE_HEADER_HEIGHT}px;
   padding:0 clamp(16px,4vw,44px);
