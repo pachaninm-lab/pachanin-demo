@@ -28,6 +28,7 @@ import '@/styles/platform-v7-shell-critical.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-seller-mobile-usability.css';
 import '@/styles/platform-v7-mobile-bottom-tools.css';
+import '@/styles/platform-v7-seller-workspace-v2.css';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
