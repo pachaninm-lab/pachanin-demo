@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Globe2, LogOut, Menu, X } from 'lucide-react';
+import { Globe2, LogIn, LogOut, Menu, X } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
 import {
   platformV7DrawerNavByRole,
@@ -20,6 +20,7 @@ const LANGUAGE_KEY = 'pc-v7-language';
 
 type Lang = 'RU' | 'EN' | 'ZH';
 type HeaderLink = { href: string; label: string; note?: string };
+type HeaderSection = { title: string; links: HeaderLink[] };
 
 const ROLE_PREFIXES: Array<[string, PlatformRole]> = [
   ['/platform-v7/control-tower', 'operator'],
@@ -40,11 +41,16 @@ const ROLE_PREFIXES: Array<[string, PlatformRole]> = [
 
 const PUBLIC_LINKS: HeaderLink[] = [
   { href: '/platform-v7', label: 'Главная', note: 'Описание платформы' },
-  { href: '/platform-v7/login', label: 'Вход', note: 'Единый вход в рабочие кабинеты' },
-  { href: '/platform-v7/register', label: 'Подключение компании', note: 'Заявка на доступ' },
+  { href: '/platform-v7/login', label: 'Войти', note: 'Единый вход в рабочие кабинеты' },
+  { href: '/platform-v7/register', label: 'Подключить компанию', note: 'Заявка на доступ' },
   { href: '/platform-v7/demo', label: 'Демо-сделка', note: 'Показ рабочего сценария' },
   { href: '/platform-v7/contact', label: 'Обращение', note: 'Вопрос или заявка' },
   { href: '/platform-v7/docs', label: 'Документы', note: 'Материалы платформы' },
+];
+
+const SERVICE_LINKS: HeaderLink[] = [
+  { href: '/platform-v7/contact', label: 'Поддержка', note: 'Вопрос, проблема или заявка' },
+  { href: '/platform-v7/docs', label: 'Документы платформы', note: 'Материалы, правила, описание контура' },
 ];
 
 function normalize(pathname: string | null) {
@@ -86,6 +92,16 @@ function toHeaderLinks(items: PlatformV7RoleNavItem[]): HeaderLink[] {
   }).map((item) => ({ href: item.href, label: item.label, note: item.note }));
 }
 
+function uniqueLinks(items: HeaderLink[]): HeaderLink[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.href}:${item.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function clearSession() {
   if (typeof window !== 'undefined') {
     window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
@@ -114,7 +130,16 @@ export function PlatformV7UnifiedHeader() {
   const roleLinks = privateRoute
     ? toHeaderLinks([{ href: platformV7RoleRoute(role), label: 'Кабинет', note: 'Главный экран роли' }, ...platformV7NavByRole(role), ...platformV7DrawerNavByRole(role)])
     : [];
-  const links = privateRoute ? [...roleLinks, ...PUBLIC_LINKS] : PUBLIC_LINKS;
+
+  const sections: HeaderSection[] = privateRoute
+    ? [
+        { title: 'Рабочий контур', links: roleLinks },
+        { title: 'Платформа', links: PUBLIC_LINKS.filter((item) => item.href !== '/platform-v7/login') },
+        { title: 'Сервис', links: SERVICE_LINKS },
+      ]
+    : [
+        { title: 'Платформа', links: PUBLIC_LINKS },
+      ];
 
   function cycleLanguage() {
     const next = lang === 'RU' ? 'EN' : lang === 'EN' ? 'ZH' : 'RU';
@@ -140,9 +165,17 @@ export function PlatformV7UnifiedHeader() {
             <Globe2 size={20} strokeWidth={2.35} />
             <span>{lang}</span>
           </button>
-          <button type='button' className='p7-unified-icon p7-unified-exit' onClick={exit} aria-label={privateRoute ? 'Выйти' : 'На главную'} title={privateRoute ? 'Выйти' : 'На главную'}>
-            <LogOut size={21} strokeWidth={2.35} />
-          </button>
+          {privateRoute ? (
+            <button type='button' className='p7-unified-main-action p7-unified-exit' onClick={exit} aria-label='Выйти' title='Выйти'>
+              <LogOut size={20} strokeWidth={2.35} />
+              <span>Выход</span>
+            </button>
+          ) : (
+            <Link href='/platform-v7/login' className='p7-unified-main-action p7-unified-login' aria-label='Войти' title='Войти'>
+              <LogIn size={20} strokeWidth={2.35} />
+              <span>Войти</span>
+            </Link>
+          )}
           <button type='button' className='p7-unified-icon p7-unified-menu' onClick={() => setMenuOpen((value) => !value)} aria-label='Открыть меню' aria-expanded={menuOpen} title='Меню'>
             {menuOpen ? <X size={23} strokeWidth={2.45} /> : <Menu size={23} strokeWidth={2.45} />}
           </button>
@@ -154,16 +187,21 @@ export function PlatformV7UnifiedHeader() {
           <aside className='p7-unified-drawer' aria-label='Меню платформы' onClick={(event) => event.stopPropagation()}>
             <div className='p7-unified-drawer-head'>
               <BrandMark size={36} />
-              <div><strong>Прозрачная Цена</strong><span>{privateRoute ? 'Рабочее меню' : 'Публичное меню'}</span></div>
+              <div><strong>Прозрачная Цена</strong><span>{privateRoute ? 'Рабочее меню роли' : 'Публичное меню'}</span></div>
             </div>
-            <nav className='p7-unified-drawer-nav'>
-              {links.map((item) => (
-                <Link key={`${item.href}:${item.label}`} href={item.href} className='p7-unified-drawer-link' data-active={isActive(pathname, item.href) ? 'true' : 'false'}>
-                  <strong>{item.label}</strong>
-                  {item.note ? <span>{item.note}</span> : null}
-                </Link>
-              ))}
-            </nav>
+            {sections.map((section) => (
+              <section className='p7-unified-drawer-section' key={section.title}>
+                <h2>{section.title}</h2>
+                <nav className='p7-unified-drawer-nav' aria-label={section.title}>
+                  {uniqueLinks(section.links).map((item) => (
+                    <Link key={`${item.href}:${item.label}`} href={item.href} className='p7-unified-drawer-link' data-active={isActive(pathname, item.href) ? 'true' : 'false'} onClick={() => setMenuOpen(false)}>
+                      <strong>{item.label}</strong>
+                      {item.note ? <span>{item.note}</span> : null}
+                    </Link>
+                  ))}
+                </nav>
+              </section>
+            ))}
           </aside>
         </div>
       ) : null}
@@ -176,21 +214,23 @@ export function PlatformV7UnifiedHeader() {
         .p7-unified-logo{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;min-width:42px;flex:0 0 42px;overflow:visible}
         .p7-unified-title{display:block;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(22px,4.8vw,32px);line-height:1;font-weight:950;letter-spacing:-.055em;color:#071611}
         .p7-unified-actions{display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;min-width:max-content;max-width:max-content;overflow:visible}
-        .p7-unified-icon{width:44px;height:44px;min-width:44px;max-width:44px;min-height:44px;max-height:44px;padding:0;border-radius:15px;border:1px solid rgba(7,22,17,.10);background:#fff;color:#071611;display:inline-flex;align-items:center;justify-content:center;gap:0;box-shadow:0 8px 20px rgba(7,22,17,.05);cursor:pointer;appearance:none}
-        .p7-unified-icon svg{width:21px;height:21px;min-width:21px;max-width:21px;flex:0 0 21px}
+        .p7-unified-icon,.p7-unified-main-action{height:44px;min-height:44px;max-height:44px;padding:0;border-radius:15px;border:1px solid rgba(7,22,17,.10);background:#fff;color:#071611;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(7,22,17,.05);cursor:pointer;appearance:none;text-decoration:none;font-weight:950;white-space:nowrap}
+        .p7-unified-icon{width:44px;min-width:44px;max-width:44px;gap:0}.p7-unified-icon svg,.p7-unified-main-action svg{width:21px;height:21px;min-width:21px;max-width:21px;flex:0 0 21px}
+        .p7-unified-main-action{min-width:96px;padding:0 14px;gap:7px;font-size:14px;line-height:1}.p7-unified-main-action span{display:inline-block}
         .p7-unified-lang{width:auto;min-width:60px;max-width:72px;padding:0 10px;gap:5px;color:#087a3b;background:rgba(8,122,59,.08);border-color:rgba(8,122,59,.18)}
         .p7-unified-lang span{font-size:12px;line-height:1;font-weight:950;color:#087a3b}
-        .p7-unified-exit{color:#9f1d1d;background:rgba(159,29,29,.06);border-color:rgba(159,29,29,.20)}
+        .p7-unified-exit{color:#9f1d1d;background:rgba(159,29,29,.06);border-color:rgba(159,29,29,.20)}.p7-unified-exit span{color:#9f1d1d}.p7-unified-login{color:#071611;background:#fff;border-color:rgba(7,22,17,.12)}
         .p7-unified-menu{color:#071611}
         .p7-unified-drawer-backdrop{position:fixed;inset:0;z-index:8999;background:rgba(7,22,17,.18);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);padding-top:var(--p7-unified-header-h)}
         .p7-unified-drawer{position:fixed;top:var(--p7-unified-header-h);right:10px;left:auto;width:min(420px,calc(100vw - 20px));max-height:calc(100dvh - var(--p7-unified-header-h) - 12px);overflow:auto;border-radius:24px;border:1px solid rgba(7,22,17,.10);background:rgba(255,255,255,.98);box-shadow:0 24px 70px rgba(7,22,17,.20);padding:14px;display:grid;gap:12px}
         .p7-unified-drawer-head{display:flex;align-items:center;gap:10px;padding:8px 8px 12px;border-bottom:1px solid rgba(7,22,17,.08)}
         .p7-unified-drawer-head strong{display:block;font-size:16px;line-height:1;font-weight:950;color:#071611}.p7-unified-drawer-head span{display:block;margin-top:4px;font-size:12px;font-weight:800;color:#68756f}
+        .p7-unified-drawer-section{display:grid;gap:8px}.p7-unified-drawer-section h2{margin:0;padding:2px 4px;font-size:11px;line-height:1;text-transform:uppercase;letter-spacing:.11em;font-weight:950;color:#6b766f}
         .p7-unified-drawer-nav{display:grid;gap:7px}.p7-unified-drawer-link{display:grid;gap:3px;padding:12px 13px;border-radius:16px;border:1px solid rgba(7,22,17,.08);background:#fff;text-decoration:none;color:#071611}.p7-unified-drawer-link[data-active='true']{background:rgba(8,122,59,.08);border-color:rgba(8,122,59,.20);color:#087a3b}.p7-unified-drawer-link strong{font-size:14px;font-weight:950;line-height:1.1}.p7-unified-drawer-link span{font-size:12px;line-height:1.35;font-weight:750;color:#66736d}
         .pc-v4-header,.entry-header,.login-header,.p7-register-header,.p7-contact-header,.p7-contact-fixed-header,.p7-demo-header{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}
         .pc-v4-main{padding-top:12px!important}.pc-shell-root-v4{--pc-header-offset:0px!important}.pc-v7-public-entry,.pc-v7-login-single,.p7-register-page,.p7-contact-page,.p7-demo-page{padding-top:0!important;margin-top:0!important}.pc-v7-public-entry .entry-hero{margin-top:16px!important}.pc-v4-main>main:first-child,.pc-v4-main>div:first-child{margin-top:0!important}
-        @media(max-width:767px){:root{--p7-unified-header-h:calc(env(safe-area-inset-top) + 70px)}.p7-unified-header{padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;gap:8px}.p7-unified-brand{gap:9px}.p7-unified-logo{width:40px;height:40px;min-width:40px;flex-basis:40px}.p7-unified-title{font-size:21px}.p7-unified-actions{gap:6px}.p7-unified-icon{width:40px;height:40px;min-width:40px;max-width:40px;min-height:40px;max-height:40px;border-radius:14px}.p7-unified-lang{min-width:54px;max-width:60px;padding:0 7px}.p7-unified-lang span{font-size:11px}.p7-unified-drawer{right:8px;width:calc(100vw - 16px);border-radius:22px}.pc-v4-main{padding-top:10px!important}}
-        @media(max-width:374px){.p7-unified-title{font-size:18px}.p7-unified-logo{width:36px;height:36px;min-width:36px;flex-basis:36px}.p7-unified-icon{width:38px;height:38px;min-width:38px;max-width:38px;min-height:38px;max-height:38px;border-radius:13px}.p7-unified-lang{min-width:50px;max-width:54px;padding:0 6px}.p7-unified-actions{gap:5px}}
+        @media(max-width:767px){:root{--p7-unified-header-h:calc(env(safe-area-inset-top) + 70px)}.p7-unified-header{padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;gap:8px}.p7-unified-brand{gap:9px}.p7-unified-logo{width:40px;height:40px;min-width:40px;flex-basis:40px}.p7-unified-title{font-size:21px}.p7-unified-actions{gap:6px}.p7-unified-icon{width:40px;height:40px;min-width:40px;max-width:40px;min-height:40px;max-height:40px;border-radius:14px}.p7-unified-main-action{min-width:40px;width:40px;max-width:40px;height:40px;min-height:40px;max-height:40px;padding:0;border-radius:14px}.p7-unified-main-action span{display:none}.p7-unified-lang{min-width:54px;max-width:60px;padding:0 7px}.p7-unified-lang span{font-size:11px}.p7-unified-drawer{right:8px;width:calc(100vw - 16px);border-radius:22px}.pc-v4-main{padding-top:10px!important}}
+        @media(max-width:374px){.p7-unified-title{font-size:18px}.p7-unified-logo{width:36px;height:36px;min-width:36px;flex-basis:36px}.p7-unified-icon,.p7-unified-main-action{width:38px;height:38px;min-width:38px;max-width:38px;min-height:38px;max-height:38px;border-radius:13px}.p7-unified-lang{min-width:50px;max-width:54px;padding:0 6px}.p7-unified-actions{gap:5px}}
       `}</style>
     </>
   );
