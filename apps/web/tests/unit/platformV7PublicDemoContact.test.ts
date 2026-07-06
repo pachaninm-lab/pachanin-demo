@@ -3,35 +3,26 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const rootPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/page.tsx'), 'utf8');
-// Копия главной вынесена в next-intl сообщения (messages/ru.json).
 const rootRuMessages = fs.readFileSync(path.resolve(__dirname, '../../messages/ru.json'), 'utf8');
-const demoPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/demo/page.tsx'), 'utf8');
+const dealFlowPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/deal-flow/page.tsx'), 'utf8');
 const contactPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/contact/page.tsx'), 'utf8');
-// Форма вопросов живёт в клиентском компоненте страницы contact; копия — в messages/ru.json.
 const contactClient = fs.readFileSync(path.resolve(__dirname, '../../app/platform-v7/contact/ContactClient.tsx'), 'utf8');
 const contactSurface = contactPage + contactClient;
 const inquiryRoute = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/api/platform-v7/inquiries/route.ts'), 'utf8');
 
-describe('platform-v7 public demo and question flow', () => {
-  it('exposes the deal-review and question CTAs from the public homepage', () => {
-    // The public entry offers a synthetic deal-review walkthrough and a question
-    // form — both without registration or cabinet access.
-    expect(rootPage).toContain("href='/platform-v7/demo'");
-    expect(rootRuMessages).toContain('Разбор сделки');
-    expect(rootPage).toContain("href='/platform-v7/contact'");
-    expect(rootRuMessages).toContain('Задать вопрос');
+describe('platform-v7 public production deal flow and question flow', () => {
+  it('exposes production deal-flow and question CTAs from the public homepage', () => {
+    expect(rootPage + rootRuMessages).toContain('Разобрать контур сделки');
+    expect(rootPage + rootRuMessages).toContain('Задать вопрос');
+    expect(rootPage + rootRuMessages).not.toContain('Демонстрационная сделка');
+    expect(rootPage + rootRuMessages).not.toContain('Демонстрационный сценарий');
   });
 
-  it('keeps the deal-review page as a public sandbox, not a cabinet bypass', () => {
-    expect(demoPage).toContain('platform-v7-demo-public-workspace');
-    expect(demoPage).toContain('без регистрации');
-    expect(demoPage).toContain('Рабочие кабинеты и реальные данные не открываются.');
-
-    expect(demoPage).not.toContain("href: '/platform-v7/buyer'");
-    expect(demoPage).not.toContain("href: '/platform-v7/seller'");
-    expect(demoPage).not.toContain("href: '/platform-v7/bank'");
-    expect(demoPage).not.toContain("href: '/platform-v7/driver");
-    expect(demoPage).not.toContain("href: '/platform-v7/disputes'");
+  it('keeps the production deal-flow page public without promising live integrations', () => {
+    expect(dealFlowPage).toContain('p7-deal-flow-page');
+    expect(dealFlowPage).toContain('Контур сделки');
+    expect(dealFlowPage).toContain('Платформа показывает основание для расчёта');
+    expect(dealFlowPage).not.toContain('автоматический выпуск денег');
   });
 
   it('adds a separate question form without creating access', () => {
@@ -39,7 +30,9 @@ describe('platform-v7 public demo and question flow', () => {
     expect(contactSurface).toContain("action='/api/platform-v7/inquiries'");
     expect(contactSurface).toContain("name='website'");
     expect(contactSurface).toContain("name='consent'");
-    expect(rootRuMessages).toContain('не открывает сделки, документы и закрытые разделы платформы');
+    expect(contactSurface).toContain('не открывает сделки, документы и закрытые разделы платформы');
+    expect(contactSurface).not.toContain('пилотном проекте');
+    expect(contactSurface).not.toContain('демонстрационном доступе');
   });
 
   it('validates inquiry input server-side and supports email delivery when configured', () => {
