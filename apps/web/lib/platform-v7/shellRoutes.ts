@@ -45,6 +45,21 @@ export interface PlatformV7ShellNavItem { href: string; label: string; }
 export interface PlatformV7RoleNavItem extends PlatformV7ShellNavItem { note?: string; }
 export interface PlatformV7RoleNavigationEntry { home: string; bottom: PlatformV7RoleNavItem[]; drawer: PlatformV7RoleNavItem[]; command: PlatformV7RoleNavItem[]; allowedPrefixes: string[]; }
 
+export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
+  operator: PLATFORM_V7_CONTROL_TOWER_ROUTE,
+  buyer: PLATFORM_V7_BUYER_ROUTE,
+  seller: PLATFORM_V7_SELLER_ROUTE,
+  logistics: PLATFORM_V7_LOGISTICS_ROUTE,
+  driver: PLATFORM_V7_DRIVER_FIELD_ROUTE,
+  surveyor: PLATFORM_V7_SURVEYOR_ROUTE,
+  elevator: PLATFORM_V7_ELEVATOR_ROUTE,
+  lab: PLATFORM_V7_LAB_ROUTE,
+  bank: PLATFORM_V7_BANK_ROUTE,
+  arbitrator: PLATFORM_V7_ARBITRATOR_ROUTE,
+  compliance: PLATFORM_V7_COMPLIANCE_ROUTE,
+  executive: PLATFORM_V7_EXECUTIVE_ROUTE,
+};
+
 const SHARED_PREFIXES = [PLATFORM_V7_AI_ROUTE, PLATFORM_V7_PROFILE_ROUTE, PLATFORM_V7_STATUS_ROUTE];
 // Navigation policy: entry.bottom is the mobile dock; entry.command is the full role command surface.
 const ROLE_BLOCKED_PREFIXES = [PLATFORM_V7_ROLES_ROUTE, '/platform-v7r/roles', '/platform-v7/auth'];
