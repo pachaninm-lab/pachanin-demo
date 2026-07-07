@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LOCALE_COOKIE } from '@/i18n/locale';
 import { observeServerCabinetAccess, serverCabinetRbacMode } from '@/lib/platform-v7/server-cabinet-access';
 import { readVerifiedCabinetRole, readVerifiedCabinetSessionRole } from '@/lib/platform-v7/verified-session';
 
@@ -50,6 +51,7 @@ const VALID_ROLES = new Set([
   'executive',
 ]);
 
+const VALID_LOCALES = new Set(['ru', 'en', 'zh']);
 const SESSION_COOKIE = 'pc_session_present';
 const OWNER_COOKIE = 'pc_owner_access';
 const PLATFORM_V7_ENTRY_COOKIE = 'pc_v7_entry_seen';
@@ -64,18 +66,12 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
   '/platform-v7/demo',
-  // Public lead / question pages: anonymous visitors must reach these without an
-  // entry cookie, matching the client single-entry guard and the public lead APIs
-  // below. They are forms only — no protected data is exposed.
   '/platform-v7/contact',
   '/platform-v7/request',
 ]);
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 
-// Public, unauthenticated API endpoints (anti-spam + rate-limit + validation
-// live in the routes themselves). Anonymous visitors must be able to POST the
-// public lead / inquiry forms without a session — gating them loses leads.
 const PUBLIC_API_EXACT = new Set([
   '/api/platform-v7/inquiries',
   '/api/platform-v7/leads',
@@ -227,14 +223,22 @@ function resolveRole(req: NextRequest, sessionRole?: string | null) {
   return 'operator';
 }
 
+function resolveLocaleFromQuery(req: NextRequest): string | null {
+  const queryLocale = req.nextUrl.searchParams.get('lang');
+  return queryLocale && VALID_LOCALES.has(queryLocale) ? queryLocale : null;
+}
+
 function withRoleHeaders(req: NextRequest, role: string, protectedResponse = false) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
   requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
+  const queryLocale = resolveLocaleFromQuery(req);
+  if (queryLocale) requestHeaders.set('x-pc-locale', queryLocale);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('x-pc-role', role);
   response.headers.set('x-pc-pathname', req.nextUrl.pathname);
-  return applySecurityHeaders(response, protectedResponse);
+  if (queryLocale) persistLocaleCookie(req, response, queryLocale);
+  return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale));
 }
 
 function persistRoleCookie(req: NextRequest, response: NextResponse, role: string) {
@@ -246,6 +250,22 @@ function persistRoleCookie(req: NextRequest, response: NextResponse, role: strin
       secure: true,
     });
   }
+}
+
+function persistLocaleCookie(req: NextRequest, response: NextResponse, locale: string) {
+  if (!VALID_LOCALES.has(locale)) return;
+  if (req.cookies.get(LOCALE_COOKIE)?.value !== locale) {
+    response.cookies.set(LOCALE_COOKIE, locale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+      secure: true,
+    });
+  }
+  response.headers.set('x-pc-locale', locale);
+  response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+  response.headers.set('pragma', 'no-cache');
+  response.headers.set('expires', '0');
 }
 
 function markPlatformV7Entry(response: NextResponse) {
@@ -298,10 +318,6 @@ export async function middleware(req: NextRequest) {
     const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
     persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
-    // Protected platform-v7 routes must stay inside the app shell. Do not bounce them
-    // back to the public entry screen on a missing pc_v7_entry_seen cookie: mobile
-    // browsers can drop or race that cookie during SPA navigation, which produces
-    // the observed white/loading screen without header and role dock.
     try {
       if (serverCabinetRbacMode() === 'report') {
         const secret = process.env.JWT_SECRET ?? '';
@@ -312,7 +328,6 @@ export async function middleware(req: NextRequest) {
         observeServerCabinetAccess({ pathname: p, verifiedRole });
       }
     } catch {
-      // A report must never affect the request.
     }
     return response;
   }
