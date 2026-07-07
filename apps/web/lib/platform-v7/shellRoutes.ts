@@ -14,7 +14,6 @@ import {
   PLATFORM_V7_CONNECTORS_ROUTE,
   PLATFORM_V7_CONTROL_TOWER_ROUTE,
   PLATFORM_V7_DEALS_ROUTE,
-  PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE,
   PLATFORM_V7_DISPUTES_ROUTE,
   PLATFORM_V7_DOCUMENTS_ROUTE,
   PLATFORM_V7_DRIVER_FIELD_ROUTE,
@@ -33,7 +32,6 @@ import {
   PLATFORM_V7_SELLER_BATCHES_ROUTE,
   PLATFORM_V7_SELLER_LOTS_ROUTE,
   PLATFORM_V7_SELLER_ROUTE,
-  PLATFORM_V7_SIMULATOR_ROUTE,
   PLATFORM_V7_STATUS_ROUTE,
   PLATFORM_V7_SURVEYOR_ROUTE,
   PLATFORM_V7_TRUST_ROUTE,
@@ -61,7 +59,6 @@ export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
 };
 
 const SHARED_PREFIXES = [PLATFORM_V7_AI_ROUTE, PLATFORM_V7_PROFILE_ROUTE, PLATFORM_V7_STATUS_ROUTE];
-// Navigation policy: entry.bottom is the mobile dock; entry.command is the full role command surface.
 const ROLE_BLOCKED_PREFIXES = [PLATFORM_V7_ROLES_ROUTE, '/platform-v7r/roles', '/platform-v7/auth'];
 
 export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNavigationEntry> = {
@@ -70,7 +67,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     bottom: [
       { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр' },
       { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
-      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Блокеры' },
+      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Остановки' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Контроль' },
     ],
@@ -78,7 +75,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     command: [
       { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр' },
       { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
-      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Блокеры' },
+      { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Остановки' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Контроль' },
       { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Расчёты' },
@@ -222,13 +219,13 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     home: PLATFORM_V7_COMPLIANCE_ROUTE,
     bottom: [
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Допуск' },
-      { href: PLATFORM_V7_CONNECTORS_ROUTE, label: 'Разъёмы' },
+      { href: PLATFORM_V7_CONNECTORS_ROUTE, label: 'Подключения' },
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
     ],
     drawer: [],
     command: [
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Допуск' },
-      { href: PLATFORM_V7_CONNECTORS_ROUTE, label: 'Разъёмы' },
+      { href: PLATFORM_V7_CONNECTORS_ROUTE, label: 'Подключения' },
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
     ],
     allowedPrefixes: [PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_CONNECTORS_ROUTE, PLATFORM_V7_TRUST_ROUTE],
@@ -238,20 +235,19 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     bottom: [
       { href: PLATFORM_V7_EXECUTIVE_ROUTE, label: 'Сводка' },
       { href: PLATFORM_V7_MONEY_ROUTE, label: 'Деньги' },
+      { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
+      { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Расчёты' },
       { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
-      { href: PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, label: 'Демо-поток' },
-      { href: PLATFORM_V7_SIMULATOR_ROUTE, label: 'Симулятор' },
     ],
     drawer: [],
     command: [
       { href: PLATFORM_V7_EXECUTIVE_ROUTE, label: 'Сводка' },
       { href: PLATFORM_V7_MONEY_ROUTE, label: 'Деньги' },
-      { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
-      { href: PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, label: 'Демо-поток' },
-      { href: PLATFORM_V7_SIMULATOR_ROUTE, label: 'Симулятор' },
+      { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
       { href: PLATFORM_V7_BANK_CLEAN_ROUTE, label: 'Расчёты' },
+      { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
     ],
-    allowedPrefixes: [PLATFORM_V7_EXECUTIVE_ROUTE, PLATFORM_V7_MONEY_ROUTE, PLATFORM_V7_REPORTS_ROUTE, PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE, PLATFORM_V7_SIMULATOR_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_EXECUTIVE_ROUTE, PLATFORM_V7_MONEY_ROUTE, PLATFORM_V7_DEALS_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE, PLATFORM_V7_REPORTS_ROUTE],
   },
 };
 
