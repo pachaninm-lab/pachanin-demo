@@ -29,7 +29,7 @@ export type DictionaryState = {
 
 export const LANGUAGE_STORAGE_KEY = 'pc-v7-language';
 export const LANGUAGE_CHANGE_EVENT = 'pc-v7-language-change';
-export const DICTIONARY_CACHE_KEY = 'pc-v7-translation-dictionaries-v5';
+export const DICTIONARY_CACHE_KEY = 'pc-v7-translation-dictionaries-v6';
 export const DICTIONARY_UPDATE_URL = '/platform-v7/i18n/dictionaries.json';
 
 const LEGACY_DICTIONARY_CACHE_KEYS = [
@@ -37,6 +37,7 @@ const LEGACY_DICTIONARY_CACHE_KEYS = [
   'pc-v7-translation-dictionaries-v2',
   'pc-v7-translation-dictionaries-v3',
   'pc-v7-translation-dictionaries-v4',
+  'pc-v7-translation-dictionaries-v5',
 ] as const;
 
 export const LANGUAGES: ReadonlyArray<{
@@ -65,7 +66,9 @@ const SKIP_ATTRIBUTE_SELECTOR =
   'script,style,noscript,svg,canvas,.p7-translator-root,[data-p7-no-translate]';
 
 const CYRILLIC_RE = /[А-Яа-яЁё]/;
+const LATIN_RE = /[A-Za-z]/;
 const MAX_FRAGMENT_SOURCE_LENGTH = 600;
+const STRICT_FRAGMENT_FALLBACK = true;
 
 // Короткие ключи, которым разрешена подстановка внутрь составных строк,
 // даже если сами по себе они короче общего порога.
@@ -362,166 +365,3 @@ function applyStructuredTokens(value: string, language: TranslatedLanguageCode):
   const column = language === 'en' ? 1 : 2;
   let next = value;
   // Токен-правила (дни/недели/единицы/аббревиатуры) — до транслитерации кодов,
-  // иначе «Н1» в метке недели ушло бы в «H1» вместо «W1».
-  for (const rule of STRUCTURED_TOKENS) next = next.replace(rule[0], rule[column] as string);
-  return transliterateCodes(next);
-}
-
-const fragmentRegexCache = new Map<string, RegExp>();
-function fragmentRegex(fragment: string): RegExp {
-  let re = fragmentRegexCache.get(fragment);
-  if (!re) {
-    const escaped = fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Границы по кириллице: «вес» не заменяется внутри «весы».
-    re = new RegExp(`(?<![А-Яа-яЁё])${escaped}(?![А-Яа-яЁё])`, 'g');
-    fragmentRegexCache.set(fragment, re);
-  }
-  return re;
-}
-
-export function translateValue(source: string, language: LanguageCode, dictionaries: DictionarySet): string {
-  if (language === 'ru') return source;
-  const raw = source ?? '';
-  const key = normalizeText(raw);
-  if (!key) return raw;
-  const dictionary = dictionaries[language];
-  const exact = dictionary[key];
-  if (exact) {
-    const leading = raw.match(/^\s*/)?.[0] ?? '';
-    const trailing = raw.length > leading.length ? raw.match(/\s*$/)?.[0] ?? '' : '';
-    return `${leading}${exact}${trailing}`;
-  }
-  if (!CYRILLIC_RE.test(raw) || raw.length > MAX_FRAGMENT_SOURCE_LENGTH) return raw;
-  // Ядро без обрамляющей пунктуации: «· Вес:» находит словарное «Вес».
-  const affix = key.match(/^([^А-Яа-яЁёA-Za-z0-9]*)([\s\S]*?)([^А-Яа-яЁёA-Za-z0-9]*)$/);
-  if (affix && affix[2]) {
-    const core = dictionary[affix[2]];
-    if (core) return `${affix[1]}${core}${affix[3]}`;
-  }
-  // Конвейер для составных строк: единицы/даты → словарные фрагменты.
-  let next = applyStructuredTokens(raw, language);
-  if (!CYRILLIC_RE.test(next)) return next;
-  for (const [from, to] of getFragmentEntries(dictionary)) {
-    if (next.includes(from)) next = next.replace(fragmentRegex(from), to);
-  }
-  return next;
-}
-
-// ---------------------------------------------------------------------------
-// Применение к DOM
-// ---------------------------------------------------------------------------
-
-type NodeTranslationState = { source: string; applied: string };
-
-const textStates = new WeakMap<Text, NodeTranslationState>();
-const attributeStates = new WeakMap<Element, Partial<Record<TranslatableAttribute, NodeTranslationState>>>();
-let titleState: NodeTranslationState | null = null;
-
-function shouldSkipTextElement(element: Element): boolean {
-  return Boolean(element.closest(SKIP_TEXT_SELECTOR));
-}
-
-function shouldSkipAttributeElement(element: Element): boolean {
-  return Boolean(element.closest(SKIP_ATTRIBUTE_SELECTOR));
-}
-
-function collectTextNodes(root: ParentNode): Text[] {
-  const nodes: Text[] = [];
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      const element = node.parentElement;
-      if (!element || shouldSkipTextElement(element)) return NodeFilter.FILTER_REJECT;
-      if (!normalizeText(node.nodeValue ?? '')) return NodeFilter.FILTER_REJECT;
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-  let current = walker.nextNode();
-  while (current) {
-    nodes.push(current as Text);
-    current = walker.nextNode();
-  }
-  return nodes;
-}
-
-function applyTextNodeTranslation(node: Text, language: LanguageCode, dictionaries: DictionarySet): void {
-  const current = node.nodeValue ?? '';
-  let state = textStates.get(node);
-  // Внешнее изменение (React, нормализаторы копий) — перезахватываем источник.
-  if (!state || state.applied !== current) state = { source: current, applied: current };
-  const next = translateValue(state.source, language, dictionaries);
-  state.applied = next;
-  textStates.set(node, state);
-  if (current !== next) node.nodeValue = next;
-}
-
-function applyAttributeTranslation(element: Element, language: LanguageCode, dictionaries: DictionarySet): void {
-  const states = attributeStates.get(element) ?? {};
-  for (const attribute of TRANSLATABLE_ATTRIBUTES) {
-    if (!element.hasAttribute(attribute)) continue;
-    const current = element.getAttribute(attribute) ?? '';
-    if (!current) continue;
-    let state = states[attribute];
-    if (!state || state.applied !== current) state = { source: current, applied: current };
-    const next = translateValue(state.source, language, dictionaries);
-    state.applied = next;
-    states[attribute] = state;
-    if (current !== next) element.setAttribute(attribute, next);
-  }
-  attributeStates.set(element, states);
-}
-
-function applyTitleTranslation(language: LanguageCode, dictionaries: DictionarySet): void {
-  const current = document.title;
-  if (!current) return;
-  if (!titleState || titleState.applied !== current) titleState = { source: current, applied: current };
-  const next = translateValue(titleState.source, language, dictionaries);
-  titleState.applied = next;
-  if (current !== next) document.title = next;
-}
-
-export function applyTranslationToDom(
-  language: LanguageCode,
-  dictionaries: DictionarySet,
-  root: ParentNode & Node = document.body,
-): void {
-  if (typeof document === 'undefined' || !root) return;
-  const meta = getLanguageMeta(language);
-  document.documentElement.lang = meta.htmlLang;
-  document.documentElement.dataset.p7Language = language;
-  applyTitleTranslation(language, dictionaries);
-  collectTextNodes(root).forEach((node) => applyTextNodeTranslation(node, language, dictionaries));
-  const attributeSelector = TRANSLATABLE_ATTRIBUTES.map((attribute) => `[${attribute}]`).join(',');
-  const scope: ParentNode = root;
-  scope.querySelectorAll(attributeSelector).forEach((element) => {
-    if (shouldSkipAttributeElement(element)) return;
-    applyAttributeTranslation(element, language, dictionaries);
-  });
-}
-
-/**
- * Наблюдатель, поддерживающий перевод при изменениях DOM. Возвращает функцию
- * остановки. Собственные записи движка сходятся за один дополнительный проход:
- * повторное применение не меняет DOM (applied совпадает) и цикл затухает.
- */
-export function startTranslationObserver(getLanguage: () => LanguageCode, getDictionaries: () => DictionarySet): () => void {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
-  let frame = 0;
-  const run = () => applyTranslationToDom(getLanguage(), getDictionaries());
-  const schedule = () => {
-    window.cancelAnimationFrame(frame);
-    frame = window.requestAnimationFrame(run);
-  };
-  schedule();
-  const observer = new MutationObserver(schedule);
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: [...TRANSLATABLE_ATTRIBUTES],
-  });
-  return () => {
-    window.cancelAnimationFrame(frame);
-    observer.disconnect();
-  };
-}
