@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
 import { LoginHeaderLogoGuard } from '@/components/platform-v7/LoginHeaderLogoGuard';
 import { MobileLogoutSoftExit } from '@/components/platform-v7/MobileLogoutSoftExit';
+import { PlatformV7BlankScreenGuard } from '@/components/platform-v7/PlatformV7BlankScreenGuard';
 import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7InteractionFixes';
 import { PlatformV7MobileFinalGuard } from '@/components/platform-v7/PlatformV7MobileFinalGuard';
 import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLockFix';
@@ -54,12 +55,13 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
 
   if (publicPath) {
     if (landingPath) {
-      return position === 'before' ? <PublicHeroWeightPatch /> : <ChatSupportWidget />;
+      return position === 'before' ? <><PublicHeroWeightPatch /><PlatformV7BlankScreenGuard /></> : <ChatSupportWidget />;
     }
 
     if (position === 'before') {
       return (
         <>
+          <PlatformV7BlankScreenGuard />
           <PublicEntryCleanup />
           <PublicRegistrationEntryPatch />
           <PublicHeroWeightPatch />
@@ -80,6 +82,7 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
   if (position === 'before') {
     return (
       <>
+        <PlatformV7BlankScreenGuard />
         <MobileLogoutSoftExit />
         <PlatformV7RoleLockFix />
         <PlatformV7InteractionFixes />
