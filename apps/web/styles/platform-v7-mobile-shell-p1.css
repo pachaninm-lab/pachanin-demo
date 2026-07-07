@@ -40,6 +40,39 @@ html:has(.p7-support-chat-panel) .p7-support-chat-button {
     height: 18px !important;
   }
 
+  html body .pc-shell-root-v4 [data-testid^="role-execution-summary-"] {
+    padding: 14px !important;
+    gap: 12px !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  html body .pc-shell-root-v4 [data-testid^="role-execution-summary-"] > div:first-child,
+  html body .pc-shell-root-v4 [data-testid^="role-execution-summary-"] [style*="grid-template-columns: minmax(0, 1fr) minmax(260px, 360px)"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  html body .pc-shell-root-v4 [data-testid^="role-primary-task-"],
+  html body .pc-shell-root-v4 [data-testid^="role-intent-surface-"],
+  html body .pc-shell-root-v4 [data-testid^="role-recent-work-"],
+  html body .pc-shell-root-v4 [data-testid="role-attention-list"],
+  html body .pc-shell-root-v4 [data-testid="platform-v7-role-workspace-hint"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  html body .pc-shell-root-v4 [data-testid^="role-intent-surface-"] a,
+  html body .pc-shell-root-v4 [data-testid^="role-recent-work-"] a {
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  html body .pc-shell-root-v4 [data-testid^="role-execution-primary-action-"] {
+    min-width: 0 !important;
+    width: 100% !important;
+    white-space: normal !important;
+  }
+
   html:has(input:focus, textarea:focus, select:focus) body .pc-shell-root-v4 .pc-v7-role-dock,
   html:has(input:focus, textarea:focus, select:focus) body .pc-shell-root-v4 .pc-v7-assistant-widget,
   html:has(input:focus, textarea:focus, select:focus) body .p7-support-chat-button {
