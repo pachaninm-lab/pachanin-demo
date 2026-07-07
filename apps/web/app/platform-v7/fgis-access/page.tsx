@@ -1,7 +1,12 @@
 import Link from 'next/link';
+import { Building2, DatabaseZap, FileKey2, KeyRound, ShieldCheck } from 'lucide-react';
 import { FARMER_FGIS_ACCESS_STATE, fgisAccessStatusLabel, fgisPullStatusLabel } from '@/lib/platform-v7/farmerFgisAccessEngine';
+import { platformV7RouteIcon } from '@/lib/platform-v7/platformV7RouteIcons';
 
 const state = FARMER_FGIS_ACCESS_STATE;
+const FgisIcon = platformV7RouteIcon('fgis');
+const AuctionIcon = platformV7RouteIcon('auction');
+const ComplianceIcon = platformV7RouteIcon('compliance');
 
 function stepText(value: string) {
   if (value === 'ok') return 'готово';
@@ -10,13 +15,28 @@ function stepText(value: string) {
   return 'закрыто';
 }
 
+function metricIcon(label: string) {
+  if (label === 'Организация' || label === 'ИНН') return Building2;
+  if (label === 'Импорт' || label === 'API') return DatabaseZap;
+  if (label === 'Лот') return FgisIcon;
+  if (label === 'СДИЗ') return FileKey2;
+  return KeyRound;
+}
+
+function routeIcon(label: string) {
+  if (label.includes('Импорт')) return FgisIcon;
+  if (label.includes('Допуск')) return ComplianceIcon;
+  return AuctionIcon;
+}
+
 export default function FarmerFgisAccessPage() {
   return (
     <main style={{ display: 'grid', gap: 16 }}>
       <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--pc-accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>ФГИС Зерно</span>
+        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--pc-accent)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'inline-flex', alignItems: 'center', gap: 7 }}><FgisIcon size={16} />ФГИС Зерно</span>
         <h1 style={{ margin: 0, fontSize: 'clamp(24px, 5vw, 38px)', color: 'var(--pc-text-primary)', lineHeight: 1.08 }}>{fgisAccessStatusLabel(state.status)}</h1>
         <p style={{ margin: 0, maxWidth: 840, fontSize: 14, lineHeight: 1.55, color: 'var(--pc-text-secondary)' }}>Фермер подключает не пароль от ФГИС, а право на импорт партии: организация, полномочие, номер лота или СДИЗ и сверка владельца. После этого платформа создаёт основание сделки из данных ФГИС.</p>
+        <Link href='/api/platform-v7/gov-id/start?flow=fgis' style={{ width: 'max-content', maxWidth: '100%', textDecoration: 'none', minHeight: 42, borderRadius: 15, background: 'var(--pc-accent)', color: '#fff', padding: '0 14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 950 }}><ShieldCheck size={18} />Подтвердить организацию для ФГИС</Link>
       </section>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
@@ -27,12 +47,15 @@ export default function FarmerFgisAccessPage() {
           ['Лот', state.importKeys.lotNumber ?? 'указать'],
           ['СДИЗ', state.importKeys.sdizNumber ?? 'указать'],
           ['API', state.dealSeed.apiVersion],
-        ].map(([label, value]) => (
-          <div key={label} style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 18, padding: 14, display: 'grid', gap: 5 }}>
-            <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-            <strong style={{ fontSize: 15, color: 'var(--pc-text-primary)' }}>{value}</strong>
-          </div>
-        ))}
+        ].map(([label, value]) => {
+          const Icon = metricIcon(label);
+          return (
+            <div key={label} style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 18, padding: 14, display: 'grid', gap: 5 }}>
+              <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon size={14} />{label}</span>
+              <strong style={{ fontSize: 15, color: 'var(--pc-text-primary)' }}>{value}</strong>
+            </div>
+          );
+        })}
       </section>
 
       <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
@@ -66,12 +89,15 @@ export default function FarmerFgisAccessPage() {
 
       <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
         <h2 style={{ margin: 0, fontSize: 18 }}>Дальше</h2>
-        {state.nextRoutes.map((route) => (
-          <Link key={route.href} href={route.href} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 13, border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', background: 'var(--pc-shell-surface-soft)' }}>
-            <strong style={{ fontSize: 13 }}>{route.label}</strong>
-            <span style={{ fontSize: 10, color: 'var(--pc-text-muted)' }}>{route.owner}</span>
-          </Link>
-        ))}
+        {state.nextRoutes.map((route) => {
+          const Icon = routeIcon(route.label);
+          return (
+            <Link key={route.href} href={route.href} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 13, border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', background: 'var(--pc-shell-surface-soft)' }}>
+              <strong style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon size={16} />{route.label}</strong>
+              <span style={{ fontSize: 10, color: 'var(--pc-text-muted)' }}>{route.owner}</span>
+            </Link>
+          );
+        })}
       </section>
     </main>
   );
