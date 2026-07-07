@@ -1,0 +1,113 @@
+/*
+  Public landing WebKit safety layer.
+  Scope is intentionally limited to .pc-v7-public-entry so protected cabinets,
+  role cockpits, mobile shell, RBAC/session/runtime widgets and deal workflow UI
+  keep their existing behavior and design.
+
+  Reason: iOS Safari / in-app WebKit can skip or truncate paint for sections that
+  inherit content-visibility / containment hardening from previous mobile patches.
+  The public landing is conversion-critical and must render eagerly.
+*/
+.pc-v7-public-entry,
+.pc-v7-public-entry .entry-hero,
+.pc-v7-public-entry .entry-hero-copy,
+.pc-v7-public-entry .entry-section,
+.pc-v7-public-entry .entry-section-head,
+.pc-v7-public-entry .entry-control-grid,
+.pc-v7-public-entry .entry-control-tile,
+.pc-v7-public-entry .entry-process-section,
+.pc-v7-public-entry .entry-process-row,
+.pc-v7-public-entry .entry-process-tile,
+.pc-v7-public-entry .entry-role-grid,
+.pc-v7-public-entry .entry-role-tile,
+.pc-v7-public-entry .entry-trust-strip,
+.pc-v7-public-entry .entry-trust-item {
+  contain: none !important;
+  content-visibility: visible !important;
+  contain-intrinsic-size: auto !important;
+}
+
+.pc-v7-public-entry .entry-section,
+.pc-v7-public-entry .entry-section-head,
+.pc-v7-public-entry .entry-control-grid,
+.pc-v7-public-entry .entry-control-tile,
+.pc-v7-public-entry .entry-process-section,
+.pc-v7-public-entry .entry-role-grid,
+.pc-v7-public-entry .entry-trust-strip {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.pc-v7-public-entry .entry-control-grid > .entry-control-tile,
+.pc-v7-public-entry .entry-role-grid > .entry-role-tile,
+.pc-v7-public-entry .entry-process-row > .entry-process-tile,
+.pc-v7-public-entry .entry-trust-strip > .entry-trust-item {
+  display: grid !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .pc-v7-public-entry {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .pc-v7-public-entry .entry-control-grid,
+  .pc-v7-public-entry .entry-control-tile,
+  .pc-v7-public-entry .entry-process-row,
+  .pc-v7-public-entry .entry-process-tile,
+  .pc-v7-public-entry .entry-role-grid,
+  .pc-v7-public-entry .entry-role-tile {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+}
+
+@media (max-width: 720px) {
+  .pc-v7-public-entry {
+    overflow-x: hidden !important;
+  }
+
+  .pc-v7-public-entry .entry-section {
+    display: block !important;
+  }
+
+  .pc-v7-public-entry .entry-control-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .pc-v7-public-entry .entry-control-grid > .entry-control-tile {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .pc-v7-public-entry .entry-control-tile svg,
+  .pc-v7-public-entry .entry-role-tile svg,
+  .pc-v7-public-entry .entry-process-tile svg,
+  .pc-v7-public-entry .entry-trust-item svg {
+    flex: 0 0 auto !important;
+  }
+}
