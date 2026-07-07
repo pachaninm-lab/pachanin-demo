@@ -10,6 +10,7 @@ import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7I
 import { PlatformV7MobileFinalGuard } from '@/components/platform-v7/PlatformV7MobileFinalGuard';
 import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLockFix';
 import { PlatformV7UniversalAdaptiveStyle } from '@/components/platform-v7/PlatformV7UniversalAdaptiveStyle';
+import { PlatformV7ViewportRuntimeGuard } from '@/components/platform-v7/PlatformV7ViewportRuntimeGuard';
 import { PublicBrandLogoFinal } from '@/components/platform-v7/PublicBrandLogoFinal';
 import { PublicEntryCleanup } from '@/components/platform-v7/PublicEntryCleanup';
 import { PublicHeaderFinalLock } from '@/components/platform-v7/PublicHeaderFinalLock';
@@ -62,13 +63,14 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
 
   if (publicPath) {
     if (landingPath) {
-      return position === 'before' ? <><PlatformV7UniversalAdaptiveStyle /><PublicHeroWeightPatch /><PlatformV7BlankScreenGuard /></> : <ChatSupportWidget />;
+      return position === 'before' ? <><PlatformV7UniversalAdaptiveStyle /><PlatformV7ViewportRuntimeGuard /><PublicHeroWeightPatch /><PlatformV7BlankScreenGuard /></> : <ChatSupportWidget />;
     }
 
     if (position === 'before') {
       return (
         <>
           <PlatformV7UniversalAdaptiveStyle />
+          <PlatformV7ViewportRuntimeGuard />
           {loginPath ? <LoginMobileStabilityStyle /> : null}
           <PlatformV7BlankScreenGuard />
           <PublicEntryCleanup />
@@ -92,6 +94,7 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
     return (
       <>
         <PlatformV7UniversalAdaptiveStyle />
+        <PlatformV7ViewportRuntimeGuard />
         <PlatformV7BlankScreenGuard />
         <MobileLogoutSoftExit />
         <PlatformV7RoleLockFix />
