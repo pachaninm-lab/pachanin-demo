@@ -30,4 +30,33 @@ describe('platform-v7 FGIS access flow', () => {
     expect(engine).toContain('lotNumber');
     expect(engine).toContain('sdizNumber');
   });
+
+  it('keeps import, admission, bids, and deal basis linked as one auction chain', () => {
+    const importPage = read('apps/web/app/platform-v7/auction/import/page.tsx');
+    const admissionPage = read('apps/web/app/platform-v7/auction/admission/page.tsx');
+    const bidsPage = read('apps/web/app/platform-v7/auction/bids/page.tsx');
+    const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+
+    expect(importPage).toContain('/platform-v7/fgis-access');
+    expect(importPage).toContain('/platform-v7/auction/admission');
+    expect(admissionPage).toContain('/platform-v7/auction/import');
+    expect(admissionPage).toContain('/platform-v7/auction/bids');
+    expect(bidsPage).toContain('/platform-v7/auction/admission');
+    expect(bidsPage).toContain('/platform-v7/auction/deal-basis');
+    expect(dealBasisPage).toContain('/platform-v7/deal-logistics');
+  });
+
+  it('keeps auction chain UX semantics and route icons visible', () => {
+    const importPage = read('apps/web/app/platform-v7/auction/import/page.tsx');
+    const admissionPage = read('apps/web/app/platform-v7/auction/admission/page.tsx');
+    const bidsPage = read('apps/web/app/platform-v7/auction/bids/page.tsx');
+
+    expect(importPage).toContain('ФГИС → импорт');
+    expect(admissionPage).toContain('Импорт → допуск');
+    expect(bidsPage).toContain('Допуск → ставки');
+    expect(importPage).toContain('platformV7RouteIcon');
+    expect(admissionPage).toContain('platformV7RouteIcon');
+    expect(bidsPage).toContain('platformV7RouteIcon');
+    expect(bidsPage).toContain('winner');
+  });
 });
