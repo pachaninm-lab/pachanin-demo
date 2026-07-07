@@ -33,6 +33,7 @@ export default async function DriverFieldPage() {
       style={{
         display: 'grid',
         gap: 14,
+        width: '100%',
         maxWidth: 760,
         minWidth: 0,
         margin: '0 auto',
@@ -50,14 +51,24 @@ export default async function DriverFieldPage() {
       <OfflineSyncBanner />
       <style dangerouslySetInnerHTML={{ __html: `
         [data-testid='platform-v7-role-route-hint']{display:none!important}
-        [data-testid='platform-v7-driver-field-shell'] *{min-width:0}
+        [data-testid='platform-v7-driver-field-shell']{max-width:100%!important;overflow-x:hidden!important}
+        [data-testid='platform-v7-driver-field-shell'] *{min-width:0;overflow-wrap:anywhere}
+        [data-testid='platform-v7-driver-field-shell'] img,
+        [data-testid='platform-v7-driver-field-shell'] canvas,
+        [data-testid='platform-v7-driver-field-shell'] video,
+        [data-testid='platform-v7-driver-field-shell'] svg{max-width:100%!important}
         @media(max-width:767px){
           [data-testid='platform-v7-driver-field-shell']{gap:10px!important;padding-top:0!important}
-          .driver-field-hero{padding:16px!important;border-radius:24px!important;gap:10px!important}
+          .driver-field-hero{padding:16px!important;border-radius:24px!important;gap:10px!important;overflow:hidden!important}
           .driver-field-hero p{display:none!important}
+          .driver-field-hero a{white-space:normal!important}
           .driver-field-quick-links{grid-template-columns:1fr!important}
           .driver-field-status-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
-          .driver-field-first-screen{grid-template-columns:1fr!important;border-radius:22px!important;padding:14px!important}
+          .driver-field-first-screen{grid-template-columns:1fr!important;border-radius:22px!important;padding:14px!important;overflow:hidden!important}
+          [data-testid='platform-v7-driver-field-shell'] section[id]{scroll-margin-top:112px!important}
+        }
+        @media(max-width:380px){
+          .driver-field-status-grid{grid-template-columns:1fr!important}
         }
       ` }} />
       <section
@@ -73,6 +84,9 @@ export default async function DriverFieldPage() {
           background: '#fff',
           padding: 16,
           boxShadow: '0 14px 30px rgba(15,23,42,0.055)',
+          minWidth: 0,
+          maxWidth: '100%',
+          overflow: 'hidden',
         }}
       >
         <div style={{ ...firstScreenCard, gridColumn: '1 / -1', background: 'transparent', border: 'none', minHeight: 'auto', padding: '0 0 4px' }}>
@@ -87,7 +101,7 @@ export default async function DriverFieldPage() {
           <strong style={firstScreenValue}>выгрузка ждёт фото и пломбу</strong>
         </div>
         <div style={firstScreenCard}>
-          {/* Деньги под риском */}<span style={firstScreenLabel}>Финансовый доступ</span>
+          <span style={firstScreenLabel}>Финансовый доступ</span>
           <strong style={firstScreenValue}>нет доступа к денежному контуру</strong>
         </div>
         <div style={firstScreenCard}>
@@ -110,7 +124,7 @@ export default async function DriverFieldPage() {
         title="Текущий рейс"
         lead="На экране только маршрут, связь, прибытие, фото, пломба и отклонение. Остальной контекст разложен ниже по разделам."
         aside={
-          <div style={{ border: '1px solid #CBD5E1', borderRadius: 999, background: '#fff', color: 'var(--pc-text-secondary, #475569)', padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>
+          <div style={{ border: '1px solid #CBD5E1', borderRadius: 999, background: '#fff', color: 'var(--pc-text-secondary, #475569)', padding: '6px 10px', fontSize: 12, fontWeight: 900, maxWidth: '100%', overflowWrap: 'anywhere' }}>
             controlled-pilot / pre-integration
           </div>
         }
@@ -119,7 +133,7 @@ export default async function DriverFieldPage() {
           Подтвердить следующее действие по рейсу
         </Link>
 
-        <div className="driver-field-quick-links" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(128px,1fr))', gap: 8 }}>
+        <div className="driver-field-quick-links" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(128px,1fr))', gap: 8, minWidth: 0, maxWidth: '100%' }}>
           <a href="#driver-offline-events" style={secondaryChip}>Связь / очередь</a>
           <a href="#driver-photo-seal" style={secondaryChip}>Фото / пломба</a>
           <a href="#driver-route-status" style={secondaryChip}>Статус рейса</a>
@@ -128,7 +142,7 @@ export default async function DriverFieldPage() {
 
       <section id="driver-next-action" style={driverFieldSection}>
         <CollapsibleSection title='Статус рейса' summary='следующее · очередь · доступ' defaultOpen>
-          <section className="driver-field-status-grid" aria-label="Полевой статус рейса" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
+          <section className="driver-field-status-grid" aria-label="Полевой статус рейса" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8, minWidth: 0, maxWidth: '100%' }}>
             <div style={miniStatusCard}>
               <span style={miniLabel}>следующее</span>
               <strong style={miniValue}>прибытие</strong>
@@ -159,7 +173,7 @@ export default async function DriverFieldPage() {
 
       <section id="driver-photo-seal" style={driverFieldSection}>
         <CollapsibleSection title='Фото, пломба и полевые действия' summary='доказательства · следующий факт' defaultOpen={false}>
-          <div style={{ padding: '12px', fontSize: 13, color: 'var(--pc-text-secondary)' }}>Фото и пломба фиксируются в полевом режиме через мобильное приложение.</div>
+          <div style={{ padding: '12px', fontSize: 13, color: 'var(--pc-text-secondary)', minWidth: 0, overflowWrap: 'anywhere' }}>Фото и пломба фиксируются в полевом режиме через мобильное приложение.</div>
         </CollapsibleSection>
       </section>
 
@@ -216,6 +230,9 @@ const primaryAction = {
   textAlign: 'center',
   textDecoration: 'none',
   boxShadow: '0 14px 28px rgba(10,122,95,0.22)',
+  maxWidth: '100%',
+  minWidth: 0,
+  overflowWrap: 'anywhere',
 } as const;
 
 const secondaryChip = {
@@ -232,6 +249,9 @@ const secondaryChip = {
   textAlign: 'center',
   textDecoration: 'none',
   boxShadow: '0 8px 18px rgba(15,23,42,0.045)',
+  maxWidth: '100%',
+  minWidth: 0,
+  overflowWrap: 'anywhere',
 } as const;
 
 const miniStatusCard = {
@@ -243,6 +263,8 @@ const miniStatusCard = {
   background: '#fff',
   padding: 14,
   boxShadow: '0 10px 22px rgba(15,23,42,0.045)',
+  minWidth: 0,
+  overflow: 'hidden',
 } as const;
 
 const miniLabel = {
@@ -251,6 +273,7 @@ const miniLabel = {
   fontWeight: 900,
   letterSpacing: '0.07em',
   textTransform: 'uppercase',
+  overflowWrap: 'anywhere',
 } as const;
 
 const miniValue = {
@@ -258,6 +281,7 @@ const miniValue = {
   fontSize: 15,
   lineHeight: 1.25,
   fontWeight: 950,
+  overflowWrap: 'anywhere',
 } as const;
 
 const firstScreenCard = {
@@ -269,6 +293,8 @@ const firstScreenCard = {
   border: '1px solid #E2E8F0',
   background: '#F8FAFC',
   padding: 12,
+  minWidth: 0,
+  overflow: 'hidden',
 } as const;
 
 const firstScreenLabel = {
@@ -277,6 +303,7 @@ const firstScreenLabel = {
   fontWeight: 950,
   letterSpacing: '0.07em',
   textTransform: 'uppercase',
+  overflowWrap: 'anywhere',
 } as const;
 
 const firstScreenValue = {
@@ -284,6 +311,7 @@ const firstScreenValue = {
   fontSize: 14,
   lineHeight: 1.25,
   fontWeight: 950,
+  overflowWrap: 'anywhere',
 } as const;
 
 const compactAction = {
@@ -297,6 +325,9 @@ const compactAction = {
   fontSize: 12,
   fontWeight: 950,
   textDecoration: 'none',
+  maxWidth: '100%',
+  minWidth: 0,
+  overflowWrap: 'anywhere',
 } as const;
 
 const compactGhostAction = {
@@ -308,5 +339,7 @@ const compactGhostAction = {
 
 const driverFieldSection = {
   minWidth: 0,
+  maxWidth: '100%',
+  overflow: 'hidden',
   scrollMarginTop: 92,
 } as const;
