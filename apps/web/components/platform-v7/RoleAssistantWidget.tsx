@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FileSearch2 } from 'lucide-react';
+import { UxFinalQuietLayer } from '@/components/platform-v7/UxFinalQuietLayer';
 import { WorkStepGuide } from '@/components/platform-v7/WorkStepGuide';
 import { PLATFORM_V7_AI_ROUTE } from '@/lib/platform-v7/routes';
 
@@ -44,6 +45,7 @@ export function RoleAssistantWidget() {
         .pc-v7-assistant-widget svg{width:17px;height:17px;flex:0 0 auto}
         @media(max-width:640px){.pc-v7-assistant-widget{right:12px;bottom:calc(env(safe-area-inset-bottom) + 82px);min-height:42px;padding:0 12px;font-size:11px}.pc-v7-assistant-widget span{max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
       `}</style>
+      <UxFinalQuietLayer />
       <WorkStepGuide />
       <style>{`
         [data-testid="platform-v7-work-step-guide"]{padding:8px!important;border-radius:16px!important}
