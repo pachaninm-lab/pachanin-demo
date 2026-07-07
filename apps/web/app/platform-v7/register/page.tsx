@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LogIn, LogOut } from 'lucide-react';
+import { LogIn, LogOut, ShieldCheck } from 'lucide-react';
 import { PremiumCtaButton, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 import { BrandMark } from '@/components/v7r/BrandMark';
 
@@ -87,6 +87,15 @@ function getSelectedRole(searchParams?: RegisterSearchParams) {
   return ROLE_OPTIONS.some((role) => role.value === rawRole) ? rawRole : 'seller';
 }
 
+function getGovIdStatus(searchParams?: RegisterSearchParams) {
+  const raw = Array.isArray(searchParams?.gov_id) ? searchParams?.gov_id[0] : searchParams?.gov_id;
+  if (raw === 'not-configured') return 'Контур подтверждения подготовлен. Для включения нужны параметры промышленного провайдера.';
+  if (raw === 'callback-received') return 'Ответ провайдера получен. Следующий шаг — серверная обработка и сверка организации.';
+  if (raw === 'state-error') return 'Проверка state не прошла. Повторите подтверждение.';
+  if (raw === 'code-missing') return 'Код подтверждения не получен. Повторите вход через провайдера.';
+  return null;
+}
+
 function RegisterHeader() {
   return (
     <header className='p7-register-header' aria-label='Навигация регистрации участника'>
@@ -149,9 +158,23 @@ function RoleField({ selectedRole }: { selectedRole: string }) {
   );
 }
 
+function GovIdentityBlock({ status }: { status: string | null }) {
+  return (
+    <section style={card} aria-label='Подтверждение организации'>
+      <span style={micro}>Подтверждение организации</span>
+      <div style={{ display: 'grid', gap: 8 }}>
+        <Link href='/api/platform-v7/gov-id/start?flow=register' style={{ textDecoration: 'none', minHeight: 46, borderRadius: 15, border: '1px solid rgba(10,122,95,0.22)', background: 'rgba(10,122,95,0.08)', color: '#0A7A5F', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 900 }}><ShieldCheck size={17} />Подтвердить через гос-ID</Link>
+        <p style={{ margin: 0, fontSize: 12.5, color: '#66758A', lineHeight: 1.5 }}>Подтверждение не выдаёт роль автоматически. После возврата проверяются организация, ИНН, представитель и заявленная роль.</p>
+        {status ? <p style={{ margin: 0, fontSize: 12.5, color: '#0A7A5F', lineHeight: 1.5 }}>{status}</p> : null}
+      </div>
+    </section>
+  );
+}
+
 export default async function RegisterPage({ searchParams }: { searchParams?: Promise<RegisterSearchParams> | RegisterSearchParams }) {
   const params = await Promise.resolve(searchParams ?? {});
   const selectedRole = getSelectedRole(params);
+  const govIdStatus = getGovIdStatus(params);
 
   return (
     <main className='p7-register-page' style={pageShell}>
@@ -159,6 +182,7 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
       <RegisterHeader />
       <RegisterHero />
 
+      <GovIdentityBlock status={govIdStatus} />
       <RoleField selectedRole={selectedRole} />
       <FieldGroup title='Участник' fields={PARTICIPANT_FIELDS} />
       <FieldGroup title='Реквизиты и ответственный' fields={REQUISITE_FIELDS} />
@@ -218,165 +242,35 @@ const registerCss = `
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 13px 14px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 26px;
-  background: rgba(255,255,255,0.93);
-  box-shadow: 0 16px 38px rgba(15,23,42,0.055);
-  backdrop-filter: blur(18px);
-}
-.p7-register-brand {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
   gap: 10px;
-  color: #111827;
-  text-decoration: none;
+  min-height: 58px;
+  padding: 8px 10px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid rgba(15,23,42,0.08);
+  box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+  backdrop-filter: blur(12px);
 }
-.p7-register-brand-mark {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  overflow: visible;
-}
-.p7-register-brand-text {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 18px;
-  line-height: 1;
-  font-weight: 920;
-  letter-spacing: -0.035em;
-}
-.p7-register-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
-}
-.p7-register-action {
-  min-height: 42px;
-  min-width: 92px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(15,23,42,0.10);
-  background: rgba(255,255,255,0.84);
-  color: #111827;
-  font-size: 13px;
-  font-weight: 860;
-  text-decoration: none;
-  box-shadow: 0 8px 18px rgba(15,23,42,0.035);
-  white-space: nowrap;
-}
-.p7-register-action-exit {
-  color: #087a3b;
-  background: rgba(8,122,59,0.08);
-  border-color: rgba(8,122,59,0.18);
-}
-.p7-register-hero {
-  display: grid;
-  gap: 16px;
-  padding: 26px 28px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 28px;
-  background: rgba(255,255,255,0.93);
-  box-shadow: 0 16px 38px rgba(15,23,42,0.055);
-}
-.p7-register-kicker {
-  width: fit-content;
-  padding: 9px 13px;
-  border-radius: 999px;
-  background: rgba(8,122,59,0.09);
-  color: #087a3b;
-  font-size: 13px;
-  font-weight: 900;
-}
-.p7-register-hero h1 {
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  color: #111827;
-  font-size: clamp(35px, 6.6vw, 58px);
-  line-height: 1.02;
-  letter-spacing: -0.055em;
-  font-weight: 930;
-}
-.p7-register-hero h1 span:last-child { color: #15975a; }
-.p7-register-hero p {
-  margin: 0;
-  max-width: 760px;
-  color: #66758A;
-  font-size: clamp(16px, 2.35vw, 20px);
-  line-height: 1.42;
-  font-weight: 540;
-}
-.p7-register-journey {
-  width: fit-content;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(8,122,59,0.08);
-  color: #087a3b;
-  font-size: 13px;
-  font-weight: 900;
-}
-.p7-register-journey span {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #087a3b;
-}
-.p7-register-field-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-}
-.p7-register-cta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px;
-}
-@media (max-width: 720px) {
-  .pc-shell-root-v4:has(.p7-register-page) .pc-v4-main { padding: 0 12px 24px !important; }
-  .p7-register-header {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
-    padding: 12px;
-    border-radius: 24px;
-  }
-  .p7-register-brand { gap: 8px; }
-  .p7-register-brand-mark { width: 40px; height: 40px; }
-  .p7-register-brand-text { font-size: 16px; }
-  .p7-register-actions { gap: 6px; }
-  .p7-register-action { min-width: 78px; min-height: 40px; font-size: 12.5px; padding: 0 9px; border-radius: 15px; }
-}
-@media (max-width: 374px) {
+.p7-register-brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; text-decoration: none; color: #0F1419; }
+.p7-register-brand-mark { display: inline-grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; }
+.p7-register-brand-text { font-weight: 950; font-size: 18px; letter-spacing: -0.035em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p7-register-actions { display: inline-flex; align-items: center; gap: 8px; }
+.p7-register-action { min-height: 40px; padding: 0 12px; border-radius: 14px; display: inline-flex; align-items: center; gap: 7px; text-decoration: none; color: #0F1419; background: #fff; border: 1px solid rgba(15,23,42,0.10); font-weight: 900; font-size: 13px; }
+.p7-register-action-exit { color: #B91C1C; }
+.p7-register-hero { border-radius: 30px; padding: 22px; background: linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#EFF8F0 100%); border: 1px solid rgba(15,23,42,0.08); display: grid; gap: 11px; box-shadow: 0 18px 46px rgba(15,23,42,0.06); }
+.p7-register-kicker { color: #0A7A5F; font-size: 11px; font-weight: 950; text-transform: uppercase; letter-spacing: .1em; }
+.p7-register-hero h1 { margin: 0; display: grid; gap: 0; color: #0F1419; font-size: clamp(34px, 8vw, 68px); line-height: .95; letter-spacing: -0.065em; font-weight: 950; }
+.p7-register-hero p { margin: 0; color: #66758A; line-height: 1.55; font-size: 14px; max-width: 760px; }
+.p7-register-journey { display: inline-flex; align-items: center; gap: 8px; color: #0A7A5F; font-weight: 900; font-size: 13px; }
+.p7-register-journey span { width: 9px; height: 9px; border-radius: 999px; background: #0A7A5F; }
+.p7-register-field-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 10px; }
+.p7-register-cta-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap: 10px; }
+@media(max-width: 640px) {
   .pc-shell-root-v4:has(.p7-register-page) .pc-v4-main { padding: 0 10px 22px !important; }
-  .p7-register-header { padding: 10px; gap: 6px; }
-  .p7-register-brand-mark { width: 36px; height: 36px; }
-  .p7-register-brand-text { font-size: 14.5px; }
-  .p7-register-actions { gap: 5px; }
-  .p7-register-action { min-width: 68px; min-height: 38px; font-size: 11.5px; padding: 0 7px; }
-  .p7-register-action svg { display: none; }
-}
-@media (max-width: 520px) {
-  .p7-register-hero { padding: 22px 18px; border-radius: 26px; gap: 14px; }
-  .p7-register-kicker { padding: 8px 12px; font-size: 12.5px; }
-  .p7-register-hero h1 { font-size: clamp(31px, 8.4vw, 36px); line-height: 1.03; }
-  .p7-register-hero p { font-size: 15.5px; line-height: 1.42; }
-  .p7-register-journey { font-size: 12.5px; padding: 7px 11px; }
-  .p7-register-field-grid { grid-template-columns: 1fr; }
+  .p7-register-header { top: max(6px, env(safe-area-inset-top)); border-radius: 17px; min-height: 54px; }
+  .p7-register-brand-text { font-size: 16px; }
+  .p7-register-action { min-height: 38px; padding: 0 10px; font-size: 12px; }
+  .p7-register-action svg { width: 15px; height: 15px; }
+  .p7-register-hero { padding: 18px; border-radius: 24px; }
 }
 `;
