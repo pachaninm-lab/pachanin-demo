@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 import { ArrowLeft, Banknote, Building2, CircleHelp, FileCheck2, FlaskConical, Landmark, ShieldCheck, Truck, Wheat } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
 
-// Копия — в apps/web/messages/*.json (namespace `demo`).
 const cards = [
   { key: 'terms', state: 'done', Icon: Wheat },
   { key: 'trip', state: 'done', Icon: Truck },
@@ -15,9 +14,78 @@ const cards = [
   { key: 'settlement', state: 'pending', Icon: Landmark },
 ] as const;
 
+const COPY = {
+  ru: {
+    brand: 'Прозрачная Цена',
+    sub: 'Контур исполнения сделки',
+    title: 'Как платформа контролирует исполнение зерновой сделки',
+    lead: 'Сценарий исполнения показывает путь после цены: рейс, приёмка, качество, документы, расчёт и доказательства. Внешние интеграции подключаются по договору и ключам доступа.',
+    q: 'Задать вопрос',
+    back: 'Назад',
+    status: 'Текущий статус',
+    current: 'Ожидается подтверждение качества и документов',
+    deal: 'Сделка',
+    amount: 'Сумма',
+    route: 'Маршрут',
+    map: 'Карта исполнения',
+    money: 'Оплата зависит от подтверждённых событий',
+    proof: 'Спор разбирается по следу сделки',
+    home: 'На главную',
+    disabled: 'Финансовые действия выполняются после подтверждения оснований и подключения расчётного контура',
+    cards: { terms: 'Условия сделки', trip: 'Рейс', acceptance: 'Приёмка', quality: 'Качество', documents: 'Документы', settlement: 'Расчёт' },
+    states: { done: 'Выполнено', review: 'На проверке', pending: 'Ожидает' },
+  },
+  en: {
+    brand: 'Transparent Price',
+    sub: 'Transaction execution circuit',
+    title: 'How the platform controls grain deal execution',
+    lead: 'The execution scenario shows the path after price agreement: trip, acceptance, quality, documents, settlement and evidence. External integrations are connected by contract and access keys.',
+    q: 'Ask a question',
+    back: 'Back',
+    status: 'Current status',
+    current: 'Quality and documents are pending confirmation',
+    deal: 'Deal',
+    amount: 'Amount',
+    route: 'Route',
+    map: 'Execution map',
+    money: 'Payment depends on confirmed events',
+    proof: 'Dispute review follows the deal trail',
+    home: 'Home',
+    disabled: 'Financial actions require confirmed grounds and a connected settlement circuit',
+    cards: { terms: 'Deal terms', trip: 'Trip', acceptance: 'Acceptance', quality: 'Quality', documents: 'Documents', settlement: 'Settlement' },
+    states: { done: 'Done', review: 'Under review', pending: 'Pending' },
+  },
+  zh: {
+    brand: '透明价格',
+    sub: '交易执行闭环',
+    title: '平台如何控制粮食交易执行',
+    lead: '执行场景展示价格确认后的路径：运输、验收、质量、文件、结算和证据。外部集成按合同和访问密钥接入。',
+    q: '提问',
+    back: '返回',
+    status: '当前状态',
+    current: '等待确认质量和文件',
+    deal: '交易',
+    amount: '金额',
+    route: '路线',
+    map: '执行地图',
+    money: '付款取决于已确认事件',
+    proof: '争议沿交易轨迹复盘',
+    home: '首页',
+    disabled: '金融操作需在确认依据并接入结算闭环后执行',
+    cards: { terms: '交易条件', trip: '运输', acceptance: '验收', quality: '质量', documents: '文件', settlement: '结算' },
+    states: { done: '已完成', review: '审核中', pending: '等待' },
+  },
+} as const;
+
+type LocaleKey = keyof typeof COPY;
+
+function localeKey(locale: string): LocaleKey {
+  return locale === 'en' || locale === 'zh' ? locale : 'ru';
+}
+
 export function DemoCleanClient(){
-  const t = useTranslations('demo');
-  const lang = useLocale();
-  return <main className='p7-demo-clean' data-lang={lang} data-p7-no-translate='true'><style>{css}</style><header><Link href='/platform-v7' className='brand'><BrandMark size={42}/><span><b>{t('brand')}</b><small>{t('sub')}</small></span></Link><nav><Link href='/platform-v7' aria-label={t('back')}><ArrowLeft size={22}/></Link><Link href='/platform-v7/contact' aria-label={t('q')}><CircleHelp size={22}/></Link></nav></header><section className='hero'><div><h1>{t('title')}</h1><p>{t('lead')}</p><Link href='/platform-v7/contact'>{t('q')}</Link></div><aside><span>{t('status')}</span><strong>{t('current')}</strong></aside></section><section className='case'><article><span>{t('deal')}</span><b>DL-DEMO-001</b><p>240 т</p></article><article><span>{t('amount')}</span><b>2 964 000 ₽</b><p>{t('disabled')}</p></article><article><span>{t('route')}</span><b>Farm → Elevator → Buyer</b></article></section><h2>{t('map')}</h2><section className='grid'>{cards.map(({key,state,Icon})=><article key={key}><Icon size={24}/><b>{t(`cards.${key}`)}</b><span>{t(`states.${state}`)}</span></article>)}</section><section className='money'><Banknote size={28}/><h2>{t('money')}</h2><p>{t('current')}</p><button disabled>{t('disabled')}</button></section><section className='proof'><ShieldCheck size={28}/><h2>{t('proof')}</h2><p>{t('lead')}</p></section><footer><Link href='/platform-v7'>{t('home')}</Link><Link href='/platform-v7/contact'>{t('q')}</Link></footer></main>
+  const lang = localeKey(useLocale());
+  const t = COPY[lang];
+  return <main className='p7-demo-clean' data-lang={lang} data-p7-no-translate='true'><style>{css}</style><header><Link href='/platform-v7' className='brand'><BrandMark size={42}/><span><b>{t.brand}</b><small>{t.sub}</small></span></Link><nav><Link href='/platform-v7' aria-label={t.back}><ArrowLeft size={22}/></Link><Link href='/platform-v7/contact' aria-label={t.q}><CircleHelp size={22}/></Link></nav></header><section className='hero'><div><h1>{t.title}</h1><p>{t.lead}</p><Link href='/platform-v7/contact'>{t.q}</Link></div><aside><span>{t.status}</span><strong>{t.current}</strong></aside></section><section className='case'><article><span>{t.deal}</span><b>DL-EXEC-001</b><p>240 т</p></article><article><span>{t.amount}</span><b>2 964 000 ₽</b><p>{t.disabled}</p></article><article><span>{t.route}</span><b>Farm → Elevator → Buyer</b></article></section><h2>{t.map}</h2><section className='grid'>{cards.map(({key,state,Icon})=><article key={key}><Icon size={24}/><b>{t.cards[key]}</b><span>{t.states[state]}</span></article>)}</section><section className='money'><Banknote size={28}/><h2>{t.money}</h2><p>{t.current}</p><button disabled>{t.disabled}</button></section><section className='proof'><ShieldCheck size={28}/><h2>{t.proof}</h2><p>{t.lead}</p></section><footer><Link href='/platform-v7'>{t.home}</Link><Link href='/platform-v7/contact'>{t.q}</Link></footer></main>
 }
 const css=`.p7-demo-clean{min-height:100svh;padding:12px clamp(14px,4vw,56px) 42px;color:#071611;background:linear-gradient(180deg,#fbfcf9,#f3f8f1 58%,#fff);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.p7-demo-clean *{box-sizing:border-box}.p7-demo-clean a{text-decoration:none;color:inherit}.p7-demo-clean header{position:sticky;top:8px;z-index:40;height:64px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px 12px;border:1px solid rgba(7,22,17,.08);border-radius:22px;background:rgba(255,255,255,.98);box-shadow:0 10px 24px rgba(7,22,17,.075)}.brand{display:flex;align-items:center;gap:10px;min-width:0}.brand span{min-width:0}.brand b{display:block;font-size:18px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand small{display:block;color:#66736e;font-size:12px}.p7-demo-clean nav{display:flex;gap:8px}.p7-demo-clean nav a{width:46px;height:46px;border-radius:16px;background:#fff;border:1px solid rgba(7,22,17,.1);display:grid;place-items:center}.hero{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;padding:28px 0}.hero>div,.hero aside,.case article,.grid article,.money,.proof{border:1px solid rgba(7,22,17,.075);border-radius:28px;background:rgba(255,255,255,.88);box-shadow:0 18px 48px rgba(7,22,17,.07);padding:22px}.hero h1,.p7-demo-clean h2{margin:0;font-size:clamp(32px,5vw,60px);line-height:1;letter-spacing:-.055em}.hero p,.money p,.proof p{color:#43514b;line-height:1.5;font-weight:620}.hero a,footer a{min-height:48px;border-radius:17px;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;font-weight:950;background:#087a3b;color:#fff}.hero aside span,.case span{color:#087a3b;font-size:12px;font-weight:950;text-transform:uppercase}.hero aside strong{display:block;margin-top:10px;font-size:22px;line-height:1.15}.case{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px}.case b{display:block;margin-top:8px;font-size:22px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.grid article{display:grid;gap:9px}.grid svg,.money svg,.proof svg{color:#087a3b}.grid b{font-size:20px}.grid span{width:max-content;padding:7px 10px;border-radius:999px;background:rgba(0,122,47,.08);color:#087a3b;font-weight:900}.money,.proof{margin-top:18px;display:grid;gap:10px}.money button{min-height:44px;border:0;border-radius:14px;background:#eef3ed;color:#6b756f;font-weight:900}footer{display:flex;justify-content:center;gap:10px;margin-top:28px}footer a{background:#fff;color:#087a3b;border:1px solid rgba(0,122,47,.16)}.p7-demo-clean[data-lang='zh']{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Noto Sans SC','Microsoft YaHei','Segoe UI',sans-serif}.p7-demo-clean[data-lang='zh'] *{letter-spacing:0!important;word-break:keep-all;overflow-wrap:anywhere}.p7-demo-clean[data-lang='zh'] h1,.p7-demo-clean[data-lang='zh'] h2{line-height:1.12}.p7-demo-clean[data-lang='zh'] p{line-height:1.62}@media(max-width:900px){.hero,.case,.grid{grid-template-columns:1fr}.hero{padding-top:20px}}@media(max-width:520px){.p7-demo-clean{padding-left:12px;padding-right:12px}.hero h1,.p7-demo-clean h2{font-size:34px}.hero a{width:100%}}`;
