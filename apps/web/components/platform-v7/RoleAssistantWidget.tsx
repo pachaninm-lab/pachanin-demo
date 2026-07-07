@@ -45,6 +45,19 @@ export function RoleAssistantWidget() {
         @media(max-width:640px){.pc-v7-assistant-widget{right:12px;bottom:calc(env(safe-area-inset-bottom) + 82px);min-height:42px;padding:0 12px;font-size:11px}.pc-v7-assistant-widget span{max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
       `}</style>
       <WorkStepGuide />
+      <style>{`
+        [data-testid="platform-v7-work-step-guide"]{padding:8px!important;border-radius:16px!important}
+        [data-testid="platform-v7-work-step-guide"] .p7-work-actions-row{display:flex!important;align-items:center!important;gap:7px!important;grid-template-columns:none!important;min-width:0!important}
+        [data-testid="platform-v7-work-step-guide"] .p7-work-actions-row>div:first-child{min-width:86px!important;max-width:148px!important;flex:0 1 auto!important}
+        [data-testid="platform-v7-work-step-guide"] .p7-work-actions-row>div:last-child{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto!important;min-width:0!important;scrollbar-width:none!important}
+        [data-testid="platform-v7-work-step-guide"] .p7-work-actions-row>div:last-child::-webkit-scrollbar{display:none!important}
+        [data-testid="platform-v7-work-step-guide"] .p7-work-actions-row a{width:auto!important;min-height:32px!important;flex:0 0 auto!important;justify-content:center!important}
+        [data-testid="platform-v7-work-step-guide"] .p7-work-actions-row span{flex:0 0 auto}
+        @media(max-width:640px){
+          [data-testid="platform-v7-work-step-guide"]{padding:7px!important}
+          [data-testid="platform-v7-work-step-guide"] .p7-work-actions-row>div:first-child{min-width:70px!important;max-width:104px!important;font-size:11px!important}
+        }
+      `}</style>
       <Link className="pc-v7-assistant-widget" href={PLATFORM_V7_AI_ROUTE} data-active={path === PLATFORM_V7_AI_ROUTE ? 'true' : 'false'} aria-label="Открыть разбор рабочего шага" title="Разбор рабочего шага">
         <FileSearch2 aria-hidden="true" />
         <span>Разбор шага</span>
