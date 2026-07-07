@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { LANGUAGE_CHANGE_EVENT, LANGUAGE_STORAGE_KEY } from '@/lib/platform-v7/i18n/translation-runtime';
 
 type Lang = 'ru' | 'en' | 'zh';
 type Dict = Record<string, string>;
@@ -8,7 +9,6 @@ type SourceText = Text & { __pcRegisterPatchSource?: string };
 
 type Field = 'aria-label' | 'title' | 'placeholder';
 
-const KEY = 'pc-v7-language';
 const SCOPE = '.p7-register-page';
 
 const EN: Dict = {
@@ -26,6 +26,15 @@ const EN: Dict = {
   'Роль участника': 'Participant role',
   'Заявляемая роль': 'Requested role',
   'Роль указывается в заявке. Выбор роли здесь не обходит role-lock — доступ в рабочий кабинет открывается только после проверки и допуска участника.': 'The role is stated in the request. Selecting a role here does not bypass the role lock — workspace access opens only after participant review and approval.',
+  'Продавец': 'Seller',
+  'Покупатель': 'Buyer',
+  'Логистика': 'Logistics',
+  'Элеватор': 'Elevator',
+  'Лаборатория': 'Laboratory',
+  'Сюрвейер': 'Surveyor',
+  'Банк': 'Bank',
+  'Арбитр': 'Arbitrator',
+  'Оператор': 'Operator',
   'Участник': 'Participant',
   'Тип участника': 'Participant type',
   'Юр. лицо / ИП / КФХ': 'Legal entity / sole proprietor / farm',
@@ -57,7 +66,7 @@ const EN: Dict = {
   'Допущен': 'Approved',
   'Отклонён': 'Declined',
   'Заблокирован': 'Blocked',
-  'Текущий статус заявки и причина уточнения видны участнику после отправки. Проверка участника — часть контролируемого запуска контура; внешние подтверждения ожидают подключения.': 'The current request status and clarification reason are visible to the participant after submission. Participant review is part of the controlled circuit launch; external confirmations await connection.',
+  'Текущий статус заявки и причина уточнения видны участнику после отправки. Проверка участника — часть допуска к рабочему контуру; внешние подтверждения подключаются отдельно.': 'The current request status and clarification reason are visible to the participant after submission. Participant review is part of access admission to the work circuit; external confirmations are connected separately.',
   'Отправить заявку на проверку': 'Submit request for review',
   'Уже есть доступ — войти': 'Already have access — sign in',
 };
@@ -72,11 +81,20 @@ const ZH: Dict = {
   'Регистрация участника': '参与方注册',
   'Подключение компании к': '将公司接入',
   'контуру сделки': '交易闭环',
-  'Профиль, реквизиты, ответственный и согласия. После отправки заявка проходит проверку. Доступ в кабинет открывается после статуса «Допущен».': '资料、信息、负责人和确认。提交后请求将进入审核。状态为“已准入”后开放工作区访问。',
-  'Заявка → проверка → допуск': '请求 → 审核 → 准入',
+  'Профиль, реквизиты, ответственный и согласия. После отправки заявка проходит проверку. Доступ в кабинет открывается после статуса «Допущен».': '资料、信息、负责人和确认。提交后申请进入审核。状态为“已准入”后开放工作区访问。',
+  'Заявка → проверка → допуск': '申请 → 审核 → 准入',
   'Роль участника': '参与方角色',
   'Заявляемая роль': '申请角色',
-  'Роль указывается в заявке. Выбор роли здесь не обходит role-lock — доступ в рабочий кабинет открывается только после проверки и допуска участника.': '角色在申请中声明。此处选择角色不会绕过角色锁定——只有参与方审核和准入后才开放工作区访问。',
+  'Роль указывается в заявке. Выбор роли здесь не обходит role-lock — доступ в рабочий кабинет открывается только после проверки и допуска участника.': '角色在申请中声明。此处选择角色不会绕过角色锁定；只有参与方审核和准入后才开放工作区访问。',
+  'Продавец': '卖方',
+  'Покупатель': '买方',
+  'Логистика': '物流',
+  'Элеватор': '粮库',
+  'Лаборатория': '实验室',
+  'Сюрвейер': '检验员',
+  'Банк': '银行',
+  'Арбитр': '仲裁员',
+  'Оператор': '运营方',
   'Участник': '参与方',
   'Тип участника': '参与方类型',
   'Юр. лицо / ИП / КФХ': '法人 / 个体工商户 / 农场',
@@ -101,20 +119,20 @@ const ZH: Dict = {
   'Согласия': '确认',
   'Согласен с правилами платформы': '我接受平台规则',
   'Согласен на обработку персональных данных': '我同意处理个人数据',
-  'Статусы проверки заявки': '请求审核状态',
-  'Заявка создана': '请求已创建',
+  'Статусы проверки заявки': '申请审核状态',
+  'Заявка создана': '申请已创建',
   'Ожидает проверки': '等待审核',
   'Требуется уточнение': '需要补充说明',
   'Допущен': '已准入',
   'Отклонён': '已拒绝',
-  'Заблокирован': '已封锁',
-  'Текущий статус заявки и причина уточнения видны участнику после отправки. Проверка участника — часть контролируемого запуска контура; внешние подтверждения ожидают подключения.': '提交后，参与方可看到当前请求状态和补充说明原因。参与方审核是受控闭环启动的一部分；外部确认等待接入。',
-  'Отправить заявку на проверку': '提交审核请求',
+  'Заблокирован': '已锁定',
+  'Текущий статус заявки и причина уточнения видны участнику после отправки. Проверка участника — часть допуска к рабочему контуру; внешние подтверждения подключаются отдельно.': '提交后，参与方可看到当前申请状态和补充说明原因。参与方审核是进入工作闭环准入的一部分；外部确认将单独接入。',
+  'Отправить заявку на проверку': '提交审核申请',
   'Уже есть доступ — войти': '已有访问权限 — 登录',
 };
 
 function lang(): Lang {
-  const value = window.localStorage.getItem(KEY);
+  const value = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
   return value === 'en' || value === 'zh' ? value : 'ru';
 }
 function norm(value: string) {
@@ -124,7 +142,7 @@ function active(selected: Lang) {
   return selected === 'en' ? EN : selected === 'zh' ? ZH : null;
 }
 function skip(element: HTMLElement) {
-  return Boolean(element.closest('script,style,noscript,svg,canvas,textarea,input,select,option,code,pre,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]'));
+  return Boolean(element.closest('script,style,noscript,svg,canvas,textarea,input,code,pre,.p7-translator-root,[data-p7-no-translate],[contenteditable="true"]'));
 }
 function attrKey(attribute: Field) {
   if (attribute === 'aria-label') return 'pcRegisterAria';
@@ -134,7 +152,6 @@ function attrKey(attribute: Field) {
 function run() {
   const selected = lang();
   const dict = active(selected);
-  if (!dict) return;
   document.querySelectorAll(SCOPE).forEach((root) => {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
@@ -147,8 +164,8 @@ function run() {
     while (node) {
       const source = node.__pcRegisterPatchSource || node.nodeValue || '';
       node.__pcRegisterPatchSource = source;
-      const next = dict[norm(source)];
-      if (next && node.nodeValue !== next) node.nodeValue = next;
+      const next = dict?.[norm(source)] ?? source;
+      if (node.nodeValue !== next) node.nodeValue = next;
       node = walker.nextNode() as SourceText | null;
     }
     (root as Element).querySelectorAll<HTMLElement>('[aria-label],[title],[placeholder]').forEach((element) => {
@@ -157,8 +174,8 @@ function run() {
         const key = attrKey(attribute);
         const source = element.dataset[key] || element.getAttribute(attribute) || '';
         element.dataset[key] = source;
-        const next = dict[norm(source)];
-        if (next && element.getAttribute(attribute) !== next) element.setAttribute(attribute, next);
+        const next = dict?.[norm(source)] ?? source;
+        if (element.getAttribute(attribute) !== next) element.setAttribute(attribute, next);
       });
     });
   });
@@ -170,9 +187,13 @@ export function V7RegisterExactPatch() {
     const schedule = () => window.requestAnimationFrame(run);
     const observer = new MutationObserver(schedule);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title', 'placeholder'] });
-    const interval = window.setInterval(run, 1200);
+    window.addEventListener(LANGUAGE_CHANGE_EVENT, schedule);
+    window.addEventListener('storage', schedule);
+    const interval = window.setInterval(run, 800);
     return () => {
       observer.disconnect();
+      window.removeEventListener(LANGUAGE_CHANGE_EVENT, schedule);
+      window.removeEventListener('storage', schedule);
       window.clearInterval(interval);
     };
   }, []);
