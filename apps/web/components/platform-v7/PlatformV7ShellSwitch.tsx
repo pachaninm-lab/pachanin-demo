@@ -29,6 +29,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/demo',
   '/platform-v7/contact',
   '/platform-v7/request',
+  '/platform-v7/docs',
 ]);
 const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
 
