@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
 import { LoginHeaderLogoGuard } from '@/components/platform-v7/LoginHeaderLogoGuard';
+import { LoginMobileStabilityStyle } from '@/components/platform-v7/LoginMobileStabilityStyle';
 import { MobileLogoutSoftExit } from '@/components/platform-v7/MobileLogoutSoftExit';
 import { PlatformV7BlankScreenGuard } from '@/components/platform-v7/PlatformV7BlankScreenGuard';
 import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7InteractionFixes';
@@ -48,10 +49,15 @@ function isLandingPath(pathname: string | null): boolean {
   return path === '/platform-v7' || path === '/platform-v7/open';
 }
 
+function isLoginPath(pathname: string | null): boolean {
+  return normalizePath(pathname) === '/platform-v7/login';
+}
+
 export function PlatformV7TemplateGuards({ position }: { position: GuardPosition }) {
   const pathname = usePathname();
   const publicPath = isPublicPath(pathname);
   const landingPath = isLandingPath(pathname);
+  const loginPath = isLoginPath(pathname);
 
   if (publicPath) {
     if (landingPath) {
@@ -61,6 +67,7 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
     if (position === 'before') {
       return (
         <>
+          {loginPath ? <LoginMobileStabilityStyle /> : null}
           <PlatformV7BlankScreenGuard />
           <PublicEntryCleanup />
           <PublicRegistrationEntryPatch />
