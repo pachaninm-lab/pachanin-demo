@@ -13,7 +13,33 @@ describe('platform-v7 deal execution chain', () => {
     const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
 
     expect(dealBasisPage).toContain('/platform-v7/deal-logistics');
-    expect(dealBasisPage).toContain('Сформировать рейс');
+    expect(dealBasisPage).toContain('Назначить рейс');
+  });
+
+  it('keeps auction deal basis guard tied to winner, price, lot, sdiz, logistics and icons', () => {
+    const bridge = read('apps/web/lib/platform-v7/auctionDealBridge.ts');
+    const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+
+    for (const token of ['guardAuctionDealBasisReady', 'winner', 'lotNumber', 'sdizNumber', 'priceRubPerTon', '/platform-v7/deal-logistics', 'route-icons', 'winner-price-match', 'volume-within-available']) {
+      expect(bridge).toContain(token);
+    }
+
+    for (const token of ['platformV7RouteIcon', "platformV7RouteIcon('deal')", "platformV7RouteIcon('logistics')", "platformV7RouteIcon('documents')", "platformV7RouteIcon('dispute')"]) {
+      expect(dealBasisPage).toContain(token);
+    }
+  });
+
+  it('keeps auction deal basis visually explicit and action-oriented', () => {
+    const bridge = read('apps/web/lib/platform-v7/auctionDealBridge.ts');
+    const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+
+    for (const token of ['Победитель', 'Цена победителя', 'ФГИС-лот', 'СДИЗ', 'Владелец', 'Покупатель', 'Объём', 'Сумма', 'Условия поставки', 'Что фиксируется в журнале', 'Почему можно формировать рейс']) {
+      expect(dealBasisPage).toContain(token);
+    }
+
+    for (const token of ['Назначить рейс', 'Открыть документы', 'Открыть спор', 'Вернуться к ставкам', '/platform-v7/deal-documents-basis', '/platform-v7/disputes', '/platform-v7/auction/bids']) {
+      expect(bridge).toContain(token);
+    }
   });
 
   it('keeps logistics execution connected to deal acceptance', () => {
