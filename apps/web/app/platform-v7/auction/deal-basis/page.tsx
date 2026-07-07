@@ -8,8 +8,6 @@ const DealIcon = platformV7RouteIcon('deal');
 const AuctionIcon = platformV7RouteIcon('auction');
 const FgisIcon = platformV7RouteIcon('fgis');
 const LogisticsIcon = platformV7RouteIcon('logistics');
-const DocumentsIcon = platformV7RouteIcon('documents');
-const DisputeIcon = platformV7RouteIcon('dispute');
 
 export default function AuctionDealBasisPage() {
   const basis = AUCTION_DEAL_BASIS;
