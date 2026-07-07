@@ -23,11 +23,11 @@ describe('platform-v7 deal execution chain', () => {
     expect(logisticsEngine).toContain('Приёмка сделки');
   });
 
-  it('keeps acceptance connected to document, settlement, and dispute routes', () => {
+  it('keeps acceptance connected to document basis, settlement, and dispute routes', () => {
     const acceptanceEngine = read('apps/web/lib/platform-v7/dealAcceptanceEngine.ts');
     const documentBasisEngine = read('apps/web/lib/platform-v7/dealDocumentBasisEngine.ts');
 
-    expect(acceptanceEngine).toContain('/platform-v7/documents');
+    expect(acceptanceEngine).toContain('/platform-v7/deal-documents-basis');
     expect(acceptanceEngine).toContain('/platform-v7/bank/payment-basis');
     expect(acceptanceEngine).toContain('/platform-v7/disputes');
     expect(documentBasisEngine).toContain('/platform-v7/deal-acceptance');
