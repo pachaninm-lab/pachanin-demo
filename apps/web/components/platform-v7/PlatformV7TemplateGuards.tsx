@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation';
 import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
 import { LoginHeaderLogoGuard } from '@/components/platform-v7/LoginHeaderLogoGuard';
 import { MobileLogoutSoftExit } from '@/components/platform-v7/MobileLogoutSoftExit';
-import { PlatformTranslator } from '@/components/platform-v7/PlatformTranslator';
 import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7InteractionFixes';
 import { PlatformV7MobileFinalGuard } from '@/components/platform-v7/PlatformV7MobileFinalGuard';
 import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLockFix';
@@ -91,7 +90,6 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
 
   return (
     <>
-      <PlatformTranslator />
       <ChatSupportWidget />
       <PlatformV7MobileFinalGuard />
     </>
