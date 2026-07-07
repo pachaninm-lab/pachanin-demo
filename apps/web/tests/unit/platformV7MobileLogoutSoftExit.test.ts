@@ -4,12 +4,15 @@ import { describe, expect, it } from 'vitest';
 
 const guard = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/MobileLogoutSoftExit.tsx'), 'utf8');
 const template = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/template.tsx'), 'utf8');
+const templateGuards = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx'), 'utf8');
 const rail = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/MobileHeaderActionRail.tsx'), 'utf8');
 
 describe('platform-v7 mobile logout soft exit', () => {
-  it('mounts the soft exit guard in the platform template', () => {
-    expect(template).toContain("import { MobileLogoutSoftExit }");
-    expect(template).toContain('<MobileLogoutSoftExit />');
+  it('mounts the soft exit guard through the route-scoped template guard', () => {
+    expect(template).toContain('PlatformV7TemplateGuards');
+    expect(templateGuards).toContain("import { MobileLogoutSoftExit }");
+    expect(templateGuards).toContain('<MobileLogoutSoftExit />');
+    expect(templateGuards).toContain('if (publicPath)');
   });
 
   it('intercepts every mobile/header logout path before stale events can run', () => {
