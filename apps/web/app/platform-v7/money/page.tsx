@@ -30,16 +30,19 @@ export default function PlatformV7MoneyPage() {
     <main data-testid="platform-v7-money-page" style={{ display: 'grid', gap: 16 }}>
       <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
-          [data-testid='platform-v7-money-page']{gap:10px!important}
+          [data-testid='platform-v7-money-page']{gap:10px!important;max-width:100%!important;overflow-x:hidden!important}
           [data-testid='platform-v7-money-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:8px!important}
           [data-testid='platform-v7-money-page'] > section:nth-of-type(1) p{display:none!important}
-          [data-testid='platform-v7-money-page'] > section:nth-of-type(1) a{width:100%!important;min-height:54px!important;justify-content:center!important;border-radius:16px!important}
+          [data-testid='platform-v7-money-page'] > section:nth-of-type(1) a{width:100%!important;min-height:54px!important;justify-content:center!important;border-radius:16px!important;white-space:normal!important}
           [data-testid='platform-v7-money-page'] > section:nth-of-type(1) a:nth-of-type(2){display:none!important}
           [data-testid='platform-v7-money-page'] > section:nth-of-type(2){grid-template-columns:1fr 1fr!important;gap:8px!important}
-          [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article{padding:12px!important;border-radius:16px!important;min-width:0!important}
+          [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article{padding:12px!important;border-radius:16px!important;min-width:0!important;overflow:hidden!important}
           [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article:nth-of-type(n+5){display:none!important}
-          [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article strong{font-size:clamp(17px,5vw,21px)!important;line-height:1.05!important;overflow-wrap:anywhere!important}
-          [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article p{font-size:12px!important;line-height:1.35!important}
+          [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article strong{font-size:clamp(17px,5vw,21px)!important;line-height:1.05!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+          [data-testid='platform-v7-money-page'] > section:nth-of-type(2) article p{font-size:12px!important;line-height:1.35!important;overflow-wrap:anywhere!important}
+        }
+        @media(max-width:380px){
+          [data-testid='platform-v7-money-page'] > section:nth-of-type(2){grid-template-columns:1fr!important}
         }
       ` }} />
       <CockpitHero
@@ -66,14 +69,8 @@ export default function PlatformV7MoneyPage() {
   );
 }
 
-const hero = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 24, padding: 20, display: 'grid', gap: 10 } as const;
-const badge = { width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'var(--pc-accent-bg)', border: '1px solid var(--pc-accent-border)', color: 'var(--pc-accent-strong)', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: 'var(--pc-text-primary)', fontSize: 'clamp(28px,7vw,46px)', lineHeight: 1.04, fontWeight: 950 } as const;
-const lead = { margin: 0, color: 'var(--pc-text-secondary)', fontSize: 14, lineHeight: 1.55 } as const;
-const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 } as const;
-const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 8 } as const;
-const micro = { color: 'var(--pc-text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.07em' } as const;
-const valueStyle = { color: 'var(--pc-text-primary)', fontSize: 24, lineHeight: 1.1, fontWeight: 950 } as const;
-const text = { margin: 0, color: 'var(--pc-text-secondary)', fontSize: 13, lineHeight: 1.5 } as const;
-const primary = { width: 'fit-content', minHeight: 44, display: 'inline-flex', alignItems: 'center', padding: '0 14px', borderRadius: 12, background: 'var(--pc-accent)', color: '#fff', textDecoration: 'none', fontWeight: 900 } as const;
-const secondary = { ...primary, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)' } as const;
+const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, minWidth: 0, maxWidth: '100%' } as const;
+const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border)', borderRadius: 18, padding: 16, display: 'grid', gap: 8, minWidth: 0, overflow: 'hidden' } as const;
+const micro = { color: 'var(--pc-text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.07em', overflowWrap: 'anywhere' as const } as const;
+const valueStyle = { color: 'var(--pc-text-primary)', fontSize: 24, lineHeight: 1.1, fontWeight: 950, overflowWrap: 'anywhere' as const, wordBreak: 'break-word' as const } as const;
+const text = { margin: 0, color: 'var(--pc-text-secondary)', fontSize: 13, lineHeight: 1.5, overflowWrap: 'anywhere' as const } as const;
