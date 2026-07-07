@@ -71,7 +71,7 @@ export const DEAL_LOGISTICS_STATE: DealLogisticsState = {
   nextRoutes: [
     { label: 'Назначить перевозчика', href: '/platform-v7/logistics', owner: 'Логистика' },
     { label: 'Маршрут водителя', href: '/platform-v7/driver-field', owner: 'Водитель' },
-    { label: 'Приёмка элеватора', href: '/platform-v7/elevator', owner: 'Элеватор' },
+    { label: 'Приёмка сделки', href: '/platform-v7/deal-acceptance', owner: 'Элеватор' },
     { label: 'Документы', href: '/platform-v7/documents', owner: 'Оператор' },
   ],
 };
