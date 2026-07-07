@@ -9,7 +9,6 @@ import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7I
 import { PlatformV7MobileFinalGuard } from '@/components/platform-v7/PlatformV7MobileFinalGuard';
 import { PlatformV7RoleLockFix } from '@/components/platform-v7/PlatformV7RoleLockFix';
 import { PublicBrandLogoFinal } from '@/components/platform-v7/PublicBrandLogoFinal';
-import { PublicDealPathCtaGuard } from '@/components/platform-v7/PublicDealPathCtaGuard';
 import { PublicEntryCleanup } from '@/components/platform-v7/PublicEntryCleanup';
 import { PublicHeaderFinalLock } from '@/components/platform-v7/PublicHeaderFinalLock';
 import { PublicHeroWeightPatch } from '@/components/platform-v7/PublicHeroWeightPatch';
@@ -55,13 +54,16 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
   const landingPath = isLandingPath(pathname);
 
   if (publicPath) {
+    if (landingPath) {
+      return position === 'before' ? <PublicHeroWeightPatch /> : <ChatSupportWidget />;
+    }
+
     if (position === 'before') {
       return (
         <>
           <PublicEntryCleanup />
           <PublicRegistrationEntryPatch />
           <PublicHeroWeightPatch />
-          {landingPath ? <PublicDealPathCtaGuard /> : null}
         </>
       );
     }
