@@ -343,68 +343,92 @@ export const PLATFORM_V7_ROLE_EXECUTION_SUMMARIES: Record<PlatformV7ExecutionRol
 export function RoleExecutionSummary({ role }: { role: PlatformV7ExecutionRole }) {
   const summary = PLATFORM_V7_ROLE_EXECUTION_SUMMARIES[role];
   const tone = getPlatformV7ToneTokens(summary.tone);
+  const primaryIntent = summary.intents[0];
+  const secondaryIntents = summary.intents.slice(1);
   const rows = role === 'driver'
-    ? [['Что происходит сейчас', summary.now], ['Что остановило рейс', summary.blocked], ['Коммерческий контекст', summary.money], ['Где документы рейса', summary.documents], ['Где исполнение', summary.execution], ['Что нажать сейчас', summary.next]]
-    : [['Что происходит сейчас', summary.now], ['Что остановило сделку', summary.blocked], ['Где деньги', summary.money], ['Где документы', summary.documents], ['Где груз / исполнение', summary.execution], ['Кто следующий', summary.next]];
-  const headline = `${summary.title}: выберите действие, а система откроет нужный рабочий экран`;
+    ? [['Сейчас', summary.now], ['Остановило рейс', summary.blocked], ['Скрыто от роли', summary.money], ['Документы рейса', summary.documents], ['Исполнение', summary.execution], ['Следующий шаг', summary.next]]
+    : [['Сейчас', summary.now], ['Остановило сделку', summary.blocked], ['Деньги', summary.money], ['Документы', summary.documents], ['Груз и исполнение', summary.execution], ['Следующий владелец', summary.next]];
 
   return (
-    <section data-testid={`role-execution-summary-${role}`} aria-label={`Рабочая сводка роли: ${summary.title}`} style={{ background: PLATFORM_V7_TOKENS.color.surface, border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.xl, padding: PLATFORM_V7_TOKENS.spacing.lg, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md, boxShadow: PLATFORM_V7_TOKENS.shadow.soft }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.md, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs, maxWidth: 820 }}>
-          <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap', alignItems: 'center' }}><P7Badge tone={summary.tone}>{summary.title}</P7Badge><P7Badge tone='neutral'>{modeLabel(summary.mode)}</P7Badge><P7Badge tone='neutral'>контур исполнения</P7Badge></div>
-          <h1 style={{ margin: 0, color: PLATFORM_V7_TOKENS.color.textPrimary, fontSize: `clamp(23px, 5vw, ${PLATFORM_V7_TOKENS.typography.h1.size}px)`, lineHeight: PLATFORM_V7_TOKENS.typography.h1.lineHeight, fontWeight: PLATFORM_V7_TOKENS.typography.h1.weight, letterSpacing: PLATFORM_V7_TOKENS.typography.h1.letterSpacing }}>{headline}</h1>
-          <div style={{ color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: PLATFORM_V7_TOKENS.typography.body.size, lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight, maxWidth: 760 }}>{summary.hidden}</div>
-        </div>
-        <Link href={summary.href} data-testid={`role-execution-primary-action-${role}`} style={{ ...primaryActionStyle, background: tone.fg }}>{summary.cta}</Link>
-      </div>
-
-      <div data-testid={`role-intent-surface-${role}`} aria-label={`Выбор действия роли: ${summary.title}`} style={{ border: `1px solid ${tone.border}`, background: tone.bg, borderRadius: PLATFORM_V7_TOKENS.radius.xl, padding: PLATFORM_V7_TOKENS.spacing.md, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-        <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xxs }}>
-          <h2 style={{ margin: 0, color: PLATFORM_V7_TOKENS.color.textPrimary, fontSize: 18, lineHeight: 1.25, fontWeight: 850 }}>Что хотите сделать?</h2>
-          <div style={{ color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: 13, lineHeight: 1.45 }}>Выберите рабочую цель. После нажатия откроется нужный экран сделки, документов, денег, рейса или спора.</div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(178px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-          {summary.intents.map((intent) => {
-            const intentTone = getPlatformV7ToneTokens(intent.tone ?? summary.tone);
-            return (
-              <Link key={`${intent.label}-${intent.href}`} href={intent.href} data-testid={`role-intent-action-${role}`} aria-label={`${intent.label}: ${intent.result}`} style={{ ...intentCardStyle, borderColor: intentTone.border }}>
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.xs }}>
-                  <span style={{ color: PLATFORM_V7_TOKENS.color.textPrimary, fontSize: 14, lineHeight: 1.2, fontWeight: 860 }}>{intent.label}</span>
-                  <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: PLATFORM_V7_TOKENS.radius.pill, background: intentTone.bg, color: intentTone.fg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>→</span>
-                </span>
-                <span style={{ color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: 12, lineHeight: 1.35, fontWeight: 650 }}>{intent.result}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>
-        <InfoList title="Требует внимания" items={summary.attention} tone={summary.tone} />
-        <div data-testid={`role-recent-work-${role}`} style={panelStyle}>
-          <div style={panelTitleStyle}>Продолжить начатое</div>
+    <section data-testid={`role-execution-summary-${role}`} aria-label={`Рабочее место роли: ${summary.title}`} style={shellStyle}>
+      <div style={heroStyle}>
+        <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap', alignItems: 'center' }}>
+            <P7Badge tone={summary.tone}>{summary.title}</P7Badge>
+            <P7Badge tone="neutral">{modeLabel(summary.mode)}</P7Badge>
+            <P7Badge tone="neutral">рабочий контур</P7Badge>
+          </div>
           <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs }}>
-            {summary.recent.map((item) => {
-              const itemTone = getPlatformV7ToneTokens(item.tone ?? summary.tone);
-              return (
-                <Link key={`${item.label}-${item.href}`} href={item.href} style={{ ...recentLinkStyle, borderColor: itemTone.border }}>
-                  <span style={{ color: PLATFORM_V7_TOKENS.color.textPrimary, fontWeight: 820 }}>{item.label}</span>
-                  <span style={{ color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: 12, lineHeight: 1.35 }}>{item.result}</span>
-                </Link>
-              );
-            })}
+            <h1 style={headlineStyle}>{summary.title}: выберите рабочую цель</h1>
+            <p style={leadStyle}>На экране оставлены только понятные входы в работу. Выберите действие — система откроет нужную сделку, документ, расчёт, рейс или спор.</p>
+          </div>
+          <div style={pathStyle} aria-label="Логика работы">
+            {['цель', 'рабочий экран', 'действие', 'журнал'].map((item, index) => (
+              <span key={item} style={pathItemStyle}><b>{index + 1}</b>{item}</span>
+            ))}
+          </div>
+        </div>
+
+        <div data-testid={`role-primary-task-${role}`} style={{ ...primaryTaskStyle, borderColor: tone.border }}>
+          <div style={{ display: 'grid', gap: 6 }}>
+            <span style={sectionEyebrowStyle}>Главный рабочий ход</span>
+            <Link href={primaryIntent.href} data-testid={`role-execution-primary-action-${role}`} style={{ ...bigActionStyle, background: tone.fg }}>
+              {primaryIntent.label}
+              <span aria-hidden="true">→</span>
+            </Link>
+            <span style={smallMutedStyle}>{primaryIntent.result}</span>
+          </div>
+          <div style={stateCardStyle}>
+            <span style={sectionEyebrowStyle}>Состояние</span>
+            <strong style={{ color: PLATFORM_V7_TOKENS.color.textPrimary, fontSize: 13, lineHeight: 1.45 }}>{summary.now}</strong>
           </div>
         </div>
       </div>
 
-      <div data-testid="platform-v7-role-workspace-hint" style={{ border: `1px solid ${tone.border}`, background: PLATFORM_V7_TOKENS.color.surface, borderRadius: PLATFORM_V7_TOKENS.radius.lg, padding: PLATFORM_V7_TOKENS.spacing.sm, display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.sm, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 13, lineHeight: 1.45, color: PLATFORM_V7_TOKENS.color.textPrimary, fontWeight: 760 }}>Рабочий экран роли: {summary.title}. Основное действие — {summary.cta.toLowerCase()}. Остальные функции открываются через цель выше.</div>
-        <Link href={summary.href} data-testid={`role-execution-secondary-action-${role}`} style={secondaryActionStyle}>Открыть экран</Link>
+      <div data-testid={`role-intent-surface-${role}`} aria-label={`Действия роли: ${summary.title}`} style={{ ...intentSurfaceStyle, borderColor: tone.border, background: tone.bg }}>
+        <div style={surfaceHeaderStyle}>
+          <div>
+            <h2 style={sectionTitleStyle}>Что нужно сделать?</h2>
+            <div style={smallMutedStyle}>Нажатие ведёт не в пустой раздел, а к конкретному рабочему сценарию.</div>
+          </div>
+          <Link href={summary.href} data-testid={`role-execution-secondary-action-${role}`} style={secondaryActionStyle}>Открыть основной экран</Link>
+        </div>
+        <div style={secondaryGridStyle}>
+          {secondaryIntents.map((intent) => <IntentCard key={`${intent.label}-${intent.href}`} intent={intent} fallbackTone={summary.tone} role={role} />)}
+        </div>
       </div>
+
+      <div style={operationsGridStyle}>
+        <InfoList title="Требует внимания" items={summary.attention} tone={summary.tone} />
+        <RecentList role={role} items={summary.recent} fallbackTone={summary.tone} />
+      </div>
+
+      <div data-testid="platform-v7-role-workspace-hint" style={{ ...controlStripStyle, borderColor: tone.border }}>
+        <div style={{ display: 'grid', gap: 2 }}>
+          <span style={sectionEyebrowStyle}>Ролевые границы</span>
+          <span style={{ fontSize: 13, lineHeight: 1.45, color: PLATFORM_V7_TOKENS.color.textPrimary, fontWeight: 760 }}>{summary.hidden}</span>
+        </div>
+        <Link href={summary.href} style={secondaryActionStyle}>Перейти к роли</Link>
+      </div>
+
       {MONEY_TREE_ROLES.has(role) ? <MoneyTreeStrip /> : null}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm }}>{rows.map(([label, value]) => <div key={label} style={{ border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.md, background: PLATFORM_V7_TOKENS.color.surfaceMuted, padding: PLATFORM_V7_TOKENS.spacing.sm, minWidth: 0 }}><div style={{ fontSize: PLATFORM_V7_TOKENS.typography.micro.size, color: PLATFORM_V7_TOKENS.color.textMuted, textTransform: 'uppercase', letterSpacing: PLATFORM_V7_TOKENS.typography.micro.letterSpacing, fontWeight: PLATFORM_V7_TOKENS.typography.micro.weight }}>{label}</div><div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xxs, fontSize: 13, lineHeight: 1.45, color: PLATFORM_V7_TOKENS.color.textPrimary, fontWeight: 760 }}>{value}</div></div>)}</div>
+
+      <div style={factsGridStyle}>{rows.map(([label, value]) => <FactCard key={label} label={label} value={value} />)}</div>
     </section>
+  );
+}
+
+function IntentCard({ intent, fallbackTone, role }: { intent: RoleExecutionIntent; fallbackTone: PlatformV7Tone; role: PlatformV7ExecutionRole }) {
+  const intentTone = getPlatformV7ToneTokens(intent.tone ?? fallbackTone);
+
+  return (
+    <Link href={intent.href} data-testid={`role-intent-action-${role}`} aria-label={`${intent.label}: ${intent.result}`} style={{ ...intentCardStyle, borderColor: intentTone.border }}>
+      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.xs }}>
+        <span style={{ color: PLATFORM_V7_TOKENS.color.textPrimary, fontSize: 14, lineHeight: 1.2, fontWeight: 860 }}>{intent.label}</span>
+        <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: PLATFORM_V7_TOKENS.radius.pill, background: intentTone.bg, color: intentTone.fg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>→</span>
+      </span>
+      <span style={smallMutedStyle}>{intent.result}</span>
+    </Link>
   );
 }
 
@@ -425,6 +449,34 @@ function InfoList({ title, items, tone }: { title: string; items: string[]; tone
   );
 }
 
+function RecentList({ role, items, fallbackTone }: { role: PlatformV7ExecutionRole; items: RoleExecutionIntent[]; fallbackTone: PlatformV7Tone }) {
+  return (
+    <div data-testid={`role-recent-work-${role}`} style={panelStyle}>
+      <div style={panelTitleStyle}>Продолжить начатое</div>
+      <div style={{ display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs }}>
+        {items.map((item) => {
+          const itemTone = getPlatformV7ToneTokens(item.tone ?? fallbackTone);
+          return (
+            <Link key={`${item.label}-${item.href}`} href={item.href} style={{ ...recentLinkStyle, borderColor: itemTone.border }}>
+              <span style={{ color: PLATFORM_V7_TOKENS.color.textPrimary, fontWeight: 820 }}>{item.label}</span>
+              <span style={smallMutedStyle}>{item.result}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FactCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.md, background: PLATFORM_V7_TOKENS.color.surfaceMuted, padding: PLATFORM_V7_TOKENS.spacing.sm, minWidth: 0 }}>
+      <div style={{ fontSize: PLATFORM_V7_TOKENS.typography.micro.size, color: PLATFORM_V7_TOKENS.color.textMuted, textTransform: 'uppercase', letterSpacing: PLATFORM_V7_TOKENS.typography.micro.letterSpacing, fontWeight: PLATFORM_V7_TOKENS.typography.micro.weight }}>{label}</div>
+      <div style={{ marginTop: PLATFORM_V7_TOKENS.spacing.xxs, fontSize: 13, lineHeight: 1.45, color: PLATFORM_V7_TOKENS.color.textPrimary, fontWeight: 760 }}>{value}</div>
+    </div>
+  );
+}
+
 function modeLabel(mode: RoleExecutionSummaryConfig['mode']): string {
   switch (mode) {
     case 'commercial': return 'коммерческий контур';
@@ -436,7 +488,24 @@ function modeLabel(mode: RoleExecutionSummaryConfig['mode']): string {
   }
 }
 
-const primaryActionStyle = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: PLATFORM_V7_TOKENS.radius.md, color: PLATFORM_V7_TOKENS.color.surface, fontSize: 14, fontWeight: 850, whiteSpace: 'nowrap' } as const;
+const shellStyle = { background: PLATFORM_V7_TOKENS.color.surface, border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.xl, padding: PLATFORM_V7_TOKENS.spacing.lg, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.md, boxShadow: PLATFORM_V7_TOKENS.shadow.soft } as const;
+const heroStyle = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 360px)', gap: PLATFORM_V7_TOKENS.spacing.md, alignItems: 'stretch' } as const;
+const headlineStyle = { margin: 0, color: PLATFORM_V7_TOKENS.color.textPrimary, fontSize: `clamp(25px, 5vw, ${PLATFORM_V7_TOKENS.typography.h1.size}px)`, lineHeight: PLATFORM_V7_TOKENS.typography.h1.lineHeight, fontWeight: 850, letterSpacing: PLATFORM_V7_TOKENS.typography.h1.letterSpacing } as const;
+const leadStyle = { margin: 0, color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: PLATFORM_V7_TOKENS.typography.body.size, lineHeight: PLATFORM_V7_TOKENS.typography.body.lineHeight, maxWidth: 760 } as const;
+const pathStyle = { display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.xs, flexWrap: 'wrap', alignItems: 'center' } as const;
+const pathItemStyle = { display: 'inline-flex', alignItems: 'center', gap: 6, border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.pill, background: PLATFORM_V7_TOKENS.color.surfaceMuted, color: PLATFORM_V7_TOKENS.color.textSecondary, padding: '7px 10px', fontSize: 12, fontWeight: 760 } as const;
+const primaryTaskStyle = { border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.xl, background: PLATFORM_V7_TOKENS.color.backgroundElevated, padding: PLATFORM_V7_TOKENS.spacing.md, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm, minWidth: 0 } as const;
+const bigActionStyle = { textDecoration: 'none', minHeight: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, padding: '13px 14px', borderRadius: PLATFORM_V7_TOKENS.radius.md, color: PLATFORM_V7_TOKENS.color.surface, fontSize: 15, fontWeight: 900, whiteSpace: 'nowrap' } as const;
+const sectionEyebrowStyle = { fontSize: PLATFORM_V7_TOKENS.typography.micro.size, color: PLATFORM_V7_TOKENS.color.textMuted, textTransform: 'uppercase', letterSpacing: PLATFORM_V7_TOKENS.typography.micro.letterSpacing, fontWeight: PLATFORM_V7_TOKENS.typography.micro.weight } as const;
+const smallMutedStyle = { color: PLATFORM_V7_TOKENS.color.textSecondary, fontSize: 12, lineHeight: 1.35, fontWeight: 650 } as const;
+const stateCardStyle = { border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.md, background: PLATFORM_V7_TOKENS.color.surfaceMuted, padding: PLATFORM_V7_TOKENS.spacing.sm, display: 'grid', gap: 4 } as const;
+const intentSurfaceStyle = { border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.xl, padding: PLATFORM_V7_TOKENS.spacing.md, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm } as const;
+const surfaceHeaderStyle = { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: PLATFORM_V7_TOKENS.spacing.sm, flexWrap: 'wrap' } as const;
+const sectionTitleStyle = { margin: 0, color: PLATFORM_V7_TOKENS.color.textPrimary, fontSize: 18, lineHeight: 1.25, fontWeight: 850 } as const;
+const secondaryGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(178px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm } as const;
+const operationsGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm } as const;
+const controlStripStyle = { border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, background: PLATFORM_V7_TOKENS.color.surface, borderRadius: PLATFORM_V7_TOKENS.radius.lg, padding: PLATFORM_V7_TOKENS.spacing.sm, display: 'flex', gap: PLATFORM_V7_TOKENS.spacing.sm, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' } as const;
+const factsGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: PLATFORM_V7_TOKENS.spacing.sm } as const;
 const secondaryActionStyle = { textDecoration: 'none', minHeight: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderRadius: PLATFORM_V7_TOKENS.radius.sm, background: PLATFORM_V7_TOKENS.color.surface, color: PLATFORM_V7_TOKENS.color.textPrimary, border: `1px solid ${PLATFORM_V7_TOKENS.color.borderStrong}`, fontSize: 12, fontWeight: 850, whiteSpace: 'nowrap' } as const;
 const intentCardStyle = { textDecoration: 'none', minHeight: 92, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.xs, padding: PLATFORM_V7_TOKENS.spacing.sm, borderRadius: PLATFORM_V7_TOKENS.radius.md, background: PLATFORM_V7_TOKENS.color.surface, border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, boxShadow: PLATFORM_V7_TOKENS.shadow.soft } as const;
 const panelStyle = { border: `1px solid ${PLATFORM_V7_TOKENS.color.border}`, borderRadius: PLATFORM_V7_TOKENS.radius.lg, background: PLATFORM_V7_TOKENS.color.surface, padding: PLATFORM_V7_TOKENS.spacing.md, display: 'grid', gap: PLATFORM_V7_TOKENS.spacing.sm, minWidth: 0 } as const;
