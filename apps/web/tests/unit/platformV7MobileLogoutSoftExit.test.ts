@@ -17,13 +17,16 @@ describe('platform-v7 mobile logout soft exit', () => {
 
   it('intercepts every mobile/header logout path before stale events can run', () => {
     expect(guard).toContain("document.addEventListener('click', onClick, true)");
-    expect(guard).toContain(".p7-mobile-danger,.pc-v7-logout-btn,[data-platform-v7-logout=\"true\"]");
+    expect(guard).toContain('.p7-mobile-danger,.pc-v7-logout-btn,[data-platform-v7-logout="true"]');
     expect(guard).toContain('event.stopImmediatePropagation()');
-    expect(guard).toContain("router.replace('/platform-v7'");
+    expect(guard).toContain("LOGOUT_TARGET = '/platform-v7/login?logout=1'");
+    expect(guard).toContain('router.replace(LOGOUT_TARGET');
+    expect(guard).not.toContain("router.replace('/platform-v7'");
   });
 
-  it('removes hard document navigation from the mobile tools exit path', () => {
+  it('removes hard public-home navigation from the mobile tools exit path', () => {
     expect(rail).not.toContain("window.location.assign('/platform-v7')");
-    expect(rail).toContain("router.replace('/platform-v7'");
+    expect(rail).toContain("LOGOUT_TARGET = '/platform-v7/login?logout=1'");
+    expect(rail).toContain('router.replace(LOGOUT_TARGET');
   });
 });
