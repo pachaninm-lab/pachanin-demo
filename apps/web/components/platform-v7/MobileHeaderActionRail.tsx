@@ -12,6 +12,7 @@ const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7
 const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
 const NOTE_STORAGE_KEY = 'platform-v7-header-notepad';
+const LOGOUT_TARGET = '/platform-v7/login?logout=1';
 
 type MobilePanel = 'menu' | 'notepad' | 'notices' | null;
 
@@ -39,7 +40,7 @@ const ROLE_NOTICE: Record<PlatformRole, { title: string; text: string; href: str
   surveyor: { title: 'Осмотр', text: 'Есть назначение на фиксацию фактов.', href: '/platform-v7/surveyor' },
   elevator: { title: 'Приёмка', text: 'Есть действие по весу или акту.', href: '/platform-v7/elevator' },
   lab: { title: 'Протокол', text: 'Есть действие по пробе или качеству.', href: '/platform-v7/lab' },
-  bank: { title: 'Основание', text: 'Есть банковский шаг по проверке.', href: '/platform-v7/bank' },
+  bank: { title: 'Основание', text: 'Есть банковский шаг по проверке.', href: '/platform-v7/bank/payment-basis' },
   arbitrator: { title: 'Разбор', text: 'Есть действие по доказательствам.', href: '/platform-v7/arbitrator' },
   compliance: { title: 'Допуск', text: 'Есть стоп-фактор или документ.', href: '/platform-v7/compliance' },
   executive: { title: 'Сводка', text: 'Есть управленческий риск или блокер.', href: '/platform-v7/executive' },
@@ -48,6 +49,10 @@ const ROLE_NOTICE: Record<PlatformRole, { title: string; text: string; href: str
 function normalize(pathname: string | null) {
   if (!pathname) return '/platform-v7';
   return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
+}
+
+function clearCookie(name: string) {
+  document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
 }
 
 function useHeaderActionsMount() {
@@ -127,8 +132,13 @@ export function MobileHeaderActionRail() {
     clearRoleSelection();
     window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
     window.localStorage.removeItem(STORE_KEY);
-    router.replace('/platform-v7', { scroll: true });
-    window.requestAnimationFrame(() => window.scrollTo(0, 0));
+    clearCookie('pc-role');
+    clearCookie('pc-session');
+    router.replace(LOGOUT_TARGET, { scroll: true });
+    window.requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      if (!window.location.pathname.startsWith('/platform-v7/login')) window.location.assign(LOGOUT_TARGET);
+    });
   };
 
   const openPanel = (next: MobilePanel) => setPanel((value) => value === next ? null : next);
