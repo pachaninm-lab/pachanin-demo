@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 
 const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
+const LOGOUT_TARGET = '/platform-v7/login?logout=1';
 const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/contact', '/platform-v7/request', '/platform-v7/deal-flow', '/platform-v7/demo', '/platform-v7/docs']);
 
 function normalize(pathname: string | null) {
@@ -19,6 +20,7 @@ function clearClientSession() {
   } catch {}
   try {
     document.cookie = 'pc-role=; Max-Age=0; Path=/; SameSite=Lax';
+    document.cookie = 'pc-session=; Max-Age=0; Path=/; SameSite=Lax';
   } catch {}
 }
 
@@ -49,8 +51,11 @@ export function MobileLogoutSoftExit() {
       event.stopImmediatePropagation();
       clearClientSession();
       cleanupPublicEntryArtifacts();
-      router.replace('/platform-v7', { scroll: true });
-      window.requestAnimationFrame(() => window.scrollTo(0, 0));
+      router.replace(LOGOUT_TARGET, { scroll: true });
+      window.requestAnimationFrame(() => {
+        window.scrollTo(0, 0);
+        if (!window.location.pathname.startsWith('/platform-v7/login')) window.location.assign(LOGOUT_TARGET);
+      });
     }
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
