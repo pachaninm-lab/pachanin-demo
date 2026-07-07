@@ -13,17 +13,43 @@ export function UxFinalQuietLayer() {
         display: none !important;
       }
 
-      .pc-shell-root-v4 [data-testid^="role-intent-surface-"] h2 + div {
+      .pc-shell-root-v4 [data-testid^="role-intent-surface-"] h2 + div,
+      .pc-shell-root-v4 [data-testid="platform-v7-role-workspace-hint"] {
         display: none !important;
       }
 
       .pc-shell-root-v4 [data-testid^="role-execution-summary-"] {
-        gap: 14px !important;
+        gap: 12px !important;
+      }
+
+      .pc-shell-root-v4 [data-testid^="role-intent-surface-"] {
+        padding: 14px !important;
+      }
+
+      .pc-shell-root-v4 [data-testid^="role-intent-surface-"] h2 {
+        font-size: 16px !important;
+        line-height: 1.2 !important;
+      }
+
+      .pc-shell-root-v4 [data-testid^="role-execution-summary-"] a {
+        -webkit-tap-highlight-color: transparent !important;
       }
 
       @media (max-width: 640px) {
         .pc-shell-root-v4 [data-testid^="role-execution-summary-"] {
-          gap: 12px !important;
+          gap: 10px !important;
+        }
+
+        .pc-shell-root-v4 [data-testid^="role-intent-surface-"] {
+          padding: 12px !important;
+        }
+
+        .pc-shell-root-v4 [data-testid^="role-intent-surface-"] h2 {
+          font-size: 15px !important;
+        }
+
+        .pc-shell-root-v4 [data-testid^="role-primary-task-"] {
+          padding: 12px !important;
         }
 
         .pc-shell-root-v4 .pc-v7-assistant-widget {
