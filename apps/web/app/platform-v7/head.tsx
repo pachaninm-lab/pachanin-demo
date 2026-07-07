@@ -146,6 +146,8 @@ export default function Head() {
       <title>{pageTitle}</title>
       <meta name="description" content={pageDescription} />
       <meta name="keywords" content={semanticTopics.join(', ')} />
+      <meta name="google" content="notranslate" />
+      <meta httpEquiv="Content-Language" content="ru-RU" />
       <link rel="canonical" href={platformUrl} />
       <meta property="og:title" content={pageTitle} />
       <meta property="og:description" content={pageDescription} />
