@@ -15,6 +15,7 @@ import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidge
 import { PlatformFooter } from '@/components/platform-v7/PlatformFooter';
 import { OnboardingTour } from '@/components/platform-v7/OnboardingTour';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
+import { HeaderLanguageSwitch } from '@/components/platform-v7/HeaderLanguageSwitch';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const PUBLIC_EXACT_PATHS = new Set([
@@ -61,7 +62,7 @@ function roleFromPath(pathname: string): PlatformRole {
 export function PlatformV7ShellSwitch({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '/platform-v7';
 
-  if (isPublicPath(pathname)) return <>{children}</>;
+  if (isPublicPath(pathname)) return <><HeaderLanguageSwitch />{children}</>;
 
   const initialRole = roleFromPath(pathname);
 
@@ -75,6 +76,7 @@ export function PlatformV7ShellSwitch({ children }: { children: React.ReactNode 
           <PlatformV7ShellUxController />
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
+          <HeaderLanguageSwitch />
           <CalculatorHeaderWidget />
           <NotepadHeaderWidget />
           <SupportHeaderIcon />
