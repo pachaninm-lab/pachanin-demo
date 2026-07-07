@@ -6,7 +6,20 @@ import { FileSearch2 } from 'lucide-react';
 import { WorkStepGuide } from '@/components/platform-v7/WorkStepGuide';
 import { PLATFORM_V7_AI_ROUTE } from '@/lib/platform-v7/routes';
 
-const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/docs']);
+const PUBLIC_PATHS = new Set([
+  '/platform-v7',
+  '/platform-v7/open',
+  '/platform-v7/login',
+  '/platform-v7/register',
+  '/platform-v7/help',
+  '/platform-v7/pricing',
+  '/platform-v7/roadmap',
+  '/platform-v7/deal-flow',
+  '/platform-v7/demo',
+  '/platform-v7/contact',
+  '/platform-v7/request',
+  '/platform-v7/docs',
+]);
 
 function normalize(pathname: string | null) {
   if (!pathname) return '/platform-v7';
@@ -17,7 +30,7 @@ export function RoleAssistantWidget() {
   const pathname = usePathname();
   const path = normalize(pathname);
 
-  if (PUBLIC_PATHS.has(path)) return null;
+  if (PUBLIC_PATHS.has(path) || path.startsWith('/platform-v7/role-preview')) return null;
 
   return (
     <>
