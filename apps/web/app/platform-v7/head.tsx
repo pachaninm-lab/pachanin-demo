@@ -1,11 +1,11 @@
 const siteUrl = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 const platformUrl = `${siteUrl}/platform-v7`;
-const demoUrl = `${siteUrl}/platform-v7/demo`;
+const dealFlowUrl = `${siteUrl}/platform-v7/deal-flow`;
 const contactUrl = `${siteUrl}/platform-v7/contact`;
 const docsUrl = `${siteUrl}/platform-v7/docs`;
 const aboutUrl = `${siteUrl}/platform-v7/about`;
 const pageTitle = 'Прозрачная Цена / Процент Агро — контур исполнения зерновой сделки';
-const pageDescription = 'Прозрачная Цена на домене Процент-Агро.рф — controlled pilot / pre-integration контур исполнения зерновой сделки: рейс, приёмка, документы, расчёт, спор и доказательства.';
+const pageDescription = 'Прозрачная Цена на домене Процент-Агро.рф — цифровой контур исполнения зерновой сделки: рейс, приёмка, документы, расчёт, спор и доказательства. Внешние интеграции подключаются по договору и ключам доступа.';
 
 const brandNames = ['Прозрачная Цена', 'Процент Агро', 'Процент-Агро.рф', 'процент агро сайт', 'Prozrachnaya Cena', 'Percent Agro'];
 
@@ -16,6 +16,7 @@ const semanticTopics = [
   'процент агро платформа',
   'Прозрачная Цена на домене Процент-Агро.рф',
   'цифровой контур исполнения зерновой сделки',
+  'боевой контур исполнения зерновой сделки',
   'контроль исполнения зерновой сделки после цены',
   'приёмка зерна на элеваторе',
   'качество зерна и лабораторные показатели',
@@ -28,7 +29,7 @@ const semanticTopics = [
   'grain logistics acceptance documents',
   'grain quality dispute evidence',
   'payment basis for grain deal',
-  'controlled pilot pre-integration agrifintech',
+  'agri transaction execution platform',
 ];
 
 const serviceAreas = [
@@ -50,7 +51,7 @@ const structuredData = {
       name: 'Прозрачная Цена',
       alternateName: brandNames,
       url: siteUrl,
-      description: 'Прозрачная Цена на домене Процент-Агро.рф: controlled pilot / pre-integration project for digital execution of grain deals.',
+      description: 'Прозрачная Цена на домене Процент-Агро.рф: цифровой контур исполнения зерновых сделок. Внешние интеграции подключаются по договору и ключам доступа.',
       knowsAbout: semanticTopics,
     },
     {
@@ -74,7 +75,7 @@ const structuredData = {
       url: platformUrl,
       inLanguage: 'ru-RU',
       description:
-        'Прозрачная Цена на домене Процент-Агро.рф — цифровой контур исполнения зерновой сделки: цена, рейс, приёмка, качество, документы, основание для оплаты, спор и доказательства. Статус: controlled pilot / pre-integration.',
+        'Прозрачная Цена на домене Процент-Агро.рф — цифровой контур исполнения зерновой сделки: цена, рейс, приёмка, качество, документы, основание для оплаты, спор и доказательства. Внешние интеграции ФГИС, ЭДО и банковского контура подключаются по договору и ключам доступа.',
       audience: [
         { '@type': 'Audience', audienceType: 'продавец зерна' },
         { '@type': 'Audience', audienceType: 'покупатель зерна' },
@@ -131,7 +132,7 @@ const structuredData = {
       name: 'Публичные точки входа',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Главная платформа Процент-Агро.рф', url: platformUrl },
-        { '@type': 'ListItem', position: 2, name: 'Демо-сделка', url: demoUrl },
+        { '@type': 'ListItem', position: 2, name: 'Контур сделки', url: dealFlowUrl },
         { '@type': 'ListItem', position: 3, name: 'Задать вопрос', url: contactUrl },
         { '@type': 'ListItem', position: 4, name: 'Документный контур сделки', url: docsUrl },
         { '@type': 'ListItem', position: 5, name: 'О проекте и контуре исполнения', url: aboutUrl },
