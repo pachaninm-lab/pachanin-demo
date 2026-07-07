@@ -24,8 +24,12 @@ describe('platform-v7 deal execution chain', () => {
       expect(bridge).toContain(token);
     }
 
-    for (const token of ['platformV7RouteIcon', "platformV7RouteIcon('deal')", "platformV7RouteIcon('logistics')", "platformV7RouteIcon('documents')", "platformV7RouteIcon('dispute')"]) {
+    for (const token of ['platformV7RouteIcon', "platformV7RouteIcon('deal')", "platformV7RouteIcon('logistics')", 'action.iconKey']) {
       expect(dealBasisPage).toContain(token);
+    }
+
+    for (const token of ["iconKey: 'auction'", "iconKey: 'documents'", "iconKey: 'dispute'", "iconKey: 'logistics'"]) {
+      expect(bridge).toContain(token);
     }
   });
 
