@@ -6,16 +6,12 @@ import { Languages } from 'lucide-react';
 import {
   LANGUAGES,
   applyTranslationToDom,
-  buildDictionaries,
   clearLegacyDictionaryCache,
-  fetchRemoteDictionaryState,
   getLanguageMeta,
-  readCachedDictionaryState,
   readStoredLanguage,
   startTranslationObserver,
   subscribeToLanguageChanges,
   writeStoredLanguage,
-  type DictionaryState,
   type LanguageCode,
 } from '@/lib/platform-v7/i18n/translation-runtime';
 
@@ -175,29 +171,12 @@ export function HeaderLanguageSwitch() {
   const [mounted, setMounted] = useState(false);
   const [target, setTarget] = useState<Element | null>(null);
   const [language, setLanguage] = useState<LanguageCode>('ru');
-  const [remoteDictionary, setRemoteDictionary] = useState<DictionaryState | null>(null);
-  const dictionaries = useMemo(() => {
-    const base = buildDictionaries(remoteDictionary);
-    return {
-      en: { ...base.en, ...REGISTER_EN },
-      zh: { ...base.zh, ...REGISTER_ZH },
-    };
-  }, [remoteDictionary]);
+  const dictionaries = useMemo(() => ({ en: REGISTER_EN, zh: REGISTER_ZH }), []);
 
   useEffect(() => {
     setMounted(true);
     clearLegacyDictionaryCache();
-    const stored = normalizeLanguage(readStoredLanguage());
-    setLanguage(stored);
-    const cached = readCachedDictionaryState();
-    if (cached) setRemoteDictionary(cached);
-    let cancelled = false;
-    fetchRemoteDictionaryState().then((state) => {
-      if (!cancelled && state) setRemoteDictionary(state);
-    }).catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    setLanguage(normalizeLanguage(readStoredLanguage()));
   }, []);
 
   useEffect(() => {
