@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
 import { Languages } from 'lucide-react';
 import {
   LANGUAGES,
@@ -53,7 +52,6 @@ function nextLanguage(current: LanguageCode): LanguageCode {
 }
 
 export function HeaderLanguageSwitch() {
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [target, setTarget] = useState<Element | null>(null);
   const [language, setLanguage] = useState<LanguageCode>('ru');
@@ -104,8 +102,7 @@ export function HeaderLanguageSwitch() {
     writeStoredLanguage(nextCode);
     setLanguage(nextCode);
     applyTranslationToDom(nextCode, dictionaries);
-    window.setTimeout(() => router.refresh(), 0);
-  }, [dictionaries, language, router]);
+  }, [dictionaries, language]);
 
   if (!mounted || typeof document === 'undefined') return null;
 
