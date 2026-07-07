@@ -1,0 +1,33 @@
+/* Final visual override for the floating support form header. */
+.p7-support-chat-head strong {
+  font-size: 0 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+.p7-support-chat-head strong::before {
+  content: 'Поддержка';
+  display: block;
+  font-size: 18px;
+  line-height: 1.08;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.p7-support-chat-panel[aria-label='Поддержка Прозрачной Цены'] {
+  --p7-support-title-ready: 1;
+}
+
+@media (max-width: 720px) {
+  .p7-support-chat-head strong::before {
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 380px) {
+  .p7-support-chat-head strong::before {
+    font-size: 16px;
+  }
+}
