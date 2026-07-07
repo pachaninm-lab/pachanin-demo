@@ -59,6 +59,7 @@ export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
 };
 
 const AUCTION_ROUTE = '/platform-v7/auction';
+const DEAL_LOGISTICS_ROUTE = '/platform-v7/deal-logistics';
 const SHARED_PREFIXES = [PLATFORM_V7_AI_ROUTE, PLATFORM_V7_PROFILE_ROUTE, PLATFORM_V7_STATUS_ROUTE];
 const ROLE_BLOCKED_PREFIXES = [PLATFORM_V7_ROLES_ROUTE, '/platform-v7r/roles', '/platform-v7/auth'];
 
@@ -76,6 +77,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     command: [
       { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр' },
       { href: AUCTION_ROUTE, label: 'Аукцион' },
+      { href: DEAL_LOGISTICS_ROUTE, label: 'Рейс сделки' },
       { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
       { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Остановки' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
@@ -85,7 +87,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
       { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
     ],
-    allowedPrefixes: [PLATFORM_V7_CONTROL_TOWER_ROUTE, AUCTION_ROUTE, PLATFORM_V7_OPERATOR_ROUTE, PLATFORM_V7_DEALS_ROUTE, PLATFORM_V7_OPERATOR_QUEUES_ROUTE, PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE, PLATFORM_V7_BANK_EVENTS_ROUTE, PLATFORM_V7_TRUST_ROUTE, PLATFORM_V7_REPORTS_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_CONTROL_TOWER_ROUTE, AUCTION_ROUTE, DEAL_LOGISTICS_ROUTE, PLATFORM_V7_OPERATOR_ROUTE, PLATFORM_V7_DEALS_ROUTE, PLATFORM_V7_OPERATOR_QUEUES_ROUTE, PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE, PLATFORM_V7_BANK_EVENTS_ROUTE, PLATFORM_V7_TRUST_ROUTE, PLATFORM_V7_REPORTS_ROUTE],
   },
   buyer: {
     home: PLATFORM_V7_BUYER_ROUTE,
@@ -137,10 +139,11 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     drawer: [],
     command: [
       { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Рейсы' },
+      { href: DEAL_LOGISTICS_ROUTE, label: 'Рейс сделки' },
       { href: PLATFORM_V7_PROCUREMENT_ROUTE, label: 'Заявки' },
       { href: PLATFORM_V7_DOCUMENTS_ROUTE, label: 'Документы' },
     ],
-    allowedPrefixes: [PLATFORM_V7_LOGISTICS_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_LOGISTICS_ROUTE, DEAL_LOGISTICS_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE],
   },
   driver: {
     home: PLATFORM_V7_DRIVER_FIELD_ROUTE,
