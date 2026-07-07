@@ -1,16 +1,28 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale } from './locale';
+
+const LOCALE_HEADER = 'x-pc-locale';
 
 export default getRequestConfig(async () => {
   let locale = DEFAULT_LOCALE;
 
   try {
-    const cookieStore = await cookies();
-    const cookieLocale = cookieStore.get(LOCALE_COOKIE)?.value;
-    if (isAppLocale(cookieLocale)) locale = cookieLocale;
+    const headerStore = await headers();
+    const headerLocale = headerStore.get(LOCALE_HEADER);
+    if (isAppLocale(headerLocale)) locale = headerLocale;
   } catch {
     locale = DEFAULT_LOCALE;
+  }
+
+  if (locale === DEFAULT_LOCALE) {
+    try {
+      const cookieStore = await cookies();
+      const cookieLocale = cookieStore.get(LOCALE_COOKIE)?.value;
+      if (isAppLocale(cookieLocale)) locale = cookieLocale;
+    } catch {
+      locale = DEFAULT_LOCALE;
+    }
   }
 
   return {
