@@ -16,6 +16,7 @@ import { PlatformFooter } from '@/components/platform-v7/PlatformFooter';
 import { OnboardingTour } from '@/components/platform-v7/OnboardingTour';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { HeaderLanguageSwitch } from '@/components/platform-v7/HeaderLanguageSwitch';
+import { RoleIntentDashboard } from '@/components/platform-v7/RoleIntentDashboard';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 const PUBLIC_EXACT_PATHS = new Set([
@@ -33,6 +34,19 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/docs',
 ]);
 const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
+const ROLE_INTENT_ROOT_PATHS = new Set([
+  '/platform-v7/control-tower',
+  '/platform-v7/buyer',
+  '/platform-v7/seller',
+  '/platform-v7/logistics',
+  '/platform-v7/driver',
+  '/platform-v7/elevator',
+  '/platform-v7/lab',
+  '/platform-v7/bank',
+  '/platform-v7/compliance',
+  '/platform-v7/arbitrator',
+  '/platform-v7/executive',
+]);
 
 function normalizePath(pathname: string): string {
   return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
@@ -41,6 +55,10 @@ function normalizePath(pathname: string): string {
 function isPublicPath(pathname: string): boolean {
   const path = normalizePath(pathname);
   return PUBLIC_EXACT_PATHS.has(path) || PUBLIC_PREFIX_PATHS.some((prefix) => path.startsWith(prefix));
+}
+
+function shouldShowRoleIntentDashboard(pathname: string): boolean {
+  return ROLE_INTENT_ROOT_PATHS.has(normalizePath(pathname));
 }
 
 function roleFromPath(pathname: string): PlatformRole {
@@ -65,6 +83,7 @@ export function PlatformV7ShellSwitch({ children }: { children: React.ReactNode 
   if (isPublicPath(pathname)) return <><HeaderLanguageSwitch />{children}</>;
 
   const initialRole = roleFromPath(pathname);
+  const showRoleIntentDashboard = shouldShowRoleIntentDashboard(pathname);
 
   return (
     <>
@@ -82,6 +101,7 @@ export function PlatformV7ShellSwitch({ children }: { children: React.ReactNode 
           <SupportHeaderIcon />
           <MobileHeaderActionRail />
           <RoleAssistantWidget />
+          {showRoleIntentDashboard ? <RoleIntentDashboard role={initialRole} /> : null}
           {children}
           <PlatformFooter />
           <OnboardingTour />
